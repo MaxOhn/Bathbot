@@ -1,3 +1,4 @@
+use rkyv::{Archive, Deserialize, Serialize};
 use rosu_pp::{
     catch::CatchDifficultyAttributes, mania::ManiaDifficultyAttributes,
     osu::OsuDifficultyAttributes, taiko::TaikoDifficultyAttributes,
@@ -21,6 +22,12 @@ pub enum DbMapPath {
     Present(String),
     ChecksumMismatch,
     Missing,
+}
+
+#[derive(Archive, Deserialize, Serialize)]
+pub struct MapVersion {
+    pub map_id: i32,
+    pub version: String,
 }
 
 macro_rules! attr_struct {

@@ -6,12 +6,15 @@ use std::{
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
-use bathbot_psql::model::configs::{GuildConfig, MinimizedPp, ScoreSize};
+use bathbot_psql::model::{
+    configs::{GuildConfig, MinimizedPp, ScoreSize},
+    osu::{ArchivedMapVersion, MapVersion},
+};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     osu::{MapIdType, ModSelection},
-    MessageBuilder,
+    CowUtils, MessageBuilder,
 };
 use eyre::{Report, Result};
 use rosu_v2::{
@@ -25,6 +28,7 @@ use rosu_v2::{
 use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateCommand};
 use twilight_model::{
+    application::command::CommandOptionChoice,
     channel::message::MessageType,
     id::{marker::UserMarker, Id},
 };
@@ -150,7 +154,7 @@ pub struct CompareScoreAutocomplete_<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-enum MapOrScore {
+pub enum MapOrScore {
     Map(MapIdType),
     Score { id: u64, mode: GameMode },
 }
@@ -159,7 +163,7 @@ enum MapOrScore {
 pub(super) struct CompareScoreArgs<'a> {
     name: Option<Cow<'a, str>>,
     map: Option<MapOrScore>,
-    difficulty: AutocompleteValue<String>,
+    difficulty: Option<String>,
     sort: Option<ScoreOrder>,
     mods: Option<Cow<'a, str>>,
     discord: Option<Id<UserMarker>>,
@@ -194,7 +198,7 @@ impl<'m> CompareScoreArgs<'m> {
         Self {
             name,
             map,
-            difficulty: AutocompleteValue::Completed(String::new()),
+            difficulty: None,
             sort: None,
             mods,
             discord,
@@ -227,10 +231,16 @@ macro_rules! impl_try_from {
                         None
                     };
 
+                    let difficulty = match args.difficulty {
+                        AutocompleteValue::None |
+                        AutocompleteValue::Focused(_) => None,
+                        AutocompleteValue::Completed(diff) => Some(diff),
+                    };
+
                     Ok(Self {
                         name: args.name,
                         map,
-                        difficulty: args.difficulty,
+                        difficulty,
                         sort: args.sort,
                         mods: args.mods,
                         discord: args.discord,
@@ -283,8 +293,18 @@ async fn prefix_compare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Res
     score(ctx, msg.into(), args).await
 }
 
-async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = CsAutocomplete::from_interaction(command.input_data())?;
+
+    match args.difficulty {
+        AutocompleteValue::None => {
+            return handle_autocomplete(&ctx, &command, None, &args.map).await
+        }
+        AutocompleteValue::Focused(diff) => {
+            return handle_autocomplete(&ctx, &command, Some(diff), &args.map).await
+        }
+        AutocompleteValue::Completed(_) => {}
+    }
 
     match CompareScoreArgs::try_from(args) {
         Ok(args) => score(ctx, (&mut command).into(), args).await,
@@ -298,6 +318,16 @@ async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
 async fn slash_comparescore_(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = CompareScoreAutocomplete_::from_interaction(command.input_data())?;
+
+    match args.difficulty {
+        AutocompleteValue::None => {
+            return handle_autocomplete(&ctx, &command, None, &args.map).await
+        }
+        AutocompleteValue::Focused(diff) => {
+            return handle_autocomplete(&ctx, &command, Some(diff), &args.map).await
+        }
+        AutocompleteValue::Completed(_) => {}
+    }
 
     match CompareScoreArgs::try_from(args) {
         Ok(args) => score(ctx, (&mut command).into(), args).await,
@@ -357,187 +387,195 @@ pub(super) async fn score(
     let minimized_pp = minimized_pp.or(guild_minimized_pp).unwrap_or_default();
 
     let CompareScoreArgs {
-        sort, map, index, ..
+        sort,
+        map,
+        index,
+        difficulty,
+        ..
     } = args;
 
-    let map_id = match map {
-        Some(MapOrScore::Map(MapIdType::Map(map_id))) => map_id,
-        Some(MapOrScore::Map(MapIdType::Set(_))) => {
-            let content = "Looks like you gave me a mapset id, I need a map id though";
+    let map_id = if let Some(Ok(map_id)) = difficulty.as_deref().map(str::parse) {
+        map_id
+    } else {
+        match map {
+            Some(MapOrScore::Map(MapIdType::Map(map_id))) => map_id,
+            Some(MapOrScore::Map(MapIdType::Set(_))) => {
+                let content = "Looks like you gave me a mapset id, I need a map id though";
 
-            return orig.error(&ctx, content).await;
-        }
-        Some(MapOrScore::Score { id, mode }) => {
-            let mut score = match ctx.osu().score(id, mode).await {
-                Ok(score) => score,
-                Err(err) => {
-                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                    let report = Report::new(err).wrap_err("failed to get score");
-
-                    return Err(report);
-                }
-            };
-
-            let map = score.map.take().expect("missing map");
-            let map_fut = ctx.osu_map().map(map.map_id, map.checksum.as_deref());
-
-            let user_args = UserArgs::user_id(score.user_id).mode(mode);
-            let user_fut = ctx.redis().osu_user(user_args);
-
-            let pinned_fut = ctx
-                .osu()
-                .user_scores(score.user_id)
-                .pinned()
-                .limit(100)
-                .mode(mode);
-
-            let (user_res, map_res, pinned_res) = tokio::join!(user_fut, map_fut, pinned_fut);
-
-            let user = match user_res {
-                Ok(user) => user,
-                Err(err) => {
-                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                    let err = Report::new(err).wrap_err("failed to get user");
-
-                    return Err(err);
-                }
-            };
-
-            let map = match map_res {
-                Ok(map) => map,
-                Err(err) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                    return Err(Report::new(err));
-                }
-            };
-
-            let pinned = match pinned_res {
-                Ok(scores) => scores.contains(&score),
-                Err(err) => {
-                    let err = Report::new(err).wrap_err("failed to get pinned scores");
-                    warn!("{err:?}");
-
-                    false
-                }
-            };
-
-            let status = map.status();
-
-            let global_idx = if matches!(status, Ranked | Loved | Approved) {
-                match ctx.osu().beatmap_scores(map.map_id()).mode(mode).await {
-                    Ok(scores) => scores.iter().position(|s| s == &score),
+                return orig.error(&ctx, content).await;
+            }
+            Some(MapOrScore::Score { id, mode }) => {
+                let mut score = match ctx.osu().score(id, mode).await {
+                    Ok(score) => score,
                     Err(err) => {
-                        let err = Report::new(err).wrap_err("failed to get global scores");
-                        warn!("{err:?}");
+                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                        let report = Report::new(err).wrap_err("failed to get score");
 
-                        None
+                        return Err(report);
                     }
-                }
-            } else {
-                None
-            };
+                };
 
-            let global_idx = global_idx.map_or(usize::MAX, |idx| idx + 1);
-            let mode = score.mode;
+                let map = score.map.take().expect("missing map");
+                let map_fut = ctx.osu_map().map(map.map_id, map.checksum.as_deref());
 
-            let best = if status == Ranked {
-                let fut = ctx
+                let user_args = UserArgs::user_id(score.user_id).mode(mode);
+                let user_fut = ctx.redis().osu_user(user_args);
+
+                let pinned_fut = ctx
                     .osu()
                     .user_scores(score.user_id)
-                    .best()
+                    .pinned()
                     .limit(100)
                     .mode(mode);
 
-                match fut.await {
-                    Ok(scores) => Some(scores),
+                let (user_res, map_res, pinned_res) = tokio::join!(user_fut, map_fut, pinned_fut);
+
+                let user = match user_res {
+                    Ok(user) => user,
                     Err(err) => {
-                        let err = Report::new(err).wrap_err("failed to get top scores");
+                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                        let err = Report::new(err).wrap_err("failed to get user");
+
+                        return Err(err);
+                    }
+                };
+
+                let map = match map_res {
+                    Ok(map) => map,
+                    Err(err) => {
+                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(Report::new(err));
+                    }
+                };
+
+                let pinned = match pinned_res {
+                    Ok(scores) => scores.contains(&score),
+                    Err(err) => {
+                        let err = Report::new(err).wrap_err("failed to get pinned scores");
                         warn!("{err:?}");
 
-                        None
+                        false
                     }
-                }
-            } else {
-                None
-            };
+                };
 
-            let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
-            let attrs = calc.performance().await;
+                let status = map.status();
 
-            let max_pp = score
-                .pp
-                .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
-                .unwrap_or(attrs.pp() as f32);
+                let global_idx = if matches!(status, Ranked | Loved | Approved) {
+                    match ctx.osu().beatmap_scores(map.map_id()).mode(mode).await {
+                        Ok(scores) => scores.iter().position(|s| s == &score),
+                        Err(err) => {
+                            let err = Report::new(err).wrap_err("failed to get global scores");
+                            warn!("{err:?}");
 
-            let pp = match score.pp {
-                Some(pp) => pp,
-                None => calc.score(&score).performance().await.pp() as f32,
-            };
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
 
-            let score = ScoreSlim::new(score, pp);
-            let if_fc = IfFc::new(&ctx, &score, &map).await;
+                let global_idx = global_idx.map_or(usize::MAX, |idx| idx + 1);
+                let mode = score.mode;
 
-            let entry = CompareEntry {
-                score,
-                stars: attrs.stars() as f32,
-                max_pp,
-                if_fc,
-            };
+                let best = if status == Ranked {
+                    let fut = ctx
+                        .osu()
+                        .user_scores(score.user_id)
+                        .best()
+                        .limit(100)
+                        .mode(mode);
 
-            let fut = single_score(
-                ctx,
-                &orig,
-                &entry,
-                &user,
-                &map,
-                best.as_deref(),
-                global_idx,
-                pinned,
-                score_size,
-                minimized_pp,
-            );
+                    match fut.await {
+                        Ok(scores) => Some(scores),
+                        Err(err) => {
+                            let err = Report::new(err).wrap_err("failed to get top scores");
+                            warn!("{err:?}");
 
-            return fut.await;
-        }
-        None => {
-            let idx = match index {
-                Some(51..) => {
-                    let content = "I can only go back 50 messages";
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
 
-                    return orig.error(&ctx, content).await;
-                }
-                Some(idx) => idx.saturating_sub(1) as usize,
-                None => 0,
-            };
+                let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+                let attrs = calc.performance().await;
 
-            let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
-                Ok(msgs) => msgs,
-                Err(err) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let max_pp = score
+                    .pp
+                    .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
+                    .unwrap_or(attrs.pp() as f32);
 
-                    return Err(err.wrap_err("failed to retrieve channel history"));
-                }
-            };
+                let pp = match score.pp {
+                    Some(pp) => pp,
+                    None => calc.score(&score).performance().await.pp() as f32,
+                };
 
-            match MapIdType::map_from_msgs(&msgs, idx) {
-                Some(id) => id,
-                None if idx == 0 => {
-                    let content =
-                        "No beatmap specified and none found in recent channel history.\n\
+                let score = ScoreSlim::new(score, pp);
+                let if_fc = IfFc::new(&ctx, &score, &map).await;
+
+                let entry = CompareEntry {
+                    score,
+                    stars: attrs.stars() as f32,
+                    max_pp,
+                    if_fc,
+                };
+
+                let fut = single_score(
+                    ctx,
+                    &orig,
+                    &entry,
+                    &user,
+                    &map,
+                    best.as_deref(),
+                    global_idx,
+                    pinned,
+                    score_size,
+                    minimized_pp,
+                );
+
+                return fut.await;
+            }
+            None => {
+                let idx = match index {
+                    Some(51..) => {
+                        let content = "I can only go back 50 messages";
+
+                        return orig.error(&ctx, content).await;
+                    }
+                    Some(idx) => idx.saturating_sub(1) as usize,
+                    None => 0,
+                };
+
+                let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
+                    Ok(msgs) => msgs,
+                    Err(err) => {
+                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(err.wrap_err("failed to retrieve channel history"));
+                    }
+                };
+
+                match MapIdType::map_from_msgs(&msgs, idx) {
+                    Some(id) => id,
+                    None if idx == 0 => {
+                        let content =
+                            "No beatmap specified and none found in recent channel history.\n\
                         Try specifying a map either by url to the map, or just by map id.";
 
-                    return orig.error(&ctx, content).await;
-                }
-                None => {
-                    let content = format!(
-                        "No beatmap specified and none found at index {} \
+                        return orig.error(&ctx, content).await;
+                    }
+                    None => {
+                        let content = format!(
+                            "No beatmap specified and none found at index {} \
                         of the recent channel history.\nTry decreasing the index or \
                         specify a map either by url to the map, or just by map id.",
-                        idx + 1
-                    );
+                            idx + 1
+                        );
 
-                    return orig.error(&ctx, content).await;
+                        return orig.error(&ctx, content).await;
+                    }
                 }
             }
         }
@@ -906,4 +944,60 @@ async fn process_scores(
     }
 
     Ok(entries)
+}
+
+pub async fn handle_autocomplete(
+    ctx: &Context,
+    command: &InteractionCommand,
+    difficulty: Option<String>,
+    map: &Option<Cow<'_, str>>,
+    // idx: Option<u64>, // TODO
+) -> Result<()> {
+    let diffs = ctx.redis().cs_diffs(command, map, None).await?;
+
+    let diff = difficulty
+        .as_deref()
+        .map(CowUtils::cow_to_ascii_lowercase)
+        .unwrap_or_default();
+
+    let choices = match diffs {
+        RedisData::Original(diffs) => diffs
+            .into_iter()
+            .filter_map(|MapVersion { map_id, version }| {
+                let lowercase = version.cow_to_ascii_lowercase();
+
+                if !lowercase.contains(&*diff) {
+                    return None;
+                }
+
+                Some(CommandOptionChoice::String {
+                    name: version,
+                    name_localizations: None,
+                    value: map_id.to_string(),
+                })
+            })
+            .take(25)
+            .collect(),
+        RedisData::Archived(diffs) => diffs
+            .iter()
+            .filter_map(|ArchivedMapVersion { map_id, version }| {
+                let lowercase = version.cow_to_ascii_lowercase();
+
+                if !lowercase.contains(&*diff) {
+                    return None;
+                }
+
+                Some(CommandOptionChoice::String {
+                    name: version.as_str().to_owned(),
+                    name_localizations: None,
+                    value: map_id.to_string(),
+                })
+            })
+            .take(25)
+            .collect(),
+    };
+
+    command.autocomplete(ctx, choices).await?;
+
+    Ok(())
 }

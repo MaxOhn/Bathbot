@@ -3,7 +3,7 @@ use std::{mem, sync::Arc};
 use crate::{
     commands::{
         help::slash_help,
-        osu::{slash_badges, slash_medal},
+        osu::{slash_badges, slash_cs, slash_medal},
     },
     core::{events::EventKind, Context},
     util::interaction::InteractionCommand,
@@ -18,7 +18,7 @@ pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionComm
         "help" => slash_help(ctx, command).await,
         "badges" => slash_badges(ctx, command).await,
         "medal" => slash_medal(ctx, command).await,
-        "cs" => todo!(),
+        "cs" | "compare" | "score" => slash_cs(ctx, command).await,
         _ => return error!("Unknown autocomplete command `{name}`"),
     };
 
