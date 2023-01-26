@@ -202,26 +202,7 @@ pub struct CompareMostPlayed<'a> {
 
 async fn slash_compare(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match CompareAutocomplete::from_interaction(command.input_data())? {
-        CompareAutocomplete::Score(args) => {
-            match args.difficulty {
-                AutocompleteValue::None => {
-                    return handle_autocomplete(&ctx, &command, None, &args.map).await
-                }
-                AutocompleteValue::Focused(diff) => {
-                    return handle_autocomplete(&ctx, &command, Some(diff), &args.map).await
-                }
-                AutocompleteValue::Completed(_) => {}
-            }
-
-            match CompareScoreArgs::try_from(args) {
-                Ok(args) => score(ctx, (&mut command).into(), args).await,
-                Err(content) => {
-                    command.error(&ctx, content).await?;
-
-                    Ok(())
-                }
-            }
-        }
+        CompareAutocomplete::Score(args) => score::slash_compare(ctx, &mut command, args).await,
         CompareAutocomplete::Profile(args) => profile(ctx, (&mut command).into(), args).await,
         CompareAutocomplete::Top(args) => top(ctx, (&mut command).into(), args).await,
         CompareAutocomplete::MostPlayed(args) => mostplayed(ctx, (&mut command).into(), args).await,

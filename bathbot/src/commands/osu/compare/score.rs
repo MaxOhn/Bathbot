@@ -91,17 +91,6 @@ pub struct Cs<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandModel, HasName)]
-#[command(autocomplete = true)]
-pub struct CsAutocomplete<'a> {
-    name: Option<Cow<'a, str>>,
-    map: Option<Cow<'a, str>>,
-    difficulty: AutocompleteValue<String>,
-    sort: Option<ScoreOrder>,
-    mods: Option<Cow<'a, str>>,
-    discord: Option<Id<UserMarker>>,
-}
-
 #[derive(CreateCommand, SlashCommand)]
 #[command(
     name = "score",
@@ -140,17 +129,6 @@ pub struct CompareScore_<'a> {
         Only works on users who have used the `/link` command."
     )]
     /// Specify a linked discord user
-    discord: Option<Id<UserMarker>>,
-}
-
-#[derive(CommandModel, HasName)]
-#[command(autocomplete = true)]
-pub struct CompareScoreAutocomplete_<'a> {
-    name: Option<Cow<'a, str>>,
-    map: Option<Cow<'a, str>>,
-    difficulty: AutocompleteValue<String>,
-    sort: Option<ScoreOrder>,
-    mods: Option<Cow<'a, str>>,
     discord: Option<Id<UserMarker>>,
 }
 
@@ -207,56 +185,44 @@ impl<'m> CompareScoreArgs<'m> {
     }
 }
 
-macro_rules! impl_try_from {
-    ( $( $ty:ident ,)* ) => {
-        $(
-            impl<'a> TryFrom<$ty<'a>> for CompareScoreArgs<'a> {
-                type Error = &'static str;
+impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
+    type Error = &'static str;
 
-                fn try_from(args: $ty<'a>) -> Result<Self, Self::Error> {
-                    let map = if let Some(arg) = args.map {
-                        if let Some(id) =
-                            matcher::get_osu_map_id(&arg).map(MapIdType::Map).or_else(|| matcher::get_osu_mapset_id(&arg).map(MapIdType::Set))
-                        {
-                            Some(MapOrScore::Map(id))
-                        } else if let Some((mode, id)) = matcher::get_osu_score_id(&arg) {
-                            Some(MapOrScore::Score { mode, id })
-                        } else {
-                            let content =
-                                "Failed to parse map url. Be sure you specify a valid map id or url to a map.";
+    fn try_from(args: CompareScoreAutocomplete<'a>) -> Result<Self, Self::Error> {
+        let map = if let Some(arg) = args.map {
+            if let Some(id) = matcher::get_osu_map_id(&arg)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(&arg).map(MapIdType::Set))
+            {
+                Some(MapOrScore::Map(id))
+            } else if let Some((mode, id)) = matcher::get_osu_score_id(&arg) {
+                Some(MapOrScore::Score { mode, id })
+            } else {
+                let content =
+                    "Failed to parse map url. Be sure you specify a valid map id or url to a map.";
 
-                            return Err(content);
-                        }
-                    } else {
-                        None
-                    };
-
-                    let difficulty = match args.difficulty {
-                        AutocompleteValue::None |
-                        AutocompleteValue::Focused(_) => None,
-                        AutocompleteValue::Completed(diff) => Some(diff),
-                    };
-
-                    Ok(Self {
-                        name: args.name,
-                        map,
-                        difficulty,
-                        sort: args.sort,
-                        mods: args.mods,
-                        discord: args.discord,
-                        index: None,
-                    })
-                }
+                return Err(content);
             }
-        )*
+        } else {
+            None
+        };
+
+        let difficulty = match args.difficulty {
+            AutocompleteValue::None | AutocompleteValue::Focused(_) => None,
+            AutocompleteValue::Completed(diff) => Some(diff),
+        };
+
+        Ok(Self {
+            name: args.name,
+            map,
+            difficulty,
+            sort: args.sort,
+            mods: args.mods,
+            discord: args.discord,
+            index: None,
+        })
     }
 }
-
-impl_try_from!(
-    CompareScoreAutocomplete,
-    CsAutocomplete,
-    CompareScoreAutocomplete_,
-);
 
 #[command]
 #[desc("Compare a player's score on a map")]
@@ -294,43 +260,34 @@ async fn prefix_compare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Res
 }
 
 pub async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let args = CsAutocomplete::from_interaction(command.input_data())?;
+    let args = CompareScoreAutocomplete::from_interaction(command.input_data())?;
 
-    match args.difficulty {
-        AutocompleteValue::None => {
-            return handle_autocomplete(&ctx, &command, None, &args.map).await
-        }
-        AutocompleteValue::Focused(diff) => {
-            return handle_autocomplete(&ctx, &command, Some(diff), &args.map).await
-        }
-        AutocompleteValue::Completed(_) => {}
-    }
-
-    match CompareScoreArgs::try_from(args) {
-        Ok(args) => score(ctx, (&mut command).into(), args).await,
-        Err(content) => {
-            command.error(&ctx, content).await?;
-
-            Ok(())
-        }
-    }
+    slash_compare(ctx, &mut command, args).await
 }
 
 async fn slash_comparescore_(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let args = CompareScoreAutocomplete_::from_interaction(command.input_data())?;
+    let args = CompareScoreAutocomplete::from_interaction(command.input_data())?;
 
+    slash_compare(ctx, &mut command, args).await
+}
+
+pub(super) async fn slash_compare(
+    ctx: Arc<Context>,
+    command: &mut InteractionCommand,
+    args: CompareScoreAutocomplete<'_>,
+) -> Result<()> {
     match args.difficulty {
         AutocompleteValue::None => {
-            return handle_autocomplete(&ctx, &command, None, &args.map).await
+            return handle_autocomplete(&ctx, command, None, &args.map).await
         }
         AutocompleteValue::Focused(diff) => {
-            return handle_autocomplete(&ctx, &command, Some(diff), &args.map).await
+            return handle_autocomplete(&ctx, command, Some(diff), &args.map).await
         }
         AutocompleteValue::Completed(_) => {}
     }
 
     match CompareScoreArgs::try_from(args) {
-        Ok(args) => score(ctx, (&mut command).into(), args).await,
+        Ok(args) => score(ctx, command.into(), args).await,
         Err(content) => {
             command.error(&ctx, content).await?;
 
@@ -405,137 +362,7 @@ pub(super) async fn score(
                 return orig.error(&ctx, content).await;
             }
             Some(MapOrScore::Score { id, mode }) => {
-                let mut score = match ctx.osu().score(id, mode).await {
-                    Ok(score) => score,
-                    Err(err) => {
-                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                        let report = Report::new(err).wrap_err("failed to get score");
-
-                        return Err(report);
-                    }
-                };
-
-                let map = score.map.take().expect("missing map");
-                let map_fut = ctx.osu_map().map(map.map_id, map.checksum.as_deref());
-
-                let user_args = UserArgs::user_id(score.user_id).mode(mode);
-                let user_fut = ctx.redis().osu_user(user_args);
-
-                let pinned_fut = ctx
-                    .osu()
-                    .user_scores(score.user_id)
-                    .pinned()
-                    .limit(100)
-                    .mode(mode);
-
-                let (user_res, map_res, pinned_res) = tokio::join!(user_fut, map_fut, pinned_fut);
-
-                let user = match user_res {
-                    Ok(user) => user,
-                    Err(err) => {
-                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                        let err = Report::new(err).wrap_err("failed to get user");
-
-                        return Err(err);
-                    }
-                };
-
-                let map = match map_res {
-                    Ok(map) => map,
-                    Err(err) => {
-                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(Report::new(err));
-                    }
-                };
-
-                let pinned = match pinned_res {
-                    Ok(scores) => scores.contains(&score),
-                    Err(err) => {
-                        let err = Report::new(err).wrap_err("failed to get pinned scores");
-                        warn!("{err:?}");
-
-                        false
-                    }
-                };
-
-                let status = map.status();
-
-                let global_idx = if matches!(status, Ranked | Loved | Approved) {
-                    match ctx.osu().beatmap_scores(map.map_id()).mode(mode).await {
-                        Ok(scores) => scores.iter().position(|s| s == &score),
-                        Err(err) => {
-                            let err = Report::new(err).wrap_err("failed to get global scores");
-                            warn!("{err:?}");
-
-                            None
-                        }
-                    }
-                } else {
-                    None
-                };
-
-                let global_idx = global_idx.map_or(usize::MAX, |idx| idx + 1);
-                let mode = score.mode;
-
-                let best = if status == Ranked {
-                    let fut = ctx
-                        .osu()
-                        .user_scores(score.user_id)
-                        .best()
-                        .limit(100)
-                        .mode(mode);
-
-                    match fut.await {
-                        Ok(scores) => Some(scores),
-                        Err(err) => {
-                            let err = Report::new(err).wrap_err("failed to get top scores");
-                            warn!("{err:?}");
-
-                            None
-                        }
-                    }
-                } else {
-                    None
-                };
-
-                let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
-                let attrs = calc.performance().await;
-
-                let max_pp = score
-                    .pp
-                    .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
-                    .unwrap_or(attrs.pp() as f32);
-
-                let pp = match score.pp {
-                    Some(pp) => pp,
-                    None => calc.score(&score).performance().await.pp() as f32,
-                };
-
-                let score = ScoreSlim::new(score, pp);
-                let if_fc = IfFc::new(&ctx, &score, &map).await;
-
-                let entry = CompareEntry {
-                    score,
-                    stars: attrs.stars() as f32,
-                    max_pp,
-                    if_fc,
-                };
-
-                let fut = single_score(
-                    ctx,
-                    &orig,
-                    &entry,
-                    &user,
-                    &map,
-                    best.as_deref(),
-                    global_idx,
-                    pinned,
-                    score_size,
-                    minimized_pp,
-                );
-
-                return fut.await;
+                return compare_from_score(ctx, orig, id, mode, score_size, minimized_pp).await
             }
             None => {
                 let idx = match index {
@@ -946,7 +773,148 @@ async fn process_scores(
     Ok(entries)
 }
 
-pub async fn handle_autocomplete(
+async fn compare_from_score(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    score_id: u64,
+    mode: GameMode,
+    score_size: ScoreSize,
+    minimized_pp: MinimizedPp,
+) -> Result<()> {
+    let mut score = match ctx.osu().score(score_id, mode).await {
+        Ok(score) => score,
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get score");
+
+            return Err(report);
+        }
+    };
+
+    let map = score.map.take().expect("missing map");
+    let map_fut = ctx.osu_map().map(map.map_id, map.checksum.as_deref());
+
+    let user_args = UserArgs::user_id(score.user_id).mode(mode);
+    let user_fut = ctx.redis().osu_user(user_args);
+
+    let pinned_fut = ctx
+        .osu()
+        .user_scores(score.user_id)
+        .pinned()
+        .limit(100)
+        .mode(mode);
+
+    let (user_res, map_res, pinned_res) = tokio::join!(user_fut, map_fut, pinned_fut);
+
+    let user = match user_res {
+        Ok(user) => user,
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let err = Report::new(err).wrap_err("failed to get user");
+
+            return Err(err);
+        }
+    };
+
+    let map = match map_res {
+        Ok(map) => map,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(Report::new(err));
+        }
+    };
+
+    let pinned = match pinned_res {
+        Ok(scores) => scores.contains(&score),
+        Err(err) => {
+            let err = Report::new(err).wrap_err("failed to get pinned scores");
+            warn!("{err:?}");
+
+            false
+        }
+    };
+
+    let status = map.status();
+
+    let global_idx = if matches!(status, Ranked | Loved | Approved) {
+        match ctx.osu().beatmap_scores(map.map_id()).mode(mode).await {
+            Ok(scores) => scores.iter().position(|s| s == &score),
+            Err(err) => {
+                let err = Report::new(err).wrap_err("failed to get global scores");
+                warn!("{err:?}");
+
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let global_idx = global_idx.map_or(usize::MAX, |idx| idx + 1);
+    let mode = score.mode;
+
+    let best = if status == Ranked {
+        let fut = ctx
+            .osu()
+            .user_scores(score.user_id)
+            .best()
+            .limit(100)
+            .mode(mode);
+
+        match fut.await {
+            Ok(scores) => Some(scores),
+            Err(err) => {
+                let err = Report::new(err).wrap_err("failed to get top scores");
+                warn!("{err:?}");
+
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+    let attrs = calc.performance().await;
+
+    let max_pp = score
+        .pp
+        .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
+        .unwrap_or(attrs.pp() as f32);
+
+    let pp = match score.pp {
+        Some(pp) => pp,
+        None => calc.score(&score).performance().await.pp() as f32,
+    };
+
+    let score = ScoreSlim::new(score, pp);
+    let if_fc = IfFc::new(&ctx, &score, &map).await;
+
+    let entry = CompareEntry {
+        score,
+        stars: attrs.stars() as f32,
+        max_pp,
+        if_fc,
+    };
+
+    let fut = single_score(
+        ctx,
+        &orig,
+        &entry,
+        &user,
+        &map,
+        best.as_deref(),
+        global_idx,
+        pinned,
+        score_size,
+        minimized_pp,
+    );
+
+    fut.await
+}
+
+async fn handle_autocomplete(
     ctx: &Context,
     command: &InteractionCommand,
     difficulty: Option<String>,
