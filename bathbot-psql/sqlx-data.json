@@ -308,6 +308,32 @@
     },
     "query": "\nSELECT \n  user_id \nFROM \n  osu_user_names \nWHERE \n  username ILIKE $1 OR username ILIKE $2"
   },
+  "1fbb1962e614748c30f6fc40f8baee79dd6a38bdf2c91d9f700f5a08062c5c19": {
+    "describe": {
+      "columns": [
+        {
+          "name": "map_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "version",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  map_id, \n  map_version AS version\nFROM \n  (\n    SELECT \n      map_id, \n      mapset_id, \n      map_version \n    FROM \n      osu_maps\n  ) AS maps \n  JOIN (\n    SELECT \n      mapset_id \n    FROM \n      osu_maps \n    WHERE \n      map_id = $1\n  ) AS mapset ON maps.mapset_id = mapset.mapset_id"
+  },
   "26b20d4e1aae8f234e4a5295d5c892ba739303b90c57992685af8a5d565885bf": {
     "describe": {
       "columns": [
@@ -1571,6 +1597,32 @@
       }
     },
     "query": "\nSELECT \n  skin_url \nFROM \n  user_configs \nWHERE \n  osu_id = $1 \n  AND skin_url IS NOT NULL"
+  },
+  "d3cf8c0f097a2226bdad1d81f955bc1707989a0857782dd20098fd38a385e195": {
+    "describe": {
+      "columns": [
+        {
+          "name": "map_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "version",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  map_id, \n  map_version AS version\nFROM \n  osu_maps \nWHERE \n  mapset_id = $1"
   },
   "d5c451eaeba2afe1551acd288ab23ff011331a58fd8a49e2a9502e6ed05a46cd": {
     "describe": {

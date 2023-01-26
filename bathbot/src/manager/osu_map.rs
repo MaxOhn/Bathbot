@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashMap, fmt::Debug, ops::Deref};
 
 use bathbot_client::ClientError;
 use bathbot_psql::{
-    model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapPath},
+    model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapPath, MapVersion},
     Database,
 };
 use bathbot_util::{ExponentialBackoff, IntHasher};
@@ -192,12 +192,76 @@ impl<'d> MapManager<'d> {
         }
     }
 
-    pub async fn store(self, mapset: &Beatmapset) -> Result<()> {
+    pub async fn versions_by_map(self, map_id: u32) -> Result<Vec<MapVersion>> {
+        let versions = self
+            .psql
+            .select_map_versions_by_map_id(map_id)
+            .await
+            .wrap_err("failed to get versions by map")?;
+
+        if !versions.is_empty() {
+            return Ok(versions);
+        }
+
+        match self.ctx.osu().beatmapset_from_map_id(map_id).await {
+            Ok(mapset) => {
+                if let Err(err) = self.store(&mapset).await {
+                    warn!("{err:?}");
+                }
+            }
+            Err(OsuError::NotFound) => return Err(MapError::NotFound),
+            Err(err) => {
+                return Err(MapError::Report(
+                    Report::new(err).wrap_err("failed to retrieve mapset"),
+                ))
+            }
+        }
+
+        self.psql
+            .select_map_versions_by_map_id(map_id)
+            .await
+            .wrap_err("failed to get versions by map")
+            .map_err(MapError::Report)
+    }
+
+    pub async fn versions_by_mapset(self, mapset_id: u32) -> Result<Vec<MapVersion>> {
+        let versions = self
+            .psql
+            .select_map_versions_by_mapset_id(mapset_id)
+            .await
+            .wrap_err("failed to get versions by mapset")
+            .map_err(MapError::Report)?;
+
+        if !versions.is_empty() {
+            return Ok(versions);
+        }
+
+        match self.ctx.osu().beatmapset(mapset_id).await {
+            Ok(mapset) => {
+                if let Err(err) = self.store(&mapset).await {
+                    warn!("{err:?}");
+                }
+            }
+            Err(OsuError::NotFound) => return Err(MapError::NotFound),
+            Err(err) => {
+                return Err(MapError::Report(
+                    Report::new(err).wrap_err("failed to retrieve mapset"),
+                ))
+            }
+        }
+
+        self.psql
+            .select_map_versions_by_mapset_id(mapset_id)
+            .await
+            .wrap_err("failed to get versions by mapset")
+            .map_err(MapError::Report)
+    }
+
+    pub async fn store(self, mapset: &Beatmapset) -> eyre::Result<()> {
         self.psql
             .upsert_beatmapset(mapset)
             .await
             .wrap_err("failed to store mapset")
-            .map_err(MapError::Report)
     }
 
     /// Request a [`Beatmapset`] from a map id and turn it into a [`OsuMapSlim`]
@@ -205,7 +269,7 @@ impl<'d> MapManager<'d> {
         match self.ctx.osu().beatmapset_from_map_id(map_id).await {
             Ok(mapset) => {
                 if let Err(err) = self.store(&mapset).await {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{err:?}");
                 }
 
                 OsuMapSlim::try_from_mapset(mapset, map_id)
@@ -222,7 +286,7 @@ impl<'d> MapManager<'d> {
         match self.ctx.osu().beatmapset(mapset_id).await {
             Ok(mapset) => {
                 if let Err(err) = self.store(&mapset).await {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{err:?}");
                 }
 
                 Ok(mapset)

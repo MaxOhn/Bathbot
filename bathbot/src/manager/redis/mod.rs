@@ -1,14 +1,20 @@
-use std::fmt::Write;
+use std::{borrow::Cow, fmt::Write};
 
 use bathbot_model::{
     OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats,
 };
+use bathbot_psql::model::osu::MapVersion;
+use bathbot_util::{matcher, osu::MapIdType};
 use bb8_redis::redis::AsyncCommands;
 use eyre::{Report, Result};
 use rkyv::{ser::serializers::AllocSerializer, Serialize};
 use rosu_v2::prelude::{GameMode, OsuError, Rankings};
 
-use crate::core::{Context, Redis};
+use crate::{
+    commands::osu::MapOrScore,
+    core::{Context, Redis},
+    util::interaction::InteractionCommand,
+};
 
 pub use self::data::{ArchivedBytes, RedisData};
 
@@ -323,15 +329,15 @@ impl<'c> RedisManager<'c> {
                     return Ok(RedisData::new_archived(bytes));
                 }
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("Failed to get bytes");
-                    warn!("{report:?}");
+                    let err = Report::new(err).wrap_err("Failed to get bytes");
+                    warn!("{err:?}");
 
                     Some(conn)
                 }
             },
             Err(err) => {
-                let report = Report::new(err).wrap_err("Failed to get redis connection");
-                warn!("{report:?}");
+                let err = Report::new(err).wrap_err("Failed to get redis connection");
+                warn!("{err:?}");
 
                 None
             }
@@ -350,11 +356,106 @@ impl<'c> RedisManager<'c> {
             let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
 
             if let Err(err) = set_fut.await {
-                let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
-                warn!("{report:?}");
+                let err = Report::new(err).wrap_err("Failed to insert bytes into cache");
+                warn!("{err:?}");
             }
         }
 
         Ok(RedisData::new(ranking))
+    }
+
+    pub async fn cs_diffs(
+        self,
+        command: &InteractionCommand,
+        map: &Option<Cow<'_, str>>,
+        idx: Option<u64>,
+    ) -> RedisResult<Vec<MapVersion>> {
+        const EXPIRE_SECONDS: usize = 30;
+        let map_ = map.as_deref().unwrap_or_default();
+        let key = format!("diffs_{}_{map_}", command.id);
+
+        let conn = match self.redis.get().await {
+            Ok(mut conn) => match conn.get::<_, Vec<u8>>(&key).await {
+                Ok(bytes) if bytes.is_empty() => Some(conn),
+                Ok(bytes) => {
+                    self.ctx.stats.inc_cached_cs_diffs();
+                    trace!("Found cs diffs in cache ({} bytes)", bytes.len());
+
+                    return Ok(RedisData::new_archived(bytes));
+                }
+                Err(err) => {
+                    let err = Report::new(err).wrap_err("Failed to get bytes");
+                    warn!("{err:?}");
+
+                    Some(conn)
+                }
+            },
+            Err(err) => {
+                let err = Report::new(err).wrap_err("Failed to get redis connection");
+                warn!("{err:?}");
+
+                None
+            }
+        };
+
+        let map = if let Some(map) = map {
+            if let Some(id) = matcher::get_osu_map_id(map)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(map).map(MapIdType::Set))
+            {
+                Some(MapOrScore::Map(id))
+            } else if let Some((mode, id)) = matcher::get_osu_score_id(map) {
+                Some(MapOrScore::Score { mode, id })
+            } else {
+                // Invalid map input, ignore
+                return Ok(RedisData::new(Vec::new()));
+            }
+        } else {
+            None
+        };
+
+        let map_id = match map {
+            Some(MapOrScore::Map(id)) => id,
+            Some(MapOrScore::Score { id, mode }) => match self.ctx.osu().score(id, mode).await {
+                Ok(score) => MapIdType::Map(score.map_id),
+                Err(err) => return Err(Report::new(err).wrap_err("failed to get score")),
+            },
+            None => {
+                let idx = match idx {
+                    Some(idx @ 0..=50) => idx.saturating_sub(1) as usize,
+                    // Invalid index, ignore
+                    Some(_) => return Ok(RedisData::new(Vec::new())),
+                    None => 0,
+                };
+
+                let msgs = match self.ctx.retrieve_channel_history(command.channel_id).await {
+                    Ok(msgs) => msgs,
+                    Err(err) => return Err(err.wrap_err("failed to retrieve channel history")),
+                };
+
+                match MapIdType::from_msgs(&msgs, idx) {
+                    Some(id) => id,
+                    // No map in history, ignore
+                    None => return Ok(RedisData::new(Vec::new())),
+                }
+            }
+        };
+
+        let diffs = match map_id {
+            MapIdType::Map(map_id) => self.ctx.osu_map().versions_by_map(map_id).await?,
+            MapIdType::Set(mapset_id) => self.ctx.osu_map().versions_by_mapset(mapset_id).await?,
+        };
+
+        if let Some(mut conn) = conn {
+            let bytes = rkyv::to_bytes::<_, 64>(&diffs).expect("failed to serialize diffs");
+            let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
+
+            if let Err(err) = set_fut.await {
+                let err = Report::new(err).wrap_err("Failed to insert bytes into cache");
+                warn!("{err:?}");
+            }
+        }
+
+        Ok(RedisData::new(diffs))
     }
 }

@@ -12,7 +12,7 @@ use sqlx::{Postgres, Transaction};
 use crate::{
     model::osu::{
         DbBeatmap, DbBeatmapset, DbCatchDifficultyAttributes, DbManiaDifficultyAttributes,
-        DbMapPath, DbOsuDifficultyAttributes, DbTaikoDifficultyAttributes,
+        DbMapPath, DbOsuDifficultyAttributes, DbTaikoDifficultyAttributes, MapVersion,
     },
     Database,
 };
@@ -357,6 +357,56 @@ WHERE
             .await
             .wrap_err("failed to fetch optional")
             .map(|row_opt| row_opt.map(|row| row.map_filepath))
+    }
+
+    pub async fn select_map_versions_by_map_id(&self, map_id: u32) -> Result<Vec<MapVersion>> {
+        let query = sqlx::query_as!(
+            MapVersion,
+            r#"
+SELECT 
+  map_id, 
+  map_version AS version
+FROM 
+  (
+    SELECT 
+      map_id, 
+      mapset_id, 
+      map_version 
+    FROM 
+      osu_maps
+  ) AS maps 
+  JOIN (
+    SELECT 
+      mapset_id 
+    FROM 
+      osu_maps 
+    WHERE 
+      map_id = $1
+  ) AS mapset ON maps.mapset_id = mapset.mapset_id"#,
+            map_id as i32
+        );
+
+        query.fetch_all(self).await.wrap_err("failed to fetch all")
+    }
+
+    pub async fn select_map_versions_by_mapset_id(
+        &self,
+        mapset_id: u32,
+    ) -> Result<Vec<MapVersion>> {
+        let query = sqlx::query_as!(
+            MapVersion,
+            r#"
+SELECT 
+  map_id, 
+  map_version AS version
+FROM 
+  osu_maps 
+WHERE 
+  mapset_id = $1"#,
+            mapset_id as i32,
+        );
+
+        query.fetch_all(self).await.wrap_err("failed to fetch all")
     }
 
     pub async fn insert_beatmap_file(&self, map_id: u32, path: impl AsRef<str>) -> Result<()> {
