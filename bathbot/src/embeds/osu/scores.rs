@@ -103,8 +103,10 @@ impl ScoresEmbed {
                     max_pp = entry.score.pp.max(entry.max_pp),
                     combo = entry.score.max_combo,
                     max_combo = OptionFormat::new(map.max_combo()),
-                    hits =
-                        HitResultFormatter::new(entry.score.mode, entry.score.statistics.clone()),
+                    hits = HitResultFormatter::new_wide(
+                        entry.score.mode,
+                        entry.score.statistics.clone()
+                    ),
                     timestamp = HowLongAgoDynamic::new(&entry.score.ended_at)
                 );
 

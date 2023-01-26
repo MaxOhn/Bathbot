@@ -98,7 +98,7 @@ impl SimulateEmbed {
                 let hits = EmbedField {
                     inline: true,
                     name: "Hits".to_owned(),
-                    value: HitResultFormatter::new(mode, stats).to_string(),
+                    value: HitResultFormatter::new_tight(mode, stats).to_string(),
                 };
 
                 (None, Some(acc), Some(hits))

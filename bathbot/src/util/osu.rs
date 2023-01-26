@@ -546,7 +546,7 @@ impl IfFc {
     }
 
     pub fn hitresults(&self) -> HitResultFormatter {
-        HitResultFormatter::new(self.mode, self.statistics.clone())
+        HitResultFormatter::new_tight(self.mode, self.statistics.clone())
     }
 }
 
