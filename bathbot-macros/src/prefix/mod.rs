@@ -14,7 +14,7 @@ mod options;
 
 pub fn attr(tokens: TokenStream) -> Result<()> {
     if !tokens.is_empty() {
-        let message = format!("expected `#[command]`, got #[command({})]", tokens);
+        let message = format!("expected `#[command]`, got #[command({tokens})]");
 
         Err(Error::new(Span::call_site(), message))
     } else {

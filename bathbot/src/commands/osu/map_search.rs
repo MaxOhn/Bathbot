@@ -627,10 +627,9 @@ async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> Res
     let mut search_result = match args.request(ctx.osu()).await {
         Ok(response) => response,
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE);
-            let report = Report::new(err).wrap_err("failed to get search results");
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(report);
+            return Err(Report::new(err).wrap_err("failed to get search results"));
         }
     };
 

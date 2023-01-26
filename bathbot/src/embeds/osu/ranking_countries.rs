@@ -71,13 +71,7 @@ impl RankingCountriesEmbed {
 
             buf.clear();
             let _ = write!(buf, "{}", WithComma::new(country.active_users));
-
-            let _ = writeln!(
-                description,
-                " `{users:>users_len$} users`",
-                users = buf,
-                users_len = users_len
-            );
+            let _ = writeln!(description, " `{buf:>users_len$} users`");
         }
 
         Self {

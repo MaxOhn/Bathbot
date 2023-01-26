@@ -680,10 +680,9 @@ impl ProfileEmbed {
         let right_len = loved_count.len().max(graveyard_count.len());
 
         let mapsets_value = format!(
-            "`Ranked:  {:>left_len$}`  `Loved:     {:>right_len$}`\n\
-            `Pending: {:>left_len$}`  `Graveyard: {:>right_len$}`\n\
-            `Guest:   {:>left_len$}`",
-            ranked_count, loved_count, pending_count, graveyard_count, guest_count,
+            "`Ranked:  {ranked_count:>left_len$}`  `Loved:     {loved_count:>right_len$}`\n\
+            `Pending: {pending_count:>left_len$}`  `Graveyard: {graveyard_count:>right_len$}`\n\
+            `Guest:   {guest_count:>left_len$}`"
         );
 
         let kudosu_value = format!(
