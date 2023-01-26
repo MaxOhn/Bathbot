@@ -82,6 +82,9 @@ pub struct CompareScore<'a> {
         - `-ezhd!`: Remove all scores that have either `EZ` or `HD`")]
     /// Filter out scores based on mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
     mods: Option<Cow<'a, str>>,
+    #[command(min_value = 1, max_value = 50)]
+    /// While checking the channel history, I will choose the index-th map I can find
+    index: Option<u32>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
@@ -99,6 +102,7 @@ pub struct CompareScoreAutocomplete<'a> {
     difficulty: AutocompleteValue<String>,
     sort: Option<ScoreOrder>,
     mods: Option<Cow<'a, str>>,
+    index: Option<u32>,
     discord: Option<Id<UserMarker>>,
 }
 

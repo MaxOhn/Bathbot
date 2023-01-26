@@ -368,11 +368,19 @@ impl<'c> RedisManager<'c> {
         self,
         command: &InteractionCommand,
         map: &Option<Cow<'_, str>>,
-        idx: Option<u64>,
+        idx: Option<u32>,
     ) -> RedisResult<Vec<MapVersion>> {
         const EXPIRE_SECONDS: usize = 30;
+
+        let idx = match idx {
+            Some(idx @ 0..=50) => idx.saturating_sub(1) as usize,
+            // Invalid index, ignore
+            Some(_) => return Ok(RedisData::new(Vec::new())),
+            None => 0,
+        };
+
         let map_ = map.as_deref().unwrap_or_default();
-        let key = format!("diffs_{}_{map_}", command.id);
+        let key = format!("diffs_{}_{idx}_{map_}", command.id);
 
         let conn = match self.redis.get().await {
             Ok(mut conn) => match conn.get::<_, Vec<u8>>(&key).await {
@@ -420,25 +428,14 @@ impl<'c> RedisManager<'c> {
                 Ok(score) => MapIdType::Map(score.map_id),
                 Err(err) => return Err(Report::new(err).wrap_err("failed to get score")),
             },
-            None => {
-                let idx = match idx {
-                    Some(idx @ 0..=50) => idx.saturating_sub(1) as usize,
-                    // Invalid index, ignore
-                    Some(_) => return Ok(RedisData::new(Vec::new())),
-                    None => 0,
-                };
-
-                let msgs = match self.ctx.retrieve_channel_history(command.channel_id).await {
-                    Ok(msgs) => msgs,
-                    Err(err) => return Err(err.wrap_err("failed to retrieve channel history")),
-                };
-
-                match MapIdType::from_msgs(&msgs, idx) {
+            None => match self.ctx.retrieve_channel_history(command.channel_id).await {
+                Ok(msgs) => match MapIdType::from_msgs(&msgs, idx) {
                     Some(id) => id,
                     // No map in history, ignore
                     None => return Ok(RedisData::new(Vec::new())),
-                }
-            }
+                },
+                Err(err) => return Err(err.wrap_err("failed to retrieve channel history")),
+            },
         };
 
         let diffs = match map_id {
