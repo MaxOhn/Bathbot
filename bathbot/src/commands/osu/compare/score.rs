@@ -82,6 +82,9 @@ pub struct Cs<'a> {
         - `-ezhd!`: Remove all scores that have either `EZ` or `HD`")]
     /// Filter out scores based on mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
     mods: Option<Cow<'a, str>>,
+    #[command(min_value = 1, max_value = 50)]
+    /// While checking the channel history, I will choose the index-th map I can find
+    index: Option<u32>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
@@ -123,6 +126,9 @@ pub struct CompareScore_<'a> {
         - `-ezhd!`: Remove all scores that have either `EZ` or `HD`")]
     /// Filter out scores based on mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
     mods: Option<Cow<'a, str>>,
+    #[command(min_value = 1, max_value = 50)]
+    /// While checking the channel history, I will choose the index-th map I can find
+    index: Option<u32>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
@@ -145,7 +151,7 @@ pub(super) struct CompareScoreArgs<'a> {
     sort: Option<ScoreOrder>,
     mods: Option<Cow<'a, str>>,
     discord: Option<Id<UserMarker>>,
-    index: Option<u64>,
+    index: Option<u32>,
 }
 
 impl<'m> CompareScoreArgs<'m> {
@@ -180,7 +186,7 @@ impl<'m> CompareScoreArgs<'m> {
             sort: None,
             mods,
             discord,
-            index,
+            index: index.map(|i| i as u32),
         }
     }
 }
@@ -219,7 +225,7 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
             sort: args.sort,
             mods: args.mods,
             discord: args.discord,
-            index: None,
+            index: args.index,
         })
     }
 }
@@ -278,10 +284,10 @@ pub(super) async fn slash_compare(
 ) -> Result<()> {
     match args.difficulty {
         AutocompleteValue::None => {
-            return handle_autocomplete(&ctx, command, None, &args.map).await
+            return handle_autocomplete(&ctx, command, None, &args.map, args.index).await
         }
         AutocompleteValue::Focused(diff) => {
-            return handle_autocomplete(&ctx, command, Some(diff), &args.map).await
+            return handle_autocomplete(&ctx, command, Some(diff), &args.map, args.index).await
         }
         AutocompleteValue::Completed(_) => {}
     }
@@ -919,9 +925,9 @@ async fn handle_autocomplete(
     command: &InteractionCommand,
     difficulty: Option<String>,
     map: &Option<Cow<'_, str>>,
-    // idx: Option<u64>, // TODO
+    idx: Option<u32>,
 ) -> Result<()> {
-    let diffs = ctx.redis().cs_diffs(command, map, None).await?;
+    let diffs = ctx.redis().cs_diffs(command, map, idx).await?;
 
     let diff = difficulty
         .as_deref()
