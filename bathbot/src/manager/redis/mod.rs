@@ -423,24 +423,23 @@ impl<'c> RedisManager<'c> {
         };
 
         let map_id = match map {
-            Some(MapOrScore::Map(id)) => id,
+            Some(MapOrScore::Map(id)) => Some(id),
             Some(MapOrScore::Score { id, mode }) => match self.ctx.osu().score(id, mode).await {
-                Ok(score) => MapIdType::Map(score.map_id),
+                Ok(score) => Some(MapIdType::Map(score.map_id)),
                 Err(err) => return Err(Report::new(err).wrap_err("failed to get score")),
             },
             None => match self.ctx.retrieve_channel_history(command.channel_id).await {
-                Ok(msgs) => match MapIdType::from_msgs(&msgs, idx) {
-                    Some(id) => id,
-                    // No map in history, ignore
-                    None => return Ok(RedisData::new(Vec::new())),
-                },
+                Ok(msgs) => MapIdType::from_msgs(&msgs, idx),
                 Err(err) => return Err(err.wrap_err("failed to retrieve channel history")),
             },
         };
 
         let diffs = match map_id {
-            MapIdType::Map(map_id) => self.ctx.osu_map().versions_by_map(map_id).await?,
-            MapIdType::Set(mapset_id) => self.ctx.osu_map().versions_by_mapset(mapset_id).await?,
+            Some(MapIdType::Map(map_id)) => self.ctx.osu_map().versions_by_map(map_id).await?,
+            Some(MapIdType::Set(mapset_id)) => {
+                self.ctx.osu_map().versions_by_mapset(mapset_id).await?
+            }
+            None => Vec::new(),
         };
 
         if let Some(mut conn) = conn {
