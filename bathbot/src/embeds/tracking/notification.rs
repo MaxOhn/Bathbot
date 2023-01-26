@@ -88,7 +88,7 @@ impl TrackNotificationEmbed {
             } else {
                 ComboFormatter::new(score.max_combo, map.max_combo()).to_string()
             },
-            hitresults = HitResultFormatter::new(score.mode, score.statistics.clone()),
+            hitresults = HitResultFormatter::new_tight(score.mode, score.statistics.clone()),
         );
 
         Self {
