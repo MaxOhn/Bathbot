@@ -282,14 +282,8 @@ pub(super) async fn slash_compare(
     command: &mut InteractionCommand,
     args: CompareScoreAutocomplete<'_>,
 ) -> Result<()> {
-    match args.difficulty {
-        AutocompleteValue::None => {
-            return handle_autocomplete(&ctx, command, None, &args.map, args.index).await
-        }
-        AutocompleteValue::Focused(diff) => {
-            return handle_autocomplete(&ctx, command, Some(diff), &args.map, args.index).await
-        }
-        AutocompleteValue::Completed(_) => {}
+    if let AutocompleteValue::Focused(diff) = args.difficulty {
+        return handle_autocomplete(&ctx, command, Some(diff), &args.map, args.index).await;
     }
 
     match CompareScoreArgs::try_from(args) {
