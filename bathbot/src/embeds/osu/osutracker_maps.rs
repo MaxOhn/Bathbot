@@ -20,7 +20,7 @@ impl OsuTrackerMapsEmbed {
         let author_text = format!("Most common maps in top plays: {pp}-{}pp", pp + 100);
         let author = AuthorBuilder::new(author_text).url("https://osutracker.com/stats");
 
-        let idx = pages.index + 1;
+        let idx = pages.index() + 1;
         let mut sizes = Sizes::default();
 
         for (entry, i) in entries.iter().zip(idx..) {

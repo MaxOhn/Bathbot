@@ -22,8 +22,8 @@ pub struct TopIfPagination {
 
 impl TopIfPagination {
     pub async fn build_page(&mut self, pages: &Pages) -> Embed {
-        let end_idx = self.entries.len().min(pages.index + pages.per_page);
-        let entries = &self.entries[pages.index..end_idx];
+        let end_idx = self.entries.len().min(pages.index() + pages.per_page());
+        let entries = &self.entries[pages.index()..end_idx];
 
         let embed_fut = TopIfEmbed::new(
             &self.user,

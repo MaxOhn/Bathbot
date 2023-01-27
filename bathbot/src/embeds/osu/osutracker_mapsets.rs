@@ -25,7 +25,7 @@ impl OsuTrackerMapsetsEmbed {
         let author = AuthorBuilder::new("Most common mapsets in top plays")
             .url("https://osutracker.com/stats");
 
-        let idx = pages.index + 1;
+        let idx = pages.index() + 1;
         let mut sizes = Sizes::default();
 
         for (entry, i) in entries.iter().zip(idx..) {

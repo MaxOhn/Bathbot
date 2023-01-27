@@ -26,15 +26,15 @@ pub struct ScoresPagination {
 
 impl ScoresPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let end_idx = self.entries.len().min(pages.index + pages.per_page);
-        let entries = &self.entries[pages.index..end_idx];
+        let end_idx = self.entries.len().min(pages.index() + pages.per_page());
+        let entries = &self.entries[pages.index()..end_idx];
 
         let global_idx = self
             .global_idx
-            .filter(|(idx, _)| (pages.index..pages.index + pages.per_page).contains(idx))
+            .filter(|(idx, _)| (pages.index()..pages.index() + pages.per_page()).contains(idx))
             .map(|(score_idx, map_idx)| {
-                let factor = score_idx / pages.per_page;
-                let new_idx = score_idx - factor * pages.per_page;
+                let factor = score_idx / pages.per_page();
+                let new_idx = score_idx - factor * pages.per_page();
 
                 (new_idx, map_idx)
             });

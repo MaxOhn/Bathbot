@@ -27,11 +27,11 @@ impl OsuStatsGlobalsPagination {
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let entries = self
             .entries
-            .range(pages.index..pages.index + pages.per_page);
+            .range(pages.index()..pages.index() + pages.per_page());
         let count = entries.count();
 
-        if count < pages.per_page && self.total - pages.index > count {
-            let osustats_page = (pages.index / 24) + 1;
+        if count < pages.per_page() && self.total - pages.index() > count {
+            let osustats_page = (pages.index() / 24) + 1;
             self.params.page = osustats_page;
 
             let (scores, _) = ctx

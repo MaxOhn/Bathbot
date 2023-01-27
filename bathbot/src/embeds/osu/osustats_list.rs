@@ -34,7 +34,7 @@ impl OsuStatsListEmbed {
 
         let mut description = String::with_capacity(1024);
 
-        for (player, i) in players.iter().zip(pages.index + 1..) {
+        for (player, i) in players.iter().zip(pages.index() + 1..) {
             let _ = writeln!(
                 description,
                 "**{i}. [{}]({OSU_BASE}users/{})**: {}",

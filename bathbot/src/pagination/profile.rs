@@ -17,8 +17,8 @@ pub struct ProfilePagination {
 impl ProfilePagination {
     pub fn builder(curr_kind: ProfileKind, data: ProfileData) -> PaginationBuilder {
         // initialization doesn't really matter since the index is always set manually anyway
-        let mut pages = Pages::new(1, 3);
-        pages.index = curr_kind as usize;
+        let mut pages = Pages::new(1, usize::MAX);
+        pages.update(|_| curr_kind as usize);
 
         let pagination = Self {
             kind: curr_kind,
@@ -31,7 +31,7 @@ impl ProfilePagination {
     }
 
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Embed {
-        self.kind = match pages.index {
+        self.kind = match pages.index() {
             0 => ProfileKind::Compact,
             1 => ProfileKind::UserStats,
             2 => ProfileKind::Top100Stats,

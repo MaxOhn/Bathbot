@@ -28,7 +28,7 @@ impl MapPagination {
         origin: MessageOrigin,
     ) -> PaginationBuilder {
         let mut pages = Pages::new(1, maps.len());
-        pages.index = start_idx;
+        pages.update(|_| start_idx);
 
         let pagination = Self {
             mapset,
@@ -44,7 +44,7 @@ impl MapPagination {
     }
 
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
-        let map = &self.maps[pages.index];
+        let map = &self.maps[pages.index()];
 
         let embed_fut = MapEmbed::new(
             map,

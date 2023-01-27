@@ -10,6 +10,6 @@ pub struct MatchComparePagination {
 
 impl MatchComparePagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        self.embeds[pages.index].clone()
+        self.embeds[pages.index()].clone()
     }
 }

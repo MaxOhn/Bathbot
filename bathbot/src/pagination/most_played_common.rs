@@ -21,8 +21,8 @@ pub struct MostPlayedCommonPagination {
 
 impl MostPlayedCommonPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let idx = pages.index;
-        let map_counts = &self.map_counts[idx..self.maps.len().min(idx + pages.per_page)];
+        let idx = pages.index();
+        let map_counts = &self.map_counts[idx..self.maps.len().min(idx + pages.per_page())];
 
         MostPlayedCommonEmbed::new(&self.user1, &self.user2, map_counts, &self.maps, pages).build()
     }

@@ -26,7 +26,7 @@ pub struct RankingPagination {
 
 impl RankingPagination {
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
-        let idx = pages.index.saturating_sub(1);
+        let idx = pages.index().saturating_sub(1);
         let mut page = ((idx - idx % 50) + 50) / 50;
         page += self.entries.contains_key(idx) as usize;
 
@@ -46,10 +46,10 @@ impl RankingPagination {
         pages: &Pages,
         page: usize,
     ) -> Result<()> {
-        let range = pages.index..pages.index + pages.per_page;
+        let range = pages.index()..pages.index() + pages.per_page();
         let count = self.entries.entry_count(range);
 
-        if count < pages.per_page && count < self.total - pages.index {
+        if count < pages.per_page() && count < self.total - pages.index() {
             let offset = page - 1;
             let page = page as u32;
             let kind = &self.kind;
@@ -59,7 +59,7 @@ impl RankingPagination {
                     let RankingEntries::Amount(ref mut entries) = self.entries else { unreachable!() };
 
                     #[allow(clippy::needless_range_loop)]
-                    for i in pages.index..(pages.index + pages.per_page).min(self.total) {
+                    for i in pages.index()..(pages.index() + pages.per_page()).min(self.total) {
                         if let Entry::Vacant(entry) = entries.entry(i) {
                             let BgGameScore { discord_id, score } = scores[i];
                             let id = Id::new(discord_id as u64);

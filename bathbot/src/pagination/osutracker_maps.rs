@@ -14,8 +14,8 @@ pub struct OsuTrackerMapsPagination {
 
 impl OsuTrackerMapsPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let idx = pages.index;
-        let entries = &self.entries[idx..self.entries.len().min(idx + pages.per_page)];
+        let idx = pages.index();
+        let entries = &self.entries[idx..self.entries.len().min(idx + pages.per_page())];
 
         OsuTrackerMapsEmbed::new(self.pp, entries, pages).build()
     }

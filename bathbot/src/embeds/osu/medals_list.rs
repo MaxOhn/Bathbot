@@ -26,7 +26,7 @@ impl MedalsListEmbed {
     ) -> Self {
         let mut description = String::with_capacity(1024);
 
-        for (entry, i) in medals.iter().zip(pages.index + 1..) {
+        for (entry, i) in medals.iter().zip(pages.index() + 1..) {
             let _ = writeln!(
                 description,
                 "**{i}. [{medal}](https://osekai.net/medals/?medal={url_name})**\n\

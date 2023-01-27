@@ -13,8 +13,8 @@ pub struct OsuTrackerModsPagination {
 
 impl OsuTrackerModsPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let idx = pages.index;
-        let entries = &self.entries[idx..self.entries.len().min(idx + pages.per_page)];
+        let idx = pages.index();
+        let entries = &self.entries[idx..self.entries.len().min(idx + pages.per_page())];
 
         OsuTrackerModsEmbed::new(entries, pages).build()
     }

@@ -18,8 +18,8 @@ pub struct MedalsListPagination {
 
 impl MedalsListPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let idx = pages.index;
-        let limit = self.medals.len().min(idx + pages.per_page);
+        let idx = pages.index();
+        let limit = self.medals.len().min(idx + pages.per_page());
 
         MedalsListEmbed::new(&self.user, &self.medals[idx..limit], self.acquired, pages).build()
     }

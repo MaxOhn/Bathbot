@@ -31,8 +31,8 @@ pub use self::{
     medals_missing::*, most_played::*, most_played_common::*, nochoke::*, osekai_medal_count::*,
     osekai_medal_rarity::*, osustats_globals::*, osustats_list::*, osutracker_countrytop::*,
     osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*, osutracker_mods::*,
-    player_snipe_list::*, profile::*, ranking::*, ranking_countries::*, recent_list::*, scores::*,
-    simulate::*, sniped_difference::*, top::*, top_if::*,
+    pages::Pages, player_snipe_list::*, profile::*, ranking::*, ranking_countries::*,
+    recent_list::*, scores::*, simulate::*, sniped_difference::*, top::*, top_if::*,
 };
 
 mod badges;
@@ -202,7 +202,7 @@ impl Pagination {
             orig.create_message(&ctx, &builder).await?
         };
 
-        if pages.last_index == 0 {
+        if pages.last_index() == 0 {
             return Ok(());
         }
 
@@ -382,105 +382,125 @@ impl PaginationBuilder {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Pages {
-    pub index: usize,
-    last_index: usize,
-    pub per_page: usize,
-}
+mod pages {
+    use super::*;
 
-impl Pages {
-    /// `per_page`: How many entries per page
-    ///
-    /// `amount`: How many entries in total
-    pub fn new(per_page: usize, amount: usize) -> Self {
-        Self {
-            index: 0,
-            per_page,
-            last_index: last_multiple(per_page, amount),
-        }
+    #[derive(Clone, Debug)]
+    pub struct Pages {
+        index: usize,
+        last_index: usize,
+        per_page: usize,
     }
 
-    pub fn curr_page(&self) -> usize {
-        self.index / self.per_page + 1
-    }
-
-    pub fn last_page(&self) -> usize {
-        self.last_index / self.per_page + 1
-    }
-
-    fn components(&self, kind: ComponentKind) -> Vec<Component> {
-        match kind {
-            ComponentKind::Default => self.default_components(),
-            ComponentKind::MapSearch => self.map_search_components(),
-            ComponentKind::Profile => self.profile_components(),
-            ComponentKind::Simulate(version) => self.simulate_components(version),
-        }
-    }
-
-    fn default_components(&self) -> Vec<Component> {
-        if self.last_index == 0 {
-            return Vec::new();
+    impl Pages {
+        /// `per_page`: How many entries per page
+        ///
+        /// `amount`: How many entries in total
+        pub fn new(per_page: usize, amount: usize) -> Self {
+            Self {
+                index: 0,
+                per_page,
+                last_index: last_multiple(per_page, amount),
+            }
         }
 
-        let jump_start = Button {
-            custom_id: Some("pagination_start".to_owned()),
-            disabled: self.index == 0,
-            emoji: Some(Emote::JumpStart.reaction_type()),
-            label: None,
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
+        pub fn index(&self) -> usize {
+            self.index
+        }
 
-        let single_step_back = Button {
-            custom_id: Some("pagination_back".to_owned()),
-            disabled: self.index == 0,
-            emoji: Some(Emote::SingleStepBack.reaction_type()),
-            label: None,
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
+        pub fn last_index(&self) -> usize {
+            self.last_index
+        }
 
-        let jump_custom = Button {
-            custom_id: Some("pagination_custom".to_owned()),
-            disabled: false,
-            emoji: Some(Emote::MyPosition.reaction_type()),
-            label: None,
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
+        pub fn per_page(&self) -> usize {
+            self.per_page
+        }
 
-        let single_step = Button {
-            custom_id: Some("pagination_step".to_owned()),
-            disabled: self.index == self.last_index,
-            emoji: Some(Emote::SingleStep.reaction_type()),
-            label: None,
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
+        pub fn curr_page(&self) -> usize {
+            self.index / self.per_page + 1
+        }
 
-        let jump_end = Button {
-            custom_id: Some("pagination_end".to_owned()),
-            disabled: self.index == self.last_index,
-            emoji: Some(Emote::JumpEnd.reaction_type()),
-            label: None,
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
+        pub fn last_page(&self) -> usize {
+            self.last_index / self.per_page + 1
+        }
 
-        let components = vec![
-            Component::Button(jump_start),
-            Component::Button(single_step_back),
-            Component::Button(jump_custom),
-            Component::Button(single_step),
-            Component::Button(jump_end),
-        ];
+        /// Set and validate the current index to whatever `f` returns
+        pub fn update(&mut self, f: impl FnOnce(&Self) -> usize) {
+            self.index = self.last_index.min(f(self));
+        }
 
-        vec![Component::ActionRow(ActionRow { components })]
-    }
+        pub fn components(&self, kind: ComponentKind) -> Vec<Component> {
+            match kind {
+                ComponentKind::Default => self.default_components(),
+                ComponentKind::MapSearch => self.map_search_components(),
+                ComponentKind::Profile => self.profile_components(),
+                ComponentKind::Simulate(version) => self.simulate_components(version),
+            }
+        }
 
-    fn simulate_components(&self, version: TopOldVersion) -> Vec<Component> {
-        macro_rules! versions {
+        fn default_components(&self) -> Vec<Component> {
+            if self.last_index == 0 {
+                return Vec::new();
+            }
+
+            let jump_start = Button {
+                custom_id: Some("pagination_start".to_owned()),
+                disabled: self.index == 0,
+                emoji: Some(Emote::JumpStart.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+            };
+
+            let single_step_back = Button {
+                custom_id: Some("pagination_back".to_owned()),
+                disabled: self.index == 0,
+                emoji: Some(Emote::SingleStepBack.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+            };
+
+            let jump_custom = Button {
+                custom_id: Some("pagination_custom".to_owned()),
+                disabled: false,
+                emoji: Some(Emote::MyPosition.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+            };
+
+            let single_step = Button {
+                custom_id: Some("pagination_step".to_owned()),
+                disabled: self.index == self.last_index,
+                emoji: Some(Emote::SingleStep.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+            };
+
+            let jump_end = Button {
+                custom_id: Some("pagination_end".to_owned()),
+                disabled: self.index == self.last_index,
+                emoji: Some(Emote::JumpEnd.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+            };
+
+            let components = vec![
+                Component::Button(jump_start),
+                Component::Button(single_step_back),
+                Component::Button(jump_custom),
+                Component::Button(single_step),
+                Component::Button(jump_end),
+            ];
+
+            vec![Component::ActionRow(ActionRow { components })]
+        }
+
+        fn simulate_components(&self, version: TopOldVersion) -> Vec<Component> {
+            macro_rules! versions {
             ( $( $label:literal, $value:literal, $version:ident = $ty:ident :: $variant:ident ;)* ) => {
                 vec![
                     $(
@@ -496,346 +516,348 @@ impl Pages {
             }
         }
 
-        macro_rules! button {
-            ($custom_id:literal, $label:literal, $style:ident) => {
-                Button {
-                    custom_id: Some($custom_id.to_owned()),
-                    disabled: false,
-                    emoji: None,
-                    label: Some($label.to_owned()),
-                    style: ButtonStyle::$style,
-                    url: None,
+            macro_rules! button {
+                ($custom_id:literal, $label:literal, $style:ident) => {
+                    Button {
+                        custom_id: Some($custom_id.to_owned()),
+                        disabled: false,
+                        emoji: None,
+                        label: Some($label.to_owned()),
+                        style: ButtonStyle::$style,
+                        url: None,
+                    }
+                };
+            }
+
+            let (upper, bottom, version) = match version {
+                TopOldVersion::Osu(version) => {
+                    let mods = button!("sim_mods", "Mods", Primary);
+                    let combo = button!("sim_combo", "Combo", Primary);
+                    let acc = button!("sim_acc", "Accuracy", Primary);
+
+                    let mut upper = vec![
+                        Component::Button(mods),
+                        Component::Button(combo),
+                        Component::Button(acc),
+                    ];
+
+                    if let TopOldOsuVersion::September22Now = version {
+                        let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
+                        upper.push(Component::Button(clock_rate));
+                    }
+
+                    let attrs = button!("sim_attrs", "Attributes", Primary);
+                    upper.push(Component::Button(attrs));
+
+                    let n300 = button!("sim_n300", "n300", Secondary);
+                    let n100 = button!("sim_n100", "n100", Secondary);
+                    let n50 = button!("sim_n50", "n50", Secondary);
+                    let n_miss = button!("sim_miss", "Misses", Danger);
+
+                    let bottom = vec![
+                        Component::Button(n300),
+                        Component::Button(n100),
+                        Component::Button(n50),
+                        Component::Button(n_miss),
+                    ];
+
+                    let options = versions![
+                        "September 2022 - Now", "sim_osu_september22_now", version = TopOldOsuVersion::September22Now;
+                        "July 2021 - November 2021", "sim_osu_july21_november21", version = TopOldOsuVersion::July21November21;
+                        "January 2021 - July 2021", "sim_osu_january21_july21", version = TopOldOsuVersion::January21July21;
+                        "Feburary 2019 - January 2021", "sim_osu_feburary19_january21", version = TopOldOsuVersion::February19January21;
+                        "May 2018 - February 2019", "sim_osu_may18_february19", version = TopOldOsuVersion::May18February19;
+                        "April 2015 - May 2018", "sim_osu_april15_may18", version = TopOldOsuVersion::April15May18;
+                        "February 2015 - April 2015", "sim_osu_february15_april15", version = TopOldOsuVersion::February15April15;
+                        "July 2014 - February 2015", "sim_osu_july14_february15", version = TopOldOsuVersion::July14February15;
+                        "May 2014 - July 2014", "sim_osu_may14_july14", version = TopOldOsuVersion::May14July14;
+                    ];
+
+                    let version = SelectMenu {
+                        custom_id: "sim_osu_version".to_owned(),
+                        disabled: false,
+                        max_values: None,
+                        min_values: None,
+                        options,
+                        placeholder: None,
+                    };
+
+                    (upper, Some(bottom), Component::SelectMenu(version))
+                }
+                TopOldVersion::Taiko(version) => {
+                    let mods = button!("sim_mods", "Mods", Primary);
+                    let combo = button!("sim_combo", "Combo", Primary);
+                    let acc = button!("sim_acc", "Accuracy", Primary);
+
+                    let mut upper = vec![
+                        Component::Button(mods),
+                        Component::Button(combo),
+                        Component::Button(acc),
+                    ];
+
+                    if let TopOldTaikoVersion::September22Now = version {
+                        let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
+                        upper.push(Component::Button(clock_rate));
+                    }
+
+                    let attrs = button!("sim_attrs", "Attributes", Primary);
+                    upper.push(Component::Button(attrs));
+
+                    let n300 = button!("sim_n300", "n300", Secondary);
+                    let n100 = button!("sim_n100", "n100", Secondary);
+                    let n_miss = button!("sim_miss", "Misses", Danger);
+
+                    let bottom = vec![
+                        Component::Button(n300),
+                        Component::Button(n100),
+                        Component::Button(n_miss),
+                    ];
+
+                    let options = versions![
+                        "September 2022 - Now", "sim_taiko_september22_now", version = TopOldTaikoVersion::September22Now;
+                        "September 2020 - September 2022","sim_taiko_september20_september22", version = TopOldTaikoVersion::September20September22;
+                        "March 2014 - September 2020", "sim_taiko_march14_september20", version = TopOldTaikoVersion::March14September20;
+                    ];
+
+                    let version = SelectMenu {
+                        custom_id: "sim_taiko_version".to_owned(),
+                        disabled: false,
+                        max_values: None,
+                        min_values: None,
+                        options,
+                        placeholder: None,
+                    };
+
+                    (upper, Some(bottom), Component::SelectMenu(version))
+                }
+                TopOldVersion::Catch(version) => {
+                    let mods = button!("sim_mods", "Mods", Primary);
+                    let combo = button!("sim_combo", "Combo", Primary);
+                    let acc = button!("sim_acc", "Accuracy", Primary);
+
+                    let mut upper = vec![
+                        Component::Button(mods),
+                        Component::Button(combo),
+                        Component::Button(acc),
+                    ];
+
+                    if let TopOldCatchVersion::May20Now = version {
+                        let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
+                        upper.push(Component::Button(clock_rate));
+                    }
+
+                    let attrs = button!("sim_attrs", "Attributes", Primary);
+                    upper.push(Component::Button(attrs));
+
+                    let n_fruits = button!("sim_n300", "Fruits", Secondary);
+                    let n_droplets = button!("sim_n100", "Droplets", Secondary);
+                    let n_tiny_droplets = button!("sim_n50", "Tiny droplets", Secondary);
+                    let n_tiny_droplet_misses =
+                        button!("sim_katu", "Tiny droplet misses", Secondary);
+                    let n_misses = button!("sim_miss", "Misses", Danger);
+
+                    let bottom = vec![
+                        Component::Button(n_fruits),
+                        Component::Button(n_droplets),
+                        Component::Button(n_tiny_droplets),
+                        Component::Button(n_misses),
+                        Component::Button(n_tiny_droplet_misses),
+                    ];
+
+                    let options = versions![
+                        "May 2020 - Now", "sim_catch_may20_now", version = TopOldCatchVersion::May20Now;
+                        "March 2014 - May 2020", "sim_catch_march14_may20", version = TopOldCatchVersion::March14May20;
+                    ];
+
+                    let version = SelectMenu {
+                        custom_id: "sim_catch_version".to_owned(),
+                        disabled: false,
+                        max_values: None,
+                        min_values: None,
+                        options,
+                        placeholder: None,
+                    };
+
+                    (upper, Some(bottom), Component::SelectMenu(version))
+                }
+                TopOldVersion::Mania(version) => {
+                    let (upper, bottom) = match version {
+                        TopOldManiaVersion::March14May18 | TopOldManiaVersion::May18October22 => {
+                            let mods = button!("sim_mods", "Mods", Primary);
+                            let score = button!("sim_score", "Score", Primary);
+                            let attrs = button!("sim_attrs", "Attributes", Primary);
+
+                            let upper = vec![
+                                Component::Button(mods),
+                                Component::Button(score),
+                                Component::Button(attrs),
+                            ];
+
+                            (upper, None)
+                        }
+                        TopOldManiaVersion::October22Now => {
+                            let mods = button!("sim_mods", "Mods", Primary);
+                            let acc = button!("sim_acc", "Accuracy", Primary);
+                            let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
+                            let attrs = button!("sim_attrs", "Attributes", Primary);
+                            let n_miss = button!("sim_miss", "Misses", Danger);
+
+                            let upper = vec![
+                                Component::Button(mods),
+                                Component::Button(acc),
+                                Component::Button(clock_rate),
+                                Component::Button(attrs),
+                                Component::Button(n_miss),
+                            ];
+
+                            let n320 = button!("sim_geki", "n320", Secondary);
+                            let n300 = button!("sim_n300", "n300", Secondary);
+                            let n200 = button!("sim_katu", "n200", Secondary);
+                            let n100 = button!("sim_n100", "n100", Secondary);
+                            let n50 = button!("sim_n50", "n50", Secondary);
+
+                            let bottom = vec![
+                                Component::Button(n320),
+                                Component::Button(n300),
+                                Component::Button(n200),
+                                Component::Button(n100),
+                                Component::Button(n50),
+                            ];
+
+                            (upper, Some(bottom))
+                        }
+                    };
+
+                    let options = versions![
+                        "October 2022 - Now", "sim_mania_october22_now", version = TopOldManiaVersion::October22Now;
+                        "May 2018 - October 2022", "sim_mania_may18_october22", version = TopOldManiaVersion::May18October22;
+                        "March 2014 - May 2018", "sim_mania_march14_may18", version = TopOldManiaVersion::March14May18;
+                    ];
+
+                    let version = SelectMenu {
+                        custom_id: "sim_mania_version".to_owned(),
+                        disabled: false,
+                        max_values: None,
+                        min_values: None,
+                        options,
+                        placeholder: None,
+                    };
+
+                    (upper, bottom, Component::SelectMenu(version))
                 }
             };
+
+            let upper = Component::ActionRow(ActionRow { components: upper });
+            let version = Component::ActionRow(ActionRow {
+                components: vec![version],
+            });
+
+            match bottom.map(|components| ActionRow { components }) {
+                Some(bottom) => vec![upper, Component::ActionRow(bottom), version],
+                None => vec![upper, version],
+            }
         }
 
-        let (upper, bottom, version) = match version {
-            TopOldVersion::Osu(version) => {
-                let mods = button!("sim_mods", "Mods", Primary);
-                let combo = button!("sim_combo", "Combo", Primary);
-                let acc = button!("sim_acc", "Accuracy", Primary);
+        fn profile_components(&self) -> Vec<Component> {
+            let options = vec![
+                SelectMenuOption {
+                    default: self.index == 0,
+                    description: Some("Compact user statistics".to_owned()),
+                    emoji: None,
+                    label: "Compact".to_owned(),
+                    value: "compact".to_owned(),
+                },
+                SelectMenuOption {
+                    default: self.index == 1,
+                    description: Some("Extended user statistics".to_owned()),
+                    emoji: None,
+                    label: "User Statistics".to_owned(),
+                    value: "user_stats".to_owned(),
+                },
+                SelectMenuOption {
+                    default: self.index == 2,
+                    description: Some("Min-Avg-Max values for top100 scores".to_owned()),
+                    emoji: None,
+                    label: "Top100 Statistics".to_owned(),
+                    value: "top100_stats".to_owned(),
+                },
+                SelectMenuOption {
+                    default: self.index == 3,
+                    description: Some("Favourite mods in top100 scores".to_owned()),
+                    emoji: None,
+                    label: "Top100 Mods".to_owned(),
+                    value: "top100_mods".to_owned(),
+                },
+                SelectMenuOption {
+                    default: self.index == 4,
+                    description: Some("Mapper appearances in top100 scores".to_owned()),
+                    emoji: None,
+                    label: "Top100 Mappers".to_owned(),
+                    value: "top100_mappers".to_owned(),
+                },
+                SelectMenuOption {
+                    default: self.index == 5,
+                    description: Some("Mapping statistics & Kudosu".to_owned()),
+                    emoji: None,
+                    label: "Mapper Statistics".to_owned(),
+                    value: "mapper_stats".to_owned(),
+                },
+            ];
 
-                let mut upper = vec![
-                    Component::Button(mods),
-                    Component::Button(combo),
-                    Component::Button(acc),
-                ];
+            let menu = SelectMenu {
+                custom_id: "profile_menu".to_owned(),
+                disabled: false,
+                max_values: None,
+                min_values: None,
+                options,
+                placeholder: None,
+            };
 
-                if let TopOldOsuVersion::September22Now = version {
-                    let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
-                    upper.push(Component::Button(clock_rate));
-                }
+            let components = vec![Component::SelectMenu(menu)];
 
-                let attrs = button!("sim_attrs", "Attributes", Primary);
-                upper.push(Component::Button(attrs));
-
-                let n300 = button!("sim_n300", "n300", Secondary);
-                let n100 = button!("sim_n100", "n100", Secondary);
-                let n50 = button!("sim_n50", "n50", Secondary);
-                let n_miss = button!("sim_miss", "Misses", Danger);
-
-                let bottom = vec![
-                    Component::Button(n300),
-                    Component::Button(n100),
-                    Component::Button(n50),
-                    Component::Button(n_miss),
-                ];
-
-                let options = versions![
-                    "September 2022 - Now", "sim_osu_september22_now", version = TopOldOsuVersion::September22Now;
-                    "July 2021 - November 2021", "sim_osu_july21_november21", version = TopOldOsuVersion::July21November21;
-                    "January 2021 - July 2021", "sim_osu_january21_july21", version = TopOldOsuVersion::January21July21;
-                    "Feburary 2019 - January 2021", "sim_osu_feburary19_january21", version = TopOldOsuVersion::February19January21;
-                    "May 2018 - February 2019", "sim_osu_may18_february19", version = TopOldOsuVersion::May18February19;
-                    "April 2015 - May 2018", "sim_osu_april15_may18", version = TopOldOsuVersion::April15May18;
-                    "February 2015 - April 2015", "sim_osu_february15_april15", version = TopOldOsuVersion::February15April15;
-                    "July 2014 - February 2015", "sim_osu_july14_february15", version = TopOldOsuVersion::July14February15;
-                    "May 2014 - July 2014", "sim_osu_may14_july14", version = TopOldOsuVersion::May14July14;
-                ];
-
-                let version = SelectMenu {
-                    custom_id: "sim_osu_version".to_owned(),
-                    disabled: false,
-                    max_values: None,
-                    min_values: None,
-                    options,
-                    placeholder: None,
-                };
-
-                (upper, Some(bottom), Component::SelectMenu(version))
-            }
-            TopOldVersion::Taiko(version) => {
-                let mods = button!("sim_mods", "Mods", Primary);
-                let combo = button!("sim_combo", "Combo", Primary);
-                let acc = button!("sim_acc", "Accuracy", Primary);
-
-                let mut upper = vec![
-                    Component::Button(mods),
-                    Component::Button(combo),
-                    Component::Button(acc),
-                ];
-
-                if let TopOldTaikoVersion::September22Now = version {
-                    let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
-                    upper.push(Component::Button(clock_rate));
-                }
-
-                let attrs = button!("sim_attrs", "Attributes", Primary);
-                upper.push(Component::Button(attrs));
-
-                let n300 = button!("sim_n300", "n300", Secondary);
-                let n100 = button!("sim_n100", "n100", Secondary);
-                let n_miss = button!("sim_miss", "Misses", Danger);
-
-                let bottom = vec![
-                    Component::Button(n300),
-                    Component::Button(n100),
-                    Component::Button(n_miss),
-                ];
-
-                let options = versions![
-                    "September 2022 - Now", "sim_taiko_september22_now", version = TopOldTaikoVersion::September22Now;
-                    "September 2020 - September 2022","sim_taiko_september20_september22", version = TopOldTaikoVersion::September20September22;
-                    "March 2014 - September 2020", "sim_taiko_march14_september20", version = TopOldTaikoVersion::March14September20;
-                ];
-
-                let version = SelectMenu {
-                    custom_id: "sim_taiko_version".to_owned(),
-                    disabled: false,
-                    max_values: None,
-                    min_values: None,
-                    options,
-                    placeholder: None,
-                };
-
-                (upper, Some(bottom), Component::SelectMenu(version))
-            }
-            TopOldVersion::Catch(version) => {
-                let mods = button!("sim_mods", "Mods", Primary);
-                let combo = button!("sim_combo", "Combo", Primary);
-                let acc = button!("sim_acc", "Accuracy", Primary);
-
-                let mut upper = vec![
-                    Component::Button(mods),
-                    Component::Button(combo),
-                    Component::Button(acc),
-                ];
-
-                if let TopOldCatchVersion::May20Now = version {
-                    let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
-                    upper.push(Component::Button(clock_rate));
-                }
-
-                let attrs = button!("sim_attrs", "Attributes", Primary);
-                upper.push(Component::Button(attrs));
-
-                let n_fruits = button!("sim_n300", "Fruits", Secondary);
-                let n_droplets = button!("sim_n100", "Droplets", Secondary);
-                let n_tiny_droplets = button!("sim_n50", "Tiny droplets", Secondary);
-                let n_tiny_droplet_misses = button!("sim_katu", "Tiny droplet misses", Secondary);
-                let n_misses = button!("sim_miss", "Misses", Danger);
-
-                let bottom = vec![
-                    Component::Button(n_fruits),
-                    Component::Button(n_droplets),
-                    Component::Button(n_tiny_droplets),
-                    Component::Button(n_misses),
-                    Component::Button(n_tiny_droplet_misses),
-                ];
-
-                let options = versions![
-                    "May 2020 - Now", "sim_catch_may20_now", version = TopOldCatchVersion::May20Now;
-                    "March 2014 - May 2020", "sim_catch_march14_may20", version = TopOldCatchVersion::March14May20;
-                ];
-
-                let version = SelectMenu {
-                    custom_id: "sim_catch_version".to_owned(),
-                    disabled: false,
-                    max_values: None,
-                    min_values: None,
-                    options,
-                    placeholder: None,
-                };
-
-                (upper, Some(bottom), Component::SelectMenu(version))
-            }
-            TopOldVersion::Mania(version) => {
-                let (upper, bottom) = match version {
-                    TopOldManiaVersion::March14May18 | TopOldManiaVersion::May18October22 => {
-                        let mods = button!("sim_mods", "Mods", Primary);
-                        let score = button!("sim_score", "Score", Primary);
-                        let attrs = button!("sim_attrs", "Attributes", Primary);
-
-                        let upper = vec![
-                            Component::Button(mods),
-                            Component::Button(score),
-                            Component::Button(attrs),
-                        ];
-
-                        (upper, None)
-                    }
-                    TopOldManiaVersion::October22Now => {
-                        let mods = button!("sim_mods", "Mods", Primary);
-                        let acc = button!("sim_acc", "Accuracy", Primary);
-                        let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
-                        let attrs = button!("sim_attrs", "Attributes", Primary);
-                        let n_miss = button!("sim_miss", "Misses", Danger);
-
-                        let upper = vec![
-                            Component::Button(mods),
-                            Component::Button(acc),
-                            Component::Button(clock_rate),
-                            Component::Button(attrs),
-                            Component::Button(n_miss),
-                        ];
-
-                        let n320 = button!("sim_geki", "n320", Secondary);
-                        let n300 = button!("sim_n300", "n300", Secondary);
-                        let n200 = button!("sim_katu", "n200", Secondary);
-                        let n100 = button!("sim_n100", "n100", Secondary);
-                        let n50 = button!("sim_n50", "n50", Secondary);
-
-                        let bottom = vec![
-                            Component::Button(n320),
-                            Component::Button(n300),
-                            Component::Button(n200),
-                            Component::Button(n100),
-                            Component::Button(n50),
-                        ];
-
-                        (upper, Some(bottom))
-                    }
-                };
-
-                let options = versions![
-                    "October 2022 - Now", "sim_mania_october22_now", version = TopOldManiaVersion::October22Now;
-                    "May 2018 - October 2022", "sim_mania_may18_october22", version = TopOldManiaVersion::May18October22;
-                    "March 2014 - May 2018", "sim_mania_march14_may18", version = TopOldManiaVersion::March14May18;
-                ];
-
-                let version = SelectMenu {
-                    custom_id: "sim_mania_version".to_owned(),
-                    disabled: false,
-                    max_values: None,
-                    min_values: None,
-                    options,
-                    placeholder: None,
-                };
-
-                (upper, bottom, Component::SelectMenu(version))
-            }
-        };
-
-        let upper = Component::ActionRow(ActionRow { components: upper });
-        let version = Component::ActionRow(ActionRow {
-            components: vec![version],
-        });
-
-        match bottom.map(|components| ActionRow { components }) {
-            Some(bottom) => vec![upper, Component::ActionRow(bottom), version],
-            None => vec![upper, version],
-        }
-    }
-
-    fn profile_components(&self) -> Vec<Component> {
-        let options = vec![
-            SelectMenuOption {
-                default: self.index == 0,
-                description: Some("Compact user statistics".to_owned()),
-                emoji: None,
-                label: "Compact".to_owned(),
-                value: "compact".to_owned(),
-            },
-            SelectMenuOption {
-                default: self.index == 1,
-                description: Some("Extended user statistics".to_owned()),
-                emoji: None,
-                label: "User Statistics".to_owned(),
-                value: "user_stats".to_owned(),
-            },
-            SelectMenuOption {
-                default: self.index == 2,
-                description: Some("Min-Avg-Max values for top100 scores".to_owned()),
-                emoji: None,
-                label: "Top100 Statistics".to_owned(),
-                value: "top100_stats".to_owned(),
-            },
-            SelectMenuOption {
-                default: self.index == 3,
-                description: Some("Favourite mods in top100 scores".to_owned()),
-                emoji: None,
-                label: "Top100 Mods".to_owned(),
-                value: "top100_mods".to_owned(),
-            },
-            SelectMenuOption {
-                default: self.index == 4,
-                description: Some("Mapper appearances in top100 scores".to_owned()),
-                emoji: None,
-                label: "Top100 Mappers".to_owned(),
-                value: "top100_mappers".to_owned(),
-            },
-            SelectMenuOption {
-                default: self.index == 5,
-                description: Some("Mapping statistics & Kudosu".to_owned()),
-                emoji: None,
-                label: "Mapper Statistics".to_owned(),
-                value: "mapper_stats".to_owned(),
-            },
-        ];
-
-        let menu = SelectMenu {
-            custom_id: "profile_menu".to_owned(),
-            disabled: false,
-            max_values: None,
-            min_values: None,
-            options,
-            placeholder: None,
-        };
-
-        let components = vec![Component::SelectMenu(menu)];
-
-        vec![Component::ActionRow(ActionRow { components })]
-    }
-
-    fn map_search_components(&self) -> Vec<Component> {
-        if self.last_index == 0 {
-            return Vec::new();
+            vec![Component::ActionRow(ActionRow { components })]
         }
 
-        let jump_start = Button {
-            custom_id: Some("pagination_start".to_owned()),
-            disabled: self.index == 0,
-            emoji: Some(Emote::JumpStart.reaction_type()),
-            label: None,
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
+        fn map_search_components(&self) -> Vec<Component> {
+            if self.last_index == 0 {
+                return Vec::new();
+            }
 
-        let single_step_back = Button {
-            custom_id: Some("pagination_back".to_owned()),
-            disabled: self.index == 0,
-            emoji: Some(Emote::SingleStepBack.reaction_type()),
-            label: None,
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
+            let jump_start = Button {
+                custom_id: Some("pagination_start".to_owned()),
+                disabled: self.index == 0,
+                emoji: Some(Emote::JumpStart.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+            };
 
-        let single_step = Button {
-            custom_id: Some("pagination_step".to_owned()),
-            disabled: self.index == self.last_index,
-            emoji: Some(Emote::SingleStep.reaction_type()),
-            label: None,
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
+            let single_step_back = Button {
+                custom_id: Some("pagination_back".to_owned()),
+                disabled: self.index == 0,
+                emoji: Some(Emote::SingleStepBack.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+            };
 
-        let components = vec![
-            Component::Button(jump_start),
-            Component::Button(single_step_back),
-            Component::Button(single_step),
-        ];
+            let single_step = Button {
+                custom_id: Some("pagination_step".to_owned()),
+                disabled: self.index == self.last_index,
+                emoji: Some(Emote::SingleStep.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+            };
 
-        vec![Component::ActionRow(ActionRow { components })]
+            let components = vec![
+                Component::Button(jump_start),
+                Component::Button(single_step_back),
+                Component::Button(single_step),
+            ];
+
+            vec![Component::ActionRow(ActionRow { components })]
+        }
     }
 }
 
