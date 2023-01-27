@@ -27,8 +27,8 @@ pub struct LeaderboardPagination {
 
 impl LeaderboardPagination {
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Embed {
-        let end_idx = self.scores.len().min(pages.index + pages.per_page);
-        let scores = &self.scores[pages.index..end_idx];
+        let end_idx = self.scores.len().min(pages.index() + pages.per_page());
+        let scores = &self.scores[pages.index()..end_idx];
 
         let embed_fut = LeaderboardEmbed::new(
             self.author_name.as_deref(),

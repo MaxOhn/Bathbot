@@ -33,7 +33,7 @@ impl MedalRecentPagination {
         let mut embeds = HashMap::default();
         embeds.insert(index, embed_data);
         let mut pages = Pages::new(1, achieved_medals.len());
-        pages.index = index.saturating_sub(1);
+        pages.update(|_| index.saturating_sub(1));
         let mut cached_medals = HashMap::default();
         cached_medals.insert(initial_medal.medal_id, initial_medal);
 
@@ -51,7 +51,7 @@ impl MedalRecentPagination {
     }
 
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let idx = pages.index + 1;
+        let idx = pages.index() + 1;
 
         let embed = match self.embeds.entry(idx) {
             Entry::Occupied(e) => e.get().to_owned(),

@@ -22,8 +22,8 @@ pub struct OsuTrackerMapsetsPagination {
 
 impl OsuTrackerMapsetsPagination {
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
-        let idx = pages.index;
-        let entries = &self.entries[idx..self.entries.len().min(idx + pages.per_page)];
+        let idx = pages.index();
+        let entries = &self.entries[idx..self.entries.len().min(idx + pages.per_page())];
 
         for entry in entries {
             let mapset_id = entry.mapset_id;

@@ -132,7 +132,7 @@ impl MapSearchEmbed {
             };
         }
 
-        let index = pages.index;
+        let index = pages.index();
         let entries = maps.range(index..index + 10);
         let mut description = String::with_capacity(512);
 

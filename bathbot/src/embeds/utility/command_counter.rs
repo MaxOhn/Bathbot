@@ -22,7 +22,7 @@ impl CommandCounterEmbed {
         let mut description = String::with_capacity(256);
         description.push_str("```\n");
 
-        for ((name, amount), i) in list.into_iter().zip(pages.index + 1..) {
+        for ((name, amount), i) in list.into_iter().zip(pages.index() + 1..) {
             let _ = writeln!(
                 description,
                 "{i:>2} {:1} # {name:<len$} => {amount}",

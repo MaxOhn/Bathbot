@@ -28,8 +28,8 @@ pub struct TopPagination {
 
 impl TopPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let end_idx = self.entries.len().min(pages.index + pages.per_page);
-        let scores = &self.entries[pages.index..end_idx];
+        let end_idx = self.entries.len().min(pages.index() + pages.per_page());
+        let scores = &self.entries[pages.index()..end_idx];
 
         TopEmbed::new(
             &self.user,
@@ -54,8 +54,8 @@ pub struct TopCondensedPagination {
 
 impl TopCondensedPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let end_idx = self.entries.len().min(pages.index + pages.per_page);
-        let scores = &self.entries[pages.index..end_idx];
+        let end_idx = self.entries.len().min(pages.index() + pages.per_page());
+        let scores = &self.entries[pages.index()..end_idx];
 
         CondensedTopEmbed::new(
             &self.user,
@@ -78,7 +78,7 @@ pub struct TopSinglePagination {
 
 impl TopSinglePagination {
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
-        let entry = &self.entries[pages.index];
+        let entry = &self.entries[pages.index()];
         let personal_idx = Some(entry.original_idx);
 
         let embed_fut = TopSingleEmbed::new(

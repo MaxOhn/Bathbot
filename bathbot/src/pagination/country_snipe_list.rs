@@ -19,7 +19,12 @@ pub struct CountrySnipeListPagination {
 
 impl CountrySnipeListPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let players = self.players.iter().skip(pages.index).take(pages.per_page);
+        let players = self
+            .players
+            .iter()
+            .skip(pages.index())
+            .take(pages.per_page());
+
         let country = self.country.as_ref();
 
         CountrySnipeListEmbed::new(country, self.order, players, self.author_idx, pages).build()

@@ -40,14 +40,14 @@ impl MapSearchPagination {
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let count = self
             .maps
-            .range(pages.index..pages.index + pages.per_page)
+            .range(pages.index()..pages.index() + pages.per_page())
             .count();
 
-        if count < pages.per_page {
+        if count < pages.per_page() {
             let next_fut = self.search_result.get_next(ctx.osu());
 
             if let Some(mut next_search_result) = next_fut.await.transpose()? {
-                let idx = pages.index;
+                let idx = pages.index();
 
                 let iter = next_search_result
                     .mapsets

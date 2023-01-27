@@ -33,11 +33,11 @@ impl PlayerSnipeListPagination {
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let count = self
             .scores
-            .range(pages.index..pages.index + pages.per_page)
+            .range(pages.index()..pages.index() + pages.per_page())
             .count();
 
-        if count < pages.per_page && count < self.total - pages.index {
-            let huismetbenen_page = pages.index / 50 + 1;
+        if count < pages.per_page() && count < self.total - pages.index() {
+            let huismetbenen_page = pages.index() / 50 + 1;
             self.params.page(huismetbenen_page as u8);
 
             // Get scores
@@ -59,7 +59,7 @@ impl PlayerSnipeListPagination {
         // Get maps from DB
         let map_ids: HashMap<_, _, _> = self
             .scores
-            .range(pages.index..pages.index + pages.per_page)
+            .range(pages.index()..pages.index() + pages.per_page())
             .filter_map(|(_, score)| {
                 if self.maps.contains_key(&score.map.map_id) {
                     None

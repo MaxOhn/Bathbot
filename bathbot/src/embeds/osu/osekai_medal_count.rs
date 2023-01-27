@@ -18,7 +18,7 @@ impl MedalCountEmbed {
     pub fn new(ranking: &[OsekaiUserEntry], author_idx: Option<usize>, pages: &Pages) -> Self {
         let mut description = String::with_capacity(1024);
 
-        for (entry, idx) in ranking.iter().zip(pages.index..) {
+        for (entry, idx) in ranking.iter().zip(pages.index()..) {
             let medal_name = entry.rarest_medal.as_str();
             let tmp = medal_name.cow_replace(' ', "+");
             let url_name = tmp.cow_replace(',', "%2C");

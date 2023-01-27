@@ -13,8 +13,8 @@ pub struct MedalRarityPagination {
 
 impl MedalRarityPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let idx = pages.index;
-        let limit = self.ranking.len().min(idx + pages.per_page);
+        let idx = pages.index();
+        let limit = self.ranking.len().min(idx + pages.per_page());
 
         MedalRarityEmbed::new(&self.ranking[idx..limit], pages).build()
     }

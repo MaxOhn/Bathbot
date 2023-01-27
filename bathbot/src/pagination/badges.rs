@@ -20,7 +20,7 @@ pub struct BadgePagination {
 
 impl BadgePagination {
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
-        let idx = pages.index;
+        let idx = pages.index();
         let badge = &self.badges[idx];
 
         let owners = match self.owners.entry(idx) {

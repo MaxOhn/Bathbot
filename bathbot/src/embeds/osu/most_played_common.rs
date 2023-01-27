@@ -28,7 +28,7 @@ impl MostPlayedCommonEmbed {
         let name1 = user1.username();
         let name2 = user2.username();
 
-        for ((map_id, _), i) in map_counts.iter().zip(pages.index + 1..) {
+        for ((map_id, _), i) in map_counts.iter().zip(pages.index() + 1..) {
             let ([count1, count2], map) = &maps[map_id];
 
             let (medal1, medal2) = match count1.cmp(count2) {

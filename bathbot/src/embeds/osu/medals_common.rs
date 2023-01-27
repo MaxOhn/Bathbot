@@ -34,7 +34,7 @@ impl MedalsCommonEmbed {
     ) -> Self {
         let mut description = String::with_capacity(512);
 
-        for (entry, i) in medals.iter().zip(pages.index + 1..) {
+        for (entry, i) in medals.iter().zip(pages.index() + 1..) {
             let _ = writeln!(
                 description,
                 "**{i}. [{name}](https://osekai.net/medals/?medal={medal})**",

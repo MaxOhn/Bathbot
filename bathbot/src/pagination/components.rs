@@ -37,7 +37,7 @@ pub async fn handle_pagination_component<F>(
     page_fn: F,
 ) -> Result<()>
 where
-    F: FnOnce(&mut Pages),
+    F: FnOnce(&Pages) -> usize,
 {
     let (builder, defer_components) = {
         let mut guard = ctx.paginations.lock(&component.message.id).await;
@@ -57,7 +57,7 @@ where
         }
 
         pagination.reset_timeout();
-        page_fn(&mut pagination.pages);
+        pagination.pages.update(page_fn);
 
         (pagination.build(&ctx).await, defer_components)
     };
@@ -81,16 +81,14 @@ pub async fn handle_pagination_start(
     ctx: Arc<Context>,
     component: InteractionComponent,
 ) -> Result<()> {
-    let f = |pages: &mut Pages| pages.index = 0;
-
-    handle_pagination_component(ctx, component, f).await
+    handle_pagination_component(ctx, component, |_| 0).await
 }
 
 pub async fn handle_pagination_back(
     ctx: Arc<Context>,
     component: InteractionComponent,
 ) -> Result<()> {
-    let f = |pages: &mut Pages| pages.index -= pages.per_page;
+    let f = |pages: &Pages| pages.index().saturating_sub(pages.per_page());
 
     handle_pagination_component(ctx, component, f).await
 }
@@ -99,7 +97,7 @@ pub async fn handle_pagination_step(
     ctx: Arc<Context>,
     component: InteractionComponent,
 ) -> Result<()> {
-    let f = |pages: &mut Pages| pages.index += pages.per_page;
+    let f = |pages: &Pages| pages.index() + pages.per_page();
 
     handle_pagination_component(ctx, component, f).await
 }
@@ -108,7 +106,7 @@ pub async fn handle_pagination_end(
     ctx: Arc<Context>,
     component: InteractionComponent,
 ) -> Result<()> {
-    let f = |pages: &mut Pages| pages.index = pages.last_index;
+    let f = |pages: &Pages| pages.last_index();
 
     handle_pagination_component(ctx, component, f).await
 }
@@ -501,7 +499,9 @@ pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal)
         }
 
         pagination.reset_timeout();
-        pagination.pages.index = (page - 1) * pagination.pages.per_page;
+
+        let page_fn = |pages: &Pages| (page - 1) * pages.per_page();
+        pagination.pages.update(page_fn);
 
         (pagination.build(&ctx).await, defer_components)
     };
@@ -533,7 +533,5 @@ pub async fn handle_profile_menu(
         }
     };
 
-    let f = |pages: &mut Pages| pages.index = idx;
-
-    handle_pagination_component(ctx, component, f).await
+    handle_pagination_component(ctx, component, |_| idx).await
 }

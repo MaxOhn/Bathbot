@@ -17,8 +17,8 @@ pub struct MedalsCommonPagination {
 
 impl MedalsCommonPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let idx = pages.index;
-        let medals = &self.medals[idx..self.medals.len().min(idx + pages.per_page)];
+        let idx = pages.index();
+        let medals = &self.medals[idx..self.medals.len().min(idx + pages.per_page())];
 
         MedalsCommonEmbed::new(&self.user1, &self.user2, medals, pages).build()
     }

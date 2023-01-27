@@ -17,8 +17,8 @@ pub struct MostPlayedPagination {
 
 impl MostPlayedPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let end_idx = self.maps.len().min(pages.index + pages.per_page);
-        let maps = &self.maps[pages.index..end_idx];
+        let end_idx = self.maps.len().min(pages.index() + pages.per_page());
+        let maps = &self.maps[pages.index()..end_idx];
 
         MostPlayedEmbed::new(&self.user, maps, pages).build()
     }

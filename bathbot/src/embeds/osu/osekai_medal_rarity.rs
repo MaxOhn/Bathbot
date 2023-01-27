@@ -18,7 +18,7 @@ impl MedalRarityEmbed {
     pub fn new(ranking: &[OsekaiRarityEntry], pages: &Pages) -> Self {
         let mut description = String::with_capacity(1024);
 
-        for (entry, i) in ranking.iter().zip(pages.index + 1..) {
+        for (entry, i) in ranking.iter().zip(pages.index() + 1..) {
             let medal_name = entry.medal_name.as_str();
             let tmp = medal_name.cow_replace(' ', "+");
             let url_name = tmp.cow_replace(',', "%2C");

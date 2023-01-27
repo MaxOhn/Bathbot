@@ -63,7 +63,7 @@ impl LeaderboardEmbed {
             let mut description = String::with_capacity(256);
             let mut username = String::with_capacity(32);
 
-            for (score, i) in scores.iter().zip(pages.index + 1..) {
+            for (score, i) in scores.iter().zip(pages.index() + 1..) {
                 let found_author = author_name == Some(score.username.as_str());
                 username.clear();
 

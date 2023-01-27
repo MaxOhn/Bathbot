@@ -23,8 +23,8 @@ pub struct CommonPagination {
 
 impl CommonPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let idx = pages.index;
-        let map_pps = &self.map_pps[idx..(idx + pages.per_page).min(self.maps.len())];
+        let idx = pages.index();
+        let map_pps = &self.map_pps[idx..(idx + pages.per_page()).min(self.maps.len())];
 
         CommonEmbed::new(
             &self.name1,

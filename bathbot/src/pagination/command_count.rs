@@ -17,8 +17,8 @@ impl CommandCountPagination {
         let sub_list: Vec<(&String, u32)> = self
             .cmd_counts
             .iter()
-            .skip(pages.index)
-            .take(pages.per_page)
+            .skip(pages.index())
+            .take(pages.per_page())
             .map(|(name, amount)| (name, *amount))
             .collect();
 

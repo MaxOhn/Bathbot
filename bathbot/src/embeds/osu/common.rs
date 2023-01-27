@@ -24,7 +24,7 @@ impl CommonEmbed {
     ) -> Self {
         let mut description = String::with_capacity(1024);
 
-        for ((map_id, _), i) in map_pps.iter().zip(pages.index + 1..) {
+        for ((map_id, _), i) in map_pps.iter().zip(pages.index() + 1..) {
             let ([score1, score2], map, mapset) = &maps[map_id];
 
             let (medal1, medal2) = match score1.cmp(score2) {
