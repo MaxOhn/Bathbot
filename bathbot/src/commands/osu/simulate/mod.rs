@@ -171,7 +171,12 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         n_miss: args.misses,
         combo: args.combo,
         clock_rate: args.clock_rate,
-        attrs: SimulateAttributes::default(),
+        attrs: SimulateAttributes {
+            ar: args.ar,
+            cs: args.cs,
+            hp: args.hp,
+            od: args.od,
+        },
         original_attrs: SimulateAttributes::from(&map),
         score: None,
         version,
