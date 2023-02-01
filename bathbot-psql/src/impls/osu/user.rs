@@ -176,7 +176,7 @@ FROM
 SELECT 
   username, 
   country_code, 
-  GREATEST(total_hits::FLOAT4 / playcount::FLOAT4, 0) AS value 
+  GREATEST(total_hits::FLOAT4 / NULLIF(playcount::FLOAT4, 0), 0) AS value 
 FROM 
   (
     SELECT 
