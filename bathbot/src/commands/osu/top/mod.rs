@@ -1054,17 +1054,6 @@ async fn process_scores(
             Some(ref criteria) => score.matches(criteria),
             None => true,
         })
-        .filter(|score| {
-            match score
-                .map
-                .as_ref()
-                .and_then(|map| map.max_combo)
-                .zip(args.perfect_combo)
-            {
-                Some((max_combo, perfect_combo)) => perfect_combo == (max_combo == score.max_combo),
-                None => true,
-            }
-        })
         .map(|score| {
             (
                 score.map_id as i32,
@@ -1102,6 +1091,14 @@ async fn process_scores(
         };
 
         entries.push(entry);
+    }
+
+    if let Some(perfect_combo) = args.perfect_combo {
+        entries.retain(|entry| {
+            entry.map.max_combo().map_or(true, |max_combo| {
+                perfect_combo == (max_combo == entry.score.max_combo)
+            })
+        });
     }
 
     match args.sort_by {
