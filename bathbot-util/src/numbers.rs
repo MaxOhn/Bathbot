@@ -45,14 +45,18 @@ macro_rules! impl_with_comma {
                         write!(f, ",{:0>3}", rev % 1000)?;
                     }
 
-                    let mut dec = (100.0 * n.fract()).round() as u32;
+                    let dec = (100.0 * n.fract()).round() as u32;
 
                     if dec > 0 {
-                        if dec % 10 == 0 {
-                            dec /= 10;
-                        }
+                        f.write_str(".")?;
 
-                        write!(f, ".{dec}")?;
+                        if dec < 10 {
+                            write!(f, "0{dec}")?;
+                        } else if dec == 100 {
+                            f.write_str("99")?;
+                        } else {
+                            write!(f, "{dec}")?;
+                        }
                     }
 
                     Ok(())
