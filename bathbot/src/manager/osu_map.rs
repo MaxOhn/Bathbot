@@ -7,7 +7,6 @@ use bathbot_psql::{
 };
 use bathbot_util::{ExponentialBackoff, IntHasher};
 use eyre::{ContextCompat, Report, WrapErr};
-use futures::{stream::FuturesUnordered, TryStreamExt};
 use rosu_pp::{Beatmap, DifficultyAttributes, GameMode as Mode, ParseError};
 use rosu_v2::prelude::{Beatmapset, GameMode, GameMods, OsuError, RankStatus};
 use thiserror::Error;
@@ -121,30 +120,32 @@ impl<'d> MapManager<'d> {
             .await
             .wrap_err("failed to get maps")?;
 
-        let maps: HashMap<_, _, IntHasher> = maps_id_checksum
+        let iter = maps_id_checksum
             .keys()
-            .map(|map_id| (*map_id as u32, db_maps.remove(map_id)))
-            .map(|(map_id, map_opt)| async move {
-                let map = if let Some((map, mapset, filepath)) = map_opt {
-                    let (pp_map, map_opt) = self.prepare_map(map_id, filepath).await?;
+            .map(|map_id| (*map_id as u32, db_maps.remove(map_id)));
 
-                    match map_opt {
-                        Some(map) => OsuMap { map, pp_map },
-                        None => OsuMap::new(map, mapset, pp_map),
-                    }
-                } else {
-                    let map_fut = self.retrieve_map(map_id);
-                    let prepare_fut = self.prepare_map(map_id, DbMapPath::Missing);
-                    let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
+        let mut maps = HashMap::with_capacity_and_hasher(maps_id_checksum.len(), IntHasher);
 
-                    OsuMap { map, pp_map }
-                };
+        // Having this non-async is pretty sad but the many I/O operations appear
+        // to cause thread-limitation issues when collected into a FuturesUnordered.
+        for (map_id, map_opt) in iter {
+            let map = if let Some((map, mapset, filepath)) = map_opt {
+                let (pp_map, map_opt) = self.prepare_map(map_id, filepath).await?;
 
-                Ok::<_, MapError>((map_id, map))
-            })
-            .collect::<FuturesUnordered<_>>()
-            .try_collect()
-            .await?;
+                match map_opt {
+                    Some(map) => OsuMap { map, pp_map },
+                    None => OsuMap::new(map, mapset, pp_map),
+                }
+            } else {
+                let map_fut = self.retrieve_map(map_id);
+                let prepare_fut = self.prepare_map(map_id, DbMapPath::Missing);
+                let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
+
+                OsuMap { map, pp_map }
+            };
+
+            maps.insert(map_id, map);
+        }
 
         Ok(maps)
     }
