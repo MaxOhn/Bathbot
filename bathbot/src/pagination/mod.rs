@@ -563,6 +563,7 @@ mod pages {
 
                     let options = versions![
                         "September 2022 - Now", "sim_osu_september22_now", version = TopOldOsuVersion::September22Now;
+                        "November 2021 - September 2022", "sim_osu_november21_september22", version = TopOldOsuVersion::November21September22;
                         "July 2021 - November 2021", "sim_osu_july21_november21", version = TopOldOsuVersion::July21November21;
                         "January 2021 - July 2021", "sim_osu_january21_july21", version = TopOldOsuVersion::January21July21;
                         "Feburary 2019 - January 2021", "sim_osu_feburary19_january21", version = TopOldOsuVersion::February19January21;

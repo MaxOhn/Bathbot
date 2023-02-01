@@ -586,6 +586,7 @@ impl TopOldVersion {
     pub fn from_menu_str(s: &str) -> Option<Self> {
         let version = match s {
             "sim_osu_september22_now" => Self::Osu(TopOldOsuVersion::September22Now),
+            "sim_osu_november21_september22" => Self::Osu(TopOldOsuVersion::November21September22),
             "sim_osu_july21_november21" => Self::Osu(TopOldOsuVersion::July21November21),
             "sim_osu_january21_july21" => Self::Osu(TopOldOsuVersion::January21July21),
             "sim_osu_feburary19_january21" => Self::Osu(TopOldOsuVersion::February19January21),
