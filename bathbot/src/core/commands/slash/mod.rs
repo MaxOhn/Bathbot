@@ -85,7 +85,6 @@ impl SlashCommands {
                 Popular => POPULAR_SLASH,
                 Pp => PP_SLASH,
                 Profile => PROFILE_SLASH,
-                Prune => PRUNE_SLASH,
                 Rank => RANK_SLASH,
                 Ranking => RANKING_SLASH,
                 Ratios => RATIOS_SLASH,

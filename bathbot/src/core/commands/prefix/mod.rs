@@ -179,7 +179,6 @@ impl PrefixCommands {
                 PPRANKINGTAIKO_PREFIX,
                 PREFIX_PREFIX,
                 PRETENDER_PREFIX,
-                PRUNE_PREFIX,
                 RANK_PREFIX,
                 RANKCTB_PREFIX,
                 RANKMANIA_PREFIX,
