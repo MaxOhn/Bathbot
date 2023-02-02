@@ -183,6 +183,7 @@ impl Client {
             ("user_id", Cow::Owned(user_id.to_string())),
             ("first", "1".into()),
             ("sort", "time".into()),
+            ("type", "archive".into()),
         ];
 
         let bytes = self
