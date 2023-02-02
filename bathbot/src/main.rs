@@ -161,8 +161,8 @@ async fn async_main() -> Result<()> {
                 .await
                 .wrap_err_with(|| format!("failed to request members for guild {guild_id}"));
 
-            if let Err(report) = command_result {
-                warn!("{report:?}");
+            if let Err(err) = command_result {
+                warn!("{err:?}");
 
                 if let Err(err) = member_tx.send((guild_id, shard_id)) {
                     warn!("Failed to re-forward member request: {err}");

@@ -13,7 +13,7 @@ use crate::{
 #[cfg(feature = "osutracking")]
 use crate::tracking::default_tracking_interval;
 
-use self::{add_bg::*, add_country::*, cache::*};
+use self::{add_bg::*, add_country::*, cache::*, request_members::*};
 
 #[cfg(feature = "osutracking")]
 use self::{tracking_interval::*, tracking_stats::*};
@@ -23,6 +23,7 @@ use super::GameModeOption;
 mod add_bg;
 mod add_country;
 mod cache;
+mod request_members;
 
 #[cfg(feature = "osutracking")]
 mod tracking_interval;
@@ -41,6 +42,8 @@ pub enum Owner {
     AddCountry(OwnerAddCountry),
     #[command(name = "cache")]
     Cache(OwnerCache),
+    #[command(name = "requestmembers")]
+    RequestMembers(RequestMembers),
     #[cfg(feature = "osutracking")]
     #[command(name = "tracking")]
     Tracking(OwnerTracking),
@@ -70,6 +73,14 @@ pub struct OwnerAddCountry {
 #[command(name = "cache")]
 /// Display stats about the internal cache
 pub struct OwnerCache;
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "requestmembers")]
+/// Manually queue a member request for a guild
+pub struct RequestMembers {
+    /// The guild id of which members should be requested
+    guild_id: String, // u64 might be larger than what discord accepts as valid integer
+}
 
 #[cfg(feature = "osutracking")]
 #[derive(CommandModel, CreateCommand)]
@@ -110,6 +121,7 @@ async fn slash_owner(ctx: Arc<Context>, mut command: InteractionCommand) -> Resu
         Owner::AddBg(bg) => addbg(ctx, command, bg).await,
         Owner::AddCountry(country) => addcountry(ctx, command, country).await,
         Owner::Cache(_) => cache(ctx, command).await,
+        Owner::RequestMembers(args) => request_members(ctx, command, &args.guild_id).await,
         #[cfg(feature = "osutracking")]
         Owner::Tracking(OwnerTracking::Interval(interval)) => {
             let secs = interval
