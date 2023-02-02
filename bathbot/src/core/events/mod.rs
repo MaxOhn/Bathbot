@@ -140,6 +140,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
         }
         Event::GiftCodeUpdate => {}
         Event::GuildCreate(e) => {
+            ctx.guild_shards().pin().insert(e.id, shard_id);
             ctx.stats.event_counts.guild_create.inc();
             ctx.member_requests.todo_guilds.lock().insert(e.id);
 

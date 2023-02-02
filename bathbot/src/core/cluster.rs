@@ -52,14 +52,12 @@ pub async fn build_cluster(
     let presence =
         UpdatePresencePayload::new([activity.into()], false, None, Status::Online).unwrap();
 
-    let tuple = Cluster::builder(token.to_owned(), intents)
+    Cluster::builder(token.to_owned(), intents)
         .event_types(event_types)
         .http_client(http)
         .resume_sessions(resume_data)
         .presence(presence)
         .build()
         .await
-        .wrap_err("failed to build cluster")?;
-
-    Ok(tuple)
+        .wrap_err("failed to build cluster")
 }

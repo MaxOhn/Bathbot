@@ -48,6 +48,7 @@ mod twitch;
 
 pub type Redis = Pool<RedisConnectionManager>;
 
+type GuildShards = FlurryMap<Id<GuildMarker>, u64>;
 type GuildConfigs = FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>;
 type TrackedStreams = FlurryMap<u64, Vec<Id<ChannelMarker>>, IntHasher>;
 
@@ -83,6 +84,10 @@ impl Context {
     #[cfg(feature = "osutracking")]
     pub fn tracking(&self) -> &crate::tracking::OsuTracking {
         &self.data.osu_tracking
+    }
+
+    pub fn guild_shards(&self) -> &GuildShards {
+        &self.data.guild_shards
     }
 
     pub async fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Result<ContextTuple> {
@@ -266,6 +271,7 @@ struct ContextData {
     osu_tracking: crate::tracking::OsuTracking,
     guild_configs: GuildConfigs,     // read-heavy
     tracked_streams: TrackedStreams, // read-heavy
+    guild_shards: GuildShards,       // necessary to request members for a guild
 }
 
 impl ContextData {
@@ -273,6 +279,7 @@ impl ContextData {
         Ok(Self {
             application_id,
             games: Games::new(),
+            guild_shards: GuildShards::default(),
             guild_configs: psql
                 .select_guild_configs::<IntHasher>()
                 .await

@@ -32,9 +32,8 @@ pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
         ..
     } = interaction;
 
-    let channel_id = match channel_id {
-        Some(channel_id) => channel_id,
-        None => return warn!("no channel id for interaction kind {kind:?}"),
+    let Some(channel_id) = channel_id else {
+        return warn!("no channel id for interaction kind {kind:?}");
     };
 
     match data {
@@ -59,9 +58,8 @@ pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
             }
         }
         Some(InteractionData::MessageComponent(data)) => {
-            let message = match message {
-                Some(message) => message,
-                None => return warn!("no message in interaction component"),
+            let Some(message) = message else {
+                return warn!("no message in interaction component");
             };
 
             let component = InteractionComponent {
