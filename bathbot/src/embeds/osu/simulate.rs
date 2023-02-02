@@ -193,6 +193,7 @@ pub struct SimulateData {
     pub version: TopOldVersion,
     pub attrs: SimulateAttributes,
     pub original_attrs: SimulateAttributes,
+    pub is_convert: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -408,6 +409,7 @@ impl SimulateData {
                     n300: n300 as usize,
                     n100: n100 as usize,
                     n_misses: n_miss as usize,
+                    is_convert: is_convert,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 }
@@ -454,6 +456,7 @@ impl SimulateData {
                     n100: n100 as usize,
                     n50: n50 as usize,
                     n_misses: n_miss as usize,
+                    is_convert: is_convert,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 }

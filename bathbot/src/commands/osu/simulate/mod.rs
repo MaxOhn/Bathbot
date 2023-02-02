@@ -149,15 +149,21 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         ),
     };
 
+    let mut is_convert = false;
+
     match map.pp_map.convert_mode(converted_mode) {
         Cow::Borrowed(_) => {
             // converted ctb maps don't have the internal mode adjusted so
             // let's do that manually in case it's important to have later on
             if mode == GameMode::Osu && converted_mode == Mode::Catch {
                 map.pp_map.mode = Mode::Catch;
+                is_convert = true;
             }
         }
-        Cow::Owned(converted) => map.pp_map = converted,
+        Cow::Owned(converted) => {
+            map.pp_map = converted;
+            is_convert = true;
+        }
     }
 
     let simulate_data = SimulateData {
@@ -180,6 +186,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         original_attrs: SimulateAttributes::from(&map),
         score: None,
         version,
+        is_convert: Some(is_convert),
     };
 
     SimulatePagination::builder(map, simulate_data)
