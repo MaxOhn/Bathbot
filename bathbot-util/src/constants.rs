@@ -38,7 +38,7 @@ pub const UNKNOWN_CHANNEL: u64 = 10003;
 
 // Misc
 pub const SYMBOLS: [&str; 6] = ["♔", "♕", "♖", "♗", "♘", "♙"];
-pub const INVITE_LINK: &str = "https://discord.com/api/oauth2/authorize?client_id=297073686916366336&permissions=36776045632&scope=bot%20applications.commands";
+pub const INVITE_LINK: &str = "https://discord.com/api/oauth2/authorize?client_id=297073686916366336&permissions=309238025216&scope=bot%20applications.commands";
 pub const BATHBOT_WORKSHOP: &str = "https://discord.gg/n9fFstG";
 pub const BATHBOT_GITHUB: &str = "https://github.com/MaxOhn/Bathbot";
 pub const BATHBOT_ROADMAP: &str = "https://github.com/users/MaxOhn/projects/3";

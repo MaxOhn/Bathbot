@@ -43,7 +43,7 @@ With the `<help` command the bot will DM you a list of all available prefix comm
 
 For help on slash commands, use the `/help` command.
 
-### To invite the bot to your server, use [this link](https://discord.com/api/oauth2/authorize?client_id=297073686916366336&permissions=36776045632&scope=bot%20applications.commands).
+### To invite the bot to your server, use [this link](https://discord.com/api/oauth2/authorize?client_id=297073686916366336&permissions=309238025216&scope=bot%20applications.commands).
 You can also join its [discord server](https://discord.gg/n9fFstG) to keep up with updates, suggest features or report bugs.
 
 ## Credits
