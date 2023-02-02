@@ -58,6 +58,7 @@ impl RankingPagination {
                 RankingKind::BgScores { scores, .. } => {
                     let RankingEntries::Amount(ref mut entries) = self.entries else { unreachable!() };
 
+                    // not necessary but less ugly than the iterator
                     #[allow(clippy::needless_range_loop)]
                     for i in pages.index()..(pages.index() + pages.per_page()).min(self.total) {
                         if let Entry::Vacant(entry) = entries.entry(i) {

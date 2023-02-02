@@ -41,6 +41,7 @@ impl OsuTrackerMapsetsEmbed {
         for (entry, i) in entries.iter().zip(idx..) {
             let mapset = mapsets.get(&entry.mapset_id).expect("missing mapset");
 
+            // necessary to not mess up formatting
             #[allow(clippy::to_string_in_format_args)]
             let _ = writeln!(
                 description,

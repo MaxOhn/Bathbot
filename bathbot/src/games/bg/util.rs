@@ -3,7 +3,6 @@ use std::collections::VecDeque;
 use bathbot_psql::model::games::{DbMapTagEntry, MapsetTagsEntries};
 use rand::Rng;
 
-#[allow(clippy::needless_lifetimes)]
 pub fn get_random_mapset<'m>(
     entries: &'m MapsetTagsEntries,
     previous_ids: &mut VecDeque<i32>,

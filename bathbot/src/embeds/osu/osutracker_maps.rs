@@ -34,6 +34,7 @@ impl OsuTrackerMapsEmbed {
         let mut description = String::with_capacity(entries.len() * 100);
 
         for (entry, i) in entries.iter().zip(idx..) {
+            // necessary to not mess up formatting
             #[allow(clippy::to_string_in_format_args)]
             let _ = writeln!(
                 description,

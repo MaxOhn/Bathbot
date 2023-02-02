@@ -39,6 +39,7 @@ impl SnipedDiffEmbed {
     ) -> Result<Self> {
         let mut description = String::with_capacity(512);
 
+        // not necessary but less ugly than the iterator
         #[allow(clippy::needless_range_loop)]
         for idx in pages.index()..scores.len().min(pages.index() + 5) {
             let score = &scores[idx];

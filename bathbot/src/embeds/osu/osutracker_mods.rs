@@ -42,6 +42,7 @@ impl OsuTrackerModsEmbed {
         let mut description = String::with_capacity(entries.len() * 30);
 
         for (entry, i) in entries.iter().take(10).zip(idx..) {
+            // necessary to not mess up formatting
             #[allow(clippy::to_string_in_format_args)]
             let _ = write!(
                 description,
@@ -54,6 +55,7 @@ impl OsuTrackerModsEmbed {
             );
 
             if let Some(entry) = entries.get(i + 10 - idx) {
+                // necessary to not mess up formatting
                 #[allow(clippy::to_string_in_format_args)]
                 let _ = write!(
                     description,
