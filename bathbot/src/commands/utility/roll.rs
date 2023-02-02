@@ -5,6 +5,7 @@ use bathbot_util::MessageBuilder;
 use eyre::Result;
 use rand::Rng;
 use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::guild::Permissions;
 
 use crate::{
     core::{commands::CommandOrigin, Context},
@@ -39,7 +40,12 @@ async fn slash_roll(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
 #[usage("[upper limit]")]
 #[flags(SKIP_DEFER)]
 #[group(Utility)]
-async fn prefix_roll(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_roll(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let limit = match args.num {
         Some(n) => n,
         None => match args.next().map(|arg| arg.parse()) {
@@ -48,7 +54,7 @@ async fn prefix_roll(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Re
         },
     };
 
-    roll(ctx, msg.into(), limit).await
+    roll(ctx, CommandOrigin::from_msg(msg, permissions), limit).await
 }
 
 async fn roll(ctx: Arc<Context>, orig: CommandOrigin<'_>, limit: u64) -> Result<()> {

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use twilight_model::channel::Message;
+use twilight_model::{channel::Message, guild::Permissions};
 
 use crate::core::{buckets::BucketName, commands::flags::CommandFlags, Context};
 
@@ -15,7 +15,8 @@ pub struct PrefixCommand {
     pub bucket: Option<BucketName>,
     pub flags: CommandFlags,
     pub group: PrefixCommandGroup,
-    pub exec: for<'f> fn(Arc<Context>, &'f Message, Args<'f>) -> CommandResult<'f>,
+    pub exec:
+        for<'f> fn(Arc<Context>, &'f Message, Args<'f>, Option<Permissions>) -> CommandResult<'f>,
 }
 
 impl PrefixCommand {
