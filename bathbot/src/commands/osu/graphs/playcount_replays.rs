@@ -1,23 +1,95 @@
 use std::{iter, mem};
 
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    MessageBuilder,
+};
 use bitflags::bitflags;
 use bytes::Bytes;
-use eyre::{Result, WrapErr};
-use futures::stream::{FuturesUnordered, TryStreamExt};
+use eyre::{Report, Result, WrapErr};
+use futures::{stream::FuturesUnordered, TryStreamExt};
 use image::{codecs::png::PngEncoder, imageops::FilterType::Lanczos3, ColorType, ImageEncoder};
 use plotters::{
     coord::{types::RangedCoordi32, Shift},
-    prelude::*,
+    prelude::{
+        BitMapBackend, BitMapElement, Cartesian2d, ChartBuilder, ChartContext, Circle, DrawingArea,
+        IntoDrawingArea, PathElement, SeriesLabelPosition,
+    },
+    series::AreaSeries,
+    style::{Color, RGBColor, BLACK, WHITE},
 };
+use plotters_backend::FontStyle;
 use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::MonthlyCount;
+use rosu_v2::{
+    prelude::{MonthlyCount, OsuError},
+    request::UserId,
+};
 use time::{Date, Month, OffsetDateTime};
 
 use crate::{
-    core::Context,
-    manager::redis::{osu::User, RedisData},
+    commands::osu::user_not_found,
+    core::{commands::CommandOrigin, Context},
+    manager::redis::{
+        osu::{User, UserArgs},
+        RedisData,
+    },
     util::Monthly,
 };
+
+use super::{H, W};
+
+pub async fn playcount_replays_graph(
+    ctx: &Context,
+    orig: &CommandOrigin<'_>,
+    user_id: UserId,
+    flags: ProfileGraphFlags,
+) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+    let user_args = UserArgs::rosu_id(ctx, &user_id).await;
+
+    let mut user = match ctx.redis().osu_user(user_args).await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
+            let content = user_not_found(ctx, user_id).await;
+            orig.error(ctx, content).await?;
+
+            return Ok(None);
+        }
+        Err(err) => {
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let err = Report::new(err).wrap_err("failed to get user");
+
+            return Err(err);
+        }
+    };
+
+    let params = ProfileGraphParams::new(ctx, &mut user)
+        .width(W)
+        .height(H)
+        .flags(flags);
+
+    let bytes = match graphs(params).await {
+        Ok(Some(graph)) => graph,
+        Ok(None) => {
+            let content = format!(
+                "`{name}` does not have enough playcount data points",
+                name = user.username()
+            );
+
+            let builder = &MessageBuilder::new().embed(content);
+            orig.create_message(ctx, builder).await?;
+
+            return Ok(None);
+        }
+        Err(err) => {
+            let _ = orig.error(ctx, GENERAL_ISSUE).await;
+            warn!("{:?}", err.wrap_err("Failed to create profile graph"));
+
+            return Ok(None);
+        }
+    };
+
+    Ok(Some((user, bytes)))
+}
 
 bitflags! {
     pub struct ProfileGraphFlags: u8 {
