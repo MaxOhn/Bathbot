@@ -12,6 +12,7 @@ use hashbrown::HashSet;
 use twilight_model::{
     application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
     channel::{embed::EmbedField, Message, ReactionType},
+    guild::Permissions,
     id::{marker::GuildMarker, Id},
 };
 
@@ -31,13 +32,18 @@ use super::failed_message_content;
 #[alias("h")]
 #[usage("[command]")]
 #[example("", "recent", "osg")]
-async fn prefix_help(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_help(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     match args.next() {
         Some(arg) => match PrefixCommands::get().command(arg) {
-            Some(cmd) => command_help(ctx, msg, cmd).await,
+            Some(cmd) => command_help(ctx, msg, cmd, permissions).await,
             None => failed_help(ctx, msg, arg).await,
         },
-        None => dm_help(ctx, msg).await,
+        None => dm_help(ctx, msg, permissions).await,
     }
 }
 
@@ -58,7 +64,12 @@ async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> Result<()>
     Ok(())
 }
 
-async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> Result<()> {
+async fn command_help(
+    ctx: Arc<Context>,
+    msg: &Message,
+    cmd: &PrefixCommand,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let name = cmd.name();
 
     let guild_config = match msg.guild_id {
@@ -190,7 +201,7 @@ async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> 
     let embed = eb.footer(footer).fields(fields).build();
     let builder = MessageBuilder::new().embed(embed);
 
-    msg.create_message(&ctx, &builder).await?;
+    msg.create_message(&ctx, &builder, permissions).await?;
 
     Ok(())
 }
@@ -252,7 +263,7 @@ async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String
     )
 }
 
-async fn dm_help(ctx: Arc<Context>, msg: &Message) -> Result<()> {
+async fn dm_help(ctx: Arc<Context>, msg: &Message, permissions: Option<Permissions>) -> Result<()> {
     let owner = msg.author.id;
 
     let channel = match ctx.http.create_private_channel(owner).exec().await {
@@ -271,7 +282,7 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     if msg.guild_id.is_some() {
         let content = "Don't mind me sliding into your DMs :eyes:";
         let builder = MessageBuilder::new().embed(content);
-        let _ = msg.create_message(&ctx, &builder).await;
+        let _ = msg.create_message(&ctx, &builder, permissions).await;
     }
 
     let desc = description(&ctx, msg.guild_id).await;
@@ -279,7 +290,7 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     let components = help_select_menu(None);
     let builder = MessageBuilder::new().embed(embed).components(components);
 
-    if let Err(err) = channel.create_message(&ctx, &builder).await {
+    if let Err(err) = channel.create_message(&ctx, &builder, permissions).await {
         let report = Report::new(err).wrap_err("Failed to send help chunk");
         warn!("{report:?}");
         let content = "Could not DM you, perhaps you disabled it?";

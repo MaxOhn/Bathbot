@@ -340,7 +340,7 @@ impl GameStateKind {
 
         let mut message = BotConfig::get()
             .hl_channel
-            .create_message(ctx, &builder)
+            .create_message(ctx, &builder, None)
             .await?
             .model()
             .await

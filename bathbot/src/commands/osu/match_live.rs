@@ -161,6 +161,12 @@ async fn matchlive(
             return orig.error(&ctx, THREADS_UNAVAILABLE).await;
         }
 
+        if !orig.can_create_thread() {
+            let content = "I'm lacking the permission to create public threads";
+
+            return orig.error(&ctx, content).await;
+        }
+
         let kind = ChannelType::GuildPublicThread;
         let archive_dur = AutoArchiveDuration::Day;
         let thread_name = format!("Live tracking match id {match_id}");

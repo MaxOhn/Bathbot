@@ -49,13 +49,6 @@ impl CommandOrigin<'_> {
         }
     }
 
-    pub fn permissions(&self) -> Option<Permissions> {
-        match self {
-            CommandOrigin::Message { permissions, .. } => *permissions,
-            CommandOrigin::Interaction { command } => command.permissions,
-        }
-    }
-
     /// Respond to something.
     ///
     /// In case of a message, discard the response message created.
@@ -63,8 +56,8 @@ impl CommandOrigin<'_> {
     /// In case of an interaction, the response will **not** be ephemeral.
     pub async fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> Result<()> {
         match self {
-            Self::Message { msg, .. } => msg
-                .create_message(ctx, &builder)
+            Self::Message { msg, permissions } => msg
+                .create_message(ctx, &builder, *permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to create message to callback"),
@@ -85,8 +78,8 @@ impl CommandOrigin<'_> {
         builder: MessageBuilder<'_>,
     ) -> Result<Response<Message>> {
         match self {
-            Self::Message { msg, .. } => msg
-                .create_message(ctx, &builder)
+            Self::Message { msg, permissions } => msg
+                .create_message(ctx, &builder, *permissions)
                 .await
                 .wrap_err("failed to create message for response callback"),
             Self::Interaction { command } => {
@@ -115,8 +108,8 @@ impl CommandOrigin<'_> {
         ephemeral: bool,
     ) -> Result<()> {
         match self {
-            Self::Message { msg, .. } => msg
-                .create_message(ctx, &builder)
+            Self::Message { msg, permissions } => msg
+                .create_message(ctx, &builder, *permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to create message for flagged callback"),
@@ -140,8 +133,8 @@ impl CommandOrigin<'_> {
         builder: &MessageBuilder<'_>,
     ) -> Result<Response<Message>> {
         match self {
-            Self::Message { msg, .. } => msg
-                .create_message(ctx, builder)
+            Self::Message { msg, permissions } => msg
+                .create_message(ctx, builder, *permissions)
                 .await
                 .wrap_err("failed to create message as response"),
             Self::Interaction { command } => command
@@ -208,6 +201,27 @@ impl CommandOrigin<'_> {
                 .map(|_| ())
                 .wrap_err("failed to callback with error"),
         }
+    }
+
+    pub fn can_read_history(&self) -> bool {
+        self.has_permission_to(Permissions::READ_MESSAGE_HISTORY)
+    }
+
+    pub fn can_attach_file(&self) -> bool {
+        self.has_permission_to(Permissions::ATTACH_FILES)
+    }
+
+    pub fn can_create_thread(&self) -> bool {
+        self.has_permission_to(Permissions::CREATE_PUBLIC_THREADS)
+    }
+
+    fn has_permission_to(&self, permission: Permissions) -> bool {
+        let permissions = match self {
+            CommandOrigin::Message { permissions, .. } => *permissions,
+            CommandOrigin::Interaction { command } => command.permissions,
+        };
+
+        permissions.map_or(true, |p| p.contains(permission))
     }
 }
 

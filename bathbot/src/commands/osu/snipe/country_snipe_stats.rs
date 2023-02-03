@@ -10,6 +10,7 @@ use eyre::{Report, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
 use rosu_v2::{prelude::OsuError, request::UserId};
+use twilight_model::guild::Permissions;
 
 use crate::{
     commands::osu::user_not_found,
@@ -38,12 +39,13 @@ async fn prefix_countrysnipestats(
     ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
+    permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = SnipeCountryStats {
         country: args.next().map(Cow::from),
     };
 
-    country_stats(ctx, msg.into(), args).await
+    country_stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 pub(super) async fn country_stats(

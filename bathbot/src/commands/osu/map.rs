@@ -261,9 +261,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
 
     let map_id = if let Some(id) = map {
         id
-    } else if orig.permissions().map_or(true, |permissions| {
-        permissions.contains(Permissions::READ_MESSAGE_HISTORY)
-    }) {
+    } else if orig.can_read_history() {
         let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
             Ok(msgs) => msgs,
             Err(err) => {
@@ -285,7 +283,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
         }
     } else {
         let content =
-            "No beatmap specified and lacking permission to search the channel history for maps. \
+            "No beatmap specified and lacking permission to search the channel history for maps.\n\
             Try specifying a map(set) either by url to the map, \
             or just by map(set) id, or give me the \"Read Message History\" permission.";
 

@@ -16,6 +16,7 @@ use rosu_v2::{
     request::UserId,
 };
 use time::OffsetDateTime;
+use twilight_model::guild::Permissions;
 
 use crate::{
     commands::osu::{require_link, user_not_found},
@@ -34,7 +35,12 @@ use super::MedalStats;
 #[examples("badewanne3", r#""im a fancy lad""#)]
 #[alias("ms")]
 #[group(AllModes)]
-async fn prefix_medalstats(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_medalstats(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => MedalStats {
@@ -49,7 +55,7 @@ async fn prefix_medalstats(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
         None => MedalStats::default(),
     };
 
-    stats(ctx, msg.into(), args).await
+    stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 pub(super) async fn stats(

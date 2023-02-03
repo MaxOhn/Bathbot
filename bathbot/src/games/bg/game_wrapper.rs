@@ -59,7 +59,7 @@ impl GameWrapper {
                     .content("Here's the next one:")
                     .attachment("bg_img.png", mem::take(&mut img));
 
-                if let Err(err) = channel.create_message(&ctx, &builder).await {
+                if let Err(err) = channel.create_message(&ctx, &builder, None).await {
                     let report = Report::new(err).wrap_err("Failed to send initial bg game msg");
                     warn!("{report:?}");
                 }

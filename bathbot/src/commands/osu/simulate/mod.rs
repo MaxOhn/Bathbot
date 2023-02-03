@@ -8,7 +8,10 @@ use eyre::Result;
 use rosu_pp::GameMode as Mode;
 use rosu_v2::prelude::{GameMode, GameMods};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::channel::{message::MessageType, Message};
+use twilight_model::{
+    channel::{message::MessageType, Message},
+    guild::Permissions,
+};
 
 use crate::{
     commands::GameModeOption,
@@ -89,7 +92,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
 
             return orig.error(&ctx, content).await;
         }
-        None => {
+        None if orig.can_read_history() => {
             let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
                 Err(err) => {
@@ -108,6 +111,14 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
                     return orig.error(&ctx, content).await;
                 }
             }
+        }
+        None => {
+            let content =
+                "No beatmap specified and lacking permission to search the channel history for maps.\n\
+                Try specifying a map either by url to the map, or just by map id, \
+                or give me the \"Read Message History\" permission.";
+
+            return orig.error(&ctx, content).await;
         }
     };
 
@@ -226,8 +237,13 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
 #[example("1980365 +hdhr 4000x 1m 2499x300 99.1% 1.05*")]
 #[alias("s", "sim")]
 #[group(Osu)]
-async fn prefix_simulate(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
-    let orig = CommandOrigin::from(msg);
+async fn prefix_simulate(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let orig = CommandOrigin::from_msg(msg, permissions);
 
     match SimulateArgs::from_args(None, msg, args) {
         Ok(args) => simulate(ctx, orig, args).await,
@@ -261,8 +277,13 @@ async fn prefix_simulate(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Re
 #[example("1980365 +hdhr 4000x 1m 2499x300 99.1% 1.05*")]
 #[alias("st", "simt", "simtaiko")]
 #[group(Taiko)]
-async fn prefix_simulatetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
-    let orig = CommandOrigin::from(msg);
+async fn prefix_simulatetaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let orig = CommandOrigin::from_msg(msg, permissions);
 
     match SimulateArgs::from_args(Some(GameMode::Taiko), msg, args) {
         Ok(args) => simulate(ctx, orig, args).await,
@@ -298,8 +319,13 @@ async fn prefix_simulatetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 #[example("1980365 +hdhr 4000x 1m 2499x300 99.1% 1.05*")]
 #[alias("sc", "simc", "simctb", "simcatch", "simulatecatch")]
 #[group(Catch)]
-async fn prefix_simulatectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
-    let orig = CommandOrigin::from(msg);
+async fn prefix_simulatectb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let orig = CommandOrigin::from_msg(msg, permissions);
 
     match SimulateArgs::from_args(Some(GameMode::Catch), msg, args) {
         Ok(args) => simulate(ctx, orig, args).await,
@@ -336,8 +362,13 @@ async fn prefix_simulatectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("1980365 +hdhr 1m 4000x 2499x300 99.1% 1.05* 42x200")]
 #[alias("sm", "simm", "simmania")]
 #[group(Mania)]
-async fn prefix_simulatemania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
-    let orig = CommandOrigin::from(msg);
+async fn prefix_simulatemania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let orig = CommandOrigin::from_msg(msg, permissions);
 
     match SimulateArgs::from_args(Some(GameMode::Mania), msg, args) {
         Ok(args) => simulate(ctx, orig, args).await,

@@ -4,6 +4,7 @@ use bathbot_util::{modal::ModalBuilder, MessageBuilder};
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::{
     channel::Message,
+    guild::Permissions,
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
@@ -30,10 +31,20 @@ pub trait ComponentExt {
 impl ComponentExt for InteractionComponent {
     #[inline]
     fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody> {
+        let attachments = builder
+            .attachment
+            .filter(|_| {
+                self.permissions.map_or(true, |permissions| {
+                    permissions.contains(Permissions::ATTACH_FILES)
+                })
+            })
+            .map(|attachment| vec![attachment]);
+
         let data = InteractionResponseData {
             components: builder.components,
             embeds: builder.embed.map(|e| vec![e]),
             content: builder.content.map(Cow::into_owned),
+            attachments,
             ..Default::default()
         };
 

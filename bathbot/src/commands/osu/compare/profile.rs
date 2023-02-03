@@ -18,6 +18,7 @@ use rosu_v2::{
     prelude::{GameMode, GameMods, OsuError, Score, UserStatistics},
     request::UserId,
 };
+use twilight_model::guild::Permissions;
 
 use crate::{
     commands::{
@@ -186,10 +187,15 @@ pub(super) async fn profile(
 #[example("badewanne3 5joshi")]
 #[aliases("pc", "profilecompareosu", "pco")]
 #[group(Osu)]
-async fn prefix_profilecompare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_profilecompare(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let args = CompareProfile::args(None, args);
 
-    profile(ctx, msg.into(), args).await
+    profile(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -208,10 +214,11 @@ async fn prefix_profilecomparemania(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
+    permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = CompareProfile::args(Some(GameModeOption::Mania), args);
 
-    profile(ctx, msg.into(), args).await
+    profile(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -230,10 +237,11 @@ async fn prefix_profilecomparetaiko(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
+    permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = CompareProfile::args(Some(GameModeOption::Taiko), args);
 
-    profile(ctx, msg.into(), args).await
+    profile(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -248,10 +256,15 @@ async fn prefix_profilecomparetaiko(
 #[example("badewanne3 5joshi")]
 #[aliases("pcc", "profilecomparecatch")]
 #[group(Catch)]
-async fn prefix_profilecomparectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_profilecomparectb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let args = CompareProfile::args(Some(GameModeOption::Catch), args);
 
-    profile(ctx, msg.into(), args).await
+    profile(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 pub struct CompareResult {
     pub mode: GameMode,

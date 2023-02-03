@@ -6,6 +6,7 @@ use twilight_interactions::command::CommandInputData;
 use twilight_model::{
     application::command::CommandOptionChoice,
     channel::{message::MessageFlags, Message},
+    guild::Permissions,
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
@@ -71,11 +72,21 @@ impl InteractionCommandExt for InteractionCommand {
         builder: MessageBuilder<'_>,
         ephemeral: bool,
     ) -> ResponseFuture<EmptyBody> {
+        let attachments = builder
+            .attachment
+            .filter(|_| {
+                self.permissions.map_or(true, |permissions| {
+                    permissions.contains(Permissions::ATTACH_FILES)
+                })
+            })
+            .map(|attachment| vec![attachment]);
+
         let data = InteractionResponseData {
             components: builder.components,
             content: builder.content.map(|c| c.into_owned()),
             embeds: builder.embed.map(|e| vec![e]),
             flags: ephemeral.then_some(MessageFlags::EPHEMERAL),
+            attachments,
             ..Default::default()
         };
 
@@ -134,7 +145,11 @@ impl InteractionCommandExt for InteractionCommand {
                 .expect("invalid components");
         }
 
-        if let Some(ref attachment) = builder.attachment {
+        if let Some(attachment) = builder.attachment.as_ref().filter(|_| {
+            self.permissions.map_or(true, |permissions| {
+                permissions.contains(Permissions::ATTACH_FILES)
+            })
+        }) {
             req = req.attachments(slice::from_ref(attachment)).unwrap();
         }
 
