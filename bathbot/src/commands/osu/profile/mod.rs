@@ -22,16 +22,11 @@ use crate::{
     Context,
 };
 
-pub use self::{
-    data::{ProfileData, Top100Stats},
-    graph::graphs,
-    graph::{ProfileGraphFlags, ProfileGraphParams},
-};
+pub use self::data::{ProfileData, Top100Stats};
 
 use super::{require_link, user_not_found};
 
 mod data;
-mod graph;
 
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]
 #[command(name = "profile")]
