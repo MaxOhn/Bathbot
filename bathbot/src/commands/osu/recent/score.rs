@@ -604,8 +604,15 @@ pub(super) async fn score(
             }
 
             let mut response = orig.create_message(&ctx, &builder).await?.model().await?;
+
+            // Lacking permission to edit the message
+            if !orig.can_view_channel() {
+                return Ok(());
+            }
+
             ctx.store_msg(response.id);
             let ctx = Arc::clone(&ctx);
+            let permissions = orig.permissions();
 
             // Wait for minimizing
             tokio::spawn(async move {
@@ -622,9 +629,11 @@ pub(super) async fn score(
                     builder = builder.content(mem::take(&mut response.content));
                 }
 
-                if let Err(err) = response.update(&ctx, &builder).await {
-                    let report = Report::new(err).wrap_err("Failed to minimize embed");
-                    warn!("{report:?}");
+                if let Some(update_fut) = response.update(&ctx, &builder, permissions) {
+                    if let Err(err) = update_fut.await {
+                        let report = Report::new(err).wrap_err("Failed to minimize embed");
+                        warn!("{report:?}");
+                    }
                 }
             });
         }

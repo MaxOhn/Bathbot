@@ -22,7 +22,11 @@ pub trait ModalExt {
     /// use this to update the message.
     ///
     /// Note: Can only be used if `ModalSubmitInteraction::message` is `Some`.
-    fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message>;
+    fn update(
+        &self,
+        ctx: &Context,
+        builder: &MessageBuilder<'_>,
+    ) -> Option<ResponseFuture<Message>>;
 }
 
 impl ModalExt for InteractionModal {
@@ -67,10 +71,14 @@ impl ModalExt for InteractionModal {
     }
 
     #[inline]
-    fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message> {
+    fn update(
+        &self,
+        ctx: &Context,
+        builder: &MessageBuilder<'_>,
+    ) -> Option<ResponseFuture<Message>> {
         self.message
             .as_ref()
             .expect("no message in modal")
-            .update(ctx, builder)
+            .update(ctx, builder, self.permissions)
     }
 }

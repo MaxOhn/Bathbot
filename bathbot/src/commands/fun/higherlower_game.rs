@@ -6,7 +6,7 @@ use std::{
 use bathbot_macros::SlashCommand;
 use bathbot_model::{HlVersion, RankingEntries, RankingEntry, RankingKind};
 use bathbot_util::{constants::GENERAL_ISSUE, IntHasher, MessageBuilder};
-use eyre::{Result, WrapErr};
+use eyre::{ContextCompat, Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::Id;
@@ -78,7 +78,8 @@ async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -
         let builder = MessageBuilder::new().components(components);
 
         (game.msg, game.channel)
-            .update(&ctx, &builder)
+            .update(&ctx, &builder, command.permissions)
+            .wrap_err("lacking permission to update message")?
             .await
             .wrap_err("failed to remove components of previous game")?;
     }

@@ -43,9 +43,14 @@ pub(super) async fn await_retry(
     let components = HlComponents::disabled();
     let builder = MessageBuilder::new().components(components);
 
-    if let Err(err) = (msg, channel).update(&ctx, &builder).await {
-        let report = Report::new(err).wrap_err("failed to update retry components after timeout");
-        warn!("{report:?}");
+    match (msg, channel).update(&ctx, &builder, None) {
+        Some(update_fut) => {
+            if let Err(err) = update_fut.await {
+                let wrap = "failed to update retry components after timeout";
+                warn!("{:?}", Report::new(err).wrap_err(wrap));
+            }
+        }
+        None => warn!("lacking permission to update message"),
     }
 
     ctx.hl_retries().lock(&msg).remove();

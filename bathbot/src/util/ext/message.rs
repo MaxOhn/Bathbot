@@ -4,6 +4,7 @@ use bathbot_util::MessageBuilder;
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::{
     channel::Message,
+    guild::Permissions,
     id::{
         marker::{ChannelMarker, MessageMarker},
         Id,
@@ -13,13 +14,32 @@ use twilight_model::{
 use crate::core::Context;
 
 pub trait MessageExt {
-    fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message>;
+    fn update(
+        &self,
+        ctx: &Context,
+        builder: &MessageBuilder<'_>,
+        permissions: Option<Permissions>,
+    ) -> Option<ResponseFuture<Message>>;
 
     fn delete(&self, ctx: &Context) -> ResponseFuture<EmptyBody>;
 }
 
 impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
-    fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message> {
+    fn update(
+        &self,
+        ctx: &Context,
+        builder: &MessageBuilder<'_>,
+        permissions: Option<Permissions>,
+    ) -> Option<ResponseFuture<Message>> {
+        let can_view_channel = permissions.map_or(true, |permissions| {
+            permissions.contains(Permissions::VIEW_CHANNEL)
+        });
+
+        // Lacking permission to edit the message
+        if !can_view_channel {
+            return None;
+        }
+
         let mut req = ctx.http.update_message(self.1, self.0);
 
         if let Some(ref content) = builder.content {
@@ -40,7 +60,7 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
                 .expect("invalid components");
         }
 
-        req.exec()
+        Some(req.exec())
     }
 
     #[inline]
@@ -51,8 +71,13 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
 
 impl MessageExt for Message {
     #[inline]
-    fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message> {
-        (self.id, self.channel_id).update(ctx, builder)
+    fn update(
+        &self,
+        ctx: &Context,
+        builder: &MessageBuilder<'_>,
+        permissions: Option<Permissions>,
+    ) -> Option<ResponseFuture<Message>> {
+        (self.id, self.channel_id).update(ctx, builder, permissions)
     }
 
     #[inline]

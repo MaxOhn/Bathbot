@@ -279,9 +279,11 @@ impl Pagination {
                         if pagination_active && msg_available {
                             let builder = MessageBuilder::new().components(Vec::new());
 
-                            if let Err(err) = (msg, channel).update(&ctx, &builder).await {
-                                let report = Report::new(err).wrap_err("failed to remove components");
-                                warn!("{report:?}");
+                            if let Some(update_fut) = (msg, channel).update(&ctx, &builder, None) {
+                                if let Err(err) = update_fut.await {
+                                    let err = Report::new(err).wrap_err("failed to remove components");
+                                    warn!("{err:?}");
+                                }
                             }
                         }
 

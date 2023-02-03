@@ -1,5 +1,5 @@
 use bathbot_util::MessageBuilder;
-use eyre::{Result, WrapErr};
+use eyre::{ContextCompat, Result, WrapErr};
 use twilight_http::Response;
 use twilight_model::{
     channel::Message,
@@ -155,8 +155,9 @@ impl CommandOrigin<'_> {
         builder: &MessageBuilder<'_>,
     ) -> Result<Response<Message>> {
         match self {
-            Self::Message { msg, .. } => msg
-                .update(ctx, builder)
+            Self::Message { msg, permissions } => msg
+                .update(ctx, builder, *permissions)
+                .wrap_err("lacking permission to update message")?
                 .await
                 .wrap_err("failed to update message"),
             Self::Interaction { command } => command
@@ -203,6 +204,13 @@ impl CommandOrigin<'_> {
         }
     }
 
+    pub fn permissions(&self) -> Option<Permissions> {
+        match self {
+            CommandOrigin::Message { permissions, .. } => *permissions,
+            CommandOrigin::Interaction { command } => command.permissions,
+        }
+    }
+
     pub fn can_read_history(&self) -> bool {
         self.has_permission_to(Permissions::READ_MESSAGE_HISTORY)
     }
@@ -215,13 +223,12 @@ impl CommandOrigin<'_> {
         self.has_permission_to(Permissions::CREATE_PUBLIC_THREADS)
     }
 
-    fn has_permission_to(&self, permission: Permissions) -> bool {
-        let permissions = match self {
-            CommandOrigin::Message { permissions, .. } => *permissions,
-            CommandOrigin::Interaction { command } => command.permissions,
-        };
+    pub fn can_view_channel(&self) -> bool {
+        self.has_permission_to(Permissions::VIEW_CHANNEL)
+    }
 
-        permissions.map_or(true, |p| p.contains(permission))
+    fn has_permission_to(&self, permission: Permissions) -> bool {
+        self.permissions().map_or(true, |p| p.contains(permission))
     }
 }
 
