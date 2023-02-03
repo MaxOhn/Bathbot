@@ -9,7 +9,10 @@ use bathbot_util::{
 };
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::channel::{message::MessageType, Message};
+use twilight_model::{
+    channel::{message::MessageType, Message},
+    guild::Permissions,
+};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
@@ -119,9 +122,14 @@ impl<'a> TryFrom<Leaderboard<'a>> for LeaderboardArgs<'a> {
 #[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
 #[alias("lb")]
 #[group(AllModes)]
-async fn prefix_leaderboard(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_leaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     match LeaderboardArgs::args(msg, args) {
-        Ok(args) => leaderboard(ctx, msg.into(), args).await,
+        Ok(args) => leaderboard(ctx, CommandOrigin::from_msg(msg, permissions), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
 
@@ -170,7 +178,7 @@ async fn leaderboard(
 
             return orig.error(&ctx, content).await;
         }
-        None => {
+        None if orig.can_read_history() => {
             let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
                 Err(err) => {
@@ -189,6 +197,14 @@ async fn leaderboard(
                     return orig.error(&ctx, content).await;
                 }
             }
+        }
+        None => {
+            let content =
+                "No beatmap specified and lacking permission to search the channel history for maps.\n\
+                Try specifying a map either by url to the map, or just by map id, \
+                or give me the \"Read Message History\" permission.";
+
+            return orig.error(&ctx, content).await;
         }
     };
 

@@ -20,6 +20,7 @@ use plotters::{
 };
 use rosu_v2::{prelude::OsuError, request::UserId};
 use time::{Date, Duration, OffsetDateTime};
+use twilight_model::guild::Permissions;
 
 use crate::{
     commands::osu::require_link,
@@ -42,7 +43,12 @@ use super::SnipePlayerSniped;
 #[example("badewanne3")]
 #[alias("snipes")]
 #[group(Osu)]
-async fn prefix_sniped(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_sniped(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => SnipePlayerSniped {
@@ -57,7 +63,7 @@ async fn prefix_sniped(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
         None => SnipePlayerSniped::default(),
     };
 
-    player_sniped(ctx, msg.into(), args).await
+    player_sniped(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 pub(super) async fn player_sniped(

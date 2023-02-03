@@ -2,6 +2,7 @@ use bathbot_util::MessageBuilder;
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::{
     channel::Message,
+    guild::Permissions,
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
@@ -21,15 +22,29 @@ pub trait ModalExt {
     /// use this to update the message.
     ///
     /// Note: Can only be used if `ModalSubmitInteraction::message` is `Some`.
-    fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message>;
+    fn update(
+        &self,
+        ctx: &Context,
+        builder: &MessageBuilder<'_>,
+    ) -> Option<ResponseFuture<Message>>;
 }
 
 impl ModalExt for InteractionModal {
     #[inline]
     fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody> {
+        let attachments = builder
+            .attachment
+            .filter(|_| {
+                self.permissions.map_or(true, |permissions| {
+                    permissions.contains(Permissions::ATTACH_FILES)
+                })
+            })
+            .map(|attachment| vec![attachment]);
+
         let data = InteractionResponseData {
             components: builder.components,
             embeds: builder.embed.map(|e| vec![e]),
+            attachments,
             ..Default::default()
         };
 
@@ -56,10 +71,14 @@ impl ModalExt for InteractionModal {
     }
 
     #[inline]
-    fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message> {
+    fn update(
+        &self,
+        ctx: &Context,
+        builder: &MessageBuilder<'_>,
+    ) -> Option<ResponseFuture<Message>> {
         self.message
             .as_ref()
             .expect("no message in modal")
-            .update(ctx, builder)
+            .update(ctx, builder, self.permissions)
     }
 }

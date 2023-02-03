@@ -15,6 +15,7 @@ use rosu_v2::{
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::{message::MessageType, Message},
+    guild::Permissions,
     id::{marker::UserMarker, Id},
 };
 
@@ -180,10 +181,15 @@ async fn slash_fix(ctx: Arc<Context>, mut command: InteractionCommand) -> Result
     "https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
 #[group(AllModes)]
-async fn prefix_fix(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_fix(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let args = FixArgs::args(msg, args);
 
-    fix(ctx, msg.into(), args).await
+    fix(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> Result<()> {
@@ -228,7 +234,7 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
 
             return orig.error(&ctx, content).await;
         }
-        None => {
+        None if orig.can_read_history() => {
             let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
                 Err(err) => {
@@ -247,6 +253,14 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
                     return orig.error(&ctx, content).await;
                 }
             }
+        }
+        None => {
+            let content =
+                "No beatmap specified and lacking permission to search the channel history for maps.\n\
+                Try specifying a map either by url to the map, or just by map id, \
+                or give me the \"Read Message History\" permission.";
+
+            return orig.error(&ctx, content).await;
         }
     };
 

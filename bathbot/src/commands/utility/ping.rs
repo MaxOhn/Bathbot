@@ -2,8 +2,9 @@ use std::{sync::Arc, time::Instant};
 
 use bathbot_macros::{command, SlashCommand};
 use bathbot_util::MessageBuilder;
-use eyre::Result;
+use eyre::{ContextCompat, Result};
 use twilight_interactions::command::CreateCommand;
+use twilight_model::guild::Permissions;
 
 use crate::{
     core::{commands::CommandOrigin, Context},
@@ -35,8 +36,12 @@ async fn slash_ping(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
 #[alias("p")]
 #[flags(SKIP_DEFER)]
 #[group(Utility)]
-async fn prefix_ping(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    ping(ctx, msg.into()).await
+async fn prefix_ping(
+    ctx: Arc<Context>,
+    msg: &Message,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    ping(ctx, CommandOrigin::from_msg(msg, permissions)).await
 }
 
 async fn ping(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
@@ -44,10 +49,15 @@ async fn ping(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let start = Instant::now();
     let response_raw = orig.callback_with_response(&ctx, builder).await?;
     let elapsed = (Instant::now() - start).as_millis();
+
     let response = response_raw.model().await?;
     let content = format!(":ping_pong: Pong! ({elapsed}ms)");
     let builder = MessageBuilder::new().content(content);
-    response.update(&ctx, &builder).await?;
+
+    response
+        .update(&ctx, &builder, orig.permissions())
+        .wrap_err("lacking permission to update message")?
+        .await?;
 
     Ok(())
 }

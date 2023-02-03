@@ -2,6 +2,7 @@ use bathbot_macros::command;
 use bathbot_psql::model::configs::{GuildConfig, Prefix, Prefixes, DEFAULT_PREFIX};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
 use eyre::Result;
+use twilight_model::guild::Permissions;
 
 use crate::{core::commands::checks::check_authority, util::ChannelExt, Context};
 
@@ -23,7 +24,12 @@ use std::{cmp::Ordering, fmt::Write, sync::Arc};
 #[alias("prefixes")]
 #[flags(ONLY_GUILDS, SKIP_DEFER)] // authority check is done manually
 #[group(Utility)]
-async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_prefix(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let guild_id = msg.guild_id.unwrap();
 
     let Some(action) = args.next() else {
@@ -33,7 +39,7 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
         ctx.guild_config().peek(guild_id, f).await;
 
         let builder = MessageBuilder::new().embed(content);
-        msg.create_message(&ctx, &builder).await?;
+        msg.create_message(&ctx, &builder, permissions).await?;
 
         return Ok(());
     };
@@ -135,7 +141,7 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
             ctx.guild_config().peek(guild_id, f).await;
 
             let builder = MessageBuilder::new().embed(content);
-            msg.create_message(&ctx, &builder).await?;
+            msg.create_message(&ctx, &builder, permissions).await?;
 
             Ok(())
         }

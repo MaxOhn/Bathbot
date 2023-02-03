@@ -30,6 +30,7 @@ use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateComm
 use twilight_model::{
     application::command::CommandOptionChoice,
     channel::message::MessageType,
+    guild::Permissions,
     id::{marker::UserMarker, Id},
 };
 
@@ -246,7 +247,12 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
 )]
 #[aliases("c", "score", "scores")]
 #[group(AllModes)]
-async fn prefix_compare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_compare(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let mut args = CompareScoreArgs::args(args);
 
     let reply = msg
@@ -262,7 +268,7 @@ async fn prefix_compare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Res
         }
     }
 
-    score(ctx, msg.into(), args).await
+    score(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 pub async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
@@ -364,7 +370,7 @@ pub(super) async fn score(
             Some(MapOrScore::Score { id, mode }) => {
                 return compare_from_score(ctx, orig, id, mode, score_size, minimized_pp).await
             }
-            None => {
+            None if orig.can_read_history() => {
                 let idx = match index {
                     Some(51..) => {
                         let content = "I can only go back 50 messages";
@@ -396,14 +402,22 @@ pub(super) async fn score(
                     None => {
                         let content = format!(
                             "No beatmap specified and none found at index {} \
-                        of the recent channel history.\nTry decreasing the index or \
-                        specify a map either by url to the map, or just by map id.",
+                            of the recent channel history.\nTry decreasing the index or \
+                            specify a map either by url to the map, or just by map id.",
                             idx + 1
                         );
 
                         return orig.error(&ctx, content).await;
                     }
                 }
+            }
+            None => {
+                let content =
+                "No beatmap specified and lacking permission to search the channel history for maps.\n\
+                Try specifying a map either by url to the map, or just by map id, \
+                or give me the \"Read Message History\" permission.";
+
+                return orig.error(&ctx, content).await;
             }
         }
     };
@@ -641,8 +655,14 @@ async fn single_score(
             let builder = embed_data.as_maximized().into();
             let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
+            // Lacking permission to edit the message
+            if !orig.can_view_channel() {
+                return Ok(());
+            }
+
             ctx.store_msg(response.id);
             let ctx = Arc::clone(&ctx);
+            let permissions = orig.permissions();
 
             // Wait for minimizing
             tokio::spawn(async move {
@@ -654,9 +674,11 @@ async fn single_score(
 
                 let builder = embed_data.into_minimized().into();
 
-                if let Err(err) = response.update(&ctx, &builder).await {
-                    let err = Report::new(err).wrap_err("failed to minimize message");
-                    warn!("{err:?}");
+                if let Some(update_fut) = response.update(&ctx, &builder, permissions) {
+                    if let Err(err) = update_fut.await {
+                        let err = Report::new(err).wrap_err("Failed to minimize embed");
+                        warn!("{err:?}");
+                    }
                 }
             });
         }

@@ -17,6 +17,7 @@ use twilight_model::{
         SelectMenu,
     },
     channel::{thread::AutoArchiveDuration, ChannelType},
+    guild::Permissions,
 };
 
 use crate::{
@@ -40,7 +41,12 @@ mod stop;
 #[alias("bg")]
 #[flags(SKIP_DEFER)] // defer manually on specific subcommands
 #[group(Games)]
-pub async fn prefix_backgroundgame(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_backgroundgame(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let mut args = args.map(|arg| arg.cow_to_ascii_lowercase());
     let arg = args.next();
 
@@ -60,13 +66,13 @@ pub async fn prefix_backgroundgame(ctx: Arc<Context>, msg: &Message, args: Args<
                 I will only show members of this server.";
 
             let builder = MessageBuilder::new().embed(content);
-            msg.create_message(&ctx, &builder).await?;
+            msg.create_message(&ctx, &builder, permissions).await?;
 
             Ok(())
         }
         Some("s" | "skip" | "r" | "resolve" | "start") => skip(ctx, msg).await,
-        Some("h" | "hint") => hint(ctx, msg).await,
-        Some("b" | "bigger" | "enhance") => bigger(ctx, msg).await,
+        Some("h" | "hint") => hint(ctx, msg, permissions).await,
+        Some("b" | "bigger" | "enhance") => bigger(ctx, msg, permissions).await,
         Some("stop" | "end" | "quit") => stop(ctx, msg).await,
         Some("l" | "lb" | "leaderboard") => {
             let arg = args.next();
@@ -159,6 +165,17 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
         thread,
     } = Bg::from_interaction(command.input_data())?;
 
+    let can_attach_files = command.permissions.map_or(true, |permissions| {
+        permissions.contains(Permissions::ATTACH_FILES)
+    });
+
+    if !can_attach_files {
+        let content = "I'm lacking the permission to attach files";
+        command.error_callback(&ctx, content).await?;
+
+        return Ok(());
+    }
+
     let mut channel = command.channel_id;
     let author_user = command.user()?;
     let author = author_user.id;
@@ -166,6 +183,17 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
     if let Some(ThreadChannel::Thread) = thread {
         if command.guild_id.is_none() {
             command.error_callback(&ctx, THREADS_UNAVAILABLE).await?;
+
+            return Ok(());
+        }
+
+        let can_create_thread = command.permissions.map_or(true, |permissions| {
+            permissions.contains(Permissions::CREATE_PUBLIC_THREADS)
+        });
+
+        if !can_create_thread {
+            let content = "I'm lacking the permission to create public threads";
+            command.error_callback(&ctx, content).await?;
 
             return Ok(());
         }
@@ -235,7 +263,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
                 let res_builder = MessageBuilder::new().embed("Starting new thread...");
                 command.callback(&ctx, res_builder, true).await?;
 
-                channel.create_message(&ctx, &builder).await?;
+                channel.create_message(&ctx, &builder, None).await?;
             } else {
                 command.callback(&ctx, builder, false).await?;
             }
@@ -271,7 +299,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
                 let res_builder = MessageBuilder::new().embed("Starting new thread...");
                 command.callback(&ctx, res_builder, true).await?;
 
-                channel.create_message(&ctx, &builder).await?;
+                channel.create_message(&ctx, &builder, None).await?;
             } else {
                 command.callback(&ctx, builder, false).await?;
             }

@@ -1,8 +1,9 @@
 use bathbot_util::MessageBuilder;
-use eyre::{Result, WrapErr};
+use eyre::{ContextCompat, Result, WrapErr};
 use twilight_http::Response;
 use twilight_model::{
     channel::Message,
+    guild::Permissions,
     id::{
         marker::{ChannelMarker, GuildMarker, UserMarker},
         Id,
@@ -17,28 +18,33 @@ use crate::{
 };
 
 pub enum CommandOrigin<'d> {
-    Message { msg: &'d Message },
-    Interaction { command: &'d mut InteractionCommand },
+    Message {
+        msg: &'d Message,
+        permissions: Option<Permissions>,
+    },
+    Interaction {
+        command: &'d mut InteractionCommand,
+    },
 }
 
 impl CommandOrigin<'_> {
     pub fn user_id(&self) -> Result<Id<UserMarker>> {
         match self {
-            CommandOrigin::Message { msg } => Ok(msg.author.id),
+            CommandOrigin::Message { msg, .. } => Ok(msg.author.id),
             CommandOrigin::Interaction { command } => command.user_id(),
         }
     }
 
     pub fn channel_id(&self) -> Id<ChannelMarker> {
         match self {
-            CommandOrigin::Message { msg } => msg.channel_id,
+            CommandOrigin::Message { msg, .. } => msg.channel_id,
             CommandOrigin::Interaction { command } => command.channel_id,
         }
     }
 
     pub fn guild_id(&self) -> Option<Id<GuildMarker>> {
         match self {
-            CommandOrigin::Message { msg } => msg.guild_id,
+            CommandOrigin::Message { msg, .. } => msg.guild_id,
             CommandOrigin::Interaction { command } => command.guild_id,
         }
     }
@@ -50,8 +56,8 @@ impl CommandOrigin<'_> {
     /// In case of an interaction, the response will **not** be ephemeral.
     pub async fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> Result<()> {
         match self {
-            Self::Message { msg } => msg
-                .create_message(ctx, &builder)
+            Self::Message { msg, permissions } => msg
+                .create_message(ctx, &builder, *permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to create message to callback"),
@@ -72,8 +78,8 @@ impl CommandOrigin<'_> {
         builder: MessageBuilder<'_>,
     ) -> Result<Response<Message>> {
         match self {
-            Self::Message { msg } => msg
-                .create_message(ctx, &builder)
+            Self::Message { msg, permissions } => msg
+                .create_message(ctx, &builder, *permissions)
                 .await
                 .wrap_err("failed to create message for response callback"),
             Self::Interaction { command } => {
@@ -102,8 +108,8 @@ impl CommandOrigin<'_> {
         ephemeral: bool,
     ) -> Result<()> {
         match self {
-            Self::Message { msg } => msg
-                .create_message(ctx, &builder)
+            Self::Message { msg, permissions } => msg
+                .create_message(ctx, &builder, *permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to create message for flagged callback"),
@@ -127,8 +133,8 @@ impl CommandOrigin<'_> {
         builder: &MessageBuilder<'_>,
     ) -> Result<Response<Message>> {
         match self {
-            Self::Message { msg } => msg
-                .create_message(ctx, builder)
+            Self::Message { msg, permissions } => msg
+                .create_message(ctx, builder, *permissions)
                 .await
                 .wrap_err("failed to create message as response"),
             Self::Interaction { command } => command
@@ -149,8 +155,9 @@ impl CommandOrigin<'_> {
         builder: &MessageBuilder<'_>,
     ) -> Result<Response<Message>> {
         match self {
-            Self::Message { msg } => msg
-                .update(ctx, builder)
+            Self::Message { msg, permissions } => msg
+                .update(ctx, builder, *permissions)
+                .wrap_err("lacking permission to update message")?
                 .await
                 .wrap_err("failed to update message"),
             Self::Interaction { command } => command
@@ -165,7 +172,7 @@ impl CommandOrigin<'_> {
     /// In case of an interaction, be sure you already called back beforehand.
     pub async fn error(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
         match self {
-            Self::Message { msg } => msg
+            Self::Message { msg, .. } => msg
                 .error(ctx, content)
                 .await
                 .map(|_| ())
@@ -184,7 +191,7 @@ impl CommandOrigin<'_> {
     /// The response will not be ephemeral.
     pub async fn error_callback(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
         match self {
-            CommandOrigin::Message { msg } => msg
+            CommandOrigin::Message { msg, .. } => msg
                 .error(ctx, content)
                 .await
                 .map(|_| ())
@@ -196,11 +203,41 @@ impl CommandOrigin<'_> {
                 .wrap_err("failed to callback with error"),
         }
     }
+
+    pub fn permissions(&self) -> Option<Permissions> {
+        match self {
+            CommandOrigin::Message { permissions, .. } => *permissions,
+            CommandOrigin::Interaction { command } => command.permissions,
+        }
+    }
+
+    pub fn can_read_history(&self) -> bool {
+        self.has_permission_to(Permissions::READ_MESSAGE_HISTORY)
+    }
+
+    pub fn can_attach_file(&self) -> bool {
+        self.has_permission_to(Permissions::ATTACH_FILES)
+    }
+
+    pub fn can_create_thread(&self) -> bool {
+        self.has_permission_to(Permissions::CREATE_PUBLIC_THREADS)
+    }
+
+    pub fn can_view_channel(&self) -> bool {
+        self.has_permission_to(Permissions::VIEW_CHANNEL)
+    }
+
+    fn has_permission_to(&self, permission: Permissions) -> bool {
+        self.permissions().map_or(true, |p| p.contains(permission))
+    }
 }
 
-impl<'d> From<&'d mut InteractionCommand> for CommandOrigin<'d> {
-    #[inline]
-    fn from(command: &'d mut InteractionCommand) -> Self {
+impl<'d> CommandOrigin<'d> {
+    pub fn from_msg(msg: &'d Message, permissions: Option<Permissions>) -> Self {
+        Self::Message { msg, permissions }
+    }
+
+    pub fn from_interaction(command: &'d mut InteractionCommand) -> Self {
         Self::Interaction { command }
     }
 }
@@ -208,6 +245,13 @@ impl<'d> From<&'d mut InteractionCommand> for CommandOrigin<'d> {
 impl<'d> From<&'d Message> for CommandOrigin<'d> {
     #[inline]
     fn from(msg: &'d Message) -> Self {
-        Self::Message { msg }
+        Self::from_msg(msg, None)
+    }
+}
+
+impl<'d> From<&'d mut InteractionCommand> for CommandOrigin<'d> {
+    #[inline]
+    fn from(command: &'d mut InteractionCommand) -> Self {
+        Self::from_interaction(command)
     }
 }

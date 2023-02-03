@@ -92,14 +92,18 @@ async fn process_command<'m>(
     let channel = msg.channel_id;
 
     // Does bot have sufficient permissions to send response in a guild?
-    if let Some(guild) = msg.guild_id {
+    let permissions = if let Some(guild) = msg.guild_id {
         let user = ctx.cache.current_user(|user| user.id)?;
         let permissions = ctx.cache.get_channel_permissions(user, channel, guild);
 
         if !permissions.contains(Permissions::SEND_MESSAGES) {
             return Ok(ProcessResult::NoSendPermission);
         }
-    }
+
+        Some(permissions)
+    } else {
+        None
+    };
 
     // Ratelimited?
     let ratelimit = ctx
@@ -155,7 +159,7 @@ async fn process_command<'m>(
     }
 
     // Call command function
-    (cmd.exec)(ctx, msg, args).await?;
+    (cmd.exec)(ctx, msg, args, permissions).await?;
 
     Ok(ProcessResult::Success)
 }

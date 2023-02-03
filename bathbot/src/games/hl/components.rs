@@ -63,8 +63,6 @@ pub async fn handle_next_higherlower(
     let user = component.user_id()?;
 
     let embed = {
-        // let mut hl_games = ctx.hl_games().lock().await;
-
         if let Some(game) = ctx.hl_games().lock(&user).await.get_mut() {
             let components = HlComponents::disabled();
             let builder = MessageBuilder::new().components(components);
@@ -84,8 +82,10 @@ pub async fn handle_next_higherlower(
     if let Some(embed) = embed {
         let components = HlComponents::higherlower();
         let builder = MessageBuilder::new().embed(embed).components(components);
+
         component
             .update(&ctx, &builder)
+            .wrap_err("lacking permission to update message")?
             .await
             .wrap_err("failed to update")?;
     }
@@ -139,7 +139,10 @@ pub async fn handle_try_again(
             // ? Should ComponentExt provide error method?
             let embed = EmbedBuilder::new().description(GENERAL_ISSUE).color(RED);
             let builder = MessageBuilder::new().embed(embed);
-            let _ = component.update(&ctx, &builder).await;
+
+            if let Some(update_fut) = component.update(&ctx, &builder) {
+                let _ = update_fut.await;
+            }
 
             return Err(err.wrap_err("failed to restart game"));
         }
@@ -151,6 +154,7 @@ pub async fn handle_try_again(
 
     let response = component
         .update(&ctx, &builder)
+        .wrap_err("lacking permission to update message")?
         .await
         .wrap_err("failed to update")?
         .model()
@@ -209,6 +213,7 @@ async fn correct_guess(
 
         component
             .update(&ctx, &builder)
+            .wrap_err("lacking permission to update message")?
             .await
             .wrap_err("failed to update")?;
     }

@@ -13,6 +13,7 @@ use rosu_v2::{
     request::UserId,
 };
 use time::Date;
+use twilight_model::guild::Permissions;
 
 use crate::{
     commands::osu::require_link,
@@ -40,6 +41,7 @@ async fn prefix_playersnipestats(
     ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
+    permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
@@ -55,7 +57,7 @@ async fn prefix_playersnipestats(
         None => SnipePlayerStats::default(),
     };
 
-    player_stats(ctx, msg.into(), args).await
+    player_stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 pub(super) async fn player_stats(

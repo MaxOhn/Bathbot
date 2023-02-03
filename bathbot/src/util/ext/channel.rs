@@ -4,6 +4,7 @@ use bathbot_util::{constants::RED, EmbedBuilder, MessageBuilder};
 use twilight_http::response::ResponseFuture;
 use twilight_model::{
     channel::Message,
+    guild::Permissions,
     id::{marker::ChannelMarker, Id},
 };
 
@@ -15,6 +16,7 @@ pub trait ChannelExt {
         &self,
         ctx: &Context,
         builder: &MessageBuilder<'_>,
+        permissions: Option<Permissions>,
     ) -> ResponseFuture<Message>;
 
     /// Create a message inside a red embed
@@ -29,6 +31,7 @@ impl ChannelExt for Id<ChannelMarker> {
         &self,
         ctx: &Context,
         builder: &MessageBuilder<'_>,
+        permissions: Option<Permissions>,
     ) -> ResponseFuture<Message> {
         let mut req = ctx.http.create_message(*self);
 
@@ -44,8 +47,12 @@ impl ChannelExt for Id<ChannelMarker> {
             req = req.components(components).expect("invalid components");
         }
 
-        match builder.attachment {
-            Some(ref attachment) => req.attachments(slice::from_ref(attachment)).unwrap().exec(),
+        match builder.attachment.as_ref().filter(|_| {
+            permissions.map_or(true, |permissions| {
+                permissions.contains(Permissions::ATTACH_FILES)
+            })
+        }) {
+            Some(attachment) => req.attachments(slice::from_ref(attachment)).unwrap().exec(),
             None => req.exec(),
         }
     }
@@ -77,8 +84,9 @@ impl ChannelExt for Message {
         &self,
         ctx: &Context,
         builder: &MessageBuilder<'_>,
+        permissions: Option<Permissions>,
     ) -> ResponseFuture<Message> {
-        self.channel_id.create_message(ctx, builder)
+        self.channel_id.create_message(ctx, builder, permissions)
     }
 
     #[inline]

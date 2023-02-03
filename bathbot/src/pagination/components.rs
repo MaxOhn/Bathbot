@@ -65,6 +65,7 @@ where
     if defer_components {
         component
             .update(&ctx, &builder?)
+            .wrap_err("lacking permission to update message")?
             .await
             .wrap_err("failed to update")?;
     } else {
@@ -222,6 +223,7 @@ pub async fn handle_sim_version(ctx: Arc<Context>, component: InteractionCompone
     if defer_components {
         component
             .update(&ctx, &builder?)
+            .wrap_err("lacking permission to update message")?
             .await
             .wrap_err("failed to update")?;
     } else {
@@ -289,6 +291,7 @@ async fn respond_modal(
     if defer {
         modal
             .update(ctx, &builder?)
+            .wrap_err("lacking permission to update message")?
             .await
             .wrap_err("failed to update")?;
     } else {

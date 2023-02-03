@@ -428,7 +428,14 @@ async fn single_embed(
             }
 
             let response = orig.create_message(&ctx, &builder).await?.model().await?;
+
+            // Lacking permission to edit the message
+            if !orig.can_view_channel() {
+                return Ok(());
+            }
+
             ctx.store_msg(response.id);
+            let permissions = orig.permissions();
 
             // Minimize embed after delay
             tokio::spawn(async move {
@@ -440,9 +447,11 @@ async fn single_embed(
 
                 let builder = embed.into_minimized().into();
 
-                if let Err(err) = response.update(&ctx, &builder).await {
-                    let err = Report::new(err).wrap_err("failed to minimize embed");
-                    warn!("{err:?}");
+                if let Some(update_fut) = response.update(&ctx, &builder, permissions) {
+                    if let Err(err) = update_fut.await {
+                        let err = Report::new(err).wrap_err("Failed to minimize embed");
+                        warn!("{err:?}");
+                    }
                 }
             });
         }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::Result;
-use twilight_model::channel::Message;
+use twilight_model::{channel::Message, guild::Permissions};
 
 use crate::{
     core::{buckets::BucketName, commands::checks::check_ratelimit},
@@ -11,7 +11,11 @@ use crate::{
     Context,
 };
 
-pub async fn hint(ctx: Arc<Context>, msg: &Message) -> Result<()> {
+pub async fn hint(
+    ctx: Arc<Context>,
+    msg: &Message,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let ratelimit = check_ratelimit(&ctx, msg.author.id, BucketName::BgHint).await;
 
     if let Some(cooldown) = ratelimit {
@@ -27,7 +31,7 @@ pub async fn hint(ctx: Arc<Context>, msg: &Message) -> Result<()> {
         Some(GameState::Running { game }) => match game.hint().await {
             Ok(hint) => {
                 let builder = MessageBuilder::new().content(hint);
-                msg.create_message(&ctx, &builder).await?;
+                msg.create_message(&ctx, &builder, permissions).await?;
             }
             Err(err) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;

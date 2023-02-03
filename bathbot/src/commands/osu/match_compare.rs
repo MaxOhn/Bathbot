@@ -170,7 +170,7 @@ async fn matchcompare(
                     interval.tick().await;
                     command
                         .channel_id
-                        .create_message(&ctx, &embed.into())
+                        .create_message(&ctx, &embed.into(), command.permissions)
                         .await?;
                 }
             }

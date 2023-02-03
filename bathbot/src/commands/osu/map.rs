@@ -19,7 +19,10 @@ use plotters_backend::{BackendColor, BackendCoord, BackendStyle, DrawingErrorKin
 use rosu_pp::{BeatmapExt, Strains};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::channel::{message::MessageType, Message};
+use twilight_model::{
+    channel::{message::MessageType, Message},
+    guild::Permissions,
+};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
@@ -210,9 +213,14 @@ impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
 #[examples("2240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
 #[aliases("m", "beatmap", "maps", "beatmaps", "mapinfo")]
 #[group(AllModes)]
-async fn prefix_map(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_map(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     match MapArgs::args(msg, args) {
-        Ok(args) => map(ctx, msg.into(), args).await,
+        Ok(args) => map(ctx, CommandOrigin::from_msg(msg, permissions), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
 
@@ -253,7 +261,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
 
     let map_id = if let Some(id) = map {
         id
-    } else {
+    } else if orig.can_read_history() {
         let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
             Ok(msgs) => msgs,
             Err(err) => {
@@ -273,6 +281,13 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
                 return orig.error(&ctx, content).await;
             }
         }
+    } else {
+        let content =
+            "No beatmap specified and lacking permission to search the channel history for maps.\n\
+            Try specifying a map(set) either by url to the map, \
+            or just by map(set) id, or give me the \"Read Message History\" permission.";
+
+        return orig.error(&ctx, content).await;
     };
 
     let mods = match mods {

@@ -24,7 +24,7 @@ use std::{fmt::Write, sync::Arc};
 
 use bathbot_macros::SlashCommand;
 use bathbot_util::MessageBuilder;
-use eyre::Result;
+use eyre::{ContextCompat, Result};
 use tokio::time::{interval, Duration};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
@@ -48,6 +48,13 @@ async fn song(
     orig: CommandOrigin<'_>,
 ) -> Result<()> {
     debug_assert!(lyrics.len() > 1);
+
+    if !orig.can_view_channel() {
+        let content = "I'm lacking the \"View Channel\" permission \
+            required to update message.";
+
+        return orig.error_callback(&ctx, content).await;
+    }
 
     let (id, allow) = match orig.guild_id() {
         Some(guild) => {
@@ -90,7 +97,13 @@ async fn song(
             let _ = writeln!(content, "♫ {line} ♫");
 
             let builder = MessageBuilder::new().content(&content);
-            response = response.update(&ctx, &builder).await?.model().await?;
+
+            response = response
+                .update(&ctx, &builder, None)
+                .wrap_err("lacking permission to update message")?
+                .await?
+                .model()
+                .await?;
         }
     } else {
         let content = "The server's higher-ups have disabled song commands. \

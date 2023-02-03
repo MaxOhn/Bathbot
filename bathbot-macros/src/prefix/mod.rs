@@ -91,8 +91,9 @@ pub fn fun(mut fun: CommandFun) -> Result<TokenStream2> {
             ctx: Arc<Context>,
             msg: &'fut twilight_model::channel::Message,
             args: crate::core::commands::prefix::Args<'fut>,
+            permissions: Option<::twilight_model::guild::Permissions>,
         ) -> crate::core::commands::prefix::CommandResult<'fut> {
-            Box::pin(#fun_name(ctx, msg, args))
+            Box::pin(#fun_name(ctx, msg, args, permissions))
         }
     };
 
@@ -136,34 +137,71 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
         }
     }
 
-    let spoofed_arg = match iter.next() {
-        Some(arg) if arg.ty == parse_quote! { Args<'_> } => {
+    let (args, permissions, swap) = match (iter.next(), iter.next()) {
+        (None, None) => {
+            let args: FnArg = parse_quote!(_: crate::core::commands::prefix::Args<'fut>);
+            let args = Argument::try_from(args)?;
+            let permissions: FnArg =
+                parse_quote!(_: Option<::twilight_model::guild::Permissions>);
+            let permissions = Argument::try_from(permissions)?;
+
+            (Some(args), Some(permissions), false)
+        }
+        (Some(arg), None) if arg.ty == parse_quote! { Args<'_> } => {
             arg.ty = parse_quote! { crate::core::commands::prefix::Args<'fut> };
 
-            None
+            let permissions: FnArg =
+                parse_quote!(_: Option<::twilight_model::guild::Permissions>);
+
+            (None, Some(Argument::try_from(permissions)?), false)
         }
-        Some(arg) => {
+        (Some(arg), None) if arg.ty == parse_quote! { Option<Permissions> } => {
+            let args: FnArg = parse_quote!(_: crate::core::commands::prefix::Args<'fut>);
+
+            (Some(Argument::try_from(args)?), None, true)
+        }
+        (Some(arg), None) => {
             return Err(Error::new(
                 arg.ty.span(),
-                "expected third argument to be of type `Args<'_>`",
-            ));
+                "expected third argument to be of type `Args<'_>` or `Option<Permissions>`",
+            ))
         }
-        None => {
-            let fn_arg: FnArg = parse_quote!(_: crate::core::commands::prefix::Args<'fut>);
+        (Some(arg1), Some(arg2)) if arg1.ty == parse_quote! { Args<'_> } && arg2.ty == parse_quote! { Option<Permissions> } => {
+            arg1.ty = parse_quote! { crate::core::commands::prefix::Args<'fut> };
 
-            Some(Argument::try_from(fn_arg)?)
+            (None, None, false)
+        },
+        (Some(arg1), Some(arg2)) if arg2.ty == parse_quote! { Args<'_> } && arg1.ty == parse_quote! { Option<Permissions> } => {
+            arg2.ty = parse_quote! { crate::core::commands::prefix::Args<'fut> };
+
+            (None, None, true)
+        },
+        (Some(arg), Some(_)) => {
+            return Err(Error::new(
+                arg.ty.span(),
+                "expected third and fourth arguments to be of type `Args<'_>` and `Option<Permissions>`",
+            ))
         }
+        (None, Some(_)) => unreachable!(),
     };
 
     if iter.count() > 0 {
         return Err(Error::new(
             fun.name.span(),
-            "expected at most three arguments",
+            "expected at most four arguments",
         ));
     }
 
-    if let Some(arg) = spoofed_arg {
-        fun.args.push(arg);
+    if let Some(args) = args {
+        fun.args.push(args);
+    }
+
+    if let Some(permissions) = permissions {
+        fun.args.push(permissions);
+    }
+
+    if swap {
+        fun.args.swap(2, 3);
     }
 
     Ok(())

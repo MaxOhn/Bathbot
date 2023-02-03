@@ -13,6 +13,7 @@ use rosu_v2::{
     OsuResult,
 };
 use time::OffsetDateTime;
+use twilight_model::guild::Permissions;
 
 use crate::{
     commands::{
@@ -37,10 +38,15 @@ use super::{CompareTop, AT_LEAST_ONE};
 #[usage("[name1] [name2]")]
 #[example("badewanne3 \"nathan on osu\"")]
 #[group(Osu)]
-async fn prefix_common(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_common(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let args = CompareTop::args(None, args);
 
-    top(ctx, msg.into(), args).await
+    top(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -50,10 +56,15 @@ async fn prefix_common(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resu
 #[example("badewanne3 \"nathan on osu\"")]
 #[alias("commonm")]
 #[group(Mania)]
-async fn prefix_commonmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_commonmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let args = CompareTop::args(Some(GameModeOption::Mania), args);
 
-    top(ctx, msg.into(), args).await
+    top(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -63,10 +74,15 @@ async fn prefix_commonmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("badewanne3 \"nathan on osu\"")]
 #[alias("commont")]
 #[group(Taiko)]
-async fn prefix_commontaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_commontaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let args = CompareTop::args(Some(GameModeOption::Taiko), args);
 
-    top(ctx, msg.into(), args).await
+    top(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -76,10 +92,15 @@ async fn prefix_commontaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("badewanne3 \"nathan on osu\"")]
 #[aliases("commonc", "commoncatch")]
 #[group(Catch)]
-async fn prefix_commonctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_commonctb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
     let args = CompareTop::args(Some(GameModeOption::Catch), args);
 
-    top(ctx, msg.into(), args).await
+    top(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 async fn extract_user_id(ctx: &Context, args: &mut CompareTop<'_>) -> UserExtraction {
@@ -253,9 +274,8 @@ pub(super) async fn top(
 
     // Create the combined profile pictures
     let urls = iter::once(user1.avatar_url()).chain(iter::once(user2.avatar_url()));
-    let thumbnail_result = get_combined_thumbnail(&ctx, urls, 2, None).await;
 
-    let thumbnail = match thumbnail_result {
+    let thumbnail = match get_combined_thumbnail(&ctx, urls, 2, None).await {
         Ok(thumbnail) => Some(thumbnail),
         Err(err) => {
             warn!("{:?}", err.wrap_err("Failed to combine avatars"));
