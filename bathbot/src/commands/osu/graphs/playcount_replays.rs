@@ -6,19 +6,21 @@ use bathbot_util::{
 };
 use bitflags::bitflags;
 use bytes::Bytes;
+use cairo::{Context as CairoContext, Format, ImageSurface};
 use eyre::{Report, Result, WrapErr};
 use futures::{stream::FuturesUnordered, TryStreamExt};
-use image::{codecs::png::PngEncoder, imageops::FilterType::Lanczos3, ColorType, ImageEncoder};
+use image::imageops::FilterType::Lanczos3;
 use plotters::{
     coord::{types::RangedCoordi32, Shift},
     prelude::{
-        BitMapBackend, BitMapElement, Cartesian2d, ChartBuilder, ChartContext, Circle, DrawingArea,
-        IntoDrawingArea, PathElement, SeriesLabelPosition,
+        Cartesian2d, ChartBuilder, ChartContext, Circle, DrawingArea, IntoDrawingArea, PathElement,
+        SeriesLabelPosition,
     },
     series::AreaSeries,
     style::{Color, RGBColor, BLACK, WHITE},
 };
 use plotters_backend::FontStyle;
+use plotters_cairo::CairoBackend;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
     prelude::{MonthlyCount, OsuError},
@@ -36,7 +38,7 @@ use crate::{
     util::Monthly,
 };
 
-use super::{H, W};
+use super::{BitmapElement, H, W};
 
 pub async fn playcount_replays_graph(
     ctx: &Context,
@@ -161,32 +163,61 @@ impl<'l> ProfileGraphParams<'l> {
     }
 }
 
-type Area<'b> = DrawingArea<BitMapBackend<'b>, Shift>;
-type Chart<'a, 'b> =
-    ChartContext<'a, BitMapBackend<'b>, Cartesian2d<Monthly<Date>, RangedCoordi32>>;
+type Area<'b> = DrawingArea<CairoBackend<'b>, Shift>;
+type Chart<'a, 'b> = ChartContext<'a, CairoBackend<'b>, Cartesian2d<Monthly<Date>, RangedCoordi32>>;
+
+// Request all badge images if required
+async fn gather_badges(
+    ctx: &Context,
+    user: &mut RedisData<User>,
+    flags: ProfileGraphFlags,
+) -> Result<Vec<Bytes>> {
+    let badges = match user {
+        RedisData::Original(user) => mem::take(&mut user.badges),
+        RedisData::Archived(user) => user.badges.deserialize(&mut Infallible).unwrap(),
+    };
+
+    if badges.is_empty() || !flags.badges() {
+        return Ok(Vec::new());
+    }
+
+    badges
+        .iter()
+        .map(|badge| ctx.client().get_badge(&badge.image_url))
+        .collect::<FuturesUnordered<_>>()
+        .try_collect()
+        .await
+}
 
 pub async fn graphs(params: ProfileGraphParams<'_>) -> Result<Option<Vec<u8>>> {
     let w = params.w;
     let h = params.h;
 
-    let len = (w * h) as usize;
-    let mut buf = vec![0; len * 3]; // PIXEL_SIZE = 3
+    let badges = gather_badges(params.ctx, params.user, params.flags).await?;
 
-    if !draw(&mut buf, params).await? {
+    // Needs to happen after .await since type is not Send
+    let surface = ImageSurface::create(Format::ARgb32, w as i32, h as i32)
+        .wrap_err("failed to create surface")?;
+
+    let ctx = CairoContext::new(&surface).wrap_err("failed to create cairo context")?;
+
+    if !draw(&ctx, params, &badges)? {
         return Ok(None);
     }
 
     // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
+    let mut png_bytes: Vec<u8> = Vec::with_capacity((2 * w * h) as usize);
+
+    surface
+        .write_to_png(&mut png_bytes)
+        .wrap_err("failed to write to png")?;
 
     Ok(Some(png_bytes))
 }
 
-async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> Result<bool> {
+fn draw(ctx: &CairoContext, params: ProfileGraphParams<'_>, badges: &[Bytes]) -> Result<bool> {
     let ProfileGraphParams {
-        ctx,
+        ctx: _,
         user,
         w,
         h,
@@ -199,27 +230,11 @@ async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> Result<bool> {
         return Ok(false);
     }
 
-    let badges = match user {
-        RedisData::Original(user) => mem::take(&mut user.badges),
-        RedisData::Archived(user) => user.badges.deserialize(&mut Infallible).unwrap(),
-    };
+    let mut canvas = create_root(ctx, w, h)?;
 
-    let canvas = if flags.badges() && !badges.is_empty() {
-        // Request all badge images
-        let badges: Vec<_> = badges
-            .iter()
-            .map(|badge| ctx.client().get_badge(&badge.image_url))
-            .collect::<FuturesUnordered<_>>()
-            .try_collect()
-            .await?;
-
-        // Needs to happen after .await since type is not Send
-        let root = create_root(buf, w, h)?;
-
-        draw_badges(&badges, root, w, h)?
-    } else {
-        create_root(buf, w, h)?
-    };
+    if !badges.is_empty() {
+        canvas = draw_badges(&badges, canvas, w, h)?;
+    }
 
     if flags.playcount() && flags.replays() {
         draw_both(&playcounts, &replays, &canvas)?;
@@ -232,8 +247,11 @@ async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> Result<bool> {
     Ok(true)
 }
 
-fn create_root(buf: &mut [u8], w: u32, h: u32) -> Result<Area<'_>> {
-    let root = BitMapBackend::with_buffer(buf, (w, h)).into_drawing_area();
+fn create_root(ctx: &CairoContext, w: u32, h: u32) -> Result<Area<'_>> {
+    let root = CairoBackend::new(ctx, (w, h))
+        .wrap_err("failed to create backend")?
+        .into_drawing_area();
+
     let background = RGBColor(19, 43, 33);
     root.fill(&background)
         .wrap_err("failed to fill background")?;
@@ -290,7 +308,7 @@ fn draw_badges<'a>(badges: &[Bytes], area: Area<'a>, w: u32, h: u32) -> Result<A
 
             let x = x_offset + idx as u32 * badge_width + idx as u32 * inner_margin;
             let y = badge_height;
-            let elem: BitMapElement<'_, _> = ((x, y), badge_img).into();
+            let elem = BitmapElement::new(badge_img, (x, y));
 
             chart_row
                 .draw_series(iter::once(elem))

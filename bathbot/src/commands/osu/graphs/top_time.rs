@@ -1,16 +1,17 @@
 use std::fmt::Write;
 
+use cairo::{Context as CairoContext, Format, ImageSurface};
 use eyre::{Result, WrapErr};
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::{
     prelude::{
-        BitMapBackend, ChartBuilder, Circle, EmptyElement, IntoDrawingArea, IntoSegmentedCoord,
-        Rectangle, SegmentValue, SeriesLabelPosition,
+        ChartBuilder, Circle, EmptyElement, IntoDrawingArea, IntoSegmentedCoord, Rectangle,
+        SegmentValue, SeriesLabelPosition,
     },
     series::PointSeries,
     style::{Color, RGBColor, WHITE},
 };
 use plotters_backend::FontStyle;
+use plotters_cairo::CairoBackend;
 use rosu_v2::prelude::Score;
 use time::{OffsetDateTime, UtcOffset};
 
@@ -49,11 +50,16 @@ pub async fn top_graph_time(
 
     let max_hours = hours.iter().max().map_or(0, |count| *count as u32);
 
-    let len = (W * H) as usize;
-    let mut buf = vec![0; len * 3];
+    let surface = ImageSurface::create(Format::ARgb32, W as i32, H as i32)
+        .wrap_err("failed to create surface")?;
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        let ctx = CairoContext::new(&surface).wrap_err("failed to create cairo context")?;
+
+        let root = CairoBackend::new(&ctx, (W, H))
+            .wrap_err("failed to create backend")?
+            .into_drawing_area();
+
         let background = RGBColor(19, 43, 33);
         root.fill(&background)
             .wrap_err("failed to fill background")?;
@@ -185,12 +191,11 @@ pub async fn top_graph_time(
     }
 
     // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
+    let mut png_bytes: Vec<u8> = Vec::with_capacity((2 * W * H) as usize);
 
-    png_encoder
-        .write_image(&buf, W, H, ColorType::Rgb8)
-        .wrap_err("failed to encode image")?;
+    surface
+        .write_to_png(&mut png_bytes)
+        .wrap_err("failed to write to png")?;
 
     Ok(png_bytes)
 }

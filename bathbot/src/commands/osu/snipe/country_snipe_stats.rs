@@ -6,9 +6,10 @@ use bathbot_util::{
     constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
 };
+use cairo::{Context as CairoContext, Format, ImageSurface};
 use eyre::{Report, Result, WrapErr};
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
+use plotters_cairo::CairoBackend;
 use rosu_v2::{prelude::OsuError, request::UserId};
 use twilight_model::guild::Permissions;
 
@@ -164,8 +165,6 @@ const W: u32 = 1350;
 const H: u32 = 350;
 
 fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>> {
-    static LEN: usize = (W * H) as usize * 3;
-
     let mut pp: Vec<_> = players
         .iter()
         .map(|player| (&player.username, player.pp))
@@ -192,10 +191,16 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>> {
         .map(|(_, n)| *n)
         .fold(0, |max, curr| max.max(curr));
 
-    let mut buf = vec![0; LEN];
+    let surface = ImageSurface::create(Format::ARgb32, W as i32, H as i32)
+        .wrap_err("failed to create surface")?;
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        let ctx = CairoContext::new(&surface).wrap_err("failed to create cairo context")?;
+
+        let root = CairoBackend::new(&ctx, (W, H))
+            .wrap_err("failed to create backend")?
+            .into_drawing_area();
+
         let background = RGBColor(19, 43, 33);
         root.fill(&background)
             .wrap_err("failed to fill background")?;
@@ -276,12 +281,11 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>> {
     }
 
     // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
+    let mut png_bytes: Vec<u8> = Vec::with_capacity((2 * W * H) as usize);
 
-    png_encoder
-        .write_image(&buf, W, H, ColorType::Rgb8)
-        .wrap_err("failed to encode image")?;
+    surface
+        .write_to_png(&mut png_bytes)
+        .wrap_err("failed to write to png")?;
 
     Ok(png_bytes)
 }

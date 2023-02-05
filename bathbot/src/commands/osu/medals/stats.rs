@@ -6,10 +6,11 @@ use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher, MessageBuilder,
 };
+use cairo::{Context as CairoContext, Format, ImageSurface};
 use eyre::{Report, Result, WrapErr};
 use hashbrown::HashMap;
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
+use plotters_cairo::CairoBackend;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
     prelude::{MedalCompact, OsuError},
@@ -190,11 +191,16 @@ const W: u32 = 1350;
 const H: u32 = 350;
 
 pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>> {
-    let len = (w * h) as usize;
-    let mut buf = vec![0; len * 3]; // PIXEL_SIZE = 3
+    let surface = ImageSurface::create(Format::ARgb32, w as i32, h as i32)
+        .wrap_err("failed to create surface")?;
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
+        let ctx = CairoContext::new(&surface).wrap_err("failed to create cairo context")?;
+
+        let root = CairoBackend::new(&ctx, (w, h))
+            .wrap_err("failed to create backend")?
+            .into_drawing_area();
+
         let background = RGBColor(19, 43, 33);
         root.fill(&background)
             .wrap_err("failed to fill background")?;
@@ -242,12 +248,11 @@ pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>>
     }
 
     // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
+    let mut png_bytes: Vec<u8> = Vec::with_capacity((2 * w * h) as usize);
 
-    png_encoder
-        .write_image(&buf, w, h, ColorType::Rgb8)
-        .wrap_err("failed to encode image")?;
+    surface
+        .write_to_png(&mut png_bytes)
+        .wrap_err("failed to write to png")?;
 
     Ok(Some(png_bytes))
 }

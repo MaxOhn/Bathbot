@@ -6,16 +6,16 @@ use bathbot_util::{
     matcher,
     osu::MapIdType,
 };
+use cairo::{Context as CairoContext, Format, ImageSurface};
 use enterpolation::{linear::Linear, Curve};
 use eyre::{Report, Result, WrapErr};
-use image::{
-    codecs::png::PngEncoder, ColorType, DynamicImage, GenericImageView, ImageEncoder, Luma, Pixel,
-};
+use image::{DynamicImage, GenericImageView, Luma, Pixel};
 use plotters::{
     element::{Drawable, PointCollection},
     prelude::*,
 };
 use plotters_backend::{BackendColor, BackendCoord, BackendStyle, DrawingErrorKind};
+use plotters_cairo::CairoBackend;
 use rosu_pp::{BeatmapExt, Strains};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -25,6 +25,7 @@ use twilight_model::{
 };
 
 use crate::{
+    commands::osu::BitmapElement,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::MessageOrigin,
     pagination::MapPagination,
@@ -465,7 +466,6 @@ async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> Result<Vec
 }
 
 fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>> {
-    const LEN: usize = W as usize * H as usize;
     const STEPS: usize = 128;
 
     let first_strain = strains.first().map_or(0.0, |(v, _)| *v);
@@ -494,10 +494,16 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>> 
         bail!("no non-zero strain point");
     }
 
-    let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
+    let surface = ImageSurface::create(Format::ARgb32, W as i32, H as i32)
+        .wrap_err("failed to create surface")?;
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        let ctx = CairoContext::new(&surface).wrap_err("failed to create cairo context")?;
+
+        let root = CairoBackend::new(&ctx, (W, H))
+            .wrap_err("failed to create backend")?
+            .into_drawing_area();
+
         root.fill(&WHITE).wrap_err("failed to fill background")?;
 
         let mut chart = ChartBuilder::on(&root)
@@ -521,7 +527,7 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>> 
 
         // Add background
         let background = background.blur(2.0).brighten(-20);
-        let elem: BitMapElement<'_, _> = ((0.0_f64, max_strain), background).into();
+        let elem = BitmapElement::new(background, (0.0_f64, max_strain));
         chart
             .draw_series(iter::once(elem))
             .wrap_err("failed to draw background")?;
@@ -560,12 +566,11 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>> 
     }
 
     // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
+    let mut png_bytes: Vec<u8> = Vec::with_capacity((2 * W * H) as usize);
 
-    png_encoder
-        .write_image(&buf, W, H, ColorType::Rgb8)
-        .wrap_err("failed to encode image")?;
+    surface
+        .write_to_png(&mut png_bytes)
+        .wrap_err("failed to write to png")?;
 
     Ok(png_bytes)
 }
