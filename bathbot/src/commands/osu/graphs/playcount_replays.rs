@@ -233,7 +233,7 @@ fn draw(ctx: &CairoContext, params: ProfileGraphParams<'_>, badges: &[Bytes]) ->
     let mut canvas = create_root(ctx, w, h)?;
 
     if !badges.is_empty() {
-        canvas = draw_badges(&badges, canvas, w, h)?;
+        canvas = draw_badges(badges, canvas, w, h)?;
     }
 
     if flags.playcount() && flags.replays() {
