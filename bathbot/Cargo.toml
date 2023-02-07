@@ -15,7 +15,7 @@ bb8-redis = { version = "0.12" }
 bitflags = { version = "1.0" }
 bytes = { version = "1.0" }
 dotenvy = { version = "0.15" }
-enterpolation = { version = "0.2", default-features = false, features = ["std", "linear"] }
+enterpolation = { version = "0.2", default-features = false, features = ["std", "bezier", "bspline", "linear"] }
 eyre = { version = "0.6" }
 flexmap = { git = "https://github.com/MaxOhn/flexmap" }
 flurry = { version = "0.4" }

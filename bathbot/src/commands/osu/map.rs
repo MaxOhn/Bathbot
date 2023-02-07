@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering, fmt::Write, iter, sync::Arc, time::Duration};
+use std::{borrow::Cow, cmp::Ordering, fmt::Write, iter, mem, sync::Arc, time::Duration};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_util::{
@@ -8,14 +8,8 @@ use bathbot_util::{
 };
 use enterpolation::{linear::Linear, Curve};
 use eyre::{Report, Result, WrapErr};
-use image::{
-    codecs::png::PngEncoder, ColorType, DynamicImage, GenericImageView, ImageEncoder, Luma, Pixel,
-};
-use plotters::{
-    element::{Drawable, PointCollection},
-    prelude::*,
-};
-use plotters_backend::{BackendColor, BackendCoord, BackendStyle, DrawingErrorKind};
+use image::{codecs::png::PngEncoder, ColorType, DynamicImage, ImageEncoder};
+use plotters::{coord::types::RangedCoordf64, prelude::*};
 use rosu_pp::{BeatmapExt, Strains};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -358,8 +352,19 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
         Ok::<_, Report>(cover.thumbnail_exact(W, H))
     };
 
-    let graph = match tokio::join!(strain_values(&ctx, map_id, mods), bg_fut) {
-        (Ok(strain_values), Ok(img)) => match graph(strain_values, img) {
+    let (strain_values_res, img_res) = tokio::join!(strain_values(&ctx, map_id, mods), bg_fut);
+
+    let img_opt = match img_res {
+        Ok(img) => Some(img),
+        Err(err) => {
+            warn!("{:?}", err.wrap_err("Failed to get graph background"));
+
+            None
+        }
+    };
+
+    let graph = match strain_values_res {
+        Ok(strain_values) => match graph(strain_values, img_opt) {
             Ok(graph) => Some(graph),
             Err(err) => {
                 warn!("{:?}", err.wrap_err("Failed to create graph"));
@@ -367,13 +372,8 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
                 None
             }
         },
-        (Err(err), _) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err.wrap_err("Failed to calculate strain values"));
-        }
-        (_, Err(err)) => {
-            warn!("{:?}", err.wrap_err("Failed to get graph background"));
+        Err(err) => {
+            warn!("{:?}", err.wrap_err("Failed to calculate strain values"));
 
             None
         }
@@ -399,145 +399,147 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
         .await
 }
 
-async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> Result<Vec<(f64, f64)>> {
+struct GraphStrains {
+    strains: Strains,
+    strains_count: usize,
+}
+
+const NEW_STRAIN_COUNT: usize = 128;
+
+async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> Result<GraphStrains> {
     let map = ctx
         .osu_map()
         .pp_map(map_id)
         .await
         .wrap_err("failed to get pp map")?;
 
-    let strains = map.strains(mods.bits());
+    let mut strains = map.strains(mods.bits());
     let section_len = strains.section_len();
+    let strains_count = strains.len();
 
-    let strains: Vec<(f64, f64)> = match strains {
-        Strains::Catch(strains) => strains
-            .movement
-            .into_iter()
-            .scan(0.0, |time, strain| {
-                *time += section_len;
-
-                Some((*time, strain))
-            })
-            .collect(),
-        Strains::Mania(strains) => strains
-            .strains
-            .into_iter()
-            .scan(0.0, |time, strain| {
-                *time += section_len;
-
-                Some((*time, strain))
-            })
-            .collect(),
-        Strains::Osu(strains) => {
-            let skill_count = (3 - mods.contains(GameMods::Relax) as usize
-                + mods.contains(GameMods::Flashlight) as usize)
-                as f64;
-
-            strains
-                .aim
-                .into_iter()
-                .zip(strains.aim_no_sliders)
-                .zip(strains.speed)
-                .zip(strains.flashlight)
-                .map(|(((a, b), c), d)| (a + b + c + d) / skill_count)
-                .scan(0.0, |time, strain| {
-                    *time += section_len;
-
-                    Some((*time, strain))
-                })
-                .collect()
-        }
-        Strains::Taiko(strains) => strains
-            .color
-            .into_iter()
-            .zip(strains.rhythm)
-            .zip(strains.stamina)
-            .map(|((a, b), c)| (a + b + c) / 3.0)
-            .scan(0.0, |time, strain| {
-                *time += section_len;
-
-                Some((*time, strain))
-            })
-            .collect(),
+    let create_curve = |strains: Vec<f64>| {
+        Linear::builder()
+            .elements(strains)
+            .equidistant()
+            .distance(0.0, section_len)
+            .build()
+            .map(|curve| curve.take(NEW_STRAIN_COUNT).collect())
     };
 
-    Ok(strains)
+    match &mut strains {
+        Strains::Osu(strains) => {
+            strains
+                .aim
+                .iter()
+                .zip(strains.aim_no_sliders.iter_mut())
+                .for_each(|(aim, no_slider)| *no_slider = *aim - *no_slider);
+
+            strains.aim =
+                create_curve(mem::take(&mut strains.aim)).wrap_err("Failed to build aim curve")?;
+            strains.aim_no_sliders = create_curve(mem::take(&mut strains.aim_no_sliders))
+                .wrap_err("Failed to build aim_no_sliders curve")?;
+            strains.speed = create_curve(mem::take(&mut strains.speed))
+                .wrap_err("Failed to build speed curve")?;
+            strains.flashlight = create_curve(mem::take(&mut strains.flashlight))
+                .wrap_err("Failed to build flashlight curve")?;
+        }
+        Strains::Taiko(strains) => {
+            strains.color = create_curve(mem::take(&mut strains.color))
+                .wrap_err("Failed to build color curve")?;
+            strains.rhythm = create_curve(mem::take(&mut strains.rhythm))
+                .wrap_err("Failed to build rhythm curve")?;
+            strains.stamina = create_curve(mem::take(&mut strains.stamina))
+                .wrap_err("Failed to build stamina curve")?;
+        }
+        Strains::Catch(strains) => {
+            strains.movement = create_curve(mem::take(&mut strains.movement))
+                .wrap_err("Failed to build movement curve")?;
+        }
+        Strains::Mania(strains) => {
+            strains.strains = create_curve(mem::take(&mut strains.strains))
+                .wrap_err("Failed to build strains curve")?;
+        }
+    }
+
+    Ok(GraphStrains {
+        strains,
+        strains_count,
+    })
 }
 
-fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>> {
-    const LEN: usize = W as usize * H as usize;
-    const STEPS: usize = 128;
+fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<u8>> {
+    let last_timestamp = ((NEW_STRAIN_COUNT - 1) as f64
+        * strains.strains.section_len()
+        * strains.strains_count as f64)
+        / NEW_STRAIN_COUNT as f64;
 
-    let first_strain = strains.first().map_or(0.0, |(v, _)| *v);
-    let last_strain = strains.last().map_or(0.0, |(v, _)| *v);
-
-    let knots: Vec<_> = strains.iter().map(|(time, _)| *time).collect();
-    let elements: Vec<_> = strains.into_iter().map(|(_, strain)| strain).collect();
-    let dist = (last_strain - first_strain) / STEPS as f64;
-
-    let curve = Linear::builder().elements(elements).knots(knots).build()?;
-
-    let strains: Vec<_> = iter::successors(Some(first_strain), |n| Some(n + dist))
-        .take(STEPS)
-        .zip(curve.take(STEPS))
-        .collect();
-
-    let last_strain = strains.last().map_or(0.0, |(v, _)| *v);
-
-    let (min_strain, max_strain) = strains
-        .iter()
-        .fold((f64::MAX, f64::MIN), |(min, max), (_, strain)| {
-            (min.min(*strain), max.max(*strain))
-        });
+    let max_strain = match &strains.strains {
+        Strains::Osu(strains) => strains
+            .aim
+            .iter()
+            .zip(strains.aim_no_sliders.iter())
+            .zip(strains.speed.iter())
+            .zip(strains.flashlight.iter())
+            .fold(0.0_f64, |max, (((a, b), c), d)| {
+                max.max(*a).max(*b).max(*c).max(*d)
+            }),
+        Strains::Taiko(strains) => strains
+            .color
+            .iter()
+            .zip(strains.rhythm.iter())
+            .zip(strains.stamina.iter())
+            .fold(0.0_f64, |max, ((a, b), c)| max.max(*a).max(*b).max(*c)),
+        Strains::Catch(strains) => strains
+            .movement
+            .iter()
+            .fold(0.0_f64, |max, strain| max.max(*strain)),
+        Strains::Mania(strains) => strains
+            .strains
+            .iter()
+            .fold(0.0_f64, |max, strain| max.max(*strain)),
+    };
 
     if max_strain <= std::f64::EPSILON {
         bail!("no non-zero strain point");
     }
 
-    let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
+    let mut buf = vec![0; (3 * W * H) as usize];
 
     {
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
-        root.fill(&WHITE).wrap_err("failed to fill background")?;
+
+        if background.is_none() {
+            root.fill(&RGBColor(19, 43, 33))
+                .wrap_err("Failed to fill background")?;
+        }
 
         let mut chart = ChartBuilder::on(&root)
             .x_label_area_size(17_i32)
-            .build_cartesian_2d(first_strain..last_strain, min_strain..max_strain)
-            .wrap_err("failed to build chart")?;
+            .build_cartesian_2d(0.0_f64..last_timestamp, 0.0_f64..max_strain)
+            .wrap_err("Failed to build chart")?;
 
-        // Get grayscale value to determine color for x axis
-        let (width, height) = background.dimensions();
-        let y = height.saturating_sub(10);
-
-        let sum: u32 = (0..width)
-            .map(|x| {
-                let Luma([value]) = background.get_pixel(x, y).to_luma();
-
-                value as u32
-            })
-            .sum();
-
-        let axis_color = if sum / width >= 128 { &BLACK } else { &WHITE };
-
-        // Add background
-        let background = background.blur(2.0).brighten(-20);
-        let elem: BitMapElement<'_, _> = ((0.0_f64, max_strain), background).into();
-        chart
-            .draw_series(iter::once(elem))
-            .wrap_err("failed to draw background")?;
+        // Add background and get grayscale value to determine color for x axis
+        if let Some(background) = background {
+            let background = background.blur(2.0).brighten(-120);
+            let elem: BitMapElement<'_, _> = ((0.0_f64, max_strain), background).into();
+            chart
+                .draw_series(iter::once(elem))
+                .wrap_err("Failed to draw background")?;
+        }
 
         // Mesh and labels
-        let text_style = FontDesc::new(FontFamily::Serif, 14.0, FontStyle::Bold).color(axis_color);
+        let text_style = FontDesc::new(FontFamily::SansSerif, 14.0, FontStyle::Bold).color(&WHITE);
 
         chart
             .configure_mesh()
             .disable_y_mesh()
             .disable_y_axis()
             .set_all_tick_mark_size(3_i32)
-            .light_line_style(axis_color.mix(0.0)) // hide
-            .bold_line_style(axis_color.mix(0.4))
+            .light_line_style(WHITE.mix(0.0)) // hide
+            .bold_line_style(WHITE.mix(0.4))
             .x_labels(10)
-            .x_label_style(text_style)
+            .x_label_style(text_style.clone())
+            .axis_style(WHITE)
             .x_label_formatter(&|timestamp| {
                 if timestamp.abs() <= f64::EPSILON {
                     return String::new();
@@ -550,87 +552,86 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>> 
                 format!("{minutes}:{seconds:0>2}")
             })
             .draw()
-            .wrap_err("failed to draw mesh")?;
+            .wrap_err("Failed to draw mesh")?;
 
-        // Draw line
-        let glowing = GlowingPath::new(strains, Line);
+        draw_mode_strains(&mut chart, strains)?;
+
         chart
-            .draw_series(iter::once(glowing))
-            .wrap_err("failed to draw path")?;
+            .configure_series_labels()
+            .position(SeriesLabelPosition::UpperLeft)
+            .border_style(BLACK.mix(0.25))
+            .background_style(BLACK.mix(0.15))
+            .margin(2_i32)
+            .legend_area_size(10)
+            .label_font(text_style)
+            .draw()
+            .wrap_err("Failed to draw legend")?;
     }
 
     // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
+    let mut png_bytes: Vec<u8> = Vec::with_capacity((2 * W * H) as usize);
 
-    png_encoder
+    PngEncoder::new(&mut png_bytes)
         .write_image(&buf, W, H, ColorType::Rgb8)
-        .wrap_err("failed to encode image")?;
+        .wrap_err("Failed to encode image")?;
 
     Ok(png_bytes)
 }
 
-struct GlowingPath<Coord>(PathElement<Coord>);
+fn draw_mode_strains(
+    chart: &mut ChartContext<'_, BitMapBackend<'_>, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
+    strains: GraphStrains,
+) -> Result<()> {
+    let GraphStrains {
+        strains,
+        strains_count,
+    } = strains;
 
-impl<Coord> GlowingPath<Coord> {
-    fn new(points: Vec<Coord>, style: impl Into<ShapeStyle>) -> Self {
-        Self(PathElement::new(points, style))
+    let orig_count = strains_count as f64;
+    let new_count = strains.len() as f64;
+    let section_len = strains.section_len();
+
+    let factor = section_len * orig_count / new_count;
+
+    fn timestamp_iter(strains: &[f64], factor: f64) -> impl Iterator<Item = (f64, f64)> + '_ {
+        strains
+            .iter()
+            .enumerate()
+            .map(move |(i, strain)| (i as f64 * factor, *strain))
     }
-}
 
-impl<'a, Coord> PointCollection<'a, Coord> for &'a GlowingPath<Coord> {
-    type Point = &'a Coord;
-    type IntoIter = &'a [Coord];
-
-    fn point_iter(self) -> Self::IntoIter {
-        self.0.point_iter()
+    macro_rules! draw_line {
+        ( $label:literal, $strains:ident.$skill:ident, $color:ident ) => {{
+            chart
+                .draw_series(
+                    AreaSeries::new(
+                        timestamp_iter(&$strains.$skill, factor),
+                        0.0,
+                        $color.mix(0.2),
+                    )
+                    .border_style($color),
+                )
+                .wrap_err(concat!("Failed to draw ", stringify!($skill), " series"))?
+                .label($label)
+                .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 6, y)], $color));
+        }};
     }
-}
 
-impl<DB, Coord> Drawable<DB> for GlowingPath<Coord>
-where
-    DB: DrawingBackend,
-{
-    fn draw<I>(
-        &self,
-        pos: I,
-        backend: &mut DB,
-        parent_dim: (u32, u32),
-    ) -> Result<(), DrawingErrorKind<DB::ErrorType>>
-    where
-        I: Iterator<Item = BackendCoord>,
-    {
-        let pos: Vec<_> = pos.collect();
-        backend.draw_path(pos.iter().copied(), &Glow)?;
-        self.0.draw(pos.into_iter(), backend, parent_dim)?;
-
-        Ok(())
-    }
-}
-
-struct Glow;
-
-impl BackendStyle for Glow {
-    fn color(&self) -> BackendColor {
-        BackendColor {
-            alpha: 0.4,
-            rgb: (255, 255, 255),
+    match strains {
+        Strains::Osu(strains) => {
+            draw_line!("Aim", strains.aim, CYAN);
+            draw_line!("Aim (Sliders)", strains.aim_no_sliders, GREEN);
+            draw_line!("Speed", strains.speed, RED);
+            draw_line!("Flashlight", strains.flashlight, MAGENTA);
         }
-    }
-
-    fn stroke_width(&self) -> u32 {
-        5
-    }
-}
-
-struct Line;
-
-impl From<Line> for ShapeStyle {
-    fn from(_: Line) -> Self {
-        Self {
-            color: RGBColor(0, 255, 119).mix(1.0),
-            filled: false,
-            stroke_width: 2,
+        Strains::Taiko(strains) => {
+            draw_line!("Stamina", strains.stamina, RED);
+            draw_line!("Color", strains.color, YELLOW);
+            draw_line!("Rhythm", strains.rhythm, CYAN);
         }
+        Strains::Catch(strains) => draw_line!("Movement", strains.movement, CYAN),
+        Strains::Mania(strains) => draw_line!("Strain", strains.strains, MAGENTA),
     }
+
+    Ok(())
 }
