@@ -1,4 +1,7 @@
-use std::{borrow::Cow, cmp::Ordering, fmt::Write, iter, mem, sync::Arc, time::Duration};
+use std::{
+    borrow::Cow, cell::RefCell, cmp::Ordering, fmt::Write, iter, mem, rc::Rc,
+    result::Result as StdResult, slice, sync::Arc, time::Duration,
+};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_util::{
@@ -9,7 +12,12 @@ use bathbot_util::{
 use enterpolation::{linear::Linear, Curve};
 use eyre::{Report, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, DynamicImage, ImageEncoder};
-use plotters::{coord::types::RangedCoordf64, prelude::*};
+use plotters::{
+    backend::{PixelFormat, RGBPixel},
+    coord::{types::RangedCoordf64, Shift},
+    prelude::*,
+};
+use plotters_backend::{BackendColor, BackendCoord, DrawingErrorKind};
 use rosu_pp::{BeatmapExt, Strains};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -505,8 +513,11 @@ fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<
 
     let mut buf = vec![0; (3 * W * H) as usize];
 
+    let buf_ptr = buf.as_ptr();
+
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        let backend = Rc::new(RefCell::new(BlendableBackend::new(&mut buf, buf_ptr, W, H)));
+        let root = BlendableBackend::to_drawing_area(&backend);
 
         if background.is_none() {
             root.fill(&RGBColor(19, 43, 33))
@@ -518,13 +529,17 @@ fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<
             .build_cartesian_2d(0.0_f64..last_timestamp, 0.0_f64..max_strain)
             .wrap_err("Failed to build chart")?;
 
-        // Add background and get grayscale value to determine color for x axis
+        // Add background
         if let Some(background) = background {
-            let background = background.blur(2.0).brighten(-120);
+            let background = background.blur(2.0);
             let elem: BitMapElement<'_, _> = ((0.0_f64, max_strain), background).into();
             chart
                 .draw_series(iter::once(elem))
                 .wrap_err("Failed to draw background")?;
+
+            let rect = Rectangle::new([(0, 0), (W as i32, H as i32)], BLACK.mix(0.8).filled());
+            root.draw(&rect)
+                .wrap_err("Failed to draw darkening rectangle")?;
         }
 
         // Mesh and labels
@@ -554,7 +569,9 @@ fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<
             .draw()
             .wrap_err("Failed to draw mesh")?;
 
+        backend.borrow_mut().toggle_blending();
         draw_mode_strains(&mut chart, strains)?;
+        backend.borrow_mut().toggle_blending();
 
         chart
             .configure_series_labels()
@@ -579,7 +596,7 @@ fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<
 }
 
 fn draw_mode_strains(
-    chart: &mut ChartContext<'_, BitMapBackend<'_>, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
+    chart: &mut ChartContext<'_, BlendableBackend<'_>, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
     strains: GraphStrains,
 ) -> Result<()> {
     let GraphStrains {
@@ -607,9 +624,9 @@ fn draw_mode_strains(
                     AreaSeries::new(
                         timestamp_iter(&$strains.$skill, factor),
                         0.0,
-                        $color.mix(0.2),
+                        $color.mix(0.3),
                     )
-                    .border_style($color),
+                    .border_style($color.stroke_width(1)),
                 )
                 .wrap_err(concat!("Failed to draw ", stringify!($skill), " series"))?
                 .label($label)
@@ -634,4 +651,104 @@ fn draw_mode_strains(
     }
 
     Ok(())
+}
+
+struct BlendableBackend<'a> {
+    inner: BitMapBackend<'a>,
+    // The inner BitMapBackend contains the pixel buffer but unfortunately
+    // doesn't expose it so in order to still access the pixels we use this
+    // pointer. That means at some points we have both a mutable and immutable
+    // reference to the buffer which in general is unsound. YOLO :^)
+    ptr: *const u8,
+    blend: bool,
+}
+
+impl<'a> BlendableBackend<'a> {
+    fn new(buf: &'a mut [u8], ptr: *const u8, width: u32, height: u32) -> Self {
+        let inner = BitMapBackend::with_buffer(buf, (width, height));
+        let blend = false;
+
+        Self { inner, ptr, blend }
+    }
+
+    fn toggle_blending(&mut self) {
+        self.blend = !self.blend;
+    }
+
+    fn to_drawing_area(this: &Rc<RefCell<Self>>) -> DrawingArea<Self, Shift> {
+        DrawingArea::from(this)
+    }
+}
+
+impl<'a> DrawingBackend for BlendableBackend<'a> {
+    type ErrorType = <BitMapBackend<'a> as DrawingBackend>::ErrorType;
+
+    #[inline]
+    fn get_size(&self) -> (u32, u32) {
+        self.inner.get_size()
+    }
+
+    #[inline]
+    fn ensure_prepared(&mut self) -> StdResult<(), DrawingErrorKind<Self::ErrorType>> {
+        self.inner.ensure_prepared()
+    }
+
+    #[inline]
+    fn present(&mut self) -> StdResult<(), DrawingErrorKind<Self::ErrorType>> {
+        self.inner.present()
+    }
+
+    fn draw_pixel(
+        &mut self,
+        point: BackendCoord,
+        color: BackendColor,
+    ) -> StdResult<(), DrawingErrorKind<Self::ErrorType>> {
+        if !self.blend {
+            return self.inner.draw_pixel(point, color);
+        }
+
+        // https://api.skia.org/SkBlendMode_8h.html#ad96d76accb8ff5f3eafa29b91f7a25f0
+        fn blend_lighten(src: (u8, u8, u8), dst: BackendColor) -> BackendColor {
+            let src_r = src.0 as f64 / 256.0;
+            let src_g = src.1 as f64 / 256.0;
+            let src_b = src.2 as f64 / 256.0;
+
+            let dst_r = dst.rgb.0 as f64 / 256.0;
+            let dst_g = dst.rgb.1 as f64 / 256.0;
+            let dst_b = dst.rgb.2 as f64 / 256.0;
+
+            let rc_r = src_r + dst_r;
+            let rc_g = src_g + dst_g;
+            let rc_b = src_b + dst_b;
+
+            BackendColor {
+                alpha: dst.alpha,
+                rgb: (
+                    (rc_r * 256.0) as u8,
+                    (rc_g * 256.0) as u8,
+                    (rc_b * 256.0) as u8,
+                ),
+            }
+        }
+
+        let (x, y) = (point.0 as usize, point.1 as usize);
+        let (w, h) = self.inner.get_size();
+        let w = w as usize;
+        let h = h as usize;
+
+        if x >= w || y >= h {
+            return Ok(());
+        }
+
+        let offset = (y * w + x) * RGBPixel::PIXEL_SIZE;
+
+        let len = w * h * RGBPixel::PIXEL_SIZE;
+        let data = unsafe { slice::from_raw_parts(self.ptr.add(offset), len) };
+
+        let (r, g, b, _) = RGBPixel::decode_pixel(data);
+        let src = (r, g, b);
+        let blended = blend_lighten(src, color);
+
+        self.inner.draw_pixel(point, blended)
+    }
 }
