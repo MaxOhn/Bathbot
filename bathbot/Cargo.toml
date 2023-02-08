@@ -43,6 +43,7 @@ rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = 
 # rosu-pp-older = { path = "../../rosu-pp-older" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
+skia-safe = "0.58.0"
 smallvec = { version = "1.0" }
 thiserror = { version = "1.0" }
 time = { version = "0.3", features = ["parsing"] }
