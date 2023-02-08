@@ -133,7 +133,11 @@ impl RecentEmbed {
                             })
                             .map_or_else(Some, Some)
                             .filter(|&idx| idx < 100)
-                            .filter(|&idx| personal[..idx].iter().all(|s| s.map_id != map.map_id()))
+                            .filter(|_| {
+                                personal
+                                    .iter()
+                                    .all(|s| s.map_id != map.map_id() || s.score < score.score)
+                            })
                     })
                     .map(|idx| idx + 1)
             });
