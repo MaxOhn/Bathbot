@@ -581,10 +581,10 @@ fn draw_strain(
     path.move_to((0., (LEGEND_H + GRAPH_H) as f32));
 
     let len = strains.len();
-    for i in 0..len {
+    for (i, strain) in strains.iter().enumerate() {
         path.line_to((
             (i as f32 / (len - 1) as f32) * W as f32,
-            LEGEND_H as f32 + GRAPH_H as f32 - strains[i] as f32 / max_strain as f32 * GRAPH_H as f32
+            LEGEND_H as f32 + GRAPH_H as f32 - *strain as f32 / max_strain as f32 * GRAPH_H as f32
         ));
     }
 
