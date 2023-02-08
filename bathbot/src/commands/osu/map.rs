@@ -660,7 +660,7 @@ fn draw_mode_strains(
         let k = i as f32 / 6.;
 
         paint.set_alpha_f(0.4);
-        surface.canvas().draw_line((W as f32 * k, (LEGEND_H + GRAPH_H) as f32), (W as f32 * k, LEGEND_H as f32), &paint);
+        surface.canvas().draw_line((W as f32 * k, (LEGEND_H + GRAPH_H) as f32), (W as f32 * k, LEGEND_H as f32 - 0.5), &paint);
         let timestamp = length as f32 * k;
         
         let label = format_timestamp(timestamp);
