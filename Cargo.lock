@@ -239,7 +239,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-twilight"
-version = "3.0.5"
+version = "3.0.6"
 dependencies = [
  "bathbot-client",
  "bathbot-macros",
@@ -1900,8 +1900,8 @@ dependencies = [
 
 [[package]]
 name = "rosu-pp"
-version = "0.9.3"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#1b5399070e4194c7f246491c44bf315e3454beed"
+version = "0.9.4"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#68050f7848e0c197382663dfd081beef8d5b8fed"
 dependencies = [
  "tokio",
 ]

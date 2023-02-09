@@ -165,6 +165,17 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
         thread,
     } = Bg::from_interaction(command.input_data())?;
 
+    let can_view_channel = command.permissions.map_or(true, |permissions| {
+        permissions.contains(Permissions::VIEW_CHANNEL)
+    });
+
+    if !can_view_channel {
+        let content = r#"I'm lacking the "View Channel" permission in this channel"#;
+        command.error_callback(&ctx, content).await?;
+
+        return Ok(());
+    }
+
     let can_attach_files = command.permissions.map_or(true, |permissions| {
         permissions.contains(Permissions::ATTACH_FILES)
     });
@@ -192,7 +203,19 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
         });
 
         if !can_create_thread {
-            let content = "I'm lacking the permission to create public threads";
+            let content = r#"I'm lacking "Create Public Threads" permission in this channel"#;
+            command.error_callback(&ctx, content).await?;
+
+            return Ok(());
+        }
+
+        let can_send_msgs = command.permissions.map_or(true, |permissions| {
+            permissions.contains(Permissions::SEND_MESSAGES_IN_THREADS)
+        });
+
+        if !can_send_msgs {
+            let content =
+                r#"I'm lacking the "Send Messages in Threads" permission in this channel"#;
             command.error_callback(&ctx, content).await?;
 
             return Ok(());
@@ -236,6 +259,17 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
                     }
                 }
             }
+        }
+    } else {
+        let can_send_msgs = command.permissions.map_or(true, |permissions| {
+            permissions.contains(Permissions::SEND_MESSAGES)
+        });
+
+        if !can_send_msgs {
+            let content = r#"I'm lacking the "Send Messages" permission in this channel"#;
+            command.error_callback(&ctx, content).await?;
+
+            return Ok(());
         }
     }
 
