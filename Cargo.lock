@@ -1901,7 +1901,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp"
 version = "0.9.4"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#68050f7848e0c197382663dfd081beef8d5b8fed"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#7cc3a4644b62116a1838b3c307290e6fe8780edd"
 dependencies = [
  "tokio",
 ]
