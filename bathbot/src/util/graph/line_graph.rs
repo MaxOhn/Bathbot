@@ -156,10 +156,10 @@ impl<'f> LineGraphBuilder<'f> {
         //     graph_area.bottom -= 17.;
         // }
 
-        if let Some(_) = self.y_formatter {
+        if self.y_formatter.is_some() {
             graph_area.left += 19.;
         }
-        if let Some(_) = self.x_formatter {
+        if self.x_formatter.is_some() {
             graph_area.bottom -= 19.;
         }
 
@@ -318,7 +318,7 @@ impl<'f> LineGraphBuilder<'f> {
             let size = Rect::new(0., 0., self.size.0 as f32, (legend_height + graph_height) as f32);
 
             let mut surface = Surface::new_raster_n32_premul((size.width() as i32, size.height() as i32)).wrap_err("")?;
-            let mut canvas = surface.canvas();
+            let canvas = surface.canvas();
             let mut paint = Paint::default();
             paint.set_anti_alias(true);
 
@@ -365,10 +365,10 @@ impl<'f> LineGraphBuilder<'f> {
             }
 
             if let Some(mut surface) = legend_surface {
-                surface.draw(&mut canvas, (0, 0), sampling_options, None);
+                surface.draw(canvas, (0, 0), sampling_options, None);
             }
             if let Some(mut surface) = graph_surface {
-                surface.draw(&mut canvas, (0, legend_height), sampling_options, None);
+                surface.draw(canvas, (0, legend_height), sampling_options, None);
             }
 
             surface

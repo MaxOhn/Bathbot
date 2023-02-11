@@ -39,7 +39,7 @@ impl Graph {
         }
     }
 
-    pub fn to_image(&mut self, format: EncodedImageFormat) -> Result<Vec<u8>> {
+    pub fn to_image_mut(&mut self, format: EncodedImageFormat) -> Result<Vec<u8>> {
         let data = self.surface.image_snapshot().encode_to_data(format).wrap_err("")?;
         Ok(data.as_bytes().to_vec())
     }

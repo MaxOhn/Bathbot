@@ -538,7 +538,7 @@ fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<
 
     let mut graph = builder.draw().wrap_err("")?;
     
-    graph.to_image(EncodedImageFormat::PNG)
+    graph.to_image_mut(EncodedImageFormat::PNG)
 }
 
 fn add_strains(

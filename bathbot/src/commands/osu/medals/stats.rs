@@ -224,7 +224,7 @@ pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>>
 
     let mut graph = builder.draw().wrap_err("")?;
 
-    Ok(Some(graph.to_image(EncodedImageFormat::PNG).wrap_err("")?))
+    Ok(Some(graph.to_image_mut(EncodedImageFormat::PNG).wrap_err("")?))
 }
 
 // pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>> {
