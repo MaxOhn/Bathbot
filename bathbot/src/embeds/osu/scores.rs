@@ -113,10 +113,8 @@ impl ScoresEmbed {
                 let _ = writeln!(
                     args.description,
                     "{hits} {timestamp}",
-                    hits = HitResultFormatter::new_wide(
-                        entry.score.mode,
-                        entry.score.statistics.clone()
-                    ),
+                    hits =
+                        HitResultFormatter::new(entry.score.mode, entry.score.statistics.clone()),
                     timestamp = HowLongAgoDynamic::new(&entry.score.ended_at)
                 );
 

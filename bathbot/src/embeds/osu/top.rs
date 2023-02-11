@@ -81,7 +81,7 @@ impl TopEmbed {
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),
                 combo = ComboFormatter::new(score.max_combo, map.max_combo()),
-                hits = HitResultFormatter::new_tight(score.mode, score.statistics.clone()),
+                hits = HitResultFormatter::new(score.mode, score.statistics.clone()),
                 appendix = OrderAppendix::new(sort_by, entry, map.ranked_date(), farm, false),
             );
         }

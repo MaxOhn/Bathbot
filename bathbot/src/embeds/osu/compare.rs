@@ -69,7 +69,7 @@ impl CompareEmbed {
             if_fc,
         } = entry;
 
-        let hits = HitResultFormatter::new_tight(score.mode, score.statistics.clone());
+        let hits = HitResultFormatter::new(score.mode, score.statistics.clone());
         let grade_completion_mods =
             grade_completion_mods(score.mods, score.grade, score.total_hits(), map);
 
