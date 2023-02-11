@@ -148,7 +148,11 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
     let (mut osu_match, games) = match ctx.osu().osu_match(match_id).await {
         Ok(mut osu_match) => {
             retrieve_previous(&mut osu_match, ctx.osu()).await?;
-            let games_iter = osu_match.drain_games().skip(warmups);
+
+            let games_iter = osu_match
+                .drain_games()
+                .filter(|game| game.end_time.is_some())
+                .skip(warmups);
 
             let mut games: Vec<_> = if ez_mult != 1.0 {
                 games_iter
