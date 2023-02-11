@@ -4,17 +4,17 @@ use bathbot_macros::command;
 use bathbot_model::Rarity;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-    matcher, IntHasher, MessageBuilder,
+    matcher, IntHasher, MessageBuilder, datetime::DATE_FORMAT,
 };
-use eyre::{Report, Result, WrapErr};
+use eyre::{Report, Result, WrapErr, ContextCompat};
 use hashbrown::HashMap;
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
-use plotters::prelude::*;
+use itertools::Itertools;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
     prelude::{MedalCompact, OsuError},
     request::UserId,
 };
+use skia_safe::{Color, EncodedImageFormat, Typeface, FontStyle};
 use time::OffsetDateTime;
 use twilight_model::guild::Permissions;
 
@@ -23,7 +23,7 @@ use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, MedalStatsEmbed, StatsMedal},
     manager::redis::{osu::UserArgs, RedisData},
-    util::Monthly,
+    util::{graph::{line_graph::LineGraphBuilder, common::{GraphBackground, GraphData, GraphFill}}},
     Context,
 };
 
@@ -190,67 +190,105 @@ const W: u32 = 1350;
 const H: u32 = 350;
 
 pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>> {
-    let len = (w * h) as usize;
-    let mut buf = vec![0; len * 3]; // PIXEL_SIZE = 3
-
-    {
-        let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
-        let background = RGBColor(19, 43, 33);
-        root.fill(&background)
-            .wrap_err("failed to fill background")?;
-
-        if medals.is_empty() {
-            return Ok(None);
-        }
-
-        let first = medals.first().unwrap().achieved_at;
-        let last = medals.last().unwrap().achieved_at;
-
-        let style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
-            color: color.to_rgba(),
-            filled: false,
-            stroke_width: 1,
-        };
-
-        let mut chart = ChartBuilder::on(&root)
-            .margin_right(22)
-            .caption("Medal history", ("sans-serif", 30, &WHITE))
-            .x_label_area_size(30)
-            .y_label_area_size(45)
-            .build_cartesian_2d(Monthly(first..last), 0..medals.len())
-            .wrap_err("failed to build chart")?;
-
-        // Mesh and labels
-        chart
-            .configure_mesh()
-            .disable_x_mesh()
-            .x_labels(10)
-            .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8))
-            .label_style(("sans-serif", 20, &WHITE))
-            .bold_line_style(WHITE.mix(0.3))
-            .axis_style(RGBColor(7, 18, 14))
-            .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
-            .draw()
-            .wrap_err("failed to draw mesh and labels")?;
-
-        // Draw area
-        let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
-        let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
-        let counter = MedalCounter::new(medals);
-        let series = AreaSeries::new(counter, 0, area_style).border_style(border_style);
-        chart.draw_series(series).wrap_err("failed to draw area")?;
+    if medals.is_empty() {
+        return Ok(None)
     }
 
-    // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
+    let first = medals.first().unwrap().achieved_at;
+    let last = medals.last().unwrap().achieved_at;
 
-    png_encoder
-        .write_image(&buf, w, h, ColorType::Rgb8)
-        .wrap_err("failed to encode image")?;
+    let mut builder = LineGraphBuilder::new(w, h);
 
-    Ok(Some(png_bytes))
+    builder
+        .set_background(GraphBackground::Color { color: Color::from_rgb(19, 43, 33) })
+        .set_range(first.unix_timestamp() as f32..last.unix_timestamp() as f32, 0.0..medals.len() as f32)
+        .set_draw_x_axis(true)
+        .set_draw_y_axis(true)
+        .set_draw_legend(false)
+        .set_x_formatter(&|timestamp| {
+            let t = OffsetDateTime::from_unix_timestamp(timestamp as i64).unwrap();
+            t.format(DATE_FORMAT).unwrap()            
+        })
+        .set_y_formatter(&|medals| format!("{}", medals.round()))
+        .set_line_width(3.5)
+        .set_typeface(Typeface::new("Comfortaa", FontStyle::bold()).wrap_err("")?)
+        .add_graph(GraphData::new(
+            "Medals".to_owned(),
+            MedalCounter::new(medals)
+                .into_iter()
+                .map(|m| (m.0.unix_timestamp() as f32, m.1 as f32))
+                .collect_vec(),
+            Color::from_rgb(0, 208, 138),
+            GraphFill::Solid(Color::from_argb(160, 2, 186, 213))
+        ));
+
+    let mut graph = builder.draw().wrap_err("")?;
+
+    Ok(Some(graph.to_image(EncodedImageFormat::PNG).wrap_err("")?))
 }
+
+// pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>> {
+//     let len = (w * h) as usize;
+//     let mut buf = vec![0; len * 3]; // PIXEL_SIZE = 3
+
+//     {
+//         let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
+//         let background = RGBColor(19, 43, 33);
+//         root.fill(&background)
+//             .wrap_err("failed to fill background")?;
+
+//         if medals.is_empty() {
+//             return Ok(None);
+//         }
+
+//         let first = medals.first().unwrap().achieved_at;
+//         let last = medals.last().unwrap().achieved_at;
+
+//         let style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
+//             color: color.to_rgba(),
+//             filled: false,
+//             stroke_width: 1,
+//         };
+
+        // let mut chart = ChartBuilder::on(&root)
+        //     .margin_right(22)
+        //     .caption("Medal history", ("sans-serif", 30, &WHITE))
+        //     .x_label_area_size(30)
+        //     .y_label_area_size(45)
+        //     .build_cartesian_2d(Monthly(first..last), 0..medals.len())
+        //     .wrap_err("failed to build chart")?;
+
+//         // Mesh and labels
+//         chart
+//             .configure_mesh()
+//             .disable_x_mesh()
+//             .x_labels(10)
+//             .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8))
+//             .label_style(("sans-serif", 20, &WHITE))
+//             .bold_line_style(WHITE.mix(0.3))
+//             .axis_style(RGBColor(7, 18, 14))
+//             .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
+//             .draw()
+//             .wrap_err("failed to draw mesh and labels")?;
+
+//         // Draw area
+//         let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
+//         let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
+//         let counter = MedalCounter::new(medals);
+//         let series = AreaSeries::new(counter, 0, area_style).border_style(border_style);
+//         chart.draw_series(series).wrap_err("failed to draw area")?;
+//     }
+
+//     // Encode buf to png
+//     let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
+//     let png_encoder = PngEncoder::new(&mut png_bytes);
+
+//     png_encoder
+//         .write_image(&buf, w, h, ColorType::Rgb8)
+//         .wrap_err("failed to encode image")?;
+
+//     Ok(Some(png_bytes))
+// }
 
 struct MedalCounter<'m> {
     count: usize,
