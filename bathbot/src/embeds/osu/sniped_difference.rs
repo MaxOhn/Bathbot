@@ -59,7 +59,7 @@ impl SnipedDiffEmbed {
                             .wrap_err("failed to get pp map")?;
 
                         let stars = ctx
-                            .pp_parsed(&map, score.map_id, GameMode::Osu)
+                            .pp_parsed(&map, score.map_id, false, GameMode::Osu)
                             .difficulty()
                             .await
                             .stars();

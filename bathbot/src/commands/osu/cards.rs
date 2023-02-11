@@ -228,7 +228,7 @@ impl Skills {
                     .wrap_err("failed to get pp map")?;
 
                 let attrs = ctx
-                    .pp_parsed(&map, score.map_id, mode)
+                    .pp_parsed(&map, score.map_id, false, mode)
                     .mods(score.mods)
                     .difficulty()
                     .await

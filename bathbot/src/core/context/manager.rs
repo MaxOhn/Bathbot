@@ -50,9 +50,10 @@ impl Context {
         &'d self,
         map: &'m Beatmap,
         map_id: u32,
+        is_convert: bool,
         mode: GameMode,
     ) -> PpManager<'d, 'm> {
-        PpManager::from_parsed(map, map_id, mode, &self.clients.psql)
+        PpManager::from_parsed(map, map_id, mode, is_convert, &self.clients.psql)
     }
 
     pub fn approx(&self) -> ApproxManager<'_> {
