@@ -18,7 +18,7 @@ use crate::{
         OsuMap, PpManager,
     },
     pagination::Pages,
-    util::{osu::grade_completion_mods, ScoreExt},
+    util::{osu::grade_completion_mods, ScoreHasState},
 };
 
 use super::{ComboFormatter, KeyFormatter, PpFormatter};

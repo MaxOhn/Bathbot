@@ -6,7 +6,7 @@ use bathbot_util::{
     constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
     datetime::HowLongAgoDynamic,
     numbers::{round, WithComma},
-    AuthorBuilder, CowUtils, FooterBuilder,
+    AuthorBuilder, CowUtils, FooterBuilder, ScoreExt,
 };
 use rosu_v2::prelude::{GameMode, Score};
 
@@ -18,7 +18,7 @@ use crate::{
         OsuMap,
     },
     pagination::Pages,
-    util::{Emote, ScoreExt},
+    util::Emote,
 };
 
 use super::HitResultFormatter;
@@ -273,7 +273,7 @@ impl<T: Display> Display for OptionFormat<T> {
 
 struct MissFormat<'s> {
     mode: GameMode,
-    score: &'s dyn ScoreExt,
+    score: &'s ScoreSlim,
     max_combo: u32,
 }
 
@@ -290,7 +290,7 @@ impl<'s> MissFormat<'s> {
 impl Display for MissFormat<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let miss = self.score.count_miss();
+        let miss = self.score.statistics.count_miss;
 
         if miss > 0 || !self.score.is_fc(self.mode, self.max_combo) {
             write!(f, "{miss}{}", Emote::Miss.text())

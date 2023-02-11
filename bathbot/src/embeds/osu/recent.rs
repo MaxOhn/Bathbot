@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering, fmt::Write};
+use std::{borrow::Cow, fmt::Write};
 
 use bathbot_psql::model::configs::MinimizedPp;
 use bathbot_util::{
@@ -9,7 +9,7 @@ use bathbot_util::{
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
 };
 use osu::PpFormatter;
-use rosu_v2::prelude::{BeatmapUserScore, GameMode, RankStatus, Score};
+use rosu_v2::prelude::{BeatmapUserScore, GameMode, Score};
 use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
@@ -18,7 +18,7 @@ use crate::{
     core::Context,
     embeds::osu,
     manager::redis::{osu::User, RedisData},
-    util::osu::{grade_completion_mods, IfFc, MapInfo},
+    util::osu::{grade_completion_mods, IfFc, MapInfo, PersonalBestIndex},
 };
 
 #[cfg(feature = "twitch")]
@@ -111,50 +111,18 @@ impl RecentEmbed {
             .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
 
         let personal_idx = personal
-            .filter(|_| matches!(map.status(), RankStatus::Ranked))
-            .filter(|personal| {
-                personal.last().map_or(true, |last| {
-                    last.pp < Some(score.pp) || personal.len() < 100
-                })
-            })
-            .and_then(|personal| {
-                personal
-                    .iter()
-                    .position(|s| {
-                        (s.ended_at.unix_timestamp() - score.ended_at.unix_timestamp()).abs() <= 2
-                    })
-                    .or_else(|| {
-                        personal
-                            .binary_search_by(|probe| {
-                                probe
-                                    .pp
-                                    .and_then(|pp_| score.pp.partial_cmp(&pp_))
-                                    .unwrap_or(Ordering::Less)
-                            })
-                            .map_or_else(Some, Some)
-                            .filter(|&idx| idx < 100)
-                            .filter(|_| {
-                                personal
-                                    .iter()
-                                    .all(|s| s.map_id != map.map_id() || s.score < score.score)
-                            })
-                    })
-                    .map(|idx| idx + 1)
-            });
+            .map(|top100| PersonalBestIndex::new(score, map.map_id(), map.status(), top100));
 
         let global_idx = map_score
-            .and_then(|s| {
-                ((s.score.ended_at.unix_timestamp() - score.ended_at.unix_timestamp()).abs() <= 2)
-                    .then_some(s.pos)
-            })
+            .and_then(|s| score.is_eq(s).then_some(s.pos))
             .filter(|&p| p <= 50);
 
         let description = if personal_idx.is_some() || global_idx.is_some() {
             let mut description = String::with_capacity(25);
             description.push_str("__**");
 
-            if let Some(idx) = personal_idx {
-                let _ = write!(description, "Personal Best #{idx}");
+            if let Some(desc) = personal_idx.and_then(PersonalBestIndex::into_embed_description) {
+                description.push_str(&desc);
 
                 if global_idx.is_some() {
                     description.reserve(19);

@@ -1,3 +1,4 @@
+use bathbot_util::{ScoreExt, ScoreHasEndedAt, ScoreHasMode};
 use rosu_v2::prelude::{CountryCode, GameMode, GameMods, Grade, RankStatus};
 use serde::{Deserialize, Deserializer};
 use time::OffsetDateTime;
@@ -110,6 +111,32 @@ impl<'de> Deserialize<'de> for ScraperScore {
             count_miss: helper.statistics.count_miss,
         })
     }
+}
+
+#[rustfmt::skip]
+impl ScoreExt for ScraperScore {
+    #[inline] fn count_miss(&self) -> u32 { self.count_miss }
+    #[inline] fn count_50(&self) -> u32 { self.count50 }
+    #[inline] fn count_100(&self) -> u32 { self.count100 }
+    #[inline] fn count_300(&self) -> u32 { self.count300 }
+    #[inline] fn count_geki(&self) -> u32 { self.count_geki }
+    #[inline] fn count_katu(&self) -> u32 { self.count_katu }
+    #[inline] fn max_combo(&self) -> u32 { self.max_combo }
+    #[inline] fn mods(&self) -> GameMods { self.mods }
+    #[inline] fn grade(&self, _: GameMode) -> Grade { self.grade }
+    #[inline] fn score(&self) -> u32 { self.score }
+    #[inline] fn pp(&self) -> Option<f32> { self.pp }
+    #[inline] fn accuracy(&self) -> f32 { self.accuracy }
+}
+
+#[rustfmt::skip]
+impl ScoreHasMode for ScraperScore {
+    #[inline] fn mode(&self) -> GameMode { self.mode }
+}
+
+#[rustfmt::skip]
+impl ScoreHasEndedAt for ScraperScore {
+    #[inline] fn ended_at(&self) -> OffsetDateTime { self.date }
 }
 
 #[derive(Deserialize)]
