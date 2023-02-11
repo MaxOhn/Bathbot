@@ -757,7 +757,7 @@ impl PersonalBestIndex {
                 old = old_idx + 1
             )),
             PersonalBestIndex::Presumably { idx } => {
-                Some(format!("Personal Best #{} (maybe)", idx + 1))
+                Some(format!("Personal Best #{} (?)", idx + 1))
             }
             PersonalBestIndex::IfRanked { idx } => {
                 Some(format!("Personal Best #{} (if ranked)", idx + 1))
