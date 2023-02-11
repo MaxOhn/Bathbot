@@ -1,6 +1,8 @@
 use std::{
     array::IntoIter,
     borrow::Cow,
+    cmp::Ordering,
+    convert::identity,
     fmt::{Display, Formatter, Result as FmtResult},
     io::Cursor,
     mem::MaybeUninit,
@@ -10,6 +12,7 @@ use bathbot_model::{OsuStatsParams, RespektiveTopCount, ScoreSlim};
 use bathbot_util::{
     datetime::SecToMinSec,
     numbers::{round, WithComma},
+    ScoreExt,
 };
 use eyre::{Result, WrapErr};
 use futures::{stream::FuturesOrdered, StreamExt};
@@ -20,7 +23,7 @@ use rosu_pp::{
     beatmap::BeatmapAttributesBuilder, CatchPP, DifficultyAttributes, GameMode as Mode, OsuPP,
     TaikoPP,
 };
-use rosu_v2::prelude::{GameMode, GameMods, Grade, ScoreStatistics};
+use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus, Score, ScoreStatistics};
 use time::OffsetDateTime;
 
 use crate::{
@@ -32,8 +35,6 @@ use crate::{
     },
     util::Emote,
 };
-
-use super::ScoreExt;
 
 pub fn grade_emote(grade: Grade) -> &'static str {
     BotConfig::get().grade(grade)
@@ -680,5 +681,88 @@ impl Display for MapInfo<'_> {
             round(attrs.hp as f32),
             round(self.stars),
         )
+    }
+}
+
+/// Note that all contained indices start at 0.
+pub enum PersonalBestIndex {
+    /// Found the score in the top100
+    FoundScore { idx: usize },
+    /// There was a score on the same map with more pp in the top100
+    FoundBetter { idx: usize },
+    /// Found another score on the same map and the
+    /// same mods that has more score but less pp
+    ScoreV1d { would_be_idx: usize, old_idx: usize },
+    /// Score is ranked and has enough pp to be in but wasn't found
+    Presumably { idx: usize },
+    /// Score is not ranked but has enough pp to be in the top100
+    IfRanked { idx: usize },
+    /// Score does not have enough pp to be in the top100
+    NotTop100,
+}
+
+impl PersonalBestIndex {
+    pub fn new(score: &ScoreSlim, map_id: u32, status: RankStatus, top100: &[Score]) -> Self {
+        // Note that the index is determined through float
+        // comparisons which could result in issues
+        let idx = top100
+            .binary_search_by(|probe| {
+                probe
+                    .pp
+                    .and_then(|pp| score.pp.partial_cmp(&pp))
+                    .unwrap_or(Ordering::Less)
+            })
+            .unwrap_or_else(identity);
+
+        if idx == 100 {
+            return Self::NotTop100;
+        } else if score.is_eq(&top100[idx]) {
+            // If multiple scores have the exact same pp as the given
+            // score then `idx` might not belong to the given score.
+            // Chances are pretty slim though so this should be fine.
+            return Self::FoundScore { idx };
+        } else if !matches!(status, RankStatus::Ranked) {
+            return Self::IfRanked { idx };
+        }
+
+        let (better, worse) = top100.split_at(idx);
+
+        // A case that's not covered is when there is a score
+        // with more pp on the same map with the same mods that has
+        // less score than the current score. Sounds really fringe though.
+        if let Some(idx) = better.iter().position(|top| top.map_id == map_id) {
+            Self::FoundBetter { idx }
+        } else if let Some(i) = worse.iter().position(|top| {
+            top.map_id == map_id && top.mods == score.mods && top.score > score.score
+        }) {
+            Self::ScoreV1d {
+                would_be_idx: idx,
+                old_idx: idx + i,
+            }
+        } else {
+            Self::Presumably { idx }
+        }
+    }
+
+    pub fn into_embed_description(self) -> Option<String> {
+        match self {
+            PersonalBestIndex::FoundScore { idx } => Some(format!("Personal Best #{}", idx + 1)),
+            PersonalBestIndex::FoundBetter { .. } => None,
+            PersonalBestIndex::ScoreV1d {
+                would_be_idx,
+                old_idx,
+            } => Some(format!(
+                "Personal Best #{idx} (v1'd by #{old})",
+                idx = would_be_idx + 1,
+                old = old_idx + 1
+            )),
+            PersonalBestIndex::Presumably { idx } => {
+                Some(format!("Personal Best #{} (?)", idx + 1))
+            }
+            PersonalBestIndex::IfRanked { idx } => {
+                Some(format!("Personal Best #{} (if ranked)", idx + 1))
+            }
+            PersonalBestIndex::NotTop100 => None,
+        }
     }
 }

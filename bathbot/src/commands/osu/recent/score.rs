@@ -498,8 +498,8 @@ pub(super) async fn score(
         }
     };
 
-    let best_fut = async {
-        if grade != Grade::F && status == Ranked {
+    let top100_fut = async {
+        if grade != Grade::F {
             let user_args = UserArgsSlim::user_id(user_id).mode(mode);
 
             Some(ctx.osu_scores().top().limit(100).exec(user_args).await)
@@ -519,9 +519,10 @@ pub(super) async fn score(
 
     // Retrieve and parse response
     #[cfg(feature = "twitch")]
-    let (map_score_res, best_res, twitch_vod) = tokio::join!(map_score_fut, best_fut, twitch_fut);
+    let (map_score_res, top100_res, twitch_vod) =
+        tokio::join!(map_score_fut, top100_fut, twitch_fut);
     #[cfg(not(feature = "twitch"))]
-    let (map_score_res, best_res) = tokio::join!(map_score_fut, best_fut);
+    let (map_score_res, top100_res) = tokio::join!(map_score_fut, top100_fut);
 
     let map_score = match map_score_res {
         None | Some(Err(OsuError::NotFound)) => None,
@@ -534,13 +535,11 @@ pub(super) async fn score(
         }
     };
 
-    #[allow(unused_mut)]
-    let mut best = match best_res {
-        None => None,
+    let top100 = match top100_res {
         Some(Ok(scores)) => Some(scores),
+        None => None,
         Some(Err(err)) => {
-            let err = Report::new(err).wrap_err("failed to get top scores");
-            warn!("{err:?}");
+            warn!("{:?}", Report::new(err).wrap_err("Failed to get top100"));
 
             None
         }
@@ -567,7 +566,7 @@ pub(super) async fn score(
     let data_fut = RecentEmbed::new(
         &user,
         &entry,
-        best.as_deref(),
+        top100.as_deref(),
         map_score.as_ref(),
         #[cfg(feature = "twitch")]
         twitch_vod,

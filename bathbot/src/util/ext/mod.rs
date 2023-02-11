@@ -1,7 +1,7 @@
 pub use self::{
-    authored::Authored, channel::ChannelExt,
-    component::ComponentExt, interaction_command::InteractionCommandExt, map::BeatmapExt,
-    message::MessageExt, modal::*, score::ScoreExt,
+    authored::Authored, channel::ChannelExt, component::ComponentExt,
+    interaction_command::InteractionCommandExt, map::BeatmapExt, message::MessageExt, modal::*,
+    score::ScoreHasState,
 };
 
 mod authored;

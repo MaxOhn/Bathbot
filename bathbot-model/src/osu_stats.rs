@@ -3,7 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use bathbot_util::osu::ModSelection;
+use bathbot_util::{osu::ModSelection, ScoreExt, ScoreHasEndedAt};
 use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus, Username};
 use serde::{de::Error, Deserialize, Deserializer};
 use time::OffsetDateTime;
@@ -76,6 +76,27 @@ pub struct OsuStatsScore {
     pub pp: Option<f32>,
     #[serde(rename = "beatmap")]
     pub map: OsuStatsMap,
+}
+
+#[rustfmt::skip]
+impl ScoreExt for OsuStatsScore {
+    #[inline] fn count_miss(&self) -> u32 { self.count_miss }
+    #[inline] fn count_50(&self) -> u32 { self.count50 }
+    #[inline] fn count_100(&self) -> u32 { self.count100 }
+    #[inline] fn count_300(&self) -> u32 { self.count300 }
+    #[inline] fn count_geki(&self) -> u32 { self.count_geki }
+    #[inline] fn count_katu(&self) -> u32 { self.count_katu }
+    #[inline] fn max_combo(&self) -> u32 { self.max_combo }
+    #[inline] fn mods(&self) -> GameMods { self.mods }
+    #[inline] fn grade(&self, _: GameMode) -> Grade { self.grade }
+    #[inline] fn score(&self) -> u32 { self.score }
+    #[inline] fn pp(&self) -> Option<f32> { self.pp }
+    #[inline] fn accuracy(&self) -> f32 { self.accuracy }
+}
+
+#[rustfmt::skip]
+impl ScoreHasEndedAt for OsuStatsScore {
+    #[inline] fn ended_at(&self) -> OffsetDateTime { self.ended_at }
 }
 
 #[derive(Debug, Deserialize)]
