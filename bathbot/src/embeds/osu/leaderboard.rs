@@ -39,6 +39,7 @@ impl LeaderboardEmbed {
         author_name: Option<&str>,
         map: &OsuMap,
         stars: f32,
+        max_combo: u32,
         attr_map: &mut AttrMap,
         scores: Option<&[ScraperScore]>,
         author_icon: &Option<String>,
@@ -88,7 +89,7 @@ impl LeaderboardEmbed {
                     - {pp} • {acc:.2}% • {miss}{ago}",
                     grade = grade_emote(score.grade),
                     score = WithComma::new(score.score),
-                    combo = ComboFormatter::new(score, map),
+                    combo = ComboFormatter::new(score, max_combo, map.mode()),
                     mods = score.mods,
                     pp = pp_format(ctx, attr_map, score, map).await,
                     acc = score.accuracy,
@@ -177,12 +178,17 @@ async fn pp_format(
 
 struct ComboFormatter<'a> {
     score: &'a ScraperScore,
-    map: &'a OsuMap,
+    max_combo: u32,
+    mode: GameMode,
 }
 
 impl<'a> ComboFormatter<'a> {
-    fn new(score: &'a ScraperScore, map: &'a OsuMap) -> Self {
-        Self { score, map }
+    fn new(score: &'a ScraperScore, max_combo: u32, mode: GameMode) -> Self {
+        Self {
+            score,
+            max_combo,
+            mode,
+        }
     }
 }
 
@@ -191,9 +197,7 @@ impl<'a> Display for ComboFormatter<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "**{}x**", self.score.max_combo)?;
 
-        if let Some(combo) = self.map.max_combo() {
-            write!(f, "/{combo}x")
-        } else {
+        if self.mode == GameMode::Mania {
             let mut ratio = self.score.count_geki as f32;
 
             if self.score.count300 > 0 {
@@ -201,6 +205,8 @@ impl<'a> Display for ComboFormatter<'a> {
             }
 
             write!(f, " / {ratio:.2}")
+        } else {
+            write!(f, "/{}x", self.max_combo)
         }
     }
 }

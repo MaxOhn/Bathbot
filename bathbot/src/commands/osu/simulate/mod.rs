@@ -5,7 +5,6 @@ use std::{borrow::Cow, sync::Arc};
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::MapIdType};
 use eyre::Result;
-use rosu_pp::GameMode as Mode;
 use rosu_v2::prelude::{GameMode, GameMods};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
@@ -122,8 +121,11 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         }
     };
 
-    let mut map = match ctx.osu_map().map(map_id, None).await {
-        Ok(map) => map,
+    let map = match ctx.osu_map().map(map_id, None).await {
+        Ok(map) => match args.mode {
+            Some(mode) => map.convert(mode),
+            None => map,
+        },
         Err(MapError::NotFound) => {
             let content = format!(
                 "Could not find beatmap with id `{map_id}`. \
@@ -139,43 +141,14 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         }
     };
 
-    let mode = args.mode.unwrap_or_else(|| map.mode());
-
-    let (version, converted_mode) = match mode {
-        GameMode::Osu => (
-            TopOldVersion::Osu(TopOldOsuVersion::September22Now),
-            Mode::Osu,
-        ),
-        GameMode::Taiko => (
-            TopOldVersion::Taiko(TopOldTaikoVersion::September22Now),
-            Mode::Taiko,
-        ),
-        GameMode::Catch => (
-            TopOldVersion::Catch(TopOldCatchVersion::May20Now),
-            Mode::Catch,
-        ),
-        GameMode::Mania => (
-            TopOldVersion::Mania(TopOldManiaVersion::October22Now),
-            Mode::Mania,
-        ),
+    let version = match map.mode() {
+        GameMode::Osu => TopOldVersion::Osu(TopOldOsuVersion::September22Now),
+        GameMode::Taiko => TopOldVersion::Taiko(TopOldTaikoVersion::September22Now),
+        GameMode::Catch => TopOldVersion::Catch(TopOldCatchVersion::May20Now),
+        GameMode::Mania => TopOldVersion::Mania(TopOldManiaVersion::October22Now),
     };
 
-    let mut is_convert = false;
-
-    match map.pp_map.convert_mode(converted_mode) {
-        Cow::Borrowed(_) => {
-            // converted ctb maps don't have the internal mode adjusted so
-            // let's do that manually in case it's important to have later on
-            if mode == GameMode::Osu && converted_mode == Mode::Catch {
-                map.pp_map.mode = Mode::Catch;
-                is_convert = true;
-            }
-        }
-        Cow::Owned(converted) => {
-            map.pp_map = converted;
-            is_convert = true;
-        }
-    }
+    let max_combo = ctx.pp(&map).difficulty().await.max_combo() as u32;
 
     let simulate_data = SimulateData {
         mods: args.mods,
@@ -197,7 +170,8 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         original_attrs: SimulateAttributes::from(&map),
         score: None,
         version,
-        is_convert: Some(is_convert),
+        is_convert: Some(map.is_convert),
+        max_combo,
     };
 
     SimulatePagination::builder(map, simulate_data)

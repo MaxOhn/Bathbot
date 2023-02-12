@@ -432,6 +432,7 @@ pub struct OsuStatsEntry {
     pub rank: u32,
     pub stars: f32,
     pub max_pp: f32,
+    pub max_combo: u32,
 }
 
 async fn process_scores(
@@ -494,6 +495,7 @@ async fn process_scores(
             rank,
             max_pp,
             stars: attrs.stars() as f32,
+            max_combo: attrs.max_combo() as u32,
         };
 
         entries.insert(i, entry);

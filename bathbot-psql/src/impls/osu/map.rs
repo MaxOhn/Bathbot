@@ -36,7 +36,6 @@ SELECT
   map.count_sliders, 
   map.count_spinners, 
   map.bpm, 
-  map.max_combo, 
   mapset.artist, 
   mapset.title, 
   mapset.creator, 
@@ -96,7 +95,6 @@ FROM
             count_sliders: row.count_sliders,
             count_spinners: row.count_spinners,
             bpm: row.bpm,
-            max_combo: row.max_combo,
         };
 
         let mapset = DbBeatmapset {
@@ -143,7 +141,6 @@ SELECT
   map.count_sliders, 
   map.count_spinners, 
   map.bpm, 
-  map.max_combo, 
   mapset.artist, 
   mapset.title, 
   mapset.creator, 
@@ -200,7 +197,6 @@ FROM
                 count_sliders: row.count_sliders,
                 count_spinners: row.count_spinners,
                 bpm: row.bpm,
-                max_combo: row.max_combo,
             };
 
             let mapset = DbBeatmapset {

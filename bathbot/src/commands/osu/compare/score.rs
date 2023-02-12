@@ -695,6 +695,7 @@ pub struct CompareEntry {
     pub score: ScoreSlim,
     pub stars: f32,
     pub max_pp: f32,
+    pub max_combo: u32,
     pub if_fc: Option<IfFc>,
 }
 
@@ -724,6 +725,7 @@ async fn process_scores(
         let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
         let attrs = calc.performance().await;
         let stars = attrs.stars() as f32;
+        let max_combo = attrs.max_combo() as u32;
 
         let max_pp = score
             .pp
@@ -742,6 +744,7 @@ async fn process_scores(
             score,
             stars,
             max_pp,
+            max_combo,
             if_fc,
         };
 
@@ -917,6 +920,7 @@ async fn compare_from_score(
         score,
         stars: attrs.stars() as f32,
         max_pp,
+        max_combo: attrs.max_combo() as u32,
         if_fc,
     };
 

@@ -379,7 +379,9 @@ async fn process_scores(
         let Some(map) = maps.remove(&score.map_id) else { continue };
 
         let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
-        let stars = calc.difficulty().await.stars() as f32;
+        let attrs = calc.difficulty().await;
+        let stars = attrs.stars() as f32;
+        let max_combo = attrs.max_combo() as u32;
 
         let pp = score.pp.expect("missing pp");
 
@@ -397,6 +399,7 @@ async fn process_scores(
             map,
             max_pp,
             stars,
+            max_combo,
         };
 
         entries.push(entry);

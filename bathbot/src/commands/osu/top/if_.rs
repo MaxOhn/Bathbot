@@ -280,6 +280,7 @@ pub struct TopIfEntry {
     pub map: OsuMap,
     pub stars: f32,
     pub max_pp: f32,
+    pub max_combo: u32,
 }
 
 async fn process_scores(
@@ -382,6 +383,7 @@ async fn process_scores(
             map,
             stars: attrs.stars() as f32,
             max_pp: attrs.pp() as f32,
+            max_combo: attrs.max_combo() as u32,
         };
 
         entries.push(entry);

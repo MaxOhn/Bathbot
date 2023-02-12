@@ -160,12 +160,12 @@ pub(super) async fn player_stats(
         (Err(err), _) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(Report::new(err).wrap_err("failed to get oldest score"));
+            return Err(Report::new(err).wrap_err("Failed to get oldest score"));
         }
         (_, Err(err)) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(Report::new(err).wrap_err("failed to get map of oldest score"));
+            return Err(Report::new(err).wrap_err("Failed to get map of oldest score"));
         }
     };
 

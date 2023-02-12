@@ -276,11 +276,20 @@ pub(super) async fn leaderboard(
     let mut attr_map = HashMap::default();
     let stars = attrs.stars() as f32;
     let max_pp = attrs.pp() as f32;
+    let max_combo = attrs.max_combo() as u32;
     attr_map.insert(mods.unwrap_or_default().bits(), (attrs.into(), max_pp));
 
-    LeaderboardPagination::builder(map, scores, stars, attr_map, username, first_place_icon)
-        .start_by_update()
-        .content(content)
-        .start(ctx, orig)
-        .await
+    LeaderboardPagination::builder(
+        map,
+        scores,
+        stars,
+        max_combo,
+        attr_map,
+        username,
+        first_place_icon,
+    )
+    .start_by_update()
+    .content(content)
+    .start(ctx, orig)
+    .await
 }

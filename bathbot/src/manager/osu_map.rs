@@ -102,7 +102,7 @@ impl<'d> MapManager<'d> {
         // Check if map is already stored
         let map_fut = self.psql.select_osu_map_full(map_id, None);
 
-        if let Some((map, mapset, _)) = map_fut.await.wrap_err("failed to get map")? {
+        if let Some((map, mapset, _)) = map_fut.await.wrap_err("Failed to get map")? {
             Ok(OsuMapSlim::new(map, mapset))
         } else {
             // Otherwise retrieve mapset and store
@@ -451,7 +451,6 @@ impl OsuMapSlim {
             count_sliders: map.count_sliders as i32,
             count_spinners: map.count_spinners as i32,
             bpm: map.bpm,
-            max_combo: map.max_combo.map(|combo| combo as i32),
         };
 
         Ok(Self::new(map, mapset))
@@ -483,10 +482,6 @@ impl OsuMapSlim {
 
     pub fn creator(&self) -> &str {
         self.mapset.creator.as_str()
-    }
-
-    pub fn max_combo(&self) -> Option<u32> {
-        self.map.max_combo.map(|combo| combo as u32)
     }
 
     pub fn seconds_drain(&self) -> u32 {

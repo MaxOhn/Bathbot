@@ -95,6 +95,7 @@ impl OsuStatsGlobalsPagination {
                     rank,
                     max_pp,
                     stars: attrs.stars() as f32,
+                    max_combo: attrs.max_combo() as u32,
                 };
 
                 self.entries.insert(i, entry);

@@ -66,6 +66,7 @@ impl CompareEmbed {
             score,
             stars,
             max_pp,
+            max_combo,
             if_fc,
         } = entry;
 
@@ -92,7 +93,7 @@ impl CompareEmbed {
 
             (combo, title)
         } else {
-            let combo = ComboFormatter::new(score.max_combo, map.max_combo()).to_string();
+            let combo = ComboFormatter::new(score.max_combo, Some(*max_combo)).to_string();
 
             let title = format!(
                 "{} - {} [{}]",

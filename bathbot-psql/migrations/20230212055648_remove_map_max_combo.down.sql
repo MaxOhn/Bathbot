@@ -1,0 +1,1 @@
+ALTER TABLE osu_maps ADD COLUMN max_combo INT4;

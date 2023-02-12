@@ -160,7 +160,8 @@ impl FarmMap {
             Err(err) => return Err(Report::new(err).wrap_err("failed to get beatmap")),
         };
 
-        let stars = ctx.pp(&map).difficulty().await.stars() as f32;
+        let mut calc = ctx.pp(&map);
+        let attrs = calc.difficulty().await;
 
         Ok(Self {
             map_string: format!(
@@ -171,9 +172,9 @@ impl FarmMap {
             ),
             map_url: format!("{OSU_BASE}b/{}", map.map_id()),
             mapset_id: map.mapset_id(),
-            stars,
+            stars: attrs.stars() as f32,
             seconds_drain: map.seconds_drain(),
-            combo: map.max_combo().unwrap_or(0),
+            combo: attrs.max_combo() as u32,
             ranked: map.ranked_date().unwrap_or_else(OffsetDateTime::now_utc),
             cs: map.cs(),
             ar: map.ar(),

@@ -64,6 +64,7 @@ impl TopEmbed {
                 score,
                 map,
                 max_pp,
+                max_combo,
                 stars,
             } = entry;
 
@@ -80,7 +81,7 @@ impl TopEmbed {
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),
-                combo = ComboFormatter::new(score.max_combo, map.max_combo()),
+                combo = ComboFormatter::new(score.max_combo, Some(*max_combo)),
                 hits = HitResultFormatter::new(score.mode, score.statistics.clone()),
                 appendix = OrderAppendix::new(sort_by, entry, map.ranked_date(), farm, false),
             );
@@ -152,6 +153,7 @@ impl CondensedTopEmbed {
                 map,
                 stars,
                 max_pp: _,
+                max_combo,
             } = entry;
 
             let _ = writeln!(
@@ -166,7 +168,6 @@ impl CondensedTopEmbed {
                 pp = round(score.pp),
                 acc = round(score.accuracy),
                 combo = score.max_combo,
-                max_combo = map.max_combo().unwrap_or(0),
                 miss = MissFormat(score.statistics.count_miss),
                 mods = score.mods,
                 appendix = OrderAppendix::new(sort_by, entry, map.ranked_date(), farm, true),
@@ -185,6 +186,7 @@ impl CondensedTopEmbed {
                 score,
                 map,
                 max_pp: _,
+                max_combo: _,
                 stars: _,
             } = entry;
 

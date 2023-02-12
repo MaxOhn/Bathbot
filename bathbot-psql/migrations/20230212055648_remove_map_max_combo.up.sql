@@ -1,0 +1,1 @@
+ALTER TABLE osu_maps DROP COLUMN max_combo;

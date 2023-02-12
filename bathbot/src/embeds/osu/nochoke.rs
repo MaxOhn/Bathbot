@@ -1,7 +1,4 @@
-use std::{
-    borrow::Cow,
-    fmt::{Display, Formatter, Result as FmtResult, Write},
-};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
 use bathbot_util::{
@@ -46,6 +43,7 @@ impl NoChokeEmbed {
                 max_pp,
                 stars,
                 unchoked: _,
+                max_combo,
             } = entry;
 
             let unchoked_stats = entry.unchoked_statistics();
@@ -54,7 +52,7 @@ impl NoChokeEmbed {
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
                 {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP • ({old_acc:.2} → **{new_acc:.2}%**)\n\
-                [ {old_combo} → **{new_combo}x**/{max_combo} ]{misses}",
+                [ {old_combo} → **{new_combo}x**/{max_combo}x ]{misses}",
                 idx = original_idx + 1,
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
@@ -67,7 +65,6 @@ impl NoChokeEmbed {
                 new_acc = entry.unchoked_accuracy(),
                 old_combo = original_score.max_combo,
                 new_combo = entry.unchoked_max_combo(),
-                max_combo = map.max_combo().map_or_else(|| Cow::Borrowed("-"), |combo| format!("{combo}x").into()),
                 misses = MissFormat(original_score.statistics.count_miss - unchoked_stats.count_miss),
             );
         }

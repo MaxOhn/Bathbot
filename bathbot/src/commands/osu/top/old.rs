@@ -509,8 +509,9 @@ macro_rules! pp_std {
             .calculate();
 
         let pp = attrs.pp as f32;
+        let max_combo = attrs.max_combo() as u32;
 
-        (pp, max_pp, stars)
+        (pp, max_pp, stars, max_combo)
     }};
 }
 
@@ -533,8 +534,9 @@ macro_rules! pp_ctb {
             .calculate();
 
         let pp = attrs.pp as f32;
+        let max_combo = attrs.max_combo() as u32;
 
-        (pp, max_pp, stars)
+        (pp, max_pp, stars, max_combo)
     }};
 }
 
@@ -555,8 +557,9 @@ macro_rules! pp_tko {
             .calculate();
 
         let pp = attrs.pp as f32;
+        let max_combo = attrs.max_combo() as u32;
 
-        (pp, max_pp, stars)
+        (pp, max_pp, stars, max_combo)
     }};
 }
 
@@ -700,7 +703,11 @@ async fn process_scores(
             .and_then(|map| maps.remove(&map.map_id))
             .expect("missing map");
 
-        async fn use_current_system(ctx: &Context, score: &Score, map: &OsuMap) -> (f32, f32, f32) {
+        async fn use_current_system(
+            ctx: &Context,
+            score: &Score,
+            map: &OsuMap,
+        ) -> (f32, f32, f32, u32) {
             let attrs = ctx
                 .pp(map)
                 .mode(score.mode)
@@ -711,14 +718,15 @@ async fn process_scores(
             let pp = score.pp.expect("missing pp");
             let max_pp = attrs.pp() as f32;
             let stars = attrs.stars() as f32;
+            let max_combo = attrs.max_combo() as u32;
 
-            (pp, max_pp, stars)
+            (pp, max_pp, stars, max_combo)
         }
 
         let mods = score.mods.bits();
         let rosu_map = &map.pp_map;
 
-        let (new_pp, max_pp, stars) = match args {
+        let (new_pp, max_pp, stars, max_combo) = match args {
             TopOld::Osu(o) => match o.version {
                 TopOldOsuVersion::May14July14 => pp_std!(osu_2014_may, rosu_map, score, mods),
                 TopOldOsuVersion::July14February15 => pp_std!(osu_2014_july, rosu_map, score, mods),
@@ -765,8 +773,9 @@ async fn process_scores(
                         .calculate();
 
                     let pp = attrs.pp as f32;
+                    let max_combo = ctx.pp(&map).difficulty().await.max_combo() as u32;
 
-                    (pp, max_pp, stars)
+                    (pp, max_pp, stars, max_combo)
                 }
                 TopOldManiaVersion::May18October22 => {
                     let max_pp_res = mania_2018::ManiaPP::new(rosu_map).mods(mods).calculate();
@@ -781,8 +790,9 @@ async fn process_scores(
                         .calculate();
 
                     let pp = attrs.pp as f32;
+                    let max_combo = ctx.pp(&map).difficulty().await.max_combo() as u32;
 
-                    (pp, max_pp, stars)
+                    (pp, max_pp, stars, max_combo)
                 }
                 TopOldManiaVersion::October22Now => use_current_system(ctx, &score, &map).await,
             },
@@ -797,6 +807,7 @@ async fn process_scores(
             map,
             stars,
             max_pp,
+            max_combo,
         };
 
         entries.push(entry);

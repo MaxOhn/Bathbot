@@ -14,7 +14,6 @@ pub struct DbBeatmap {
     pub count_sliders: i32,
     pub count_spinners: i32,
     pub bpm: f32,
-    pub max_combo: Option<i32>,
 }
 
 #[derive(Debug)]
