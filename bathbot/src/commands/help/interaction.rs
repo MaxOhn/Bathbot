@@ -205,8 +205,6 @@ async fn help_slash_command(
         ..
     } = (cmd.create)();
 
-    let description = help.unwrap_or(description);
-
     if name == "owner" {
         let description =
             "This command can only be used by the owner of the bot.\nQuit snooping around :^)";
@@ -217,6 +215,8 @@ async fn help_slash_command(
 
         return Ok(());
     }
+
+    let description = help.unwrap_or(description);
 
     let mut embed_builder = EmbedBuilder::new()
         .title(name)
