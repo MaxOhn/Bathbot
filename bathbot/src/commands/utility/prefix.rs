@@ -1,7 +1,9 @@
+use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::command;
 use bathbot_psql::model::configs::{GuildConfig, Prefix, Prefixes, DEFAULT_PREFIX};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
 use eyre::Result;
+use once_cell::sync::OnceCell;
 use twilight_model::guild::Permissions;
 
 use crate::{core::commands::checks::check_authority, util::ChannelExt, Context};
@@ -73,7 +75,11 @@ async fn prefix_prefix(
         }
     };
 
-    let mut args: Vec<Prefix> = args.take(5).map(Prefix::from).collect();
+    let mut args: Vec<Prefix> = args
+        .filter(|prefix| PrefixValidator::is_valid(prefix))
+        .take(5)
+        .map(Prefix::from)
+        .collect();
 
     if args.is_empty() {
         let content = "After the first argument you should specify some prefix(es)";
@@ -181,3 +187,32 @@ fn current_prefixes(content: &mut String, prefixes: &[Prefix]) {
         }
     }
 }
+
+struct PrefixValidator;
+
+impl PrefixValidator {
+    fn is_valid(prefix: &str) -> bool {
+        !VALIDATOR
+            .get_or_init(|| {
+                let needles = ["ojhhf", "gbhhpu", "ijumf"]
+                    .into_iter()
+                    .map(String::from)
+                    .map(|mut needle| {
+                        unsafe { needle.as_bytes_mut() }
+                            .iter_mut()
+                            .for_each(|byte| *byte -= 1);
+
+                        needle
+                    });
+
+                AhoCorasickBuilder::new()
+                    .ascii_case_insensitive(true)
+                    .dfa(true)
+                    .build_with_size(needles)
+                    .unwrap()
+            })
+            .is_match(prefix)
+    }
+}
+
+static VALIDATOR: OnceCell<AhoCorasick<u16>> = OnceCell::new();

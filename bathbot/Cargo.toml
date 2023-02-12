@@ -68,6 +68,7 @@ twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions
 twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13", default-features = false }
 twilight-standby = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13", default-features = false }
 twilight-validate = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13" }
+aho-corasick = "0.7.20"
 
 [features]
 default = ["offline"]

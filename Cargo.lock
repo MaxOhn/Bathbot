@@ -247,6 +247,7 @@ dependencies = [
 name = "bathbot-twilight"
 version = "3.0.7"
 dependencies = [
+ "aho-corasick",
  "bathbot-client",
  "bathbot-macros",
  "bathbot-model",
