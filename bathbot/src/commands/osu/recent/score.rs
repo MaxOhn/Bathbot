@@ -793,6 +793,7 @@ pub struct RecentEntry {
     pub score: ScoreSlim,
     pub map: OsuMap,
     pub max_pp: f32,
+    pub max_combo: u32,
     pub stars: f32,
 }
 
@@ -816,6 +817,7 @@ impl RecentEntry {
             map,
             stars: attrs.stars() as f32,
             max_pp,
+            max_combo: attrs.max_combo() as u32,
         }
     }
 }

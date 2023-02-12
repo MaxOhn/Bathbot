@@ -69,6 +69,7 @@ impl PlayerSnipeStatsEmbed {
             let attrs = calc.performance().await;
             let stars = attrs.stars() as f32;
             let max_pp = attrs.pp() as f32;
+            let max_combo = attrs.max_combo() as u32;
 
             let pp = match oldest_score.pp {
                 Some(pp) => pp,
@@ -90,7 +91,7 @@ impl PlayerSnipeStatsEmbed {
                 ),
                 score = WithComma::new(oldest_score.score),
                 acc = oldest_score.accuracy,
-                combo = ComboFormatter::new(oldest_score.max_combo, oldest_map.max_combo()),
+                combo = ComboFormatter::new(oldest_score.max_combo, Some(max_combo)),
                 pp = PpFormatter::new(Some(pp), Some(max_pp)),
                 hits = HitResultFormatter::new(GameMode::Osu, oldest_score.statistics.clone()),
                 ago = HowLongAgoDynamic::new(&oldest_score.ended_at)

@@ -61,7 +61,7 @@ impl RecentListEmbed {
 
             let attr_key = (map.map_id(), score.mods.bits());
 
-            let (pp, max_pp, stars) = match attr_map.entry(attr_key) {
+            let (pp, max_pp, stars, max_combo) = match attr_map.entry(attr_key) {
                 Entry::Occupied(entry) => {
                     let (attrs, max_pp) = entry.get();
 
@@ -87,7 +87,7 @@ impl RecentListEmbed {
                             .pp() as f32
                     };
 
-                    (pp, *max_pp, attrs.stars() as f32)
+                    (pp, *max_pp, attrs.stars() as f32, attrs.max_combo() as u32)
                 }
                 Entry::Vacant(entry) => {
                     let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods);
@@ -95,6 +95,7 @@ impl RecentListEmbed {
                     let attrs = calc.performance().await;
                     let max_pp = attrs.pp() as f32;
                     let stars = attrs.stars() as f32;
+                    let max_combo = attrs.max_combo() as u32;
 
                     let pp = match score.pp {
                         Some(pp) => pp,
@@ -103,7 +104,7 @@ impl RecentListEmbed {
 
                     entry.insert((attrs.into(), max_pp));
 
-                    (pp, max_pp, stars)
+                    (pp, max_pp, stars, max_combo)
                 }
             };
 
@@ -126,7 +127,7 @@ impl RecentListEmbed {
                 description,
                 "{pp}\t[ {combo} ]\t({acc}%)\t{ago}",
                 pp = PpFormatter::new(Some(pp), Some(max_pp)),
-                combo = ComboFormatter::new(score.max_combo, map.max_combo()),
+                combo = ComboFormatter::new(score.max_combo, Some(max_combo)),
                 acc = round(score.accuracy),
                 ago = HowLongAgoDynamic::new(&score.ended_at)
             );

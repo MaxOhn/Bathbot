@@ -978,6 +978,7 @@ pub struct TopEntry {
     pub map: OsuMap,
     pub max_pp: f32,
     pub stars: f32,
+    pub max_combo: u32,
 }
 
 async fn process_scores(
@@ -1088,17 +1089,14 @@ async fn process_scores(
             map,
             max_pp,
             stars: attrs.stars() as f32,
+            max_combo: attrs.max_combo() as u32,
         };
 
         entries.push(entry);
     }
 
     if let Some(perfect_combo) = args.perfect_combo {
-        entries.retain(|entry| {
-            entry.map.max_combo().map_or(true, |max_combo| {
-                perfect_combo == (max_combo == entry.score.max_combo)
-            })
-        });
+        entries.retain(|entry| perfect_combo == (entry.max_combo == entry.score.max_combo));
     }
 
     match args.sort_by {

@@ -48,6 +48,7 @@ impl TopIfEmbed {
                 map,
                 stars,
                 max_pp,
+                max_combo,
             } = entry;
 
             let _ = writeln!(
@@ -62,7 +63,7 @@ impl TopIfEmbed {
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),
-                combo = ComboFormatter::new(score.max_combo, map.max_combo()),
+                combo = ComboFormatter::new(score.max_combo, Some(*max_combo)),
                 hits = HitResultFormatter::new(mode, score.statistics.clone()),
                 ago = HowLongAgoDynamic::new(&score.ended_at)
             );

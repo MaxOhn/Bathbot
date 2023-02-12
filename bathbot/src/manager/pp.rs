@@ -15,6 +15,7 @@ pub struct PpManager<'d, 'm> {
     psql: &'d Database,
     map: Cow<'m, Beatmap>,
     map_id: u32,
+    is_convert: bool,
     attrs: Option<DifficultyAttributes>,
     mode: GameMode,
     mods: u32,
@@ -24,14 +25,21 @@ pub struct PpManager<'d, 'm> {
 
 impl<'d, 'm> PpManager<'d, 'm> {
     pub fn new(map: &'m OsuMap, psql: &'d Database) -> Self {
-        Self::from_parsed(&map.pp_map, map.map_id(), map.mode(), psql)
+        Self::from_parsed(&map.pp_map, map.map_id(), map.mode(), map.is_convert, psql)
     }
 
-    pub fn from_parsed(map: &'m Beatmap, map_id: u32, mode: GameMode, psql: &'d Database) -> Self {
+    pub fn from_parsed(
+        map: &'m Beatmap,
+        map_id: u32,
+        mode: GameMode,
+        is_convert: bool,
+        psql: &'d Database,
+    ) -> Self {
         Self {
             psql,
             map: Cow::Borrowed(map),
             map_id,
+            is_convert,
             attrs: None,
             mode,
             mods: 0,
@@ -47,6 +55,9 @@ impl<'d, 'm> PpManager<'d, 'm> {
 
         if let Cow::Owned(map) = self.map.convert_mode(Self::mode_conversion(mode)) {
             self.map = Cow::Owned(map);
+            self.is_convert = true;
+        } else if mode == GameMode::Catch && self.mode != GameMode::Catch {
+            self.is_convert = true;
         }
 
         self.mode = mode;
@@ -98,14 +109,14 @@ impl<'d, 'm> PpManager<'d, 'm> {
                 None => match self.lookup_attrs().await {
                     Ok(Some(attrs)) => return self.attrs.insert(attrs),
                     Ok(None) => {}
-                    Err(err) => warn!("{:?}", err.wrap_err("failed to get difficulty attributes")),
+                    Err(err) => warn!("{:?}", err.wrap_err("Failed to get difficulty attributes")),
                 },
             }
         }
 
         let mode = Self::mode_conversion(self.mode);
 
-        let mut calc = self.map.stars().mods(self.mods);
+        let mut calc = self.map.stars().mods(self.mods).is_convert(self.is_convert);
 
         if let Some(state) = self.state.as_ref().filter(|_| self.partial) {
             calc = calc.passed_objects(state.total_hits(mode));
@@ -130,7 +141,12 @@ impl<'d, 'm> PpManager<'d, 'm> {
     pub async fn performance(&mut self) -> PerformanceAttributes {
         let attrs = self.difficulty().await.to_owned();
 
-        let mut calc = self.map.pp().attributes(attrs).mods(self.mods);
+        let mut calc = self
+            .map
+            .pp()
+            .attributes(attrs)
+            .mods(self.mods)
+            .is_convert(self.is_convert);
 
         if let Some(state) = self.state.take() {
             if self.partial {

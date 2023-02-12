@@ -84,7 +84,7 @@ impl ScorePp {
             .mode(mode)
             .best()
             .await
-            .wrap_err("failed to get user scores")?;
+            .wrap_err("Failed to get user scores")?;
 
         plays.sort_unstable_by(|a, b| {
             let a_pp = (a.pp.unwrap_or(0.0) - prev_pp).abs();
@@ -95,10 +95,24 @@ impl ScorePp {
 
         let play = plays.swap_remove(play as usize);
 
-        match ctx.osu_map().map_slim(play.map_id).await {
-            Ok(map) => Ok(Self::new(player, map, play)),
-            Err(err) => Err(Report::new(err).wrap_err("failed to get beatmap")),
-        }
+        let map_fut = ctx.osu_map().map_slim(play.map_id);
+        let attrs_fut = ctx.osu_map().difficulty(play.map_id, play.mode, play.mods);
+
+        let (map_res, attrs_res) = tokio::join!(map_fut, attrs_fut);
+
+        let map = map_res.wrap_err("Failed to get beatmap")?;
+
+        let max_combo = match attrs_res {
+            Ok(attrs) => Some(attrs.max_combo() as u32),
+            Err(err) => {
+                let wrap = "Failed to get difficulty attributes";
+                warn!("{:?}", Report::new(err).wrap_err(wrap));
+
+                None
+            }
+        };
+
+        Ok(Self::new(player, map, max_combo, play))
     }
 
     pub async fn image(
@@ -205,7 +219,7 @@ impl ScorePp {
         )
     }
 
-    fn new(user: UserCompact, map: OsuMapSlim, score: Score) -> Self {
+    fn new(user: UserCompact, map: OsuMapSlim, max_combo: Option<u32>, score: Score) -> Self {
         let UserCompact {
             avatar_url,
             country_code,
@@ -232,7 +246,7 @@ impl ScorePp {
             mods: score.mods,
             pp: round(score.pp.unwrap_or(0.0)),
             combo: score.max_combo,
-            max_combo: map.max_combo(),
+            max_combo,
             score: score.score,
             acc: round(score.accuracy),
             miss_count: score.statistics.count_miss,

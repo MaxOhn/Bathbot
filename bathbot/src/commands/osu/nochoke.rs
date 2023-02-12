@@ -307,6 +307,7 @@ pub struct NochokeEntry {
     pub map: OsuMap,
     pub max_pp: f32,
     pub stars: f32,
+    pub max_combo: u32,
 }
 
 impl NochokeEntry {
@@ -324,7 +325,7 @@ impl NochokeEntry {
 
     pub fn unchoked_max_combo(&self) -> u32 {
         if self.unchoked.is_some() {
-            self.map.max_combo().unwrap_or(0)
+            self.max_combo
         } else {
             self.original_score.max_combo
         }
@@ -421,6 +422,7 @@ async fn process_scores(
             map,
             max_pp,
             stars: attrs.stars() as f32,
+            max_combo: attrs.max_combo() as u32,
         };
 
         entries.push(entry);

@@ -194,6 +194,7 @@ pub struct SimulateData {
     pub attrs: SimulateAttributes,
     pub original_attrs: SimulateAttributes,
     pub is_convert: Option<bool>,
+    pub max_combo: u32,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -467,12 +468,9 @@ impl SimulateData {
 
         let combo_ratio = match state {
             Some(ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_)) => {
-                match map.max_combo() {
-                    Some(max) => ComboOrRatio::Combo {
-                        score: self.combo.unwrap_or(max),
-                        max,
-                    },
-                    None => ComboOrRatio::Neither,
+                ComboOrRatio::Combo {
+                    score: self.combo.unwrap_or(self.max_combo),
+                    max: self.max_combo,
                 }
             }
             Some(ScoreState::Mania(ref state))
@@ -617,7 +615,7 @@ impl TopOldVersion {
     fn generate_hitresults(self, map: &OsuMap, data: &SimulateData) -> Option<ScoreState> {
         match self {
             TopOldVersion::Osu(_) => Some(Self::generate_hitresults_osu(map, data)),
-            TopOldVersion::Taiko(_) => Self::generate_hitresults_taiko(map, data),
+            TopOldVersion::Taiko(_) => Self::generate_hitresults_taiko(data),
             TopOldVersion::Catch(_) => Self::generate_hitresults_catch(map, data),
             TopOldVersion::Mania(_) => Some(Self::generate_hitresults_mania(map, data)),
         }
@@ -743,8 +741,8 @@ impl TopOldVersion {
         ScoreState::Osu(state)
     }
 
-    fn generate_hitresults_taiko(map: &OsuMap, data: &SimulateData) -> Option<ScoreState> {
-        let total_result_count = map.max_combo()? as usize;
+    fn generate_hitresults_taiko(data: &SimulateData) -> Option<ScoreState> {
+        let total_result_count = data.max_combo as usize;
 
         let mut n300 = data.n300.unwrap_or(0) as usize;
         let mut n100 = data.n100.unwrap_or(0) as usize;
@@ -788,7 +786,7 @@ impl TopOldVersion {
     // TODO: improve this
     fn generate_hitresults_catch(map: &OsuMap, data: &SimulateData) -> Option<ScoreState> {
         let attrs = rosu_pp::CatchStars::new(&map.pp_map).calculate();
-        let max_combo = map.max_combo()? as usize;
+        let max_combo = data.max_combo as usize;
 
         let mut n_fruits = data.n300.unwrap_or(0) as usize;
         let mut n_droplets = data.n100.unwrap_or(0) as usize;

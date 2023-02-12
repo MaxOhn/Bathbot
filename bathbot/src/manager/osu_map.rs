@@ -37,15 +37,15 @@ impl<'d> MapManager<'d> {
         // Check if map is already stored
         let map_fut = self.psql.select_osu_map_full(map_id, checksum);
 
-        if let Some((map, mapset, filepath)) = map_fut.await.wrap_err("failed to get map")? {
+        if let Some((map, mapset, filepath)) = map_fut.await.wrap_err("Failed to get map")? {
             let (pp_map, map_opt) = self
                 .prepare_map(map_id, filepath)
                 .await
-                .wrap_err("failed to prepare map")?;
+                .wrap_err("Failed to prepare map")?;
 
             match map_opt {
-                Some(map) => Ok(OsuMap { map, pp_map }),
-                None => Ok(OsuMap::new(map, mapset, pp_map)),
+                Some(map) => Ok(OsuMap::new(map, pp_map)),
+                None => Ok(OsuMap::new(OsuMapSlim::new(map, mapset), pp_map)),
             }
         } else {
             // Otherwise retrieve mapset and store
@@ -53,7 +53,7 @@ impl<'d> MapManager<'d> {
             let prepare_fut = self.prepare_map(map_id, DbMapPath::Missing);
             let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
 
-            Ok(OsuMap { map, pp_map })
+            Ok(OsuMap::new(map, pp_map))
         }
     }
 
@@ -62,13 +62,13 @@ impl<'d> MapManager<'d> {
             .psql
             .select_beatmap_file(map_id)
             .await
-            .wrap_err("failed to get filepath")?
+            .wrap_err("Failed to get filepath")?
             .map_or(DbMapPath::Missing, DbMapPath::Present);
 
         let (pp_map, _) = self
             .prepare_map(map_id, filepath)
             .await
-            .wrap_err("failed to prepare map")?;
+            .wrap_err("Failed to prepare map")?;
 
         Ok(pp_map)
     }
@@ -83,13 +83,13 @@ impl<'d> MapManager<'d> {
             .psql
             .select_map_difficulty_attrs(map_id, mode, mods.bits());
 
-        if let Some(attrs) = attrs_fut.await.wrap_err("failed to get attributes")? {
+        if let Some(attrs) = attrs_fut.await.wrap_err("Failed to get attributes")? {
             return Ok(attrs);
         }
 
-        let map = self.pp_map(map_id).await.wrap_err("failed to get pp map")?;
+        let map = self.pp_map(map_id).await.wrap_err("Failed to get pp map")?;
 
-        let attrs = PpManager::from_parsed(&map, map_id, mode, self.psql)
+        let attrs = PpManager::from_parsed(&map, map_id, mode, false, self.psql)
             .mods(mods)
             .difficulty()
             .await
@@ -102,7 +102,7 @@ impl<'d> MapManager<'d> {
         // Check if map is already stored
         let map_fut = self.psql.select_osu_map_full(map_id, None);
 
-        if let Some((map, mapset, _)) = map_fut.await.wrap_err("failed to get map")? {
+        if let Some((map, mapset, _)) = map_fut.await.wrap_err("Failed to get map")? {
             Ok(OsuMapSlim::new(map, mapset))
         } else {
             // Otherwise retrieve mapset and store
@@ -133,15 +133,15 @@ impl<'d> MapManager<'d> {
                 let (pp_map, map_opt) = self.prepare_map(map_id, filepath).await?;
 
                 match map_opt {
-                    Some(map) => OsuMap { map, pp_map },
-                    None => OsuMap::new(map, mapset, pp_map),
+                    Some(map) => OsuMap::new(map, pp_map),
+                    None => OsuMap::new(OsuMapSlim::new(map, mapset), pp_map),
                 }
             } else {
                 let map_fut = self.retrieve_map(map_id);
                 let prepare_fut = self.prepare_map(map_id, DbMapPath::Missing);
                 let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
 
-                OsuMap { map, pp_map }
+                OsuMap::new(map, pp_map)
             };
 
             maps.insert(map_id, map);
@@ -451,7 +451,6 @@ impl OsuMapSlim {
             count_sliders: map.count_sliders as i32,
             count_spinners: map.count_spinners as i32,
             bpm: map.bpm,
-            max_combo: map.max_combo.map(|combo| combo as i32),
         };
 
         Ok(Self::new(map, mapset))
@@ -483,10 +482,6 @@ impl OsuMapSlim {
 
     pub fn creator(&self) -> &str {
         self.mapset.creator.as_str()
-    }
-
-    pub fn max_combo(&self) -> Option<u32> {
-        self.map.max_combo.map(|combo| combo as u32)
     }
 
     pub fn seconds_drain(&self) -> u32 {
@@ -540,13 +535,16 @@ impl Searchable for OsuMapSlim {
 pub struct OsuMap {
     map: OsuMapSlim,
     pub pp_map: Beatmap,
+    pub is_convert: bool,
 }
 
 impl OsuMap {
-    fn new(map: DbBeatmap, mapset: DbBeatmapset, pp_map: Beatmap) -> Self {
-        let map = OsuMapSlim::new(map, mapset);
-
-        Self { map, pp_map }
+    fn new(map: OsuMapSlim, pp_map: Beatmap) -> Self {
+        Self {
+            map,
+            pp_map,
+            is_convert: false,
+        }
     }
 
     pub fn mode(&self) -> GameMode {
@@ -579,6 +577,10 @@ impl OsuMap {
 
         if let Cow::Owned(map) = self.pp_map.convert_mode(mode) {
             self.pp_map = map;
+            self.is_convert = true;
+        } else if mode == Mode::Catch && self.pp_map.mode != Mode::Catch {
+            self.pp_map.mode = mode;
+            self.is_convert = true;
         }
 
         self

@@ -49,6 +49,7 @@ impl TrackNotificationEmbed {
 
         let stars = attrs.stars();
         let max_pp = attrs.pp() as f32;
+        let max_combo = attrs.max_combo() as u32;
 
         let title = if score.mode == GameMode::Mania {
             format!(
@@ -86,9 +87,9 @@ impl TrackNotificationEmbed {
 
                 format!("**{}x** / {}", &score.max_combo, round(ratio))
             } else {
-                ComboFormatter::new(score.max_combo, map.max_combo()).to_string()
+                ComboFormatter::new(score.max_combo, Some(max_combo)).to_string()
             },
-            hitresults = HitResultFormatter::new_tight(score.mode, score.statistics.clone()),
+            hitresults = HitResultFormatter::new(score.mode, score.statistics.clone()),
         );
 
         Self {

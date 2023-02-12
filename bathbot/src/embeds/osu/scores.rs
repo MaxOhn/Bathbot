@@ -21,7 +21,7 @@ use crate::{
     util::Emote,
 };
 
-use super::HitResultFormatter;
+use super::{ComboFormatter, HitResultFormatter};
 
 #[derive(EmbedData)]
 pub struct ScoresEmbed {
@@ -52,7 +52,6 @@ impl ScoresEmbed {
         let pp_idx = (page == pp_idx / 10 + 1).then_some(pp_idx % 10);
         let mut args = WriteArgs::new(&mut description, pinned, personal, global, pp_idx);
 
-        let max_combo_ = map.max_combo().unwrap_or(0);
         let mut entries = entries.iter();
 
         if page == 1 {
@@ -91,7 +90,7 @@ impl ScoresEmbed {
                 let _ = write!(
                     args.description,
                     "{grade} **+{mods}** [{stars:.2}★] • {score} • {acc}%\n\
-                    {pp_format}**{pp:.2}**{pp_format}/{max_pp:.2}PP • **{combo}x**/{max_combo}x",
+                    {pp_format}**{pp:.2}**{pp_format}/{max_pp:.2}PP • {combo}",
                     grade = BotConfig::get().grade(entry.score.grade),
                     mods = entry.score.mods,
                     stars = entry.stars,
@@ -100,8 +99,7 @@ impl ScoresEmbed {
                     pp_format = if pp_idx == Some(0) { "" } else { "~~" },
                     pp = entry.score.pp,
                     max_pp = entry.score.pp.max(entry.max_pp),
-                    combo = entry.score.max_combo,
-                    max_combo = OptionFormat::new(map.max_combo()),
+                    combo = ComboFormatter::new(entry.score.max_combo, Some(entry.max_combo)),
                 );
 
                 if let Some(ref if_fc) = entry.if_fc {
@@ -121,13 +119,13 @@ impl ScoresEmbed {
                 if let Some(entry) = entries.next() {
                     args.description
                         .push_str("\n__Other scores on the beatmap:__\n");
-                    write_compact_entry(&mut args, 1, entry, max_combo_);
+                    write_compact_entry(&mut args, 1, entry);
                 }
             }
         }
 
         for (entry, i) in entries.zip(2..) {
-            write_compact_entry(&mut args, i, entry, max_combo_);
+            write_compact_entry(&mut args, i, entry);
         }
 
         if args.description.is_empty() {
@@ -202,7 +200,7 @@ fn personal_idx(entry: &CompareEntry, scores: &[Score]) -> Option<usize> {
         .map(|i| i + 1)
 }
 
-fn write_compact_entry(args: &mut WriteArgs<'_>, i: usize, entry: &CompareEntry, max_combo: u32) {
+fn write_compact_entry(args: &mut WriteArgs<'_>, i: usize, entry: &CompareEntry) {
     let config = BotConfig::get();
 
     let _ = write!(
@@ -216,7 +214,7 @@ fn write_compact_entry(args: &mut WriteArgs<'_>, i: usize, entry: &CompareEntry,
         pp = entry.score.pp,
         acc = round(entry.score.accuracy),
         combo = entry.score.max_combo,
-        miss = MissFormat::new(&entry.score, max_combo),
+        miss = MissFormat::new(&entry.score, entry.max_combo),
         timestamp = HowLongAgoDynamic::new(&entry.score.ended_at),
     );
 
@@ -247,26 +245,6 @@ fn write_compact_entry(args: &mut WriteArgs<'_>, i: usize, entry: &CompareEntry,
     }
 
     args.description.push('\n');
-}
-
-struct OptionFormat<T> {
-    value: Option<T>,
-}
-
-impl<T> OptionFormat<T> {
-    fn new(value: Option<T>) -> Self {
-        Self { value }
-    }
-}
-
-impl<T: Display> Display for OptionFormat<T> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self.value {
-            Some(ref value) => write!(f, "{value:.2}"),
-            None => f.write_str("-"),
-        }
-    }
 }
 
 struct MissFormat<'s> {

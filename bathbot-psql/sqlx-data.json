@@ -1,5 +1,127 @@
 {
   "db": "PostgreSQL",
+  "012b2250aaf9e2519586bb2edcebc1468751e614c835b6f71521efdddb03b1e6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "map_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mapset_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "checksum",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "map_version",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "seconds_drain",
+          "ordinal": 5,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_circles",
+          "ordinal": 6,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_sliders",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_spinners",
+          "ordinal": 8,
+          "type_info": "Int4"
+        },
+        {
+          "name": "bpm",
+          "ordinal": 9,
+          "type_info": "Float4"
+        },
+        {
+          "name": "artist",
+          "ordinal": 10,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 11,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "creator",
+          "ordinal": 12,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "rank_status",
+          "ordinal": 13,
+          "type_info": "Int2"
+        },
+        {
+          "name": "ranked_date",
+          "ordinal": 14,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "thumbnail",
+          "ordinal": 15,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "cover",
+          "ordinal": 16,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "map_filepath",
+          "ordinal": 17,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int4Array"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  map.map_id, \n  map.mapset_id, \n  map.user_id, \n  map.checksum, \n  map.map_version, \n  map.seconds_drain, \n  map.count_circles, \n  map.count_sliders, \n  map.count_spinners, \n  map.bpm, \n  mapset.artist, \n  mapset.title, \n  mapset.creator, \n  mapset.rank_status, \n  mapset.ranked_date, \n  mapset.thumbnail, \n  mapset.cover, \n  COALESCE(files.map_filepath) AS map_filepath \nFROM \n  (\n    SELECT \n      * \n    FROM \n      osu_maps \n    WHERE \n      map_id = ANY($1)\n  ) AS map \n  JOIN (\n    SELECT \n      mapset_id, \n      artist, \n      title, \n      creator, \n      rank_status, \n      ranked_date, \n      thumbnail, \n      cover \n    FROM \n      osu_mapsets\n  ) AS mapset ON map.mapset_id = mapset.mapset_id \n  LEFT JOIN (\n    SELECT \n      map_id, \n      map_filepath \n    FROM \n      osu_map_files\n  ) AS files ON map.map_id = files.map_id"
+  },
   "02cd8f792eb2c7c4c13be1d3f6c3011cb0c7de2becc2b8dab588cc95dd1c4c2f": {
     "describe": {
       "columns": [],
@@ -451,134 +573,6 @@
       }
     },
     "query": "\nINSERT INTO higherlower_scores (\n  discord_id, game_version, highscore\n) \nVALUES \n  ($1, $2, $3) ON CONFLICT (discord_id, game_version) DO \nUPDATE \nSET \n  highscore = $3 \nWHERE \n  higherlower_scores.highscore < $3 RETURNING highscore"
-  },
-  "2be23961cc81a103864714543e7934a8cc50bf2d75473e85ee3ddbb51fb5dbcc": {
-    "describe": {
-      "columns": [
-        {
-          "name": "map_id",
-          "ordinal": 0,
-          "type_info": "Int4"
-        },
-        {
-          "name": "mapset_id",
-          "ordinal": 1,
-          "type_info": "Int4"
-        },
-        {
-          "name": "user_id",
-          "ordinal": 2,
-          "type_info": "Int4"
-        },
-        {
-          "name": "checksum",
-          "ordinal": 3,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "map_version",
-          "ordinal": 4,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "seconds_drain",
-          "ordinal": 5,
-          "type_info": "Int4"
-        },
-        {
-          "name": "count_circles",
-          "ordinal": 6,
-          "type_info": "Int4"
-        },
-        {
-          "name": "count_sliders",
-          "ordinal": 7,
-          "type_info": "Int4"
-        },
-        {
-          "name": "count_spinners",
-          "ordinal": 8,
-          "type_info": "Int4"
-        },
-        {
-          "name": "bpm",
-          "ordinal": 9,
-          "type_info": "Float4"
-        },
-        {
-          "name": "max_combo",
-          "ordinal": 10,
-          "type_info": "Int4"
-        },
-        {
-          "name": "artist",
-          "ordinal": 11,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "title",
-          "ordinal": 12,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "creator",
-          "ordinal": 13,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "rank_status",
-          "ordinal": 14,
-          "type_info": "Int2"
-        },
-        {
-          "name": "ranked_date",
-          "ordinal": 15,
-          "type_info": "Timestamptz"
-        },
-        {
-          "name": "thumbnail",
-          "ordinal": 16,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "cover",
-          "ordinal": 17,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "map_filepath",
-          "ordinal": 18,
-          "type_info": "Varchar"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        true,
-        false,
-        false,
-        false,
-        false,
-        true,
-        false,
-        false,
-        null
-      ],
-      "parameters": {
-        "Left": [
-          "Int4"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  map.map_id, \n  map.mapset_id, \n  map.user_id, \n  map.checksum, \n  map.map_version, \n  map.seconds_drain, \n  map.count_circles, \n  map.count_sliders, \n  map.count_spinners, \n  map.bpm, \n  map.max_combo, \n  mapset.artist, \n  mapset.title, \n  mapset.creator, \n  mapset.rank_status, \n  mapset.ranked_date, \n  mapset.thumbnail, \n  mapset.cover, \n  (\n    SELECT \n      map_filepath \n    FROM \n      osu_map_files \n    WHERE \n      map_id = $1\n  ) \nFROM \n  (\n    SELECT \n      * \n    FROM \n      osu_maps \n    WHERE \n      map_id = $1\n  ) AS map \n  JOIN (\n    SELECT \n      mapset_id, \n      artist, \n      title, \n      creator, \n      rank_status, \n      ranked_date, \n      thumbnail, \n      cover \n    FROM \n      osu_mapsets\n  ) AS mapset ON map.mapset_id = mapset.mapset_id"
   },
   "2c326a3c30b2f8149ae6472f194e09b005339b17c3ac580f79536f1b9f2d8312": {
     "describe": {
@@ -1323,6 +1317,128 @@
     },
     "query": "\nDELETE FROM \n  osu_map_files \nWHERE \n  map_id = $1"
   },
+  "943daebe711c014c827abd6fadbb677461104b17d737a5126f6cffb857f99d78": {
+    "describe": {
+      "columns": [
+        {
+          "name": "map_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mapset_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "checksum",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "map_version",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "seconds_drain",
+          "ordinal": 5,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_circles",
+          "ordinal": 6,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_sliders",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_spinners",
+          "ordinal": 8,
+          "type_info": "Int4"
+        },
+        {
+          "name": "bpm",
+          "ordinal": 9,
+          "type_info": "Float4"
+        },
+        {
+          "name": "artist",
+          "ordinal": 10,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 11,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "creator",
+          "ordinal": 12,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "rank_status",
+          "ordinal": 13,
+          "type_info": "Int2"
+        },
+        {
+          "name": "ranked_date",
+          "ordinal": 14,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "thumbnail",
+          "ordinal": 15,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "cover",
+          "ordinal": 16,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "map_filepath",
+          "ordinal": 17,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  map.map_id, \n  map.mapset_id, \n  map.user_id, \n  map.checksum, \n  map.map_version, \n  map.seconds_drain, \n  map.count_circles, \n  map.count_sliders, \n  map.count_spinners, \n  map.bpm, \n  mapset.artist, \n  mapset.title, \n  mapset.creator, \n  mapset.rank_status, \n  mapset.ranked_date, \n  mapset.thumbnail, \n  mapset.cover, \n  (\n    SELECT \n      map_filepath \n    FROM \n      osu_map_files \n    WHERE \n      map_id = $1\n  ) \nFROM \n  (\n    SELECT \n      * \n    FROM \n      osu_maps \n    WHERE \n      map_id = $1\n  ) AS map \n  JOIN (\n    SELECT \n      mapset_id, \n      artist, \n      title, \n      creator, \n      rank_status, \n      ranked_date, \n      thumbnail, \n      cover \n    FROM \n      osu_mapsets\n  ) AS mapset ON map.mapset_id = mapset.mapset_id"
+  },
   "96aaf1ec3618bcf576fb7d8853982df4f17a2680e521293a64d3cec5be293421": {
     "describe": {
       "columns": [],
@@ -1735,134 +1851,6 @@
       }
     },
     "query": "\nINSERT INTO osu_map_files (map_id, map_filepath) \nVALUES \n  ($1, $2) ON CONFLICT (map_id) DO \nUPDATE \nSET \n  map_filepath = $2"
-  },
-  "ec811b7568559793dd78600b2a2cda867f22087b47f74e3cd1bb0b0b7291b966": {
-    "describe": {
-      "columns": [
-        {
-          "name": "map_id",
-          "ordinal": 0,
-          "type_info": "Int4"
-        },
-        {
-          "name": "mapset_id",
-          "ordinal": 1,
-          "type_info": "Int4"
-        },
-        {
-          "name": "user_id",
-          "ordinal": 2,
-          "type_info": "Int4"
-        },
-        {
-          "name": "checksum",
-          "ordinal": 3,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "map_version",
-          "ordinal": 4,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "seconds_drain",
-          "ordinal": 5,
-          "type_info": "Int4"
-        },
-        {
-          "name": "count_circles",
-          "ordinal": 6,
-          "type_info": "Int4"
-        },
-        {
-          "name": "count_sliders",
-          "ordinal": 7,
-          "type_info": "Int4"
-        },
-        {
-          "name": "count_spinners",
-          "ordinal": 8,
-          "type_info": "Int4"
-        },
-        {
-          "name": "bpm",
-          "ordinal": 9,
-          "type_info": "Float4"
-        },
-        {
-          "name": "max_combo",
-          "ordinal": 10,
-          "type_info": "Int4"
-        },
-        {
-          "name": "artist",
-          "ordinal": 11,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "title",
-          "ordinal": 12,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "creator",
-          "ordinal": 13,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "rank_status",
-          "ordinal": 14,
-          "type_info": "Int2"
-        },
-        {
-          "name": "ranked_date",
-          "ordinal": 15,
-          "type_info": "Timestamptz"
-        },
-        {
-          "name": "thumbnail",
-          "ordinal": 16,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "cover",
-          "ordinal": 17,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "map_filepath",
-          "ordinal": 18,
-          "type_info": "Varchar"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        true,
-        false,
-        false,
-        false,
-        false,
-        true,
-        false,
-        false,
-        null
-      ],
-      "parameters": {
-        "Left": [
-          "Int4Array"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  map.map_id, \n  map.mapset_id, \n  map.user_id, \n  map.checksum, \n  map.map_version, \n  map.seconds_drain, \n  map.count_circles, \n  map.count_sliders, \n  map.count_spinners, \n  map.bpm, \n  map.max_combo, \n  mapset.artist, \n  mapset.title, \n  mapset.creator, \n  mapset.rank_status, \n  mapset.ranked_date, \n  mapset.thumbnail, \n  mapset.cover, \n  COALESCE(files.map_filepath) AS map_filepath \nFROM \n  (\n    SELECT \n      * \n    FROM \n      osu_maps \n    WHERE \n      map_id = ANY($1)\n  ) AS map \n  JOIN (\n    SELECT \n      mapset_id, \n      artist, \n      title, \n      creator, \n      rank_status, \n      ranked_date, \n      thumbnail, \n      cover \n    FROM \n      osu_mapsets\n  ) AS mapset ON map.mapset_id = mapset.mapset_id \n  LEFT JOIN (\n    SELECT \n      map_id, \n      map_filepath \n    FROM \n      osu_map_files\n  ) AS files ON map.map_id = files.map_id"
   },
   "f6e31bee48c671466ccf9972401fe4b26ed75580e7c4cb870952d2853ecb69fc": {
     "describe": {
