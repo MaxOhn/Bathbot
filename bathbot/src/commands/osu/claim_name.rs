@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::SlashCommand;
-use bathbot_util::{
-    boyer_moore::contains_disallowed_infix, constants::OSU_API_ISSUE, MessageBuilder,
-};
+use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
 use eyre::{Report, Result};
 use futures::{future, stream::FuturesUnordered, TryStreamExt};
+use once_cell::sync::OnceCell;
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
@@ -73,10 +73,10 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         UserArgs::Args(args) => args.user_id,
         UserArgs::User { user, .. } => user.user_id,
         UserArgs::Err(OsuError::NotFound) => {
-            let content = if contains_disallowed_infix(&name) {
-                format!("`{name}` does not seem to be taken but it likely won't be accepted")
-            } else {
+            let content = if ClaimNameValidator::is_valid(&name) {
                 format!("User `{name}` was not found, the name should be available to claim")
+            } else {
+                format!("`{name}` does not seem to be taken but it likely won't be accepted")
             };
 
             let builder = MessageBuilder::new().embed(content);
@@ -132,3 +132,53 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 
     Ok(())
 }
+
+pub struct ClaimNameValidator;
+
+impl ClaimNameValidator {
+    pub fn is_valid(prefix: &str) -> bool {
+        !VALIDATOR
+            .get_or_init(|| {
+                let needles = [
+                    "qfqqz",
+                    "dppljf{",
+                    "difbu",
+                    "ojhhfs",
+                    "mpmj",
+                    "gvdl",
+                    "ejmep",
+                    "gbhhpu",
+                    "dvou",
+                    "tijhfupsb",
+                    "qpso",
+                    "cbodip",
+                    "qfojt",
+                    "wbhjob",
+                    "qvttz",
+                    "ejdl",
+                    "dpdl",
+                    "brvjmb",
+                    "ijumfs",
+                    "ibdl",
+                ]
+                .into_iter()
+                .map(String::from)
+                .map(|mut needle| {
+                    unsafe { needle.as_bytes_mut() }
+                        .iter_mut()
+                        .for_each(|byte| *byte -= 1);
+
+                    needle
+                });
+
+                AhoCorasickBuilder::new()
+                    .ascii_case_insensitive(true)
+                    .dfa(true)
+                    .build_with_size(needles)
+                    .unwrap()
+            })
+            .is_match(prefix)
+    }
+}
+
+static VALIDATOR: OnceCell<AhoCorasick<u16>> = OnceCell::new();

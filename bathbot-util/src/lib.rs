@@ -9,7 +9,6 @@ mod hasher;
 mod html_to_png;
 mod matrix;
 
-pub mod boyer_moore;
 pub mod constants;
 pub mod datetime;
 pub mod matcher;

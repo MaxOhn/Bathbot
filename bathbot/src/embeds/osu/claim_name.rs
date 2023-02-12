@@ -1,12 +1,11 @@
 use bathbot_macros::EmbedData;
 use bathbot_util::{
-    boyer_moore::contains_disallowed_infix, constants::OSU_BASE, numbers::WithComma, osu::flag_url,
-    AuthorBuilder, CowUtils,
+    constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder, CowUtils,
 };
 use time::{Duration, OffsetDateTime};
 use twilight_model::channel::embed::EmbedField;
 
-use crate::manager::redis::osu::User;
+use crate::{commands::osu::ClaimNameValidator, manager::redis::osu::User};
 
 #[derive(EmbedData)]
 pub struct ClaimNameEmbed {
@@ -73,7 +72,7 @@ impl ClaimNameEmbed {
             };
 
             available_at_field(value)
-        } else if contains_disallowed_infix(name.as_ref()) {
+        } else if !ClaimNameValidator::is_valid(name.as_ref()) {
             let value = format!("`{name}` likely won't be accepted as name in the future");
 
             available_at_field(value)
