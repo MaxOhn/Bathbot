@@ -111,18 +111,19 @@ impl RecentEmbed {
         let footer = FooterBuilder::new(format!("{:?} map", map.status()))
             .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
 
-        let personal_idx = personal
-            .map(|top100| PersonalBestIndex::new(score, map.map_id(), map.status(), top100));
+        let personal_best = personal
+            .map(|top100| PersonalBestIndex::new(score, map.map_id(), map.status(), top100))
+            .and_then(PersonalBestIndex::into_embed_description);
 
         let global_idx = map_score
             .and_then(|s| score.is_eq(s).then_some(s.pos))
             .filter(|&p| p <= 50);
 
-        let description = if personal_idx.is_some() || global_idx.is_some() {
+        let description = if personal_best.is_some() || global_idx.is_some() {
             let mut description = String::with_capacity(25);
             description.push_str("__**");
 
-            if let Some(desc) = personal_idx.and_then(PersonalBestIndex::into_embed_description) {
+            if let Some(desc) = personal_best {
                 description.push_str(&desc);
 
                 if global_idx.is_some() {
