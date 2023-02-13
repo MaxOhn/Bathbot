@@ -1790,7 +1790,7 @@
     },
     "query": "\nDELETE FROM \n  osu_user_names \nWHERE \n  user_id = $1"
   },
-  "e9d50fc799698d32a6ed98d194fd50be67db575702670a04bf63396ab06f1e7c": {
+  "e74f9f2f43084e2cb53435c4701f9640e37c4c80aa87be25d94d504ff460c2a5": {
     "describe": {
       "columns": [
         {
@@ -1819,12 +1819,11 @@
           "Float4",
           "Float4",
           "Float4",
-          "Int2",
-          "Int4"
+          "Int2"
         ]
       }
     },
-    "query": "\nINSERT INTO osu_maps (\n  map_id, mapset_id, user_id, checksum, \n  map_version, seconds_total, seconds_drain, \n  count_circles, count_sliders, count_spinners, \n  hp, cs, od, ar, bpm, gamemode, max_combo\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16, $17\n  ) ON CONFLICT (map_id) DO \nUPDATE \nSET \n  mapset_id = $2, \n  user_id = $3, \n  checksum = $4, \n  map_version = $5, \n  seconds_total = $6, \n  seconds_drain = $7, \n  count_circles = $8, \n  count_sliders = $9, \n  count_spinners = $10, \n  hp = $11, \n  cs = $12, \n  od = $13, \n  ar = $14, \n  bpm = $15, \n  gamemode = $16, \n  max_combo = $17, \n  last_update = NOW() \nWHERE \n  osu_maps.checksum IS DISTINCT \nFROM \n  EXCLUDED.checksum RETURNING (xmax = 0) AS inserted"
+    "query": "\nINSERT INTO osu_maps (\n  map_id, mapset_id, user_id, checksum, \n  map_version, seconds_total, seconds_drain, \n  count_circles, count_sliders, count_spinners, \n  hp, cs, od, ar, bpm, gamemode\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16\n  ) ON CONFLICT (map_id) DO \nUPDATE \nSET \n  mapset_id = $2, \n  user_id = $3, \n  checksum = $4, \n  map_version = $5, \n  seconds_total = $6, \n  seconds_drain = $7, \n  count_circles = $8, \n  count_sliders = $9, \n  count_spinners = $10, \n  hp = $11, \n  cs = $12, \n  od = $13, \n  ar = $14, \n  bpm = $15, \n  gamemode = $16, \n  last_update = NOW() \nWHERE \n  osu_maps.checksum IS DISTINCT \nFROM \n  EXCLUDED.checksum RETURNING (xmax = 0) AS inserted"
   },
   "eb2d8df67e3fb80c7798600f895597a274302c0574e70723472a2959f64f5731": {
     "describe": {

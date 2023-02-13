@@ -446,12 +446,12 @@ INSERT INTO osu_maps (
   map_id, mapset_id, user_id, checksum, 
   map_version, seconds_total, seconds_drain, 
   count_circles, count_sliders, count_spinners, 
-  hp, cs, od, ar, bpm, gamemode, max_combo
+  hp, cs, od, ar, bpm, gamemode
 ) 
 VALUES 
   (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
-    $11, $12, $13, $14, $15, $16, $17
+    $11, $12, $13, $14, $15, $16
   ) ON CONFLICT (map_id) DO 
 UPDATE 
 SET 
@@ -470,7 +470,6 @@ SET
   ar = $14, 
   bpm = $15, 
   gamemode = $16, 
-  max_combo = $17, 
   last_update = NOW() 
 WHERE 
   osu_maps.checksum IS DISTINCT 
@@ -492,7 +491,6 @@ FROM
             map.ar,
             map.bpm,
             map.mode as i16,
-            map.max_combo.map(|combo| combo as i32),
         );
 
         // None if both map_id and checksum were the same i.e. no change
