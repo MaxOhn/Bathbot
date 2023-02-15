@@ -660,7 +660,7 @@ async fn retrieve_vod(
 ) -> Option<bathbot_model::TwitchVideo> {
     use std::fmt::Write;
 
-    use rosu_pp::{beatmap::Break, Mods};
+    use rosu_pp::Mods;
 
     match ctx.client().get_last_twitch_vod(user_id).await {
         Ok(Some(mut vod)) => {
@@ -677,18 +677,11 @@ async fn retrieve_vod(
                 if map.mode() == GameMode::Catch {
                     // amount objects in .osu file != amount of hitobjects for catch
                     map_len += 2.0;
-                } else if let Some(obj) = parsed_map.hit_objects.get(passed as usize - 1) {
-                    // Get time of the last hitobject that was hit
-                    // and then accumulate break time of all breaks
-                    // up to that time
-                    let break_time: f64 = parsed_map
-                        .breaks
-                        .iter()
-                        .take_while(|b| b.end_time < obj.start_time)
-                        .map(Break::duration)
-                        .sum();
-
-                    map_len = obj.start_time + (break_time / 1000.0);
+                } else if let Some(obj) = (passed as usize)
+                    .checked_sub(1)
+                    .and_then(|i| parsed_map.hit_objects.get(i))
+                {
+                    map_len = obj.start_time / 1000.0;
                 } else {
                     let total = map.n_objects() as f64;
                     map_len *= passed / total;
