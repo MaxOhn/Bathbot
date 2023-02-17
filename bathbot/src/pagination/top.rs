@@ -79,7 +79,9 @@ pub struct TopSinglePagination {
 impl TopSinglePagination {
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let entry = &self.entries[pages.index()];
-        let personal_idx = Some(entry.original_idx);
+
+        // Required for /pinned on the single-score list size
+        let personal_idx = (entry.original_idx != usize::MAX).then_some(entry.original_idx);
 
         let embed_fut = TopSingleEmbed::new(
             &self.user,

@@ -49,7 +49,7 @@ impl UserArgs {
 
         match ctx.osu_user().user_id(name, alt_name.as_deref()).await {
             Ok(Some(user_id)) => return Self::Args(UserArgsSlim::user_id(user_id)),
-            Err(err) => warn!("{:?}", err.wrap_err("failed to get user id")),
+            Err(err) => warn!("{:?}", err.wrap_err("Failed to get user id")),
             Ok(None) => {}
         }
 
