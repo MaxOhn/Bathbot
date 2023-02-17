@@ -18,7 +18,7 @@ use crate::{
         OsuMap,
     },
     pagination::Pages,
-    util::Emote,
+    util::{osu::PersonalBestIndex, Emote},
 };
 
 use super::{ComboFormatter, HitResultFormatter};
@@ -56,17 +56,19 @@ impl ScoresEmbed {
 
         if page == 1 {
             if let Some(entry) = entries.next() {
-                let personal = personal_idx(entry, args.personal);
+                let personal_best =
+                    PersonalBestIndex::new(&entry.score, map.map_id(), map.status(), args.personal)
+                        .into_embed_description();
 
-                if personal.is_some() || matches!(args.global, Some((0, _))) {
+                if personal_best.is_some() || matches!(args.global, Some((0, _))) {
                     args.description.push_str("__**");
 
-                    if let Some(idx) = personal {
-                        let _ = write!(args.description, "Personal Best #{idx}");
+                    if let Some(ref desc) = personal_best {
+                        args.description.push_str(desc);
                     }
 
                     if let Some((_, idx)) = args.global.filter(|(idx, _)| *idx == 0) {
-                        if personal.is_some() {
+                        if personal_best.is_some() {
                             args.description.push_str(" and ");
                         }
 
@@ -119,13 +121,13 @@ impl ScoresEmbed {
                 if let Some(entry) = entries.next() {
                     args.description
                         .push_str("\n__Other scores on the beatmap:__\n");
-                    write_compact_entry(&mut args, 1, entry);
+                    write_compact_entry(&mut args, 1, entry, map);
                 }
             }
         }
 
         for (entry, i) in entries.zip(2..) {
-            write_compact_entry(&mut args, i, entry);
+            write_compact_entry(&mut args, i, entry, map);
         }
 
         if args.description.is_empty() {
@@ -191,16 +193,7 @@ impl<'c> WriteArgs<'c> {
     }
 }
 
-fn personal_idx(entry: &CompareEntry, scores: &[Score]) -> Option<usize> {
-    scores
-        .iter()
-        .position(|s| {
-            (s.ended_at.unix_timestamp() - entry.score.ended_at.unix_timestamp()).abs() <= 2
-        })
-        .map(|i| i + 1)
-}
-
-fn write_compact_entry(args: &mut WriteArgs<'_>, i: usize, entry: &CompareEntry) {
+fn write_compact_entry(args: &mut WriteArgs<'_>, i: usize, entry: &CompareEntry, map: &OsuMap) {
     let config = BotConfig::get();
 
     let _ = write!(
@@ -224,17 +217,19 @@ fn write_compact_entry(args: &mut WriteArgs<'_>, i: usize, entry: &CompareEntry)
         args.description.push_str(" 📌");
     }
 
-    let personal = personal_idx(entry, args.personal);
+    let personal_best =
+        PersonalBestIndex::new(&entry.score, map.map_id(), map.status(), args.personal)
+            .into_embed_description();
 
-    if personal.is_some() || matches!(args.global, Some((n, _)) if n == i) {
+    if personal_best.is_some() || matches!(args.global, Some((n, _)) if n == i) {
         args.description.push_str(" **(");
 
-        if let Some(idx) = personal {
-            let _ = write!(args.description, "Personal Best #{idx}");
+        if let Some(ref desc) = personal_best {
+            args.description.push_str(desc);
         }
 
         if let Some((_, idx)) = args.global.filter(|(idx, _)| *idx == i) {
-            if personal.is_some() {
+            if personal_best.is_some() {
                 args.description.push_str(" and ");
             }
 
