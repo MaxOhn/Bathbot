@@ -1,8 +1,8 @@
-use std::{borrow::Cow, collections::HashMap, fmt::Debug, ops::Deref};
+use std::{borrow::Cow, collections::HashMap, fmt::Debug, ops::Deref, path::PathBuf};
 
 use bathbot_client::ClientError;
 use bathbot_psql::{
-    model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapPath, MapVersion},
+    model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapFilename, MapVersion},
     Database,
 };
 use bathbot_util::{ExponentialBackoff, IntHasher};
@@ -36,10 +36,11 @@ impl<'d> MapManager<'d> {
     pub async fn map(self, map_id: u32, checksum: Option<&str>) -> Result<OsuMap> {
         // Check if map is already stored
         let map_fut = self.psql.select_osu_map_full(map_id, checksum);
+        let mut map_path = BotConfig::get().paths.maps.clone();
 
-        if let Some((map, mapset, filepath)) = map_fut.await.wrap_err("Failed to get map")? {
+        if let Some((map, mapset, filename)) = map_fut.await.wrap_err("Failed to get map")? {
             let (pp_map, map_opt) = self
-                .prepare_map(map_id, filepath)
+                .prepare_map(map_id, filename, &mut map_path)
                 .await
                 .wrap_err("Failed to prepare map")?;
 
@@ -50,7 +51,7 @@ impl<'d> MapManager<'d> {
         } else {
             // Otherwise retrieve mapset and store
             let map_fut = self.retrieve_map(map_id);
-            let prepare_fut = self.prepare_map(map_id, DbMapPath::Missing);
+            let prepare_fut = self.prepare_map(map_id, DbMapFilename::Missing, &mut map_path);
             let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
 
             Ok(OsuMap::new(map, pp_map))
@@ -58,15 +59,17 @@ impl<'d> MapManager<'d> {
     }
 
     pub async fn pp_map(self, map_id: u32) -> Result<Beatmap> {
-        let filepath = self
+        let filename = self
             .psql
             .select_beatmap_file(map_id)
             .await
-            .wrap_err("Failed to get filepath")?
-            .map_or(DbMapPath::Missing, DbMapPath::Present);
+            .wrap_err("Failed to get filename")?
+            .map_or(DbMapFilename::Missing, DbMapFilename::Present);
+
+        let mut map_path = BotConfig::get().paths.maps.clone();
 
         let (pp_map, _) = self
-            .prepare_map(map_id, filepath)
+            .prepare_map(map_id, filename, &mut map_path)
             .await
             .wrap_err("Failed to prepare map")?;
 
@@ -125,12 +128,13 @@ impl<'d> MapManager<'d> {
             .map(|map_id| (*map_id as u32, db_maps.remove(map_id)));
 
         let mut maps = HashMap::with_capacity_and_hasher(maps_id_checksum.len(), IntHasher);
+        let mut map_path = BotConfig::get().paths.maps.clone();
 
         // Having this non-async is pretty sad but the many I/O operations appear
         // to cause thread-limitation issues when collected into a FuturesUnordered.
         for (map_id, map_opt) in iter {
-            let map = if let Some((map, mapset, filepath)) = map_opt {
-                let (pp_map, map_opt) = self.prepare_map(map_id, filepath).await?;
+            let map = if let Some((map, mapset, filename)) = map_opt {
+                let (pp_map, map_opt) = self.prepare_map(map_id, filename, &mut map_path).await?;
 
                 match map_opt {
                     Some(map) => OsuMap::new(map, pp_map),
@@ -138,7 +142,7 @@ impl<'d> MapManager<'d> {
                 }
             } else {
                 let map_fut = self.retrieve_map(map_id);
-                let prepare_fut = self.prepare_map(map_id, DbMapPath::Missing);
+                let prepare_fut = self.prepare_map(map_id, DbMapFilename::Missing, &mut map_path);
                 let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
 
                 OsuMap::new(map, pp_map)
@@ -303,23 +307,32 @@ impl<'d> MapManager<'d> {
     async fn prepare_map(
         &self,
         map_id: u32,
-        filepath: DbMapPath,
+        filename: DbMapFilename,
+        map_path: &mut PathBuf,
     ) -> Result<(Beatmap, Option<OsuMapSlim>)> {
-        match filepath {
-            DbMapPath::Present(path) => match Beatmap::from_path(&path).await {
-                Ok(map) => Ok((map, None)),
-                Err(err) => {
-                    if let Err(err) = fs::remove_file(&path).await {
-                        let wrap = format!("failed to delete file {path}");
-                        warn!("{:?}", Report::new(err).wrap_err(wrap));
+        match filename {
+            DbMapFilename::Present(filename) => {
+                map_path.push(filename);
+
+                let res = match Beatmap::from_path(&*map_path).await {
+                    Ok(map) => Ok((map, None)),
+                    Err(err) => {
+                        if let Err(err) = fs::remove_file(&*map_path).await {
+                            let wrap = format!("Failed to delete file {map_path:?}");
+                            warn!("{:?}", Report::new(err).wrap_err(wrap));
+                        }
+
+                        let wrap = format!("Failed to parse map `{map_path:?}`");
+
+                        Err(Report::new(err).wrap_err(wrap).into())
                     }
+                };
 
-                    let wrap = format!("failed to parse map `{path}`");
+                map_path.pop();
 
-                    Err(Report::new(err).wrap_err(wrap).into())
-                }
-            },
-            DbMapPath::ChecksumMismatch => {
+                res
+            }
+            DbMapFilename::ChecksumMismatch => {
                 info!("Checksum mismatch for map {map_id}, re-downloading...");
 
                 let map_fut = self.download_map_file(map_id);
@@ -327,12 +340,12 @@ impl<'d> MapManager<'d> {
 
                 let (map_res, map_slim_res) = tokio::join!(map_fut, map_slim_fut);
 
-                let map = map_res.wrap_err("failed to download map file")?;
+                let map = map_res.wrap_err("Failed to download map file")?;
                 let map_slim = match map_slim_res {
                     Ok(map_slim) => map_slim,
                     Err(err @ MapError::NotFound) => return Err(err),
                     Err(MapError::Report(report)) => {
-                        let wrap = "failed to get map after checksum mismatch";
+                        let wrap = "Failed to get map after checksum mismatch";
 
                         return Err(report.wrap_err(wrap).into());
                     }
@@ -340,13 +353,13 @@ impl<'d> MapManager<'d> {
 
                 Ok((map, Some(map_slim)))
             }
-            DbMapPath::Missing => {
+            DbMapFilename::Missing => {
                 info!("Missing map {map_id}, downloading...");
 
                 let map = self
                     .download_map_file(map_id)
                     .await
-                    .wrap_err("failed to download map file")?;
+                    .wrap_err("Failed to download map file")?;
 
                 Ok((map, None))
             }
@@ -371,17 +384,17 @@ impl<'d> MapManager<'d> {
                 Ok(bytes) => match Beatmap::parse(bytes.as_ref()).await {
                     Ok(map) => {
                         let mut map_path = BotConfig::get().paths.maps.clone();
-                        map_path.push(format!("{map_id}.osu"));
-                        let map_path_str = map_path.to_string_lossy();
+                        let filename = format!("{map_id}.osu");
+                        map_path.push(&filename);
 
                         let write_fut = fs::write(&map_path, &bytes);
-                        let db_fut = self.psql.insert_beatmap_file(map_id, &map_path_str);
+                        let db_fut = self.psql.insert_beatmap_file(map_id, &filename);
 
                         let (write_res, db_res) = tokio::join!(write_fut, db_fut);
-                        write_res.wrap_err("failed writing to file")?;
+                        write_res.wrap_err("Failed writing to file")?;
 
                         if let Err(err) = db_res {
-                            warn!("{:?}", err.wrap_err("failed to insert map file"));
+                            warn!("{:?}", err.wrap_err("Failed to insert map file"));
                         }
 
                         info!("Downloaded {map_id}.osu successfully");
@@ -392,7 +405,7 @@ impl<'d> MapManager<'d> {
                 },
                 Err(ClientError::Ratelimited) => BackoffReason::Ratelimited,
                 Err(err) => {
-                    let err = Report::new(err).wrap_err("failed to request map file");
+                    let err = Report::new(err).wrap_err("Failed to request map file");
 
                     return Err(err.into());
                 }
@@ -406,7 +419,7 @@ impl<'d> MapManager<'d> {
             sleep(duration).await;
         }
 
-        let err = eyre!("reached retry limit and still failed to download {map_id}.osu");
+        let err = eyre!("Reached retry limit and still failed to download {map_id}.osu");
 
         Err(MapError::Report(err))
     }
