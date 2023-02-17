@@ -6,10 +6,11 @@ use bathbot_util::{
     constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
 };
-use eyre::{Report, Result, WrapErr};
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
+use plotters_skia::SkiaBackend;
 use rosu_v2::{prelude::OsuError, request::UserId};
+use skia_safe::{EncodedImageFormat, Surface};
 use twilight_model::guild::Permissions;
 
 use crate::{
@@ -164,8 +165,6 @@ const W: u32 = 1350;
 const H: u32 = 350;
 
 fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>> {
-    static LEN: usize = (W * H) as usize * 3;
-
     let mut pp: Vec<_> = players
         .iter()
         .map(|player| (&player.username, player.pp))
@@ -192,13 +191,16 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>> {
         .map(|(_, n)| *n)
         .fold(0, |max, curr| max.max(curr));
 
-    let mut buf = vec![0; LEN];
+    let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32))
+        .wrap_err("Failed to create surface")?;
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        let root = SkiaBackend::new(surface.canvas(), W, H).into_drawing_area();
+
         let background = RGBColor(19, 43, 33);
         root.fill(&background)
             .wrap_err("failed to fill background")?;
+
         let (left, right) = root.split_horizontally(W / 2);
 
         let mut chart = ChartBuilder::on(&left)
@@ -275,13 +277,11 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>> {
             .wrap_err("failed to draw right series")?;
     }
 
-    // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
-
-    png_encoder
-        .write_image(&buf, W, H, ColorType::Rgb8)
-        .wrap_err("failed to encode image")?;
+    let png_bytes = surface
+        .image_snapshot()
+        .encode_to_data(EncodedImageFormat::PNG)
+        .wrap_err("Failed to encode image")?
+        .to_vec();
 
     Ok(png_bytes)
 }

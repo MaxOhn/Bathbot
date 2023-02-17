@@ -1,14 +1,13 @@
-use eyre::{Result, WrapErr};
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
+use eyre::{ContextCompat, Result, WrapErr};
 use plotters::{
-    prelude::{
-        BitMapBackend, ChartBuilder, Circle, EmptyElement, IntoDrawingArea, SeriesLabelPosition,
-    },
+    prelude::{ChartBuilder, Circle, EmptyElement, IntoDrawingArea, SeriesLabelPosition},
     series::PointSeries,
     style::{Color, RGBColor, WHITE},
 };
 use plotters_backend::FontStyle;
+use plotters_skia::SkiaBackend;
 use rosu_v2::prelude::Score;
+use skia_safe::{EncodedImageFormat, Surface};
 
 use crate::util::Monthly;
 
@@ -27,11 +26,12 @@ pub async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec
     let first = dates[0];
     let last = dates[dates.len() - 1];
 
-    let len = (W * H) as usize;
-    let mut buf = vec![0; len * 3];
+    let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32))
+        .wrap_err("Failed to create surface")?;
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        let root = SkiaBackend::new(surface.canvas(), W, H).into_drawing_area();
+
         let background = RGBColor(19, 43, 33);
         root.fill(&background)
             .wrap_err("failed to fill background")?;
@@ -97,10 +97,11 @@ pub async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec
             .wrap_err("failed to draw legend")?;
     }
 
-    // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+    let png_bytes = surface
+        .image_snapshot()
+        .encode_to_data(EncodedImageFormat::PNG)
+        .wrap_err("Failed to encode image")?
+        .to_vec();
 
     Ok(png_bytes)
 }

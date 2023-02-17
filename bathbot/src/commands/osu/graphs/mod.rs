@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{iter, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::CountryCode;
@@ -7,6 +7,10 @@ use bathbot_util::{
     EmbedBuilder, MessageBuilder,
 };
 use eyre::{Report, Result, WrapErr};
+use image::{DynamicImage, GenericImageView};
+use plotters::element::{Drawable, PointCollection};
+use plotters_backend::{BackendCoord, DrawingBackend, DrawingErrorKind};
+use plotters_skia::SkiaBackend;
 use rosu_v2::{
     prelude::{GameMode, OsuError},
     request::UserId,
@@ -351,7 +355,6 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
 
 const W: u32 = 1350;
 const H: u32 = 711;
-const LEN: usize = (W * H) as usize;
 
 async fn top_graph(
     ctx: &Context,
@@ -439,4 +442,46 @@ async fn top_graph(
     };
 
     Ok(Some((user, bytes)))
+}
+
+pub struct BitMapElement<C> {
+    img: Vec<u8>,
+    size: (u32, u32),
+    pos: C,
+}
+
+impl<C> BitMapElement<C> {
+    /// Be sure the image has been resized beforehand
+    pub fn new(img: DynamicImage, pos: C) -> Self {
+        let size = img.dimensions();
+        let img = img.into_rgba8().into_raw();
+
+        Self { img, size, pos }
+    }
+}
+
+impl<'a, C> PointCollection<'a, C> for &'a BitMapElement<C> {
+    type Point = &'a C;
+    type IntoIter = iter::Once<&'a C>;
+
+    #[inline]
+    fn point_iter(self) -> Self::IntoIter {
+        iter::once(&self.pos)
+    }
+}
+
+impl<'a, C> Drawable<SkiaBackend<'a>> for BitMapElement<C> {
+    #[inline]
+    fn draw<I: Iterator<Item = BackendCoord>>(
+        &self,
+        mut points: I,
+        backend: &mut SkiaBackend<'a>,
+        _: (u32, u32),
+    ) -> Result<(), DrawingErrorKind<<SkiaBackend<'_> as DrawingBackend>::ErrorType>> {
+        if let Some((x, y)) = points.next() {
+            return backend.blit_bitmap((x, y), self.size, self.img.as_ref());
+        }
+
+        Ok(())
+    }
 }

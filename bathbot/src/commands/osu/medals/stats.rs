@@ -6,15 +6,16 @@ use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher, MessageBuilder,
 };
-use eyre::{Report, Result, WrapErr};
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use hashbrown::HashMap;
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
+use plotters_skia::SkiaBackend;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
     prelude::{MedalCompact, OsuError},
     request::UserId,
 };
+use skia_safe::{EncodedImageFormat, Surface};
 use time::OffsetDateTime;
 use twilight_model::guild::Permissions;
 
@@ -190,21 +191,20 @@ const W: u32 = 1350;
 const H: u32 = 350;
 
 pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>> {
-    let len = (w * h) as usize;
-    let mut buf = vec![0; len * 3]; // PIXEL_SIZE = 3
+    let (first, last) = match medals {
+        [medal] => (medal.achieved_at, medal.achieved_at),
+        [first, .., last] => (first.achieved_at, last.achieved_at),
+        [] => return Ok(None),
+    };
+
+    let mut surface = Surface::new_raster_n32_premul((w as i32, h as i32))
+        .wrap_err("Failed to create surface")?;
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
+        let root = SkiaBackend::new(surface.canvas(), w, h).into_drawing_area();
         let background = RGBColor(19, 43, 33);
         root.fill(&background)
-            .wrap_err("failed to fill background")?;
-
-        if medals.is_empty() {
-            return Ok(None);
-        }
-
-        let first = medals.first().unwrap().achieved_at;
-        let last = medals.last().unwrap().achieved_at;
+            .wrap_err("Failed to fill background")?;
 
         let style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
             color: color.to_rgba(),
@@ -218,7 +218,7 @@ pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>>
             .x_label_area_size(30)
             .y_label_area_size(45)
             .build_cartesian_2d(Monthly(first..last), 0..medals.len())
-            .wrap_err("failed to build chart")?;
+            .wrap_err("Failed to build chart")?;
 
         // Mesh and labels
         chart
@@ -231,23 +231,21 @@ pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>>
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
             .draw()
-            .wrap_err("failed to draw mesh and labels")?;
+            .wrap_err("Failed to draw mesh and labels")?;
 
         // Draw area
         let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
         let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
         let counter = MedalCounter::new(medals);
         let series = AreaSeries::new(counter, 0, area_style).border_style(border_style);
-        chart.draw_series(series).wrap_err("failed to draw area")?;
+        chart.draw_series(series).wrap_err("Failed to draw area")?;
     }
 
-    // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
-
-    png_encoder
-        .write_image(&buf, w, h, ColorType::Rgb8)
-        .wrap_err("failed to encode image")?;
+    let png_bytes = surface
+        .image_snapshot()
+        .encode_to_data(EncodedImageFormat::PNG)
+        .wrap_err("Failed to encode image")?
+        .to_vec();
 
     Ok(Some(png_bytes))
 }

@@ -4,19 +4,20 @@ use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     numbers::WithComma,
 };
-use eyre::{Report, Result, WrapErr};
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::{
-    prelude::{BitMapBackend, ChartBuilder, Circle, IntoDrawingArea, SeriesLabelPosition},
+    prelude::{ChartBuilder, Circle, IntoDrawingArea, SeriesLabelPosition},
     series::AreaSeries,
     style::{Color, RGBColor, ShapeStyle, BLACK, GREEN, RED, WHITE},
 };
 use plotters_backend::FontStyle;
+use plotters_skia::SkiaBackend;
 use rosu_v2::{prelude::OsuError, request::UserId};
+use skia_safe::{EncodedImageFormat, Surface};
 
 use crate::{
     commands::osu::{
-        graphs::{H, LEN, W},
+        graphs::{H, W},
         user_not_found,
     },
     core::{commands::CommandOrigin, Context},
@@ -49,8 +50,6 @@ pub async fn rank_graph(
     };
 
     fn draw_graph(user: &RedisData<User>) -> Result<Option<Vec<u8>>> {
-        let mut buf = vec![0; LEN * 3];
-
         let history = match user {
             RedisData::Original(user) if user.rank_history.is_empty() => return Ok(None),
             RedisData::Original(user) => user.rank_history.as_slice(),
@@ -82,19 +81,29 @@ pub async fn rank_graph(
         }
 
         let y_label_area_size = if max > 1_000_000 {
-            75
+            85
+        } else if max > 100_000 {
+            80
         } else if max > 10_000 {
-            65
+            75
+        } else if max > 1000 {
+            70
         } else if max > 100 {
-            50
+            65
+        } else if max > 10 {
+            60
         } else {
-            40
+            50
         };
 
         let (min, max) = (-(max as i32), -(min as i32));
 
+        let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32))
+            .wrap_err("Failed to create surface")?;
+
         {
-            let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+            let root = SkiaBackend::new(surface.canvas(), W, H).into_drawing_area();
+
             let background = RGBColor(19, 43, 33);
             root.fill(&background)
                 .wrap_err("failed to fill background")?;
@@ -136,22 +145,22 @@ pub async fn rank_graph(
             chart.draw_series(series).wrap_err("failed to draw area")?;
 
             let max_coords = (min_idx as u32, max);
-            let circle = Circle::new(max_coords, 9_u32, style(GREEN));
+            let circle = Circle::new(max_coords, 9_u32, style(GREEN).stroke_width(2));
 
             chart
                 .draw_series(iter::once(circle))
                 .wrap_err("failed to draw max circle")?
                 .label(format!("Peak: #{}", WithComma::new(-max)))
-                .legend(|(x, y)| Circle::new((x, y), 5_u32, style(GREEN)));
+                .legend(|(x, y)| Circle::new((x, y), 5_u32, style(GREEN).stroke_width(2)));
 
             let min_coords = (max_idx as u32, min);
-            let circle = Circle::new(min_coords, 9_u32, style(RED));
+            let circle = Circle::new(min_coords, 9_u32, style(RED).stroke_width(2));
 
             chart
                 .draw_series(iter::once(circle))
                 .wrap_err("failed to draw min circle")?
                 .label(format!("Worst: #{}", WithComma::new(-min)))
-                .legend(|(x, y)| Circle::new((x, y), 5_u32, style(RED)));
+                .legend(|(x, y)| Circle::new((x, y), 5_u32, style(RED).stroke_width(2)));
 
             let position = if min_idx <= 70 {
                 SeriesLabelPosition::UpperRight
@@ -172,13 +181,11 @@ pub async fn rank_graph(
                 .wrap_err("failed to draw legend")?;
         }
 
-        // Encode buf to png
-        let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
-        let png_encoder = PngEncoder::new(&mut png_bytes);
-
-        png_encoder
-            .write_image(&buf, W, H, ColorType::Rgb8)
-            .wrap_err("failed to encode image")?;
+        let png_bytes = surface
+            .image_snapshot()
+            .encode_to_data(EncodedImageFormat::PNG)
+            .wrap_err("Failed to encode image")?
+            .to_vec();
 
         Ok(Some(png_bytes))
     }

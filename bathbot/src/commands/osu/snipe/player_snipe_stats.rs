@@ -5,13 +5,14 @@ use bathbot_util::{
     constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
     matcher, MessageBuilder,
 };
-use eyre::{Report, Result, WrapErr};
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
+use plotters_skia::SkiaBackend;
 use rosu_v2::{
     prelude::{GameMode, OsuError},
     request::UserId,
 };
+use skia_safe::{EncodedImageFormat, Surface};
 use time::Date;
 use twilight_model::guild::Permissions;
 
@@ -193,8 +194,8 @@ pub fn graphs(
     w: u32,
     h: u32,
 ) -> Result<Vec<u8>> {
-    let len = (w * h * 3) as usize; // PIXEL_SIZE = 3
-    let mut buf = vec![0; len];
+    let mut surface = Surface::new_raster_n32_premul((w as i32, h as i32))
+        .wrap_err("Failed to create surface")?;
 
     let style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
         color: color.to_rgba(),
@@ -203,7 +204,8 @@ pub fn graphs(
     };
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
+        let root = SkiaBackend::new(surface.canvas(), w, h).into_drawing_area();
+
         let background = RGBColor(19, 43, 33);
         root.fill(&background)
             .wrap_err("failed to fill background")?;
@@ -309,13 +311,11 @@ pub fn graphs(
             .wrap_err("failed to draw right series")?;
     }
 
-    // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
-
-    png_encoder
-        .write_image(&buf, w, h, ColorType::Rgb8)
-        .wrap_err("failed to encode image")?;
+    let png_bytes = surface
+        .image_snapshot()
+        .encode_to_data(EncodedImageFormat::PNG)
+        .wrap_err("Failed to encode image")?
+        .to_vec();
 
     Ok(png_bytes)
 }
