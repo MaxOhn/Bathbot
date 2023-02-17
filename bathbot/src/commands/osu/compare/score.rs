@@ -521,7 +521,10 @@ pub(super) async fn score(
     };
 
     let personal_fut = async {
-        if map.status() == RankStatus::Ranked {
+        if matches!(
+            map.status(),
+            RankStatus::Ranked | RankStatus::Approved | RankStatus::Loved | RankStatus::Qualified
+        ) {
             let fut = ctx
                 .osu()
                 .user_scores(user.user_id())
@@ -556,15 +559,14 @@ pub(super) async fn score(
             .max_by_key(|(_, entry)| entry.score.score)
             .and_then(|(i, entry)| {
                 let user = user.user_id();
-                let timestamp = entry.score.ended_at.unix_timestamp();
 
                 globals
                     .iter()
-                    .position(|s| s.ended_at.unix_timestamp() == timestamp && s.user_id == user)
+                    .position(|s| entry.score.is_eq(s) && s.user_id == user)
                     .map(|pos| (i, pos + 1))
             }),
         Some(Err(err)) => {
-            let err = Report::new(err).wrap_err("failed to get map leaderboard");
+            let err = Report::new(err).wrap_err("Failed to get map leaderboard");
             warn!("{err:?}");
 
             None
@@ -575,7 +577,7 @@ pub(super) async fn score(
     let personal = match personal_res {
         Some(Ok(scores)) => scores,
         Some(Err(err)) => {
-            let err = Report::new(err).wrap_err("failed to get top scores");
+            let err = Report::new(err).wrap_err("Failed to get top scores");
             warn!("{err:?}");
 
             Vec::new()
@@ -586,10 +588,7 @@ pub(super) async fn score(
     if let [entry] = &entries[..] {
         let global_idx = global_idx.map_or(usize::MAX, |(_, i)| i);
         let best = (!personal.is_empty()).then(|| &personal[..]);
-
-        let pinned = pinned.iter().any(|pinned| {
-            (pinned.ended_at.unix_timestamp() - entry.score.ended_at.unix_timestamp()).abs() <= 2
-        });
+        let pinned = pinned.iter().any(|pinned| entry.score.is_eq(pinned));
 
         let fut = single_score(
             ctx,

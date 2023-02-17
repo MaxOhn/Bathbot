@@ -20,7 +20,7 @@ use crate::{
         redis::{osu::User, RedisData},
         OsuMap,
     },
-    util::osu::{grade_completion_mods, IfFc, MapInfo},
+    util::osu::{grade_completion_mods, IfFc, MapInfo, PersonalBestIndex},
 };
 
 use super::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};
@@ -108,31 +108,29 @@ impl CompareEmbed {
         let footer = FooterBuilder::new(format!("{:?} map", map.status()))
             .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
 
-        let personal_idx = personal.and_then(|personal| {
-            personal.iter().position(|s| {
-                (s.ended_at.unix_timestamp() - entry.score.ended_at.unix_timestamp()).abs() <= 2
-            })
-        });
+        let personal_best = personal
+            .map(|top100| PersonalBestIndex::new(score, map.map_id(), map.status(), top100))
+            .and_then(PersonalBestIndex::into_embed_description);
 
         let mut description = String::new();
 
         if pinned {
             description.push('📌');
 
-            if personal_idx.is_some() || global_idx <= GLOBAL_IDX_THRESHOLD {
+            if personal_best.is_some() || global_idx <= GLOBAL_IDX_THRESHOLD {
                 description.push(' ');
             } else {
                 description.push('\u{200b}'); // zero-width character
             }
         }
 
-        if personal_idx.is_some() || global_idx <= GLOBAL_IDX_THRESHOLD {
-            if personal_idx.is_some() || global_idx <= 50 {
+        if personal_best.is_some() || global_idx <= GLOBAL_IDX_THRESHOLD {
+            if personal_best.is_some() || global_idx <= 50 {
                 description.push_str("__**");
             }
 
-            if let Some(idx) = personal_idx {
-                let _ = write!(description, "Personal Best #{}", idx + 1);
+            if let Some(ref desc) = personal_best {
+                description.push_str(desc);
 
                 if global_idx <= GLOBAL_IDX_THRESHOLD {
                     description.reserve(19);
@@ -144,7 +142,7 @@ impl CompareEmbed {
                 let _ = write!(description, "Global Top #{global_idx}");
             }
 
-            if personal_idx.is_some() || global_idx <= 50 {
+            if personal_best.is_some() || global_idx <= 50 {
                 description.push_str("**__");
             }
         }
