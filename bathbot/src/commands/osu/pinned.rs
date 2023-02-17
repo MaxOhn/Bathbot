@@ -122,46 +122,6 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         .or(config.mode)
         .unwrap_or(GameMode::Osu);
 
-    let user_id = match user_id!(ctx, orig, args) {
-        Some(user_id) => user_id,
-        None => match config.osu.take() {
-            Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
-        },
-    };
-
-    // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
-    let scores_fut = ctx
-        .osu_scores()
-        .pinned()
-        .limit(100)
-        .exec_with_user(user_args);
-
-    let (user, scores) = match scores_fut.await {
-        Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
-
-            return orig.error(&ctx, content).await;
-        }
-        Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or prepare scores");
-
-            return Err(err);
-        }
-    };
-
-    let mut entries = match process_scores(&ctx, scores, &args, mods).await {
-        Ok(entries) => entries,
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err.wrap_err("failed to process scores"));
-        }
-    };
-
     let (guild_score_size, guild_list_size, guild_minimized_pp) = match orig.guild_id() {
         Some(guild_id) => {
             let f =
@@ -170,6 +130,87 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
             ctx.guild_config().peek(guild_id, f).await
         }
         None => (None, None, None),
+    };
+
+    let list_size = args
+        .size
+        .or(config.list_size)
+        .or(guild_list_size)
+        .unwrap_or_default();
+
+    let size_single = matches!(list_size, ListSize::Single);
+
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match config.osu.take() {
+            Some(user_id) => UserId::Id(user_id),
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
+
+    let (user_args, user_opt) = match UserArgs::rosu_id(&ctx, &user_id).await.mode(mode) {
+        UserArgs::Args(args) => (args, None),
+        UserArgs::User { user, mode } => (
+            UserArgsSlim::user_id(user.user_id).mode(mode),
+            Some(RedisData::Original(*user)),
+        ),
+        UserArgs::Err(OsuError::NotFound) => {
+            let content = user_not_found(&ctx, user_id).await;
+
+            return orig.error(&ctx, content).await;
+        }
+        UserArgs::Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
+
+            return Err(err);
+        }
+    };
+
+    let missing_user = user_opt.is_none();
+
+    let scores_manager = ctx.osu_scores();
+    let redis = ctx.redis();
+    let pinned_fut = scores_manager.pinned().limit(100).exec(user_args);
+
+    let top100_fut = async {
+        if matches!(list_size, ListSize::Single) {
+            scores_manager.top().limit(100).exec(user_args).await
+        } else {
+            Ok(Vec::new())
+        }
+    };
+
+    let user_fut = async {
+        if missing_user {
+            redis.osu_user_from_args(user_args).await.map(Some)
+        } else {
+            Ok(None)
+        }
+    };
+
+    let (pinned, top100, user) = match tokio::try_join!(pinned_fut, top100_fut, user_fut) {
+        Ok((pinned, top100, user)) => (pinned, top100, user.or(user_opt).expect("missing user")),
+        Err(OsuError::NotFound) => {
+            let content = user_not_found(&ctx, user_id).await;
+
+            return orig.error(&ctx, content).await;
+        }
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user or prepare scores");
+
+            return Err(err);
+        }
+    };
+
+    let mut entries = match process_scores(&ctx, pinned, &args, mods, &top100, size_single).await {
+        Ok(entries) => entries,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err.wrap_err("Failed to process scores"));
+        }
     };
 
     let username = user.username();
@@ -185,12 +226,6 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         let content = write_content(username, &args, 1, mods);
         single_embed(ctx, orig, user, score, score_size, minimized_pp, content).await?;
     } else {
-        let list_size = args
-            .size
-            .or(config.list_size)
-            .or(guild_list_size)
-            .unwrap_or_default();
-
         let content = write_content(username, &args, entries.len(), mods);
         let sort_by = args.sort.unwrap_or(ScoreOrder::Pp).into(); // TopOrder::Pp does not show anything
         let farm = HashMap::with_hasher(IntHasher);
@@ -233,15 +268,17 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
 async fn process_scores(
     ctx: &Context,
-    scores: Vec<Score>,
+    pinned: Vec<Score>,
     args: &Pinned,
     mods: Option<ModSelection>,
+    top100: &[Score],
+    size_single: bool,
 ) -> Result<Vec<TopEntry>> {
     let filter_criteria = args.query.as_deref().map(FilterCriteria::new);
 
     let mut entries = Vec::new();
 
-    let maps_id_checksum = scores
+    let maps_id_checksum = pinned
         .iter()
         .filter(|score| match filter_criteria {
             Some(ref criteria) => score.matches(criteria),
@@ -262,7 +299,7 @@ async fn process_scores(
 
     let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
 
-    for (i, score) in scores.into_iter().enumerate() {
+    for (mut i, score) in pinned.into_iter().enumerate() {
         let Some(map) = maps.remove(&score.map_id) else { continue };
 
         let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
@@ -283,9 +320,18 @@ async fn process_scores(
             None => calc.score(&score).performance().await.pp() as f32,
         };
 
+        let score = ScoreSlim::new(score, pp);
+
+        if size_single {
+            i = top100
+                .iter()
+                .position(|s| score.is_eq(s))
+                .unwrap_or(usize::MAX);
+        }
+
         let entry = TopEntry {
             original_idx: i,
-            score: ScoreSlim::new(score, pp),
+            score,
             map,
             max_pp,
             stars,
