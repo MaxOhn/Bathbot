@@ -721,7 +721,7 @@ impl PersonalBestIndex {
             // score then `idx` might not belong to the given score.
             // Chances are pretty slim though so this should be fine.
             return Self::FoundScore { idx };
-        } else if !matches!(status, RankStatus::Ranked) {
+        } else if !matches!(status, RankStatus::Ranked | RankStatus::Approved) {
             return Self::IfRanked { idx };
         }
 
