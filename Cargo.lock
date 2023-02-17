@@ -1658,7 +1658,7 @@ checksum = "193228616381fecdc1224c62e96946dfbc73ff4384fba576e052ff8c1bea8142"
 [[package]]
 name = "plotters-skia"
 version = "0.1.0"
-source = "git+https://github.com/MaxOhn/plotters-skia?branch=main#c4ebe4b9478a6a067af5abe6ec2a2b8341c3468f"
+source = "git+https://github.com/MaxOhn/plotters-skia?branch=main#8f5f34d12bab2b52a8963a549da4138feba97343"
 dependencies = [
  "plotters-backend",
  "skia-safe",
