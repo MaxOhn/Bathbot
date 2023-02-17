@@ -17,7 +17,7 @@ pub struct DbBeatmap {
 }
 
 #[derive(Debug)]
-pub enum DbMapPath {
+pub enum DbMapFilename {
     Present(String),
     ChecksumMismatch,
     Missing,

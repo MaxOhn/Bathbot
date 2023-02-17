@@ -12,7 +12,7 @@ use sqlx::{Postgres, Transaction};
 use crate::{
     model::osu::{
         DbBeatmap, DbBeatmapset, DbCatchDifficultyAttributes, DbManiaDifficultyAttributes,
-        DbMapPath, DbOsuDifficultyAttributes, DbTaikoDifficultyAttributes, MapVersion,
+        DbMapFilename, DbOsuDifficultyAttributes, DbTaikoDifficultyAttributes, MapVersion,
     },
     Database,
 };
@@ -22,7 +22,7 @@ impl Database {
         &self,
         map_id: u32,
         checksum: Option<&str>,
-    ) -> Result<Option<(DbBeatmap, DbBeatmapset, DbMapPath)>> {
+    ) -> Result<Option<(DbBeatmap, DbBeatmapset, DbMapFilename)>> {
         let query = sqlx::query!(
             r#"
 SELECT 
@@ -110,10 +110,12 @@ FROM
         };
 
         let filepath = match (row.map_filepath, checksum) {
-            (Some(path), Some(checksum)) if row.checksum == checksum => DbMapPath::Present(path),
-            (Some(path), None) => DbMapPath::Present(path),
-            (Some(_), Some(_)) => DbMapPath::ChecksumMismatch,
-            (None, _) => DbMapPath::Missing,
+            (Some(path), Some(checksum)) if row.checksum == checksum => {
+                DbMapFilename::Present(path)
+            }
+            (Some(path), None) => DbMapFilename::Present(path),
+            (Some(_), Some(_)) => DbMapFilename::ChecksumMismatch,
+            (None, _) => DbMapFilename::Missing,
         };
 
         Ok(Some((map, mapset, filepath)))
@@ -122,7 +124,7 @@ FROM
     pub async fn select_osu_maps_full<S>(
         &self,
         maps_id_checksum: &HashMap<i32, Option<&str>, S>,
-    ) -> Result<HashMap<i32, (DbBeatmap, DbBeatmapset, DbMapPath), S>>
+    ) -> Result<HashMap<i32, (DbBeatmap, DbBeatmapset, DbMapFilename), S>>
     where
         S: Default + BuildHasher,
     {
@@ -215,11 +217,11 @@ FROM
 
             let filepath = match (row.map_filepath, checksum) {
                 (Some(path), Some(&checksum)) if row.checksum == checksum => {
-                    DbMapPath::Present(path)
+                    DbMapFilename::Present(path)
                 }
-                (Some(path), None) => DbMapPath::Present(path),
-                (Some(_), Some(_)) => DbMapPath::ChecksumMismatch,
-                (None, _) => DbMapPath::Missing,
+                (Some(path), None) => DbMapFilename::Present(path),
+                (Some(_), Some(_)) => DbMapFilename::ChecksumMismatch,
+                (None, _) => DbMapFilename::Missing,
             };
 
             maps.insert(map.map_id, (map, mapset, filepath));
