@@ -109,7 +109,7 @@ impl RecentEmbed {
             (combo, title)
         };
 
-        let footer = FooterBuilder::new(format!("{:?} map", map.status()))
+        let footer = FooterBuilder::new(map.footer_text())
             .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
 
         let personal_best = personal
