@@ -24,7 +24,7 @@ use crate::{
 #[cfg(feature = "twitch")]
 use bathbot_model::TwitchVideo;
 
-use super::{ComboFormatter, HitResultFormatter, KeyFormatter};
+use super::{ComboFormatter, HitResultFormatter, KeyFormatter, MessageOrigin};
 
 pub struct RecentEmbed {
     description: String,
@@ -61,7 +61,7 @@ impl RecentEmbed {
         map_score: Option<&BeatmapUserScore>,
         #[cfg(feature = "twitch")] twitch_vod: Option<TwitchVideo>,
         minimized_pp: MinimizedPp,
-        // creator: Creator,
+        origin: &MessageOrigin,
         ctx: &Context,
     ) -> Self {
         let RecentEntry {
@@ -113,7 +113,7 @@ impl RecentEmbed {
 
         let personal_best = personal
             .map(|top100| PersonalBestIndex::new(score, map.map_id(), map.status(), top100))
-            .and_then(PersonalBestIndex::into_embed_description);
+            .and_then(|pb_idx| pb_idx.into_embed_description(origin));
 
         let global_idx = map_score
             .and_then(|s| score.is_eq(s).then_some(s.pos))

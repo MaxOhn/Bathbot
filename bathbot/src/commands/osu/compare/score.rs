@@ -37,7 +37,7 @@ use twilight_model::{
 use crate::{
     commands::osu::{require_link, HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
+    embeds::{CompareEmbed, EmbedData, MessageOrigin, NoScoresEmbed},
     manager::{
         redis::{
             osu::{User, UserArgs, UserArgsSlim},
@@ -617,8 +617,11 @@ pub(super) async fn score(
             .map(|(i, _)| i)
             .unwrap_or(0);
 
-        let builder =
-            ScoresPagination::builder(user, map, entries, pinned, personal, global_idx, pp_idx);
+        let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
+
+        let builder = ScoresPagination::builder(
+            user, map, entries, pinned, personal, global_idx, pp_idx, origin,
+        );
 
         builder
             .start_by_update()
@@ -641,8 +644,19 @@ async fn single_score(
     embeds_size: ScoreSize,
     minimized_pp: MinimizedPp,
 ) -> Result<()> {
+    let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
+
     // Accumulate all necessary data
-    let embed_data = CompareEmbed::new(best, entry, user, map, global_idx, pinned, minimized_pp);
+    let embed_data = CompareEmbed::new(
+        best,
+        entry,
+        user,
+        map,
+        global_idx,
+        pinned,
+        minimized_pp,
+        &origin,
+    );
 
     // Only maximize if config allows it
     match embeds_size {

@@ -23,7 +23,7 @@ use crate::{
     util::osu::{grade_completion_mods, IfFc, MapInfo, PersonalBestIndex},
 };
 
-use super::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};
+use super::{ComboFormatter, HitResultFormatter, KeyFormatter, MessageOrigin, PpFormatter};
 
 const GLOBAL_IDX_THRESHOLD: usize = 500;
 
@@ -61,6 +61,7 @@ impl CompareEmbed {
         global_idx: usize,
         pinned: bool,
         minimized_pp: MinimizedPp,
+        origin: &MessageOrigin,
     ) -> Self {
         let CompareEntry {
             score,
@@ -110,7 +111,7 @@ impl CompareEmbed {
 
         let personal_best = personal
             .map(|top100| PersonalBestIndex::new(score, map.map_id(), map.status(), top100))
-            .and_then(PersonalBestIndex::into_embed_description);
+            .and_then(|pb_idx| pb_idx.into_embed_description(origin));
 
         let mut description = String::new();
 
