@@ -54,6 +54,7 @@ pub struct RecentEmbed {
 }
 
 impl RecentEmbed {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         user: &RedisData<User>,
         entry: &RecentEntry,
