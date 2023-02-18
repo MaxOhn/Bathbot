@@ -53,6 +53,7 @@ pub struct CompareEmbed {
 }
 
 impl CompareEmbed {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         personal: Option<&[Score]>,
         entry: &CompareEntry,

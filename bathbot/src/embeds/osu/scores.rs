@@ -122,13 +122,13 @@ impl ScoresEmbed {
                 if let Some(entry) = entries.next() {
                     args.description
                         .push_str("\n__Other scores on the beatmap:__\n");
-                    write_compact_entry(&mut args, 1, entry, map, &origin);
+                    write_compact_entry(&mut args, 1, entry, map, origin);
                 }
             }
         }
 
         for (entry, i) in entries.zip(2..) {
-            write_compact_entry(&mut args, i, entry, map, &origin);
+            write_compact_entry(&mut args, i, entry, map, origin);
         }
 
         if args.description.is_empty() {
