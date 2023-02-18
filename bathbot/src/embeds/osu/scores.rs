@@ -136,8 +136,9 @@ impl ScoresEmbed {
         }
 
         let footer_text = format!(
-            "Page {page}/{pages} • {status:?} map",
+            "Page {page}/{pages} • {status:?} mapset of {creator}",
             status = map.status(),
+            creator = map.creator(),
         );
 
         let footer_icon = format!("{AVATAR_URL}{creator_id}", creator_id = map.creator_id());

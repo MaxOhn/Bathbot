@@ -598,6 +598,10 @@ impl OsuMap {
 
         self
     }
+
+    pub fn footer_text(&self) -> String {
+        format!("{:?} mapset of {}", self.status(), self.creator())
+    }
 }
 
 impl Deref for OsuMap {

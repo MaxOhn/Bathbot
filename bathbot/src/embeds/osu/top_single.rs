@@ -101,7 +101,7 @@ impl TopSingleEmbed {
             (combo, title)
         };
 
-        let footer = FooterBuilder::new(format!("{:?} map", map.status()))
+        let footer = FooterBuilder::new(map.footer_text())
             .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
 
         let description = if personal_idx.is_some() || global_idx.is_some() {

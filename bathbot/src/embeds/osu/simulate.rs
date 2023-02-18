@@ -45,8 +45,9 @@ impl SimulateEmbed {
         }
 
         let footer_text = format!(
-            "{:?} map • {}",
+            "{:?} mapset of {} • {}",
             map.status(),
+            map.creator(),
             VersionFormatter(data.version)
         );
 
