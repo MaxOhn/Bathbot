@@ -753,7 +753,7 @@ impl PersonalBestIndex {
                 old_idx,
             } => Some(format!(
                 "Personal Best #{idx} ([v1'd]({origin} \
-                \"there is a play on a the same map with the same mods that has more score\"\
+                \"there is a play on the same map with the same mods that has more score\"\
                 ) by #{old})",
                 idx = would_be_idx + 1,
                 old = old_idx + 1
