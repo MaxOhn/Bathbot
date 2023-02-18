@@ -303,11 +303,8 @@ async fn process_scores(
     let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
 
     for (mut score, i) in scores.into_iter().zip(1..) {
-        let map = score
-            .map
-            .as_ref()
-            .and_then(|map| maps.remove(&map.map_id))
-            .expect("missing map");
+        let Some(mut map) = maps.remove(&score.map_id) else { continue };
+        map = map.convert(score.mode);
 
         let changed = match arg_mods {
             ModSelection::Exact(mods) | ModSelection::Include(mods @ GameMods::NoMod) => {

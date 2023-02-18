@@ -116,7 +116,12 @@ impl<'d, 'm> PpManager<'d, 'm> {
 
         let mode = Self::mode_conversion(self.mode);
 
-        let mut calc = self.map.stars().mods(self.mods).is_convert(self.is_convert);
+        let mut calc = self
+            .map
+            .stars()
+            .mode(mode)
+            .mods(self.mods)
+            .is_convert(self.is_convert);
 
         if let Some(state) = self.state.as_ref().filter(|_| self.partial) {
             calc = calc.passed_objects(state.total_hits(mode));
@@ -130,7 +135,7 @@ impl<'d, 'm> PpManager<'d, 'm> {
                 .upsert_map_difficulty(self.map_id, self.mods, &attrs);
 
             if let Err(err) = upsert_fut.await {
-                warn!("{:?}", err.wrap_err("failed to upsert difficulty attrs"));
+                warn!("{:?}", err.wrap_err("Failed to upsert difficulty attrs"));
             }
         }
 
@@ -140,17 +145,18 @@ impl<'d, 'm> PpManager<'d, 'm> {
     /// Calculate performance attributes
     pub async fn performance(&mut self) -> PerformanceAttributes {
         let attrs = self.difficulty().await.to_owned();
+        let mode = Self::mode_conversion(self.mode);
 
         let mut calc = self
             .map
             .pp()
             .attributes(attrs)
+            .mode(mode)
             .mods(self.mods)
             .is_convert(self.is_convert);
 
         if let Some(state) = self.state.take() {
             if self.partial {
-                let mode = Self::mode_conversion(self.mode);
                 calc = calc.passed_objects(state.total_hits(mode));
             }
 
