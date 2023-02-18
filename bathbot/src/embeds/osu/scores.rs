@@ -21,7 +21,7 @@ use crate::{
     util::{osu::PersonalBestIndex, Emote},
 };
 
-use super::{ComboFormatter, HitResultFormatter};
+use super::{ComboFormatter, HitResultFormatter, MessageOrigin};
 
 #[derive(EmbedData)]
 pub struct ScoresEmbed {
@@ -43,6 +43,7 @@ impl ScoresEmbed {
         personal: &[Score],
         global: Option<(usize, usize)>,
         pp_idx: usize,
+        origin: &MessageOrigin,
         pages: &Pages,
     ) -> Self {
         let page = pages.curr_page();
@@ -58,7 +59,7 @@ impl ScoresEmbed {
             if let Some(entry) = entries.next() {
                 let personal_best =
                     PersonalBestIndex::new(&entry.score, map.map_id(), map.status(), args.personal)
-                        .into_embed_description();
+                        .into_embed_description(origin);
 
                 if personal_best.is_some() || matches!(args.global, Some((0, _))) {
                     args.description.push_str("__**");
@@ -121,13 +122,13 @@ impl ScoresEmbed {
                 if let Some(entry) = entries.next() {
                     args.description
                         .push_str("\n__Other scores on the beatmap:__\n");
-                    write_compact_entry(&mut args, 1, entry, map);
+                    write_compact_entry(&mut args, 1, entry, map, origin);
                 }
             }
         }
 
         for (entry, i) in entries.zip(2..) {
-            write_compact_entry(&mut args, i, entry, map);
+            write_compact_entry(&mut args, i, entry, map, origin);
         }
 
         if args.description.is_empty() {
@@ -193,7 +194,13 @@ impl<'c> WriteArgs<'c> {
     }
 }
 
-fn write_compact_entry(args: &mut WriteArgs<'_>, i: usize, entry: &CompareEntry, map: &OsuMap) {
+fn write_compact_entry(
+    args: &mut WriteArgs<'_>,
+    i: usize,
+    entry: &CompareEntry,
+    map: &OsuMap,
+    origin: &MessageOrigin,
+) {
     let config = BotConfig::get();
 
     let _ = write!(
@@ -219,7 +226,7 @@ fn write_compact_entry(args: &mut WriteArgs<'_>, i: usize, entry: &CompareEntry,
 
     let personal_best =
         PersonalBestIndex::new(&entry.score, map.map_id(), map.status(), args.personal)
-            .into_embed_description();
+            .into_embed_description(origin);
 
     if personal_best.is_some() || matches!(args.global, Some((n, _)) if n == i) {
         args.description.push_str(" **(");

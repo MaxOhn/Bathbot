@@ -26,7 +26,7 @@ use crate::{
         GameModeOption, GradeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::RecentEmbed,
+    embeds::{MessageOrigin, RecentEmbed},
     manager::{
         redis::osu::{UserArgs, UserArgsSlim},
         OsuMap,
@@ -562,6 +562,7 @@ pub(super) async fn score(
         .unwrap_or_default();
 
     let entry = RecentEntry::new(&ctx, score, map).await;
+    let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
     let data_fut = RecentEmbed::new(
         &user,
@@ -571,6 +572,7 @@ pub(super) async fn score(
         #[cfg(feature = "twitch")]
         twitch_vod,
         minimized_pp,
+        &origin,
         &ctx,
     );
 

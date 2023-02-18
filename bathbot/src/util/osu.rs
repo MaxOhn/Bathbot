@@ -28,7 +28,7 @@ use time::OffsetDateTime;
 
 use crate::{
     core::{BotConfig, Context},
-    embeds::HitResultFormatter,
+    embeds::{HitResultFormatter, MessageOrigin},
     manager::{
         redis::{osu::User, RedisData},
         OsuMap,
@@ -744,7 +744,7 @@ impl PersonalBestIndex {
         }
     }
 
-    pub fn into_embed_description(self) -> Option<String> {
+    pub fn into_embed_description(self, origin: &MessageOrigin) -> Option<String> {
         match self {
             PersonalBestIndex::FoundScore { idx } => Some(format!("Personal Best #{}", idx + 1)),
             PersonalBestIndex::FoundBetter { .. } => None,
@@ -752,13 +752,18 @@ impl PersonalBestIndex {
                 would_be_idx,
                 old_idx,
             } => Some(format!(
-                "Personal Best #{idx} (v1'd by #{old})",
+                "Personal Best #{idx} ([v1'd]({origin} \
+                \"there is a play on the same map with the same mods that has more score\"\
+                ) by #{old})",
                 idx = would_be_idx + 1,
                 old = old_idx + 1
             )),
-            PersonalBestIndex::Presumably { idx } => {
-                Some(format!("Personal Best #{} (?)", idx + 1))
-            }
+            PersonalBestIndex::Presumably { idx } => Some(format!(
+                "Personal Best #{} [(?)]({origin} \
+                \"the top100 provided by the api did not include the score likely \
+                because it wasn't done processing but presumably the score is in there\")",
+                idx + 1
+            )),
             PersonalBestIndex::IfRanked { idx } => {
                 Some(format!("Personal Best #{} (if ranked)", idx + 1))
             }

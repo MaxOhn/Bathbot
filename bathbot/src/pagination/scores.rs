@@ -4,7 +4,7 @@ use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::CompareEntry,
-    embeds::{EmbedData, ScoresEmbed},
+    embeds::{EmbedData, MessageOrigin, ScoresEmbed},
     manager::{
         redis::{osu::User, RedisData},
         OsuMap,
@@ -22,6 +22,7 @@ pub struct ScoresPagination {
     personal: Vec<Score>,
     global_idx: Option<(usize, usize)>,
     pp_idx: usize,
+    origin: MessageOrigin,
 }
 
 impl ScoresPagination {
@@ -47,6 +48,7 @@ impl ScoresPagination {
             &self.personal,
             global_idx,
             self.pp_idx,
+            &self.origin,
             pages,
         );
 
