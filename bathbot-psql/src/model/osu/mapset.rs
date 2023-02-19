@@ -1,5 +1,6 @@
 use time::OffsetDateTime;
 
+#[derive(Clone)]
 pub struct DbBeatmapset {
     pub mapset_id: i32,
     pub user_id: i32,
