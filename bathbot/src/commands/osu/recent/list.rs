@@ -1,17 +1,30 @@
-use std::{borrow::Cow, collections::HashMap, fmt::Write, sync::Arc};
+use std::{
+    borrow::Cow,
+    cmp::{Ordering, Reverse},
+    collections::{hash_map::Entry, HashMap},
+    fmt::Write,
+    sync::Arc,
+};
 
 use bathbot_macros::command;
-use bathbot_util::{constants::OSU_API_ISSUE, matcher, osu::ModSelection, CowUtils};
+use bathbot_model::ScoreSlim;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher,
+    osu::ModSelection,
+    CowUtils, IntHasher,
+};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, GameMods, Grade, OsuError};
+use rosu_pp::DifficultyAttributes;
+use rosu_v2::prelude::{GameMode, GameMods, Grade, OsuError, Score};
 
 use crate::{
     commands::{
-        osu::{user_not_found, HasMods, ModsResult},
+        osu::{user_not_found, HasMods, ModsResult, ScoreOrder},
         GameModeOption, GradeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::osu::UserArgs,
+    manager::{redis::osu::UserArgs, OsuMap},
     pagination::RecentListPagination,
     util::{
         query::{FilterCriteria, Searchable},
@@ -176,6 +189,7 @@ impl<'m> RecentList<'m> {
             name,
             query: None,
             grade,
+            sort: None,
             passes,
             mods: None,
             discord,
@@ -208,7 +222,7 @@ pub(super) async fn list(
         grade,
         passes,
         ..
-    } = args;
+    } = &args;
 
     let grade = grade.map(Grade::from);
 
@@ -228,7 +242,7 @@ pub(super) async fn list(
         .include_fails(include_fails)
         .exec_with_user(user_args);
 
-    let (user, mut scores) = match scores_fut.await {
+    let (user, scores) = match scores_fut.await {
         Ok((user, scores)) if scores.is_empty() => {
             let username = user.username();
 
@@ -252,43 +266,24 @@ pub(super) async fn list(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
     };
 
-    if let Some(grade) = grade {
-        scores.retain(|score| score.grade.eq_letter(grade));
-    } else if let Some(true) = passes {
-        scores.retain(|score| score.grade != Grade::F);
-    } else if let Some(false) = passes {
-        scores.retain(|score| score.grade == Grade::F);
-    }
+    let (entries, maps) = match process_scores(&ctx, scores, &args, mode, mods).await {
+        Ok(entries) => entries,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-    match mods {
-        Some(ModSelection::Include(GameMods::NoMod)) => {
-            scores.retain(|score| score.mods.is_empty())
+            return Err(err.wrap_err("Failed to process scores"));
         }
-        Some(ModSelection::Include(mods)) => scores.retain(|score| score.mods.contains(mods)),
-        Some(ModSelection::Exact(mods)) => scores.retain(|score| score.mods == mods),
-        Some(ModSelection::Exclude(GameMods::NoMod)) => {
-            scores.retain(|score| !score.mods.is_empty())
-        }
-        Some(ModSelection::Exclude(mods)) => scores.retain(|score| !score.mods.intersects(mods)),
-        None => {}
-    }
+    };
 
-    if let Some(query) = query.as_deref() {
-        let criteria = FilterCriteria::new(query);
-        scores.retain(|score| score.matches(&criteria));
-    }
+    let content = message_content(grade, mods, query.as_deref());
 
-    let content = message_content(grade, mods, query);
-    let maps = HashMap::default();
-    let attr_map = HashMap::default();
-
-    RecentListPagination::builder(user, scores, maps, attr_map)
+    RecentListPagination::builder(user, entries, maps)
         .content(content.unwrap_or_default())
         .start_by_update()
         .defer_components()
@@ -299,7 +294,7 @@ pub(super) async fn list(
 fn message_content(
     grade: Option<Grade>,
     mods: Option<ModSelection>,
-    query: Option<String>,
+    query: Option<&str>,
 ) -> Option<String> {
     let mut content = String::new();
 
@@ -330,4 +325,191 @@ fn message_content(
     }
 
     (!content.is_empty()).then_some(content)
+}
+
+pub struct RecentListEntry {
+    pub idx: usize,
+    pub score: ScoreSlim,
+    pub map_id: u32,
+    // These three fields are likely duplicated across multiple
+    // entries but they don't really hurt and provide convenience
+    pub stars: f32,
+    pub max_pp: f32,
+    pub max_combo: u32,
+}
+
+async fn process_scores(
+    ctx: &Context,
+    scores: Vec<Score>,
+    args: &RecentList<'_>,
+    mode: GameMode,
+    mods: Option<ModSelection>,
+) -> Result<(Vec<RecentListEntry>, HashMap<u32, OsuMap, IntHasher>)> {
+    let RecentList {
+        query,
+        grade,
+        passes,
+        sort,
+        ..
+    } = args;
+
+    let filter_criteria = query.as_deref().map(FilterCriteria::new);
+    let grade = grade.map(Grade::from);
+    let mut entries = Vec::new();
+
+    let maps_id_checksum = scores
+        .iter()
+        .filter(|score| match filter_criteria {
+            Some(ref criteria) => score.matches(criteria),
+            None => true,
+        })
+        .filter(|score| {
+            if let Some(grade) = grade {
+                score.grade.eq_letter(grade)
+            } else if let Some(true) = passes {
+                score.grade != Grade::F
+            } else if let Some(false) = passes {
+                score.grade == Grade::F
+            } else {
+                true
+            }
+        })
+        .filter(|score| match mods {
+            None => true,
+            Some(ModSelection::Include(mods @ GameMods::NoMod) | ModSelection::Exact(mods)) => {
+                score.mods == mods
+            }
+            Some(ModSelection::Include(mods)) => score.mods.intersection(mods) == mods,
+            Some(ModSelection::Exclude(GameMods::NoMod)) => !score.mods.is_empty(),
+            Some(ModSelection::Exclude(mods)) => !score.mods.intersects(mods),
+        })
+        .filter_map(|score| score.map.as_ref())
+        .map(|map| (map.map_id as i32, map.checksum.as_deref()))
+        .collect();
+
+    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+
+    if mode != GameMode::Osu {
+        maps.values_mut().for_each(|map| map.convert_mut(mode));
+    }
+
+    let mut attrs_map: HashMap<(u32, u32), DifficultyAttributes> =
+        HashMap::with_capacity(maps.len());
+
+    for (idx, score) in scores.into_iter().enumerate() {
+        let Some(map) = maps.get(&score.map_id) else { continue };
+
+        let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods);
+
+        let attrs = match attrs_map.entry((score.map_id, score.mods.bits())) {
+            Entry::Occupied(e) => {
+                calc.attributes(e.get().to_owned());
+
+                &*e.into_mut()
+            }
+            Entry::Vacant(e) => {
+                let attrs = calc.difficulty().await;
+                e.insert(attrs.to_owned());
+
+                attrs
+            }
+        };
+
+        let stars = attrs.stars() as f32;
+        let max_combo = attrs.max_combo() as u32;
+
+        let max_pp = match score
+            .pp
+            .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
+        {
+            Some(pp) => pp,
+            None => calc.performance().await.pp() as f32,
+        };
+
+        let pp = match score.pp {
+            Some(pp) => pp,
+            None => calc.score(&score).performance().await.pp() as f32,
+        };
+
+        let map_id = score.map_id;
+        let score = ScoreSlim::new(score, pp);
+
+        let entry = RecentListEntry {
+            idx,
+            score,
+            map_id,
+            max_pp,
+            stars,
+            max_combo,
+        };
+
+        entries.push(entry);
+    }
+
+    match sort {
+        None => {}
+        Some(ScoreOrder::Acc) => entries.sort_by(|a, b| {
+            b.score
+                .accuracy
+                .partial_cmp(&a.score.accuracy)
+                .unwrap_or(Ordering::Equal)
+        }),
+        Some(ScoreOrder::Bpm) => entries.sort_by(|a, b| {
+            let a_map = maps.get(&a.map_id).expect("missing map");
+            let b_map = maps.get(&b.map_id).expect("missing map");
+
+            b_map
+                .bpm()
+                .partial_cmp(&a_map.bpm())
+                .unwrap_or(Ordering::Equal)
+        }),
+        Some(ScoreOrder::Combo) => entries.sort_by_key(|entry| Reverse(entry.score.max_combo)),
+        Some(ScoreOrder::Date) => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
+        Some(ScoreOrder::Length) => {
+            entries.sort_by(|a, b| {
+                let a_map = maps.get(&a.map_id).expect("missing map");
+                let b_map = maps.get(&b.map_id).expect("missing map");
+
+                let a_len = a_map.seconds_drain() as f32 / a.score.mods.clock_rate();
+                let b_len = b_map.seconds_drain() as f32 / b.score.mods.clock_rate();
+
+                b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
+            });
+        }
+        Some(ScoreOrder::Misses) => entries.sort_by(|a, b| {
+            b.score
+                .statistics
+                .count_miss
+                .cmp(&a.score.statistics.count_miss)
+                .then_with(|| {
+                    let hits_a = a.score.total_hits();
+                    let hits_b = b.score.total_hits();
+
+                    let ratio_a = a.score.statistics.count_miss as f32 / hits_a as f32;
+                    let ratio_b = b.score.statistics.count_miss as f32 / hits_b as f32;
+
+                    ratio_b
+                        .partial_cmp(&ratio_a)
+                        .unwrap_or(Ordering::Equal)
+                        .then_with(|| hits_b.cmp(&hits_a))
+                })
+        }),
+        Some(ScoreOrder::Pp) => entries.sort_by(|a, b| {
+            b.score
+                .pp
+                .partial_cmp(&a.score.pp)
+                .unwrap_or(Ordering::Equal)
+        }),
+        Some(ScoreOrder::RankedDate) => entries.sort_by_key(|entry| {
+            let map = maps.get(&entry.map_id).expect("missing map");
+
+            Reverse(map.ranked_date())
+        }),
+        Some(ScoreOrder::Score) => entries.sort_by_key(|entry| Reverse(entry.score.score)),
+        Some(ScoreOrder::Stars) => {
+            entries.sort_by(|a, b| b.stars.partial_cmp(&a.stars).unwrap_or(Ordering::Equal))
+        }
+    }
+
+    Ok((entries, maps))
 }

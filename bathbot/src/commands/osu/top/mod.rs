@@ -144,12 +144,14 @@ pub enum TopScoreOrder {
 }
 
 impl Default for TopScoreOrder {
+    #[inline]
     fn default() -> Self {
         Self::Pp
     }
 }
 
 impl From<ScoreOrder> for TopScoreOrder {
+    #[inline]
     fn from(sort_by: ScoreOrder) -> Self {
         match sort_by {
             ScoreOrder::Acc => Self::Acc,

@@ -142,7 +142,7 @@ impl PaginationKind {
             Self::Profile(kind) => Ok(kind.build_page(ctx, pages).await),
             Self::Ranking(kind) => kind.build_page(ctx, pages).await,
             Self::RankingCountries(kind) => kind.build_page(ctx, pages).await,
-            Self::RecentList(kind) => kind.build_page(ctx, pages).await,
+            Self::RecentList(kind) => Ok(kind.build_page(pages)),
             Self::Scores(kind) => Ok(kind.build_page(pages)),
             Self::Simulate(kind) => Ok(kind.build_page()),
             Self::SnipedDiff(kind) => kind.build_page(ctx, pages).await,

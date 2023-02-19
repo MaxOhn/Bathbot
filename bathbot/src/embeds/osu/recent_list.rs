@@ -1,24 +1,20 @@
-use std::{
-    collections::hash_map::{Entry, HashMap},
-    fmt::Write,
-};
+use std::{collections::hash_map::HashMap, fmt::Write};
 
 use bathbot_macros::EmbedData;
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, AuthorBuilder, CowUtils,
     FooterBuilder, IntHasher,
 };
-use rosu_pp::{BeatmapExt, DifficultyAttributes};
-use rosu_v2::prelude::{GameMode, Grade, Score};
+use rosu_v2::prelude::GameMode;
 
 use crate::{
-    core::Context,
+    commands::osu::RecentListEntry,
     manager::{
         redis::{osu::User, RedisData},
-        OsuMap, PpManager,
+        OsuMap,
     },
     pagination::Pages,
-    util::{osu::grade_completion_mods, ScoreHasState},
+    util::osu::grade_completion_mods,
 };
 
 use super::{ComboFormatter, KeyFormatter, PpFormatter};
@@ -32,92 +28,41 @@ pub struct RecentListEmbed {
     title: &'static str,
 }
 
-type MapId = u32;
-type Mods = u32;
-type AttributeMap = HashMap<(MapId, Mods), (DifficultyAttributes, f32)>;
-
 impl RecentListEmbed {
-    pub async fn new(
+    pub fn new(
         user: &RedisData<User>,
-        scores: &[Score],
+        entries: &[RecentListEntry],
         maps: &HashMap<u32, OsuMap, IntHasher>,
-        attr_map: &mut AttributeMap,
-        ctx: &Context,
         pages: &Pages,
     ) -> Self {
         let page = pages.curr_page();
         let pages = pages.last_page();
 
-        let idx = (page - 1) * 10 + 1;
-
         let mut description = String::with_capacity(512);
 
-        for (score, i) in scores.iter().zip(idx..) {
-            let map = score
-                .map
-                .as_ref()
-                .and_then(|map| maps.get(&map.map_id))
-                .expect("missing map");
+        for entry in entries {
+            let RecentListEntry {
+                idx,
+                score,
+                map_id,
+                stars,
+                max_pp,
+                max_combo,
+            } = entry;
 
-            let attr_key = (map.map_id(), score.mods.bits());
-
-            let (pp, max_pp, stars, max_combo) = match attr_map.entry(attr_key) {
-                Entry::Occupied(entry) => {
-                    let (attrs, max_pp) = entry.get();
-
-                    let pp = if let Some(pp) = score.pp {
-                        pp
-                    } else if score.grade != Grade::F {
-                        map.pp_map
-                            .pp()
-                            .attributes(attrs.to_owned())
-                            .mode(PpManager::mode_conversion(score.mode))
-                            .mods(score.mods.bits())
-                            .state(score.state())
-                            .calculate()
-                            .pp() as f32
-                    } else {
-                        map.pp_map
-                            .pp()
-                            .mode(PpManager::mode_conversion(score.mode))
-                            .mods(score.mods.bits())
-                            .passed_objects(score.total_hits() as usize)
-                            .state(score.state())
-                            .calculate()
-                            .pp() as f32
-                    };
-
-                    (pp, *max_pp, attrs.stars() as f32, attrs.max_combo() as u32)
-                }
-                Entry::Vacant(entry) => {
-                    let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods);
-
-                    let attrs = calc.performance().await;
-                    let max_pp = attrs.pp() as f32;
-                    let stars = attrs.stars() as f32;
-                    let max_combo = attrs.max_combo() as u32;
-
-                    let pp = match score.pp {
-                        Some(pp) => pp,
-                        None => calc.score(score).performance().await.pp() as f32,
-                    };
-
-                    entry.insert((attrs.into(), max_pp));
-
-                    (pp, max_pp, stars, max_combo)
-                }
-            };
+            let map = maps.get(map_id).expect("missing map");
 
             let _ = write!(
                 description,
                 "**{i}. {grade}\t[{title} [{version}]]({OSU_BASE}b/{map_id})** [{stars:.2}★]",
+                i = *idx + 1,
                 grade = grade_completion_mods(score.mods, score.grade, score.total_hits(), map),
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 map_id = map.map_id(),
             );
 
-            if map.mode() == GameMode::Mania {
+            if score.mode == GameMode::Mania {
                 let _ = write!(description, "\t{}", KeyFormatter::new(score.mods, map));
             }
 
@@ -126,8 +71,8 @@ impl RecentListEmbed {
             let _ = writeln!(
                 description,
                 "{pp}\t[ {combo} ]\t({acc}%)\t{ago}",
-                pp = PpFormatter::new(Some(pp), Some(max_pp)),
-                combo = ComboFormatter::new(score.max_combo, Some(max_combo)),
+                pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
+                combo = ComboFormatter::new(score.max_combo, Some(*max_combo)),
                 acc = round(score.accuracy),
                 ago = HowLongAgoDynamic::new(&score.ended_at)
             );

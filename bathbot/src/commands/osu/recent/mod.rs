@@ -17,7 +17,7 @@ pub use self::{leaderboard::*, list::*, score::*};
 
 use self::fix::*;
 
-use super::{FarmFilter, HasMods, ModsResult, TopArgs, TopScoreOrder};
+use super::{FarmFilter, HasMods, ModsResult, ScoreOrder, TopArgs, TopScoreOrder};
 
 mod fix;
 mod leaderboard;
@@ -228,6 +228,8 @@ pub struct RecentList<'a> {
     query: Option<String>,
     /// Consider only scores with this grade
     grade: Option<GradeOption>,
+    /// Choose how the scores should be ordered
+    sort: Option<ScoreOrder>,
     /// Specify whether only passes should be considered
     passes: Option<bool>,
     #[command(help = "Filter out all scores that don't match the specified mods.\n\
