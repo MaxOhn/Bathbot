@@ -425,6 +425,7 @@ impl<'d> MapManager<'d> {
     }
 }
 
+#[derive(Clone)]
 pub struct OsuMapSlim {
     map: DbBeatmap,
     mapset: DbBeatmapset,
@@ -545,6 +546,7 @@ impl Searchable for OsuMapSlim {
     }
 }
 
+#[derive(Clone)]
 pub struct OsuMap {
     map: OsuMapSlim,
     pub pp_map: Beatmap,

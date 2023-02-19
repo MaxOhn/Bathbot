@@ -4,6 +4,7 @@ use rosu_pp::{
     osu::OsuDifficultyAttributes, taiko::TaikoDifficultyAttributes,
 };
 
+#[derive(Clone)]
 pub struct DbBeatmap {
     pub map_id: i32,
     pub mapset_id: i32,

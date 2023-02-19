@@ -297,11 +297,11 @@ async fn process_scores(
         .map(|map| (map.map_id as i32, map.checksum.as_deref()))
         .collect();
 
-    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+    let maps = ctx.osu_map().maps(&maps_id_checksum).await?;
 
     for (mut i, score) in pinned.into_iter().enumerate() {
-        let Some(mut map) = maps.remove(&score.map_id) else { continue };
-        map = map.convert(score.mode);
+        let Some(mut map) = maps.get(&score.map_id).cloned() else { continue };
+        map.convert_mut(score.mode);
 
         let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
         let attrs = calc.difficulty().await;
