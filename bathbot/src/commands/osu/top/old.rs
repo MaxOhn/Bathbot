@@ -88,7 +88,7 @@ pub enum TopOldOsuVersion {
     April15May18,
     #[option(name = "May 2018 - February 2019", value = "may18_february19")]
     May18February19,
-    #[option(name = "Feburary 2019 - January 2021", value = "feburary19_january21")]
+    #[option(name = "February 2019 - January 2021", value = "february19_january21")]
     February19January21,
     #[option(name = "January 2021 - July 2021", value = "january21_july21")]
     January21July21,
