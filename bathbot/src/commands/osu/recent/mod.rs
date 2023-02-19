@@ -242,6 +242,8 @@ pub struct RecentList<'a> {
     - `-nm!`: Scores can not be nomod so there must be any other mod")]
     /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
     mods: Option<Cow<'a, str>>,
+    /// Show each map-mod pair only once
+    unique: Option<RecentListUnique>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
@@ -249,6 +251,14 @@ pub struct RecentList<'a> {
     )]
     /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
+}
+
+#[derive(Copy, Clone, CreateOption, CommandOption)]
+pub enum RecentListUnique {
+    #[option(name = "Highest PP", value = "pp")]
+    HighestPp,
+    #[option(name = "Highest Score", value = "score")]
+    HighestScore,
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
