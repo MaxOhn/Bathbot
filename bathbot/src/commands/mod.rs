@@ -75,7 +75,7 @@ impl From<GameMode> for GameModeOption {
     }
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum GradeOption {
     #[option(name = "SS", value = "ss")]
     SS,

@@ -204,7 +204,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         }
     };
 
-    let mut entries = match process_scores(&ctx, pinned, &args, mods, &top100, size_single).await {
+    let entries = match process_scores(&ctx, pinned, &args, mods, &top100, size_single).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -215,7 +215,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
     let username = user.username();
 
-    if let [score] = &mut entries[..] {
+    if let [score] = &entries[..] {
         let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
 
         let minimized_pp = config
@@ -406,7 +406,7 @@ async fn single_embed(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     user: RedisData<User>,
-    entry: &mut TopEntry,
+    entry: &TopEntry,
     score_size: ScoreSize,
     minimized_pp: MinimizedPp,
     content: Option<String>,
@@ -424,9 +424,7 @@ async fn single_embed(
             let (best_res, global_res) = tokio::join!(best_fut, global_fut);
 
             let personal_idx = match best_res {
-                Ok(scores) => scores.iter().position(|s| {
-                    (entry.score.ended_at.unix_timestamp() - s.ended_at.unix_timestamp()).abs() <= 2
-                }),
+                Ok(scores) => scores.iter().position(|s| entry.score.is_eq(s)),
                 Err(err) => {
                     let err = Report::new(err).wrap_err("failed to get top scores");
                     warn!("{err:?}");
@@ -436,12 +434,9 @@ async fn single_embed(
             };
 
             let global_idx = match global_res {
-                Ok(scores) => scores.iter().position(|s| {
-                    s.user_id == user_id
-                        && (entry.score.ended_at.unix_timestamp() - s.ended_at.unix_timestamp())
-                            .abs()
-                            <= 2
-                }),
+                Ok(scores) => scores
+                    .iter()
+                    .position(|s| s.user_id == user_id && entry.score.is_eq(s)),
                 Err(err) => {
                     let err = Report::new(err).wrap_err("failed to get global scores");
                     warn!("{err:?}");

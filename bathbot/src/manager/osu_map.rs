@@ -580,7 +580,7 @@ impl OsuMap {
         self.pp_map.od
     }
 
-    pub fn convert(mut self, mode: GameMode) -> Self {
+    pub fn convert_mut(&mut self, mode: GameMode) {
         let mode = match mode {
             GameMode::Osu => Mode::Osu,
             GameMode::Taiko => Mode::Taiko,
@@ -595,6 +595,10 @@ impl OsuMap {
             self.pp_map.mode = mode;
             self.is_convert = true;
         }
+    }
+
+    pub fn convert(mut self, mode: GameMode) -> Self {
+        self.convert_mut(mode);
 
         self
     }
