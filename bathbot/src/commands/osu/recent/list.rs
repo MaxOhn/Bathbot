@@ -33,7 +33,7 @@ use crate::{
     Context,
 };
 
-use super::RecentList;
+use super::{RecentList, RecentListUnique};
 
 #[command]
 #[desc("Display a list of a user's most recent plays")]
@@ -192,6 +192,7 @@ impl<'m> RecentList<'m> {
             sort: None,
             passes,
             mods: None,
+            unique: None,
             discord,
         })
     }
@@ -350,6 +351,7 @@ async fn process_scores(
         grade,
         passes,
         sort,
+        unique,
         ..
     } = args;
 
@@ -444,6 +446,30 @@ async fn process_scores(
         };
 
         entries.push(entry);
+    }
+
+    match unique {
+        None => {}
+        Some(RecentListUnique::HighestPp) => {
+            entries.sort_unstable_by(|a, b| {
+                (a.map_id, a.score.mods)
+                    .cmp(&(b.map_id, b.score.mods))
+                    .then_with(|| b.score.pp.total_cmp(&a.score.pp))
+            });
+
+            entries.dedup_by_key(|entry| (entry.map_id, entry.score.mods));
+            entries.sort_unstable_by_key(|entry| Reverse(entry.score.ended_at));
+        }
+        Some(RecentListUnique::HighestScore) => {
+            entries.sort_unstable_by(|a, b| {
+                (a.map_id, a.score.mods)
+                    .cmp(&(b.map_id, b.score.mods))
+                    .then_with(|| b.score.score.cmp(&a.score.score))
+            });
+
+            entries.dedup_by_key(|entry| (entry.map_id, entry.score.mods));
+            entries.sort_unstable_by_key(|entry| Reverse(entry.score.ended_at));
+        }
     }
 
     match sort {
