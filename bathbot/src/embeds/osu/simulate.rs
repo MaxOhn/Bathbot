@@ -591,7 +591,7 @@ impl TopOldVersion {
             "sim_osu_november21_september22" => Self::Osu(TopOldOsuVersion::November21September22),
             "sim_osu_july21_november21" => Self::Osu(TopOldOsuVersion::July21November21),
             "sim_osu_january21_july21" => Self::Osu(TopOldOsuVersion::January21July21),
-            "sim_osu_feburary19_january21" => Self::Osu(TopOldOsuVersion::February19January21),
+            "sim_osu_february19_january21" => Self::Osu(TopOldOsuVersion::February19January21),
             "sim_osu_may18_february19" => Self::Osu(TopOldOsuVersion::May18February19),
             "sim_osu_april15_may18" => Self::Osu(TopOldOsuVersion::April15May18),
             "sim_osu_february15_april15" => Self::Osu(TopOldOsuVersion::February15April15),

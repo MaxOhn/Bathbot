@@ -568,7 +568,7 @@ mod pages {
                         "November 2021 - September 2022", "sim_osu_november21_september22", version = TopOldOsuVersion::November21September22;
                         "July 2021 - November 2021", "sim_osu_july21_november21", version = TopOldOsuVersion::July21November21;
                         "January 2021 - July 2021", "sim_osu_january21_july21", version = TopOldOsuVersion::January21July21;
-                        "Feburary 2019 - January 2021", "sim_osu_feburary19_january21", version = TopOldOsuVersion::February19January21;
+                        "February 2019 - January 2021", "sim_osu_february19_january21", version = TopOldOsuVersion::February19January21;
                         "May 2018 - February 2019", "sim_osu_may18_february19", version = TopOldOsuVersion::May18February19;
                         "April 2015 - May 2018", "sim_osu_april15_may18", version = TopOldOsuVersion::April15May18;
                         "February 2015 - April 2015", "sim_osu_february15_april15", version = TopOldOsuVersion::February15April15;
