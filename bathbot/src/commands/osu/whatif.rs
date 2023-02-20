@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering, iter, sync::Arc};
+use std::{borrow::Cow, iter, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{
@@ -212,7 +212,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
@@ -227,7 +227,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         let rank = match ctx.approx().rank(pp, mode).await {
             Ok(rank) => Some(rank),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("failed to get rank pp"));
+                warn!("{:?}", err.wrap_err("Failed to get rank pp"));
 
                 None
             }
@@ -241,7 +241,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         approx_more_pp(&mut pps, 50);
         let actual = pps.accum_weighted();
         let total = user.peek_stats(|stats| stats.pp);
-        let bonus_pp = total - actual;
+        let bonus_pp = (total - actual).max(0.0);
 
         let idx = pps
             .iter()
@@ -249,7 +249,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
             .unwrap_or(scores.len() - 1);
 
         pps.extend(iter::repeat(pp).take(count));
-        pps.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+        pps.sort_unstable_by(|a, b| b.total_cmp(a));
 
         let new_pp = pps.accum_weighted();
         let max_pp = pps.first().copied().unwrap_or(0.0);
@@ -257,7 +257,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         let rank = match ctx.approx().rank(new_pp + bonus_pp, mode).await {
             Ok(rank) => Some(rank),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("failed to get rank pp"));
+                warn!("{:?}", err.wrap_err("Failed to get rank pp"));
 
                 None
             }

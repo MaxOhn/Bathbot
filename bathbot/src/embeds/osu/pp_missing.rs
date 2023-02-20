@@ -104,7 +104,7 @@ impl PpMissingEmbed {
                         idx = idx + 1,
                     )
                 } else {
-                    let idx = pps.iter().position(|&pp| pp < each).unwrap_or(scores.len());
+                    let idx = pps.partition_point(|&pp| pp >= each);
 
                     let mut iter = pps
                         .iter()
@@ -117,42 +117,45 @@ impl PpMissingEmbed {
 
                     let bonus_pp = (stats_pp - (top + bot)).max(0.0);
                     top += bonus_pp;
-                    let len = pps.len();
 
-                    let mut n_each = len;
+                    // requires n_each many new scores of `each` many pp and one additional score
+                    fn n_each_needed(
+                        top: &mut f32,
+                        each: f32,
+                        goal_pp: f32,
+                        pps: &[f32],
+                        idx: usize,
+                    ) -> Option<usize> {
+                        let len = pps.len();
 
-                    for i in idx..len {
+                        for i in idx..len {
+                            let bot = pps[idx..]
+                                .iter()
+                                .copied()
+                                .zip(i as i32 + 1..)
+                                .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
+
+                            let factor = 0.95_f32.powi(i as i32);
+
+                            if *top + factor * each + bot >= goal_pp {
+                                return Some(i - idx);
+                            }
+
+                            *top += factor * each;
+                        }
+
                         let bot = pps[idx..]
                             .iter()
                             .copied()
-                            .zip(i as i32 + 1..)
+                            .zip(len as i32..)
                             .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
-                        let factor = 0.95_f32.powi(i as i32);
+                        *top += bot;
 
-                        if top + factor * each + bot >= goal_pp {
-                            // requires n_each many new scores of `each` many pp and one additional score
-                            n_each = i - idx;
-                            break;
-                        }
-
-                        top += factor * each;
+                        (*top >= goal_pp).then_some(len - idx)
                     }
 
-                    if n_each == len {
-                        format!(
-                            "Filling up {user}'{genitiv} top scores with {amount} new {each}pp score{plural} \
-                            would only lead to {approx}**{top}pp** which is still less than {pp}pp.",
-                            amount = len - idx,
-                            each = WithComma::new(each),
-                            plural = if len - idx != 1 { "s" } else { "" },
-                            genitiv = if idx != 1 { "s" } else { "" },
-                            pp = WithComma::new(goal_pp),
-                            approx = if idx >= 100 { "roughly " } else { "" },
-                            top = WithComma::new(top),
-                            user = username.cow_escape_markdown(),
-                        )
-                    } else {
+                    if let Some(n_each) = n_each_needed(&mut top, each, goal_pp, &pps, idx) {
                         pps.extend(iter::repeat(each).take(n_each));
                         pps.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
 
@@ -170,6 +173,19 @@ impl PpMissingEmbed {
                             pp = WithComma::new(goal_pp),
                             user = username.cow_escape_markdown(),
                             required = WithComma::new(required),
+                        )
+                    } else {
+                        format!(
+                            "Filling up {user}'{genitiv} top scores with {amount} new {each}pp score{plural} \
+                            would only lead to {approx}**{top}pp** which is still less than {pp}pp.",
+                            amount = pps.len() - idx,
+                            each = WithComma::new(each),
+                            plural = if pps.len() - idx != 1 { "s" } else { "" },
+                            genitiv = if idx != 1 { "s" } else { "" },
+                            pp = WithComma::new(goal_pp),
+                            approx = if idx >= 100 { "roughly " } else { "" },
+                            top = WithComma::new(top),
+                            user = username.cow_escape_markdown(),
                         )
                     }
                 }
