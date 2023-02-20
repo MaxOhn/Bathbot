@@ -149,33 +149,6 @@
     },
     "query": "\nINSERT INTO osu_scores (\n  score_id, user_id, map_id, gamemode, \n  mods, score, maxcombo, grade, count50, \n  count100, count300, countmiss, countgeki, \n  countkatu, perfect, ended_at\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16\n  ) ON CONFLICT (score_id) DO NOTHING"
   },
-  "03ae2d7b4aac277fadd085ecbf70bc5613d56e7a6779be1496e55d0c717512c8": {
-    "describe": {
-      "columns": [
-        {
-          "name": "global_rank",
-          "ordinal": 0,
-          "type_info": "Int4"
-        },
-        {
-          "name": "pp",
-          "ordinal": 1,
-          "type_info": "Float4"
-        }
-      ],
-      "nullable": [
-        null,
-        null
-      ],
-      "parameters": {
-        "Left": [
-          "Int2",
-          "Float4"
-        ]
-      }
-    },
-    "query": "\nWITH stats AS (\n  SELECT \n    global_rank, \n    pp, \n    last_update \n  FROM \n    osu_user_mode_stats \n  WHERE \n    gamemode = $1 \n    AND NOW() - last_update < interval '2 days'\n) \nSELECT \n  * \nFROM \n  (\n    (\n      SELECT \n        global_rank, \n        pp \n      FROM \n        (\n          SELECT \n            * \n          FROM \n            stats \n          WHERE \n            pp >= $2 \n          ORDER BY \n            pp ASC \n          LIMIT \n            2\n        ) AS innerTable \n      ORDER BY \n        last_update DESC \n      LIMIT \n        1\n    ) \n    UNION ALL \n      (\n        SELECT \n          global_rank, \n          pp \n        FROM \n          (\n            SELECT \n              * \n            FROM \n              stats \n            WHERE \n              pp <= $2 \n            ORDER BY \n              pp DESC \n            LIMIT \n              2\n          ) AS innerTable \n        ORDER BY \n          last_update DESC \n        LIMIT \n          1\n      )\n  ) AS neighbors"
-  },
   "04813deb7752ed349d4e5b7748cf5b40c83ccbd2f0ee490ef6c8cc63d8aacd88": {
     "describe": {
       "columns": [
@@ -841,6 +814,39 @@
     },
     "query": "\nSELECT \n  map_filepath \nFROM \n  osu_map_files \nWHERE \n  map_id = $1"
   },
+  "4d57519170d1f61051a31bbb352c04b2318e503fe310793e75aab8470de0a1fa": {
+    "describe": {
+      "columns": [
+        {
+          "name": "global_rank",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "pp",
+          "ordinal": 1,
+          "type_info": "Float4"
+        },
+        {
+          "name": "pos",
+          "ordinal": 2,
+          "type_info": "Int2"
+        }
+      ],
+      "nullable": [
+        null,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int2",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nWITH stats AS (\n  SELECT \n    global_rank, \n    pp, \n    last_update \n  FROM \n    osu_user_mode_stats \n  WHERE \n    gamemode = $1 \n    AND global_rank > 0 \n    AND NOW() - last_update < interval '2 days'\n) \nSELECT \n  * \nFROM \n  (\n    (\n      SELECT \n        global_rank, \n        pp, \n        0::INT2 AS pos \n      FROM \n        (\n          SELECT \n            * \n          FROM \n            stats \n          WHERE \n            global_rank <= $2 \n          ORDER BY \n            pp ASC \n          LIMIT \n            5\n        ) AS innerTable \n      ORDER BY \n        last_update DESC \n      LIMIT \n        1\n    ) \n    UNION ALL \n      (\n        SELECT \n          global_rank, \n          pp, \n          1::INT2 AS pos \n        FROM \n          (\n            SELECT \n              * \n            FROM \n              stats \n            WHERE \n              global_rank >= $2 \n            ORDER BY \n              pp DESC \n            LIMIT \n              5\n          ) AS innerTable \n        ORDER BY \n          last_update DESC \n        LIMIT \n          1\n      )\n  ) AS neighbors"
+  },
   "4d9d86454d838f1fd2bfc30c019680978373896c7e01f09e939a63de314137e0": {
     "describe": {
       "columns": [
@@ -1221,33 +1227,6 @@
       }
     },
     "query": "\nINSERT INTO osu_user_stats (\n  user_id, country_code, join_date, \n  comment_count, kudosu_total, kudosu_available, \n  forum_post_count, badges, played_maps, \n  followers, graveyard_mapset_count, \n  loved_mapset_count, mapping_followers, \n  previous_usernames_count, ranked_mapset_count, \n  medals\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16\n  ) ON CONFLICT (user_id) DO \nUPDATE \nSET \n  country_code = $2, \n  comment_count = $4, \n  kudosu_total = $5, \n  kudosu_available = $6, \n  forum_post_count = $7, \n  badges = $8, \n  played_maps = $9, \n  followers = $10, \n  graveyard_mapset_count = $11, \n  loved_mapset_count = $12, \n  mapping_followers = $13, \n  previous_usernames_count = $14, \n  ranked_mapset_count = $15, \n  medals = $16,\n  last_update = NOW()"
-  },
-  "8673f0b3654286bd14ea585e925eef1673b4987ba4542980871e244fea933493": {
-    "describe": {
-      "columns": [
-        {
-          "name": "global_rank",
-          "ordinal": 0,
-          "type_info": "Int4"
-        },
-        {
-          "name": "pp",
-          "ordinal": 1,
-          "type_info": "Float4"
-        }
-      ],
-      "nullable": [
-        null,
-        null
-      ],
-      "parameters": {
-        "Left": [
-          "Int2",
-          "Int4"
-        ]
-      }
-    },
-    "query": "\nWITH stats AS (\n  SELECT \n    global_rank, \n    pp, \n    last_update \n  FROM \n    osu_user_mode_stats \n  WHERE \n    gamemode = $1 \n    AND NOW() - last_update < interval '2 days'\n) \nSELECT \n  * \nFROM \n  (\n    (\n      SELECT \n        global_rank, \n        pp \n      FROM \n        (\n          SELECT \n            * \n          FROM \n            stats \n          WHERE \n            global_rank > 0 \n            AND global_rank <= $2 \n          ORDER BY \n            pp ASC \n          LIMIT \n            2\n        ) AS innerTable \n      ORDER BY \n        last_update DESC \n      LIMIT \n        1\n    ) \n    UNION ALL \n      (\n        SELECT \n          global_rank, \n          pp \n        FROM \n          (\n            SELECT \n              * \n            FROM \n              stats \n            WHERE \n              global_rank >= $2 \n            ORDER BY \n              pp DESC \n            LIMIT \n              2\n          ) AS innerTable \n        ORDER BY \n          last_update DESC \n        LIMIT \n          1\n      )\n  ) AS neighbors"
   },
   "86fe055100160971a77546f2428ee3ee428d504c87ff0830ae4483426151df77": {
     "describe": {
@@ -1713,6 +1692,39 @@
       }
     },
     "query": "\nSELECT \n  skin_url \nFROM \n  user_configs \nWHERE \n  osu_id = $1 \n  AND skin_url IS NOT NULL"
+  },
+  "cf5dde0579ccfb3d865308979fa79cbe1ea0f97822294db00f588d8fb617ff9f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "global_rank",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "pp",
+          "ordinal": 1,
+          "type_info": "Float4"
+        },
+        {
+          "name": "pos",
+          "ordinal": 2,
+          "type_info": "Int2"
+        }
+      ],
+      "nullable": [
+        null,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int2",
+          "Float4"
+        ]
+      }
+    },
+    "query": "\nWITH stats AS (\n  SELECT \n    global_rank, \n    pp, \n    last_update \n  FROM \n    osu_user_mode_stats \n  WHERE \n    gamemode = $1 \n    AND global_rank > 0 \n    AND NOW() - last_update < interval '2 days'\n) \nSELECT \n  * \nFROM \n  (\n    (\n      SELECT \n        global_rank, \n        pp, \n        0::INT2 AS pos \n      FROM \n        (\n          SELECT \n            * \n          FROM \n            stats \n          WHERE \n            pp >= $2 \n          ORDER BY \n            pp ASC \n          LIMIT \n            5\n        ) AS innerTable \n      ORDER BY \n        last_update DESC \n      LIMIT \n        1\n    ) \n    UNION ALL \n      (\n        SELECT \n          global_rank, \n          pp, \n          1::INT2 AS pos \n        FROM \n          (\n            SELECT \n              * \n            FROM \n              stats \n            WHERE \n              pp <= $2 \n            ORDER BY \n              pp DESC \n            LIMIT \n              5\n          ) AS innerTable \n        ORDER BY \n          last_update DESC \n        LIMIT \n          1\n      )\n  ) AS neighbors"
   },
   "d3cf8c0f097a2226bdad1d81f955bc1707989a0857782dd20098fd38a385e195": {
     "describe": {
