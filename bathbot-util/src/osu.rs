@@ -154,6 +154,7 @@ pub fn approx_more_pp(pps: &mut Vec<f32>, more: usize) {
 }
 
 pub trait PpListUtil {
+    /// Accumulate the weighted pp values i.e. sum up `0.95^i * pp`
     fn accum_weighted(&self) -> f32;
 }
 

@@ -182,7 +182,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
@@ -191,7 +191,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
     let rank = match rank_res {
         Ok(rank_pp) => Some(rank_pp),
         Err(err) => {
-            warn!("{:?}", err.wrap_err("failed to get rank pp"));
+            warn!("{:?}", err.wrap_err("Failed to get rank pp"));
 
             None
         }
