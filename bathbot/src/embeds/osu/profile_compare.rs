@@ -456,29 +456,58 @@ impl CompareStrings {
     }
 
     fn max(&self) -> usize {
+        let Self {
+            pp,
+            rank,
+            ranked_score: _,
+            total_score,
+            total_hits,
+            play_count,
+            play_time,
+            pc_peak,
+            level,
+            top1pp,
+            top1pp_num: _,
+            bonus_pp,
+            bonus_pp_num: _,
+            avg_map_len,
+            accuracy,
+            pp_per_month,
+            pp_per_month_num: _,
+            count_ss,
+            count_s,
+            count_a,
+            avg_pp,
+            pp_spread,
+            max_combo,
+            followers,
+            replays_seen,
+        } = self;
+
         self.ranked_score
             .len()
-            .max(self.total_score.len())
-            .max(self.total_hits.len())
-            .max(self.play_count.len())
-            .max(self.play_time.len())
-            .max(self.level.len())
-            .max(self.bonus_pp.len())
-            .max(self.rank.len())
-            .max(self.pp.len())
-            .max(self.avg_map_len.len())
-            .max(self.accuracy.len())
-            .max(self.pp_per_month.len())
-            .max(self.count_ss.len())
-            .max(self.count_s.len())
-            .max(self.count_a.len())
-            .max(self.avg_pp.len())
-            .max(self.pp_spread.len())
+            .max(total_score.len())
+            .max(total_hits.len())
+            .max(play_count.len())
+            .max(play_time.len())
+            .max(level.len())
+            .max(top1pp.len())
+            .max(bonus_pp.len())
+            .max(rank.len())
+            .max(pp.len())
+            .max(avg_map_len.len())
+            .max(accuracy.len())
+            .max(pp_per_month.len())
+            .max(count_ss.len())
+            .max(count_s.len())
+            .max(count_a.len())
+            .max(avg_pp.len())
+            .max(pp_spread.len())
             .max(10) // join date yyyy-mm-dd
-            .max(self.pc_peak.len())
-            .max(self.max_combo.len())
-            .max(self.followers.len())
-            .max(self.replays_seen.len())
+            .max(pc_peak.len())
+            .max(max_combo.len())
+            .max(followers.len())
+            .max(replays_seen.len())
     }
 }
 
