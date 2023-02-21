@@ -242,6 +242,17 @@ impl ProfileCompareEmbed {
 
         write_line(
             &mut d,
+            "Top1 PP",
+            left.top1pp,
+            right.top1pp,
+            left.top1pp_num,
+            right.top1pp_num,
+            max_left,
+            max_right,
+        );
+
+        write_line(
+            &mut d,
             "Bonus PP",
             left.bonus_pp,
             right.bonus_pp,
@@ -388,6 +399,8 @@ struct CompareStrings {
     play_time: String,
     pc_peak: String,
     level: String,
+    top1pp: String,
+    top1pp_num: f32,
     bonus_pp: String,
     bonus_pp_num: f32,
     avg_map_len: String,
@@ -422,6 +435,8 @@ impl CompareStrings {
             play_count: WithComma::new(stats.playcount).to_string(),
             play_time: WithComma::new(stats.playtime / 3600).to_string() + "hrs",
             level: format!("{:.2}", stats.level.float()),
+            top1pp: format!("{:.2}pp", result.top1pp),
+            top1pp_num: result.top1pp,
             bonus_pp: format!("{:.2}pp", result.bonus_pp),
             bonus_pp_num: result.bonus_pp,
             avg_map_len: SecToMinSec::new(result.map_len.avg()).to_string(),

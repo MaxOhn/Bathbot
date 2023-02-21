@@ -271,6 +271,7 @@ pub struct CompareResult {
     pub pp: MinMaxAvg<f32>,
     pub map_len: MinMaxAvg<u32>,
     pub bonus_pp: f32,
+    pub top1pp: f32,
 }
 
 impl CompareResult {
@@ -306,6 +307,7 @@ impl CompareResult {
             pp,
             map_len: map_len.into(),
             bonus_pp: bonus_pp.calculate(stats),
+            top1pp: scores.first().and_then(|score| score.pp).unwrap_or(0.0),
         }
     }
 }
