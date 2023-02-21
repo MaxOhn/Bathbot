@@ -163,6 +163,19 @@ impl ProfileCompareEmbed {
             max_right,
         );
 
+        if result1.score_rank.or(result2.score_rank).is_some() {
+            write_line(
+                &mut d,
+                "Score rank",
+                left.score_rank,
+                right.score_rank,
+                Reverse(result1.score_rank.unwrap_or(u32::MAX)),
+                Reverse(result2.score_rank.unwrap_or(u32::MAX)),
+                max_left,
+                max_right,
+            );
+        }
+
         write_line(
             &mut d,
             "Ranked score",
@@ -245,8 +258,8 @@ impl ProfileCompareEmbed {
             "Top1 PP",
             left.top1pp,
             right.top1pp,
-            left.top1pp_num,
-            right.top1pp_num,
+            result1.top1pp,
+            result2.top1pp,
             max_left,
             max_right,
         );
@@ -256,8 +269,8 @@ impl ProfileCompareEmbed {
             "Bonus PP",
             left.bonus_pp,
             right.bonus_pp,
-            left.bonus_pp_num,
-            right.bonus_pp_num,
+            result1.bonus_pp,
+            result2.bonus_pp,
             max_left,
             max_right,
         );
@@ -392,6 +405,7 @@ fn write_line<T: PartialOrd, V: Display>(
 struct CompareStrings {
     pp: String,
     rank: String,
+    score_rank: String,
     ranked_score: String,
     total_score: String,
     total_hits: String,
@@ -400,9 +414,7 @@ struct CompareStrings {
     pc_peak: String,
     level: String,
     top1pp: String,
-    top1pp_num: f32,
     bonus_pp: String,
-    bonus_pp_num: f32,
     avg_map_len: String,
     accuracy: String,
     pp_per_month: String,
@@ -429,6 +441,9 @@ impl CompareStrings {
             rank: stats
                 .global_rank
                 .map_or_else(|| "-".into(), |rank| format!("#{}", WithComma::new(rank))),
+            score_rank: result
+                .score_rank
+                .map_or_else(|| "-".into(), |rank| format!("#{}", WithComma::new(rank))),
             ranked_score: WithComma::new(stats.ranked_score).to_string(),
             total_score: WithComma::new(stats.total_score).to_string(),
             total_hits: WithComma::new(stats.total_hits).to_string(),
@@ -436,9 +451,7 @@ impl CompareStrings {
             play_time: WithComma::new(stats.playtime / 3600).to_string() + "hrs",
             level: format!("{:.2}", stats.level.float()),
             top1pp: format!("{:.2}pp", result.top1pp),
-            top1pp_num: result.top1pp,
             bonus_pp: format!("{:.2}pp", result.bonus_pp),
-            bonus_pp_num: result.bonus_pp,
             avg_map_len: SecToMinSec::new(result.map_len.avg()).to_string(),
             accuracy: format!("{:.2}%", stats.accuracy),
             pp_per_month: format!("{pp_per_month_num:.2}pp"),
@@ -459,6 +472,7 @@ impl CompareStrings {
         let Self {
             pp,
             rank,
+            score_rank,
             ranked_score: _,
             total_score,
             total_hits,
@@ -467,9 +481,7 @@ impl CompareStrings {
             pc_peak,
             level,
             top1pp,
-            top1pp_num: _,
             bonus_pp,
-            bonus_pp_num: _,
             avg_map_len,
             accuracy,
             pp_per_month,
@@ -486,6 +498,7 @@ impl CompareStrings {
 
         self.ranked_score
             .len()
+            .max(score_rank.len())
             .max(total_score.len())
             .max(total_hits.len())
             .max(play_count.len())
