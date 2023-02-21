@@ -85,7 +85,7 @@ impl Client {
             serde_json::from_slice(&bytes).wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
-                format!("failed to deserialize respektive user: {body}")
+                format!("Failed to deserialize respektive user: {body}")
             })?;
 
         Ok(users.pop().filter(|user| user.rank > 0))
@@ -103,7 +103,7 @@ impl Client {
             serde_json::from_slice(&bytes).wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
-                format!("failed to deserialize respektive rank: {body}")
+                format!("Failed to deserialize respektive rank: {body}")
             })?;
 
         Ok(users.pop().filter(|user| user.rank > 0))

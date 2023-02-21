@@ -163,6 +163,19 @@ impl ProfileCompareEmbed {
             max_right,
         );
 
+        if result1.score_rank.or(result2.score_rank).is_some() {
+            write_line(
+                &mut d,
+                "Score rank",
+                left.score_rank,
+                right.score_rank,
+                Reverse(result1.score_rank.unwrap_or(u32::MAX)),
+                Reverse(result2.score_rank.unwrap_or(u32::MAX)),
+                max_left,
+                max_right,
+            );
+        }
+
         write_line(
             &mut d,
             "Ranked score",
@@ -242,11 +255,44 @@ impl ProfileCompareEmbed {
 
         write_line(
             &mut d,
+            "Miss rate",
+            left.miss_rate,
+            right.miss_rate,
+            left.miss_rate_num,
+            right.miss_rate_num,
+            max_left,
+            max_right,
+        );
+
+        write_line(
+            &mut d,
+            "Miss percent",
+            left.miss_percent,
+            right.miss_percent,
+            Reverse(left.miss_percent_num),
+            Reverse(right.miss_percent_num),
+            max_left,
+            max_right,
+        );
+
+        write_line(
+            &mut d,
+            "Top1 PP",
+            left.top1pp,
+            right.top1pp,
+            result1.top1pp,
+            result2.top1pp,
+            max_left,
+            max_right,
+        );
+
+        write_line(
+            &mut d,
             "Bonus PP",
             left.bonus_pp,
             right.bonus_pp,
-            left.bonus_pp_num,
-            right.bonus_pp_num,
+            result1.bonus_pp,
+            result2.bonus_pp,
             max_left,
             max_right,
         );
@@ -280,6 +326,17 @@ impl ProfileCompareEmbed {
             right.pp_per_month,
             left.pp_per_month_num,
             right.pp_per_month_num,
+            max_left,
+            max_right,
+        );
+
+        write_line(
+            &mut d,
+            "PC per month",
+            left.pc_per_month,
+            right.pc_per_month,
+            left.pc_per_month_num,
+            right.pc_per_month_num,
             max_left,
             max_right,
         );
@@ -379,29 +436,36 @@ fn write_line<T: PartialOrd, V: Display>(
 }
 
 struct CompareStrings {
-    pp: String,
-    rank: String,
-    ranked_score: String,
-    total_score: String,
-    total_hits: String,
-    play_count: String,
-    play_time: String,
-    pc_peak: String,
-    level: String,
-    bonus_pp: String,
-    bonus_pp_num: f32,
-    avg_map_len: String,
-    accuracy: String,
-    pp_per_month: String,
+    pp: Box<str>,
+    rank: Box<str>,
+    score_rank: Box<str>,
+    ranked_score: Box<str>,
+    total_score: Box<str>,
+    total_hits: Box<str>,
+    play_count: Box<str>,
+    play_time: Box<str>,
+    pc_peak: Box<str>,
+    level: Box<str>,
+    top1pp: Box<str>,
+    bonus_pp: Box<str>,
+    avg_map_len: Box<str>,
+    accuracy: Box<str>,
+    pp_per_month: Box<str>,
     pp_per_month_num: f32,
-    count_ss: String,
-    count_s: String,
-    count_a: String,
-    avg_pp: String,
-    pp_spread: String,
-    max_combo: String,
-    followers: String,
-    replays_seen: String,
+    pc_per_month: Box<str>,
+    pc_per_month_num: f32,
+    count_ss: Box<str>,
+    count_s: Box<str>,
+    count_a: Box<str>,
+    avg_pp: Box<str>,
+    pp_spread: Box<str>,
+    max_combo: Box<str>,
+    miss_rate: Box<str>,
+    miss_rate_num: u32,
+    miss_percent: Box<str>,
+    miss_percent_num: f32,
+    followers: Box<str>,
+    replays_seen: Box<str>,
 }
 
 impl CompareStrings {
@@ -410,60 +474,136 @@ impl CompareStrings {
 
         let days = (OffsetDateTime::now_utc() - data.join_date).whole_days() as f32;
         let pp_per_month_num = 30.67 * stats.pp / days;
+        let pc_per_month_num = 30.67 * stats.playcount as f32 / days;
+
+        let miss_rate = MissRate {
+            misses: result.misses,
+            hits: result.hits,
+        };
+
+        let (miss_percent, miss_percent_num) = miss_rate.percent();
+        let (miss_rate, miss_rate_num) = miss_rate.rate();
 
         Self {
-            pp: WithComma::new(stats.pp).to_string() + "pp",
-            rank: stats
-                .global_rank
-                .map_or_else(|| "-".into(), |rank| format!("#{}", WithComma::new(rank))),
-            ranked_score: WithComma::new(stats.ranked_score).to_string(),
-            total_score: WithComma::new(stats.total_score).to_string(),
-            total_hits: WithComma::new(stats.total_hits).to_string(),
-            play_count: WithComma::new(stats.playcount).to_string(),
-            play_time: WithComma::new(stats.playtime / 3600).to_string() + "hrs",
-            level: format!("{:.2}", stats.level.float()),
-            bonus_pp: format!("{:.2}pp", result.bonus_pp),
-            bonus_pp_num: result.bonus_pp,
-            avg_map_len: SecToMinSec::new(result.map_len.avg()).to_string(),
-            accuracy: format!("{:.2}%", stats.accuracy),
-            pp_per_month: format!("{pp_per_month_num:.2}pp"),
+            pp: (WithComma::new(stats.pp).to_string() + "pp").into_boxed_str(),
+            rank: stats.global_rank.map_or_else(
+                || Box::from("-"),
+                |rank| format!("#{}", WithComma::new(rank)).into_boxed_str(),
+            ),
+            score_rank: result.score_rank.map_or_else(
+                || Box::from("-"),
+                |rank| format!("#{}", WithComma::new(rank)).into_boxed_str(),
+            ),
+            ranked_score: WithComma::new(stats.ranked_score)
+                .to_string()
+                .into_boxed_str(),
+            total_score: WithComma::new(stats.total_score)
+                .to_string()
+                .into_boxed_str(),
+            total_hits: WithComma::new(stats.total_hits)
+                .to_string()
+                .into_boxed_str(),
+            play_count: WithComma::new(stats.playcount).to_string().into_boxed_str(),
+            play_time: (WithComma::new(stats.playtime / 3600).to_string() + "hrs").into_boxed_str(),
+            level: format!("{:.2}", stats.level.float()).into_boxed_str(),
+            top1pp: format!("{:.2}pp", result.top1pp).into_boxed_str(),
+            bonus_pp: format!("{:.2}pp", result.bonus_pp).into_boxed_str(),
+            avg_map_len: SecToMinSec::new(result.map_len.avg())
+                .to_string()
+                .into_boxed_str(),
+            accuracy: format!("{:.2}%", stats.accuracy).into_boxed_str(),
+            pp_per_month: format!("{pp_per_month_num:.2}pp").into_boxed_str(),
             pp_per_month_num,
-            count_ss: (stats.grade_counts.ssh + stats.grade_counts.ss).to_string(),
-            count_s: (stats.grade_counts.sh + stats.grade_counts.s).to_string(),
-            count_a: (stats.grade_counts.a).to_string(),
-            avg_pp: format!("{:.2}pp", result.pp.avg()),
-            pp_spread: format!("{:.2}pp", result.pp.max() - result.pp.min()),
-            pc_peak: WithComma::new(data.monthly_playcounts_peak).to_string(),
-            max_combo: WithComma::new(stats.max_combo).to_string(),
-            followers: WithComma::new(data.follower_count).to_string(),
-            replays_seen: WithComma::new(stats.replays_watched).to_string(),
+            pc_per_month: format!("{pc_per_month_num:.2}").into_boxed_str(),
+            pc_per_month_num,
+            count_ss: (stats.grade_counts.ssh + stats.grade_counts.ss)
+                .to_string()
+                .into_boxed_str(),
+            count_s: (stats.grade_counts.sh + stats.grade_counts.s)
+                .to_string()
+                .into_boxed_str(),
+            count_a: (stats.grade_counts.a).to_string().into_boxed_str(),
+            avg_pp: format!("{:.2}pp", result.pp.avg()).into_boxed_str(),
+            pp_spread: format!("{:.2}pp", result.pp.max() - result.pp.min()).into_boxed_str(),
+            pc_peak: WithComma::new(data.monthly_playcounts_peak)
+                .to_string()
+                .into_boxed_str(),
+            max_combo: WithComma::new(stats.max_combo).to_string().into_boxed_str(),
+            miss_rate,
+            miss_rate_num,
+            miss_percent,
+            miss_percent_num,
+            followers: WithComma::new(data.follower_count)
+                .to_string()
+                .into_boxed_str(),
+            replays_seen: WithComma::new(stats.replays_watched)
+                .to_string()
+                .into_boxed_str(),
         }
     }
 
     fn max(&self) -> usize {
+        let Self {
+            pp,
+            rank,
+            score_rank,
+            ranked_score: _,
+            total_score,
+            total_hits,
+            play_count,
+            play_time,
+            pc_peak,
+            level,
+            top1pp,
+            bonus_pp,
+            avg_map_len,
+            accuracy,
+            pp_per_month,
+            pp_per_month_num: _,
+            pc_per_month,
+            pc_per_month_num: _,
+            count_ss,
+            count_s,
+            count_a,
+            avg_pp,
+            pp_spread,
+            max_combo,
+            miss_rate,
+            miss_rate_num: _,
+            miss_percent,
+            miss_percent_num: _,
+            followers,
+            replays_seen,
+        } = self;
+
         self.ranked_score
             .len()
-            .max(self.total_score.len())
-            .max(self.total_hits.len())
-            .max(self.play_count.len())
-            .max(self.play_time.len())
-            .max(self.level.len())
-            .max(self.bonus_pp.len())
-            .max(self.rank.len())
-            .max(self.pp.len())
-            .max(self.avg_map_len.len())
-            .max(self.accuracy.len())
-            .max(self.pp_per_month.len())
-            .max(self.count_ss.len())
-            .max(self.count_s.len())
-            .max(self.count_a.len())
-            .max(self.avg_pp.len())
-            .max(self.pp_spread.len())
+            .max(score_rank.len())
+            .max(total_score.len())
+            .max(total_hits.len())
+            .max(play_count.len())
+            .max(play_time.len())
+            .max(level.len())
+            .max(top1pp.len())
+            .max(bonus_pp.len())
+            .max(rank.len())
+            .max(pp.len())
+            .max(avg_map_len.len())
+            .max(accuracy.len())
+            .max(pp_per_month.len())
+            .max(pc_per_month.len())
+            .max(count_ss.len())
+            .max(count_s.len())
+            .max(count_a.len())
+            .max(avg_pp.len())
+            .max(pp_spread.len())
             .max(10) // join date yyyy-mm-dd
-            .max(self.pc_peak.len())
-            .max(self.max_combo.len())
-            .max(self.followers.len())
-            .max(self.replays_seen.len())
+            .max(pc_peak.len())
+            .max(max_combo.len())
+            .max(miss_rate.len())
+            .max(miss_percent.len())
+            .max(followers.len())
+            .max(replays_seen.len())
     }
 }
 
@@ -525,6 +665,42 @@ impl<'u> UserData<'u> {
                     badges: user.badges.len(),
                 }
             }
+        }
+    }
+}
+
+struct MissRate {
+    misses: u32,
+    hits: u32,
+}
+
+impl MissRate {
+    fn rate(&self) -> (Box<str>, u32) {
+        if self.misses == 0 {
+            (
+                format!("0m / {} hits", self.hits).into_boxed_str(),
+                self.hits,
+            )
+        } else {
+            let div = self.hits / self.misses;
+
+            (format!("1m / {div} hits").into_boxed_str(), div)
+        }
+    }
+
+    fn percent(&self) -> (Box<str>, f32) {
+        if self.misses == 0 {
+            (Box::from("0%"), 0.0)
+        } else {
+            let div = (100 * self.misses) as f32 / self.hits as f32;
+
+            let s = if div < 0.001 {
+                Box::from("<0.001%")
+            } else {
+                format!("{div:.3}%").into_boxed_str()
+            };
+
+            (s, div)
         }
     }
 }

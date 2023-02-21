@@ -122,7 +122,7 @@ pub(super) async fn profile(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user and scores");
+            let err = Report::new(err).wrap_err("Failed to get user and scores");
 
             return Err(err);
         }
@@ -146,12 +146,16 @@ pub(super) async fn profile(
         return orig.error(&ctx, content).await;
     }
 
-    let profile_result1 = user1.peek_stats(|stats| CompareResult::calc(mode, &scores1, stats));
-    let profile_result2 = user2.peek_stats(|stats| CompareResult::calc(mode, &scores2, stats));
+    let thumbnail_fut = get_combined_thumbnail(&ctx, user1.avatar_url(), user2.avatar_url());
+
+    let score_rank1_fut = ctx.client().get_respektive_user(user1.user_id(), mode);
+    let score_rank2_fut = ctx.client().get_respektive_user(user2.user_id(), mode);
+
+    let (thumbnail_res, score_rank1_res, score_rank2_res) =
+        tokio::join!(thumbnail_fut, score_rank1_fut, score_rank2_fut);
 
     // Create the thumbnail
-    let thumbnail = match get_combined_thumbnail(&ctx, user1.avatar_url(), user2.avatar_url()).await
-    {
+    let thumbnail = match thumbnail_res {
         Ok(thumbnail) => Some(thumbnail),
         Err(err) => {
             warn!("{:?}", err.wrap_err("Failed to combine avatars"));
@@ -159,6 +163,31 @@ pub(super) async fn profile(
             None
         }
     };
+
+    let score_rank1 = match score_rank1_res {
+        Ok(Some(data)) => Some(data.rank),
+        Ok(None) => None,
+        Err(err) => {
+            warn!("{:?}", err.wrap_err("Failed to get respektive user"));
+
+            None
+        }
+    };
+
+    let score_rank2 = match score_rank2_res {
+        Ok(Some(data)) => Some(data.rank),
+        Ok(None) => None,
+        Err(err) => {
+            warn!("{:?}", err.wrap_err("Failed to get respektive user"));
+
+            None
+        }
+    };
+
+    let profile_result1 =
+        user1.peek_stats(|stats| CompareResult::calc(mode, &scores1, stats, score_rank1));
+    let profile_result2 =
+        user2.peek_stats(|stats| CompareResult::calc(mode, &scores2, stats, score_rank2));
 
     // Creating the embed
     let embed_data =
@@ -271,13 +300,25 @@ pub struct CompareResult {
     pub pp: MinMaxAvg<f32>,
     pub map_len: MinMaxAvg<u32>,
     pub bonus_pp: f32,
+    pub top1pp: f32,
+    pub score_rank: Option<u32>,
+    pub hits: u32,
+    pub misses: u32,
 }
 
 impl CompareResult {
-    fn calc(mode: GameMode, scores: &[Score], stats: &UserStatistics) -> Self {
+    fn calc(
+        mode: GameMode,
+        scores: &[Score],
+        stats: &UserStatistics,
+        score_rank: Option<u32>,
+    ) -> Self {
         let mut pp = MinMaxAvg::new();
         let mut map_len = MinMaxAvg::new();
         let mut bonus_pp = BonusPP::new();
+
+        let mut misses = 0;
+        let mut hits = 0;
 
         for (i, score) in scores.iter().enumerate() {
             if let Some(score_pp) = score.pp {
@@ -299,6 +340,9 @@ impl CompareResult {
             };
 
             map_len.add(seconds_drain);
+
+            hits += score.total_hits() - score.statistics.count_miss;
+            misses += score.statistics.count_miss;
         }
 
         Self {
@@ -306,6 +350,10 @@ impl CompareResult {
             pp,
             map_len: map_len.into(),
             bonus_pp: bonus_pp.calculate(stats),
+            top1pp: scores.first().and_then(|score| score.pp).unwrap_or(0.0),
+            score_rank,
+            hits,
+            misses,
         }
     }
 }
@@ -321,14 +369,14 @@ async fn get_combined_thumbnail(
         ctx.client().get_avatar(user1_url),
         ctx.client().get_avatar(user2_url),
     )
-    .wrap_err("failed to get avatar")?;
+    .wrap_err("Failed to get avatar")?;
 
     let pfp1 = image::load_from_memory(&pfp1)
-        .wrap_err("failed to load pfp1 from memory")?
+        .wrap_err("Failed to load pfp1 from memory")?
         .resize_exact(128, 128, FilterType::Lanczos3);
 
     let pfp2 = image::load_from_memory(&pfp2)
-        .wrap_err("failed to load pfp2 from memory")?
+        .wrap_err("Failed to load pfp2 from memory")?
         .resize_exact(128, 128, FilterType::Lanczos3);
 
     overlay(&mut img, &pfp1, 10, 0);
@@ -337,7 +385,7 @@ async fn get_combined_thumbnail(
 
     let mut cursor = Cursor::new(png_bytes);
     img.write_to(&mut cursor, Png)
-        .wrap_err("failed to encode image")?;
+        .wrap_err("Failed to encode image")?;
 
     Ok(cursor.into_inner())
 }
