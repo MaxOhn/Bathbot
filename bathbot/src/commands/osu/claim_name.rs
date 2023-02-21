@@ -2,12 +2,14 @@ use std::sync::Arc;
 
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::SlashCommand;
+use bathbot_model::rkyv_impls::DateTimeWrapper;
 use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
 use eyre::{Report, Result};
 use futures::{future, stream::FuturesUnordered, TryStreamExt};
 use once_cell::sync::OnceCell;
-use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::{GameMode, OsuError};
+use rkyv::{with::DeserializeWith, Archived, Deserialize, Infallible};
+use rosu_v2::prelude::{GameMode, MonthlyCount, OsuError};
+use time::Time;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
@@ -115,16 +117,65 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
                     None => user.statistics = Some(stats.to_owned()),
                 });
 
-                let next_highest_rank = match next {
-                    RedisData::Original(next) => next.highest_rank,
+                let (next_highest_rank, next_last_visit) = match next {
+                    RedisData::Original(next) => {
+                        let rank = next.highest_rank;
+
+                        let last_playcount = next
+                            .monthly_playcounts
+                            .iter()
+                            .rev()
+                            .find(|count| count.count > 0)
+                            .map(|count| count.start_date.with_time(Time::MIDNIGHT).assume_utc());
+
+                        let last_visit = match (next.last_visit, last_playcount) {
+                            (Some(a), Some(b)) => Some(a.max(b)),
+                            (Some(a), _) | (_, Some(a)) => Some(a),
+                            _ => None,
+                        };
+
+                        (rank, last_visit)
+                    }
                     RedisData::Archived(next) => {
-                        next.highest_rank.deserialize(&mut Infallible).unwrap()
+                        let next: &Archived<User> = &next;
+
+                        let rank = next.highest_rank.deserialize(&mut Infallible).unwrap();
+
+                        let last_playcount = next
+                            .monthly_playcounts
+                            .iter()
+                            .rev()
+                            .find(|count| count.count > 0)
+                            .map(|count| {
+                                let count: MonthlyCount =
+                                    count.deserialize(&mut Infallible).unwrap();
+
+                                count.start_date.with_time(Time::MIDNIGHT).assume_utc()
+                            });
+
+                        let last_visit = next.last_visit.as_ref().map(|time| {
+                            DateTimeWrapper::deserialize_with(time, &mut Infallible).unwrap()
+                        });
+
+                        let last_visit = match (last_visit, last_playcount) {
+                            (Some(a), Some(b)) => Some(a.max(b)),
+                            (Some(a), _) | (_, Some(a)) => Some(a),
+                            _ => None,
+                        };
+
+                        (rank, last_visit)
                     }
                 };
 
                 match (user.highest_rank.as_mut(), next_highest_rank) {
                     (Some(curr), Some(next)) if curr.rank > next.rank => *curr = next,
                     (None, next @ Some(_)) => user.highest_rank = next,
+                    _ => {}
+                }
+
+                match (user.last_visit.as_mut(), next_last_visit) {
+                    (Some(curr), Some(next)) if *curr < next => *curr = next,
+                    (None, next @ Some(_)) => user.last_visit = next,
                     _ => {}
                 }
 
