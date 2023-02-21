@@ -302,6 +302,8 @@ pub struct CompareResult {
     pub bonus_pp: f32,
     pub top1pp: f32,
     pub score_rank: Option<u32>,
+    pub hits: u32,
+    pub misses: u32,
 }
 
 impl CompareResult {
@@ -314,6 +316,9 @@ impl CompareResult {
         let mut pp = MinMaxAvg::new();
         let mut map_len = MinMaxAvg::new();
         let mut bonus_pp = BonusPP::new();
+
+        let mut misses = 0;
+        let mut hits = 0;
 
         for (i, score) in scores.iter().enumerate() {
             if let Some(score_pp) = score.pp {
@@ -335,6 +340,9 @@ impl CompareResult {
             };
 
             map_len.add(seconds_drain);
+
+            hits += score.total_hits() - score.statistics.count_miss;
+            misses += score.statistics.count_miss;
         }
 
         Self {
@@ -344,6 +352,8 @@ impl CompareResult {
             bonus_pp: bonus_pp.calculate(stats),
             top1pp: scores.first().and_then(|score| score.pp).unwrap_or(0.0),
             score_rank,
+            hits,
+            misses,
         }
     }
 }

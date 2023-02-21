@@ -255,6 +255,28 @@ impl ProfileCompareEmbed {
 
         write_line(
             &mut d,
+            "Miss rate",
+            left.miss_rate,
+            right.miss_rate,
+            left.miss_rate_num,
+            right.miss_rate_num,
+            max_left,
+            max_right,
+        );
+
+        write_line(
+            &mut d,
+            "Miss percent",
+            left.miss_percent,
+            right.miss_percent,
+            Reverse(left.miss_percent_num),
+            Reverse(right.miss_percent_num),
+            max_left,
+            max_right,
+        );
+
+        write_line(
+            &mut d,
             "Top1 PP",
             left.top1pp,
             right.top1pp,
@@ -438,6 +460,10 @@ struct CompareStrings {
     avg_pp: String,
     pp_spread: String,
     max_combo: String,
+    miss_rate: String,
+    miss_rate_num: u32,
+    miss_percent: String,
+    miss_percent_num: f32,
     followers: String,
     replays_seen: String,
 }
@@ -449,6 +475,14 @@ impl CompareStrings {
         let days = (OffsetDateTime::now_utc() - data.join_date).whole_days() as f32;
         let pp_per_month_num = 30.67 * stats.pp / days;
         let pc_per_month_num = 30.67 * stats.playcount as f32 / days;
+
+        let miss_rate = MissRate {
+            misses: result.misses,
+            hits: result.hits,
+        };
+
+        let (miss_percent, miss_percent_num) = miss_rate.percent();
+        let (miss_rate, miss_rate_num) = miss_rate.rate();
 
         Self {
             pp: WithComma::new(stats.pp).to_string() + "pp",
@@ -479,6 +513,10 @@ impl CompareStrings {
             pp_spread: format!("{:.2}pp", result.pp.max() - result.pp.min()),
             pc_peak: WithComma::new(data.monthly_playcounts_peak).to_string(),
             max_combo: WithComma::new(stats.max_combo).to_string(),
+            miss_rate,
+            miss_rate_num,
+            miss_percent,
+            miss_percent_num,
             followers: WithComma::new(data.follower_count).to_string(),
             replays_seen: WithComma::new(stats.replays_watched).to_string(),
         }
@@ -510,6 +548,10 @@ impl CompareStrings {
             avg_pp,
             pp_spread,
             max_combo,
+            miss_rate,
+            miss_rate_num: _,
+            miss_percent,
+            miss_percent_num: _,
             followers,
             replays_seen,
         } = self;
@@ -538,6 +580,8 @@ impl CompareStrings {
             .max(10) // join date yyyy-mm-dd
             .max(pc_peak.len())
             .max(max_combo.len())
+            .max(miss_rate.len())
+            .max(miss_percent.len())
             .max(followers.len())
             .max(replays_seen.len())
     }
@@ -601,6 +645,39 @@ impl<'u> UserData<'u> {
                     badges: user.badges.len(),
                 }
             }
+        }
+    }
+}
+
+struct MissRate {
+    misses: u32,
+    hits: u32,
+}
+
+impl MissRate {
+    fn rate(&self) -> (String, u32) {
+        if self.misses == 0 {
+            (format!("0m / {} hits", self.hits), self.hits)
+        } else {
+            let div = self.hits / self.misses;
+
+            (format!("1m / {div} hits",), div)
+        }
+    }
+
+    fn percent(&self) -> (String, f32) {
+        if self.misses == 0 {
+            ("0%".to_string(), 0.0)
+        } else {
+            let div = (100 * self.misses) as f32 / self.hits as f32;
+
+            let s = if div < 0.001 {
+                "<0.001%".to_string()
+            } else {
+                format!("{div:.3}%")
+            };
+
+            (s, div)
         }
     }
 }
