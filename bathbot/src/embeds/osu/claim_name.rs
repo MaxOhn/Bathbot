@@ -42,7 +42,28 @@ impl ClaimNameEmbed {
         let name = name.cow_to_ascii_lowercase();
         let is_prev_name = user.username.cow_to_ascii_lowercase() != name;
 
-        let field = if !user.badges.is_empty() {
+        let field = if let Some(rank @ ..=100) = user.highest_rank.as_ref().map(|h| h.rank) {
+            let value = if is_prev_name {
+                format!(
+                    "{} has a different name now but their highest rank (#{rank}) was in the top 100 \
+                    so `{name}` likely won't be released in the future",
+                    user.username
+                )
+            } else {
+                format!(
+                    "{name}'{genitive} highest rank (#{rank}) was in the top 100 \
+                    so that name likely won't be released in the future",
+                    name = user.username,
+                    genitive = if user.username.ends_with('s') {
+                        ""
+                    } else {
+                        "s"
+                    },
+                )
+            };
+
+            available_at_field(value)
+        } else if !user.badges.is_empty() {
             let value = if is_prev_name {
                 format!(
                     "{} has a different name now but they have badges \

@@ -6,6 +6,7 @@ use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
 use eyre::{Report, Result};
 use futures::{future, stream::FuturesUnordered, TryStreamExt};
 use once_cell::sync::OnceCell;
+use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
@@ -13,7 +14,10 @@ use crate::{
     core::Context,
     embeds::ClaimNameEmbed,
     embeds::EmbedData,
-    manager::redis::osu::{User, UserArgs},
+    manager::redis::{
+        osu::{User, UserArgs},
+        RedisData,
+    },
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
@@ -86,7 +90,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         }
         UserArgs::Err(err) => {
             let _ = command.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
@@ -111,6 +115,19 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
                     None => user.statistics = Some(stats.to_owned()),
                 });
 
+                let next_highest_rank = match next {
+                    RedisData::Original(next) => next.highest_rank,
+                    RedisData::Archived(next) => {
+                        next.highest_rank.deserialize(&mut Infallible).unwrap()
+                    }
+                };
+
+                match (user.highest_rank.as_mut(), next_highest_rank) {
+                    (Some(curr), Some(next)) if curr.rank > next.rank => *curr = next,
+                    (None, next @ Some(_)) => user.highest_rank = next,
+                    _ => {}
+                }
+
                 future::ready(Ok(Some(user)))
             }
             None => future::ready(Ok(Some(next.into_original()))),
@@ -120,7 +137,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         Ok(user) => user.unwrap(),
         Err(err) => {
             let _ = command.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
@@ -160,6 +177,8 @@ impl ClaimNameValidator {
                     "brvjmb",
                     "ijumfs",
                     "ibdl",
+                    "tibwju",
+                    "gsjfoepl",
                 ]
                 .into_iter()
                 .map(String::from)
