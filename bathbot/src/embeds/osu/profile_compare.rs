@@ -310,6 +310,17 @@ impl ProfileCompareEmbed {
 
         write_line(
             &mut d,
+            "PC per month",
+            left.pc_per_month,
+            right.pc_per_month,
+            left.pc_per_month_num,
+            right.pc_per_month_num,
+            max_left,
+            max_right,
+        );
+
+        write_line(
+            &mut d,
             "Join date",
             data1.join_date.format(DATE_FORMAT).unwrap(),
             data2.join_date.format(DATE_FORMAT).unwrap(),
@@ -419,6 +430,8 @@ struct CompareStrings {
     accuracy: String,
     pp_per_month: String,
     pp_per_month_num: f32,
+    pc_per_month: String,
+    pc_per_month_num: f32,
     count_ss: String,
     count_s: String,
     count_a: String,
@@ -435,6 +448,7 @@ impl CompareStrings {
 
         let days = (OffsetDateTime::now_utc() - data.join_date).whole_days() as f32;
         let pp_per_month_num = 30.67 * stats.pp / days;
+        let pc_per_month_num = 30.67 * stats.playcount as f32 / days;
 
         Self {
             pp: WithComma::new(stats.pp).to_string() + "pp",
@@ -456,6 +470,8 @@ impl CompareStrings {
             accuracy: format!("{:.2}%", stats.accuracy),
             pp_per_month: format!("{pp_per_month_num:.2}pp"),
             pp_per_month_num,
+            pc_per_month: format!("{pc_per_month_num:.2}"),
+            pc_per_month_num,
             count_ss: (stats.grade_counts.ssh + stats.grade_counts.ss).to_string(),
             count_s: (stats.grade_counts.sh + stats.grade_counts.s).to_string(),
             count_a: (stats.grade_counts.a).to_string(),
@@ -486,6 +502,8 @@ impl CompareStrings {
             accuracy,
             pp_per_month,
             pp_per_month_num: _,
+            pc_per_month,
+            pc_per_month_num: _,
             count_ss,
             count_s,
             count_a,
@@ -511,6 +529,7 @@ impl CompareStrings {
             .max(avg_map_len.len())
             .max(accuracy.len())
             .max(pp_per_month.len())
+            .max(pc_per_month.len())
             .max(count_ss.len())
             .max(count_s.len())
             .max(count_a.len())
