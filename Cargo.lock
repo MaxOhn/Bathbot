@@ -273,6 +273,7 @@ dependencies = [
  "parking_lot 0.12.1",
  "plotters",
  "plotters-backend",
+ "plotters-skia",
  "priority-queue",
  "prometheus",
  "radix_trie",
@@ -1643,7 +1644,6 @@ dependencies = [
  "num-traits",
  "pathfinder_geometry",
  "plotters-backend",
- "plotters-bitmap",
  "ttf-parser",
  "wasm-bindgen",
  "web-sys",
@@ -1656,12 +1656,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "193228616381fecdc1224c62e96946dfbc73ff4384fba576e052ff8c1bea8142"
 
 [[package]]
-name = "plotters-bitmap"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c4a1f21490a6cf4a84c272ad20bd7844ed99a3178187a4c5ab7f2051295beef"
+name = "plotters-skia"
+version = "0.1.0"
+source = "git+https://github.com/MaxOhn/plotters-skia?branch=main#8f5f34d12bab2b52a8963a549da4138feba97343"
 dependencies = [
  "plotters-backend",
+ "skia-safe",
 ]
 
 [[package]]

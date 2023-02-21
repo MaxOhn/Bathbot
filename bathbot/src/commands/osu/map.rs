@@ -1,4 +1,6 @@
-use std::{borrow::Cow, cmp::Ordering, fmt::Write, mem, sync::Arc, time::Duration};
+use std::{
+    borrow::Cow, cell::RefCell, cmp::Ordering, fmt::Write, mem, rc::Rc, sync::Arc, time::Duration,
+};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_util::{
@@ -7,11 +9,16 @@ use bathbot_util::{
     osu::MapIdType,
 };
 use enterpolation::{linear::Linear, Curve};
-use eyre::{Report, Result, WrapErr, ContextCompat};
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use image::DynamicImage;
+use plotters::{
+    coord::{types::RangedCoordf64, Shift},
+    prelude::*,
+};
+use plotters_skia::SkiaBackend;
 use rosu_pp::{BeatmapExt, Strains};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
-use skia_safe::{Paint, Surface, Path, PaintStyle, EncodedImageFormat, Rect, Image, Data, ImageInfo, Color, TileMode, BlendMode, Font, Typeface, FontStyle, TextBlob, PaintCap, gradient_shader};
+use skia_safe::{BlendMode, EncodedImageFormat, Surface};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::{message::MessageType, Message},
@@ -26,7 +33,7 @@ use crate::{
     Context,
 };
 
-use super::{HasMods, ModsResult};
+use super::{BitMapElement, HasMods, ModsResult};
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
@@ -239,7 +246,6 @@ async fn slash_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Result
 const W: u32 = 590;
 const H: u32 = 170;
 const LEGEND_H: u32 = 25;
-const GRAPH_H: u32 = H - LEGEND_H - 21;
 
 async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
     let mods = match args.mods() {
@@ -470,6 +476,11 @@ async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> Result<Gra
 }
 
 fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<u8>> {
+    let last_timestamp = ((NEW_STRAIN_COUNT - 2) as f64
+        * strains.strains.section_len()
+        * strains.strains_count as f64)
+        / NEW_STRAIN_COUNT as f64;
+
     let max_strain = match &strains.strains {
         Strains::Osu(strains) => strains
             .aim
@@ -500,196 +511,170 @@ fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<
         bail!("no non-zero strain point");
     }
 
-    let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32)).wrap_err("Failed to create surface")?;
-    let mut paint = Paint::default();
-    paint
-        .set_color(Color::BLACK)
-        .set_style(PaintStyle::Fill)
-        .set_anti_alias(true);
+    let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32))
+        .wrap_err("Failed to create surface")?;
 
-    surface.canvas().draw_rect(Rect::new(0., 0., W as f32, H as f32), &paint);
+    {
+        let backend = Rc::new(RefCell::new(SkiaBackend::new(surface.canvas(), W, H)));
+        let root = DrawingArea::from(&backend);
 
-    if let Some(background) = background {
-        let info = ImageInfo::new(
-            (background.width() as i32, background.height() as i32),
-            skia_safe::ColorType::RGBA8888,
-            skia_safe::AlphaType::Opaque,
-            None
-        );
+        // Add background
+        if let Some(background) = background {
+            let background = background.blur(2.0);
+            let elem = BitMapElement::new(background, (0, 0));
+            root.draw(&elem).wrap_err("Failed to draw background")?;
 
-        let bytes = background.blur(3.0).to_rgba8();
-        let pixels = Data::new_copy(&bytes);
-        let row_bytes = background.width() * 4;
+            let rect = Rectangle::new([(0, 0), (W as i32, H as i32)], BLACK.mix(0.75).filled());
+            root.draw(&rect)
+                .wrap_err("Failed to draw darkening rectangle")?;
+        } else {
+            root.fill(&RGBColor(19, 43, 33))
+                .wrap_err("Failed to fill background")?;
+        }
 
-        let image = Image::from_raster_data(&info, pixels, row_bytes as usize).wrap_err("Failed to create image")?;
-        surface.canvas().draw_image_rect(image, None, Rect::new(0., 0., W as f32, H as f32), &paint);
+        let (legend_area, graph_area) = root.split_vertically(LEGEND_H);
+
+        let mut chart = ChartBuilder::on(&graph_area)
+            .x_label_area_size(17_i32)
+            .build_cartesian_2d(last_timestamp.min(1.0)..last_timestamp, 0.0_f64..max_strain)
+            .wrap_err("Failed to build chart")?;
+
+        // Mesh and labels
+        let text_style = FontDesc::new(FontFamily::SansSerif, 14.0, FontStyle::Bold).color(&WHITE);
+
+        chart
+            .configure_mesh()
+            .disable_y_mesh()
+            .disable_y_axis()
+            .set_all_tick_mark_size(3_i32)
+            .light_line_style(WHITE.mix(0.0)) // hide
+            .bold_line_style(WHITE.mix(0.75))
+            .x_labels(10)
+            .x_label_style(text_style.clone())
+            .axis_style(WHITE)
+            .x_label_formatter(&|timestamp| {
+                if timestamp.abs() <= f64::EPSILON {
+                    return String::new();
+                }
+
+                let d = Duration::from_millis(*timestamp as u64);
+                let minutes = d.as_secs() / 60;
+                let seconds = d.as_secs() % 60;
+
+                format!("{minutes}:{seconds:0>2}")
+            })
+            .draw()
+            .wrap_err("Failed to draw mesh")?;
+
+        draw_mode_strains(&backend, &mut chart, strains, &legend_area, &text_style)?;
     }
 
-    paint.set_alpha_f(0.7);
-    surface.canvas().draw_rect(Rect::new(0., 0., W as f32, H as f32), &paint);
-
-    // Maybe change the font?
-    let typeface = Typeface::new("Comfortaa", FontStyle::bold()).wrap_err("Failed to get typeface")?;
-    let font = Font::from_typeface(typeface, Some(13.0));
-
-    draw_mode_strains(&mut surface, strains, max_strain, font)?;
-
-    paint
-        .set_color(Color::WHITE)
-        .set_alpha_f(1.0)
-        .set_style(PaintStyle::Stroke)
-        .set_stroke_width(1.0);
-
-    surface.canvas().draw_line((0., (LEGEND_H + GRAPH_H) as f32), (W as f32, (LEGEND_H + GRAPH_H) as f32), &paint);
-
-    let data = surface.image_snapshot().encode_to_data(EncodedImageFormat::PNG).wrap_err("Failed to encode image")?;
-    let png_bytes = data.as_bytes().to_vec();
+    let png_bytes = surface
+        .image_snapshot()
+        .encode_to_data(EncodedImageFormat::PNG)
+        .wrap_err("Failed to encode image")?
+        .to_vec();
 
     Ok(png_bytes)
 }
 
-fn draw_strain(
-    surface: &mut Surface,
-    label: &str,
-    strains: Vec<f64>,
-    max_strain: f64,
-    color: Color,
-    font: &Font,
-    legend_x: &mut f32
-) -> Result<()> {
-    let gradient = gradient_shader::linear(
-        ((0., LEGEND_H as f32), (0., (LEGEND_H + GRAPH_H) as f32)),
-        [color.with_a(125), color.with_a(20)].as_slice(),
-        None,
-        TileMode::Clamp,
-        None,
-        None
-    ).wrap_err("Failed to create gradient shader")?;
-
-    let mut paint = Paint::default();
-    paint
-        .set_color(color)
-        .set_alpha_f(0.75)
-        .set_anti_alias(true)
-        .set_stroke_width(2.0)
-        .set_stroke_cap(skia_safe::PaintCap::Round)
-        .set_stroke_join(skia_safe::PaintJoin::Round)
-        .set_style(PaintStyle::Stroke)
-        .set_blend_mode(BlendMode::Lighten);
-
-    let mut path = Path::new();
-    path.move_to((0., (LEGEND_H + GRAPH_H) as f32));
-
-    let len = strains.len();
-    for (i, strain) in strains.iter().enumerate() {
-        path.line_to((
-            (i as f32 / (len - 1) as f32) * W as f32,
-            LEGEND_H as f32 + GRAPH_H as f32 - *strain as f32 / max_strain as f32 * GRAPH_H as f32
-        ));
-    }
-
-    surface.canvas().draw_path(&path, &paint);
-
-    path.line_to((W as f32, (LEGEND_H + GRAPH_H) as f32));
-
-    paint
-        .set_shader(Some(gradient))
-        .set_style(PaintStyle::Fill);
-
-    surface.canvas().draw_path(&path, &paint);
-
-    paint
-        .set_shader(None)
-        .set_blend_mode(BlendMode::default())
-        .set_color(color.with_a(170));
-
-    surface.canvas().draw_rect(Rect::new(*legend_x, LEGEND_H as f32 * 0.42, *legend_x + 16.0, LEGEND_H as f32 * 0.58), &paint);
-
-    *legend_x += 26.;
-
-    paint.set_color(Color::WHITE);
-
-    let textblob = TextBlob::from_str(label, font).wrap_err("Failed to create text blob")?;
-    surface.canvas().draw_text_blob(&textblob, (*legend_x, (LEGEND_H) as f32 - 8.0), &paint);
-
-    paint.set_alpha(50);
-
-    let (_, bounds) = font.measure_str(label, Some(&paint));
-
-    *legend_x += bounds.width() + 10.0;
-
-    Ok(())
-}
-
 fn draw_mode_strains(
-    surface: &mut Surface,
+    backend: &Rc<RefCell<SkiaBackend<'_>>>,
+    chart: &mut ChartContext<'_, SkiaBackend<'_>, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
     strains: GraphStrains,
-    max_strain: f64,
-    font: Font
+    legend_area: &DrawingArea<SkiaBackend<'_>, Shift>,
+    text_style: &TextStyle<'_>,
 ) -> Result<()> {
     let GraphStrains {
         strains,
         strains_count,
     } = strains;
 
-    let length = strains_count as f64 * strains.section_len();
+    let orig_count = strains_count as f64;
+    let new_count = strains.len() as f64;
+    let section_len = strains.section_len();
 
-    let mut paint = Paint::default();
-    paint.set_color(Color::WHITE)
-        .set_stroke_width(2.0)
-        .set_stroke_cap(PaintCap::Round);
+    let mut legend_x: i32 = 8;
 
-    let format_timestamp = |timestamp: f32| {
-        if timestamp.abs() <= f32::EPSILON {
-            return String::new()
-        }
+    let factor = section_len * orig_count / new_count;
 
-        let d = Duration::from_millis(timestamp as u64);
-        let hours = d.as_secs() / 3600;
-        let minutes = d.as_secs() / 60 % 60;
-        let seconds = d.as_secs() % 60;
-
-        if hours > 0 {
-            format!("{hours}:{minutes:0>2}:{seconds:0>2}")
-        } else {
-            format!("{minutes}:{seconds:0>2}")
-        }
-    };
-
-    for i in 1..=6 {
-        let k = i as f32 / 6.;
-
-        paint.set_alpha_f(0.4);
-        surface.canvas().draw_line((W as f32 * k, (LEGEND_H + GRAPH_H) as f32), (W as f32 * k, LEGEND_H as f32 - 0.5), &paint);
-        let timestamp = length as f32 * k;
-        
-        let label = format_timestamp(timestamp);
-        let textblob = TextBlob::from_str(label.as_str(), &font).wrap_err("Failed to create text blob")?;
-
-        let (_, bounds) = font.measure_str(label.as_str(), Some(&paint));
-        let offset = match i { 6 => bounds.width(), _ => bounds.width() / 2.0 };
-        
-        paint.set_alpha_f(1.0);
-        surface.canvas().draw_text_blob(&textblob, (W as f32 * k - offset, H as f32 - 4.0), &paint);
+    fn timestamp_iter(strains: &[f64], factor: f64) -> impl Iterator<Item = (f64, f64)> + '_ {
+        strains
+            .iter()
+            .enumerate()
+            .map(move |(i, strain)| (i as f64 * factor, *strain))
     }
 
-    let mut legend_x: f32 = 8.0;
+    macro_rules! draw_line {
+        ( $label:literal, $strains:ident.$skill:ident, $color:ident ) => {{
+            backend
+                .borrow_mut()
+                .set_blend_mode(Some(BlendMode::Lighten));
+
+            chart
+                .draw_series(
+                    AreaSeries::new(
+                        timestamp_iter(&$strains.$skill, factor),
+                        0.0,
+                        $color.mix(0.20),
+                    )
+                    .border_style($color.stroke_width(2)),
+                )
+                .wrap_err(concat!("Failed to draw ", stringify!($skill), " series"))?;
+
+            backend.borrow_mut().set_blend_mode(None);
+
+            let rect = Rectangle::new(
+                [
+                    (legend_x, (LEGEND_H as f32 * 0.42) as i32),
+                    (legend_x + 16, (LEGEND_H as f32 * 0.58) as i32),
+                ],
+                $color.filled(),
+            );
+
+            legend_area
+                .draw(&rect)
+                .wrap_err("Failed to draw legend rectangle")?;
+
+            legend_x += 26;
+
+            let ((min_x, min_y), (max_x, max_y)) = text_style
+                .font
+                .layout_box($label)
+                .wrap_err("Failed to get legend layout box")?;
+
+            let width = max_x - min_x;
+            let height = max_y - min_y;
+
+            let text_pos = (legend_x, (LEGEND_H as i32 - 8 - height));
+
+            legend_area
+                .draw_text($label, text_style, text_pos)
+                .wrap_err("Failed to draw legend text")?;
+
+            // clippy seems to think the macro's scope drops `legend_x` afterwards
+            #[allow(unused)]
+            {
+                legend_x += width + 10;
+            }
+        }};
+    }
 
     match strains {
         Strains::Osu(strains) => {
-            draw_strain(surface, "Aim", strains.aim, max_strain, Color::CYAN, &font, &mut legend_x)?;
-            draw_strain(surface, "Aim (Sliders)", strains.aim_no_sliders, max_strain, Color::GREEN, &font, &mut legend_x)?;
-            draw_strain(surface, "Speed", strains.speed, max_strain, Color::RED, &font, &mut legend_x)?;
-            draw_strain(surface, "Flashlight", strains.flashlight, max_strain, Color::MAGENTA, &font, &mut legend_x)?;
+            draw_line!("Aim", strains.aim, CYAN);
+            draw_line!("Aim (Sliders)", strains.aim_no_sliders, GREEN);
+            draw_line!("Speed", strains.speed, RED);
+            draw_line!("Flashlight", strains.flashlight, MAGENTA);
         }
         Strains::Taiko(strains) => {
-            draw_strain(surface, "Stamina", strains.stamina, max_strain, Color::RED, &font, &mut legend_x)?;
-            draw_strain(surface, "Color", strains.color, max_strain, Color::YELLOW, &font, &mut legend_x)?;
-            draw_strain(surface, "Rhythm", strains.rhythm, max_strain, Color::CYAN, &font, &mut legend_x)?;
+            draw_line!("Stamina", strains.stamina, RED);
+            draw_line!("Color", strains.color, YELLOW);
+            draw_line!("Rhythm", strains.rhythm, CYAN);
         }
-        Strains::Catch(strains) => draw_strain(surface, "Movement", strains.movement, max_strain, Color::CYAN, &font, &mut legend_x)?,
-        Strains::Mania(strains) => draw_strain(surface, "Strain", strains.strains, max_strain, Color::MAGENTA, &font, &mut legend_x)?,
-    };
+        Strains::Catch(strains) => draw_line!("Movement", strains.movement, CYAN),
+        Strains::Mania(strains) => draw_line!("Strain", strains.strains, MAGENTA),
+    }
 
     Ok(())
 }

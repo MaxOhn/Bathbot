@@ -7,8 +7,7 @@ use bathbot_util::{
     datetime::DATE_FORMAT,
     matcher, MessageBuilder,
 };
-use eyre::{Report, Result, WrapErr};
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use itertools::Itertools;
 use plotters::{
     coord::{
@@ -18,7 +17,9 @@ use plotters::{
     },
     prelude::*,
 };
+use plotters_skia::SkiaBackend;
 use rosu_v2::{prelude::OsuError, request::UserId};
+use skia_safe::{EncodedImageFormat, Surface};
 use time::{Date, Duration, OffsetDateTime};
 use twilight_model::guild::Permissions;
 
@@ -177,11 +178,12 @@ pub fn graphs(
         return Ok(None);
     }
 
-    let len = (w * h) as usize;
-    let mut buf = vec![0; len * 3];
+    let mut surface = Surface::new_raster_n32_premul((w as i32, h as i32))
+        .wrap_err("Failed to create surface")?;
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
+        let root = SkiaBackend::new(surface.canvas(), w, h).into_drawing_area();
+
         let background = RGBColor(19, 43, 33);
         root.fill(&background)
             .wrap_err("failed to fill background")?;
@@ -198,13 +200,11 @@ pub fn graphs(
         }
     }
 
-    // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
-
-    png_encoder
-        .write_image(&buf, w, h, ColorType::Rgb8)
-        .wrap_err("failed to encode image")?;
+    let png_bytes = surface
+        .image_snapshot()
+        .encode_to_data(EncodedImageFormat::PNG)
+        .wrap_err("Failed to encode image")?
+        .to_vec();
 
     Ok(Some(png_bytes))
 }

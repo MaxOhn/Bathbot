@@ -1,17 +1,18 @@
 use std::fmt::Write;
 
-use eyre::{Result, WrapErr};
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
+use eyre::{ContextCompat, Result, WrapErr};
 use plotters::{
     prelude::{
-        BitMapBackend, ChartBuilder, Circle, EmptyElement, IntoDrawingArea, IntoSegmentedCoord,
-        Rectangle, SegmentValue, SeriesLabelPosition,
+        ChartBuilder, Circle, EmptyElement, IntoDrawingArea, IntoSegmentedCoord, Rectangle,
+        SegmentValue, SeriesLabelPosition,
     },
     series::PointSeries,
-    style::{Color, RGBColor, WHITE},
+    style::{Color, RGBColor, TextStyle, WHITE},
 };
 use plotters_backend::FontStyle;
+use plotters_skia::SkiaBackend;
 use rosu_v2::prelude::Score;
+use skia_safe::{EncodedImageFormat, Surface};
 use time::{OffsetDateTime, UtcOffset};
 
 use crate::commands::osu::graphs::{H, W};
@@ -49,16 +50,17 @@ pub async fn top_graph_time(
 
     let max_hours = hours.iter().max().map_or(0, |count| *count as u32);
 
-    let len = (W * H) as usize;
-    let mut buf = vec![0; len * 3];
+    let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32))
+        .wrap_err("Failed to create surface")?;
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        let root = SkiaBackend::new(surface.canvas(), W, H).into_drawing_area();
+
         let background = RGBColor(19, 43, 33);
         root.fill(&background)
-            .wrap_err("failed to fill background")?;
+            .wrap_err("Failed to fill background")?;
 
-        let caption_style = ("sans-serif", 25_i32, FontStyle::Bold, &WHITE);
+        let caption_style = TextStyle::from(("sans-serif", 25_i32, FontStyle::Bold)).color(&WHITE);
 
         let x_label_area_size = 50;
         let y_label_area_size = 60;
@@ -75,9 +77,9 @@ pub async fn top_graph_time(
             .margin_bottom(margin_bottom)
             .margin_top(margin_top)
             .margin_right(margin_right)
-            .caption(caption, caption_style)
+            .caption(caption, caption_style.clone())
             .build_cartesian_2d((0_u32..23_u32).into_segmented(), 0_u32..max_hours)
-            .wrap_err("failed to build bar chart")?
+            .wrap_err("Failed to build bar chart")?
             .set_secondary_coord((0_u32..23_u32).into_segmented(), 0_u32..max_hours);
 
         chart
@@ -91,7 +93,7 @@ pub async fn top_graph_time(
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
             .draw()
-            .wrap_err("failed to draw primary bar mesh")?;
+            .wrap_err("Failed to draw primary bar mesh")?;
 
         chart
             .configure_secondary_axes()
@@ -100,12 +102,12 @@ pub async fn top_graph_time(
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
             .draw()
-            .wrap_err("failed to draw secondary mesh")?;
+            .wrap_err("Failed to draw secondary mesh")?;
 
         let counts = ScoreHourCounts::new(hours);
         chart
             .draw_secondary_series(counts)
-            .wrap_err("failed to draw bars")?;
+            .wrap_err("Failed to draw bars")?;
 
         // Draw points
         let mut chart = ChartBuilder::on(&root)
@@ -117,7 +119,7 @@ pub async fn top_graph_time(
             .margin_right(margin_right)
             .caption("", caption_style)
             .build_cartesian_2d(0_u32..24 * 60, min_adj..max_adj)
-            .wrap_err("failed to build point chart")?
+            .wrap_err("Failed to build point chart")?
             .set_secondary_coord(0_u32..24 * 60, min_adj..max_adj);
 
         chart
@@ -131,7 +133,7 @@ pub async fn top_graph_time(
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
             .draw()
-            .wrap_err("failed to draw point mesh")?;
+            .wrap_err("Failed to draw point mesh")?;
 
         // Draw secondary axis just to hide its values so that
         // the left hand values aren't displayed instead
@@ -140,7 +142,7 @@ pub async fn top_graph_time(
             .label_style(("", 16_i32, &WHITE.mix(0.0)))
             .axis_style(WHITE.mix(0.0))
             .draw()
-            .wrap_err("failed to draw secondary points")?;
+            .wrap_err("Failed to draw secondary points")?;
 
         let point_style = RGBColor(2, 186, 213).mix(0.7).filled();
         let border_style = WHITE.mix(0.9).stroke_width(1);
@@ -155,7 +157,7 @@ pub async fn top_graph_time(
 
         chart
             .draw_series(series)
-            .wrap_err("failed to draw primary points")?
+            .wrap_err("Failed to draw primary points")?
             .label(format!("Max: {max}pp"))
             .legend(EmptyElement::at);
 
@@ -169,7 +171,7 @@ pub async fn top_graph_time(
 
         chart
             .draw_series(series)
-            .wrap_err("failed to draw primary points borders")?
+            .wrap_err("Failed to draw primary points borders")?
             .label(format!("Min: {min}pp"))
             .legend(EmptyElement::at);
 
@@ -181,16 +183,14 @@ pub async fn top_graph_time(
             .legend_area_size(0_i32)
             .label_font(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
             .draw()
-            .wrap_err("failed to draw legend")?;
+            .wrap_err("Failed to draw legend")?;
     }
 
-    // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
-
-    png_encoder
-        .write_image(&buf, W, H, ColorType::Rgb8)
-        .wrap_err("failed to encode image")?;
+    let png_bytes = surface
+        .image_snapshot()
+        .encode_to_data(EncodedImageFormat::PNG)
+        .wrap_err("Failed to encode image")?
+        .to_vec();
 
     Ok(png_bytes)
 }

@@ -6,24 +6,26 @@ use bathbot_util::{
 };
 use bitflags::bitflags;
 use bytes::Bytes;
-use eyre::{Report, Result, WrapErr};
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use futures::{stream::FuturesUnordered, TryStreamExt};
-use image::{codecs::png::PngEncoder, imageops::FilterType::Lanczos3, ColorType, ImageEncoder};
+use image::imageops::FilterType::Lanczos3;
 use plotters::{
     coord::{types::RangedCoordi32, Shift},
     prelude::{
-        BitMapBackend, BitMapElement, Cartesian2d, ChartBuilder, ChartContext, Circle, DrawingArea,
-        IntoDrawingArea, PathElement, SeriesLabelPosition,
+        Cartesian2d, ChartBuilder, ChartContext, Circle, DrawingArea, IntoDrawingArea, PathElement,
+        SeriesLabelPosition,
     },
     series::AreaSeries,
     style::{Color, RGBColor, BLACK, WHITE},
 };
 use plotters_backend::FontStyle;
+use plotters_skia::SkiaBackend;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
     prelude::{MonthlyCount, OsuError},
     request::UserId,
 };
+use skia_safe::{EncodedImageFormat, Surface};
 use time::{Date, Month, OffsetDateTime};
 
 use crate::{
@@ -36,7 +38,7 @@ use crate::{
     util::Monthly,
 };
 
-use super::{H, W};
+use super::{BitMapElement, H, W};
 
 pub async fn playcount_replays_graph(
     ctx: &Context,
@@ -161,32 +163,59 @@ impl<'l> ProfileGraphParams<'l> {
     }
 }
 
-type Area<'b> = DrawingArea<BitMapBackend<'b>, Shift>;
-type Chart<'a, 'b> =
-    ChartContext<'a, BitMapBackend<'b>, Cartesian2d<Monthly<Date>, RangedCoordi32>>;
+type Area<'b> = DrawingArea<SkiaBackend<'b>, Shift>;
+type Chart<'a, 'b> = ChartContext<'a, SkiaBackend<'b>, Cartesian2d<Monthly<Date>, RangedCoordi32>>;
+
+// Request all badge images if required
+async fn gather_badges(
+    ctx: &Context,
+    user: &mut RedisData<User>,
+    flags: ProfileGraphFlags,
+) -> Result<Vec<Bytes>> {
+    let badges = match user {
+        RedisData::Original(user) => mem::take(&mut user.badges),
+        RedisData::Archived(user) => user.badges.deserialize(&mut Infallible).unwrap(),
+    };
+
+    if badges.is_empty() || !flags.badges() {
+        return Ok(Vec::new());
+    }
+
+    badges
+        .iter()
+        .map(|badge| ctx.client().get_badge(&badge.image_url))
+        .collect::<FuturesUnordered<_>>()
+        .try_collect()
+        .await
+}
 
 pub async fn graphs(params: ProfileGraphParams<'_>) -> Result<Option<Vec<u8>>> {
     let w = params.w;
     let h = params.h;
 
-    let len = (w * h) as usize;
-    let mut buf = vec![0; len * 3]; // PIXEL_SIZE = 3
+    let badges = gather_badges(params.ctx, params.user, params.flags)
+        .await
+        .wrap_err("Failed to gather badges")?;
 
-    if !draw(&mut buf, params).await? {
+    let mut surface = Surface::new_raster_n32_premul((w as i32, h as i32))
+        .wrap_err("Failed to create surface")?;
+
+    if !draw(&mut surface, params, &badges)? {
         return Ok(None);
     }
 
-    // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
+    let png_bytes = surface
+        .image_snapshot()
+        .encode_to_data(EncodedImageFormat::PNG)
+        .wrap_err("Failed to encode image")?
+        .to_vec();
 
     Ok(Some(png_bytes))
 }
 
-async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> Result<bool> {
+fn draw(surface: &mut Surface, params: ProfileGraphParams<'_>, badges: &[Bytes]) -> Result<bool> {
     let ProfileGraphParams {
-        ctx,
+        ctx: _,
         user,
         w,
         h,
@@ -199,26 +228,13 @@ async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> Result<bool> {
         return Ok(false);
     }
 
-    let badges = match user {
-        RedisData::Original(user) => mem::take(&mut user.badges),
-        RedisData::Archived(user) => user.badges.deserialize(&mut Infallible).unwrap(),
-    };
-
     let canvas = if flags.badges() && !badges.is_empty() {
-        // Request all badge images
-        let badges: Vec<_> = badges
-            .iter()
-            .map(|badge| ctx.client().get_badge(&badge.image_url))
-            .collect::<FuturesUnordered<_>>()
-            .try_collect()
-            .await?;
-
         // Needs to happen after .await since type is not Send
-        let root = create_root(buf, w, h)?;
+        let root = create_root(surface, w, h)?;
 
-        draw_badges(&badges, root, w, h)?
+        draw_badges(badges, root, w, h)?
     } else {
-        create_root(buf, w, h)?
+        create_root(surface, w, h)?
     };
 
     if flags.playcount() && flags.replays() {
@@ -232,11 +248,12 @@ async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> Result<bool> {
     Ok(true)
 }
 
-fn create_root(buf: &mut [u8], w: u32, h: u32) -> Result<Area<'_>> {
-    let root = BitMapBackend::with_buffer(buf, (w, h)).into_drawing_area();
+fn create_root(surface: &mut Surface, w: u32, h: u32) -> Result<Area<'_>> {
+    let root = SkiaBackend::new(surface.canvas(), w, h).into_drawing_area();
+
     let background = RGBColor(19, 43, 33);
     root.fill(&background)
-        .wrap_err("failed to fill background")?;
+        .wrap_err("Failed to fill background")?;
 
     Ok(root)
 }
@@ -272,7 +289,7 @@ fn draw_badges<'a>(badges: &[Bytes], area: Area<'a>, w: u32, h: u32) -> Result<A
         let mut chart_row = ChartBuilder::on(&rows[row])
             .margin(margin)
             .build_cartesian_2d(0..w, 0..badge_height)
-            .wrap_err("failed to build badge chart")?;
+            .wrap_err("Failed to build badge chart")?;
 
         chart_row
             .configure_mesh()
@@ -281,20 +298,21 @@ fn draw_badges<'a>(badges: &[Bytes], area: Area<'a>, w: u32, h: u32) -> Result<A
             .disable_x_mesh()
             .disable_y_mesh()
             .draw()
-            .wrap_err("failed to draw badge mesh")?;
+            .wrap_err("Failed to draw badge mesh")?;
 
         for (idx, badge) in chunk.iter().enumerate() {
             let badge_img = image::load_from_memory(badge)
-                .wrap_err("failed to get badge from memory")?
+                .wrap_err("Failed to get badge from memory")?
                 .resize_exact(badge_width, badge_height, Lanczos3);
 
             let x = x_offset + idx as u32 * badge_width + idx as u32 * inner_margin;
             let y = badge_height;
-            let elem: BitMapElement<'_, _> = ((x, y), badge_img).into();
+
+            let elem = BitMapElement::new(badge_img, (x, y));
 
             chart_row
                 .draw_series(iter::once(elem))
-                .wrap_err("failed to draw badge")?;
+                .wrap_err("Failed to draw badge")?;
         }
     }
 
@@ -312,7 +330,7 @@ fn draw_playcounts(playcounts: &[MonthlyCount], canvas: &Area<'_>) -> Result<()>
         .x_label_area_size(20_i32)
         .y_label_area_size(75_i32)
         .build_cartesian_2d(Monthly(first..last), 0..max)
-        .wrap_err("failed to build playcounts chart")?;
+        .wrap_err("Failed to build playcounts chart")?;
 
     chart
         .configure_mesh()
@@ -326,7 +344,7 @@ fn draw_playcounts(playcounts: &[MonthlyCount], canvas: &Area<'_>) -> Result<()>
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
         .draw()
-        .wrap_err("failed to draw playcounts mesh")?;
+        .wrap_err("Failed to draw playcounts mesh")?;
 
     draw_area(
         &mut chart,
@@ -337,7 +355,7 @@ fn draw_playcounts(playcounts: &[MonthlyCount], canvas: &Area<'_>) -> Result<()>
         playcounts,
         "Monthly playcount",
     )
-    .wrap_err("failed to draw playcount area")
+    .wrap_err("Failed to draw playcount area")
 }
 
 const REPLAYS_AREA_COLOR: RGBColor = RGBColor(0, 246, 193);
@@ -352,7 +370,7 @@ fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> Result<()> {
         .x_label_area_size(20_i32)
         .y_label_area_size(label_area)
         .build_cartesian_2d(Monthly(first..last), 0..max)
-        .wrap_err("failed to build replay chart")?;
+        .wrap_err("Failed to build replay chart")?;
 
     chart
         .configure_mesh()
@@ -366,7 +384,7 @@ fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> Result<()> {
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
         .draw()
-        .wrap_err("failed to draw replay mesh")?;
+        .wrap_err("Failed to draw replay mesh")?;
 
     draw_area(
         &mut chart,
@@ -377,7 +395,7 @@ fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> Result<()> {
         replays,
         "Replays watched",
     )
-    .wrap_err("failed to draw replay area")
+    .wrap_err("Failed to draw replay area")
 }
 
 fn draw_both(
@@ -398,7 +416,7 @@ fn draw_both(
         .y_label_area_size(75_i32)
         .right_y_label_area_size(right_label_area)
         .build_cartesian_2d(Monthly(x_min..x_max), 0..left_max)
-        .wrap_err("failed to build dual chart")?
+        .wrap_err("Failed to build dual chart")?
         .set_secondary_coord(Monthly(x_min..x_max), 0..right_max);
 
     // Mesh and labels
@@ -414,7 +432,7 @@ fn draw_both(
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
         .draw()
-        .wrap_err("failed to draw primary mesh")?;
+        .wrap_err("Failed to draw primary mesh")?;
 
     chart
         .configure_secondary_axes()
@@ -423,7 +441,7 @@ fn draw_both(
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
         .draw()
-        .wrap_err("failed to draw secondary mesh")?;
+        .wrap_err("Failed to draw secondary mesh")?;
 
     draw_area(
         &mut chart,
@@ -434,7 +452,7 @@ fn draw_both(
         playcounts,
         "Monthly playcount",
     )
-    .wrap_err("failed to draw playcounts area")?;
+    .wrap_err("Failed to draw playcounts area")?;
 
     // Draw replay watched area
     // Can't use `draw_area` since it's for the secondary y-axis
@@ -448,7 +466,7 @@ fn draw_both(
 
     chart
         .draw_secondary_series(series.border_style(border_color.stroke_width(1)))
-        .wrap_err("failed to draw replays area")?
+        .wrap_err("Failed to draw replays area")?
         .label("Replays watched")
         .legend(move |(x, y)| {
             PathElement::new(vec![(x, y), (x + 20, y)], border_color.stroke_width(2))
@@ -463,7 +481,7 @@ fn draw_both(
 
     chart
         .draw_secondary_series(circles)
-        .wrap_err("failed to draw replays circles")?;
+        .wrap_err("Failed to draw replays circles")?;
 
     // Legend
     chart
@@ -473,7 +491,7 @@ fn draw_both(
         .legend_area_size(45_i32)
         .label_font(("sans-serif", 20_i32, &WHITE))
         .draw()
-        .wrap_err("failed to draw legend")?;
+        .wrap_err("Failed to draw legend")?;
 
     Ok(())
 }
@@ -496,7 +514,7 @@ fn draw_area(
 
     chart
         .draw_series(series.border_style(border_color.stroke_width(1)))
-        .wrap_err("failed to draw area")?
+        .wrap_err("Failed to draw area")?
         .label(label)
         .legend(move |(x, y)| {
             PathElement::new(vec![(x, y), (x + 20, y)], area_color.stroke_width(2))
@@ -513,7 +531,7 @@ fn draw_area(
 
     chart
         .draw_series(circles)
-        .wrap_err("failed to draw circles")?;
+        .wrap_err("Failed to draw circles")?;
 
     Ok(())
 }
