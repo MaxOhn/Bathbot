@@ -141,12 +141,6 @@ async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 async fn prefix_recentlistpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(None, args) {
         Ok(mut args) => {
-            if matches!(args.grade, Some(GradeOption::F)) {
-                msg.error(&ctx, ":clown:").await?;
-
-                return Ok(());
-            }
-
             args.passes = Some(true);
 
             list(ctx, msg.into(), args).await
@@ -177,12 +171,6 @@ async fn prefix_recentlistpassmania(
 ) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Mania), args) {
         Ok(mut args) => {
-            if matches!(args.grade, Some(GradeOption::F)) {
-                msg.error(&ctx, ":clown:").await?;
-
-                return Ok(());
-            }
-
             args.passes = Some(true);
 
             list(ctx, msg.into(), args).await
@@ -214,12 +202,6 @@ async fn prefix_recentlistpasstaiko(
 ) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Taiko), args) {
         Ok(mut args) => {
-            if matches!(args.grade, Some(GradeOption::F)) {
-                msg.error(&ctx, ":clown:").await?;
-
-                return Ok(());
-            }
-
             args.passes = Some(true);
 
             list(ctx, msg.into(), args).await
@@ -252,12 +234,6 @@ async fn prefix_recentlistpasstaiko(
 async fn prefix_recentlistpassctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Catch), args) {
         Ok(mut args) => {
-            if matches!(args.grade, Some(GradeOption::F)) {
-                msg.error(&ctx, ":clown:").await?;
-
-                return Ok(());
-            }
-
             args.passes = Some(true);
 
             list(ctx, msg.into(), args).await
@@ -374,6 +350,7 @@ pub(super) async fn list(
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
 
     let include_fails = match (grade, passes) {
+        (Some(Grade::F), Some(true)) => return orig.error(&ctx, ":clown:").await,
         (_, Some(passes)) => !passes,
         (Some(Grade::F), _) | (None, None) => true,
         _ => false,

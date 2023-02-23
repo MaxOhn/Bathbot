@@ -162,12 +162,6 @@ async fn prefix_recentctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> R
 async fn prefix_recentpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(None, args) {
         Ok(mut args) => {
-            if matches!(args.grade, Some(GradeOption::F)) {
-                msg.error(&ctx, ":clown:").await?;
-
-                return Ok(());
-            }
-
             args.passes = Some(true);
 
             score(ctx, msg.into(), args).await
@@ -198,12 +192,6 @@ async fn prefix_recentpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 async fn prefix_recentpassmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Mania), args) {
         Ok(mut args) => {
-            if matches!(args.grade, Some(GradeOption::F)) {
-                msg.error(&ctx, ":clown:").await?;
-
-                return Ok(());
-            }
-
             args.passes = Some(true);
 
             score(ctx, msg.into(), args).await
@@ -234,12 +222,6 @@ async fn prefix_recentpassmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 async fn prefix_recentpasstaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Taiko), args) {
         Ok(mut args) => {
-            if matches!(args.grade, Some(GradeOption::F)) {
-                msg.error(&ctx, ":clown:").await?;
-
-                return Ok(());
-            }
-
             args.passes = Some(true);
 
             score(ctx, msg.into(), args).await
@@ -271,12 +253,6 @@ async fn prefix_recentpasstaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 async fn prefix_recentpassctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Catch), args) {
         Ok(mut args) => {
-            if matches!(args.grade, Some(GradeOption::F)) {
-                msg.error(&ctx, ":clown:").await?;
-
-                return Ok(());
-            }
-
             args.passes = Some(true);
 
             score(ctx, msg.into(), args).await
@@ -401,6 +377,7 @@ pub(super) async fn score(
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
 
     let include_fails = match (grade, passes) {
+        (Some(Grade::F), Some(true)) => return orig.error(&ctx, ":clown:").await,
         (_, Some(passes)) => !passes,
         (Some(Grade::F), _) | (None, None) => true,
         _ => false,
