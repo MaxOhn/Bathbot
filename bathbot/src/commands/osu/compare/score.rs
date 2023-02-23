@@ -6,10 +6,7 @@ use std::{
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
-use bathbot_psql::model::{
-    configs::{GuildConfig, MinimizedPp, ScoreSize},
-    osu::{ArchivedMapVersion, MapVersion},
-};
+use bathbot_psql::model::osu::{ArchivedMapVersion, MapVersion};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -25,7 +22,6 @@ use rosu_v2::{
     },
     request::UserId,
 };
-use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateCommand};
 use twilight_model::{
     application::command::CommandOptionChoice,
@@ -37,16 +33,16 @@ use twilight_model::{
 use crate::{
     commands::osu::{require_link, HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{CompareEmbed, EmbedData, MessageOrigin, NoScoresEmbed},
+    embeds::{EmbedData, MessageOrigin, ScoresEmbed},
     manager::{
         redis::{
-            osu::{User, UserArgs, UserArgsSlim},
+            osu::{UserArgs, UserArgsSlim},
             RedisData,
         },
-        MapError, OsuMap,
+        MapError,
     },
     pagination::ScoresPagination,
-    util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt, MessageExt},
+    util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
 };
 
@@ -322,32 +318,20 @@ pub(super) async fn score(
         }
     };
 
-    let (user_id, score_size, minimized_pp) = match ctx.user_config().with_osu_id(owner).await {
-        Ok(config) => match user_id!(ctx, orig, args) {
-            Some(user_id) => (user_id, config.score_size, config.minimized_pp),
-            None => match config.osu {
-                Some(user_id) => (UserId::Id(user_id), config.score_size, config.minimized_pp),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().with_osu_id(owner).await {
+            Ok(config) => match config.osu {
+                Some(user_id) => UserId::Id(user_id),
                 None => return require_link(&ctx, &orig).await,
             },
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err.wrap_err("Failed to get user config"));
+            }
         },
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err.wrap_err("failed to get user config"));
-        }
     };
-
-    let (guild_score_size, guild_minimized_pp) = match orig.guild_id() {
-        Some(guild_id) => {
-            let f = |config: &GuildConfig| (config.score_size, config.minimized_pp);
-
-            ctx.guild_config().peek(guild_id, f).await
-        }
-        None => (None, None),
-    };
-
-    let score_size = score_size.or(guild_score_size).unwrap_or_default();
-    let minimized_pp = minimized_pp.or(guild_minimized_pp).unwrap_or_default();
 
     let CompareScoreArgs {
         sort,
@@ -368,7 +352,7 @@ pub(super) async fn score(
                 return orig.error(&ctx, content).await;
             }
             Some(MapOrScore::Score { id, mode }) => {
-                return compare_from_score(ctx, orig, id, mode, score_size, minimized_pp).await
+                return compare_from_score(ctx, orig, id, mode).await
             }
             None if orig.can_read_history() => {
                 let idx = match index {
@@ -493,7 +477,7 @@ pub(super) async fn score(
     };
 
     if entries.is_empty() {
-        let embed = NoScoresEmbed::new(&user, &map, mods).build();
+        let embed = ScoresEmbed::no_scores(&user, &map, mods).build();
         let builder = MessageBuilder::new().embed(embed);
         orig.create_message(&ctx, &builder).await?;
 
@@ -553,18 +537,7 @@ pub(super) async fn score(
     // First elem: idx inside user scores that has most score
     // Second elem: idx of score inside map leaderboard
     let global_idx = match global_res {
-        Some(Ok(globals)) => entries
-            .iter()
-            .enumerate()
-            .max_by_key(|(_, entry)| entry.score.score)
-            .and_then(|(i, entry)| {
-                let user = user.user_id();
-
-                globals
-                    .iter()
-                    .position(|s| entry.score.is_eq(s) && s.user_id == user)
-                    .map(|pos| (i, pos + 1))
-            }),
+        Some(Ok(globals)) => global_idx(&entries, &globals, user.user_id()),
         Some(Err(err)) => {
             let err = Report::new(err).wrap_err("Failed to get map leaderboard");
             warn!("{err:?}");
@@ -585,123 +558,29 @@ pub(super) async fn score(
         None => Vec::new(),
     };
 
-    if let [entry] = &entries[..] {
-        let global_idx = global_idx.map_or(usize::MAX, |(_, i)| i);
-        let best = (!personal.is_empty()).then(|| &personal[..]);
-        let pinned = pinned.iter().any(|pinned| entry.score.is_eq(pinned));
+    let pp_idx = entries
+        .iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| {
+            a.score
+                .pp
+                .partial_cmp(&b.score.pp)
+                .unwrap_or(Ordering::Equal)
+        })
+        .map(|(i, _)| i)
+        .unwrap_or(0);
 
-        let fut = single_score(
-            ctx,
-            &orig,
-            entry,
-            &user,
-            &map,
-            best,
-            global_idx,
-            pinned,
-            score_size,
-            minimized_pp,
-        );
-
-        fut.await
-    } else {
-        let pp_idx = entries
-            .iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| {
-                a.score
-                    .pp
-                    .partial_cmp(&b.score.pp)
-                    .unwrap_or(Ordering::Equal)
-            })
-            .map(|(i, _)| i)
-            .unwrap_or(0);
-
-        let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
-
-        let builder = ScoresPagination::builder(
-            user, map, entries, pinned, personal, global_idx, pp_idx, origin,
-        );
-
-        builder
-            .start_by_update()
-            .defer_components()
-            .start(ctx, orig)
-            .await
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn single_score(
-    ctx: Arc<Context>,
-    orig: &CommandOrigin<'_>,
-    entry: &CompareEntry,
-    user: &RedisData<User>,
-    map: &OsuMap,
-    best: Option<&[Score]>,
-    global_idx: usize,
-    pinned: bool,
-    embeds_size: ScoreSize,
-    minimized_pp: MinimizedPp,
-) -> Result<()> {
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
-    // Accumulate all necessary data
-    let embed_data = CompareEmbed::new(
-        best,
-        entry,
-        user,
-        map,
-        global_idx,
-        pinned,
-        minimized_pp,
-        &origin,
+    let builder = ScoresPagination::builder(
+        user, map, entries, pinned, personal, global_idx, pp_idx, origin,
     );
 
-    // Only maximize if config allows it
-    match embeds_size {
-        ScoreSize::AlwaysMinimized => {
-            let builder = embed_data.into_minimized().into();
-            orig.create_message(&ctx, &builder).await?;
-        }
-        ScoreSize::InitialMaximized => {
-            let builder = embed_data.as_maximized().into();
-            let response = orig.create_message(&ctx, &builder).await?.model().await?;
-
-            // Lacking permission to edit the message
-            if !orig.can_view_channel() {
-                return Ok(());
-            }
-
-            ctx.store_msg(response.id);
-            let ctx = Arc::clone(&ctx);
-            let permissions = orig.permissions();
-
-            // Wait for minimizing
-            tokio::spawn(async move {
-                sleep(Duration::from_secs(45)).await;
-
-                if !ctx.remove_msg(response.id) {
-                    return;
-                }
-
-                let builder = embed_data.into_minimized().into();
-
-                if let Some(update_fut) = response.update(&ctx, &builder, permissions) {
-                    if let Err(err) = update_fut.await {
-                        let err = Report::new(err).wrap_err("Failed to minimize embed");
-                        warn!("{err:?}");
-                    }
-                }
-            });
-        }
-        ScoreSize::AlwaysMaximized => {
-            let builder = embed_data.as_maximized().into();
-            orig.create_message(&ctx, &builder).await?;
-        }
-    }
-
-    Ok(())
+    builder
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 pub struct CompareEntry {
@@ -709,6 +588,7 @@ pub struct CompareEntry {
     pub stars: f32,
     pub max_pp: f32,
     pub max_combo: u32,
+    pub has_replay: bool,
     pub if_fc: Option<IfFc>,
 }
 
@@ -750,6 +630,7 @@ async fn process_scores(
             None => calc.score(&score).performance().await.pp() as f32,
         };
 
+        let has_replay = score.replay.unwrap_or(false);
         let score = ScoreSlim::new(score, pp);
         let if_fc = IfFc::new(ctx, &score, &map).await;
 
@@ -758,6 +639,7 @@ async fn process_scores(
             stars,
             max_pp,
             max_combo,
+            has_replay,
             if_fc,
         };
 
@@ -816,8 +698,6 @@ async fn compare_from_score(
     orig: CommandOrigin<'_>,
     score_id: u64,
     mode: GameMode,
-    score_size: ScoreSize,
-    minimized_pp: MinimizedPp,
 ) -> Result<()> {
     let mut score = match ctx.osu().score(score_id, mode).await {
         Ok(score) => score,
@@ -854,6 +734,8 @@ async fn compare_from_score(
         }
     };
 
+    let user_id = user.user_id();
+
     let map = match map_res {
         Ok(map) => map,
         Err(err) => {
@@ -864,54 +746,16 @@ async fn compare_from_score(
     };
 
     let pinned = match pinned_res {
-        Ok(scores) => scores.contains(&score),
+        Ok(scores) => scores,
         Err(err) => {
-            let err = Report::new(err).wrap_err("failed to get pinned scores");
+            let err = Report::new(err).wrap_err("Failed to get pinned scores");
             warn!("{err:?}");
 
-            false
+            Vec::new()
         }
     };
 
-    let status = map.status();
-
-    let global_idx = if matches!(status, Ranked | Loved | Approved) {
-        match ctx.osu().beatmap_scores(map.map_id()).mode(mode).await {
-            Ok(scores) => scores.iter().position(|s| s == &score),
-            Err(err) => {
-                let err = Report::new(err).wrap_err("failed to get global scores");
-                warn!("{err:?}");
-
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    let global_idx = global_idx.map_or(usize::MAX, |idx| idx + 1);
     let mode = score.mode;
-
-    let best = if status == Ranked {
-        let fut = ctx
-            .osu()
-            .user_scores(score.user_id)
-            .best()
-            .limit(100)
-            .mode(mode);
-
-        match fut.await {
-            Ok(scores) => Some(scores),
-            Err(err) => {
-                let err = Report::new(err).wrap_err("failed to get top scores");
-                warn!("{err:?}");
-
-                None
-            }
-        }
-    } else {
-        None
-    };
 
     let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
     let attrs = calc.performance().await;
@@ -926,31 +770,61 @@ async fn compare_from_score(
         None => calc.score(&score).performance().await.pp() as f32,
     };
 
+    let has_replay = score.replay.unwrap_or(false);
     let score = ScoreSlim::new(score, pp);
     let if_fc = IfFc::new(&ctx, &score, &map).await;
 
-    let entry = CompareEntry {
+    let entries = vec![CompareEntry {
         score,
         stars: attrs.stars() as f32,
         max_pp,
         max_combo: attrs.max_combo() as u32,
+        has_replay,
         if_fc,
+    }];
+
+    let status = map.status();
+
+    let global_idx = if matches!(status, Ranked | Loved | Approved) {
+        match ctx.osu().beatmap_scores(map.map_id()).mode(mode).await {
+            Ok(scores) => global_idx(&entries, &scores, user_id),
+            Err(err) => {
+                let err = Report::new(err).wrap_err("failed to get global scores");
+                warn!("{err:?}");
+
+                None
+            }
+        }
+    } else {
+        None
     };
 
-    let fut = single_score(
-        ctx,
-        &orig,
-        &entry,
-        &user,
-        &map,
-        best.as_deref(),
-        global_idx,
-        pinned,
-        score_size,
-        minimized_pp,
-    );
+    let best = if status == Ranked {
+        let fut = ctx.osu().user_scores(user_id).best().limit(100).mode(mode);
 
-    fut.await
+        match fut.await {
+            Ok(scores) => scores,
+            Err(err) => {
+                let err = Report::new(err).wrap_err("Failed to get top scores");
+                warn!("{err:?}");
+
+                Vec::new()
+            }
+        }
+    } else {
+        Vec::new()
+    };
+
+    let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
+
+    let builder =
+        ScoresPagination::builder(user, map, entries, pinned, best, global_idx, 0, origin);
+
+    builder
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 async fn handle_autocomplete(
@@ -1007,4 +881,25 @@ async fn handle_autocomplete(
     command.autocomplete(ctx, choices).await?;
 
     Ok(())
+}
+
+pub struct GlobalIndex {
+    pub idx_in_entries: usize,
+    pub idx_in_map_lb: usize,
+}
+
+fn global_idx(entries: &[CompareEntry], globals: &[Score], user_id: u32) -> Option<GlobalIndex> {
+    entries
+        .iter()
+        .enumerate()
+        .max_by_key(|(_, entry)| entry.score.score)
+        .and_then(|(i, entry)| {
+            globals
+                .iter()
+                .position(|s| entry.score.is_eq(s) && s.user_id == user_id)
+                .map(|pos| GlobalIndex {
+                    idx_in_entries: i,
+                    idx_in_map_lb: pos + 1,
+                })
+        })
 }

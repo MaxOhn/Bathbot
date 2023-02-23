@@ -3,7 +3,6 @@ mod badge;
 mod bws;
 mod claim_name;
 mod common;
-mod compare;
 mod country_snipe_list;
 mod country_snipe_stats;
 mod fix_score;
@@ -59,7 +58,7 @@ use rosu_v2::prelude::{GameMode, GameMods, ScoreStatistics};
 use crate::manager::OsuMap;
 
 pub use self::{
-    attributes::*, badge::*, bws::*, claim_name::*, common::*, compare::*, country_snipe_list::*,
+    attributes::*, badge::*, bws::*, claim_name::*, common::*, country_snipe_list::*,
     country_snipe_stats::*, fix_score::*, leaderboard::*, map::*, map_search::*, match_compare::*,
     match_costs::*, medal::*, medal_stats::*, medals_common::*, medals_list::*, medals_missing::*,
     most_played::*, most_played_common::*, nochoke::*, osekai_medal_count::*,

@@ -6,6 +6,7 @@ use bathbot_util::{
     constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
     datetime::HowLongAgoDynamic,
     numbers::{round, WithComma},
+    osu::ModSelection,
     AuthorBuilder, CowUtils, FooterBuilder, ScoreExt,
 };
 use rosu_v2::prelude::{GameMode, Score};
@@ -111,13 +112,23 @@ impl ScoresEmbed {
                     args.description.push('\n');
                 }
 
-                let _ = writeln!(
+                let _ = write!(
                     args.description,
                     "{hits} {timestamp}",
                     hits =
                         HitResultFormatter::new(entry.score.mode, entry.score.statistics.clone()),
                     timestamp = HowLongAgoDynamic::new(&entry.score.ended_at)
                 );
+
+                if let Some(score_id) = entry.score.score_id.filter(|_| entry.has_replay) {
+                    let _ = write!(
+                        args.description,
+                        " • [Replay]({OSU_BASE}scores/{mode}/{score_id}/download)",
+                        mode = entry.score.mode
+                    );
+                }
+
+                args.description.push('\n');
 
                 if let Some(entry) = entries.next() {
                     args.description
@@ -165,6 +176,33 @@ impl ScoresEmbed {
             title: title_text,
             url: format!("{OSU_BASE}b/{}", map.map_id()),
             author: user.author_builder(),
+        }
+    }
+
+    pub fn no_scores(user: &RedisData<User>, map: &OsuMap, mods: Option<ModSelection>) -> Self {
+        let footer = FooterBuilder::new(format!("{:?} map by {}", map.status(), map.creator()))
+            .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
+
+        let title = format!(
+            "{} - {} [{}]",
+            map.artist().cow_escape_markdown(),
+            map.title().cow_escape_markdown(),
+            map.version().cow_escape_markdown()
+        );
+
+        let description = if mods.is_some() {
+            "No scores with these mods".to_owned()
+        } else {
+            "No scores".to_owned()
+        };
+
+        Self {
+            author: user.author_builder(),
+            description,
+            footer,
+            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id()),
+            title,
+            url: format!("{OSU_BASE}b/{}", map.map_id()),
         }
     }
 }
