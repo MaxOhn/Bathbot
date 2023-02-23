@@ -3,7 +3,7 @@ use rosu_v2::prelude::Score;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
-    commands::osu::CompareEntry,
+    commands::osu::{CompareEntry, GlobalIndex},
     embeds::{EmbedData, MessageOrigin, ScoresEmbed},
     manager::{
         redis::{osu::User, RedisData},
@@ -20,7 +20,7 @@ pub struct ScoresPagination {
     entries: Vec<CompareEntry>,
     pinned: Vec<Score>,
     personal: Vec<Score>,
-    global_idx: Option<(usize, usize)>,
+    global_idx: Option<GlobalIndex>,
     pp_idx: usize,
     origin: MessageOrigin,
 }
@@ -32,12 +32,15 @@ impl ScoresPagination {
 
         let global_idx = self
             .global_idx
-            .filter(|(idx, _)| (pages.index()..pages.index() + pages.per_page()).contains(idx))
-            .map(|(score_idx, map_idx)| {
-                let factor = score_idx / pages.per_page();
-                let new_idx = score_idx - factor * pages.per_page();
+            .as_ref()
+            .filter(|global| {
+                (pages.index()..pages.index() + pages.per_page()).contains(&global.idx_in_entries)
+            })
+            .map(|global| {
+                let factor = global.idx_in_entries / pages.per_page();
+                let new_idx = global.idx_in_entries - factor * pages.per_page();
 
-                (new_idx, map_idx)
+                (new_idx, global.idx_in_map_lb)
             });
 
         let embed = ScoresEmbed::new(
