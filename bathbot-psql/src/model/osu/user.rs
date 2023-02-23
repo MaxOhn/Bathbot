@@ -100,6 +100,7 @@ impl OsuUserStatsColumnName for UserModeStatsColumn {
             Self::Playcount => Some("playcount"),
             Self::Playtime => Some("playtime"),
             Self::Pp => Some("pp"),
+            Self::PpPerMonth => None,
             Self::RankCountry => Some("country_rank"),
             Self::RankGlobal => Some("global_rank"),
             Self::ReplaysWatched => Some("replays_watched"),
