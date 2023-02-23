@@ -1,15 +1,17 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rkyv_impls::UsernameWrapper;
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
     datetime::SecToMinSec,
     numbers::{round, WithComma},
     AuthorBuilder, CowUtils, FooterBuilder,
 };
-use eyre::{Result, WrapErr};
+use eyre::{Report, Result, WrapErr};
+use rkyv::{with::DeserializeWith, Infallible};
 use rosu_pp::{AnyPP, BeatmapExt};
-use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
+use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Username};
 use time::OffsetDateTime;
 use twilight_model::{
     channel::embed::EmbedField,
@@ -20,7 +22,11 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::osu::CustomAttrs, core::Context, embeds::attachment, pagination::Pages,
+    commands::osu::CustomAttrs,
+    core::Context,
+    embeds::attachment,
+    manager::redis::{osu::UserArgs, RedisData},
+    pagination::Pages,
     util::osu::mode_emote,
 };
 
@@ -90,11 +96,11 @@ impl MapEmbed {
         let mut info_value = String::with_capacity(128);
         let mut fields = Vec::with_capacity(3);
 
-        let mut rosu_map = ctx
-            .osu_map()
-            .pp_map(map.map_id)
-            .await
-            .wrap_err("failed to get pp map")?;
+        let map_fut = ctx.osu_map().pp_map(map.map_id);
+        let creator_fut = creator_name(ctx, map, mapset);
+        let (map_res, gd_creator) = tokio::join!(map_fut, creator_fut);
+
+        let mut rosu_map = map_res.wrap_err("Failed to get pp map")?;
 
         let mod_bits = mods.bits();
 
@@ -224,14 +230,20 @@ impl MapEmbed {
             ("Last updated".to_owned(), map.last_updated)
         };
 
-        let creator_avatar_url = mapset.creator.as_ref().map_or_else(
+        let mut author_text = format!("Created by {}", mapset.creator_name);
+
+        if let Some(gd_creator) = gd_creator {
+            let _ = write!(author_text, " (guest difficulty by {gd_creator})");
+        }
+
+        let author_icon = mapset.creator.as_ref().map_or_else(
             || format!("{AVATAR_URL}{}", mapset.creator_id),
             |creator| creator.avatar_url.to_owned(),
         );
 
-        let author = AuthorBuilder::new(format!("Created by {}", mapset.creator_name))
+        let author = AuthorBuilder::new(author_text)
             .url(format!("{OSU_BASE}u/{}", mapset.creator_id))
-            .icon_url(creator_avatar_url);
+            .icon_url(author_icon);
 
         let page = pages.curr_page();
         let pages = pages.last_page();
@@ -288,6 +300,36 @@ impl Display for MessageOrigin {
         match guild {
             Some(guild) => write!(f, "https://discord.com/channels/{guild}/{channel}/#"),
             None => write!(f, "https://discord.com/channels/@me/{channel}/#"),
+        }
+    }
+}
+
+async fn creator_name<'m>(
+    ctx: &Context,
+    map: &Beatmap,
+    mapset: &'m Beatmapset,
+) -> Option<Username> {
+    if map.creator_id == mapset.creator_id {
+        return None;
+    }
+
+    match ctx.osu_user().name(map.creator_id).await {
+        Ok(name @ Some(_)) => return name,
+        Ok(None) => {}
+        Err(err) => warn!("{err:?}"),
+    }
+
+    let args = UserArgs::user_id(map.creator_id);
+
+    match ctx.redis().osu_user(args).await {
+        Ok(RedisData::Original(user)) => Some(user.username),
+        Ok(RedisData::Archived(user)) => {
+            Some(UsernameWrapper::deserialize_with(&user.username, &mut Infallible).unwrap())
+        }
+        Err(err) => {
+            warn!("{:?}", Report::new(err).wrap_err("Failed to get user"));
+
+            None
         }
     }
 }

@@ -22,21 +22,21 @@ impl<'d> OsuUserManager<'d> {
         self.psql
             .select_osu_id_by_osu_name(username.as_ref(), alt_username)
             .await
-            .wrap_err("failed to get osu id")
+            .wrap_err("Failed to get osu id")
     }
 
     pub async fn name(self, user_id: u32) -> Result<Option<Username>> {
         self.psql
             .select_osu_name_by_osu_id(user_id)
             .await
-            .wrap_err("failed to get username")
+            .wrap_err("Failed to get username")
     }
 
     pub async fn names(self, user_ids: &[i32]) -> Result<HashMap<u32, Username, IntHasher>> {
         self.psql
             .select_osu_usernames(user_ids)
             .await
-            .wrap_err("failed to get usernames")
+            .wrap_err("Failed to get usernames")
     }
 
     pub async fn ids(&self, names: &[String]) -> Result<HashMap<Username, u32>> {
@@ -51,7 +51,7 @@ impl<'d> OsuUserManager<'d> {
         self.psql
             .select_osu_user_ids(escaped_names.as_ref())
             .await
-            .wrap_err("failed to get user ids")
+            .wrap_err("Failed to get user ids")
     }
 
     pub async fn stats(
@@ -63,7 +63,7 @@ impl<'d> OsuUserManager<'d> {
             .select_osu_user_stats(discord_ids, column)
             .await
             .map(RankingEntries::from)
-            .wrap_err("failed to get user stats")
+            .wrap_err("Failed to get user stats")
     }
 
     pub async fn stats_mode(
@@ -76,27 +76,27 @@ impl<'d> OsuUserManager<'d> {
             .select_osu_user_mode_stats(discord_ids, mode, column)
             .await
             .map(RankingEntries::from)
-            .wrap_err("failed to get user mode stats")
+            .wrap_err("Failed to get user mode stats")
     }
 
     pub async fn store_name(self, user_id: u32, username: &str) -> Result<()> {
         self.psql
             .upsert_osu_username(user_id, username)
             .await
-            .wrap_err("failed to upsert osu username")
+            .wrap_err("Failed to upsert osu username")
     }
 
     pub async fn store_user(self, user: &User, mode: GameMode) -> Result<()> {
         self.psql
             .upsert_osu_user(user, mode)
             .await
-            .wrap_err("failed to upsert osu user")
+            .wrap_err("Failed to upsert osu user")
     }
 
     pub async fn remove_stats(self, user_id: u32) -> Result<()> {
         self.psql
             .delete_osu_user_stats(user_id)
             .await
-            .wrap_err("failed to delete osu user stats")
+            .wrap_err("Failed to delete osu user stats")
     }
 }
