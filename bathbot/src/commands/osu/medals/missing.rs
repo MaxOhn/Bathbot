@@ -19,7 +19,7 @@ use crate::{
     Context,
 };
 
-use super::MedalMissing;
+use super::{MedalMissing, MedalMissingOrder};
 
 #[command]
 #[desc("Display a list of medals that a user is missing")]
@@ -32,10 +32,12 @@ async fn prefix_medalsmissing(ctx: Arc<Context>, msg: &Message, mut args: Args<'
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => MedalMissing {
                 name: None,
+                sort: None,
                 discord: Some(id),
             },
             None => MedalMissing {
                 name: Some(Cow::Borrowed(arg)),
+                sort: None,
                 discord: None,
             },
         },
@@ -129,7 +131,34 @@ pub(super) async fn missing(
     };
 
     medals.extend(MEDAL_GROUPS.iter().copied().map(MedalType::Group));
-    medals.sort_unstable();
+
+    match args.sort {
+        None => {}
+        Some(MedalMissingOrder::Alphabet) => medals.sort_unstable_by(|a, b| {
+            a.group().cmp(&b.group()).then_with(|| match (a, b) {
+                (MedalType::Group(_), MedalType::Medal(_)) => Ordering::Less,
+                (MedalType::Medal(_), MedalType::Group(_)) => Ordering::Greater,
+                (MedalType::Medal(a), MedalType::Medal(b)) => a.name.cmp(&b.name),
+                (MedalType::Group(_), MedalType::Group(_)) => unreachable!(),
+            })
+        }),
+        Some(MedalMissingOrder::MedalId) => medals.sort_unstable_by(|a, b| {
+            a.group().cmp(&b.group()).then_with(|| match (a, b) {
+                (MedalType::Group(_), MedalType::Medal(_)) => Ordering::Less,
+                (MedalType::Medal(_), MedalType::Group(_)) => Ordering::Greater,
+                (MedalType::Medal(a), MedalType::Medal(b)) => a.medal_id.cmp(&b.medal_id),
+                (MedalType::Group(_), MedalType::Group(_)) => unreachable!(),
+            })
+        }),
+        Some(MedalMissingOrder::Rarity) => medals.sort_unstable_by(|a, b| {
+            a.group().cmp(&b.group()).then_with(|| match (a, b) {
+                (MedalType::Group(_), MedalType::Medal(_)) => Ordering::Less,
+                (MedalType::Medal(_), MedalType::Group(_)) => Ordering::Greater,
+                (MedalType::Medal(a), MedalType::Medal(b)) => b.rarity.total_cmp(&a.rarity),
+                (MedalType::Group(_), MedalType::Group(_)) => unreachable!(),
+            })
+        }),
+    }
 
     MedalsMissingPagination::builder(user, medals, medal_count)
         .start_by_update()
@@ -148,36 +177,5 @@ impl MedalType {
             Self::Group(g) => *g,
             Self::Medal(m) => m.grouping,
         }
-    }
-}
-
-impl PartialEq for MedalType {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (MedalType::Group(a), MedalType::Group(b)) => a == b,
-            (MedalType::Medal(a), MedalType::Medal(b)) => a.medal_id == b.medal_id,
-            _ => false,
-        }
-    }
-}
-
-impl Eq for MedalType {}
-
-impl PartialOrd for MedalType {
-    fn partial_cmp(&self, other: &MedalType) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for MedalType {
-    fn cmp(&self, other: &MedalType) -> Ordering {
-        self.group()
-            .cmp(&other.group())
-            .then_with(|| match (self, other) {
-                (MedalType::Medal(a), MedalType::Medal(b)) => a.medal_id.cmp(&b.medal_id),
-                (MedalType::Group(_), MedalType::Medal(_)) => Ordering::Less,
-                (MedalType::Medal(_), MedalType::Group(_)) => Ordering::Greater,
-                _ => unreachable!(),
-            })
     }
 }

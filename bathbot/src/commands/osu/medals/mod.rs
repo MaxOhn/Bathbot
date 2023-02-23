@@ -184,6 +184,7 @@ pub enum MedalListOrder {
 }
 
 impl Default for MedalListOrder {
+    #[inline]
     fn default() -> Self {
         Self::Date
     }
@@ -195,6 +196,8 @@ impl Default for MedalListOrder {
 pub struct MedalMissing<'a> {
     /// Specify a username
     name: Option<Cow<'a, str>>,
+    /// Specify a medal order
+    sort: Option<MedalMissingOrder>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
@@ -202,6 +205,23 @@ pub struct MedalMissing<'a> {
     )]
     /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum MedalMissingOrder {
+    #[option(name = "Alphabetically", value = "alphabet")]
+    Alphabet,
+    #[option(name = "Medal ID", value = "medal_id")]
+    MedalId,
+    #[option(name = "Rarity", value = "rarity")]
+    Rarity,
+}
+
+impl Default for MedalMissingOrder {
+    #[inline]
+    fn default() -> Self {
+        Self::Alphabet
+    }
 }
 
 #[derive(CommandModel, CreateCommand, Default, HasName)]
