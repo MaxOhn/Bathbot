@@ -108,23 +108,25 @@ impl TryFrom<i32> for TopOldOsuVersion {
 
     fn try_from(year: i32) -> Result<Self, Self::Error> {
         match year {
-            i32::MIN..=2006 => Err("osu! was not a thing until september 2007.\n\
-                The first available pp system is from 2014."),
-            2007..=2011 => Err("Up until april 2012, ranked score was the skill metric.\n\
-                The first available pp system is from 2014."),
-            2012..=2013 => Err(
+            2007..=2011 | 7..=11 => {
+                Err("Up until april 2012, ranked score was the skill metric.\n\
+                The first available pp system is from 2014.")
+            }
+            2012..=2013 | 12..=13 => Err(
                 "April 2012 till january 2014 the ppv1 system was in place, \
                 which is unfortunately impossible to implement nowadays \
                 because of lacking data \\:(\n\
                 The first available pp system is from 2014.",
             ),
-            2014 => Ok(Self::May14July14),
-            2015 => Ok(Self::February15April15),
-            2016..=2017 => Ok(Self::April15May18),
-            2018 => Ok(Self::May18February19),
-            2019..=2020 => Ok(Self::February19January21),
-            2021 => Ok(Self::July21November21),
-            2022 => Ok(Self::November21September22),
+            2014 | 14 => Ok(Self::May14July14),
+            2015 | 15 => Ok(Self::February15April15),
+            2016..=2017 | 16..=17 => Ok(Self::April15May18),
+            2018 | 18 => Ok(Self::May18February19),
+            2019..=2020 | 19..=20 => Ok(Self::February19January21),
+            2021 | 21 => Ok(Self::July21November21),
+            2022 | 22 => Ok(Self::November21September22),
+            i32::MIN..=2006 => Err("osu! was not a thing until september 2007.\n\
+                The first available pp system is from 2014."),
             _ => Ok(Self::September22Now),
         }
     }
@@ -171,10 +173,10 @@ impl TryFrom<i32> for TopOldTaikoVersion {
 
     fn try_from(year: i32) -> Result<Self, Self::Error> {
         match year {
+            2014..=2019 | 14..=19 => Ok(Self::March14September20),
+            2020..=2022 | 20..=22 => Ok(Self::September20September22),
             i32::MIN..=2013 => Err("taiko pp were not a thing until march 2014. \
                 I think? Don't quote me on that :^)"),
-            2014..=2019 => Ok(Self::March14September20),
-            2020..=2022 => Ok(Self::September20September22),
             _ => Ok(Self::September22Now),
         }
     }
@@ -215,9 +217,9 @@ impl TryFrom<i32> for TopOldCatchVersion {
 
     fn try_from(year: i32) -> Result<Self, Self::Error> {
         match year {
+            2014..=2019 | 14..=19 => Ok(Self::March14May20),
             i32::MIN..=2013 => Err("ctb pp were not a thing until march 2014. \
                 I think? Don't quote me on that :^)"),
-            2014..=2019 => Ok(Self::March14May20),
             _ => Ok(Self::May20Now),
         }
     }
@@ -261,10 +263,10 @@ impl TryFrom<i32> for TopOldManiaVersion {
 
     fn try_from(year: i32) -> Result<Self, Self::Error> {
         match year {
+            2014..=2018 | 14..=18 => Ok(Self::March14May18),
+            2019..=2022 | 19..=22 => Ok(Self::May18October22),
             i32::MIN..=2013 => Err("mania pp were not a thing until march 2014. \
                 I think? Don't quote me on that :^)"),
-            2014..=2018 => Ok(Self::March14May18),
-            2019..=2022 => Ok(Self::May18October22),
             _ => Ok(Self::October22Now),
         }
     }
