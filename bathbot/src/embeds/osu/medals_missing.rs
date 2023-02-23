@@ -42,9 +42,10 @@ impl MedalsMissingEmbed {
                 MedalType::Medal(m) => {
                     let _ = writeln!(
                         description,
-                        "- [{}](https://osekai.net/medals/?medal={})",
+                        "- [{}](https://osekai.net/medals/?medal={} \"Rarity: {:.2}%\")",
                         m.name,
-                        m.name.cow_replace(' ', "+")
+                        m.name.cow_replace(' ', "+"),
+                        m.rarity,
                     );
                 }
             }
