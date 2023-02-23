@@ -81,6 +81,8 @@ pub enum UserModeStatsColumn {
     Playtime,
     #[option(name = "PP", value = "pp")]
     Pp,
+    #[option(name = "PP per Month", value = "pp_per_month")]
+    PpPerMonth,
     #[option(name = "Country rank", value = "country_rank")]
     RankCountry,
     #[option(name = "Global rank", value = "global_rank")]

@@ -437,7 +437,61 @@ FROM
                     .bind(mode as i16)
                     .fetch_all(self)
                     .await
-                    .wrap_err("failed to fetch all")?;
+                    .wrap_err("Failed to fetch all")?;
+
+                entries.sort_unstable_by(|a, b| {
+                    b.value
+                        .partial_cmp(&a.value)
+                        .unwrap_or(Ordering::Equal)
+                        .then_with(|| a.name.cmp(&b.name))
+                });
+
+                entries.dedup_by(|a, b| a.name == b.name);
+
+                // SAFETY: the two types have the exact same structure
+                Ok(UserStatsEntries::PpF32(convert_entries(entries)))
+            }
+            UserModeStatsColumn::PpPerMonth => {
+                let query = r#"
+SELECT 
+username, 
+country_code, 
+GREATEST((30.67 * pp / NULLIF(EXTRACT(DAYS FROM (NOW() - join_date)), 0))::FLOAT4, 0) AS value 
+FROM 
+(
+  SELECT 
+    osu_id 
+  FROM 
+    user_configs 
+  WHERE 
+    discord_id = ANY($1) 
+    AND osu_id IS NOT NULL
+) AS configs 
+JOIN osu_user_names AS names ON configs.osu_id = names.user_id 
+JOIN (
+  SELECT 
+    user_id, 
+    pp 
+  FROM 
+    osu_user_mode_stats 
+  WHERE 
+    gamemode = $2
+) AS stats ON names.user_id = stats.user_id 
+JOIN (
+  SELECT 
+    user_id, 
+    country_code, 
+    join_date 
+  FROM 
+    osu_user_stats
+) AS country ON names.user_id = country.user_id"#;
+
+                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(query)
+                    .bind(discord_ids)
+                    .bind(mode as i16)
+                    .fetch_all(self)
+                    .await
+                    .wrap_err("Failed to fetch all")?;
 
                 entries.sort_unstable_by(|a, b| {
                     b.value

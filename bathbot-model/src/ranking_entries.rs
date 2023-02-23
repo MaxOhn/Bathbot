@@ -381,6 +381,7 @@ impl RankingKind {
                         UserModeStatsColumn::Playcount => "Playcount",
                         UserModeStatsColumn::Playtime => "Playtime",
                         UserModeStatsColumn::Pp => "PP",
+                        UserModeStatsColumn::PpPerMonth => "PP per month",
                         UserModeStatsColumn::RankCountry => "Country rank",
                         UserModeStatsColumn::RankGlobal => "Global rank",
                         UserModeStatsColumn::ReplaysWatched => "Replays watched",
