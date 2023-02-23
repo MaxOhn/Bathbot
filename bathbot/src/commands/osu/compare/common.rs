@@ -1,6 +1,6 @@
-use std::{cmp::Ordering, collections::HashMap, fmt::Write, iter, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, collections::HashMap, fmt::Write, iter, sync::Arc};
 
-use bathbot_macros::command;
+use bathbot_macros::{command, SlashCommand};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher,
@@ -13,7 +13,11 @@ use rosu_v2::{
     OsuResult,
 };
 use time::OffsetDateTime;
-use twilight_model::guild::Permissions;
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::{
+    guild::Permissions,
+    id::{marker::UserMarker, Id},
+};
 
 use crate::{
     commands::{
@@ -26,11 +30,42 @@ use crate::{
         RedisData,
     },
     pagination::CommonPagination,
-    util::osu::get_combined_thumbnail,
+    util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
     Context,
 };
 
 use super::{CompareTop, AT_LEAST_ONE};
+
+#[derive(CommandModel, CreateCommand, Default, SlashCommand)]
+#[command(
+    name = "ct",
+    help = "Compare common top scores between players and see who did better on them"
+)]
+/// Compare common top scores
+#[allow(unused)]
+pub struct Ct<'a> {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name1: Option<Cow<'a, str>>,
+    /// Specify a username
+    name2: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name1` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord1: Option<Id<UserMarker>>,
+    /// Specify a linked discord user
+    discord2: Option<Id<UserMarker>>,
+}
+
+async fn slash_ct(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+    let args = CompareTop::from_interaction(command.input_data())?;
+
+    top(ctx, (&mut command).into(), args).await
+}
 
 #[command]
 #[desc("Compare maps of two players' top100s")]
@@ -38,6 +73,7 @@ use super::{CompareTop, AT_LEAST_ONE};
 #[usage("[name1] [name2]")]
 #[example("badewanne3 \"nathan on osu\"")]
 #[group(Osu)]
+#[alias("comparetop")]
 async fn prefix_common(
     ctx: Arc<Context>,
     msg: &Message,
@@ -54,7 +90,7 @@ async fn prefix_common(
 #[help("Compare the mania users' top 100 and check which maps appear in each top list")]
 #[usage("[name1] [name2]")]
 #[example("badewanne3 \"nathan on osu\"")]
-#[alias("commonm")]
+#[alias("commonm", "comparetopmania")]
 #[group(Mania)]
 async fn prefix_commonmania(
     ctx: Arc<Context>,
@@ -72,7 +108,7 @@ async fn prefix_commonmania(
 #[help("Compare the taiko users' top 100 and check which maps appear in each top list")]
 #[usage("[name1] [name2]")]
 #[example("badewanne3 \"nathan on osu\"")]
-#[alias("commont")]
+#[alias("commont", "comparetoptaiko")]
 #[group(Taiko)]
 async fn prefix_commontaiko(
     ctx: Arc<Context>,
@@ -90,7 +126,7 @@ async fn prefix_commontaiko(
 #[help("Compare the ctb users' top 100 and check which maps appear in each top list")]
 #[usage("[name1] [name2]")]
 #[example("badewanne3 \"nathan on osu\"")]
-#[aliases("commonc", "commoncatch")]
+#[alias("commonc", "commoncatch", "comparetopctb", "comparetopcatch")]
 #[group(Catch)]
 async fn prefix_commonctb(
     ctx: Arc<Context>,
@@ -313,6 +349,7 @@ pub struct CommonScore {
 impl Eq for CommonScore {}
 
 impl From<&Score> for CommonScore {
+    #[inline]
     fn from(score: &Score) -> Self {
         Self {
             pp: score.pp.unwrap_or(0.0),
@@ -323,6 +360,7 @@ impl From<&Score> for CommonScore {
 }
 
 impl Ord for CommonScore {
+    #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         self.pp
             .partial_cmp(&other.pp)
@@ -333,6 +371,7 @@ impl Ord for CommonScore {
 }
 
 impl PartialOrd for CommonScore {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }

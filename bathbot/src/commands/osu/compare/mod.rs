@@ -135,11 +135,12 @@ impl Default for ScoreOrder {
 #[command(
     name = "profile",
     help = "Compare profile stats between two players.\n\
+        Its shorter alias is the `/cp` command.
         Note:\n\
         - PC peak = Monthly playcount peak\n\
         - PP spread = PP difference between the top score and the 100th score"
 )]
-/// Compare two profiles
+/// Compare two profiles (same as `/cp`)
 pub struct CompareProfile<'a> {
     /// Specify a gamemode
     mode: Option<GameModeOption>,
@@ -161,9 +162,10 @@ pub struct CompareProfile<'a> {
 #[derive(CommandModel, CreateCommand, Default)]
 #[command(
     name = "top",
-    help = "Compare common top scores between players and see who did better on them"
+    help = "Compare common top scores between players and see who did better on them\n\
+        Its shorter alias is the `/cp` command."
 )]
-/// Compare common top scores
+/// Compare common top scores (same as `/ct`)
 pub struct CompareTop<'a> {
     /// Specify a gamemode
     mode: Option<GameModeOption>,

@@ -1,6 +1,6 @@
-use std::{io::Cursor, sync::Arc};
+use std::{borrow::Cow, io::Cursor, sync::Arc};
 
-use bathbot_macros::command;
+use bathbot_macros::{command, SlashCommand};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -18,7 +18,11 @@ use rosu_v2::{
     prelude::{GameMode, GameMods, OsuError, Score, UserStatistics},
     request::UserId,
 };
-use twilight_model::guild::Permissions;
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::{
+    guild::Permissions,
+    id::{marker::UserMarker, Id},
+};
 
 use crate::{
     commands::{
@@ -28,10 +32,45 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, ProfileCompareEmbed},
     manager::redis::osu::UserArgs,
+    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 
 use super::{CompareProfile, AT_LEAST_ONE};
+
+#[derive(CommandModel, CreateCommand, Default, SlashCommand)]
+#[command(
+    name = "cp",
+    help = "Compare profile stats between two players.\n\
+        Note:\n\
+        - PC peak = Monthly playcount peak\n\
+        - PP spread = PP difference between the top score and the 100th score"
+)]
+/// Compare two profiles
+#[allow(unused)]
+pub struct Cp<'a> {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name1: Option<Cow<'a, str>>,
+    /// Specify a username
+    name2: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name1` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord1: Option<Id<UserMarker>>,
+    /// Specify a linked discord user
+    discord2: Option<Id<UserMarker>>,
+}
+
+async fn slash_cp(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+    let args = CompareProfile::from_interaction(command.input_data())?;
+
+    profile(ctx, (&mut command).into(), args).await
+}
 
 async fn extract_user_id(ctx: &Context, args: &mut CompareProfile<'_>) -> UserExtraction {
     if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
@@ -214,7 +253,7 @@ pub(super) async fn profile(
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[aliases("pc", "profilecompareosu", "pco")]
+#[aliases("pc", "profilecompareosu", "pco", "compareprofile")]
 #[group(Osu)]
 async fn prefix_profilecompare(
     ctx: Arc<Context>,
@@ -237,7 +276,7 @@ async fn prefix_profilecompare(
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[alias("pcm")]
+#[aliases("pcm", "compareprofilemania")]
 #[group(Mania)]
 async fn prefix_profilecomparemania(
     ctx: Arc<Context>,
@@ -260,7 +299,7 @@ async fn prefix_profilecomparemania(
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[alias("pct")]
+#[aliases("pct", "compareprofiletaiko")]
 #[group(Taiko)]
 async fn prefix_profilecomparetaiko(
     ctx: Arc<Context>,
@@ -283,7 +322,12 @@ async fn prefix_profilecomparetaiko(
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[aliases("pcc", "profilecomparecatch")]
+#[aliases(
+    "pcc",
+    "profilecomparecatch",
+    "compareprofilectb",
+    "compareprofilecatch"
+)]
 #[group(Catch)]
 async fn prefix_profilecomparectb(
     ctx: Arc<Context>,
