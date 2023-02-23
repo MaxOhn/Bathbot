@@ -132,9 +132,8 @@ pub(super) async fn missing(
 
     medals.extend(MEDAL_GROUPS.iter().copied().map(MedalType::Group));
 
-    match args.sort {
-        None => {}
-        Some(MedalMissingOrder::Alphabet) => medals.sort_unstable_by(|a, b| {
+    match args.sort.unwrap_or_default() {
+        MedalMissingOrder::Alphabet => medals.sort_unstable_by(|a, b| {
             a.group().cmp(&b.group()).then_with(|| match (a, b) {
                 (MedalType::Group(_), MedalType::Medal(_)) => Ordering::Less,
                 (MedalType::Medal(_), MedalType::Group(_)) => Ordering::Greater,
@@ -142,7 +141,7 @@ pub(super) async fn missing(
                 (MedalType::Group(_), MedalType::Group(_)) => unreachable!(),
             })
         }),
-        Some(MedalMissingOrder::MedalId) => medals.sort_unstable_by(|a, b| {
+        MedalMissingOrder::MedalId => medals.sort_unstable_by(|a, b| {
             a.group().cmp(&b.group()).then_with(|| match (a, b) {
                 (MedalType::Group(_), MedalType::Medal(_)) => Ordering::Less,
                 (MedalType::Medal(_), MedalType::Group(_)) => Ordering::Greater,
@@ -150,7 +149,7 @@ pub(super) async fn missing(
                 (MedalType::Group(_), MedalType::Group(_)) => unreachable!(),
             })
         }),
-        Some(MedalMissingOrder::Rarity) => medals.sort_unstable_by(|a, b| {
+        MedalMissingOrder::Rarity => medals.sort_unstable_by(|a, b| {
             a.group().cmp(&b.group()).then_with(|| match (a, b) {
                 (MedalType::Group(_), MedalType::Medal(_)) => Ordering::Less,
                 (MedalType::Medal(_), MedalType::Group(_)) => Ordering::Greater,
