@@ -1,4 +1,9 @@
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use std::{
+    borrow::Cow,
+    cmp::{Ordering, Reverse},
+    collections::HashMap,
+    sync::Arc,
+};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
@@ -24,7 +29,7 @@ use crate::{
     Context,
 };
 
-use super::{require_link, user_not_found, TopEntry, TopScoreOrder};
+use super::{require_link, user_not_found, ScoreOrder, TopEntry};
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(
@@ -44,6 +49,8 @@ pub struct Mapper<'a> {
     mode: Option<GameModeOption>,
     /// Specify a username
     name: Option<Cow<'a, str>>,
+    /// Choose how the scores should be ordered
+    sort: Option<ScoreOrder>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
@@ -88,6 +95,7 @@ impl<'m> Mapper<'m> {
             mapper,
             mode,
             name,
+            sort: None,
             discord,
             size: None,
         })
@@ -258,7 +266,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
 
     let username = user.username();
 
-    let entries = match process_scores(&ctx, scores, mapper_id).await {
+    let entries = match process_scores(&ctx, scores, mapper_id, args.sort).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -304,7 +312,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         ),
     };
 
-    let sort_by = TopScoreOrder::Pp;
+    let sort_by = args.sort.unwrap_or(ScoreOrder::Pp).into();
     let farm = HashMap::default();
 
     let list_size = match args.size.or(config.list_size) {
@@ -363,6 +371,7 @@ async fn process_scores(
     ctx: &Context,
     scores: Vec<Score>,
     mapper_id: u32,
+    sort: Option<ScoreOrder>,
 ) -> Result<Vec<TopEntry>> {
     let mut entries = Vec::new();
 
@@ -377,7 +386,7 @@ async fn process_scores(
 
     for (i, score) in scores.into_iter().enumerate() {
         let Some(mut map) = maps.remove(&score.map_id) else { continue };
-        map = map.convert(score.mode);
+        map.convert_mut(score.mode);
 
         let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
         let attrs = calc.difficulty().await;
@@ -404,6 +413,63 @@ async fn process_scores(
         };
 
         entries.push(entry);
+    }
+
+    match sort {
+        None => {}
+        Some(ScoreOrder::Acc) => entries.sort_by(|a, b| {
+            b.score
+                .accuracy
+                .partial_cmp(&a.score.accuracy)
+                .unwrap_or(Ordering::Equal)
+        }),
+        Some(ScoreOrder::Bpm) => entries.sort_by(|a, b| {
+            b.map
+                .bpm()
+                .partial_cmp(&a.map.bpm())
+                .unwrap_or(Ordering::Equal)
+        }),
+        Some(ScoreOrder::Combo) => entries.sort_by_key(|entry| Reverse(entry.score.max_combo)),
+        Some(ScoreOrder::Date) => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
+        Some(ScoreOrder::Length) => {
+            entries.sort_by(|a, b| {
+                let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate();
+                let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate();
+
+                b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
+            });
+        }
+        Some(ScoreOrder::Misses) => entries.sort_by(|a, b| {
+            b.score
+                .statistics
+                .count_miss
+                .cmp(&a.score.statistics.count_miss)
+                .then_with(|| {
+                    let hits_a = a.score.total_hits();
+                    let hits_b = b.score.total_hits();
+
+                    let ratio_a = a.score.statistics.count_miss as f32 / hits_a as f32;
+                    let ratio_b = b.score.statistics.count_miss as f32 / hits_b as f32;
+
+                    ratio_b
+                        .partial_cmp(&ratio_a)
+                        .unwrap_or(Ordering::Equal)
+                        .then_with(|| hits_b.cmp(&hits_a))
+                })
+        }),
+        Some(ScoreOrder::Pp) => entries.sort_by(|a, b| {
+            b.score
+                .pp
+                .partial_cmp(&a.score.pp)
+                .unwrap_or(Ordering::Equal)
+        }),
+        Some(ScoreOrder::RankedDate) => {
+            entries.sort_by_key(|entry| Reverse(entry.map.ranked_date()))
+        }
+        Some(ScoreOrder::Score) => entries.sort_by_key(|entry| Reverse(entry.score.score)),
+        Some(ScoreOrder::Stars) => {
+            entries.sort_by(|a, b| b.stars.partial_cmp(&a.stars).unwrap_or(Ordering::Equal))
+        }
     }
 
     Ok(entries)
