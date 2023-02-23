@@ -127,6 +127,125 @@ async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
     }
 }
 
+#[command]
+#[desc("Display a list of a user's most recent passes")]
+#[help(
+    "Display a list of a user's most recent passes.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("rlp", "recentlistpasses")]
+#[group(Osu)]
+async fn prefix_recentlistpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+    match RecentList::args(None, args) {
+        Ok(mut args) => {
+            args.passes = Some(true);
+
+            list(ctx, msg.into(), args).await
+        }
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a list of a user's most recent mania passes")]
+#[help(
+    "Display a list of a user's most recent mania passes.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("rlpm", "recentlistpassesmania")]
+#[group(Mania)]
+async fn prefix_recentlistpassmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> Result<()> {
+    match RecentList::args(Some(GameModeOption::Mania), args) {
+        Ok(mut args) => {
+            args.passes = Some(true);
+
+            list(ctx, msg.into(), args).await
+        }
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a list of a user's most recent taiko plays")]
+#[help(
+    "Display a list of a user's most recent taiko plays.\n\
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("rlpt", "recentlistpassestaiko")]
+#[group(Taiko)]
+async fn prefix_recentlistpasstaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> Result<()> {
+    match RecentList::args(Some(GameModeOption::Taiko), args) {
+        Ok(mut args) => {
+            args.passes = Some(true);
+
+            list(ctx, msg.into(), args).await
+        }
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a list of a user's most recent ctb plays")]
+#[help(
+    "Display a list of a user's most recent ctb plays.\n\
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[aliases(
+    "rlpc",
+    "recentlistpasscatch",
+    "recentlistpassesctb",
+    "recentlistpassescatch"
+)]
+#[group(Catch)]
+async fn prefix_recentlistpassctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+    match RecentList::args(Some(GameModeOption::Catch), args) {
+        Ok(mut args) => {
+            args.passes = Some(true);
+
+            list(ctx, msg.into(), args).await
+        }
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
 impl<'m> RecentList<'m> {
     fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
         let mut name = None;

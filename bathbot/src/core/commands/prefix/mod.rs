@@ -212,6 +212,10 @@ impl PrefixCommands {
                 RECENTLISTCTB_PREFIX,
                 RECENTLISTMANIA_PREFIX,
                 RECENTLISTTAIKO_PREFIX,
+                RECENTLISTPASS_PREFIX,
+                RECENTLISTPASSCTB_PREFIX,
+                RECENTLISTPASSMANIA_PREFIX,
+                RECENTLISTPASSTAIKO_PREFIX,
                 #[cfg(feature = "twitch")]
                 REMOVESTREAM_PREFIX,
                 ROCKEFELLER_PREFIX,
