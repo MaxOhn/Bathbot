@@ -91,6 +91,6 @@ pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
 
             handle_modal(ctx, modal).await
         }
-        None => {}
+        _ => {}
     }
 }

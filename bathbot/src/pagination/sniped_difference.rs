@@ -3,7 +3,7 @@ use bathbot_model::SnipeRecent;
 use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::Difference,

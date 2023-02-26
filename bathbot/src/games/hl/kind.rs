@@ -6,7 +6,7 @@ use eyre::{ContextCompat, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::{self, Receiver};
-use twilight_model::channel::embed::{Embed, EmbedField};
+use twilight_model::channel::message::embed::{Embed, EmbedField};
 
 use crate::{
     core::{BotConfig, Context},

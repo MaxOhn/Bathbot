@@ -10,8 +10,11 @@ use bathbot_util::{
 use eyre::{ContextCompat, Report, Result};
 use hashbrown::HashSet;
 use twilight_model::{
-    application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
-    channel::{embed::EmbedField, Message, ReactionType},
+    channel::message::{
+        component::{ActionRow, SelectMenu, SelectMenuOption},
+        embed::EmbedField,
+        Component, Message, ReactionType,
+    },
     guild::Permissions,
     id::{marker::GuildMarker, Id},
 };
@@ -266,7 +269,7 @@ async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String
 async fn dm_help(ctx: Arc<Context>, msg: &Message, permissions: Option<Permissions>) -> Result<()> {
     let owner = msg.author.id;
 
-    let channel = match ctx.http.create_private_channel(owner).exec().await {
+    let channel = match ctx.http.create_private_channel(owner).await {
         Ok(channel_res) => channel_res.model().await?.id,
         Err(err) => {
             let content = "Your DMs seem blocked :(\n\

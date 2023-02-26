@@ -12,7 +12,7 @@ use bathbot_util::{
 use eyre::{Result, WrapErr};
 use rkyv::{Deserialize, Infallible};
 use twilight_interactions::command::AutocompleteValue;
-use twilight_model::application::command::CommandOptionChoice;
+use twilight_model::application::command::{CommandOptionChoice, CommandOptionChoiceValue};
 
 use crate::{
     core::commands::CommandOrigin,
@@ -234,9 +234,9 @@ pub async fn handle_autocomplete(
 }
 
 fn new_choice(name: &str) -> CommandOptionChoice {
-    CommandOptionChoice::String {
+    CommandOptionChoice {
         name: name.to_owned(),
         name_localizations: None,
-        value: name.to_owned(),
+        value: CommandOptionChoiceValue::String(name.to_owned()),
     }
 }

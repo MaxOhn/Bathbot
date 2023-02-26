@@ -16,5 +16,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 thiserror = { version = "1.0" }
 time = { version = "0.3", features = ["parsing"] }
-twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv-13", default-features = false, features = ["derive"] }
-twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13", default-features = false }
+twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv-15", default-features = false, features = ["derive"] }
+twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
+
+# twilight-interactions = { path = "../../twilight-interactions/twilight-interactions", default-features = false, features = ["derive"] }
+# twilight-model = { path = "../../twilight/twilight-model", default-features = false }

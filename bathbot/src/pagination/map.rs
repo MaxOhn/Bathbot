@@ -1,6 +1,6 @@
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMods};
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::CustomAttrs,

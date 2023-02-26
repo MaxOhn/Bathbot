@@ -90,7 +90,6 @@ impl CommandOrigin<'_> {
 
                 ctx.interaction()
                     .response(&command.token)
-                    .exec()
                     .await
                     .wrap_err("failed to get response message")
             }

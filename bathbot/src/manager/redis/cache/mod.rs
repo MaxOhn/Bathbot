@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
+use bathbot_util::IntHasher;
 use rkyv::{Archive, Deserialize, Serialize};
-use twilight_gateway::shard::ResumeSession;
+use twilight_gateway::Session;
 
 pub use self::error::*;
 
@@ -19,7 +20,7 @@ const CHANNEL_KEY_PREFIX: &str = "channel_chunk";
 const ROLE_KEY_PREFIX: &str = "role_chunk";
 const CURRENT_USER_KEY: &str = "current_user";
 
-pub type ResumeData = HashMap<u64, ResumeSession>;
+pub type ResumeData = HashMap<u64, Session, IntHasher>;
 
 #[derive(Archive, Deserialize, Serialize)]
 struct ColdResumeData {

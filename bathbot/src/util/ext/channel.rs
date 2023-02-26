@@ -1,4 +1,4 @@
-use std::slice;
+use std::{future::IntoFuture, slice};
 
 use bathbot_util::{constants::RED, EmbedBuilder, MessageBuilder};
 use twilight_http::response::ResponseFuture;
@@ -52,8 +52,11 @@ impl ChannelExt for Id<ChannelMarker> {
                 permissions.contains(Permissions::ATTACH_FILES)
             })
         }) {
-            Some(attachment) => req.attachments(slice::from_ref(attachment)).unwrap().exec(),
-            None => req.exec(),
+            Some(attachment) => req
+                .attachments(slice::from_ref(attachment))
+                .unwrap()
+                .into_future(),
+            None => req.into_future(),
         }
     }
 
@@ -65,7 +68,7 @@ impl ChannelExt for Id<ChannelMarker> {
             .create_message(*self)
             .embeds(&[embed])
             .expect("invalid embed")
-            .exec()
+            .into_future()
     }
 
     #[inline]
@@ -74,7 +77,7 @@ impl ChannelExt for Id<ChannelMarker> {
             .create_message(*self)
             .content(content)
             .expect("invalid content")
-            .exec()
+            .into_future()
     }
 }
 

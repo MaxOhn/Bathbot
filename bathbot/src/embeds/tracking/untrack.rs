@@ -2,7 +2,7 @@ use std::{collections::HashSet, fmt::Write};
 
 use bathbot_macros::EmbedData;
 use rosu_v2::prelude::Username;
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 #[derive(EmbedData)]
 pub struct UntrackEmbed {

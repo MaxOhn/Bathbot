@@ -1,9 +1,13 @@
 use std::{collections::BTreeMap, fmt::Write};
 
-use twilight_interactions::command::{CommandOptionExt, CommandOptionExtInner};
+use twilight_interactions::command::CommandOptionExt;
 use twilight_model::{
-    application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
-    channel::embed::EmbedField,
+    application::command::CommandOptionType,
+    channel::message::{
+        component::{ActionRow, SelectMenu, SelectMenuOption},
+        embed::EmbedField,
+        Component,
+    },
 };
 
 pub use self::{
@@ -46,9 +50,10 @@ fn parse_select_menu(options: &[CommandOptionExt]) -> Option<Vec<Component>> {
 
     let options: Vec<_> = options
         .iter()
-        .filter_map(|option| match &option.inner {
-            CommandOptionExtInner::SubCommand(d) => Some((&d.name, &d.description)),
-            CommandOptionExtInner::SubCommandGroup(d) => Some((&d.name, &d.description)),
+        .filter_map(|option| match option.inner.kind {
+            CommandOptionType::SubCommand | CommandOptionType::SubCommandGroup => {
+                Some((&option.inner.name, &option.inner.description))
+            }
             _ => None,
         })
         .map(|(name, description)| SelectMenuOption {
@@ -84,30 +89,23 @@ fn option_fields(children: &[CommandOptionExt]) -> Vec<EmbedField> {
     children
         .iter()
         .filter_map(|child| {
-            let (required, name, description) = match &child.inner {
-                CommandOptionExtInner::SubCommand(_)
-                | CommandOptionExtInner::SubCommandGroup(_) => return None,
-                CommandOptionExtInner::String(d) => (d.required, &d.name, &d.description),
-                CommandOptionExtInner::Integer(d) => (d.required, &d.name, &d.description),
-                CommandOptionExtInner::Boolean(d) => (d.required, &d.name, &d.description),
-                CommandOptionExtInner::User(d) => (d.required, &d.name, &d.description),
-                CommandOptionExtInner::Channel(d) => (d.required, &d.name, &d.description),
-                CommandOptionExtInner::Role(d) => (d.required, &d.name, &d.description),
-                CommandOptionExtInner::Mentionable(d) => (d.required, &d.name, &d.description),
-                CommandOptionExtInner::Number(d) => (d.required, &d.name, &d.description),
-                CommandOptionExtInner::Attachment(d) => (d.required, &d.name, &d.description),
-            };
+            if matches!(
+                child.inner.kind,
+                CommandOptionType::SubCommand | CommandOptionType::SubCommandGroup
+            ) {
+                return None;
+            }
 
-            let mut name = name.to_owned();
+            let mut name = child.inner.name.clone();
 
-            if required {
+            if child.inner.required.unwrap_or(false) {
                 name.push_str(" (required)");
             }
 
             let value = child
                 .help
                 .as_ref()
-                .map_or_else(|| description.to_owned(), |help| help.to_owned());
+                .map_or_else(|| child.inner.description.clone(), |help| help.to_owned());
 
             let field = EmbedField {
                 inline: value.len() <= 40,

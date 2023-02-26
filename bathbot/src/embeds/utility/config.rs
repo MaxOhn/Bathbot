@@ -5,7 +5,7 @@ use bathbot_psql::model::configs::{ListSize, MinimizedPp, OsuUsername, ScoreSize
 use bathbot_util::{AuthorBuilder, EmbedBuilder, FooterBuilder};
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
-    channel::embed::{Embed, EmbedField},
+    channel::message::embed::{Embed, EmbedField},
     user::User,
 };
 

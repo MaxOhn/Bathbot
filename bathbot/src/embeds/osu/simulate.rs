@@ -11,7 +11,7 @@ use rosu_pp::{
     catch::CatchScoreState, mania::ManiaScoreState, osu::OsuScoreState, taiko::TaikoScoreState,
 };
 use rosu_v2::prelude::{GameMode, GameMods, Grade, ScoreStatistics};
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
     commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},

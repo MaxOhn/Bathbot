@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder};
 use eyre::Result;
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
     util::{interaction::InteractionCommand, InteractionCommandExt},

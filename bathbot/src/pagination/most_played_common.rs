@@ -2,7 +2,7 @@ use bathbot_macros::pagination;
 use bathbot_util::IntHasher;
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     embeds::{EmbedData, MostPlayedCommonEmbed},

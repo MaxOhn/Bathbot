@@ -12,7 +12,7 @@ use rosu_v2::prelude::{
 };
 use tokio::time::interval;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     core::Context,

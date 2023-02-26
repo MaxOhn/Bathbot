@@ -1,9 +1,15 @@
-use std::{fmt::Write, mem};
+use std::fmt::Write;
 
 use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder};
 use eyre::{ContextCompat, Result};
-use twilight_interactions::command::{CommandOptionExt, CommandOptionExtInner};
-use twilight_model::application::component::{button::ButtonStyle, ActionRow, Button, Component};
+use twilight_interactions::command::CommandOptionExt;
+use twilight_model::{
+    application::command::CommandOptionType,
+    channel::message::{
+        component::{ActionRow, Button, ButtonStyle},
+        Component,
+    },
+};
 
 use crate::{
     core::{
@@ -25,6 +31,7 @@ struct Parts {
 }
 
 impl From<&'static SlashCommand> for Parts {
+    #[inline]
     fn from(command: &'static SlashCommand) -> Self {
         let command = (command.create)();
 
@@ -38,32 +45,19 @@ impl From<&'static SlashCommand> for Parts {
 }
 
 impl From<CommandOptionExt> for Parts {
+    #[inline]
     fn from(option: CommandOptionExt) -> Self {
-        let (name, description, options) = match option.inner {
-            CommandOptionExtInner::SubCommand(o) | CommandOptionExtInner::SubCommandGroup(o) => {
-                (o.name, o.description, o.options)
-            }
-            CommandOptionExtInner::String(d) => (d.name, d.description, Vec::new()),
-            CommandOptionExtInner::Integer(d) => (d.name, d.description, Vec::new()),
-            CommandOptionExtInner::Number(d) => (d.name, d.description, Vec::new()),
-            CommandOptionExtInner::Boolean(d) => (d.name, d.description, Vec::new()),
-            CommandOptionExtInner::User(d) => (d.name, d.description, Vec::new()),
-            CommandOptionExtInner::Channel(d) => (d.name, d.description, Vec::new()),
-            CommandOptionExtInner::Role(d) => (d.name, d.description, Vec::new()),
-            CommandOptionExtInner::Mentionable(d) => (d.name, d.description, Vec::new()),
-            CommandOptionExtInner::Attachment(d) => (d.name, d.description, Vec::new()),
-        };
-
         Self {
-            name,
-            help: option.help.unwrap_or(description),
+            name: option.inner.name,
+            help: option.help.unwrap_or(option.inner.description),
             root: false,
-            options,
+            options: option.inner.options.unwrap_or_default(),
         }
     }
 }
 
 impl From<EitherCommand> for Parts {
+    #[inline]
     fn from(either: EitherCommand) -> Self {
         match either {
             EitherCommand::Base(command) => command.into(),
@@ -73,6 +67,7 @@ impl From<EitherCommand> for Parts {
 }
 
 impl From<CommandIter> for Parts {
+    #[inline]
     fn from(iter: CommandIter) -> Self {
         match iter.next {
             Some(option) => option.into(),
@@ -92,6 +87,7 @@ struct CommandIter {
 }
 
 impl From<&'static SlashCommand> for CommandIter {
+    #[inline]
     fn from(command: &'static SlashCommand) -> Self {
         Self {
             curr: EitherCommand::Base(command),
@@ -103,22 +99,32 @@ impl From<&'static SlashCommand> for CommandIter {
 impl CommandIter {
     fn next(&mut self, name: &str) -> bool {
         let options = match &mut self.next {
-            Some(option) => match &mut option.inner {
-                CommandOptionExtInner::SubCommand(o)
-                | CommandOptionExtInner::SubCommandGroup(o) => mem::take(&mut o.options),
-                _ => return true,
-            },
+            Some(option) => {
+                if matches!(
+                    option.inner.kind,
+                    CommandOptionType::SubCommand | CommandOptionType::SubCommandGroup
+                ) {
+                    option.inner.options.take().unwrap_or_default()
+                } else {
+                    return true;
+                }
+            }
             None => match &mut self.curr {
                 EitherCommand::Base(command) => (command.create)().options,
-                EitherCommand::Option(option) => match &mut option.inner {
-                    CommandOptionExtInner::SubCommand(o)
-                    | CommandOptionExtInner::SubCommandGroup(o) => mem::take(&mut o.options),
-                    _ => return true,
-                },
+                EitherCommand::Option(option) => {
+                    if matches!(
+                        option.inner.kind,
+                        CommandOptionType::SubCommand | CommandOptionType::SubCommandGroup
+                    ) {
+                        option.inner.options.take().unwrap_or_default()
+                    } else {
+                        return true;
+                    }
+                }
             },
         };
 
-        let next = match options.into_iter().find(|o| o.inner.name() == name) {
+        let next = match options.into_iter().find(|o| o.inner.name == name) {
             Some(option) => option,
             None => return true,
         };

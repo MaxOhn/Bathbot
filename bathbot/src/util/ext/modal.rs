@@ -1,3 +1,5 @@
+use std::future::IntoFuture;
+
 use bathbot_util::MessageBuilder;
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::{
@@ -55,7 +57,7 @@ impl ModalExt for InteractionModal {
 
         ctx.interaction()
             .create_response(self.id, &self.token, &response)
-            .exec()
+            .into_future()
     }
 
     #[inline]
@@ -67,7 +69,7 @@ impl ModalExt for InteractionModal {
 
         ctx.interaction()
             .create_response(self.id, &self.token, &response)
-            .exec()
+            .into_future()
     }
 
     #[inline]

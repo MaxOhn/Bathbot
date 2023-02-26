@@ -1,7 +1,8 @@
 use std::borrow::Cow;
 
 use twilight_model::{
-    application::component::Component, channel::embed::Embed, http::attachment::Attachment,
+    channel::message::{embed::Embed, Component},
+    http::attachment::Attachment,
 };
 
 use super::EmbedBuilder;

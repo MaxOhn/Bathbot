@@ -3,9 +3,9 @@ use std::{
     sync::Arc,
 };
 
-use eyre::Result;
+use eyre::{Report, Result};
 use futures::StreamExt;
-use twilight_gateway::{cluster::Events, Event};
+use twilight_gateway::{stream::ShardEventStream, Event, Shard};
 
 use crate::util::Authored;
 
@@ -91,20 +91,36 @@ impl Display for EventLocation<'_> {
     }
 }
 
-pub async fn event_loop(ctx: Arc<Context>, mut events: Events) {
-    while let Some((shard_id, event)) = events.next().await {
-        ctx.cache.update(&event);
-        ctx.standby.process(&event);
-        let ctx = Arc::clone(&ctx);
+pub async fn event_loop(ctx: Arc<Context>, shards: &mut [Shard]) {
+    let mut stream = ShardEventStream::new(shards.iter_mut());
 
-        tokio::spawn(async move {
-            let handle_fut = handle_event(ctx, event, shard_id);
+    loop {
+        match stream.next().await {
+            Some((shard, Ok(event))) => {
+                ctx.cache.update(&event);
+                ctx.standby.process(&event);
+                let ctx = Arc::clone(&ctx);
+                let shard_id = shard.id().number();
 
-            if let Err(err) = handle_fut.await {
-                error!("{:?}", err.wrap_err("failed to handle event"));
+                tokio::spawn(async move {
+                    if let Err(err) = handle_event(ctx, event, shard_id).await {
+                        error!("{:?}", err.wrap_err("Failed to handle event"));
+                    }
+                });
             }
-        });
+            Some((_, Err(err))) => {
+                let is_fatal = err.is_fatal();
+                error!("{:?}", Report::new(err).wrap_err("Event error"));
+
+                if is_fatal {
+                    break;
+                }
+            }
+            None => break,
+        }
     }
+
+    drop(stream);
 }
 
 async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<()> {
@@ -120,6 +136,13 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
         Event::ChannelPinsUpdate(_) => {}
         Event::ChannelUpdate(_) => ctx.stats.event_counts.channel_update.inc(),
         Event::CommandPermissionsUpdate(_) => {}
+        Event::GatewayClose(frame) => match frame {
+            Some(frame) => warn!(
+                "Received closing frame for shard {shard_id}: {}",
+                frame.reason
+            ),
+            None => warn!("Received closing frame for shard {shard_id}"),
+        },
         Event::GatewayHeartbeat(_) => {}
         Event::GatewayHeartbeatAck => {}
         Event::GatewayHello(_) => {}
@@ -139,6 +162,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
             ctx.stats.event_counts.gateway_reconnect.inc();
         }
         Event::GiftCodeUpdate => {}
+        Event::GuildAuditLogEntryCreate(_) => todo!(),
         Event::GuildCreate(e) => {
             ctx.guild_shards().pin().insert(e.id, shard_id);
             ctx.stats.event_counts.guild_create.inc();
@@ -266,13 +290,6 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
                 .set(ctx.cache.stats().roles() as i64);
         }
         Event::RoleUpdate(_) => ctx.stats.event_counts.role_update.inc(),
-        Event::ShardConnected(_) => info!("Shard {shard_id} is connected"),
-        Event::ShardConnecting(_) => info!("Shard {shard_id} is connecting..."),
-        Event::ShardDisconnected(_) => info!("Shard {shard_id} is disconnected"),
-        Event::ShardIdentifying(_) => info!("Shard {shard_id} is identifying..."),
-        Event::ShardReconnecting(_) => info!("Shard {shard_id} is reconnecting..."),
-        Event::ShardPayload(_) => {}
-        Event::ShardResuming(_) => info!("Shard {shard_id} is resuming..."),
         Event::StageInstanceCreate(_) => {}
         Event::StageInstanceDelete(_) => {}
         Event::StageInstanceUpdate(_) => {}

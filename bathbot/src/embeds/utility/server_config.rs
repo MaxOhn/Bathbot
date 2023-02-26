@@ -3,7 +3,7 @@ use std::fmt::Write;
 use bathbot_macros::EmbedData;
 use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use bathbot_util::AuthorBuilder;
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::commands::utility::GuildData;
 

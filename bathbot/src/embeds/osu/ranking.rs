@@ -9,7 +9,7 @@ use bathbot_util::{
     EmbedBuilder, FooterBuilder,
 };
 use time::OffsetDateTime;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{embeds::EmbedData, pagination::Pages};
 

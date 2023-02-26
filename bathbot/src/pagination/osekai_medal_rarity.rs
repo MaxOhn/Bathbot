@@ -1,6 +1,6 @@
 use bathbot_macros::pagination;
 use bathbot_model::OsekaiRarityEntry;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::embeds::{EmbedData, MedalRarityEmbed};
 

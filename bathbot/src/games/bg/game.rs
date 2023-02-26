@@ -238,7 +238,7 @@ pub async fn game_loop(
                 // Send message
                 let msg_fut = ctx.http.create_message(channel).content(&content).unwrap();
 
-                if let Err(err) = msg_fut.exec().await {
+                if let Err(err) = msg_fut.await {
                     let report =
                         Report::new(err).wrap_err("error while sending msg for correct artist");
                     warn!("{report:?}");

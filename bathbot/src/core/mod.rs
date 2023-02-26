@@ -7,7 +7,6 @@ pub use self::{
 };
 
 mod cache;
-mod cluster;
 mod config;
 mod context;
 mod events;

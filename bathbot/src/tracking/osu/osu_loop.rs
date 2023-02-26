@@ -13,7 +13,7 @@ use twilight_http::{
     error::ErrorType as TwilightErrorType,
 };
 use twilight_model::{
-    channel::embed::Embed,
+    channel::message::embed::Embed,
     id::{marker::ChannelMarker, Id},
 };
 

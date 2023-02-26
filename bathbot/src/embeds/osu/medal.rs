@@ -8,7 +8,7 @@ use bathbot_util::{
 };
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
-use twilight_model::channel::embed::{Embed, EmbedField};
+use twilight_model::channel::message::embed::{Embed, EmbedField};
 
 use crate::{commands::osu::MedalAchieved, manager::redis::RedisData};
 

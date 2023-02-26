@@ -155,7 +155,7 @@ async fn process_command<'m>(
 
     // Broadcast typing event
     if cmd.flags.defer() {
-        let _ = ctx.http.create_typing_trigger(channel).exec().await;
+        let _ = ctx.http.create_typing_trigger(channel).await;
     }
 
     // Call command function

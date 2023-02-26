@@ -39,7 +39,7 @@ pub async fn bigger(
         return Ok(());
     }
 
-    let _ = ctx.http.create_typing_trigger(msg.channel_id).exec().await;
+    let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
 
     match ctx.bg_games().read(&msg.channel_id).await.get() {
         Some(GameState::Running { game }) => match game.sub_image().await {

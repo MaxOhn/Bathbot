@@ -13,7 +13,10 @@ use prometheus::core::Collector;
 use twilight_interactions::command::{
     ApplicationCommandData, AutocompleteValue, CommandModel, CreateCommand,
 };
-use twilight_model::{application::command::CommandOptionChoice, channel::embed::EmbedField};
+use twilight_model::{
+    application::command::{CommandOptionChoice, CommandOptionChoiceValue},
+    channel::message::embed::EmbedField,
+};
 
 use crate::{
     core::{
@@ -69,10 +72,10 @@ pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> R
             let choices = match (arg, SlashCommands::get().descendants(arg)) {
                 ("", _) | (_, None) => Vec::new(),
                 (_, Some(cmds)) => cmds
-                    .map(|cmd| CommandOptionChoice::String {
+                    .map(|cmd| CommandOptionChoice {
                         name: cmd.to_owned(),
                         name_localizations: None,
-                        value: cmd.to_owned(),
+                        value: CommandOptionChoiceValue::String(cmd.to_owned()),
                     })
                     .collect(),
             };

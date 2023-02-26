@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bathbot_macros::pagination;
 use bathbot_util::IntHasher;
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, Username};
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::CommonScore,

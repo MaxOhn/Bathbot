@@ -1,4 +1,4 @@
-use std::{borrow::Cow, mem, slice};
+use std::{borrow::Cow, future::IntoFuture, mem, slice};
 
 use bathbot_util::{constants::RED, EmbedBuilder, MessageBuilder};
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
@@ -97,7 +97,7 @@ impl InteractionCommandExt for InteractionCommand {
 
         ctx.interaction()
             .create_response(self.id, &self.token, &response)
-            .exec()
+            .into_future()
     }
 
     #[inline]
@@ -114,7 +114,7 @@ impl InteractionCommandExt for InteractionCommand {
 
         ctx.interaction()
             .create_response(self.id, &self.token, &response)
-            .exec()
+            .into_future()
     }
 
     #[inline]
@@ -153,7 +153,7 @@ impl InteractionCommandExt for InteractionCommand {
             req = req.attachments(slice::from_ref(attachment)).unwrap();
         }
 
-        req.exec()
+        req.into_future()
     }
 
     #[inline]
@@ -164,7 +164,7 @@ impl InteractionCommandExt for InteractionCommand {
             .update_response(&self.token)
             .embeds(Some(&[embed]))
             .expect("invalid embed")
-            .exec()
+            .into_future()
     }
 
     #[inline]
@@ -187,7 +187,7 @@ impl InteractionCommandExt for InteractionCommand {
 
         ctx.interaction()
             .create_response(self.id, &self.token, &response)
-            .exec()
+            .into_future()
     }
 
     #[inline]
@@ -208,6 +208,6 @@ impl InteractionCommandExt for InteractionCommand {
 
         ctx.interaction()
             .create_response(self.id, &self.token, &response)
-            .exec()
+            .into_future()
     }
 }

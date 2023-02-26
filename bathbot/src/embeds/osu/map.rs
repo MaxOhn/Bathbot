@@ -14,7 +14,7 @@ use rosu_pp::{AnyPP, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Username};
 use time::OffsetDateTime;
 use twilight_model::{
-    channel::embed::EmbedField,
+    channel::message::embed::EmbedField,
     id::{
         marker::{ChannelMarker, GuildMarker},
         Id,

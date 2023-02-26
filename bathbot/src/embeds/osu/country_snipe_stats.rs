@@ -5,7 +5,7 @@ use bathbot_util::{
     osu::flag_url,
     CowUtils, FooterBuilder,
 };
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::embeds::attachment;
 

@@ -2169,17 +2169,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sha-1"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5058ada175748e33390e40e872bd0fe59a19f265d0158daa551c5a88a76009c"
-dependencies = [
- "cfg-if",
- "cpufeatures",
- "digest",
-]
-
-[[package]]
 name = "sha1"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2572,18 +2561,18 @@ dependencies = [
 
 [[package]]
 name = "tokio-tungstenite"
-version = "0.17.2"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f714dd15bead90401d77e04243611caec13726c2408afd5b31901dfcdcb3b181"
+checksum = "54319c93411147bced34cb5609a80e0a8e44c5999c93903a81cd866630ec0bfd"
 dependencies = [
  "futures-util",
  "log",
  "rustls",
- "rustls-native-certs",
  "tokio",
  "tokio-rustls",
  "tungstenite",
  "webpki",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -2760,9 +2749,9 @@ checksum = "7b3e06c9b9d80ed6b745c7159c40b311ad2916abb34a49e9be2653b90db0d8dd"
 
 [[package]]
 name = "tungstenite"
-version = "0.17.3"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e27992fd6a8c29ee7eef28fc78349aa244134e10ad447ce3b9f0ac0ed0fa4ce0"
+checksum = "30ee6ab729cd4cf0fd55218530c4522ed30b7b6081752839b68fcec8d0960788"
 dependencies = [
  "base64 0.13.1",
  "byteorder",
@@ -2772,7 +2761,7 @@ dependencies = [
  "log",
  "rand",
  "rustls",
- "sha-1",
+ "sha1",
  "thiserror",
  "url",
  "utf-8",
@@ -2781,8 +2770,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-cache-inmemory"
-version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
+version = "0.15.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -2793,16 +2782,15 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway"
-version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
+version = "0.15.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
 dependencies = [
  "bitflags",
  "flate2",
  "futures-util",
- "leaky-bucket-lite",
+ "rand",
  "rkyv",
  "rustls",
- "rustls-native-certs",
  "serde",
  "serde_json",
  "tokio",
@@ -2811,23 +2799,22 @@ dependencies = [
  "twilight-gateway-queue",
  "twilight-http",
  "twilight-model",
- "url",
+ "webpki-roots",
 ]
 
 [[package]]
 name = "twilight-gateway-queue"
-version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
+version = "0.15.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
 dependencies = [
  "tokio",
  "tracing",
- "twilight-http",
 ]
 
 [[package]]
 name = "twilight-http"
-version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
+version = "0.15.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -2844,8 +2831,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-http-ratelimiting"
-version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
+version = "0.15.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
 dependencies = [
  "futures-util",
  "http",
@@ -2855,8 +2842,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-interactions"
-version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight-interactions?branch=rkyv-13#d0518814d2e0c99f2a30d76a3fe34d9514eea655"
+version = "0.15.0"
+source = "git+https://github.com/MaxOhn/twilight-interactions?branch=rkyv-15#f2879a44003e2b26c07a332d88fba6e31ddd87a4"
 dependencies = [
  "twilight-interactions-derive",
  "twilight-model",
@@ -2864,8 +2851,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-interactions-derive"
-version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight-interactions?branch=rkyv-13#d0518814d2e0c99f2a30d76a3fe34d9514eea655"
+version = "0.15.0"
+source = "git+https://github.com/MaxOhn/twilight-interactions?branch=rkyv-15#f2879a44003e2b26c07a332d88fba6e31ddd87a4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2874,8 +2861,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-model"
-version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
+version = "0.15.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
 dependencies = [
  "bitflags",
  "rkyv",
@@ -2888,8 +2875,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-standby"
-version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
+version = "0.15.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
 dependencies = [
  "dashmap",
  "futures-util",
@@ -2900,8 +2887,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-validate"
-version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
+version = "0.15.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
 dependencies = [
  "twilight-model",
 ]

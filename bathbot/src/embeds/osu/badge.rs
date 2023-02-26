@@ -3,7 +3,7 @@ use std::fmt::Write;
 use bathbot_macros::EmbedData;
 use bathbot_model::{OsekaiBadge, OsekaiBadgeOwner};
 use bathbot_util::{constants::OSU_BASE, datetime::DATE_FORMAT, CowUtils, FooterBuilder};
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{embeds::attachment, pagination::Pages};
 

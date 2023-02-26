@@ -6,7 +6,7 @@ use bathbot_model::{
 };
 use eyre::{Result, WrapErr};
 use rkyv::{with::DeserializeWith, Deserialize, Infallible};
-use twilight_model::{channel::embed::Embed, id::Id};
+use twilight_model::{channel::message::embed::Embed, id::Id};
 
 use crate::{
     embeds::{EmbedData, RankingEmbed},

@@ -8,7 +8,7 @@ use bathbot_util::{
 };
 use hashbrown::HashMap;
 use rosu_v2::prelude::MedalCompact;
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
     embeds::attachment,

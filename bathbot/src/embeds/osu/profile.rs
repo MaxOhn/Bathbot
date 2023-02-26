@@ -9,7 +9,7 @@ use bathbot_util::{
 use rkyv::{with::DeserializeWith, Deserialize, Infallible};
 use rosu_v2::prelude::{GameMods, Grade, UserHighestRank, UserStatistics};
 use time::UtcOffset;
-use twilight_model::channel::embed::{Embed, EmbedField};
+use twilight_model::channel::message::embed::{Embed, EmbedField};
 
 use crate::{
     commands::osu::{MinMaxAvg, Number, ProfileData, ProfileKind, Top100Stats},

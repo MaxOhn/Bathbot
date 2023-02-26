@@ -50,16 +50,13 @@ impl Cache {
         let resume_data = match RedisManager::defrost_cache(redis, &inner).await {
             Ok(resume_data) => resume_data,
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to defrost cache");
-                warn!("{report:?}");
+                warn!("{:?}", Report::new(err).wrap_err("Failed to defrost cache"));
 
                 ResumeData::default()
             }
         };
 
-        let cache = Self { inner };
-
-        (cache, resume_data)
+        (Self { inner }, resume_data)
     }
 
     pub fn update(&self, event: &Event) {

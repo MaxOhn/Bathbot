@@ -1,4 +1,4 @@
-use twilight_model::channel::embed::EmbedAuthor;
+use twilight_model::channel::message::embed::EmbedAuthor;
 
 #[derive(Clone)]
 pub struct AuthorBuilder(EmbedAuthor);
