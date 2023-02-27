@@ -11,8 +11,7 @@ use crate::{
 
 pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionCommand) {
     let name = mem::take(&mut command.data.name);
-    EventKind::Autocomplete.log(&ctx, &command, &name);
-    ctx.stats.increment_autocomplete(&name);
+    EventKind::Autocomplete.log(&ctx, &command, &name).await;
 
     let res = match name.as_str() {
         "help" => slash_help(ctx, command).await,

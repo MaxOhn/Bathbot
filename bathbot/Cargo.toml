@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 aho-corasick = { version = "0.7" }
+bathbot-cache = { path = "../bathbot-cache" }
 bathbot-client = { path = "../bathbot-client" }
 bathbot-macros = { path = "../bathbot-macros" }
 bathbot-model = { path = "../bathbot-model" }
@@ -51,7 +52,7 @@ tokio-stream = { version = "0.1", default-features = false }
 tracing = { version = "0.1" }
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "smallvec", "std", "time", "tracing-log"] }
-twilight-gateway = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false, features = ["rustls-webpki-roots", "twilight-http", "zlib-stock"]  }
+twilight-gateway = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false, features = ["rustls-webpki-roots", "twilight-http", "zlib-stock"] }
 twilight-cache-inmemory = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
 twilight-http = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false, features = ["rustls-webpki-roots"] }
 twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv-15", default-features = false, features = ["derive"] }

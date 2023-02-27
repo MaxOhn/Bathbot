@@ -24,6 +24,7 @@ pub struct BotConfig {
     pub emotes: HashMap<Emote, Box<str>>,
     pub redis_host: Box<str>,
     pub redis_port: u16,
+    pub redis_db_idx: u8,
     pub owner: Id<UserMarker>,
     pub dev_guild: Id<GuildMarker>,
     pub hl_channel: Id<ChannelMarker>,
@@ -143,6 +144,7 @@ impl BotConfig {
             emotes,
             redis_host: env_var("REDIS_HOST")?,
             redis_port: env_var("REDIS_PORT")?,
+            redis_db_idx: env_var("REDIS_DB_IDX")?,
             owner: env_var("OWNER_USER_ID")?,
             dev_guild: env_var("DEV_GUILD_ID")?,
             hl_channel: env_var("HL_IMAGE_CHANNEL")?,
@@ -182,6 +184,7 @@ macro_rules! env_kind {
 
 env_kind! {
     Box<str>: s => { Ok(s.into_boxed_str()) },
+    u8: s => { s.parse().map_err(|_| s) },
     u16: s => { s.parse().map_err(|_| s) },
     u64: s => { s.parse().map_err(|_| s) },
     PathBuf: s => { s.parse().map_err(|_| s) },

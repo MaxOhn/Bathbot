@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "bathbot",
+    "bathbot-cache",
     "bathbot-client",
     "bathbot-macros",
     "bathbot-model",

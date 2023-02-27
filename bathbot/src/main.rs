@@ -203,8 +203,8 @@ async fn async_main() -> Result<()> {
 
     let resume_data = Context::down_resumable(&mut shards).await;
 
-    if let Err(err) = ctx.cache.freeze(&ctx, resume_data).await {
-        error!("{:?}", Report::new(err).wrap_err("Failed to freeze cache"));
+    if let Err(err) = ctx.cache.freeze(&resume_data).await {
+        error!("{:?}", err.wrap_err("Failed to freeze cache"));
     }
 
     info!("Shutting down");

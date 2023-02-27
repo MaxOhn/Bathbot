@@ -93,14 +93,22 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
     let owner = command.user_id()?;
     let guild_id = command.guild_id.unwrap(); // command is only processed in guilds
 
-    let members: Vec<_> = ctx.cache.members(guild_id, |id| id.get() as i64);
+    let members: Vec<_> = match ctx.cache.members(guild_id).await {
+        Ok(members) => members.into_iter().map(|id| id as i64).collect(),
+        Err(err) => {
+            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
 
     let guild_icon = ctx
         .cache
-        .guild(guild_id, |g| g.icon().copied())
+        .guild(guild_id)
+        .await
         .ok()
         .flatten()
-        .map(|icon| (guild_id, icon));
+        .and_then(|guild| Some((guild.id, *guild.icon.as_ref()?)));
 
     let author_name_fut = ctx.user_config().osu_name(owner);
 

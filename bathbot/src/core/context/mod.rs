@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use bathbot_cache::Cache;
 use bathbot_client::Client as BathbotClient;
 use bathbot_psql::{model::configs::GuildConfig, Database};
 use bathbot_util::IntHasher;
@@ -16,8 +17,8 @@ use parking_lot::Mutex;
 use rosu_v2::Osu;
 use tokio::sync::mpsc::UnboundedSender;
 use twilight_gateway::{
-    stream, CloseFrame, Config, ConfigBuilder, EventTypeFlags, Intents, MessageSender, Shard,
-    ShardId,
+    stream, CloseFrame, Config, ConfigBuilder, EventTypeFlags, Intents, MessageSender, Session,
+    Shard, ShardId,
 };
 use twilight_http::{client::InteractionClient, Client};
 use twilight_model::{
@@ -39,14 +40,13 @@ use crate::{
         bg::GameState as BgGameState,
         hl::{retry::RetryState, GameState as HlGameState},
     },
-    manager::redis::cache::ResumeData,
     pagination::Pagination,
 };
 
 #[cfg(feature = "osutracking")]
 use crate::manager::OsuTrackingManager;
 
-use super::{buckets::Buckets, BotStats, Cache};
+use super::{buckets::Buckets, BotStats};
 
 mod games;
 mod manager;
@@ -127,8 +127,17 @@ impl Context {
             .await
             .wrap_err("Failed to create context data")?;
 
-        let (cache, resume_data) = Cache::new(&redis).await;
+        let cache = Cache::new(&config.redis_host, config.redis_port, config.redis_db_idx)
+            .await
+            .wrap_err("Failed to create redis cache")?;
+
+        let resume_data = cache.defrost().await.wrap_err("Failed to defrost cache")?;
+
         let (stats, registry) = BotStats::new(osu.metrics());
+
+        if !resume_data.is_empty() {
+            stats.populate(&cache).await;
+        }
 
         let client_fut = BathbotClient::new(
             &config.tokens.osu_session,
@@ -140,10 +149,6 @@ impl Context {
         let custom_client = client_fut
             .await
             .wrap_err("Failed to create custom client")?;
-
-        if !resume_data.is_empty() {
-            stats.populate(&cache);
-        }
 
         let clients = Clients::new(psql, redis, osu, custom_client);
 
@@ -184,7 +189,7 @@ impl Context {
         ))
     }
 
-    pub async fn down_resumable(shards: &mut [Shard]) -> ResumeData {
+    pub async fn down_resumable(shards: &mut [Shard]) -> HashMap<u64, Session> {
         shards
             .iter_mut()
             .map(|shard| {
@@ -345,7 +350,7 @@ async fn discord_http(config: &BotConfig) -> Result<(Arc<Client>, Id<Application
 async fn discord_gateway(
     config: &BotConfig,
     http: &Client,
-    resume_data: ResumeData,
+    resume_data: HashMap<u64, Session>,
 ) -> Result<Vec<Shard>> {
     let intents = Intents::GUILDS
         | Intents::GUILD_MEMBERS

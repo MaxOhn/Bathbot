@@ -142,6 +142,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
 
 [[package]]
+name = "bathbot-cache"
+version = "0.1.0"
+dependencies = [
+ "bb8-redis",
+ "eyre",
+ "itoa",
+ "once_cell",
+ "rkyv",
+ "tracing",
+ "twilight-gateway",
+ "twilight-model",
+]
+
+[[package]]
 name = "bathbot-client"
 version = "0.1.0"
 dependencies = [
@@ -248,6 +262,7 @@ name = "bathbot-twilight"
 version = "3.0.10"
 dependencies = [
  "aho-corasick",
+ "bathbot-cache",
  "bathbot-client",
  "bathbot-macros",
  "bathbot-model",
@@ -2771,7 +2786,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.15.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#b6af5d574889e113a156b9dd0b5be973fbbc4a31"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -2783,7 +2798,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.15.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#b6af5d574889e113a156b9dd0b5be973fbbc4a31"
 dependencies = [
  "bitflags",
  "flate2",
@@ -2805,7 +2820,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway-queue"
 version = "0.15.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#b6af5d574889e113a156b9dd0b5be973fbbc4a31"
 dependencies = [
  "tokio",
  "tracing",
@@ -2814,7 +2829,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.15.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#b6af5d574889e113a156b9dd0b5be973fbbc4a31"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -2832,7 +2847,7 @@ dependencies = [
 [[package]]
 name = "twilight-http-ratelimiting"
 version = "0.15.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#b6af5d574889e113a156b9dd0b5be973fbbc4a31"
 dependencies = [
  "futures-util",
  "http",
@@ -2862,7 +2877,7 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.15.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#b6af5d574889e113a156b9dd0b5be973fbbc4a31"
 dependencies = [
  "bitflags",
  "rkyv",
@@ -2876,7 +2891,7 @@ dependencies = [
 [[package]]
 name = "twilight-standby"
 version = "0.15.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#b6af5d574889e113a156b9dd0b5be973fbbc4a31"
 dependencies = [
  "dashmap",
  "futures-util",
@@ -2888,7 +2903,7 @@ dependencies = [
 [[package]]
 name = "twilight-validate"
 version = "0.15.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#097e3f0c5dfc9a29f43ba666505fb901dda53315"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#b6af5d574889e113a156b9dd0b5be973fbbc4a31"
 dependencies = [
  "twilight-model",
 ]

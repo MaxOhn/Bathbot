@@ -182,7 +182,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get user config"));
+            return Err(err.wrap_err("Failed to get user config"));
         }
     };
 
@@ -215,7 +215,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
@@ -223,12 +223,16 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
 
     // Try to get the discord user id that is linked to the osu!user
     let discord_id = match ctx.user_config().discord_from_osu_id(user.user_id()).await {
-        Ok(user) => guild
-            .zip(user)
-            .filter(|&(guild, user)| ctx.cache.member(guild, user, |_| ()).is_ok())
-            .map(|(_, user)| user),
+        Ok(user) => match (guild, user) {
+            (Some(guild), Some(user)) => ctx
+                .cache
+                .member(guild, user) // make sure the user is in the guild
+                .await?
+                .map(|_| user),
+            _ => None,
+        },
         Err(err) => {
-            let wrap = "failed to get discord id from osu user id";
+            let wrap = "Failed to get discord id from osu user id";
             warn!("{:?}", err.wrap_err(wrap));
 
             None

@@ -18,7 +18,6 @@ use crate::{
 
 pub use self::data::{ArchivedBytes, RedisData};
 
-pub mod cache;
 pub mod osu;
 
 mod data;

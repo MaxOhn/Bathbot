@@ -8,8 +8,7 @@ use crate::{
 
 pub async fn handle_modal(ctx: Arc<Context>, mut modal: InteractionModal) {
     let name = mem::take(&mut modal.data.custom_id);
-    EventKind::Modal.log(&ctx, &modal, &name);
-    ctx.stats.increment_modal(&name);
+    EventKind::Modal.log(&ctx, &modal, &name).await;
 
     let res = match name.as_str() {
         "pagination_page" => handle_pagination_modal(ctx, modal).await,

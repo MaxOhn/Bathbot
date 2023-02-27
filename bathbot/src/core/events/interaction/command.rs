@@ -16,8 +16,7 @@ use crate::{
 
 pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) {
     let name = mem::take(&mut command.data.name);
-    EventKind::SlashCommand.log(&ctx, &command, &name);
-    ctx.stats.increment_slash_command(&name);
+    EventKind::SlashCommand.log(&ctx, &command, &name).await;
 
     let slash = match SlashCommands::get().command(&name) {
         Some(slash) => slash,
