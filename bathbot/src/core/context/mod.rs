@@ -311,8 +311,6 @@ type HlRetries = StdMutexMap<Id<MessageMarker>, RetryState, IntHasher>;
 
 async fn discord_http(config: &BotConfig) -> Result<(Arc<Client>, Id<ApplicationMarker>)> {
     let mentions = AllowedMentions {
-        // TODO: uncomment
-        // parse: vec![MentionType::Roles, MentionType::Users],
         replied_user: true,
         ..Default::default()
     };

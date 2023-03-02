@@ -162,7 +162,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
             ctx.stats.event_counts.gateway_reconnect.inc();
         }
         Event::GiftCodeUpdate => {}
-        Event::GuildAuditLogEntryCreate(_) => todo!(),
+        Event::GuildAuditLogEntryCreate(_) => {}
         Event::GuildCreate(e) => {
             ctx.guild_shards().pin().insert(e.id, shard_id);
             ctx.stats.event_counts.guild_create.inc();
