@@ -2,8 +2,10 @@ pub use self::{
     archive::CachedArchive,
     guild::{ArchivedCachedGuild, CachedGuild, CachedGuildResolver},
     member::{ArchivedCachedMember, CachedMember, CachedMemberResolver},
-    stats::CacheStats,
+    stats::{CacheChange, CacheStats},
 };
+
+pub(crate) use self::stats::CacheStatsInternal;
 
 mod archive;
 mod guild;

@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use bathbot_util::{numbers::WithComma, EmbedBuilder, FooterBuilder, MessageBuilder};
 use eyre::Result;
@@ -20,11 +17,11 @@ pub async fn cache(ctx: Arc<Context>, command: InteractionCommand) -> Result<()>
         Users: {users}\n\
         Roles: {roles}\n\
         Channels: {channels}",
-        guilds = CacheValue::new(stats.guilds().await),
-        unavailable_guilds = CacheValue::new(stats.unavailable_guilds().await),
-        users = CacheValue::new(stats.users().await),
-        roles = CacheValue::new(stats.roles().await),
-        channels = CacheValue::new(stats.channels().await),
+        guilds = WithComma::new(stats.guilds),
+        unavailable_guilds = WithComma::new(stats.unavailable_guilds),
+        users = WithComma::new(stats.users),
+        roles = WithComma::new(stats.roles),
+        channels = WithComma::new(stats.channels),
     );
 
     let embed = EmbedBuilder::new()
@@ -37,28 +34,4 @@ pub async fn cache(ctx: Arc<Context>, command: InteractionCommand) -> Result<()>
     command.callback(&ctx, builder, false).await?;
 
     Ok(())
-}
-
-struct CacheValue {
-    value: Result<usize>,
-}
-
-impl CacheValue {
-    fn new(value: Result<usize>) -> Self {
-        Self { value }
-    }
-}
-
-impl Display for CacheValue {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self.value {
-            Ok(ref n) => <WithComma<usize> as Display>::fmt(&WithComma::new(*n), f),
-            Err(ref err) => {
-                warn!("{err:?}");
-
-                f.write_str("N/A")
-            }
-        }
-    }
 }

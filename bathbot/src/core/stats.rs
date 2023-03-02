@@ -1,4 +1,4 @@
-use bathbot_cache::Cache;
+use bathbot_cache::{model::CacheChange, Cache};
 use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
 use time::OffsetDateTime;
 use twilight_gateway::Event;
@@ -67,11 +67,11 @@ pub struct CommandCounters {
 }
 
 pub struct CacheStats {
-    pub guilds: IntGauge,
-    pub unavailable_guilds: IntGauge,
     pub channels: IntGauge,
-    pub users: IntGauge,
+    pub guilds: IntGauge,
     pub roles: IntGauge,
+    pub unavailable_guilds: IntGauge,
+    pub users: IntGauge,
 }
 
 pub struct BotStats {
@@ -169,11 +169,11 @@ impl BotStats {
                 modals,
             },
             cache_counts: CacheStats {
-                guilds: cache_counter.with_label_values(&["Guilds"]),
-                unavailable_guilds: cache_counter.with_label_values(&["Unavailable guilds"]),
                 channels: cache_counter.with_label_values(&["Channels"]),
-                users: cache_counter.with_label_values(&["Users"]),
+                guilds: cache_counter.with_label_values(&["Guilds"]),
                 roles: cache_counter.with_label_values(&["Roles"]),
+                unavailable_guilds: cache_counter.with_label_values(&["Unavailable guilds"]),
+                users: cache_counter.with_label_values(&["Users"]),
             },
             osu_metrics: OsuCounters {
                 user_cached: osu_metrics.with_label_values(&["User cached"]),
@@ -198,38 +198,13 @@ impl BotStats {
     pub async fn populate(&self, cache: &Cache) {
         let stats = cache.stats();
 
-        let (guild_count, unavailable_guild_count, channel_count, user_count, role_count) = tokio::join!(
-            stats.guilds(),
-            stats.unavailable_guilds(),
-            stats.channels(),
-            stats.users(),
-            stats.roles(),
-        );
-
-        match guild_count {
-            Ok(count) => self.cache_counts.guilds.set(count as i64),
-            Err(err) => warn!("{err:?}"),
-        }
-
-        match unavailable_guild_count {
-            Ok(count) => self.cache_counts.unavailable_guilds.set(count as i64),
-            Err(err) => warn!("{err:?}"),
-        }
-
-        match channel_count {
-            Ok(count) => self.cache_counts.channels.set(count as i64),
-            Err(err) => warn!("{err:?}"),
-        }
-
-        match user_count {
-            Ok(count) => self.cache_counts.users.set(count as i64),
-            Err(err) => warn!("{err:?}"),
-        }
-
-        match role_count {
-            Ok(count) => self.cache_counts.roles.set(count as i64),
-            Err(err) => warn!("{err:?}"),
-        }
+        self.cache_counts.guilds.set(stats.guilds as i64);
+        self.cache_counts
+            .unavailable_guilds
+            .set(stats.unavailable_guilds as i64);
+        self.cache_counts.channels.set(stats.channels as i64);
+        self.cache_counts.users.set(stats.users as i64);
+        self.cache_counts.roles.set(stats.roles as i64);
     }
 
     pub fn increment_message_command(&self, cmd: &str) {
@@ -275,37 +250,25 @@ impl BotStats {
         self.osu_metrics.cs_diffs_cached.inc();
     }
 
-    pub fn process(&self, event: &Event) {
+    pub fn process(&self, event: &Event, change: Option<CacheChange>) {
+        if let Some(change) = change {
+            self.cache_counts.channels.add(change.channels as i64);
+            self.cache_counts.guilds.add(change.guilds as i64);
+            self.cache_counts.roles.add(change.roles as i64);
+            self.cache_counts
+                .unavailable_guilds
+                .add(change.unavailable_guilds as i64);
+            self.cache_counts.users.add(change.users as i64);
+        }
+
         match event {
             Event::ChannelCreate(_) => self.event_counts.channel_create.inc(),
             Event::ChannelDelete(_) => self.event_counts.channel_delete.inc(),
             Event::ChannelUpdate(_) => self.event_counts.channel_update.inc(),
             Event::GatewayInvalidateSession(_) => self.event_counts.gateway_invalidate.inc(),
             Event::GatewayReconnect => self.event_counts.gateway_reconnect.inc(),
-            Event::GuildCreate(_) => {
-                self.event_counts.guild_create.inc();
-
-                // let stats = ctx.cache.stats();
-                // self.cache_counts.guilds.set(stats.guilds() as i64);
-                // self.cache_counts
-                //     .unavailable_guilds
-                //     .set(stats.unavailable_guilds() as i64);
-                // self.cache_counts.members.set(stats.members() as i64);
-                // self.cache_counts.users.set(stats.users() as i64);
-                // self.cache_counts.roles.set(stats.roles() as i64);
-            }
-            Event::GuildDelete(_) => {
-                self.event_counts.guild_delete.inc();
-
-                // let stats = ctx.cache.stats();
-                // self.cache_counts.guilds.set(stats.guilds() as i64);
-                // self.cache_counts
-                //     .unavailable_guilds
-                //     .set(stats.unavailable_guilds() as i64);
-                // self.cache_counts.members.set(stats.members() as i64);
-                // self.cache_counts.users.set(stats.users() as i64);
-                // self.cache_counts.roles.set(stats.roles() as i64);
-            }
+            Event::GuildCreate(_) => self.event_counts.guild_create.inc(),
+            Event::GuildDelete(_) => self.event_counts.guild_delete.inc(),
             Event::GuildUpdate(_) => self.event_counts.guild_update.inc(),
             Event::InteractionCreate(e) => {
                 self.event_counts.interaction_create.inc();
@@ -351,20 +314,8 @@ impl BotStats {
                     _ => {}
                 }
             }
-            Event::MemberAdd(_) => {
-                self.event_counts.member_add.inc();
-
-                // let stats = ctx.cache.stats();
-                // self.cache_counts.members.set(stats.members() as i64);
-                // self.cache_counts.users.set(stats.users() as i64);
-            }
-            Event::MemberRemove(_) => {
-                self.event_counts.member_remove.inc();
-
-                // let stats = ctx.cache.stats();
-                // self.cache_counts.members.set(stats.members() as i64);
-                // self.cache_counts.users.set(stats.users() as i64);
-            }
+            Event::MemberAdd(_) => self.event_counts.member_add.inc(),
+            Event::MemberRemove(_) => self.event_counts.member_remove.inc(),
             Event::MemberUpdate(_) => self.event_counts.member_update.inc(),
             Event::MemberChunk(_) => self.event_counts.member_chunk.inc(),
             Event::MessageCreate(msg) => {
@@ -379,23 +330,8 @@ impl BotStats {
             Event::MessageDelete(_) => self.event_counts.message_delete.inc(),
             Event::MessageDeleteBulk(_) => self.event_counts.message_delete_bulk.inc(),
             Event::MessageUpdate(_) => self.event_counts.message_update.inc(),
-            Event::Ready(_) => {
-                // let stats = ctx.cache.stats();
-                // self.cache_counts.guilds.set(stats.guilds() as i64);
-                // self.cache_counts
-                //     .unavailable_guilds
-                //     .set(stats.unavailable_guilds() as i64);
-                // self.cache_counts.members.set(stats.members() as i64);
-                // self.cache_counts.users.set(stats.users() as i64);
-                // self.cache_counts.roles.set(stats.roles() as i64);
-            }
-            Event::RoleCreate(_) => {
-                self.event_counts.role_create.inc();
-
-                // self.cache_counts
-                //     .roles
-                //     .set(ctx.cache.stats().roles() as i64);
-            }
+            Event::Ready(_) => {}
+            Event::RoleCreate(_) => self.event_counts.role_create.inc(),
             Event::RoleDelete(_) => self.event_counts.role_delete.inc(),
             Event::RoleUpdate(_) => self.event_counts.role_update.inc(),
             Event::ThreadCreate(_) => self.event_counts.thread_create.inc(),
@@ -404,13 +340,7 @@ impl BotStats {
             Event::ThreadMemberUpdate(_) => self.event_counts.thread_member_update.inc(),
             Event::ThreadMembersUpdate(_) => self.event_counts.thread_members_update.inc(),
             Event::ThreadUpdate(_) => self.event_counts.thread_update.inc(),
-            Event::UnavailableGuild(_) => {
-                self.event_counts.unavailable_guild.inc();
-
-                // self.cache_counts
-                //     .unavailable_guilds
-                //     .set(ctx.cache.stats().unavailable_guilds() as i64);
-            }
+            Event::UnavailableGuild(_) => self.event_counts.unavailable_guild.inc(),
             Event::UserUpdate(_) => self.event_counts.user_update.inc(),
             _ => {}
         }

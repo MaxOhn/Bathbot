@@ -11,14 +11,14 @@ use twilight_model::{
 
 use crate::{
     key::RedisKey,
-    model::{CachedGuild, CachedMember},
+    model::{CacheChange, CachedGuild, CachedMember},
     serializer::{MultiSerializer, SingleSerializer},
     util::{AlignedVecRedisArgs, Zipped},
     Cache,
 };
 
 impl Cache {
-    pub(crate) async fn cache_channel(&self, channel: &Channel) -> Result<()> {
+    pub(crate) async fn cache_channel(&self, channel: &Channel) -> Result<CacheChange> {
         let bytes = SingleSerializer::channel(channel)?;
         let mut conn = self.connection().await?;
         let key = RedisKey::from(channel);
@@ -35,20 +35,24 @@ impl Cache {
                 .wrap_err("Failed to add channel as guild channel")?;
         }
 
-        conn.sadd(RedisKey::channel_ids_key(), channel.id.get())
+        let added: isize = conn
+            .sadd(RedisKey::channel_ids_key(), channel.id.get())
             .await
             .wrap_err("Failed to add channel as channel id")?;
 
-        Ok(())
+        Ok(CacheChange {
+            channels: added,
+            ..Default::default()
+        })
     }
 
     pub(crate) async fn cache_channels(
         &self,
         guild: Id<GuildMarker>,
         channels: &[Channel],
-    ) -> Result<()> {
+    ) -> Result<CacheChange> {
         if channels.is_empty() {
-            return Ok(());
+            return Ok(CacheChange::default());
         }
 
         let mut serializer = MultiSerializer::default();
@@ -77,11 +81,15 @@ impl Cache {
             .await
             .wrap_err("Failed to add users as guild members")?;
 
-        conn.sadd(RedisKey::channel_ids_key(), &channel_ids)
+        let added: isize = conn
+            .sadd(RedisKey::channel_ids_key(), &channel_ids)
             .await
             .wrap_err("Failed to add channels as channel ids")?;
 
-        Ok(())
+        Ok(CacheChange {
+            channels: added,
+            ..Default::default()
+        })
     }
 
     pub(crate) async fn cache_current_user(&self, user: &CurrentUser) -> Result<()> {
@@ -96,11 +104,13 @@ impl Cache {
         Ok(())
     }
 
-    pub(crate) async fn cache_guild(&self, guild: &Guild) -> Result<()> {
-        self.cache_channels(guild.id, &guild.channels).await?;
-        self.cache_channels(guild.id, &guild.threads).await?;
-        self.cache_members(guild.id, &guild.members).await?;
-        self.cache_roles(guild.id, &guild.roles).await?;
+    pub(crate) async fn cache_guild(&self, guild: &Guild) -> Result<CacheChange> {
+        let channels_change = self.cache_channels(guild.id, &guild.channels).await?;
+        let threads_change = self.cache_channels(guild.id, &guild.threads).await?;
+        let members_change = self.cache_members(guild.id, &guild.members).await?;
+        let roles_change = self.cache_roles(guild.id, &guild.roles).await?;
+
+        let mut change = channels_change + threads_change + members_change + roles_change;
 
         let cached_guild = CachedGuild::from(guild);
         let bytes = SingleSerializer::guild(&cached_guild)?;
@@ -111,15 +121,20 @@ impl Cache {
             .await
             .wrap_err("Failed to store guild bytes")?;
 
-        conn.sadd(RedisKey::guild_ids_key(), guild.id.get())
+        let guilds_added: isize = conn
+            .sadd(RedisKey::guild_ids_key(), guild.id.get())
             .await
             .wrap_err("Failed to add guild as guild id")?;
 
-        conn.srem(RedisKey::unavailable_guild_ids_key(), guild.id.get())
+        let unavailable_guilds_removed: isize = conn
+            .srem(RedisKey::unavailable_guild_ids_key(), guild.id.get())
             .await
             .wrap_err("Failed to remove guild as unavailable guild id")?;
 
-        Ok(())
+        change.guilds += guilds_added;
+        change.unavailable_guilds -= unavailable_guilds_removed;
+
+        Ok(change)
     }
 
     pub(crate) async fn cache_interaction_member(
@@ -127,20 +142,24 @@ impl Cache {
         guild: Id<GuildMarker>,
         member: &InteractionMember,
         user: &User,
-    ) -> Result<()> {
+    ) -> Result<CacheChange> {
         let cached_member = CachedMember::from(member);
 
         self.cache_member_user(guild, &cached_member, user).await
     }
 
-    pub(crate) async fn cache_member(&self, guild: Id<GuildMarker>, member: &Member) -> Result<()> {
+    pub(crate) async fn cache_member(
+        &self,
+        guild: Id<GuildMarker>,
+        member: &Member,
+    ) -> Result<CacheChange> {
         let cached_member = CachedMember::from(member);
 
         self.cache_member_user(guild, &cached_member, &member.user)
             .await
     }
 
-    pub(crate) async fn cache_member_update(&self, update: &MemberUpdate) -> Result<()> {
+    pub(crate) async fn cache_member_update(&self, update: &MemberUpdate) -> Result<CacheChange> {
         let cached_member = CachedMember::from(update);
 
         self.cache_member_user(update.guild_id, &cached_member, &update.user)
@@ -152,7 +171,7 @@ impl Cache {
         guild: Id<GuildMarker>,
         member: &CachedMember<'_>,
         user: &User,
-    ) -> Result<()> {
+    ) -> Result<CacheChange> {
         let mut serializer = MultiSerializer::default();
         let member_bytes = serializer.member(member)?;
         let user_bytes = serializer.user(user)?;
@@ -174,20 +193,24 @@ impl Cache {
             .await
             .wrap_err("Failed to add user as guild member")?;
 
-        conn.sadd(RedisKey::user_ids_key(), user.id.get())
+        let added: isize = conn
+            .sadd(RedisKey::user_ids_key(), user.id.get())
             .await
             .wrap_err("Failed to add user as user id")?;
 
-        Ok(())
+        Ok(CacheChange {
+            users: added,
+            ..Default::default()
+        })
     }
 
     pub(crate) async fn cache_members(
         &self,
         guild: Id<GuildMarker>,
         members: &[Member],
-    ) -> Result<()> {
+    ) -> Result<CacheChange> {
         if members.is_empty() {
-            return Ok(());
+            return Ok(CacheChange::default());
         }
 
         let mut serializer = MultiSerializer::default();
@@ -235,15 +258,19 @@ impl Cache {
             .await
             .wrap_err("Failed to add users as guild members")?;
 
-        conn.sadd(RedisKey::user_ids_key(), &member_ids)
+        let added: isize = conn
+            .sadd(RedisKey::user_ids_key(), &member_ids)
             .await
             .wrap_err("Failed to add users as user ids")?;
 
-        Ok(())
+        Ok(CacheChange {
+            users: added,
+            ..Default::default()
+        })
     }
 
-    pub(crate) async fn cache_partial_guild(&self, guild: &PartialGuild) -> Result<()> {
-        self.cache_roles(guild.id, &guild.roles).await?;
+    pub(crate) async fn cache_partial_guild(&self, guild: &PartialGuild) -> Result<CacheChange> {
+        let mut change = self.cache_roles(guild.id, &guild.roles).await?;
 
         let mut conn = self.connection().await?;
 
@@ -255,15 +282,20 @@ impl Cache {
             .await
             .wrap_err("Failed to store guild bytes")?;
 
-        conn.sadd(RedisKey::guild_ids_key(), guild.id.get())
+        let guilds_added: isize = conn
+            .sadd(RedisKey::guild_ids_key(), guild.id.get())
             .await
             .wrap_err("Failed to add guild as guild id")?;
 
-        conn.srem(RedisKey::unavailable_guild_ids_key(), guild.id.get())
+        let unavailable_guilds_removed: isize = conn
+            .srem(RedisKey::unavailable_guild_ids_key(), guild.id.get())
             .await
             .wrap_err("Failed to remove guild as unavailable guild id")?;
 
-        Ok(())
+        change.guilds += guilds_added;
+        change.unavailable_guilds -= unavailable_guilds_removed;
+
+        Ok(change)
     }
 
     pub(crate) async fn cache_partial_member(
@@ -271,13 +303,17 @@ impl Cache {
         guild_id: Id<GuildMarker>,
         member: &PartialMember,
         user: &User,
-    ) -> Result<()> {
+    ) -> Result<CacheChange> {
         let cached_member = CachedMember::from(member);
 
         self.cache_member_user(guild_id, &cached_member, user).await
     }
 
-    pub(crate) async fn cache_role(&self, guild: Id<GuildMarker>, role: &Role) -> Result<()> {
+    pub(crate) async fn cache_role(
+        &self,
+        guild: Id<GuildMarker>,
+        role: &Role,
+    ) -> Result<CacheChange> {
         let bytes = SingleSerializer::role(role)?;
         let mut conn = self.connection().await?;
         let key = RedisKey::role(guild, role.id);
@@ -292,14 +328,22 @@ impl Cache {
             .await
             .wrap_err("Failed to add role as guild role")?;
 
-        conn.sadd(RedisKey::role_ids_key(), role.id.get())
+        let added: isize = conn
+            .sadd(RedisKey::role_ids_key(), role.id.get())
             .await
             .wrap_err("Failed to add role as role id")?;
 
-        Ok(())
+        Ok(CacheChange {
+            roles: added,
+            ..Default::default()
+        })
     }
 
-    pub(crate) async fn cache_roles<'r, I>(&self, guild: Id<GuildMarker>, roles: I) -> Result<()>
+    pub(crate) async fn cache_roles<'r, I>(
+        &self,
+        guild: Id<GuildMarker>,
+        roles: I,
+    ) -> Result<CacheChange>
     where
         I: IntoIterator<Item = &'r Role>,
     {
@@ -318,7 +362,7 @@ impl Cache {
             .into_parts();
 
         if roles.is_empty() {
-            return Ok(());
+            return Ok(CacheChange::default());
         }
 
         let mut conn = self.connection().await?;
@@ -333,14 +377,21 @@ impl Cache {
             .await
             .wrap_err("Failed to add roles as guild roles")?;
 
-        conn.sadd(RedisKey::role_ids_key(), &role_ids)
+        let added: isize = conn
+            .sadd(RedisKey::role_ids_key(), &role_ids)
             .await
             .wrap_err("Failed to add roles as role ids")?;
 
-        Ok(())
+        Ok(CacheChange {
+            roles: added,
+            ..Default::default()
+        })
     }
 
-    pub(crate) async fn cache_unavailable_guild(&self, guild: Id<GuildMarker>) -> Result<()> {
+    pub(crate) async fn cache_unavailable_guild(
+        &self,
+        guild: Id<GuildMarker>,
+    ) -> Result<CacheChange> {
         let mut conn = self.connection().await?;
 
         let is_moved: bool = conn
@@ -352,22 +403,32 @@ impl Cache {
             .await
             .wrap_err("Failed to move guild id")?;
 
-        if is_moved {
+        let change = if is_moved {
             conn.del(RedisKey::guild(guild))
                 .await
                 .wrap_err("Failed to delete guild entry")?;
 
-            self.delete_guild_items(guild).await?;
+            let mut change = self.delete_guild_items(guild).await?;
+            change.guilds -= 1;
+            change.unavailable_guilds += 1;
+
+            change
         } else {
-            conn.sadd(RedisKey::unavailable_guild_ids_key(), guild.get())
+            let added: isize = conn
+                .sadd(RedisKey::unavailable_guild_ids_key(), guild.get())
                 .await
                 .wrap_err("Failed to add guild to unavailable guilds")?;
-        }
 
-        Ok(())
+            CacheChange {
+                unavailable_guilds: added,
+                ..Default::default()
+            }
+        };
+
+        Ok(change)
     }
 
-    pub(crate) async fn cache_user(&self, user: &User) -> Result<()> {
+    pub(crate) async fn cache_user(&self, user: &User) -> Result<CacheChange> {
         let mut conn = self.connection().await?;
 
         let bytes = SingleSerializer::user(user)?;
@@ -377,10 +438,14 @@ impl Cache {
             .await
             .wrap_err("Failed to store user bytes")?;
 
-        conn.sadd(RedisKey::user_ids_key(), user.id.get())
+        let added: isize = conn
+            .sadd(RedisKey::user_ids_key(), user.id.get())
             .await
             .wrap_err("Failed to add user as user id")?;
 
-        Ok(())
+        Ok(CacheChange {
+            users: added,
+            ..Default::default()
+        })
     }
 }

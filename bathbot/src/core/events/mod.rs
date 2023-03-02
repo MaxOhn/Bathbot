@@ -121,9 +121,9 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut [Shard]) {
     loop {
         match stream.next().await {
             Some((shard, Ok(event))) => {
-                ctx.cache.update(&event).await;
                 ctx.standby.process(&event);
-                ctx.stats.process(&event);
+                let change = ctx.cache.update(&event).await;
+                ctx.stats.process(&event, change);
                 let ctx = Arc::clone(&ctx);
                 let shard_id = shard.id().number();
 

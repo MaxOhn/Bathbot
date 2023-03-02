@@ -1,38 +1,74 @@
-use bb8_redis::redis::AsyncCommands;
-use eyre::{Result, WrapErr};
+use std::{
+    ops::{Add, AddAssign},
+    sync::Mutex,
+};
 
-use crate::{key::RedisKey, Cache};
-
-#[derive(Copy, Clone)]
-pub struct CacheStats<'c> {
-    cache: &'c Cache,
+#[derive(Default)]
+pub(crate) struct CacheStatsInternal {
+    inner: Mutex<CacheStats>,
 }
 
-macro_rules! get_stat {
-    ($name:ident, $key_fn:ident) => {
-        pub async fn $name(&self) -> Result<usize> {
-            self.cache
-                .connection()
-                .await?
-                .scard(RedisKey::$key_fn())
-                .await
-                .wrap_err(concat!(
-                    "Failed to get ",
-                    stringify!($name),
-                    " set cardinality"
-                ))
-        }
-    };
+#[derive(Clone, Default)]
+pub struct CacheStats {
+    pub channels: isize,
+    pub guilds: isize,
+    pub roles: isize,
+    pub unavailable_guilds: isize,
+    pub users: isize,
 }
 
-impl<'c> CacheStats<'c> {
-    pub fn new(cache: &'c Cache) -> Self {
-        Self { cache }
+impl CacheStatsInternal {
+    pub(crate) fn update(&self, change: &CacheChange) {
+        let mut unlocked = self.inner.lock().unwrap();
+
+        unlocked.channels += change.channels;
+        unlocked.guilds += change.guilds;
+        unlocked.roles += change.roles;
+        unlocked.unavailable_guilds += change.unavailable_guilds;
+        unlocked.users += change.users;
     }
 
-    get_stat!(channels, channel_ids_key);
-    get_stat!(guilds, guild_ids_key);
-    get_stat!(roles, role_ids_key);
-    get_stat!(unavailable_guilds, unavailable_guild_ids_key);
-    get_stat!(users, user_ids_key);
+    pub(crate) fn get(&self) -> CacheStats {
+        self.inner.lock().unwrap().to_owned()
+    }
+}
+
+#[derive(Default)]
+#[must_use]
+pub struct CacheChange {
+    pub channels: isize,
+    pub guilds: isize,
+    pub roles: isize,
+    pub unavailable_guilds: isize,
+    pub users: isize,
+}
+
+impl Add for CacheChange {
+    type Output = Self;
+
+    #[inline]
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self += rhs;
+
+        self
+    }
+}
+
+impl AddAssign for CacheChange {
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        let Self {
+            channels,
+            guilds,
+            roles,
+            unavailable_guilds,
+            users,
+        } = rhs;
+
+        self.channels += channels;
+        self.guilds += guilds;
+        self.roles += roles;
+        self.unavailable_guilds += unavailable_guilds;
+        self.users += users;
+    }
 }

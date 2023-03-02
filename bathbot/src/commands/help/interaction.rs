@@ -123,19 +123,12 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         value: format!("Try using this [**invite link**]({INVITE_LINK})"),
     };
 
-    let server_count = match ctx.cache.stats().guilds().await {
-        Ok(count) => WithComma::new(count).to_string(),
-        Err(err) => {
-            warn!("{err:?}");
-
-            "N/A".to_owned()
-        }
-    };
+    let stats = ctx.cache.stats();
 
     let servers = EmbedField {
         inline: true,
         name: "Servers".to_owned(),
-        value: server_count,
+        value: WithComma::new(stats.guilds + stats.unavailable_guilds).to_string(),
     };
 
     let boot_time = ctx.stats.start_time;

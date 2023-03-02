@@ -5,14 +5,14 @@ use twilight_model::id::{
     Id,
 };
 
-use crate::{key::RedisKey, Cache};
+use crate::{key::RedisKey, model::CacheChange, Cache};
 
 impl Cache {
     pub(crate) async fn delete_channel(
         &self,
         guild: Option<Id<GuildMarker>>,
         channel: Id<ChannelMarker>,
-    ) -> Result<()> {
+    ) -> Result<CacheChange> {
         let mut conn = self.connection().await?;
 
         conn.del(RedisKey::channel(guild, channel))
@@ -25,44 +25,56 @@ impl Cache {
                 .wrap_err("Failed to remove channel as guild channel")?;
         }
 
-        conn.srem(RedisKey::channel_ids_key(), channel.get())
+        let removed: isize = conn
+            .srem(RedisKey::channel_ids_key(), channel.get())
             .await
             .wrap_err("Failed to remove channel from channel ids")?;
 
-        Ok(())
+        Ok(CacheChange {
+            channels: -removed,
+            ..Default::default()
+        })
     }
 
-    pub(crate) async fn delete_guild(&self, guild: Id<GuildMarker>) -> Result<()> {
+    pub(crate) async fn delete_guild(&self, guild: Id<GuildMarker>) -> Result<CacheChange> {
         let mut conn = self.connection().await?;
 
         conn.del(RedisKey::guild(guild))
             .await
             .wrap_err("Failed to delete guild entry")?;
 
-        conn.srem(RedisKey::guild_ids_key(), guild.get())
+        let removed: isize = conn
+            .srem(RedisKey::guild_ids_key(), guild.get())
             .await
             .wrap_err("Failed to remove guild id entry")?;
 
-        self.delete_guild_items(guild).await
+        let mut change = self.delete_guild_items(guild).await?;
+
+        change.guilds -= removed;
+
+        Ok(change)
     }
 
-    pub(crate) async fn delete_guild_items(&self, guild: Id<GuildMarker>) -> Result<()> {
-        async fn remove_ids<G, I, K>(
+    pub(crate) async fn delete_guild_items(&self, guild: Id<GuildMarker>) -> Result<CacheChange> {
+        async fn remove_ids<G, I, K, C>(
             conn: &mut PooledConnection<'_, RedisConnectionManager>,
             guild: Id<GuildMarker>,
             guild_key_fn: G,
             ids_fn: Option<I>,
             redis_key_fn: K,
+            change_fn: C,
         ) -> Result<()>
         where
             G: FnOnce(Id<GuildMarker>) -> String,
             I: FnOnce() -> &'static str,
             K: Fn(Id<GuildMarker>, u64) -> RedisKey,
+            C: FnOnce(isize),
         {
             let guild_ids: Vec<u64> = conn.get_del(&(guild_key_fn)(guild)).await?;
 
             if let Some(ids_fn) = ids_fn {
-                conn.srem((ids_fn)(), &guild_ids).await?;
+                let removed: isize = conn.srem((ids_fn)(), &guild_ids).await?;
+                change_fn(removed);
             }
 
             let redis_keys: Vec<_> = guild_ids
@@ -75,6 +87,7 @@ impl Cache {
             Ok(())
         }
 
+        let mut change = CacheChange::default();
         let mut conn = self.connection().await?;
 
         remove_ids(
@@ -83,6 +96,7 @@ impl Cache {
             RedisKey::guild_channels_key,
             Some(RedisKey::channel_ids_key),
             |guild, channel| RedisKey::channel(Some(guild), Id::new(channel)),
+            |removed| change.channels -= removed,
         )
         .await
         .wrap_err("Failed to remove guild channels")?;
@@ -93,6 +107,7 @@ impl Cache {
             RedisKey::guild_members_key,
             None::<fn() -> &'static str>,
             |guild, user| RedisKey::member(guild, Id::new(user)),
+            |_| (),
         )
         .await
         .wrap_err("Failed to remove guild members")?;
@@ -103,18 +118,19 @@ impl Cache {
             RedisKey::guild_roles_key,
             Some(RedisKey::role_ids_key),
             |guild, role| RedisKey::role(guild, Id::new(role)),
+            |removed| change.roles -= removed,
         )
         .await
         .wrap_err("Failed to remove guild roles")?;
 
-        Ok(())
+        Ok(change)
     }
 
     pub(crate) async fn delete_member(
         &self,
         guild: Id<GuildMarker>,
         user: Id<UserMarker>,
-    ) -> Result<()> {
+    ) -> Result<CacheChange> {
         let mut conn = self.connection().await?;
 
         let key = RedisKey::member(guild, user);
@@ -132,14 +148,14 @@ impl Cache {
         // There's no stored structure in place that provides a way to remove
         // such user data but it shouldn't matter much anyway.
 
-        Ok(())
+        Ok(CacheChange::default())
     }
 
     pub(crate) async fn delete_role(
         &self,
         guild: Id<GuildMarker>,
         role: Id<RoleMarker>,
-    ) -> Result<()> {
+    ) -> Result<CacheChange> {
         let mut conn = self.connection().await?;
 
         conn.del(RedisKey::role(guild, role))
@@ -150,10 +166,14 @@ impl Cache {
             .await
             .wrap_err("Failed to remove role as guild role")?;
 
-        conn.srem(RedisKey::role_ids_key(), role.get())
+        let removed: isize = conn
+            .srem(RedisKey::role_ids_key(), role.get())
             .await
             .wrap_err("Failed to remove role from role ids")?;
 
-        Ok(())
+        Ok(CacheChange {
+            roles: -removed,
+            ..Default::default()
+        })
     }
 }
