@@ -15,14 +15,14 @@ static CONFIG: OnceCell<BotConfig> = OnceCell::new();
 
 #[derive(Debug)]
 pub struct BotConfig {
-    pub database_url: String,
+    pub database_url: Box<str>,
     pub tokens: Tokens,
     pub paths: Paths,
     #[cfg(feature = "server")]
     pub server: Server,
-    grades: [String; 9],
-    pub emotes: HashMap<Emote, String>,
-    pub redis_host: String,
+    grades: [Box<str>; 9],
+    pub emotes: HashMap<Emote, Box<str>>,
+    pub redis_host: Box<str>,
     pub redis_port: u16,
     pub owner: Id<UserMarker>,
     pub dev_guild: Id<GuildMarker>,
@@ -42,19 +42,19 @@ pub struct Paths {
 #[derive(Debug)]
 pub struct Server {
     pub port: u16,
-    pub public_url: String,
+    pub public_url: Box<str>,
 }
 
 #[derive(Debug)]
 pub struct Tokens {
-    pub discord: String,
+    pub discord: Box<str>,
     pub osu_client_id: u64,
-    pub osu_client_secret: String,
-    pub osu_session: String,
+    pub osu_client_secret: Box<str>,
+    pub osu_session: Box<str>,
     #[cfg(feature = "twitch")]
-    pub twitch_client_id: String,
+    pub twitch_client_id: Box<str>,
     #[cfg(feature = "twitch")]
-    pub twitch_token: String,
+    pub twitch_token: Box<str>,
 }
 
 impl BotConfig {
@@ -81,13 +81,13 @@ impl BotConfig {
 
         for grade_str in grade_strs {
             let key: Grade = grade_str.parse().unwrap();
-            let value: String = env_var(grade_str)?;
+            let value: Box<str> = env_var(grade_str)?;
             grades[key as usize].write(value);
         }
 
         // SAFETY: All grades have been initialized.
         // Otherwise an error would have been thrown due to a missing emote.
-        let grades = unsafe { (&grades as *const _ as *const [String; 9]).read() };
+        let grades = unsafe { (&grades as *const _ as *const [Box<str>; 9]).read() };
 
         let emotes = [
             "osu",
@@ -156,7 +156,7 @@ impl BotConfig {
     }
 
     pub fn grade(&self, grade: Grade) -> &str {
-        self.grades[grade as usize].as_str()
+        self.grades[grade as usize].as_ref()
     }
 }
 
@@ -181,7 +181,7 @@ macro_rules! env_kind {
 }
 
 env_kind! {
-    String: s => { Ok(s) },
+    Box<str>: s => { Ok(s.into_boxed_str()) },
     u16: s => { s.parse().map_err(|_| s) },
     u64: s => { s.parse().map_err(|_| s) },
     PathBuf: s => { s.parse().map_err(|_| s) },

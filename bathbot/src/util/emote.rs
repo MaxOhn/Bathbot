@@ -28,7 +28,7 @@ pub enum Emote {
 
 impl Emote {
     pub fn text(self) -> &'static str {
-        BotConfig::get().emotes.get(&self).unwrap().as_str()
+        BotConfig::get().emotes.get(&self).unwrap().as_ref()
     }
 
     #[allow(dead_code)]
@@ -75,7 +75,7 @@ trait SplitEmote {
     fn split_emote(&self) -> (u64, &str);
 }
 
-impl SplitEmote for String {
+impl SplitEmote for str {
     fn split_emote(&self) -> (u64, &str) {
         let mut split = self.split(':');
         let name = split.nth(1).unwrap();

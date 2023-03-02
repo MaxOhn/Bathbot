@@ -102,7 +102,7 @@ impl Context {
 
         // Connect to the discord http client
         let http = Client::builder()
-            .token(discord_token.to_owned())
+            .token(discord_token.to_string())
             .remember_invalid_token(false)
             .default_allowed_mentions(mentions)
             .build();
@@ -146,7 +146,7 @@ impl Context {
         // Connect to osu! API
         let osu_client_id = config.tokens.osu_client_id;
         let osu_client_secret = &config.tokens.osu_client_secret;
-        let osu = Osu::new(osu_client_id, osu_client_secret)
+        let osu = Osu::new(osu_client_id, osu_client_secret.as_ref())
             .await
             .wrap_err("failed to create osu client")?;
 
