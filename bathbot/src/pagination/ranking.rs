@@ -124,7 +124,7 @@ impl RankingPagination {
 
                             entries.extend(iter);
                         }
-                        RedisData::Archived(ranking) => {
+                        RedisData::Archive(ranking) => {
                             let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
                                 let country =
                                     user.country_code.deserialize(&mut Infallible).unwrap();
@@ -177,7 +177,7 @@ impl RankingPagination {
 
                             entries.extend(iter);
                         }
-                        RedisData::Archived(ranking) => {
+                        RedisData::Archive(ranking) => {
                             let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
                                 let country =
                                     user.country_code.deserialize(&mut Infallible).unwrap();

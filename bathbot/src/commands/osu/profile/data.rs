@@ -78,7 +78,7 @@ impl ProfileData {
 
         let (user_id, mode) = match &self.user {
             RedisData::Original(user) => (user.user_id, user.mode),
-            RedisData::Archived(user) => (user.user_id, user.mode),
+            RedisData::Archive(user) => (user.user_id, user.mode),
         };
 
         let user_fut = ctx.client().get_respektive_user(user_id, mode);
@@ -249,7 +249,7 @@ impl ProfileData {
 
         let (user_id, mode) = match &self.user {
             RedisData::Original(user) => (user.user_id, user.mode),
-            RedisData::Archived(user) => (user.user_id, user.mode),
+            RedisData::Archive(user) => (user.user_id, user.mode),
         };
 
         let user_args = UserArgsSlim::user_id(user_id).mode(mode);

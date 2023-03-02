@@ -60,7 +60,7 @@ impl ProfileEmbed {
 
                 (mode, medals, highest_rank)
             }
-            RedisData::Archived(user) => {
+            RedisData::Archive(user) => {
                 let mode = user.mode;
                 let medals = user.medals.len();
 
@@ -134,7 +134,7 @@ impl ProfileEmbed {
 
                 (avatar_url, mode, highest_rank, medals, follower_count)
             }
-            RedisData::Archived(user) => {
+            RedisData::Archive(user) => {
                 let avatar_url = user.avatar_url.as_str();
                 let mode = user.mode;
                 let medals = user.medals.len();
@@ -226,7 +226,7 @@ impl ProfileEmbed {
     async fn top100_stats(ctx: &Context, data: &mut ProfileData) -> Self {
         let (mode, avatar_url) = match &data.user {
             RedisData::Original(user) => (user.mode, user.avatar_url.as_str().to_owned()),
-            RedisData::Archived(user) => (user.mode, user.avatar_url.as_str().to_owned()),
+            RedisData::Archive(user) => (user.mode, user.avatar_url.as_str().to_owned()),
         };
 
         let mut description = String::with_capacity(1024);
@@ -415,7 +415,7 @@ impl ProfileEmbed {
     async fn top100_mods(ctx: &Context, data: &mut ProfileData) -> Self {
         let (mode, avatar_url) = match &data.user {
             RedisData::Original(user) => (user.mode, user.avatar_url.as_str().to_owned()),
-            RedisData::Archived(user) => (user.mode, user.avatar_url.as_str().to_owned()),
+            RedisData::Archive(user) => (user.mode, user.avatar_url.as_str().to_owned()),
         };
 
         let mut description = format!("__**{mode} Top100 mods", mode = Emote::from(mode).text(),);
@@ -630,7 +630,7 @@ impl ProfileEmbed {
                     mapping_followers,
                 )
             }
-            RedisData::Archived(user) => {
+            RedisData::Archive(user) => {
                 let mode = user.mode;
                 let ranked_count = user.ranked_mapset_count;
                 let loved_count = user.loved_mapset_count;
@@ -712,7 +712,7 @@ impl ProfileEmbed {
     fn footer(user: &RedisData<User>, tz: Option<UtcOffset>) -> FooterBuilder {
         let mut join_date = match user {
             RedisData::Original(user) => user.join_date,
-            RedisData::Archived(user) => {
+            RedisData::Archive(user) => {
                 DateTimeWrapper::deserialize_with(&user.join_date, &mut Infallible).unwrap()
             }
         };

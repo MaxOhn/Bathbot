@@ -65,7 +65,7 @@ pub(super) async fn query(
             })
             .flatten()
             .collect(),
-        RedisData::Archived(badges) => badges
+        RedisData::Archive(badges) => badges
             .iter()
             .scan(&mut found_exact, |found_exact, badge| {
                 if **found_exact {
@@ -164,7 +164,7 @@ async fn no_badge_found(ctx: &Context, command: &InteractionCommand, name: &str)
 
             list
         }
-        RedisData::Archived(badges) => {
+        RedisData::Archive(badges) => {
             let mut list = Vec::with_capacity(2 * badges.len());
 
             for badge in badges.iter() {
@@ -243,7 +243,7 @@ pub async fn handle_autocomplete(
                 }
             }
         }
-        RedisData::Archived(badges) => {
+        RedisData::Archive(badges) => {
             for badge in badges.iter() {
                 if badge.name.cow_to_ascii_lowercase().starts_with(name) {
                     choices.push(new_choice(&badge.name));

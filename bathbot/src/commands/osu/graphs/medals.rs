@@ -44,7 +44,7 @@ pub async fn medals_graph(
 
     let mut medals = match user {
         RedisData::Original(ref mut user) => mem::take(&mut user.medals),
-        RedisData::Archived(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
+        RedisData::Archive(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
     };
 
     medals.sort_unstable_by_key(|medal| medal.achieved_at);

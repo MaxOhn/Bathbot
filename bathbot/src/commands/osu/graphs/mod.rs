@@ -397,7 +397,7 @@ async fn top_graph(
 
             (username, country_code, mode)
         }
-        RedisData::Archived(user) => {
+        RedisData::Archive(user) => {
             let username = user.username.as_str();
             let country_code = user.country_code.as_str();
             let mode = user.mode;

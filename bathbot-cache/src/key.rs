@@ -12,8 +12,40 @@ use twilight_model::{
     user::User,
 };
 
+pub trait IntoCacheKey<'a> {
+    fn into_key(self) -> Cow<'a, [u8]>;
+}
+
+impl<'a> IntoCacheKey<'a> for &'a str {
+    #[inline]
+    fn into_key(self) -> Cow<'a, [u8]> {
+        Cow::Borrowed(self.as_bytes())
+    }
+}
+
+impl IntoCacheKey<'static> for Vec<u8> {
+    #[inline]
+    fn into_key(self) -> Cow<'static, [u8]> {
+        Cow::Owned(self)
+    }
+}
+
+impl<'a> IntoCacheKey<'a> for &'a Vec<u8> {
+    #[inline]
+    fn into_key(self) -> Cow<'a, [u8]> {
+        Cow::Borrowed(self)
+    }
+}
+
+impl<'a> IntoCacheKey<'a> for &'a String {
+    #[inline]
+    fn into_key(self) -> Cow<'a, [u8]> {
+        Cow::Borrowed(self.as_bytes())
+    }
+}
+
 #[derive(Clone, Debug)]
-pub(crate) enum RedisKey {
+pub(crate) enum RedisKey<'a> {
     CurrentUser,
     Channel {
         guild: Option<Id<GuildMarker>>,
@@ -34,9 +66,10 @@ pub(crate) enum RedisKey {
     User {
         user: Id<UserMarker>,
     },
+    Other(Cow<'a, [u8]>),
 }
 
-impl RedisKey {
+impl RedisKey<'_> {
     const CURRENT_USER_PREFIX: &str = "CURRENT_USER";
     const GUILD_PREFIX: &str = "GUILD";
     const CHANNEL_PREFIX: &str = "CHANNEL";
@@ -103,7 +136,7 @@ impl RedisKey {
         Self::USER_IDS
     }
 
-    fn to_str(&self) -> Cow<'static, [u8]> {
+    fn to_bytes(&self) -> Cow<'_, [u8]> {
         // Using a Vec<u8> instead of String to optimize pushing single characters
         let mut res = Cow::default();
 
@@ -166,54 +199,62 @@ impl RedisKey {
                 res.push(b':');
                 push(res, buf.format(user.get()));
             }
+            Self::Other(bytes) => res = Cow::Borrowed(bytes.as_ref()),
         }
 
         res
     }
 }
 
-impl From<&Channel> for RedisKey {
+impl<'k, K: IntoCacheKey<'k>> From<K> for RedisKey<'k> {
+    #[inline]
+    fn from(value: K) -> Self {
+        Self::Other(value.into_key())
+    }
+}
+
+impl From<&Channel> for RedisKey<'_> {
     #[inline]
     fn from(channel: &Channel) -> Self {
         Self::channel(channel.guild_id, channel.id)
     }
 }
 
-impl From<&Guild> for RedisKey {
+impl From<&Guild> for RedisKey<'_> {
     #[inline]
     fn from(guild: &Guild) -> Self {
         Self::guild(guild.id)
     }
 }
 
-impl From<(Id<GuildMarker>, &Member)> for RedisKey {
+impl From<(Id<GuildMarker>, &Member)> for RedisKey<'_> {
     #[inline]
     fn from((guild, member): (Id<GuildMarker>, &Member)) -> Self {
         Self::member(guild, member.user.id)
     }
 }
 
-impl From<(Id<GuildMarker>, &Role)> for RedisKey {
+impl From<(Id<GuildMarker>, &Role)> for RedisKey<'_> {
     #[inline]
     fn from((guild, role): (Id<GuildMarker>, &Role)) -> Self {
         Self::role(guild, role.id)
     }
 }
 
-impl From<&User> for RedisKey {
+impl From<&User> for RedisKey<'_> {
     #[inline]
     fn from(user: &User) -> Self {
         Self::user(user.id)
     }
 }
 
-impl ToRedisArgs for RedisKey {
+impl ToRedisArgs for RedisKey<'_> {
     #[inline]
     fn write_redis_args<W>(&self, out: &mut W)
     where
         W: ?Sized + RedisWrite,
     {
-        match self.to_str() {
+        match self.to_bytes() {
             Cow::Borrowed(key) => key.write_redis_args(out),
             Cow::Owned(key) => key.write_redis_args(out),
         }

@@ -269,7 +269,6 @@ dependencies = [
  "bathbot-psql",
  "bathbot-server",
  "bathbot-util",
- "bb8-redis",
  "bitflags",
  "bytes",
  "dotenvy",
@@ -308,7 +307,6 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
- "twilight-cache-inmemory",
  "twilight-gateway",
  "twilight-http",
  "twilight-interactions",
@@ -2781,18 +2779,6 @@ dependencies = [
  "url",
  "utf-8",
  "webpki",
-]
-
-[[package]]
-name = "twilight-cache-inmemory"
-version = "0.15.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-15#b6af5d574889e113a156b9dd0b5be973fbbc4a31"
-dependencies = [
- "bitflags",
- "dashmap",
- "rkyv",
- "serde",
- "twilight-model",
 ]
 
 [[package]]

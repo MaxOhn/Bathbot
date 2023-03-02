@@ -323,7 +323,7 @@ async fn creator_name<'m>(
 
     match ctx.redis().osu_user(args).await {
         Ok(RedisData::Original(user)) => Some(user.username),
-        Ok(RedisData::Archived(user)) => {
+        Ok(RedisData::Archive(user)) => {
             Some(UsernameWrapper::deserialize_with(&user.username, &mut Infallible).unwrap())
         }
         Err(err) => {

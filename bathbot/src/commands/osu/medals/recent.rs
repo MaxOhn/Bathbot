@@ -100,7 +100,7 @@ pub(super) async fn recent(
 
     let mut user_medals = match user {
         RedisData::Original(ref mut user) => mem::take(&mut user.medals),
-        RedisData::Archived(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
+        RedisData::Archive(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
     };
 
     if user_medals.is_empty() {

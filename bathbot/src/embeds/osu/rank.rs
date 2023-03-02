@@ -40,7 +40,7 @@ impl RankEmbed {
 
                         (username, user_id)
                     }
-                    RedisData::Archived(ref user) => {
+                    RedisData::Archive(ref user) => {
                         let username = user.username.as_str().cow_escape_markdown();
                         let user_id = user.user_id;
 

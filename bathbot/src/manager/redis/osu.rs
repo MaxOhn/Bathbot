@@ -1,11 +1,10 @@
 use std::borrow::Cow;
 
+use bathbot_cache::Cache;
 use bathbot_model::rkyv_impls::{CountryCodeWrapper, DateTimeWrapper, UsernameWrapper};
 use bathbot_util::{
     constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder, CowUtils,
 };
-use bb8_redis::redis::AsyncCommands;
-use eyre::Report;
 use rkyv::{
     with::{DeserializeWith, Map},
     Archive, Deserialize, Infallible, Serialize,
@@ -145,7 +144,7 @@ impl TryFrom<UserArgs> for UserArgsSlim {
     }
 }
 
-const EXPIRE_SECONDS: usize = 600;
+const EXPIRE: usize = 600;
 
 impl<'c> RedisManager<'c> {
     fn osu_user_key(user_id: u32, mode: GameMode) -> String {
@@ -156,24 +155,14 @@ impl<'c> RedisManager<'c> {
         let UserArgsSlim { user_id, mode } = args;
         let key = Self::osu_user_key(user_id, mode);
 
-        let conn = match self.redis.get().await {
-            Ok(mut conn) => match conn.get::<_, Vec<u8>>(&key).await {
-                Ok(bytes) if bytes.is_empty() => Some(conn),
-                Ok(bytes) => {
-                    self.ctx.stats.inc_cached_user();
-                    trace!("Found user {user_id} in cache ({} bytes)", bytes.len());
+        let mut conn = match self.ctx.cache.fetch(&key).await {
+            Ok(Ok(user)) => {
+                self.ctx.stats.inc_cached_user();
 
-                    return Ok(RedisData::new_archived(bytes));
-                }
-                Err(err) => {
-                    let err = Report::new(err).wrap_err("failed to get bytes");
-                    warn!("{err:?}");
-
-                    Some(conn)
-                }
-            },
+                return Ok(RedisData::Archive(user));
+            }
+            Ok(Err(conn)) => Some(conn),
             Err(err) => {
-                let err = Report::new(err).wrap_err("failed to get redis connection");
                 warn!("{err:?}");
 
                 None
@@ -202,14 +191,10 @@ impl<'c> RedisManager<'c> {
 
         let user = User::from(user);
 
-        if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 64>(&user).expect("failed to serialize user");
-            let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
-
+        if let Some(ref mut conn) = conn {
             // Cache users for 10 minutes
-            if let Err(err) = set_fut.await {
-                let err = Report::new(err).wrap_err("failed to insert bytes into cache");
-                warn!("{err:?}");
+            if let Err(err) = Cache::store::<_, _, 64>(conn, &key, &user, EXPIRE).await {
+                warn!("{:?}", err.wrap_err("Failed to store user"));
             }
         }
 
@@ -223,27 +208,13 @@ impl<'c> RedisManager<'c> {
     ) -> RedisResult<User, OsuError> {
         let key = Self::osu_user_key(user.user_id, mode);
 
-        let conn = match self.redis.get().await {
-            Ok(conn) => Some(conn),
-            Err(err) => {
-                let err = Report::new(err).wrap_err("failed to get redis connection");
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
         user.mode = mode;
 
-        if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 64>(&user).expect("failed to serialize user");
-            let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
+        // Cache users for 10 minutes
+        let store_fut = self.ctx.cache.store_new::<_, _, 64>(&key, &user, EXPIRE);
 
-            // Cache users for 10 minutes
-            if let Err(err) = set_fut.await {
-                let err = Report::new(err).wrap_err("failed to insert bytes into cache");
-                warn!("{err:?}");
-            }
+        if let Err(err) = store_fut.await {
+            warn!("{:?}", err.wrap_err("Failed to store user"));
         }
 
         Ok(RedisData::Original(user))
@@ -262,35 +233,35 @@ impl RedisData<User> {
     pub fn avatar_url(&self) -> &str {
         match self {
             RedisData::Original(user) => user.avatar_url.as_str(),
-            RedisData::Archived(user) => user.avatar_url.as_str(),
+            RedisData::Archive(user) => user.avatar_url.as_str(),
         }
     }
 
     pub fn user_id(&self) -> u32 {
         match self {
             RedisData::Original(user) => user.user_id,
-            RedisData::Archived(user) => user.user_id,
+            RedisData::Archive(user) => user.user_id,
         }
     }
 
     pub fn username(&self) -> &str {
         match self {
             RedisData::Original(user) => user.username.as_str(),
-            RedisData::Archived(user) => user.username.as_str(),
+            RedisData::Archive(user) => user.username.as_str(),
         }
     }
 
     pub fn mode(&self) -> GameMode {
         match self {
             RedisData::Original(user) => user.mode,
-            RedisData::Archived(user) => user.mode,
+            RedisData::Archive(user) => user.mode,
         }
     }
 
     pub fn country_code(&self) -> &str {
         match self {
             RedisData::Original(user) => user.country_code.as_str(),
-            RedisData::Archived(user) => user.country_code.as_str(),
+            RedisData::Archive(user) => user.country_code.as_str(),
         }
     }
 
@@ -300,7 +271,7 @@ impl RedisData<User> {
     {
         let res_opt = match self {
             RedisData::Original(user) => user.statistics.as_ref().map(f),
-            RedisData::Archived(user) => user
+            RedisData::Archive(user) => user
                 .statistics
                 .as_ref()
                 .map(|stats| f(&stats.deserialize(&mut Infallible).unwrap())),
@@ -328,7 +299,7 @@ impl RedisData<User> {
 
                 AuthorBuilder::new(text).url(url).icon_url(icon)
             }
-            RedisData::Archived(user) => {
+            RedisData::Archive(user) => {
                 let stats = user.statistics.as_ref().expect("missing statistics");
 
                 let country_code =

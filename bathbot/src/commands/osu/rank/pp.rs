@@ -77,7 +77,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
 
                 let rank_holder = match rankings {
                     RedisData::Original(mut rankings) => rankings.ranking.swap_remove(idx),
-                    RedisData::Archived(rankings) => {
+                    RedisData::Archive(rankings) => {
                         rankings.ranking[idx].deserialize(&mut Infallible).unwrap()
                     }
                 };

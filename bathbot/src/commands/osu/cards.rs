@@ -129,7 +129,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
         (Ok((user, scores)), Ok(medals)) => {
             let medals_len = match medals {
                 RedisData::Original(medals) => medals.len(),
-                RedisData::Archived(medals) => medals.len(),
+                RedisData::Archive(medals) => medals.len(),
             };
 
             (user, scores, medals_len)
@@ -512,7 +512,7 @@ impl Skills {
                     country_code,
                 )
             }
-            RedisData::Archived(user) => {
+            RedisData::Archive(user) => {
                 let stats = user.statistics.as_ref().expect("missing statistics");
 
                 let global_rank = stats.global_rank.as_ref().copied();

@@ -68,7 +68,7 @@ impl RankRankedScoreEmbed {
 
                     (country_code, user_id, mode)
                 }
-                RedisData::Archived(user) => {
+                RedisData::Archive(user) => {
                     let country_code = user.country_code.as_str();
                     let user_id = user.user_id;
                     let mode = user.mode;

@@ -114,7 +114,7 @@ pub(super) async fn player_sniped(
             user.username.as_str(),
             user.country_code.as_str(),
         ),
-        RedisData::Archived(user) => (
+        RedisData::Archive(user) => (
             user.user_id,
             user.username.as_str(),
             user.country_code.as_str(),

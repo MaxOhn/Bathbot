@@ -15,8 +15,8 @@ mod debug {
         de::deserializers::SharedDeserializeMap,
         ser::{
             serializers::{
-                AlignedSerializer, AllocScratch, CompositeSerializer, FallbackScratch, HeapScratch,
-                ScratchTracker,
+                AlignedSerializer, AllocScratch, AllocSerializer, CompositeSerializer,
+                FallbackScratch, HeapScratch, ScratchTracker,
             },
             Serializer,
         },
@@ -56,6 +56,13 @@ mod debug {
     }
 
     impl SingleSerializer {
+        pub(crate) fn any<T, const N: usize>(value: &T) -> Result<AlignedVec>
+        where
+            T: Serialize<AllocSerializer<N>>,
+        {
+            rkyv::to_bytes(value).wrap_err("Failed to serialize value")
+        }
+
         pub(crate) fn channel(channel: &Channel) -> Result<AlignedVec> {
             Self::to_bytes::<_, CHANNEL_SCRATCH_SIZE>(channel, &CHANNEL_TRACKER, "channel")
                 .wrap_err("Failed to serialize channel")
@@ -155,6 +162,13 @@ mod release {
     pub(crate) struct CacheSerializer;
 
     impl CacheSerializer {
+        pub(crate) fn any<T, const N: usize>(value: &T) -> Result<AlignedVec>
+        where
+            T: Serialize<AllocSerializer<N>>,
+        {
+            rkyv::to_bytes(value).wrap_err("Failed to serialize value")
+        }
+
         pub(crate) fn channel(channel: &Channel) -> Result<AlignedVec> {
             rkyv::to_bytes::<_, CHANNEL_SCRATCH_SIZE>(channel)
                 .wrap_err("Failed to serialize channel")

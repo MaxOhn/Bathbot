@@ -65,7 +65,7 @@ impl FarmMap {
 
             let max = match entries {
                 RedisData::Original(entries) => entries[0].count as u32,
-                RedisData::Archived(entries) => entries[0].count,
+                RedisData::Archive(entries) => entries[0].count,
             };
 
             let prev_farm = match prev_farm {
@@ -81,7 +81,7 @@ impl FarmMap {
                         weight(prev_farm, entry.count as u32, max, curr_score)
                     })
                     .map(|id_count| (id_count.map_id, id_count.count as u32)),
-                RedisData::Archived(entries) => entries
+                RedisData::Archive(entries) => entries
                     .choose_weighted(&mut rng, |entry| {
                         weight(prev_farm, entry.count, max, curr_score)
                     })
@@ -98,7 +98,7 @@ impl FarmMap {
                     RedisData::Original(entries) => {
                         (entries.len(), entries[0].map_id, entries[0].count as u32)
                     }
-                    RedisData::Archived(entries) => {
+                    RedisData::Archive(entries) => {
                         (entries.len(), entries[0].map_id, entries[0].count)
                     }
                 };

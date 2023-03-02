@@ -13,7 +13,6 @@ bathbot-model = { path = "../bathbot-model" }
 bathbot-psql = { path = "../bathbot-psql" }
 bathbot-server = { path = "../bathbot-server", optional = true }
 bathbot-util = { path = "../bathbot-util" }
-bb8-redis = { version = "0.12" }
 bitflags = { version = "1.0" }
 bytes = { version = "1.0" }
 dotenvy = { version = "0.15" }
@@ -53,7 +52,6 @@ tracing = { version = "0.1" }
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "smallvec", "std", "time", "tracing-log"] }
 twilight-gateway = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false, features = ["rustls-webpki-roots", "twilight-http", "zlib-stock"] }
-twilight-cache-inmemory = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
 twilight-http = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false, features = ["rustls-webpki-roots"] }
 twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv-15", default-features = false, features = ["derive"] }
 twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
@@ -61,7 +59,6 @@ twilight-standby = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-
 twilight-validate = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15" }
 
 # twilight-gateway = { path = "../../twilight/twilight-gateway", default-features = false, features = ["rustls-webpki-roots", "twilight-http", "zlib-stock"] }
-# twilight-cache-inmemory = { path = "../../twilight/twilight-cache-inmemory/", default-features = false }
 # twilight-http = { path = "../../twilight/twilight-http", default-features = false, features = ["rustls-webpki-roots"] }
 # twilight-interactions = { path = "../../twilight-interactions/twilight-interactions", default-features = false, features = ["derive"] }
 # twilight-model = { path = "../../twilight/twilight-model", default-features = false }

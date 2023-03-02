@@ -146,7 +146,7 @@ fn prepare_amount_users(
             })
             .enumerate()
             .collect(),
-        RedisData::Archived(ranking) => ranking
+        RedisData::Archive(ranking) => ranking
             .iter()
             .filter(archived_filter)
             .map(|entry| RankingEntry {
@@ -175,7 +175,7 @@ fn prepare_pp_users(
             })
             .enumerate()
             .collect(),
-        RedisData::Archived(ranking) => ranking
+        RedisData::Archive(ranking) => ranking
             .iter()
             .filter(archived_filter)
             .map(|entry| RankingEntry {

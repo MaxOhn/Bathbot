@@ -860,7 +860,7 @@ async fn handle_autocomplete(
             })
             .take(25)
             .collect(),
-        RedisData::Archived(diffs) => diffs
+        RedisData::Archive(diffs) => diffs
             .iter()
             .filter_map(|ArchivedMapVersion { map_id, version }| {
                 let lowercase = version.cow_to_ascii_lowercase();

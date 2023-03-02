@@ -393,7 +393,7 @@ impl CommonUser {
                 user_id: user.user_id,
                 first_count: 0,
             },
-            RedisData::Archived(user) => Self {
+            RedisData::Archive(user) => Self {
                 name: user.username.as_str().into(),
                 avatar_url: user.avatar_url.deserialize(&mut Infallible).unwrap(),
                 user_id: user.user_id,

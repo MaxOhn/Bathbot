@@ -92,7 +92,7 @@ pub(super) async fn country_stats(
 
                 match &user {
                     RedisData::Original(user) => user.country_code.as_str().into(),
-                    RedisData::Archived(user) => user.country_code.as_str().into(),
+                    RedisData::Archive(user) => user.country_code.as_str().into(),
                 }
             }
             Ok(None) => {

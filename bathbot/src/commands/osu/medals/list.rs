@@ -80,7 +80,7 @@ pub(super) async fn list(
             .iter()
             .map(|entry| (entry.medal_id, entry.possession_percent))
             .collect(),
-        RedisData::Archived(rarities) => rarities
+        RedisData::Archive(rarities) => rarities
             .iter()
             .map(|entry| (entry.medal_id, entry.possession_percent))
             .collect(),
@@ -119,7 +119,7 @@ pub(super) async fn list(
 
             (acquired, medals)
         }
-        RedisData::Archived(ref user) => {
+        RedisData::Archive(ref user) => {
             let acquired = (user.medals.len(), osekai_medals.len());
 
             let medals_iter = user.medals.iter().filter_map(|m| {

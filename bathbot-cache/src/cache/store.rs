@@ -1,5 +1,6 @@
 use bb8_redis::redis::AsyncCommands;
-use eyre::{Result, WrapErr};
+use eyre::{Report, Result, WrapErr};
+use rkyv::{ser::serializers::AllocSerializer, Serialize};
 use twilight_model::{
     application::interaction::application_command::InteractionMember,
     channel::Channel,
@@ -10,14 +11,46 @@ use twilight_model::{
 };
 
 use crate::{
-    key::RedisKey,
-    model::{CacheChange, CachedGuild, CachedMember},
+    key::{IntoCacheKey, RedisKey},
+    model::{CacheChange, CacheConnection, CachedGuild, CachedMember},
     serializer::{MultiSerializer, SingleSerializer},
     util::{AlignedVecRedisArgs, Zipped},
     Cache,
 };
 
 impl Cache {
+    pub async fn store<'k, K: IntoCacheKey<'k>, T, const N: usize>(
+        CacheConnection(conn): &mut CacheConnection<'_>,
+        key: K,
+        value: &T,
+        expire_seconds: usize,
+    ) -> Result<()>
+    where
+        T: Serialize<AllocSerializer<N>>,
+    {
+        let bytes = SingleSerializer::any(value)?;
+        let key = RedisKey::from(key);
+
+        conn.set_ex(key, bytes.as_slice(), expire_seconds)
+            .await
+            .map_err(Report::new)
+    }
+
+    /// **Note**: `Cache::store` should always be preferred if `Cache::fetch` was called beforehand.
+    pub async fn store_new<'k, K: IntoCacheKey<'k>, T, const N: usize>(
+        &self,
+        key: K,
+        value: &T,
+        expire_seconds: usize,
+    ) -> Result<()>
+    where
+        T: Serialize<AllocSerializer<N>>,
+    {
+        let mut conn = CacheConnection(self.connection().await?);
+
+        Self::store(&mut conn, key, value, expire_seconds).await
+    }
+
     pub(crate) async fn cache_channel(&self, channel: &Channel) -> Result<CacheChange> {
         let bytes = SingleSerializer::channel(channel)?;
         let mut conn = self.connection().await?;

@@ -67,7 +67,7 @@ impl Cache {
         where
             G: FnOnce(Id<GuildMarker>) -> String,
             I: FnOnce() -> &'static str,
-            K: Fn(Id<GuildMarker>, u64) -> RedisKey,
+            K: Fn(Id<GuildMarker>, u64) -> RedisKey<'static>,
             C: FnOnce(isize),
         {
             let guild_ids: Vec<u64> = conn.get_del(&(guild_key_fn)(guild)).await?;

@@ -4,7 +4,6 @@ use bathbot_cache::Cache;
 use bathbot_client::Client as BathbotClient;
 use bathbot_psql::{model::configs::GuildConfig, Database};
 use bathbot_util::IntHasher;
-use bb8_redis::{bb8::Pool, RedisConnectionManager};
 use eyre::{Result, WrapErr};
 use flexmap::{
     std::StdMutexMap,
@@ -55,8 +54,6 @@ mod messages;
 mod shutdown;
 mod twitch;
 
-pub type Redis = Pool<RedisConnectionManager>;
-
 type GuildShards = FlurryMap<Id<GuildMarker>, u64>;
 type GuildConfigs = FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>;
 type TrackedStreams = FlurryMap<u64, Vec<Id<ChannelMarker>>, IntHasher>;
@@ -106,11 +103,6 @@ impl Context {
         let psql =
             Database::new(&config.database_url).wrap_err("Failed to create database client")?;
 
-        // Connect to redis
-        let redis = redis(config)
-            .await
-            .wrap_err("Failed to create redis client")?;
-
         // Connect to discord API
         let (http, application_id) = discord_http(config)
             .await
@@ -150,7 +142,7 @@ impl Context {
             .await
             .wrap_err("Failed to create custom client")?;
 
-        let clients = Clients::new(psql, redis, osu, custom_client);
+        let clients = Clients::new(psql, osu, custom_client);
 
         let shards = discord_gateway(config, &http, resume_data)
             .await
@@ -237,17 +229,11 @@ struct Clients {
     custom: BathbotClient,
     osu: Osu,
     psql: Database,
-    redis: Redis,
 }
 
 impl Clients {
-    fn new(psql: Database, redis: Redis, osu: Osu, custom: BathbotClient) -> Self {
-        Self {
-            psql,
-            redis,
-            osu,
-            custom,
-        }
+    fn new(psql: Database, osu: Osu, custom: BathbotClient) -> Self {
+        Self { psql, osu, custom }
     }
 }
 
@@ -407,22 +393,6 @@ async fn discord_gateway(
         .await
         .map(Iterator::collect)
         .wrap_err("Failed to create recommended shards")
-}
-
-async fn redis(config: &BotConfig) -> Result<Redis> {
-    let redis_host = &config.redis_host;
-    let redis_port = config.redis_port;
-
-    let redis_uri = format!("redis://{redis_host}:{redis_port}");
-
-    let redis_manager =
-        RedisConnectionManager::new(redis_uri).wrap_err("Failed to create redis manager")?;
-
-    Pool::builder()
-        .max_size(8)
-        .build(redis_manager)
-        .await
-        .wrap_err("Failed to create redis pool")
 }
 
 #[cfg(feature = "server")]

@@ -85,7 +85,7 @@ pub(super) async fn pp(
             .await
             .map(|ranking| match ranking {
                 RedisData::Original(ranking) => ranking,
-                RedisData::Archived(ranking) => ranking.deserialize(),
+                RedisData::Archive(ranking) => ranking.deserialize(),
             })
     };
 

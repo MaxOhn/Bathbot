@@ -11,14 +11,27 @@ use twilight_model::{
 };
 
 use crate::{
-    key::RedisKey,
-    model::{CachedArchive, CachedGuild, CachedMember},
+    key::{IntoCacheKey, RedisKey},
+    model::{CacheConnection, CachedArchive, CachedGuild, CachedMember},
     Cache,
 };
 
 type FetchResult<T> = Result<Option<CachedArchive<T>>>;
 
 impl Cache {
+    #[inline]
+    pub async fn fetch<'k, K, T>(&self, key: K) -> Result<Result<CachedArchive<T>, CacheConnection>>
+    where
+        K: IntoCacheKey<'k>,
+    {
+        let mut conn = self.connection().await?;
+
+        conn.get::<_, Option<CachedArchive<T>>>(RedisKey::from(key))
+            .await
+            .map(|archived| archived.ok_or(CacheConnection(conn)))
+            .wrap_err("Failed to fetch stored data")
+    }
+
     #[inline]
     pub async fn channel(
         &self,

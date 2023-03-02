@@ -181,7 +181,7 @@ async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> Resul
             .iter()
             .filter(|badge| matcher::tourney_badge(&badge.description))
             .count(),
-        RedisData::Archived(user) => user
+        RedisData::Archive(user) => user
             .badges
             .iter()
             .filter(|badge| matcher::tourney_badge(badge.description.as_str()))

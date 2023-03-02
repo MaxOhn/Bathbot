@@ -28,7 +28,7 @@ impl WhatIfEmbed {
                 user.username.cow_escape_markdown(),
                 user.avatar_url.as_str(),
             ),
-            RedisData::Archived(user) => (
+            RedisData::Archive(user) => (
                 user.username.cow_escape_markdown(),
                 user.avatar_url.as_str(),
             ),

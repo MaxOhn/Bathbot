@@ -53,8 +53,8 @@ pub async fn rank_graph(
         let history = match user {
             RedisData::Original(user) if user.rank_history.is_empty() => return Ok(None),
             RedisData::Original(user) => user.rank_history.as_slice(),
-            RedisData::Archived(user) if user.rank_history.is_empty() => return Ok(None),
-            RedisData::Archived(user) => user.rank_history.as_slice(),
+            RedisData::Archive(user) if user.rank_history.is_empty() => return Ok(None),
+            RedisData::Archive(user) => user.rank_history.as_slice(),
         };
 
         let history_len = history.len();

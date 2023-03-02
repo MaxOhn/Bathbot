@@ -74,7 +74,7 @@ pub(super) async fn user(
 
             badges
         }
-        RedisData::Archived(badges) => badges
+        RedisData::Archive(badges) => badges
             .iter()
             .filter(|badge| badge.users.contains(&user_id_raw))
             .map(|badge| badge.deserialize(&mut Infallible).unwrap())

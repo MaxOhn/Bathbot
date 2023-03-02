@@ -1,9 +1,4 @@
-pub use self::{
-    config::BotConfig,
-    context::{Context, Redis},
-    events::event_loop,
-    stats::BotStats,
-};
+pub use self::{config::BotConfig, context::Context, events::event_loop, stats::BotStats};
 
 mod config;
 mod context;

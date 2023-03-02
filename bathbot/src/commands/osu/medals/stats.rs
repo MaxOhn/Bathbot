@@ -109,7 +109,7 @@ pub(super) async fn stats(
 
     let mut medals = match user {
         RedisData::Original(ref mut user) => mem::take(&mut user.medals),
-        RedisData::Archived(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
+        RedisData::Archive(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
     };
 
     medals.sort_unstable_by_key(|medal| medal.achieved_at);
@@ -137,7 +137,7 @@ pub(super) async fn stats(
                 )
             })
             .collect(),
-        RedisData::Archived(all_medals) => all_medals
+        RedisData::Archive(all_medals) => all_medals
             .iter()
             .map(|medal| {
                 let medal_id = medal.medal_id;
@@ -159,7 +159,7 @@ pub(super) async fn stats(
                 .iter()
                 .map(|entry| (entry.medal_id, entry.possession_percent))
                 .collect(),
-            RedisData::Archived(ranking) => ranking
+            RedisData::Archive(ranking) => ranking
                 .iter()
                 .map(|entry| (entry.medal_id, entry.possession_percent))
                 .collect(),

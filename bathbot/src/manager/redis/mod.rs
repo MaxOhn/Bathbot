@@ -1,22 +1,18 @@
 use std::{borrow::Cow, fmt::Write};
 
+use bathbot_cache::Cache;
 use bathbot_model::{
     OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats,
 };
 use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
-use bb8_redis::redis::AsyncCommands;
 use eyre::{Report, Result};
 use rkyv::{ser::serializers::AllocSerializer, Serialize};
 use rosu_v2::prelude::{GameMode, OsuError, Rankings};
 
-use crate::{
-    commands::osu::MapOrScore,
-    core::{Context, Redis},
-    util::interaction::InteractionCommand,
-};
+use crate::{commands::osu::MapOrScore, core::Context, util::interaction::InteractionCommand};
 
-pub use self::data::{ArchivedBytes, RedisData};
+pub use self::data::RedisData;
 
 pub mod osu;
 
@@ -27,37 +23,26 @@ type RedisResult<T, E = Report> = Result<RedisData<T>, E>;
 #[derive(Copy, Clone)]
 pub struct RedisManager<'c> {
     ctx: &'c Context,
-    redis: &'c Redis,
 }
 
 impl<'c> RedisManager<'c> {
-    pub fn new(ctx: &'c Context, redis: &'c Redis) -> Self {
-        Self { ctx, redis }
+    pub fn new(ctx: &'c Context) -> Self {
+        Self { ctx }
     }
 
     pub async fn badges(self) -> RedisResult<Vec<OsekaiBadge>> {
-        const EXPIRE_SECONDS: usize = 7200;
+        const EXPIRE: usize = 7200;
         const KEY: &str = "osekai_badges";
 
-        let conn = match self.redis.get().await {
-            Ok(mut conn) => match conn.get::<_, Vec<u8>>(KEY).await {
-                Ok(bytes) if bytes.is_empty() => Some(conn),
-                Ok(bytes) => {
-                    self.ctx.stats.inc_cached_badges();
-                    trace!("Found badges in cache ({} bytes)", bytes.len());
+        let mut conn = match self.ctx.cache.fetch(KEY).await {
+            Ok(Ok(badges)) => {
+                self.ctx.stats.inc_cached_badges();
 
-                    return Ok(RedisData::new_archived(bytes));
-                }
-                Err(err) => {
-                    let report = Report::new(err).wrap_err("Failed to get bytes");
-                    warn!("{report:?}");
-
-                    Some(conn)
-                }
-            },
+                return Ok(RedisData::Archive(badges));
+            }
+            Ok(Err(conn)) => Some(conn),
             Err(err) => {
-                let report = Report::new(err).wrap_err("Failed to get redis connection");
-                warn!("{report:?}");
+                warn!("{err:?}");
 
                 None
             }
@@ -65,13 +50,9 @@ impl<'c> RedisManager<'c> {
 
         let badges = self.ctx.client().get_osekai_badges().await?;
 
-        if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 65_536>(&badges).expect("failed to serialize badges");
-            let set_fut = conn.set_ex::<_, _, ()>(KEY, bytes.as_slice(), EXPIRE_SECONDS);
-
-            if let Err(err) = set_fut.await {
-                let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
-                warn!("{report:?}");
+        if let Some(ref mut conn) = conn {
+            if let Err(err) = Cache::store::<_, _, 65_536>(conn, KEY, &badges, EXPIRE).await {
+                warn!("{:?}", err.wrap_err("Failed to store badges"));
             }
         }
 
@@ -79,28 +60,18 @@ impl<'c> RedisManager<'c> {
     }
 
     pub async fn medals(self) -> RedisResult<Vec<OsekaiMedal>> {
-        const EXPIRE_SECONDS: usize = 3600;
+        const EXPIRE: usize = 3600;
         const KEY: &str = "osekai_medals";
 
-        let conn = match self.redis.get().await {
-            Ok(mut conn) => match conn.get::<_, Vec<u8>>(KEY).await {
-                Ok(bytes) if bytes.is_empty() => Some(conn),
-                Ok(bytes) => {
-                    self.ctx.stats.inc_cached_medals();
-                    trace!("Found medals in cache ({} bytes)", bytes.len());
+        let mut conn = match self.ctx.cache.fetch(KEY).await {
+            Ok(Ok(medals)) => {
+                self.ctx.stats.inc_cached_medals();
 
-                    return Ok(RedisData::new_archived(bytes));
-                }
-                Err(err) => {
-                    let report = Report::new(err).wrap_err("Failed to get bytes");
-                    warn!("{report:?}");
-
-                    Some(conn)
-                }
-            },
+                return Ok(RedisData::Archive(medals));
+            }
+            Ok(Err(conn)) => Some(conn),
             Err(err) => {
-                let report = Report::new(err).wrap_err("Failed to get redis connection");
-                warn!("{report:?}");
+                warn!("{err:?}");
 
                 None
             }
@@ -108,13 +79,9 @@ impl<'c> RedisManager<'c> {
 
         let medals = self.ctx.client().get_osekai_medals().await?;
 
-        if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 16_384>(&medals).expect("failed to serialize medals");
-            let set_fut = conn.set_ex::<_, _, ()>(KEY, bytes.as_slice(), EXPIRE_SECONDS);
-
-            if let Err(err) = set_fut.await {
-                let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
-                warn!("{report:?}");
+        if let Some(ref mut conn) = conn {
+            if let Err(err) = Cache::store::<_, _, 16_384>(conn, KEY, &medals, EXPIRE).await {
+                warn!("{:?}", err.wrap_err("Failed to store medals"));
             }
         }
 
@@ -126,28 +93,20 @@ impl<'c> RedisManager<'c> {
         R: OsekaiRanking,
         <R as OsekaiRanking>::Entry: Serialize<AllocSerializer<65_536>>,
     {
-        const EXPIRE_SECONDS: usize = 7200;
-        let key = format!("osekai_ranking_{}", R::FORM);
+        const EXPIRE: usize = 7200;
 
-        let conn = match self.redis.get().await {
-            Ok(mut conn) => match conn.get::<_, Vec<u8>>(&key).await {
-                Ok(bytes) if bytes.is_empty() => Some(conn),
-                Ok(bytes) => {
-                    self.ctx.stats.inc_cached_osekai_ranking();
-                    trace!("Found osekai ranking in cache ({} bytes)", bytes.len());
+        let mut key = b"osekai_ranking_".to_vec();
+        key.extend_from_slice(R::FORM.as_bytes());
 
-                    return Ok(RedisData::new_archived(bytes));
-                }
-                Err(err) => {
-                    let report = Report::new(err).wrap_err("Failed to get bytes");
-                    warn!("{report:?}");
+        let mut conn = match self.ctx.cache.fetch(&key).await {
+            Ok(Ok(ranking)) => {
+                self.ctx.stats.inc_cached_osekai_ranking();
 
-                    Some(conn)
-                }
-            },
+                return Ok(RedisData::Archive(ranking));
+            }
+            Ok(Err(conn)) => Some(conn),
             Err(err) => {
-                let report = Report::new(err).wrap_err("Failed to get redis connection");
-                warn!("{report:?}");
+                warn!("{err:?}");
 
                 None
             }
@@ -155,15 +114,9 @@ impl<'c> RedisManager<'c> {
 
         let ranking = self.ctx.client().get_osekai_ranking::<R>().await?;
 
-        if let Some(mut conn) = conn {
-            let bytes =
-                rkyv::to_bytes::<_, 65_536>(&ranking).expect("failed to serialize osekai ranking");
-
-            let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
-
-            if let Err(err) = set_fut.await {
-                let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
-                warn!("{report:?}");
+        if let Some(ref mut conn) = conn {
+            if let Err(err) = Cache::store::<_, _, 65_536>(conn, &key, &ranking, EXPIRE).await {
+                warn!("{:?}", err.wrap_err("Failed to store osekai ranking"));
             }
         }
 
@@ -171,28 +124,18 @@ impl<'c> RedisManager<'c> {
     }
 
     pub async fn osutracker_pp_group(self, pp: u32) -> RedisResult<OsuTrackerPpGroup> {
-        const EXPIRE_SECONDS: usize = 86_400;
+        const EXPIRE: usize = 86_400;
         let key = format!("osutracker_pp_group_{pp}");
 
-        let conn = match self.redis.get().await {
-            Ok(mut conn) => match conn.get::<_, Vec<u8>>(&key).await {
-                Ok(bytes) if bytes.is_empty() => Some(conn),
-                Ok(bytes) => {
-                    self.ctx.stats.inc_cached_osutracker_pp_group();
-                    trace!("Found osutracker pp group in cache ({} bytes)", bytes.len());
+        let mut conn = match self.ctx.cache.fetch(&key).await {
+            Ok(Ok(group)) => {
+                self.ctx.stats.inc_cached_osutracker_pp_group();
 
-                    return Ok(RedisData::new_archived(bytes));
-                }
-                Err(err) => {
-                    let report = Report::new(err).wrap_err("Failed to get bytes");
-                    warn!("{report:?}");
-
-                    Some(conn)
-                }
-            },
+                return Ok(RedisData::Archive(group));
+            }
+            Ok(Err(conn)) => Some(conn),
             Err(err) => {
-                let report = Report::new(err).wrap_err("Failed to get redis connection");
-                warn!("{report:?}");
+                warn!("{err:?}");
 
                 None
             }
@@ -200,15 +143,9 @@ impl<'c> RedisManager<'c> {
 
         let group = self.ctx.client().get_osutracker_pp_group(pp).await?;
 
-        if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 1_024>(&group)
-                .expect("failed to serialize osutracker pp groups");
-
-            let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
-
-            if let Err(err) = set_fut.await {
-                let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
-                warn!("{report:?}");
+        if let Some(ref mut conn) = conn {
+            if let Err(err) = Cache::store::<_, _, 1_024>(conn, &key, &group, EXPIRE).await {
+                warn!("{:?}", err.wrap_err("Failed to store osutracker pp group"));
             }
         }
 
@@ -216,28 +153,18 @@ impl<'c> RedisManager<'c> {
     }
 
     pub async fn osutracker_stats(self) -> RedisResult<OsuTrackerStats> {
-        const EXPIRE_SECONDS: usize = 86_400;
+        const EXPIRE: usize = 86_400;
         const KEY: &str = "osutracker_stats";
 
-        let conn = match self.redis.get().await {
-            Ok(mut conn) => match conn.get::<_, Vec<u8>>(KEY).await {
-                Ok(bytes) if bytes.is_empty() => Some(conn),
-                Ok(bytes) => {
-                    self.ctx.stats.inc_cached_osutracker_stats();
-                    trace!("Found osutracker stats in cache ({} bytes)", bytes.len());
+        let mut conn = match self.ctx.cache.fetch(KEY).await {
+            Ok(Ok(stats)) => {
+                self.ctx.stats.inc_cached_osutracker_stats();
 
-                    return Ok(RedisData::new_archived(bytes));
-                }
-                Err(err) => {
-                    let report = Report::new(err).wrap_err("Failed to get bytes");
-                    warn!("{report:?}");
-
-                    Some(conn)
-                }
-            },
+                return Ok(RedisData::Archive(stats));
+            }
+            Ok(Err(conn)) => Some(conn),
             Err(err) => {
-                let report = Report::new(err).wrap_err("Failed to get redis connection");
-                warn!("{report:?}");
+                warn!("{err:?}");
 
                 None
             }
@@ -245,15 +172,9 @@ impl<'c> RedisManager<'c> {
 
         let stats = self.ctx.client().get_osutracker_stats().await?;
 
-        if let Some(mut conn) = conn {
-            let bytes =
-                rkyv::to_bytes::<_, 32_768>(&stats).expect("failed to serialize osutracker stats");
-
-            let set_fut = conn.set_ex::<_, _, ()>(KEY, bytes.as_slice(), EXPIRE_SECONDS);
-
-            if let Err(err) = set_fut.await {
-                let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
-                warn!("{report:?}");
+        if let Some(ref mut conn) = conn {
+            if let Err(err) = Cache::store::<_, _, 32_768>(conn, KEY, &stats, EXPIRE).await {
+                warn!("{:?}", err.wrap_err("Failed to store osutracker stats"));
             }
         }
 
@@ -261,28 +182,18 @@ impl<'c> RedisManager<'c> {
     }
 
     pub async fn osutracker_counts(self) -> RedisResult<Vec<OsuTrackerIdCount>> {
-        const EXPIRE_SECONDS: usize = 86_400;
+        const EXPIRE: usize = 86_400;
         const KEY: &str = "osutracker_id_counts";
 
-        let conn = match self.redis.get().await {
-            Ok(mut conn) => match conn.get::<_, Vec<u8>>(KEY).await {
-                Ok(bytes) if bytes.is_empty() => Some(conn),
-                Ok(bytes) => {
-                    self.ctx.stats.inc_cached_osutracker_counts();
-                    trace!("Found osutracker counts in cache ({} bytes)", bytes.len());
+        let mut conn = match self.ctx.cache.fetch(KEY).await {
+            Ok(Ok(counts)) => {
+                self.ctx.stats.inc_cached_osutracker_counts();
 
-                    return Ok(RedisData::new_archived(bytes));
-                }
-                Err(err) => {
-                    let report = Report::new(err).wrap_err("Failed to get bytes");
-                    warn!("{report:?}");
-
-                    Some(conn)
-                }
-            },
+                return Ok(RedisData::Archive(counts));
+            }
+            Ok(Err(conn)) => Some(conn),
             Err(err) => {
-                let report = Report::new(err).wrap_err("Failed to get redis connection");
-                warn!("{report:?}");
+                warn!("{err:?}");
 
                 None
             }
@@ -290,15 +201,9 @@ impl<'c> RedisManager<'c> {
 
         let counts = self.ctx.client().get_osutracker_counts().await?;
 
-        if let Some(mut conn) = conn {
-            let bytes =
-                rkyv::to_bytes::<_, 1>(&counts).expect("failed to serialize osutracker counts");
-
-            let set_fut = conn.set_ex::<_, _, ()>(KEY, bytes.as_slice(), EXPIRE_SECONDS);
-
-            if let Err(err) = set_fut.await {
-                let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
-                warn!("{report:?}");
+        if let Some(ref mut conn) = conn {
+            if let Err(err) = Cache::store::<_, _, 1>(conn, KEY, &counts, EXPIRE).await {
+                warn!("{:?}", err.wrap_err("Failed to store osutracker counts"));
             }
         }
 
@@ -311,31 +216,21 @@ impl<'c> RedisManager<'c> {
         page: u32,
         country: Option<&str>,
     ) -> RedisResult<Rankings, OsuError> {
-        const EXPIRE_SECONDS: usize = 1800;
+        const EXPIRE: usize = 1800;
         let mut key = format!("pp_ranking_{}_{page}", mode as u8);
 
         if let Some(country) = country {
             let _ = write!(key, "_{country}");
         }
 
-        let conn = match self.redis.get().await {
-            Ok(mut conn) => match conn.get::<_, Vec<u8>>(&key).await {
-                Ok(bytes) if bytes.is_empty() => Some(conn),
-                Ok(bytes) => {
-                    self.ctx.stats.inc_cached_pp_ranking();
-                    trace!("Found pp ranking in cache ({} bytes)", bytes.len());
+        let mut conn = match self.ctx.cache.fetch(&key).await {
+            Ok(Ok(ranking)) => {
+                self.ctx.stats.inc_cached_pp_ranking();
 
-                    return Ok(RedisData::new_archived(bytes));
-                }
-                Err(err) => {
-                    let err = Report::new(err).wrap_err("Failed to get bytes");
-                    warn!("{err:?}");
-
-                    Some(conn)
-                }
-            },
+                return Ok(RedisData::Archive(ranking));
+            }
+            Ok(Err(conn)) => Some(conn),
             Err(err) => {
-                let err = Report::new(err).wrap_err("Failed to get redis connection");
                 warn!("{err:?}");
 
                 None
@@ -350,26 +245,23 @@ impl<'c> RedisManager<'c> {
             ranking_fut.await?
         };
 
-        if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 32_768>(&ranking).expect("failed to serialize ranking");
-            let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
-
-            if let Err(err) = set_fut.await {
-                let err = Report::new(err).wrap_err("Failed to insert bytes into cache");
-                warn!("{err:?}");
+        if let Some(ref mut conn) = conn {
+            if let Err(err) = Cache::store::<_, _, 32_768>(conn, &key, &ranking, EXPIRE).await {
+                warn!("{:?}", err.wrap_err("Failed to store ranking"));
             }
         }
 
         Ok(RedisData::new(ranking))
     }
 
+    // Mapset difficulty names for the autocomplete option of the compare command
     pub async fn cs_diffs(
         self,
         command: &InteractionCommand,
         map: &Option<Cow<'_, str>>,
         idx: Option<u32>,
     ) -> RedisResult<Vec<MapVersion>> {
-        const EXPIRE_SECONDS: usize = 30;
+        const EXPIRE: usize = 30;
 
         let idx = match idx {
             Some(idx @ 0..=50) => idx.saturating_sub(1) as usize,
@@ -381,24 +273,14 @@ impl<'c> RedisManager<'c> {
         let map_ = map.as_deref().unwrap_or_default();
         let key = format!("diffs_{}_{idx}_{map_}", command.id);
 
-        let conn = match self.redis.get().await {
-            Ok(mut conn) => match conn.get::<_, Vec<u8>>(&key).await {
-                Ok(bytes) if bytes.is_empty() => Some(conn),
-                Ok(bytes) => {
-                    self.ctx.stats.inc_cached_cs_diffs();
-                    trace!("Found cs diffs in cache ({} bytes)", bytes.len());
+        let mut conn = match self.ctx.cache.fetch(&key).await {
+            Ok(Ok(diffs)) => {
+                self.ctx.stats.inc_cached_cs_diffs();
 
-                    return Ok(RedisData::new_archived(bytes));
-                }
-                Err(err) => {
-                    let err = Report::new(err).wrap_err("Failed to get bytes");
-                    warn!("{err:?}");
-
-                    Some(conn)
-                }
-            },
+                return Ok(RedisData::Archive(diffs));
+            }
+            Ok(Err(conn)) => Some(conn),
             Err(err) => {
-                let err = Report::new(err).wrap_err("Failed to get redis connection");
                 warn!("{err:?}");
 
                 None
@@ -425,11 +307,11 @@ impl<'c> RedisManager<'c> {
             Some(MapOrScore::Map(id)) => Some(id),
             Some(MapOrScore::Score { id, mode }) => match self.ctx.osu().score(id, mode).await {
                 Ok(score) => Some(MapIdType::Map(score.map_id)),
-                Err(err) => return Err(Report::new(err).wrap_err("failed to get score")),
+                Err(err) => return Err(Report::new(err).wrap_err("Failed to get score")),
             },
             None => match self.ctx.retrieve_channel_history(command.channel_id).await {
                 Ok(msgs) => MapIdType::from_msgs(&msgs, idx),
-                Err(err) => return Err(err.wrap_err("failed to retrieve channel history")),
+                Err(err) => return Err(err.wrap_err("Failed to retrieve channel history")),
             },
         };
 
@@ -441,13 +323,9 @@ impl<'c> RedisManager<'c> {
             None => Vec::new(),
         };
 
-        if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 64>(&diffs).expect("failed to serialize diffs");
-            let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
-
-            if let Err(err) = set_fut.await {
-                let err = Report::new(err).wrap_err("Failed to insert bytes into cache");
-                warn!("{err:?}");
+        if let Some(ref mut conn) = conn {
+            if let Err(err) = Cache::store::<_, _, 64>(conn, &key, &diffs, EXPIRE).await {
+                warn!("{:?}", err.wrap_err("Failed to store cs diffs"));
             }
         }
 

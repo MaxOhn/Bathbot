@@ -110,7 +110,7 @@ async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) ->
                 .image(user.avatar_url)
                 .build()
         }
-        RedisData::Archived(user) => {
+        RedisData::Archive(user) => {
             let author = AuthorBuilder::new(user.username.as_str())
                 .url(format!("{OSU_BASE}u/{}", user.user_id))
                 .icon_url(flag_url(user.country_code.as_str()));
