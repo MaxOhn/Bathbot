@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 
 use bathbot_cache::Cache;
 use bathbot_client::Client as BathbotClient;
@@ -63,7 +66,7 @@ pub struct Context {
     pub auth_standby: Arc<bathbot_server::AuthenticationStandby>,
     pub buckets: Buckets,
     pub cache: Cache,
-    pub shard_senders: HashMap<u64, MessageSender>,
+    pub shard_senders: RwLock<HashMap<u64, MessageSender>>,
     pub http: Arc<Client>,
     pub member_requests: MemberRequests,
     pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination, IntHasher>>,
@@ -153,6 +156,8 @@ impl Context {
             .map(|shard| (shard.id().number(), shard.sender()))
             .collect();
 
+        let shard_senders = RwLock::new(shard_senders);
+
         #[cfg(feature = "server")]
         let (auth_standby, server_tx) = bathbot_server(&config, registry, &stats)
             .await
@@ -202,6 +207,21 @@ impl Context {
             })
             .collect()
             .await
+    }
+
+    pub async fn reshard(&self, shards: &mut Vec<Shard>) -> Result<()> {
+        *shards = discord_gateway(BotConfig::get(), &self.http, HashMap::default())
+            .await
+            .wrap_err("Failed to create new shards for resharding")?;
+
+        let mut unlocked = self.shard_senders.write().unwrap();
+
+        *unlocked = shards
+            .iter()
+            .map(|shard| (shard.id().number(), shard.sender()))
+            .collect();
+
+        Ok(())
     }
 }
 
@@ -379,7 +399,7 @@ async fn discord_gateway(
 
     let config = Config::builder(config.tokens.discord.to_string(), intents)
         .event_types(event_types)
-        .large_threshold(250)
+        // .large_threshold(250) // requires presence intent to have an effect
         .presence(presence)
         .build();
 

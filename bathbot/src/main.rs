@@ -147,19 +147,22 @@ async fn async_main() -> Result<()> {
                 continue;
             }
 
-            let Some(sender) = member_ctx.shard_senders.get(&shard_id) else {
-                warn!("Missing sender for shard {shard_id}");
-
-                continue;
-            };
-
             interval.tick().await;
 
             let req = RequestGuildMembers::builder(guild_id).query("", None);
             trace!("Member request #{counter} for guild {guild_id}");
             counter += 1;
 
-            if let Err(err) = sender.command(&req) {
+            let command_res = match member_ctx.shard_senders.read().unwrap().get(&shard_id) {
+                Some(sender) => sender.command(&req),
+                None => {
+                    warn!("Missing sender for shard {shard_id}");
+
+                    continue;
+                }
+            };
+
+            if let Err(err) = command_res {
                 let wrap = format!("Failed to request members for guild {guild_id}");
                 warn!("{:?}", Report::new(err).wrap_err(wrap));
 

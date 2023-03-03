@@ -6,8 +6,8 @@ use std::{
 use bathbot_cache::model::{CachedArchive, CachedGuild};
 use eyre::{Report, Result};
 use futures::StreamExt;
-use twilight_gateway::{stream::ShardEventStream, Event, Shard};
-use twilight_model::{channel::Channel, user::User};
+use twilight_gateway::{error::ReceiveMessageErrorType, stream::ShardEventStream, Event, Shard};
+use twilight_model::{channel::Channel, gateway::CloseCode, user::User};
 
 use crate::util::Authored;
 
@@ -115,37 +115,64 @@ impl Display for EventLocation {
     }
 }
 
-pub async fn event_loop(ctx: Arc<Context>, shards: &mut [Shard]) {
-    let mut stream = ShardEventStream::new(shards.iter_mut());
+pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>) {
+    // restarts event loop in case the bot was instructed to reshard
+    'reshard_loop: loop {
+        let mut stream = ShardEventStream::new(shards.iter_mut());
 
-    loop {
-        match stream.next().await {
-            Some((shard, Ok(event))) => {
-                ctx.standby.process(&event);
-                let change = ctx.cache.update(&event).await;
-                ctx.stats.process(&event, change);
-                let ctx = Arc::clone(&ctx);
-                let shard_id = shard.id().number();
+        // actual event loop
+        'event_loop: loop {
+            let atypical = match stream.next().await {
+                Some((shard, Ok(event))) => {
+                    ctx.standby.process(&event);
+                    let change = ctx.cache.update(&event).await;
+                    ctx.stats.process(&event, change);
+                    let ctx = Arc::clone(&ctx);
+                    let shard_id = shard.id().number();
 
-                tokio::spawn(async move {
-                    if let Err(err) = handle_event(ctx, event, shard_id).await {
-                        error!("{:?}", err.wrap_err("Failed to handle event"));
-                    }
-                });
-            }
-            Some((_, Err(err))) => {
-                let is_fatal = err.is_fatal();
-                error!("{:?}", Report::new(err).wrap_err("Event error"));
+                    tokio::spawn(async move {
+                        if let Err(err) = handle_event(ctx, event, shard_id).await {
+                            error!("{:?}", err.wrap_err("Failed to handle event"));
+                        }
+                    });
 
-                if is_fatal {
-                    break;
+                    continue 'event_loop;
                 }
+                Some((_, Err(err))) => Some(err),
+                None => None,
+            };
+
+            // cannot be handled inside the previous `match` due to NLL
+            // https://github.com/rust-lang/rust/issues/43234
+            match atypical {
+                Some(err) => {
+                    let is_fatal = err.is_fatal();
+
+                    let must_reshard = matches!(
+                        err.kind(),
+                        ReceiveMessageErrorType::FatallyClosed {
+                            close_code: CloseCode::ShardingRequired
+                        }
+                    );
+
+                    error!("{:?}", Report::new(err).wrap_err("Event error"));
+
+                    if must_reshard {
+                        drop(stream);
+
+                        if let Err(err) = ctx.reshard(shards).await {
+                            return error!("{err:?}");
+                        }
+
+                        continue 'reshard_loop;
+                    } else if is_fatal {
+                        return;
+                    }
+                }
+                None => return,
             }
-            None => break,
         }
     }
-
-    drop(stream);
 }
 
 async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<()> {
@@ -169,7 +196,6 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
             info!("Gateway requested shard {shard_id} to reconnect")
         }
         Event::GuildCreate(e) => {
-            // TODO: consider large_threshold
             ctx.guild_shards().pin().insert(e.id, shard_id);
             ctx.member_requests.todo_guilds.lock().insert(e.id);
 
