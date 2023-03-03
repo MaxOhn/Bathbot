@@ -122,7 +122,7 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>) {
 
         // actual event loop
         'event_loop: loop {
-            let atypical = match stream.next().await {
+            let err = match stream.next().await {
                 Some((shard, Ok(event))) => {
                     ctx.standby.process(&event);
                     let change = ctx.cache.update(&event).await;
@@ -138,38 +138,33 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>) {
 
                     continue 'event_loop;
                 }
-                Some((_, Err(err))) => Some(err),
-                None => None,
+                Some((_, Err(err))) => err,
+                None => return,
             };
 
             // cannot be handled inside the previous `match` due to NLL
             // https://github.com/rust-lang/rust/issues/43234
-            match atypical {
-                Some(err) => {
-                    let is_fatal = err.is_fatal();
+            let is_fatal = err.is_fatal();
 
-                    let must_reshard = matches!(
-                        err.kind(),
-                        ReceiveMessageErrorType::FatallyClosed {
-                            close_code: CloseCode::ShardingRequired
-                        }
-                    );
-
-                    error!("{:?}", Report::new(err).wrap_err("Event error"));
-
-                    if must_reshard {
-                        drop(stream);
-
-                        if let Err(err) = ctx.reshard(shards).await {
-                            return error!("{err:?}");
-                        }
-
-                        continue 'reshard_loop;
-                    } else if is_fatal {
-                        return;
-                    }
+            let must_reshard = matches!(
+                err.kind(),
+                ReceiveMessageErrorType::FatallyClosed {
+                    close_code: CloseCode::ShardingRequired
                 }
-                None => return,
+            );
+
+            error!("{:?}", Report::new(err).wrap_err("Event error"));
+
+            if must_reshard {
+                drop(stream);
+
+                if let Err(err) = ctx.reshard(shards).await {
+                    return error!("{err:?}");
+                }
+
+                continue 'reshard_loop;
+            } else if is_fatal {
+                return;
             }
         }
     }
