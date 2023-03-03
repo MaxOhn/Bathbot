@@ -112,7 +112,7 @@ pub(super) async fn query(
         return no_badge_found(&ctx, &command, name).await;
     };
 
-    let urls = owners.iter().map(|owner| owner.avatar_url.as_str());
+    let urls = owners.iter().map(|owner| owner.avatar_url.as_ref());
 
     let bytes = if badges.len() == 1 {
         match get_combined_thumbnail(&ctx, urls, owners.len() as u32, Some(1024)).await {

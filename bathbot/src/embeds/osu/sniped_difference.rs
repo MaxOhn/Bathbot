@@ -94,7 +94,7 @@ impl SnipedDiffEmbed {
                     write!(
                         description,
                         "Sniped by [{name}]({OSU_BASE}u/{user_id}) ",
-                        name = score.sniper.as_str().cow_escape_markdown(),
+                        name = score.sniper.as_ref().cow_escape_markdown(),
                         user_id = score.sniper_id,
                     )
                 }

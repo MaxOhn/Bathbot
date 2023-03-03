@@ -19,7 +19,7 @@ pub struct DbBeatmap {
 
 #[derive(Debug)]
 pub enum DbMapFilename {
-    Present(String),
+    Present(Box<str>),
     ChecksumMismatch,
     Missing,
 }

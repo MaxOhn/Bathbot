@@ -27,7 +27,7 @@ pub struct TwitchData {
 
 #[derive(Default, Deserialize)]
 pub struct TwitchOAuthToken {
-    access_token: String,
+    access_token: Box<str>,
 }
 
 impl fmt::Display for TwitchOAuthToken {
@@ -40,11 +40,11 @@ impl fmt::Display for TwitchOAuthToken {
 #[derive(Debug, Deserialize)]
 pub struct TwitchUser {
     #[serde(rename = "description")]
-    pub bio: String,
+    pub bio: Box<str>,
     #[serde(rename = "login")]
-    pub display_name: String,
+    pub display_name: Box<str>,
     #[serde(rename = "profile_image_url")]
-    pub image_url: String,
+    pub image_url: Box<str>,
     #[serde(rename = "id", deserialize_with = "str_to_u64")]
     pub user_id: u64,
 }
@@ -55,12 +55,12 @@ pub struct TwitchStream {
     pub game_id: Option<u64>,
     #[serde(rename = "id", deserialize_with = "str_to_u64")]
     pub stream_id: u64,
-    pub thumbnail_url: String,
-    pub title: String,
+    pub thumbnail_url: Box<str>,
+    pub title: Box<str>,
     #[serde(deserialize_with = "str_to_u64")]
     pub user_id: u64,
     #[serde(rename = "user_name")]
-    pub username: String,
+    pub username: Box<str>,
     #[serde(rename = "type", deserialize_with = "get_live")]
     pub live: bool,
 }
@@ -91,10 +91,10 @@ pub struct TwitchVideo {
     pub id: u64,
     #[serde(with = "datetime")]
     pub published_at: OffsetDateTime,
-    pub title: String,
-    pub url: String,
+    pub title: Box<str>,
+    pub url: Box<str>,
     #[serde(rename = "user_name")]
-    pub username: String,
+    pub username: Box<str>,
 }
 
 fn duration_to_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {

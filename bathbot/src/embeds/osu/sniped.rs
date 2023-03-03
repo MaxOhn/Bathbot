@@ -69,7 +69,7 @@ impl SnipedEmbed {
             let mut snipers = HashMap::new();
 
             for score in snipee.iter() {
-                *snipers.entry(score.sniper.as_str()).or_insert(0) += 1;
+                *snipers.entry(score.sniper.as_ref()).or_insert(0) += 1;
             }
 
             let (most_name, most_count) = snipers.iter().max_by_key(|(_, count)| *count).unwrap();

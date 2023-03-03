@@ -362,7 +362,7 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
     let mut total = HashMap::new();
 
     for score in scores {
-        *total.entry(score.sniper.as_str()).or_insert(0) += 1;
+        *total.entry(score.sniper.as_ref()).or_insert(0) += 1;
     }
 
     let mut final_order: Vec<_> = total.into_iter().collect();
@@ -377,8 +377,8 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
     let categorized: Vec<_> = scores
         .iter()
         .rev()
-        .filter(|score| names.contains_key(score.sniper.as_str()))
-        .filter_map(|score| score.date.map(|date| (score.sniper.as_str(), date)))
+        .filter(|score| names.contains_key(score.sniper.as_ref()))
+        .filter_map(|score| score.date.map(|date| (score.sniper.as_ref(), date)))
         .scan(
             OffsetDateTime::now_utc() - Duration::weeks(7),
             |state, (sniper, date)| {

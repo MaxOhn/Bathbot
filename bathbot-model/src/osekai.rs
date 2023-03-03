@@ -155,9 +155,9 @@ pub struct OsekaiMaps(pub Option<Vec<OsekaiMap>>);
 #[derive(Clone, Debug, Deserialize)]
 pub struct OsekaiMap {
     #[serde(rename = "Artist")]
-    pub artist: String,
+    pub artist: Box<str>,
     #[serde(rename = "Mapper")]
-    pub creator: String,
+    pub creator: Username,
     #[serde(rename = "MapperID")]
     pub creator_id: u32,
     #[serde(rename = "BeatmapID")]
@@ -165,15 +165,15 @@ pub struct OsekaiMap {
     #[serde(rename = "MapsetID")]
     pub mapset_id: u32,
     #[serde(rename = "MedalName")]
-    pub medal_name: String,
+    pub medal_name: Box<str>,
     #[serde(rename = "Gamemode")]
     pub mode: GameMode,
     #[serde(rename = "Difficulty")]
     pub stars: f32,
     #[serde(rename = "SongTitle")]
-    pub title: String,
+    pub title: Box<str>,
     #[serde(rename = "DifficultyName")]
-    pub version: String,
+    pub version: Box<str>,
     #[serde(rename = "VoteSum", with = "deser::u32_string")]
     pub vote_sum: u32,
 }
@@ -186,13 +186,13 @@ pub struct OsekaiComment {
     #[serde(rename = "ID")]
     pub comment_id: u32,
     #[serde(rename = "PostText")]
-    pub content: String,
+    pub content: Box<str>,
     #[serde(rename = "Parent")]
     pub parent_id: u32,
     #[serde(rename = "UserID")]
     pub user_id: u32,
     #[serde(rename = "Username")]
-    pub username: String,
+    pub username: Username,
     #[serde(rename = "VoteSum", with = "deser::u32_string")]
     pub vote_sum: u32,
 }
@@ -230,14 +230,14 @@ impl<'de> Deserialize<'de> for OsekaiMedals {
 pub struct OsekaiMedal {
     #[serde(rename = "MedalID")]
     pub medal_id: u32,
-    pub name: String,
+    pub name: Box<str>,
     #[serde(rename = "Link")]
-    pub icon_url: String,
-    pub description: String,
+    pub icon_url: Box<str>,
+    pub description: Box<str>,
     #[serde(deserialize_with = "osekai_mode")]
     pub restriction: Option<GameMode>,
     pub grouping: MedalGroup,
-    pub solution: Option<String>,
+    pub solution: Option<Box<str>>,
     #[serde(deserialize_with = "osekai_mods")]
     pub mods: Option<GameMods>,
     #[serde(rename = "ModeOrder")]
@@ -499,7 +499,7 @@ fn osekai_mods<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMods>, D::E
 #[derive(Archive, Debug, RkyvDeserialize, Serialize)]
 #[archive(as = "ArchivedOsekaiRankingEntry<T>")]
 pub struct OsekaiRankingEntry<T: Archive> {
-    pub country: String,
+    pub country: Box<str>,
     pub country_code: CountryCode,
     pub rank: u32,
     pub user_id: u32,
@@ -509,7 +509,7 @@ pub struct OsekaiRankingEntry<T: Archive> {
 }
 
 pub struct ArchivedOsekaiRankingEntry<T: Archive> {
-    pub country: <String as Archive>::Archived,
+    pub country: <Box<str> as Archive>::Archived,
     pub country_code: <CountryCode as Archive>::Archived,
     pub rank: u32,
     pub user_id: u32,
@@ -687,15 +687,15 @@ pub struct OsekaiUserEntry {
     pub rank: u32,
     #[serde(rename = "countrycode")]
     pub country_code: CountryCode,
-    pub country: String,
+    pub country: Box<str>,
     #[with(UsernameWrapper)]
     pub username: Username,
     #[serde(rename = "medalCount", with = "deser::u32_string")]
     pub medal_count: u32,
     #[serde(rename = "rarestmedal")]
-    pub rarest_medal: String,
+    pub rarest_medal: Box<str>,
     #[serde(rename = "link")]
-    pub rarest_icon_url: String,
+    pub rarest_icon_url: Box<str>,
     #[serde(rename = "userid", with = "deser::u32_string")]
     pub user_id: u32,
     #[serde(with = "deser::f32_string")]
@@ -707,12 +707,12 @@ pub struct OsekaiRarityEntry {
     #[serde(with = "deser::u32_string")]
     pub rank: u32,
     #[serde(rename = "link")]
-    pub icon_url: String,
+    pub icon_url: Box<str>,
     #[serde(rename = "medalname")]
-    pub medal_name: String,
+    pub medal_name: Box<str>,
     #[serde(rename = "medalid", with = "deser::u32_string")]
     pub medal_id: u32,
-    pub description: String,
+    pub description: Box<str>,
     #[serde(rename = "possessionRate", with = "deser::f32_string")]
     pub possession_percent: f32,
     #[serde(rename = "gameMode", deserialize_with = "osekai_mode")]
@@ -724,11 +724,11 @@ pub struct OsekaiBadge {
     #[serde(with = "deser::date")]
     #[with(DateWrapper)]
     pub awarded_at: Date,
-    pub description: String,
+    pub description: Box<str>,
     #[serde(rename = "id", with = "deser::u32_string")]
     pub badge_id: u32,
-    pub image_url: String,
-    pub name: String,
+    pub image_url: Box<str>,
+    pub name: Box<str>,
     #[serde(deserialize_with = "string_of_vec_of_u32s")]
     #[with(Raw)]
     pub users: Vec<u32>,
@@ -747,7 +747,7 @@ fn string_of_vec_of_u32s<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u32>, D:
 // data contains many more fields but none of use as of now
 #[derive(Debug, Deserialize)]
 pub struct OsekaiBadgeOwner {
-    pub avatar_url: String,
+    pub avatar_url: Box<str>,
     pub country_code: CountryCode,
     #[serde(rename = "id")]
     pub user_id: u32,

@@ -167,7 +167,7 @@ impl Display for MedalUrl<'_> {
 }
 
 pub struct StatsMedal {
-    pub name: String,
+    pub name: Box<str>,
     pub group: MedalGroup,
     pub rarity: f32,
 }

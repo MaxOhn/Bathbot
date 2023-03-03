@@ -170,7 +170,7 @@ pub struct SnipeCountryPlayer {
 pub struct SnipePlayerOldest {
     #[serde(with = "deser::negative_u32")]
     pub map_id: u32,
-    pub map: String,
+    pub map: Box<str>,
     #[serde(with = "datetime_mixture")]
     pub date: OffsetDateTime,
 }
@@ -202,15 +202,15 @@ pub struct SnipeRecent {
     pub od: f32,
     pub hp: f32,
     pub bpm: f32,
-    pub artist: String,
-    pub title: String,
+    pub artist: Box<str>,
+    pub title: Box<str>,
     #[serde(rename = "diff_name")]
-    pub version: String,
+    pub version: Box<str>,
     #[serde(default, rename = "sniper_name")]
-    pub sniper: String,
+    pub sniper: Box<str>,
     pub sniper_id: u32,
     #[serde(default, rename = "sniped_name")]
-    pub sniped: Option<String>,
+    pub sniped: Option<Box<str>>,
     pub sniped_id: Option<u32>,
 }
 
@@ -252,10 +252,10 @@ pub struct SnipeBeatmap {
     pub map_id: u32,
     #[serde(rename = "set_id")]
     pub mapset_id: u32,
-    pub artist: String,
-    pub title: String,
+    pub artist: Box<str>,
+    pub title: Box<str>,
     #[serde(rename = "diff_name")]
-    pub version: String,
+    pub version: Box<str>,
     #[serde(rename = "total_length")]
     pub seconds_total: u32,
     #[serde(with = "deser::naive_datetime")]

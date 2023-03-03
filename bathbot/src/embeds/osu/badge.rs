@@ -40,7 +40,7 @@ impl BadgeEmbed {
         let fields = fields![
             "Owners", owners_str, false;
             "Awarded at", awarded_at, true;
-            "Name", badge.name.clone(), true;
+            "Name", badge.name.to_string(), true;
         ];
 
         let page = pages.curr_page();
@@ -51,8 +51,8 @@ impl BadgeEmbed {
             fields,
             footer: FooterBuilder::new(footer_text),
             image: attachment("badge_owners.png"),
-            thumbnail: badge.image_url.clone(),
-            title: badge.description.clone(),
+            thumbnail: badge.image_url.to_string(),
+            title: badge.description.to_string(),
             url: format!("https://osekai.net/badges/?badge={}", badge.badge_id),
         }
     }
