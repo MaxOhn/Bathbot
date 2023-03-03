@@ -5,7 +5,10 @@ use std::{
     str::FromStr,
 };
 
-use rkyv::{with::ArchiveWith, Archive, Deserialize as RkyvDeserialize, Serialize};
+use rkyv::{
+    with::{ArchiveWith, Raw},
+    Archive, Deserialize as RkyvDeserialize, Serialize,
+};
 use rosu_v2::{
     model::{GameMode, GameMods},
     prelude::Username,
@@ -727,6 +730,7 @@ pub struct OsekaiBadge {
     pub image_url: String,
     pub name: String,
     #[serde(deserialize_with = "string_of_vec_of_u32s")]
+    #[with(Raw)]
     pub users: Vec<u32>,
 }
 

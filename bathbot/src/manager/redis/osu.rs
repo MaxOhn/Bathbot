@@ -6,7 +6,7 @@ use bathbot_util::{
     constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder, CowUtils,
 };
 use rkyv::{
-    with::{DeserializeWith, Map},
+    with::{DeserializeWith, Map, Raw},
     Archive, Deserialize, Infallible, Serialize,
 };
 use rosu_v2::{
@@ -349,6 +349,7 @@ pub struct User {
     pub loved_mapset_count: u32,
     pub mapping_follower_count: u32,
     pub monthly_playcounts: Vec<MonthlyCount>,
+    #[with(Raw)]
     pub rank_history: Vec<u32>,
     pub ranked_mapset_count: u32,
     pub replays_watched_counts: Vec<MonthlyCount>,
