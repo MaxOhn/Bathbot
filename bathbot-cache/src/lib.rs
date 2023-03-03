@@ -1,4 +1,4 @@
-pub use self::{cache::Cache, key::IntoCacheKey};
+pub use self::{cache::Cache, key::ToCacheKey};
 
 pub mod model;
 

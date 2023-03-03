@@ -11,18 +11,18 @@ use twilight_model::{
     user::User,
 };
 
-pub use self::into_key::IntoCacheKey;
+pub use self::to_key::ToCacheKey;
 use self::{set::SetEntry, single::SingleEntry};
 
-mod into_key;
 mod set;
 mod single;
+mod to_key;
 
 #[derive(Clone, Debug)]
 pub(crate) enum RedisKey<'a> {
     Single(SingleEntry),
     Set(SetEntry),
-    Other(Cow<'a, [u8]>),
+    Other(&'a [u8]),
 }
 
 impl RedisKey<'_> {
@@ -90,15 +90,15 @@ impl RedisKey<'_> {
         match self {
             Self::Single(key) => key.to_bytes(),
             Self::Set(key) => key.to_bytes(),
-            Self::Other(bytes) => Cow::Borrowed(bytes.as_ref()),
+            Self::Other(bytes) => Cow::Borrowed(bytes),
         }
     }
 }
 
-impl<'k, K: IntoCacheKey<'k>> From<K> for RedisKey<'k> {
+impl<'k, K: ToCacheKey + ?Sized> From<&'k K> for RedisKey<'k> {
     #[inline]
-    fn from(value: K) -> Self {
-        Self::Other(value.into_key())
+    fn from(value: &'k K) -> Self {
+        Self::Other(value.to_key())
     }
 }
 

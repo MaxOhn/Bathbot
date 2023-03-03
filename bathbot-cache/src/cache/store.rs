@@ -11,7 +11,7 @@ use twilight_model::{
 };
 
 use crate::{
-    key::{IntoCacheKey, RedisKey},
+    key::{RedisKey, ToCacheKey},
     model::{CacheChange, CacheConnection, CachedGuild, CachedMember},
     serializer::{MultiSerializer, SingleSerializer},
     util::{AlignedVecRedisArgs, Zipped},
@@ -19,13 +19,14 @@ use crate::{
 };
 
 impl Cache {
-    pub async fn store<'k, K: IntoCacheKey<'k>, T, const N: usize>(
+    pub async fn store<K, T, const N: usize>(
         CacheConnection(conn): &mut CacheConnection<'_>,
-        key: K,
+        key: &K,
         value: &T,
         expire_seconds: usize,
     ) -> Result<()>
     where
+        K: ToCacheKey + ?Sized,
         T: Serialize<AllocSerializer<N>>,
     {
         let bytes = SingleSerializer::any(value)?;
@@ -37,13 +38,14 @@ impl Cache {
     }
 
     /// **Note**: `Cache::store` should always be preferred if `Cache::fetch` was called beforehand.
-    pub async fn store_new<'k, K: IntoCacheKey<'k>, T, const N: usize>(
+    pub async fn store_new<K, T, const N: usize>(
         &self,
-        key: K,
+        key: &K,
         value: &T,
         expire_seconds: usize,
     ) -> Result<()>
     where
+        K: ToCacheKey + ?Sized,
         T: Serialize<AllocSerializer<N>>,
     {
         let mut conn = CacheConnection(self.connection().await?);

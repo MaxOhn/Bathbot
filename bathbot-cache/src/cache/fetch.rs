@@ -11,7 +11,7 @@ use twilight_model::{
 };
 
 use crate::{
-    key::{IntoCacheKey, RedisKey},
+    key::{RedisKey, ToCacheKey},
     model::{CacheConnection, CachedArchive, CachedGuild, CachedMember},
     Cache,
 };
@@ -20,9 +20,9 @@ type FetchResult<T> = Result<Option<CachedArchive<T>>>;
 
 impl Cache {
     #[inline]
-    pub async fn fetch<'k, K, T>(&self, key: K) -> Result<Result<CachedArchive<T>, CacheConnection>>
+    pub async fn fetch<K, T>(&self, key: &K) -> Result<Result<CachedArchive<T>, CacheConnection>>
     where
-        K: IntoCacheKey<'k>,
+        K: ToCacheKey + ?Sized,
     {
         let mut conn = self.connection().await?;
 
