@@ -74,7 +74,10 @@ impl Cache {
         {
             let guild_key = (guild_set_key_fn)(guild);
 
-            let guild_ids: Vec<u64> = conn.get(&guild_key).await.wrap_err("Failed get")?;
+            let guild_ids: Vec<u64> = conn
+                .smembers(&guild_key)
+                .await
+                .wrap_err("Failed smembers")?;
 
             if let Some(id_set_key_fn) = id_set_key_fn.filter(|_| !guild_ids.is_empty()) {
                 let removed: isize = conn

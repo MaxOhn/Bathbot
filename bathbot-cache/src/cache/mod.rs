@@ -34,7 +34,9 @@ impl Cache {
             .await
             .wrap_err("Failed to create redis pool")?;
 
-        let stats = CacheStatsInternal::default();
+        let stats = CacheStatsInternal::new(&redis)
+            .await
+            .wrap_err("Failed to create cache stats")?;
 
         Ok(Self { redis, stats })
     }

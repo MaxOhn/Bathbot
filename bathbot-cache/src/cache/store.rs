@@ -441,7 +441,11 @@ impl Cache {
                 .await
                 .wrap_err("Failed to delete guild entry")?;
 
-            let mut change = self.delete_guild_items(guild).await?;
+            let mut change = self
+                .delete_guild_items(guild)
+                .await
+                .wrap_err("Failed to delete guild items")?;
+
             change.guilds -= 1;
             change.unavailable_guilds += 1;
 
