@@ -180,7 +180,7 @@ async fn score_loop(
             // Try to build and send the message
             match ctx.http.create_message(channel).embeds(embeds) {
                 Ok(msg_fut) => {
-                    if let Err(err) = msg_fut.exec().await {
+                    if let Err(err) = msg_fut.await {
                         if let TwilightErrorType::Response { error, .. } = err.kind() {
                             if let ApiError::General(GeneralApiError {
                                 code: UNKNOWN_CHANNEL,

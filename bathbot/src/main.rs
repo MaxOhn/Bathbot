@@ -64,7 +64,7 @@ async fn async_main() -> Result<()> {
     let (ctx, mut shards) = tuple;
 
     #[cfg(feature = "server")]
-    let (ctx, shards, server_tx) = tuple;
+    let (ctx, mut shards, server_tx) = tuple;
 
     let ctx = Arc::new(ctx);
 

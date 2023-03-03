@@ -167,7 +167,7 @@ async fn matchlive(
             return orig.error(&ctx, content).await;
         }
 
-        let kind = ChannelType::GuildPublicThread;
+        let kind = ChannelType::PublicThread;
         let archive_dur = AutoArchiveDuration::Day;
         let thread_name = format!("Live tracking match id {match_id}");
 
@@ -175,8 +175,7 @@ async fn matchlive(
             .http
             .create_thread(channel, &thread_name, kind)
             .unwrap()
-            .auto_archive_duration(archive_dur)
-            .exec();
+            .auto_archive_duration(archive_dur);
 
         match create_fut.await {
             Ok(res) => channel = res.model().await?.id,
@@ -211,9 +210,8 @@ async fn matchlive(
             CommandOrigin::Interaction { command } => {
                 ctx.interaction()
                     .delete_response(&command.token)
-                    .exec()
                     .await
-                    .wrap_err("failed to delete response")?;
+                    .wrap_err("Failed to delete response")?;
 
                 return Ok(());
             }

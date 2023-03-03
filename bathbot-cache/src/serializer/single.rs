@@ -148,20 +148,24 @@ mod debug {
 /// Straight serialization
 mod release {
     use eyre::{Result, WrapErr};
-    use rkyv::AlignedVec;
+    use rkyv::{ser::serializers::AllocSerializer, AlignedVec, Serialize};
     use twilight_model::{
         channel::Channel,
         guild::Role,
         user::{CurrentUser, User},
     };
 
-    use crate::model::{CachedGuild, CachedMember};
+    use crate::{
+        model::CachedGuild,
+        serializer::{
+            CHANNEL_SCRATCH_SIZE, CURRENT_USER_SCRATCH_SIZE, GUILD_SCRATCH_SIZE, ROLE_SCRATCH_SIZE,
+            USER_SCRATCH_SIZE,
+        },
+    };
 
-    use super::*;
+    pub(crate) struct SingleSerializer;
 
-    pub(crate) struct CacheSerializer;
-
-    impl CacheSerializer {
+    impl SingleSerializer {
         pub(crate) fn any<T, const N: usize>(value: &T) -> Result<AlignedVec>
         where
             T: Serialize<AllocSerializer<N>>,
@@ -181,10 +185,6 @@ mod release {
 
         pub(crate) fn guild(guild: &CachedGuild<'_>) -> Result<AlignedVec> {
             rkyv::to_bytes::<_, GUILD_SCRATCH_SIZE>(guild).wrap_err("Failed to serialize guild")
-        }
-
-        pub(crate) fn member(member: &CachedMember<'_>) -> Result<AlignedVec> {
-            rkyv::to_bytes::<_, MEMBER_SCRATCH_SIZE>(member).wrap_err("Failed to serialize member")
         }
 
         pub(crate) fn role(role: &Role) -> Result<AlignedVec> {

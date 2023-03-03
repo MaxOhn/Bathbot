@@ -15,10 +15,10 @@ pub struct TwitchNotifEmbed {
 impl TwitchNotifEmbed {
     pub fn new(stream: &TwitchStream, user: &TwitchUser) -> Self {
         Self {
-            title: stream.username.clone(),
-            description: stream.title.clone(),
-            thumbnail: user.image_url.clone(),
-            image: stream.thumbnail_url.clone(),
+            title: stream.username.to_string(),
+            description: stream.title.to_string(),
+            thumbnail: user.image_url.to_string(),
+            image: stream.thumbnail_url.to_string(),
             url: format!("{TWITCH_BASE}{}", user.display_name),
             author: AuthorBuilder::new("Now live on twitch:"),
         }

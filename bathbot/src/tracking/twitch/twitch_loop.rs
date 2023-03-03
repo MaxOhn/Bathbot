@@ -109,7 +109,7 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelM
 
     match ctx.http.create_message(channel).embeds(&[embed]) {
         Ok(msg_fut) => {
-            if let Err(err) = msg_fut.exec().await {
+            if let Err(err) = msg_fut.await {
                 if let ErrorType::Response { error, .. } = err.kind() {
                     match error {
                         ApiError::General(GeneralApiError {

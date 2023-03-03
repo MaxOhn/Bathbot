@@ -36,7 +36,7 @@ pub async fn send_match_messages(
         .http
         .create_message(channel)
         .embeds(slice::from_ref(&last))
-        .wrap_err("failed to create last match live msg")?;
+        .wrap_err("Failed to create last match live msg")?;
 
     if embeds.len() <= EMBED_LIMIT {
         let mut interval = interval(Duration::from_millis(250));
@@ -48,15 +48,14 @@ pub async fn send_match_messages(
 
             match ctx.http.create_message(channel).embeds(&[embed]) {
                 Ok(msg_fut) => {
-                    if let Err(err) = msg_fut.exec().await {
-                        let report =
-                            Report::new(err).wrap_err("error while sending match live embed");
-                        warn!("{report:?}");
+                    if let Err(err) = msg_fut.await {
+                        let err = Report::new(err).wrap_err("Failed to send match live embed");
+                        warn!("{err:?}");
                     }
                 }
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("error while creating match live msg");
-                    warn!("{report:?}");
+                    let err = Report::new(err).wrap_err("Failed to create match live msg");
+                    warn!("{err:?}");
                 }
             }
         }
@@ -67,12 +66,11 @@ pub async fn send_match_messages(
     }
 
     let last_msg = last_msg_fut
-        .exec()
         .await
-        .wrap_err("failed to send last match live embed")?
+        .wrap_err("Failed to send last match live embed")?
         .model()
         .await
-        .wrap_err("failed to deserialize last match live embed response")?;
+        .wrap_err("Failed to deserialize last match live embed response")?;
 
     Ok(last_msg.id)
 }

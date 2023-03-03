@@ -55,7 +55,8 @@ pub struct TwitchStream {
     pub game_id: Option<u64>,
     #[serde(rename = "id", deserialize_with = "str_to_u64")]
     pub stream_id: u64,
-    pub thumbnail_url: Box<str>,
+    // gets modified inside the struct so required to keep as `String`
+    pub thumbnail_url: String,
     pub title: Box<str>,
     #[serde(deserialize_with = "str_to_u64")]
     pub user_id: u64,
@@ -92,7 +93,8 @@ pub struct TwitchVideo {
     #[serde(with = "datetime")]
     pub published_at: OffsetDateTime,
     pub title: Box<str>,
-    pub url: Box<str>,
+    // gets modified inside the struct so required to keep as `String`
+    pub url: String,
     #[serde(rename = "user_name")]
     pub username: Box<str>,
 }

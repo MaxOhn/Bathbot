@@ -223,19 +223,18 @@ impl Context {
                                 .embeds(embed.as_ref().map(slice::from_ref));
 
                             let update_fut = match update_result {
-                                Ok(update_fut) => update_fut.exec(),
+                                Ok(update_fut) => update_fut,
                                 Err(err) => {
-                                    let report =
-                                        Report::new(err).wrap_err("failed to build msg update");
-                                    warn!("{report:?}");
+                                    let err =
+                                        Report::new(err).wrap_err("Failed to build msg update");
+                                    warn!("{err:?}");
 
                                     continue;
                                 }
                             };
 
                             if let Err(err) = update_fut.await {
-                                let report = Report::new(err).wrap_err("failed to update msg");
-                                warn!("{report:?}");
+                                warn!("{:?}", Report::new(err).wrap_err("Failed to update msg"));
                             }
                         }
                     }
@@ -245,11 +244,9 @@ impl Context {
                         for Channel { id, msg_id } in entry.channels.iter_mut() {
                             match send_match_messages(&ctx, *id, &embeds).await {
                                 Ok(msg) => *msg_id = msg,
-                                Err(report) => {
-                                    let report = report.wrap_err(format!(
-                                        "failed to send last msg in channel {id}"
-                                    ));
-                                    error!("{report:?}")
+                                Err(err) => {
+                                    let wrap = format!("Failed to send last msg in channel {id}");
+                                    error!("{:?}", err.wrap_err(wrap));
                                 }
                             }
                         }

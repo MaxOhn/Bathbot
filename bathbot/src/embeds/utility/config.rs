@@ -22,7 +22,7 @@ impl ConfigEmbed {
     pub fn new(
         author: &User,
         config: UserConfig<OsuUsername>,
-        twitch: Option<String>,
+        twitch: Option<Box<str>>,
         skin_url: Option<String>,
     ) -> Self {
         let author_img = match author.avatar {
