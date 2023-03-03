@@ -16,7 +16,7 @@ impl Cache {
 
         self.connection()
             .await?
-            .set_ex(RedisKey::ResumeData, bytes.as_slice(), STORE_DURATION)
+            .set_ex(RedisKey::resume_data(), bytes.as_slice(), STORE_DURATION)
             .await
             .wrap_err("Failed to store resume data bytes")?;
 
@@ -29,7 +29,7 @@ impl Cache {
         let mut conn = self.connection().await?;
 
         let resume_data_opt: Option<CachedArchive<HashMap<u64, Session>>> = conn
-            .get(RedisKey::ResumeData)
+            .get(RedisKey::resume_data())
             .await
             .wrap_err("Failed to get stored resume data")?;
 
@@ -46,7 +46,7 @@ impl Cache {
             .await
             .wrap_err("Failed to flush redis entries")?;
 
-        info!("Empty resume data, starting fresh");
+        info!("Empty resume data, starting with fresh cache");
 
         Ok(HashMap::new())
     }

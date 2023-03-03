@@ -1,3 +1,5 @@
+use std::iter;
+
 use bb8_redis::{bb8::PooledConnection, redis::AsyncCommands, RedisConnectionManager};
 use eyre::{Result, WrapErr};
 use twilight_model::id::{
@@ -20,13 +22,13 @@ impl Cache {
             .wrap_err("Failed to delete channel entry")?;
 
         if let Some(guild) = guild {
-            conn.srem(RedisKey::guild_channels_key(guild), channel.get())
+            conn.srem(RedisKey::guild_channels(guild), channel.get())
                 .await
                 .wrap_err("Failed to remove channel as guild channel")?;
         }
 
         let removed: isize = conn
-            .srem(RedisKey::channel_ids_key(), channel.get())
+            .srem(RedisKey::channels(), channel.get())
             .await
             .wrap_err("Failed to remove channel from channel ids")?;
 
@@ -44,7 +46,7 @@ impl Cache {
             .wrap_err("Failed to delete guild entry")?;
 
         let removed: isize = conn
-            .srem(RedisKey::guild_ids_key(), guild.get())
+            .srem(RedisKey::guilds(), guild.get())
             .await
             .wrap_err("Failed to remove guild id entry")?;
 
@@ -59,30 +61,36 @@ impl Cache {
         async fn remove_ids<G, I, K, C>(
             conn: &mut PooledConnection<'_, RedisConnectionManager>,
             guild: Id<GuildMarker>,
-            guild_key_fn: G,
-            ids_fn: Option<I>,
-            redis_key_fn: K,
+            guild_set_key_fn: G,
+            id_set_key_fn: Option<I>,
+            item_key_fn: K,
             change_fn: C,
         ) -> Result<()>
         where
-            G: FnOnce(Id<GuildMarker>) -> String,
-            I: FnOnce() -> &'static str,
+            G: FnOnce(Id<GuildMarker>) -> RedisKey<'static>,
+            I: FnOnce() -> RedisKey<'static>,
             K: Fn(Id<GuildMarker>, u64) -> RedisKey<'static>,
             C: FnOnce(isize),
         {
-            let guild_ids: Vec<u64> = conn.get_del(&(guild_key_fn)(guild)).await?;
+            let guild_key = (guild_set_key_fn)(guild);
 
-            if let Some(ids_fn) = ids_fn {
-                let removed: isize = conn.srem((ids_fn)(), &guild_ids).await?;
+            let guild_ids: Vec<u64> = conn.get(&guild_key).await.wrap_err("Failed get")?;
+
+            if let Some(id_set_key_fn) = id_set_key_fn.filter(|_| !guild_ids.is_empty()) {
+                let removed: isize = conn
+                    .srem((id_set_key_fn)(), &guild_ids)
+                    .await
+                    .wrap_err("Failed srem")?;
                 change_fn(removed);
             }
 
             let redis_keys: Vec<_> = guild_ids
                 .into_iter()
-                .map(|id| (redis_key_fn)(guild, id))
+                .map(|id| (item_key_fn)(guild, id))
+                .chain(iter::once(guild_key))
                 .collect();
 
-            conn.del(&redis_keys).await?;
+            conn.del(&redis_keys).await.wrap_err("Failed del")?;
 
             Ok(())
         }
@@ -93,8 +101,8 @@ impl Cache {
         remove_ids(
             &mut conn,
             guild,
-            RedisKey::guild_channels_key,
-            Some(RedisKey::channel_ids_key),
+            RedisKey::guild_channels,
+            Some(RedisKey::channels),
             |guild, channel| RedisKey::channel(Some(guild), Id::new(channel)),
             |removed| change.channels -= removed,
         )
@@ -104,8 +112,8 @@ impl Cache {
         remove_ids(
             &mut conn,
             guild,
-            RedisKey::guild_members_key,
-            None::<fn() -> &'static str>,
+            RedisKey::guild_members,
+            None::<fn() -> RedisKey<'static>>,
             |guild, user| RedisKey::member(guild, Id::new(user)),
             |_| (),
         )
@@ -115,8 +123,8 @@ impl Cache {
         remove_ids(
             &mut conn,
             guild,
-            RedisKey::guild_roles_key,
-            Some(RedisKey::role_ids_key),
+            RedisKey::guild_roles,
+            Some(RedisKey::roles),
             |guild, role| RedisKey::role(guild, Id::new(role)),
             |removed| change.roles -= removed,
         )
@@ -139,7 +147,7 @@ impl Cache {
             .await
             .wrap_err("Failed to delete member entry")?;
 
-        conn.srem(RedisKey::guild_members_key(guild), user.get())
+        conn.srem(RedisKey::guild_members(guild), user.get())
             .await
             .wrap_err("Failed to remove guild member entry")?;
 
@@ -162,12 +170,12 @@ impl Cache {
             .await
             .wrap_err("Failed to delete role entry")?;
 
-        conn.srem(RedisKey::guild_roles_key(guild), role.get())
+        conn.srem(RedisKey::guild_roles(guild), role.get())
             .await
             .wrap_err("Failed to remove role as guild role")?;
 
         let removed: isize = conn
-            .srem(RedisKey::role_ids_key(), role.get())
+            .srem(RedisKey::roles(), role.get())
             .await
             .wrap_err("Failed to remove role from role ids")?;
 

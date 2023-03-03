@@ -49,7 +49,7 @@ impl Cache {
     pub async fn current_user(&self) -> FetchResult<CurrentUser> {
         self.connection()
             .await?
-            .get(RedisKey::CurrentUser)
+            .get(RedisKey::current_user())
             .await
             .wrap_err("Failed to get stored current user")
     }
@@ -67,7 +67,7 @@ impl Cache {
     pub async fn members(&self, guild: Id<GuildMarker>) -> Result<Vec<u64>> {
         self.connection()
             .await?
-            .smembers(RedisKey::guild_members_key(guild))
+            .smembers(RedisKey::guild_members(guild))
             .await
             .wrap_err("Failed to get member ids")
     }

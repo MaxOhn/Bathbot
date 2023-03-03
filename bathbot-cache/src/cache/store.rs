@@ -61,7 +61,7 @@ impl Cache {
             .wrap_err("Failed to store channel bytes")?;
 
         if let Some(guild) = channel.guild_id {
-            let guild_key = RedisKey::guild_channels_key(guild);
+            let guild_key = RedisKey::guild_channels(guild);
 
             conn.sadd(guild_key, channel.id.get())
                 .await
@@ -69,7 +69,7 @@ impl Cache {
         }
 
         let added: isize = conn
-            .sadd(RedisKey::channel_ids_key(), channel.id.get())
+            .sadd(RedisKey::channels(), channel.id.get())
             .await
             .wrap_err("Failed to add channel as channel id")?;
 
@@ -108,14 +108,14 @@ impl Cache {
             .await
             .wrap_err("Failed to store channels bytes")?;
 
-        let guild_key = RedisKey::guild_channels_key(guild);
+        let guild_key = RedisKey::guild_channels(guild);
 
         conn.sadd(guild_key, &channel_ids)
             .await
             .wrap_err("Failed to add users as guild members")?;
 
         let added: isize = conn
-            .sadd(RedisKey::channel_ids_key(), &channel_ids)
+            .sadd(RedisKey::channels(), &channel_ids)
             .await
             .wrap_err("Failed to add channels as channel ids")?;
 
@@ -130,7 +130,7 @@ impl Cache {
 
         self.connection()
             .await?
-            .set(RedisKey::CurrentUser, bytes.as_slice())
+            .set(RedisKey::current_user(), bytes.as_slice())
             .await
             .wrap_err("Failed to store current user bytes")?;
 
@@ -155,12 +155,12 @@ impl Cache {
             .wrap_err("Failed to store guild bytes")?;
 
         let guilds_added: isize = conn
-            .sadd(RedisKey::guild_ids_key(), guild.id.get())
+            .sadd(RedisKey::guilds(), guild.id.get())
             .await
             .wrap_err("Failed to add guild as guild id")?;
 
         let unavailable_guilds_removed: isize = conn
-            .srem(RedisKey::unavailable_guild_ids_key(), guild.id.get())
+            .srem(RedisKey::unavailable_guilds(), guild.id.get())
             .await
             .wrap_err("Failed to remove guild as unavailable guild id")?;
 
@@ -220,14 +220,14 @@ impl Cache {
             .await
             .wrap_err("Failed to store member or user bytes")?;
 
-        let guild_key = RedisKey::guild_members_key(guild);
+        let guild_key = RedisKey::guild_members(guild);
 
         conn.sadd(guild_key, user.id.get())
             .await
             .wrap_err("Failed to add user as guild member")?;
 
         let added: isize = conn
-            .sadd(RedisKey::user_ids_key(), user.id.get())
+            .sadd(RedisKey::users(), user.id.get())
             .await
             .wrap_err("Failed to add user as user id")?;
 
@@ -285,14 +285,14 @@ impl Cache {
             .await
             .wrap_err("Failed to store users bytes")?;
 
-        let guild_key = RedisKey::guild_members_key(guild);
+        let guild_key = RedisKey::guild_members(guild);
 
         conn.sadd(guild_key, &member_ids)
             .await
             .wrap_err("Failed to add users as guild members")?;
 
         let added: isize = conn
-            .sadd(RedisKey::user_ids_key(), &member_ids)
+            .sadd(RedisKey::users(), &member_ids)
             .await
             .wrap_err("Failed to add users as user ids")?;
 
@@ -316,12 +316,12 @@ impl Cache {
             .wrap_err("Failed to store guild bytes")?;
 
         let guilds_added: isize = conn
-            .sadd(RedisKey::guild_ids_key(), guild.id.get())
+            .sadd(RedisKey::guilds(), guild.id.get())
             .await
             .wrap_err("Failed to add guild as guild id")?;
 
         let unavailable_guilds_removed: isize = conn
-            .srem(RedisKey::unavailable_guild_ids_key(), guild.id.get())
+            .srem(RedisKey::unavailable_guilds(), guild.id.get())
             .await
             .wrap_err("Failed to remove guild as unavailable guild id")?;
 
@@ -355,14 +355,14 @@ impl Cache {
             .await
             .wrap_err("Failed to store role bytes")?;
 
-        let guild_key = RedisKey::guild_roles_key(guild);
+        let guild_key = RedisKey::guild_roles(guild);
 
         conn.sadd(guild_key, role.id.get())
             .await
             .wrap_err("Failed to add role as guild role")?;
 
         let added: isize = conn
-            .sadd(RedisKey::role_ids_key(), role.id.get())
+            .sadd(RedisKey::roles(), role.id.get())
             .await
             .wrap_err("Failed to add role as role id")?;
 
@@ -404,14 +404,14 @@ impl Cache {
             .await
             .wrap_err("Failed to store roles bytes")?;
 
-        let guild_key = RedisKey::guild_roles_key(guild);
+        let guild_key = RedisKey::guild_roles(guild);
 
         conn.sadd(guild_key, &role_ids)
             .await
             .wrap_err("Failed to add roles as guild roles")?;
 
         let added: isize = conn
-            .sadd(RedisKey::role_ids_key(), &role_ids)
+            .sadd(RedisKey::roles(), &role_ids)
             .await
             .wrap_err("Failed to add roles as role ids")?;
 
@@ -429,8 +429,8 @@ impl Cache {
 
         let is_moved: bool = conn
             .smove(
-                RedisKey::guild_ids_key(),
-                RedisKey::unavailable_guild_ids_key(),
+                RedisKey::guilds(),
+                RedisKey::unavailable_guilds(),
                 guild.get(),
             )
             .await
@@ -448,7 +448,7 @@ impl Cache {
             change
         } else {
             let added: isize = conn
-                .sadd(RedisKey::unavailable_guild_ids_key(), guild.get())
+                .sadd(RedisKey::unavailable_guilds(), guild.get())
                 .await
                 .wrap_err("Failed to add guild to unavailable guilds")?;
 
@@ -472,7 +472,7 @@ impl Cache {
             .wrap_err("Failed to store user bytes")?;
 
         let added: isize = conn
-            .sadd(RedisKey::user_ids_key(), user.id.get())
+            .sadd(RedisKey::users(), user.id.get())
             .await
             .wrap_err("Failed to add user as user id")?;
 

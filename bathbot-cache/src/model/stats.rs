@@ -8,7 +8,7 @@ pub(crate) struct CacheStatsInternal {
     inner: Mutex<CacheStats>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct CacheStats {
     pub channels: isize,
     pub guilds: isize,
