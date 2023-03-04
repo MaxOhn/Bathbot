@@ -185,10 +185,10 @@ impl Context {
                 metrics: registry,
                 guild_counter: stats.cache_counts.guilds.clone(),
                 osu_client_id: config.tokens.osu_client_id,
-                osu_client_secret: config.tokens.osu_client_secret.clone(),
-                twitch_client_id: config.tokens.twitch_client_id.clone(),
-                twitch_token: config.tokens.twitch_token.clone(),
-                redirect_base: config.server.public_url.clone(),
+                osu_client_secret: config.tokens.osu_client_secret.to_string(),
+                twitch_client_id: config.tokens.twitch_client_id.to_string(),
+                twitch_token: config.tokens.twitch_token.to_string(),
+                redirect_base: config.server.public_url.to_string(),
             };
 
             let (server, standby, tx) =
