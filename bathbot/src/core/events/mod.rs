@@ -172,13 +172,13 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>) {
 
 async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<()> {
     match event {
-        Event::GatewayClose(Some(frame)) if !frame.reason.is_empty() => {
+        Event::GatewayClose(Some(frame)) => {
             warn!(
-                "Received closing frame for shard {shard_id}: {}",
-                frame.reason
+                "Received closing frame for shard {shard_id}: reason={} (code {})",
+                frame.reason, frame.code,
             )
         }
-        Event::GatewayClose(_) => {
+        Event::GatewayClose(None) => {
             warn!("Received closing frame for shard {shard_id}")
         }
         Event::GatewayInvalidateSession(true) => {
