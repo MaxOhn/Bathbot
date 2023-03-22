@@ -90,14 +90,20 @@ impl SnipedDiffEmbed {
                     ),
                     None => write!(description, "Unclaimed until "),
                 },
-                Difference::Loss => {
-                    write!(
+                Difference::Loss => match score.sniper.as_deref() {
+                    // should technically always be `Some` but huismetbenen is bugged
+                    Some(name) => write!(
                         description,
                         "Sniped by [{name}]({OSU_BASE}u/{user_id}) ",
-                        name = score.sniper.as_str().cow_escape_markdown(),
+                        name = name.cow_escape_markdown(),
                         user_id = score.sniper_id,
-                    )
-                }
+                    ),
+                    None => write!(
+                        description,
+                        "Sniped by [<unknown user>]({OSU_BASE}u/{})",
+                        score.sniper_id
+                    ),
+                },
             };
 
             if let Some(ref date) = score.date {

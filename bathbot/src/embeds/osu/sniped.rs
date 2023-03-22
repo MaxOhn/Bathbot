@@ -67,13 +67,25 @@ impl SnipedEmbed {
 
         if !snipee.is_empty() {
             let mut snipers = HashMap::new();
+            let mut most_count = 0;
+            let mut most_name = None;
 
             for score in snipee.iter() {
-                *snipers.entry(score.sniper.as_str()).or_insert(0) += 1;
+                let entry = snipers.entry(score.sniper_id).or_insert(0);
+                *entry += 1;
+
+                if *entry > most_count {
+                    most_count = *entry;
+
+                    if let Some(sniper) = score.sniper.as_deref() {
+                        most_name = Some(sniper);
+                    }
+                }
             }
 
-            let (most_name, most_count) = snipers.iter().max_by_key(|(_, count)| *count).unwrap();
-            let name = format!("Sniped {username}:");
+            // should technically always be `Some` but huismetbenen is bugged
+            let most_name = most_name.unwrap_or("<unknown user>");
+            let name = format!("Sniped {username}");
 
             let value = format!(
                 "Total count: {}\n\

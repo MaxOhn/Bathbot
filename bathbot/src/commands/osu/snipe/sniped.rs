@@ -1,11 +1,15 @@
-use std::{cmp::Reverse, collections::HashMap, sync::Arc};
+use std::{
+    cmp::Reverse,
+    collections::{hash_map::Entry, HashMap},
+    sync::Arc,
+};
 
 use bathbot_macros::command;
 use bathbot_model::SnipeRecent;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
     datetime::DATE_FORMAT,
-    matcher, MessageBuilder,
+    matcher, IntHasher, MessageBuilder,
 };
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use itertools::Itertools;
@@ -210,7 +214,7 @@ pub fn graphs(
 }
 
 type ContextType<'a> = Cartesian2d<SegmentedCoord<RangedSlice<'a, Date>>, RangedCoordusize>;
-type PrepareResult<'a> = (Vec<Date>, Vec<(&'a str, Vec<usize>)>);
+type PrepareResult<'a> = (Vec<Date>, Vec<(u32, (Option<&'a str>, Vec<usize>))>);
 
 fn draw_sniper<DB: DrawingBackend>(
     root: &DrawingArea<DB, Shift>,
@@ -221,7 +225,7 @@ fn draw_sniper<DB: DrawingBackend>(
 
     let max = sniper
         .iter()
-        .map(|(_, v)| v.last().copied())
+        .map(|(_, (_, v))| v.last().copied())
         .max()
         .flatten()
         .unwrap_or(0);
@@ -233,13 +237,15 @@ fn draw_sniper<DB: DrawingBackend>(
         .caption(format!("Sniped by {name}"), ("sans-serif", 25, &WHITE))
         .build_cartesian_2d((&dates[..]).into_segmented(), 0..max + 1)
         .map_err(|e| Report::msg(e.to_string()))
-        .wrap_err("failed to build chart")?;
+        .wrap_err("Failed to build chart")?;
 
     draw_mesh(&mut chart)?;
 
-    for (i, (name, values)) in sniper.into_iter().enumerate() {
+    for (i, (_, (name, values))) in sniper.into_iter().enumerate() {
+        let name = name.unwrap_or("<unknown user>");
+
         draw_histogram_block(i, name, &values, &dates, &mut chart)
-            .wrap_err("failed to draw histogram block")?;
+            .wrap_err("Failed to draw histogram block")?;
     }
 
     draw_legend(&mut chart)?;
@@ -256,7 +262,7 @@ fn draw_snipee<DB: DrawingBackend>(
 
     let max = snipee
         .iter()
-        .map(|(_, v)| v.last().copied())
+        .map(|(_, (_, v))| v.last().copied())
         .max()
         .flatten()
         .unwrap_or(0);
@@ -268,13 +274,15 @@ fn draw_snipee<DB: DrawingBackend>(
         .caption(format!("Sniped {name}"), ("sans-serif", 25, &WHITE))
         .build_cartesian_2d((&dates[..]).into_segmented(), 0..max + 1)
         .map_err(|e| Report::msg(e.to_string()))
-        .wrap_err("failed to build chart")?;
+        .wrap_err("Failed to build chart")?;
 
     draw_mesh(&mut chart)?;
 
-    for (i, (name, values)) in snipee.into_iter().enumerate() {
+    for (i, (_, (name, values))) in snipee.into_iter().enumerate() {
+        let name = name.unwrap_or("<unknown user>");
+
         draw_histogram_block(i, name, &values, &dates, &mut chart)
-            .wrap_err("failed to draw histogram block")?;
+            .wrap_err("Failed to draw histogram block")?;
     }
 
     draw_legend(&mut chart)?;
@@ -298,7 +306,7 @@ fn draw_mesh<DB: DrawingBackend>(chart: &mut ChartContext<'_, DB, ContextType<'_
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
         .draw()
         .map_err(|e| Report::msg(e.to_string()))
-        .wrap_err("failed to draw mesh")
+        .wrap_err("Failed to draw mesh")
 }
 
 fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
@@ -323,7 +331,7 @@ fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
     chart
         .draw_series(series)
         .map_err(|e| Report::msg(e.to_string()))
-        .wrap_err("failed to draw block")?
+        .wrap_err("Failed to draw block")?
         .label(name)
         .legend(move |(x, y)| Circle::new((x, y), 4, color.filled()));
 
@@ -338,7 +346,7 @@ fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
     chart
         .draw_series(series)
         .map_err(|e| Report::msg(e.to_string()))
-        .wrap_err("failed to draw border")?;
+        .wrap_err("Failed to draw border")?;
 
     Ok(())
 }
@@ -355,30 +363,36 @@ fn draw_legend<'a, DB: DrawingBackend + 'a>(
         .label_font(("sans-serif", 15, FontStyle::Bold, &WHITE))
         .draw()
         .map_err(|e| Report::msg(e.to_string()))
-        .wrap_err("failed to draw legend")
+        .wrap_err("Failed to draw legend")
 }
 
 fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
-    let mut total = HashMap::new();
+    let mut total =
+        HashMap::<u32, (Option<&str>, usize), IntHasher>::with_hasher(Default::default());
 
     for score in scores {
-        *total.entry(score.sniper.as_str()).or_insert(0) += 1;
+        match total.entry(score.sniper_id) {
+            Entry::Occupied(e) => e.into_mut().1 += 1,
+            Entry::Vacant(e) => {
+                e.insert((score.sniper.as_deref(), 1));
+            }
+        }
     }
 
     let mut final_order: Vec<_> = total.into_iter().collect();
-    final_order.sort_unstable_by_key(|(_, c)| Reverse(*c));
+    final_order.sort_unstable_by_key(|(_, (_, count))| Reverse(*count));
     final_order.truncate(10);
 
-    let names: HashMap<_, _> = final_order
-        .iter()
-        .map(|(name, _)| (*name, Vec::new()))
+    let users: HashMap<_, _, IntHasher> = final_order
+        .into_iter()
+        .map(|(id, (name, _))| (id, (name, Vec::new())))
         .collect();
 
     let categorized: Vec<_> = scores
         .iter()
         .rev()
-        .filter(|score| names.contains_key(score.sniper.as_str()))
-        .filter_map(|score| score.date.map(|date| (score.sniper.as_str(), date)))
+        .filter(|score| users.contains_key(&score.sniper_id))
+        .filter_map(|score| score.date.map(|date| (score.sniper_id, date)))
         .scan(
             OffsetDateTime::now_utc() - Duration::weeks(7),
             |state, (sniper, date)| {
@@ -393,30 +407,41 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
         )
         .collect();
 
-    finish_preparing(names, categorized)
+    finish_preparing(users, categorized)
 }
 
 fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
-    let mut total = HashMap::new();
+    let mut total = HashMap::<_, (Option<&str>, usize), IntHasher>::with_hasher(Default::default());
 
-    for sniped in scores.iter().filter_map(|score| score.sniped.as_deref()) {
-        *total.entry(sniped).or_insert(0) += 1;
+    let sniped_iter = scores.iter().filter_map(|score| {
+        score
+            .sniped_id
+            .map(|user_id| (user_id, score.sniped.as_deref()))
+    });
+
+    for (user_id, name) in sniped_iter {
+        match total.entry(user_id) {
+            Entry::Occupied(e) => e.into_mut().1 += 1,
+            Entry::Vacant(e) => {
+                e.insert((name, 1));
+            }
+        }
     }
 
     let mut final_order: Vec<_> = total.into_iter().collect();
-    final_order.sort_unstable_by_key(|(_, c)| Reverse(*c));
+    final_order.sort_unstable_by_key(|(_, (_, count))| Reverse(*count));
     final_order.truncate(10);
 
-    let names: HashMap<_, _> = final_order
-        .iter()
-        .map(|(name, _)| (*name, Vec::new()))
+    let users: HashMap<_, _, IntHasher> = final_order
+        .into_iter()
+        .map(|(id, (name, _))| (id, (name, Vec::new())))
         .collect();
 
     let categorized: Vec<_> = scores
         .iter()
         .rev()
-        .filter_map(|score| score.sniped.as_deref().zip(score.date))
-        .filter(|(sniped, _)| names.contains_key(sniped))
+        .filter_map(|score| score.sniped_id.zip(score.date))
+        .filter(|(user_id, _)| users.contains_key(user_id))
         .scan(
             OffsetDateTime::now_utc() - Duration::weeks(7),
             |state, (sniped, date)| {
@@ -431,24 +456,24 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
         )
         .collect();
 
-    finish_preparing(names, categorized)
+    finish_preparing(users, categorized)
 }
 
-fn finish_preparing<'a>(
-    mut names_total: HashMap<&'a str, Vec<usize>>,
-    categorized: Vec<(&'a str, OffsetDateTime)>,
-) -> PrepareResult<'a> {
+fn finish_preparing(
+    mut users_total: HashMap<u32, (Option<&str>, Vec<usize>), IntHasher>,
+    categorized: Vec<(u32, OffsetDateTime)>,
+) -> PrepareResult<'_> {
     // List of dates, and list of date-separated maps
-    // containing counts for each name its the date-section
+    // containing counts for each user id
     let (dates, counts): (Vec<_>, Vec<_>) = categorized
         .into_iter()
         .group_by(|(_, date)| *date)
         .into_iter()
         .map(|(date, group)| {
-            let mut counts = HashMap::new();
+            let mut counts = HashMap::with_hasher(IntHasher::default());
 
-            for (name, _) in group {
-                *counts.entry(name).or_insert(0) += 1;
+            for (user_id, _) in group {
+                *counts.entry(user_id).or_insert(0) += 1;
             }
 
             (date.date(), counts)
@@ -457,24 +482,28 @@ fn finish_preparing<'a>(
 
     // Combining counts per name across all dates
     for counts in counts {
-        for (name, values) in names_total.iter_mut() {
-            values.push(counts.get(name).copied().unwrap_or(0));
+        for (user_id, (_, values)) in users_total.iter_mut() {
+            values.push(counts.get(user_id).copied().unwrap_or(0));
         }
     }
 
-    // For each name, the count can only increase
-    for values in names_total.values_mut() {
+    // For each user, the count can only increase
+    for (_, values) in users_total.values_mut() {
         for i in 1..values.len() {
             values[i] += values[i - 1];
         }
     }
 
-    let mut total: Vec<_> = names_total.into_iter().collect();
-    total.sort_unstable_by_key(|(_, values)| Reverse(values.last().copied()));
+    let mut total: Vec<_> = users_total.into_iter().collect();
+    total.sort_unstable_by_key(|(_, (_, values))| Reverse(values.last().copied()));
 
     for (i, j) in (1..total.len()).zip(0..total.len() - 1).rev() {
         for k in 0..dates.len() {
-            total[j].1[k] += total[i].1[k];
+            let (_, (_, total_i)) = &total[i];
+            let add = total_i[k];
+
+            let (_, (_, total_j)) = &mut total[j];
+            total_j[k] += add;
         }
     }
 
