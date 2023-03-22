@@ -207,7 +207,7 @@ pub struct SnipeRecent {
     #[serde(rename = "diff_name")]
     pub version: String,
     #[serde(default, rename = "sniper_name")]
-    pub sniper: String,
+    pub sniper: Option<String>,
     pub sniper_id: u32,
     #[serde(default, rename = "sniped_name")]
     pub sniped: Option<String>,
