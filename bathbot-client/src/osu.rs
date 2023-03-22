@@ -4,9 +4,9 @@ use bathbot_model::{
     OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments, OsekaiMap, OsekaiMaps,
     OsekaiMedal, OsekaiMedals, OsekaiRanking, OsekaiRankingEntries, OsuStatsParams, OsuStatsPlayer,
     OsuStatsPlayersArgs, OsuStatsScore, OsuTrackerCountryDetails, OsuTrackerIdCount,
-    OsuTrackerPpGroup, OsuTrackerStats, RespektiveTopCount, RespektiveUser, ScraperScore,
-    ScraperScores, SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent,
-    SnipeScore, SnipeScoreParams,
+    OsuTrackerPpGroup, OsuTrackerStats, RespektiveUser, ScraperScore, ScraperScores,
+    SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent, SnipeScore,
+    SnipeScoreParams,
 };
 use bathbot_util::{
     constants::{HUISMETBENEN, OSU_BASE},
@@ -48,29 +48,6 @@ impl Client {
         } else {
             Err(eyre!("failed with status code {status} when requesting url {url}").into())
         }
-    }
-
-    pub async fn get_respektive_osustats_counts(
-        &self,
-        user_id: u32,
-        mode: GameMode,
-    ) -> Result<Option<RespektiveTopCount>> {
-        let mode = mode as u8;
-        let url = format!("https://osustats.respektive.pw/counts/{user_id}?mode={mode}");
-
-        let bytes = match self.make_get_request(url, Site::Respektive).await {
-            Ok(bytes) => bytes,
-            Err(ClientError::NotFound) => return Ok(None),
-            Err(err) => return Err(Report::new(err)),
-        };
-
-        serde_json::from_slice(&bytes)
-            .wrap_err_with(|| {
-                let body = String::from_utf8_lossy(&bytes);
-
-                format!("failed to deserialize respektive top count: {body}")
-            })
-            .map(Some)
     }
 
     pub async fn get_respektive_user(
