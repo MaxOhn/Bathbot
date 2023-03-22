@@ -8,7 +8,7 @@ use std::{
     mem::MaybeUninit,
 };
 
-use bathbot_model::{OsuStatsParams, RespektiveTopCount, ScoreSlim};
+use bathbot_model::{OsuStatsParams, ScoreSlim};
 use bathbot_util::{
     datetime::SecToMinSec,
     numbers::{round, WithComma},
@@ -105,51 +105,7 @@ impl TopCounts {
     }
 
     pub async fn request(ctx: &Context, user: &RedisData<User>, mode: GameMode) -> Result<Self> {
-        Self::request_respektive(ctx, user, mode).await
-    }
-
-    async fn request_respektive(
-        ctx: &Context,
-        user: &RedisData<User>,
-        mode: GameMode,
-    ) -> Result<Self> {
-        let counts_fut = ctx
-            .client()
-            .get_respektive_osustats_counts(user.user_id(), mode);
-
-        match counts_fut.await {
-            Ok(Some(counts)) => {
-                let top1s = match user {
-                    RedisData::Original(user) => user.scores_first_count,
-                    RedisData::Archived(user) => user.scores_first_count,
-                };
-
-                Ok(Self {
-                    top1s: WithComma::new(top1s).to_string().into(),
-                    ..Self::from(counts)
-                })
-            }
-            Ok(None) => Ok(Self {
-                top1s: "0".into(),
-                top1s_rank: None,
-                top8s: "0".into(),
-                top8s_rank: None,
-                top15s: "0".into(),
-                top15s_rank: None,
-                top25s: "0".into(),
-                top25s_rank: None,
-                top50s: "0".into(),
-                top50s_rank: None,
-                top100s: None,
-                top100s_rank: None,
-                last_update: None,
-            }),
-            Err(err) => {
-                warn!("{:?}", err.wrap_err("failed to get respektive top counts"));
-
-                Self::request_osustats(ctx, user, mode).await
-            }
-        }
+        Self::request_osustats(ctx, user, mode).await
     }
 
     async fn request_osustats(
@@ -217,29 +173,6 @@ impl TopCounts {
         };
 
         Ok(this)
-    }
-}
-
-impl From<RespektiveTopCount> for TopCounts {
-    #[inline]
-    fn from(top_count: RespektiveTopCount) -> Self {
-        let format_rank = |rank| WithComma::new(rank).to_string();
-
-        Self {
-            top1s: WithComma::new(top_count.top1s).to_string().into(),
-            top1s_rank: top_count.top1s_rank.map(format_rank),
-            top8s: WithComma::new(top_count.top8s).to_string().into(),
-            top8s_rank: top_count.top8s_rank.map(format_rank),
-            top15s: WithComma::new(top_count.top15s).to_string().into(),
-            top15s_rank: top_count.top15s_rank.map(format_rank),
-            top25s: WithComma::new(top_count.top25s).to_string().into(),
-            top25s_rank: top_count.top25s_rank.map(format_rank),
-            top50s: WithComma::new(top_count.top50s).to_string().into(),
-            top50s_rank: top_count.top50s_rank.map(format_rank),
-            top100s: Some(WithComma::new(top_count.top100s).to_string().into()),
-            top100s_rank: top_count.top100s_rank.map(format_rank),
-            last_update: Some(top_count.last_update),
-        }
     }
 }
 
