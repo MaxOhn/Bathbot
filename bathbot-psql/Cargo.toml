@@ -26,6 +26,4 @@ sqlx = { version = "0.6", default-features = false, features = ["json", "macros"
 dotenvy = { version = "0.15" }
 
 [features]
-default = ["offline"]
-
 offline = ["sqlx/offline"]

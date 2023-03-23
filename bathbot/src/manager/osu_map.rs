@@ -121,7 +121,7 @@ impl<'d> MapManager<'d> {
             .psql
             .select_osu_maps_full(maps_id_checksum)
             .await
-            .wrap_err("failed to get maps")?;
+            .wrap_err("Failed to get maps")?;
 
         let iter = maps_id_checksum
             .keys()
@@ -159,7 +159,7 @@ impl<'d> MapManager<'d> {
             .psql
             .select_mapset_artist_title(mapset_id)
             .await
-            .wrap_err("failed to get artist title")?;
+            .wrap_err("Failed to get artist title")?;
 
         if let Some(artist_title) = artist_title_opt {
             return Ok(artist_title);
@@ -176,7 +176,7 @@ impl<'d> MapManager<'d> {
     pub async fn mapset(self, mapset_id: u32) -> Result<DbBeatmapset> {
         let mapset_fut = self.psql.select_mapset(mapset_id);
 
-        if let Some(mapset) = mapset_fut.await.wrap_err("failed to get mapset")? {
+        if let Some(mapset) = mapset_fut.await.wrap_err("Failed to get mapset")? {
             Ok(mapset)
         } else {
             let mapset = self.retrieve_mapset(mapset_id).await?;
@@ -202,7 +202,7 @@ impl<'d> MapManager<'d> {
             .psql
             .select_map_versions_by_map_id(map_id)
             .await
-            .wrap_err("failed to get versions by map")?;
+            .wrap_err("Failed to get versions by map")?;
 
         if !versions.is_empty() {
             return Ok(versions);
@@ -217,7 +217,7 @@ impl<'d> MapManager<'d> {
             Err(OsuError::NotFound) => return Err(MapError::NotFound),
             Err(err) => {
                 return Err(MapError::Report(
-                    Report::new(err).wrap_err("failed to retrieve mapset"),
+                    Report::new(err).wrap_err("Failed to retrieve mapset"),
                 ))
             }
         }
@@ -225,7 +225,7 @@ impl<'d> MapManager<'d> {
         self.psql
             .select_map_versions_by_map_id(map_id)
             .await
-            .wrap_err("failed to get versions by map")
+            .wrap_err("Failed to get versions by map")
             .map_err(MapError::Report)
     }
 
@@ -234,8 +234,7 @@ impl<'d> MapManager<'d> {
             .psql
             .select_map_versions_by_mapset_id(mapset_id)
             .await
-            .wrap_err("failed to get versions by mapset")
-            .map_err(MapError::Report)?;
+            .wrap_err("Failed to get versions by mapset")?;
 
         if !versions.is_empty() {
             return Ok(versions);
@@ -250,7 +249,7 @@ impl<'d> MapManager<'d> {
             Err(OsuError::NotFound) => return Err(MapError::NotFound),
             Err(err) => {
                 return Err(MapError::Report(
-                    Report::new(err).wrap_err("failed to retrieve mapset"),
+                    Report::new(err).wrap_err("Failed to retrieve mapset"),
                 ))
             }
         }
@@ -258,7 +257,7 @@ impl<'d> MapManager<'d> {
         self.psql
             .select_map_versions_by_mapset_id(mapset_id)
             .await
-            .wrap_err("failed to get versions by mapset")
+            .wrap_err("Failed to get versions by mapset")
             .map_err(MapError::Report)
     }
 
@@ -266,7 +265,7 @@ impl<'d> MapManager<'d> {
         self.psql
             .upsert_beatmapset(mapset)
             .await
-            .wrap_err("failed to store mapset")
+            .wrap_err("Failed to store mapset")
     }
 
     /// Request a [`Beatmapset`] from a map id and turn it into a [`OsuMapSlim`]
@@ -281,7 +280,7 @@ impl<'d> MapManager<'d> {
             }
             Err(OsuError::NotFound) => Err(MapError::NotFound),
             Err(err) => Err(MapError::Report(
-                Report::new(err).wrap_err("failed to retrieve mapset"),
+                Report::new(err).wrap_err("Failed to retrieve mapset"),
             )),
         }
     }
@@ -298,7 +297,7 @@ impl<'d> MapManager<'d> {
             }
             Err(OsuError::NotFound) => Err(MapError::NotFound),
             Err(err) => Err(MapError::Report(
-                Report::new(err).wrap_err("failed to retrieve mapset"),
+                Report::new(err).wrap_err("Failed to retrieve mapset"),
             )),
         }
     }
@@ -344,10 +343,10 @@ impl<'d> MapManager<'d> {
                 let map_slim = match map_slim_res {
                     Ok(map_slim) => map_slim,
                     Err(err @ MapError::NotFound) => return Err(err),
-                    Err(MapError::Report(report)) => {
+                    Err(MapError::Report(err)) => {
                         let wrap = "Failed to get map after checksum mismatch";
 
-                        return Err(report.wrap_err(wrap).into());
+                        return Err(err.wrap_err(wrap).into());
                     }
                 };
 
