@@ -14,8 +14,8 @@ impl Database {
                 grade,
                 map_id,
                 max_combo,
-                map: _,
-                mapset: _,
+                map: _, // updated through checksum-missmatch
+                mapset,
                 mode,
                 mods,
                 passed: _,
@@ -92,6 +92,26 @@ VALUES
                     .execute(&mut tx)
                     .await
                     .wrap_err("failed to execute pp query")?;
+            }
+
+            if let Some(mapset) = mapset {
+                Self::update_beatmapset_compact(&mut tx, mapset)
+                    .await
+                    .wrap_err("failed to update mapset")?;
+            }
+        }
+
+        tx.commit().await.wrap_err("failed to commit transaction")?;
+
+        Ok(())
+    }
+
+    pub async fn update_beatmapsets_compact(&self, scores: &[Score]) -> Result<()> {
+        let mut tx = self.begin().await.wrap_err("failed to begin transaction")?;
+
+        for score in scores {
+            if let Some(ref mapset) = score.mapset {
+                Self::update_beatmapset_compact(&mut tx, mapset).await?;
             }
         }
 

@@ -1,5 +1,6 @@
 use eyre::{Result, WrapErr};
-use rosu_v2::prelude::Beatmapset;
+use rosu_v2::prelude::{Beatmapset, BeatmapsetCompact};
+use sqlx::{Executor, Postgres};
 
 use crate::{
     model::osu::{ArtistTitle, DbBeatmapset},
@@ -120,6 +121,50 @@ SET
         }
 
         tx.commit().await.wrap_err("failed to commit transaction")?;
+
+        Ok(())
+    }
+
+    pub(super) async fn update_beatmapset_compact<'c, E>(
+        executor: E,
+        mapset: &BeatmapsetCompact,
+    ) -> Result<()>
+    where
+        E: Executor<'c, Database = Postgres>,
+    {
+        let query = sqlx::query!(
+            r#"
+UPDATE 
+  osu_mapsets 
+SET 
+  user_id = $1, 
+  artist = $2, 
+  title = $3, 
+  creator = $4, 
+  source = $5, 
+  video = $6, 
+  rank_status = $7, 
+  thumbnail = $8, 
+  cover = $9, 
+  last_update = NOW() 
+WHERE 
+  mapset_id = $10"#,
+            mapset.creator_id as i32,
+            mapset.artist,
+            mapset.title,
+            mapset.creator_name.as_str(),
+            mapset.source,
+            mapset.video,
+            mapset.status as i16,
+            mapset.covers.list,
+            mapset.covers.cover,
+            mapset.mapset_id as i32,
+        );
+
+        query
+            .execute(executor)
+            .await
+            .wrap_err("failed to execute query")?;
 
         Ok(())
     }

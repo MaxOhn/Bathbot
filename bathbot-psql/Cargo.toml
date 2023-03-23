@@ -29,6 +29,4 @@ twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15
 dotenvy = { version = "0.15" }
 
 [features]
-default = ["offline"]
-
 offline = ["sqlx/offline"]
