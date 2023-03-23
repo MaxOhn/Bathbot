@@ -10,6 +10,21 @@ members = [
     "bathbot-util",
 ]
 
+[workspace.package]
+version = "3.0.10"
+authors = ["MaxOhn <ohn.m@hotmail.de>"]
+edition = "2021"
+
+[workspace.dependencies]
+rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["cache", "metrics", "rkyv"] }
+rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next", features = ["async_tokio"] }
+twilight-gateway = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false, features = ["rustls-webpki-roots", "twilight-http", "zlib-stock"] }
+twilight-http = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false, features = ["rustls-webpki-roots"] }
+twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv-15", default-features = false, features = ["derive"] }
+twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
+twilight-standby = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
+twilight-validate = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15" }
+
 [profile.dev.package.sqlx-macros]
 opt-level = 3
 

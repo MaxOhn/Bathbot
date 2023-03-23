@@ -1,8 +1,8 @@
 [package]
 name = "bathbot-psql"
-version = "0.1.0"
-authors = ["MaxOhn <ohn.m@hotmail.de>"]
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 arrayvec = { version = "0.7" }
@@ -12,18 +12,15 @@ eyre = { version = "0.6" }
 futures = { version = "0.3", default-features = false }
 ptr_meta = { version = "~0.1.3" }
 rkyv = { version = "0.7" }
-rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", default-features = false, features = ["rkyv"] }
-rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next" }
+rosu-v2 = { workspace = true }
+rosu-pp = { workspace = true }
 smallvec = { version = "1.10" }
 sqlx = { version = "0.6", default-features = false, features = ["json", "macros", "postgres", "runtime-tokio-rustls", "time"] }
 time = { version = "0.3" }
 tokio = { version = "1.20", default-features = false, features = ["io-util", "time"] }
 tracing = { version = "0.1" }
-twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv-15", default-features = false, features = ["derive"] }
-twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
-
-# twilight-interactions = { path = "../../twilight-interactions/twilight-interactions", default-features = false, features = ["derive"] }
-# twilight-model = { path = "../../twilight/twilight-model", default-features = false }
+twilight-interactions = { workspace = true }
+twilight-model = { workspace = true }
 
 [dev-dependencies]
 dotenvy = { version = "0.15" }

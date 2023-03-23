@@ -1,15 +1,14 @@
 [package]
 name = "bathbot-util"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 eyre = { version = "0.6" }
 once_cell = { version = "1.0" }
 regex = { version = "1.0" }
-rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["cache", "metrics", "rkyv"] }
+rosu-v2 = { workspace = true }
 time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1.20", default-features = false, features = ["parking_lot", "process"] }
-twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
-
-# twilight-model = { path = "../../twilight/twilight-model", default-features = false }
+twilight-model = { workspace = true }

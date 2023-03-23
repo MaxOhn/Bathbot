@@ -1,7 +1,8 @@
 [package]
 name = "bathbot-client"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 bathbot-model = { path = "../bathbot-model" }
@@ -14,7 +15,7 @@ hyper-rustls = { version = "0.23", default-features = false, features = ["http1"
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
 prometheus = { version = "0.13" }
 rand = { version = "0.8" }
-rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["cache", "metrics", "rkyv"] }
+rosu-v2 = { workspace = true }
 rkyv = { version = "0.7" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
@@ -22,11 +23,8 @@ thiserror = { version = "1.0" }
 time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "parking_lot", "rt-multi-thread", "signal", "sync", "time"] }
 tracing = { version = "0.1" }
-twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv-15", default-features = false, features = ["derive"] }
-twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
-
-# twilight-interactions = { path = "../../twilight-interactions/twilight-interactions", default-features = false, features = ["derive"] }
-# twilight-model = { path = "../../twilight/twilight-model", default-features = false }
+twilight-interactions = { workspace = true }
+twilight-model = { workspace = true }
 
 [features]
 default = []

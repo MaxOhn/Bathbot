@@ -1,7 +1,8 @@
 [package]
 name = "bathbot-cache"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 bb8-redis = { version = "0.12" }
@@ -10,5 +11,5 @@ itoa = { version = "1.0" }
 once_cell = { version = "1.0" }
 rkyv = { version = "0.7" }
 tracing = { version = "0.1" }
-twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
-twilight-gateway = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
+twilight-model = { workspace = true }
+twilight-gateway = { workspace = true }
