@@ -143,7 +143,7 @@ checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
 
 [[package]]
 name = "bathbot-cache"
-version = "3.0.10"
+version = "3.1.0"
 dependencies = [
  "bb8-redis",
  "eyre",
@@ -157,7 +157,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-client"
-version = "3.0.10"
+version = "3.1.0"
 dependencies = [
  "bathbot-model",
  "bathbot-util",
@@ -183,7 +183,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-macros"
-version = "3.0.10"
+version = "3.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -192,7 +192,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-model"
-version = "3.0.10"
+version = "3.1.0"
 dependencies = [
  "bathbot-util",
  "bitflags",
@@ -212,7 +212,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-psql"
-version = "3.0.10"
+version = "3.1.0"
 dependencies = [
  "arrayvec",
  "bathbot-model",
@@ -235,7 +235,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-server"
-version = "3.0.10"
+version = "3.1.0"
 dependencies = [
  "axum",
  "bathbot-model",
@@ -259,7 +259,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-twilight"
-version = "3.0.10"
+version = "3.1.0"
 dependencies = [
  "aho-corasick",
  "bathbot-cache",
@@ -317,7 +317,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-util"
-version = "3.0.10"
+version = "3.1.0"
 dependencies = [
  "eyre",
  "once_cell",
