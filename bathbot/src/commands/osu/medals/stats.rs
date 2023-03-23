@@ -1,7 +1,6 @@
 use std::{borrow::Cow, mem, sync::Arc};
 
 use bathbot_macros::command;
-use bathbot_model::Rarity;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher, MessageBuilder,
@@ -80,30 +79,23 @@ pub(super) async fn stats(
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
     let user_fut = ctx.redis().osu_user(user_args);
     let medals_fut = ctx.redis().medals();
-    let ranking_fut = ctx.redis().osekai_ranking::<Rarity>();
 
-    let (mut user, all_medals, ranking) = match tokio::join!(user_fut, medals_fut, ranking_fut) {
-        (Ok(user), Ok(medals), Ok(ranking)) => (user, medals, Some(ranking)),
-        (Err(OsuError::NotFound), ..) => {
+    let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
+        (Ok(user), Ok(medals)) => (user, medals),
+        (Err(OsuError::NotFound), _) => {
             let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
-        (_, Err(err), _) => {
+        (_, Err(err)) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached medals"));
+            return Err(err.wrap_err("Failed to get cached medals"));
         }
-        (Err(err), ..) => {
+        (Err(err), _) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
-        }
-        (Ok(user), Ok(medals), Err(err)) => {
-            warn!("{:?}", err.wrap_err("Failed to get cached rarity ranking"));
-
-            (user, medals, None)
+            return Err(Report::new(err).wrap_err("Failed to get user"));
         }
     };
 
@@ -117,7 +109,7 @@ pub(super) async fn stats(
     let graph = match graph(&medals, W, H) {
         Ok(bytes_option) => bytes_option,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("failed to create graph"));
+            warn!("{:?}", err.wrap_err("Failed to create graph"));
 
             None
         }
@@ -153,27 +145,11 @@ pub(super) async fn stats(
             .collect(),
     };
 
-    let rarest = ranking.and_then(|ranking| {
-        let ranking: HashMap<_, _, IntHasher> = match ranking {
-            RedisData::Original(ranking) => ranking
-                .iter()
-                .map(|entry| (entry.medal_id, entry.possession_percent))
-                .collect(),
-            RedisData::Archive(ranking) => ranking
-                .iter()
-                .map(|entry| (entry.medal_id, entry.possession_percent))
-                .collect(),
-        };
-
-        medals
-            .iter()
-            .min_by_key(|medal| {
-                ranking
-                    .get(&medal.medal_id)
-                    .map_or(i32::MAX, |&perc| (perc * 10_000.0) as i32)
-            })
-            .copied()
-    });
+    let rarest = medals
+        .iter()
+        .filter_map(|medal| Some((all_medals.get(&medal.medal_id)?.rarity, medal)))
+        .reduce(|rarest, next| if next.0 < rarest.0 { next } else { rarest })
+        .map(|(_, medal)| *medal);
 
     let embed = MedalStatsEmbed::new(&user, &medals, &all_medals, rarest, graph.is_some()).build();
     let mut builder = MessageBuilder::new().embed(embed);
