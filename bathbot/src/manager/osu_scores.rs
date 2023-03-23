@@ -1,6 +1,5 @@
 use bathbot_psql::Database;
 use eyre::{Result, WrapErr};
-use futures::future;
 use rosu_v2::{
     prelude::{OsuError, Score},
     OsuResult,
@@ -59,7 +58,14 @@ impl<'c> ScoresManager<'c> {
         self.psql
             .insert_scores(scores)
             .await
-            .wrap_err("failed to store top scores")
+            .wrap_err("Failed to store top scores")
+    }
+
+    async fn update_mapsets(self, scores: &[Score]) -> Result<()> {
+        self.psql
+            .update_beatmapsets_compact(scores)
+            .await
+            .wrap_err("Failed to update mapsets")
     }
 }
 
@@ -164,7 +170,7 @@ impl<'c> ScoreArgs<'c> {
                 ScoreKind::Top { .. } | ScoreKind::UserMap { .. } | ScoreKind::Pinned { .. } => {
                     self.manager.store(&scores).await
                 }
-                ScoreKind::Recent { .. } => future::ready(Ok(())).await,
+                ScoreKind::Recent { .. } => self.manager.update_mapsets(&scores).await,
             }
         };
 

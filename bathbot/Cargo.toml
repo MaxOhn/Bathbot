@@ -72,7 +72,6 @@ twilight-validate = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv
 aho-corasick = "0.7.20"
 
 [features]
-default = ["offline"]
 full = ["global_slash", "matchlive", "osutracking", "server", "twitch", "twitchtracking"]
 
 global_slash = []

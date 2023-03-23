@@ -1252,26 +1252,6 @@
     },
     "query": "\nDELETE FROM \n  osu_map_difficulty_mania \nWHERE \n  map_id = $1"
   },
-  "8b88f6e2659ffeb87114f3c9e099c9ba96a6ce79c842fffe9a665fc1f5334822": {
-    "describe": {
-      "columns": [
-        {
-          "name": "skin_url",
-          "ordinal": 0,
-          "type_info": "Varchar"
-        }
-      ],
-      "nullable": [
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Int8"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  skin_url \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
-  },
   "8f560c7c1634f00ce00878148ce3612e1a87cb8a81057dc6edbfa9a9ef49c56c": {
     "describe": {
       "columns": [],
@@ -1504,26 +1484,6 @@
     },
     "query": "\nSELECT \n  mapset_id, \n  user_id, \n  artist, \n  title, \n  creator, \n  rank_status, \n  ranked_date, \n  thumbnail, \n  cover \nFROM \n  osu_mapsets \nWHERE \n  mapset_id = $1"
   },
-  "adfe9de02db6d8af635558f7c243b4c7c13093b460943160577157b01cb2c5d4": {
-    "describe": {
-      "columns": [
-        {
-          "name": "gamemode",
-          "ordinal": 0,
-          "type_info": "Int2"
-        }
-      ],
-      "nullable": [
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Int8"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  gamemode \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
-  },
   "b42895ff2c5fb37ef689292c5e798878e1ba3e491dab3c3304588a57f1e5e837": {
     "describe": {
       "columns": [
@@ -1605,6 +1565,27 @@
       }
     },
     "query": "\nINSERT INTO osu_map_difficulty_taiko (\n  map_id, mods, stamina, rhythm, colour, \n  peak, hit_window, stars, max_combo\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (map_id, mods) DO \nUPDATE \nSET \n  stamina = $3, \n  rhythm = $4, \n  colour = $5, \n  peak = $6, \n  hit_window = $7, \n  stars = $8, \n  max_combo = $9"
+  },
+  "b866d47800f611e13c6005310d04cf1bbe58beebc83508ab67f0433d3057f513": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Bool",
+          "Int2",
+          "Varchar",
+          "Varchar",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nUPDATE \n  osu_mapsets \nSET \n  user_id = $1, \n  artist = $2, \n  title = $3, \n  creator = $4, \n  source = $5, \n  video = $6, \n  rank_status = $7, \n  thumbnail = $8, \n  cover = $9, \n  last_update = NOW() \nWHERE \n  mapset_id = $10"
   },
   "b92b0789f6a20d7bd18ce15bf1826832672298a2d39446f1ccaf193a59d269bb": {
     "describe": {
