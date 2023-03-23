@@ -6,7 +6,7 @@ use bathbot_model::{
 };
 use eyre::{Result, WrapErr};
 use rkyv::{with::DeserializeWith, Deserialize, Infallible};
-use twilight_model::{channel::embed::Embed, id::Id};
+use twilight_model::{channel::message::embed::Embed, id::Id};
 
 use crate::{
     embeds::{EmbedData, RankingEmbed},
@@ -65,24 +65,32 @@ impl RankingPagination {
                             let BgGameScore { discord_id, score } = scores[i];
                             let id = Id::new(discord_id as u64);
 
-                            let name = match ctx.user_config().osu_name(id).await {
-                                Ok(Some(name)) => name,
-                                Ok(None) => ctx
-                                    .cache
-                                    .user(id, |user| user.name.as_str().into())
-                                    .unwrap_or_else(|_| "Unknown user".into()),
+                            let mut name_opt = match ctx.user_config().osu_name(id).await {
+                                Ok(Some(name)) => Some(name),
+                                Ok(None) => None,
                                 Err(err) => {
-                                    warn!("{:?}", err.wrap_err("failed to get osu user"));
+                                    warn!("{:?}", err.wrap_err("Failed to get osu user"));
 
-                                    ctx.cache
-                                        .user(id, |user| user.name.as_str().into())
-                                        .unwrap_or_else(|_| "Unknown user".into())
+                                    None
                                 }
+                            };
+
+                            name_opt = match name_opt {
+                                Some(name) => Some(name),
+                                None => match ctx.cache.user(id).await {
+                                    Ok(Some(user)) => Some(user.name.as_str().into()),
+                                    Ok(None) => None,
+                                    Err(err) => {
+                                        warn!("{err:?}");
+
+                                        None
+                                    }
+                                },
                             };
 
                             entry.insert(RankingEntry {
                                 country: None,
-                                name,
+                                name: name_opt.unwrap_or_else(|| "Unknown user".into()),
                                 value: score as u64,
                             });
                         }
@@ -97,7 +105,7 @@ impl RankingPagination {
                         .redis()
                         .pp_ranking(*mode, page, Some(country.as_str()))
                         .await
-                        .wrap_err("failed to get ranking page")?;
+                        .wrap_err("Failed to get ranking page")?;
 
                     let RankingEntries::PpU32(ref mut entries) = self.entries else { unreachable!() };
 
@@ -116,7 +124,7 @@ impl RankingPagination {
 
                             entries.extend(iter);
                         }
-                        RedisData::Archived(ranking) => {
+                        RedisData::Archive(ranking) => {
                             let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
                                 let country =
                                     user.country_code.deserialize(&mut Infallible).unwrap();
@@ -169,7 +177,7 @@ impl RankingPagination {
 
                             entries.extend(iter);
                         }
-                        RedisData::Archived(ranking) => {
+                        RedisData::Archive(ranking) => {
                             let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
                                 let country =
                                     user.country_code.deserialize(&mut Infallible).unwrap();
@@ -204,7 +212,7 @@ impl RankingPagination {
                         .score_rankings(*mode)
                         .page(page)
                         .await
-                        .wrap_err("failed to get ranking page")?;
+                        .wrap_err("Failed to get ranking page")?;
 
                     let RankingEntries::Amount(ref mut entries) = self.entries else { unreachable!() };
 

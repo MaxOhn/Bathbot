@@ -146,7 +146,7 @@ impl TopCounts {
 
         let top1s = match user {
             RedisData::Original(user) => user.scores_first_count,
-            RedisData::Archived(user) => user.scores_first_count,
+            RedisData::Archive(user) => user.scores_first_count,
         };
 
         let top1s = WithComma::new(top1s).to_string().into();

@@ -10,4 +10,6 @@ regex = { version = "1.0" }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["cache", "metrics", "rkyv"] }
 time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1.20", default-features = false, features = ["parking_lot", "process"] }
-twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13", default-features = false }
+twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
+
+# twilight-model = { path = "../../twilight/twilight-model", default-features = false }

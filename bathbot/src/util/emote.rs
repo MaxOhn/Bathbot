@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use rosu_v2::prelude::GameMode;
 use twilight_http::request::channel::reaction::RequestReactionType;
-use twilight_model::{channel::ReactionType, id::Id};
+use twilight_model::{channel::message::ReactionType, id::Id};
 
 use crate::core::BotConfig;
 

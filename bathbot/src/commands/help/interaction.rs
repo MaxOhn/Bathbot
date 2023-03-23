@@ -8,12 +8,15 @@ use bathbot_util::{
     string_cmp::levenshtein_distance,
     CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
-use eyre::Result;
+use eyre::{ContextCompat, Result};
 use prometheus::core::Collector;
 use twilight_interactions::command::{
     ApplicationCommandData, AutocompleteValue, CommandModel, CreateCommand,
 };
-use twilight_model::{application::command::CommandOptionChoice, channel::embed::EmbedField};
+use twilight_model::{
+    application::command::{CommandOptionChoice, CommandOptionChoiceValue},
+    channel::message::embed::EmbedField,
+};
 
 use crate::{
     core::{
@@ -69,10 +72,10 @@ pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> R
             let choices = match (arg, SlashCommands::get().descendants(arg)) {
                 ("", _) | (_, None) => Vec::new(),
                 (_, Some(cmds)) => cmds
-                    .map(|cmd| CommandOptionChoice::String {
+                    .map(|cmd| CommandOptionChoice {
                         name: cmd.to_owned(),
                         name_localizations: None,
-                        value: cmd.to_owned(),
+                        value: CommandOptionChoiceValue::String(cmd.to_owned()),
                     })
                     .collect(),
             };
@@ -87,8 +90,10 @@ pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> R
 async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
     let id = ctx
         .cache
-        .current_user(|user| user.id)
-        .expect("missing CurrentUser in cache");
+        .current_user()
+        .await?
+        .wrap_err("Missing CurrentUser in cache")?
+        .id;
 
     let mention = format!("<@{id}>");
 
@@ -118,10 +123,12 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         value: format!("Try using this [**invite link**]({INVITE_LINK})"),
     };
 
+    let stats = ctx.cache.stats();
+
     let servers = EmbedField {
         inline: true,
         name: "Servers".to_owned(),
-        value: WithComma::new(ctx.cache.stats().guilds()).to_string(),
+        value: WithComma::new(stats.guilds + stats.unavailable_guilds).to_string(),
     };
 
     let boot_time = ctx.stats.start_time;
@@ -138,7 +145,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         value: format!("The source code can be found over at [github]({BATHBOT_GITHUB})"),
     };
 
-    let commands_used: usize = ctx.stats.command_counts.message_commands.collect()[0]
+    let commands_used: usize = ctx.stats.command_counts.prefix_commands.collect()[0]
         .get_metric()
         .iter()
         .map(|metrics| metrics.get_counter().get_value() as usize)

@@ -58,13 +58,13 @@ async fn async_main() -> Result<()> {
 
     let tuple = Context::new(member_tx.clone())
         .await
-        .context("failed to create ctx")?;
+        .context("Failed to create context")?;
 
     #[cfg(not(feature = "server"))]
-    let (ctx, events) = tuple;
+    let (ctx, mut shards) = tuple;
 
     #[cfg(feature = "server")]
-    let (ctx, events, server_tx) = tuple;
+    let (ctx, mut shards, server_tx) = tuple;
 
     let ctx = Arc::new(ctx);
 
@@ -77,13 +77,11 @@ async fn async_main() -> Result<()> {
     {
         interaction_client
             .set_global_commands(&slash_commands)
-            .exec()
             .await
-            .context("failed to set global commands")?;
+            .context("Failed to set global commands")?;
 
-        let guild_command_fut = interaction_client
-            .set_guild_commands(BotConfig::get().dev_guild, &[])
-            .exec();
+        let guild_command_fut =
+            interaction_client.set_guild_commands(BotConfig::get().dev_guild, &[]);
 
         if let Err(err) = guild_command_fut.await {
             let wrap = "Failed to remove guild commands";
@@ -95,11 +93,10 @@ async fn async_main() -> Result<()> {
     {
         interaction_client
             .set_guild_commands(BotConfig::get().dev_guild, &slash_commands)
-            .exec()
             .await
-            .context("failed to set guild commands")?;
+            .context("Failed to set guild commands")?;
 
-        let global_command_fut = interaction_client.set_global_commands(&[]).exec();
+        let global_command_fut = interaction_client.set_global_commands(&[]);
 
         if let Err(err) = global_command_fut.await {
             let wrap = "Failed to remove global commands";
@@ -151,18 +148,23 @@ async fn async_main() -> Result<()> {
             }
 
             interval.tick().await;
+
             let req = RequestGuildMembers::builder(guild_id).query("", None);
             trace!("Member request #{counter} for guild {guild_id}");
             counter += 1;
 
-            let command_result = member_ctx
-                .cluster
-                .command(shard_id, &req)
-                .await
-                .wrap_err_with(|| format!("failed to request members for guild {guild_id}"));
+            let command_res = match member_ctx.shard_senders.read().unwrap().get(&shard_id) {
+                Some(sender) => sender.command(&req),
+                None => {
+                    warn!("Missing sender for shard {shard_id}");
 
-            if let Err(err) = command_result {
-                warn!("{err:?}");
+                    continue;
+                }
+            };
+
+            if let Err(err) = command_res {
+                let wrap = format!("Failed to request members for guild {guild_id}");
+                warn!("{:?}", Report::new(err).wrap_err(wrap));
 
                 if let Err(err) = member_tx.send((guild_id, shard_id)) {
                     warn!("Failed to re-forward member request: {err}");
@@ -172,16 +174,12 @@ async fn async_main() -> Result<()> {
     });
 
     let event_ctx = Arc::clone(&ctx);
-    ctx.cluster.up().await;
 
     tokio::select! {
-        _ = event_loop(event_ctx, events) => error!("Event loop ended"),
+        _ = event_loop(event_ctx, &mut shards) => error!("Event loop ended"),
         res = signal::ctrl_c() => match res {
             Ok(_) => info!("Received Ctrl+C"),
-            Err(err) => {
-                let err = Report::new(err).wrap_err("Failed to await Ctrl+C");
-                error!("{err:?}");
-            }
+            Err(err) => error!("{:?}", Report::new(err).wrap_err("Failed to await Ctrl+C")),
         }
     }
 
@@ -206,11 +204,10 @@ async fn async_main() -> Result<()> {
         info!("Stopped match tracking in {count} channels");
     }
 
-    let resume_data = ctx.cluster.down_resumable();
+    let resume_data = Context::down_resumable(&mut shards).await;
 
-    if let Err(err) = ctx.cache.freeze(&ctx, resume_data).await {
-        let report = Report::new(err).wrap_err("Failed to freeze cache");
-        error!("{report:?}");
+    if let Err(err) = ctx.cache.freeze(&resume_data).await {
+        error!("{:?}", err.wrap_err("Failed to freeze cache"));
     }
 
     info!("Shutting down");

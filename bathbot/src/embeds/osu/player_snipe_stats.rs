@@ -8,7 +8,7 @@ use bathbot_util::{
 };
 use osu::{ComboFormatter, HitResultFormatter, PpFormatter};
 use rosu_v2::prelude::{GameMode, Score};
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
     core::Context,
@@ -135,7 +135,7 @@ impl PlayerSnipeStatsEmbed {
 
                 (user_id, country_code, avatar_url)
             }
-            RedisData::Archived(user) => {
+            RedisData::Archive(user) => {
                 let user_id = user.user_id;
                 let country_code = user.country_code.as_str();
                 let avatar_url = user.avatar_url.as_str();

@@ -5,7 +5,7 @@ use bathbot_model::ScraperScore;
 use bathbot_util::IntHasher;
 use rosu_pp::DifficultyAttributes;
 use rosu_v2::prelude::Username;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     core::Context,

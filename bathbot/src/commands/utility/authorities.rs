@@ -3,7 +3,7 @@ use std::{fmt::Write, sync::Arc};
 use bathbot_macros::command;
 use bathbot_psql::model::configs::{Authorities, GuildConfig};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
-use eyre::{Report, Result};
+use eyre::Result;
 use twilight_model::{
     guild::Permissions,
     id::{marker::RoleMarker, Id},
@@ -97,39 +97,41 @@ pub async fn authorities(
             if !(author_id == BotConfig::get().owner
                 || ctx
                     .cache
-                    .is_guild_owner(guild_id, author_id)
-                    .unwrap_or(false))
+                    .guild(guild_id)
+                    .await?
+                    .map_or(false, |guild| guild.owner_id == author_id))
             {
-                match ctx
-                    .cache
-                    .member(guild_id, author_id, |member| member.roles().to_owned())
-                {
-                    Ok(member_roles) => {
-                        let still_authority = member_roles
-                            .into_iter()
-                            .map(|role| ctx.cache.role(role, |role| (role.id, role.permissions)))
-                            .any(|role_result| match role_result {
-                                Ok((id, permissions)) => {
-                                    permissions.contains(Permissions::ADMINISTRATOR)
-                                        || roles
-                                            .iter()
-                                            .any(|&new| new == id.get() && new != role_id)
-                                }
-                                _ => false,
-                            });
+                let member_fut = ctx.cache.member(guild_id, author_id);
 
-                        if !still_authority {
-                            let content = "You cannot set authority roles to something \
-                                that would make you lose authority status.";
-
-                            return orig.error_callback(&ctx, content).await;
-                        }
-                    }
+                let member_roles = match member_fut.await {
+                    Ok(Some(member)) => member.roles.to_vec(),
+                    Ok(None) => Vec::new(),
                     Err(err) => {
                         let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(Report::new(err));
+                        return Err(err);
                     }
+                };
+
+                let still_authority = match ctx.cache.roles(guild_id, member_roles).await {
+                    Ok(cached_roles) => cached_roles.into_iter().any(|role| {
+                        let permissions = Permissions::from_bits_truncate(role.permissions);
+
+                        permissions.contains(Permissions::ADMINISTRATOR)
+                            || roles.iter().any(|&new| new == role.id && new != role_id)
+                    }),
+                    Err(err) => {
+                        let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(err);
+                    }
+                };
+
+                if !still_authority {
+                    let content = "You cannot set authority roles to something \
+                                that would make you lose authority status.";
+
+                    return orig.error_callback(&ctx, content).await;
                 }
             }
 
@@ -150,37 +152,41 @@ pub async fn authorities(
             if !(author_id == BotConfig::get().owner
                 || ctx
                     .cache
-                    .is_guild_owner(guild_id, author_id)
-                    .unwrap_or(false))
+                    .guild(guild_id)
+                    .await?
+                    .map_or(false, |guild| guild.owner_id == author_id))
             {
-                match ctx
-                    .cache
-                    .member(guild_id, author_id, |member| member.roles().to_owned())
-                {
-                    Ok(member_roles) => {
-                        let still_authority = member_roles
-                            .into_iter()
-                            .map(|role| ctx.cache.role(role, |role| (role.id, role.permissions)))
-                            .any(|role_result| match role_result {
-                                Ok((id, permissions)) => {
-                                    permissions.contains(Permissions::ADMINISTRATOR)
-                                        || roles.iter().any(|&new| new == id)
-                                }
-                                _ => false,
-                            });
+                let member_fut = ctx.cache.member(guild_id, author_id);
 
-                        if !still_authority {
-                            let content = "You cannot set authority roles to something \
-                                that would make you lose authority status.";
-
-                            return orig.error_callback(&ctx, content).await;
-                        }
-                    }
+                let member_roles = match member_fut.await {
+                    Ok(Some(member)) => member.roles.to_vec(),
+                    Ok(None) => Vec::new(),
                     Err(err) => {
                         let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(Report::new(err));
+                        return Err(err);
                     }
+                };
+
+                let still_authority = match ctx.cache.roles(guild_id, member_roles).await {
+                    Ok(cached_roles) => cached_roles.into_iter().any(|role| {
+                        let permissions = Permissions::from_bits_truncate(role.permissions);
+
+                        permissions.contains(Permissions::ADMINISTRATOR)
+                            || roles.iter().any(|&new| new == role.id)
+                    }),
+                    Err(err) => {
+                        let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(err);
+                    }
+                };
+
+                if !still_authority {
+                    let content = "You cannot set authority roles to something \
+                        that would make you lose authority status.";
+
+                    return orig.error_callback(&ctx, content).await;
                 }
             }
 

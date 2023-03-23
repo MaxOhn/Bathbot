@@ -5,7 +5,7 @@ use eyre::{ContextCompat, Report, Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::Receiver;
 use twilight_model::{
-    channel::embed::Embed,
+    channel::message::embed::Embed,
     id::{
         marker::{ChannelMarker, GuildMarker, MessageMarker, UserMarker},
         Id,

@@ -74,7 +74,7 @@ impl ScorePp {
 
         let player = match ranking {
             RedisData::Original(mut ranking) => UserCompact::from(ranking.ranking.swap_remove(idx)),
-            RedisData::Archived(ranking) => UserCompact::from(&ranking.ranking[idx]),
+            RedisData::Archive(ranking) => UserCompact::from(&ranking.ranking[idx]),
         };
 
         let mut plays = ctx

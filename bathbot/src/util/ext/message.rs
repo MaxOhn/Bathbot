@@ -1,4 +1,4 @@
-use std::slice;
+use std::{future::IntoFuture, slice};
 
 use bathbot_util::MessageBuilder;
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
@@ -60,12 +60,12 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
                 .expect("invalid components");
         }
 
-        Some(req.exec())
+        Some(req.into_future())
     }
 
     #[inline]
     fn delete<'l>(&'l self, ctx: &'l Context) -> ResponseFuture<EmptyBody> {
-        ctx.http.delete_message(self.1, self.0).exec()
+        ctx.http.delete_message(self.1, self.0).into_future()
     }
 }
 

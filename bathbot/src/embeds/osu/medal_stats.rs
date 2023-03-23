@@ -8,7 +8,7 @@ use bathbot_util::{
 };
 use hashbrown::HashMap;
 use rosu_v2::prelude::MedalCompact;
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
     embeds::attachment,
@@ -121,7 +121,7 @@ impl MedalStatsEmbed {
 
                 (country_code, username, user_id)
             }
-            RedisData::Archived(user) => {
+            RedisData::Archive(user) => {
                 let country_code = user.country_code.as_str();
                 let username = user.username.as_str();
                 let user_id = user.user_id;
@@ -167,7 +167,7 @@ impl Display for MedalUrl<'_> {
 }
 
 pub struct StatsMedal {
-    pub name: String,
+    pub name: Box<str>,
     pub group: MedalGroup,
     pub rarity: f32,
 }

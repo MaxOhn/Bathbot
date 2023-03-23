@@ -8,7 +8,7 @@ use bathbot_util::{
 };
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
-use twilight_model::channel::embed::{Embed, EmbedField};
+use twilight_model::channel::message::embed::{Embed, EmbedField};
 
 use crate::{commands::osu::MedalAchieved, manager::redis::RedisData};
 
@@ -30,12 +30,12 @@ impl MedalEmbed {
     ) -> Self {
         let mut fields = Vec::with_capacity(7);
 
-        fields![fields { "Description", medal.description, false }];
+        fields![fields { "Description", medal.description.into_string(), false }];
 
         if let Some(solution) = medal.solution.filter(|s| !s.is_empty()) {
             let solution = match solution.cow_replace("<br>", "") {
-                Cow::Owned(s) => s,
-                Cow::Borrowed(_) => solution,
+                Cow::Owned(solution) => solution,
+                Cow::Borrowed(_) => solution.into_string(),
             };
 
             fields![fields { "Solution", solution, false }];
@@ -106,8 +106,8 @@ impl MedalEmbed {
             fields![fields { "Top comment", value, false }];
         }
 
-        let title = medal.name;
-        let thumbnail = medal.icon_url;
+        let title = medal.name.into_string();
+        let thumbnail = medal.icon_url.into_string();
 
         let url = format!(
             "https://osekai.net/medals/?medal={}",
@@ -125,7 +125,7 @@ impl MedalEmbed {
 
                     (country_code, username, user_id)
                 }
-                RedisData::Archived(user) => {
+                RedisData::Archive(user) => {
                     let country_code = user.country_code.as_str();
                     let username = user.username.as_str();
                     let user_id = user.user_id;

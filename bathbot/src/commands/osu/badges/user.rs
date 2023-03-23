@@ -74,7 +74,7 @@ pub(super) async fn user(
 
             badges
         }
-        RedisData::Archived(badges) => badges
+        RedisData::Archive(badges) => badges
             .iter()
             .filter(|badge| badge.users.contains(&user_id_raw))
             .map(|badge| badge.deserialize(&mut Infallible).unwrap())
@@ -119,7 +119,7 @@ pub(super) async fn user(
         return Ok(());
     };
 
-    let urls = owners.iter().map(|owner| owner.avatar_url.as_str());
+    let urls = owners.iter().map(|owner| owner.avatar_url.as_ref());
 
     let bytes = if badges.len() == 1 {
         match get_combined_thumbnail(&ctx, urls, owners.len() as u32, Some(1024)).await {

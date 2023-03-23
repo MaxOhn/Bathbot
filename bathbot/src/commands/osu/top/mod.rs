@@ -827,7 +827,7 @@ pub(super) async fn top(
                         (entry.mapset_id, (entry, i < FARM_CUTOFF))
                     })
                     .collect::<Farm>(),
-                RedisData::Archived(stats) => stats
+                RedisData::Archive(stats) => stats
                     .mapset_count
                     .iter()
                     .map(|entry| entry.deserialize(&mut Infallible).unwrap())

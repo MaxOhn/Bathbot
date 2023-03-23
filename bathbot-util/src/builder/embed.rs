@@ -1,6 +1,6 @@
 use time::OffsetDateTime;
 use twilight_model::{
-    channel::embed::{Embed, EmbedAuthor, EmbedField, EmbedImage, EmbedThumbnail},
+    channel::message::embed::{Embed, EmbedAuthor, EmbedField, EmbedImage, EmbedThumbnail},
     util::Timestamp,
 };
 

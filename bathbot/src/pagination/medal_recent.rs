@@ -2,7 +2,7 @@ use bathbot_model::OsekaiMedal;
 use bathbot_util::IntHasher;
 use hashbrown::{hash_map::Entry, HashMap};
 use rosu_v2::prelude::MedalCompact;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::MedalAchieved,

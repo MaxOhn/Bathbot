@@ -3,9 +3,11 @@ use std::{
     sync::Arc,
 };
 
-use eyre::Result;
+use bathbot_cache::model::{CachedArchive, CachedGuild};
+use eyre::{Report, Result};
 use futures::StreamExt;
-use twilight_gateway::{cluster::Events, Event};
+use twilight_gateway::{error::ReceiveMessageErrorType, stream::ShardEventStream, Event, Shard};
+use twilight_model::{channel::Channel, gateway::CloseCode, user::User};
 
 use crate::util::Authored;
 
@@ -35,15 +37,18 @@ enum EventKind {
 }
 
 impl EventKind {
-    fn log(self, ctx: &Context, orig: &dyn Authored, name: &str) {
-        let location = EventLocation { ctx, orig };
+    async fn log<A>(self, ctx: &Context, orig: &A, name: &str)
+    where
+        A: Authored + Send + Sync,
+    {
+        fn log(kind: EventKind, location: &EventLocation, user: Result<&User>, name: &str) {
+            let username = user.map_or("<unknown user>", |u| u.name.as_str());
 
-        let username = orig
-            .user()
-            .map(|u| u.name.as_str())
-            .unwrap_or("<unknown user>");
+            info!("[{location}] {username} {kind} `{name}`");
+        }
 
-        info!("[{location}] {username} {self} `{name}`");
+        let location = EventLocation::new(ctx, orig).await;
+        log(self, &location, orig.user(), name);
     }
 }
 
@@ -60,241 +65,152 @@ impl Display for EventKind {
     }
 }
 
-struct EventLocation<'a> {
-    ctx: &'a Context,
-    orig: &'a dyn Authored,
+enum EventLocation {
+    Private,
+    UncachedGuild,
+    UncachedChannel {
+        guild: CachedArchive<CachedGuild<'static>>,
+    },
+    Cached {
+        guild: CachedArchive<CachedGuild<'static>>,
+        channel: CachedArchive<Channel>,
+    },
 }
 
-impl Display for EventLocation<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let guild = match self.orig.guild_id() {
-            Some(id) => id,
-            None => return f.write_str("Private"),
+impl EventLocation {
+    async fn new<A>(ctx: &Context, orig: &A) -> Self
+    where
+        A: Authored + Send + Sync,
+    {
+        let Some(guild_id) = orig.guild_id() else {
+            return Self::Private
         };
 
-        match self.ctx.cache.guild(guild, |g| write!(f, "{}:", g.name())) {
-            Ok(Ok(_)) => {
-                let channel_res = self.ctx.cache.channel(self.orig.channel_id(), |c| {
-                    f.write_str(c.name.as_deref().unwrap_or("<uncached channel>"))
-                });
+        let Ok(Some(guild)) = ctx.cache.guild(guild_id).await else {
+            return Self::UncachedGuild
+        };
 
-                match channel_res {
-                    Ok(Ok(_)) => Ok(()),
-                    Ok(err) => err,
-                    Err(_) => f.write_str("<uncached channel>"),
-                }
+        let Ok(Some(channel)) = ctx.cache.channel(Some(guild_id), orig.channel_id()).await else {
+            return Self::UncachedChannel { guild };
+        };
+
+        Self::Cached { guild, channel }
+    }
+}
+
+impl Display for EventLocation {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            EventLocation::Private => f.write_str("Private"),
+            EventLocation::UncachedGuild => f.write_str("<uncached guild>"),
+            EventLocation::UncachedChannel { guild } => {
+                write!(f, "{}:<uncached channel>", guild.name)
             }
-            Ok(err) => err,
-            Err(_) => f.write_str("<uncached guild>"),
+            EventLocation::Cached { guild, channel } => match channel.name.as_ref() {
+                Some(channel_name) => write!(f, "{}:{channel_name}", guild.name),
+                None => write!(f, "{}:<no channel name>", guild.name),
+            },
         }
     }
 }
 
-pub async fn event_loop(ctx: Arc<Context>, mut events: Events) {
-    while let Some((shard_id, event)) = events.next().await {
-        ctx.cache.update(&event);
-        ctx.standby.process(&event);
-        let ctx = Arc::clone(&ctx);
+pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>) {
+    // restarts event loop in case the bot was instructed to reshard
+    'reshard_loop: loop {
+        let mut stream = ShardEventStream::new(shards.iter_mut());
 
-        tokio::spawn(async move {
-            let handle_fut = handle_event(ctx, event, shard_id);
+        // actual event loop
+        'event_loop: loop {
+            let err = match stream.next().await {
+                Some((shard, Ok(event))) => {
+                    ctx.standby.process(&event);
+                    let change = ctx.cache.update(&event).await;
+                    ctx.stats.process(&event, change);
+                    let ctx = Arc::clone(&ctx);
+                    let shard_id = shard.id().number();
 
-            if let Err(err) = handle_fut.await {
-                error!("{:?}", err.wrap_err("failed to handle event"));
+                    tokio::spawn(async move {
+                        if let Err(err) = handle_event(ctx, event, shard_id).await {
+                            error!("{:?}", err.wrap_err("Failed to handle event"));
+                        }
+                    });
+
+                    continue 'event_loop;
+                }
+                Some((_, Err(err))) => err,
+                None => return,
+            };
+
+            // cannot be handled inside the previous `match` due to NLL
+            // https://github.com/rust-lang/rust/issues/43234
+            let is_fatal = err.is_fatal();
+
+            let must_reshard = matches!(
+                err.kind(),
+                ReceiveMessageErrorType::FatallyClosed {
+                    close_code: CloseCode::ShardingRequired
+                }
+            );
+
+            error!("{:?}", Report::new(err).wrap_err("Event error"));
+
+            if must_reshard {
+                drop(stream);
+
+                if let Err(err) = ctx.reshard(shards).await {
+                    return error!("{err:?}");
+                }
+
+                continue 'reshard_loop;
+            } else if is_fatal {
+                return;
             }
-        });
+        }
     }
 }
 
 async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<()> {
     match event {
-        Event::AutoModerationActionExecution(_) => {}
-        Event::AutoModerationRuleCreate(_) => {}
-        Event::AutoModerationRuleDelete(_) => {}
-        Event::AutoModerationRuleUpdate(_) => {}
-        Event::BanAdd(_) => {}
-        Event::BanRemove(_) => {}
-        Event::ChannelCreate(_) => ctx.stats.event_counts.channel_create.inc(),
-        Event::ChannelDelete(_) => ctx.stats.event_counts.channel_delete.inc(),
-        Event::ChannelPinsUpdate(_) => {}
-        Event::ChannelUpdate(_) => ctx.stats.event_counts.channel_update.inc(),
-        Event::CommandPermissionsUpdate(_) => {}
-        Event::GatewayHeartbeat(_) => {}
-        Event::GatewayHeartbeatAck => {}
-        Event::GatewayHello(_) => {}
-        Event::GatewayInvalidateSession(reconnect) => {
-            ctx.stats.event_counts.gateway_invalidate.inc();
-
-            if reconnect {
-                warn!(
-                    "Gateway has invalidated session for shard {shard_id}, but its reconnectable"
-                );
-            } else {
-                warn!("Gateway has invalidated session for shard {shard_id}");
-            }
+        Event::GatewayClose(Some(frame)) => {
+            warn!(
+                "Received closing frame for shard {shard_id}: reason={} (code {})",
+                frame.reason, frame.code,
+            )
+        }
+        Event::GatewayClose(None) => {
+            warn!("Received closing frame for shard {shard_id}")
+        }
+        Event::GatewayInvalidateSession(true) => {
+            warn!("Gateway has invalidated session for shard {shard_id}, but its reconnectable")
+        }
+        Event::GatewayInvalidateSession(false) => {
+            warn!("Gateway has invalidated session for shard {shard_id}")
         }
         Event::GatewayReconnect => {
-            info!("Gateway requested shard {shard_id} to reconnect");
-            ctx.stats.event_counts.gateway_reconnect.inc();
+            info!("Gateway requested shard {shard_id} to reconnect")
         }
-        Event::GiftCodeUpdate => {}
         Event::GuildCreate(e) => {
             ctx.guild_shards().pin().insert(e.id, shard_id);
-            ctx.stats.event_counts.guild_create.inc();
             ctx.member_requests.todo_guilds.lock().insert(e.id);
 
             if let Err(err) = ctx.member_requests.tx.send((e.id, shard_id)) {
                 warn!("Failed to forward member request: {err}");
             }
-
-            let stats = ctx.cache.stats();
-            ctx.stats.cache_counts.guilds.set(stats.guilds() as i64);
-            ctx.stats
-                .cache_counts
-                .unavailable_guilds
-                .set(stats.unavailable_guilds() as i64);
-            ctx.stats.cache_counts.members.set(stats.members() as i64);
-            ctx.stats.cache_counts.users.set(stats.users() as i64);
-            ctx.stats.cache_counts.roles.set(stats.roles() as i64);
         }
-        Event::GuildDelete(_) => {
-            ctx.stats.event_counts.guild_delete.inc();
-
-            let stats = ctx.cache.stats();
-            ctx.stats.cache_counts.guilds.set(stats.guilds() as i64);
-            ctx.stats
-                .cache_counts
-                .unavailable_guilds
-                .set(stats.unavailable_guilds() as i64);
-            ctx.stats.cache_counts.members.set(stats.members() as i64);
-            ctx.stats.cache_counts.users.set(stats.users() as i64);
-            ctx.stats.cache_counts.roles.set(stats.roles() as i64);
-        }
-        Event::GuildEmojisUpdate(_) => {}
-        Event::GuildIntegrationsUpdate(_) => {}
-        Event::GuildScheduledEventCreate(_) => {}
-        Event::GuildScheduledEventDelete(_) => {}
-        Event::GuildScheduledEventUpdate(_) => {}
-        Event::GuildScheduledEventUserAdd(_) => {}
-        Event::GuildScheduledEventUserRemove(_) => {}
-        Event::GuildStickersUpdate(_) => {}
-        Event::GuildUpdate(_) => ctx.stats.event_counts.guild_update.inc(),
-        Event::IntegrationCreate(_) => {}
-        Event::IntegrationDelete(_) => {}
-        Event::IntegrationUpdate(_) => {}
-        Event::InteractionCreate(e) => {
-            ctx.stats.event_counts.interaction_create.inc();
-
-            handle_interaction(ctx, e.0).await
-        }
-        Event::InviteCreate(_) => {}
-        Event::InviteDelete(_) => {}
-        Event::MemberAdd(_) => {
-            ctx.stats.event_counts.member_add.inc();
-
-            let stats = ctx.cache.stats();
-            ctx.stats.cache_counts.members.set(stats.members() as i64);
-            ctx.stats.cache_counts.users.set(stats.users() as i64);
-        }
-        Event::MemberRemove(_) => {
-            ctx.stats.event_counts.member_remove.inc();
-
-            let stats = ctx.cache.stats();
-            ctx.stats.cache_counts.members.set(stats.members() as i64);
-            ctx.stats.cache_counts.users.set(stats.users() as i64);
-        }
-        Event::MemberUpdate(_) => ctx.stats.event_counts.member_update.inc(),
-        Event::MemberChunk(_) => ctx.stats.event_counts.member_chunk.inc(),
-        Event::MessageCreate(msg) => {
-            ctx.stats.event_counts.message_create.inc();
-
-            if !msg.author.bot {
-                ctx.stats.message_counts.user_messages.inc()
-            } else if ctx.cache.is_own(&msg).await {
-                ctx.stats.message_counts.own_messages.inc()
-            } else {
-                ctx.stats.message_counts.other_bot_messages.inc()
-            }
-
-            handle_message(ctx, msg.0).await;
-        }
-        Event::MessageDelete(msg) => {
-            ctx.stats.event_counts.message_delete.inc();
-            ctx.remove_msg(msg.id);
+        Event::InteractionCreate(e) => handle_interaction(ctx, e.0).await,
+        Event::MessageCreate(msg) => handle_message(ctx, msg.0).await,
+        Event::MessageDelete(e) => {
+            ctx.remove_msg(e.id);
         }
         Event::MessageDeleteBulk(msgs) => {
-            ctx.stats.event_counts.message_delete_bulk.inc();
-
             for id in msgs.ids.into_iter() {
                 ctx.remove_msg(id);
             }
         }
-        Event::MessageUpdate(_) => ctx.stats.event_counts.message_update.inc(),
-        Event::PresenceUpdate(_) => {}
-        Event::PresencesReplace => {}
-        Event::ReactionAdd(_) => {}
-        Event::ReactionRemove(_) => {}
-        Event::ReactionRemoveAll(_) => {}
-        Event::ReactionRemoveEmoji(_) => {}
-        Event::Ready(_) => {
-            info!("Shard {shard_id} is ready");
-
-            let stats = ctx.cache.stats();
-            ctx.stats.cache_counts.guilds.set(stats.guilds() as i64);
-            ctx.stats
-                .cache_counts
-                .unavailable_guilds
-                .set(stats.unavailable_guilds() as i64);
-            ctx.stats.cache_counts.members.set(stats.members() as i64);
-            ctx.stats.cache_counts.users.set(stats.users() as i64);
-            ctx.stats.cache_counts.roles.set(stats.roles() as i64);
-        }
+        Event::Ready(_) => info!("Shard {shard_id} is ready"),
         Event::Resumed => info!("Shard {shard_id} is resumed"),
-        Event::RoleCreate(_) => {
-            ctx.stats.event_counts.role_create.inc();
-            ctx.stats
-                .cache_counts
-                .roles
-                .set(ctx.cache.stats().roles() as i64);
-        }
-        Event::RoleDelete(_) => {
-            ctx.stats.event_counts.role_delete.inc();
-            ctx.stats
-                .cache_counts
-                .roles
-                .set(ctx.cache.stats().roles() as i64);
-        }
-        Event::RoleUpdate(_) => ctx.stats.event_counts.role_update.inc(),
-        Event::ShardConnected(_) => info!("Shard {shard_id} is connected"),
-        Event::ShardConnecting(_) => info!("Shard {shard_id} is connecting..."),
-        Event::ShardDisconnected(_) => info!("Shard {shard_id} is disconnected"),
-        Event::ShardIdentifying(_) => info!("Shard {shard_id} is identifying..."),
-        Event::ShardReconnecting(_) => info!("Shard {shard_id} is reconnecting..."),
-        Event::ShardPayload(_) => {}
-        Event::ShardResuming(_) => info!("Shard {shard_id} is resuming..."),
-        Event::StageInstanceCreate(_) => {}
-        Event::StageInstanceDelete(_) => {}
-        Event::StageInstanceUpdate(_) => {}
-        Event::ThreadCreate(_) => {}
-        Event::ThreadDelete(_) => {}
-        Event::ThreadListSync(_) => {}
-        Event::ThreadMemberUpdate(_) => {}
-        Event::ThreadMembersUpdate(_) => {}
-        Event::ThreadUpdate(_) => {}
-        Event::TypingStart(_) => {}
-        Event::UnavailableGuild(_) => {
-            ctx.stats.event_counts.unavailable_guild.inc();
-
-            ctx.stats
-                .cache_counts
-                .unavailable_guilds
-                .set(ctx.cache.stats().unavailable_guilds() as i64);
-        }
-        Event::UserUpdate(_) => ctx.stats.event_counts.user_update.inc(),
-        Event::VoiceServerUpdate(_) => {}
-        Event::VoiceStateUpdate(_) => {}
-        Event::WebhooksUpdate(_) => {}
+        _ => {}
     }
 
     Ok(())

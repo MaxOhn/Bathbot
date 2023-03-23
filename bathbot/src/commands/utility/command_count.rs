@@ -29,7 +29,7 @@ async fn prefix_commands(ctx: Arc<Context>, msg: &Message) -> Result<()> {
 }
 
 async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
-    let mut cmds: Vec<_> = ctx.stats.command_counts.message_commands.collect()[0]
+    let mut cmds: Vec<_> = ctx.stats.command_counts.prefix_commands.collect()[0]
         .get_metric()
         .iter()
         .map(|metric| {

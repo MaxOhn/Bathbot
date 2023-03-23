@@ -4,7 +4,7 @@ use bathbot_macros::pagination;
 use bathbot_model::{OsuStatsParams, ScoreSlim};
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMode, Grade, ScoreStatistics};
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::OsuStatsEntry,

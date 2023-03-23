@@ -1,5 +1,8 @@
 use twilight_model::{
-    application::component::{text_input::TextInputStyle, ActionRow, Component, TextInput},
+    channel::message::{
+        component::{ActionRow, TextInput, TextInputStyle},
+        Component,
+    },
     http::interaction::InteractionResponseData,
 };
 

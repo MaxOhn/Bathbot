@@ -640,7 +640,7 @@ impl<'u> UserData<'u> {
                 medals: user.medals.len(),
                 badges: user.badges.len(),
             },
-            RedisData::Archived(user) => {
+            RedisData::Archive(user) => {
                 let stats: UserStatistics = user
                     .statistics
                     .as_ref()

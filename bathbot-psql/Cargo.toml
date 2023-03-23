@@ -15,12 +15,15 @@ rkyv = { version = "0.7" }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", default-features = false, features = ["rkyv"] }
 rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next" }
 smallvec = { version = "1.10" }
+sqlx = { version = "0.6", default-features = false, features = ["json", "macros", "postgres", "runtime-tokio-rustls", "time"] }
 time = { version = "0.3" }
 tokio = { version = "1.20", default-features = false, features = ["io-util", "time"] }
 tracing = { version = "0.1" }
-twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv-13", default-features = false, features = ["derive"] }
-twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13", default-features = false }
-sqlx = { version = "0.6", default-features = false, features = ["json", "macros", "postgres", "runtime-tokio-rustls", "time"] }
+twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv-15", default-features = false, features = ["derive"] }
+twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-15", default-features = false }
+
+# twilight-interactions = { path = "../../twilight-interactions/twilight-interactions", default-features = false, features = ["derive"] }
+# twilight-model = { path = "../../twilight/twilight-model", default-features = false }
 
 [dev-dependencies]
 dotenvy = { version = "0.15" }

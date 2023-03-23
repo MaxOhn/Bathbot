@@ -14,7 +14,7 @@ use rosu_pp::{AnyPP, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Username};
 use time::OffsetDateTime;
 use twilight_model::{
-    channel::embed::EmbedField,
+    channel::message::embed::EmbedField,
     id::{
         marker::{ChannelMarker, GuildMarker},
         Id,
@@ -323,7 +323,7 @@ async fn creator_name<'m>(
 
     match ctx.redis().osu_user(args).await {
         Ok(RedisData::Original(user)) => Some(user.username),
-        Ok(RedisData::Archived(user)) => {
+        Ok(RedisData::Archive(user)) => {
             Some(UsernameWrapper::deserialize_with(&user.username, &mut Infallible).unwrap())
         }
         Err(err) => {

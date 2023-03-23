@@ -8,7 +8,7 @@ use bathbot_util::{
 use eyre::{ContextCompat, Result, WrapErr};
 use hashbrown::hash_map::Entry;
 use rosu_v2::prelude::GameMode;
-use twilight_model::channel::embed::{Embed, EmbedField};
+use twilight_model::channel::message::embed::{Embed, EmbedField};
 
 use crate::{
     core::Context,

@@ -311,7 +311,7 @@ impl<'d> MapManager<'d> {
     ) -> Result<(Beatmap, Option<OsuMapSlim>)> {
         match filename {
             DbMapFilename::Present(filename) => {
-                map_path.push(filename);
+                map_path.push(filename.as_ref());
 
                 let res = match Beatmap::from_path(&*map_path).await {
                     Ok(map) => Ok((map, None)),

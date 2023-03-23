@@ -261,7 +261,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
 
     let (mapper_name, mapper_id) = match &mapper {
         RedisData::Original(mapper) => (mapper.username.as_str(), mapper.user_id),
-        RedisData::Archived(mapper) => (mapper.username.as_str(), mapper.user_id),
+        RedisData::Archive(mapper) => (mapper.username.as_str(), mapper.user_id),
     };
 
     let username = user.username();

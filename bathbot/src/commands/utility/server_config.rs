@@ -3,16 +3,9 @@ use std::sync::Arc;
 use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use bathbot_util::constants::GENERAL_ISSUE;
-use eyre::{Report, Result};
-use twilight_cache_inmemory::model::CachedGuild;
+use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    id::{
-        marker::{GuildMarker, RoleMarker},
-        Id,
-    },
-    util::ImageHash,
-};
+use twilight_model::id::{marker::RoleMarker, Id};
 
 use crate::{
     commands::{EnableDisable, ShowHideOption},
@@ -22,23 +15,6 @@ use crate::{
 };
 
 use super::AuthorityCommandKind;
-
-pub struct GuildData {
-    pub icon: Option<ImageHash>,
-    pub id: Id<GuildMarker>,
-    pub name: String,
-}
-
-impl From<&CachedGuild> for GuildData {
-    #[inline]
-    fn from(guild: &CachedGuild) -> Self {
-        Self {
-            icon: guild.icon().map(ImageHash::to_owned),
-            id: guild.id(),
-            name: guild.name().to_owned(),
-        }
-    }
-}
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "serverconfig", dm_permission = false)]
@@ -164,12 +140,18 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
 
     let guild_id = command.guild_id.unwrap();
 
-    let guild = match ctx.cache.guild(guild_id, |guild| guild.into()) {
-        Ok(guild) => guild,
+    let guild = match ctx.cache.guild(guild_id).await {
+        Ok(Some(guild)) => guild,
+        Ok(None) => {
+            warn!("Missing guild {guild_id} in cache");
+            command.error(&ctx, GENERAL_ISSUE).await?;
+
+            return Ok(());
+        }
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(Report::new(err));
+            return Err(err);
         }
     };
 
@@ -231,8 +213,8 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
     let mut authorities = Vec::with_capacity(config.authorities.len());
 
     for &role in config.authorities.iter() {
-        if let Ok(name) = ctx.cache.role(role, |role| role.name.to_owned()) {
-            authorities.push(name);
+        if let Ok(Some(role)) = ctx.cache.role(guild_id, role).await {
+            authorities.push(role.name.as_str().to_owned());
         }
     }
 

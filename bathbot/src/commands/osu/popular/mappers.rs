@@ -22,7 +22,7 @@ pub(super) async fn mappers(ctx: Arc<Context>, mut command: InteractionCommand) 
 
             counts
         }
-        Ok(RedisData::Archived(stats)) => {
+        Ok(RedisData::Archive(stats)) => {
             let counts = &stats.mapper_count;
             let slice = &counts[..counts.len().min(LIMIT)];
 

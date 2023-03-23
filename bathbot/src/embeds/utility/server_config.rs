@@ -1,11 +1,10 @@
 use std::fmt::Write;
 
+use bathbot_cache::model::{CachedArchive, CachedGuild};
 use bathbot_macros::EmbedData;
 use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use bathbot_util::AuthorBuilder;
-use twilight_model::channel::embed::EmbedField;
-
-use crate::commands::utility::GuildData;
+use twilight_model::channel::message::embed::EmbedField;
 
 use super::config::create_field;
 
@@ -19,10 +18,14 @@ pub struct ServerConfigEmbed {
 }
 
 impl ServerConfigEmbed {
-    pub fn new(guild: GuildData, config: GuildConfig, authorities: &[String]) -> Self {
-        let mut author = AuthorBuilder::new(guild.name);
+    pub fn new(
+        guild: CachedArchive<CachedGuild<'static>>,
+        config: GuildConfig,
+        authorities: &[String],
+    ) -> Self {
+        let mut author = AuthorBuilder::new(guild.name.get());
 
-        if let Some(ref hash) = guild.icon {
+        if let Some(hash) = guild.icon.as_ref() {
             let url = format!(
                 "https://cdn.discordapp.com/icons/{}/{hash}.{}",
                 guild.id,

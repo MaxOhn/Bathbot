@@ -23,7 +23,7 @@ pub(super) async fn maps(
 
     let entries: Vec<OsuTrackerPpEntry> = match ctx.redis().osutracker_pp_group(pp).await {
         Ok(RedisData::Original(group)) => group.list,
-        Ok(RedisData::Archived(group)) => group.list.deserialize(&mut Infallible).unwrap(),
+        Ok(RedisData::Archive(group)) => group.list.deserialize(&mut Infallible).unwrap(),
         Err(err) => {
             let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 

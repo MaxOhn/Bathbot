@@ -12,7 +12,7 @@ use bathbot_util::{
 use eyre::{Result, WrapErr};
 use rkyv::{Deserialize, Infallible};
 use twilight_interactions::command::AutocompleteValue;
-use twilight_model::application::command::CommandOptionChoice;
+use twilight_model::application::command::{CommandOptionChoice, CommandOptionChoiceValue};
 
 use crate::{
     core::commands::CommandOrigin,
@@ -88,7 +88,7 @@ pub(super) async fn info(
             Some(idx) => original.swap_remove(idx),
             None => return no_medal(&ctx, &orig, name.as_ref(), medals).await,
         },
-        RedisData::Archived(ref archived) => {
+        RedisData::Archive(ref archived) => {
             match archived
                 .iter()
                 .position(|m| m.name.to_ascii_lowercase() == name)
@@ -148,7 +148,7 @@ async fn no_medal(
                 (levenshtein_similarity(name, &medal), medal)
             })
             .collect(),
-        RedisData::Archived(archived) => archived
+        RedisData::Archive(archived) => archived
             .iter()
             .map(|medal| {
                 let medal = medal.name.to_ascii_lowercase();
@@ -215,7 +215,7 @@ pub async fn handle_autocomplete(
                 }
             }
         }
-        RedisData::Archived(archived) => {
+        RedisData::Archive(archived) => {
             for medal in archived.iter() {
                 if medal.name.to_ascii_lowercase().starts_with(name) {
                     choices.push(new_choice(&medal.name));
@@ -234,9 +234,9 @@ pub async fn handle_autocomplete(
 }
 
 fn new_choice(name: &str) -> CommandOptionChoice {
-    CommandOptionChoice::String {
+    CommandOptionChoice {
         name: name.to_owned(),
         name_localizations: None,
-        value: name.to_owned(),
+        value: CommandOptionChoiceValue::String(name.to_owned()),
     }
 }

@@ -8,7 +8,7 @@ use bathbot_util::{
 };
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Grade, Team, Username};
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
     commands::osu::{

@@ -20,28 +20,28 @@ pub struct OsuStatsPlayer {
     pub username: Username,
 }
 
-#[derive(Deserialize)]
-struct Outer {
-    #[serde(rename = "userId")]
-    user_id: u32,
-    count: String,
-    #[serde(rename = "osu_user")]
-    user: Inner,
-}
-
-#[derive(serde::Deserialize)]
-pub struct Inner {
-    #[serde(rename = "userName")]
-    username: Username,
-}
-
 impl<'de> Deserialize<'de> for OsuStatsPlayer {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        #[derive(serde::Deserialize)]
+        pub struct Inner {
+            #[serde(rename = "userName")]
+            username: Username,
+        }
+
+        #[derive(Deserialize)]
+        struct Outer<'a> {
+            #[serde(rename = "userId")]
+            user_id: u32,
+            count: &'a str,
+            #[serde(rename = "osu_user")]
+            user: Inner,
+        }
+
         let helper = Outer::deserialize(d)?;
 
         Ok(OsuStatsPlayer {
             user_id: helper.user_id,
-            count: u32::from_str(&helper.count).map_err(D::Error::custom)?,
+            count: u32::from_str(helper.count).map_err(D::Error::custom)?,
             username: helper.user.username,
         })
     }
@@ -116,12 +116,12 @@ pub struct OsuStatsMap {
     #[serde(rename = "totalLength")]
     pub seconds_total: u32,
     pub mode: GameMode,
-    pub version: String,
-    pub artist: String,
-    pub title: String,
+    pub version: Box<str>,
+    pub artist: Box<str>,
+    pub title: Box<str>,
     pub creator: Username,
     pub bpm: f32,
-    pub source: String,
+    // pub source: Box<str>,
     #[serde(rename = "diffRating", with = "deser::option_f32_string")]
     pub stars: Option<f32>,
     #[serde(rename = "diffSize", with = "deser::f32_string")]

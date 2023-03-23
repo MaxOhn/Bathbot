@@ -523,7 +523,7 @@ async fn handle_no_links(
 
         #[cfg(not(feature = "twitch"))]
         {
-            twitch_name = Some("?".to_owned());
+            twitch_name = Some(Box::from("?"));
         }
     }
 
@@ -579,7 +579,7 @@ async fn convert_config(
 }
 
 enum HandleResult {
-    TwitchName(Option<String>),
+    TwitchName(Option<Box<str>>),
     #[allow(unused)]
     Done,
     Err(Report),

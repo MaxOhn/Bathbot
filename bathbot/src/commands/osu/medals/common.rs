@@ -259,7 +259,7 @@ pub(super) async fn common(
                                 .into_iter()
                                 .map(|entry| (entry.medal_id, entry.possession_percent))
                                 .collect(),
-                            RedisData::Archived(rarities) => rarities
+                            RedisData::Archive(rarities) => rarities
                                 .iter()
                                 .map(|entry| (entry.medal_id, entry.possession_percent))
                                 .collect(),
@@ -310,12 +310,12 @@ pub(super) async fn common(
 
     let username1 = match user1 {
         RedisData::Original(user) => user.username,
-        RedisData::Archived(user) => user.username.as_str().into(),
+        RedisData::Archive(user) => user.username.as_str().into(),
     };
 
     let username2 = match user2 {
         RedisData::Original(user) => user.username,
-        RedisData::Archived(user) => user.username.as_str().into(),
+        RedisData::Archive(user) => user.username.as_str().into(),
     };
 
     let user1 = MedalsCommonUser::new(username1, winner1);
@@ -343,7 +343,7 @@ fn extract_medals(user: &RedisData<User>) -> HashMap<u32, OffsetDateTime, IntHas
             .iter()
             .map(|medal| (medal.medal_id, medal.achieved_at))
             .collect(),
-        RedisData::Archived(user) => user
+        RedisData::Archive(user) => user
             .medals
             .iter()
             .map(|medal| {

@@ -111,9 +111,9 @@ FROM
 
         let filepath = match (row.map_filepath, checksum) {
             (Some(path), Some(checksum)) if row.checksum == checksum => {
-                DbMapFilename::Present(path)
+                DbMapFilename::Present(path.into_boxed_str())
             }
-            (Some(path), None) => DbMapFilename::Present(path),
+            (Some(path), None) => DbMapFilename::Present(path.into_boxed_str()),
             (Some(_), Some(_)) => DbMapFilename::ChecksumMismatch,
             (None, _) => DbMapFilename::Missing,
         };
@@ -217,9 +217,9 @@ FROM
 
             let filepath = match (row.map_filepath, checksum) {
                 (Some(path), Some(&checksum)) if row.checksum == checksum => {
-                    DbMapFilename::Present(path)
+                    DbMapFilename::Present(path.into_boxed_str())
                 }
-                (Some(path), None) => DbMapFilename::Present(path),
+                (Some(path), None) => DbMapFilename::Present(path.into_boxed_str()),
                 (Some(_), Some(_)) => DbMapFilename::ChecksumMismatch,
                 (None, _) => DbMapFilename::Missing,
             };
@@ -338,7 +338,7 @@ WHERE
         Ok(attrs)
     }
 
-    pub async fn select_beatmap_file(&self, map_id: u32) -> Result<Option<String>> {
+    pub async fn select_beatmap_file(&self, map_id: u32) -> Result<Option<Box<str>>> {
         let query = sqlx::query!(
             r#"
 SELECT 
@@ -354,7 +354,7 @@ WHERE
             .fetch_optional(self)
             .await
             .wrap_err("failed to fetch optional")
-            .map(|row_opt| row_opt.map(|row| row.map_filepath))
+            .map(|row_opt| row_opt.map(|row| row.map_filepath.into_boxed_str()))
     }
 
     pub async fn select_map_versions_by_map_id(&self, map_id: u32) -> Result<Vec<MapVersion>> {

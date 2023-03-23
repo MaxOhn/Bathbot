@@ -27,7 +27,7 @@ pub(super) async fn mapsets(ctx: Arc<Context>, mut command: InteractionCommand) 
 
             stats.mapset_count
         }
-        Ok(RedisData::Archived(stats)) => {
+        Ok(RedisData::Archive(stats)) => {
             let counts = &stats.mapset_count;
             let slice = &counts[..counts.len().min(COUNTS_LEN)];
 

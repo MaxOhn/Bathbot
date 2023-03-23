@@ -47,7 +47,7 @@ pub async fn snipe_count_graph(
 
             (country_code, username, user_id)
         }
-        RedisData::Archived(user) => {
+        RedisData::Archive(user) => {
             let country_code = user.country_code.as_str();
             let username = user.username.as_str();
             let user_id = user.user_id;

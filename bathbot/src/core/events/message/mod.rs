@@ -11,7 +11,7 @@ use twilight_model::{channel::Message, guild::Permissions};
 use crate::{
     core::{
         buckets::BucketName,
-        commands::checks::{check_authority, check_ratelimit},
+        commands::checks::{check_authority, check_channel_permissions, check_ratelimit},
         Context,
     },
     util::ChannelExt,
@@ -58,7 +58,7 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
     };
 
     let name = invoke.cmd.name();
-    EventKind::PrefixCommand.log(&ctx, &msg, name);
+    EventKind::PrefixCommand.log(&ctx, &msg, name).await;
     ctx.stats.increment_message_command(name);
 
     match process_command(ctx, invoke, &msg).await {
@@ -92,17 +92,17 @@ async fn process_command<'m>(
     let channel = msg.channel_id;
 
     // Does bot have sufficient permissions to send response in a guild?
-    let permissions = if let Some(guild) = msg.guild_id {
-        let user = ctx.cache.current_user(|user| user.id)?;
-        let permissions = ctx.cache.get_channel_permissions(user, channel, guild);
+    let permissions = match (msg.guild_id, ctx.cache.current_user().await) {
+        (Some(guild), Ok(Some(user))) => {
+            let permissions = check_channel_permissions(&ctx.cache, user.id, channel, guild).await;
 
-        if !permissions.contains(Permissions::SEND_MESSAGES) {
-            return Ok(ProcessResult::NoSendPermission);
+            if !permissions.contains(Permissions::SEND_MESSAGES) {
+                return Ok(ProcessResult::NoSendPermission);
+            }
+
+            Some(permissions)
         }
-
-        Some(permissions)
-    } else {
-        None
+        _ => None,
     };
 
     // Ratelimited?
@@ -155,7 +155,7 @@ async fn process_command<'m>(
 
     // Broadcast typing event
     if cmd.flags.defer() {
-        let _ = ctx.http.create_typing_trigger(channel).exec().await;
+        let _ = ctx.http.create_typing_trigger(channel).await;
     }
 
     // Call command function

@@ -7,11 +7,7 @@ use tokio::{
     time::sleep,
 };
 use twilight_model::{
-    application::component::{
-        button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
-        SelectMenu,
-    },
-    channel::embed::Embed,
+    channel::message::embed::Embed,
     id::{
         marker::{ChannelMarker, MessageMarker, UserMarker},
         Id,
@@ -385,6 +381,11 @@ impl PaginationBuilder {
 }
 
 mod pages {
+    use twilight_model::channel::message::{
+        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
+        Component,
+    };
+
     use super::*;
 
     #[derive(Clone, Debug)]

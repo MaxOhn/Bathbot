@@ -12,11 +12,14 @@ use rosu_v2::prelude::GameMode;
 use twilight_http::{api_error::ApiError, error::ErrorType};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
-    application::component::{
-        button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
-        SelectMenu,
+    channel::{
+        message::{
+            component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
+            Component,
+        },
+        thread::AutoArchiveDuration,
+        ChannelType,
     },
-    channel::{thread::AutoArchiveDuration, ChannelType},
     guild::Permissions,
 };
 
@@ -221,7 +224,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
             return Ok(());
         }
 
-        let kind = ChannelType::GuildPublicThread;
+        let kind = ChannelType::PublicThread;
         let archive_dur = AutoArchiveDuration::Day;
         let thread_name = format!("Background guessing game of {}", author_user.name);
 
@@ -229,8 +232,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
             .http
             .create_thread(channel, &thread_name, kind)
             .unwrap()
-            .auto_archive_duration(archive_dur)
-            .exec();
+            .auto_archive_duration(archive_dur);
 
         match create_fut.await {
             Ok(res) => channel = res.model().await?.id,

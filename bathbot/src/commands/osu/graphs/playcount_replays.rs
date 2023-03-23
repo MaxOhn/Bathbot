@@ -174,7 +174,7 @@ async fn gather_badges(
 ) -> Result<Vec<Bytes>> {
     let badges = match user {
         RedisData::Original(user) => mem::take(&mut user.badges),
-        RedisData::Archived(user) => user.badges.deserialize(&mut Infallible).unwrap(),
+        RedisData::Archive(user) => user.badges.deserialize(&mut Infallible).unwrap(),
     };
 
     if badges.is_empty() || !flags.badges() {
@@ -561,7 +561,7 @@ fn prepare_monthly_counts(
 ) -> (Vec<MonthlyCount>, Vec<MonthlyCount>) {
     let mut playcounts = match user {
         RedisData::Original(user) => mem::take(&mut user.monthly_playcounts),
-        RedisData::Archived(user) => user
+        RedisData::Archive(user) => user
             .monthly_playcounts
             .deserialize(&mut Infallible)
             .unwrap(),
@@ -569,7 +569,7 @@ fn prepare_monthly_counts(
 
     let mut replays = match user {
         RedisData::Original(user) => mem::take(&mut user.replays_watched_counts),
-        RedisData::Archived(user) => user
+        RedisData::Archive(user) => user
             .replays_watched_counts
             .deserialize(&mut Infallible)
             .unwrap(),

@@ -259,7 +259,7 @@ async fn filter_scores(
 }
 
 pub struct OsuTrackerCountryDetailsCompact {
-    pub country: String,
+    pub country: Box<str>,
     pub code: rosu_v2::prelude::CountryCode,
     pub pp: f32,
 }

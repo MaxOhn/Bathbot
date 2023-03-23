@@ -19,7 +19,7 @@ use rosu_v2::prelude::{
     UserCompact, Username,
 };
 use smallvec::SmallVec;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::util::{osu::grade_emote, Emote};
 

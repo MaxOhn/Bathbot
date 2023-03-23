@@ -5,7 +5,7 @@ use bathbot_util::{constants::OSEKAI_ISSUE, string_cmp::levenshtein_similarity, 
 use eyre::{Result, WrapErr};
 use rkyv::{Deserialize, Infallible};
 use twilight_interactions::command::AutocompleteValue;
-use twilight_model::application::command::CommandOptionChoice;
+use twilight_model::application::command::{CommandOptionChoice, CommandOptionChoiceValue};
 
 use crate::{
     core::Context,
@@ -65,7 +65,7 @@ pub(super) async fn query(
             })
             .flatten()
             .collect(),
-        RedisData::Archived(badges) => badges
+        RedisData::Archive(badges) => badges
             .iter()
             .scan(&mut found_exact, |found_exact, badge| {
                 if **found_exact {
@@ -112,7 +112,7 @@ pub(super) async fn query(
         return no_badge_found(&ctx, &command, name).await;
     };
 
-    let urls = owners.iter().map(|owner| owner.avatar_url.as_str());
+    let urls = owners.iter().map(|owner| owner.avatar_url.as_ref());
 
     let bytes = if badges.len() == 1 {
         match get_combined_thumbnail(&ctx, urls, owners.len() as u32, Some(1024)).await {
@@ -164,7 +164,7 @@ async fn no_badge_found(ctx: &Context, command: &InteractionCommand, name: &str)
 
             list
         }
-        RedisData::Archived(badges) => {
+        RedisData::Archive(badges) => {
             let mut list = Vec::with_capacity(2 * badges.len());
 
             for badge in badges.iter() {
@@ -243,7 +243,7 @@ pub async fn handle_autocomplete(
                 }
             }
         }
-        RedisData::Archived(badges) => {
+        RedisData::Archive(badges) => {
             for badge in badges.iter() {
                 if badge.name.cow_to_ascii_lowercase().starts_with(name) {
                     choices.push(new_choice(&badge.name));
@@ -268,10 +268,10 @@ pub async fn handle_autocomplete(
 }
 
 fn new_choice(name: &str) -> CommandOptionChoice {
-    CommandOptionChoice::String {
+    CommandOptionChoice {
         name: name.to_owned(),
         name_localizations: None,
-        value: name.to_owned(),
+        value: CommandOptionChoiceValue::String(name.to_owned()),
     }
 }
 

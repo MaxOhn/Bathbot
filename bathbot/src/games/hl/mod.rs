@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
-use twilight_model::{
-    application::component::{button::ButtonStyle, ActionRow, Button, Component},
-    channel::ReactionType,
+use twilight_model::channel::message::{
+    component::{ActionRow, Button, ButtonStyle, Component},
+    ReactionType,
 };
 
 use crate::util::Emote;

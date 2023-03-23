@@ -19,7 +19,7 @@ impl MedalCountEmbed {
         let mut description = String::with_capacity(1024);
 
         for (entry, idx) in ranking.iter().zip(pages.index()..) {
-            let medal_name = entry.rarest_medal.as_str();
+            let medal_name = entry.rarest_medal.as_ref();
             let tmp = medal_name.cow_replace(' ', "+");
             let url_name = tmp.cow_replace(',', "%2C");
 

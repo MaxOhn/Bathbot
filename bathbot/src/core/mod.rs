@@ -1,13 +1,5 @@
-pub use self::{
-    cache::{Cache, CacheMiss},
-    config::BotConfig,
-    context::{Context, Redis},
-    events::event_loop,
-    stats::BotStats,
-};
+pub use self::{config::BotConfig, context::Context, events::event_loop, stats::BotStats};
 
-mod cache;
-mod cluster;
 mod config;
 mod context;
 mod events;

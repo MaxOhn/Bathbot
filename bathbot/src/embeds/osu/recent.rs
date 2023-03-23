@@ -11,7 +11,7 @@ use bathbot_util::{
 use osu::PpFormatter;
 use rosu_v2::prelude::{BeatmapUserScore, GameMode, Score};
 use time::OffsetDateTime;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::RecentEntry,

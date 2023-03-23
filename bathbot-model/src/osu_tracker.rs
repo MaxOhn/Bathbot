@@ -22,7 +22,8 @@ pub struct OsuTrackerPpGroup {
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerPpEntry {
-    pub name: String,
+    #[with(UsernameWrapper)]
+    pub name: Username,
     #[serde(rename = "id", with = "deser::u32_string")]
     pub map_id: u32,
     pub count: usize,
@@ -99,7 +100,7 @@ pub struct OsuTrackerCountryDetails {
     #[serde(rename = "scoresCurrent")]
     pub scores: Vec<OsuTrackerCountryScore>,
     #[serde(rename = "name")]
-    pub country: String,
+    pub country: Box<str>,
     #[serde(rename = "abbreviation")]
     pub code: CountryCode,
     #[serde(with = "deser::f32_string")]
@@ -125,7 +126,7 @@ pub struct OsuTrackerCountryContributor {
 
 #[derive(Debug, Deserialize)]
 pub struct OsuTrackerCountryScore {
-    pub name: String,
+    pub name: Box<str>,
     #[serde(rename = "id", with = "deser::u32_string")]
     pub map_id: u32,
     #[serde(rename = "setId", with = "deser::u32_string")]

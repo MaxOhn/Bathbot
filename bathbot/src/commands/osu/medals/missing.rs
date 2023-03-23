@@ -97,7 +97,7 @@ pub(super) async fn missing(
 
             (user.medals.len(), owned)
         }
-        RedisData::Archived(user) => {
+        RedisData::Archive(user) => {
             let owned = user.medals.iter().map(|medal| medal.medal_id).collect();
 
             (user.medals.len(), owned)
@@ -116,7 +116,7 @@ pub(super) async fn missing(
 
             (medal_count, medals)
         }
-        RedisData::Archived(all_medals) => {
+        RedisData::Archive(all_medals) => {
             let medal_count = (all_medals.len() - user_medals_count, all_medals.len());
 
             let medals = all_medals

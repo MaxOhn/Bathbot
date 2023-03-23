@@ -7,7 +7,7 @@ use bathbot_util::{
 use osu::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};
 use rosu_v2::prelude::{GameMode, Score};
 use time::OffsetDateTime;
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
     core::Context,

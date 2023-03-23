@@ -3,7 +3,7 @@ use bathbot_util::{
     constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder, CowUtils,
 };
 use time::{Duration, OffsetDateTime};
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{commands::osu::ClaimNameValidator, manager::redis::osu::User};
 

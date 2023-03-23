@@ -6,7 +6,7 @@ use bathbot_psql::model::configs::MinimizedPp;
 use bathbot_util::IntHasher;
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::{TopEntry, TopScoreOrder},

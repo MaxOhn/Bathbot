@@ -1,4 +1,4 @@
-use twilight_model::channel::embed::EmbedFooter;
+use twilight_model::channel::message::embed::EmbedFooter;
 
 #[derive(Clone)]
 pub struct FooterBuilder(EmbedFooter);

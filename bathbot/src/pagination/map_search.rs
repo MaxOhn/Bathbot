@@ -1,7 +1,7 @@
 use eyre::Result;
 use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchResult};
 use std::{collections::BTreeMap, iter::Extend};
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::Search,

@@ -8,9 +8,9 @@ use eyre::Result;
 use rosu_v2::prelude::{GameMode, GameMods, Grade, Score, ScoreStatistics, UserStatistics};
 
 use time::OffsetDateTime;
-use twilight_model::channel::{embed::Embed, Message};
+use twilight_model::channel::message::{embed::Embed, Message};
 
-use crate::{matcher, numbers::round};
+use crate::{constants::OSU_BASE, matcher, numbers::round};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ModSelection {
@@ -96,8 +96,6 @@ impl ModSelection {
         Ok(())
     }
 }
-
-const OSU_BASE: &str = "https://osu.ppy.sh/";
 
 pub fn flag_url(country_code: &str) -> String {
     // format!("{OSU_BASE}/images/flags/{country_code}.png") // from osu itself but outdated

@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, future::IntoFuture};
 
 use bathbot_util::{modal::ModalBuilder, MessageBuilder};
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
@@ -59,7 +59,7 @@ impl ComponentExt for InteractionComponent {
 
         ctx.interaction()
             .create_response(self.id, &self.token, &response)
-            .exec()
+            .into_future()
     }
 
     #[inline]
@@ -71,7 +71,7 @@ impl ComponentExt for InteractionComponent {
 
         ctx.interaction()
             .create_response(self.id, &self.token, &response)
-            .exec()
+            .into_future()
     }
 
     #[inline]
@@ -92,6 +92,6 @@ impl ComponentExt for InteractionComponent {
 
         ctx.interaction()
             .create_response(self.id, &self.token, &response)
-            .exec()
+            .into_future()
     }
 }

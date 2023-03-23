@@ -13,15 +13,15 @@ pub async fn cache(ctx: Arc<Context>, command: InteractionCommand) -> Result<()>
 
     let description = format!(
         "Guilds: {guilds}\n\
-        Members: {members}\n\
+        Unavailable guilds: {unavailable_guilds}\n\
         Users: {users}\n\
         Roles: {roles}\n\
         Channels: {channels}",
-        guilds = WithComma::new(stats.guilds()),
-        members = WithComma::new(stats.members()),
-        users = WithComma::new(stats.users()),
-        roles = WithComma::new(stats.roles()),
-        channels = WithComma::new(stats.channels_total()),
+        guilds = WithComma::new(stats.guilds),
+        unavailable_guilds = WithComma::new(stats.unavailable_guilds),
+        users = WithComma::new(stats.users),
+        roles = WithComma::new(stats.roles),
+        channels = WithComma::new(stats.channels),
     );
 
     let embed = EmbedBuilder::new()

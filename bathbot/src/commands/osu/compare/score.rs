@@ -24,7 +24,7 @@ use rosu_v2::{
 };
 use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateCommand};
 use twilight_model::{
-    application::command::CommandOptionChoice,
+    application::command::{CommandOptionChoice, CommandOptionChoiceValue},
     channel::message::MessageType,
     guild::Permissions,
     id::{marker::UserMarker, Id},
@@ -851,15 +851,16 @@ async fn handle_autocomplete(
                     return None;
                 }
 
-                Some(CommandOptionChoice::String {
+                Some(CommandOptionChoice {
                     name: version,
                     name_localizations: None,
-                    value: map_id.to_string(),
+                    // TODO: use integer?
+                    value: CommandOptionChoiceValue::String(map_id.to_string()),
                 })
             })
             .take(25)
             .collect(),
-        RedisData::Archived(diffs) => diffs
+        RedisData::Archive(diffs) => diffs
             .iter()
             .filter_map(|ArchivedMapVersion { map_id, version }| {
                 let lowercase = version.cow_to_ascii_lowercase();
@@ -868,10 +869,11 @@ async fn handle_autocomplete(
                     return None;
                 }
 
-                Some(CommandOptionChoice::String {
+                Some(CommandOptionChoice {
                     name: version.as_str().to_owned(),
                     name_localizations: None,
-                    value: map_id.to_string(),
+                    // TODO: use integer?
+                    value: CommandOptionChoiceValue::String(map_id.to_string()),
                 })
             })
             .take(25)

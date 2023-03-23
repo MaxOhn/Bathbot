@@ -105,7 +105,7 @@ pub(super) async fn country_list(
         },
         None => match &osu_user {
             Some(RedisData::Original(user)) => user.country_code.as_str().into(),
-            Some(RedisData::Archived(user)) => user.country_code.as_str().into(),
+            Some(RedisData::Archive(user)) => user.country_code.as_str().into(),
             None => {
                 let content = "Since you're not linked, you must specify a country (code)";
 

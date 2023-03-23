@@ -7,7 +7,7 @@ use bathbot_macros::pagination;
 use bathbot_model::{SnipeScore, SnipeScoreParams};
 use bathbot_util::IntHasher;
 use eyre::{Report, Result, WrapErr};
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     embeds::{EmbedData, PlayerSnipeListEmbed},

@@ -3,7 +3,7 @@ use std::fmt::Write;
 use bathbot_util::{AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     embeds::EmbedData,

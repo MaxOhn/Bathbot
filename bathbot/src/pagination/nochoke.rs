@@ -1,5 +1,5 @@
 use bathbot_macros::pagination;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::NochokeEntry,

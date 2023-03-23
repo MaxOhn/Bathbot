@@ -5,7 +5,7 @@ macro_rules! fields {
     }) => {{
         $(
             $fields.push(
-                twilight_model::channel::embed::EmbedField {
+                twilight_model::channel::message::embed::EmbedField {
                     name: $name.into(),
                     value: $value,
                     inline: $inline,
@@ -22,7 +22,7 @@ macro_rules! fields {
     ($($name:expr, $value:expr, $inline:expr;)+) => {
         vec![
             $(
-                twilight_model::channel::embed::EmbedField {
+                twilight_model::channel::message::embed::EmbedField {
                     name: $name.into(),
                     value: $value,
                     inline: $inline,
@@ -32,7 +32,7 @@ macro_rules! fields {
     };
 }
 
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 pub use self::{fun::*, osu::*, utility::*};
 

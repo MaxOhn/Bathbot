@@ -2,7 +2,7 @@ use bathbot_macros::pagination;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{CountryRanking, GameMode};
 use std::collections::BTreeMap;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     embeds::{EmbedData, RankingCountriesEmbed},

@@ -21,7 +21,14 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> Resu
     let guild = msg.guild_id;
 
     if let Some(guild) = guild.filter(|_| !global) {
-        let members: HashSet<_, IntHasher> = ctx.cache.members(guild, |id| id.get() as i64);
+        let members: HashSet<_, IntHasher> = ctx
+            .cache
+            .members(guild)
+            .await?
+            .into_iter()
+            .map(|id| id as i64)
+            .collect();
+
         scores.retain(|row| members.contains(&row.discord_id));
     }
 
@@ -36,18 +43,25 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> Resu
     for (i, row) in scores.iter().enumerate().take(20) {
         let id = Id::new(row.discord_id as u64);
 
-        let name = match ctx.user_config().osu_name(id).await {
-            Ok(Some(name)) => name,
-            Ok(None) => ctx
-                .cache
-                .user(id, |user| user.name.as_str().into())
-                .unwrap_or_else(|_| "<unknown user>".into()),
+        let name_opt = match ctx.user_config().osu_name(id).await {
+            Ok(Some(name)) => Some(name),
+            Ok(None) => match ctx.cache.user(id).await {
+                Ok(Some(user)) => Some(user.name.as_str().into()),
+                Ok(None) => None,
+                Err(err) => {
+                    warn!("{err:?}");
+
+                    None
+                }
+            },
             Err(err) => {
                 warn!("{err:?}");
 
-                "<unknown user>".into()
+                None
             }
         };
+
+        let name = name_opt.unwrap_or_else(|| "<unknown user>".into());
 
         let entry = RankingEntry {
             value: row.score as u64,

@@ -1,7 +1,7 @@
 use bathbot_macros::EmbedData;
 use bathbot_model::{Effects, MapsetTags};
 use bathbot_util::FooterBuilder;
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::commands::fun::GameDifficulty;
 

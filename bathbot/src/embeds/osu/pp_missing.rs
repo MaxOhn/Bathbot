@@ -6,7 +6,7 @@ use bathbot_util::{
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
 };
 use rosu_v2::prelude::Score;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     embeds::EmbedData,

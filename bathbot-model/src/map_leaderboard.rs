@@ -1,5 +1,5 @@
 use bathbot_util::{ScoreExt, ScoreHasEndedAt, ScoreHasMode};
-use rosu_v2::prelude::{CountryCode, GameMode, GameMods, Grade, RankStatus};
+use rosu_v2::prelude::{CountryCode, GameMode, GameMods, Grade, RankStatus, Username};
 use serde::{Deserialize, Deserializer};
 use time::OffsetDateTime;
 
@@ -19,7 +19,7 @@ impl ScraperScores {
 pub struct ScraperScore {
     pub id: u64,
     pub user_id: u32,
-    pub username: String,
+    pub username: Username,
     pub country_code: CountryCode,
     pub accuracy: f32,
     pub mode: GameMode,
@@ -82,7 +82,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
 
         #[derive(Deserialize)]
         pub struct ScraperUser {
-            username: String,
+            username: Username,
             country_code: CountryCode,
         }
 
@@ -146,7 +146,7 @@ pub struct ScraperBeatmap {
     #[serde(rename = "mode_int")]
     pub mode: GameMode,
     pub difficulty_rating: f32,
-    pub version: String,
+    pub version: Box<str>,
     pub total_length: u32,
     pub hit_length: u32,
     pub bpm: f32,

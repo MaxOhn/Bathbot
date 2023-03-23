@@ -6,7 +6,7 @@ use bathbot_util::{
 };
 use eyre::{ContextCompat, Result, WrapErr};
 use tokio::sync::oneshot;
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
     core::Context,

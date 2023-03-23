@@ -4,7 +4,7 @@ use bathbot_util::IntHasher;
 use eyre::Result;
 use hashbrown::HashMap;
 use time::OffsetDateTime;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::MapsetEntry,

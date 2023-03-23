@@ -19,7 +19,7 @@ impl Context {
     }
 
     pub fn redis(&self) -> RedisManager<'_> {
-        RedisManager::new(self, &self.clients.redis)
+        RedisManager::new(self)
     }
 
     pub fn osu_map(&self) -> MapManager<'_> {

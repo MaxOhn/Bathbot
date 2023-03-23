@@ -136,7 +136,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 
                         (rank, last_visit)
                     }
-                    RedisData::Archived(next) => {
+                    RedisData::Archive(next) => {
                         let next: &Archived<User> = &next;
 
                         let rank = next.highest_rank.deserialize(&mut Infallible).unwrap();

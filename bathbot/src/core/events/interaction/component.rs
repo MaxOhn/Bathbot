@@ -10,8 +10,7 @@ use crate::{
 
 pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionComponent) {
     let name = mem::take(&mut component.data.custom_id);
-    EventKind::Component.log(&ctx, &component, &name);
-    ctx.stats.increment_component(&name);
+    EventKind::Component.log(&ctx, &component, &name).await;
 
     let res = match name.as_str() {
         "help_menu" | "help_back" => handle_help_component(&ctx, component).await,
