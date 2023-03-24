@@ -693,8 +693,8 @@ impl PersonalBestIndex {
             )),
             PersonalBestIndex::Presumably { idx } => Some(format!(
                 "Personal Best #{} [(?)]({origin} \
-                \"the top100 provided by the api did not include the score likely \
-                because it wasn't done processing but presumably the score is in there\")",
+                \"the top100 did not include this score likely because the api \
+                wasn't done processing but presumably the score is in there\")",
                 idx + 1
             )),
             PersonalBestIndex::IfRanked { idx } => {
