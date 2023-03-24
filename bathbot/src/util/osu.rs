@@ -651,7 +651,7 @@ impl PersonalBestIndex {
             return Self::NotTop100;
         } else if !matches!(status, RankStatus::Ranked | RankStatus::Approved) {
             return Self::IfRanked { idx };
-        } else if score.is_eq(&top100[idx]) || top100.len() < 100 {
+        } else if top100.len() < 100 || score.is_eq(&top100[idx]) {
             // If multiple scores have the exact same pp as the given
             // score then `idx` might not belong to the given score.
             // Chances are pretty slim though so this should be fine.
