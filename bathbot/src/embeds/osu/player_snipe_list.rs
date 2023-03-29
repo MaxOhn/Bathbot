@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::EmbedData;
-use bathbot_model::SnipeScore;
+use bathbot_model::{rosu_v2::user::User, SnipeScore};
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
@@ -15,10 +15,7 @@ use eyre::Result;
 
 use crate::{
     core::Context,
-    manager::{
-        redis::{osu::User, RedisData},
-        OsuMap,
-    },
+    manager::{redis::RedisData, OsuMap},
     pagination::Pages,
 };
 

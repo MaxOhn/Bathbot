@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
@@ -10,10 +11,7 @@ use bathbot_util::{
 use rosu_v2::prelude::GameMode;
 
 use crate::{
-    commands::osu::TopIfEntry,
-    manager::redis::{osu::User, RedisData},
-    pagination::Pages,
-    util::osu::grade_emote,
+    commands::osu::TopIfEntry, manager::redis::RedisData, pagination::Pages, util::osu::grade_emote,
 };
 
 use super::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter};

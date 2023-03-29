@@ -202,7 +202,7 @@ pub enum RankingKind {
     OsekaiLovedMapsets,
     OsekaiSubscribers,
     PpCountry {
-        country: String,
+        country: Box<str>,
         country_code: CountryCode,
         mode: GameMode,
     },

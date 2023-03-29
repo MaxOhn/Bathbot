@@ -1,13 +1,13 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
-use bathbot_model::RespektiveUser;
+use bathbot_model::{rosu_v2::user::User, RespektiveUser};
 use bathbot_util::{
     constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder, CowUtils,
 };
 use rosu_v2::model::user::UserCompact;
 
-use crate::manager::redis::{osu::User, RedisData};
+use crate::manager::redis::RedisData;
 
 #[derive(EmbedData)]
 pub struct RankRankedScoreEmbed {
@@ -24,7 +24,7 @@ impl RankRankedScoreEmbed {
         rank_holder: UserCompact,
         respektive_user: Option<RespektiveUser>,
     ) -> Self {
-        let user_score = user.peek_stats(|stats| stats.ranked_score);
+        let user_score = user.stats().ranked_score();
         let username = user.username().cow_escape_markdown();
         let rank_holder_score = rank_holder.statistics.as_ref().unwrap().ranked_score;
 
@@ -51,7 +51,7 @@ impl RankRankedScoreEmbed {
         let author = {
             let (ranked_score, rank) = match respektive_user {
                 Some(user) => (user.ranked_score, Some(user.rank)),
-                None => (user.peek_stats(|stats| stats.ranked_score), None),
+                None => (user.stats().ranked_score(), None),
             };
 
             let mut text = format!("{username}: {score}", score = WithComma::new(ranked_score),);

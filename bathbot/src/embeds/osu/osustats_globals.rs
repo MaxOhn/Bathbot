@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
@@ -9,9 +10,7 @@ use bathbot_util::{
 };
 
 use crate::{
-    commands::osu::OsuStatsEntry,
-    manager::redis::{osu::User, RedisData},
-    pagination::Pages,
+    commands::osu::OsuStatsEntry, manager::redis::RedisData, pagination::Pages,
     util::osu::grade_emote,
 };
 

@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::EmbedData;
-use bathbot_model::OsuTrackerMapsetEntry;
+use bathbot_model::{rosu_v2::user::User, OsuTrackerMapsetEntry};
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
@@ -16,10 +16,7 @@ use time::OffsetDateTime;
 
 use crate::{
     commands::osu::{TopEntry, TopScoreOrder},
-    manager::{
-        redis::{osu::User, RedisData},
-        OsuMap,
-    },
+    manager::{redis::RedisData, OsuMap},
     pagination::Pages,
     util::{osu::grade_emote, Emote},
 };

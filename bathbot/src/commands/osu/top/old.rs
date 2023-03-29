@@ -636,7 +636,8 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         .map(|weight| weight.pp)
         .sum();
 
-    let (bonus_pp, post_pp) = user.peek_stats(|stats| (stats.pp - actual_pp, stats.pp));
+    let post_pp = user.stats().pp();
+    let bonus_pp = post_pp - actual_pp;
 
     let mut entries = match process_scores(&ctx, scores, &args).await {
         Ok(scores) => scores,

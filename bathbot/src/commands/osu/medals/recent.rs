@@ -1,12 +1,16 @@
 use std::{cmp::Reverse, mem, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_model::rosu_v2::user::{MedalCompact as MedalCompactRkyv, User};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     matcher, MessageBuilder,
 };
 use eyre::{Report, Result};
-use rkyv::{Deserialize, Infallible};
+use rkyv::{
+    with::{DeserializeWith, Map},
+    Infallible,
+};
 use rosu_v2::{
     prelude::{MedalCompact, OsuError},
     request::UserId,
@@ -17,10 +21,7 @@ use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     embeds::MedalEmbed,
-    manager::redis::{
-        osu::{User, UserArgs},
-        RedisData,
-    },
+    manager::redis::{osu::UserArgs, RedisData},
     pagination::MedalRecentPagination,
     Context,
 };
@@ -100,7 +101,9 @@ pub(super) async fn recent(
 
     let mut user_medals = match user {
         RedisData::Original(ref mut user) => mem::take(&mut user.medals),
-        RedisData::Archive(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
+        RedisData::Archive(ref user) => {
+            Map::<MedalCompactRkyv>::deserialize_with(&user.medals, &mut Infallible).unwrap()
+        }
     };
 
     if user_medals.is_empty() {

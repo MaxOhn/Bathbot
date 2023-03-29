@@ -1,3 +1,4 @@
+use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::Database;
 use eyre::{Result, WrapErr};
 use rosu_v2::{
@@ -8,7 +9,7 @@ use rosu_v2::{
 use crate::core::Context;
 
 use super::redis::{
-    osu::{User, UserArgs, UserArgsSlim},
+    osu::{UserArgs, UserArgsSlim},
     RedisData,
 };
 

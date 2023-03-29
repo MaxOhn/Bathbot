@@ -1,3 +1,4 @@
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
@@ -9,10 +10,7 @@ use time::{Duration, OffsetDateTime};
 use crate::{
     commands::osu::{sniped, user_not_found},
     core::{commands::CommandOrigin, Context},
-    manager::redis::{
-        osu::{User, UserArgs},
-        RedisData,
-    },
+    manager::redis::{osu::UserArgs, RedisData},
 };
 
 use super::{H, W};

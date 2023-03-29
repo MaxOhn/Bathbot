@@ -1,7 +1,7 @@
 use std::{iter, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
-use bathbot_model::CountryCode;
+use bathbot_model::{rosu_v2::user::User, CountryCode};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     EmbedBuilder, MessageBuilder,
@@ -23,10 +23,7 @@ use crate::{
     commands::{GameModeOption, ShowHideOption, TimezoneOption},
     core::{commands::CommandOrigin, Context},
     embeds::attachment,
-    manager::redis::{
-        osu::{User, UserArgs},
-        RedisData,
-    },
+    manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 

@@ -11,7 +11,7 @@ use twilight_model::{
     id::{marker::GenericMarker, Id},
 };
 
-use crate::twilight_model::{id::IdRkyv, util::FlagsRkyv};
+use crate::{rkyv_util::FlagsRkyv, twilight_model::id::IdRkyv};
 
 #[derive(Archive, ArchiveWith, Deserialize, Serialize)]
 #[archive_with(from(TwPermissionOverwrite))]

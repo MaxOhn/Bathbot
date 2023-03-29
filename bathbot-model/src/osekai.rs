@@ -6,7 +6,7 @@ use std::{
 };
 
 use rkyv::{
-    with::{ArchiveWith, Raw},
+    with::{ArchiveWith, Map, Niche, Raw},
     Archive, Deserialize as RkyvDeserialize, Serialize,
 };
 use rosu_v2::{
@@ -22,6 +22,8 @@ use twilight_interactions::command::{CommandOption, CreateOption};
 
 use crate::{
     rkyv_impls::{DateWrapper, UsernameWrapper},
+    rkyv_util::FlagsRkyv,
+    rosu_v2::GameModeRkyv,
     CountryCode, RankingKind,
 };
 
@@ -235,10 +237,13 @@ pub struct OsekaiMedal {
     pub icon_url: Box<str>,
     pub description: Box<str>,
     #[serde(deserialize_with = "osekai_mode")]
+    #[with(Map<GameModeRkyv>)]
     pub restriction: Option<GameMode>,
     pub grouping: MedalGroup,
+    #[with(Niche)]
     pub solution: Option<Box<str>>,
     #[serde(deserialize_with = "osekai_mods")]
+    #[with(Map<FlagsRkyv>)]
     pub mods: Option<GameMods>,
     #[serde(rename = "ModeOrder")]
     pub mode_order: usize,
@@ -716,6 +721,7 @@ pub struct OsekaiRarityEntry {
     #[serde(rename = "possessionRate", with = "deser::f32_string")]
     pub possession_percent: f32,
     #[serde(rename = "gameMode", deserialize_with = "osekai_mode")]
+    #[with(Map<GameModeRkyv>)]
     pub mode: Option<GameMode>,
 }
 

@@ -4,6 +4,7 @@ use std::{
     hint,
 };
 
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{osu::BonusPP, IntHasher};
 use eyre::Report;
 use eyre::Result;
@@ -14,10 +15,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use crate::{
     commands::osu::MinMaxAvg,
     core::Context,
-    manager::redis::{
-        osu::{User, UserArgsSlim},
-        RedisData,
-    },
+    manager::redis::{osu::UserArgsSlim, RedisData},
 };
 
 pub struct ProfileData {
@@ -110,7 +108,7 @@ impl ProfileData {
             }
         }
 
-        Some(self.user.peek_stats(|stats| bonus_pp.calculate(stats)))
+        Some(bonus_pp.calculate(self.user.stats()))
     }
 
     pub(crate) async fn top100stats(&mut self, ctx: &Context) -> Option<&Top100Stats> {

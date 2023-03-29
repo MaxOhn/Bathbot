@@ -5,12 +5,13 @@ use std::{
 };
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::ranking::RankingsUser;
 use bathbot_util::{
     numbers::WithComma,
     osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
     AuthorBuilder, CowUtils,
 };
-use rosu_v2::{model::score::Score, prelude::UserCompact};
+use rosu_v2::model::score::Score;
 
 use crate::{commands::osu::RankData, manager::redis::RedisData};
 
@@ -31,7 +32,7 @@ impl RankEmbed {
                 country,
                 rank_holder,
             } => {
-                let user_pp = user.peek_stats(|stats| stats.pp);
+                let user_pp = user.stats().pp();
 
                 let (username, user_id) = match user {
                     RedisData::Original(ref user) => {
@@ -236,7 +237,7 @@ impl RankEmbed {
                 rank,
                 required_pp,
             } => {
-                let user_pp = user.peek_stats(|stats| stats.pp);
+                let user_pp = user.stats().pp();
                 let username = user.username().cow_escape_markdown();
 
                 let title = format!(
@@ -418,11 +419,11 @@ impl RankEmbed {
 struct RankFormat<'d> {
     rank: u32,
     global: bool,
-    holder: &'d UserCompact,
+    holder: &'d RankingsUser,
 }
 
 impl<'d> RankFormat<'d> {
-    fn new(rank: u32, global: bool, holder: &'d UserCompact) -> Self {
+    fn new(rank: u32, global: bool, holder: &'d RankingsUser) -> Self {
         Self {
             rank,
             global,
@@ -444,7 +445,7 @@ impl Display for RankFormat<'_> {
             .holder
             .statistics
             .as_ref()
-            .and_then(|stats| stats.global_rank);
+            .map(|stats| stats.global_rank);
 
         if let Some(global_rank) = global_rank {
             write!(f, " (#{global_rank})")?;

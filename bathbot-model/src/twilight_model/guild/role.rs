@@ -6,8 +6,8 @@ use twilight_model::{
 };
 
 use crate::{
-    rkyv_util::DerefAsBox,
-    twilight_model::{id::IdRkyv, util::FlagsRkyv},
+    rkyv_util::{DerefAsBox, FlagsRkyv},
+    twilight_model::id::IdRkyv,
 };
 
 #[derive(Archive, ArchiveWith, Deserialize, Serialize)]

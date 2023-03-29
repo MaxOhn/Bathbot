@@ -6,7 +6,7 @@ use std::{
 };
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
-use bathbot_model::ScoreSlim;
+use bathbot_model::{rosu_v2::user::User, ScoreSlim};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -31,7 +31,7 @@ use crate::{
     core::commands::CommandOrigin,
     embeds::TopSingleEmbed,
     manager::redis::{
-        osu::{User, UserArgs, UserArgsSlim},
+        osu::{UserArgs, UserArgsSlim},
         RedisData,
     },
     pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},

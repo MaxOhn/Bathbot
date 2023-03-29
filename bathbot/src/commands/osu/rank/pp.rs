@@ -1,23 +1,23 @@
 use std::sync::Arc;
 
 use bathbot_macros::command;
-use bathbot_model::CountryCode;
+use bathbot_model::{
+    rosu_v2::{ranking::RankingsUser, user::User},
+    CountryCode,
+};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, MessageBuilder,
 };
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::{OsuError, UserCompact};
+use rosu_v2::prelude::OsuError;
 
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, RankEmbed},
-    manager::redis::{
-        osu::{User, UserArgs},
-        RedisData,
-    },
+    manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,
     Context,
 };
@@ -76,7 +76,9 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
                 let idx = ((args.rank + 49) % 50) as usize;
 
                 let rank_holder = match rankings {
-                    RedisData::Original(mut rankings) => rankings.ranking.swap_remove(idx),
+                    RedisData::Original(mut rankings) => {
+                        RankingsUser::from(rankings.ranking.swap_remove(idx))
+                    }
                     RedisData::Archive(rankings) => {
                         rankings.ranking[idx].deserialize(&mut Infallible).unwrap()
                     }
@@ -263,7 +265,7 @@ pub enum RankData {
         user: RedisData<User>,
         rank: u32,
         country: Option<CountryCode>,
-        rank_holder: Box<UserCompact>,
+        rank_holder: Box<RankingsUser>,
     },
     Over10k {
         user: RedisData<User>,
@@ -277,10 +279,10 @@ impl RankData {
         match self {
             Self::Sub10k {
                 user, rank_holder, ..
-            } => user.peek_stats(|stats| stats.pp < rank_holder.statistics.as_ref().unwrap().pp),
+            } => user.stats().pp() < rank_holder.statistics.as_ref().unwrap().pp,
             Self::Over10k {
                 user, required_pp, ..
-            } => user.peek_stats(|stats| stats.pp < *required_pp),
+            } => user.stats().pp() < *required_pp,
         }
     }
 

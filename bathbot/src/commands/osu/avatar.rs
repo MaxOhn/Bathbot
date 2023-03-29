@@ -117,7 +117,7 @@ async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) ->
 
             EmbedBuilder::new()
                 .author(author)
-                .image(user.avatar_url.as_str())
+                .image(user.avatar_url.as_ref())
                 .build()
         }
     };

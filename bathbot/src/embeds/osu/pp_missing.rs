@@ -1,5 +1,6 @@
 use std::{cmp::Ordering, iter};
 
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     numbers::WithComma,
     osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
@@ -8,10 +9,7 @@ use bathbot_util::{
 use rosu_v2::prelude::Score;
 use twilight_model::channel::message::embed::Embed;
 
-use crate::{
-    embeds::EmbedData,
-    manager::redis::{osu::User, RedisData},
-};
+use crate::{embeds::EmbedData, manager::redis::RedisData};
 
 pub struct PpMissingEmbed {
     author: AuthorBuilder,
@@ -29,7 +27,7 @@ impl PpMissingEmbed {
         rank: Option<u32>,
         each: Option<f32>,
     ) -> Self {
-        let stats_pp = user.peek_stats(|stats| stats.pp);
+        let stats_pp = user.stats().pp();
 
         let username = user.username();
 

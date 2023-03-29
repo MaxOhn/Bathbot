@@ -1,6 +1,7 @@
 use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher, MessageBuilder,
@@ -16,10 +17,7 @@ use rosu_v2::{
 use crate::{
     commands::osu::{user_not_found, UserExtraction},
     core::commands::CommandOrigin,
-    manager::redis::{
-        osu::{User, UserArgs},
-        RedisData,
-    },
+    manager::redis::{osu::UserArgs, RedisData},
     pagination::MostPlayedCommonPagination,
     Context,
 };

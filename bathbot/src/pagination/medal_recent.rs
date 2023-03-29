@@ -1,14 +1,10 @@
-use bathbot_model::OsekaiMedal;
+use bathbot_model::{rosu_v2::user::User, OsekaiMedal};
 use bathbot_util::IntHasher;
 use hashbrown::{hash_map::Entry, HashMap};
 use rosu_v2::prelude::MedalCompact;
 use twilight_model::channel::message::embed::Embed;
 
-use crate::{
-    commands::osu::MedalAchieved,
-    embeds::MedalEmbed,
-    manager::redis::{osu::User, RedisData},
-};
+use crate::{commands::osu::MedalAchieved, embeds::MedalEmbed, manager::redis::RedisData};
 
 use super::{Pages, PaginationBuilder, PaginationKind};
 

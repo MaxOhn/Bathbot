@@ -1,22 +1,14 @@
 use std::borrow::Cow;
 
 use bathbot_cache::Cache;
-use bathbot_model::rkyv_impls::{CountryCodeWrapper, DateTimeWrapper, UsernameWrapper};
+use bathbot_model::rosu_v2::user::{StatsWrapper, User};
 use bathbot_util::{
     constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder, CowUtils,
 };
-use rkyv::{
-    with::{DeserializeWith, Map, Raw},
-    Archive, Deserialize, Infallible, Serialize,
-};
 use rosu_v2::{
-    prelude::{
-        Badge, CountryCode, GameMode, MedalCompact, MonthlyCount, OsuError, User as RosuUser,
-        UserHighestRank, UserKudosu, UserStatistics, Username,
-    },
+    prelude::{GameMode, OsuError},
     request::UserId,
 };
-use time::OffsetDateTime;
 
 use crate::core::Context;
 
@@ -151,7 +143,7 @@ impl<'c> RedisManager<'c> {
         format!("osu_user_{user_id}_{}", mode as u8)
     }
 
-    pub async fn osu_user_from_args(self, args: UserArgsSlim) -> RedisResult<User, OsuError> {
+    pub async fn osu_user_from_args(self, args: UserArgsSlim) -> RedisResult<User, User, OsuError> {
         let UserArgsSlim { user_id, mode } = args;
         let key = Self::osu_user_key(user_id, mode);
 
@@ -205,7 +197,7 @@ impl<'c> RedisManager<'c> {
         self,
         mut user: User,
         mode: GameMode,
-    ) -> RedisResult<User, OsuError> {
+    ) -> RedisResult<User, User, OsuError> {
         let key = Self::osu_user_key(user.user_id, mode);
 
         user.mode = mode;
@@ -220,7 +212,7 @@ impl<'c> RedisManager<'c> {
         Ok(RedisData::Original(user))
     }
 
-    pub async fn osu_user(self, args: UserArgs) -> RedisResult<User, OsuError> {
+    pub async fn osu_user(self, args: UserArgs) -> RedisResult<User, User, OsuError> {
         match args {
             UserArgs::Args(args) => self.osu_user_from_args(args).await,
             UserArgs::User { user, mode } => self.osu_user_from_user(*user, mode).await,
@@ -232,8 +224,8 @@ impl<'c> RedisManager<'c> {
 impl RedisData<User> {
     pub fn avatar_url(&self) -> &str {
         match self {
-            RedisData::Original(user) => user.avatar_url.as_str(),
-            RedisData::Archive(user) => user.avatar_url.as_str(),
+            RedisData::Original(user) => user.avatar_url.as_ref(),
+            RedisData::Archive(user) => user.avatar_url.as_ref(),
         }
     }
 
@@ -265,19 +257,13 @@ impl RedisData<User> {
         }
     }
 
-    pub fn peek_stats<F, O>(&self, f: F) -> O
-    where
-        F: FnOnce(&UserStatistics) -> O,
-    {
-        let res_opt = match self {
-            RedisData::Original(user) => user.statistics.as_ref().map(f),
-            RedisData::Archive(user) => user
-                .statistics
-                .as_ref()
-                .map(|stats| f(&stats.deserialize(&mut Infallible).unwrap())),
+    pub fn stats(&self) -> StatsWrapper<'_> {
+        let stats_opt = match self {
+            RedisData::Original(user) => user.statistics.as_ref().map(StatsWrapper::Left),
+            RedisData::Archive(user) => user.statistics.as_ref().map(StatsWrapper::Right),
         };
 
-        res_opt.expect("missing statistics")
+        stats_opt.expect("missing statistics")
     }
 
     pub fn author_builder(&self) -> AuthorBuilder {
@@ -301,118 +287,21 @@ impl RedisData<User> {
             }
             RedisData::Archive(user) => {
                 let stats = user.statistics.as_ref().expect("missing statistics");
-
-                let country_code =
-                    CountryCodeWrapper::deserialize_with(&user.country_code, &mut Infallible)
-                        .unwrap();
+                let country_code = user.country_code.as_str();
 
                 let text = format!(
                     "{name}: {pp}pp (#{global} {country_code}{national})",
                     name = user.username,
                     pp = WithComma::new(stats.pp),
-                    global = WithComma::new(stats.global_rank.as_ref().map_or(0, |n| *n)),
-                    national = stats.country_rank.as_ref().map_or(0, |n| *n)
+                    global = WithComma::new(stats.global_rank),
+                    national = stats.country_rank
                 );
 
                 let url = format!("{OSU_BASE}users/{}/{}", user.user_id, user.mode);
-                let icon = flag_url(&country_code);
+                let icon = flag_url(country_code);
 
                 AuthorBuilder::new(text).url(url).icon_url(icon)
             }
-        }
-    }
-}
-
-// 960 bytes vs 352 bytes
-// https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=f9a1d7a3d10469fa29bf1253d4207b75
-#[derive(Archive, Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[cfg_attr(feature = "rkyv", derive(Archive, RkyvDeserialize, RkyvSerialize))]
-pub struct User {
-    pub avatar_url: String,
-    #[with(CountryCodeWrapper)]
-    pub country_code: CountryCode,
-    #[with(DateTimeWrapper)]
-    pub join_date: OffsetDateTime,
-    pub kudosu: UserKudosu,
-    #[with(Map<DateTimeWrapper>)]
-    pub last_visit: Option<OffsetDateTime>,
-    pub mode: GameMode,
-    pub user_id: u32,
-    #[with(UsernameWrapper)]
-    pub username: Username,
-
-    pub badges: Vec<Badge>,
-    pub follower_count: u32,
-    pub graveyard_mapset_count: u32,
-    pub guest_mapset_count: u32,
-    pub highest_rank: Option<UserHighestRank>,
-    pub loved_mapset_count: u32,
-    pub mapping_follower_count: u32,
-    pub monthly_playcounts: Vec<MonthlyCount>,
-    #[with(Raw)]
-    pub rank_history: Vec<u32>,
-    pub ranked_mapset_count: u32,
-    pub replays_watched_counts: Vec<MonthlyCount>,
-    pub scores_first_count: u32,
-    pub statistics: Option<UserStatistics>,
-    pub pending_mapset_count: u32,
-    pub medals: Vec<MedalCompact>,
-}
-
-impl From<RosuUser> for User {
-    #[inline]
-    fn from(user: RosuUser) -> Self {
-        let RosuUser {
-            avatar_url,
-            country_code,
-            join_date,
-            kudosu,
-            last_visit,
-            mode,
-            user_id,
-            username,
-            badges,
-            follower_count,
-            graveyard_mapset_count,
-            guest_mapset_count,
-            highest_rank,
-            loved_mapset_count,
-            mapping_follower_count,
-            monthly_playcounts,
-            rank_history,
-            ranked_mapset_count,
-            replays_watched_counts,
-            scores_first_count,
-            statistics,
-            pending_mapset_count,
-            medals,
-            ..
-        } = user;
-
-        Self {
-            avatar_url,
-            country_code,
-            join_date,
-            kudosu,
-            last_visit,
-            mode,
-            user_id,
-            username,
-            badges: badges.unwrap_or_default(),
-            follower_count: follower_count.unwrap_or_default(),
-            graveyard_mapset_count: graveyard_mapset_count.unwrap_or_default(),
-            guest_mapset_count: guest_mapset_count.unwrap_or_default(),
-            highest_rank,
-            loved_mapset_count: loved_mapset_count.unwrap_or_default(),
-            mapping_follower_count: mapping_follower_count.unwrap_or_default(),
-            monthly_playcounts: monthly_playcounts.unwrap_or_default(),
-            rank_history: rank_history.unwrap_or_default(),
-            ranked_mapset_count: ranked_mapset_count.unwrap_or_default(),
-            replays_watched_counts: replays_watched_counts.unwrap_or_default(),
-            scores_first_count: scores_first_count.unwrap_or_default(),
-            statistics,
-            pending_mapset_count: pending_mapset_count.unwrap_or_default(),
-            medals: medals.unwrap_or_default(),
         }
     }
 }

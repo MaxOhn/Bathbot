@@ -1,5 +1,6 @@
 use std::iter;
 
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     numbers::WithComma,
@@ -21,10 +22,7 @@ use crate::{
         user_not_found,
     },
     core::{commands::CommandOrigin, Context},
-    manager::redis::{
-        osu::{User, UserArgs},
-        RedisData,
-    },
+    manager::redis::{osu::UserArgs, RedisData},
 };
 
 pub async fn rank_graph(
@@ -52,9 +50,9 @@ pub async fn rank_graph(
     fn draw_graph(user: &RedisData<User>) -> Result<Option<Vec<u8>>> {
         let history = match user {
             RedisData::Original(user) if user.rank_history.is_empty() => return Ok(None),
-            RedisData::Original(user) => user.rank_history.as_slice(),
+            RedisData::Original(user) => user.rank_history.as_ref(),
             RedisData::Archive(user) if user.rank_history.is_empty() => return Ok(None),
-            RedisData::Archive(user) => user.rank_history.as_slice(),
+            RedisData::Archive(user) => user.rank_history.as_ref(),
         };
 
         let history_len = history.len();

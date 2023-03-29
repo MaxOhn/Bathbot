@@ -8,7 +8,7 @@ use std::{
     mem::MaybeUninit,
 };
 
-use bathbot_model::{OsuStatsParams, ScoreSlim};
+use bathbot_model::{rosu_v2::user::User, OsuStatsParams, ScoreSlim};
 use bathbot_util::{
     datetime::SecToMinSec,
     numbers::{round, WithComma},
@@ -29,10 +29,7 @@ use time::OffsetDateTime;
 use crate::{
     core::{BotConfig, Context},
     embeds::{HitResultFormatter, MessageOrigin},
-    manager::{
-        redis::{osu::User, RedisData},
-        OsuMap,
-    },
+    manager::{redis::RedisData, OsuMap},
     util::Emote,
 };
 

@@ -240,7 +240,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         let mut pps = scores.extract_pp();
         approx_more_pp(&mut pps, 50);
         let actual = pps.accum_weighted();
-        let total = user.peek_stats(|stats| stats.pp);
+        let total = user.stats().pp();
         let bonus_pp = (total - actual).max(0.0);
 
         let idx = pps

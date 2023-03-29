@@ -1,10 +1,11 @@
 use std::{collections::BTreeMap, fmt::Write, iter, mem};
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{numbers::WithComma, AuthorBuilder, IntHasher};
 use hashbrown::HashSet;
 
-use crate::manager::redis::{osu::User, RedisData};
+use crate::manager::redis::RedisData;
 
 #[derive(EmbedData)]
 pub struct BWSEmbed {
@@ -22,7 +23,7 @@ impl BWSEmbed {
         badges_max: usize,
         rank: Option<u32>,
     ) -> Self {
-        let global_rank = user.peek_stats(|stats| stats.global_rank);
+        let global_rank = user.stats().global_rank();
 
         let dist_badges = badges_max - badges_min;
         let step_dist = 2;
@@ -37,7 +38,7 @@ impl BWSEmbed {
         let description = match rank {
             Some(rank_arg) => {
                 let mut min = rank_arg;
-                let mut max = global_rank.unwrap_or(0);
+                let mut max = global_rank;
 
                 if min > max {
                     mem::swap(&mut min, &mut max);
@@ -59,7 +60,7 @@ impl BWSEmbed {
                             let bwss: Vec<_> = badges
                                 .iter()
                                 .map(move |(badges, _)| {
-                                    WithComma::new(bws(Some(rank), *badges)).to_string()
+                                    WithComma::new(bws(rank, *badges)).to_string()
                                 })
                                 .collect();
 
@@ -183,8 +184,8 @@ impl BWSEmbed {
     }
 }
 
-fn bws(rank: Option<u32>, badges: usize) -> u64 {
-    let rank = rank.unwrap_or(0) as f64;
+fn bws(rank: u32, badges: usize) -> u64 {
+    let rank = rank as f64;
     let badges = badges as i32;
 
     rank.powf(0.9937_f64.powi(badges * badges)).round() as u64

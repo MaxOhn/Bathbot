@@ -1960,7 +1960,6 @@ dependencies = [
  "leaky-bucket-lite",
  "log",
  "prometheus",
- "rkyv",
  "serde",
  "serde_json",
  "smallstr",

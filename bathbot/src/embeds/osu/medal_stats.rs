@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
-use bathbot_model::{MedalGroup, MEDAL_GROUPS};
+use bathbot_model::{rosu_v2::user::User, MedalGroup, MEDAL_GROUPS};
 use bathbot_util::{
     constants::OSU_BASE, numbers::round, osu::flag_url, AuthorBuilder, CowUtils, FooterBuilder,
     IntHasher,
@@ -10,10 +10,7 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::MedalCompact;
 use twilight_model::channel::message::embed::EmbedField;
 
-use crate::{
-    embeds::attachment,
-    manager::redis::{osu::User, RedisData},
-};
+use crate::{embeds::attachment, manager::redis::RedisData};
 
 #[derive(EmbedData)]
 pub struct MedalStatsEmbed {

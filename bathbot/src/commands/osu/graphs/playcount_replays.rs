@@ -1,5 +1,9 @@
 use std::{iter, mem};
 
+use bathbot_model::{
+    rosu_v2::user::{MonthlyCount as MonthlyCountRkyv, User},
+    Either,
+};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
@@ -20,7 +24,10 @@ use plotters::{
 };
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
-use rkyv::{Deserialize, Infallible};
+use rkyv::{
+    with::{DeserializeWith, Map},
+    Infallible,
+};
 use rosu_v2::{
     prelude::{MonthlyCount, OsuError},
     request::UserId,
@@ -31,10 +38,7 @@ use time::{Date, Month, OffsetDateTime};
 use crate::{
     commands::osu::user_not_found,
     core::{commands::CommandOrigin, Context},
-    manager::redis::{
-        osu::{User, UserArgs},
-        RedisData,
-    },
+    manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,
 };
 
@@ -173,20 +177,38 @@ async fn gather_badges(
     flags: ProfileGraphFlags,
 ) -> Result<Vec<Bytes>> {
     let badges = match user {
-        RedisData::Original(user) => mem::take(&mut user.badges),
-        RedisData::Archive(user) => user.badges.deserialize(&mut Infallible).unwrap(),
+        RedisData::Original(user) => Either::Left(user.badges.as_slice()),
+        RedisData::Archive(user) => Either::Right(user.badges.as_slice()),
     };
 
-    if badges.is_empty() || !flags.badges() {
+    let skip = match badges {
+        Either::Left(badges) if badges.is_empty() => true,
+        Either::Right(badges) if badges.is_empty() => true,
+        _ => false,
+    };
+
+    if skip || !flags.badges() {
         return Ok(Vec::new());
     }
 
-    badges
-        .iter()
-        .map(|badge| ctx.client().get_badge(&badge.image_url))
-        .collect::<FuturesUnordered<_>>()
-        .try_collect()
-        .await
+    match badges {
+        Either::Left(badges) => {
+            badges
+                .iter()
+                .map(|badge| ctx.client().get_badge(&badge.image_url))
+                .collect::<FuturesUnordered<_>>()
+                .try_collect()
+                .await
+        }
+        Either::Right(badges) => {
+            badges
+                .iter()
+                .map(|badge| ctx.client().get_badge(&badge.image_url))
+                .collect::<FuturesUnordered<_>>()
+                .try_collect()
+                .await
+        }
+    }
 }
 
 pub async fn graphs(params: ProfileGraphParams<'_>) -> Result<Option<Vec<u8>>> {
@@ -561,18 +583,18 @@ fn prepare_monthly_counts(
 ) -> (Vec<MonthlyCount>, Vec<MonthlyCount>) {
     let mut playcounts = match user {
         RedisData::Original(user) => mem::take(&mut user.monthly_playcounts),
-        RedisData::Archive(user) => user
-            .monthly_playcounts
-            .deserialize(&mut Infallible)
-            .unwrap(),
+        RedisData::Archive(user) => {
+            Map::<MonthlyCountRkyv>::deserialize_with(&user.monthly_playcounts, &mut Infallible)
+                .unwrap()
+        }
     };
 
     let mut replays = match user {
         RedisData::Original(user) => mem::take(&mut user.replays_watched_counts),
-        RedisData::Archive(user) => user
-            .replays_watched_counts
-            .deserialize(&mut Infallible)
-            .unwrap(),
+        RedisData::Archive(user) => {
+            Map::<MonthlyCountRkyv>::deserialize_with(&user.replays_watched_counts, &mut Infallible)
+                .unwrap()
+        }
     };
 
     // Spoof missing months

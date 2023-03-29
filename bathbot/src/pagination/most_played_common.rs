@@ -1,4 +1,5 @@
 use bathbot_macros::pagination;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::IntHasher;
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
@@ -6,7 +7,7 @@ use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     embeds::{EmbedData, MostPlayedCommonEmbed},
-    manager::redis::{osu::User, RedisData},
+    manager::redis::RedisData,
 };
 
 use super::Pages;

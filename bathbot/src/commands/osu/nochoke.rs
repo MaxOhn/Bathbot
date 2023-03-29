@@ -236,7 +236,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
         .zip(0..)
         .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
-    let bonus_pp = user.peek_stats(|stats| stats.pp - actual_pp);
+    let bonus_pp = user.stats().pp() - actual_pp;
 
     // Sort by unchoked pp
     entries.sort_unstable_by(|a, b| {

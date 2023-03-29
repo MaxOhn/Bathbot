@@ -1,6 +1,7 @@
 use std::{borrow::Cow, cmp::Ordering, collections::HashMap, fmt::Write, iter, sync::Arc};
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher,
@@ -25,10 +26,7 @@ use crate::{
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{
-        osu::{User, UserArgs},
-        RedisData,
-    },
+    manager::redis::{osu::UserArgs, RedisData},
     pagination::CommonPagination,
     util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
     Context,
@@ -379,7 +377,7 @@ impl PartialOrd for CommonScore {
 
 pub struct CommonUser {
     name: Username,
-    avatar_url: String,
+    avatar_url: Box<str>,
     user_id: u32,
     pub first_count: usize,
 }
@@ -409,7 +407,7 @@ impl CommonUser {
     }
 
     fn avatar_url(&self) -> &str {
-        self.avatar_url.as_str()
+        self.avatar_url.as_ref()
     }
 }
 

@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, convert::identity, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::{MAP_THUMB_URL, OSU_BASE},
     numbers::{round, WithComma},
@@ -12,7 +13,7 @@ use time::OffsetDateTime;
 
 use crate::{
     commands::osu::{FixEntry, FixScore},
-    manager::redis::{osu::User, RedisData},
+    manager::redis::RedisData,
 };
 
 #[derive(EmbedData)]
@@ -168,7 +169,7 @@ impl NewPp {
         }
 
         let new_weighted = extracted_pp.accum_weighted();
-        let total = user.peek_stats(|stats| stats.pp);
+        let total = user.stats().pp();
         let new_total = total - old_weighted + new_weighted;
 
         NewPp {

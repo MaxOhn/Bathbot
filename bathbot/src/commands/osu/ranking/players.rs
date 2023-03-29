@@ -1,10 +1,12 @@
 use std::{mem, ops::Deref, sync::Arc};
 
 use bathbot_macros::command;
-use bathbot_model::{CountryCode, RankingEntries, RankingEntry, RankingKind};
+use bathbot_model::{
+    rosu_v2::ranking::Rankings, CountryCode, Either, RankingEntries, RankingEntry, RankingKind,
+};
 use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
+use rosu_v2::prelude::{GameMode, OsuResult, Rankings as RosuRankings};
 
 use crate::{
     commands::GameModeOption,
@@ -84,8 +86,8 @@ pub(super) async fn pp(
             .pp_ranking(mode, 1, country)
             .await
             .map(|ranking| match ranking {
-                RedisData::Original(ranking) => ranking,
-                RedisData::Archive(ranking) => ranking.deserialize(),
+                RedisData::Original(ranking) => Either::Left(ranking),
+                RedisData::Archive(ranking) => Either::Right(ranking.deserialize()),
             })
     };
 
@@ -110,12 +112,12 @@ async fn pp_author_idx(
             let idx = match country {
                 Some(code) => {
                     if user.country_code() == code.as_str() {
-                        user.peek_stats(|stats| stats.country_rank)
+                        Some(user.stats().country_rank())
                     } else {
                         None
                     }
                 }
-                None => user.peek_stats(|stats| stats.global_rank),
+                None => Some(user.stats().global_rank()),
             };
 
             idx.filter(|n| (1..=10_000).contains(n))
@@ -173,10 +175,11 @@ pub(super) async fn score(
         }
     };
 
-    let (ranking_result, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
+    let (ranking_res, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
+    let ranking_res = ranking_res.map(Either::Left);
     let kind = OsuRankingKind::Score;
 
-    ranking(ctx, orig, mode, None, kind, author_idx, ranking_result).await
+    ranking(ctx, orig, mode, None, kind, author_idx, ranking_res).await
 }
 
 async fn ranking(
@@ -186,7 +189,7 @@ async fn ranking(
     country: Option<CountryCode>,
     kind: OsuRankingKind,
     author_idx: Option<usize>,
-    result: OsuResult<Rankings>,
+    result: OsuResult<Either<RosuRankings, Rankings>>,
 ) -> Result<()> {
     let mut ranking = match result {
         Ok(ranking) => ranking,
@@ -198,47 +201,84 @@ async fn ranking(
     };
 
     let country = country.map(|code| {
-        let name = ranking
-            .ranking
-            .get_mut(0)
-            .and_then(|user| mem::take(&mut user.country))
-            .unwrap_or_else(|| code.as_str().to_owned());
+        let name = match ranking {
+            Either::Left(ref mut ranking) => ranking
+                .ranking
+                .get_mut(0)
+                .and_then(|user| mem::take(&mut user.country))
+                .map(String::into_boxed_str),
+            Either::Right(ref mut ranking) => ranking
+                .ranking
+                .get_mut(0)
+                .and_then(|user| mem::take(&mut user.country)),
+        };
 
-        (name, code)
+        (name.unwrap_or_else(|| Box::from(code.as_str())), code)
     });
 
-    let total = ranking.total as usize;
+    let total = match ranking {
+        Either::Left(ref ranking) => ranking.total as usize,
+        Either::Right(ref ranking) => ranking.total as usize,
+    };
 
     let entries = match kind {
         OsuRankingKind::Performance => {
-            let entries = ranking
-                .ranking
-                .into_iter()
-                .map(|user| RankingEntry {
-                    country: Some(user.country_code.into()),
-                    name: user.username,
-                    value: user.statistics.as_ref().expect("missing stats").pp.round() as u32,
-                })
-                .enumerate()
-                .collect();
+            let entries = match ranking {
+                Either::Left(ranking) => ranking
+                    .ranking
+                    .into_iter()
+                    .map(|user| RankingEntry {
+                        country: Some(user.country_code.into()),
+                        name: user.username,
+                        value: user.statistics.as_ref().expect("missing stats").pp.round() as u32,
+                    })
+                    .enumerate()
+                    .collect(),
+                Either::Right(ranking) => ranking
+                    .ranking
+                    .into_iter()
+                    .map(|user| RankingEntry {
+                        country: Some(user.country_code.into()),
+                        name: user.username,
+                        value: user.statistics.as_ref().expect("missing stats").pp.round() as u32,
+                    })
+                    .enumerate()
+                    .collect(),
+            };
 
             RankingEntries::PpU32(entries)
         }
         OsuRankingKind::Score => {
-            let entries = ranking
-                .ranking
-                .into_iter()
-                .map(|user| RankingEntry {
-                    country: Some(user.country_code.into()),
-                    name: user.username,
-                    value: user
-                        .statistics
-                        .as_ref()
-                        .expect("missing stats")
-                        .ranked_score,
-                })
-                .enumerate()
-                .collect();
+            let entries = match ranking {
+                Either::Left(ranking) => ranking
+                    .ranking
+                    .into_iter()
+                    .map(|user| RankingEntry {
+                        country: Some(user.country_code.into()),
+                        name: user.username,
+                        value: user
+                            .statistics
+                            .as_ref()
+                            .expect("missing stats")
+                            .ranked_score,
+                    })
+                    .enumerate()
+                    .collect(),
+                Either::Right(ranking) => ranking
+                    .ranking
+                    .into_iter()
+                    .map(|user| RankingEntry {
+                        country: Some(user.country_code.into()),
+                        name: user.username,
+                        value: user
+                            .statistics
+                            .as_ref()
+                            .expect("missing stats")
+                            .ranked_score,
+                    })
+                    .enumerate()
+                    .collect(),
+            };
 
             RankingEntries::Amount(entries)
         }

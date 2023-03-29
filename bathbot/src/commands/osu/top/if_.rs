@@ -220,7 +220,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
         .filter_map(|s| s.weight)
         .fold(0.0, |sum, weight| sum + weight.pp);
 
-    let bonus_pp = user.peek_stats(|stats| stats.pp - actual_pp);
+    let bonus_pp = user.stats().pp() - actual_pp;
 
     let mut entries = match process_scores(&ctx, scores, mods).await {
         Ok(scores) => scores,
@@ -262,7 +262,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     };
 
     // Accumulate all necessary data
-    let pre_pp = user.peek_stats(|stats| stats.pp);
+    let pre_pp = user.stats().pp();
     let content = get_content(user.username(), mode, mods, args.query.as_deref());
 
     TopIfPagination::builder(user, entries, mode, pre_pp, final_pp, rank)
