@@ -1,7 +1,10 @@
 use std::{marker::PhantomData, ops::Deref};
 
 use bb8_redis::redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, Value};
-use rkyv::{Archive, Archived, Deserialize, Infallible};
+use rkyv::{
+    with::{ArchiveWith, DeserializeWith, With},
+    Archive, Archived, Deserialize, Infallible,
+};
 
 #[derive(Clone)]
 pub struct CachedArchive<T> {
@@ -35,6 +38,18 @@ where
 {
     pub fn deserialize(&self) -> T {
         <Archived<T> as Deserialize<T, _>>::deserialize(self, &mut Infallible).unwrap()
+    }
+}
+
+impl<T> CachedArchive<T> {
+    pub fn deserialize_with<W>(&self) -> T
+    where
+        W: ArchiveWith<T> + DeserializeWith<<W as ArchiveWith<T>>::Archived, T, Infallible>,
+    {
+        // SAFETY: Bytes originate from redis which only stores valid archived data
+        let archived = unsafe { rkyv::archived_root::<With<_, W>>(&self.bytes) };
+
+        W::deserialize_with(archived, &mut Infallible).unwrap()
     }
 }
 

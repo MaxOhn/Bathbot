@@ -1,19 +1,24 @@
+use bathbot_model::twilight_model::guild::Member;
 use bb8_redis::redis::AsyncCommands;
 use eyre::{Report, Result, WrapErr};
-use rkyv::{ser::serializers::AllocSerializer, Serialize};
+use rkyv::{
+    ser::serializers::AllocSerializer,
+    with::{ArchiveWith, SerializeWith},
+    AlignedVec, Serialize,
+};
 use twilight_model::{
     application::interaction::application_command::InteractionMember,
     channel::Channel,
     gateway::payload::incoming::MemberUpdate,
-    guild::{Guild, Member, PartialGuild, PartialMember, Role},
+    guild::{Guild, Member as TwMember, PartialGuild, PartialMember, Role},
     id::{marker::GuildMarker, Id},
     user::{CurrentUser, User},
 };
 
 use crate::{
     key::{RedisKey, ToCacheKey},
-    model::{CacheChange, CacheConnection, CachedGuild, CachedMember},
-    serializer::{MultiSerializer, SingleSerializer},
+    model::{CacheChange, CacheConnection},
+    serializer::{MemberSerializer, MultiSerializer, SingleSerializer},
     util::{AlignedVecRedisArgs, Zipped},
     Cache,
 };
@@ -147,8 +152,7 @@ impl Cache {
 
         let mut change = channels_change + threads_change + members_change + roles_change;
 
-        let cached_guild = CachedGuild::from(guild);
-        let bytes = SingleSerializer::guild(&cached_guild)?;
+        let bytes = SingleSerializer::guild(guild)?;
         let mut conn = self.connection().await?;
         let key = RedisKey::from(guild);
 
@@ -178,71 +182,78 @@ impl Cache {
         member: &InteractionMember,
         user: &User,
     ) -> Result<CacheChange> {
-        let cached_member = CachedMember::from(member);
-
-        self.cache_member_user(guild, &cached_member, user).await
+        self.cache_member_user(guild, member, user).await
     }
 
     pub(crate) async fn cache_member(
         &self,
         guild: Id<GuildMarker>,
-        member: &Member,
+        member: &TwMember,
     ) -> Result<CacheChange> {
-        let cached_member = CachedMember::from(member);
-
-        self.cache_member_user(guild, &cached_member, &member.user)
-            .await
+        self.cache_member_user(guild, member, &member.user).await
     }
 
     pub(crate) async fn cache_member_update(&self, update: &MemberUpdate) -> Result<CacheChange> {
-        let cached_member = CachedMember::from(update);
-
-        self.cache_member_user(update.guild_id, &cached_member, &update.user)
+        self.cache_member_user(update.guild_id, update, &update.user)
             .await
     }
 
-    pub(crate) async fn cache_member_user(
+    pub(crate) async fn cache_member_user<M>(
         &self,
         guild: Id<GuildMarker>,
-        member: &CachedMember<'_>,
+        member: &M,
         user: &User,
-    ) -> Result<CacheChange> {
+    ) -> Result<CacheChange>
+    where
+        Member: ArchiveWith<M> + SerializeWith<M, MemberSerializer>,
+    {
+        async fn inner(
+            cache: &Cache,
+            guild: Id<GuildMarker>,
+            member_bytes: AlignedVec,
+            user: &User,
+            mut serializer: MultiSerializer,
+        ) -> Result<CacheChange> {
+            let user_bytes = serializer.user(user)?;
+
+            let mut conn = cache.connection().await?;
+
+            let items = &[
+                (RedisKey::member(guild, user.id), member_bytes.as_slice()),
+                (RedisKey::user(user.id), user_bytes.as_slice()),
+            ];
+
+            conn.set_multiple(items)
+                .await
+                .wrap_err("Failed to store member or user bytes")?;
+
+            let guild_key = RedisKey::guild_members(guild);
+
+            conn.sadd(guild_key, user.id.get())
+                .await
+                .wrap_err("Failed to add user as guild member")?;
+
+            let added: isize = conn
+                .sadd(RedisKey::users(), user.id.get())
+                .await
+                .wrap_err("Failed to add user as user id")?;
+
+            Ok(CacheChange {
+                users: added,
+                ..Default::default()
+            })
+        }
+
         let mut serializer = MultiSerializer::default();
         let member_bytes = serializer.member(member)?;
-        let user_bytes = serializer.user(user)?;
 
-        let mut conn = self.connection().await?;
-
-        let items = &[
-            (RedisKey::member(guild, user.id), member_bytes.as_slice()),
-            (RedisKey::user(user.id), user_bytes.as_slice()),
-        ];
-
-        conn.set_multiple(items)
-            .await
-            .wrap_err("Failed to store member or user bytes")?;
-
-        let guild_key = RedisKey::guild_members(guild);
-
-        conn.sadd(guild_key, user.id.get())
-            .await
-            .wrap_err("Failed to add user as guild member")?;
-
-        let added: isize = conn
-            .sadd(RedisKey::users(), user.id.get())
-            .await
-            .wrap_err("Failed to add user as user id")?;
-
-        Ok(CacheChange {
-            users: added,
-            ..Default::default()
-        })
+        inner(self, guild, member_bytes, user, serializer).await
     }
 
     pub(crate) async fn cache_members(
         &self,
         guild: Id<GuildMarker>,
-        members: &[Member],
+        members: &[TwMember],
     ) -> Result<CacheChange> {
         if members.is_empty() {
             return Ok(CacheChange::default());
@@ -259,9 +270,7 @@ impl Cache {
                     .user(&member.user)
                     .map(|bytes| (RedisKey::from(&member.user), AlignedVecRedisArgs(bytes)));
 
-                let cached_member = CachedMember::from(member);
-
-                let member = serializer.member(&cached_member).map(|bytes| {
+                let member = serializer.member(member).map(|bytes| {
                     let key = RedisKey::member(guild, member.user.id);
 
                     (key, AlignedVecRedisArgs(bytes))
@@ -309,8 +318,7 @@ impl Cache {
 
         let mut conn = self.connection().await?;
 
-        let cached_guild = CachedGuild::from(guild);
-        let bytes = SingleSerializer::guild(&cached_guild)?;
+        let bytes = SingleSerializer::guild(guild)?;
         let key = RedisKey::guild(guild.id);
 
         conn.set(key, bytes.as_slice())
@@ -339,9 +347,7 @@ impl Cache {
         member: &PartialMember,
         user: &User,
     ) -> Result<CacheChange> {
-        let cached_member = CachedMember::from(member);
-
-        self.cache_member_user(guild_id, &cached_member, user).await
+        self.cache_member_user(guild_id, member, user).await
     }
 
     pub(crate) async fn cache_role(

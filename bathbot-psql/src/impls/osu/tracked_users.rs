@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::BuildHasher};
+use std::{hash::BuildHasher, num::NonZeroU64};
 
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
@@ -7,14 +7,11 @@ use rkyv::ser::{
     Serializer,
 };
 use rosu_v2::prelude::GameMode;
-use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{
-    model::osu::{DbTrackedOsuUser, TrackedOsuUserKey, TrackedOsuUserValue},
+    model::osu::{Channels, DbTrackedOsuUser, TrackedOsuUserKey, TrackedOsuUserValue},
     Database,
 };
-
-type Channels<S> = HashMap<Id<ChannelMarker>, u8, S>;
 
 impl Database {
     pub async fn select_tracked_osu_users<S>(
@@ -128,7 +125,7 @@ WHERE
         &self,
         user_id: u32,
         mode: GameMode,
-        channel: Id<ChannelMarker>,
+        channel_id: NonZeroU64,
         limit: u8,
     ) -> Result<()>
     where
@@ -137,7 +134,7 @@ WHERE
         let mut tx = self.begin().await.wrap_err("failed to begin transaction")?;
 
         let mut channels = Channels::with_capacity_and_hasher(1, S::default());
-        channels.insert(channel, limit);
+        channels.insert(channel_id, limit);
 
         let mut ser = AllocSerializer::<52>::default();
 
@@ -167,7 +164,7 @@ SET
 
         let prev_channels = unsafe { rkyv::archived_root::<Channels<S>>(&row.channels) };
 
-        if !prev_channels.contains_key(&channel) {
+        if !prev_channels.contains_key(&channel_id) {
             channels.extend(prev_channels.iter());
 
             // re-use the previous buffer

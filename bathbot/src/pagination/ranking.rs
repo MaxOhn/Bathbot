@@ -78,7 +78,7 @@ impl RankingPagination {
                             name_opt = match name_opt {
                                 Some(name) => Some(name),
                                 None => match ctx.cache.user(id).await {
-                                    Ok(Some(user)) => Some(user.name.as_str().into()),
+                                    Ok(Some(user)) => Some(user.name.as_ref().into()),
                                     Ok(None) => None,
                                     Err(err) => {
                                         warn!("{err:?}");

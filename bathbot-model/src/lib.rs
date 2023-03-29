@@ -12,7 +12,11 @@ mod score_slim;
 mod twitch;
 mod user_stats;
 
+pub mod twilight_gateway;
+pub mod twilight_model;
+
 pub mod rkyv_impls;
+pub mod rkyv_util;
 
 pub use self::{
     country_code::*, games::*, huismetbenen::*, map_leaderboard::*, osekai::*, osu_stats::*,

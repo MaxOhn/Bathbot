@@ -186,7 +186,7 @@ impl Context {
         ))
     }
 
-    pub async fn down_resumable(shards: &mut [Shard]) -> HashMap<u64, Session> {
+    pub async fn down_resumable(shards: &mut [Shard]) -> HashMap<u64, Session, IntHasher> {
         shards
             .iter_mut()
             .map(|shard| {
@@ -356,7 +356,7 @@ async fn discord_http(config: &BotConfig) -> Result<(Arc<Client>, Id<Application
 async fn discord_gateway(
     config: &BotConfig,
     http: &Client,
-    resume_data: HashMap<u64, Session>,
+    resume_data: HashMap<u64, Session, IntHasher>,
 ) -> Result<Vec<Shard>> {
     let intents = Intents::GUILDS
         | Intents::GUILD_MEMBERS

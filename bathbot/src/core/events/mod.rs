@@ -3,11 +3,12 @@ use std::{
     sync::Arc,
 };
 
-use bathbot_cache::model::{CachedArchive, CachedGuild};
+use bathbot_cache::model::CachedArchive;
+use bathbot_model::twilight_model::{channel::Channel, guild::Guild};
 use eyre::{Report, Result};
 use futures::StreamExt;
 use twilight_gateway::{error::ReceiveMessageErrorType, stream::ShardEventStream, Event, Shard};
-use twilight_model::{channel::Channel, gateway::CloseCode, user::User};
+use twilight_model::{gateway::CloseCode, user::User};
 
 use crate::util::Authored;
 
@@ -69,10 +70,10 @@ enum EventLocation {
     Private,
     UncachedGuild,
     UncachedChannel {
-        guild: CachedArchive<CachedGuild<'static>>,
+        guild: CachedArchive<Guild>,
     },
     Cached {
-        guild: CachedArchive<CachedGuild<'static>>,
+        guild: CachedArchive<Guild>,
         channel: CachedArchive<Channel>,
     },
 }

@@ -1,18 +1,18 @@
+use bathbot_model::twilight_model::{
+    channel::Channel,
+    guild::{Guild, Member, Role},
+    user::{CurrentUser, User},
+};
 use bb8_redis::redis::AsyncCommands;
 use eyre::{Result, WrapErr};
-use twilight_model::{
-    channel::Channel,
-    guild::Role,
-    id::{
-        marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
-        Id,
-    },
-    user::{CurrentUser, User},
+use twilight_model::id::{
+    marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
+    Id,
 };
 
 use crate::{
     key::{RedisKey, ToCacheKey},
-    model::{CacheConnection, CachedArchive, CachedGuild, CachedMember},
+    model::{CacheConnection, CachedArchive},
     Cache,
 };
 
@@ -55,7 +55,7 @@ impl Cache {
     }
 
     #[inline]
-    pub async fn guild(&self, guild: Id<GuildMarker>) -> FetchResult<CachedGuild<'static>> {
+    pub async fn guild(&self, guild: Id<GuildMarker>) -> FetchResult<Guild> {
         self.connection()
             .await?
             .get(RedisKey::guild(guild))
@@ -77,7 +77,7 @@ impl Cache {
         &self,
         guild: Id<GuildMarker>,
         user: Id<UserMarker>,
-    ) -> FetchResult<CachedMember> {
+    ) -> FetchResult<Member> {
         self.connection()
             .await?
             .get(RedisKey::member(guild, user))

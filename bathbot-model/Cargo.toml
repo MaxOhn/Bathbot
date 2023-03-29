@@ -13,9 +13,11 @@ leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
 once_cell = { version = "1.0" }
 rosu-v2 = { workspace = true }
 rkyv = { version = "0.7" }
+rkyv-with = { path = "../../rkyv-with" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 thiserror = { version = "1.0" }
 time = { version = "0.3", features = ["parsing"] }
+twilight-gateway = { workspace = true }
 twilight-interactions = { workspace = true }
 twilight-model = { workspace = true }

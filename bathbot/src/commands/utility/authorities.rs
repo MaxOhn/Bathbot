@@ -115,9 +115,7 @@ pub async fn authorities(
 
                 let still_authority = match ctx.cache.roles(guild_id, member_roles).await {
                     Ok(cached_roles) => cached_roles.into_iter().any(|role| {
-                        let permissions = Permissions::from_bits_truncate(role.permissions);
-
-                        permissions.contains(Permissions::ADMINISTRATOR)
+                        role.permissions.contains(Permissions::ADMINISTRATOR)
                             || roles.iter().any(|&new| new == role.id && new != role_id)
                     }),
                     Err(err) => {
@@ -170,9 +168,7 @@ pub async fn authorities(
 
                 let still_authority = match ctx.cache.roles(guild_id, member_roles).await {
                     Ok(cached_roles) => cached_roles.into_iter().any(|role| {
-                        let permissions = Permissions::from_bits_truncate(role.permissions);
-
-                        permissions.contains(Permissions::ADMINISTRATOR)
+                        role.permissions.contains(Permissions::ADMINISTRATOR)
                             || roles.iter().any(|&new| new == role.id)
                     }),
                     Err(err) => {

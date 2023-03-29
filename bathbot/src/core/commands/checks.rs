@@ -1,10 +1,11 @@
 use std::fmt::Write;
 
 use bathbot_cache::Cache;
+use bathbot_model::twilight_model::channel::{PermissionOverwrite, PermissionOverwriteTypeRkyv};
 use eyre::{ContextCompat, Result};
-use rkyv::{Archived, Deserialize, Infallible};
+use rkyv::{with::DeserializeWith, Archived, Infallible};
 use twilight_model::{
-    channel::permission_overwrite::{PermissionOverwrite, PermissionOverwriteType},
+    channel::permission_overwrite::PermissionOverwriteType,
     guild::Permissions,
     id::{
         marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
@@ -131,13 +132,11 @@ pub async fn check_guild_permissions(
 
     for &role in member_roles.iter() {
         if let Ok(Some(role)) = cache.role(guild, role).await {
-            let role_permissions = Permissions::from_bits_truncate(role.permissions);
-
-            if role_permissions.contains(Permissions::ADMINISTRATOR) {
+            if role.permissions.contains(Permissions::ADMINISTRATOR) {
                 return (Permissions::all(), RolesLookup::Found(member_roles));
             }
 
-            permissions |= role_permissions;
+            permissions |= role.permissions;
         }
     }
 
@@ -199,20 +198,22 @@ fn text_channel_permissions(
     let mut role_denied = Permissions::empty();
 
     for overwrite in permission_overwrites.iter() {
-        match overwrite.kind.deserialize(&mut Infallible).unwrap() {
+        match PermissionOverwriteTypeRkyv::deserialize_with(&overwrite.kind, &mut Infallible)
+            .unwrap()
+        {
             PermissionOverwriteType::Member => {
                 if overwrite.id.cast() == user {
-                    user_allowed |= Permissions::from_bits_truncate(overwrite.allow);
-                    user_denied |= Permissions::from_bits_truncate(overwrite.deny);
+                    user_allowed |= overwrite.allow;
+                    user_denied |= overwrite.deny;
                 }
             }
             PermissionOverwriteType::Role => {
                 if overwrite.id.cast() == guild {
-                    everyone_allowed |= Permissions::from_bits_truncate(overwrite.allow);
-                    everyone_denied |= Permissions::from_bits_truncate(overwrite.deny);
+                    everyone_allowed |= overwrite.allow;
+                    everyone_denied |= overwrite.deny;
                 } else if roles.contains(&overwrite.id.cast()) {
-                    role_allowed |= Permissions::from_bits_truncate(overwrite.allow);
-                    role_denied |= Permissions::from_bits_truncate(overwrite.deny);
+                    role_allowed |= overwrite.allow;
+                    role_denied |= overwrite.deny;
                 }
             }
             _ => {}
