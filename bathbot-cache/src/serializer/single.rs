@@ -138,7 +138,7 @@ mod debug {
                 let avg_min_buffer_size = accum_min_buffer_size / serialization_count;
 
                 if allocated < avg_min_buffer_size {
-                    tracing::warn!(
+                    tracing::debug!(
                         "Allocated {allocated} byte(s) to serialize {kind} but \
                         the average min buffer size was {avg_min_buffer_size}"
                     );
