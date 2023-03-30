@@ -1913,6 +1913,8 @@ dependencies = [
 [[package]]
 name = "rkyv-with"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e4f1eaef66240257b98f521f2f6c511c20b6e830668cd8561053816a2abf017"
 dependencies = [
  "proc-macro2",
  "quote",
