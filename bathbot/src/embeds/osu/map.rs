@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
-use bathbot_model::rkyv_impls::UsernameWrapper;
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
     datetime::SecToMinSec,
@@ -9,7 +8,6 @@ use bathbot_util::{
     AuthorBuilder, CowUtils, FooterBuilder,
 };
 use eyre::{Report, Result, WrapErr};
-use rkyv::{with::DeserializeWith, Infallible};
 use rosu_pp::{AnyPP, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Username};
 use time::OffsetDateTime;
@@ -323,9 +321,7 @@ async fn creator_name<'m>(
 
     match ctx.redis().osu_user(args).await {
         Ok(RedisData::Original(user)) => Some(user.username),
-        Ok(RedisData::Archive(user)) => {
-            Some(UsernameWrapper::deserialize_with(&user.username, &mut Infallible).unwrap())
-        }
+        Ok(RedisData::Archive(user)) => Some(user.username.as_str().into()),
         Err(err) => {
             warn!("{:?}", Report::new(err).wrap_err("Failed to get user"));
 

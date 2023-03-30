@@ -5,7 +5,7 @@ use std::{
 
 use bathbot_macros::EmbedData;
 use bathbot_model::{
-    rkyv_impls::DateTimeWrapper,
+    rkyv_util::time::DateTimeRkyv,
     rosu_v2::user::{StatsWrapper, User},
 };
 use bathbot_util::{
@@ -660,7 +660,7 @@ impl<'u> UserData<'u> {
             RedisData::Archive(user) => Self {
                 stats: StatsWrapper::Right(user.statistics.as_ref().expect("missing statistics")),
                 username: user.username.as_str(),
-                join_date: DateTimeWrapper::deserialize_with(&user.join_date, &mut Infallible)
+                join_date: DateTimeRkyv::deserialize_with(&user.join_date, &mut Infallible)
                     .unwrap(),
                 follower_count: user.follower_count,
                 highest_rank: user.highest_rank.as_ref().map(|peak| peak.rank),

@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use bathbot_model::{
-    rkyv_impls::DateTimeWrapper,
+    rkyv_util::time::DateTimeRkyv,
     rosu_v2::user::{User, UserHighestRank},
 };
 use bathbot_util::{
@@ -710,7 +710,7 @@ impl ProfileEmbed {
         let mut join_date = match user {
             RedisData::Original(user) => user.join_date,
             RedisData::Archive(user) => {
-                DateTimeWrapper::deserialize_with(&user.join_date, &mut Infallible).unwrap()
+                DateTimeRkyv::deserialize_with(&user.join_date, &mut Infallible).unwrap()
             }
         };
 

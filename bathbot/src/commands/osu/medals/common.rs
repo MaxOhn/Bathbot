@@ -6,7 +6,7 @@ use std::{
 
 use bathbot_macros::command;
 use bathbot_model::{
-    rkyv_impls::DateTimeWrapper, rosu_v2::user::User, MedalGroup, OsekaiMedal, Rarity,
+    rkyv_util::time::DateTimeRkyv, rosu_v2::user::User, MedalGroup, OsekaiMedal, Rarity,
 };
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
@@ -347,7 +347,7 @@ fn extract_medals(user: &RedisData<User>) -> HashMap<u32, OffsetDateTime, IntHas
             .iter()
             .map(|medal| {
                 let achieved_at =
-                    DateTimeWrapper::deserialize_with(&medal.achieved_at, &mut Infallible).unwrap();
+                    DateTimeRkyv::deserialize_with(&medal.achieved_at, &mut Infallible).unwrap();
 
                 (medal.medal_id, achieved_at)
             })

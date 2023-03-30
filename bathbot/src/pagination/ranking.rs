@@ -1,11 +1,9 @@
 use std::collections::btree_map::Entry;
 
 use bathbot_macros::pagination;
-use bathbot_model::{
-    rkyv_impls::UsernameWrapper, BgGameScore, RankingEntries, RankingEntry, RankingKind,
-};
+use bathbot_model::{BgGameScore, RankingEntries, RankingEntry, RankingKind};
 use eyre::{Result, WrapErr};
-use rkyv::{with::DeserializeWith, Deserialize, Infallible};
+use rkyv::{Deserialize, Infallible};
 use twilight_model::{channel::message::embed::Embed, id::Id};
 
 use crate::{
@@ -129,11 +127,6 @@ impl RankingPagination {
                                 let country =
                                     user.country_code.deserialize(&mut Infallible).unwrap();
 
-                                let name_res = UsernameWrapper::deserialize_with(
-                                    &user.username,
-                                    &mut Infallible,
-                                );
-
                                 let pp = user
                                     .statistics
                                     .as_ref()
@@ -142,7 +135,7 @@ impl RankingPagination {
 
                                 let entry = RankingEntry {
                                     country: Some(country),
-                                    name: name_res.unwrap(),
+                                    name: user.username.as_str().into(),
                                     value: pp as u32,
                                 };
 
@@ -182,11 +175,6 @@ impl RankingPagination {
                                 let country =
                                     user.country_code.deserialize(&mut Infallible).unwrap();
 
-                                let name_res = UsernameWrapper::deserialize_with(
-                                    &user.username,
-                                    &mut Infallible,
-                                );
-
                                 let pp = user
                                     .statistics
                                     .as_ref()
@@ -195,7 +183,7 @@ impl RankingPagination {
 
                                 let entry = RankingEntry {
                                     country: Some(country),
-                                    name: name_res.unwrap(),
+                                    name: user.username.as_str().into(),
                                     value: pp as u32,
                                 };
 

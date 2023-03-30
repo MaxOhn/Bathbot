@@ -3,7 +3,6 @@ use std::{ops::Deref, sync::Arc};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::SlashCommand;
 use bathbot_model::{
-    rkyv_impls::DateTimeWrapper,
     rkyv_util::time::{DateRkyv, DateTimeRkyv},
     rosu_v2::user::{ArchivedUser, User, UserHighestRank as UserHighestRankRkyv, UserStatistics},
 };
@@ -164,7 +163,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
                             });
 
                         let last_visit = next.last_visit.as_ref().map(|time| {
-                            DateTimeWrapper::deserialize_with(time, &mut Infallible).unwrap()
+                            DateTimeRkyv::deserialize_with(time, &mut Infallible).unwrap()
                         });
 
                         let last_visit = match (last_visit, last_playcount) {
