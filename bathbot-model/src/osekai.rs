@@ -6,7 +6,8 @@ use std::{
 };
 
 use rkyv::{
-    with::{ArchiveWith, Raw},
+    string::ArchivedString,
+    with::{Map, Niche, Raw},
     Archive, Deserialize as RkyvDeserialize, Serialize,
 };
 use rosu_v2::{
@@ -21,7 +22,8 @@ use time::Date;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
 use crate::{
-    rkyv_impls::{DateWrapper, UsernameWrapper},
+    rkyv_util::{time::DateRkyv, DerefAsString, FlagsRkyv},
+    rosu_v2::GameModeRkyv,
     CountryCode, RankingKind,
 };
 
@@ -235,10 +237,13 @@ pub struct OsekaiMedal {
     pub icon_url: Box<str>,
     pub description: Box<str>,
     #[serde(deserialize_with = "osekai_mode")]
+    #[with(Map<GameModeRkyv>)]
     pub restriction: Option<GameMode>,
     pub grouping: MedalGroup,
+    #[with(Niche)]
     pub solution: Option<Box<str>>,
     #[serde(deserialize_with = "osekai_mods")]
+    #[with(Map<FlagsRkyv>)]
     pub mods: Option<GameMods>,
     #[serde(rename = "ModeOrder")]
     pub mode_order: usize,
@@ -503,7 +508,7 @@ pub struct OsekaiRankingEntry<T: Archive> {
     pub country_code: CountryCode,
     pub rank: u32,
     pub user_id: u32,
-    #[with(UsernameWrapper)]
+    #[with(DerefAsString)]
     pub username: Username,
     value: ValueWrapper<T>,
 }
@@ -513,7 +518,7 @@ pub struct ArchivedOsekaiRankingEntry<T: Archive> {
     pub country_code: <CountryCode as Archive>::Archived,
     pub rank: u32,
     pub user_id: u32,
-    pub username: <UsernameWrapper as ArchiveWith<Username>>::Archived,
+    pub username: ArchivedString,
     value: <ValueWrapper<T> as Archive>::Archived,
 }
 
@@ -688,7 +693,7 @@ pub struct OsekaiUserEntry {
     #[serde(rename = "countrycode")]
     pub country_code: CountryCode,
     pub country: Box<str>,
-    #[with(UsernameWrapper)]
+    #[with(DerefAsString)]
     pub username: Username,
     #[serde(rename = "medalCount", with = "deser::u32_string")]
     pub medal_count: u32,
@@ -716,13 +721,14 @@ pub struct OsekaiRarityEntry {
     #[serde(rename = "possessionRate", with = "deser::f32_string")]
     pub possession_percent: f32,
     #[serde(rename = "gameMode", deserialize_with = "osekai_mode")]
+    #[with(Map<GameModeRkyv>)]
     pub mode: Option<GameMode>,
 }
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
 pub struct OsekaiBadge {
     #[serde(with = "deser::date")]
-    #[with(DateWrapper)]
+    #[with(DateRkyv)]
     pub awarded_at: Date,
     pub description: Box<str>,
     #[serde(rename = "id", with = "deser::u32_string")]

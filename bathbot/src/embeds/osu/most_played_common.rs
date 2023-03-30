@@ -1,14 +1,12 @@
 use std::{cmp::Ordering, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{constants::OSU_BASE, CowUtils, IntHasher};
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
 
-use crate::{
-    manager::redis::{osu::User, RedisData},
-    pagination::Pages,
-};
+use crate::{manager::redis::RedisData, pagination::Pages};
 
 #[derive(EmbedData)]
 pub struct MostPlayedCommonEmbed {

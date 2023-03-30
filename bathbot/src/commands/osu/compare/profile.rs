@@ -4,7 +4,7 @@ use bathbot_macros::{command, SlashCommand};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
-    osu::BonusPP,
+    osu::{BonusPP, UserStats},
     MessageBuilder,
 };
 use eyre::{Report, Result, WrapErr};
@@ -15,7 +15,7 @@ use image::{
     Rgba,
 };
 use rosu_v2::{
-    prelude::{GameMode, GameMods, OsuError, Score, UserStatistics},
+    prelude::{GameMode, GameMods, OsuError, Score},
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -223,10 +223,8 @@ pub(super) async fn profile(
         }
     };
 
-    let profile_result1 =
-        user1.peek_stats(|stats| CompareResult::calc(mode, &scores1, stats, score_rank1));
-    let profile_result2 =
-        user2.peek_stats(|stats| CompareResult::calc(mode, &scores2, stats, score_rank2));
+    let profile_result1 = CompareResult::calc(mode, &scores1, user1.stats(), score_rank1);
+    let profile_result2 = CompareResult::calc(mode, &scores2, user2.stats(), score_rank2);
 
     // Creating the embed
     let embed_data =
@@ -354,7 +352,7 @@ impl CompareResult {
     fn calc(
         mode: GameMode,
         scores: &[Score],
-        stats: &UserStatistics,
+        stats: impl UserStats,
         score_rank: Option<u32>,
     ) -> Self {
         let mut pp = MinMaxAvg::new();

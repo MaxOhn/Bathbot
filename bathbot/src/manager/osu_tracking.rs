@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, num::NonZeroU64};
 
 use bathbot_psql::{
     model::osu::{TrackedOsuUserKey, TrackedOsuUserValue},
@@ -39,7 +39,7 @@ impl<'d> OsuTrackingManager<'d> {
     pub async fn update_channels(
         self,
         key: TrackedOsuUserKey,
-        channels: &HashMap<Id<ChannelMarker>, u8, IntHasher>,
+        channels: &HashMap<NonZeroU64, u8, IntHasher>,
     ) -> Result<()> {
         let TrackedOsuUserKey { user_id, mode } = key;
 
@@ -67,7 +67,7 @@ impl<'d> OsuTrackingManager<'d> {
         let TrackedOsuUserKey { user_id, mode } = key;
 
         self.psql
-            .insert_osu_tracking::<IntHasher>(user_id, mode, channel, limit)
+            .insert_osu_tracking::<IntHasher>(user_id, mode, channel.into_nonzero(), limit)
             .await
             .wrap_err("failed to insert tracked user")
     }

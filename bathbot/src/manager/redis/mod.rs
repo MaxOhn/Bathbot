@@ -2,13 +2,14 @@ use std::{borrow::Cow, fmt::Write};
 
 use bathbot_cache::Cache;
 use bathbot_model::{
-    OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats,
+    rosu_v2::ranking::Rankings, OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuTrackerIdCount,
+    OsuTrackerPpGroup, OsuTrackerStats,
 };
 use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
 use eyre::{Report, Result};
-use rkyv::{ser::serializers::AllocSerializer, Serialize};
-use rosu_v2::prelude::{GameMode, OsuError, Rankings};
+use rkyv::{ser::serializers::AllocSerializer, with::With, Serialize};
+use rosu_v2::prelude::{GameMode, OsuError, Rankings as RosuRankings};
 
 use crate::{commands::osu::MapOrScore, core::Context, util::interaction::InteractionCommand};
 
@@ -18,7 +19,7 @@ pub mod osu;
 
 mod data;
 
-type RedisResult<T, E = Report> = Result<RedisData<T>, E>;
+type RedisResult<T, A = T, E = Report> = Result<RedisData<T, A>, E>;
 
 #[derive(Copy, Clone)]
 pub struct RedisManager<'c> {
@@ -215,7 +216,7 @@ impl<'c> RedisManager<'c> {
         mode: GameMode,
         page: u32,
         country: Option<&str>,
-    ) -> RedisResult<Rankings, OsuError> {
+    ) -> RedisResult<RosuRankings, Rankings, OsuError> {
         const EXPIRE: usize = 1800;
         let mut key = format!("pp_ranking_{}_{page}", mode as u8);
 
@@ -246,7 +247,9 @@ impl<'c> RedisManager<'c> {
         };
 
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 32_768>(conn, &key, &ranking, EXPIRE).await {
+            let with = With::<_, Rankings>::cast(&ranking);
+
+            if let Err(err) = Cache::store::<_, _, 32_768>(conn, &key, with, EXPIRE).await {
                 warn!("{:?}", err.wrap_err("Failed to store ranking"));
             }
         }

@@ -1,6 +1,7 @@
 use std::{borrow::Cow, mem, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_model::rosu_v2::user::MedalCompact as MedalCompactRkyv;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher, MessageBuilder,
@@ -9,7 +10,10 @@ use eyre::{ContextCompat, Report, Result, WrapErr};
 use hashbrown::HashMap;
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
-use rkyv::{Deserialize, Infallible};
+use rkyv::{
+    with::{DeserializeWith, Map},
+    Deserialize, Infallible,
+};
 use rosu_v2::{
     prelude::{MedalCompact, OsuError},
     request::UserId,
@@ -101,7 +105,9 @@ pub(super) async fn stats(
 
     let mut medals = match user {
         RedisData::Original(ref mut user) => mem::take(&mut user.medals),
-        RedisData::Archive(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
+        RedisData::Archive(ref user) => {
+            Map::<MedalCompactRkyv>::deserialize_with(&user.medals, &mut Infallible).unwrap()
+        }
     };
 
     medals.sort_unstable_by_key(|medal| medal.achieved_at);

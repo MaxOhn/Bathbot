@@ -1,5 +1,6 @@
 use std::{cmp::Ordering, fmt::Display};
 
+use bathbot_model::rosu_v2::ranking::ArchivedRankingsUser;
 use bathbot_util::{
     constants::OSU_BASE,
     numbers::{round, WithComma},
@@ -7,11 +8,8 @@ use bathbot_util::{
 use eyre::{Report, Result, WrapErr};
 use image::{GenericImageView, ImageBuffer};
 use rand::Rng;
-use rosu_v2::{
-    model::rkyv::ArchivedUserCompact,
-    prelude::{
-        CountryCode, GameMode, GameMods, Grade, Score, UserCompact as UserCompactRosu, Username,
-    },
+use rosu_v2::prelude::{
+    CountryCode, GameMode, GameMods, Grade, Score, UserCompact as UserCompactRosu, Username,
 };
 
 use crate::{
@@ -28,7 +26,7 @@ const ALPHA_THRESHOLD: u8 = 20;
 
 pub(super) struct ScorePp {
     user_id: u32,
-    pub avatar_url: String,
+    pub avatar_url: Box<str>,
     map_id: u32,
     pub mapset_id: u32,
     pub player_string: String,
@@ -263,7 +261,7 @@ impl PartialEq for ScorePp {
 }
 
 struct UserCompact {
-    avatar_url: String,
+    avatar_url: Box<str>,
     country_code: CountryCode,
     global_rank: u32,
     user_id: u32,
@@ -274,7 +272,7 @@ impl From<UserCompactRosu> for UserCompact {
     #[inline]
     fn from(user: UserCompactRosu) -> Self {
         Self {
-            avatar_url: user.avatar_url,
+            avatar_url: user.avatar_url.into_boxed_str(),
             country_code: user.country_code,
             global_rank: user
                 .statistics
@@ -286,17 +284,16 @@ impl From<UserCompactRosu> for UserCompact {
     }
 }
 
-impl From<&ArchivedUserCompact> for UserCompact {
+impl From<&ArchivedRankingsUser> for UserCompact {
     #[inline]
-    fn from(user: &ArchivedUserCompact) -> Self {
+    fn from(user: &ArchivedRankingsUser) -> Self {
         Self {
-            avatar_url: user.avatar_url.as_str().to_owned(),
+            avatar_url: user.avatar_url.as_ref().into(),
             country_code: user.country_code.as_str().into(),
             global_rank: user
                 .statistics
                 .as_ref()
-                .and_then(|stats| stats.global_rank.as_ref().copied())
-                .unwrap_or(0),
+                .map_or(0, |stats| stats.global_rank),
             user_id: user.user_id,
             username: user.username.as_str().into(),
         }

@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
-use bathbot_model::SnipeRecent;
+use bathbot_model::{rosu_v2::user::User, SnipeRecent};
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, AuthorBuilder, CowUtils,
     FooterBuilder, IntHasher,
@@ -11,10 +11,7 @@ use hashbrown::{hash_map::Entry, HashMap};
 use rosu_v2::prelude::GameMode;
 
 use crate::{
-    commands::osu::Difference,
-    core::Context,
-    manager::redis::{osu::User, RedisData},
-    pagination::Pages,
+    commands::osu::Difference, core::Context, manager::redis::RedisData, pagination::Pages,
 };
 
 use super::ModsFormatter;

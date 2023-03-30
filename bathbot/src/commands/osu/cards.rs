@@ -6,6 +6,7 @@ use std::{
 };
 
 use bathbot_macros::{HasName, SlashCommand};
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     datetime::DATE_FORMAT,
@@ -34,10 +35,7 @@ use crate::{
     commands::GameModeOption,
     core::{commands::CommandOrigin, BotConfig, Context},
     embeds::attachment,
-    manager::redis::{
-        osu::{User, UserArgs},
-        RedisData,
-    },
+    manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
@@ -490,11 +488,11 @@ impl Skills {
             RedisData::Original(user) => {
                 let stats = user.statistics.as_ref().expect("missing statistics");
 
-                let global_rank = stats.global_rank;
-                let country_rank = stats.country_rank;
+                let global_rank = stats.global_rank.unwrap_or(0);
+                let country_rank = stats.country_rank.unwrap_or(0);
                 let level_curr = stats.level.current;
                 let level_progress = stats.level.progress;
-                let avatar_url = user.avatar_url.as_str();
+                let avatar_url = user.avatar_url.as_ref();
                 let medal_count = user.medals.len();
                 let mode = user.mode;
                 let username = user.username.as_str();
@@ -515,11 +513,11 @@ impl Skills {
             RedisData::Archive(user) => {
                 let stats = user.statistics.as_ref().expect("missing statistics");
 
-                let global_rank = stats.global_rank.as_ref().copied();
-                let country_rank = stats.country_rank.as_ref().copied();
+                let global_rank = stats.global_rank;
+                let country_rank = stats.country_rank;
                 let level_curr = stats.level.current;
                 let level_progress = stats.level.progress;
-                let avatar_url = user.avatar_url.as_str();
+                let avatar_url = user.avatar_url.as_ref();
                 let medal_count = user.medals.len();
                 let mode = user.mode;
                 let username = user.username.as_str();
@@ -565,8 +563,8 @@ impl Skills {
             "username": username,
             "flag": flag_url_svg(country_code),
             "user_pfp": avatar_url,
-            "global_rank": global_rank.unwrap_or(0),
-            "country_rank": country_rank.unwrap_or(0),
+            "global_rank": global_rank,
+            "country_rank": country_rank,
             "level": level_curr,
             "level_percentage": level_progress,
             "date": OffsetDateTime::now_utc().format(&DATE_FORMAT).unwrap(),

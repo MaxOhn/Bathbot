@@ -8,7 +8,7 @@ use std::{
 };
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
-use bathbot_model::{OsuTrackerMapsetEntry, ScoreSlim};
+use bathbot_model::{rosu_v2::user::User, OsuTrackerMapsetEntry, ScoreSlim};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
@@ -36,10 +36,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::TopSingleEmbed,
     manager::{
-        redis::{
-            osu::{User, UserArgs},
-            RedisData,
-        },
+        redis::{osu::UserArgs, RedisData},
         OsuMap,
     },
     pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},

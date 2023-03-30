@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bathbot_macros::pagination;
-use bathbot_model::OsuTrackerMapsetEntry;
+use bathbot_model::{rosu_v2::user::User, OsuTrackerMapsetEntry};
 use bathbot_psql::model::configs::MinimizedPp;
 use bathbot_util::IntHasher;
 use eyre::Result;
@@ -12,7 +12,7 @@ use crate::{
     commands::osu::{TopEntry, TopScoreOrder},
     core::Context,
     embeds::{CondensedTopEmbed, EmbedData, TopEmbed, TopSingleEmbed},
-    manager::redis::{osu::User, RedisData},
+    manager::redis::RedisData,
 };
 
 use super::Pages;

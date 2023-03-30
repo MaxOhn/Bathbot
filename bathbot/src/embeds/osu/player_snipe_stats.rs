@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
-use bathbot_model::SnipePlayer;
+use bathbot_model::{rosu_v2::user::User, SnipePlayer};
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::WithComma, AuthorBuilder, CowUtils,
     FooterBuilder,
@@ -13,10 +13,7 @@ use twilight_model::channel::message::embed::EmbedField;
 use crate::{
     core::Context,
     embeds::{attachment, osu},
-    manager::{
-        redis::{osu::User, RedisData},
-        OsuMap,
-    },
+    manager::{redis::RedisData, OsuMap},
     util::osu::grade_completion_mods,
 };
 
@@ -131,14 +128,14 @@ impl PlayerSnipeStatsEmbed {
             RedisData::Original(user) => {
                 let user_id = user.user_id;
                 let country_code = user.country_code.as_str();
-                let avatar_url = user.avatar_url.as_str();
+                let avatar_url = user.avatar_url.as_ref();
 
                 (user_id, country_code, avatar_url)
             }
             RedisData::Archive(user) => {
                 let user_id = user.user_id;
                 let country_code = user.country_code.as_str();
-                let avatar_url = user.avatar_url.as_str();
+                let avatar_url = user.avatar_url.as_ref();
 
                 (user_id, country_code, avatar_url)
             }

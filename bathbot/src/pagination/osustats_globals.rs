@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use bathbot_macros::pagination;
-use bathbot_model::{OsuStatsParams, ScoreSlim};
+use bathbot_model::{rosu_v2::user::User, OsuStatsParams, ScoreSlim};
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMode, Grade, ScoreStatistics};
 use twilight_model::channel::message::embed::Embed;
@@ -9,7 +9,7 @@ use twilight_model::channel::message::embed::Embed;
 use crate::{
     commands::osu::OsuStatsEntry,
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
-    manager::redis::{osu::User, RedisData},
+    manager::redis::RedisData,
     Context,
 };
 

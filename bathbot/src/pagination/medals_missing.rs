@@ -1,10 +1,11 @@
 use bathbot_macros::pagination;
+use bathbot_model::rosu_v2::user::User;
 use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::MedalType,
     embeds::{EmbedData, MedalsMissingEmbed},
-    manager::redis::{osu::User, RedisData},
+    manager::redis::RedisData,
 };
 
 use super::Pages;

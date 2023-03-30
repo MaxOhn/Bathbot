@@ -1,15 +1,12 @@
 use std::{collections::BTreeMap, fmt::Write, ops::RangeBounds};
 
 use bathbot_util::{AuthorBuilder, FooterBuilder};
-use rosu_v2::prelude::{GameMode, Username};
+use rosu_v2::prelude::{CountryCode as RosuCountryCode, GameMode, Username};
 use time::OffsetDateTime;
-use twilight_model::{
-    id::{marker::GuildMarker, Id},
-    util::ImageHash,
-};
+use twilight_model::id::{marker::GuildMarker, Id};
 
 use crate::{
-    rkyv_impls::ArchivedCountryCode, BgGameScore, CountryCode, HlGameScore, HlVersion,
+    twilight_model::util::ImageHash, BgGameScore, CountryCode, HlGameScore, HlVersion,
     UserModeStatsColumn, UserStatsColumn, UserStatsEntries, UserStatsEntry,
 };
 
@@ -23,7 +20,7 @@ impl<V> From<UserStatsEntry<V>> for RankingEntry<V> {
     #[inline]
     fn from(entry: UserStatsEntry<V>) -> Self {
         Self {
-            country: Some(ArchivedCountryCode::new(entry.country).as_str().into()),
+            country: Some(unsafe { RosuCountryCode::from_buf_unchecked(entry.country) }.into()),
             name: entry.name.into(),
             value: entry.value,
         }
@@ -205,7 +202,7 @@ pub enum RankingKind {
     OsekaiLovedMapsets,
     OsekaiSubscribers,
     PpCountry {
-        country: String,
+        country: Box<str>,
         country_code: CountryCode,
         mode: GameMode,
     },
@@ -396,7 +393,7 @@ impl RankingKind {
                 let mut author = AuthorBuilder::new(author_text);
 
                 if let Some((id, icon)) = guild_icon {
-                    let ext = if icon.is_animated() { "gif" } else { "webp" };
+                    let ext = if icon.animated { "gif" } else { "webp" };
                     let url = format!("https://cdn.discordapp.com/icons/{id}/{icon}.{ext}");
                     author = author.icon_url(url);
                 }

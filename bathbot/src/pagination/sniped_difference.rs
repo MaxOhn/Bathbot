@@ -1,5 +1,5 @@
 use bathbot_macros::pagination;
-use bathbot_model::SnipeRecent;
+use bathbot_model::{rosu_v2::user::User, SnipeRecent};
 use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
@@ -9,7 +9,7 @@ use crate::{
     commands::osu::Difference,
     core::Context,
     embeds::{EmbedData, SnipedDiffEmbed},
-    manager::redis::{osu::User, RedisData},
+    manager::redis::RedisData,
 };
 
 use super::Pages;

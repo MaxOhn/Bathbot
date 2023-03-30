@@ -5,7 +5,7 @@ use std::{
 };
 
 use eyre::Result;
-use rosu_v2::prelude::{GameMode, GameMods, Grade, Score, ScoreStatistics, UserStatistics};
+use rosu_v2::prelude::{GameMode, GameMods, Grade, Score, ScoreStatistics};
 
 use time::OffsetDateTime;
 use twilight_model::channel::message::{embed::Embed, Message};
@@ -391,57 +391,68 @@ impl BonusPP {
         self.avg_y += self.ys[idx] * weight;
     }
 
-    pub fn calculate(self, stats: &UserStatistics) -> f32 {
-        let BonusPP {
-            mut pp,
-            len,
-            ys,
-            sum_x,
-            mut avg_x,
-            mut avg_y,
-        } = self;
+    pub fn calculate(self, stats: impl UserStats) -> f32 {
+        fn inner(bonus_pp: BonusPP, stats_pp: f32, grade_counts_sum: i32, playcount: u32) -> f32 {
+            let BonusPP {
+                mut pp,
+                len,
+                ys,
+                sum_x,
+                mut avg_x,
+                mut avg_y,
+            } = bonus_pp;
 
-        if stats.pp.abs() < f32::EPSILON {
-            let counts = &stats.grade_counts;
-            let sum = counts.ssh + counts.ss + counts.sh + counts.s + counts.a;
-
-            return round(Self::MAX * (1.0 - 0.9994_f32.powi(sum)));
-        } else if self.len < 100 {
-            return round(stats.pp - pp);
-        }
-
-        avg_x /= sum_x;
-        avg_y /= sum_x;
-
-        let mut sum_xy = 0.0;
-        let mut sum_x2 = 0.0;
-
-        for n in 1..=len {
-            let diff_x = n as f32 - avg_x;
-            let ln_n = (n as f32).ln_1p();
-
-            sum_xy += diff_x * (ys[n - 1] - avg_y) * ln_n;
-            sum_x2 += diff_x * diff_x * ln_n;
-        }
-
-        let xy = sum_xy / sum_x;
-        let x2 = sum_x2 / sum_x;
-
-        let m = xy / x2;
-        let b = avg_y - (xy / x2) * avg_x;
-
-        for n in 100..=stats.playcount {
-            let val = 100.0_f32.powf(m * n as f32 + b);
-
-            if val <= 0.0 {
-                break;
+            if stats_pp.abs() < f32::EPSILON {
+                return round(BonusPP::MAX * (1.0 - 0.9994_f32.powi(grade_counts_sum)));
+            } else if bonus_pp.len < 100 {
+                return round(stats_pp - pp);
             }
 
-            pp += val;
+            avg_x /= sum_x;
+            avg_y /= sum_x;
+
+            let mut sum_xy = 0.0;
+            let mut sum_x2 = 0.0;
+
+            for n in 1..=len {
+                let diff_x = n as f32 - avg_x;
+                let ln_n = (n as f32).ln_1p();
+
+                sum_xy += diff_x * (ys[n - 1] - avg_y) * ln_n;
+                sum_x2 += diff_x * diff_x * ln_n;
+            }
+
+            let xy = sum_xy / sum_x;
+            let x2 = sum_x2 / sum_x;
+
+            let m = xy / x2;
+            let b = avg_y - (xy / x2) * avg_x;
+
+            for n in 100..=playcount {
+                let val = 100.0_f32.powf(m * n as f32 + b);
+
+                if val <= 0.0 {
+                    break;
+                }
+
+                pp += val;
+            }
+
+            round(stats_pp - pp).clamp(0.0, BonusPP::MAX)
         }
 
-        round(stats.pp - pp).clamp(0.0, Self::MAX)
+        let pp = stats.pp();
+        let grade_counts_sum = stats.grade_counts_sum();
+        let playcount = stats.playcount();
+
+        inner(self, pp, grade_counts_sum, playcount)
     }
+}
+
+pub trait UserStats {
+    fn pp(&self) -> f32;
+    fn grade_counts_sum(&self) -> i32;
+    fn playcount(&self) -> u32;
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]

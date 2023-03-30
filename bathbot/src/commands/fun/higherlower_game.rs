@@ -166,7 +166,7 @@ async fn higherlower_leaderboard(
         let name_opt = match ctx.user_config().osu_name(id).await {
             Ok(Some(name)) => Some(name),
             Ok(None) => match ctx.cache.user(id).await {
-                Ok(Some(user)) => Some(user.name.as_str().into()),
+                Ok(Some(user)) => Some(user.name.as_ref().into()),
                 Ok(None) => None,
                 Err(err) => {
                     warn!("{err:?}");

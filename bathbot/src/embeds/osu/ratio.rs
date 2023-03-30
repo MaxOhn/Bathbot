@@ -1,10 +1,11 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::AuthorBuilder;
 use rosu_v2::prelude::{Grade, Score};
 
-use crate::manager::redis::{osu::User, RedisData};
+use crate::manager::redis::RedisData;
 
 #[derive(EmbedData)]
 pub struct RatioEmbed {

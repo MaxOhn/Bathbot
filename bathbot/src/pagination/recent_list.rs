@@ -1,16 +1,14 @@
 use std::collections::HashMap;
 
 use bathbot_macros::pagination;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::IntHasher;
 use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::RecentListEntry,
     embeds::{EmbedData, RecentListEmbed},
-    manager::{
-        redis::{osu::User, RedisData},
-        OsuMap,
-    },
+    manager::{redis::RedisData, OsuMap},
 };
 
 use super::Pages;

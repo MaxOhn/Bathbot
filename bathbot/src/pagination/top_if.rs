@@ -1,11 +1,12 @@
 use bathbot_macros::pagination;
+use bathbot_model::rosu_v2::user::User;
 use rosu_v2::prelude::GameMode;
 use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     commands::osu::TopIfEntry,
     embeds::{EmbedData, TopIfEmbed},
-    manager::redis::{osu::User, RedisData},
+    manager::redis::RedisData,
 };
 
 use super::Pages;

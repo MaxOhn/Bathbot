@@ -1,20 +1,21 @@
 use std::mem;
 
+use bathbot_model::rosu_v2::user::{MedalCompact as MedalCompactRkyv, User};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
 };
 use eyre::{Report, Result};
-use rkyv::{Deserialize, Infallible};
+use rkyv::{
+    with::{DeserializeWith, Map},
+    Infallible,
+};
 use rosu_v2::{prelude::OsuError, request::UserId};
 
 use crate::{
     commands::osu::{medals::stats as medals_stats, user_not_found},
     core::{commands::CommandOrigin, Context},
-    manager::redis::{
-        osu::{User, UserArgs},
-        RedisData,
-    },
+    manager::redis::{osu::UserArgs, RedisData},
 };
 
 use super::{H, W};
@@ -44,7 +45,9 @@ pub async fn medals_graph(
 
     let mut medals = match user {
         RedisData::Original(ref mut user) => mem::take(&mut user.medals),
-        RedisData::Archive(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
+        RedisData::Archive(ref user) => {
+            Map::<MedalCompactRkyv>::deserialize_with(&user.medals, &mut Infallible).unwrap()
+        }
     };
 
     medals.sort_unstable_by_key(|medal| medal.achieved_at);

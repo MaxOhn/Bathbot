@@ -214,7 +214,7 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
 
     for &role in config.authorities.iter() {
         if let Ok(Some(role)) = ctx.cache.role(guild_id, role).await {
-            authorities.push(role.name.as_str().to_owned());
+            authorities.push(role.name.as_ref().to_owned());
         }
     }
 

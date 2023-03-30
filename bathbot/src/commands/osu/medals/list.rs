@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use bathbot_model::{rkyv_impls::DateTimeWrapper, OsekaiMedal, Rarity};
+use bathbot_model::{rkyv_util::time::DateTimeRkyv, OsekaiMedal, Rarity};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     IntHasher,
@@ -129,7 +129,7 @@ pub(super) async fn list(
                 {
                     Some(idx) => {
                         let achieved_res =
-                            DateTimeWrapper::deserialize_with(&m.achieved_at, &mut Infallible);
+                            DateTimeRkyv::deserialize_with(&m.achieved_at, &mut Infallible);
 
                         let entry = MedalEntryList {
                             medal: osekai_medals.swap_remove(idx),

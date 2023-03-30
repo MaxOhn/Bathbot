@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use bathbot_model::OsuTrackerModsEntry;
 use bathbot_util::constants::OSUTRACKER_ISSUE;
 use eyre::Result;
 use rkyv::{Deserialize, Infallible};
@@ -13,7 +12,7 @@ use crate::{
 };
 
 pub(super) async fn mods(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let counts: Vec<OsuTrackerModsEntry> = match ctx.redis().osutracker_stats().await {
+    let counts = match ctx.redis().osutracker_stats().await {
         Ok(RedisData::Original(stats)) => stats.user.mods_count,
         Ok(RedisData::Archive(stats)) => {
             stats.user.mods_count.deserialize(&mut Infallible).unwrap()
@@ -21,7 +20,7 @@ pub(super) async fn mods(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         Err(err) => {
             let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached osutracker stats"));
+            return Err(err.wrap_err("Failed to get cached osutracker stats"));
         }
     };
 

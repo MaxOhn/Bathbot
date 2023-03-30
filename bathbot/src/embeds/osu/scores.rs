@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
-use bathbot_model::ScoreSlim;
+use bathbot_model::{rosu_v2::user::User, ScoreSlim};
 use bathbot_util::{
     constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
     datetime::HowLongAgoDynamic,
@@ -14,10 +14,7 @@ use rosu_v2::prelude::{GameMode, Score};
 use crate::{
     commands::osu::CompareEntry,
     core::BotConfig,
-    manager::{
-        redis::{osu::User, RedisData},
-        OsuMap,
-    },
+    manager::{redis::RedisData, OsuMap},
     pagination::Pages,
     util::{osu::PersonalBestIndex, Emote},
 };

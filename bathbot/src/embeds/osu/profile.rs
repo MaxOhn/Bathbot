@@ -1,13 +1,19 @@
-use std::{borrow::Cow, fmt::Write};
+use std::fmt::Write;
 
-use bathbot_model::rkyv_impls::DateTimeWrapper;
+use bathbot_model::{
+    rkyv_util::time::DateTimeRkyv,
+    rosu_v2::user::{User, UserHighestRank},
+};
 use bathbot_util::{
     datetime::{HowLongAgoText, SecToMinSec, NAIVE_DATETIME_FORMAT},
     numbers::WithComma,
     AuthorBuilder, EmbedBuilder, FooterBuilder,
 };
-use rkyv::{with::DeserializeWith, Deserialize, Infallible};
-use rosu_v2::prelude::{GameMods, Grade, UserHighestRank, UserStatistics};
+use rkyv::{
+    with::{DeserializeWith, Map},
+    Infallible,
+};
+use rosu_v2::prelude::{GameMods, Grade};
 use time::UtcOffset;
 use twilight_model::channel::message::embed::{Embed, EmbedField};
 
@@ -15,7 +21,7 @@ use crate::{
     commands::osu::{MinMaxAvg, Number, ProfileData, ProfileKind, Top100Stats},
     core::Context,
     embeds::EmbedData,
-    manager::redis::{osu::User, RedisData},
+    manager::redis::RedisData,
     util::{osu::grade_emote, Emote},
 };
 
@@ -43,39 +49,35 @@ impl ProfileEmbed {
         let skin_url = data.skin_url(ctx).await;
         let ProfileData { user, tz, .. } = data;
 
-        let (level, playtime, playcount, acc) = user.peek_stats(|stats| {
-            let level = stats.level.float();
-            let playtime = stats.playtime / 60 / 60;
-            let playcount = stats.playcount;
-            let acc = stats.accuracy;
-
-            (level, playtime, playcount, acc)
-        });
-
         let (mode, medals, highest_rank) = match user {
             RedisData::Original(user) => {
                 let mode = user.mode;
                 let medals = user.medals.len();
-                let highest_rank = user.highest_rank.as_ref().map(Cow::Borrowed);
+                let highest_rank = user.highest_rank.as_ref().cloned();
 
                 (mode, medals, highest_rank)
             }
             RedisData::Archive(user) => {
                 let mode = user.mode;
                 let medals = user.medals.len();
+                let highest_rank =
+                    Map::<UserHighestRank>::deserialize_with(&user.highest_rank, &mut Infallible)
+                        .unwrap();
 
-                let highest_rank: Option<UserHighestRank> =
-                    user.highest_rank.deserialize(&mut Infallible).unwrap();
-
-                (mode, medals, highest_rank.map(Cow::Owned))
+                (mode, medals, highest_rank)
             }
         };
+
+        let stats = user.stats();
 
         let mut description = format!(
             "Accuracy: `{acc:.2}%` • Level: `{level:.2}`\n\
             Playcount: `{playcount}` (`{playtime} hrs`)\n\
             {mode} • Medals: `{medals}`",
-            playcount = WithComma::new(playcount),
+            acc = stats.accuracy(),
+            level = stats.level().float(),
+            playcount = WithComma::new(stats.playcount()),
+            playtime = stats.playtime() / 60 / 60,
             mode = Emote::from(mode).text(),
         );
 
@@ -122,34 +124,29 @@ impl ProfileEmbed {
             ..
         } = data;
 
-        let stats = user.peek_stats(UserStatistics::clone);
+        let stats = user.stats().to_owned();
 
         let (avatar_url, mode, highest_rank, medals, follower_count) = match user {
             RedisData::Original(user) => {
-                let avatar_url = user.avatar_url.as_str();
+                let avatar_url = user.avatar_url.as_ref();
                 let mode = user.mode;
                 let medals = user.medals.len();
                 let follower_count = user.follower_count;
-                let highest_rank = user.highest_rank.as_ref().map(Cow::Borrowed);
+                let highest_rank = user.highest_rank.as_ref().cloned();
 
                 (avatar_url, mode, highest_rank, medals, follower_count)
             }
             RedisData::Archive(user) => {
-                let avatar_url = user.avatar_url.as_str();
+                let avatar_url = user.avatar_url.as_ref();
                 let mode = user.mode;
                 let medals = user.medals.len();
                 let follower_count = user.follower_count;
 
-                let highest_rank: Option<UserHighestRank> =
-                    user.highest_rank.deserialize(&mut Infallible).unwrap();
+                let highest_rank =
+                    Map::<UserHighestRank>::deserialize_with(&user.highest_rank, &mut Infallible)
+                        .unwrap();
 
-                (
-                    avatar_url,
-                    mode,
-                    highest_rank.map(Cow::Owned),
-                    medals,
-                    follower_count,
-                )
+                (avatar_url, mode, highest_rank, medals, follower_count)
             }
         };
 
@@ -225,8 +222,8 @@ impl ProfileEmbed {
 
     async fn top100_stats(ctx: &Context, data: &mut ProfileData) -> Self {
         let (mode, avatar_url) = match &data.user {
-            RedisData::Original(user) => (user.mode, user.avatar_url.as_str().to_owned()),
-            RedisData::Archive(user) => (user.mode, user.avatar_url.as_str().to_owned()),
+            RedisData::Original(user) => (user.mode, user.avatar_url.as_ref().to_owned()),
+            RedisData::Archive(user) => (user.mode, user.avatar_url.as_ref().to_owned()),
         };
 
         let mut description = String::with_capacity(1024);
@@ -414,8 +411,8 @@ impl ProfileEmbed {
 
     async fn top100_mods(ctx: &Context, data: &mut ProfileData) -> Self {
         let (mode, avatar_url) = match &data.user {
-            RedisData::Original(user) => (user.mode, user.avatar_url.as_str().to_owned()),
-            RedisData::Archive(user) => (user.mode, user.avatar_url.as_str().to_owned()),
+            RedisData::Original(user) => (user.mode, user.avatar_url.as_ref().to_owned()),
+            RedisData::Archive(user) => (user.mode, user.avatar_url.as_ref().to_owned()),
         };
 
         let mut description = format!("__**{mode} Top100 mods", mode = Emote::from(mode).text(),);
@@ -614,7 +611,7 @@ impl ProfileEmbed {
                 let pending_count = user.pending_mapset_count;
                 let graveyard_count = user.graveyard_mapset_count;
                 let guest_count = user.guest_mapset_count;
-                let avatar_url = user.avatar_url.as_str();
+                let avatar_url = user.avatar_url.as_ref();
                 let kudosu = user.kudosu;
                 let mapping_followers = user.mapping_follower_count;
 
@@ -637,7 +634,7 @@ impl ProfileEmbed {
                 let pending_count = user.pending_mapset_count;
                 let graveyard_count = user.graveyard_mapset_count;
                 let guest_count = user.guest_mapset_count;
-                let avatar_url = user.avatar_url.as_str();
+                let avatar_url = user.avatar_url.as_ref();
                 let kudosu = user.kudosu;
                 let mapping_followers = user.mapping_follower_count;
 
@@ -713,7 +710,7 @@ impl ProfileEmbed {
         let mut join_date = match user {
             RedisData::Original(user) => user.join_date,
             RedisData::Archive(user) => {
-                DateTimeWrapper::deserialize_with(&user.join_date, &mut Infallible).unwrap()
+                DateTimeRkyv::deserialize_with(&user.join_date, &mut Infallible).unwrap()
             }
         };
 

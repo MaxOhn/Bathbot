@@ -1,5 +1,6 @@
 use std::{borrow::Cow, fmt::Write};
 
+use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::configs::MinimizedPp;
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
@@ -15,7 +16,7 @@ use crate::{
     commands::osu::TopEntry,
     core::Context,
     embeds::osu::PpFormatter,
-    manager::redis::{osu::User, RedisData},
+    manager::redis::RedisData,
     util::osu::{grade_completion_mods, IfFc, MapInfo},
 };
 

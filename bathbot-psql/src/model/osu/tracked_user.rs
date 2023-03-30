@@ -1,14 +1,14 @@
 use std::{
     collections::HashMap,
     hash::{BuildHasher, Hash},
+    num::NonZeroU64,
 };
 
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
-use twilight_model::id::{marker::ChannelMarker, Id};
 
-type Channels<S> = HashMap<Id<ChannelMarker>, u8, S>;
+pub type Channels<S> = HashMap<NonZeroU64, u8, S>;
 
 pub struct DbTrackedOsuUser {
     pub user_id: i32,

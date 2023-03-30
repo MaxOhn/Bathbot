@@ -3,7 +3,7 @@ use rosu_v2::prelude::{CountryCode, GameMods, Username};
 use serde::Deserialize;
 use time::OffsetDateTime;
 
-use crate::rkyv_impls::UsernameWrapper;
+use crate::rkyv_util::{DerefAsString, FlagsRkyv};
 
 use super::deser;
 
@@ -22,7 +22,7 @@ pub struct OsuTrackerPpGroup {
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerPpEntry {
-    #[with(UsernameWrapper)]
+    #[with(DerefAsString)]
     pub name: Username,
     #[serde(rename = "id", with = "deser::u32_string")]
     pub map_id: u32,
@@ -54,7 +54,7 @@ pub struct OsuTrackerUserStats {
     #[serde(rename = "objectsPlay")]
     pub objects_play: f32,
     #[serde(rename = "modsCount")]
-    pub mods_count: Vec<OsuTrackerModsEntry>,
+    pub mods_count: Box<[OsuTrackerModsEntry]>,
     // #[serde(rename = "topPlay", with = "u32_string")]
     // top_play: u32,
 }
@@ -76,13 +76,14 @@ pub struct OsuTrackerCountryStats {
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerModsEntry {
+    #[with(FlagsRkyv)]
     pub mods: GameMods,
     pub count: usize,
 }
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerMapperEntry {
-    #[with(UsernameWrapper)]
+    #[with(DerefAsString)]
     pub mapper: Username,
     pub count: usize,
 }

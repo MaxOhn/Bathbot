@@ -1,15 +1,13 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     numbers::{round, WithComma},
     AuthorBuilder, CowUtils,
 };
 
-use crate::{
-    commands::osu::WhatIfData,
-    manager::redis::{osu::User, RedisData},
-};
+use crate::{commands::osu::WhatIfData, manager::redis::RedisData};
 
 #[derive(EmbedData)]
 pub struct WhatIfEmbed {
@@ -21,16 +19,20 @@ pub struct WhatIfEmbed {
 
 impl WhatIfEmbed {
     pub fn new(user: &RedisData<User>, pp: f32, data: WhatIfData) -> Self {
-        let (stats_pp, global_rank) = user.peek_stats(|stats| (stats.pp, stats.global_rank));
+        let (stats_pp, global_rank) = {
+            let stats = user.stats();
+
+            (stats.pp(), stats.global_rank())
+        };
 
         let (username, avatar_url) = match user {
             RedisData::Original(user) => (
                 user.username.cow_escape_markdown(),
-                user.avatar_url.as_str(),
+                user.avatar_url.as_ref(),
             ),
             RedisData::Archive(user) => (
                 user.username.cow_escape_markdown(),
-                user.avatar_url.as_str(),
+                user.avatar_url.as_ref(),
             ),
         };
 
@@ -72,13 +74,11 @@ impl WhatIfEmbed {
                 };
 
                 if let Some(rank) = rank {
-                    let curr_global = global_rank.unwrap_or(0);
-
                     let _ = write!(
                         d,
                         "\nand they would reach approx. rank #{} (+{}).",
-                        WithComma::new(rank.min(curr_global)),
-                        WithComma::new(curr_global.saturating_sub(rank)),
+                        WithComma::new(rank.min(global_rank)),
+                        WithComma::new(global_rank.saturating_sub(rank)),
                     );
                 } else {
                     d.push('.');
@@ -113,13 +113,11 @@ impl WhatIfEmbed {
                 };
 
                 if let Some(rank) = rank {
-                    let curr_global = global_rank.unwrap_or(0);
-
                     let _ = write!(
                         d,
                         " and they would reach approx. rank #{} (+{}).",
-                        WithComma::new(rank.min(curr_global)),
-                        WithComma::new(curr_global.saturating_sub(rank)),
+                        WithComma::new(rank.min(global_rank)),
+                        WithComma::new(global_rank.saturating_sub(rank)),
                     );
                 } else {
                     d.push('.');

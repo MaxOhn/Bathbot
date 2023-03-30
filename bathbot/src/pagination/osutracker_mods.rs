@@ -8,7 +8,7 @@ use super::Pages;
 
 #[pagination(per_page = 20, entries = "entries")]
 pub struct OsuTrackerModsPagination {
-    entries: Vec<OsuTrackerModsEntry>,
+    entries: Box<[OsuTrackerModsEntry]>,
 }
 
 impl OsuTrackerModsPagination {

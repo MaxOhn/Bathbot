@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
@@ -7,7 +8,7 @@ use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     embeds::EmbedData,
-    manager::redis::{osu::User, RedisData},
+    manager::redis::RedisData,
     util::osu::{TopCount, TopCounts},
 };
 

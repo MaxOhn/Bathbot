@@ -1,13 +1,14 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE, numbers::WithComma, AuthorBuilder, CowUtils, FooterBuilder,
 };
 
 use crate::{
     commands::osu::NochokeEntry,
-    manager::redis::{osu::User, RedisData},
+    manager::redis::RedisData,
     pagination::Pages,
     util::{osu::grade_emote, Emote},
 };
@@ -31,7 +32,7 @@ impl NoChokeEmbed {
         rank: Option<u32>,
         pages: &Pages,
     ) -> Self {
-        let pp_raw = user.peek_stats(|stats| stats.pp);
+        let pp_raw = user.stats().pp();
         let pp_diff = (100.0 * (unchoked_pp - pp_raw)).round() / 100.0;
         let mut description = String::with_capacity(512);
 

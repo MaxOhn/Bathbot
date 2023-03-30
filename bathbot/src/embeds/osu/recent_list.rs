@@ -1,6 +1,7 @@
 use std::{collections::hash_map::HashMap, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, AuthorBuilder, CowUtils,
     FooterBuilder, IntHasher,
@@ -9,10 +10,7 @@ use rosu_v2::prelude::GameMode;
 
 use crate::{
     commands::osu::RecentListEntry,
-    manager::{
-        redis::{osu::User, RedisData},
-        OsuMap,
-    },
+    manager::{redis::RedisData, OsuMap},
     pagination::Pages,
     util::osu::grade_completion_mods,
 };

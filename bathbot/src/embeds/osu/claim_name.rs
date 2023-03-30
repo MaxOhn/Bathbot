@@ -5,7 +5,7 @@ use bathbot_util::{
 use time::{Duration, OffsetDateTime};
 use twilight_model::channel::message::embed::EmbedField;
 
-use crate::{commands::osu::ClaimNameValidator, manager::redis::osu::User};
+use crate::commands::osu::{ClaimNameUser, ClaimNameValidator};
 
 #[derive(EmbedData)]
 pub struct ClaimNameEmbed {
@@ -15,7 +15,7 @@ pub struct ClaimNameEmbed {
 }
 
 impl ClaimNameEmbed {
-    pub fn new(user: &User, name: &str) -> Self {
+    pub fn new(user: &ClaimNameUser, name: &str) -> Self {
         let mut fields = Vec::with_capacity(3);
 
         let last_visit = EmbedField {
@@ -63,7 +63,7 @@ impl ClaimNameEmbed {
             };
 
             available_at_field(value)
-        } else if !user.badges.is_empty() {
+        } else if user.has_badges {
             let value = if is_prev_name {
                 format!(
                     "{} has a different name now but they have badges \
@@ -78,7 +78,7 @@ impl ClaimNameEmbed {
             };
 
             available_at_field(value)
-        } else if user.ranked_mapset_count > 0 {
+        } else if user.has_ranked_mapsets {
             let value = if is_prev_name {
                 format!(
                     "{} has a different name now but they have ranked maps \
@@ -139,7 +139,7 @@ impl ClaimNameEmbed {
 
         Self {
             author,
-            thumbnail: user.avatar_url.to_owned(),
+            thumbnail: user.avatar_url.as_ref().to_owned(),
             fields,
         }
     }
@@ -153,7 +153,7 @@ fn available_at_field(value: impl Into<String>) -> EmbedField {
     }
 }
 
-fn time_to_wait(user: &User) -> Duration {
+fn time_to_wait(user: &ClaimNameUser) -> Duration {
     let inactive_time = user.last_visit.map_or(Duration::ZERO, |last_seen| {
         OffsetDateTime::now_utc() - last_seen
     });

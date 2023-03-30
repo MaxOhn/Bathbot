@@ -1,13 +1,10 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{constants::OSU_BASE, osu::flag_url, AuthorBuilder, CowUtils, FooterBuilder};
 
-use crate::{
-    commands::osu::MedalEntryList,
-    manager::redis::{osu::User, RedisData},
-    pagination::Pages,
-};
+use crate::{commands::osu::MedalEntryList, manager::redis::RedisData, pagination::Pages};
 
 #[derive(EmbedData)]
 pub struct MedalsListEmbed {
@@ -52,7 +49,7 @@ impl MedalsListEmbed {
                 let country_code = user.country_code.as_str();
                 let username = user.username.as_str();
                 let user_id = user.user_id;
-                let avatar_url = user.avatar_url.as_str();
+                let avatar_url = user.avatar_url.as_ref();
 
                 (country_code, username, user_id, avatar_url)
             }
@@ -60,7 +57,7 @@ impl MedalsListEmbed {
                 let country_code = user.country_code.as_str();
                 let username = user.username.as_str();
                 let user_id = user.user_id;
-                let avatar_url = user.avatar_url.as_str();
+                let avatar_url = user.avatar_url.as_ref();
 
                 (country_code, username, user_id, avatar_url)
             }
