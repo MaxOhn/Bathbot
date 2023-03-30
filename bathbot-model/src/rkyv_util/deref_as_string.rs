@@ -6,7 +6,6 @@ use rkyv::{
     with::{ArchiveWith, DeserializeWith, SerializeWith},
     Fallible,
 };
-use rosu_v2::prelude::{CountryCode, Username};
 
 pub struct DerefAsString;
 
@@ -42,22 +41,13 @@ where
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, CountryCode, D> for DerefAsString {
+impl<T, D> DeserializeWith<ArchivedString, T, D> for DerefAsString
+where
+    T: for<'s> From<&'s str>,
+    D: Fallible + ?Sized,
+{
     #[inline]
-    fn deserialize_with(
-        field: &ArchivedString,
-        _: &mut D,
-    ) -> Result<CountryCode, <D as Fallible>::Error> {
-        Ok(field.as_str().into())
-    }
-}
-
-impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, Username, D> for DerefAsString {
-    #[inline]
-    fn deserialize_with(
-        field: &ArchivedString,
-        _: &mut D,
-    ) -> Result<Username, <D as Fallible>::Error> {
-        Ok(field.as_str().into())
+    fn deserialize_with(field: &ArchivedString, _: &mut D) -> Result<T, <D as Fallible>::Error> {
+        Ok(T::from(field.as_str()))
     }
 }
