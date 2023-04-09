@@ -1,6 +1,6 @@
 mod mode;
-mod mods;
 
+pub mod mods;
 pub mod ranking;
 pub mod user;
 

@@ -3,10 +3,10 @@ use std::{collections::HashSet, fmt::Write, hash::BuildHasher, time::Duration};
 use bathbot_model::{
     OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments, OsekaiMap, OsekaiMaps,
     OsekaiMedal, OsekaiMedals, OsekaiRanking, OsekaiRankingEntries, OsuStatsParams, OsuStatsPlayer,
-    OsuStatsPlayersArgs, OsuStatsScore, OsuTrackerCountryDetails, OsuTrackerIdCount,
-    OsuTrackerPpGroup, OsuTrackerStats, RespektiveUser, ScraperScore, ScraperScores,
-    SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent, SnipeScore,
-    SnipeScoreParams,
+    OsuStatsPlayersArgs, OsuStatsScore, OsuStatsScoreVecSeed, OsuTrackerCountryDetails,
+    OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats, RespektiveUser, ScraperScore,
+    ScraperScores, SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent,
+    SnipeScore, SnipeScoreParams,
 };
 use bathbot_util::{
     constants::{HUISMETBENEN, OSU_BASE},
@@ -17,7 +17,8 @@ use bytes::Bytes;
 use eyre::{Report, Result, WrapErr};
 use http::{header::USER_AGENT, Method, Request, Response};
 use hyper::Body;
-use rosu_v2::prelude::{GameMode, GameMods};
+use rosu_v2::prelude::{mods, GameMod, GameModIntermode, GameMode, GameMods, GameModsIntermode};
+use serde::de::DeserializeSeed;
 use serde_json::Value;
 use time::{format_description::FormatItem, OffsetDateTime};
 use tokio::time::timeout;
@@ -442,11 +443,15 @@ impl Client {
         let (scores, amount) = if let Value::Array(mut array) = result {
             let mut values = array.drain(..2);
 
-            let scores = serde_json::from_value(values.next().unwrap()).wrap_err_with(|| {
-                let body = String::from_utf8_lossy(&bytes);
+            let mut d = serde_json::Deserializer::from(values.next().unwrap());
 
-                format!("failed to deserialize osustats global scores: {body}")
-            })?;
+            let scores = OsuStatsScoreVecSeed::new(params.mode)
+                .deserialize(&mut d)
+                .wrap_err_with(|| {
+                    let body = String::from_utf8_lossy(&bytes);
+
+                    format!("failed to deserialize osustats global scores: {body}")
+                })?;
 
             let amount = serde_json::from_value(values.next().unwrap()).wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
@@ -469,7 +474,7 @@ impl Client {
     pub async fn get_leaderboard<S>(
         &self,
         map_id: u32,
-        mods: Option<GameMods>,
+        mods: Option<GameModsIntermode>,
         mode: GameMode,
     ) -> Result<Vec<ScraperScore>>
     where
@@ -478,14 +483,14 @@ impl Client {
         let mut scores = self._get_leaderboard(map_id, mods).await?;
 
         let non_mirror = mods
-            .map(|mods| !mods.contains(GameMods::Mirror))
+            .map(|mods| !mods.contains(GameModIntermode::Mirror))
             .unwrap_or(true);
 
         // Check if another request for mania's MR is needed
         if mode == GameMode::Mania && non_mirror {
             let mods = match mods {
-                None => Some(GameMods::Mirror),
-                Some(mods) => Some(mods | GameMods::Mirror),
+                None => Some(mods!(Mirror)),
+                Some(mut mods) => Some(mods | GameModIntermode::Mirror),
             };
 
             let mut new_scores = self._get_leaderboard(map_id, mods).await?;
@@ -498,9 +503,11 @@ impl Client {
 
         // Check if DT / NC is included
         let mods = match mods {
-            Some(mods) if mods.contains(GameMods::DoubleTime) => Some(mods | GameMods::NightCore),
-            Some(mods) if mods.contains(GameMods::NightCore) => {
-                Some((mods - GameMods::NightCore) | GameMods::DoubleTime)
+            Some(mods) if mods.contains(GameModIntermode::DoubleTime) => {
+                Some(mods | GameModsIntermode::NightCore)
+            }
+            Some(mods) if mods.contains(GameModIntermode::NightCore) => {
+                Some((mods - GameModsIntermode::NightCore) | GameMods::DoubleTime)
             }
             Some(_) | None => None,
         };

@@ -11,7 +11,7 @@ use rkyv::{
     Archive, Deserialize as RkyvDeserialize, Serialize,
 };
 use rosu_v2::{
-    model::{GameMode, GameMods},
+    model::{mods::GameMods, GameMode},
     prelude::Username,
 };
 use serde::{
@@ -22,7 +22,7 @@ use time::Date;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
 use crate::{
-    rkyv_util::{time::DateRkyv, DerefAsString, FlagsRkyv},
+    rkyv_util::{time::DateRkyv, DerefAsString},
     rosu_v2::GameModeRkyv,
     CountryCode, RankingKind,
 };
@@ -242,9 +242,8 @@ pub struct OsekaiMedal {
     pub grouping: MedalGroup,
     #[with(Niche)]
     pub solution: Option<Box<str>>,
-    #[serde(deserialize_with = "osekai_mods")]
-    #[with(Map<FlagsRkyv>)]
-    pub mods: Option<GameMods>,
+    #[with(Niche)]
+    pub mods: Option<Box<str>>,
     #[serde(rename = "ModeOrder")]
     pub mode_order: usize,
     pub ordering: usize,
@@ -444,7 +443,8 @@ fn osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>, D::E
     d.deserialize_option(OsekaiModeVisitor)
 }
 
-fn osekai_mods<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMods>, D::Error> {
+// TODO: remove
+fn osekai_mods_<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMods>, D::Error> {
     struct OsekaiModsVisitor;
 
     impl<'de> Visitor<'de> for OsekaiModsVisitor {
@@ -454,48 +454,48 @@ fn osekai_mods<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMods>, D::E
             f.write_str("a u8 or a string")
         }
 
-        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            let mut mods = GameMods::default();
+        // fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        //     let mut mods = GameMods::default();
 
-            for mod_ in v.split(',').map(str::trim) {
-                if let Ok(mod_) = mod_.parse() {
-                    mods |= mod_;
-                } else {
-                    return Err(Error::invalid_value(
-                        Unexpected::Str(mod_),
-                        &r#"a valid mod abbreviation"#,
-                    ));
-                }
-            }
+        //     for mod_ in v.split(',').map(str::trim) {
+        //         if let Ok(mod_) = mod_.parse() {
+        //             mods |= mod_;
+        //         } else {
+        //             return Err(Error::invalid_value(
+        //                 Unexpected::Str(mod_),
+        //                 &r#"a valid mod abbreviation"#,
+        //             ));
+        //         }
+        //     }
 
-            Ok(Some(mods))
-        }
+        //     Ok(Some(mods))
+        // }
 
-        fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
-            let bits = v.try_into().map_err(|_| {
-                Error::invalid_value(
-                    Unexpected::Unsigned(v),
-                    &"a valid u32 representing a mod combination",
-                )
-            })?;
+        // fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+        //     let bits = v.try_into().map_err(|_| {
+        //         Error::invalid_value(
+        //             Unexpected::Unsigned(v),
+        //             &"a valid u32 representing a mod combination",
+        //         )
+        //     })?;
 
-            Ok(GameMods::from_bits(bits))
-        }
+        //     Ok(GameMods::from_bits(bits))
+        // }
 
-        #[inline]
-        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-            d.deserialize_any(self)
-        }
+        // #[inline]
+        // fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+        //     d.deserialize_any(self)
+        // }
 
-        #[inline]
-        fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
-            self.visit_unit()
-        }
+        // #[inline]
+        // fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+        //     self.visit_unit()
+        // }
 
-        #[inline]
-        fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
-            Ok(None)
-        }
+        // #[inline]
+        // fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+        //     Ok(None)
+        // }
     }
 
     d.deserialize_option(OsekaiModsVisitor)

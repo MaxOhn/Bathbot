@@ -5,95 +5,46 @@ use std::{
 };
 
 use eyre::Result;
-use rosu_v2::prelude::{GameMode, GameMods, Grade, Score, ScoreStatistics};
+use rosu_v2::prelude::{
+    mods, GameMode, GameMods, GameModsIntermode, Grade, Score, ScoreStatistics,
+};
 
 use time::OffsetDateTime;
 use twilight_model::channel::message::{embed::Embed, Message};
 
 use crate::{constants::OSU_BASE, matcher, numbers::round};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ModSelection {
-    Include(GameMods),
-    Exclude(GameMods),
-    Exact(GameMods),
+    Include(GameModsIntermode),
+    Exclude(GameModsIntermode),
+    Exact(GameModsIntermode),
 }
 
 impl ModSelection {
-    pub fn mods(&self) -> GameMods {
+    pub fn mods(&self) -> &GameModsIntermode {
         match self {
-            Self::Include(m) | Self::Exclude(m) | Self::Exact(m) => *m,
+            Self::Include(m) | Self::Exclude(m) | Self::Exact(m) => m,
         }
     }
 
     /// Make sure included or exact mods don't exclude each other e.g. EZHR
-    pub fn validate(self) -> Result<(), &'static str> {
+    pub fn validate(self, mode: GameMode) -> Result<(), &'static str> {
         let mods = match self {
             Self::Include(mods) => mods,
             Self::Exclude(_) => return Ok(()),
             Self::Exact(mods) => mods,
         };
 
-        let ezhr = GameMods::Easy | GameMods::HardRock;
-        let dtht = GameMods::DoubleTime | GameMods::HalfTime;
+        let mods = mods
+            .with_mode(mode)
+            .ok_or("Looks like inappropriate mods for the mode")?;
 
-        if mods & ezhr == ezhr {
-            return Err("Looks like an invalid mod combination, EZ and HR exclude each other");
+        if mods.is_valid() {
+            Ok(())
+        } else {
+            Err("Looks like an invalid mod combination")
         }
-
-        if mods & dtht == dtht {
-            return Err("Looks like an invalid mod combination, DT and HT exclude each other");
-        }
-
-        let mania_mods = GameMods::FadeIn | GameMods::KeyCoop | GameMods::Mirror | GameMods::Random;
-
-        if mods.contains(GameMods::Relax) {
-            let excluded = GameMods::Autopilot
-                | GameMods::SpunOut
-                | GameMods::Autoplay
-                | GameMods::Cinema
-                | mania_mods;
-
-            if !(mods & excluded).is_empty() || mods.has_key_mod().is_some() {
-                let content =
-                    "Looks like an invalid mod combination, RX excludes the following mods:\n\
-                    AP, SO, FI, MR, RD, 1-9K, Key Coop, Autoplay, and Cinema.";
-
-                return Err(content);
-            }
-        }
-
-        // * Note: Technically correct but probably unnecessary so might as well save some if's
-        // if mods.contains(GameMods::Autopilot) || mods.has_key_mod().is_some() {
-        //     let excluded =
-        //         GameMods::SpunOut | GameMods::Autoplay | GameMods::Cinema | mania_mods;
-
-        //     if !(mods & excluded).is_empty() {
-        //         let content =
-        //             "Looks like an invalid mod combination, AP excludes the following mods:\n\
-        //             RX, SO, FI, MR, RD, 1-9K, Key Coop, Autoplay, and Cinema";
-
-        //         return Err(content);
-        //     }
-        // } else if mods.contains(GameMods::SpunOut) {
-        //     let excluded = GameMods::Autoplay | GameMods::Cinema | mania_mods;
-
-        //     if !(mods & excluded).is_empty() || mods.has_key_mod().is_some() {
-        //         let content =
-        //             "Looks like an invalid mod combination, SO excludes the following mods:\n\
-        //             RX, AP, FI, MR, RD, 1-9K, Key Coop, Autoplay, and Cinema";
-
-        //         return Err(content);
-        //     }
-        // } else if mods.contains(GameMods::Autoplay) && mods.contains(GameMods::Cinema) {
-        //     let content =
-        //         "Looks like an invalid mod combination, Autoplay excludes the following mods:\n\
-        //         RX, AP, SO, and Cinema";
-
-        //     return Err(content);
-        // }
-
-        Ok(())
     }
 }
 
@@ -463,7 +414,7 @@ pub enum AttributeKind {
     Od,
 }
 
-pub fn calculate_grade(mode: GameMode, mods: GameMods, stats: &ScoreStatistics) -> Grade {
+pub fn calculate_grade(mode: GameMode, mods: &GameMods, stats: &ScoreStatistics) -> Grade {
     match mode {
         GameMode::Osu => osu_grade(mods, stats),
         GameMode::Taiko => taiko_grade(mods, stats),
@@ -472,11 +423,11 @@ pub fn calculate_grade(mode: GameMode, mods: GameMods, stats: &ScoreStatistics) 
     }
 }
 
-fn osu_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
+fn osu_grade(mods: &GameMods, stats: &ScoreStatistics) -> Grade {
     let passed_objects = stats.total_hits(GameMode::Osu);
 
     if stats.count_300 == passed_objects {
-        return if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
+        return if mods.contains_any(mods!(HD FL)) {
             Grade::XH
         } else {
             Grade::X
@@ -487,7 +438,7 @@ fn osu_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
     let ratio50 = stats.count_50 as f32 / passed_objects as f32;
 
     if ratio300 > 0.9 && ratio50 < 0.01 && stats.count_miss == 0 {
-        if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+        if mods.contains_any(mods!(HD FL)) {
             Grade::SH
         } else {
             Grade::S
@@ -503,12 +454,12 @@ fn osu_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
     }
 }
 
-fn taiko_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
+fn taiko_grade(mods: &GameMods, stats: &ScoreStatistics) -> Grade {
     let passed_objects = stats.total_hits(GameMode::Taiko);
     let count_300 = stats.count_300;
 
     if count_300 == passed_objects {
-        return if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+        return if mods.contains_any(mods!(HD FL)) {
             Grade::XH
         } else {
             Grade::X
@@ -519,7 +470,7 @@ fn taiko_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
     let count_miss = stats.count_miss;
 
     if ratio300 > 0.9 && count_miss == 0 {
-        if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+        if mods.contains_any(mods!(HD FL)) {
             Grade::SH
         } else {
             Grade::S
@@ -535,17 +486,17 @@ fn taiko_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
     }
 }
 
-fn catch_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
+fn catch_grade(mods: &GameMods, stats: &ScoreStatistics) -> Grade {
     let acc = stats.accuracy(GameMode::Catch);
 
     if (100.0 - acc).abs() <= std::f32::EPSILON {
-        if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+        if mods.contains_any(mods!(HD FL)) {
             Grade::XH
         } else {
             Grade::X
         }
     } else if acc > 98.0 {
-        if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+        if mods.contains_any(mods!(HD FL)) {
             Grade::SH
         } else {
             Grade::S
@@ -561,11 +512,11 @@ fn catch_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
     }
 }
 
-fn mania_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
+fn mania_grade(mods: &GameMods, stats: &ScoreStatistics) -> Grade {
     let passed_objects = stats.total_hits(GameMode::Mania);
 
     if stats.count_geki == passed_objects {
-        return if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+        return if mods.contains_any(mods!(HD FL)) {
             Grade::XH
         } else {
             Grade::X
@@ -575,7 +526,7 @@ fn mania_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
     let acc = stats.accuracy(GameMode::Mania);
 
     if acc > 95.0 {
-        if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+        if mods.contains_any(mods!(HD FL)) {
             Grade::SH
         } else {
             Grade::S
