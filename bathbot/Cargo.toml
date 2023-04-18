@@ -59,7 +59,7 @@ twilight-standby = { workspace = true }
 twilight-validate = { workspace = true }
 
 [features]
-default = ["offline", "full"]
+default = ["offline"]
 full = ["global_slash", "matchlive", "osutracking", "server", "twitch", "twitchtracking"]
 
 global_slash = []
