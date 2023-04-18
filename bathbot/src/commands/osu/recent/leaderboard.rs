@@ -8,7 +8,7 @@ use bathbot_util::{
     IntHasher,
 };
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, OsuError, Score};
+use rosu_v2::prelude::{GameMode, GameModsIntermode, OsuError, Score};
 
 use crate::{
     commands::{
@@ -232,7 +232,7 @@ pub(super) async fn leaderboard(
 
     let scores_fut = ctx
         .client()
-        .get_leaderboard::<IntHasher>(map_id, mods, mode);
+        .get_leaderboard::<IntHasher>(map_id, mods.as_ref(), mode);
     let map_fut = ctx.osu_map().map(map_id, checksum.as_deref());
 
     let (scores_res, map_res) = tokio::join!(scores_fut, map_fut);
@@ -257,7 +257,9 @@ pub(super) async fn leaderboard(
         }
     };
 
-    let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods.unwrap_or_default());
+    let mods_bits = mods.as_ref().map_or(0, GameModsIntermode::bits);
+
+    let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods_bits);
     let attrs = calc.performance().await;
 
     let amount = scores.len();
@@ -277,7 +279,7 @@ pub(super) async fn leaderboard(
     let stars = attrs.stars() as f32;
     let max_pp = attrs.pp() as f32;
     let max_combo = attrs.max_combo() as u32;
-    attr_map.insert(mods.unwrap_or_default().bits(), (attrs.into(), max_pp));
+    attr_map.insert(mods_bits, (attrs.into(), max_pp));
 
     LeaderboardPagination::builder(
         map,

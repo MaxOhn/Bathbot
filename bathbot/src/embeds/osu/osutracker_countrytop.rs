@@ -1,4 +1,4 @@
-use std::fmt::{self, Write};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
 use bathbot_model::OsuTrackerCountryScore;
@@ -8,7 +8,6 @@ use bathbot_util::{
     osu::flag_url,
     CowUtils, FooterBuilder,
 };
-use rosu_v2::prelude::GameMods;
 
 use crate::{
     commands::osu::{OsuTrackerCountryDetailsCompact, ScoreOrder},
@@ -91,21 +90,12 @@ impl<'s> OrderAppendix<'s> {
     }
 }
 
-impl fmt::Display for OrderAppendix<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for OrderAppendix<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.sort_by {
             ScoreOrder::Acc | ScoreOrder::Date | ScoreOrder::Pp => Ok(()),
             ScoreOrder::Length => {
-                let mods = self.score.mods;
-
-                let clock_rate = if mods.contains(GameMods::DoubleTime) {
-                    1.5
-                } else if mods.contains(GameMods::HalfTime) {
-                    0.75
-                } else {
-                    1.0
-                };
-
+                let clock_rate = self.score.mods.legacy_clock_rate();
                 let secs = (self.score.seconds_total as f32 / clock_rate) as u32;
 
                 write!(f, " • `{}:{:0>2}`", secs / 60, secs % 60)

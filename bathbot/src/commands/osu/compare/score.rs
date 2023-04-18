@@ -16,7 +16,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{
-        GameMode, GameMods, Grade, OsuError,
+        GameMode, Grade, OsuError,
         RankStatus::{self, Approved, Loved, Ranked},
         Score,
     },
@@ -467,7 +467,15 @@ pub(super) async fn score(
         }
     };
 
-    let entries = match process_scores(&ctx, map_id, scores, mods, sort.unwrap_or_default()).await {
+    let entries = match process_scores(
+        &ctx,
+        map_id,
+        scores,
+        mods.as_ref(),
+        sort.unwrap_or_default(),
+    )
+    .await
+    {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -596,26 +604,18 @@ async fn process_scores(
     ctx: &Context,
     map_id: u32,
     mut scores: Vec<Score>,
-    mods: Option<ModSelection>,
+    mods: Option<&ModSelection>,
     sort: ScoreOrder,
 ) -> Result<Vec<CompareEntry>> {
     let mut entries = Vec::with_capacity(scores.len());
     let map = ctx.osu_map().map(map_id, None).await?;
 
-    match mods {
-        None => {}
-        Some(ModSelection::Include(mods @ GameMods::NoMod) | ModSelection::Exact(mods)) => {
-            scores.retain(|score| score.mods == mods);
-        }
-        Some(ModSelection::Include(mods)) => scores.retain(|score| score.mods.contains(mods)),
-        Some(ModSelection::Exclude(GameMods::NoMod)) => {
-            scores.retain(|score| !score.mods.is_empty())
-        }
-        Some(ModSelection::Exclude(mods)) => scores.retain(|score| !score.mods.intersects(mods)),
+    if let Some(selection) = mods {
+        selection.filter_scores(&mut scores);
     }
 
     for score in scores {
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());
         let attrs = calc.performance().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo() as u32;
@@ -757,7 +757,7 @@ async fn compare_from_score(
 
     let mode = score.mode;
 
-    let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+    let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());
     let attrs = calc.performance().await;
 
     let max_pp = score

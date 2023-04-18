@@ -8,6 +8,7 @@ use bathbot_util::{
     IntHasher,
 };
 use eyre::Result;
+use rosu_v2::prelude::GameModsIntermode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::{message::MessageType, Message},
@@ -240,12 +241,14 @@ async fn leaderboard(
         Some(ModSelection::Exclude(_)) | None => None,
     };
 
-    let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods.unwrap_or_default());
+    let mods_bits = mods.as_ref().map_or(0, GameModsIntermode::bits);
+
+    let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods_bits);
     let attrs_fut = calc.performance();
 
     let scores_fut = ctx
         .client()
-        .get_leaderboard::<IntHasher>(map_id, mods, map.mode());
+        .get_leaderboard::<IntHasher>(map_id, mods.as_ref(), map.mode());
 
     let (scores, attrs) = match tokio::join!(scores_fut, attrs_fut) {
         (Ok(scores), attrs) => (scores, attrs),

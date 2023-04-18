@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{fmt::Write, borrow::Cow};
 
 use bathbot_macros::EmbedData;
 use bathbot_model::{rosu_v2::user::User, SnipeRecent};
@@ -66,6 +66,8 @@ impl SnipedDiffEmbed {
                 },
             };
 
+            let mods = score.mods.as_ref().map(Cow::Borrowed).unwrap_or_default();
+
             let _ = write!(
                 description,
                 "**{idx}. [{artist} - {title} [{version}]]({OSU_BASE}b/{id}) {mods}**\n[{stars:.2}★] ~ ({acc}%) ~ ",
@@ -74,7 +76,7 @@ impl SnipedDiffEmbed {
                 title = score.title.cow_escape_markdown(),
                 version = score.version.cow_escape_markdown(),
                 id = score.map_id,
-                mods = ModsFormatter::new(score.mods.unwrap_or_default()),
+                mods = ModsFormatter::new(mods.as_ref()),
                 acc = round(score.accuracy),
             );
 

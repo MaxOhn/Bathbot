@@ -7,13 +7,10 @@ use std::{
 
 use rkyv::{
     string::ArchivedString,
-    with::{Map, Niche, Raw},
+    with::{Niche, Raw},
     Archive, Deserialize as RkyvDeserialize, Serialize,
 };
-use rosu_v2::{
-    model::{mods::GameMods, GameMode},
-    prelude::Username,
-};
+use rosu_v2::{model::GameMode, prelude::Username};
 use serde::{
     de::{Error, IgnoredAny, MapAccess, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
@@ -23,7 +20,6 @@ use twilight_interactions::command::{CommandOption, CreateOption};
 
 use crate::{
     rkyv_util::{time::DateRkyv, DerefAsString},
-    rosu_v2::GameModeRkyv,
     CountryCode, RankingKind,
 };
 
@@ -237,7 +233,6 @@ pub struct OsekaiMedal {
     pub icon_url: Box<str>,
     pub description: Box<str>,
     #[serde(deserialize_with = "osekai_mode")]
-    #[with(Map<GameModeRkyv>)]
     pub restriction: Option<GameMode>,
     pub grouping: MedalGroup,
     #[with(Niche)]
@@ -441,64 +436,6 @@ fn osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>, D::E
     }
 
     d.deserialize_option(OsekaiModeVisitor)
-}
-
-// TODO: remove
-fn osekai_mods_<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMods>, D::Error> {
-    struct OsekaiModsVisitor;
-
-    impl<'de> Visitor<'de> for OsekaiModsVisitor {
-        type Value = Option<GameMods>;
-
-        fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-            f.write_str("a u8 or a string")
-        }
-
-        // fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-        //     let mut mods = GameMods::default();
-
-        //     for mod_ in v.split(',').map(str::trim) {
-        //         if let Ok(mod_) = mod_.parse() {
-        //             mods |= mod_;
-        //         } else {
-        //             return Err(Error::invalid_value(
-        //                 Unexpected::Str(mod_),
-        //                 &r#"a valid mod abbreviation"#,
-        //             ));
-        //         }
-        //     }
-
-        //     Ok(Some(mods))
-        // }
-
-        // fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
-        //     let bits = v.try_into().map_err(|_| {
-        //         Error::invalid_value(
-        //             Unexpected::Unsigned(v),
-        //             &"a valid u32 representing a mod combination",
-        //         )
-        //     })?;
-
-        //     Ok(GameMods::from_bits(bits))
-        // }
-
-        // #[inline]
-        // fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-        //     d.deserialize_any(self)
-        // }
-
-        // #[inline]
-        // fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
-        //     self.visit_unit()
-        // }
-
-        // #[inline]
-        // fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
-        //     Ok(None)
-        // }
-    }
-
-    d.deserialize_option(OsekaiModsVisitor)
 }
 
 #[derive(Archive, Debug, RkyvDeserialize, Serialize)]
@@ -721,7 +658,6 @@ pub struct OsekaiRarityEntry {
     #[serde(rename = "possessionRate", with = "deser::f32_string")]
     pub possession_percent: f32,
     #[serde(rename = "gameMode", deserialize_with = "osekai_mode")]
-    #[with(Map<GameModeRkyv>)]
     pub mode: Option<GameMode>,
 }
 

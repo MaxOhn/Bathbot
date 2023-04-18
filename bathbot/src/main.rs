@@ -32,7 +32,7 @@ use crate::core::{commands::slash::SlashCommands, event_loop, logging, BotConfig
 fn main() {
     let runtime = RuntimeBuilder::new_multi_thread()
         .enable_all()
-        .thread_stack_size(3 * 1024 * 1024)
+        .thread_stack_size(4 * 1024 * 1024)
         .build()
         .expect("Could not build runtime");
 

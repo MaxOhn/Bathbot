@@ -53,7 +53,7 @@ mod whatif;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use rosu_v2::prelude::{GameMode, GameMods, ScoreStatistics};
+use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, ScoreStatistics};
 
 use crate::manager::OsuMap;
 
@@ -73,17 +73,17 @@ pub use self::{
 #[cfg(feature = "matchlive")]
 pub use self::match_live::*;
 
-pub struct ModsFormatter {
-    mods: GameMods,
+pub struct ModsFormatter<'m> {
+    mods: &'m GameMods,
 }
 
-impl ModsFormatter {
-    pub fn new(mods: GameMods) -> Self {
+impl<'m> ModsFormatter<'m> {
+    pub fn new(mods: &'m GameMods) -> Self {
         Self { mods }
     }
 }
 
-impl Display for ModsFormatter {
+impl Display for ModsFormatter<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if self.mods.is_empty() {
@@ -144,13 +144,13 @@ impl Display for PpFormatter {
     }
 }
 
-pub struct KeyFormatter {
-    mods: GameMods,
+pub struct KeyFormatter<'m> {
+    mods: &'m GameMods,
     cs: u32,
 }
 
-impl KeyFormatter {
-    pub fn new(mods: GameMods, map: &OsuMap) -> Self {
+impl<'m> KeyFormatter<'m> {
+    pub fn new(mods: &'m GameMods, map: &OsuMap) -> Self {
         Self {
             mods,
             cs: map.cs() as u32,
@@ -158,10 +158,25 @@ impl KeyFormatter {
     }
 }
 
-impl Display for KeyFormatter {
+impl Display for KeyFormatter<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self.mods.has_key_mod() {
+        let key_mod = [
+            GameModIntermode::OneKey,
+            GameModIntermode::TwoKeys,
+            GameModIntermode::ThreeKeys,
+            GameModIntermode::FourKeys,
+            GameModIntermode::FiveKeys,
+            GameModIntermode::SixKeys,
+            GameModIntermode::SevenKeys,
+            GameModIntermode::EightKeys,
+            GameModIntermode::NineKeys,
+            GameModIntermode::TenKeys,
+        ]
+        .into_iter()
+        .find(|gamemod| self.mods.contains_intermode(gamemod));
+
+        match key_mod {
             Some(key_mod) => write!(f, "[{key_mod}]"),
             None => write!(f, "[{}K]", self.cs),
         }

@@ -1,5 +1,5 @@
 use eyre::{Result, WrapErr};
-use rosu_v2::prelude::{Beatmap, Beatmapset, GameMods};
+use rosu_v2::prelude::{Beatmap, Beatmapset, GameModsIntermode};
 use twilight_model::channel::message::embed::Embed;
 
 use crate::{
@@ -13,7 +13,7 @@ use super::{Context, Pages, PaginationBuilder, PaginationKind};
 pub struct MapPagination {
     mapset: Beatmapset,
     maps: Vec<Beatmap>,
-    mods: GameMods,
+    mods: GameModsIntermode,
     attrs: CustomAttrs,
     origin: MessageOrigin,
 }
@@ -22,7 +22,7 @@ impl MapPagination {
     pub fn builder(
         mapset: Beatmapset,
         maps: Vec<Beatmap>,
-        mods: GameMods,
+        mods: GameModsIntermode,
         start_idx: usize,
         attrs: CustomAttrs,
         origin: MessageOrigin,
@@ -49,7 +49,7 @@ impl MapPagination {
         let embed_fut = MapEmbed::new(
             map,
             &self.mapset,
-            self.mods,
+            &self.mods,
             &self.attrs,
             self.origin,
             ctx,

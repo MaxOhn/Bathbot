@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use bathbot_util::{
     modal::{ModalBuilder, TextInputBuilder},
@@ -16,7 +16,7 @@ use crate::{
     },
 };
 
-use super::{ComponentKind, Pages, PaginationKind};
+use super::{ComponentKind, Pages, PaginationKind, SimulatePagination};
 
 pub(super) async fn remove_components(
     ctx: &Context,
@@ -286,17 +286,17 @@ async fn respond_modal(
     defer: bool,
     modal: &InteractionModal,
     ctx: &Context,
-    builder: Result<MessageBuilder<'_>>,
+    builder: MessageBuilder<'_>,
 ) -> Result<()> {
     if defer {
         modal
-            .update(ctx, &builder?)
+            .update(ctx, &builder)
             .wrap_err("lacking permission to update message")?
             .await
             .wrap_err("failed to update")?;
     } else {
         modal
-            .callback(ctx, builder?)
+            .callback(ctx, builder)
             .await
             .wrap_err("failed to callback")?;
     }
@@ -304,80 +304,98 @@ async fn respond_modal(
     Ok(())
 }
 
+async fn handle_sim_modal<T, F>(ctx: Arc<Context>, modal: InteractionModal, setter: F) -> Result<()>
+where
+    T: FromStr,
+    F: FnOnce(&mut SimulatePagination, Option<T>) -> Result<()>,
+{
+    let input = parse_modal_input(&modal)?;
+
+    let value_res = input
+        .value
+        .as_deref()
+        .filter(|val| !val.is_empty())
+        .map(str::parse);
+
+    let value = match value_res {
+        Some(Ok(value)) => Some(value),
+        Some(Err(_)) => {
+            debug!("failed to parse sim input `{:?}`", input.value);
+
+            return Ok(());
+        }
+        None => None,
+    };
+
+    let Some(ref msg) = modal.message else {
+        warn!("received modal without message");
+
+        return Ok(());
+    };
+
+    let (builder, defer_components) = {
+        let mut guard = ctx.paginations.lock(&msg.id).await;
+
+        let Some(pagination) = guard.get_mut() else {
+            return Ok(());
+        };
+
+        if !pagination.is_author(modal.user_id()?) {
+            return Ok(());
+        }
+
+        let defer_components = pagination.defer_components;
+
+        if defer_components {
+            modal.defer(&ctx).await.wrap_err("failed to defer")?;
+        }
+
+        pagination.reset_timeout();
+
+        let PaginationKind::Simulate(sim_pagination) = &mut pagination.kind else {
+            return Ok(());
+        };
+
+        let builder = match setter(sim_pagination, value) {
+            Ok(_) => pagination.build(&ctx).await?,
+            Err(err) => {
+                debug!("{:?}", err.wrap_err("Failed to set simulate data"));
+
+                return Ok(());
+            }
+        };
+
+        (builder, defer_components)
+    };
+
+    respond_modal(defer_components, &modal, &ctx, builder).await
+}
+
 macro_rules! handle_sim_modals {
-    ( $( $fn:ident, $setter:ident ;)* ) => {
+    (
+        $( $fn:ident: $setter:expr ;)*
+    ) => {
         $(
             pub async fn $fn(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
-                let input = parse_modal_input(&modal)?;
-
-                let value_res = input
-                    .value
-                    .as_deref()
-                    .filter(|val| !val.is_empty())
-                    .map(str::parse);
-
-                let value = match value_res {
-                    Some(Ok(value)) => Some(value),
-                    Some(Err(_)) => {
-                        debug!("failed to parse sim input `{:?}`", input.value);
-
-                        return Ok(());
-                    }
-                    None => None,
-                };
-
-                let Some(ref msg) = modal.message else {
-                    warn!("received modal without message");
-
-                    return Ok(());
-                };
-
-                let (builder, defer_components) = {
-                    let mut guard = ctx.paginations.lock(&msg.id).await;
-
-                    let Some(pagination) = guard.get_mut() else {
-                        return Ok(());
-                    };
-
-                    if !pagination.is_author(modal.user_id()?) {
-                        return Ok(());
-                    }
-
-                    let defer_components = pagination.defer_components;
-
-                    if defer_components {
-                        modal.defer(&ctx).await.wrap_err("failed to defer")?;
-                    }
-
-                    pagination.reset_timeout();
-
-                    let PaginationKind::Simulate(sim_pagination) = &mut pagination.kind else {
-                        return Ok(());
-                    };
-
-                    sim_pagination.simulate_data.$setter(value);
-
-                    (pagination.build(&ctx).await, defer_components)
-                };
-
-                respond_modal(defer_components, &modal, &ctx, builder).await
+                #[allow(clippy::unit_arg)]
+                handle_sim_modal(ctx, modal, $setter).await
             }
         )*
     }
 }
 
 handle_sim_modals! {
-    handle_sim_mods_modal, set_mods;
-    handle_sim_combo_modal, set_combo;
-    handle_sim_acc_modal, set_acc;
-    handle_sim_clock_rate_modal, set_clock_rate;
-    handle_sim_geki_modal, set_geki;
-    handle_sim_katu_modal, set_katu;
-    handle_sim_n300_modal, set_n300;
-    handle_sim_n100_modal, set_n100;
-    handle_sim_n50_modal, set_n50;
-    handle_sim_miss_modal, set_miss;
-    handle_sim_score_modal, set_score;
+    handle_sim_mods_modal: |p, value| p.simulate_data.set_mods(value, p.mode());
+    handle_sim_combo_modal: |p, value| Ok(p.simulate_data.set_combo(value));
+    handle_sim_acc_modal: |p, value| Ok(p.simulate_data.set_acc(value));
+    handle_sim_clock_rate_modal: |p, value| Ok(p.simulate_data.set_clock_rate(value));
+    handle_sim_geki_modal: |p, value| Ok(p.simulate_data.set_geki(value));
+    handle_sim_katu_modal: |p, value| Ok(p.simulate_data.set_katu(value));
+    handle_sim_n300_modal: |p, value| Ok(p.simulate_data.set_n300(value));
+    handle_sim_n100_modal: |p, value| Ok(p.simulate_data.set_n100(value));
+    handle_sim_n50_modal: |p, value| Ok(p.simulate_data.set_n50(value));
+    handle_sim_miss_modal: |p, value| Ok(p.simulate_data.set_miss(value));
+    handle_sim_score_modal: |p, value| Ok(p.simulate_data.set_score(value));
 }
 
 pub async fn handle_sim_attrs_modal(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
@@ -455,7 +473,7 @@ pub async fn handle_sim_attrs_modal(ctx: Arc<Context>, modal: InteractionModal) 
             sim_pagination.simulate_data.attrs = sim_pagination.simulate_data.original_attrs;
         }
 
-        (pagination.build(&ctx).await, defer_components)
+        (pagination.build(&ctx).await?, defer_components)
     };
 
     respond_modal(defer_components, &modal, &ctx, builder).await
@@ -506,7 +524,7 @@ pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal)
         let page_fn = |pages: &Pages| (page - 1) * pages.per_page();
         pagination.pages.update(page_fn);
 
-        (pagination.build(&ctx).await, defer_components)
+        (pagination.build(&ctx).await?, defer_components)
     };
 
     respond_modal(defer_components, &modal, &ctx, builder).await

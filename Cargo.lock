@@ -1951,7 +1951,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.7.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=mods#5d2c2695b2c884ddbb3f3f36114301bf723ab790"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=mods#7128334b1fb4a05155dfa1dd535ca9e9f548915b"
 dependencies = [
  "bytes",
  "dashmap",
@@ -1962,6 +1962,7 @@ dependencies = [
  "log",
  "paste",
  "prometheus",
+ "rkyv",
  "serde",
  "serde_json",
  "smallstr",

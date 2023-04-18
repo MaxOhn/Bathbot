@@ -1,12 +1,9 @@
 use std::sync::Arc;
 
 use bathbot_macros::SlashCommand;
-use bathbot_util::{
-    matcher,
-    osu::{AttributeKind, ModSelection},
-    MessageBuilder,
-};
+use bathbot_util::{matcher, osu::AttributeKind, MessageBuilder};
 use eyre::Result;
+use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
@@ -104,7 +101,7 @@ async fn slash_attributes(ctx: Arc<Context>, mut command: InteractionCommand) ->
     let mods = if let Ok(mods) = mods.parse() {
         mods
     } else if let Some(mods) = matcher::get_mods(&mods) {
-        mods.mods()
+        mods.into_mods()
     } else {
         let content =
             "Failed to parse mods. Be sure to specify a valid mod combination e.g. `hrdt`.";
@@ -113,7 +110,19 @@ async fn slash_attributes(ctx: Arc<Context>, mut command: InteractionCommand) ->
         return Ok(());
     };
 
-    if let Err(content) = ModSelection::Exact(mods).validate() {
+    let valid_mods = [
+        GameMode::Osu,
+        GameMode::Taiko,
+        GameMode::Catch,
+        GameMode::Mania,
+    ]
+    .into_iter()
+    .filter_map(|mode| mods.clone().with_mode(mode))
+    .any(|mods| mods.is_valid());
+
+    if !valid_mods {
+        let content = "Looks like either some of these mods are incompatible with each other \
+            or those mods don't fit to any gamemode.";
         command.error_callback(&ctx, content).await?;
 
         return Ok(());

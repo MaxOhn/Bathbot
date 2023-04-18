@@ -4,9 +4,12 @@ use std::{
 };
 
 use bathbot_util::{osu::ModSelection, ScoreExt, ScoreHasEndedAt};
-use rosu_v2::prelude::{GameMode, GameMods, Grade, ModeAsSeed, RankStatus, Username};
+use rosu_v2::prelude::{GameMod, GameMode, GameMods, Grade, RankStatus, Username};
 use serde::{
-    de::{DeserializeSeed, Error as DeError, SeqAccess, Visitor},
+    de::{
+        value::StrDeserializer, DeserializeSeed, Error as DeError, IgnoredAny, SeqAccess,
+        Unexpected, Visitor,
+    },
     Deserialize, Deserializer,
 };
 use serde_json::value::RawValue;
@@ -48,6 +51,54 @@ impl<'de> Deserialize<'de> for OsuStatsPlayer {
             count: u32::from_str(helper.count).map_err(D::Error::custom)?,
             username: helper.user.username,
         })
+    }
+}
+
+#[derive(Debug)]
+pub struct OsuStatsScores {
+    pub scores: Vec<OsuStatsScore>,
+    pub count: usize,
+}
+
+pub struct OsuStatsScoresSeed {
+    mode: GameMode,
+}
+
+impl OsuStatsScoresSeed {
+    pub fn new(mode: GameMode) -> Self {
+        Self { mode }
+    }
+}
+
+impl<'de> DeserializeSeed<'de> for OsuStatsScoresSeed {
+    type Value = OsuStatsScores;
+
+    fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+        d.deserialize_seq(self)
+    }
+}
+
+impl<'de> Visitor<'de> for OsuStatsScoresSeed {
+    type Value = OsuStatsScores;
+
+    fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str("an OsuStatsScores sequence")
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+        let scores = seq
+            .next_element_seed(OsuStatsScoreVecSeed::new(self.mode))?
+            .ok_or_else(|| {
+                DeError::custom("OsuStatsScores sequence must contain scores as first element")
+            })?;
+
+        let count = seq.next_element()?.ok_or_else(|| {
+            DeError::custom("OsuStatsScores sequence must contain count as second element")
+        })?;
+
+        while seq.next_element::<IgnoredAny>()?.is_some() {}
+
+        Ok(OsuStatsScores { scores, count })
     }
 }
 
@@ -131,12 +182,9 @@ impl<'de> Visitor<'de> for OsuStatsScoreVecSeed {
         let mut scores = Vec::with_capacity(seq.size_hint().unwrap_or(0));
 
         while let Some(inner) = seq.next_element::<OsuStatsScoreInner<'de>>()? {
-            let mut d = serde_json::Deserializer::from_str(inner.mods.get());
-
             let score = OsuStatsScore {
-                mods: ModeAsSeed::<GameMods>::new(self.mode)
-                    .deserialize(&mut d)
-                    .map_err(DeError::custom)?,
+                mods: StrDeserializer::new(inner.mods.get().trim_matches('"'))
+                    .deserialize_str(OsuStatsScoreModsVisitor { mode: self.mode })?,
                 user_id: inner.user_id,
                 position: inner.position,
                 grade: inner.grade,
@@ -158,6 +206,27 @@ impl<'de> Visitor<'de> for OsuStatsScoreVecSeed {
         }
 
         Ok(scores)
+    }
+}
+
+struct OsuStatsScoreModsVisitor {
+    mode: GameMode,
+}
+
+impl<'de> Visitor<'de> for OsuStatsScoreModsVisitor {
+    type Value = GameMods;
+
+    fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str("GameMods")
+    }
+
+    fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
+        v.split(',')
+            .map(|s| GameMod::new(s, self.mode))
+            .collect::<Option<GameMods>>()
+            .ok_or_else(|| {
+                DeError::invalid_value(Unexpected::Str(v), &"comma separated list of acronyms")
+            })
     }
 }
 

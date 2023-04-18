@@ -73,7 +73,7 @@ impl TopEmbed {
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
-                mods = ModsFormatter::new(score.mods),
+                mods = ModsFormatter::new(&score.mods),
                 grade = grade_emote(score.grade),
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
                 acc = round(score.accuracy),
@@ -420,12 +420,12 @@ impl Display for OrderAppendix<'_> {
                 write!(f, "`{}`", WithComma::new(count))
             }
             TopScoreOrder::Bpm => {
-                let clock_rate = self.entry.score.mods.clock_rate();
+                let clock_rate = self.entry.score.mods.clock_rate().unwrap_or(1.0);
 
                 write!(f, "`{}bpm`", round(self.entry.map.bpm() * clock_rate))
             }
             TopScoreOrder::Length => {
-                let clock_rate = self.entry.score.mods.clock_rate();
+                let clock_rate = self.entry.score.mods.clock_rate().unwrap_or(1.0);
 
                 let secs = (self.entry.map.seconds_drain() as f32 / clock_rate) as u32;
 

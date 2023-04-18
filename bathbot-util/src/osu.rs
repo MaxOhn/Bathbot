@@ -6,7 +6,7 @@ use std::{
 
 use eyre::Result;
 use rosu_v2::prelude::{
-    mods, GameMode, GameMods, GameModsIntermode, Grade, Score, ScoreStatistics,
+    mods, GameMod, GameMode, GameMods, GameModsIntermode, Grade, Score, ScoreStatistics,
 };
 
 use time::OffsetDateTime;
@@ -22,9 +22,56 @@ pub enum ModSelection {
 }
 
 impl ModSelection {
-    pub fn mods(&self) -> &GameModsIntermode {
+    pub fn as_mods(&self) -> &GameModsIntermode {
         match self {
             Self::Include(m) | Self::Exclude(m) | Self::Exact(m) => m,
+        }
+    }
+
+    pub fn into_mods(self) -> GameModsIntermode {
+        match self {
+            Self::Include(m) | Self::Exclude(m) | Self::Exact(m) => m,
+        }
+    }
+
+    /// Returns `true` if the score's mods coincide with this [`ModSelection`]
+    pub fn filter_score(&self, score: &Score) -> bool {
+        match self {
+            ModSelection::Include(mods) | ModSelection::Exact(mods) if mods.is_empty() => {
+                score.mods.is_empty()
+            }
+            ModSelection::Include(mods) => mods
+                .iter()
+                .all(|gamemod| score.mods.contains_intermode(gamemod)),
+            ModSelection::Exclude(mods) if mods.is_empty() => !score.mods.is_empty(),
+            ModSelection::Exclude(mods) => !mods
+                .iter()
+                .any(|gamemod| score.mods.contains_intermode(gamemod)),
+            ModSelection::Exact(mods) => score.mods.iter().map(GameMod::intermode).eq(mods.iter()),
+        }
+    }
+
+    /// Remove all scores whos mods do not coincide with this [`ModSelection`]
+    pub fn filter_scores(&self, scores: &mut Vec<Score>) {
+        match self {
+            ModSelection::Include(mods) | ModSelection::Exact(mods) if mods.is_empty() => {
+                scores.retain(|score| score.mods.is_empty())
+            }
+            ModSelection::Include(mods) => scores.retain(|score| {
+                mods.iter()
+                    .all(|gamemod| score.mods.contains_intermode(gamemod))
+            }),
+            ModSelection::Exclude(mods) if mods.is_empty() => {
+                scores.retain(|score| !score.mods.is_empty())
+            }
+            ModSelection::Exclude(mods) => scores.retain(|score| {
+                !mods
+                    .iter()
+                    .any(|gamemod| score.mods.contains_intermode(gamemod))
+            }),
+            ModSelection::Exact(mods) => {
+                scores.retain(|score| score.mods.iter().map(GameMod::intermode).eq(mods.iter()))
+            }
         }
     }
 

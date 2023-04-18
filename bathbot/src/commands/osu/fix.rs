@@ -9,7 +9,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_v2::{
-    prelude::{GameMode, GameMods, OsuError, Score},
+    prelude::{GameMod, GameMode, GameModsIntermode, OsuError, Score},
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -227,7 +227,7 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
             request_by_score(&ctx, &orig, id, mode, user_id).await
         }
         Some(MapOrScore::Map(MapIdType::Map(id))) => {
-            request_by_map(&ctx, &orig, id, user_id, mods).await
+            request_by_map(&ctx, &orig, id, user_id, mods.as_ref()).await
         }
         Some(MapOrScore::Map(MapIdType::Set(_))) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
@@ -245,7 +245,7 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
             };
 
             match MapIdType::map_from_msgs(&msgs, 0) {
-                Some(id) => request_by_map(&ctx, &orig, id, user_id, mods).await,
+                Some(id) => request_by_map(&ctx, &orig, id, user_id, mods.as_ref()).await,
                 None => {
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
@@ -303,7 +303,7 @@ async fn request_by_map(
     orig: &CommandOrigin<'_>,
     map_id: u32,
     user_id: UserId,
-    mods: Option<GameMods>,
+    mods: Option<&GameModsIntermode>,
 ) -> ScoreResult {
     let map = match ctx.osu_map().map(map_id, None).await {
         Ok(map) => map,
@@ -361,7 +361,15 @@ async fn request_by_map(
 
     let score_opt = match scores_res {
         Ok(scores) => match mods {
-            Some(mods) => scores.into_iter().find(|score| score.mods == mods),
+            Some(mods) => scores.into_iter().find(|score| {
+                let intermode = score
+                    .mods
+                    .iter()
+                    .map(GameMod::intermode)
+                    .collect::<GameModsIntermode>();
+
+                &intermode == mods
+            }),
             None => scores.into_iter().next(),
         },
         Err(err) => {

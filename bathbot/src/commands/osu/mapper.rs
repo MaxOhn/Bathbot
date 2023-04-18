@@ -388,7 +388,7 @@ async fn process_scores(
         let Some(mut map) = maps.remove(&score.map_id) else { continue };
         map.convert_mut(score.mode);
 
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());
         let attrs = calc.difficulty().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo() as u32;
@@ -433,8 +433,8 @@ async fn process_scores(
         Some(ScoreOrder::Date) => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
         Some(ScoreOrder::Length) => {
             entries.sort_by(|a, b| {
-                let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate();
-                let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate();
+                let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
+                let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
 
                 b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
             });

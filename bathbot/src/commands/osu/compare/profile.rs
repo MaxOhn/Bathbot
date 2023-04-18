@@ -15,7 +15,7 @@ use image::{
     Rgba,
 };
 use rosu_v2::{
-    prelude::{GameMode, GameMods, OsuError, Score},
+    prelude::{GameMode, OsuError, Score},
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -373,10 +373,8 @@ impl CompareResult {
 
             let map = score.map.as_ref().unwrap();
 
-            let seconds_drain = if score.mods.contains(GameMods::DoubleTime) {
-                map.seconds_drain as f32 / 1.5
-            } else if score.mods.contains(GameMods::HalfTime) {
-                map.seconds_drain as f32 * 1.5
+            let seconds_drain = if let Some(clock_rate) = score.mods.clock_rate() {
+                map.seconds_drain as f32 / clock_rate
             } else {
                 map.seconds_drain as f32
             };

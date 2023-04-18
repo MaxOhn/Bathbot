@@ -11,7 +11,7 @@ use bathbot_macros::{command, SlashCommand};
 use bathbot_util::{constants::OSU_API_ISSUE, matcher, IntHasher, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{
-    GameMods, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, UserCompact,
+    GameModIntermode, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, UserCompact,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
@@ -158,7 +158,7 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
                 games_iter
                     .map(|mut game| {
                         game.scores.iter_mut().for_each(|score| {
-                            if score.mods.contains(GameMods::Easy) {
+                            if score.mods.contains(GameModIntermode::Easy) {
                                 score.score = (score.score as f32 * ez_mult) as u32;
                             }
                         });
@@ -341,7 +341,7 @@ pub fn process_match(
         for score in game.scores.iter().filter(|s| s.score > 0) {
             mods.entry(score.user_id)
                 .or_insert_with(HashSet::new)
-                .insert(score.mods - GameMods::NoFail);
+                .insert(score.mods.clone() - GameModIntermode::NoFail);
 
             let mut point_cost = score.score as f32 / avg;
 

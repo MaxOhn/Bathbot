@@ -9,7 +9,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result, WrapErr};
 use rosu_pp::{AnyPP, BeatmapExt};
-use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Username};
+use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameModsIntermode, Username};
 use time::OffsetDateTime;
 use twilight_model::{
     channel::message::embed::EmbedField,
@@ -44,7 +44,7 @@ impl MapEmbed {
     pub async fn new(
         map: &Beatmap,
         mapset: &Beatmapset,
-        mods: GameMods,
+        mods: &GameModsIntermode,
         attrs: &CustomAttrs,
         origin: MessageOrigin,
         ctx: &Context,
@@ -81,15 +81,10 @@ impl MapEmbed {
         let mut seconds_drain = map.seconds_drain;
         let mut bpm = map.bpm;
 
-        if mods.contains(GameMods::DoubleTime) {
-            seconds_total = (seconds_total as f32 * 2.0 / 3.0) as u32;
-            seconds_drain = (seconds_drain as f32 * 2.0 / 3.0) as u32;
-            bpm *= 1.5;
-        } else if mods.contains(GameMods::HalfTime) {
-            seconds_total = (seconds_total as f32 * 4.0 / 3.0) as u32;
-            seconds_drain = (seconds_drain as f32 * 4.0 / 3.0) as u32;
-            bpm *= 0.75;
-        }
+        let clock_rate = mods.legacy_clock_rate();
+        seconds_total = (seconds_total as f32 / clock_rate) as u32;
+        seconds_drain = (seconds_drain as f32 / clock_rate) as u32;
+        bpm *= clock_rate;
 
         let mut info_value = String::with_capacity(128);
         let mut fields = Vec::with_capacity(3);

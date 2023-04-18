@@ -8,7 +8,7 @@ use bathbot_util::{
     osu::{ExtractablePp, PpListUtil},
     AuthorBuilder, CowUtils,
 };
-use rosu_v2::prelude::{GameMods, RankStatus, Score};
+use rosu_v2::prelude::{GameModsIntermode, RankStatus, Score};
 use time::OffsetDateTime;
 
 use crate::{
@@ -26,7 +26,7 @@ pub struct FixScoreEmbed {
 }
 
 impl FixScoreEmbed {
-    pub fn new(entry: &FixEntry, mods: Option<GameMods>) -> Self {
+    pub fn new(entry: &FixEntry, mods: Option<GameModsIntermode>) -> Self {
         let FixEntry { user, map, score } = entry;
 
         let author = user.author_builder();

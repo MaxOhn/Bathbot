@@ -355,7 +355,7 @@ pub struct Unchoked {
 }
 
 impl Unchoked {
-    fn new(if_fc: IfFc, mods: GameMods, mode: GameMode) -> Self {
+    fn new(if_fc: IfFc, mods: &GameMods, mode: GameMode) -> Self {
         let grade = calculate_grade(mode, mods, &if_fc.statistics);
 
         Self {
@@ -390,7 +390,7 @@ async fn process_scores(
         let attrs = ctx
             .pp(&map)
             .mode(score.mode)
-            .mods(score.mods)
+            .mods(score.mods.bits())
             .performance()
             .await;
 
@@ -411,7 +411,7 @@ async fn process_scores(
             // Skip unchoking because it has too many misses or because its a convert
             NochokeVersion::Unchoke => IfFc::new(ctx, &score, &map)
                 .await
-                .map(|if_fc| Unchoked::new(if_fc, score.mods, score.mode)),
+                .map(|if_fc| Unchoked::new(if_fc, &score.mods, score.mode)),
             NochokeVersion::Perfect if too_many_misses => None,
             NochokeVersion::Perfect => Some(perfect_score(ctx, &score, &map).await),
         };
@@ -434,7 +434,7 @@ async fn process_scores(
 
 async fn perfect_score(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Unchoked {
     let total_hits = score.total_hits();
-    let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods);
+    let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods.bits());
     let attrs = calc.difficulty().await;
 
     let stats = match attrs {
@@ -479,7 +479,7 @@ async fn perfect_score(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Unchok
         _ => score.statistics.clone(), // Nothing to unchoke
     };
 
-    let grade = calculate_grade(score.mode, score.mods, &stats);
+    let grade = calculate_grade(score.mode, &score.mods, &stats);
 
     let mode = match score.mode {
         GameMode::Osu => Mode::Osu,

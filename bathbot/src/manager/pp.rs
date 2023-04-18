@@ -6,7 +6,7 @@ use eyre::Result;
 use rosu_pp::{
     Beatmap, BeatmapExt, DifficultyAttributes, GameMode as Mode, PerformanceAttributes, ScoreState,
 };
-use rosu_v2::prelude::{GameMode, GameMods, Grade, Score};
+use rosu_v2::prelude::{GameMode, Grade, Score};
 
 use super::OsuMap;
 
@@ -70,9 +70,7 @@ impl<'d, 'm> PpManager<'d, 'm> {
         self
     }
 
-    pub fn mods(mut self, mods: GameMods) -> Self {
-        let mods = mods.bits();
-
+    pub fn mods(mut self, mods: u32) -> Self {
         if self.mods != mods {
             self.attrs = None;
         }
@@ -180,7 +178,7 @@ impl<'d, 'm> PpManager<'d, 'm> {
 
 pub struct ScoreData {
     state: ScoreState,
-    mods: GameMods,
+    mods: u32,
     mode: Option<GameMode>,
     partial: bool,
 }
@@ -198,7 +196,7 @@ impl<'s> From<&'s Score> for ScoreData {
                 n50: score.statistics.count_50 as usize,
                 n_misses: score.statistics.count_miss as usize,
             },
-            mods: score.mods,
+            mods: score.mods.bits(),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
         }
@@ -218,7 +216,7 @@ impl<'s> From<&'s ScoreSlim> for ScoreData {
                 n50: score.statistics.count_50 as usize,
                 n_misses: score.statistics.count_miss as usize,
             },
-            mods: score.mods,
+            mods: score.mods.bits(),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
         }
@@ -238,7 +236,7 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
                 n50: score.count50 as usize,
                 n_misses: score.count_miss as usize,
             },
-            mods: score.mods,
+            mods: score.mods.bits(),
             mode: None,
             partial: score.grade == Grade::F,
         }
@@ -258,7 +256,7 @@ impl<'s> From<&'s ScraperScore> for ScoreData {
                 n50: score.count50 as usize,
                 n_misses: score.count_miss as usize,
             },
-            mods: score.mods,
+            mods: score.mods.bits(),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
         }

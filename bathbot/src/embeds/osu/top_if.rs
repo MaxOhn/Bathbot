@@ -56,7 +56,7 @@ impl TopIfEmbed {
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
-                mods = ModsFormatter::new(score.mods),
+                mods = ModsFormatter::new(&score.mods),
                 grade = grade_emote(score.grade),
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
                 acc = round(score.accuracy),

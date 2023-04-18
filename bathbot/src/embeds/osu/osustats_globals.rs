@@ -66,7 +66,7 @@ impl OsuStatsGlobalsEmbed {
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 map_id = map.map_id(),
-                mods = ModsFormatter::new(score.mods),
+                mods = ModsFormatter::new(&score.mods),
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),

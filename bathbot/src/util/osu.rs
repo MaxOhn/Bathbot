@@ -49,7 +49,7 @@ pub fn mode_emote(mode: GameMode) -> &'static str {
 }
 
 pub fn grade_completion_mods(
-    mods: GameMods,
+    mods: &GameMods,
     grade: Grade,
     score_hits: u32,
     map: &OsuMap,
@@ -341,7 +341,7 @@ pub struct IfFc {
 impl IfFc {
     pub async fn new(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Option<Self> {
         let mode = score.mode;
-        let mut calc = ctx.pp(map).mods(score.mods).mode(score.mode);
+        let mut calc = ctx.pp(map).mods(score.mods.bits()).mode(score.mode);
         let attrs = calc.difficulty().await;
 
         if score.is_fc(mode, attrs.max_combo() as u32) {
@@ -555,8 +555,8 @@ impl<'map> MapInfo<'map> {
         }
     }
 
-    pub fn mods(&mut self, mods: GameMods) -> &mut Self {
-        self.mods = Some(mods.bits());
+    pub fn mods(&mut self, mods: u32) -> &mut Self {
+        self.mods = Some(mods);
 
         self
     }

@@ -711,7 +711,7 @@ async fn process_scores(
             let attrs = ctx
                 .pp(map)
                 .mode(score.mode)
-                .mods(score.mods)
+                .mods(score.mods.bits())
                 .performance()
                 .await;
 

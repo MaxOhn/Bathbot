@@ -21,7 +21,7 @@ use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
     prelude::{
-        GameMode, GameMods, Grade, OsuError,
+        GameMode, Grade, OsuError,
         RankStatus::{Approved, Loved, Qualified, Ranked},
         Score,
     },
@@ -1020,12 +1020,7 @@ async fn process_scores(
         })
         .filter(|score| match args.mods {
             None => true,
-            Some(ModSelection::Include(mods @ GameMods::NoMod) | ModSelection::Exact(mods)) => {
-                score.mods == mods
-            }
-            Some(ModSelection::Include(mods)) => score.mods.contains(mods),
-            Some(ModSelection::Exclude(GameMods::NoMod)) => !score.mods.is_empty(),
-            Some(ModSelection::Exclude(mods)) => !score.mods.intersects(mods),
+            Some(ref selection) => selection.filter_score(score),
         })
         .filter(|score| match args.farm {
             None => true,
@@ -1071,7 +1066,7 @@ async fn process_scores(
         let attrs = ctx
             .pp(&map)
             .mode(score.mode)
-            .mods(score.mods)
+            .mods(score.mods.bits())
             .performance()
             .await;
 
@@ -1107,8 +1102,8 @@ async fn process_scores(
                 .unwrap_or(Ordering::Equal)
         }),
         TopScoreOrder::Bpm => entries.sort_by(|a, b| {
-            let a_bpm = a.map.bpm() * a.score.mods.clock_rate();
-            let b_bpm = b.map.bpm() * b.score.mods.clock_rate();
+            let a_bpm = a.map.bpm() * a.score.mods.clock_rate().unwrap_or(1.0);
+            let b_bpm = b.map.bpm() * b.score.mods.clock_rate().unwrap_or(1.0);
 
             b_bpm.partial_cmp(&a_bpm).unwrap_or(Ordering::Equal)
         }),
@@ -1125,8 +1120,8 @@ async fn process_scores(
         }),
         TopScoreOrder::Length => {
             entries.sort_by(|a, b| {
-                let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate();
-                let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate();
+                let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
+                let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
 
                 b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
             });
@@ -1402,7 +1397,7 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
         let _ = write!(content, " ~ `Grade: {grade}`");
     }
 
-    if let Some(selection) = args.mods {
+    if let Some(ref selection) = args.mods {
         let (pre, mods) = match selection {
             ModSelection::Include(mods) => ("Include ", mods),
             ModSelection::Exclude(mods) => ("Exclude ", mods),

@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 
 use bathbot_model::{
     rkyv_util::time::DateTimeRkyv,
@@ -13,7 +13,7 @@ use rkyv::{
     with::{DeserializeWith, Map},
     Infallible,
 };
-use rosu_v2::prelude::{GameMods, Grade};
+use rosu_v2::prelude::{GameModIntermode, GameModsIntermode, Grade};
 use time::UtcOffset;
 use twilight_model::channel::message::embed::{Embed, EmbedField};
 
@@ -424,12 +424,13 @@ impl ProfileEmbed {
         description.push_str(":**__\n");
 
         let fields = if let Some(stats) = data.top100mods(ctx).await {
-            fn mod_value<V, F, const N: usize>(
-                map: Vec<(GameMods, V)>,
+            fn mod_value<M, V, F, const N: usize>(
+                map: Vec<(M, V)>,
                 to_string: F,
                 suffix: &str,
             ) -> Option<String>
             where
+                M: HasLen + Display,
                 F: Fn(&V) -> String,
             {
                 let mut mods_len = [0; N];
@@ -484,15 +485,17 @@ impl ProfileEmbed {
 
             let mut fields = Vec::with_capacity(3);
 
-            if let Some(val) = mod_value::<_, _, 4>(stats.percent_mods, u8::to_string, "%") {
+            if let Some(val) = mod_value::<_, _, _, 4>(stats.percent_mods, u8::to_string, "%") {
                 fields![fields { "Favourite mods", val, false }];
             }
 
-            if let Some(val) = mod_value::<_, _, 3>(stats.percent_mod_comps, u8::to_string, "%") {
+            if let Some(val) = mod_value::<_, _, _, 3>(stats.percent_mod_comps, u8::to_string, "%")
+            {
                 fields![fields { "Favourite mod combinations", val, false }];
             }
 
-            if let Some(val) = mod_value::<_, _, 3>(stats.pp_mod_comps, |pp| format!("{pp:.1}"), "")
+            if let Some(val) =
+                mod_value::<_, _, _, 3>(stats.pp_mod_comps, |pp| format!("{pp:.1}"), "")
             {
                 fields![fields { "Profitable mod combinations (pp)", val, false }];
             }
@@ -748,5 +751,21 @@ impl EmbedData for ProfileEmbed {
         }
 
         eb.build()
+    }
+}
+
+trait HasLen {
+    fn len(&self) -> usize;
+}
+
+impl HasLen for GameModsIntermode {
+    fn len(&self) -> usize {
+        self.len()
+    }
+}
+
+impl HasLen for GameModIntermode {
+    fn len(&self) -> usize {
+        1
     }
 }

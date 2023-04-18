@@ -137,9 +137,9 @@ async fn pp_format(
     score: &ScraperScore,
     map: &OsuMap,
 ) -> PpFormatter {
-    let mods = score.mods;
+    let mods = score.mods.bits();
 
-    match attr_map.entry(mods.bits()) {
+    match attr_map.entry(mods) {
         Entry::Occupied(entry) => {
             let (attrs, max_pp) = entry.get();
 
@@ -158,7 +158,7 @@ async fn pp_format(
                 .pp()
                 .attributes(attrs.to_owned())
                 .mode(PpManager::mode_conversion(score.mode))
-                .mods(mods.bits())
+                .mods(mods)
                 .state(state)
                 .calculate()
                 .pp() as f32;

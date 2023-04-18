@@ -2,13 +2,13 @@ use std::{borrow::Cow, fmt::Write, mem, sync::Arc, time::Duration};
 
 use bathbot_macros::SlashCommand;
 use bathbot_util::{
-    constants::OSU_API_ISSUE, matcher, CowUtils, IntHasher, MessageBuilder, ScoreExt,
+    constants::OSU_API_ISSUE, matcher, osu::calculate_grade, CowUtils, IntHasher, MessageBuilder,
 };
 use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
-    BeatmapCompact, GameMode, GameMods, Grade, MatchEvent, MatchGame, MatchScore, OsuError,
-    OsuMatch, Team, Username,
+    BeatmapCompact, GameMode, GameModsIntermode, Grade, MatchEvent, MatchGame, MatchScore,
+    OsuError, OsuMatch, Team, Username,
 };
 use tokio::time::interval;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -368,7 +368,7 @@ impl CommonMap {
 pub struct MatchCompareScore {
     pub grade: Grade,
     pub user_id: u32,
-    pub mods: GameMods,
+    pub mods: GameModsIntermode,
     pub acc: f32,
     pub combo: u32,
     pub score: u32,
@@ -377,8 +377,11 @@ pub struct MatchCompareScore {
 
 impl MatchCompareScore {
     fn new(score: MatchScore, mode: GameMode) -> Self {
+        // TODO: make this prettier
+        let mods = score.mods.clone().with_mode(mode).expect("invalid mods");
+
         Self {
-            grade: score.grade(mode),
+            grade: calculate_grade(mode, &mods, &score.statistics),
             user_id: score.user_id,
             mods: score.mods,
             acc: score.accuracy,

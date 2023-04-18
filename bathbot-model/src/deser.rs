@@ -149,48 +149,6 @@ pub(super) mod option_mods_string_ {
     }
 }
 
-pub(super) mod mods_string_ {
-    // use super::{option_mods_string::MaybeModsString, *};
-    use super::*;
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(_d: D) -> Result<GameMods, D::Error> {
-        Ok(Default::default())
-        // TODO
-        // Ok(d.deserialize_option(MaybeModsString)?.unwrap_or_default())
-    }
-
-    pub(super) struct ModsString;
-
-    impl<'de> Visitor<'de> for ModsString {
-        type Value = GameMods;
-
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("a string containing gamemods")
-        }
-
-        fn visit_str<E: Error>(self, _v: &str) -> Result<Self::Value, E> {
-            Ok(Default::default())
-            // TODO
-            // let mut mods = GameMods::NoMod;
-
-            // if v == "None" {
-            //     return Ok(mods);
-            // }
-
-            // for result in v.split(',').map(GameMods::from_str) {
-            //     match result {
-            //         Ok(m) => mods |= m,
-            //         Err(err) => {
-            //             return Err(Error::custom(format_args!(r#"invalid value "{v}": {err}"#)));
-            //         }
-            //     }
-            // }
-
-            // Ok(mods)
-        }
-    }
-}
-
 pub(super) mod negative_u32 {
     use super::*;
 

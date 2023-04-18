@@ -232,7 +232,7 @@ pub(super) async fn scores(
         descending = if params.descending { "Desc" } else { "Asc" },
     );
 
-    if let Some(selection) = params.mods {
+    if let Some(ref selection) = params.mods {
         let _ = write!(
             content,
             " ~ `Mods: {}`",
@@ -453,7 +453,7 @@ async fn process_scores(
         let map_opt = maps.remove(&score.map.map_id);
         let Some(map) = map_opt else { continue };
 
-        let mut calc = ctx.pp(&map).mode(mode).mods(score.mods);
+        let mut calc = ctx.pp(&map).mode(mode).mods(score.mods.bits());
         let attrs = calc.performance().await;
 
         let pp = match score.pp {

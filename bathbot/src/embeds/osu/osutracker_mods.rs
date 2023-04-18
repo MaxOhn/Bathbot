@@ -23,7 +23,7 @@ impl OsuTrackerModsEmbed {
 
         for (entry, i) in entries.iter().take(10).zip(idx..) {
             sizes.idx_left = sizes.idx_left.max(i.to_string().len());
-            sizes.mods_left = sizes.mods_left.max(entry.mods.iter().count());
+            sizes.mods_left = sizes.mods_left.max(entry.mods.to_string().len());
 
             sizes.count_left = sizes
                 .count_left
@@ -32,7 +32,7 @@ impl OsuTrackerModsEmbed {
 
         for (entry, i) in entries.iter().skip(10).zip(idx + 10..) {
             sizes.idx_right = sizes.idx_right.max(i.to_string().len());
-            sizes.mods_right = sizes.mods_right.max(entry.mods.iter().count());
+            sizes.mods_right = sizes.mods_right.max(entry.mods.to_string().len());
 
             sizes.count_right = sizes
                 .count_right
@@ -49,7 +49,7 @@ impl OsuTrackerModsEmbed {
                 "`{i:>i_len$}.` `{mods}{pad}` `{count:>c_len$}`",
                 i_len = sizes.idx_left,
                 mods = entry.mods,
-                pad = " ".repeat(2 * (sizes.mods_left - entry.mods.iter().count())),
+                pad = " ".repeat(2 * (sizes.mods_left - entry.mods.to_string().len())),
                 count = WithComma::new(entry.count).to_string(),
                 c_len = sizes.count_left,
             );
@@ -63,7 +63,7 @@ impl OsuTrackerModsEmbed {
                     i = i + 10,
                     i_len = sizes.idx_right,
                     mods = entry.mods,
-                    pad = " ".repeat(2 * (sizes.mods_right - entry.mods.iter().count())),
+                    pad = " ".repeat(2 * (sizes.mods_right - entry.mods.to_string().len())),
                     count = WithComma::new(entry.count).to_string(),
                     c_len = sizes.count_right,
                 );

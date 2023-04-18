@@ -4,7 +4,9 @@ use std::{
 };
 
 use bathbot_util::osu::ModSelection;
-use rosu_v2::prelude::{CountryCode, GameMode, GameMods, ModeAsSeed, RankStatus, Username};
+use rosu_v2::prelude::{
+    CountryCode, GameMode, GameMods, GameModsIntermode, ModeAsSeed, RankStatus, Username,
+};
 use serde::{
     de::{DeserializeSeed, Deserializer, Error as DeError, MapAccess, Unexpected, Visitor},
     Deserialize,
@@ -254,14 +256,10 @@ impl<'de> Deserialize<'de> for SnipeRecent {
         let inner = SnipeRecentInner::deserialize(d)?;
 
         let mods = match inner.mods {
-            Some(raw) => {
-                let mut d = serde_json::Deserializer::from_str(raw.get());
-
-                ModeAsSeed::<GameMods>::new(GameMode::Osu)
-                    .deserialize(&mut d)
-                    .map(Some)
-                    .map_err(DeError::custom)?
-            }
+            Some(raw) => serde_json::Deserializer::from_str(raw.get())
+                .deserialize_str(SnipeRecentModsVisitor)
+                .map(Some)
+                .map_err(DeError::custom)?,
             None => None,
         };
 
@@ -294,6 +292,34 @@ impl<'de> Deserialize<'de> for SnipeRecent {
             sniped: inner.sniped,
             sniped_id: inner.sniped_id,
         })
+    }
+}
+
+struct SnipeRecentModsVisitor;
+
+impl<'de> Visitor<'de> for SnipeRecentModsVisitor {
+    type Value = GameMods;
+
+    fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str("GameMods")
+    }
+
+    fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
+        let intermode = match v.parse::<GameModsIntermode>() {
+            Ok(mods) => mods,
+            Err(_) => match v {
+                "nomod" => GameModsIntermode::new(),
+                _ => {
+                    let expected = "a valid combination of mod acronyms";
+
+                    return Err(DeError::invalid_value(Unexpected::Str(v), &expected));
+                }
+            },
+        };
+
+        intermode
+            .with_mode(GameMode::Osu)
+            .ok_or_else(|| DeError::custom("invalid mods for mode"))
     }
 }
 

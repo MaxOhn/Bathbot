@@ -69,7 +69,7 @@ impl TopSingleEmbed {
         let if_fc = IfFc::new(ctx, score, map).await;
         let hits = HitResultFormatter::new(score.mode, score.statistics.clone());
         let grade_completion_mods =
-            grade_completion_mods(score.mods, score.grade, score.total_hits(), map);
+            grade_completion_mods(&score.mods, score.grade, score.total_hits(), map);
 
         let (combo, title) = if score.mode == GameMode::Mania {
             let mut ratio = score.statistics.count_geki as f32;
@@ -82,7 +82,7 @@ impl TopSingleEmbed {
 
             let title = format!(
                 "{} {} - {} [{}]",
-                KeyFormatter::new(score.mods, map),
+                KeyFormatter::new(&score.mods, map),
                 map.artist().cow_escape_markdown(),
                 map.title().cow_escape_markdown(),
                 map.version().cow_escape_markdown(),
@@ -147,7 +147,9 @@ impl TopSingleEmbed {
             max_pp: Some(*max_pp),
             combo,
             hits,
-            map_info: MapInfo::new(map, *stars).mods(score.mods).to_string(),
+            map_info: MapInfo::new(map, *stars)
+                .mods(score.mods.bits())
+                .to_string(),
             if_fc,
             mapset_cover: map.cover().to_owned(),
             minimized_pp,

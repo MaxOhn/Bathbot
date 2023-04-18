@@ -94,7 +94,9 @@ impl ScorePp {
         let play = plays.swap_remove(play as usize);
 
         let map_fut = ctx.osu_map().map_slim(play.map_id);
-        let attrs_fut = ctx.osu_map().difficulty(play.map_id, play.mode, play.mods);
+        let attrs_fut = ctx
+            .osu_map()
+            .difficulty(play.map_id, play.mode, play.mods.bits());
 
         let (map_res, attrs_res) = tokio::join!(map_fut, attrs_fut);
 
@@ -195,7 +197,7 @@ impl ScorePp {
         format!(
             "**{map} {mods}**\n{grade} {score} • **{acc}%** • **{combo}x**{max_combo} {miss}• **{pp}pp**",
             map = self.map_string,
-            mods = ModsFormatter::new(self.mods),
+            mods = ModsFormatter::new(&self.mods),
             grade = grade_emote(self.grade),
             score = WithComma::new(self.score),
             acc = self.acc,

@@ -24,7 +24,7 @@ use rosu_pp::{
     taiko::TaikoScoreState,
     AnyPP, BeatmapExt, GameMode as Mode, OsuPP,
 };
-use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
+use rosu_v2::prelude::{GameModIntermode, GameMode, OsuError, Score};
 use serde::{Serialize, Serializer};
 use serde_json::{Map, Value};
 use time::OffsetDateTime;
@@ -227,7 +227,7 @@ impl Skills {
 
                 let attrs = ctx
                     .pp_parsed(&map, score.map_id, false, mode)
-                    .mods(score.mods)
+                    .mods(score.mods.bits())
                     .difficulty()
                     .await
                     .to_owned();
@@ -811,9 +811,9 @@ impl ModDescriptions {
                 continue;
             }
 
-            hidden += score.mods.contains(GameMods::Hidden) as usize;
-            doubletime += score.mods.contains(GameMods::DoubleTime) as usize;
-            hardrock += score.mods.contains(GameMods::HardRock) as usize;
+            hidden += score.mods.contains_intermode(GameModIntermode::Hidden) as usize;
+            doubletime += score.mods.contains_intermode(GameModIntermode::DoubleTime) as usize;
+            hardrock += score.mods.contains_intermode(GameModIntermode::HardRock) as usize;
         }
 
         if nomod > 70 {
@@ -861,20 +861,23 @@ impl ModDescriptions {
         let mut doubletime = 0;
 
         for (score, i) in scores.iter().zip(0..) {
-            doubletime += score.mods.contains(GameMods::DoubleTime) as usize;
+            doubletime += score.mods.contains_intermode(GameModIntermode::DoubleTime) as usize;
 
-            let idx = match score.mods.has_key_mod() {
-                Some(GameMods::Key1) => 1,
-                Some(GameMods::Key2) => 2,
-                Some(GameMods::Key3) => 3,
-                Some(GameMods::Key4) => 4,
-                Some(GameMods::Key5) => 5,
-                Some(GameMods::Key6) => 6,
-                Some(GameMods::Key7) => 7,
-                Some(GameMods::Key8) => 8,
-                Some(GameMods::Key9) => 9,
-                _ => score.map.as_ref().unwrap().cs.round() as usize,
-            };
+            let idx = [
+                (GameModIntermode::OneKey, 1),
+                (GameModIntermode::TwoKeys, 2),
+                (GameModIntermode::ThreeKeys, 3),
+                (GameModIntermode::FourKeys, 4),
+                (GameModIntermode::FiveKeys, 5),
+                (GameModIntermode::SixKeys, 6),
+                (GameModIntermode::SevenKeys, 7),
+                (GameModIntermode::EightKeys, 8),
+                (GameModIntermode::NineKeys, 9),
+                (GameModIntermode::TenKeys, 10),
+            ]
+            .into_iter()
+            .find_map(|(gamemod, keys)| score.mods.contains_intermode(gamemod).then_some(keys))
+            .unwrap_or_else(|| score.map.as_ref().unwrap().cs.round() as usize);
 
             key_counts[idx] += 0.95_f32.powi(i);
         }
