@@ -7,7 +7,7 @@ use bathbot_model::{
 };
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher, MessageBuilder,
+    matcher, CowUtils, MessageBuilder,
 };
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
@@ -39,7 +39,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
             Some(code) => Some(code),
             None => {
                 if country.len() == 2 {
-                    Some(CountryCode::from(country))
+                    Some(CountryCode::from(country.cow_to_ascii_uppercase()))
                 } else {
                     let content = format!(
                         "Looks like `{country}` is neither a country name nor a country code"
@@ -311,7 +311,7 @@ impl<'m> RankPp<'m> {
                 let valid_country = prefix.chars().all(|c| c.is_ascii_alphabetic());
 
                 if let (true, Ok(num)) = (valid_country, suffix.parse()) {
-                    country = Some(prefix.to_ascii_uppercase().into());
+                    country = Some(prefix.into());
                     rank = Some(num);
 
                     continue;
