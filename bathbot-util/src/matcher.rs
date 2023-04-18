@@ -198,7 +198,7 @@ define_regex! {
 
     EMOJI_MATCHER: r"<(a?):([^:\n]+):(\d+)>";
 
-    IGNORE_BADGE_MATCHER: r"^(?i:contrib|nomination|assessment|global|moderation|beatmap|spotlight|map|pending|aspire|elite|monthly|exemplary|outstanding|longstanding|idol[^@]+)|(?i:fanart contest)";
+    IGNORE_BADGE_MATCHER: r"^(?i:contrib|nomination|assessment|global|moderation|beatmap|spotlight|map|pending|aspire|elite|monthly|exemplary|outstanding|longstanding|idol[^@]+)|(?i:(?:fan| |^)art contest)";
 
     SEVEN_TWO_SEVEN: "(?P<num>7[.,]?2[.,]?7)";
 
