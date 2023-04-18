@@ -1,6 +1,10 @@
 use bathbot_util::{ScoreExt, ScoreHasEndedAt, ScoreHasMode};
-use rosu_v2::prelude::{CountryCode, GameMode, GameMods, Grade, RankStatus, Username};
-use serde::{Deserialize, Deserializer};
+use rosu_v2::prelude::{CountryCode, GameMode, GameMods, Grade, ModeAsSeed, RankStatus, Username};
+use serde::{
+    de::{DeserializeSeed, Error as DeError},
+    Deserialize, Deserializer,
+};
+use serde_json::value::RawValue;
 use time::OffsetDateTime;
 
 use super::deser;
@@ -26,7 +30,6 @@ pub struct ScraperScore {
     pub mods: GameMods,
     pub score: u32,
     pub max_combo: u32,
-    // pub perfect: bool,
     pub pp: Option<f32>,
     pub grade: Grade,
     pub date: OffsetDateTime,
@@ -42,19 +45,18 @@ pub struct ScraperScore {
 impl<'de> Deserialize<'de> for ScraperScore {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
-        struct Outer {
+        struct Outer<'mods> {
             id: u64,
             user_id: u32,
             #[serde(with = "deser::adjust_acc")]
             accuracy: f32,
-            mods: GameMods,
+            #[serde(borrow)]
+            mods: &'mods RawValue,
             #[serde(rename = "total_score")]
             score: u32,
             #[serde(rename = "ruleset_id")]
             mode: GameMode,
             max_combo: u32,
-            // #[serde(rename = "legacy_perfect")]
-            // perfect: bool,
             statistics: ScraperScoreStatistics,
             pp: Option<f32>,
             rank: Grade,
@@ -65,7 +67,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
         }
 
         #[derive(Deserialize)]
-        pub struct ScraperScoreStatistics {
+        struct ScraperScoreStatistics {
             #[serde(default, rename = "perfect")]
             count_geki: u32,
             #[serde(default, rename = "good", alias = "small_tick_miss")]
@@ -81,24 +83,27 @@ impl<'de> Deserialize<'de> for ScraperScore {
         }
 
         #[derive(Deserialize)]
-        pub struct ScraperUser {
+        struct ScraperUser {
             username: Username,
             country_code: CountryCode,
         }
 
         let helper = Outer::deserialize(d)?;
 
+        let mut d = serde_json::Deserializer::from_str(helper.mods.get());
+
         Ok(ScraperScore {
+            mods: ModeAsSeed::<GameMods>::new(helper.mode)
+                .deserialize(&mut d)
+                .map_err(DeError::custom)?,
             id: helper.id,
             user_id: helper.user_id,
             username: helper.user.username,
             country_code: helper.user.country_code,
             accuracy: helper.accuracy,
             mode: helper.mode,
-            mods: helper.mods,
             score: helper.score,
             max_combo: helper.max_combo,
-            // perfect: helper.perfect,
             pp: helper.pp,
             grade: helper.rank,
             date: helper.ended_at,
@@ -122,7 +127,7 @@ impl ScoreExt for ScraperScore {
     #[inline] fn count_geki(&self) -> u32 { self.count_geki }
     #[inline] fn count_katu(&self) -> u32 { self.count_katu }
     #[inline] fn max_combo(&self) -> u32 { self.max_combo }
-    #[inline] fn mods(&self) -> GameMods { self.mods }
+    #[inline] fn mods(&self) -> &GameMods { &self.mods }
     #[inline] fn grade(&self, _: GameMode) -> Grade { self.grade }
     #[inline] fn score(&self) -> u32 { self.score }
     #[inline] fn pp(&self) -> Option<f32> { self.pp }

@@ -54,14 +54,14 @@ impl RecentListEmbed {
                 description,
                 "**{i}. {grade}\t[{title} [{version}]]({OSU_BASE}b/{map_id})** [{stars:.2}★]",
                 i = *idx + 1,
-                grade = grade_completion_mods(score.mods, score.grade, score.total_hits(), map),
+                grade = grade_completion_mods(&score.mods, score.grade, score.total_hits(), map),
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 map_id = map.map_id(),
             );
 
             if score.mode == GameMode::Mania {
-                let _ = write!(description, "\t{}", KeyFormatter::new(score.mods, map));
+                let _ = write!(description, "\t{}", KeyFormatter::new(&score.mods, map));
             }
 
             description.push('\n');

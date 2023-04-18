@@ -61,7 +61,7 @@ impl PlayerSnipeStatsEmbed {
                 "Average stars:", format!("{:.2}★", player.avg_stars), true;
             }];
 
-            let mut calc = ctx.pp(oldest_map).mods(oldest_score.mods);
+            let mut calc = ctx.pp(oldest_map).mods(oldest_score.mods.bits());
 
             let attrs = calc.performance().await;
             let stars = attrs.stars() as f32;
@@ -81,7 +81,7 @@ impl PlayerSnipeStatsEmbed {
                 map = player.oldest_first.map.cow_escape_markdown(),
                 id = oldest_map.map_id(),
                 grade = grade_completion_mods(
-                    oldest_score.mods,
+                    &oldest_score.mods,
                     oldest_score.grade,
                     oldest_score.total_hits(),
                     oldest_map

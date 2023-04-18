@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, HashMap},
     fmt::Write,
 };
@@ -56,8 +57,8 @@ impl PlayerSnipeListEmbed {
         // TODO: update formatting
         for (idx, score) in entries {
             let map = maps.get(&score.map.map_id).expect("missing map");
-            let mods = score.mods.unwrap_or_default();
-            let max_pp = ctx.pp(map).mods(mods).performance().await.pp() as f32;
+            let mods = score.mods.as_ref().map(Cow::Borrowed).unwrap_or_default();
+            let max_pp = ctx.pp(map).mods(mods.bits()).performance().await.pp() as f32;
 
             let _ = write!(
                 description,
@@ -67,7 +68,7 @@ impl PlayerSnipeListEmbed {
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 id = score.map.map_id,
-                mods = ModsFormatter::new(score.mods.unwrap_or_default()),
+                mods = ModsFormatter::new(&mods),
                 stars = score.stars,
                 pp = PpFormatter::new(score.pp, Some(max_pp)),
                 acc = round(score.accuracy),

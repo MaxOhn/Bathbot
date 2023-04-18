@@ -9,7 +9,7 @@ use bathbot_util::{
     osu::ModSelection,
 };
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
+use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, GameModsIntermode, OsuError, Score};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -170,15 +170,6 @@ async fn prefix_topifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Re
     }
 }
 
-const NM: GameMods = GameMods::NoMod;
-const DT: GameMods = GameMods::DoubleTime;
-const NC: GameMods = GameMods::NightCore;
-const HT: GameMods = GameMods::HalfTime;
-const EZ: GameMods = GameMods::Easy;
-const HR: GameMods = GameMods::HardRock;
-const PF: GameMods = GameMods::Perfect;
-const SD: GameMods = GameMods::SuddenDeath;
-
 async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
     let mods = match matcher::get_mods(&args.mods) {
         Some(mods) => mods,
@@ -191,7 +182,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
         mode = GameMode::Osu;
     }
 
-    if let Err(content) = mods.validate() {
+    if let Err(content) = mods.clone().validate(mode) {
         return orig.error(&ctx, content).await;
     }
 
@@ -221,8 +212,9 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
         .fold(0.0, |sum, weight| sum + weight.pp);
 
     let bonus_pp = user.stats().pp() - actual_pp;
+    let content = get_content(user.username(), mode, &mods, args.query.as_deref());
 
-    let mut entries = match process_scores(&ctx, scores, mods).await {
+    let mut entries = match process_scores(&ctx, scores, mods, mode).await {
         Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -263,7 +255,6 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
 
     // Accumulate all necessary data
     let pre_pp = user.stats().pp();
-    let content = get_content(user.username(), mode, mods, args.query.as_deref());
 
     TopIfPagination::builder(user, entries, mode, pre_pp, final_pp, rank)
         .content(content)
@@ -286,7 +277,8 @@ pub struct TopIfEntry {
 async fn process_scores(
     ctx: &Context,
     scores: Vec<Score>,
-    arg_mods: ModSelection,
+    mut arg_mods: ModSelection,
+    mode: GameMode,
 ) -> Result<Vec<TopIfEntry>> {
     let mut entries = Vec::with_capacity(scores.len());
 
@@ -302,67 +294,88 @@ async fn process_scores(
 
     let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
 
+    match &mut arg_mods {
+        ModSelection::Exact(mods) | ModSelection::Include(mods) if mods.is_empty() => {
+            *mods = GameModsIntermode::new();
+        }
+        ModSelection::Exclude(mods) => {
+            if mods.contains(GameModIntermode::DoubleTime) {
+                *mods |= GameModIntermode::Nightcore;
+            }
+
+            if mods.contains(GameModIntermode::SuddenDeath) {
+                *mods |= GameModIntermode::Perfect;
+            }
+        }
+        ModSelection::Exact(_) | ModSelection::Include(_) => {}
+    }
+
+    let converted_mods = arg_mods
+        .as_mods()
+        .to_owned()
+        .with_mode(mode)
+        .expect("mods have been validated before");
+
     for (mut score, i) in scores.into_iter().zip(1..) {
         let Some(mut map) = maps.remove(&score.map_id) else { continue };
         map = map.convert(score.mode);
 
-        let changed = match arg_mods {
-            ModSelection::Exact(mods) | ModSelection::Include(mods @ GameMods::NoMod) => {
-                let changed = score.mods != mods;
-                score.mods = mods;
+        let changed = match &arg_mods {
+            ModSelection::Include(mods) if mods.is_empty() => {
+                let changed = !score.mods.is_empty();
+                score.mods = GameMods::new();
 
                 changed
             }
-            ModSelection::Exclude(mut mods) if mods != NM => {
-                if mods.contains(DT) {
-                    mods |= NC;
-                }
+            ModSelection::Exact(_) => {
+                let changed = score.mods != converted_mods;
+                score.mods = converted_mods.clone();
 
-                if mods.contains(SD) {
-                    mods |= PF
-                }
-
-                let changed = score.mods.intersects(mods);
-                score.mods.remove(mods);
+                changed
+            }
+            ModSelection::Exclude(mods) => {
+                let changed = score.mods.contains_any(mods.iter());
+                score.mods.remove_all_intermode(mods.iter());
 
                 changed
             }
             ModSelection::Include(mods) => {
                 let mut changed = false;
 
-                if mods.contains(DT) && score.mods.contains(HT) {
-                    score.mods.remove(HT);
-                    changed = true;
+                if mods.contains(GameModIntermode::DoubleTime)
+                    || mods.contains(GameModIntermode::Nightcore)
+                {
+                    changed |= score.mods.remove_intermode(GameModIntermode::HalfTime);
                 }
 
-                if mods.contains(HT) && score.mods.contains(DT) {
-                    score.mods.remove(NC);
-                    changed = true;
+                if mods.contains(GameModIntermode::HalfTime) {
+                    changed |= score.mods.remove_intermode(GameModIntermode::DoubleTime);
+                    changed |= score.mods.remove_intermode(GameModIntermode::Nightcore);
                 }
 
-                if mods.contains(HR) && score.mods.contains(EZ) {
-                    score.mods.remove(EZ);
-                    changed = true;
+                if mods.contains(GameModIntermode::HardRock) {
+                    changed |= score.mods.remove_intermode(GameModIntermode::Easy);
                 }
 
-                if mods.contains(EZ) && score.mods.contains(HR) {
-                    score.mods.remove(HR);
-                    changed = true;
+                if mods.contains(GameModIntermode::Easy) {
+                    changed |= score.mods.remove_intermode(GameModIntermode::HardRock);
                 }
 
-                changed |= !score.mods.contains(mods);
-                score.mods.insert(mods);
+                changed |= !mods
+                    .iter()
+                    .all(|gamemod| score.mods.contains_intermode(gamemod));
+
+                score.mods.extend(converted_mods.iter().cloned());
 
                 changed
             }
-            _ => false,
         };
 
         if changed {
             score.grade = score.grade(Some(score.accuracy));
         }
 
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());
         let attrs = calc.performance().await;
 
         let old_pp = score.pp.expect("missing pp");
@@ -389,14 +402,14 @@ async fn process_scores(
     Ok(entries)
 }
 
-fn get_content(name: &str, mode: GameMode, mods: ModSelection, query: Option<&str>) -> String {
+fn get_content(name: &str, mode: GameMode, mods: &ModSelection, query: Option<&str>) -> String {
     let mut content = match mods {
         ModSelection::Exact(mods) => format!(
             "`{name}`{plural} {mode}top100 with only `{mods}` scores",
             plural = plural(name),
             mode = mode_str(mode),
         ),
-        ModSelection::Exclude(mods) if mods != NM => {
+        ModSelection::Exclude(mods) if !mods.is_empty() => {
             let mods: Vec<_> = mods.iter().collect();
             let len = mods.len();
             let mut mod_iter = mods.into_iter();
@@ -424,7 +437,7 @@ fn get_content(name: &str, mode: GameMode, mods: ModSelection, query: Option<&st
                 mods = mod_str
             )
         }
-        ModSelection::Include(mods) if mods != NM => format!(
+        ModSelection::Include(mods) if !mods.is_empty() => format!(
             "`{name}`{plural} {mode}top100 with `{mods}` inserted everywhere",
             plural = plural(name),
             mode = mode_str(mode),

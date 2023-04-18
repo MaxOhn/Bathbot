@@ -20,8 +20,6 @@ use crate::{
     Either,
 };
 
-use super::GameModeRkyv;
-
 #[derive(Archive, ArchiveWith)]
 #[archive_with(from(RosuBadge))]
 pub struct Badge {
@@ -75,7 +73,6 @@ pub struct User {
     pub kudosu: RosuUserKudosu,
     #[with(Map<DateTimeRkyv>)]
     pub last_visit: Option<OffsetDateTime>,
-    #[with(GameModeRkyv)]
     pub mode: GameMode,
     pub user_id: u32,
     #[with(DerefAsString)]

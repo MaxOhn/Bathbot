@@ -5,7 +5,7 @@ use std::{borrow::Cow, sync::Arc};
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::MapIdType};
 use eyre::Result;
-use rosu_v2::prelude::{GameMode, GameMods};
+use rosu_v2::prelude::{GameMode, GameModsIntermode};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::{message::MessageType, Message},
@@ -141,7 +141,9 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         }
     };
 
-    let version = match map.mode() {
+    let mode = map.mode();
+
+    let version = match mode {
         GameMode::Osu => TopOldVersion::Osu(TopOldOsuVersion::September22Now),
         GameMode::Taiko => TopOldVersion::Taiko(TopOldTaikoVersion::September22Now),
         GameMode::Catch => TopOldVersion::Catch(TopOldCatchVersion::May20Now),
@@ -150,8 +152,18 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
 
     let max_combo = ctx.pp(&map).difficulty().await.max_combo() as u32;
 
+    let mods = match args.mods.map(|mods| mods.with_mode(mode)) {
+        Some(mods @ Some(_)) => mods,
+        None => None,
+        Some(None) => {
+            let content = format!("Looks like those mods are invalid for the {mode:?} mode");
+
+            return orig.error(&ctx, content).await;
+        }
+    };
+
     let simulate_data = SimulateData {
-        mods: args.mods,
+        mods,
         acc: args.acc,
         n_geki: args.geki,
         n_katu: args.katu,
@@ -354,7 +366,7 @@ async fn prefix_simulatemania(
 struct SimulateArgs {
     map: Option<MapIdType>,
     mode: Option<GameMode>,
-    mods: Option<GameMods>,
+    mods: Option<GameModsIntermode>,
     combo: Option<u32>,
     acc: Option<f32>,
     clock_rate: Option<f32>,
@@ -421,7 +433,7 @@ impl SimulateArgs {
 
     fn from_simulate(simulate: Simulate<'_>) -> Result<Self, &'static str> {
         let mods = match simulate.mods() {
-            ModsResult::Mods(mods) => mods.validate().map(|_| Some(mods.mods()))?,
+            ModsResult::Mods(mods) => Some(mods.into_mods()),
             ModsResult::None => None,
             ModsResult::Invalid => {
                 let content = "Failed to parse mods. Be sure to either specify them directly \

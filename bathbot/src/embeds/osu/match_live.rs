@@ -12,7 +12,8 @@ use bathbot_util::{
     constants::{DESCRIPTION_SIZE, OSU_BASE},
     datetime::SecToMinSec,
     numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder, ScoreExt,
+    osu::calculate_grade,
+    CowUtils, EmbedBuilder, FooterBuilder,
 };
 use rosu_v2::prelude::{
     GameMode, Grade, MatchEvent, MatchGame, MatchScore, OsuMatch, ScoringType, TeamType,
@@ -681,7 +682,13 @@ fn prepare_scores(
         let combo = WithComma::new(score.max_combo).to_string();
         let mods = score.mods.to_string();
         let team = score.team as usize;
-        let grade = score.grade(mode);
+
+        // TODO: make this prettier
+        let grade = {
+            let mods = score.mods.clone().with_mode(mode).unwrap_or_default();
+
+            calculate_grade(mode, &mods, &score.statistics)
+        };
 
         sizes.name = sizes.name.max(name.len());
         sizes.combo = sizes.combo.max(combo.len());

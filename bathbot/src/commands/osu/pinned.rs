@@ -16,7 +16,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{
-        GameMode, GameMods, Grade, OsuError,
+        GameMode, Grade, OsuError,
         RankStatus::{Approved, Loved, Qualified, Ranked},
         Score,
     },
@@ -204,14 +204,15 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         }
     };
 
-    let entries = match process_scores(&ctx, pinned, &args, mods, &top100, size_single).await {
-        Ok(entries) => entries,
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+    let entries =
+        match process_scores(&ctx, pinned, &args, mods.as_ref(), &top100, size_single).await {
+            Ok(entries) => entries,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("Failed to process scores"));
-        }
-    };
+                return Err(err.wrap_err("Failed to process scores"));
+            }
+        };
 
     let username = user.username();
 
@@ -270,7 +271,7 @@ async fn process_scores(
     ctx: &Context,
     pinned: Vec<Score>,
     args: &Pinned,
-    mods: Option<ModSelection>,
+    mods: Option<&ModSelection>,
     top100: &[Score],
     size_single: bool,
 ) -> Result<Vec<TopEntry>> {
@@ -286,12 +287,7 @@ async fn process_scores(
         })
         .filter(|score| match mods {
             None => true,
-            Some(ModSelection::Include(mods @ GameMods::NoMod) | ModSelection::Exact(mods)) => {
-                score.mods == mods
-            }
-            Some(ModSelection::Include(mods)) => score.mods.intersection(mods) == mods,
-            Some(ModSelection::Exclude(GameMods::NoMod)) => !score.mods.is_empty(),
-            Some(ModSelection::Exclude(mods)) => !score.mods.intersects(mods),
+            Some(selection) => selection.filter_score(score),
         })
         .filter_map(|score| score.map.as_ref())
         .map(|map| (map.map_id as i32, map.checksum.as_deref()))
@@ -303,7 +299,7 @@ async fn process_scores(
         let Some(mut map) = maps.get(&score.map_id).cloned() else { continue };
         map.convert_mut(score.mode);
 
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());
         let attrs = calc.difficulty().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo() as u32;
@@ -360,8 +356,8 @@ async fn process_scores(
         Some(ScoreOrder::Date) => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
         Some(ScoreOrder::Length) => {
             entries.sort_by(|a, b| {
-                let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate();
-                let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate();
+                let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
+                let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
 
                 b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
             });

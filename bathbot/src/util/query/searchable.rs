@@ -4,7 +4,7 @@ use bathbot_model::{OsuTrackerCountryScore, ScoreSlim};
 use bathbot_psql::model::osu::{DbBeatmap, DbBeatmapset};
 use bathbot_util::CowUtils;
 use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap as Map, GameMode as Mode, Mods};
-use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Score};
+use rosu_v2::prelude::{Beatmap, Beatmapset, GameModIntermode, GameMode, GameMods, Score};
 
 use crate::{
     commands::osu::{TopEntry, TopIfEntry},
@@ -175,20 +175,7 @@ impl Searchable for Score {
             matches &= criteria.length.contains(len);
             matches &= criteria.bpm.contains(map.bpm * clock_rate);
 
-            let keys = match self.mods.has_key_mod() {
-                Some(GameMods::Key1) => 1.0,
-                Some(GameMods::Key2) => 2.0,
-                Some(GameMods::Key3) => 3.0,
-                Some(GameMods::Key4) => 4.0,
-                Some(GameMods::Key5) => 5.0,
-                Some(GameMods::Key6) => 6.0,
-                Some(GameMods::Key7) => 7.0,
-                Some(GameMods::Key8) => 8.0,
-                Some(GameMods::Key9) => 9.0,
-                None => map.cs,
-                _ => unreachable!(),
-            };
-
+            let keys = keys(&self.mods, map.cs);
             matches &= map.mode != GameMode::Mania || criteria.keys.contains(keys);
 
             version = map.version.cow_to_ascii_lowercase();
@@ -301,20 +288,7 @@ impl Searchable for (&'_ ScoreSlim, &'_ OsuMap) {
         matches &= criteria.length.contains(len);
         matches &= criteria.bpm.contains(map.bpm() * clock_rate);
 
-        let keys = match score.mods.has_key_mod() {
-            Some(GameMods::Key1) => 1.0,
-            Some(GameMods::Key2) => 2.0,
-            Some(GameMods::Key3) => 3.0,
-            Some(GameMods::Key4) => 4.0,
-            Some(GameMods::Key5) => 5.0,
-            Some(GameMods::Key6) => 6.0,
-            Some(GameMods::Key7) => 7.0,
-            Some(GameMods::Key8) => 8.0,
-            Some(GameMods::Key9) => 9.0,
-            None => map.cs(),
-            _ => unreachable!(),
-        };
-
+        let keys = keys(&score.mods, map.cs());
         matches &= score.mode != GameMode::Mania || criteria.keys.contains(keys);
 
         if matches && criteria.has_search_terms() {
@@ -336,4 +310,22 @@ impl Searchable for (&'_ ScoreSlim, &'_ OsuMap) {
 
         matches
     }
+}
+
+fn keys(mods: &GameMods, cs: f32) -> f32 {
+    [
+        (GameModIntermode::OneKey, 1.0),
+        (GameModIntermode::TwoKeys, 2.0),
+        (GameModIntermode::ThreeKeys, 3.0),
+        (GameModIntermode::FourKeys, 4.0),
+        (GameModIntermode::FiveKeys, 5.0),
+        (GameModIntermode::SixKeys, 6.0),
+        (GameModIntermode::SevenKeys, 7.0),
+        (GameModIntermode::EightKeys, 8.0),
+        (GameModIntermode::NineKeys, 9.0),
+        (GameModIntermode::TenKeys, 10.0),
+    ]
+    .into_iter()
+    .find_map(|(gamemod, keys)| mods.contains_intermode(gamemod).then_some(keys))
+    .unwrap_or(cs)
 }

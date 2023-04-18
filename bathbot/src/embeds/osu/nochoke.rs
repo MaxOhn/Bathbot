@@ -58,7 +58,7 @@ impl NoChokeEmbed {
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
-                mods = ModsFormatter::new(original_score.mods),
+                mods = ModsFormatter::new(&original_score.mods),
                 grade = grade_emote(entry.unchoked_grade()),
                 old_pp = original_score.pp,
                 new_pp = entry.unchoked_pp(),

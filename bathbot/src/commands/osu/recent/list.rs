@@ -16,7 +16,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_pp::DifficultyAttributes;
-use rosu_v2::prelude::{GameMode, GameMods, Grade, OsuError, Score};
+use rosu_v2::prelude::{GameMode, Grade, OsuError, Score};
 
 use crate::{
     commands::{
@@ -393,7 +393,7 @@ pub(super) async fn list(
         }
     };
 
-    let (entries, maps) = match process_scores(&ctx, scores, &args, mode, mods).await {
+    let (entries, maps) = match process_scores(&ctx, scores, &args, mode, mods.as_ref()).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -402,7 +402,7 @@ pub(super) async fn list(
         }
     };
 
-    let content = message_content(grade, mods, query.as_deref());
+    let content = message_content(grade, mods.as_ref(), query.as_deref());
 
     RecentListPagination::builder(user, entries, maps)
         .content(content.unwrap_or_default())
@@ -414,7 +414,7 @@ pub(super) async fn list(
 
 fn message_content(
     grade: Option<Grade>,
-    mods: Option<ModSelection>,
+    mods: Option<&ModSelection>,
     query: Option<&str>,
 ) -> Option<String> {
     let mut content = String::new();
@@ -464,7 +464,7 @@ async fn process_scores(
     scores: Vec<Score>,
     args: &RecentList<'_>,
     mode: GameMode,
-    mods: Option<ModSelection>,
+    mods: Option<&ModSelection>,
 ) -> Result<(Vec<RecentListEntry>, HashMap<u32, OsuMap, IntHasher>)> {
     let RecentList {
         query,
@@ -498,12 +498,7 @@ async fn process_scores(
         })
         .filter(|score| match mods {
             None => true,
-            Some(ModSelection::Include(mods @ GameMods::NoMod) | ModSelection::Exact(mods)) => {
-                score.mods == mods
-            }
-            Some(ModSelection::Include(mods)) => score.mods.intersection(mods) == mods,
-            Some(ModSelection::Exclude(GameMods::NoMod)) => !score.mods.is_empty(),
-            Some(ModSelection::Exclude(mods)) => !score.mods.intersects(mods),
+            Some(selection) => selection.filter_score(score),
         })
         .filter_map(|score| score.map.as_ref())
         .map(|map| (map.map_id as i32, map.checksum.as_deref()))
@@ -521,7 +516,7 @@ async fn process_scores(
     for (idx, score) in scores.into_iter().enumerate() {
         let Some(map) = maps.get(&score.map_id) else { continue };
 
-        let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods);
+        let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods.bits());
 
         let attrs = match attrs_map.entry((score.map_id, score.mods.bits())) {
             Entry::Occupied(e) => {
@@ -572,22 +567,36 @@ async fn process_scores(
         None => {}
         Some(RecentListUnique::HighestPp) => {
             entries.sort_unstable_by(|a, b| {
-                (a.map_id, a.score.mods)
-                    .cmp(&(b.map_id, b.score.mods))
-                    .then_with(|| b.score.pp.total_cmp(&a.score.pp))
+                match a.map_id.cmp(&b.map_id) {
+                    Ordering::Equal => {}
+                    ordering => return ordering,
+                }
+
+                if a.score.mods != b.score.mods {
+                    return Ordering::Less;
+                }
+
+                b.score.pp.total_cmp(&a.score.pp)
             });
 
-            entries.dedup_by_key(|entry| (entry.map_id, entry.score.mods));
+            entries.dedup_by(|a, b| a.map_id.eq(&b.map_id) && a.score.mods.eq(&b.score.mods));
             entries.sort_unstable_by_key(|entry| Reverse(entry.score.ended_at));
         }
         Some(RecentListUnique::HighestScore) => {
             entries.sort_unstable_by(|a, b| {
-                (a.map_id, a.score.mods)
-                    .cmp(&(b.map_id, b.score.mods))
-                    .then_with(|| b.score.score.cmp(&a.score.score))
+                match a.map_id.cmp(&b.map_id) {
+                    Ordering::Equal => {}
+                    ordering => return ordering,
+                }
+
+                if a.score.mods != b.score.mods {
+                    return Ordering::Less;
+                }
+
+                b.score.score.cmp(&a.score.score)
             });
 
-            entries.dedup_by_key(|entry| (entry.map_id, entry.score.mods));
+            entries.dedup_by(|a, b| a.map_id.eq(&b.map_id) && a.score.mods.eq(&b.score.mods));
             entries.sort_unstable_by_key(|entry| Reverse(entry.score.ended_at));
         }
     }
@@ -616,8 +625,8 @@ async fn process_scores(
                 let a_map = maps.get(&a.map_id).expect("missing map");
                 let b_map = maps.get(&b.map_id).expect("missing map");
 
-                let a_len = a_map.seconds_drain() as f32 / a.score.mods.clock_rate();
-                let b_len = b_map.seconds_drain() as f32 / b.score.mods.clock_rate();
+                let a_len = a_map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
+                let b_len = b_map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
 
                 b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
             });

@@ -1951,9 +1951,8 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.7.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#1d68a6d201aa5ea5c73baff5f3b47c857b0cf9d4"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=mods#7128334b1fb4a05155dfa1dd535ca9e9f548915b"
 dependencies = [
- "bitflags",
  "bytes",
  "dashmap",
  "futures",
@@ -1961,10 +1960,13 @@ dependencies = [
  "hyper-rustls",
  "leaky-bucket-lite",
  "log",
+ "paste",
  "prometheus",
+ "rkyv",
  "serde",
  "serde_json",
  "smallstr",
+ "thiserror",
  "time",
  "tokio",
  "url",

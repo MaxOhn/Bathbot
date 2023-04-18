@@ -1,6 +1,4 @@
-use rosu_v2::prelude::{
-    BeatmapUserScore, GameMode, GameMods, Grade, MatchScore, Score, ScoreStatistics,
-};
+use rosu_v2::prelude::{BeatmapUserScore, GameMode, GameMods, Grade, Score, ScoreStatistics};
 use time::OffsetDateTime;
 
 use crate::osu::calculate_grade;
@@ -14,7 +12,7 @@ pub trait ScoreExt {
     fn count_geki(&self) -> u32;
     fn count_katu(&self) -> u32;
     fn max_combo(&self) -> u32;
-    fn mods(&self) -> GameMods;
+    fn mods(&self) -> &GameMods;
     fn score(&self) -> u32;
     fn pp(&self) -> Option<f32>;
     fn accuracy(&self) -> f32;
@@ -75,27 +73,28 @@ impl ScoreExt for Score {
     #[inline] fn count_geki(&self) -> u32 { self.statistics.count_geki }
     #[inline] fn count_katu(&self) -> u32 { self.statistics.count_katu }
     #[inline] fn max_combo(&self) -> u32 { self.max_combo }
-    #[inline] fn mods(&self) -> GameMods { self.mods }
+    #[inline] fn mods(&self) -> &GameMods { &self.mods }
     #[inline] fn grade(&self, _: GameMode) -> Grade { self.grade }
     #[inline] fn score(&self) -> u32 { self.score }
     #[inline] fn pp(&self) -> Option<f32> { self.pp }
     #[inline] fn accuracy(&self) -> f32 { self.accuracy }
 }
 
-#[rustfmt::skip]
-impl ScoreExt for MatchScore {
-    #[inline] fn count_miss(&self) -> u32 { self.statistics.count_miss }
-    #[inline] fn count_50(&self) -> u32 { self.statistics.count_50 }
-    #[inline] fn count_100(&self) -> u32 { self.statistics.count_100 }
-    #[inline] fn count_300(&self) -> u32 { self.statistics.count_300 }
-    #[inline] fn count_geki(&self) -> u32 { self.statistics.count_geki }
-    #[inline] fn count_katu(&self) -> u32 { self.statistics.count_katu }
-    #[inline] fn max_combo(&self) -> u32 { self.max_combo }
-    #[inline] fn mods(&self) -> GameMods { self.mods }
-    #[inline] fn score(&self) -> u32 { self.score }
-    #[inline] fn pp(&self) -> Option<f32> { None }
-    #[inline] fn accuracy(&self) -> f32 { self.accuracy }
-}
+// TODO
+// #[rustfmt::skip]
+// impl ScoreExt for MatchScore {
+//     #[inline] fn count_miss(&self) -> u32 { self.statistics.count_miss }
+//     #[inline] fn count_50(&self) -> u32 { self.statistics.count_50 }
+//     #[inline] fn count_100(&self) -> u32 { self.statistics.count_100 }
+//     #[inline] fn count_300(&self) -> u32 { self.statistics.count_300 }
+//     #[inline] fn count_geki(&self) -> u32 { self.statistics.count_geki }
+//     #[inline] fn count_katu(&self) -> u32 { self.statistics.count_katu }
+//     #[inline] fn max_combo(&self) -> u32 { self.max_combo }
+//     #[inline] fn mods(&self) -> GameMods { self.mods }
+//     #[inline] fn score(&self) -> u32 { self.score }
+//     #[inline] fn pp(&self) -> Option<f32> { None }
+//     #[inline] fn accuracy(&self) -> f32 { self.accuracy }
+// }
 
 pub trait ScoreHasMode {
     fn mode(&self) -> GameMode;

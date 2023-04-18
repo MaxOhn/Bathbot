@@ -1,16 +1,22 @@
-use std::fmt::{Display, Formatter, Result as FmtResult, Write};
+use std::{
+    borrow::Cow,
+    fmt::{Display, Formatter, Result as FmtResult, Write},
+};
 
 use bathbot_macros::EmbedData;
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
     numbers::{round, WithComma},
-    osu::{calculate_grade, ModSelection},
+    osu::calculate_grade,
     CowUtils, FooterBuilder,
 };
+use eyre::Result;
 use rosu_pp::{
     catch::CatchScoreState, mania::ManiaScoreState, osu::OsuScoreState, taiko::TaikoScoreState,
 };
-use rosu_v2::prelude::{GameMode, GameMods, Grade, ScoreStatistics};
+use rosu_v2::prelude::{
+    mods, GameMod, GameMode, GameMods, GameModsIntermode, Grade, ScoreStatistics,
+};
 use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
@@ -41,7 +47,7 @@ impl SimulateEmbed {
         );
 
         if matches!(data.version, TopOldVersion::Mania(_)) {
-            let _ = write!(title, " {}", KeyFormatter::new(GameMods::NoMod, map));
+            let _ = write!(title, " {}", KeyFormatter::new(&mods!(Mania), map));
         }
 
         let footer_text = format!(
@@ -66,10 +72,10 @@ impl SimulateEmbed {
             score_state,
         } = data.simulate(map);
 
-        let mods = data.mods.unwrap_or_default();
+        let mods = data.mods.as_ref().map(Cow::Borrowed).unwrap_or_default();
         let mut map_info = MapInfo::new(map, stars);
 
-        let mut grade = if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+        let mut grade = if mods.contains_any(mods!(HD FL)) {
             Grade::XH
         } else {
             Grade::X
@@ -88,7 +94,7 @@ impl SimulateEmbed {
             StateOrScore::State(state) => {
                 let (mode, stats) = state.into_parts();
 
-                grade = calculate_grade(mode, mods, &stats);
+                grade = calculate_grade(mode, &mods, &stats);
 
                 let acc = EmbedField {
                     inline: true,
@@ -135,7 +141,7 @@ impl SimulateEmbed {
             value: PpFormatter::new(Some(pp), Some(max_pp)).to_string(),
         };
 
-        let grade = grade_completion_mods(mods, grade, map.n_objects() as u32, map);
+        let grade = grade_completion_mods(&mods, grade, map.n_objects() as u32, map);
         let mut fields = fields!["Grade", grade.into_owned(), true;];
 
         if let Some(acc) = acc {
@@ -165,7 +171,7 @@ impl SimulateEmbed {
             fields.push(hits);
         }
 
-        map_info.mods(mods);
+        map_info.mods(mods.bits());
         fields![fields { "Map Info", map_info.to_string(), false; }];
 
         Self {
@@ -229,12 +235,15 @@ macro_rules! setters {
 }
 
 impl SimulateData {
-    pub fn set_mods(&mut self, mods: Option<GameMods>) {
-        match mods.map(ModSelection::Exact).map(ModSelection::validate) {
-            Some(Ok(_)) => self.mods = mods,
-            None => self.mods = mods,
-            Some(Err(_)) => {}
-        }
+    pub fn set_mods(&mut self, mods: Option<GameModsIntermode>, mode: GameMode) -> Result<()> {
+        self.mods = match mods.map(|mods| mods.with_mode(mode)) {
+            Some(Some(mods)) if mods.is_valid() => Some(mods),
+            None => None,
+            Some(Some(mods)) => bail!("incompatible mods {mods}"),
+            Some(None) => bail!("invalid mods for mode"),
+        };
+
+        Ok(())
     }
 
     pub fn set_acc(&mut self, acc: Option<f32>) {
@@ -254,7 +263,7 @@ impl SimulateData {
     }
 
     fn simulate(&self, map: &OsuMap) -> SimulateValues {
-        let mods = self.mods.unwrap_or_default().bits();
+        let mods = self.mods.as_ref().map_or(0, |mods| mods.bits());
 
         macro_rules! simulate {
             (
@@ -500,9 +509,9 @@ impl SimulateData {
                 )
             })
             .or_else(|| {
-                self.mods.and_then(|mods| {
-                    mods.intersects(GameMods::DoubleTime | GameMods::HalfTime)
-                        .then(|| mods.clock_rate())
+                self.mods.as_ref().and_then(|mods| {
+                    mods.contains_any(mods!(DT HT))
+                        .then(|| mods.clock_rate().unwrap_or(1.0))
                 })
             });
 
@@ -518,10 +527,7 @@ impl SimulateData {
             Some(ScoreState::Mania(_)) => match self.score {
                 Some(score) => StateOrScore::Score(score),
                 None => {
-                    let mult = self
-                        .mods
-                        .unwrap_or_default()
-                        .score_multiplier(GameMode::Mania);
+                    let mult = self.mods.as_ref().map(score_multiplier).unwrap_or(1.0);
 
                     StateOrScore::Score((1_000_000.0 * mult) as u32)
                 }
@@ -532,10 +538,7 @@ impl SimulateData {
                 ) => match self.score {
                     Some(score) => StateOrScore::Score(score),
                     None => {
-                        let mult = self
-                            .mods
-                            .unwrap_or_default()
-                            .score_multiplier(GameMode::Mania);
+                        let mult = self.mods.as_ref().map(score_multiplier).unwrap_or(1.0);
 
                         StateOrScore::Score((1_000_000.0 * mult) as u32)
                     }
@@ -1133,4 +1136,38 @@ impl Display for VersionFormatter {
             }
         }
     }
+}
+
+fn score_multiplier(mods: &GameMods) -> f32 {
+    mods.iter()
+        .map(|gamemod| match gamemod {
+            GameMod::HalfTimeOsu(_) | GameMod::HalfTimeTaiko(_) | GameMod::HalfTimeCatch(_) => 0.3,
+            GameMod::EasyOsu(_)
+            | GameMod::NoFailOsu(_)
+            | GameMod::EasyTaiko(_)
+            | GameMod::NoFailTaiko(_)
+            | GameMod::EasyCatch(_)
+            | GameMod::NoFailCatch(_)
+            | GameMod::EasyMania(_)
+            | GameMod::NoFailMania(_)
+            | GameMod::HalfTimeMania(_) => 0.5,
+            GameMod::SpunOutOsu(_) => 0.9,
+            GameMod::HardRockOsu(_)
+            | GameMod::HiddenOsu(_)
+            | GameMod::HardRockTaiko(_)
+            | GameMod::HiddenTaiko(_)
+            | GameMod::DoubleTimeCatch(_)
+            | GameMod::NightcoreCatch(_)
+            | GameMod::HiddenCatch(_) => 1.06,
+            GameMod::DoubleTimeOsu(_)
+            | GameMod::NightcoreOsu(_)
+            | GameMod::FlashlightOsu(_)
+            | GameMod::DoubleTimeTaiko(_)
+            | GameMod::NightcoreTaiko(_)
+            | GameMod::FlashlightTaiko(_)
+            | GameMod::HardRockCatch(_)
+            | GameMod::FlashlightCatch(_) => 1.12,
+            _ => 1.0,
+        })
+        .product()
 }

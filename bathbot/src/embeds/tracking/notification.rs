@@ -1,4 +1,5 @@
 use bathbot_macros::EmbedData;
+use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE,
     numbers::{round, WithComma},
@@ -12,10 +13,7 @@ use twilight_model::channel::message::embed::EmbedField;
 use crate::{
     core::Context,
     embeds::osu,
-    manager::{
-        redis::{osu::User, RedisData},
-        OsuMap,
-    },
+    manager::{redis::RedisData, OsuMap},
     util::osu::{grade_completion_mods, mode_emote},
 };
 
@@ -43,7 +41,7 @@ impl TrackNotificationEmbed {
         let attrs = ctx
             .pp(map)
             .mode(score.mode)
-            .mods(score.mods)
+            .mods(score.mods.bits())
             .performance()
             .await;
 
@@ -54,7 +52,7 @@ impl TrackNotificationEmbed {
         let title = if score.mode == GameMode::Mania {
             format!(
                 "{} {} - {} [{}] [{stars:.2}★]",
-                KeyFormatter::new(score.mods, map),
+                KeyFormatter::new(&score.mods, map),
                 map.artist().cow_escape_markdown(),
                 map.title().cow_escape_markdown(),
                 map.version().cow_escape_markdown(),
@@ -70,7 +68,7 @@ impl TrackNotificationEmbed {
 
         let name = format!(
             "{}\t{score}\t({acc}%)",
-            grade_completion_mods(score.mods, score.grade, score.total_hits(), map),
+            grade_completion_mods(&score.mods, score.grade, score.total_hits(), map),
             score = WithComma::new(score.score),
             acc = round(score.accuracy)
         );

@@ -1,9 +1,9 @@
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
-use rosu_v2::prelude::{CountryCode, GameMods, Username};
+use rosu_v2::prelude::{CountryCode, GameModsIntermode, Username};
 use serde::Deserialize;
 use time::OffsetDateTime;
 
-use crate::rkyv_util::{DerefAsString, FlagsRkyv};
+use crate::rkyv_util::DerefAsString;
 
 use super::deser;
 
@@ -76,8 +76,7 @@ pub struct OsuTrackerCountryStats {
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerModsEntry {
-    #[with(FlagsRkyv)]
-    pub mods: GameMods,
+    pub mods: GameModsIntermode,
     pub count: usize,
 }
 
@@ -132,7 +131,7 @@ pub struct OsuTrackerCountryScore {
     pub map_id: u32,
     #[serde(rename = "setId", with = "deser::u32_string")]
     pub mapset_id: u32,
-    pub mods: GameMods,
+    pub mods: GameModsIntermode,
     #[serde(with = "deser::f32_string")]
     pub pp: f32,
     #[serde(rename = "missCount", with = "deser::u32_string")]

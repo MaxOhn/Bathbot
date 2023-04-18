@@ -19,6 +19,9 @@ use super::{
     HlGuess, H, W,
 };
 
+// looks like a false positive by clippy since the
+// variants shouldn't differ that much in size
+#[allow(clippy::large_enum_variant)]
 pub(super) enum GameStateKind {
     ScorePp {
         mode: GameMode,

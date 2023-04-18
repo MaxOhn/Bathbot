@@ -3,7 +3,7 @@ use std::fmt::Write;
 use bathbot_macros::EmbedData;
 use bathbot_util::{numbers::round, osu::AttributeKind};
 use rosu_pp::beatmap::BeatmapAttributesBuilder;
-use rosu_v2::prelude::GameMods;
+use rosu_v2::prelude::GameModsIntermode;
 use twilight_model::channel::message::embed::EmbedField;
 
 #[derive(EmbedData)]
@@ -13,7 +13,7 @@ pub struct AttributesEmbed {
 }
 
 impl AttributesEmbed {
-    pub fn new(kind: AttributeKind, value: f32, mods: GameMods) -> Self {
+    pub fn new(kind: AttributeKind, value: f32, mods: GameModsIntermode) -> Self {
         let mut builder = BeatmapAttributesBuilder::default();
 
         match kind {

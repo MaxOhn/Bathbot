@@ -17,7 +17,7 @@ use plotters::{
 };
 use plotters_skia::SkiaBackend;
 use rosu_pp::{BeatmapExt, Strains};
-use rosu_v2::prelude::{GameMode, GameMods, OsuError};
+use rosu_v2::prelude::{GameMode, GameModsIntermode, OsuError};
 use skia_safe::{BlendMode, EncodedImageFormat, Surface};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
@@ -293,8 +293,8 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
     };
 
     let mods = match mods {
-        Some(selection) => selection.mods(),
-        None => GameMods::NoMod,
+        Some(selection) => selection.into_mods(),
+        None => GameModsIntermode::new(),
     };
 
     let mapset_res = match map_id {
@@ -349,6 +349,23 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
     };
 
     let map_id = maps[map_idx].map_id;
+    let mode = maps[map_idx].mode;
+
+    if let Some(mods) = mods.clone().with_mode(mode) {
+        if !mods.is_valid() {
+            let content =
+                format!("Looks like some mods in `{mods}` are incompatible with each other");
+
+            return orig.error(&ctx, content).await;
+        }
+    } else {
+        let content = format!(
+            "The mods `{mods}` are incompatible with the map's mode {:?}",
+            maps[map_idx].mode
+        );
+
+        return orig.error(&ctx, content).await;
+    }
 
     // Try creating the strain graph for the map
     let bg_fut = async {
@@ -360,7 +377,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
         Ok::<_, Report>(cover.thumbnail_exact(W, H))
     };
 
-    let (strain_values_res, img_res) = tokio::join!(strain_values(&ctx, map_id, mods), bg_fut);
+    let (strain_values_res, img_res) = tokio::join!(strain_values(&ctx, map_id, &mods), bg_fut);
 
     let img_opt = match img_res {
         Ok(img) => Some(img),
@@ -414,7 +431,11 @@ struct GraphStrains {
 
 const NEW_STRAIN_COUNT: usize = 200;
 
-async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> Result<GraphStrains> {
+async fn strain_values(
+    ctx: &Context,
+    map_id: u32,
+    mods: &GameModsIntermode,
+) -> Result<GraphStrains> {
     let map = ctx
         .osu_map()
         .pp_map(map_id)

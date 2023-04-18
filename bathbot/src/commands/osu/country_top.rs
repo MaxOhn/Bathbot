@@ -8,10 +8,7 @@ use bathbot_macros::{HasMods, HasName, SlashCommand};
 use bathbot_model::{CountryCode, OsuTrackerCountryDetails, OsuTrackerCountryScore};
 use bathbot_util::{osu::ModSelection, CowUtils};
 use eyre::Result;
-use rosu_v2::{
-    prelude::{GameMods, Username},
-    request::UserId,
-};
+use rosu_v2::{prelude::Username, request::UserId};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -187,9 +184,9 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
     let mut scores = details.scores.drain(..).zip(1..).collect();
     let details = OsuTrackerCountryDetailsCompact::from(details);
 
-    filter_scores(&mut scores, &args, mods, name.as_deref()).await;
+    filter_scores(&mut scores, &args, mods.as_ref(), name.as_deref()).await;
 
-    let content = write_content(&details.country, &args, mods, scores.len(), name);
+    let content = write_content(&details.country, &args, mods.as_ref(), scores.len(), name);
     let sort = args.sort.unwrap_or_default().into();
 
     OsuTrackerCountryTopPagination::builder(details, scores, sort)
@@ -202,18 +199,18 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
 async fn filter_scores(
     scores: &mut Vec<(OsuTrackerCountryScore, usize)>,
     args: &CountryTop,
-    mods: Option<ModSelection>,
+    mods: Option<&ModSelection>,
     name: Option<&str>,
 ) {
     match mods {
-        Some(ModSelection::Include(GameMods::NoMod)) => {
+        Some(ModSelection::Include(m)) if m.is_empty() => {
             scores.retain(|(score, _)| score.mods.is_empty())
         }
         Some(ModSelection::Include(mods)) => {
-            scores.retain(|(score, _)| score.mods.intersection(mods) == mods)
+            scores.retain(|(score, _)| score.mods.intersection(mods).count() == mods.len())
         }
-        Some(ModSelection::Exact(mods)) => scores.retain(|(score, _)| score.mods == mods),
-        Some(ModSelection::Exclude(GameMods::NoMod)) => {
+        Some(ModSelection::Exact(mods)) => scores.retain(|(score, _)| &score.mods == mods),
+        Some(ModSelection::Exclude(m)) if m.is_empty() => {
             scores.retain(|(score, _)| !score.mods.is_empty())
         }
         Some(ModSelection::Exclude(mods)) => {
@@ -241,8 +238,8 @@ async fn filter_scores(
         CountryTopOrder::Date => scores.sort_by_key(|(score, _)| Reverse(score.ended_at)),
         CountryTopOrder::Length => {
             scores.sort_by(|(a, _), (b, _)| {
-                let a_len = a.seconds_total as f32 / a.mods.clock_rate();
-                let b_len = b.seconds_total as f32 / b.mods.clock_rate();
+                let a_len = a.seconds_total as f32 / a.mods.legacy_clock_rate();
+                let b_len = b.seconds_total as f32 / b.mods.legacy_clock_rate();
 
                 b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
             });
@@ -277,7 +274,7 @@ impl From<OsuTrackerCountryDetails> for OsuTrackerCountryDetailsCompact {
 fn write_content(
     name: &str,
     args: &CountryTop,
-    mods: Option<ModSelection>,
+    mods: Option<&ModSelection>,
     amount: usize,
     username: Option<Username>,
 ) -> String {
@@ -313,7 +310,7 @@ fn write_content(
 fn content_with_condition(
     name: &str,
     args: &CountryTop,
-    mods: Option<ModSelection>,
+    mods: Option<&ModSelection>,
     amount: usize,
     username: Option<Username>,
 ) -> String {

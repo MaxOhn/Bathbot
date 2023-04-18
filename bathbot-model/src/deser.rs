@@ -1,6 +1,6 @@
-use std::{fmt, str::FromStr};
+use std::fmt;
 
-use rosu_v2::model::GameMods;
+use rosu_v2::model::mods::GameMods;
 use serde::{
     de::{Error, Unexpected, Visitor},
     Deserialize, Deserializer,
@@ -117,8 +117,9 @@ pub(super) mod u32_string {
     }
 }
 
-pub(super) mod option_mods_string {
-    use super::{mods_string::ModsString, *};
+pub(super) mod option_mods_string_ {
+    // use super::{mods_string::ModsString, *};
+    use super::*;
 
     pub(super) struct MaybeModsString;
 
@@ -130,8 +131,10 @@ pub(super) mod option_mods_string {
         }
 
         #[inline]
-        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-            d.deserialize_str(ModsString).map(Some)
+        fn visit_some<D: Deserializer<'de>>(self, _d: D) -> Result<Self::Value, D::Error> {
+            Ok(None)
+            // TODO
+            // d.deserialize_str(ModsString).map(Some)
         }
 
         #[inline]
@@ -142,43 +145,6 @@ pub(super) mod option_mods_string {
         #[inline]
         fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
             Ok(None)
-        }
-    }
-}
-
-pub(super) mod mods_string {
-    use super::{option_mods_string::MaybeModsString, *};
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error> {
-        Ok(d.deserialize_option(MaybeModsString)?.unwrap_or_default())
-    }
-
-    pub(super) struct ModsString;
-
-    impl<'de> Visitor<'de> for ModsString {
-        type Value = GameMods;
-
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("a string containing gamemods")
-        }
-
-        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            let mut mods = GameMods::NoMod;
-
-            if v == "None" {
-                return Ok(mods);
-            }
-
-            for result in v.split(',').map(GameMods::from_str) {
-                match result {
-                    Ok(m) => mods |= m,
-                    Err(err) => {
-                        return Err(Error::custom(format_args!(r#"invalid value "{v}": {err}"#)));
-                    }
-                }
-            }
-
-            Ok(mods)
         }
     }
 }

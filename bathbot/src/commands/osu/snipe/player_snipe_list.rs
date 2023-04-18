@@ -180,7 +180,8 @@ pub(super) async fn player_list(
         descending = if params.descending { "Desc" } else { "Asc" },
     );
 
-    if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = params.mods {
+    if let Some(ModSelection::Exact(ref mods)) | Some(ModSelection::Include(ref mods)) = params.mods
+    {
         let _ = write!(content, " ~ `Mods: {mods}`");
     }
 

@@ -4,11 +4,14 @@ use std::{
 };
 
 use bathbot_util::osu::ModSelection;
-use rosu_v2::prelude::{CountryCode, GameMods, RankStatus, Username};
+use rosu_v2::prelude::{
+    CountryCode, GameMode, GameMods, GameModsIntermode, ModeAsSeed, RankStatus, Username,
+};
 use serde::{
-    de::{Deserializer, Error, MapAccess, Unexpected, Visitor},
+    de::{DeserializeSeed, Deserializer, Error as DeError, MapAccess, Unexpected, Visitor},
     Deserialize,
 };
+use serde_json::value::RawValue;
 use time::{
     format_description::{
         modifier::{Day, Month, Padding, Year},
@@ -122,6 +125,8 @@ pub struct SnipeTopNationalDifference {
     pub difference: i32,
 }
 
+pub type ModsCount = Vec<(Box<str>, u32)>;
+
 #[derive(Debug, Deserialize)]
 pub struct SnipePlayer {
     #[serde(rename = "name")]
@@ -141,8 +146,8 @@ pub struct SnipePlayer {
     pub count_ranked: u32,
     #[serde(rename = "total_top_national_difference", default)]
     pub difference: i32,
-    #[serde(rename = "mods_count", with = "mod_count", default)]
-    pub count_mods: Option<Vec<(GameMods, u32)>>,
+    #[serde(rename = "mods_count", with = "mod_count")]
+    pub count_mods: Option<ModsCount>,
     #[serde(rename = "history_total_top_national", with = "history", default)]
     pub count_first_history: BTreeMap<Date, u32>,
     #[serde(rename = "sr_spread")]
@@ -175,25 +180,20 @@ pub struct SnipePlayerOldest {
     pub date: OffsetDateTime,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct SnipeRecent {
     pub uid: u32,
-    #[serde(rename = "osu_score_id")]
     pub score_id: u64,
     pub map_id: u32,
-    #[serde(rename = "player_id")]
     pub user_id: u32,
     pub country: rosu_v2::prelude::CountryCode,
     pub pp: Option<f32>,
-    #[serde(rename = "sr")]
     pub stars: Option<f32>,
-    #[serde(with = "deser::adjust_acc")]
     pub accuracy: f32,
     pub count_300: Option<u32>,
     pub count_100: Option<u32>,
     pub count_50: Option<u32>,
     pub count_miss: Option<u32>,
-    #[serde(rename = "date_set", with = "deser::option_naive_datetime")]
     pub date: Option<OffsetDateTime>,
     pub mods: Option<GameMods>,
     pub max_combo: Option<u32>,
@@ -204,36 +204,139 @@ pub struct SnipeRecent {
     pub bpm: f32,
     pub artist: Box<str>,
     pub title: Box<str>,
-    #[serde(rename = "diff_name")]
     pub version: Box<str>,
-    #[serde(default, rename = "sniper_name")]
     pub sniper: Option<Box<str>>,
     pub sniper_id: u32,
-    #[serde(default, rename = "sniped_name")]
     pub sniped: Option<Box<str>>,
     pub sniped_id: Option<u32>,
 }
 
-#[derive(Deserialize)]
+impl<'de> Deserialize<'de> for SnipeRecent {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        pub struct SnipeRecentInner<'mods> {
+            uid: u32,
+            #[serde(rename = "osu_score_id")]
+            score_id: u64,
+            map_id: u32,
+            #[serde(rename = "player_id")]
+            user_id: u32,
+            country: rosu_v2::prelude::CountryCode,
+            pp: Option<f32>,
+            #[serde(rename = "sr")]
+            stars: Option<f32>,
+            #[serde(with = "deser::adjust_acc")]
+            accuracy: f32,
+            count_300: Option<u32>,
+            count_100: Option<u32>,
+            count_50: Option<u32>,
+            count_miss: Option<u32>,
+            #[serde(rename = "date_set", with = "deser::option_naive_datetime")]
+            date: Option<OffsetDateTime>,
+            #[serde(borrow)]
+            mods: Option<&'mods RawValue>,
+            max_combo: Option<u32>,
+            ar: f32,
+            cs: f32,
+            od: f32,
+            hp: f32,
+            bpm: f32,
+            artist: Box<str>,
+            title: Box<str>,
+            #[serde(rename = "diff_name")]
+            version: Box<str>,
+            #[serde(default, rename = "sniper_name")]
+            sniper: Option<Box<str>>,
+            sniper_id: u32,
+            #[serde(default, rename = "sniped_name")]
+            sniped: Option<Box<str>>,
+            sniped_id: Option<u32>,
+        }
+
+        let inner = SnipeRecentInner::deserialize(d)?;
+
+        let mods = match inner.mods {
+            Some(raw) => serde_json::Deserializer::from_str(raw.get())
+                .deserialize_str(SnipeRecentModsVisitor)
+                .map(Some)
+                .map_err(DeError::custom)?,
+            None => None,
+        };
+
+        Ok(SnipeRecent {
+            uid: inner.uid,
+            score_id: inner.score_id,
+            map_id: inner.map_id,
+            user_id: inner.user_id,
+            country: inner.country,
+            pp: inner.pp,
+            stars: inner.stars,
+            accuracy: inner.accuracy,
+            count_300: inner.count_300,
+            count_100: inner.count_100,
+            count_50: inner.count_50,
+            count_miss: inner.count_miss,
+            date: inner.date,
+            mods,
+            max_combo: inner.max_combo,
+            ar: inner.ar,
+            cs: inner.cs,
+            od: inner.od,
+            hp: inner.hp,
+            bpm: inner.bpm,
+            artist: inner.artist,
+            title: inner.title,
+            version: inner.version,
+            sniper: inner.sniper,
+            sniper_id: inner.sniper_id,
+            sniped: inner.sniped,
+            sniped_id: inner.sniped_id,
+        })
+    }
+}
+
+struct SnipeRecentModsVisitor;
+
+impl<'de> Visitor<'de> for SnipeRecentModsVisitor {
+    type Value = GameMods;
+
+    fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str("GameMods")
+    }
+
+    fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
+        let intermode = match v.parse::<GameModsIntermode>() {
+            Ok(mods) => mods,
+            Err(_) => match v {
+                "nomod" => GameModsIntermode::new(),
+                _ => {
+                    let expected = "a valid combination of mod acronyms";
+
+                    return Err(DeError::invalid_value(Unexpected::Str(v), &expected));
+                }
+            },
+        };
+
+        intermode
+            .with_mode(GameMode::Osu)
+            .ok_or_else(|| DeError::custom("invalid mods for mode"))
+    }
+}
+
 pub struct SnipeScore {
     pub uid: u32,
-    #[serde(rename = "osu_score_id")]
     pub score_id: u64,
-    #[serde(rename = "player_id")]
     pub user_id: u32,
     pub username: Username,
     pub country: rosu_v2::prelude::CountryCode,
     pub score: u32,
     pub pp: Option<f32>,
-    #[serde(rename = "sr")]
     pub stars: f32,
-    #[serde(with = "deser::adjust_acc")]
     pub accuracy: f32,
     pub count_300: Option<u32>,
     pub count_100: Option<u32>,
     pub count_50: Option<u32>,
     pub count_miss: Option<u32>,
-    #[serde(with = "deser::option_naive_datetime")]
     pub date_set: Option<OffsetDateTime>,
     pub mods: Option<GameMods>,
     pub max_combo: Option<u32>,
@@ -243,8 +346,85 @@ pub struct SnipeScore {
     pub od: f32,
     pub bpm: f32,
     pub is_global: bool,
-    #[serde(rename = "beatmap")]
     pub map: SnipeBeatmap,
+}
+
+impl<'de> Deserialize<'de> for SnipeScore {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct SnipeScoreInner<'mods> {
+            uid: u32,
+            #[serde(rename = "osu_score_id")]
+            score_id: u64,
+            #[serde(rename = "player_id")]
+            user_id: u32,
+            username: Username,
+            country: rosu_v2::prelude::CountryCode,
+            score: u32,
+            pp: Option<f32>,
+            #[serde(rename = "sr")]
+            stars: f32,
+            #[serde(with = "deser::adjust_acc")]
+            accuracy: f32,
+            count_300: Option<u32>,
+            count_100: Option<u32>,
+            count_50: Option<u32>,
+            count_miss: Option<u32>,
+            #[serde(with = "deser::option_naive_datetime")]
+            date_set: Option<OffsetDateTime>,
+            #[serde(borrow)]
+            mods: Option<&'mods RawValue>,
+            max_combo: Option<u32>,
+            ar: f32,
+            hp: f32,
+            cs: f32,
+            od: f32,
+            bpm: f32,
+            is_global: bool,
+            #[serde(rename = "beatmap")]
+            map: SnipeBeatmap,
+        }
+
+        let inner = SnipeScoreInner::deserialize(d)?;
+
+        let mods = match inner.mods {
+            Some(raw) => {
+                let mut d = serde_json::Deserializer::from_str(raw.get());
+
+                ModeAsSeed::<GameMods>::new(GameMode::Osu)
+                    .deserialize(&mut d)
+                    .map(Some)
+                    .map_err(DeError::custom)?
+            }
+            None => None,
+        };
+
+        Ok(SnipeScore {
+            uid: inner.uid,
+            score_id: inner.score_id,
+            user_id: inner.user_id,
+            username: inner.username,
+            country: inner.country,
+            score: inner.score,
+            pp: inner.pp,
+            stars: inner.stars,
+            accuracy: inner.accuracy,
+            count_300: inner.count_300,
+            count_100: inner.count_100,
+            count_50: inner.count_50,
+            count_miss: inner.count_miss,
+            date_set: inner.date_set,
+            mods,
+            max_combo: inner.max_combo,
+            ar: inner.ar,
+            hp: inner.hp,
+            cs: inner.cs,
+            od: inner.od,
+            bpm: inner.bpm,
+            is_global: inner.is_global,
+            map: inner.map,
+        })
+    }
 }
 
 #[derive(Deserialize)]
@@ -278,16 +458,14 @@ pub struct SnipeBeatmap {
 mod mod_count {
     use super::*;
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(
-        d: D,
-    ) -> Result<Option<Vec<(GameMods, u32)>>, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<ModsCount>, D::Error> {
         d.deserialize_map(SnipePlayerModVisitor).map(Some)
     }
 
     struct SnipePlayerModVisitor;
 
     impl<'de> Visitor<'de> for SnipePlayerModVisitor {
-        type Value = Vec<(GameMods, u32)>;
+        type Value = ModsCount;
 
         #[inline]
         fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
@@ -345,7 +523,7 @@ mod history {
 
             while let Some(key) = map.next_key()? {
                 let date = Date::parse(key, DATE_FORMAT).map_err(|_| {
-                    Error::invalid_value(Unexpected::Str(key), &"a date of the form `%F`")
+                    DeError::invalid_value(Unexpected::Str(key), &"a date of the form `%F`")
                 })?;
 
                 history.insert(date, map.next_value()?);
@@ -377,9 +555,9 @@ mod datetime_mixture {
         }
 
         #[inline]
-        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
             if v.len() < 19 {
-                return Err(Error::custom(format!(
+                return Err(DeError::custom(format!(
                     "string too short for a datetime: `{v}`"
                 )));
             }
@@ -387,12 +565,12 @@ mod datetime_mixture {
             let (prefix, suffix) = v.split_at(19);
 
             let primitive =
-                PrimitiveDateTime::parse(prefix, NAIVE_DATETIME_FORMAT).map_err(Error::custom)?;
+                PrimitiveDateTime::parse(prefix, NAIVE_DATETIME_FORMAT).map_err(DeError::custom)?;
 
             let offset = if suffix.is_empty() || suffix == "Z" {
                 UtcOffset::UTC
             } else {
-                UtcOffset::parse(suffix, OFFSET_FORMAT).map_err(Error::custom)?
+                UtcOffset::parse(suffix, OFFSET_FORMAT).map_err(DeError::custom)?
             };
 
             Ok(primitive.assume_offset(offset))

@@ -8,7 +8,7 @@ use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{osu::BonusPP, IntHasher};
 use eyre::Report;
 use eyre::Result;
-use rosu_v2::prelude::{GameMods, Score, Username};
+use rosu_v2::prelude::{GameMod, GameModIntermode, GameModsIntermode, Score, Username};
 use time::UtcOffset;
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -303,10 +303,9 @@ impl Top100Stats {
         let maps_id_checksum = scores
             .iter()
             .map(|score| {
-                (
-                    score.map_id as i32,
-                    score.map.as_ref().and_then(|map| map.checksum.as_deref()),
-                )
+                let checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref());
+
+                (score.map_id as i32, checksum)
             })
             .collect();
 
@@ -337,7 +336,7 @@ impl Top100Stats {
                 .and_then(|map| maps.get(&map.map_id))
                 .expect("missing map");
 
-            let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods);
+            let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods.bits());
 
             let stars = calc.difficulty().await.stars();
             this.stars.add(stars);
@@ -370,25 +369,27 @@ impl Top100Stats {
 }
 
 pub struct Top100Mods {
-    pub percent_mods: Vec<(GameMods, u8)>,
-    pub percent_mod_comps: Vec<(GameMods, u8)>,
-    pub pp_mod_comps: Vec<(GameMods, f32)>,
+    pub percent_mods: Vec<(GameModIntermode, u8)>,
+    pub percent_mod_comps: Vec<(GameModsIntermode, u8)>,
+    pub pp_mod_comps: Vec<(GameModsIntermode, f32)>,
 }
 
 impl Top100Mods {
     fn new(scores: &[Score]) -> Self {
         let mut percent_mods = HashMap::with_hasher(IntHasher);
-        let mut percent_mod_comps = HashMap::with_hasher(IntHasher);
-        let mut pp_mod_comps = HashMap::<_, f32, _>::with_hasher(IntHasher);
+        let mut percent_mod_comps = HashMap::new();
+        let mut pp_mod_comps = HashMap::<_, f32, _>::new();
 
         for score in scores {
-            *percent_mod_comps.entry(score.mods).or_default() += 1;
+            let mods: GameModsIntermode = score.mods.iter().map(GameMod::intermode).collect();
 
             if let Some(weight) = score.weight {
-                *pp_mod_comps.entry(score.mods).or_default() += weight.pp;
+                *pp_mod_comps.entry(mods.clone()).or_default() += weight.pp;
             }
 
-            for m in score.mods {
+            *percent_mod_comps.entry(mods).or_default() += 1;
+
+            for m in score.mods.iter().map(GameMod::intermode) {
                 *percent_mods.entry(m).or_default() += 1;
             }
         }

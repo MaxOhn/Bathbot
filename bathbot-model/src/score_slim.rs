@@ -52,7 +52,7 @@ impl ScoreExt for ScoreSlim {
     #[inline] fn count_geki(&self) -> u32 { self.statistics.count_geki }
     #[inline] fn count_katu(&self) -> u32 { self.statistics.count_katu }
     #[inline] fn max_combo(&self) -> u32 { self.max_combo }
-    #[inline] fn mods(&self) -> GameMods { self.mods }
+    #[inline] fn mods(&self) -> &GameMods { &self.mods }
     #[inline] fn grade(&self, _: GameMode) -> Grade { self.grade }
     #[inline] fn score(&self) -> u32 { self.score }
     #[inline] fn pp(&self) -> Option<f32> { Some(self.pp) }

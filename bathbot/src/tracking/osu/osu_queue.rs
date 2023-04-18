@@ -322,7 +322,11 @@ impl OsuTrackingQueue {
         while let Some(mut guard) = stream.next().await {
             if guard.key().user_id == user_id
                 && mode.map_or(true, |m| guard.key().mode == m)
-                && guard.value_mut().channels.remove(&channel).is_some()
+                && guard
+                    .value_mut()
+                    .channels
+                    .remove(&channel.into_nonzero())
+                    .is_some()
             {
                 removed.push(RemoveEntry::from(guard.key()));
             }
@@ -355,7 +359,11 @@ impl OsuTrackingQueue {
 
         while let Some(mut guard) = stream.next().await {
             if mode.map_or(true, |m| guard.key().mode == m)
-                && guard.value_mut().channels.remove(&channel).is_some()
+                && guard
+                    .value_mut()
+                    .channels
+                    .remove(&channel.into_nonzero())
+                    .is_some()
             {
                 removed.push(RemoveEntry::from(guard.key()));
             }
@@ -384,6 +392,7 @@ impl OsuTrackingQueue {
         channel: Id<ChannelMarker>,
         limit: u8,
     ) -> AddEntry {
+        let channel = channel.into_nonzero();
         let mut guard = self.users.own(key).await;
 
         match guard.entry() {
@@ -426,10 +435,12 @@ impl OsuTrackingQueue {
     async fn list(&self, channel: Id<ChannelMarker>) -> Vec<(TrackedOsuUserKey, u8)> {
         self.users
             .iter()
-            .filter_map(|guard| match guard.value().channels.get(&channel) {
-                Some(limit) => future::ready(Some((*guard.key(), *limit))),
-                None => future::ready(None),
-            })
+            .filter_map(
+                |guard| match guard.value().channels.get(&channel.into_nonzero()) {
+                    Some(limit) => future::ready(Some((*guard.key(), *limit))),
+                    None => future::ready(None),
+                },
+            )
             .collect()
             .await
     }

@@ -4,8 +4,15 @@ use std::{
 };
 
 use bathbot_util::{osu::ModSelection, ScoreExt, ScoreHasEndedAt};
-use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus, Username};
-use serde::{de::Error, Deserialize, Deserializer};
+use rosu_v2::prelude::{GameMod, GameMode, GameMods, Grade, RankStatus, Username};
+use serde::{
+    de::{
+        value::StrDeserializer, DeserializeSeed, Error as DeError, IgnoredAny, SeqAccess,
+        Unexpected, Visitor,
+    },
+    Deserialize, Deserializer,
+};
+use serde_json::value::RawValue;
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
@@ -47,35 +54,180 @@ impl<'de> Deserialize<'de> for OsuStatsPlayer {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
+pub struct OsuStatsScores {
+    pub scores: Vec<OsuStatsScore>,
+    pub count: usize,
+}
+
+pub struct OsuStatsScoresSeed {
+    mode: GameMode,
+}
+
+impl OsuStatsScoresSeed {
+    pub fn new(mode: GameMode) -> Self {
+        Self { mode }
+    }
+}
+
+impl<'de> DeserializeSeed<'de> for OsuStatsScoresSeed {
+    type Value = OsuStatsScores;
+
+    fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+        d.deserialize_seq(self)
+    }
+}
+
+impl<'de> Visitor<'de> for OsuStatsScoresSeed {
+    type Value = OsuStatsScores;
+
+    fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str("an OsuStatsScores sequence")
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+        let scores = seq
+            .next_element_seed(OsuStatsScoreVecSeed::new(self.mode))?
+            .ok_or_else(|| {
+                DeError::custom("OsuStatsScores sequence must contain scores as first element")
+            })?;
+
+        let count = seq.next_element()?.ok_or_else(|| {
+            DeError::custom("OsuStatsScores sequence must contain count as second element")
+        })?;
+
+        while seq.next_element::<IgnoredAny>()?.is_some() {}
+
+        Ok(OsuStatsScores { scores, count })
+    }
+}
+
+#[derive(Debug)]
 pub struct OsuStatsScore {
-    #[serde(rename = "userId")]
     pub user_id: u32,
     pub position: u32,
-    #[serde(rename = "rank")]
     pub grade: Grade,
     pub score: u32,
-    #[serde(rename = "maxCombo")]
     pub max_combo: u32,
-    #[serde(with = "deser::f32_string")]
     pub accuracy: f32,
     pub count300: u32,
     pub count100: u32,
     pub count50: u32,
-    #[serde(rename = "countKatu")]
     pub count_katu: u32,
-    #[serde(rename = "countGeki")]
     pub count_geki: u32,
-    #[serde(rename = "countMiss")]
     pub count_miss: u32,
-    #[serde(rename = "enabledMods", with = "deser::mods_string")]
     pub mods: GameMods,
-    #[serde(rename = "playDate", with = "deser::naive_datetime")]
     pub ended_at: OffsetDateTime,
-    #[serde(rename = "ppValue")]
     pub pp: Option<f32>,
-    #[serde(rename = "beatmap")]
     pub map: OsuStatsMap,
+}
+
+pub struct OsuStatsScoreVecSeed {
+    mode: GameMode,
+}
+
+impl OsuStatsScoreVecSeed {
+    pub fn new(mode: GameMode) -> Self {
+        Self { mode }
+    }
+}
+
+impl<'de> DeserializeSeed<'de> for OsuStatsScoreVecSeed {
+    type Value = Vec<OsuStatsScore>;
+
+    fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+        d.deserialize_seq(self)
+    }
+}
+
+impl<'de> Visitor<'de> for OsuStatsScoreVecSeed {
+    type Value = Vec<OsuStatsScore>;
+
+    fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str("a sequence of OsuStatsScore")
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+        #[derive(Deserialize)]
+        struct OsuStatsScoreInner<'mods> {
+            #[serde(rename = "userId")]
+            user_id: u32,
+            position: u32,
+            #[serde(rename = "rank")]
+            grade: Grade,
+            score: u32,
+            #[serde(rename = "maxCombo")]
+            max_combo: u32,
+            #[serde(with = "deser::f32_string")]
+            accuracy: f32,
+            count300: u32,
+            count100: u32,
+            count50: u32,
+            #[serde(rename = "countKatu")]
+            count_katu: u32,
+            #[serde(rename = "countGeki")]
+            count_geki: u32,
+            #[serde(rename = "countMiss")]
+            count_miss: u32,
+            #[serde(borrow, rename = "enabledMods")]
+            mods: &'mods RawValue,
+            #[serde(rename = "playDate", with = "deser::naive_datetime")]
+            ended_at: OffsetDateTime,
+            #[serde(rename = "ppValue")]
+            pp: Option<f32>,
+            #[serde(rename = "beatmap")]
+            map: OsuStatsMap,
+        }
+
+        let mut scores = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+
+        while let Some(inner) = seq.next_element::<OsuStatsScoreInner<'de>>()? {
+            let score = OsuStatsScore {
+                mods: StrDeserializer::new(inner.mods.get().trim_matches('"'))
+                    .deserialize_str(OsuStatsScoreModsVisitor { mode: self.mode })?,
+                user_id: inner.user_id,
+                position: inner.position,
+                grade: inner.grade,
+                score: inner.score,
+                max_combo: inner.max_combo,
+                accuracy: inner.accuracy,
+                count300: inner.count300,
+                count100: inner.count100,
+                count50: inner.count50,
+                count_katu: inner.count_katu,
+                count_geki: inner.count_geki,
+                count_miss: inner.count_miss,
+                ended_at: inner.ended_at,
+                pp: inner.pp,
+                map: inner.map,
+            };
+
+            scores.push(score);
+        }
+
+        Ok(scores)
+    }
+}
+
+struct OsuStatsScoreModsVisitor {
+    mode: GameMode,
+}
+
+impl<'de> Visitor<'de> for OsuStatsScoreModsVisitor {
+    type Value = GameMods;
+
+    fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str("GameMods")
+    }
+
+    fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
+        v.split(',')
+            .map(|s| GameMod::new(s, self.mode))
+            .collect::<Option<GameMods>>()
+            .ok_or_else(|| {
+                DeError::invalid_value(Unexpected::Str(v), &"comma separated list of acronyms")
+            })
+    }
 }
 
 #[rustfmt::skip]
@@ -87,7 +239,7 @@ impl ScoreExt for OsuStatsScore {
     #[inline] fn count_geki(&self) -> u32 { self.count_geki }
     #[inline] fn count_katu(&self) -> u32 { self.count_katu }
     #[inline] fn max_combo(&self) -> u32 { self.max_combo }
-    #[inline] fn mods(&self) -> GameMods { self.mods }
+    #[inline] fn mods(&self) -> &GameMods { &self.mods }
     #[inline] fn grade(&self, _: GameMode) -> Grade { self.grade }
     #[inline] fn score(&self) -> u32 { self.score }
     #[inline] fn pp(&self) -> Option<f32> { self.pp }

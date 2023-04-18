@@ -11,7 +11,7 @@ use nom::{
     sequence::{delimited, preceded, terminated, tuple},
     Err as NomErr, IResult, Parser,
 };
-use rosu_v2::prelude::GameMods;
+use rosu_v2::prelude::GameModsIntermode;
 
 #[derive(Debug, PartialEq)]
 pub enum SimulateArg {
@@ -24,7 +24,7 @@ pub enum SimulateArg {
     Geki(u32),
     Katu(u32),
     Miss(u32),
-    Mods(GameMods),
+    Mods(GameModsIntermode),
     Ar(f32),
     Cs(f32),
     Hp(f32),
@@ -72,7 +72,7 @@ fn parse_any(input: &str) -> Result<SimulateArg, ParseError<'_>> {
         enum ParseAny {
             Float(f32),
             Int(u32),
-            Mods(GameMods),
+            Mods(GameModsIntermode),
             Ar(f32),
             Cs(f32),
             Hp(f32),
@@ -188,7 +188,7 @@ fn is_some<T>(opt: Option<T>) -> bool {
     opt.is_some()
 }
 
-fn parse_mods_force_prefix(input: &str) -> IResult<&str, GameMods> {
+fn parse_mods_force_prefix(input: &str) -> IResult<&str, GameModsIntermode> {
     let (rest, (prefixed, mods, _)) = parse_mods_raw(input)?;
 
     if prefixed {
@@ -198,7 +198,7 @@ fn parse_mods_force_prefix(input: &str) -> IResult<&str, GameMods> {
     }
 }
 
-fn parse_mods(input: &str) -> Result<GameMods, ParseError<'_>> {
+fn parse_mods(input: &str) -> Result<GameModsIntermode, ParseError<'_>> {
     let (_, (prefixed, mods, suffixed)) = parse_mods_raw(input).map_err(|_| ParseError::Mods)?;
 
     if prefixed || !suffixed {
@@ -208,13 +208,13 @@ fn parse_mods(input: &str) -> Result<GameMods, ParseError<'_>> {
     }
 }
 
-fn parse_mods_raw(input: &str) -> IResult<&str, (bool, GameMods, bool)> {
+fn parse_mods_raw(input: &str) -> IResult<&str, (bool, GameModsIntermode, bool)> {
     let prefixed = map(opt(ch::char('+')), is_some);
     let suffixed = map(opt(ch::char('!')), is_some);
 
     let single_mod = map_parser(by::take(2_usize), all_consuming(ch::alpha1));
     let mods_str = recognize(many1_count(single_mod));
-    let mods = map_res(mods_str, GameMods::from_str);
+    let mods = map_res(mods_str, GameModsIntermode::from_str);
 
     tuple((prefixed, mods, all_consuming(suffixed)))(input)
 }
@@ -326,6 +326,8 @@ impl ParseError<'_> {
 
 #[cfg(test)]
 mod tests {
+    use rosu_v2::prelude::mods;
+
     use super::*;
 
     #[test]
@@ -473,18 +475,24 @@ mod tests {
 
     #[test]
     fn mods() {
-        let hdhr = GameMods::Hidden | GameMods::HardRock;
+        let hdhr = mods!(HD HR);
 
         assert_eq!(
             SimulateArg::parse("mods=+hdhr!"),
-            Ok(SimulateArg::Mods(hdhr))
+            Ok(SimulateArg::Mods(hdhr.clone()))
         );
         assert_eq!(
             SimulateArg::parse("mods=+hdhr"),
-            Ok(SimulateArg::Mods(hdhr))
+            Ok(SimulateArg::Mods(hdhr.clone()))
         );
-        assert_eq!(SimulateArg::parse("mods=hdhr"), Ok(SimulateArg::Mods(hdhr)));
-        assert_eq!(SimulateArg::parse("+hdhr!"), Ok(SimulateArg::Mods(hdhr)));
+        assert_eq!(
+            SimulateArg::parse("mods=hdhr"),
+            Ok(SimulateArg::Mods(hdhr.clone()))
+        );
+        assert_eq!(
+            SimulateArg::parse("+hdhr!"),
+            Ok(SimulateArg::Mods(hdhr.clone()))
+        );
         assert_eq!(SimulateArg::parse("+hdhr"), Ok(SimulateArg::Mods(hdhr)));
 
         assert_eq!(SimulateArg::parse("mods=+hdr!"), Err(ParseError::Mods));

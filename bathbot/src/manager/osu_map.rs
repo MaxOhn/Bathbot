@@ -8,7 +8,7 @@ use bathbot_psql::{
 use bathbot_util::{ExponentialBackoff, IntHasher};
 use eyre::{ContextCompat, Report, WrapErr};
 use rosu_pp::{Beatmap, DifficultyAttributes, GameMode as Mode, ParseError};
-use rosu_v2::prelude::{Beatmapset, GameMode, GameMods, OsuError, RankStatus};
+use rosu_v2::prelude::{Beatmapset, GameMode, OsuError, RankStatus};
 use thiserror::Error;
 use time::OffsetDateTime;
 use tokio::{fs, time::sleep};
@@ -80,11 +80,9 @@ impl<'d> MapManager<'d> {
         self,
         map_id: u32,
         mode: GameMode,
-        mods: GameMods,
+        mods: u32,
     ) -> Result<DifficultyAttributes> {
-        let attrs_fut = self
-            .psql
-            .select_map_difficulty_attrs(map_id, mode, mods.bits());
+        let attrs_fut = self.psql.select_map_difficulty_attrs(map_id, mode, mods);
 
         if let Some(attrs) = attrs_fut.await.wrap_err("Failed to get attributes")? {
             return Ok(attrs);

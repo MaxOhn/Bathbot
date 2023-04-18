@@ -3,10 +3,10 @@ use std::{collections::HashSet, fmt::Write, hash::BuildHasher, time::Duration};
 use bathbot_model::{
     OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments, OsekaiMap, OsekaiMaps,
     OsekaiMedal, OsekaiMedals, OsekaiRanking, OsekaiRankingEntries, OsuStatsParams, OsuStatsPlayer,
-    OsuStatsPlayersArgs, OsuStatsScore, OsuTrackerCountryDetails, OsuTrackerIdCount,
-    OsuTrackerPpGroup, OsuTrackerStats, RespektiveUser, ScraperScore, ScraperScores,
-    SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent, SnipeScore,
-    SnipeScoreParams,
+    OsuStatsPlayersArgs, OsuStatsScore, OsuStatsScores, OsuStatsScoresSeed,
+    OsuTrackerCountryDetails, OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats,
+    RespektiveUser, ScraperScore, ScraperScores, SnipeCountryPlayer, SnipeCountryStatistics,
+    SnipePlayer, SnipeRecent, SnipeScore, SnipeScoreParams,
 };
 use bathbot_util::{
     constants::{HUISMETBENEN, OSU_BASE},
@@ -17,8 +17,8 @@ use bytes::Bytes;
 use eyre::{Report, Result, WrapErr};
 use http::{header::USER_AGENT, Method, Request, Response};
 use hyper::Body;
-use rosu_v2::prelude::{GameMode, GameMods};
-use serde_json::Value;
+use rosu_v2::prelude::{mods, GameModIntermode, GameMode, GameModsIntermode};
+use serde::de::DeserializeSeed;
 use time::{format_description::FormatItem, OffsetDateTime};
 use tokio::time::timeout;
 
@@ -322,9 +322,9 @@ impl Client {
             order = if params.descending { "desc" } else { "asc" },
         );
 
-        if let Some(mods) = params.mods {
+        if let Some(ref mods) = params.mods {
             if let ModSelection::Include(mods) | ModSelection::Exact(mods) = mods {
-                if mods == GameMods::NoMod {
+                if mods.is_empty() {
                     url.push_str("&mods=nomod");
                 } else {
                     let _ = write!(url, "&mods={mods}");
@@ -348,9 +348,9 @@ impl Client {
             user = params.user_id,
         );
 
-        if let Some(mods) = params.mods {
+        if let Some(ref mods) = params.mods {
             if let ModSelection::Include(mods) | ModSelection::Exact(mods) = mods {
-                if mods == GameMods::NoMod {
+                if mods.is_empty() {
                     url.push_str("?mods=nomod");
                 } else {
                     let _ = write!(url, "?mods={mods}");
@@ -413,8 +413,9 @@ impl Client {
             .push_text("page", params.page)
             .push_text("u1", &params.username);
 
-        if let Some(selection) = params.mods {
+        if let Some(ref selection) = params.mods {
             let mod_str = match selection {
+                ModSelection::Include(mods) if mods.is_empty() => "!NM".to_owned(),
                 ModSelection::Include(mods) => format!("+{mods}"),
                 ModSelection::Exclude(mods) => format!("-{mods}"),
                 ModSelection::Exact(mods) => format!("!{mods}"),
@@ -433,33 +434,17 @@ impl Client {
             Err(_) => bail!("timeout while waiting for osustats"),
         };
 
-        let result: Value = serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
+        let mut d = serde_json::Deserializer::from_slice(&bytes);
 
-            format!("failed to deserialize osustats global: {body}")
-        })?;
-
-        let (scores, amount) = if let Value::Array(mut array) = result {
-            let mut values = array.drain(..2);
-
-            let scores = serde_json::from_value(values.next().unwrap()).wrap_err_with(|| {
+        let OsuStatsScores { scores, count } = OsuStatsScoresSeed::new(params.mode)
+            .deserialize(&mut d)
+            .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
-                format!("failed to deserialize osustats global scores: {body}")
+                format!("failed to deserialize osustats global: {body}")
             })?;
 
-            let amount = serde_json::from_value(values.next().unwrap()).wrap_err_with(|| {
-                let body = String::from_utf8_lossy(&bytes);
-
-                format!("failed to deserialize osustats global amount: {body}")
-            })?;
-
-            (scores, amount)
-        } else {
-            (Vec::new(), 0)
-        };
-
-        Ok((scores, amount))
+        Ok((scores, count))
     }
 
     // Retrieve the global leaderboard of a map
@@ -469,7 +454,7 @@ impl Client {
     pub async fn get_leaderboard<S>(
         &self,
         map_id: u32,
-        mods: Option<GameMods>,
+        mods: Option<&GameModsIntermode>,
         mode: GameMode,
     ) -> Result<Vec<ScraperScore>>
     where
@@ -478,17 +463,18 @@ impl Client {
         let mut scores = self._get_leaderboard(map_id, mods).await?;
 
         let non_mirror = mods
-            .map(|mods| !mods.contains(GameMods::Mirror))
+            .as_ref()
+            .map(|mods| !mods.contains(GameModIntermode::Mirror))
             .unwrap_or(true);
 
         // Check if another request for mania's MR is needed
         if mode == GameMode::Mania && non_mirror {
             let mods = match mods {
-                None => Some(GameMods::Mirror),
-                Some(mods) => Some(mods | GameMods::Mirror),
+                None => Some(mods!(Mirror)),
+                Some(mods) => Some(mods.to_owned() | GameModIntermode::Mirror), // TODO: remove .to_owned()
             };
 
-            let mut new_scores = self._get_leaderboard(map_id, mods).await?;
+            let mut new_scores = self._get_leaderboard(map_id, mods.as_ref()).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
             let mut uniques = HashSet::with_capacity_and_hasher(50, S::default());
@@ -498,9 +484,11 @@ impl Client {
 
         // Check if DT / NC is included
         let mods = match mods {
-            Some(mods) if mods.contains(GameMods::DoubleTime) => Some(mods | GameMods::NightCore),
-            Some(mods) if mods.contains(GameMods::NightCore) => {
-                Some((mods - GameMods::NightCore) | GameMods::DoubleTime)
+            Some(mods) if mods.contains(GameModIntermode::DoubleTime) => {
+                Some(mods.to_owned() | GameModIntermode::Nightcore)
+            }
+            Some(mods) if mods.contains(GameModIntermode::Nightcore) => {
+                Some((mods.to_owned() - GameModIntermode::Nightcore) | GameModIntermode::DoubleTime)
             }
             Some(_) | None => None,
         };
@@ -508,12 +496,13 @@ impl Client {
         // If DT / NC included, make another request
         if mods.is_some() {
             if mode == GameMode::Mania && non_mirror {
-                let mods = mods.map(|mods| mods | GameMods::Mirror);
-                let mut new_scores = self._get_leaderboard(map_id, mods).await?;
+                // TODO: remove .clone()
+                let mods = mods.clone().map(|mods| mods | GameModIntermode::Mirror);
+                let mut new_scores = self._get_leaderboard(map_id, mods.as_ref()).await?;
                 scores.append(&mut new_scores);
             }
 
-            let mut new_scores = self._get_leaderboard(map_id, mods).await?;
+            let mut new_scores = self._get_leaderboard(map_id, mods.as_ref()).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
             let mut uniques = HashSet::with_capacity_and_hasher(50, S::default());
@@ -528,7 +517,7 @@ impl Client {
     async fn _get_leaderboard(
         &self,
         map_id: u32,
-        mods: Option<GameMods>,
+        mods: Option<&GameModsIntermode>,
     ) -> Result<Vec<ScraperScore>> {
         let mut url = format!("{OSU_BASE}beatmaps/{map_id}/scores?");
 

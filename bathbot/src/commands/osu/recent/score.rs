@@ -474,10 +474,10 @@ pub(super) async fn score(
             }
         };
 
-        let mods = score.mods;
+        let mods = &score.mods;
 
         let tries = 1 + iter
-            .take_while(|s| s.mods == mods && s.map_id == map_id)
+            .take_while(|s| &s.mods == mods && s.map_id == map_id)
             .count();
 
         (score, map, tries)
@@ -795,7 +795,7 @@ pub struct RecentEntry {
 
 impl RecentEntry {
     async fn new(ctx: &Context, score: Score, map: OsuMap) -> Self {
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());
         let attrs = calc.performance().await;
 
         let max_pp = score
