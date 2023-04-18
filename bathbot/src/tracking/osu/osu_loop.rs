@@ -1,5 +1,6 @@
-use std::{borrow::Cow, collections::HashMap, slice, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, num::NonZeroU64, slice, sync::Arc};
 
+use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::osu::{TrackedOsuUserKey, TrackedOsuUserValue};
 use bathbot_util::{constants::UNKNOWN_CHANNEL, IntHasher};
 use eyre::Report;
@@ -12,18 +13,12 @@ use twilight_http::{
     api_error::{ApiError, GeneralApiError},
     error::ErrorType as TwilightErrorType,
 };
-use twilight_model::{
-    channel::message::embed::Embed,
-    id::{marker::ChannelMarker, Id},
-};
+use twilight_model::{channel::message::embed::Embed, id::Id};
 
 use crate::{
     embeds::{EmbedData, TrackNotificationEmbed},
     manager::{
-        redis::{
-            osu::{User, UserArgs},
-            RedisData,
-        },
+        redis::{osu::UserArgs, RedisData},
         OsuMap,
     },
     Context,
@@ -148,7 +143,7 @@ async fn score_loop(
     max: u8,
     last: OffsetDateTime,
     scores: &[Score],
-    channels: &HashMap<Id<ChannelMarker>, u8, IntHasher>,
+    channels: &HashMap<NonZeroU64, u8, IntHasher>,
 ) -> OsuResult<()> {
     for (idx, score) in (1..).zip(scores.iter()).take(max as usize) {
         // Skip if its an older score
@@ -175,6 +170,7 @@ async fn score_loop(
                 continue;
             }
 
+            let channel = Id::new(channel.get());
             let embeds = slice::from_ref(&embed);
 
             // Try to build and send the message

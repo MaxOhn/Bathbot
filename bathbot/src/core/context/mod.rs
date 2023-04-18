@@ -159,7 +159,7 @@ impl Context {
         let shard_senders = RwLock::new(shard_senders);
 
         #[cfg(feature = "server")]
-        let (auth_standby, server_tx) = bathbot_server(&config, registry, &stats)
+        let (auth_standby, server_tx) = bathbot_server(config, registry, &stats)
             .await
             .wrap_err("Failed to create server")?;
 
