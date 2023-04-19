@@ -9,9 +9,8 @@ use twilight_model::id::{
     Id,
 };
 
-use crate::{core::Context, embeds::MatchLiveEmbed};
-
 pub use self::types::*;
+use crate::{core::Context, embeds::MatchLiveEmbed};
 
 mod types;
 

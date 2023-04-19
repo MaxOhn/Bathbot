@@ -34,13 +34,11 @@ macro_rules! fields {
 
 use twilight_model::channel::message::embed::Embed;
 
-pub use self::{fun::*, osu::*, utility::*};
-
 #[cfg(feature = "osutracking")]
 pub use self::tracking::*;
-
 #[cfg(feature = "twitchtracking")]
 pub use self::twitch::*;
+pub use self::{fun::*, osu::*, utility::*};
 
 mod fun;
 mod osu;

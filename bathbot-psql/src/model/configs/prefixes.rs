@@ -58,7 +58,8 @@ impl Prefixes {
 
     /// # Safety
     ///
-    /// The caller must ensure that the provided bytes are valid archived prefixes
+    /// The caller must ensure that the provided bytes are valid archived
+    /// prefixes
     pub(crate) unsafe fn deserialize(bytes: &[u8]) -> Self {
         let archived_prefixes = rkyv::archived_root::<Self>(bytes);
 
@@ -132,7 +133,8 @@ impl Archive for Prefixes {
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         // The prefixes were already serialized, next:
 
-        // Serialize the relative ptr i.e. the offset to the start of the serialized prefixes
+        // Serialize the relative ptr i.e. the offset to the start of the serialized
+        // prefixes
         let (fp, fo) = out_field!(out.ptr);
         RelPrefixesPtr::emplace(pos + fp, resolver.pos as usize, fo);
 

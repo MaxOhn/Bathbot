@@ -6,14 +6,13 @@ use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMode, Grade, ScoreStatistics};
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     commands::osu::OsuStatsEntry,
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
     manager::redis::RedisData,
     Context,
 };
-
-use super::Pages;
 
 #[pagination(per_page = 5, total = "total")]
 pub struct OsuStatsGlobalsPagination {

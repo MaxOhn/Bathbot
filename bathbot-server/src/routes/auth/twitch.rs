@@ -10,9 +10,8 @@ use bathbot_util::constants::{TWITCH_OAUTH, TWITCH_USERS_ENDPOINT};
 use eyre::Report;
 use hyper::{header::AUTHORIZATION, Body, Request};
 
-use crate::state::AppState;
-
 use super::{AuthError, Params, RenderData, RenderDataKind, RenderDataStatus};
+use crate::state::AppState;
 
 pub async fn auth_twitch(
     query: Result<Query<Params>, QueryRejection>,

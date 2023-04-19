@@ -5,14 +5,13 @@ use bathbot_util::constants::OSUTRACKER_ISSUE;
 use eyre::Result;
 use rkyv::{Deserialize, Infallible};
 
+use super::PopularMapsPp;
 use crate::{
     core::Context,
     manager::redis::RedisData,
     pagination::OsuTrackerMapsPagination,
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
-
-use super::PopularMapsPp;
 
 pub(super) async fn maps(
     ctx: Arc<Context>,

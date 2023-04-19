@@ -6,13 +6,12 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rosu_v2::{prelude::OsuError, request::UserId};
 
+use super::{H, W};
 use crate::{
     commands::osu::{player_snipe_stats, user_not_found},
     core::{commands::CommandOrigin, Context},
     manager::redis::{osu::UserArgs, RedisData},
 };
-
-use super::{H, W};
 
 pub async fn snipe_count_graph(
     ctx: &Context,

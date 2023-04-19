@@ -6,13 +6,12 @@ use hashbrown::HashMap;
 use time::OffsetDateTime;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     commands::osu::MapsetEntry,
     core::Context,
     embeds::{EmbedData, OsuTrackerMapsetsEmbed},
 };
-
-use super::Pages;
 
 #[pagination(per_page = 10, entries = "entries")]
 pub struct OsuTrackerMapsetsPagination {

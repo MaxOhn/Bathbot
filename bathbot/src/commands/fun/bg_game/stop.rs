@@ -3,9 +3,8 @@ use std::sync::Arc;
 use eyre::Result;
 use twilight_model::channel::Message;
 
-use crate::{util::ChannelExt, Context};
-
 use super::GameState;
+use crate::{util::ChannelExt, Context};
 
 pub async fn stop(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     match ctx.bg_games().read(&msg.channel_id).await.get() {

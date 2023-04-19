@@ -42,7 +42,8 @@ where
             last_update,
         } = user;
 
-        // SAFETY: The bytes originate from the DB which only provides valid archived data
+        // SAFETY: The bytes originate from the DB which only provides valid archived
+        // data
         let archived_channels = unsafe { rkyv::archived_root::<Channels<S>>(&channels) };
         let channels = archived_channels.deserialize(&mut Infallible).unwrap();
 

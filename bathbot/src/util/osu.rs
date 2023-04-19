@@ -206,8 +206,8 @@ impl Iterator for TopCountsIntoIter {
 }
 
 impl IntoIterator for TopCounts {
-    type Item = TopCount<'static>;
     type IntoIter = TopCountsIntoIter;
+    type Item = TopCount<'static>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -282,8 +282,8 @@ impl<'a> Iterator for TopCountsIter<'a> {
 }
 
 impl<'a> IntoIterator for &'a TopCounts {
-    type Item = TopCount<'a>;
     type IntoIter = TopCountsIter<'a>;
+    type Item = TopCount<'a>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {

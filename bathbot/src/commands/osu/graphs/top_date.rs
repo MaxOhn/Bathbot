@@ -9,9 +9,8 @@ use plotters_skia::SkiaBackend;
 use rosu_v2::prelude::Score;
 use skia_safe::{EncodedImageFormat, Surface};
 
-use crate::util::Monthly;
-
 use super::{H, W};
+use crate::util::Monthly;
 
 pub async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>> {
     let max = scores.first().and_then(|s| s.pp).unwrap_or(0.0);

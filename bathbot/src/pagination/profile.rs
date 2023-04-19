@@ -1,12 +1,11 @@
 use twilight_model::channel::message::embed::Embed;
 
+use super::{Pages, PaginationBuilder, PaginationKind};
 use crate::{
     commands::osu::{ProfileData, ProfileKind},
     core::Context,
     embeds::{EmbedData, ProfileEmbed},
 };
-
-use super::{Pages, PaginationBuilder, PaginationKind};
 
 // Not using #[pagination(...)] since it requires special initialization
 pub struct ProfilePagination {
@@ -16,7 +15,8 @@ pub struct ProfilePagination {
 
 impl ProfilePagination {
     pub fn builder(curr_kind: ProfileKind, data: ProfileData) -> PaginationBuilder {
-        // initialization doesn't really matter since the index is always set manually anyway
+        // initialization doesn't really matter since the index is always set manually
+        // anyway
         let mut pages = Pages::new(1, usize::MAX);
         pages.update(|_| curr_kind as usize);
 

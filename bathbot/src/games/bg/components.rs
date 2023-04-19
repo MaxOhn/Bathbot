@@ -10,14 +10,13 @@ use hashbrown::hash_map::Entry;
 use rosu_v2::prelude::GameMode;
 use twilight_model::channel::message::embed::{Embed, EmbedField};
 
+use super::{Effects, GameState, MapsetTags};
 use crate::{
     core::Context,
     embeds::{BGTagsEmbed, EmbedData},
     games::bg::GameWrapper,
     util::{interaction::InteractionComponent, Authored, ComponentExt},
 };
-
-use super::{Effects, GameState, MapsetTags};
 
 pub async fn handle_bg_start_include(
     ctx: &Context,

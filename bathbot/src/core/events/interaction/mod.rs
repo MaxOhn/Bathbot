@@ -2,14 +2,13 @@ use std::sync::Arc;
 
 use twilight_model::application::interaction::{Interaction, InteractionData, InteractionType};
 
-use crate::{
-    core::Context,
-    util::interaction::{InteractionCommand, InteractionComponent, InteractionModal},
-};
-
 use self::{
     autocomplete::handle_autocomplete, command::handle_command, component::handle_component,
     modal::handle_modal,
+};
+use crate::{
+    core::Context,
+    util::interaction::{InteractionCommand, InteractionComponent, InteractionModal},
 };
 
 mod autocomplete;

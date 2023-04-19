@@ -2,9 +2,8 @@ use std::sync::Arc;
 
 use twilight_model::{channel::Message, guild::Permissions};
 
-use crate::core::{buckets::BucketName, commands::flags::CommandFlags, Context};
-
 use super::{Args, CommandResult, PrefixCommandGroup};
+use crate::core::{buckets::BucketName, commands::flags::CommandFlags, Context};
 
 pub struct PrefixCommand {
     pub names: &'static [&'static str],

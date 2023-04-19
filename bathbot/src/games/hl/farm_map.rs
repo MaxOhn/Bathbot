@@ -7,9 +7,8 @@ use image::{GenericImageView, ImageBuffer};
 use rand::{prelude::SliceRandom, Rng};
 use time::OffsetDateTime;
 
-use crate::{core::Context, manager::redis::RedisData};
-
 use super::{kind::GameStateKind, mapset_cover, H, W};
+use crate::{core::Context, manager::redis::RedisData};
 
 pub type FarmEntries = RedisData<Vec<OsuTrackerIdCount>>;
 

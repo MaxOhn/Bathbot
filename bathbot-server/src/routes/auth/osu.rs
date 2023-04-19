@@ -8,9 +8,8 @@ use axum::{
 use eyre::Report;
 use rosu_v2::Osu;
 
-use crate::state::AppState;
-
 use super::{AuthError, Params, RenderData, RenderDataKind, RenderDataStatus};
+use crate::state::AppState;
 
 pub async fn auth_osu(
     query: Result<Query<Params>, QueryRejection>,

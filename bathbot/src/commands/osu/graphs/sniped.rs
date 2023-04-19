@@ -7,13 +7,12 @@ use eyre::{Report, Result};
 use rosu_v2::{prelude::OsuError, request::UserId};
 use time::{Duration, OffsetDateTime};
 
+use super::{H, W};
 use crate::{
     commands::osu::{sniped, user_not_found},
     core::{commands::CommandOrigin, Context},
     manager::redis::{osu::UserArgs, RedisData},
 };
-
-use super::{H, W};
 
 pub async fn sniped_graph(
     ctx: &Context,

@@ -11,6 +11,7 @@ use bathbot_util::{
 };
 use rosu_v2::prelude::{GameMode, Score};
 
+use super::{ComboFormatter, HitResultFormatter, MessageOrigin};
 use crate::{
     commands::osu::CompareEntry,
     core::BotConfig,
@@ -18,8 +19,6 @@ use crate::{
     pagination::Pages,
     util::{osu::PersonalBestIndex, Emote},
 };
-
-use super::{ComboFormatter, HitResultFormatter, MessageOrigin};
 
 #[derive(EmbedData)]
 pub struct ScoresEmbed {

@@ -2,9 +2,8 @@ use bathbot_macros::pagination;
 use time::OffsetDateTime;
 use twilight_model::channel::message::embed::Embed;
 
-use crate::embeds::{CommandCounterEmbed, EmbedData};
-
 use super::Pages;
+use crate::embeds::{CommandCounterEmbed, EmbedData};
 
 #[pagination(per_page = 15, entries = "cmd_counts")]
 pub struct CommandCountPagination {

@@ -1,7 +1,7 @@
 mod configs;
-mod osu;
-mod huismetbenen_countries;
 mod games;
+mod huismetbenen_countries;
+mod osu;
 mod tracked_streams;
 
 #[cfg(test)]

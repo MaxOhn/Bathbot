@@ -19,14 +19,13 @@ use rosu_v2::prelude::{
 };
 use twilight_model::channel::message::embed::EmbedField;
 
+use super::KeyFormatter;
 use crate::{
     commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
     embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
     manager::OsuMap,
     util::osu::{grade_completion_mods, MapInfo},
 };
-
-use super::KeyFormatter;
 
 #[derive(EmbedData)]
 pub struct SimulateEmbed {
@@ -235,6 +234,18 @@ macro_rules! setters {
 }
 
 impl SimulateData {
+    setters! {
+        set_geki: n_geki as u32;
+        set_katu: n_katu as u32;
+        set_n300: n300 as u32;
+        set_n100: n100 as u32;
+        set_n50: n50 as u32;
+        set_miss: n_miss as u32;
+        set_combo: combo as u32;
+        set_score: score as u32;
+        set_clock_rate: clock_rate as f32;
+    }
+
     pub fn set_mods(&mut self, mods: Option<GameModsIntermode>, mode: GameMode) -> Result<()> {
         self.mods = match mods.map(|mods| mods.with_mode(mode)) {
             Some(Some(mods)) if mods.is_valid() => Some(mods),
@@ -248,18 +259,6 @@ impl SimulateData {
 
     pub fn set_acc(&mut self, acc: Option<f32>) {
         self.acc = acc.map(|acc| acc.clamp(0.0, 100.0));
-    }
-
-    setters! {
-        set_geki: n_geki as u32;
-        set_katu: n_katu as u32;
-        set_n300: n300 as u32;
-        set_n100: n100 as u32;
-        set_n50: n50 as u32;
-        set_miss: n_miss as u32;
-        set_combo: combo as u32;
-        set_score: score as u32;
-        set_clock_rate: clock_rate as f32;
     }
 
     fn simulate(&self, map: &OsuMap) -> SimulateValues {

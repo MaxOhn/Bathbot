@@ -12,13 +12,12 @@ use tokio::{
     io::AsyncWriteExt,
 };
 
+use super::OwnerAddBg;
 use crate::{
     core::BotConfig,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-use super::OwnerAddBg;
 
 pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddBg) -> Result<()> {
     let OwnerAddBg { image, mode } = bg;

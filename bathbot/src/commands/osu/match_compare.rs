@@ -14,14 +14,13 @@ use tokio::time::interval;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::channel::message::embed::Embed;
 
+use super::retrieve_previous;
 use crate::{
     core::Context,
     embeds::{EmbedData, MatchCompareMapEmbed, MatchCompareSummaryEmbed},
     pagination::MatchComparePagination,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
 };
-
-use super::retrieve_previous;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "matchcompare")]

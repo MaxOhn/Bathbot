@@ -14,13 +14,12 @@ use bathbot_util::{
 };
 use eyre::Result;
 
+use super::{ModsFormatter, PpFormatter};
 use crate::{
     core::Context,
     manager::{redis::RedisData, OsuMap},
     pagination::Pages,
 };
-
-use super::{ModsFormatter, PpFormatter};
 
 #[derive(EmbedData)]
 pub struct PlayerSnipeListEmbed {

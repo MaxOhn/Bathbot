@@ -1,6 +1,5 @@
 #[cfg(debug_assertions)]
 pub(crate) use self::debug::*;
-
 #[cfg(not(debug_assertions))]
 pub(crate) use self::release::*;
 

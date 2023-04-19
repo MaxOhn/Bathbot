@@ -4,13 +4,12 @@ use bathbot_model::{CountryCode, MedalCount};
 use bathbot_util::constants::OSEKAI_ISSUE;
 use eyre::Result;
 
+use super::OsekaiMedalCount;
 use crate::{
     pagination::MedalCountPagination,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
-
-use super::OsekaiMedalCount;
 
 pub(super) async fn medal_count(
     ctx: Arc<Context>,

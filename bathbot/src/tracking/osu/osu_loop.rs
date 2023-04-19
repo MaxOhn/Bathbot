@@ -39,7 +39,8 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
 
             match scores_fut.await {
                 Ok(scores) => {
-                    // * Note: If scores are empty, (user_id, mode) will not be reset into the tracking queue
+                    // * Note: If scores are empty, (user_id, mode) will not be reset into the
+                    //   tracking queue
                     if !scores.is_empty() {
                         process_osu_tracking(&ctx, &scores, None).await
                     }

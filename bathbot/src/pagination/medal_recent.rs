@@ -4,9 +4,8 @@ use hashbrown::{hash_map::Entry, HashMap};
 use rosu_v2::prelude::MedalCompact;
 use twilight_model::channel::message::embed::Embed;
 
-use crate::{commands::osu::MedalAchieved, embeds::MedalEmbed, manager::redis::RedisData};
-
 use super::{Pages, PaginationBuilder, PaginationKind};
+use crate::{commands::osu::MedalAchieved, embeds::MedalEmbed, manager::redis::RedisData};
 
 // Not using #[pagination(...)] since it requires special initialization
 pub struct MedalRecentPagination {

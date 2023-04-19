@@ -12,6 +12,7 @@ use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 use twilight_model::channel::message::embed::Embed;
 
+use super::{ComboFormatter, HitResultFormatter, KeyFormatter};
 use crate::{
     commands::osu::TopEntry,
     core::Context,
@@ -19,8 +20,6 @@ use crate::{
     manager::redis::RedisData,
     util::osu::{grade_completion_mods, IfFc, MapInfo},
 };
-
-use super::{ComboFormatter, HitResultFormatter, KeyFormatter};
 
 #[derive(Clone)]
 pub struct TopSingleEmbed {

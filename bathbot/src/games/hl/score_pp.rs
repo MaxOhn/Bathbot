@@ -12,6 +12,7 @@ use rosu_v2::prelude::{
     CountryCode, GameMode, GameMods, Grade, Score, UserCompact as UserCompactRosu, Username,
 };
 
+use super::{kind::GameStateKind, H, W};
 use crate::{
     core::Context,
     embeds::ModsFormatter,
@@ -19,8 +20,6 @@ use crate::{
     manager::{redis::RedisData, OsuMapSlim},
     util::{osu::grade_emote, Emote},
 };
-
-use super::{kind::GameStateKind, H, W};
 
 const ALPHA_THRESHOLD: u8 = 20;
 

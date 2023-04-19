@@ -6,14 +6,13 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
-};
-
 pub use self::{
     country_snipe_list::*, country_snipe_stats::*, player_snipe_list::*, player_snipe_stats::*,
     sniped::*, sniped_difference::*,
+};
+use crate::{
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+    Context,
 };
 
 mod country_snipe_list;

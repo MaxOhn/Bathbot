@@ -139,7 +139,8 @@ impl RankEmbed {
                                     let factor = 0.95_f32.powi(i as i32);
 
                                     if top + factor * each + bot >= rank_holder_pp {
-                                        // requires n_each many new scores of `each` many pp and one additional score
+                                        // requires n_each many new scores of `each` many pp and one
+                                        // additional score
                                         n_each = i - idx;
                                         break;
                                     }
@@ -174,7 +175,8 @@ impl RankEmbed {
 
                                     let accum = pps.accum_weighted();
 
-                                    // Calculate the pp of the missing score after adding `n_each` many `each` pp scores
+                                    // Calculate the pp of the missing score after adding `n_each`
+                                    // many `each` pp scores
                                     let total = accum + bonus_pp;
                                     let (required, _) =
                                         pp_missing(total, rank_holder_pp, pps.as_slice());
@@ -318,7 +320,8 @@ impl RankEmbed {
                                     let factor = 0.95_f32.powi(i as i32);
 
                                     if top + factor * each + bot >= required_pp {
-                                        // requires n_each many new scores of `each` many pp and one additional score
+                                        // requires n_each many new scores of `each` many pp and one
+                                        // additional score
                                         n_each = i - idx;
                                         break;
                                     }
@@ -351,7 +354,8 @@ impl RankEmbed {
 
                                     let accum = pps.accum_weighted();
 
-                                    // Calculate the pp of the missing score after adding `n_each` many `each` pp scores
+                                    // Calculate the pp of the missing score after adding `n_each`
+                                    // many `each` pp scores
                                     let total = accum + bonus_pp;
                                     let (required, _) =
                                         pp_missing(total, required_pp, pps.as_slice());

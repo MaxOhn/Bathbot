@@ -10,6 +10,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, GameModsIntermode, OsuError, Score};
 
+use super::RecentLeaderboard;
 use crate::{
     commands::{
         osu::{user_not_found, HasMods, ModsResult},
@@ -20,8 +21,6 @@ use crate::{
     pagination::LeaderboardPagination,
     Context,
 };
-
-use super::RecentLeaderboard;
 
 #[command]
 #[desc("Global leaderboard of a map that a user recently played")]

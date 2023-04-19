@@ -13,6 +13,7 @@ use rosu_v2::prelude::{GameMode, GameMods, Grade, OsuError, Score, ScoreStatisti
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use super::user_not_found;
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
@@ -20,8 +21,6 @@ use crate::{
     util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
 };
-
-use super::user_not_found;
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(

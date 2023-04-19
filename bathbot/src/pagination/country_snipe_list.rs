@@ -2,12 +2,11 @@ use bathbot_macros::pagination;
 use bathbot_model::{CountryCode, SnipeCountryPlayer};
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     commands::osu::SnipeCountryListOrder,
     embeds::{CountrySnipeListEmbed, EmbedData},
 };
-
-use super::Pages;
 
 #[pagination(per_page = 10, entries = "players")]
 pub struct CountrySnipeListPagination {

@@ -8,14 +8,13 @@ use eyre::Result;
 use rosu_v2::prelude::GameMode;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     commands::osu::{TopEntry, TopScoreOrder},
     core::Context,
     embeds::{CondensedTopEmbed, EmbedData, TopEmbed, TopSingleEmbed},
     manager::redis::RedisData,
 };
-
-use super::Pages;
 
 #[pagination(per_page = 5, entries = "entries")]
 pub struct TopPagination {

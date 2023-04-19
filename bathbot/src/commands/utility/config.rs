@@ -5,29 +5,25 @@ use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{
     ListSize, MinimizedPp, OsuUserId, OsuUsername, ScoreSize, UserConfig,
 };
+#[cfg(feature = "server")]
+use bathbot_server::AuthenticationStandbyError;
 use bathbot_util::constants::GENERAL_ISSUE;
+#[cfg(feature = "server")]
+use bathbot_util::{EmbedBuilder, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use super::{SkinValidation, ValidationStatus};
 use crate::{
     commands::{ShowHideOption, TimezoneOption},
     embeds::{ConfigEmbed, EmbedData},
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
-
-#[cfg(feature = "server")]
-use bathbot_server::AuthenticationStandbyError;
-
-#[cfg(feature = "server")]
-use bathbot_util::{EmbedBuilder, MessageBuilder};
-
 #[cfg(feature = "server")]
 use crate::{core::BotConfig, util::Emote};
-
-use super::{SkinValidation, ValidationStatus};
 
 #[cfg(feature = "server")]
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
@@ -54,7 +50,8 @@ pub struct Config {
     #[command(help = "Always having to specify the `mode` option for any non-std \
     command can be pretty tedious.\nTo get around that, you can configure a mode here so \
     that when the `mode` option is not specified in commands, it will choose your config mode.")]
-    /// Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)
+    /// Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use
+    /// std commands)
     mode: Option<ConfigGameMode>,
     #[command(help = "Some embeds are pretty chunky and show too much data.\n\
     With this option you can make those embeds minimized by default.\n\
@@ -70,7 +67,8 @@ pub struct Config {
     list_embeds: Option<ListSize>,
     /// Should the amount of retries be shown for the recent command?
     retries: Option<ShowHideOption>,
-    /// Specify whether the recent command should show max or if-fc pp when minimized
+    /// Specify whether the recent command should show max or if-fc pp when
+    /// minimized
     minimized_pp: Option<MinimizedPp>,
     /// Specify a timezone which will be used for commands like `/graph`
     timezone: Option<TimezoneOption>,
@@ -97,7 +95,8 @@ pub struct Config {
     #[command(help = "Always having to specify the `mode` option for any non-std \
     command can be pretty tedious.\nTo get around that, you can configure a mode here so \
     that when the `mode` option is not specified in commands, it will choose your config mode.")]
-    /// Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)
+    /// Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use
+    /// std commands)
     mode: Option<ConfigGameMode>,
     #[command(help = "Some embeds are pretty chunky and show too much data.\n\
     With this option you can make those embeds minimized by default.\n\
@@ -113,7 +112,8 @@ pub struct Config {
     list_embeds: Option<ListSize>,
     /// Should the amount of retries be shown for the recent command?
     retries: Option<ShowHideOption>,
-    /// Specify whether the recent command should show max or if-fc pp when minimized
+    /// Specify whether the recent command should show max or if-fc pp when
+    /// minimized
     minimized_pp: Option<MinimizedPp>,
     /// Specify a timezone which will be used for commands like `/graph`
     timezone: Option<TimezoneOption>,
@@ -249,7 +249,7 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
             }
             (Some(ConfigLink::Link), _) => handle_osu_link(&ctx, &command, &mut config).await,
             (_, Some(ConfigLink::Link)) => handle_twitch_link(&ctx, &command, &mut config).await,
-            (_, _) => handle_no_links(&ctx, &command, &mut config).await,
+            (..) => handle_no_links(&ctx, &command, &mut config).await,
         }
     };
 

@@ -8,9 +8,8 @@ use twilight_model::{
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
-use crate::{core::Context, util::interaction::InteractionModal};
-
 use super::MessageExt;
+use crate::{core::Context, util::interaction::InteractionModal};
 
 pub trait ModalExt {
     /// Ackowledge the modal and respond immediatly by updating the message.

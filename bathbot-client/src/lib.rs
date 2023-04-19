@@ -13,8 +13,7 @@ mod osu;
 mod site;
 mod twitch;
 
-pub use self::{client::Client, error::ClientError};
-
 use self::site::Site;
+pub use self::{client::Client, error::ClientError};
 
 static MY_USER_AGENT: &str = env!("CARGO_PKG_NAME");

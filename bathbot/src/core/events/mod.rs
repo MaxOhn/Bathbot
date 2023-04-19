@@ -10,11 +10,9 @@ use futures::StreamExt;
 use twilight_gateway::{error::ReceiveMessageErrorType, stream::ShardEventStream, Event, Shard};
 use twilight_model::{gateway::CloseCode, user::User};
 
-use crate::util::Authored;
-
 use self::{interaction::handle_interaction, message::handle_message};
-
 use super::{buckets::BucketName, Context};
+use crate::util::Authored;
 
 mod interaction;
 mod message;

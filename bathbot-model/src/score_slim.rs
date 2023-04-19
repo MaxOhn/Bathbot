@@ -37,7 +37,8 @@ impl ScoreSlim {
     }
 
     /// Checks for equality compared to another score.
-    /// Note that it is already assumed that both scores come from the same user.
+    /// Note that it is already assumed that both scores come from the same
+    /// user.
     pub fn is_eq<S: ScoreHasEndedAt>(&self, score: &S) -> bool {
         (self.ended_at.unix_timestamp() - score.ended_at().unix_timestamp()).abs() <= 2
     }

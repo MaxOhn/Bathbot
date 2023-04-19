@@ -7,13 +7,12 @@ use twilight_interactions::command::{
 };
 use twilight_model::id::{marker::UserMarker, Id};
 
+pub use self::{common::*, most_played::*, profile::*, score::*};
 use crate::{
     commands::GameModeOption,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-pub use self::{common::*, most_played::*, profile::*, score::*};
 
 mod common;
 mod most_played;
@@ -80,10 +79,12 @@ pub struct CompareScore<'a> {
         - `+hdhr!`: Only keep the `HDHR` score\n\
         - `+nm!`: Only keep the nomod score\n\
         - `-ezhd!`: Remove all scores that have either `EZ` or `HD`")]
-    /// Filter out scores based on mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    /// Filter out scores based on mods (`+mods` for included, `+mods!` for
+    /// exact, `-mods!` for excluded)
     mods: Option<Cow<'a, str>>,
     #[command(min_value = 1, max_value = 50)]
-    /// While checking the channel history, I will choose the index-th map I can find
+    /// While checking the channel history, I will choose the index-th map I can
+    /// find
     index: Option<u32>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \

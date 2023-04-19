@@ -22,6 +22,7 @@ use skia_safe::{EncodedImageFormat, Surface};
 use time::OffsetDateTime;
 use twilight_model::guild::Permissions;
 
+use super::MedalStats;
 use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
@@ -30,8 +31,6 @@ use crate::{
     util::Monthly,
     Context,
 };
-
-use super::MedalStats;
 
 #[command]
 #[desc("Display medal stats for a user")]

@@ -6,12 +6,11 @@ use bathbot_util::CowUtils;
 use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap as Map, GameMode as Mode, Mods};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameModIntermode, GameMode, GameMods, Score};
 
+use super::FilterCriteria;
 use crate::{
     commands::osu::{TopEntry, TopIfEntry},
     manager::OsuMap,
 };
-
-use super::FilterCriteria;
 
 pub trait Searchable {
     fn matches(&self, criteria: &FilterCriteria<'_>) -> bool;

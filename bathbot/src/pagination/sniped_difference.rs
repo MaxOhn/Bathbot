@@ -5,14 +5,13 @@ use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     commands::osu::Difference,
     core::Context,
     embeds::{EmbedData, SnipedDiffEmbed},
     manager::redis::RedisData,
 };
-
-use super::Pages;
 
 #[pagination(per_page = 5, entries = "scores")]
 pub struct SnipedDiffPagination {

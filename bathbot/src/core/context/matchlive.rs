@@ -8,13 +8,12 @@ use rosu_v2::prelude::{MatchEvent, OsuError};
 use tokio::time::{interval, Duration};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
+use super::Context;
 use crate::{
     embeds::MatchLiveEmbed,
     matchlive::{send_match_messages, Channel, MatchEntry, MatchTrackResult, TrackedMatch},
     util::ChannelExt,
 };
-
-use super::Context;
 
 impl Context {
     /// In case the channel tracks exactly one match, returns the match's id

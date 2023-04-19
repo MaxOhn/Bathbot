@@ -24,6 +24,7 @@ use twilight_model::{
     id::{marker::UserMarker, Id},
 };
 
+use super::{CompareProfile, AT_LEAST_ONE};
 use crate::{
     commands::{
         osu::{MinMaxAvg, UserExtraction},
@@ -35,8 +36,6 @@ use crate::{
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-use super::{CompareProfile, AT_LEAST_ONE};
 
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
 #[command(

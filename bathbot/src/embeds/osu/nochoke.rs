@@ -6,14 +6,13 @@ use bathbot_util::{
     constants::OSU_BASE, numbers::WithComma, AuthorBuilder, CowUtils, FooterBuilder,
 };
 
+use super::ModsFormatter;
 use crate::{
     commands::osu::NochokeEntry,
     manager::redis::RedisData,
     pagination::Pages,
     util::{osu::grade_emote, Emote},
 };
-
-use super::ModsFormatter;
 
 #[derive(EmbedData)]
 pub struct NoChokeEmbed {

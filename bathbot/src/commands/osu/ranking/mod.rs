@@ -4,13 +4,12 @@ use bathbot_macros::SlashCommand;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
+pub use self::{countries::*, players::*};
 use crate::{
     commands::GameModeOption,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-pub use self::{countries::*, players::*};
 
 mod countries;
 mod players;

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bathbot_macros::command;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
@@ -6,8 +8,6 @@ use bathbot_util::{
 use eyre::Result;
 
 use crate::{core::commands::CommandOrigin, util::ChannelExt, Context};
-
-use std::sync::Arc;
 
 #[command]
 #[flags(AUTHORITY, ONLY_GUILDS)]

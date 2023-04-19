@@ -2,12 +2,11 @@ use bathbot_macros::pagination;
 use bathbot_model::OsuTrackerCountryScore;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     commands::osu::{OsuTrackerCountryDetailsCompact, ScoreOrder},
     embeds::{EmbedData, OsuTrackerCountryTopEmbed},
 };
-
-use super::Pages;
 
 #[pagination(per_page = 10, entries = "scores")]
 pub struct OsuTrackerCountryTopPagination {

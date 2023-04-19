@@ -30,6 +30,7 @@ use twilight_model::{
     id::{marker::UserMarker, Id},
 };
 
+use super::{CompareScoreAutocomplete, ScoreOrder};
 use crate::{
     commands::osu::{require_link, HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
@@ -45,8 +46,6 @@ use crate::{
     util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
 };
-
-use super::{CompareScoreAutocomplete, ScoreOrder};
 
 #[derive(CreateCommand, SlashCommand)]
 #[command(
@@ -77,10 +76,12 @@ pub struct Cs<'a> {
         - `+hdhr!`: Only keep the `HDHR` score\n\
         - `+nm!`: Only keep the nomod score\n\
         - `-ezhd!`: Remove all scores that have either `EZ` or `HD`")]
-    /// Filter out scores based on mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    /// Filter out scores based on mods (`+mods` for included, `+mods!` for
+    /// exact, `-mods!` for excluded)
     mods: Option<Cow<'a, str>>,
     #[command(min_value = 1, max_value = 50)]
-    /// While checking the channel history, I will choose the index-th map I can find
+    /// While checking the channel history, I will choose the index-th map I can
+    /// find
     index: Option<u32>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -121,10 +122,12 @@ pub struct CompareScore_<'a> {
         - `+hdhr!`: Only keep the `HDHR` score\n\
         - `+nm!`: Only keep the nomod score\n\
         - `-ezhd!`: Remove all scores that have either `EZ` or `HD`")]
-    /// Filter out scores based on mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    /// Filter out scores based on mods (`+mods` for included, `+mods!` for
+    /// exact, `-mods!` for excluded)
     mods: Option<Cow<'a, str>>,
     #[command(min_value = 1, max_value = 50)]
-    /// While checking the channel history, I will choose the index-th map I can find
+    /// While checking the channel history, I will choose the index-th map I can
+    /// find
     index: Option<u32>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \

@@ -16,9 +16,8 @@ use serde_json::value::RawValue;
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
-use crate::CountryCode;
-
 use super::deser;
+use crate::CountryCode;
 
 #[derive(Debug)]
 pub struct OsuStatsPlayer {

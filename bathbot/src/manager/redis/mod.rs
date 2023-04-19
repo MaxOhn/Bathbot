@@ -11,9 +11,8 @@ use eyre::{Report, Result};
 use rkyv::{ser::serializers::AllocSerializer, with::With, Serialize};
 use rosu_v2::prelude::{GameMode, OsuError, Rankings as RosuRankings};
 
-use crate::{commands::osu::MapOrScore, core::Context, util::interaction::InteractionCommand};
-
 pub use self::data::RedisData;
+use crate::{commands::osu::MapOrScore, core::Context, util::interaction::InteractionCommand};
 
 pub mod osu;
 

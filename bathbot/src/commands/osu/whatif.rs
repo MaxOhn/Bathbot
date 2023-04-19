@@ -12,6 +12,7 @@ use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use super::user_not_found;
 use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
@@ -20,8 +21,6 @@ use crate::{
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
-
-use super::user_not_found;
 
 pub enum WhatIfData {
     NonTop100,

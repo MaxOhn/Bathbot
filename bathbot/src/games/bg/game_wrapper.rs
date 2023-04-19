@@ -18,9 +18,8 @@ use twilight_model::{
     id::{marker::ChannelMarker, Id},
 };
 
-use crate::{commands::fun::GameDifficulty, util::ChannelExt, Context};
-
 use super::game::{game_loop, Game, LoopResult};
+use crate::{commands::fun::GameDifficulty, util::ChannelExt, Context};
 
 const GAME_LEN: Duration = Duration::from_secs(180);
 

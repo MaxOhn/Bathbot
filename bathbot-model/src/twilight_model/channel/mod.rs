@@ -14,9 +14,8 @@ use twilight_model::{
     },
 };
 
-use crate::rkyv_util::NicheDerefAsBox;
-
 use super::id::{IdNiche, IdRkyv};
+use crate::rkyv_util::NicheDerefAsBox;
 
 mod channel_type;
 mod permission_overwrite;

@@ -1,15 +1,15 @@
+use std::collections::BTreeMap;
+
 use bathbot_macros::pagination;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{CountryRanking, GameMode};
-use std::collections::BTreeMap;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     embeds::{EmbedData, RankingCountriesEmbed},
     Context,
 };
-
-use super::Pages;
 
 #[pagination(per_page = 15, total = "total")]
 pub struct RankingCountriesPagination {
@@ -35,7 +35,8 @@ impl RankingCountriesPagination {
                 150 => 4,
                 195 if !self.countries.contains_key(&195) => 4, // when going back to front
                 195 | 225 => 5,
-                240 => 5, // technically 6 but there are currently <250 countries so there is no page 6
+                240 => 5, /* technically 6 but there are currently <250 countries so there is no */
+                // page 6
                 _ => bail!("unexpected page index {}", pages.index()),
             };
 

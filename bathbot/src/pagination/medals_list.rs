@@ -2,13 +2,12 @@ use bathbot_macros::pagination;
 use bathbot_model::rosu_v2::user::User;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     commands::osu::MedalEntryList,
     embeds::{EmbedData, MedalsListEmbed},
     manager::redis::RedisData,
 };
-
-use super::Pages;
 
 #[pagination(per_page = 10, entries = "medals")]
 pub struct MedalsListPagination {

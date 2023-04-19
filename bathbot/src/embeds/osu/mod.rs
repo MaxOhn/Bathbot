@@ -55,8 +55,8 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, ScoreStatistics};
 
-use crate::manager::OsuMap;
-
+#[cfg(feature = "matchlive")]
+pub use self::match_live::*;
 pub use self::{
     attributes::*, badge::*, bws::*, claim_name::*, common::*, country_snipe_list::*,
     country_snipe_stats::*, fix_score::*, leaderboard::*, map::*, map_search::*, match_compare::*,
@@ -69,9 +69,7 @@ pub use self::{
     recent::*, recent_list::*, scores::*, simulate::*, sniped::*, sniped_difference::*, top::*,
     top_if::*, top_single::*, whatif::*,
 };
-
-#[cfg(feature = "matchlive")]
-pub use self::match_live::*;
+use crate::manager::OsuMap;
 
 pub struct ModsFormatter<'m> {
     mods: &'m GameMods,

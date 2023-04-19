@@ -3,12 +3,11 @@ use std::sync::Arc;
 use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::Result;
 
+use super::OwnerAddCountry;
 use crate::{
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-use super::OwnerAddCountry;
 
 pub async fn addcountry(
     ctx: Arc<Context>,

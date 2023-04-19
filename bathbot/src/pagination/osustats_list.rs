@@ -4,12 +4,11 @@ use eyre::{Result, WrapErr};
 use hashbrown::{hash_map::Entry, HashMap};
 use twilight_model::channel::message::embed::Embed;
 
+use super::{Pages, PaginationBuilder, PaginationKind};
 use crate::{
     embeds::{EmbedData, OsuStatsListEmbed},
     Context,
 };
-
-use super::{Pages, PaginationBuilder, PaginationKind};
 
 // Not using #[pagination(...)] since it requires special initialization
 pub struct OsuStatsListPagination {

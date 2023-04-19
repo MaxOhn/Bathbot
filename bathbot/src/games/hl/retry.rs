@@ -11,9 +11,8 @@ use twilight_model::id::{
     Id,
 };
 
-use crate::{core::Context, util::MessageExt};
-
 use super::{GameState, HlComponents};
+use crate::{core::Context, util::MessageExt};
 
 pub struct RetryState {
     pub(super) game: GameState,

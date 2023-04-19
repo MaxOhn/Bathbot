@@ -17,6 +17,7 @@ use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use super::TopIfEntry;
 use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::{prefix::Args, CommandOrigin},
@@ -25,8 +26,6 @@ use crate::{
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
-
-use super::TopIfEntry;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
@@ -61,7 +60,8 @@ pub enum TopOld<'a> {
     - 2021: [Rhythm buff, slider buff, FL skill](https://osu.ppy.sh/home/news/2021-11-09-performance-points-star-rating-updates)\n\
     - 2022: [Aim buff, doubletap detection improvement, low AR nerf, FL adjustments](https://osu.ppy.sh/home/news/2022-09-30-changes-to-osu-sr-and-pp)"
 )]
-/// How the current osu!standard top plays would look like on a previous pp system
+/// How the current osu!standard top plays would look like on a previous pp
+/// system
 pub struct TopOldOsu<'a> {
     /// Choose which version should replace the current pp system
     version: TopOldOsuVersion,

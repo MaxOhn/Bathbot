@@ -4,9 +4,8 @@ use twilight_model::{
     util::Timestamp,
 };
 
-use crate::constants::DARK_GREEN;
-
 use super::footer::IntoEmbedFooter;
+use crate::constants::DARK_GREEN;
 
 #[derive(Clone)]
 pub struct EmbedBuilder(Embed);

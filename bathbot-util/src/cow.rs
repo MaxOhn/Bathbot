@@ -179,13 +179,16 @@ impl<'s> CowUtils<'s> for &'s str {
         }
     }
 
-    /// This is similar to [`CowUtils::cow_replace`], but replaces multiple patterns at once,
-    /// namely all markdown characters (_, *, ~, `) get prefixed with a backslash.
-    /// ```
+    /// This is similar to [`CowUtils::cow_replace`], but replaces multiple
+    /// patterns at once, namely all markdown characters (_, *, ~, `) get
+    /// prefixed with a backslash. ```
     /// # use cow_utils::CowUtils;
     /// # use assert_matches::assert_matches;
     /// # use std::borrow::Cow;
-    /// assert_matches!("__abc*_d*".cow_escape_markdown(), Cow::Owned("\\_\\_abc\\*\\_d\\*"));
+    /// assert_matches!(
+    ///     "__abc*_d*".cow_escape_markdown(),
+    ///     Cow::Owned("\\_\\_abc\\*\\_d\\*")
+    /// );
     /// assert_matches!("abcd".cow_escape_markdown(), Cow::Borrowed("abcd"));
     /// ```
     fn cow_escape_markdown(self) -> Self::Output {

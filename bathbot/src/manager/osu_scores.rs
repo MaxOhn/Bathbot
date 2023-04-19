@@ -6,12 +6,11 @@ use rosu_v2::{
     OsuResult,
 };
 
-use crate::core::Context;
-
 use super::redis::{
     osu::{UserArgs, UserArgsSlim},
     RedisData,
 };
+use crate::core::Context;
 
 #[derive(Copy, Clone)]
 pub struct ScoresManager<'c> {
@@ -154,7 +153,8 @@ impl<'c> ScoreArgs<'c> {
         let scores = match scores_res {
             Ok(scores) => scores,
             Err(OsuError::NotFound) => {
-                // Remove stats of unknown/restricted users so they don't appear in the leaderboard
+                // Remove stats of unknown/restricted users so they don't appear in the
+                // leaderboard
                 if let Err(err) = ctx.osu_user().remove_stats(user_id).await {
                     let wrap = "Failed to remove stats of unknown user";
                     warn!("{:?}", err.wrap_err(wrap));

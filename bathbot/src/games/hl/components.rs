@@ -8,15 +8,14 @@ use eyre::{ContextCompat, Result, WrapErr};
 use tokio::sync::oneshot;
 use twilight_model::channel::message::embed::EmbedField;
 
+use super::{
+    retry::{await_retry, RetryState},
+    HlComponents, HlGuess,
+};
 use crate::{
     core::Context,
     games::hl::GameState,
     util::{interaction::InteractionComponent, Authored, ComponentExt},
-};
-
-use super::{
-    retry::{await_retry, RetryState},
-    HlComponents, HlGuess,
 };
 
 /// Higher Button
@@ -177,7 +176,8 @@ async fn correct_guess(
     let ctx_clone = Arc::clone(&ctx);
 
     let embed = if let Some(mut game) = ctx.hl_games().lock(&user).await.get_mut() {
-        // Callback with disabled components so nothing happens while the game is updated
+        // Callback with disabled components so nothing happens while the game is
+        // updated
         let builder = MessageBuilder::new().components(components);
         component
             .callback(&ctx, builder)

@@ -12,6 +12,11 @@ use twilight_model::{
     guild::Permissions,
 };
 
+use self::args::{ParseError, SimulateArg};
+use super::{
+    HasMods, ModsResult, TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion,
+    TopOldTaikoVersion,
+};
 use crate::{
     commands::GameModeOption,
     core::{
@@ -22,13 +27,6 @@ use crate::{
     manager::MapError,
     pagination::SimulatePagination,
     util::{interaction::InteractionCommand, InteractionCommandExt},
-};
-
-use self::args::{ParseError, SimulateArg};
-
-use super::{
-    HasMods, ModsResult, TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion,
-    TopOldTaikoVersion,
 };
 
 #[derive(CreateCommand, CommandModel, Default, HasMods, SlashCommand)]

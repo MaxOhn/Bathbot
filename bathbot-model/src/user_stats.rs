@@ -12,7 +12,8 @@ pub enum UserStatsEntries {
     Rank(Vec<UserStatsEntry<u32>>),
 }
 
-// Be sure to keep structure in sync with `bathbot_psql::model::osu::user::DbUserStatsEntry`!
+// Be sure to keep structure in sync with
+// `bathbot_psql::model::osu::user::DbUserStatsEntry`!
 pub struct UserStatsEntry<V> {
     pub country: [u8; 2],
     pub name: String,

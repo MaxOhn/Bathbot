@@ -1,15 +1,15 @@
+use std::{collections::BTreeMap, iter::Extend};
+
 use eyre::Result;
 use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchResult};
-use std::{collections::BTreeMap, iter::Extend};
 use twilight_model::channel::message::embed::Embed;
 
+use super::{Pages, PaginationBuilder, PaginationKind};
 use crate::{
     commands::osu::Search,
     embeds::{EmbedData, MapSearchEmbed},
     Context,
 };
-
-use super::{Pages, PaginationBuilder, PaginationKind};
 
 pub struct MapSearchPagination {
     maps: BTreeMap<usize, Beatmapset>,

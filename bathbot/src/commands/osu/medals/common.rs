@@ -18,6 +18,7 @@ use rkyv::{with::DeserializeWith, Infallible};
 use rosu_v2::{prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
 
+use super::{MedalCommon, MedalCommonFilter, MedalCommonOrder};
 use crate::{
     commands::osu::UserExtraction,
     core::commands::CommandOrigin,
@@ -27,8 +28,6 @@ use crate::{
     util::osu::get_combined_thumbnail,
     Context,
 };
-
-use super::{MedalCommon, MedalCommonFilter, MedalCommonOrder};
 
 #[command]
 #[desc("Compare which of the given users achieved medals first")]

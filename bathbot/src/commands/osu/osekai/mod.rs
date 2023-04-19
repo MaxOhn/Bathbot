@@ -7,15 +7,14 @@ use bathbot_model::{
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
-use crate::{
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
-};
-
 use self::{
     medal_count::medal_count,
     rarity::rarity,
     user_value::{count, pp},
+};
+use crate::{
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+    Context,
 };
 
 mod medal_count;

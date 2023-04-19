@@ -9,12 +9,11 @@ use bathbot_util::{
     AuthorBuilder, CowUtils, FooterBuilder,
 };
 
+use super::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter};
 use crate::{
     commands::osu::OsuStatsEntry, manager::redis::RedisData, pagination::Pages,
     util::osu::grade_emote,
 };
-
-use super::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter};
 
 #[derive(EmbedData)]
 pub struct OsuStatsGlobalsEmbed {

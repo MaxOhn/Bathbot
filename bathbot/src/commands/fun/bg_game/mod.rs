@@ -23,14 +23,13 @@ use twilight_model::{
     guild::Permissions,
 };
 
+use self::{bigger::*, hint::*, rankings::*, skip::*, stop::*};
 use crate::{
     commands::ThreadChannel,
     games::bg::{GameState, GameWrapper},
     util::{interaction::InteractionCommand, Authored, ChannelExt, InteractionCommandExt},
     Context,
 };
-
-use self::{bigger::*, hint::*, rankings::*, skip::*, stop::*};
 
 mod bigger;
 mod hint;
@@ -123,7 +122,8 @@ pub struct Bg {
     The higher the difficulty, the more accurate guesses have to be in order to be accepted.")]
     /// Increase difficulty by requiring better guessing
     difficulty: Option<GameDifficulty>,
-    /// Choose if a new thread should be started, defaults to staying in the channel
+    /// Choose if a new thread should be started, defaults to staying in the
+    /// channel
     thread: Option<ThreadChannel>,
 }
 

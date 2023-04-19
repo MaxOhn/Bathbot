@@ -8,6 +8,7 @@ use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{prelude::OsuError, request::UserId};
 
+use super::BadgesUser;
 use crate::{
     commands::osu::{require_link, user_not_found},
     core::{commands::CommandOrigin, Context},
@@ -15,8 +16,6 @@ use crate::{
     pagination::BadgePagination,
     util::osu::get_combined_thumbnail,
 };
-
-use super::BadgesUser;
 
 pub(super) async fn user(
     ctx: Arc<Context>,

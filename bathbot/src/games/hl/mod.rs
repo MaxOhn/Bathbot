@@ -5,9 +5,8 @@ use twilight_model::channel::message::{
     ReactionType,
 };
 
-use crate::util::Emote;
-
 pub use self::state::GameState;
+use crate::util::Emote;
 
 mod farm_map;
 mod kind;

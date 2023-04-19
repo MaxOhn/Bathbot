@@ -19,14 +19,6 @@ use time::UtcOffset;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{
-    commands::{GameModeOption, ShowHideOption, TimezoneOption},
-    core::{commands::CommandOrigin, Context},
-    embeds::attachment,
-    manager::redis::{osu::UserArgs, RedisData},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-};
-
 use self::{
     medals::medals_graph,
     playcount_replays::{playcount_replays_graph, ProfileGraphFlags},
@@ -37,8 +29,14 @@ use self::{
     top_index::top_graph_index,
     top_time::top_graph_time,
 };
-
 use super::{require_link, user_not_found};
+use crate::{
+    commands::{GameModeOption, ShowHideOption, TimezoneOption},
+    core::{commands::CommandOrigin, Context},
+    embeds::attachment,
+    manager::redis::{osu::UserArgs, RedisData},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+};
 
 mod medals;
 mod playcount_replays;
@@ -191,7 +189,8 @@ async fn slash_graph(ctx: Arc<Context>, mut command: InteractionCommand) -> Resu
     graph(ctx, (&mut command).into(), args).await
 }
 
-// Takes a `CommandOrigin` since `require_link` does not take `InteractionCommand`
+// Takes a `CommandOrigin` since `require_link` does not take
+// `InteractionCommand`
 async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
     let tuple_option = match args {
         Graph::Medals(args) => {
@@ -458,8 +457,8 @@ impl<C> BitMapElement<C> {
 }
 
 impl<'a, C> PointCollection<'a, C> for &'a BitMapElement<C> {
-    type Point = &'a C;
     type IntoIter = iter::Once<&'a C>;
+    type Point = &'a C;
 
     #[inline]
     fn point_iter(self) -> Self::IntoIter {

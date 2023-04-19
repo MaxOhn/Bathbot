@@ -8,15 +8,14 @@ use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::{self, Receiver};
 use twilight_model::channel::message::embed::{Embed, EmbedField};
 
+use super::{
+    farm_map::{FarmEntries, FarmMap},
+    HlGuess, H, W,
+};
 use crate::{
     core::{BotConfig, Context},
     games::hl::score_pp::ScorePp,
     util::ChannelExt,
-};
-
-use super::{
-    farm_map::{FarmEntries, FarmMap},
-    HlGuess, H, W,
 };
 
 // looks like a false positive by clippy since the

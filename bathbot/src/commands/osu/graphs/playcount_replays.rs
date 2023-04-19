@@ -35,14 +35,13 @@ use rosu_v2::{
 use skia_safe::{EncodedImageFormat, Surface};
 use time::{Date, Month, OffsetDateTime};
 
+use super::{BitMapElement, H, W};
 use crate::{
     commands::osu::user_not_found,
     core::{commands::CommandOrigin, Context},
     manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,
 };
-
-use super::{BitMapElement, H, W};
 
 pub async fn playcount_replays_graph(
     ctx: &Context,
@@ -135,8 +134,8 @@ pub struct ProfileGraphParams<'l> {
 }
 
 impl<'l> ProfileGraphParams<'l> {
-    const W: u32 = 1350;
     const H: u32 = 350;
+    const W: u32 = 1350;
 
     pub fn new(ctx: &'l Context, user: &'l mut RedisData<User>) -> Self {
         Self {

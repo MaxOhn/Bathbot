@@ -1,6 +1,5 @@
-use crate::Context;
-
 use super::{BgGames, HlGames, HlRetries};
+use crate::Context;
 
 impl Context {
     pub fn bg_games(&self) -> &BgGames {

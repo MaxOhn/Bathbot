@@ -7,14 +7,13 @@ use rkyv::{Deserialize, Infallible};
 use twilight_interactions::command::AutocompleteValue;
 use twilight_model::application::command::{CommandOptionChoice, CommandOptionChoiceValue};
 
+use super::BadgesQuery_;
 use crate::{
     core::Context,
     manager::redis::RedisData,
     pagination::BadgePagination,
     util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
 };
-
-use super::BadgesQuery_;
 
 pub(super) async fn query(
     ctx: Arc<Context>,

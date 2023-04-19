@@ -38,7 +38,8 @@ pub struct TopIf<'a> {
         - `+hdhr!`: Make all scores `HDHR` scores\n\
         - `+nm!`: Make all scores nomod scores\n\
         - `-ezhd!`: Remove both `EZ` and `HD` from all scores")]
-    /// Specify mods (`+mods` to insert them, `+mods!` to replace, `-mods!` to remove)
+    /// Specify mods (`+mods` to insert them, `+mods!` to replace, `-mods!` to
+    /// remove)
     mods: Cow<'a, str>,
     /// Specify a gamemode
     mode: Option<GameModeOption>,

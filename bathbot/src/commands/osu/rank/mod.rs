@@ -5,13 +5,12 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
+pub use self::{pp::*, score::*};
 use crate::{
     commands::GameModeOption,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-pub use self::{pp::*, score::*};
 
 mod pp;
 mod score;
@@ -38,7 +37,8 @@ pub struct RankPp<'a> {
     /// Specify a username
     name: Option<Cow<'a, str>>,
     #[command(min_value = 0.0)]
-    /// Fill a top100 with scores of this many pp until the pp of the target rank are reached
+    /// Fill a top100 with scores of this many pp until the pp of the target
+    /// rank are reached
     each: Option<f32>,
     /// Specify a country (code)
     country: Option<Cow<'a, str>>,

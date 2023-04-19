@@ -31,6 +31,8 @@ use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
+pub use self::{if_::*, old::*};
+use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
 use crate::{
     commands::{GameModeOption, GradeOption},
     core::commands::{prefix::Args, CommandOrigin},
@@ -47,10 +49,6 @@ use crate::{
     },
     Context,
 };
-
-pub use self::{if_::*, old::*};
-
-use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
 
 mod if_;
 mod old;
@@ -74,7 +72,8 @@ pub struct Top {
         - `+hdhr!`: Scores must have exactly `HDHR`\n\
         - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
         - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
+    /// excluded)
     mods: Option<String>,
     #[command(min_value = 1, max_value = 100)]
     /// Choose a specific score index
@@ -528,18 +527,16 @@ pub struct TopArgs<'a> {
 }
 
 impl<'m> TopArgs<'m> {
+    const ERR_PARSE_ACC: &'static str = "Failed to parse `accuracy`.\n\
+        Must be either decimal number \
+        or two decimal numbers of the form `a..b` e.g. `97.5..98.5`.";
+    const ERR_PARSE_COMBO: &'static str = "Failed to parse `combo`.\n\
+        Must be either a positive integer \
+        or two positive integers of the form `a..b` e.g. `501..1234`.";
     pub const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
         If you want included mods, specify it e.g. as `+hrdt`.\n\
         If you want exact mods, specify it e.g. as `+hdhr!`.\n\
         And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
-
-    const ERR_PARSE_ACC: &'static str = "Failed to parse `accuracy`.\n\
-        Must be either decimal number \
-        or two decimal numbers of the form `a..b` e.g. `97.5..98.5`.";
-
-    const ERR_PARSE_COMBO: &'static str = "Failed to parse `combo`.\n\
-        Must be either a positive integer \
-        or two positive integers of the form `a..b` e.g. `501..1234`.";
 
     fn args(mode: Option<GameMode>, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
         let mut name = None;

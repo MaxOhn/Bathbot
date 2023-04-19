@@ -16,14 +16,12 @@ use twilight_model::{
     util::ImageHash as TwImageHash,
 };
 
-use crate::rkyv_util::{DerefAsBox, FlagsRkyv};
-
 pub use self::{
     member::{ArchivedMember, Member, MemberResolver},
     role::{ArchivedRole, Role, RoleResolver},
 };
-
 use super::{id::IdRkyv, util::ImageHash};
+use crate::rkyv_util::{DerefAsBox, FlagsRkyv};
 
 #[derive(Archive, ArchiveWith, Deserialize, Serialize)]
 #[archive_with(from(TwGuild, PartialGuild))]

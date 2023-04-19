@@ -16,6 +16,7 @@ use skia_safe::{EncodedImageFormat, Surface};
 use time::Date;
 use twilight_model::guild::Permissions;
 
+use super::SnipePlayerStats;
 use crate::{
     commands::osu::require_link,
     core::commands::CommandOrigin,
@@ -24,8 +25,6 @@ use crate::{
     util::Monthly,
     Context,
 };
-
-use super::SnipePlayerStats;
 
 #[command]
 #[desc("Stats about a user's #1 scores in their country leaderboards")]

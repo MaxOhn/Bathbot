@@ -18,7 +18,8 @@ pub fn levenshtein_similarity(word_a: &str, word_b: &str) -> f32 {
     (len - dist) as f32 / len as f32
 }
 
-/// "How many replace/delete/insert operations are necessary to morph one word into the other?"
+/// "How many replace/delete/insert operations are necessary to morph one word
+/// into the other?"
 ///
 /// Returns (distance, max word length) tuple
 pub fn levenshtein_distance<'w>(mut word_a: &'w str, mut word_b: &'w str) -> (usize, usize) {

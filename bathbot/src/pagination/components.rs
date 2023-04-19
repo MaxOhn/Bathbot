@@ -7,6 +7,7 @@ use bathbot_util::{
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use twilight_model::application::interaction::modal::ModalInteractionDataComponent;
 
+use super::{ComponentKind, Pages, PaginationKind, SimulatePagination};
 use crate::{
     core::Context,
     embeds::TopOldVersion,
@@ -15,8 +16,6 @@ use crate::{
         Authored, ComponentExt, ModalExt,
     },
 };
-
-use super::{ComponentKind, Pages, PaginationKind, SimulatePagination};
 
 pub(super) async fn remove_components(
     ctx: &Context,

@@ -1,8 +1,8 @@
 use std::iter;
 
-use crate::Context;
-
 use twilight_model::id::{marker::ChannelMarker, Id};
+
+use crate::Context;
 
 impl Context {
     pub fn add_tracking(&self, twitch_id: u64, channel_id: Id<ChannelMarker>) {

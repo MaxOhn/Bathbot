@@ -48,7 +48,8 @@ impl<'d, 'm> PpManager<'d, 'm> {
         }
     }
 
-    /// Use the given attributes. Be sure they match they match the map and mods!
+    /// Use the given attributes. Be sure they match they match the map and
+    /// mods!
     pub fn attributes(&mut self, attrs: DifficultyAttributes) {
         self.attrs = Some(attrs);
     }

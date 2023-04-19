@@ -1,13 +1,12 @@
 use rosu_pp::Beatmap;
 use rosu_v2::prelude::GameMode;
 
+use super::Context;
 use crate::manager::{
     redis::RedisManager, ApproxManager, GameManager, GuildConfigManager,
     HuismetbenenCountryManager, MapManager, OsuMap, OsuTrackingManager, OsuUserManager, PpManager,
     ScoresManager, TwitchManager, UserConfigManager,
 };
-
-use super::Context;
 
 impl Context {
     pub fn guild_config(&self) -> GuildConfigManager<'_> {

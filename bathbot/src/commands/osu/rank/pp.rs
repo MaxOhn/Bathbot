@@ -13,6 +13,7 @@ use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::OsuError;
 
+use super::RankPp;
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
@@ -21,8 +22,6 @@ use crate::{
     util::ChannelExt,
     Context,
 };
-
-use super::RankPp;
 
 pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> {
     let (user_id, mode) = user_id_mode!(ctx, orig, args);

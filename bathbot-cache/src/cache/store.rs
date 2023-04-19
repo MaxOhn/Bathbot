@@ -42,7 +42,8 @@ impl Cache {
             .map_err(Report::new)
     }
 
-    /// **Note**: `Cache::store` should always be preferred if `Cache::fetch` was called beforehand.
+    /// **Note**: `Cache::store` should always be preferred if `Cache::fetch`
+    /// was called beforehand.
     pub async fn store_new<K, T, const N: usize>(
         &self,
         key: &K,

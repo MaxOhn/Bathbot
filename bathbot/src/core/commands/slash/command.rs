@@ -2,12 +2,11 @@ use std::sync::Arc;
 
 use twilight_interactions::command::ApplicationCommandData;
 
+use super::CommandResult;
 use crate::{
     core::{buckets::BucketName, commands::flags::CommandFlags, Context},
     util::interaction::InteractionCommand,
 };
-
-use super::CommandResult;
 
 pub struct SlashCommand {
     pub bucket: Option<BucketName>,

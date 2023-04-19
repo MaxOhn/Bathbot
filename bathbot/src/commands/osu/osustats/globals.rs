@@ -11,6 +11,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, Grade, OsuError, ScoreStatistics, Username};
 
+use super::OsuStatsScores;
 use crate::{
     commands::{
         osu::{user_not_found, HasMods, ModsResult},
@@ -22,8 +23,6 @@ use crate::{
     util::ChannelExt,
     Context,
 };
-
-use super::OsuStatsScores;
 
 #[command]
 #[desc("All scores of a player that are on a map's global leaderboard")]
@@ -253,21 +252,18 @@ pub(super) async fn scores(
 }
 
 impl<'m> OsuStatsScores<'m> {
-    const MIN_RANK: u32 = 1;
-    const MAX_RANK: u32 = 100;
-
     const ERR_PARSE_ACC: &'static str = "Failed to parse `accuracy`.\n\
         Must be either decimal number \
         or two decimal numbers of the form `a..b` e.g. `97.5..98.5`.";
-
-    const ERR_PARSE_RANK: &'static str = "Failed to parse `rank`.\n\
-        Must be either a positive integer \
-        or two positive integers of the form `a..b` e.g. `2..45`.";
-
     const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
     If you want included mods, specify it e.g. as `+hrdt`.\n\
     If you want exact mods, specify it e.g. as `+hdhr!`.\n\
     And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
+    const ERR_PARSE_RANK: &'static str = "Failed to parse `rank`.\n\
+        Must be either a positive integer \
+        or two positive integers of the form `a..b` e.g. `2..45`.";
+    const MAX_RANK: u32 = 100;
+    const MIN_RANK: u32 = 1;
 
     fn into_params(
         self,

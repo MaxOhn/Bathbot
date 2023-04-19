@@ -36,6 +36,9 @@ use twilight_model::{
 };
 use twilight_standby::Standby;
 
+use super::{buckets::Buckets, BotStats};
+#[cfg(feature = "osutracking")]
+use crate::manager::OsuTrackingManager;
 use crate::{
     core::BotConfig,
     games::{
@@ -44,11 +47,6 @@ use crate::{
     },
     pagination::Pagination,
 };
-
-#[cfg(feature = "osutracking")]
-use crate::manager::OsuTrackingManager;
-
-use super::{buckets::Buckets, BotStats};
 
 mod games;
 mod manager;

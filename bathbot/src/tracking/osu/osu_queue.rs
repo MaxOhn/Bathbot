@@ -347,8 +347,8 @@ impl OsuTrackingQueue {
         removed
     }
 
-    /// Return all entries which were tracked in the channel and whether they are no longer tracked
-    /// anywhere
+    /// Return all entries which were tracked in the channel and whether they
+    /// are no longer tracked anywhere
     async fn remove_channel(
         &self,
         channel: Id<ChannelMarker>,
@@ -384,7 +384,8 @@ impl OsuTrackingQueue {
         removed
     }
 
-    /// Returns whether the entry has been newly added, updated, or not added at all
+    /// Returns whether the entry has been newly added, updated, or not added at
+    /// all
     async fn add(
         &self,
         key: TrackedOsuUserKey,

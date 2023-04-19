@@ -3,9 +3,8 @@ use rosu_v2::prelude::{CountryCode, GameModsIntermode, Username};
 use serde::Deserialize;
 use time::OffsetDateTime;
 
-use crate::rkyv_util::DerefAsString;
-
 use super::deser;
+use crate::rkyv_util::DerefAsString;
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerIdCount {

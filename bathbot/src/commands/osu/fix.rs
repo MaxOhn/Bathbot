@@ -19,6 +19,7 @@ use twilight_model::{
     id::{marker::UserMarker, Id},
 };
 
+use super::{require_link, user_not_found, HasMods, ModsResult};
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, FixScoreEmbed},
@@ -32,8 +33,6 @@ use crate::{
     util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
 };
-
-use super::{require_link, user_not_found, HasMods, ModsResult};
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "fix")]
@@ -297,7 +296,8 @@ pub struct FixScore {
     pub if_fc: Option<IfFc>,
 }
 
-// Retrieve user's score on the map, the user itself, and the map including mapset
+// Retrieve user's score on the map, the user itself, and the map including
+// mapset
 async fn request_by_map(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
