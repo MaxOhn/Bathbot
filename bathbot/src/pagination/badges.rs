@@ -5,12 +5,11 @@ use bathbot_model::{OsekaiBadge, OsekaiBadgeOwner};
 use eyre::{Result, WrapErr};
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     core::Context,
     embeds::{BadgeEmbed, EmbedData},
 };
-
-use super::Pages;
 
 #[pagination(per_page = 1, entries = "badges")]
 pub struct BadgePagination {

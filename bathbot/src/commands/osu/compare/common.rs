@@ -20,6 +20,7 @@ use twilight_model::{
     id::{marker::UserMarker, Id},
 };
 
+use super::{CompareTop, AT_LEAST_ONE};
 use crate::{
     commands::{
         osu::{user_not_found, UserExtraction},
@@ -31,8 +32,6 @@ use crate::{
     util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
     Context,
 };
-
-use super::{CompareTop, AT_LEAST_ONE};
 
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
 #[command(

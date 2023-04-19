@@ -19,6 +19,7 @@ use twilight_model::{
     id::{marker::GuildMarker, Id},
 };
 
+use super::failed_message_content;
 use crate::{
     core::{
         commands::prefix::{PrefixCommand, PrefixCommandGroup, PrefixCommands},
@@ -26,8 +27,6 @@ use crate::{
     },
     util::{interaction::InteractionComponent, ChannelExt, ComponentExt, Emote},
 };
-
-use super::failed_message_content;
 
 #[command]
 #[desc("Display help for prefix commands")]

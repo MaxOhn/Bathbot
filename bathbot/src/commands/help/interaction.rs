@@ -18,6 +18,7 @@ use twilight_model::{
     channel::message::embed::EmbedField,
 };
 
+use super::{failed_message_content, option_fields, parse_select_menu, AUTHORITY_STATUS};
 use crate::{
     core::{
         commands::slash::{SlashCommand, SlashCommands},
@@ -25,8 +26,6 @@ use crate::{
     },
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
-
-use super::{failed_message_content, option_fields, parse_select_menu, AUTHORITY_STATUS};
 
 #[derive(CreateCommand, SlashCommand)]
 #[flags(SKIP_DEFER)]

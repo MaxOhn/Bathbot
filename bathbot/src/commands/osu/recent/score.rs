@@ -20,6 +20,7 @@ use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use super::RecentScore;
 use crate::{
     commands::{
         osu::{require_link, user_not_found},
@@ -34,8 +35,6 @@ use crate::{
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt, MessageExt},
     Context,
 };
-
-use super::RecentScore;
 
 #[command]
 #[desc("Display a user's most recent play")]

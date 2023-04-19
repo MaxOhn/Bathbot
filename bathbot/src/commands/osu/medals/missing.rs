@@ -11,6 +11,7 @@ use hashbrown::HashSet;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{prelude::OsuError, request::UserId};
 
+use super::{MedalMissing, MedalMissingOrder};
 use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
@@ -18,8 +19,6 @@ use crate::{
     pagination::MedalsMissingPagination,
     Context,
 };
-
-use super::{MedalMissing, MedalMissingOrder};
 
 #[command]
 #[desc("Display a list of medals that a user is missing")]

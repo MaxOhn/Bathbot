@@ -14,14 +14,13 @@ use bathbot_util::{
 use rosu_pp::{BeatmapExt, DifficultyAttributes, ScoreState};
 use rosu_v2::prelude::GameMode;
 
+use super::PpFormatter;
 use crate::{
     core::Context,
     manager::{OsuMap, PpManager},
     pagination::Pages,
     util::{osu::grade_emote, Emote},
 };
-
-use super::PpFormatter;
 
 type AttrMap = HashMap<u32, (DifficultyAttributes, f32), IntHasher>;
 

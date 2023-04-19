@@ -7,13 +7,12 @@ use rosu_pp::DifficultyAttributes;
 use rosu_v2::prelude::Username;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     core::Context,
     embeds::{EmbedData, LeaderboardEmbed},
     manager::OsuMap,
 };
-
-use super::Pages;
 
 #[pagination(per_page = 10, entries = "scores")]
 pub struct LeaderboardPagination {

@@ -40,8 +40,8 @@ impl IsDate for OffsetDateTime {
     }
 }
 
-/// The trait that describe some time value. This is the uniformed abstraction that works
-/// for both Date, DateTime and Duration, etc.
+/// The trait that describe some time value. This is the uniformed abstraction
+/// that works for both Date, DateTime and Duration, etc.
 pub trait TimeValue: Copy + Eq {
     type DateType: IsDate + PartialOrd;
 
@@ -72,6 +72,7 @@ pub trait TimeValue: Copy + Eq {
 
 impl TimeValue for Date {
     type DateType = Self;
+
     fn date_floor(&self) -> Date {
         *self
     }

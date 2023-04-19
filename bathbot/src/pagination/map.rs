@@ -2,12 +2,11 @@ use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameModsIntermode};
 use twilight_model::channel::message::embed::Embed;
 
+use super::{Context, Pages, PaginationBuilder, PaginationKind};
 use crate::{
     commands::osu::CustomAttrs,
     embeds::{EmbedData, MapEmbed, MessageOrigin},
 };
-
-use super::{Context, Pages, PaginationBuilder, PaginationKind};
 
 // Not using #[pagination(...)] since it requires special initialization
 pub struct MapPagination {

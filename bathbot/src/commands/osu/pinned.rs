@@ -26,6 +26,7 @@ use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder, TopEntry};
 use crate::{
     commands::GameModeOption,
     core::commands::CommandOrigin,
@@ -42,8 +43,6 @@ use crate::{
     },
     Context,
 };
-
-use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder, TopEntry};
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
 #[command(name = "pinned")]
@@ -71,7 +70,8 @@ pub struct Pinned {
     - `+hdhr!`: Scores must have exactly `HDHR`\n\
     - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
     - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
+    /// excluded)
     mods: Option<String>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \

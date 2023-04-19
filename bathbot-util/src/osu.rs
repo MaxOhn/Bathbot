@@ -8,7 +8,6 @@ use eyre::Result;
 use rosu_v2::prelude::{
     mods, GameMod, GameMode, GameMods, GameModsIntermode, Grade, Score, ScoreStatistics,
 };
-
 use time::OffsetDateTime;
 use twilight_model::channel::message::{embed::Embed, Message};
 
@@ -96,7 +95,8 @@ impl ModSelection {
 }
 
 pub fn flag_url(country_code: &str) -> String {
-    // format!("{OSU_BASE}/images/flags/{country_code}.png") // from osu itself but outdated
+    // format!("{OSU_BASE}/images/flags/{country_code}.png") // from osu itself but
+    // outdated
     format!("https://osuflags.omkserver.nl/{country_code}-256.png") // kelderman
 }
 

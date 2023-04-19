@@ -11,11 +11,9 @@ use twilight_model::{
     util::ImageHash as TwImageHash,
 };
 
-use crate::rkyv_util::DerefAsBox;
-
 pub use self::current_user::CurrentUser;
-
 use super::{id::IdRkyv, util::ImageHash};
+use crate::rkyv_util::DerefAsBox;
 
 #[derive(Archive, ArchiveWith, Deserialize, Serialize)]
 #[archive_with(from(TwUser))]

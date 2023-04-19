@@ -1,12 +1,11 @@
 use bathbot_macros::pagination;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     commands::osu::MedalEntryCommon,
     embeds::{EmbedData, MedalsCommonEmbed, MedalsCommonUser},
 };
-
-use super::Pages;
 
 #[pagination(per_page = 10, entries = "medals")]
 pub struct MedalsCommonPagination {

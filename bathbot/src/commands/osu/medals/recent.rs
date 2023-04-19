@@ -17,6 +17,7 @@ use rosu_v2::{
 };
 use time::OffsetDateTime;
 
+use super::MedalRecent;
 use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
@@ -25,8 +26,6 @@ use crate::{
     pagination::MedalRecentPagination,
     Context,
 };
-
-use super::MedalRecent;
 
 #[command]
 #[desc("Display a recently acquired medal of a user")]

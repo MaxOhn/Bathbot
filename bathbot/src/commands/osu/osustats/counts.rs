@@ -10,6 +10,7 @@ use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use super::OsuStatsCount;
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
@@ -18,8 +19,6 @@ use crate::{
     util::{interaction::InteractionCommand, osu::TopCounts, InteractionCommandExt},
     Context,
 };
-
-use super::OsuStatsCount;
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(name = "osc")]

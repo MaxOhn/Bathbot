@@ -8,6 +8,8 @@ use nom::{
 };
 use twilight_model::{channel::Message, guild::Permissions};
 
+use self::parse::*;
+use super::{EventKind, ProcessResult};
 use crate::{
     core::{
         buckets::BucketName,
@@ -16,10 +18,6 @@ use crate::{
     },
     util::ChannelExt,
 };
-
-use self::parse::*;
-
-use super::{EventKind, ProcessResult};
 
 mod parse;
 

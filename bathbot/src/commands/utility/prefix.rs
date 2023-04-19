@@ -1,3 +1,5 @@
+use std::{cmp::Ordering, fmt::Write, sync::Arc};
+
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::command;
 use bathbot_psql::model::configs::{GuildConfig, Prefix, Prefixes, DEFAULT_PREFIX};
@@ -7,8 +9,6 @@ use once_cell::sync::OnceCell;
 use twilight_model::guild::Permissions;
 
 use crate::{core::commands::checks::check_authority, util::ChannelExt, Context};
-
-use std::{cmp::Ordering, fmt::Write, sync::Arc};
 
 #[command]
 #[desc("Change my prefixes for a server")]

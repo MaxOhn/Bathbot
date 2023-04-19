@@ -13,6 +13,7 @@ use rosu_v2::{
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use super::{require_link, user_not_found};
 use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, RatioEmbed},
@@ -20,8 +21,6 @@ use crate::{
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-use super::{require_link, user_not_found};
 
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
 #[command(

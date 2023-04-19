@@ -11,9 +11,8 @@ use rosu_v2::{
     prelude::{CountryCode, Username},
 };
 
-use crate::rkyv_util::{DerefAsBox, DerefAsString, NicheDerefAsBox};
-
 use super::user::UserStatistics;
+use crate::rkyv_util::{DerefAsBox, DerefAsString, NicheDerefAsBox};
 
 #[derive(Archive, ArchiveWith, Deserialize)]
 #[archive_with(from(RosuRankings))]

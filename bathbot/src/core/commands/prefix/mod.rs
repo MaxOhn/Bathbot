@@ -5,18 +5,15 @@ use futures::Future;
 use once_cell::sync::OnceCell;
 use radix_trie::{Trie, TrieCommon};
 
+pub use self::{args::Args, command::PrefixCommand};
+#[cfg(feature = "osutracking")]
+use crate::commands::tracking::*;
+#[cfg(feature = "twitch")]
+use crate::commands::twitch::*;
 use crate::{
     commands::{fun::*, help::HELP_PREFIX, osu::*, songs::*, utility::*},
     util::Emote,
 };
-
-#[cfg(feature = "osutracking")]
-use crate::commands::tracking::*;
-
-#[cfg(feature = "twitch")]
-use crate::commands::twitch::*;
-
-pub use self::{args::Args, command::PrefixCommand};
 
 mod args;
 mod command;

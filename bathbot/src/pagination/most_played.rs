@@ -3,12 +3,11 @@ use bathbot_model::rosu_v2::user::User;
 use rosu_v2::prelude::MostPlayedMap;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     embeds::{EmbedData, MostPlayedEmbed},
     manager::redis::RedisData,
 };
-
-use super::Pages;
 
 #[pagination(per_page = 10, entries = "maps")]
 pub struct MostPlayedPagination {

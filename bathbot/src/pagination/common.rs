@@ -5,12 +5,11 @@ use bathbot_util::IntHasher;
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, Username};
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     commands::osu::CommonScore,
     embeds::{CommonEmbed, EmbedData},
 };
-
-use super::Pages;
 
 #[pagination(per_page = 10, entries = "maps")]
 pub struct CommonPagination {

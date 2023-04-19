@@ -159,7 +159,8 @@ impl PpMissingEmbed {
 
                         let accum = pps.accum_weighted();
 
-                        // Calculate the pp of the missing score after adding `n_each` many `each` pp scores
+                        // Calculate the pp of the missing score after adding `n_each` many `each`
+                        // pp scores
                         let total = accum + bonus_pp;
                         let (required, _) = pp_missing(total, goal_pp, pps.as_slice());
 

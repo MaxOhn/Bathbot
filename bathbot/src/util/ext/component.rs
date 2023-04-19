@@ -8,9 +8,8 @@ use twilight_model::{
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
-use crate::{core::Context, util::interaction::InteractionComponent};
-
 use super::MessageExt;
+use crate::{core::Context, util::interaction::InteractionComponent};
 
 pub trait ComponentExt {
     /// Ackowledge the component and respond immediatly by updating the message.

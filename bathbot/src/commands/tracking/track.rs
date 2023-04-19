@@ -6,14 +6,13 @@ use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
 use time::OffsetDateTime;
 
+use super::TrackArgs;
 use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, TrackEmbed},
     util::ChannelExt,
     Context,
 };
-
-use super::TrackArgs;
 
 pub(super) async fn track(
     ctx: Arc<Context>,

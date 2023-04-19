@@ -1,12 +1,11 @@
 use rosu_v2::prelude::GameMode;
 use twilight_model::channel::message::embed::Embed;
 
+use super::{Pages, PaginationBuilder, PaginationKind};
 use crate::{
     embeds::{EmbedData, SimulateData, SimulateEmbed},
     manager::OsuMap,
 };
-
-use super::{Pages, PaginationBuilder, PaginationKind};
 
 // Not using #[pagination(...)] since it requires special initialization
 pub struct SimulatePagination {
@@ -20,7 +19,8 @@ impl SimulatePagination {
     }
 
     pub fn builder(map: OsuMap, simulate_data: SimulateData) -> PaginationBuilder {
-        // initialization doesn't really matter since the index is always set manually anyway
+        // initialization doesn't really matter since the index is always set manually
+        // anyway
         let pages = Pages::new(1, usize::MAX);
 
         let pagination = Self { map, simulate_data };

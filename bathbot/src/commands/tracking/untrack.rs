@@ -6,14 +6,13 @@ use eyre::{Report, Result};
 use hashbrown::HashSet;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 
+use super::TrackArgs;
 use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, UntrackEmbed},
     util::ChannelExt,
     Context,
 };
-
-use super::TrackArgs;
 
 #[command]
 #[desc("Untrack user top scores in a channel")]

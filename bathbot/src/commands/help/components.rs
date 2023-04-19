@@ -11,6 +11,7 @@ use twilight_model::{
     },
 };
 
+use super::{option_fields, parse_select_menu, AUTHORITY_STATUS};
 use crate::{
     core::{
         commands::slash::{SlashCommand, SlashCommands},
@@ -18,8 +19,6 @@ use crate::{
     },
     util::{interaction::InteractionComponent, ComponentExt},
 };
-
-use super::{option_fields, parse_select_menu, AUTHORITY_STATUS};
 
 type PartResult = Result<(Parts, bool)>;
 

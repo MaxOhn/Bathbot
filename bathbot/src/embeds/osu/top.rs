@@ -14,14 +14,13 @@ use bathbot_util::{
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 
+use super::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter};
 use crate::{
     commands::osu::{TopEntry, TopScoreOrder},
     manager::{redis::RedisData, OsuMap},
     pagination::Pages,
     util::{osu::grade_emote, Emote},
 };
-
-use super::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter};
 
 type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), IntHasher>;
 

@@ -6,13 +6,12 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
+pub use self::{counts::*, globals::*, list::*};
 use crate::{
     commands::GameModeOption,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-pub use self::{counts::*, globals::*, list::*};
 
 mod counts;
 mod globals;
@@ -86,7 +85,8 @@ pub struct OsuStatsScores<'a> {
     - `+hdhr!`: Scores must have exactly `HDHR`\n\
     - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
     - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
+    /// excluded)
     mods: Option<Cow<'a, str>>,
     #[command(min_value = 1, max_value = 100)]
     /// Specify a min rank between 1 and 100

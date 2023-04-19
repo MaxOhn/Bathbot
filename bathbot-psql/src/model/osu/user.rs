@@ -34,7 +34,8 @@ impl TryFrom<DbCountryCode> for [u8; 2] {
     }
 }
 
-// Be sure to keep structure in sync with `bathbot_model::user_stats::UserStatsEntry`!
+// Be sure to keep structure in sync with
+// `bathbot_model::user_stats::UserStatsEntry`!
 #[derive(FromRow)]
 pub struct DbUserStatsEntry<V> {
     #[sqlx(rename = "country_code", try_from = "DbCountryCode")]

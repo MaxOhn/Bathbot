@@ -73,8 +73,10 @@ use rosu_v2::request::UserId;
 use twilight_interactions::command::{CommandOption, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{core::commands::CommandOrigin, Context};
-
+#[cfg(feature = "server")]
+pub use self::link::*;
+#[cfg(feature = "matchlive")]
+pub use self::match_live::*;
 pub use self::{
     attributes::*, avatar::*, badges::*, bws::*, cards::*, claim_name::*, compare::*,
     country_top::*, fix::*, graphs::*, leaderboard::*, map::*, map_search::*, mapper::*,
@@ -82,12 +84,7 @@ pub use self::{
     osustats::*, pinned::*, popular::*, pp::*, profile::*, rank::*, ranking::*, ratios::*,
     recent::*, serverleaderboard::*, simulate::*, snipe::*, top::*, whatif::*,
 };
-
-#[cfg(feature = "matchlive")]
-pub use self::match_live::*;
-
-#[cfg(feature = "server")]
-pub use self::link::*;
+use crate::{core::commands::CommandOrigin, Context};
 
 mod attributes;
 mod avatar;

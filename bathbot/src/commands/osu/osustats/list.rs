@@ -10,6 +10,7 @@ use eyre::Result;
 use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
 
+use super::OsuStatsPlayers;
 use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
@@ -17,8 +18,6 @@ use crate::{
     util::ChannelExt,
     Context,
 };
-
-use super::OsuStatsPlayers;
 
 impl<'a> From<OsuStatsPlayers<'a>> for OsuStatsPlayersArgs {
     fn from(args: OsuStatsPlayers<'a>) -> Self {
@@ -118,9 +117,10 @@ pub(super) async fn players(
 ///     >: 8 -> 9
 ///
 /// If there are none, then only one request will be made.
-/// Otherwise, chances are there are at least 150 entries, so two requests will be made.
-/// If there are fewer than 150 people, binary search will attempt to find the exact amount
-/// with as few requests as possible with a worst case of six requests (1,10,5,7,8,9).
+/// Otherwise, chances are there are at least 150 entries, so two requests will
+/// be made. If there are fewer than 150 people, binary search will attempt to
+/// find the exact amount with as few requests as possible with a worst case of
+/// six requests (1,10,5,7,8,9).
 async fn prepare_players(
     ctx: &Context,
     params: &mut OsuStatsPlayersArgs,
@@ -336,12 +336,11 @@ async fn prefix_osustatslistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 }
 
 impl<'m> OsuStatsPlayers<'m> {
-    const MIN_RANK: u32 = 1;
-    const MAX_RANK: u32 = 100;
-
     const ERR_PARSE_RANK: &'static str = "Failed to parse `rank`.\n\
         Must be either a positive integer \
         or two positive integers of the form `a..b` e.g. `2..45`.";
+    const MAX_RANK: u32 = 100;
+    const MIN_RANK: u32 = 1;
 
     fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
         let mut country = None;

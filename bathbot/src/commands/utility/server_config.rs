@@ -7,14 +7,13 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::RoleMarker, Id};
 
+use super::AuthorityCommandKind;
 use crate::{
     commands::{EnableDisable, ShowHideOption},
     embeds::{EmbedData, ServerConfigEmbed},
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-use super::AuthorityCommandKind;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "serverconfig", dm_permission = false)]
@@ -120,7 +119,8 @@ pub struct ServerConfigEdit {
     )]
     /// Specify the default track limit for osu! top scores
     track_limit: Option<i64>,
-    /// Specify whether the recent command should show max or if-fc pp when minimized
+    /// Specify whether the recent command should show max or if-fc pp when
+    /// minimized
     minimized_pp: Option<MinimizedPp>,
 }
 

@@ -41,7 +41,8 @@ impl From<DbGuildConfig> for GuildConfig {
             allow_songs,
         } = config;
 
-        // SAFETY: The bytes originate from the DB which only provides valid archived data
+        // SAFETY: The bytes originate from the DB which only provides valid archived
+        // data
         let authorities = unsafe { Authorities::deserialize(&authorities) };
         let prefixes = unsafe { Prefixes::deserialize(&prefixes) };
 

@@ -18,6 +18,7 @@ use eyre::{Report, Result};
 use rosu_pp::DifficultyAttributes;
 use rosu_v2::prelude::{GameMode, Grade, OsuError, Score};
 
+use super::{RecentList, RecentListUnique};
 use crate::{
     commands::{
         osu::{user_not_found, HasMods, ModsResult, ScoreOrder},
@@ -32,8 +33,6 @@ use crate::{
     },
     Context,
 };
-
-use super::{RecentList, RecentListUnique};
 
 #[command]
 #[desc("Display a list of a user's most recent plays")]

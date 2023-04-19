@@ -3,13 +3,12 @@ use bathbot_model::rosu_v2::user::User;
 use rosu_v2::prelude::GameMode;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     commands::osu::TopIfEntry,
     embeds::{EmbedData, TopIfEmbed},
     manager::redis::RedisData,
 };
-
-use super::Pages;
 
 #[pagination(per_page = 5, entries = "entries")]
 pub struct TopIfPagination {

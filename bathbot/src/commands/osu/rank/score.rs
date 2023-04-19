@@ -5,6 +5,7 @@ use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 
+use super::RankScore;
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
@@ -13,8 +14,6 @@ use crate::{
     util::ChannelExt,
     Context,
 };
-
-use super::RankScore;
 
 #[command]
 #[desc("How much ranked score is a player missing to reach the given rank?")]

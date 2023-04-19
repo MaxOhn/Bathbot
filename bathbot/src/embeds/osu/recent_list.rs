@@ -8,14 +8,13 @@ use bathbot_util::{
 };
 use rosu_v2::prelude::GameMode;
 
+use super::{ComboFormatter, KeyFormatter, PpFormatter};
 use crate::{
     commands::osu::RecentListEntry,
     manager::{redis::RedisData, OsuMap},
     pagination::Pages,
     util::osu::grade_completion_mods,
 };
-
-use super::{ComboFormatter, KeyFormatter, PpFormatter};
 
 #[derive(EmbedData)]
 pub struct RecentListEmbed {

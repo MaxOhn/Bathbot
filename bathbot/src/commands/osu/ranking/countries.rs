@@ -5,12 +5,11 @@ use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
 use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
 
+use super::RankingCountry;
 use crate::{
     commands::GameModeOption, core::commands::CommandOrigin,
     pagination::RankingCountriesPagination, Context,
 };
-
-use super::RankingCountry;
 
 #[command]
 #[desc("Display the osu! rankings for countries")]

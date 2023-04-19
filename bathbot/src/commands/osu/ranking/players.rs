@@ -8,6 +8,7 @@ use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings as RosuRankings};
 
+use super::{RankingPp, RankingScore};
 use crate::{
     commands::GameModeOption,
     core::commands::CommandOrigin,
@@ -16,8 +17,6 @@ use crate::{
     util::ChannelExt,
     Context,
 };
-
-use super::{RankingPp, RankingScore};
 
 // TODO: this sucks
 fn check_country(arg: &str) -> Result<CountryCode, &'static str> {

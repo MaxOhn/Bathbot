@@ -16,6 +16,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rosu_v2::{prelude::OsuError, request::UserId};
 
+use super::{SnipePlayerList, SnipePlayerListOrder};
 use crate::{
     commands::osu::{require_link, HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
@@ -24,8 +25,6 @@ use crate::{
     util::ChannelExt,
     Context,
 };
-
-use super::{SnipePlayerList, SnipePlayerListOrder};
 
 #[command]
 #[desc("List all national #1 scores of a player")]

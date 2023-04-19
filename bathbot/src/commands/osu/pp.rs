@@ -7,6 +7,7 @@ use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use super::user_not_found;
 use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
@@ -15,8 +16,6 @@ use crate::{
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
-
-use super::user_not_found;
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(name = "pp")]
@@ -29,7 +28,8 @@ pub struct Pp<'a> {
     /// Specify a username
     name: Option<Cow<'a, str>>,
     #[command(min_value = 0.0)]
-    /// Fill a top100 with scores of this many pp until the target total pp are reached
+    /// Fill a top100 with scores of this many pp until the target total pp are
+    /// reached
     each: Option<f32>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \

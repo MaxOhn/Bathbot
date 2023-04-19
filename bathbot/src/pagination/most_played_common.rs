@@ -5,12 +5,11 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     embeds::{EmbedData, MostPlayedCommonEmbed},
     manager::redis::RedisData,
 };
-
-use super::Pages;
 
 #[pagination(per_page = 10, entries = "maps")]
 pub struct MostPlayedCommonPagination {

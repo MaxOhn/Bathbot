@@ -6,13 +6,12 @@ use eyre::{Result, WrapErr};
 use rkyv::{Deserialize, Infallible};
 use twilight_model::{channel::message::embed::Embed, id::Id};
 
+use super::Pages;
 use crate::{
     embeds::{EmbedData, RankingEmbed},
     manager::redis::RedisData,
     Context,
 };
-
-use super::Pages;
 
 #[pagination(per_page = 20, total = "total")]
 pub struct RankingPagination {
@@ -30,7 +29,8 @@ impl RankingPagination {
 
         self.assure_present_users(ctx, pages, page).await?;
 
-        // Handle edge cases like idx=140;total=151 where two pages have to be requested at once
+        // Handle edge cases like idx=140;total=151 where two pages have to be requested
+        // at once
         self.assure_present_users(ctx, pages, page + 1).await?;
 
         let embed = RankingEmbed::new(&self.entries, &self.kind, self.author_idx, pages);

@@ -7,17 +7,14 @@ use rosu_v2::prelude::{GameMode, Grade};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use self::fix::*;
+pub use self::{leaderboard::*, list::*, score::*};
+use super::{FarmFilter, HasMods, ModsResult, ScoreOrder, TopArgs, TopScoreOrder};
 use crate::{
     commands::{osu::top, GameModeOption, GradeOption},
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-pub use self::{leaderboard::*, list::*, score::*};
-
-use self::fix::*;
-
-use super::{FarmFilter, HasMods, ModsResult, ScoreOrder, TopArgs, TopScoreOrder};
 
 mod fix;
 mod leaderboard;
@@ -98,7 +95,8 @@ pub struct RecentBest {
         - `+hdhr!`: Scores must have exactly `HDHR`\n\
         - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
         - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
+    /// excluded)
     mods: Option<String>,
     #[command(
         min_value = 1,
@@ -240,7 +238,8 @@ pub struct RecentList<'a> {
     - `+hdhr!`: Scores must have exactly `HDHR`\n\
     - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
     - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
+    /// excluded)
     mods: Option<Cow<'a, str>>,
     /// Show each map-mod pair only once
     unique: Option<RecentListUnique>,
@@ -328,7 +327,8 @@ pub struct Rb {
         - `+hdhr!`: Scores must have exactly `HDHR`\n\
         - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
         - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
+    /// excluded)
     mods: Option<String>,
     #[command(
         min_value = 1,

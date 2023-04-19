@@ -4,14 +4,12 @@ use bathbot_macros::SlashCommand;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
+pub use self::mapsets::MapsetEntry;
+use self::{mappers::*, maps::*, mapsets::*, mods::*};
 use crate::{
     core::Context,
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
-
-pub use self::mapsets::MapsetEntry;
-
-use self::{mappers::*, maps::*, mapsets::*, mods::*};
 
 mod mappers;
 mod maps;

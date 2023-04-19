@@ -12,6 +12,7 @@ use rosu_v2::{prelude::Username, request::UserId};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use super::{HasMods, ModsResult, ScoreOrder};
 use crate::{
     core::{commands::CommandOrigin, Context},
     pagination::OsuTrackerCountryTopPagination,
@@ -21,8 +22,6 @@ use crate::{
         InteractionCommandExt,
     },
 };
-
-use super::{HasMods, ModsResult, ScoreOrder};
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
 #[command(name = "countrytop")]
@@ -40,7 +39,8 @@ pub struct CountryTop {
         - `+hdhr!`: Scores must have exactly `HDHR`\n\
         - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
         - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
+    /// excluded)
     mods: Option<String>,
     /// Reverse the resulting score list
     reverse: Option<bool>,

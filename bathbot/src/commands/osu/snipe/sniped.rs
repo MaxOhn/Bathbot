@@ -27,6 +27,7 @@ use skia_safe::{EncodedImageFormat, Surface};
 use time::{Date, Duration, OffsetDateTime};
 use twilight_model::guild::Permissions;
 
+use super::SnipePlayerSniped;
 use crate::{
     commands::osu::require_link,
     core::commands::CommandOrigin,
@@ -34,8 +35,6 @@ use crate::{
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };
-
-use super::SnipePlayerSniped;
 
 #[command]
 #[desc("Sniped users of the last 8 weeks")]

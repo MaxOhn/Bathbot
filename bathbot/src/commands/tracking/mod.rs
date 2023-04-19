@@ -8,16 +8,14 @@ use eyre::Result;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
+pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
+use super::GameModeOption;
 use crate::{
     core::commands::prefix::Args,
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
-
-use super::GameModeOption;
 
 mod track;
 mod track_list;

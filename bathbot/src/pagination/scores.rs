@@ -3,13 +3,12 @@ use bathbot_model::rosu_v2::user::User;
 use rosu_v2::prelude::Score;
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     commands::osu::{CompareEntry, GlobalIndex},
     embeds::{EmbedData, MessageOrigin, ScoresEmbed},
     manager::{redis::RedisData, OsuMap},
 };
-
-use super::Pages;
 
 #[pagination(per_page = 10, entries = "entries")]
 pub struct ScoresPagination {

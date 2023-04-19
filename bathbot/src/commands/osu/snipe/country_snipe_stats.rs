@@ -13,6 +13,7 @@ use rosu_v2::{prelude::OsuError, request::UserId};
 use skia_safe::{EncodedImageFormat, Surface};
 use twilight_model::guild::Permissions;
 
+use super::SnipeCountryStats;
 use crate::{
     commands::osu::user_not_found,
     core::commands::CommandOrigin,
@@ -20,8 +21,6 @@ use crate::{
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };
-
-use super::SnipeCountryStats;
 
 #[command]
 #[desc("Snipe / #1 count related stats for a country")]

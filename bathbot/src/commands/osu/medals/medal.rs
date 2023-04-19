@@ -14,6 +14,7 @@ use rkyv::{Deserialize, Infallible};
 use twilight_interactions::command::AutocompleteValue;
 use twilight_model::application::command::{CommandOptionChoice, CommandOptionChoiceValue};
 
+use super::MedalInfo_;
 use crate::{
     core::commands::CommandOrigin,
     embeds::MedalEmbed,
@@ -21,8 +22,6 @@ use crate::{
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
-
-use super::MedalInfo_;
 
 #[command]
 #[desc("Display info about an osu! medal")]

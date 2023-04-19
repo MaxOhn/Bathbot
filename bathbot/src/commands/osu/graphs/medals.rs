@@ -12,13 +12,12 @@ use rkyv::{
 };
 use rosu_v2::{prelude::OsuError, request::UserId};
 
+use super::{H, W};
 use crate::{
     commands::osu::{medals::stats as medals_stats, user_not_found},
     core::{commands::CommandOrigin, Context},
     manager::redis::{osu::UserArgs, RedisData},
 };
-
-use super::{H, W};
 
 pub async fn medals_graph(
     ctx: &Context,

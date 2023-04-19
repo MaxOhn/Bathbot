@@ -14,6 +14,7 @@ use rkyv::{with::DeserializeWith, Infallible};
 use rosu_v2::{prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
 
+use super::{MedalList, MedalListOrder};
 use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
@@ -21,8 +22,6 @@ use crate::{
     pagination::MedalsListPagination,
     Context,
 };
-
-use super::{MedalList, MedalListOrder};
 
 pub(super) async fn list(
     ctx: Arc<Context>,

@@ -10,11 +10,10 @@ use bathbot_util::{
 };
 use rosu_v2::prelude::GameMode;
 
+use super::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter};
 use crate::{
     commands::osu::TopIfEntry, manager::redis::RedisData, pagination::Pages, util::osu::grade_emote,
 };
-
-use super::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter};
 
 #[derive(EmbedData)]
 pub struct TopIfEmbed {

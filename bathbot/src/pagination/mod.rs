@@ -14,13 +14,6 @@ use twilight_model::{
     },
 };
 
-use crate::{
-    commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
-    core::{commands::CommandOrigin, Context},
-    embeds::TopOldVersion,
-    util::{Emote, MessageExt},
-};
-
 pub use self::{
     badges::*, command_count::*, common::*, country_snipe_list::*, leaderboard::*, map::*,
     map_search::*, match_compare::*, medal_recent::*, medals_common::*, medals_list::*,
@@ -29,6 +22,12 @@ pub use self::{
     osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*, osutracker_mods::*,
     pages::Pages, player_snipe_list::*, profile::*, ranking::*, ranking_countries::*,
     recent_list::*, scores::*, simulate::*, sniped_difference::*, top::*, top_if::*,
+};
+use crate::{
+    commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
+    core::{commands::CommandOrigin, Context},
+    embeds::TopOldVersion,
+    util::{Emote, MessageExt},
 };
 
 mod badges;

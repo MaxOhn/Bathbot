@@ -10,9 +10,8 @@ use rosu_v2::{
     request::UserId,
 };
 
-use crate::core::Context;
-
 use super::{RedisData, RedisManager, RedisResult};
+use crate::core::Context;
 
 /// Retrieve an osu user through redis or the osu!api as backup
 pub enum UserArgs {
@@ -164,7 +163,8 @@ impl<'c> RedisManager<'c> {
         let mut user = match self.ctx.osu().user(user_id).mode(mode).await {
             Ok(user) => user,
             Err(OsuError::NotFound) => {
-                // Remove stats of unknown/restricted users so they don't appear in the leaderboard
+                // Remove stats of unknown/restricted users so they don't appear in the
+                // leaderboard
                 if let Err(err) = self.ctx.osu_user().remove_stats(user_id).await {
                     let wrap = "failed to remove stats of unknown user";
                     warn!("{:?}", err.wrap_err(wrap));

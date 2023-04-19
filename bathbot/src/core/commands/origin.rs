@@ -99,7 +99,8 @@ impl CommandOrigin<'_> {
     #[allow(unused)]
     /// Respond to something.
     ///
-    /// In case of a message, ignore the flags and discard the response message created.
+    /// In case of a message, ignore the flags and discard the response message
+    /// created.
     pub async fn callback_with_flags(
         &self,
         ctx: &Context,
@@ -146,8 +147,8 @@ impl CommandOrigin<'_> {
     #[allow(unused)]
     /// Update a response and return the resulting response message.
     ///
-    /// In case of an interaction, be sure this is the first and only time you call this.
-    /// Afterwards, you must update the resulting message.
+    /// In case of an interaction, be sure this is the first and only time you
+    /// call this. Afterwards, you must update the resulting message.
     pub async fn update(
         &self,
         ctx: &Context,
@@ -186,8 +187,8 @@ impl CommandOrigin<'_> {
 
     /// Respond with a red embed.
     ///
-    /// In case of an interaction, be sure this is the first and only time you call this.
-    /// The response will not be ephemeral.
+    /// In case of an interaction, be sure this is the first and only time you
+    /// call this. The response will not be ephemeral.
     pub async fn error_callback(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
         match self {
             CommandOrigin::Message { msg, .. } => msg

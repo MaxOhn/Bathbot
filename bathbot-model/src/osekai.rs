@@ -18,12 +18,11 @@ use serde::{
 use time::Date;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
+use super::deser;
 use crate::{
     rkyv_util::{time::DateRkyv, DerefAsString},
     CountryCode, RankingKind,
 };
-
-use super::deser;
 
 pub trait OsekaiRanking {
     const FORM: &'static str;

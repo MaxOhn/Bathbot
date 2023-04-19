@@ -12,12 +12,11 @@ use twilight_model::{
     },
 };
 
+use super::{kind::GameStateKind, HlGuess};
 use crate::{
     core::Context,
     util::{interaction::InteractionComponent, Authored},
 };
-
-use super::{kind::GameStateKind, HlGuess};
 
 pub struct GameState {
     kind: GameStateKind,
@@ -110,7 +109,8 @@ impl GameState {
         Ok(())
     }
 
-    /// Only has an image if it is the first call after initialization / [`GameState::next`].
+    /// Only has an image if it is the first call after initialization /
+    /// [`GameState::next`].
     pub async fn make_embed(&mut self) -> Embed {
         let image = match self.img_url_rx.take() {
             Some(rx) => match rx.await {

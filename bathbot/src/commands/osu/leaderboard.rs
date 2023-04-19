@@ -15,6 +15,7 @@ use twilight_model::{
     guild::Permissions,
 };
 
+use super::{HasMods, ModsResult};
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::MapError,
@@ -22,8 +23,6 @@ use crate::{
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
-
-use super::{HasMods, ModsResult};
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "leaderboard")]

@@ -140,8 +140,8 @@ macro_rules! bitflag_impls {
         }
 
         impl IntoIterator for $ty {
-            type Item = $ty;
             type IntoIter = IntoIter<$ty>;
+            type Item = $ty;
 
             fn into_iter(self) -> IntoIter<$ty> {
                 IntoIter {

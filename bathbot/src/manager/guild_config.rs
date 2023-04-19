@@ -23,7 +23,8 @@ impl<'d> GuildConfigManager<'d> {
         }
     }
 
-    /// Get a reference to the [`GuildConfig`] for a guild and execute a function on it.
+    /// Get a reference to the [`GuildConfig`] for a guild and execute a
+    /// function on it.
     pub async fn peek<F, O>(self, guild_id: Id<GuildMarker>, f: F) -> O
     where
         F: FnOnce(&GuildConfig) -> O,

@@ -1,6 +1,8 @@
 use std::{borrow::Cow, fmt::Write};
 
 use bathbot_model::rosu_v2::user::User;
+#[cfg(feature = "twitch")]
+use bathbot_model::TwitchVideo;
 use bathbot_psql::model::configs::MinimizedPp;
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
@@ -14,6 +16,7 @@ use rosu_v2::prelude::{BeatmapUserScore, GameMode, Score};
 use time::OffsetDateTime;
 use twilight_model::channel::message::embed::Embed;
 
+use super::{ComboFormatter, HitResultFormatter, KeyFormatter, MessageOrigin};
 use crate::{
     commands::osu::RecentEntry,
     core::Context,
@@ -21,11 +24,6 @@ use crate::{
     manager::redis::RedisData,
     util::osu::{grade_completion_mods, IfFc, MapInfo, PersonalBestIndex},
 };
-
-#[cfg(feature = "twitch")]
-use bathbot_model::TwitchVideo;
-
-use super::{ComboFormatter, HitResultFormatter, KeyFormatter, MessageOrigin};
 
 pub struct RecentEmbed {
     description: String,

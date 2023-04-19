@@ -36,7 +36,8 @@ impl Authorities {
 
     /// # Safety
     ///
-    /// The caller must ensure that the provided bytes are valid archived authorities
+    /// The caller must ensure that the provided bytes are valid archived
+    /// authorities
     pub(crate) unsafe fn deserialize(bytes: &[u8]) -> Self {
         let archived_authorities = rkyv::archived_root::<Self>(bytes);
 

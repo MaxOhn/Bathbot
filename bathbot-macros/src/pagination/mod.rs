@@ -3,7 +3,6 @@ use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{punctuated::Punctuated, token::Comma, Data, DeriveInput, Error, Field, Fields, Result};
 
 pub use self::attributes::AttributeList;
-
 use self::attributes::Attributes;
 
 mod attributes;

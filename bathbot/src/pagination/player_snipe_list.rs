@@ -9,13 +9,12 @@ use bathbot_util::IntHasher;
 use eyre::{Report, Result, WrapErr};
 use twilight_model::channel::message::embed::Embed;
 
+use super::Pages;
 use crate::{
     embeds::{EmbedData, PlayerSnipeListEmbed},
     manager::{redis::RedisData, OsuMap},
     Context,
 };
-
-use super::Pages;
 
 #[pagination(per_page = 5, total = "total")]
 pub struct PlayerSnipeListPagination {

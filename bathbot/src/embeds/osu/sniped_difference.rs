@@ -1,4 +1,4 @@
-use std::{fmt::Write, borrow::Cow};
+use std::{borrow::Cow, fmt::Write};
 
 use bathbot_macros::EmbedData;
 use bathbot_model::{rosu_v2::user::User, SnipeRecent};
@@ -10,11 +10,10 @@ use eyre::{Result, WrapErr};
 use hashbrown::{hash_map::Entry, HashMap};
 use rosu_v2::prelude::GameMode;
 
+use super::ModsFormatter;
 use crate::{
     commands::osu::Difference, core::Context, manager::redis::RedisData, pagination::Pages,
 };
-
-use super::ModsFormatter;
 
 #[derive(EmbedData)]
 pub struct SnipedDiffEmbed {

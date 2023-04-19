@@ -8,6 +8,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
 
+use super::RecentFix;
 use crate::{
     commands::osu::{user_not_found, FixEntry, FixScore},
     core::{commands::CommandOrigin, Context},
@@ -15,8 +16,6 @@ use crate::{
     manager::redis::osu::{UserArgs, UserArgsSlim},
     util::osu::IfFc,
 };
-
-use super::RecentFix;
 
 pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> {
     let (user_id, mode) = user_id_mode!(ctx, orig, args);

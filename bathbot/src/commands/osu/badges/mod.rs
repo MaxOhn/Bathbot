@@ -8,12 +8,11 @@ use twilight_interactions::command::{
 };
 use twilight_model::id::{marker::UserMarker, Id};
 
+use self::{query::*, user::*};
 use crate::{
     core::Context,
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
-
-use self::{query::*, user::*};
 
 mod query;
 mod user;

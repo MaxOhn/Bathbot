@@ -13,6 +13,8 @@ use rosu_v2::{
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
+pub use self::data::{ProfileData, Top100Stats};
+use super::{require_link, user_not_found};
 use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
@@ -21,10 +23,6 @@ use crate::{
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
-
-pub use self::data::{ProfileData, Top100Stats};
-
-use super::{require_link, user_not_found};
 
 mod data;
 

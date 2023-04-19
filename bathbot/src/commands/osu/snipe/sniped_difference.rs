@@ -10,6 +10,7 @@ use hashbrown::HashMap;
 use rosu_v2::{prelude::OsuError, request::UserId};
 use time::{Duration, OffsetDateTime};
 
+use super::{SnipePlayerGain, SnipePlayerLoss};
 use crate::{
     commands::osu::require_link,
     core::commands::CommandOrigin,
@@ -17,8 +18,6 @@ use crate::{
     pagination::SnipedDiffPagination,
     Context,
 };
-
-use super::{SnipePlayerGain, SnipePlayerLoss};
 
 #[command]
 #[desc("Display a user's recently acquired national #1 scores")]

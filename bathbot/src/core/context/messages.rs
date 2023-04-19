@@ -32,7 +32,8 @@ impl Context {
     }
 
     /// Returns false if either `store_msg` was not called for the message id
-    /// or if the message was deleted between the `store_msg` call and this call.
+    /// or if the message was deleted between the `store_msg` call and this
+    /// call.
     pub fn remove_msg(&self, msg: Id<MessageMarker>) -> bool {
         self.data.msgs_to_process.lock().remove(&msg)
     }

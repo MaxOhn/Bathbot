@@ -14,6 +14,7 @@ use rosu_v2::{
     OsuResult,
 };
 
+use super::{CompareMostPlayed, AT_LEAST_ONE};
 use crate::{
     commands::osu::{user_not_found, UserExtraction},
     core::commands::CommandOrigin,
@@ -21,8 +22,6 @@ use crate::{
     pagination::MostPlayedCommonPagination,
     Context,
 };
-
-use super::{CompareMostPlayed, AT_LEAST_ONE};
 
 #[command]
 #[desc("Compare the 100 most played maps of two users")]

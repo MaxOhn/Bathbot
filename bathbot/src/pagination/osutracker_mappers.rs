@@ -2,9 +2,8 @@ use bathbot_macros::pagination;
 use bathbot_model::OsuTrackerMapperEntry;
 use twilight_model::channel::message::embed::Embed;
 
-use crate::embeds::{EmbedData, OsuTrackerMappersEmbed};
-
 use super::Pages;
+use crate::embeds::{EmbedData, OsuTrackerMappersEmbed};
 
 #[pagination(per_page = 20, entries = "entries")]
 pub struct OsuTrackerMappersPagination {

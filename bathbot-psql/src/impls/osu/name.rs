@@ -130,12 +130,11 @@ pub(in crate::impls) mod tests {
     use eyre::Result;
     use futures::Future;
 
+    use super::super::super::tests::user_config_wrap_upsert_delete;
     use crate::{
         tests::{database, discord_id, osu_user_id, osu_username},
         Database,
     };
-
-    use super::super::super::tests::user_config_wrap_upsert_delete;
 
     pub async fn wrap_upsert_delete<F>(psql: &Database, fut: F) -> Result<()>
     where

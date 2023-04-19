@@ -1,9 +1,8 @@
 use bathbot_model::{Effects, MapsetTags};
 use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::commands::fun::GameDifficulty;
-
 pub use self::{game_wrapper::GameWrapper, mapset::GameMapset};
+use crate::commands::fun::GameDifficulty;
 
 mod game;
 mod game_wrapper;

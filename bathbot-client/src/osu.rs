@@ -213,7 +213,9 @@ impl Client {
         Ok(comments.0.unwrap_or_default())
     }
 
-    /// Don't use this; use [`RedisCache::osekai_ranking`](crate::core::RedisCache::osekai_ranking) instead.
+    /// Don't use this; use
+    /// [`RedisCache::osekai_ranking`](crate::core::RedisCache::osekai_ranking)
+    /// instead.
     pub async fn get_osekai_ranking<R: OsekaiRanking>(&self) -> Result<Vec<R::Entry>> {
         let url = "https://osekai.net/rankings/api/api.php";
         let form = Multipart::new().push_text("App", R::FORM);
@@ -471,7 +473,8 @@ impl Client {
         if mode == GameMode::Mania && non_mirror {
             let mods = match mods {
                 None => Some(mods!(Mirror)),
-                Some(mods) => Some(mods.to_owned() | GameModIntermode::Mirror), // TODO: remove .to_owned()
+                Some(mods) => Some(mods.to_owned() | GameModIntermode::Mirror), /* TODO: remove
+                                                                                 * .to_owned() */
             };
 
             let mut new_scores = self._get_leaderboard(map_id, mods.as_ref()).await?;

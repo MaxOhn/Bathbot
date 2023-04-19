@@ -2,9 +2,8 @@ use bathbot_macros::pagination;
 use bathbot_model::OsekaiUserEntry;
 use twilight_model::channel::message::embed::Embed;
 
-use crate::embeds::{EmbedData, MedalCountEmbed};
-
 use super::Pages;
+use crate::embeds::{EmbedData, MedalCountEmbed};
 
 #[pagination(per_page = 10, entries = "ranking")]
 pub struct MedalCountPagination {

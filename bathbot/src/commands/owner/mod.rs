@@ -5,20 +5,16 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::Attachment;
 
+use self::{add_bg::*, add_country::*, cache::*, request_members::*};
+#[cfg(feature = "osutracking")]
+use self::{tracking_interval::*, tracking_stats::*};
+use super::GameModeOption;
+#[cfg(feature = "osutracking")]
+use crate::tracking::default_tracking_interval;
 use crate::{
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
-
-#[cfg(feature = "osutracking")]
-use crate::tracking::default_tracking_interval;
-
-use self::{add_bg::*, add_country::*, cache::*, request_members::*};
-
-#[cfg(feature = "osutracking")]
-use self::{tracking_interval::*, tracking_stats::*};
-
-use super::GameModeOption;
 
 mod add_bg;
 mod add_country;

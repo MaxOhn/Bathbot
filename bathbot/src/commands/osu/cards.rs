@@ -31,6 +31,7 @@ use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use super::user_not_found;
 use crate::{
     commands::GameModeOption,
     core::{commands::CommandOrigin, BotConfig, Context},
@@ -38,8 +39,6 @@ use crate::{
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
-
-use super::user_not_found;
 
 static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     let mut handlebars = Handlebars::new();
