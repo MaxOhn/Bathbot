@@ -648,12 +648,10 @@ impl PersonalBestIndex {
             return Self::NotTop100;
         } else if !matches!(status, RankStatus::Ranked | RankStatus::Approved) {
             return Self::IfRanked { idx };
-        }
-
-        // If multiple scores have the exact same pp as the given
-        // score then `idx` might not belong to the given score.
-        // Chances are pretty slim though so this should be fine.
-        if top100.get(idx).filter(|&top| score.is_eq(top)).is_some() {
+        } else if top100.get(idx).filter(|&top| score.is_eq(top)).is_some() {
+            // If multiple scores have the exact same pp as the given
+            // score then `idx` might not belong to the given score.
+            // Chances are pretty slim though so this should be fine.
             return Self::FoundScore { idx };
         }
 
