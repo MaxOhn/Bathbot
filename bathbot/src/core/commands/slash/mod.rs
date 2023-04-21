@@ -94,6 +94,7 @@ impl SlashCommands {
                 Search => SEARCH_SLASH,
                 ServerConfig => SERVERCONFIG_SLASH,
                 ServerLeaderboard => SERVERLEADERBOARD_SLASH,
+                ServerScores => SERVERSCORES_SLASH,
                 Simulate => SIMULATE_SLASH,
                 Skin => SKIN_SLASH,
                 Snipe => SNIPE_SLASH,
