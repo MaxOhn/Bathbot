@@ -4,11 +4,9 @@ use std::{
 };
 
 use bathbot_util::osu::ModSelection;
-use rosu_v2::prelude::{
-    CountryCode, GameMode, GameMods, GameModsIntermode, ModeAsSeed, RankStatus, Username,
-};
+use rosu_v2::prelude::{CountryCode, GameMode, GameMods, GameModsIntermode, RankStatus, Username};
 use serde::{
-    de::{DeserializeSeed, Deserializer, Error as DeError, MapAccess, Unexpected, Visitor},
+    de::{value::StrDeserializer, Deserializer, Error as DeError, MapAccess, Unexpected, Visitor},
     Deserialize,
 };
 use serde_json::value::RawValue;
@@ -256,8 +254,8 @@ impl<'de> Deserialize<'de> for SnipeRecent {
         let inner = SnipeRecentInner::deserialize(d)?;
 
         let mods = match inner.mods {
-            Some(raw) => serde_json::Deserializer::from_str(raw.get())
-                .deserialize_str(SnipeRecentModsVisitor)
+            Some(raw) => StrDeserializer::<D::Error>::new(raw.get().trim_matches('"'))
+                .deserialize_str(SnipeModsVisitor)
                 .map(Some)
                 .map_err(DeError::custom)?,
             None => None,
@@ -295,9 +293,9 @@ impl<'de> Deserialize<'de> for SnipeRecent {
     }
 }
 
-struct SnipeRecentModsVisitor;
+struct SnipeModsVisitor;
 
-impl<'de> Visitor<'de> for SnipeRecentModsVisitor {
+impl<'de> Visitor<'de> for SnipeModsVisitor {
     type Value = GameMods;
 
     fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
@@ -305,16 +303,17 @@ impl<'de> Visitor<'de> for SnipeRecentModsVisitor {
     }
 
     fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
+        if v == "nomod" {
+            return Ok(GameMods::new());
+        }
+
         let intermode = match v.parse::<GameModsIntermode>() {
             Ok(mods) => mods,
-            Err(_) => match v {
-                "nomod" => GameModsIntermode::new(),
-                _ => {
-                    let expected = "a valid combination of mod acronyms";
+            Err(_) => {
+                let expected = "a valid combination of mod acronyms";
 
-                    return Err(DeError::invalid_value(Unexpected::Str(v), &expected));
-                }
-            },
+                return Err(DeError::invalid_value(Unexpected::Str(v), &expected));
+            }
         };
 
         intermode
@@ -388,14 +387,10 @@ impl<'de> Deserialize<'de> for SnipeScore {
         let inner = SnipeScoreInner::deserialize(d)?;
 
         let mods = match inner.mods {
-            Some(raw) => {
-                let mut d = serde_json::Deserializer::from_str(raw.get());
-
-                ModeAsSeed::<GameMods>::new(GameMode::Osu)
-                    .deserialize(&mut d)
-                    .map(Some)
-                    .map_err(DeError::custom)?
-            }
+            Some(raw) => StrDeserializer::<D::Error>::new(raw.get().trim_matches('"'))
+                .deserialize_str(SnipeModsVisitor)
+                .map(Some)
+                .map_err(DeError::custom)?,
             None => None,
         };
 
