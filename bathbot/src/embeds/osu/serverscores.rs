@@ -190,7 +190,7 @@ impl Display for OrderAppendix<'_> {
                 let ranked_date = self
                     .mapset
                     .and_then(|mapset| mapset.ranked_date)
-                    .unwrap_or_else(|| OffsetDateTime::now_utc());
+                    .unwrap_or_else(OffsetDateTime::now_utc);
 
                 write!(f, "<t:{}:R>", ranked_date.unix_timestamp())
             }

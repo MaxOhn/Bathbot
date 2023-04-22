@@ -22,12 +22,16 @@ impl<S> DbScores<S> {
         self.scores.len()
     }
 
-    pub fn scores_mut(&mut self) -> &mut [DbScore] {
-        &mut self.scores
+    pub fn is_empty(&self) -> bool {
+        self.scores.is_empty()
     }
 
     pub fn scores(&self) -> &[DbScore] {
         &self.scores
+    }
+
+    pub fn scores_mut(&mut self) -> &mut [DbScore] {
+        &mut self.scores
     }
 
     pub fn retain<F>(&mut self, mut f: F)
