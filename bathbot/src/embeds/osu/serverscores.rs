@@ -84,10 +84,16 @@ impl ServerScoresEmbed {
             let mapset = map.and_then(|map| data.mapset(map.mapset_id));
             let user = data.user(score.user_id);
 
+            let mode = if mode.is_some() {
+                None
+            } else {
+                Some(score.mode)
+            };
+
             let _ = writeln!(
                 description,
                 "**{i}.** [{map}]({OSU_BASE}b/{map_id}) **+{mods}**{stars}\n\
-                > by __[{user}]({OSU_BASE}u/{user_id})__ {grade} **{pp}pp** • {acc}% • {appendix}",
+                > by __[{user}]({OSU_BASE}u/{user_id})__ {grade} **{pp}pp** • {acc}% {mode} {appendix}",
                 map = MapFormatter::new(map, mapset),
                 map_id = score.map_id,
                 mods = GameModsIntermode::from_bits(score.mods),
@@ -97,6 +103,7 @@ impl ServerScoresEmbed {
                 grade = config.grade(score.grade),
                 pp = PpFormatter::new(score.pp),
                 acc = round(score.statistics.accuracy(score.mode)),
+                mode = GameModeFormatter::new(mode),
                 appendix = OrderAppendix::new(sort, score, map, mapset),
             );
         }
@@ -252,6 +259,25 @@ impl Display for UserFormatter<'_> {
         match self.user {
             Some(user) => f.write_str(user.username.cow_escape_markdown().as_ref()),
             None => f.write_str("<unknown user>"),
+        }
+    }
+}
+
+struct GameModeFormatter {
+    mode: Option<GameMode>,
+}
+
+impl GameModeFormatter {
+    fn new(mode: Option<GameMode>) -> Self {
+        Self { mode }
+    }
+}
+
+impl Display for GameModeFormatter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self.mode {
+            Some(mode) => f.write_str(Emote::from(mode).text()),
+            None => f.write_str("•"),
         }
     }
 }
