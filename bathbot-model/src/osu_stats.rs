@@ -220,6 +220,10 @@ impl<'de> Visitor<'de> for OsuStatsScoreModsVisitor {
     }
 
     fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
+        if v == "None" {
+            return Ok(GameMods::new());
+        }
+
         v.split(',')
             .map(|s| GameMod::new(s, self.mode))
             .collect::<Option<GameMods>>()
