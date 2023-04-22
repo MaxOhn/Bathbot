@@ -88,13 +88,6 @@ impl<'c> ScoresManager<'c> {
             .await
             .wrap_err("Failed to store top scores")
     }
-
-    async fn update_mapsets(self, scores: &[Score]) -> Result<()> {
-        self.psql
-            .update_beatmapsets_compact(scores)
-            .await
-            .wrap_err("Failed to update mapsets")
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -196,16 +189,6 @@ impl<'c> ScoreArgs<'c> {
         // Store scores in database
         let store_fut = self.manager.store(&scores);
 
-        // Update mapsets of recent scores
-        let update_mapsets = async {
-            match self.kind {
-                ScoreKind::Recent { .. } => self.manager.update_mapsets(&scores).await,
-                ScoreKind::Top { .. } | ScoreKind::UserMap { .. } | ScoreKind::Pinned { .. } => {
-                    Ok(())
-                }
-            }
-        };
-
         // Pass scores to tracking check
         let tracking_fut = async {
             #[cfg(feature = "osutracking")]
@@ -214,15 +197,10 @@ impl<'c> ScoreArgs<'c> {
             }
         };
 
-        let (store_res, update_mapsets_res, _) =
-            tokio::join!(store_fut, update_mapsets, tracking_fut);
+        let (store_res, _) = tokio::join!(store_fut, tracking_fut);
 
         if let Err(err) = store_res {
             warn!("{:?}", err.wrap_err("Failed to store top scores"));
-        }
-
-        if let Err(err) = update_mapsets_res {
-            warn!("{:?}", err.wrap_err("Failed to update mapsets"));
         }
 
         Ok(scores)
