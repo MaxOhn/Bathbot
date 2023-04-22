@@ -96,9 +96,7 @@ r#"WITH scores AS (
       $3 :: INT4 IS NULL 
       OR (
         $3 != 0 
-        AND bit_count(
-          $3 :: bit(32) & mods :: bit(32)
-        ) > 0
+        AND $3 :: bit(32) & mods :: bit(32) = $3 :: bit(32)
       ) 
       OR (
         $3 = 0 
@@ -110,9 +108,7 @@ r#"WITH scores AS (
       $4 :: INT4 IS NULL 
       OR (
         $4 != 0 
-        AND bit_count(
-          $4 :: bit(32) & mods :: bit(32)
-        ) = 0
+        AND $4 :: bit(32) & mods :: bit(32) != $4 :: bit(32)
       ) 
       OR (
         $4 = 0 
@@ -209,9 +205,7 @@ r#"WITH scores AS (
       $3 :: INT4 IS NULL 
       OR (
         $3 != 0 
-        AND bit_count(
-          $3 :: bit(32) & mods :: bit(32)
-        ) > 0
+        AND $3 :: bit(32) & mods :: bit(32) = $3 :: bit(32)
       ) 
       OR (
         $3 = 0 
@@ -223,9 +217,7 @@ r#"WITH scores AS (
       $4 :: INT4 IS NULL 
       OR (
         $4 != 0 
-        AND bit_count(
-          $4 :: bit(32) & mods :: bit(32)
-        ) = 0
+        AND $4 :: bit(32) & mods :: bit(32) != $4 :: bit(32)
       ) 
       OR (
         $4 = 0 
@@ -323,9 +315,7 @@ r#"WITH scores AS (
       $3 :: INT4 IS NULL 
       OR (
         $3 != 0 
-        AND bit_count(
-          $3 :: bit(32) & mods :: bit(32)
-        ) > 0
+        AND $3 :: bit(32) & mods :: bit(32) = $3 :: bit(32)
       ) 
       OR (
         $3 = 0 
@@ -337,9 +327,7 @@ r#"WITH scores AS (
       $4 :: INT4 IS NULL 
       OR (
         $4 != 0 
-        AND bit_count(
-          $4 :: bit(32) & mods :: bit(32)
-        ) = 0
+        AND $4 :: bit(32) & mods :: bit(32) != $4 :: bit(32)
       ) 
       OR (
         $4 = 0 
@@ -440,9 +428,7 @@ r#"WITH scores AS (
       $3 :: INT4 IS NULL 
       OR (
         $3 != 0 
-        AND bit_count(
-          $3 :: bit(32) & mods :: bit(32)
-        ) > 0
+        AND $3 :: bit(32) & mods :: bit(32) = $3 :: bit(32)
       ) 
       OR (
         $3 = 0 
@@ -454,9 +440,7 @@ r#"WITH scores AS (
       $4 :: INT4 IS NULL 
       OR (
         $4 != 0 
-        AND bit_count(
-          $4 :: bit(32) & mods :: bit(32)
-        ) = 0
+        AND $4 :: bit(32) & mods :: bit(32) != $4 :: bit(32)
       ) 
       OR (
         $4 = 0 
@@ -562,9 +546,7 @@ WITH scores AS (
       $3 :: INT4 IS NULL 
       OR (
         $3 != 0 
-        AND bit_count(
-          $3 :: bit(32) & mods :: bit(32)
-        ) > 0
+        AND $3 :: bit(32) & mods :: bit(32) = $3 :: bit(32)
       ) 
       OR (
         $3 = 0 
@@ -576,9 +558,7 @@ WITH scores AS (
       $4 :: INT4 IS NULL 
       OR (
         $4 != 0 
-        AND bit_count(
-          $4 :: bit(32) & mods :: bit(32)
-        ) = 0
+        AND $4 :: bit(32) & mods :: bit(32) != $4 :: bit(32)
       ) 
       OR (
         $4 = 0 
