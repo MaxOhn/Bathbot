@@ -194,12 +194,15 @@ impl<'c> ScoreArgs<'c> {
         };
 
         // Store scores in database
-        let store_fut = async {
+        let store_fut = self.manager.store(&scores);
+
+        // Update mapsets of recent scores
+        let update_mapsets = async {
             match self.kind {
-                ScoreKind::Top { .. } | ScoreKind::UserMap { .. } | ScoreKind::Pinned { .. } => {
-                    self.manager.store(&scores).await
-                }
                 ScoreKind::Recent { .. } => self.manager.update_mapsets(&scores).await,
+                ScoreKind::Top { .. } | ScoreKind::UserMap { .. } | ScoreKind::Pinned { .. } => {
+                    Ok(())
+                }
             }
         };
 
@@ -211,10 +214,15 @@ impl<'c> ScoreArgs<'c> {
             }
         };
 
-        let (store_res, _) = tokio::join!(store_fut, tracking_fut);
+        let (store_res, update_mapsets_res, _) =
+            tokio::join!(store_fut, update_mapsets, tracking_fut);
 
         if let Err(err) = store_res {
             warn!("{:?}", err.wrap_err("Failed to store top scores"));
+        }
+
+        if let Err(err) = update_mapsets_res {
+            warn!("{:?}", err.wrap_err("Failed to update mapsets"));
         }
 
         Ok(scores)
