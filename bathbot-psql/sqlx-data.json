@@ -227,6 +227,96 @@
     },
     "query": "\nDELETE FROM \n  tracked_twitch_streams \nWHERE \n  channel_id = $1"
   },
+  "0e3a7267ada55344fe325010df429663fc5d5e2015e802b8b09c73ee443f9016": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "map_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mods",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "score",
+          "ordinal": 3,
+          "type_info": "Int4"
+        },
+        {
+          "name": "maxcombo",
+          "ordinal": 4,
+          "type_info": "Int4"
+        },
+        {
+          "name": "grade",
+          "ordinal": 5,
+          "type_info": "Int2"
+        },
+        {
+          "name": "count100",
+          "ordinal": 6,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count300",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "countmiss",
+          "ordinal": 8,
+          "type_info": "Int4"
+        },
+        {
+          "name": "ended_at",
+          "ordinal": 9,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "pp",
+          "ordinal": 10,
+          "type_info": "Float4"
+        },
+        {
+          "name": "stars",
+          "ordinal": 11,
+          "type_info": "Float4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8Array",
+          "Varchar",
+          "Int4",
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "WITH scores AS (\n  SELECT \n    score_id, \n    user_id, \n    map_id, \n    mods, \n    score, \n    maxcombo, \n    grade, \n    count100, \n    count300, \n    countmiss, \n    ended_at \n  FROM \n    (\n      SELECT \n        * \n      FROM \n        osu_scores \n      WHERE \n        gamemode = 1\n    ) AS scores \n    JOIN (\n      SELECT \n        osu_id \n      FROM \n        user_configs \n      WHERE \n        discord_id = ANY($1)\n    ) AS user_ids ON scores.user_id = user_ids.osu_id \n  WHERE \n    (\n      -- country code\n      $2 :: VARCHAR(2) IS NULL \n      OR (\n        SELECT \n          country_code \n        FROM \n          osu_user_stats \n        WHERE \n          user_id = scores.user_id\n      ) = $2\n    ) \n    AND (\n      -- include mods\n      $3 :: INT4 IS NULL \n      OR (\n        $3 != 0 \n        AND bit_count(\n          $3 :: bit(32) & mods :: bit(32)\n        ) > 0\n      ) \n      OR (\n        $3 = 0 \n        AND mods = 0\n      )\n    ) \n    AND (\n      -- exclude mods\n      $4 :: INT4 IS NULL \n      OR (\n        $4 != 0 \n        AND bit_count(\n          $4 :: bit(32) & mods :: bit(32)\n        ) = 0\n      ) \n      OR (\n        $4 = 0 \n        AND mods > 0\n      )\n    ) \n    AND (\n      -- exact mods\n      $5 :: INT4 IS NULL \n      OR mods = $5\n    )\n) \nSELECT \n  DISTINCT ON (\n    user_id, scores.map_id, scores.mods\n  ) user_id, \n  scores.map_id, \n  scores.mods, \n  score, \n  maxcombo, \n  grade, \n  count100, \n  count300, \n  countmiss, \n  ended_at, \n  pp :: FLOAT4, \n  stars :: FLOAT4 \nFROM \n  scores \n  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id\n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_taiko \n  ) AS stars ON scores.map_id = stars.map_id \n  AND scores.mods = stars.mods \nORDER BY \n  user_id, \n  scores.map_id, \n  scores.mods, \n  ended_at DESC"
+  },
   "0e433f1a5f1609bac4b8d161fa57557e6514d3036432ff81a1e022b23b76013d": {
     "describe": {
       "columns": [
@@ -624,6 +714,114 @@
     },
     "query": "\nSELECT \n  username \nFROM \n  osu_user_names \nWHERE \n  user_id = $1"
   },
+  "3184d606bbb6be3c1b8f13d3a9bdda1982a930ac44f098b47e163b211d0f4883": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "map_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mods",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "score",
+          "ordinal": 3,
+          "type_info": "Int4"
+        },
+        {
+          "name": "maxcombo",
+          "ordinal": 4,
+          "type_info": "Int4"
+        },
+        {
+          "name": "grade",
+          "ordinal": 5,
+          "type_info": "Int2"
+        },
+        {
+          "name": "count50",
+          "ordinal": 6,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count100",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count300",
+          "ordinal": 8,
+          "type_info": "Int4"
+        },
+        {
+          "name": "countgeki",
+          "ordinal": 9,
+          "type_info": "Int4"
+        },
+        {
+          "name": "countkatu",
+          "ordinal": 10,
+          "type_info": "Int4"
+        },
+        {
+          "name": "countmiss",
+          "ordinal": 11,
+          "type_info": "Int4"
+        },
+        {
+          "name": "ended_at",
+          "ordinal": 12,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "pp",
+          "ordinal": 13,
+          "type_info": "Float4"
+        },
+        {
+          "name": "stars",
+          "ordinal": 14,
+          "type_info": "Float4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8Array",
+          "Varchar",
+          "Int4",
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "WITH scores AS (\n  SELECT \n    score_id, \n    user_id, \n    map_id, \n    mods, \n    score, \n    maxcombo, \n    grade, \n    count50, \n    count100, \n    count300, \n    countgeki, \n    countkatu, \n    countmiss, \n    ended_at \n  FROM \n    (\n      SELECT \n        * \n      FROM \n        osu_scores \n      WHERE \n        gamemode = 3\n    ) AS scores \n    JOIN (\n      SELECT \n        osu_id \n      FROM \n        user_configs \n      WHERE \n        discord_id = ANY($1)\n    ) AS user_ids ON scores.user_id = user_ids.osu_id \n  WHERE \n    (\n      -- country code\n      $2 :: VARCHAR(2) IS NULL \n      OR (\n        SELECT \n          country_code \n        FROM \n          osu_user_stats \n        WHERE \n          user_id = scores.user_id\n      ) = $2\n    ) \n    AND (\n      -- include mods\n      $3 :: INT4 IS NULL \n      OR (\n        $3 != 0 \n        AND bit_count(\n          $3 :: bit(32) & mods :: bit(32)\n        ) > 0\n      ) \n      OR (\n        $3 = 0 \n        AND mods = 0\n      )\n    ) \n    AND (\n      -- exclude mods\n      $4 :: INT4 IS NULL \n      OR (\n        $4 != 0 \n        AND bit_count(\n          $4 :: bit(32) & mods :: bit(32)\n        ) = 0\n      ) \n      OR (\n        $4 = 0 \n        AND mods > 0\n      )\n    ) \n    AND (\n      -- exact mods\n      $5 :: INT4 IS NULL \n      OR mods = $5\n    )\n) \nSELECT \n  DISTINCT ON (\n    user_id, scores.map_id, scores.mods\n  ) user_id, \n  scores.map_id, \n  scores.mods, \n  score, \n  maxcombo, \n  grade, \n  count50, \n  count100, \n  count300, \n  countgeki, \n  countkatu, \n  countmiss, \n  ended_at, \n  pp :: FLOAT4, \n  stars :: FLOAT4 \nFROM \n  scores \n  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_mania\n  ) AS stars ON scores.map_id = stars.map_id \n  AND scores.mods = stars.mods \nORDER BY \n  user_id, \n  scores.map_id, \n  scores.mods, \n  ended_at DESC"
+  },
   "32a5e31c8b23211b9656ea4490bddb274af9dc1afc5198a4a37f43f9bb061464": {
     "describe": {
       "columns": [
@@ -762,6 +960,80 @@
     },
     "query": "\nINSERT INTO osu_scores_performance (score_id, pp) \nVALUES \n  ($1, $2) ON CONFLICT (score_id) DO NOTHING"
   },
+  "4159b03bbb42faa2c53c35cc8c5ae26102f21c826ea040dd9d03a11b5d882a06": {
+    "describe": {
+      "columns": [
+        {
+          "name": "map_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mapset_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "map_version",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "seconds_drain",
+          "ordinal": 4,
+          "type_info": "Int4"
+        },
+        {
+          "name": "hp",
+          "ordinal": 5,
+          "type_info": "Float4"
+        },
+        {
+          "name": "cs",
+          "ordinal": 6,
+          "type_info": "Float4"
+        },
+        {
+          "name": "od",
+          "ordinal": 7,
+          "type_info": "Float4"
+        },
+        {
+          "name": "ar",
+          "ordinal": 8,
+          "type_info": "Float4"
+        },
+        {
+          "name": "bpm",
+          "ordinal": 9,
+          "type_info": "Float4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4Array"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  map_id, \n  mapset_id, \n  user_id, \n  map_version, \n  seconds_drain,  \n  hp, \n  cs, \n  od, \n  ar, \n  bpm\nFROM \n  osu_maps \nWHERE \n  map_id = ANY($1)"
+  },
   "457cfe8740ed9f395bcc718e3712abbe4b39af90c167cb3ad8b838d51a935eba": {
     "describe": {
       "columns": [],
@@ -813,6 +1085,108 @@
       }
     },
     "query": "\nSELECT \n  map_filepath \nFROM \n  osu_map_files \nWHERE \n  map_id = $1"
+  },
+  "4c6aee38571a4a1d03cc0a171a15a419f46855f0eab66cc689c1e52c83fdcc5b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "map_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mods",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "score",
+          "ordinal": 3,
+          "type_info": "Int4"
+        },
+        {
+          "name": "maxcombo",
+          "ordinal": 4,
+          "type_info": "Int4"
+        },
+        {
+          "name": "grade",
+          "ordinal": 5,
+          "type_info": "Int2"
+        },
+        {
+          "name": "count50",
+          "ordinal": 6,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count100",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count300",
+          "ordinal": 8,
+          "type_info": "Int4"
+        },
+        {
+          "name": "countkatu",
+          "ordinal": 9,
+          "type_info": "Int4"
+        },
+        {
+          "name": "countmiss",
+          "ordinal": 10,
+          "type_info": "Int4"
+        },
+        {
+          "name": "ended_at",
+          "ordinal": 11,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "pp",
+          "ordinal": 12,
+          "type_info": "Float4"
+        },
+        {
+          "name": "stars",
+          "ordinal": 13,
+          "type_info": "Float4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8Array",
+          "Varchar",
+          "Int4",
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "WITH scores AS (\n  SELECT \n    score_id, \n    user_id, \n    map_id, \n    mods, \n    score, \n    maxcombo, \n    grade, \n    count50, \n    count100, \n    count300, \n    countkatu, \n    countmiss, \n    ended_at \n  FROM \n    (\n      SELECT \n        * \n      FROM \n        osu_scores \n      WHERE \n        gamemode = 2\n    ) AS scores \n    JOIN (\n      SELECT \n        osu_id \n      FROM \n        user_configs \n      WHERE \n        discord_id = ANY($1)\n    ) AS user_ids ON scores.user_id = user_ids.osu_id \n  WHERE \n    (\n      -- country code\n      $2 :: VARCHAR(2) IS NULL \n      OR (\n        SELECT \n          country_code \n        FROM \n          osu_user_stats \n        WHERE \n          user_id = scores.user_id\n      ) = $2\n    ) \n    AND (\n      -- include mods\n      $3 :: INT4 IS NULL \n      OR (\n        $3 != 0 \n        AND bit_count(\n          $3 :: bit(32) & mods :: bit(32)\n        ) > 0\n      ) \n      OR (\n        $3 = 0 \n        AND mods = 0\n      )\n    ) \n    AND (\n      -- exclude mods\n      $4 :: INT4 IS NULL \n      OR (\n        $4 != 0 \n        AND bit_count(\n          $4 :: bit(32) & mods :: bit(32)\n        ) = 0\n      ) \n      OR (\n        $4 = 0 \n        AND mods > 0\n      )\n    ) \n    AND (\n      -- exact mods\n      $5 :: INT4 IS NULL \n      OR mods = $5\n    )\n) \nSELECT \n  DISTINCT ON (\n    user_id, scores.map_id, scores.mods\n  ) user_id, \n  scores.map_id, \n  scores.mods, \n  score, \n  maxcombo, \n  grade, \n  count50, \n  count100, \n  count300, \n  countkatu, \n  countmiss, \n  ended_at, \n  pp :: FLOAT4, \n  stars :: FLOAT4 \nFROM \n  scores \n  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id\n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_catch\n  ) AS stars ON scores.map_id = stars.map_id \n  AND scores.mods = stars.mods \nORDER BY \n  user_id, \n  scores.map_id, \n  scores.mods, \n  ended_at DESC"
   },
   "4d57519170d1f61051a31bbb352c04b2318e503fe310793e75aab8470de0a1fa": {
     "describe": {
@@ -872,6 +1246,44 @@
       }
     },
     "query": "\nSELECT \n  artist, \n  title \nFROM \n  osu_mapsets \nWHERE \n  mapset_id = $1"
+  },
+  "50dd22d0a98a5a5fb45d023751d6cb2e95cf36029f172160c7a86264bae6f526": {
+    "describe": {
+      "columns": [
+        {
+          "name": "mapset_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "artist",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "ranked_date",
+          "ordinal": 3,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int4Array"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  mapsets.mapset_id, \n  artist, \n  title, \n  ranked_date \nFROM \n  (\n    SELECT \n      mapset_id \n    FROM \n      osu_maps \n    WHERE \n      map_id = ANY($1)\n  ) AS maps \n  JOIN (\n    SELECT \n      * \n    FROM \n      osu_mapsets\n  ) AS mapsets ON maps.mapset_id = mapsets.mapset_id"
   },
   "5131ec2023a6ea07d2bb0210a5614211d9a1a59b915838471a0e09c702381e4a": {
     "describe": {
@@ -1117,6 +1529,102 @@
     },
     "query": "\nUPDATE\n  tracked_osu_users\nSET\n  last_update = NOW()\nWHERE\n  user_id = $1\n  AND gamemode = $2"
   },
+  "75c1c12e72eaba089c52bb9de65673a5dd6bb1c5bd79765c055438464c419eac": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "map_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mods",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "score",
+          "ordinal": 3,
+          "type_info": "Int4"
+        },
+        {
+          "name": "maxcombo",
+          "ordinal": 4,
+          "type_info": "Int4"
+        },
+        {
+          "name": "grade",
+          "ordinal": 5,
+          "type_info": "Int2"
+        },
+        {
+          "name": "count50",
+          "ordinal": 6,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count100",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count300",
+          "ordinal": 8,
+          "type_info": "Int4"
+        },
+        {
+          "name": "countmiss",
+          "ordinal": 9,
+          "type_info": "Int4"
+        },
+        {
+          "name": "ended_at",
+          "ordinal": 10,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "pp",
+          "ordinal": 11,
+          "type_info": "Float4"
+        },
+        {
+          "name": "stars",
+          "ordinal": 12,
+          "type_info": "Float4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8Array",
+          "Varchar",
+          "Int4",
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "WITH scores AS (\n  SELECT \n    score_id, \n    user_id, \n    map_id, \n    mods, \n    score, \n    maxcombo, \n    grade, \n    count50, \n    count100, \n    count300, \n    countmiss, \n    ended_at \n  FROM \n    (\n      SELECT \n        * \n      FROM \n        osu_scores \n      WHERE \n        gamemode = 0\n    ) AS scores \n    JOIN (\n      SELECT \n        osu_id \n      FROM \n        user_configs \n      WHERE \n        discord_id = ANY($1)\n    ) AS user_ids ON scores.user_id = user_ids.osu_id \n  WHERE \n    (\n      -- country code\n      $2 :: VARCHAR(2) IS NULL \n      OR (\n        SELECT \n          country_code \n        FROM \n          osu_user_stats \n        WHERE \n          user_id = scores.user_id\n      ) = $2\n    ) \n    AND (\n      -- include mods\n      $3 :: INT4 IS NULL \n      OR (\n        $3 != 0 \n        AND bit_count(\n          $3 :: bit(32) & mods :: bit(32)\n        ) > 0\n      ) \n      OR (\n        $3 = 0 \n        AND mods = 0\n      )\n    ) \n    AND (\n      -- exclude mods\n      $4 :: INT4 IS NULL \n      OR (\n        $4 != 0 \n        AND bit_count(\n          $4 :: bit(32) & mods :: bit(32)\n        ) = 0\n      ) \n      OR (\n        $4 = 0 \n        AND mods > 0\n      )\n    ) \n    AND (\n      -- exact mods\n      $5 :: INT4 IS NULL \n      OR mods = $5\n    )\n) \nSELECT \n  DISTINCT ON (\n    user_id, scores.map_id, scores.mods\n  ) user_id, \n  scores.map_id, \n  scores.mods, \n  score, \n  maxcombo, \n  grade, \n  count50, \n  count100, \n  count300, \n  countmiss, \n  ended_at, \n  pp :: FLOAT4, \n  stars :: FLOAT4 \nFROM \n  scores \n  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id\n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty\n  ) AS stars ON scores.map_id = stars.map_id \n  AND scores.mods = stars.mods \nORDER BY \n  user_id, \n  scores.map_id, \n  scores.mods, \n  ended_at DESC"
+  },
   "789ed5aef078e6abf48755e46be402db4b6a5d1a430673ddb84db58c29e9c2ba": {
     "describe": {
       "columns": [],
@@ -1164,6 +1672,138 @@
       }
     },
     "query": "\nSELECT \n  user_id, \n  gamemode, \n  channels, \n  last_update \nFROM \n  tracked_osu_users"
+  },
+  "7f1c2bb4fb47dcd460ce9a3920c38ea932d794270cb699ef134f00812303fe9c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "map_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "gamemode",
+          "ordinal": 2,
+          "type_info": "Int2"
+        },
+        {
+          "name": "mods",
+          "ordinal": 3,
+          "type_info": "Int4"
+        },
+        {
+          "name": "score",
+          "ordinal": 4,
+          "type_info": "Int4"
+        },
+        {
+          "name": "maxcombo",
+          "ordinal": 5,
+          "type_info": "Int4"
+        },
+        {
+          "name": "grade",
+          "ordinal": 6,
+          "type_info": "Int2"
+        },
+        {
+          "name": "count50",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count100",
+          "ordinal": 8,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count300",
+          "ordinal": 9,
+          "type_info": "Int4"
+        },
+        {
+          "name": "countgeki",
+          "ordinal": 10,
+          "type_info": "Int4"
+        },
+        {
+          "name": "countkatu",
+          "ordinal": 11,
+          "type_info": "Int4"
+        },
+        {
+          "name": "countmiss",
+          "ordinal": 12,
+          "type_info": "Int4"
+        },
+        {
+          "name": "ended_at",
+          "ordinal": 13,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "pp",
+          "ordinal": 14,
+          "type_info": "Float4"
+        },
+        {
+          "name": "stars_osu",
+          "ordinal": 15,
+          "type_info": "Float4"
+        },
+        {
+          "name": "stars_taiko",
+          "ordinal": 16,
+          "type_info": "Float4"
+        },
+        {
+          "name": "stars_catch",
+          "ordinal": 17,
+          "type_info": "Float4"
+        },
+        {
+          "name": "stars_mania",
+          "ordinal": 18,
+          "type_info": "Float4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8Array",
+          "Varchar",
+          "Int4",
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nWITH scores AS (\n  SELECT \n    score_id, \n    user_id, \n    map_id, \n    gamemode, \n    mods, \n    score, \n    maxcombo, \n    grade, \n    count50, \n    count100, \n    count300, \n    countgeki, \n    countkatu, \n    countmiss, \n    ended_at \n  FROM \n    osu_scores \n    JOIN (\n      SELECT \n        osu_id \n      FROM \n        user_configs \n      WHERE \n        discord_id = ANY($1)\n    ) AS user_ids ON osu_scores.user_id = user_ids.osu_id \n  WHERE \n    (\n      -- country code\n      $2 :: VARCHAR(2) IS NULL \n      OR (\n        SELECT \n          country_code \n        FROM \n          osu_user_stats \n        WHERE \n          user_id = osu_scores.user_id\n      ) = $2\n    ) \n    AND (\n      -- include mods\n      $3 :: INT4 IS NULL \n      OR (\n        $3 != 0 \n        AND bit_count(\n          $3 :: bit(32) & mods :: bit(32)\n        ) > 0\n      ) \n      OR (\n        $3 = 0 \n        AND mods = 0\n      )\n    ) \n    AND (\n      -- exclude mods\n      $4 :: INT4 IS NULL \n      OR (\n        $4 != 0 \n        AND bit_count(\n          $4 :: bit(32) & mods :: bit(32)\n        ) = 0\n      ) \n      OR (\n        $4 = 0 \n        AND mods > 0\n      )\n    ) \n    AND (\n      -- exact mods\n      $5 :: INT4 IS NULL \n      OR mods = $5\n    )\n) \nSELECT \n  DISTINCT ON (\n    user_id, scores.map_id, gamemode, \n    scores.mods\n  ) user_id, \n  scores.map_id, \n  gamemode, \n  scores.mods, \n  score, \n  maxcombo, \n  grade, \n  count50, \n  count100, \n  count300, \n  countgeki, \n  countkatu, \n  countmiss, \n  ended_at, \n  pp :: FLOAT4, \n  stars_osu.stars :: FLOAT4 AS stars_osu, \n  stars_taiko.stars :: FLOAT4 AS stars_taiko, \n  stars_catch.stars :: FLOAT4 AS stars_catch, \n  stars_mania.stars :: FLOAT4 AS stars_mania \nFROM \n  scores \n  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty\n  ) AS stars_osu ON scores.map_id = stars_osu.map_id \n  AND scores.mods = stars_osu.mods \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_taiko\n  ) AS stars_taiko ON scores.map_id = stars_taiko.map_id \n  AND scores.mods = stars_taiko.mods \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_catch\n  ) AS stars_catch ON scores.map_id = stars_catch.map_id \n  AND scores.mods = stars_catch.mods \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_mania\n  ) AS stars_mania ON scores.map_id = stars_mania.map_id \n  AND scores.mods = stars_mania.mods \nORDER BY \n  user_id, \n  scores.map_id, \n  gamemode, \n  scores.mods, \n  ended_at DESC"
   },
   "81bd4c8f72a303fddc5878cafd1ed52189c8e8ef827e95e51596290d5dacc488": {
     "describe": {

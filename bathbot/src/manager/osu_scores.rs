@@ -1,8 +1,9 @@
 use bathbot_model::rosu_v2::user::User;
-use bathbot_psql::Database;
+use bathbot_psql::{model::osu::DbScores, Database};
+use bathbot_util::{osu::ModSelection, IntHasher};
 use eyre::{Result, WrapErr};
 use rosu_v2::{
-    prelude::{OsuError, Score},
+    prelude::{GameMode, OsuError, Score},
     OsuResult,
 };
 
@@ -21,6 +22,33 @@ pub struct ScoresManager<'c> {
 impl<'c> ScoresManager<'c> {
     pub fn new(ctx: &'c Context, psql: &'c Database) -> Self {
         Self { ctx, psql }
+    }
+
+    pub async fn get(
+        self,
+        discord_users: &[i64],
+        mode: Option<GameMode>,
+        mods: Option<&ModSelection>,
+        country_code: Option<&str>,
+    ) -> Result<DbScores<IntHasher>> {
+        let (mods_include, mods_exclude, mods_exact) = match mods {
+            Some(ModSelection::Include(mods)) => (Some(mods.bits() as i32), None, None),
+            Some(ModSelection::Exclude(mods)) => (None, Some(mods.bits() as i32), None),
+            Some(ModSelection::Exact(mods)) => (None, None, Some(mods.bits() as i32)),
+            None => (None, None, None),
+        };
+
+        self.psql
+            .select_scores(
+                discord_users,
+                mode,
+                country_code,
+                mods_include,
+                mods_exclude,
+                mods_exact,
+            )
+            .await
+            .wrap_err("Failed to select scores")
     }
 
     pub fn top(self) -> ScoreArgs<'c> {

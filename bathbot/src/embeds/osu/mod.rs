@@ -43,6 +43,7 @@ mod ratio;
 mod recent;
 mod recent_list;
 mod scores;
+mod serverscores;
 mod simulate;
 mod sniped;
 mod sniped_difference;
@@ -66,8 +67,8 @@ pub use self::{
     osutracker_countrytop::*, osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*,
     osutracker_mods::*, player_snipe_list::*, player_snipe_stats::*, pp_missing::*, profile::*,
     profile_compare::*, rank::*, rank_score::*, ranking::*, ranking_countries::*, ratio::*,
-    recent::*, recent_list::*, scores::*, simulate::*, sniped::*, sniped_difference::*, top::*,
-    top_if::*, top_single::*, whatif::*,
+    recent::*, recent_list::*, scores::*, serverscores::*, simulate::*, sniped::*,
+    sniped_difference::*, top::*, top_if::*, top_single::*, whatif::*,
 };
 use crate::manager::OsuMap;
 
