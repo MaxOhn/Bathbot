@@ -59,9 +59,7 @@ mod release {
         AlignedVec, Serialize,
     };
     use twilight_model::{
-        channel::Channel as TwChannel,
-        guild::{Member as TwMember, Role as TwRole},
-        user::User as TwUser,
+        channel::Channel as TwChannel, guild::Role as TwRole, user::User as TwUser,
     };
 
     use crate::serializer::{
@@ -83,7 +81,7 @@ mod release {
                 .wrap_err("Failed to serialize channel")
         }
 
-        pub(crate) fn member<M>(&mut self, member: &TwMember) -> Result<AlignedVec>
+        pub(crate) fn member<M>(&mut self, member: &M) -> Result<AlignedVec>
         where
             Member: ArchiveWith<M> + SerializeWith<M, AllocSerializer<MAX_SCRATCH_SIZE>>,
         {
