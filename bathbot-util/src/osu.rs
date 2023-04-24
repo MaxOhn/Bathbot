@@ -370,6 +370,7 @@ impl Default for BonusPP {
 }
 
 impl BonusPP {
+    const LIMIT: i32 = 25_397;
     const MAX: f32 = 416.67;
 
     pub fn new() -> Self {
@@ -378,11 +379,11 @@ impl BonusPP {
 
     pub fn update(&mut self, weighted_pp: f32, idx: usize) {
         self.pp += weighted_pp;
-        self.ys[idx] = weighted_pp.log(100.0);
+        self.ys[idx] = weighted_pp.log10() / 2.0;
         self.len += 1;
 
         let n = idx as f32 + 1.0;
-        let weight = n.ln_1p();
+        let weight = (n + 1.0).ln_1p();
 
         self.sum_x += weight;
         self.avg_x += n * weight;
@@ -400,7 +401,9 @@ impl BonusPP {
                 mut avg_y,
             } = bonus_pp;
 
-            if stats_pp.abs() < f32::EPSILON {
+            if grade_counts_sum >= BonusPP::LIMIT {
+                return BonusPP::MAX;
+            } else if stats_pp.abs() < f32::EPSILON {
                 return round(BonusPP::MAX * (1.0 - 0.9994_f32.powi(grade_counts_sum)));
             } else if bonus_pp.len < 100 {
                 return round(stats_pp - pp);
@@ -414,7 +417,7 @@ impl BonusPP {
 
             for n in 1..=len {
                 let diff_x = n as f32 - avg_x;
-                let ln_n = (n as f32).ln_1p();
+                let ln_n = (n as f32 + 1.0).ln_1p();
 
                 sum_xy += diff_x * (ys[n - 1] - avg_y) * ln_n;
                 sum_x2 += diff_x * diff_x * ln_n;
