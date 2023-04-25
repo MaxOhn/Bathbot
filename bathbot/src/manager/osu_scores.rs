@@ -24,23 +24,50 @@ impl<'c> ScoresManager<'c> {
         Self { ctx, psql }
     }
 
-    pub async fn get(
+    #[allow(clippy::wrong_self_convention)]
+    pub async fn from_discord_ids(
         self,
         discord_users: &[i64],
         mode: Option<GameMode>,
         mods: Option<&ModSelection>,
         country_code: Option<&str>,
     ) -> Result<DbScores<IntHasher>> {
-        let (mods_include, mods_exclude, mods_exact) = match mods {
-            Some(ModSelection::Include(mods)) => (Some(mods.bits() as i32), None, None),
-            Some(ModSelection::Exclude(mods)) => (None, Some(mods.bits() as i32), None),
-            Some(ModSelection::Exact(mods)) => (None, None, Some(mods.bits() as i32)),
-            None => (None, None, None),
-        };
+        let ExplicitModSelection {
+            mods_include,
+            mods_exclude,
+            mods_exact,
+        } = ExplicitModSelection::new(mods);
 
         self.psql
-            .select_scores(
+            .select_scores_by_discord_id(
                 discord_users,
+                mode,
+                country_code,
+                mods_include,
+                mods_exclude,
+                mods_exact,
+            )
+            .await
+            .wrap_err("Failed to select scores")
+    }
+
+    #[allow(clippy::wrong_self_convention)]
+    pub async fn from_osu_ids(
+        self,
+        user_ids: &[i32],
+        mode: Option<GameMode>,
+        mods: Option<&ModSelection>,
+        country_code: Option<&str>,
+    ) -> Result<DbScores<IntHasher>> {
+        let ExplicitModSelection {
+            mods_include,
+            mods_exclude,
+            mods_exact,
+        } = ExplicitModSelection::new(mods);
+
+        self.psql
+            .select_scores_by_osu_id(
+                user_ids,
                 mode,
                 country_code,
                 mods_include,
@@ -225,6 +252,29 @@ impl<'c> ScoreArgs<'c> {
                 Ok((user, scores))
             }
             UserArgs::Err(err) => Err(err),
+        }
+    }
+}
+
+struct ExplicitModSelection {
+    mods_include: Option<i32>,
+    mods_exclude: Option<i32>,
+    mods_exact: Option<i32>,
+}
+
+impl ExplicitModSelection {
+    fn new(mods: Option<&ModSelection>) -> Self {
+        let (mods_include, mods_exclude, mods_exact) = match mods {
+            Some(ModSelection::Include(mods)) => (Some(mods.bits() as i32), None, None),
+            Some(ModSelection::Exclude(mods)) => (None, Some(mods.bits() as i32), None),
+            Some(ModSelection::Exact(mods)) => (None, None, Some(mods.bits() as i32)),
+            None => (None, None, None),
+        };
+
+        Self {
+            mods_include,
+            mods_exclude,
+            mods_exact,
         }
     }
 }

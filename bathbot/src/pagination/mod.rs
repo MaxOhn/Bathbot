@@ -22,7 +22,7 @@ pub use self::{
     osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*, osutracker_mods::*,
     pages::Pages, player_snipe_list::*, profile::*, ranking::*, ranking_countries::*,
     recent_list::*, scores::*, serverscores::*, simulate::*, sniped_difference::*, top::*,
-    top_if::*,
+    top_if::*, userscores::*,
 };
 use crate::{
     commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
@@ -66,6 +66,7 @@ mod simulate;
 mod sniped_difference;
 mod top;
 mod top_if;
+mod userscores;
 
 pub mod components;
 
@@ -107,6 +108,7 @@ pub enum PaginationKind {
     TopCondensed(Box<TopCondensedPagination>),
     TopIf(Box<TopIfPagination>),
     TopSingle(Box<TopSinglePagination>),
+    UserScores(Box<UserScoresPagination>),
 }
 
 impl PaginationKind {
@@ -149,6 +151,7 @@ impl PaginationKind {
             Self::TopCondensed(kind) => Ok(kind.build_page(pages)),
             Self::TopIf(kind) => Ok(kind.build_page(pages).await),
             Self::TopSingle(kind) => kind.build_page(ctx, pages).await,
+            Self::UserScores(kind) => Ok(kind.build_page(pages)),
         }
     }
 }

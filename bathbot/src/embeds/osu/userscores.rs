@@ -1,74 +1,51 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
-use bathbot_model::twilight_model::util::ImageHash;
-use bathbot_psql::model::osu::{DbScore, DbScoreBeatmap, DbScoreBeatmapset, DbScoreUser, DbScores};
+use bathbot_model::rosu_v2::user::User;
+use bathbot_psql::model::osu::{DbScore, DbScoreBeatmap, DbScoreBeatmapset, DbScores};
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::SecToMinSec,
     numbers::{round, WithComma},
+    osu::flag_url,
     AuthorBuilder, CowUtils, FooterBuilder, IntHasher,
 };
 use rosu_pp::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::{GameMode, GameModsIntermode};
 use time::OffsetDateTime;
-use twilight_model::id::{marker::GuildMarker, Id};
 
-use crate::{commands::osu::ScoresOrder, core::BotConfig, pagination::Pages, util::Emote};
+use crate::{
+    commands::osu::ScoresOrder, core::BotConfig, manager::redis::RedisData, pagination::Pages,
+    util::Emote,
+};
 
 #[derive(EmbedData)]
-pub struct ServerScoresEmbed {
+pub struct UserScoresEmbed {
     author: AuthorBuilder,
     description: String,
     footer: FooterBuilder,
 }
 
-impl ServerScoresEmbed {
+impl UserScoresEmbed {
     pub fn new(
         data: &DbScores<IntHasher>,
+        user: &RedisData<User>,
         mode: Option<GameMode>,
         sort: ScoresOrder,
-        guild_icon: Option<(Id<GuildMarker>, ImageHash)>,
         pages: &Pages,
     ) -> Self {
-        let mut author_text = "Server scores for ".to_owned();
+        let author = if mode.is_some() {
+            user.author_builder()
+        } else {
+            let icon = match user {
+                RedisData::Original(user) => flag_url(&user.country_code),
+                RedisData::Archive(user) => flag_url(&user.country_code),
+            };
 
-        match mode {
-            Some(GameMode::Osu) => author_text.push_str("osu!"),
-            Some(GameMode::Taiko) => author_text.push_str("taiko"),
-            Some(GameMode::Catch) => author_text.push_str("catch"),
-            Some(GameMode::Mania) => author_text.push_str("mania"),
-            None => author_text.push_str("all modes"),
-        }
+            let url = format!("{OSU_BASE}users/{}", user.user_id());
 
-        author_text.push_str(" sorted by ");
-
-        match sort {
-            ScoresOrder::Acc => author_text.push_str("accuracy"),
-            ScoresOrder::Ar => author_text.push_str("AR"),
-            ScoresOrder::Bpm => author_text.push_str("BPM"),
-            ScoresOrder::Combo => author_text.push_str("combo"),
-            ScoresOrder::Cs => author_text.push_str("CS"),
-            ScoresOrder::Date => author_text.push_str("date"),
-            ScoresOrder::Hp => author_text.push_str("HP"),
-            ScoresOrder::Length => author_text.push_str("length"),
-            ScoresOrder::Misses => author_text.push_str("miss count"),
-            ScoresOrder::Od => author_text.push_str("OD"),
-            ScoresOrder::Pp => author_text.push_str("pp"),
-            ScoresOrder::RankedDate => author_text.push_str("ranked date"),
-            ScoresOrder::Score => author_text.push_str("score"),
-            ScoresOrder::Stars => author_text.push_str("stars"),
-        }
-
-        author_text.push(':');
-
-        let mut author = AuthorBuilder::new(author_text);
-
-        if let Some((id, icon)) = guild_icon {
-            let ext = if icon.animated { "gif" } else { "webp" };
-            let url = format!("https://cdn.discordapp.com/icons/{id}/{icon}.{ext}");
-            author = author.icon_url(url);
-        }
+            AuthorBuilder::new(user.username()).url(url).icon_url(icon)
+        };
 
         let footer_text = format!("Page {}/{}", pages.curr_page(), pages.last_page());
         let footer = FooterBuilder::new(footer_text);
@@ -82,7 +59,6 @@ impl ServerScoresEmbed {
         for (score, i) in scores.iter().zip(idx + 1..) {
             let map = data.map(score.map_id);
             let mapset = map.and_then(|map| data.mapset(map.mapset_id));
-            let user = data.user(score.user_id);
 
             let mode = if mode.is_some() {
                 None
@@ -92,18 +68,17 @@ impl ServerScoresEmbed {
 
             let _ = writeln!(
                 description,
-                "**{i}. [{map}]({OSU_BASE}b/{map_id}) +{mods}**{stars}\n\
-                > by __[{user}]({OSU_BASE}u/{user_id})__ {grade} **{pp}pp** • {acc}% {mode} {appendix}",
+                "**{i}. [{map}]({OSU_BASE}b/{map_id})**{stars}\n\
+                {grade} **{pp}pp** ({acc}%) [ **{combo}x** ] {mode}**+{mods}** {appendix}",
                 map = MapFormatter::new(map, mapset),
                 map_id = score.map_id,
-                mods = GameModsIntermode::from_bits(score.mods),
                 stars = StarsFormatter::new(score.stars),
-                user = UserFormatter::new(user),
-                user_id = score.user_id,
                 grade = config.grade(score.grade),
                 pp = PpFormatter::new(score.pp),
                 acc = round(score.statistics.accuracy(score.mode)),
+                combo = score.max_combo,
                 mode = GameModeFormatter::new(mode),
+                mods = GameModsIntermode::from_bits(score.mods),
                 appendix = OrderAppendix::new(sort, score, map, mapset),
             );
         }
@@ -156,7 +131,6 @@ impl Display for OrderAppendix<'_> {
 
                 write!(f, "`{}BPM`", round(bpm))
             }
-            ScoresOrder::Combo => write!(f, "`{}x`", self.score.max_combo),
             ScoresOrder::Cs => {
                 let attrs = BeatmapAttributesBuilder::default()
                     .mods(self.score.mods)
@@ -202,7 +176,11 @@ impl Display for OrderAppendix<'_> {
                 write!(f, "<t:{}:R>", ranked_date.unix_timestamp())
             }
             ScoresOrder::Score => write!(f, "`{}`", WithComma::new(self.score.score)),
-            ScoresOrder::Acc | ScoresOrder::Date | ScoresOrder::Pp | ScoresOrder::Stars => {
+            ScoresOrder::Acc
+            | ScoresOrder::Combo
+            | ScoresOrder::Date
+            | ScoresOrder::Pp
+            | ScoresOrder::Stars => {
                 write!(f, "<t:{}:R>", self.score.ended_at.unix_timestamp())
             }
         }
@@ -241,25 +219,6 @@ impl Display for MapFormatter<'_> {
     }
 }
 
-struct UserFormatter<'s> {
-    user: Option<&'s DbScoreUser>,
-}
-
-impl<'s> UserFormatter<'s> {
-    fn new(user: Option<&'s DbScoreUser>) -> Self {
-        Self { user }
-    }
-}
-
-impl Display for UserFormatter<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self.user {
-            Some(user) => f.write_str(user.username.cow_escape_markdown().as_ref()),
-            None => f.write_str("<unknown user>"),
-        }
-    }
-}
-
 struct GameModeFormatter {
     mode: Option<GameMode>,
 }
@@ -273,8 +232,8 @@ impl GameModeFormatter {
 impl Display for GameModeFormatter {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.mode {
-            Some(mode) => f.write_str(Emote::from(mode).text()),
-            None => f.write_str("•"),
+            Some(mode) => write!(f, "{} ", Emote::from(mode).text()),
+            None => Ok(()),
         }
     }
 }
