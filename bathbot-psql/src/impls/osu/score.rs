@@ -3,6 +3,7 @@ use std::{collections::HashMap, hash::BuildHasher};
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
 use rosu_v2::prelude::{GameMode, Score, ScoreStatistics};
+use sqlx::{pool::PoolConnection, Postgres};
 
 use crate::{
     database::Database,
@@ -15,8 +16,8 @@ use crate::{
 macro_rules! select_scores {
     ( $fn:ident, $ty:ident, $mode:ident: $query:literal ) => {
         async fn $fn(
-            &self,
-            discord_users: &[i64],
+            conn: &mut PoolConnection<Postgres>,
+            user_ids: &[i32],
             country_code: Option<&str>,
             mods_include: Option<i32>,
             mods_exclude: Option<i32>,
@@ -25,7 +26,7 @@ macro_rules! select_scores {
             let query = sqlx::query_as!(
                 $ty,
                 $query,
-                discord_users,
+                user_ids,
                 country_code,
                 mods_include,
                 mods_exclude,
@@ -33,7 +34,7 @@ macro_rules! select_scores {
             );
 
             let mut scores = Vec::new();
-            let mut rows = query.fetch(self);
+            let mut rows = query.fetch(conn);
 
             while let Some(row_res) = rows.next().await {
                 let row = row_res.wrap_err("Failed to fetch next score")?;
@@ -68,16 +69,9 @@ r#"WITH scores AS (
       FROM 
         osu_scores 
       WHERE 
-        gamemode = 0
+        gamemode = 0 
+        AND user_id = ANY($1)
     ) AS scores 
-    JOIN (
-      SELECT 
-        osu_id 
-      FROM 
-        user_configs 
-      WHERE 
-        discord_id = ANY($1)
-    ) AS user_ids ON scores.user_id = user_ids.osu_id 
   WHERE 
     (
       -- country code
@@ -139,7 +133,7 @@ SELECT
   stars :: FLOAT4 
 FROM 
   scores 
-  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id
+  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id 
   LEFT JOIN (
     SELECT 
       map_id, 
@@ -177,16 +171,9 @@ r#"WITH scores AS (
       FROM 
         osu_scores 
       WHERE 
-        gamemode = 1
+        gamemode = 1 
+        AND user_id = ANY($1)
     ) AS scores 
-    JOIN (
-      SELECT 
-        osu_id 
-      FROM 
-        user_configs 
-      WHERE 
-        discord_id = ANY($1)
-    ) AS user_ids ON scores.user_id = user_ids.osu_id 
   WHERE 
     (
       -- country code
@@ -247,14 +234,14 @@ SELECT
   stars :: FLOAT4 
 FROM 
   scores 
-  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id
+  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id 
   LEFT JOIN (
     SELECT 
       map_id, 
       mods, 
       stars 
     FROM 
-      osu_map_difficulty_taiko 
+      osu_map_difficulty_taiko
   ) AS stars ON scores.map_id = stars.map_id 
   AND scores.mods = stars.mods 
 ORDER BY 
@@ -287,16 +274,9 @@ r#"WITH scores AS (
       FROM 
         osu_scores 
       WHERE 
-        gamemode = 2
+        gamemode = 2 
+        AND user_id = ANY($1)
     ) AS scores 
-    JOIN (
-      SELECT 
-        osu_id 
-      FROM 
-        user_configs 
-      WHERE 
-        discord_id = ANY($1)
-    ) AS user_ids ON scores.user_id = user_ids.osu_id 
   WHERE 
     (
       -- country code
@@ -359,7 +339,7 @@ SELECT
   stars :: FLOAT4 
 FROM 
   scores 
-  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id
+  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id 
   LEFT JOIN (
     SELECT 
       map_id, 
@@ -400,16 +380,9 @@ r#"WITH scores AS (
       FROM 
         osu_scores 
       WHERE 
-        gamemode = 3
+        gamemode = 3 
+        AND user_id = ANY($1)
     ) AS scores 
-    JOIN (
-      SELECT 
-        osu_id 
-      FROM 
-        user_configs 
-      WHERE 
-        discord_id = ANY($1)
-    ) AS user_ids ON scores.user_id = user_ids.osu_id 
   WHERE 
     (
       -- country code
@@ -491,8 +464,8 @@ ORDER BY
     );
 
     async fn select_any_scores(
-        &self,
-        discord_users: &[i64],
+        conn: &mut PoolConnection<Postgres>,
+        user_ids: &[i32],
         country_code: Option<&str>,
         mods_include: Option<i32>,
         mods_exclude: Option<i32>,
@@ -520,16 +493,9 @@ WITH scores AS (
     ended_at 
   FROM 
     osu_scores 
-    JOIN (
-      SELECT 
-        osu_id 
-      FROM 
-        user_configs 
-      WHERE 
-        discord_id = ANY($1)
-    ) AS user_ids ON osu_scores.user_id = user_ids.osu_id 
   WHERE 
-    (
+    user_id = ANY($1) 
+    AND (
       -- country code
       $2 :: VARCHAR(2) IS NULL 
       OR (
@@ -639,7 +605,7 @@ ORDER BY
   gamemode, 
   scores.mods, 
   ended_at DESC"#,
-            discord_users,
+            user_ids,
             country_code,
             mods_include,
             mods_exclude,
@@ -647,7 +613,7 @@ ORDER BY
         );
 
         let mut scores = Vec::new();
-        let mut rows = query.fetch(self);
+        let mut rows = query.fetch(conn);
 
         while let Some(row_res) = rows.next().await {
             let row = row_res.wrap_err("Failed to fetch next score")?;
@@ -657,7 +623,7 @@ ORDER BY
         Ok(scores)
     }
 
-    pub async fn select_scores<S>(
+    pub async fn select_scores_by_discord_id<S>(
         &self,
         discord_users: &[i64],
         mode: Option<GameMode>,
@@ -669,10 +635,92 @@ ORDER BY
     where
         S: BuildHasher + Default,
     {
+        let mut conn = self
+            .acquire()
+            .await
+            .wrap_err("Failed to acquire connection")?;
+
+        let user_ids_query = sqlx::query!(
+            r#"
+SELECT 
+osu_id 
+FROM 
+user_configs 
+WHERE 
+discord_id = ANY($1) 
+AND osu_id IS NOT NULL"#,
+            discord_users,
+        );
+
+        let mut user_ids = Vec::with_capacity(discord_users.len());
+
+        {
+            let mut rows = user_ids_query.fetch(&mut *conn);
+
+            while let Some(row_res) = rows.next().await {
+                let row = row_res.wrap_err("Failed to fetch next user id")?;
+                user_ids.push(row.osu_id.expect("query ensures osu_id is not null"));
+            }
+        }
+
+        Self::select_scores_by_osu_id_(
+            &mut conn,
+            &user_ids,
+            mode,
+            country_code,
+            mods_include,
+            mods_exclude,
+            mods_exact,
+        )
+        .await
+    }
+
+    pub async fn select_scores_by_osu_id<S>(
+        &self,
+        user_ids: &[i32],
+        mode: Option<GameMode>,
+        country_code: Option<&str>,
+        mods_include: Option<i32>,
+        mods_exclude: Option<i32>,
+        mods_exact: Option<i32>,
+    ) -> Result<DbScores<S>>
+    where
+        S: BuildHasher + Default,
+    {
+        let mut conn = self
+            .acquire()
+            .await
+            .wrap_err("Failed to acquire connection")?;
+
+        Self::select_scores_by_osu_id_(
+            &mut conn,
+            user_ids,
+            mode,
+            country_code,
+            mods_include,
+            mods_exclude,
+            mods_exact,
+        )
+        .await
+    }
+
+    async fn select_scores_by_osu_id_<S>(
+        conn: &mut PoolConnection<Postgres>,
+        user_ids: &[i32],
+        mode: Option<GameMode>,
+        country_code: Option<&str>,
+        mods_include: Option<i32>,
+        mods_exclude: Option<i32>,
+        mods_exact: Option<i32>,
+    ) -> Result<DbScores<S>>
+    where
+        S: BuildHasher + Default,
+    {
         let scores = match mode {
             None => {
-                self.select_any_scores(
-                    discord_users,
+                Self::select_any_scores(
+                    conn,
+                    user_ids,
                     country_code,
                     mods_include,
                     mods_exclude,
@@ -681,8 +729,9 @@ ORDER BY
                 .await?
             }
             Some(GameMode::Osu) => {
-                self.select_osu_scores(
-                    discord_users,
+                Self::select_osu_scores(
+                    conn,
+                    user_ids,
                     country_code,
                     mods_include,
                     mods_exclude,
@@ -691,8 +740,9 @@ ORDER BY
                 .await?
             }
             Some(GameMode::Taiko) => {
-                self.select_taiko_scores(
-                    discord_users,
+                Self::select_taiko_scores(
+                    conn,
+                    user_ids,
                     country_code,
                     mods_include,
                     mods_exclude,
@@ -701,8 +751,9 @@ ORDER BY
                 .await?
             }
             Some(GameMode::Catch) => {
-                self.select_catch_scores(
-                    discord_users,
+                Self::select_catch_scores(
+                    conn,
+                    user_ids,
                     country_code,
                     mods_include,
                     mods_exclude,
@@ -711,8 +762,9 @@ ORDER BY
                 .await?
             }
             Some(GameMode::Mania) => {
-                self.select_mania_scores(
-                    discord_users,
+                Self::select_mania_scores(
+                    conn,
+                    user_ids,
                     country_code,
                     mods_include,
                     mods_exclude,
@@ -722,10 +774,7 @@ ORDER BY
             }
         };
 
-        let (map_ids, user_ids): (Vec<_>, Vec<_>) = scores
-            .iter()
-            .map(|score| (score.map_id as i32, score.user_id as i32))
-            .unzip();
+        let map_ids: Vec<_> = scores.iter().map(|score| score.map_id as i32).collect();
 
         let map_query = sqlx::query_as!(
             DbScoreBeatmapRaw,
@@ -749,11 +798,14 @@ WHERE
         );
 
         let mut maps = HashMap::with_capacity_and_hasher(map_ids.len(), S::default());
-        let mut map_rows = map_query.fetch(self);
 
-        while let Some(row_res) = map_rows.next().await {
-            let row = row_res.wrap_err("Failed to fetch next map")?;
-            maps.insert(row.map_id as u32, row.into());
+        {
+            let mut map_rows = map_query.fetch(&mut *conn);
+
+            while let Some(row_res) = map_rows.next().await {
+                let row = row_res.wrap_err("Failed to fetch next map")?;
+                maps.insert(row.map_id as u32, row.into());
+            }
         }
 
         let mapset_query = sqlx::query_as!(
@@ -783,11 +835,14 @@ FROM
         );
 
         let mut mapsets = HashMap::with_hasher(S::default());
-        let mut mapset_rows = mapset_query.fetch(self);
 
-        while let Some(row_res) = mapset_rows.next().await {
-            let row = row_res.wrap_err("Failed to fetch next mapset")?;
-            mapsets.insert(row.mapset_id as u32, row.into());
+        {
+            let mut mapset_rows = mapset_query.fetch(&mut *conn);
+
+            while let Some(row_res) = mapset_rows.next().await {
+                let row = row_res.wrap_err("Failed to fetch next mapset")?;
+                mapsets.insert(row.mapset_id as u32, row.into());
+            }
         }
 
         let user_query = sqlx::query_as!(
@@ -800,15 +855,18 @@ FROM
   osu_user_names 
 WHERE 
   user_id = ANY($1)"#,
-            user_ids.as_slice()
+            user_ids
         );
 
         let mut users = HashMap::with_hasher(S::default());
-        let mut user_rows = user_query.fetch(self);
 
-        while let Some(row_res) = user_rows.next().await {
-            let row = row_res.wrap_err("Failed to fetch next user")?;
-            users.insert(row.user_id as u32, row.into());
+        {
+            let mut user_rows = user_query.fetch(conn);
+
+            while let Some(row_res) = user_rows.next().await {
+                let row = row_res.wrap_err("Failed to fetch next user")?;
+                users.insert(row.user_id as u32, row.into());
+            }
         }
 
         Ok(DbScores {

@@ -50,6 +50,7 @@ mod sniped_difference;
 mod top;
 mod top_if;
 mod top_single;
+mod userscores;
 mod whatif;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -68,7 +69,7 @@ pub use self::{
     osutracker_mods::*, player_snipe_list::*, player_snipe_stats::*, pp_missing::*, profile::*,
     profile_compare::*, rank::*, rank_score::*, ranking::*, ranking_countries::*, ratio::*,
     recent::*, recent_list::*, scores::*, serverscores::*, simulate::*, sniped::*,
-    sniped_difference::*, top::*, top_if::*, top_single::*, whatif::*,
+    sniped_difference::*, top::*, top_if::*, top_single::*, userscores::*, whatif::*,
 };
 use crate::manager::OsuMap;
 

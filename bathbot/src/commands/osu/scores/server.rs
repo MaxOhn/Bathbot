@@ -1,6 +1,5 @@
 use std::{borrow::Cow, cmp::Reverse, collections::HashMap, fmt::Write, sync::Arc};
 
-use bathbot_macros::{HasMods, SlashCommand};
 use bathbot_model::CountryCode;
 use bathbot_psql::model::osu::DbScores;
 use bathbot_util::{
@@ -10,49 +9,25 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_pp::beatmap::BeatmapAttributesBuilder;
-use rosu_v2::prelude::{GameMode, GameModsIntermode, OsuError};
-use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use rosu_v2::{
+    prelude::{GameMode, GameModsIntermode, OsuError},
+    request::UserId,
+};
 
+use super::{ScoresOrder, ServerScores};
 use crate::{
-    commands::{
-        osu::{HasMods, ModsResult},
-        GameModeOption,
-    },
+    commands::osu::{user_not_found, HasMods, ModsResult},
     core::Context,
     manager::redis::osu::UserArgs,
     pagination::ServerScoresPagination,
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
-#[derive(CreateCommand, CommandModel, HasMods, SlashCommand)]
-#[command(
-    name = "serverscores",
-    dm_permission = false,
-    help = "List scores of members in this server.\n\
-    The list will only contain scores that have been cached before i.e. \
-    scores of the `/top`, `/pinned`, or `/cs` commands.\n\
-    Similarly beatmaps or users won't be displayed if they're not cached.\n\
-    To add a missing map, you can simply `<map [map url]` \
-    and for missing users it's `<profile [username]`."
-)]
-/// List scores of members in this server
-pub struct ServerScores {
-    /// Specify a gamemode
-    mode: Option<GameModeOption>,
-    /// Choose how the scores should be ordered, defaults to PP
-    sort: Option<ServerScoresOrder>,
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
-    /// excluded)
-    mods: Option<String>,
-    /// Specify a country (code)
-    country: Option<String>,
-    /// Only show scores on maps of that mapper
-    mapper: Option<String>,
-}
-
-pub async fn slash_serverscores(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let args = ServerScores::from_interaction(command.input_data())?;
-
+pub async fn server_scores(
+    ctx: Arc<Context>,
+    mut command: InteractionCommand,
+    args: ServerScores,
+) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -107,9 +82,9 @@ pub async fn slash_serverscores(ctx: Arc<Context>, mut command: InteractionComma
         }
     };
 
-    let scores_fut = ctx
-        .osu_scores()
-        .get(&members, mode, mods.as_ref(), country_code.as_deref());
+    let scores_fut =
+        ctx.osu_scores()
+            .from_discord_ids(&members, mode, mods.as_ref(), country_code.as_deref());
 
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,
@@ -125,7 +100,7 @@ pub async fn slash_serverscores(ctx: Arc<Context>, mut command: InteractionComma
             UserArgs::Args(args) => Some(args.user_id),
             UserArgs::User { user, .. } => Some(user.user_id),
             UserArgs::Err(OsuError::NotFound) => {
-                let content = format!("User `{mapper}` was not found");
+                let content = user_not_found(&ctx, UserId::Name(mapper.as_str().into())).await;
                 command.error(&ctx, content).await?;
 
                 return Ok(());
@@ -156,11 +131,7 @@ pub async fn slash_serverscores(ctx: Arc<Context>, mut command: InteractionComma
         .await
 }
 
-fn process_scores(
-    scores: &mut DbScores<IntHasher>,
-    creator_id: Option<u32>,
-    sort: ServerScoresOrder,
-) {
+fn process_scores(scores: &mut DbScores<IntHasher>, creator_id: Option<u32>, sort: ScoresOrder) {
     if let Some(creator_id) = creator_id {
         scores.retain(|score, maps, _, _| match maps.get(&score.map_id) {
             Some(map) => map.creator_id == creator_id,
@@ -169,12 +140,12 @@ fn process_scores(
     }
 
     match sort {
-        ServerScoresOrder::Acc => scores.scores_mut().sort_unstable_by(|a, b| {
+        ScoresOrder::Acc => scores.scores_mut().sort_unstable_by(|a, b| {
             b.statistics
                 .accuracy(b.mode)
                 .total_cmp(&a.statistics.accuracy(a.mode))
         }),
-        ServerScoresOrder::Ar => {
+        ScoresOrder::Ar => {
             scores.retain(|score, maps, _, _| maps.get(&score.map_id).is_some());
 
             let ars: HashMap<_, _, IntHasher> = scores
@@ -198,7 +169,7 @@ fn process_scores(
                 b_ar.total_cmp(&a_ar)
             })
         }
-        ServerScoresOrder::Bpm => {
+        ScoresOrder::Bpm => {
             scores.retain(|score, maps, _, _| maps.get(&score.map_id).is_some());
 
             let bpms: HashMap<_, _, IntHasher> = scores
@@ -223,10 +194,10 @@ fn process_scores(
                 b_bpm.total_cmp(&a_bpm)
             })
         }
-        ServerScoresOrder::Combo => scores
+        ScoresOrder::Combo => scores
             .scores_mut()
             .sort_unstable_by_key(|score| Reverse(score.max_combo)),
-        ServerScoresOrder::Cs => {
+        ScoresOrder::Cs => {
             scores.retain(|score, maps, _, _| maps.get(&score.map_id).is_some());
 
             let css: HashMap<_, _, IntHasher> = scores
@@ -250,10 +221,10 @@ fn process_scores(
                 b_cs.total_cmp(&a_cs)
             })
         }
-        ServerScoresOrder::Date => scores
+        ScoresOrder::Date => scores
             .scores_mut()
             .sort_unstable_by_key(|score| Reverse(score.ended_at)),
-        ServerScoresOrder::Hp => {
+        ScoresOrder::Hp => {
             scores.retain(|score, maps, _, _| maps.get(&score.map_id).is_some());
 
             let hps: HashMap<_, _, IntHasher> = scores
@@ -277,7 +248,7 @@ fn process_scores(
                 b_hp.total_cmp(&a_ar)
             })
         }
-        ServerScoresOrder::Length => {
+        ScoresOrder::Length => {
             scores.retain(|score, maps, _, _| maps.get(&score.map_id).is_some());
 
             let seconds_drain: HashMap<_, _, IntHasher> = scores
@@ -302,10 +273,10 @@ fn process_scores(
                 b_drain.total_cmp(&a_drain)
             })
         }
-        ServerScoresOrder::Misses => scores
+        ScoresOrder::Misses => scores
             .scores_mut()
             .sort_unstable_by_key(|score| Reverse(score.statistics.count_miss)),
-        ServerScoresOrder::Od => {
+        ScoresOrder::Od => {
             scores.retain(|score, maps, _, _| maps.get(&score.map_id).is_some());
 
             let ods: HashMap<_, _, IntHasher> = scores
@@ -329,14 +300,14 @@ fn process_scores(
                 b_od.total_cmp(&a_od)
             })
         }
-        ServerScoresOrder::Pp => {
+        ScoresOrder::Pp => {
             scores.retain(|score, _, _, _| score.pp.is_some());
 
             scores
                 .scores_mut()
                 .sort_unstable_by(|a, b| b.pp.unwrap().total_cmp(&a.pp.unwrap()))
         }
-        ServerScoresOrder::RankedDate => {
+        ScoresOrder::RankedDate => {
             scores.retain(|score, maps, mapsets, _| {
                 maps.get(&score.map_id)
                     .and_then(|map| mapsets.get(&map.mapset_id))
@@ -360,10 +331,10 @@ fn process_scores(
                 b_ranked_date.cmp(&a_ranked_date)
             });
         }
-        ServerScoresOrder::Score => scores
+        ScoresOrder::Score => scores
             .scores_mut()
             .sort_unstable_by_key(|score| Reverse(score.score)),
-        ServerScoresOrder::Stars => {
+        ScoresOrder::Stars => {
             scores.retain(|score, _, _, _| score.stars.is_some());
 
             scores
@@ -406,37 +377,4 @@ fn msg_content(mods: Option<&ModSelection>, mapper: Option<&str>, country: Optio
     }
 
     content
-}
-
-#[derive(Copy, Clone, CommandOption, CreateOption, Default)]
-pub enum ServerScoresOrder {
-    #[option(name = "Accuracy", value = "acc")]
-    Acc,
-    #[option(name = "AR", value = "ar")]
-    Ar,
-    #[option(name = "BPM", value = "bpm")]
-    Bpm,
-    #[option(name = "Combo", value = "combo")]
-    Combo,
-    #[option(name = "CS", value = "cs")]
-    Cs,
-    #[option(name = "Date", value = "date")]
-    Date,
-    #[option(name = "HP", value = "hp")]
-    Hp,
-    #[option(name = "Length", value = "len")]
-    Length,
-    #[option(name = "Misses", value = "miss")]
-    Misses,
-    #[option(name = "OD", value = "od")]
-    Od,
-    #[option(name = "PP", value = "pp")]
-    #[default]
-    Pp,
-    #[option(name = "Ranked date", value = "ranked_date")]
-    RankedDate,
-    #[option(name = "Score", value = "score")]
-    Score,
-    #[option(name = "Stars", value = "stars")]
-    Stars,
 }
