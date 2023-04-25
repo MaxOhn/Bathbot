@@ -28,6 +28,13 @@ pub async fn server_scores(
     mut command: InteractionCommand,
     args: ServerScores,
 ) -> Result<()> {
+    let Some(guild_id) = command.guild_id else {
+        let content = "This command does not work in DMs";
+        command.error(&ctx, content).await?;
+
+        return Ok(());
+    };
+
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -60,8 +67,6 @@ pub async fn server_scores(
         },
         None => None,
     };
-
-    let guild_id = command.guild_id.unwrap(); // command is only processed in guilds
 
     let guild_fut = ctx.cache.guild(guild_id);
     let members_fut = ctx.cache.members(guild_id);
