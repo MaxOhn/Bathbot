@@ -24,6 +24,7 @@ impl<'c> ScoresManager<'c> {
         Self { ctx, psql }
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub async fn from_discord_ids(
         self,
         discord_users: &[i64],
@@ -50,6 +51,7 @@ impl<'c> ScoresManager<'c> {
             .wrap_err("Failed to select scores")
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub async fn from_osu_ids(
         self,
         user_ids: &[i32],
