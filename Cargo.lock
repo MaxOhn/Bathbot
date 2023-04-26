@@ -1951,7 +1951,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.7.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=mods#7128334b1fb4a05155dfa1dd535ca9e9f548915b"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=mods#a237ead3327782d66d9335e0ca46112db86503bf"
 dependencies = [
  "bytes",
  "dashmap",
