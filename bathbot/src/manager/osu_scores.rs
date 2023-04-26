@@ -31,6 +31,7 @@ impl<'c> ScoresManager<'c> {
         mode: Option<GameMode>,
         mods: Option<&ModSelection>,
         country_code: Option<&str>,
+        map_id: Option<u32>,
     ) -> Result<DbScores<IntHasher>> {
         let ExplicitModSelection {
             mods_include,
@@ -43,6 +44,7 @@ impl<'c> ScoresManager<'c> {
                 discord_users,
                 mode,
                 country_code,
+                map_id.map(|map_id| map_id as i32),
                 mods_include,
                 mods_exclude,
                 mods_exact,
@@ -58,6 +60,7 @@ impl<'c> ScoresManager<'c> {
         mode: Option<GameMode>,
         mods: Option<&ModSelection>,
         country_code: Option<&str>,
+        map_id: Option<u32>,
     ) -> Result<DbScores<IntHasher>> {
         let ExplicitModSelection {
             mods_include,
@@ -70,6 +73,7 @@ impl<'c> ScoresManager<'c> {
                 user_ids,
                 mode,
                 country_code,
+                map_id.map(|map_id| map_id as i32),
                 mods_include,
                 mods_exclude,
                 mods_exact,

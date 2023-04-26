@@ -9,6 +9,7 @@ mod fix_score;
 mod leaderboard;
 mod map;
 mod map_search;
+mod mapscores;
 mod match_compare;
 mod match_costs;
 mod match_live;
@@ -61,9 +62,9 @@ use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, ScoreStatistics};
 pub use self::match_live::*;
 pub use self::{
     attributes::*, badge::*, bws::*, claim_name::*, common::*, country_snipe_list::*,
-    country_snipe_stats::*, fix_score::*, leaderboard::*, map::*, map_search::*, match_compare::*,
-    match_costs::*, medal::*, medal_stats::*, medals_common::*, medals_list::*, medals_missing::*,
-    most_played::*, most_played_common::*, nochoke::*, osekai_medal_count::*,
+    country_snipe_stats::*, fix_score::*, leaderboard::*, map::*, map_search::*, mapscores::*,
+    match_compare::*, match_costs::*, medal::*, medal_stats::*, medals_common::*, medals_list::*,
+    medals_missing::*, most_played::*, most_played_common::*, nochoke::*, osekai_medal_count::*,
     osekai_medal_rarity::*, osustats_counts::*, osustats_globals::*, osustats_list::*,
     osutracker_countrytop::*, osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*,
     osutracker_mods::*, player_snipe_list::*, player_snipe_stats::*, pp_missing::*, profile::*,

@@ -30,7 +30,7 @@ use crate::{
         },
         MapError, OsuMap,
     },
-    util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
+    util::{interaction::InteractionCommand, osu::IfFc, CheckPermissions, InteractionCommandExt},
     Context,
 };
 

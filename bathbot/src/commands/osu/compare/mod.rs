@@ -7,7 +7,9 @@ use twilight_interactions::command::{
 };
 use twilight_model::id::{marker::UserMarker, Id};
 
-pub use self::{common::*, most_played::*, profile::*, score::*};
+pub use self::{
+    common::*, most_played::*, profile::*, score::slash_compare as slash_compare_score, score::*,
+};
 use crate::{
     commands::GameModeOption,
     util::{interaction::InteractionCommand, InteractionCommandExt},
@@ -98,13 +100,13 @@ pub struct CompareScore<'a> {
 #[derive(CommandModel)]
 #[command(autocomplete = true)]
 pub struct CompareScoreAutocomplete<'a> {
-    name: Option<Cow<'a, str>>,
-    map: Option<Cow<'a, str>>,
-    difficulty: AutocompleteValue<String>,
-    sort: Option<ScoreOrder>,
-    mods: Option<Cow<'a, str>>,
-    index: Option<u32>,
-    discord: Option<Id<UserMarker>>,
+    pub name: Option<Cow<'a, str>>,
+    pub map: Option<Cow<'a, str>>,
+    pub difficulty: AutocompleteValue<String>,
+    pub sort: Option<ScoreOrder>,
+    pub mods: Option<Cow<'a, str>>,
+    pub index: Option<u32>,
+    pub discord: Option<Id<UserMarker>>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption)]
@@ -209,7 +211,7 @@ pub struct CompareMostPlayed<'a> {
 
 async fn slash_compare(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match CompareAutocomplete::from_interaction(command.input_data())? {
-        CompareAutocomplete::Score(args) => score::slash_compare(ctx, &mut command, args).await,
+        CompareAutocomplete::Score(args) => slash_compare_score(ctx, &mut command, args).await,
         CompareAutocomplete::Profile(args) => profile(ctx, (&mut command).into(), args).await,
         CompareAutocomplete::Top(args) => top(ctx, (&mut command).into(), args).await,
         CompareAutocomplete::MostPlayed(args) => mostplayed(ctx, (&mut command).into(), args).await,

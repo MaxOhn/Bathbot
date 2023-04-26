@@ -19,7 +19,7 @@ use crate::{
     commands::ThreadChannel,
     core::commands::CommandOrigin,
     matchlive::MatchTrackResult,
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
+    util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
 

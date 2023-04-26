@@ -87,9 +87,13 @@ pub async fn server_scores(
         }
     };
 
-    let scores_fut =
-        ctx.osu_scores()
-            .from_discord_ids(&members, mode, mods.as_ref(), country_code.as_deref());
+    let scores_fut = ctx.osu_scores().from_discord_ids(
+        &members,
+        mode,
+        mods.as_ref(),
+        country_code.as_deref(),
+        None,
+    );
 
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,

@@ -26,7 +26,7 @@ use crate::{
     embeds::{SimulateAttributes, SimulateData, TopOldVersion},
     manager::MapError,
     pagination::SimulatePagination,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, CheckPermissions, InteractionCommandExt},
 };
 
 #[derive(CreateCommand, CommandModel, Default, HasMods, SlashCommand)]

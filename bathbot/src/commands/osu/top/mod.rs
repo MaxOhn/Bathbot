@@ -45,7 +45,7 @@ use crate::{
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, Searchable},
-        ChannelExt, InteractionCommandExt, MessageExt,
+        ChannelExt, CheckPermissions, InteractionCommandExt, MessageExt,
     },
     Context,
 };
