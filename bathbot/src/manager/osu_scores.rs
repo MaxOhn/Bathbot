@@ -207,7 +207,7 @@ impl<'c> ScoreArgs<'c> {
             Err(OsuError::NotFound) => {
                 // Remove stats of unknown/restricted users so they don't appear in the
                 // leaderboard
-                if let Err(err) = ctx.osu_user().remove_stats(user_id).await {
+                if let Err(err) = ctx.osu_user().remove_stats_and_scores(user_id).await {
                     let wrap = "Failed to remove stats of unknown user";
                     warn!("{:?}", err.wrap_err(wrap));
                 }

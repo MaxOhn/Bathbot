@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::BuildHasher};
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
 use rosu_v2::prelude::{GameMode, Score, ScoreStatistics};
-use sqlx::{pool::PoolConnection, Postgres};
+use sqlx::{pool::PoolConnection, Executor, Postgres};
 
 use crate::{
     database::Database,
@@ -996,7 +996,7 @@ VALUES
     }
 
     pub async fn update_beatmapsets_compact(&self, scores: &[Score]) -> Result<()> {
-        let mut tx = self.begin().await.wrap_err("failed to begin transaction")?;
+        let mut tx = self.begin().await.wrap_err("Failed to begin transaction")?;
 
         for score in scores {
             if let Some(ref mapset) = score.mapset {
@@ -1004,7 +1004,28 @@ VALUES
             }
         }
 
-        tx.commit().await.wrap_err("failed to commit transaction")?;
+        tx.commit().await.wrap_err("Failed to commit transaction")?;
+
+        Ok(())
+    }
+
+    pub async fn delete_scores_by_user_id<'c, E>(executor: E, user_id: u32) -> Result<()>
+    where
+        E: Executor<'c, Database = Postgres>,
+    {
+        let query = sqlx::query!(
+            r#"
+DELETE FROM 
+  osu_scores 
+WHERE 
+  user_id = $1"#,
+            user_id as i32
+        );
+
+        query
+            .execute(executor)
+            .await
+            .wrap_err("Failed to execute scores query")?;
 
         Ok(())
     }

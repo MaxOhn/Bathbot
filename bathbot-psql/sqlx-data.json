@@ -1969,6 +1969,18 @@
     },
     "query": "\nSELECT \n  mapsets.mapset_id, \n  artist, \n  title, \n  rank_status, \n  ranked_date \nFROM \n  (\n    SELECT \n      mapset_id \n    FROM \n      osu_maps \n    WHERE \n      map_id = ANY($1)\n  ) AS maps \n  JOIN (\n    SELECT \n      * \n    FROM \n      osu_mapsets\n  ) AS mapsets ON maps.mapset_id = mapsets.mapset_id"
   },
+  "a52bab87e68e0afd8f671d0d97ea6299589d5f59107633ff056e9b373eac7f28": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  osu_scores \nWHERE \n  user_id = $1"
+  },
   "adfe9de02db6d8af635558f7c243b4c7c13093b460943160577157b01cb2c5d4": {
     "describe": {
       "columns": [
