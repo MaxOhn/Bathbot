@@ -8,7 +8,7 @@ use twilight_model::guild::Permissions;
 
 use crate::{
     core::{commands::CommandOrigin, Context},
-    util::{interaction::InteractionCommand, MessageExt},
+    util::{interaction::InteractionCommand, CheckPermissions, MessageExt},
 };
 
 #[derive(CreateCommand, SlashCommand)]

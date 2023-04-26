@@ -16,13 +16,13 @@ use twilight_model::{
 
 pub use self::{
     badges::*, command_count::*, common::*, country_snipe_list::*, leaderboard::*, map::*,
-    map_search::*, match_compare::*, medal_recent::*, medals_common::*, medals_list::*,
-    medals_missing::*, most_played::*, most_played_common::*, nochoke::*, osekai_medal_count::*,
-    osekai_medal_rarity::*, osustats_globals::*, osustats_list::*, osutracker_countrytop::*,
-    osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*, osutracker_mods::*,
-    pages::Pages, player_snipe_list::*, profile::*, ranking::*, ranking_countries::*,
-    recent_list::*, scores::*, serverscores::*, simulate::*, sniped_difference::*, top::*,
-    top_if::*, userscores::*,
+    map_search::*, mapscores::*, match_compare::*, medal_recent::*, medals_common::*,
+    medals_list::*, medals_missing::*, most_played::*, most_played_common::*, nochoke::*,
+    osekai_medal_count::*, osekai_medal_rarity::*, osustats_globals::*, osustats_list::*,
+    osutracker_countrytop::*, osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*,
+    osutracker_mods::*, pages::Pages, player_snipe_list::*, profile::*, ranking::*,
+    ranking_countries::*, recent_list::*, scores::*, serverscores::*, simulate::*,
+    sniped_difference::*, top::*, top_if::*, userscores::*,
 };
 use crate::{
     commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
@@ -38,6 +38,7 @@ mod country_snipe_list;
 mod leaderboard;
 mod map;
 mod map_search;
+mod mapscores;
 mod match_compare;
 mod medal_recent;
 mod medals_common;
@@ -77,6 +78,7 @@ pub enum PaginationKind {
     CountrySnipeList(Box<CountrySnipeListPagination>),
     Leaderboard(Box<LeaderboardPagination>),
     Map(Box<MapPagination>),
+    MapScores(Box<MapScoresPagination>),
     MapSearch(Box<MapSearchPagination>),
     MatchCompare(Box<MatchComparePagination>),
     MedalCount(Box<MedalCountPagination>),
@@ -120,6 +122,7 @@ impl PaginationKind {
             Self::CountrySnipeList(kind) => Ok(kind.build_page(pages)),
             Self::Leaderboard(kind) => Ok(kind.build_page(ctx, pages).await),
             Self::Map(kind) => kind.build_page(ctx, pages).await,
+            Self::MapScores(kind) => Ok(kind.build_page(pages)),
             Self::MapSearch(kind) => kind.build_page(ctx, pages).await,
             Self::MatchCompare(kind) => Ok(kind.build_page(pages)),
             Self::MedalCount(kind) => Ok(kind.build_page(pages)),

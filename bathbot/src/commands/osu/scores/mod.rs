@@ -5,13 +5,14 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
-use self::{server::server_scores, user::user_scores};
+use self::{map::map_scores, server::server_scores, user::user_scores};
 use crate::{
     commands::GameModeOption,
     core::Context,
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
+mod map;
 mod server;
 mod user;
 
@@ -31,6 +32,8 @@ pub enum Scores {
     Server(ServerScores),
     #[command(name = "user")]
     User(UserScores),
+    #[command(name = "map")]
+    Map(MapScores),
 }
 
 #[derive(CreateCommand, CommandModel, HasMods)]
@@ -107,9 +110,32 @@ pub struct UserScores {
     discord: Option<Id<UserMarker>>,
 }
 
+#[derive(CreateCommand, CommandModel, HasMods)]
+#[command(name = "map")]
+/// List scores on a map
+pub struct MapScores {
+    #[command(help = "Specify a map either by map url or map id.\n\
+    If none is specified, it will search in the recent channel history \
+    and pick the first map it can find.")]
+    /// Specify a map url or map id
+    map: Option<String>,
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Choose how the scores should be ordered, defaults to PP
+    sort: Option<ScoresOrder>,
+    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
+    /// excluded)
+    mods: Option<String>,
+    #[command(min_value = 1, max_value = 50)]
+    /// While checking the channel history, I will choose the index-th map I can
+    /// find
+    index: Option<u32>,
+}
+
 async fn slash_scores(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Scores::from_interaction(command.input_data())? {
         Scores::Server(args) => server_scores(ctx, command, args).await,
         Scores::User(args) => user_scores(ctx, command, args).await,
+        Scores::Map(args) => map_scores(ctx, command, args).await,
     }
 }

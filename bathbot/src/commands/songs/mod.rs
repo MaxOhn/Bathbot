@@ -36,7 +36,7 @@ pub use self::{
 };
 use crate::{
     core::{buckets::BucketName, commands::CommandOrigin},
-    util::{interaction::InteractionCommand, InteractionCommandExt, MessageExt},
+    util::{interaction::InteractionCommand, CheckPermissions, InteractionCommandExt, MessageExt},
     Context,
 };
 

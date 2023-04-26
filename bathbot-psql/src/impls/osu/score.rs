@@ -19,6 +19,7 @@ macro_rules! select_scores {
             conn: &mut PoolConnection<Postgres>,
             user_ids: &[i32],
             country_code: Option<&str>,
+            map_id: Option<i32>,
             mods_include: Option<i32>,
             mods_exclude: Option<i32>,
             mods_exact: Option<i32>,
@@ -30,7 +31,8 @@ macro_rules! select_scores {
                 country_code,
                 mods_include,
                 mods_exclude,
-                mods_exact
+                mods_exact,
+                map_id,
             );
 
             let mut scores = Vec::new();
@@ -63,17 +65,16 @@ r#"WITH scores AS (
     countmiss, 
     ended_at 
   FROM 
-    (
-      SELECT 
-        * 
-      FROM 
-        osu_scores 
-      WHERE 
-        gamemode = 0 
-        AND user_id = ANY($1)
-    ) AS scores 
+    osu_scores 
   WHERE 
-    (
+    gamemode = 0 
+    AND user_id = ANY($1)
+    AND (
+      -- map id
+      $6 :: INT4 IS NULL 
+      OR map_id = $6
+    ) 
+    AND (
       -- country code
       $2 :: VARCHAR(2) IS NULL 
       OR (
@@ -82,7 +83,7 @@ r#"WITH scores AS (
         FROM 
           osu_user_stats 
         WHERE 
-          user_id = scores.user_id
+          user_id = osu_scores.user_id
       ) = $2
     ) 
     AND (
@@ -165,17 +166,16 @@ r#"WITH scores AS (
     countmiss, 
     ended_at 
   FROM 
-    (
-      SELECT 
-        * 
-      FROM 
-        osu_scores 
-      WHERE 
-        gamemode = 1 
-        AND user_id = ANY($1)
-    ) AS scores 
+    osu_scores 
   WHERE 
-    (
+    gamemode = 1 
+    AND user_id = ANY($1) 
+    AND (
+      -- map id
+      $6 :: INT4 IS NULL 
+      OR map_id = $6
+    ) 
+    AND (
       -- country code
       $2 :: VARCHAR(2) IS NULL 
       OR (
@@ -184,7 +184,7 @@ r#"WITH scores AS (
         FROM 
           osu_user_stats 
         WHERE 
-          user_id = scores.user_id
+          user_id = osu_scores.user_id
       ) = $2
     ) 
     AND (
@@ -268,17 +268,16 @@ r#"WITH scores AS (
     countmiss, 
     ended_at 
   FROM 
-    (
-      SELECT 
-        * 
-      FROM 
-        osu_scores 
-      WHERE 
-        gamemode = 2 
-        AND user_id = ANY($1)
-    ) AS scores 
+    osu_scores 
   WHERE 
-    (
+    gamemode = 2 
+    AND user_id = ANY($1) 
+    AND (
+      -- map id
+      $6 :: INT4 IS NULL 
+      OR map_id = $6
+    ) 
+    AND (
       -- country code
       $2 :: VARCHAR(2) IS NULL 
       OR (
@@ -287,7 +286,7 @@ r#"WITH scores AS (
         FROM 
           osu_user_stats 
         WHERE 
-          user_id = scores.user_id
+          user_id = osu_scores.user_id
       ) = $2
     ) 
     AND (
@@ -374,17 +373,16 @@ r#"WITH scores AS (
     countmiss, 
     ended_at 
   FROM 
-    (
-      SELECT 
-        * 
-      FROM 
-        osu_scores 
-      WHERE 
-        gamemode = 3 
-        AND user_id = ANY($1)
-    ) AS scores 
+    osu_scores 
   WHERE 
-    (
+    gamemode = 3 
+    AND user_id = ANY($1) 
+    AND (
+      -- map id
+      $6 :: INT4 IS NULL 
+      OR map_id = $6
+    ) 
+    AND (
       -- country code
       $2 :: VARCHAR(2) IS NULL 
       OR (
@@ -393,7 +391,7 @@ r#"WITH scores AS (
         FROM 
           osu_user_stats 
         WHERE 
-          user_id = scores.user_id
+          user_id = osu_scores.user_id
       ) = $2
     ) 
     AND (
@@ -467,6 +465,7 @@ ORDER BY
         conn: &mut PoolConnection<Postgres>,
         user_ids: &[i32],
         country_code: Option<&str>,
+        map_id: Option<i32>,
         mods_include: Option<i32>,
         mods_exclude: Option<i32>,
         mods_exact: Option<i32>,
@@ -495,6 +494,11 @@ WITH scores AS (
     osu_scores 
   WHERE 
     user_id = ANY($1) 
+    AND (
+      -- map id
+      $6 :: INT4 IS NULL 
+      OR map_id = $6
+    ) 
     AND (
       -- country code
       $2 :: VARCHAR(2) IS NULL 
@@ -610,6 +614,7 @@ ORDER BY
             mods_include,
             mods_exclude,
             mods_exact,
+            map_id,
         );
 
         let mut scores = Vec::new();
@@ -628,6 +633,7 @@ ORDER BY
         discord_users: &[i64],
         mode: Option<GameMode>,
         country_code: Option<&str>,
+        map_id: Option<i32>,
         mods_include: Option<i32>,
         mods_exclude: Option<i32>,
         mods_exact: Option<i32>,
@@ -668,6 +674,7 @@ AND osu_id IS NOT NULL"#,
             &user_ids,
             mode,
             country_code,
+            map_id,
             mods_include,
             mods_exclude,
             mods_exact,
@@ -680,6 +687,7 @@ AND osu_id IS NOT NULL"#,
         user_ids: &[i32],
         mode: Option<GameMode>,
         country_code: Option<&str>,
+        map_id: Option<i32>,
         mods_include: Option<i32>,
         mods_exclude: Option<i32>,
         mods_exact: Option<i32>,
@@ -697,6 +705,7 @@ AND osu_id IS NOT NULL"#,
             user_ids,
             mode,
             country_code,
+            map_id,
             mods_include,
             mods_exclude,
             mods_exact,
@@ -709,6 +718,7 @@ AND osu_id IS NOT NULL"#,
         user_ids: &[i32],
         mode: Option<GameMode>,
         country_code: Option<&str>,
+        map_id: Option<i32>,
         mods_include: Option<i32>,
         mods_exclude: Option<i32>,
         mods_exact: Option<i32>,
@@ -722,6 +732,7 @@ AND osu_id IS NOT NULL"#,
                     conn,
                     user_ids,
                     country_code,
+                    map_id,
                     mods_include,
                     mods_exclude,
                     mods_exact,
@@ -733,6 +744,7 @@ AND osu_id IS NOT NULL"#,
                     conn,
                     user_ids,
                     country_code,
+                    map_id,
                     mods_include,
                     mods_exclude,
                     mods_exact,
@@ -744,6 +756,7 @@ AND osu_id IS NOT NULL"#,
                     conn,
                     user_ids,
                     country_code,
+                    map_id,
                     mods_include,
                     mods_exclude,
                     mods_exact,
@@ -755,6 +768,7 @@ AND osu_id IS NOT NULL"#,
                     conn,
                     user_ids,
                     country_code,
+                    map_id,
                     mods_include,
                     mods_exclude,
                     mods_exact,
@@ -766,6 +780,7 @@ AND osu_id IS NOT NULL"#,
                     conn,
                     user_ids,
                     country_code,
+                    map_id,
                     mods_include,
                     mods_exclude,
                     mods_exact,

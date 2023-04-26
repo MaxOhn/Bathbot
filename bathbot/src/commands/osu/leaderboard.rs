@@ -20,7 +20,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::MapError,
     pagination::LeaderboardPagination,
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
+    util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
 

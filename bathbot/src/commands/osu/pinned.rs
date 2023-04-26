@@ -39,7 +39,7 @@ use crate::{
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, Searchable},
-        InteractionCommandExt, MessageExt,
+        CheckPermissions, InteractionCommandExt, MessageExt,
     },
     Context,
 };

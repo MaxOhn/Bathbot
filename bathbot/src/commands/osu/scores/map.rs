@@ -1,33 +1,75 @@
-use std::{cmp::Reverse, collections::HashMap, fmt::Write, sync::Arc};
+use std::{borrow::Cow, cmp::Reverse, collections::HashMap, fmt::Write, sync::Arc};
 
-use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::osu::DbScores;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    osu::ModSelection,
-    IntHasher,
+    constants::GENERAL_ISSUE,
+    matcher,
+    osu::{MapIdType, ModSelection},
+    IntHasher, MessageBuilder,
 };
-use eyre::{Report, Result};
+use eyre::Result;
 use rosu_pp::beatmap::BeatmapAttributesBuilder;
-use rosu_v2::{
-    prelude::{GameMode, GameModsIntermode, OsuError},
-    request::UserId,
-};
+use rosu_v2::prelude::{GameMode, GameModsIntermode};
+use twilight_interactions::command::AutocompleteValue;
 
-use super::{ScoresOrder, UserScores};
+use super::{MapScores, ScoresOrder};
 use crate::{
-    commands::osu::{require_link, user_not_found, HasMods, ModsResult},
-    core::{commands::CommandOrigin, Context},
-    manager::redis::{osu::UserArgs, RedisData},
-    pagination::UserScoresPagination,
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
+    commands::osu::{
+        compare::{slash_compare_score, ScoreOrder},
+        CompareScoreAutocomplete, HasMods, ModsResult,
+    },
+    core::Context,
+    pagination::MapScoresPagination,
+    util::{interaction::InteractionCommand, Authored, CheckPermissions, InteractionCommandExt},
 };
 
-pub async fn user_scores(
+pub async fn map_scores(
     ctx: Arc<Context>,
     mut command: InteractionCommand,
-    args: UserScores,
+    args: MapScores,
 ) -> Result<()> {
+    let Some(guild_id) = command.guild_id else {
+        // TODO: use mode when /cs uses it
+        let MapScores { map, mode: _, sort, mods, index } = args;
+
+        let sort = match sort {
+            Some(ScoresOrder::Acc) => Some(ScoreOrder::Acc),
+            Some(ScoresOrder::Combo) => Some(ScoreOrder::Combo),
+            Some(ScoresOrder::Date) => Some(ScoreOrder::Date),
+            Some(ScoresOrder::Misses) => Some(ScoreOrder::Misses),
+            Some(ScoresOrder::Pp) => Some(ScoreOrder::Pp),
+            Some(ScoresOrder::Score) => Some(ScoreOrder::Score),
+            Some(ScoresOrder::Stars) => Some(ScoreOrder::Stars),
+            None => None,
+            Some(ScoresOrder::Ar |
+            ScoresOrder::Bpm |
+            ScoresOrder::Cs |
+            ScoresOrder::Hp |
+            ScoresOrder::Length |
+            ScoresOrder::Od |
+            ScoresOrder::RankedDate) => {
+                let content = "When using this command in DMs, \
+                the only available sort orders are \
+                `Accuracy`, `Combo`, `Date`, `Misses`, `PP`, `Score`, or `Stars`";
+                command.error(&ctx, content).await?;
+
+                return Ok(());
+            }
+        };
+
+        let args = CompareScoreAutocomplete {
+            name: None,
+            map: map.map(Cow::Owned),
+            difficulty: AutocompleteValue::None,
+            sort,
+            mods: mods.map(Cow::Owned),
+            index,
+            discord: None,
+        };
+
+        return slash_compare_score(ctx, &mut command, args).await;
+    };
+
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -43,41 +85,90 @@ pub async fn user_scores(
         }
     };
 
-    let author_id = command.user_id()?;
-    let config = ctx.user_config().with_osu_id(author_id).await?;
+    let mode = args.mode.map(GameMode::from);
 
-    let mode = args.mode.map(GameMode::from).or(config.mode);
+    let map = match args.map {
+        Some(ref map) => {
+            let map_opt = matcher::get_osu_map_id(map)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(map).map(MapIdType::Set));
 
-    let user_id = {
-        let orig = CommandOrigin::from(&mut command);
+            if map_opt.is_none() {
+                let content =
+                    "Failed to parse map url. Be sure you specify a valid map id or url to a map.";
+                command.error(&ctx, content).await?;
 
-        match user_id!(ctx, orig, args).or_else(|| config.osu.map(UserId::Id)) {
-            Some(user_id) => user_id,
-            None => return require_link(&ctx, &orig).await,
+                return Ok(());
+            }
+
+            map_opt
         }
+        None => None,
     };
 
-    let user_fut = get_user(&ctx, &user_id, mode);
-
-    let user = match user_fut.await {
-        Ok(user) => user,
-        Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+    let map_id = match map {
+        Some(MapIdType::Map(id)) => id,
+        Some(MapIdType::Set(_)) => {
+            let content = "Looks like you gave me a mapset id, I need a map id though";
             command.error(&ctx, content).await?;
 
             return Ok(());
         }
-        Err(err) => {
-            let _ = command.error(&ctx, OSU_API_ISSUE).await;
+        None if command.can_read_history() => {
+            let msgs = match ctx.retrieve_channel_history(command.channel_id()).await {
+                Ok(msgs) => msgs,
+                Err(err) => {
+                    let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(Report::new(err).wrap_err("Failed to get user"));
+                    return Err(err.wrap_err("Failed to retrieve channel history"));
+                }
+            };
+
+            match MapIdType::map_from_msgs(&msgs, 0) {
+                Some(id) => id,
+                None => {
+                    let content = "No beatmap specified and none found in recent channel history. \
+                    Try specifying a map either by url to the map, or just by map id.";
+                    command.error(&ctx, content).await?;
+
+                    return Ok(());
+                }
+            }
+        }
+        None => {
+            let content =
+                "No beatmap specified and lacking permission to search the channel history for maps.\n\
+                Try specifying a map either by url to the map, or just by map id, \
+                or give me the \"Read Message History\" permission.";
+
+            command.error(&ctx, content).await?;
+
+            return Ok(());
         }
     };
 
-    let ids = &[user.user_id() as i32];
-    let scores_fut = ctx
-        .osu_scores()
-        .from_osu_ids(ids, mode, mods.as_ref(), None, None);
+    let guild_fut = ctx.cache.guild(guild_id);
+    let members_fut = ctx.cache.members(guild_id);
+
+    let (guild_res, members_res) = tokio::join!(guild_fut, members_fut);
+
+    let guild_icon = guild_res
+        .ok()
+        .flatten()
+        .and_then(|guild| Some((guild.id, *guild.icon.as_ref()?)));
+
+    let members: Vec<_> = match members_res {
+        Ok(members) => members.into_iter().map(|id| id as i64).collect(),
+        Err(err) => {
+            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    let scores_fut =
+        ctx.osu_scores()
+            .from_discord_ids(&members, mode, mods.as_ref(), None, Some(map_id));
 
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,
@@ -88,45 +179,46 @@ pub async fn user_scores(
         }
     };
 
-    let creator_id = match args.mapper {
-        Some(ref mapper) => match UserArgs::username(&ctx, mapper).await {
-            UserArgs::Args(args) => Some(args.user_id),
-            UserArgs::User { user, .. } => Some(user.user_id),
-            UserArgs::Err(OsuError::NotFound) => {
-                let content = user_not_found(&ctx, UserId::Name(mapper.as_str().into())).await;
-                command.error(&ctx, content).await?;
-
-                return Ok(());
+    if scores.is_empty() {
+        let content = format!(
+            "Looks like I don't have any stored{mode} scores on map id {map_id}{mods}",
+            mode = match mode {
+                Some(GameMode::Osu) => " osu!",
+                Some(GameMode::Taiko) => " taiko",
+                Some(GameMode::Catch) => " catch",
+                Some(GameMode::Mania) => " mania",
+                None => "",
+            },
+            mods = match mods {
+                Some(_) => " for the specified mods",
+                None => "",
             }
-            UserArgs::Err(err) => {
-                let _ = command.error(&ctx, OSU_API_ISSUE).await;
+        );
+        let builder = MessageBuilder::new().embed(content);
+        command.update(&ctx, &builder).await?;
 
-                return Err(Report::new(err).wrap_err("Failed to get mapper"));
-            }
-        },
-        None => None,
-    };
+        return Ok(());
+    } else if scores.maps().next().zip(scores.mapsets().next()).is_none() {
+        let content = format!("Looks like I don't have map id {map_id} stored");
+        let builder = MessageBuilder::new().embed(content);
+        command.update(&ctx, &builder).await?;
+
+        return Ok(());
+    }
 
     let sort = args.sort.unwrap_or_default();
-    let content = msg_content(sort, mods.as_ref(), args.mapper.as_deref());
+    let content = msg_content(sort, mods.as_ref());
 
-    process_scores(&mut scores, creator_id, sort);
+    process_scores(&mut scores, sort);
 
-    UserScoresPagination::builder(scores, user, mode, sort)
+    MapScoresPagination::builder(scores, mode, sort, guild_icon)
         .content(content)
         .start_by_update()
         .start(ctx, (&mut command).into())
         .await
 }
 
-fn process_scores(scores: &mut DbScores<IntHasher>, creator_id: Option<u32>, sort: ScoresOrder) {
-    if let Some(creator_id) = creator_id {
-        scores.retain(|score, maps, _, _| match maps.get(&score.map_id) {
-            Some(map) => map.creator_id == creator_id,
-            None => false,
-        });
-    }
-
+fn process_scores(scores: &mut DbScores<IntHasher>, sort: ScoresOrder) {
     match sort {
         ScoresOrder::Acc => scores.scores_mut().sort_unstable_by(|a, b| {
             b.statistics
@@ -332,21 +424,7 @@ fn process_scores(scores: &mut DbScores<IntHasher>, creator_id: Option<u32>, sor
     }
 }
 
-async fn get_user(
-    ctx: &Context,
-    user_id: &UserId,
-    mode: Option<GameMode>,
-) -> Result<RedisData<User>, OsuError> {
-    let mut args = UserArgs::rosu_id(ctx, user_id).await;
-
-    if let Some(mode) = mode {
-        args = args.mode(mode);
-    }
-
-    ctx.redis().osu_user(args).await
-}
-
-fn msg_content(sort: ScoresOrder, mods: Option<&ModSelection>, mapper: Option<&str>) -> String {
+fn msg_content(sort: ScoresOrder, mods: Option<&ModSelection>) -> String {
     let mut content = String::new();
 
     match mods {
@@ -360,14 +438,6 @@ fn msg_content(sort: ScoresOrder, mods: Option<&ModSelection>, mapper: Option<&s
             let _ = write!(content, "`Mods: {mods}`");
         }
         None => {}
-    }
-
-    if let Some(mapper) = mapper {
-        if !content.is_empty() {
-            content.push_str(" • ");
-        }
-
-        let _ = write!(content, "`Mapper: {mapper}`");
     }
 
     if !content.is_empty() {

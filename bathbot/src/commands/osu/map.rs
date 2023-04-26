@@ -30,7 +30,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::MessageOrigin,
     pagination::MapPagination,
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
+    util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
 

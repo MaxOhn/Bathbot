@@ -32,7 +32,10 @@ use crate::{
         redis::osu::{UserArgs, UserArgsSlim},
         OsuMap,
     },
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt, MessageExt},
+    util::{
+        interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt,
+        MessageExt,
+    },
     Context,
 };
 

@@ -43,7 +43,7 @@ use crate::{
         MapError,
     },
     pagination::ScoresPagination,
-    util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
+    util::{interaction::InteractionCommand, osu::IfFc, CheckPermissions, InteractionCommandExt},
     Context,
 };
 
@@ -282,7 +282,7 @@ async fn slash_comparescore_(ctx: Arc<Context>, mut command: InteractionCommand)
     slash_compare(ctx, &mut command, args).await
 }
 
-pub(super) async fn slash_compare(
+pub async fn slash_compare(
     ctx: Arc<Context>,
     command: &mut InteractionCommand,
     args: CompareScoreAutocomplete<'_>,
