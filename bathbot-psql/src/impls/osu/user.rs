@@ -802,11 +802,11 @@ SET
         Ok(())
     }
 
-    pub async fn delete_osu_user_stats(&self, user_id: u32) -> Result<()> {
+    pub async fn delete_osu_user_stats_and_scores(&self, user_id: u32) -> Result<()> {
         let mut conn = self
             .acquire()
             .await
-            .wrap_err("failed to acquire connection")?;
+            .wrap_err("Failed to acquire connection")?;
 
         let query = sqlx::query!(
             r#"
@@ -820,7 +820,7 @@ WHERE
         query
             .execute(&mut conn)
             .await
-            .wrap_err("failed to execute osu_user_stats query")?;
+            .wrap_err("Failed to execute osu_user_stats query")?;
 
         let query = sqlx::query!(
             r#"
@@ -834,8 +834,11 @@ WHERE
         query
             .execute(&mut conn)
             .await
-            .wrap_err("failed to execute osu_user_mode_stats query")?;
+            .wrap_err("Failed to execute osu_user_mode_stats query")?;
 
-        Self::delete_osu_username(&mut conn, user_id).await
+        Self::delete_osu_username(&mut conn, user_id).await?;
+        Self::delete_scores_by_user_id(&mut conn, user_id).await?;
+
+        Ok(())
     }
 }

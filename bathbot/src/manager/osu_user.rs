@@ -93,10 +93,10 @@ impl<'d> OsuUserManager<'d> {
             .wrap_err("Failed to upsert osu user")
     }
 
-    pub async fn remove_stats(self, user_id: u32) -> Result<()> {
+    pub async fn remove_stats_and_scores(self, user_id: u32) -> Result<()> {
         self.psql
-            .delete_osu_user_stats(user_id)
+            .delete_osu_user_stats_and_scores(user_id)
             .await
-            .wrap_err("Failed to delete osu user stats")
+            .wrap_err("Failed to delete osu user data")
     }
 }
