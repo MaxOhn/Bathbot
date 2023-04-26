@@ -224,8 +224,23 @@ impl<'de> Visitor<'de> for OsuStatsScoreModsVisitor {
             return Ok(GameMods::new());
         }
 
+        fn parse_mod_alt(s: &str) -> Option<GameMod> {
+            match s {
+                "K1" => Some(GameMod::OneKeyMania(Default::default())),
+                "K2" => Some(GameMod::TwoKeysMania(Default::default())),
+                "K3" => Some(GameMod::ThreeKeysMania(Default::default())),
+                "K4" => Some(GameMod::FourKeysMania(Default::default())),
+                "K5" => Some(GameMod::FiveKeysMania(Default::default())),
+                "K6" => Some(GameMod::SixKeysMania(Default::default())),
+                "K7" => Some(GameMod::SevenKeysMania(Default::default())),
+                "K8" => Some(GameMod::EightKeysMania(Default::default())),
+                "K9" => Some(GameMod::NineKeysMania(Default::default())),
+                _ => None,
+            }
+        }
+
         v.split(',')
-            .map(|s| GameMod::new(s, self.mode))
+            .map(|s| GameMod::new(s, self.mode).or_else(|| parse_mod_alt(s)))
             .collect::<Option<GameMods>>()
             .ok_or_else(|| {
                 DeError::invalid_value(Unexpected::Str(v), &"comma separated list of acronyms")
