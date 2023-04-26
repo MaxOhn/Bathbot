@@ -830,6 +830,7 @@ SELECT
   mapsets.mapset_id, 
   artist, 
   title, 
+  rank_status, 
   ranked_date 
 FROM 
   (

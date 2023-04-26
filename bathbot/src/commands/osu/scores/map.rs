@@ -206,7 +206,7 @@ pub async fn map_scores(
 
     let sort = args.sort.unwrap_or_default();
     let content = msg_content(sort, mods.as_ref());
-    process_scores(&mut scores, None, sort, args.reverse);
+    process_scores(&mut scores, None, sort, None, args.reverse);
 
     MapScoresPagination::builder(scores, mode, sort, guild_icon)
         .content(content)
