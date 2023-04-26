@@ -1100,44 +1100,6 @@
     },
     "query": "\nSELECT \n  artist, \n  title \nFROM \n  osu_mapsets \nWHERE \n  mapset_id = $1"
   },
-  "50dd22d0a98a5a5fb45d023751d6cb2e95cf36029f172160c7a86264bae6f526": {
-    "describe": {
-      "columns": [
-        {
-          "name": "mapset_id",
-          "ordinal": 0,
-          "type_info": "Int4"
-        },
-        {
-          "name": "artist",
-          "ordinal": 1,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "title",
-          "ordinal": 2,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "ranked_date",
-          "ordinal": 3,
-          "type_info": "Timestamptz"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Int4Array"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  mapsets.mapset_id, \n  artist, \n  title, \n  ranked_date \nFROM \n  (\n    SELECT \n      mapset_id \n    FROM \n      osu_maps \n    WHERE \n      map_id = ANY($1)\n  ) AS maps \n  JOIN (\n    SELECT \n      * \n    FROM \n      osu_mapsets\n  ) AS mapsets ON maps.mapset_id = mapsets.mapset_id"
-  },
   "5131ec2023a6ea07d2bb0210a5614211d9a1a59b915838471a0e09c702381e4a": {
     "describe": {
       "columns": [
@@ -1962,6 +1924,50 @@
       }
     },
     "query": "\nSELECT \n  mapset_id, \n  user_id, \n  artist, \n  title, \n  creator, \n  rank_status, \n  ranked_date, \n  thumbnail, \n  cover \nFROM \n  osu_mapsets \nWHERE \n  mapset_id = $1"
+  },
+  "9b96d32b4cf8f8693ef328642503586023db89db40c938d7128e0895b87bb8cf": {
+    "describe": {
+      "columns": [
+        {
+          "name": "mapset_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "artist",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "rank_status",
+          "ordinal": 3,
+          "type_info": "Int2"
+        },
+        {
+          "name": "ranked_date",
+          "ordinal": 4,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int4Array"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  mapsets.mapset_id, \n  artist, \n  title, \n  rank_status, \n  ranked_date \nFROM \n  (\n    SELECT \n      mapset_id \n    FROM \n      osu_maps \n    WHERE \n      map_id = ANY($1)\n  ) AS maps \n  JOIN (\n    SELECT \n      * \n    FROM \n      osu_mapsets\n  ) AS mapsets ON maps.mapset_id = mapsets.mapset_id"
   },
   "adfe9de02db6d8af635558f7c243b4c7c13093b460943160577157b01cb2c5d4": {
     "describe": {

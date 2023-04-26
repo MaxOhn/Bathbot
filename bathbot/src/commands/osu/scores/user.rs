@@ -11,7 +11,7 @@ use rosu_v2::{
     request::UserId,
 };
 
-use super::{process_scores, ScoresOrder, UserScores};
+use super::{process_scores, MapStatus, ScoresOrder, UserScores};
 use crate::{
     commands::osu::{require_link, user_not_found, HasMods, ModsResult},
     core::{commands::CommandOrigin, Context},
@@ -105,8 +105,8 @@ pub async fn user_scores(
     };
 
     let sort = args.sort.unwrap_or_default();
-    let content = msg_content(sort, mods.as_ref(), args.mapper.as_deref());
-    process_scores(&mut scores, creator_id, sort, args.reverse);
+    let content = msg_content(sort, mods.as_ref(), args.mapper.as_deref(), args.status);
+    process_scores(&mut scores, creator_id, sort, args.status, args.reverse);
 
     UserScoresPagination::builder(scores, user, mode, sort)
         .content(content)
@@ -129,7 +129,12 @@ async fn get_user(
     ctx.redis().osu_user(args).await
 }
 
-fn msg_content(sort: ScoresOrder, mods: Option<&ModSelection>, mapper: Option<&str>) -> String {
+fn msg_content(
+    sort: ScoresOrder,
+    mods: Option<&ModSelection>,
+    mapper: Option<&str>,
+    status: Option<MapStatus>,
+) -> String {
     let mut content = String::new();
 
     match mods {
@@ -151,6 +156,20 @@ fn msg_content(sort: ScoresOrder, mods: Option<&ModSelection>, mapper: Option<&s
         }
 
         let _ = write!(content, "`Mapper: {mapper}`");
+    }
+
+    if let Some(status) = status {
+        if !content.is_empty() {
+            content.push_str(" • ");
+        }
+
+        let status = match status {
+            MapStatus::Ranked => "Ranked",
+            MapStatus::Loved => "Loved",
+            MapStatus::Approved => "Approved",
+        };
+
+        let _ = write!(content, "`Status: {status}`");
     }
 
     if !content.is_empty() {

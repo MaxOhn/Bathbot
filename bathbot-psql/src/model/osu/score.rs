@@ -3,7 +3,7 @@ use std::{
     hash::BuildHasher,
 };
 
-use rosu_v2::prelude::{GameMode, Grade, ScoreStatistics};
+use rosu_v2::prelude::{GameMode, Grade, RankStatus, ScoreStatistics};
 use time::OffsetDateTime;
 
 type Maps<S> = HashMap<u32, DbScoreBeatmap, S>;
@@ -128,12 +128,14 @@ pub struct DbScoreBeatmapsetRaw {
     pub mapset_id: i32,
     pub artist: String,
     pub title: String,
+    pub rank_status: i16,
     pub ranked_date: Option<OffsetDateTime>,
 }
 
 pub struct DbScoreBeatmapset {
     pub artist: Box<str>,
     pub title: Box<str>,
+    pub rank_status: RankStatus,
     pub ranked_date: Option<OffsetDateTime>,
 }
 
@@ -142,6 +144,7 @@ impl From<DbScoreBeatmapsetRaw> for DbScoreBeatmapset {
         Self {
             artist: mapset.artist.into_boxed_str(),
             title: mapset.title.into_boxed_str(),
+            rank_status: parse_status(mapset.rank_status),
             ranked_date: mapset.ranked_date,
         }
     }
@@ -273,6 +276,19 @@ fn parse_grade(grade: i16) -> Grade {
         6 => Grade::SH,
         7 => Grade::X,
         8 => Grade::XH,
+        _ => unreachable!(),
+    }
+}
+
+fn parse_status(status: i16) -> RankStatus {
+    match status {
+        -2 => RankStatus::Graveyard,
+        -1 => RankStatus::WIP,
+        0 => RankStatus::Pending,
+        1 => RankStatus::Ranked,
+        2 => RankStatus::Approved,
+        3 => RankStatus::Qualified,
+        4 => RankStatus::Loved,
         _ => unreachable!(),
     }
 }

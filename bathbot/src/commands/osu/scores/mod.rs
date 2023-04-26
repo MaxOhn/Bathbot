@@ -5,7 +5,7 @@ use bathbot_psql::model::osu::DbScores;
 use bathbot_util::IntHasher;
 use eyre::Result;
 use rosu_pp::beatmap::BeatmapAttributesBuilder;
-use rosu_v2::prelude::GameModsIntermode;
+use rosu_v2::prelude::{GameModsIntermode, RankStatus};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -53,6 +53,8 @@ pub struct ServerScores {
     mods: Option<String>,
     /// Specify a country (code)
     country: Option<String>,
+    /// Filter out scores on maps that don't match this status
+    status: Option<MapStatus>,
     /// Only show scores on maps of that mapper
     mapper: Option<String>,
     /// Reverse the list
@@ -92,6 +94,26 @@ pub enum ScoresOrder {
     Stars,
 }
 
+#[derive(Copy, Clone, CommandOption, CreateOption)]
+enum MapStatus {
+    #[option(name = "Ranked", value = "ranked")]
+    Ranked,
+    #[option(name = "Loved", value = "loved")]
+    Loved,
+    #[option(name = "Approved", value = "approved")]
+    Approved,
+}
+
+impl From<MapStatus> for RankStatus {
+    fn from(status: MapStatus) -> Self {
+        match status {
+            MapStatus::Ranked => RankStatus::Ranked,
+            MapStatus::Loved => RankStatus::Loved,
+            MapStatus::Approved => RankStatus::Approved,
+        }
+    }
+}
+
 #[derive(CreateCommand, CommandModel, HasMods, HasName)]
 #[command(name = "user")]
 /// List scores of a user
@@ -105,6 +127,8 @@ pub struct UserScores {
     /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
     /// excluded)
     mods: Option<String>,
+    /// Filter out scores on maps that don't match this status
+    status: Option<MapStatus>,
     /// Only show scores on maps of that mapper
     mapper: Option<String>,
     /// Reverse the list
@@ -154,6 +178,7 @@ fn process_scores(
     scores: &mut DbScores<IntHasher>,
     creator_id: Option<u32>,
     sort: ScoresOrder,
+    status: Option<MapStatus>,
     reverse: Option<bool>,
 ) {
     if let Some(creator_id) = creator_id {
@@ -161,6 +186,15 @@ fn process_scores(
             Some(map) => map.creator_id == creator_id,
             None => false,
         });
+    }
+
+    if let Some(status) = status.map(RankStatus::from) {
+        scores.retain(|score, maps, mapsets, _| {
+            let Some(map) = maps.get(&score.map_id) else { return false };
+            let Some(mapset) = mapsets.get(&map.mapset_id) else { return false };
+
+            mapset.rank_status == status
+        })
     }
 
     match sort {

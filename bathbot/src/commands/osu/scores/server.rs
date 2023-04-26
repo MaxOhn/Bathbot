@@ -12,7 +12,7 @@ use rosu_v2::{
     request::UserId,
 };
 
-use super::{process_scores, ServerScores};
+use super::{process_scores, MapStatus, ServerScores};
 use crate::{
     commands::osu::{user_not_found, HasMods, ModsResult},
     core::Context,
@@ -125,10 +125,11 @@ pub async fn server_scores(
         mods.as_ref(),
         args.mapper.as_deref(),
         country_code.as_deref(),
+        args.status,
     );
 
     let sort = args.sort.unwrap_or_default();
-    process_scores(&mut scores, creator_id, sort, args.reverse);
+    process_scores(&mut scores, creator_id, sort, args.status, args.reverse);
 
     ServerScoresPagination::builder(scores, mode, sort, guild_icon)
         .content(content)
@@ -137,7 +138,12 @@ pub async fn server_scores(
         .await
 }
 
-fn msg_content(mods: Option<&ModSelection>, mapper: Option<&str>, country: Option<&str>) -> String {
+fn msg_content(
+    mods: Option<&ModSelection>,
+    mapper: Option<&str>,
+    country: Option<&str>,
+    status: Option<MapStatus>,
+) -> String {
     let mut content = String::new();
 
     match mods {
@@ -167,6 +173,20 @@ fn msg_content(mods: Option<&ModSelection>, mapper: Option<&str>, country: Optio
         }
 
         let _ = write!(content, "`Country: {country}`");
+    }
+
+    if let Some(status) = status {
+        if !content.is_empty() {
+            content.push_str(" • ");
+        }
+
+        let status = match status {
+            MapStatus::Ranked => "Ranked",
+            MapStatus::Loved => "Loved",
+            MapStatus::Approved => "Approved",
+        };
+
+        let _ = write!(content, "`Status: {status}`");
     }
 
     content
