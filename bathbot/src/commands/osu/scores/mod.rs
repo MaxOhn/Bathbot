@@ -667,6 +667,6 @@ fn criteria_to_content(content: &mut String, criteria: &FilterCriteria<ScoresCri
         }
 
         content.push_str(criteria.search_text());
-        content.push_str("`");
+        content.push('`');
     }
 }
