@@ -538,8 +538,7 @@ pub(super) async fn score(
     let pinned = match pinned_res {
         Ok(scores) => scores,
         Err(err) => {
-            let err = Report::new(err).wrap_err("failed to get pinned scores");
-            warn!("{err:?}");
+            warn!(?err, "Failed to get pinned scores");
 
             Vec::new()
         }
@@ -550,8 +549,7 @@ pub(super) async fn score(
     let global_idx = match global_res {
         Some(Ok(globals)) => global_idx(&entries, &globals, user.user_id()),
         Some(Err(err)) => {
-            let err = Report::new(err).wrap_err("Failed to get map leaderboard");
-            warn!("{err:?}");
+            warn!(?err, "Failed to get map leaderboard");
 
             None
         }
@@ -561,8 +559,7 @@ pub(super) async fn score(
     let personal = match personal_res {
         Some(Ok(scores)) => scores,
         Some(Err(err)) => {
-            let err = Report::new(err).wrap_err("Failed to get top scores");
-            warn!("{err:?}");
+            warn!(?err, "Failed to get top scores");
 
             Vec::new()
         }
@@ -751,8 +748,7 @@ async fn compare_from_score(
     let pinned = match pinned_res {
         Ok(scores) => scores,
         Err(err) => {
-            let err = Report::new(err).wrap_err("Failed to get pinned scores");
-            warn!("{err:?}");
+            warn!(?err, "Failed to get pinned scores");
 
             Vec::new()
         }
@@ -792,8 +788,7 @@ async fn compare_from_score(
         match ctx.osu().beatmap_scores(map.map_id()).mode(mode).await {
             Ok(scores) => global_idx(&entries, &scores, user_id),
             Err(err) => {
-                let err = Report::new(err).wrap_err("failed to get global scores");
-                warn!("{err:?}");
+                warn!(?err, "Failed to get global scores");
 
                 None
             }
@@ -808,8 +803,7 @@ async fn compare_from_score(
         match fut.await {
             Ok(scores) => scores,
             Err(err) => {
-                let err = Report::new(err).wrap_err("Failed to get top scores");
-                warn!("{err:?}");
+                warn!(?err, "Failed to get top scores");
 
                 Vec::new()
             }

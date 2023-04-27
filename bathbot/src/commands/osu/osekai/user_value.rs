@@ -196,7 +196,7 @@ async fn send_response(
     name_res: Result<Option<Username>>,
 ) -> Result<()> {
     let username = name_res.unwrap_or_else(|err| {
-        warn!("{:?}", err.wrap_err("failed to get username"));
+        warn!(?err, "Failed to get username");
 
         None
     });

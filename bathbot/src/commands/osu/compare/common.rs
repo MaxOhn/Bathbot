@@ -311,7 +311,7 @@ pub(super) async fn top(
     let thumbnail = match get_combined_thumbnail(&ctx, urls, 2, None).await {
         Ok(thumbnail) => Some(thumbnail),
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to combine avatars"));
+            warn!(?err, "Failed to combine avatars");
 
             None
         }

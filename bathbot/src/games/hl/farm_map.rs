@@ -102,13 +102,13 @@ impl FarmMap {
                     }
                 };
 
-                let wrap = format!(
-                    "failed to choose random entry \
-                    (prev={prev_farm} | score={curr_score} | len={len})",
+                error!(
+                    ?err,
+                    prev = prev_farm,
+                    score = curr_score,
+                    len,
+                    "Failed to choose random entry"
                 );
-
-                let report = Report::new(err).wrap_err(wrap);
-                error!("{report:?}");
 
                 (map_id, count)
             }

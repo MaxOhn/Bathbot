@@ -45,11 +45,10 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionCompo
             handle_sim_version(ctx, component).await
         }
         "sim_attrs" => handle_sim_attrs_button(ctx, component).await,
-        _ => return error!("Unknown message component `{name}`"),
+        _ => return error!(name, "Unknown message component"),
     };
 
     if let Err(err) = res {
-        let wrap = format!("Failed to process component `{name}`");
-        error!("{:?}", err.wrap_err(wrap));
+        error!(name, ?err, "Failed to process component");
     }
 }

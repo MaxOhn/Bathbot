@@ -16,7 +16,7 @@ use tokio::{fs, time::sleep};
 use super::PpManager;
 use crate::{
     core::{BotConfig, Context},
-    util::query::{FilterCriteria, Searchable, RegularCriteria},
+    util::query::{FilterCriteria, RegularCriteria, Searchable},
 };
 
 type Result<T> = eyre::Result<T, MapError>;
@@ -314,8 +314,7 @@ impl<'d> MapManager<'d> {
                     Ok(map) => Ok((map, None)),
                     Err(err) => {
                         if let Err(err) = fs::remove_file(&*map_path).await {
-                            let wrap = format!("Failed to delete file {map_path:?}");
-                            warn!("{:?}", Report::new(err).wrap_err(wrap));
+                            warn!(?map_path, ?err, "Failed to delete file");
                         }
 
                         let wrap = format!("Failed to parse map `{map_path:?}`");
@@ -390,7 +389,7 @@ impl<'d> MapManager<'d> {
                         write_res.wrap_err("Failed writing to file")?;
 
                         if let Err(err) = db_res {
-                            warn!("{:?}", err.wrap_err("Failed to insert map file"));
+                            warn!(?err, "Failed to insert map file");
                         }
 
                         info!("Downloaded {map_id}.osu successfully");
@@ -408,8 +407,8 @@ impl<'d> MapManager<'d> {
             };
 
             warn!(
-                "Failed map download because `{reason:?}`; \
-                backoff {duration:?} and then retry attempt #{i}"
+                ?reason,
+                "Failed map download; backoff {duration:?} and then retry attempt #{i}"
             );
 
             sleep(duration).await;

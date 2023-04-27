@@ -33,8 +33,7 @@ pub async fn auth_twitch(
     match state.handlebars.render("auth", &render_data) {
         Ok(page) => Ok((status_code, Html(page))),
         Err(err) => {
-            let wrap = "Failed to render error page";
-            error!("{:?}", Report::new(err).wrap_err(wrap));
+            error!(?err, "Failed to render error page");
 
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
@@ -105,12 +104,7 @@ pub async fn auth(
     };
 
     let page = state.handlebars.render("auth", &render_data)?;
-
-    info!(
-        "Successful twitch authorization for `{}`",
-        user.display_name
-    );
-
+    info!(name = user.display_name, "Successful twitch authorization");
     state.standby.process_twitch(user, params.state);
 
     Ok(page)

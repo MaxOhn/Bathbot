@@ -47,7 +47,9 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
                 }
                 Err(OsuError::NotFound) => {
                     warn!(
-                        "got 404 while retrieving scores for ({user_id},{mode}), don't reset entry",
+                        user_id,
+                        ?mode,
+                        "Got 404 while retrieving scores, don't reset entry",
                     );
 
                     if let Err(err) = ctx
@@ -55,16 +57,17 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
                         .remove_user_all(user_id, ctx.osu_tracking())
                         .await
                     {
-                        let wrap = "Failed to remove unknown user from tracking";
-                        warn!("{:?}", err.wrap_err(wrap));
+                        warn!(?err, "Failed to remove unknown user from tracking");
                     }
                 }
                 Err(err) => {
-                    let wrap = format!(
-                        "osu!api issue while retrieving user ({user_id},{mode}) for tracking",
+                    warn!(
+                        user_id,
+                        ?mode,
+                        ?err,
+                        "osu!api issue while retrieving user for tracking"
                     );
-                    let err = Report::new(err).wrap_err(wrap);
-                    warn!("{err:?}");
+
                     ctx.tracking().reset(key).await;
                 }
             }
@@ -108,8 +111,7 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &[Score], user: Option<
             .update_last_date(key, new_last, ctx.osu_tracking());
 
         if let Err(err) = update_fut.await {
-            let wrap = "failed to update tracking date for user";
-            warn!("{:?}", err.wrap_err(wrap));
+            warn!(?err, "Failed to update tracking date for user");
         }
     }
 
@@ -126,13 +128,11 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &[Score], user: Option<
                 .remove_user_all(key.user_id, ctx.osu_tracking())
                 .await
             {
-                let wrap = "failed to remove unknow user from tracking";
-                warn!("{:?}", err.wrap_err(wrap));
+                warn!(?err, "Failed to remove unknown user from tracking");
             }
         }
         Err(err) => {
-            let err = Report::new(err).wrap_err("osu!api error while tracking");
-            warn!("{err:?}");
+            warn!(?err, "osu!api error while tracking");
             ctx.tracking().reset(key).await;
         }
     }
@@ -191,28 +191,22 @@ async fn score_loop(
                                 );
 
                                 if let Err(err) = remove_fut.await {
-                                    let wrap = format!(
-                                        "failed to remove osu tracks from unknown channel {channel}",
+                                    warn!(
+                                        ?channel,
+                                        ?err,
+                                        "Failed to remove osu tracks from unknown channel"
                                     );
-
-                                    warn!("{:?}", err.wrap_err(wrap));
                                 }
                             } else {
-                                warn!(
-                                    "Error from API while sending osu notif (channel {channel}): {error}",
-                                )
+                                warn!(?channel, ?error, "Error from API while sending osu notif")
                             }
                         } else {
-                            let wrap = format!("error while sending osu notif (channel {channel})");
-                            let err = Report::new(err).wrap_err(wrap);
-                            warn!("{err:?}");
+                            warn!(?channel, ?err, "Error while sending osu notif");
                         }
                     }
                 }
                 Err(err) => {
-                    let err =
-                        Report::new(err).wrap_err("invalid embed for osu!tracking notification");
-                    warn!("{err:?}");
+                    warn!(?err, "Invalid embed for osu!tracking notification");
                 }
             }
         }

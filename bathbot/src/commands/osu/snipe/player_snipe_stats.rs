@@ -142,7 +142,7 @@ pub(super) async fn player_stats(
     let graph = match graphs(&player.count_first_history, &player.count_sr_spread, W, H) {
         Ok(graph) => Some(graph),
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to create graph"));
+            warn!(?err, "Failed to create graph");
 
             None
         }

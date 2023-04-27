@@ -60,12 +60,9 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
     ctx.stats.increment_message_command(name);
 
     match process_command(ctx, invoke, &msg).await {
-        Ok(ProcessResult::Success) => info!("Processed command `{name}`"),
-        Ok(result) => info!("Command `{name}` was not processed: {result:?}"),
-        Err(err) => {
-            let wrap = format!("Failed to process prefix command `{name}`");
-            error!("{:?}", err.wrap_err(wrap));
-        }
+        Ok(ProcessResult::Success) => info!(name, "Processed command"),
+        Ok(reason) => info!(?reason, "Command `{name}` was not processed"),
+        Err(err) => error!(name, ?err, "Failed to process prefix command"),
     }
 }
 

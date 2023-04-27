@@ -123,7 +123,7 @@ async fn get_names<'n>(
     let mut entries = match ctx.osu_user().ids(names).await {
         Ok(names) => names,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("failed to get user ids by names"));
+            warn!(?err, "Failed to get user ids by names");
 
             HashMap::new()
         }

@@ -186,7 +186,7 @@ pub(super) async fn score(
     let respektive_user = match ctx.client().get_respektive_user(user.user_id(), mode).await {
         Ok(user) => user,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("failed to get respektive user"));
+            warn!(?err, "Failed to get respektive user");
 
             None
         }

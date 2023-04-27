@@ -87,7 +87,7 @@ pub async fn playcount_replays_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", err.wrap_err("Failed to create profile graph"));
+            warn!(?err, "Failed to create profile graph");
 
             return Ok(None);
         }

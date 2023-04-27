@@ -114,7 +114,7 @@ pub(super) async fn stats(
     let graph = match graph(&medals, W, H) {
         Ok(bytes_option) => bytes_option,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to create graph"));
+            warn!(?err, "Failed to create graph");
 
             None
         }

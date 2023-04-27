@@ -133,7 +133,7 @@ pub(super) async fn country_stats(
     let graph = match graphs(&players) {
         Ok(graph_option) => Some(graph_option),
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to create graph"));
+            warn!(?err, "Failed to create graph");
 
             None
         }

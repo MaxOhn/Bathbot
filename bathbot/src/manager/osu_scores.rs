@@ -208,8 +208,7 @@ impl<'c> ScoreArgs<'c> {
                 // Remove stats of unknown/restricted users so they don't appear in the
                 // leaderboard
                 if let Err(err) = ctx.osu_user().remove_stats_and_scores(user_id).await {
-                    let wrap = "Failed to remove stats of unknown user";
-                    warn!("{:?}", err.wrap_err(wrap));
+                    warn!(?err, "Failed to remove stats of unknown user");
                 }
 
                 return Err(OsuError::NotFound);
@@ -231,7 +230,7 @@ impl<'c> ScoreArgs<'c> {
         let (store_res, _) = tokio::join!(store_fut, tracking_fut);
 
         if let Err(err) = store_res {
-            warn!("{:?}", err.wrap_err("Failed to store top scores"));
+            warn!(?err, "Failed to store top scores");
         }
 
         Ok(scores)

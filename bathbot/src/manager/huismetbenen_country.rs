@@ -22,8 +22,11 @@ impl<'d> HuismetbenenCountryManager<'d> {
         match is_supported_fut.await {
             Ok(is_supported) => is_supported,
             Err(err) => {
-                let wrap = "failed to check if country code contained";
-                warn!("{:?}", err.wrap_err(wrap));
+                warn!(
+                    country_code = country_code.as_ref(),
+                    ?err,
+                    "Failed to check if country code contained"
+                );
 
                 false
             }
@@ -34,7 +37,7 @@ impl<'d> HuismetbenenCountryManager<'d> {
         match self.psql.select_huismetbenen_country(country_code).await {
             Ok(country_name) => country_name,
             Err(err) => {
-                warn!("{:?}", err.wrap_err("failed to get huismetbenen country"));
+                warn!(country_code, ?err, "Failed to get huismetbenen country");
 
                 None
             }

@@ -95,7 +95,7 @@ pub async fn sniped_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", err.wrap_err("Failed to create sniped graph"));
+            warn!(?err, "Failed to create sniped graph");
 
             return Ok(None);
         }

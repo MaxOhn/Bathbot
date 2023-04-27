@@ -67,7 +67,7 @@ impl RankingPagination {
                                 Ok(Some(name)) => Some(name),
                                 Ok(None) => None,
                                 Err(err) => {
-                                    warn!("{:?}", err.wrap_err("Failed to get osu user"));
+                                    warn!(?err, "Failed to get osu user");
 
                                     None
                                 }

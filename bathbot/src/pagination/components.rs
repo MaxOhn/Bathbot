@@ -319,7 +319,7 @@ where
     let value = match value_res {
         Some(Ok(value)) => Some(value),
         Some(Err(_)) => {
-            debug!("failed to parse sim input `{:?}`", input.value);
+            debug!(value = input.value, "Failed to parse sim input");
 
             return Ok(());
         }
@@ -327,7 +327,7 @@ where
     };
 
     let Some(ref msg) = modal.message else {
-        warn!("received modal without message");
+        warn!("Received modal without message");
 
         return Ok(());
     };
@@ -358,7 +358,7 @@ where
         let builder = match setter(sim_pagination, value) {
             Ok(_) => pagination.build(&ctx).await?,
             Err(err) => {
-                debug!("{:?}", err.wrap_err("Failed to set simulate data"));
+                debug!(?err, "Failed to set simulate data");
 
                 return Ok(());
             }
@@ -424,7 +424,7 @@ pub async fn handle_sim_attrs_modal(ctx: Arc<Context>, modal: InteractionModal) 
     let od = parse_attr(&modal, "sim_od");
 
     let Some(ref msg) = modal.message else {
-        warn!("received modal without msg");
+        warn!("Received modal without msg");
 
         return Ok(());
     };
@@ -482,13 +482,13 @@ pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal)
     let input = parse_modal_input(&modal)?;
 
     let Some(Ok(page)) = input.value.as_deref().map(str::parse) else {
-        debug!("failed to parse page input `{:?}` as usize", input.value);
+        debug!("Failed to parse page input `{:?}` as usize", input.value);
 
         return Ok(());
     };
 
     let Some(ref msg) = modal.message else {
-        warn!("received modal without msg");
+        warn!("Received modal without msg");
 
         return Ok(());
     };
@@ -507,7 +507,7 @@ pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal)
         let max_page = pagination.pages.last_page();
 
         if !(1..=max_page).contains(&page) {
-            debug!("page {page} is not between 1 and {max_page}");
+            debug!("Page {page} is not between 1 and {max_page}");
 
             return Ok(());
         }

@@ -52,7 +52,7 @@ pub(super) async fn medal_count(
     let author_name = match name_res {
         Ok(name_opt) => name_opt,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get username"));
+            warn!(?err, "Failed to get username");
 
             None
         }

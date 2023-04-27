@@ -422,8 +422,7 @@ async fn single_embed(
             let personal_idx = match best_res {
                 Ok(scores) => scores.iter().position(|s| entry.score.is_eq(s)),
                 Err(err) => {
-                    let err = Report::new(err).wrap_err("failed to get top scores");
-                    warn!("{err:?}");
+                    warn!(?err, "Failed to get top scores");
 
                     None
                 }
@@ -434,8 +433,7 @@ async fn single_embed(
                     .iter()
                     .position(|s| s.user_id == user_id && entry.score.is_eq(s)),
                 Err(err) => {
-                    let err = Report::new(err).wrap_err("failed to get global scores");
-                    warn!("{err:?}");
+                    warn!(?err, "Failed to get global scores");
 
                     None
                 }
@@ -490,8 +488,7 @@ async fn single_embed(
 
                 if let Some(update_fut) = response.update(&ctx, &builder, permissions) {
                     if let Err(err) = update_fut.await {
-                        let err = Report::new(err).wrap_err("Failed to minimize embed");
-                        warn!("{err:?}");
+                        warn!(?err, "Failed to minimize embed");
                     }
                 }
             });

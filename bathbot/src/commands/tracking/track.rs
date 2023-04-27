@@ -86,7 +86,7 @@ pub(super) async fn track(
             Ok(true) => success.push(username),
             Ok(false) => failure.push(username),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to add tracked entry"));
+                warn!(?err, "Failed to add tracked entry");
 
                 let embed = TrackEmbed::new(mode, success, failure, Some(username), limit).build();
 

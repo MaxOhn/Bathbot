@@ -340,15 +340,13 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> Result<()> {
 
         if !add_tags.is_empty() {
             if let Err(err) = ctx.psql().add_tags_mapset(mapset_id, add_tags).await {
-                let report = Report::new(err).wrap_err("failed to add tags");
-                warn!("{:?}", report);
+                warn!(?err, "Failed to add tags");
             }
         }
 
         if !remove_tags.is_empty() {
             if let Err(err) = ctx.psql().remove_tags_mapset(mapset_id, remove_tags).await {
-                let report = Report::new(err).wrap_err("failed to remove tags");
-                warn!("{:?}", report);
+                warn!(?err, "Failed to remove tags");
             }
         }
 
@@ -404,9 +402,7 @@ async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) ->
         match fs::read(&path).await {
             Ok(bytes) => return (mapset.mapset_id, bytes),
             Err(err) => {
-                let wrap = format!("error while reading file {}", path.display());
-                let report = Report::new(err).wrap_err(wrap);
-                warn!("{:?}", report);
+                warn!(path = path.display(), ?err, "Failed to read file");
                 path.pop();
             }
         }
@@ -421,6 +417,7 @@ enum Action {
 
 impl FromStr for Action {
     type Err = ();
+
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.cow_to_ascii_lowercase().as_ref() {
             "r" | "remove" => Ok(Self::Remove),

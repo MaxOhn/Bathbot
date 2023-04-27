@@ -32,8 +32,7 @@ impl Context {
                         count += 1;
                     }
                     Err(err) => {
-                        let wrap = format!("error while stopping game in channel {channel}");
-                        warn!("{:?}", err.wrap_err(wrap));
+                        warn!(?channel, ?err, "Error while stopping game");
                     }
                 },
                 GameState::Setup { .. } => {

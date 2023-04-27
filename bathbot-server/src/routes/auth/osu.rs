@@ -31,8 +31,7 @@ pub async fn auth_osu(
     match state.handlebars.render("auth", &render_data) {
         Ok(page) => Ok((status_code, Html(page))),
         Err(err) => {
-            let wrap = "Failed to render error page";
-            error!("{:?}", Report::new(err).wrap_err(wrap));
+            error!(?err, "Failed to render error page");
 
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
@@ -70,7 +69,12 @@ async fn auth(
     };
 
     let page = state.handlebars.render("auth", &render_data)?;
-    info!("Successful osu! authorization for `{}`", user.username);
+
+    info!(
+        name = user.username.as_str(),
+        "Successful osu! authorization"
+    );
+
     state.standby.process_osu(user, params.state);
 
     Ok(page)

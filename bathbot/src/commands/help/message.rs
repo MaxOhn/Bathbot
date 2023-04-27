@@ -7,7 +7,7 @@ use bathbot_util::{
     string_cmp::levenshtein_distance,
     AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
-use eyre::{ContextCompat, Report, Result};
+use eyre::{ContextCompat, Result};
 use hashbrown::HashSet;
 use twilight_model::{
     channel::message::{
@@ -273,8 +273,7 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message, permissions: Option<Permissio
         Err(err) => {
             let content = "Your DMs seem blocked :(\n\
             Perhaps you disabled incoming messages from other server members?";
-            let report = Report::new(err).wrap_err("Failed to create DM channel");
-            warn!("{report:?}");
+            warn!(?err, "Failed to create DM channel");
             msg.error(&ctx, content).await?;
 
             return Ok(());
@@ -293,8 +292,7 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message, permissions: Option<Permissio
     let builder = MessageBuilder::new().embed(embed).components(components);
 
     if let Err(err) = channel.create_message(&ctx, &builder, permissions).await {
-        let report = Report::new(err).wrap_err("Failed to send help chunk");
-        warn!("{report:?}");
+        warn!(?err, "Failed to send help chunk");
         let content = "Could not DM you, perhaps you disabled it?";
         msg.error(&ctx, content).await?;
     }

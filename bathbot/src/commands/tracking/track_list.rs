@@ -79,7 +79,7 @@ async fn get_users(
     let stored_names = match ctx.osu_user().names(&user_ids).await {
         Ok(map) => map,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("failed to get names by user ids"));
+            warn!(?err, "Failed to get names by user ids");
 
             HashMap::default()
         }
@@ -110,9 +110,7 @@ async fn get_users(
                                 .remove_user(user_id, None, channel, ctx.osu_tracking());
 
                         if let Err(err) = remove_fut.await {
-                            let wrap =
-                                format!("failed to remove unknown user {user_id} from tracking");
-                            warn!("{:?}", err.wrap_err(wrap));
+                            warn!(user_id, ?err, "Failed to remove unknown user from tracking");
                         }
 
                         continue;

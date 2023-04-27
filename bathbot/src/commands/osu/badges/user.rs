@@ -124,7 +124,7 @@ pub(super) async fn user(
         match get_combined_thumbnail(&ctx, urls, owners.len() as u32, Some(1024)).await {
             Ok(bytes) => Some(bytes),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to combine avatars"));
+                warn!(?err, "Failed to combine avatars");
 
                 None
             }

@@ -24,11 +24,10 @@ pub async fn handle_modal(ctx: Arc<Context>, mut modal: InteractionModal) {
         "sim_miss" => handle_sim_miss_modal(ctx, modal).await,
         "sim_score" => handle_sim_score_modal(ctx, modal).await,
         "sim_attrs" => handle_sim_attrs_modal(ctx, modal).await,
-        _ => return error!("Unknown modal `{name}`: {modal:#?}"),
+        _ => return error!(name, ?modal, "Unknown modal"),
     };
 
     if let Err(err) = res {
-        let wrap = format!("Failed to process modal `{name}`");
-        error!("{:?}", err.wrap_err(wrap));
+        error!(name, ?err, "Failed to process modal");
     }
 }

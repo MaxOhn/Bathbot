@@ -196,7 +196,7 @@ pub(super) async fn profile(
     let thumbnail = match thumbnail_res {
         Ok(thumbnail) => Some(thumbnail),
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to combine avatars"));
+            warn!(?err, "Failed to combine avatars");
 
             None
         }
@@ -206,7 +206,7 @@ pub(super) async fn profile(
         Ok(Some(data)) => Some(data.rank),
         Ok(None) => None,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get respektive user"));
+            warn!(?err, "Failed to get respektive user");
 
             None
         }
@@ -216,7 +216,7 @@ pub(super) async fn profile(
         Ok(Some(data)) => Some(data.rank),
         Ok(None) => None,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get respektive user"));
+            warn!(?err, "Failed to get respektive user");
 
             None
         }

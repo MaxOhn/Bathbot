@@ -20,16 +20,13 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) 
 
     let slash = match SlashCommands::get().command(&name) {
         Some(slash) => slash,
-        None => return error!("unknown slash command `{name}`"),
+        None => return error!(name, "Unknown slash command"),
     };
 
     match process_command(ctx, command, slash).await {
-        Ok(ProcessResult::Success) => info!("Processed slash command `{name}`"),
-        Ok(res) => info!("Command `/{name}` was not processed: {res:?}"),
-        Err(err) => {
-            let wrap = format!("Failed to process slash command `{name}`");
-            error!("{:?}", err.wrap_err(wrap));
-        }
+        Ok(ProcessResult::Success) => info!(name, "Processed slash command"),
+        Ok(reason) => info!(?reason, "Command `/{name}` was not processed"),
+        Err(err) => error!(name, ?err, "Failed to process slash command"),
     }
 }
 

@@ -211,7 +211,7 @@ async fn leaderboard(
     let author_name = match ctx.user_config().osu_name(owner).await {
         Ok(name_opt) => name_opt,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get username"));
+            warn!(?err, "Failed to get username");
 
             None
         }

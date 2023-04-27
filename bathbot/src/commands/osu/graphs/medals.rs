@@ -62,7 +62,7 @@ pub async fn medals_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", err.wrap_err("Failed to create medals graph"));
+            warn!(?err, "Failed to create medals graph");
 
             return Ok(None);
         }

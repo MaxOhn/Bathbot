@@ -3,7 +3,7 @@ use std::{collections::VecDeque, sync::Arc};
 use bathbot_model::Effects;
 use bathbot_psql::model::games::MapsetTagsEntries;
 use bathbot_util::{constants::OSU_BASE, CowUtils};
-use eyre::{Report, Result, WrapErr};
+use eyre::{Result, WrapErr};
 use image::{
     imageops::{self, colorops},
     GenericImageView,
@@ -49,16 +49,16 @@ impl Game {
                     match sub_image_result {
                         Ok(img) => return (game, img),
                         Err(err) => {
-                            let wrap = format!(
-                                "failed to create initial bg image for id {}",
-                                game.mapset.mapset_id
+                            warn!(
+                                mapset_id = game.mapset.mapset_id,
+                                ?err,
+                                "Failed to create initial bg game"
                             );
-                            warn!("{:?}", err.wrap_err(wrap));
                         }
                     }
                 }
                 Err(err) => {
-                    warn!("{:?}", err.wrap_err("error while creating bg game"));
+                    warn!(?err, "Error while creating bg game");
                 }
             }
         }
@@ -208,8 +208,7 @@ pub async fn game_loop(
 
                 // Send message
                 if let Err(err) = channel.plain_message(ctx, &content).await {
-                    let err = Report::new(err).wrap_err("error while sending msg for winner");
-                    warn!("{err:?}");
+                    warn!(?err, "Error while sending msg for winner");
                 }
 
                 return LoopResult::Winner(msg.author.id);
@@ -239,9 +238,7 @@ pub async fn game_loop(
                 let msg_fut = ctx.http.create_message(channel).content(&content).unwrap();
 
                 if let Err(err) = msg_fut.await {
-                    let report =
-                        Report::new(err).wrap_err("error while sending msg for correct artist");
-                    warn!("{report:?}");
+                    warn!(?err, "Error while sending msg for correct artist");
                 }
             }
             ContentResult::None => {}

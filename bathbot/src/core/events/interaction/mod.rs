@@ -32,7 +32,7 @@ pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
     } = interaction;
 
     let Some(channel_id) = channel.map(|channel| channel.id) else {
-        return warn!("no channel id for interaction kind {kind:?}");
+        return warn!(?kind, "No channel id for interaction");
     };
 
     match data {
@@ -53,12 +53,12 @@ pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
                 InteractionType::ApplicationCommandAutocomplete => {
                     handle_autocomplete(ctx, cmd).await
                 }
-                _ => warn!("got unexpected interaction kind {kind:?}"),
+                _ => warn!(?kind, "Got unexpected interaction"),
             }
         }
         Some(InteractionData::MessageComponent(data)) => {
             let Some(message) = message else {
-                return warn!("no message in interaction component");
+                return warn!("No message in interaction component");
             };
 
             let component = InteractionComponent {

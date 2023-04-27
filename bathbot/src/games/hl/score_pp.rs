@@ -5,7 +5,7 @@ use bathbot_util::{
     constants::OSU_BASE,
     numbers::{round, WithComma},
 };
-use eyre::{Report, Result, WrapErr};
+use eyre::{Result, WrapErr};
 use image::{GenericImageView, ImageBuffer};
 use rand::Rng;
 use rosu_v2::prelude::{
@@ -104,8 +104,7 @@ impl ScorePp {
         let max_combo = match attrs_res {
             Ok(attrs) => Some(attrs.max_combo() as u32),
             Err(err) => {
-                let wrap = "Failed to get difficulty attributes";
-                warn!("{:?}", Report::new(err).wrap_err(wrap));
+                warn!(?err, "Failed to get difficulty attributes");
 
                 None
             }

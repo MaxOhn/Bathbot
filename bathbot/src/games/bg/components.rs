@@ -36,7 +36,7 @@ pub async fn handle_bg_start_include(
 
         update_field(ctx, &mut component, *included, "Included tags")
             .await
-            .wrap_err("failed to update field")?;
+            .wrap_err("Failed to update field")?;
     } else if let Err(err) = remove_components(ctx, &component, None).await {
         warn!("{err:?}");
     }
@@ -62,7 +62,7 @@ pub async fn handle_bg_start_exclude(
 
         update_field(ctx, &mut component, *excluded, "Excluded tags")
             .await
-            .wrap_err("failed to update field")?;
+            .wrap_err("Failed to update field")?;
     } else if let Err(err) = remove_components(ctx, &component, None).await {
         warn!("{err:?}");
     }
@@ -129,9 +129,9 @@ pub async fn handle_bg_start_button(
                 }
 
                 info!(
-                    "Starting game with included: {} - excluded: {}",
-                    included.join(','),
-                    excluded.join(',')
+                    included = included.join(','),
+                    excluded = excluded.join(','),
+                    "Starting game"
                 );
 
                 let ctx = Arc::clone(&ctx);
@@ -214,7 +214,7 @@ pub async fn handle_bg_start_effects(
                         "grayscale" => Effects::Grayscale,
                         "invert" => Effects::Invert,
                         _ => {
-                            warn!("unknown effects `{value}`");
+                            warn!(value, "Unknown effects");
 
                             return effects;
                         }
@@ -323,7 +323,7 @@ fn parse_component_tags(component: &InteractionComponent) -> MapsetTags {
                 "old" => MapsetTags::Old,
                 "tech" => MapsetTags::Tech,
                 _ => {
-                    warn!("unknown mapset tag `{value}`");
+                    warn!(value, "Unknown mapset tag");
 
                     return tags;
                 }

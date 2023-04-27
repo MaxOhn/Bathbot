@@ -305,12 +305,12 @@ impl From<Vec<DbEntry>> for Entries {
             match entry.pos {
                 Some(DbEntry::HIGHER) => {
                     let entry = Entry::from(entry);
-                    debug!("higher: pp={} | rank={}", entry.pp, entry.rank);
+                    debug!(pp = entry.pp, rank = entry.rank, "higher");
                     higher = Some(entry);
                 }
                 Some(DbEntry::LOWER) => {
                     let entry = Entry::from(entry);
-                    debug!("lower: pp={} | rank={}", entry.pp, entry.rank);
+                    debug!(pp = entry.pp, rank = entry.rank, "lower");
                     lower = Some(entry);
                 }
                 _ => unreachable!("invalid pos"),
