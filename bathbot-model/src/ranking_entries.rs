@@ -385,7 +385,9 @@ impl RankingKind {
                         UserModeStatsColumn::ScoreRanked => "Ranked score",
                         UserModeStatsColumn::ScoreTotal => "Total score",
                         UserModeStatsColumn::ScoresFirst => "Global #1s",
+                        UserModeStatsColumn::Top1 => "Top PP",
                         UserModeStatsColumn::TotalHits => "Total hits",
+                        UserModeStatsColumn::TopRange => "Top PP range",
                     },
                 };
 

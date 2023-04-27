@@ -168,7 +168,6 @@ FROM
 
                 entries.dedup_by(|a, b| a.name == b.name);
 
-                // SAFETY: the two types have the exact same structure
                 Ok(UserStatsEntries::Accuracy(convert_entries(entries)))
             }
             UserModeStatsColumn::AverageHits => {
@@ -222,7 +221,6 @@ FROM
 
                 entries.dedup_by(|a, b| a.name == b.name);
 
-                // SAFETY: the two types have the exact same structure
                 Ok(UserStatsEntries::Float(convert_entries(entries)))
             }
             UserModeStatsColumn::CountSsh
@@ -399,7 +397,6 @@ FROM
 
                 entries.dedup_by(|a, b| a.name == b.name);
 
-                // SAFETY: the two types have the exact same structure
                 Ok(UserStatsEntries::Float(convert_entries(entries)))
             }
             UserModeStatsColumn::Playtime => {
@@ -448,7 +445,6 @@ FROM
 
                 entries.dedup_by(|a, b| a.name == b.name);
 
-                // SAFETY: the two types have the exact same structure
                 Ok(UserStatsEntries::PpF32(convert_entries(entries)))
             }
             UserModeStatsColumn::PpPerMonth => {
@@ -502,7 +498,6 @@ JOIN (
 
                 entries.dedup_by(|a, b| a.name == b.name);
 
-                // SAFETY: the two types have the exact same structure
                 Ok(UserStatsEntries::PpF32(convert_entries(entries)))
             }
             UserModeStatsColumn::RankCountry | UserModeStatsColumn::RankGlobal => {
@@ -594,6 +589,155 @@ JOIN (
                     .collect();
 
                 Ok(UserStatsEntries::Amount(entries))
+            }
+            UserModeStatsColumn::Top1 => {
+                let query = r#"
+SELECT 
+  username, 
+  country_code, 
+  pp :: FLOAT4 AS value 
+FROM 
+  (
+    SELECT 
+      osu_id 
+    FROM 
+      user_configs 
+    WHERE 
+      discord_id = ANY($1) 
+      AND osu_id IS NOT NULL
+  ) AS configs 
+  JOIN osu_user_names AS names ON configs.osu_id = names.user_id 
+  JOIN (
+    SELECT 
+      DISTINCT ON (user_id) scores.score_id, 
+      user_id, 
+      pp 
+    FROM 
+      (
+        SELECT 
+          score_id, 
+          user_id 
+        FROM 
+          osu_scores 
+        WHERE 
+          gamemode = $2
+      ) AS scores 
+      JOIN osu_scores_performance AS pps ON scores.score_id = pps.score_id 
+    ORDER BY 
+      user_id, 
+      pp DESC
+  ) AS pps ON configs.osu_id = pps.user_id 
+  JOIN (
+    SELECT 
+      user_id, 
+      country_code 
+    FROM 
+      osu_user_stats
+  ) AS country ON configs.osu_id = country.user_id"#;
+
+                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(query)
+                    .bind(discord_ids)
+                    .bind(mode as i16)
+                    .fetch_all(self)
+                    .await
+                    .wrap_err("Failed to fetch all")?;
+
+                entries.sort_unstable_by(|a, b| {
+                    b.value
+                        .total_cmp(&a.value)
+                        .then_with(|| a.name.cmp(&b.name))
+                });
+
+                entries.dedup_by(|a, b| a.name == b.name);
+
+                Ok(UserStatsEntries::PpF32(convert_entries(entries)))
+            }
+            UserModeStatsColumn::TopRange => {
+                let query = r#"
+WITH scores_pp AS (
+  SELECT 
+    scores.user_id, 
+    pps.pp 
+  FROM 
+    (
+      SELECT 
+        osu_id 
+      FROM 
+        user_configs 
+      WHERE 
+        discord_id = ANY($1) 
+        AND osu_id IS NOT NULL
+    ) AS configs 
+    JOIN (
+      SELECT 
+        score_id, 
+        user_id 
+      FROM 
+        osu_scores 
+      WHERE 
+        gamemode = $2
+    ) AS scores ON configs.osu_id = scores.user_id 
+    JOIN osu_scores_performance AS pps ON scores.score_id = pps.score_id
+) 
+SELECT 
+  username, 
+  country_code, 
+  value 
+FROM 
+  (
+    SELECT 
+      DISTINCT ON (t_outer.user_id) t_outer.user_id, 
+      (
+        FIRST_VALUE(t_pp.pp) OVER (
+          PARTITION BY t_outer.user_id 
+          ORDER BY 
+            t_pp.pp DESC
+        ) - FIRST_VALUE(t_pp.pp) OVER (
+          PARTITION BY t_outer.user_id 
+          ORDER BY 
+            t_pp.pp ASC
+        )
+      ) :: FLOAT4 AS value 
+    FROM 
+      scores_pp AS t_outer 
+      JOIN LATERAL (
+        SELECT 
+          pp 
+        FROM 
+          scores_pp AS t_inner 
+        WHERE 
+          t_inner.user_id = t_outer.user_id 
+        ORDER BY 
+          t_inner.pp DESC 
+        LIMIT 
+          100
+      ) AS t_pp ON true
+  ) AS pp_range 
+  JOIN osu_user_names AS names ON pp_range.user_id = names.user_id 
+  JOIN (
+    SELECT 
+      user_id, 
+      country_code 
+    FROM 
+      osu_user_stats
+  ) AS country ON names.user_id = country.user_id"#;
+
+                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(query)
+                    .bind(discord_ids)
+                    .bind(mode as i16)
+                    .fetch_all(self)
+                    .await
+                    .wrap_err("Failed to fetch all")?;
+
+                entries.sort_unstable_by(|a, b| {
+                    b.value
+                        .total_cmp(&a.value)
+                        .then_with(|| a.name.cmp(&b.name))
+                });
+
+                entries.dedup_by(|a, b| a.name == b.name);
+
+                Ok(UserStatsEntries::PpF32(convert_entries(entries)))
             }
         }
     }
