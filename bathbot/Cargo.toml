@@ -56,7 +56,6 @@ twilight-http = { workspace = true }
 twilight-interactions = { workspace = true }
 twilight-model = { workspace = true }
 twilight-standby = { workspace = true }
-twilight-validate = { workspace = true }
 
 [features]
 default = ["offline"]
