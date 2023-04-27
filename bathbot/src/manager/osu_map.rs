@@ -16,7 +16,7 @@ use tokio::{fs, time::sleep};
 use super::PpManager;
 use crate::{
     core::{BotConfig, Context},
-    util::query::{FilterCriteria, Searchable},
+    util::query::{FilterCriteria, Searchable, RegularCriteria},
 };
 
 type Result<T> = eyre::Result<T, MapError>;
@@ -535,9 +535,9 @@ impl OsuMapSlim {
     }
 }
 
-impl Searchable for OsuMapSlim {
+impl Searchable<RegularCriteria<'_>> for OsuMapSlim {
     #[inline]
-    fn matches(&self, criteria: &FilterCriteria<'_>) -> bool {
+    fn matches(&self, criteria: &FilterCriteria<RegularCriteria<'_>>) -> bool {
         self.map.matches(criteria) && self.mapset.matches(criteria)
     }
 }
@@ -615,9 +615,9 @@ impl Deref for OsuMap {
     }
 }
 
-impl Searchable for OsuMap {
+impl Searchable<RegularCriteria<'_>> for OsuMap {
     #[inline]
-    fn matches(&self, criteria: &FilterCriteria<'_>) -> bool {
+    fn matches(&self, criteria: &FilterCriteria<RegularCriteria<'_>>) -> bool {
         self.map.matches(criteria) && self.pp_map.matches(criteria)
     }
 }
