@@ -12,13 +12,17 @@ use rosu_v2::{
     request::UserId,
 };
 
-use super::{process_scores, MapStatus, ServerScores};
+use super::{criteria_to_content, process_scores, separate_content, MapStatus, ServerScores};
 use crate::{
     commands::osu::{user_not_found, HasMods, ModsResult},
     core::Context,
     manager::redis::osu::UserArgs,
     pagination::ServerScoresPagination,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{
+        interaction::InteractionCommand,
+        query::{FilterCriteria, ScoresCriteria},
+        InteractionCommandExt,
+    },
 };
 
 pub async fn server_scores(
@@ -121,15 +125,28 @@ pub async fn server_scores(
         None => None,
     };
 
+    let sort = args.sort.unwrap_or_default();
+    let criteria = args
+        .query
+        .as_deref()
+        .map(FilterCriteria::<ScoresCriteria<'_>>::new);
+
     let content = msg_content(
         mods.as_ref(),
         args.mapper.as_deref(),
         country_code.as_deref(),
         args.status,
+        criteria.as_ref(),
     );
 
-    let sort = args.sort.unwrap_or_default();
-    process_scores(&mut scores, creator_id, sort, args.status, args.reverse);
+    process_scores(
+        &mut scores,
+        creator_id,
+        sort,
+        args.status,
+        criteria.as_ref(),
+        args.reverse,
+    );
 
     ServerScoresPagination::builder(scores, mode, sort, guild_icon)
         .content(content)
@@ -143,6 +160,7 @@ fn msg_content(
     mapper: Option<&str>,
     country: Option<&str>,
     status: Option<MapStatus>,
+    criteria: Option<&FilterCriteria<ScoresCriteria<'_>>>,
 ) -> String {
     let mut content = String::new();
 
@@ -160,25 +178,17 @@ fn msg_content(
     }
 
     if let Some(mapper) = mapper {
-        if !content.is_empty() {
-            content.push_str(" • ");
-        }
-
+        separate_content(&mut content);
         let _ = write!(content, "`Mapper: {mapper}`");
     }
 
     if let Some(country) = country {
-        if !content.is_empty() {
-            content.push_str(" • ");
-        }
-
+        separate_content(&mut content);
         let _ = write!(content, "`Country: {country}`");
     }
 
     if let Some(status) = status {
-        if !content.is_empty() {
-            content.push_str(" • ");
-        }
+        separate_content(&mut content);
 
         let status = match status {
             MapStatus::Ranked => "Ranked",
@@ -187,6 +197,10 @@ fn msg_content(
         };
 
         let _ = write!(content, "`Status: {status}`");
+    }
+
+    if let Some(criteria) = criteria {
+        criteria_to_content(&mut content, criteria);
     }
 
     content

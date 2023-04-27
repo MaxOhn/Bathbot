@@ -10,7 +10,7 @@ use eyre::Result;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::AutocompleteValue;
 
-use super::{process_scores, MapScores, ScoresOrder};
+use super::{criteria_to_content, process_scores, separate_content, MapScores, ScoresOrder};
 use crate::{
     commands::osu::{
         compare::{slash_compare_score, ScoreOrder},
@@ -18,7 +18,11 @@ use crate::{
     },
     core::Context,
     pagination::MapScoresPagination,
-    util::{interaction::InteractionCommand, Authored, CheckPermissions, InteractionCommandExt},
+    util::{
+        interaction::InteractionCommand,
+        query::{FilterCriteria, ScoresCriteria},
+        Authored, CheckPermissions, InteractionCommandExt,
+    },
 };
 
 pub async fn map_scores(
@@ -28,7 +32,7 @@ pub async fn map_scores(
 ) -> Result<()> {
     let Some(guild_id) = command.guild_id else {
         // TODO: use mode when /cs uses it
-        let MapScores { map, mode: _, sort, mods, index, reverse:_ } = args;
+        let MapScores { map, mode: _, sort, mods, query: _, index, reverse:_ } = args;
 
         let sort = match sort {
             Some(ScoresOrder::Acc) => Some(ScoreOrder::Acc),
@@ -205,8 +209,20 @@ pub async fn map_scores(
     }
 
     let sort = args.sort.unwrap_or_default();
-    let content = msg_content(sort, mods.as_ref());
-    process_scores(&mut scores, None, sort, None, args.reverse);
+    let criteria = args
+        .query
+        .as_deref()
+        .map(FilterCriteria::<ScoresCriteria<'_>>::new);
+    let content = msg_content(sort, mods.as_ref(), criteria.as_ref());
+
+    process_scores(
+        &mut scores,
+        None,
+        sort,
+        None,
+        criteria.as_ref(),
+        args.reverse,
+    );
 
     MapScoresPagination::builder(scores, mode, sort, guild_icon)
         .content(content)
@@ -215,7 +231,11 @@ pub async fn map_scores(
         .await
 }
 
-fn msg_content(sort: ScoresOrder, mods: Option<&ModSelection>) -> String {
+fn msg_content(
+    sort: ScoresOrder,
+    mods: Option<&ModSelection>,
+    criteria: Option<&FilterCriteria<ScoresCriteria<'_>>>,
+) -> String {
     let mut content = String::new();
 
     match mods {
@@ -231,9 +251,11 @@ fn msg_content(sort: ScoresOrder, mods: Option<&ModSelection>) -> String {
         None => {}
     }
 
-    if !content.is_empty() {
-        content.push_str(" • ");
+    if let Some(criteria) = criteria {
+        criteria_to_content(&mut content, criteria);
     }
+
+    separate_content(&mut content);
 
     content.push_str("`Order: ");
 
