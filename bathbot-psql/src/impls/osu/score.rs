@@ -628,6 +628,8 @@ ORDER BY
         Ok(scores)
     }
 
+    // TODO: use builder pattern type
+    #[allow(clippy::too_many_arguments)]
     pub async fn select_scores_by_discord_id<S>(
         &self,
         discord_users: &[i64],
@@ -682,6 +684,8 @@ AND osu_id IS NOT NULL"#,
         .await
     }
 
+    // TODO: use builder pattern type
+    #[allow(clippy::too_many_arguments)]
     pub async fn select_scores_by_osu_id<S>(
         &self,
         user_ids: &[i32],
@@ -713,6 +717,8 @@ AND osu_id IS NOT NULL"#,
         .await
     }
 
+    // TODO: use builder pattern type
+    #[allow(clippy::too_many_arguments)]
     async fn select_scores_by_osu_id_<S>(
         conn: &mut PoolConnection<Postgres>,
         user_ids: &[i32],
