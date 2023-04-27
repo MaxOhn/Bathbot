@@ -96,6 +96,10 @@ pub enum UserModeStatsColumn {
     ScoreTotal,
     #[option(name = "Global number 1s", value = "global_firsts")]
     ScoresFirst,
+    #[option(name = "Top PP", value = "top1")]
+    Top1,
     #[option(name = "Total hits", value = "total_hits")]
     TotalHits,
+    #[option(name = "Top PP range", value = "top_range")]
+    TopRange,
 }
