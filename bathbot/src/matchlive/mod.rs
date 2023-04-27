@@ -48,13 +48,11 @@ pub async fn send_match_messages(
             match ctx.http.create_message(channel).embeds(&[embed]) {
                 Ok(msg_fut) => {
                     if let Err(err) = msg_fut.await {
-                        let err = Report::new(err).wrap_err("Failed to send match live embed");
-                        warn!("{err:?}");
+                        warn!(?err, "Failed to send match live embed");
                     }
                 }
                 Err(err) => {
-                    let err = Report::new(err).wrap_err("Failed to create match live msg");
-                    warn!("{err:?}");
+                    warn!(?err, "Failed to create match live msg");
                 }
             }
         }

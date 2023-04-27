@@ -140,12 +140,8 @@ impl Cache {
             }
             Ok(None) => None,
             Err(err) => {
-                let wrap = match event.kind().name() {
-                    Some(name) => format!("Failed to update cache on event `{name}`"),
-                    None => "Failed to update cache on unnamed event".to_owned(),
-                };
-
-                error!("{:?}", err.wrap_err(wrap));
+                let event = event.kind().name().unwrap_or("<unnamed>");
+                error!(event, ?err, "Failed to update cache");
 
                 None
             }

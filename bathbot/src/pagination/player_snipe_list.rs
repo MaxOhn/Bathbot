@@ -6,7 +6,7 @@ use std::{
 use bathbot_macros::pagination;
 use bathbot_model::{rosu_v2::user::User, SnipeScore, SnipeScoreParams};
 use bathbot_util::IntHasher;
-use eyre::{Report, Result, WrapErr};
+use eyre::{Result, WrapErr};
 use twilight_model::channel::message::embed::Embed;
 
 use super::Pages;
@@ -69,10 +69,7 @@ impl PlayerSnipeListPagination {
             let new_maps = match ctx.osu_map().maps(&map_ids).await {
                 Ok(maps) => maps,
                 Err(err) => {
-                    warn!(
-                        "{:?}",
-                        Report::new(err).wrap_err("Failed to get maps from database")
-                    );
+                    warn!(?err, "Failed to get maps from database");
 
                     HashMap::default()
                 }

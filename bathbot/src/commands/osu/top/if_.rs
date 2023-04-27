@@ -248,7 +248,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     let rank = match ctx.approx().rank(final_pp, mode).await {
         Ok(rank) => Some(rank),
         Err(err) => {
-            warn!("{:?}", err.wrap_err("failed to get rank from pp"));
+            warn!(?err, "Failed to get rank from pp");
 
             None
         }

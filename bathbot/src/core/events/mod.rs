@@ -5,7 +5,7 @@ use std::{
 
 use bathbot_cache::model::CachedArchive;
 use bathbot_model::twilight_model::{channel::Channel, guild::Guild};
-use eyre::{Report, Result};
+use eyre::Result;
 use futures::StreamExt;
 use twilight_gateway::{error::ReceiveMessageErrorType, stream::ShardEventStream, Event, Shard};
 use twilight_model::{gateway::CloseCode, user::User};
@@ -131,7 +131,7 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>) {
 
                     tokio::spawn(async move {
                         if let Err(err) = handle_event(ctx, event, shard_id).await {
-                            error!("{:?}", err.wrap_err("Failed to handle event"));
+                            error!(?err, "Failed to handle event");
                         }
                     });
 
@@ -152,7 +152,7 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>) {
                 }
             );
 
-            error!("{:?}", Report::new(err).wrap_err("Event error"));
+            error!(?err, "Event error");
 
             if must_reshard {
                 drop(stream);
@@ -173,28 +173,33 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
     match event {
         Event::GatewayClose(Some(frame)) => {
             warn!(
-                "Received closing frame for shard {shard_id}: reason={} (code {})",
-                frame.reason, frame.code,
+                shard_id,
+                reason = frame.reason.as_ref(),
+                code = frame.code,
+                "Received closing frame"
             )
         }
         Event::GatewayClose(None) => {
-            warn!("Received closing frame for shard {shard_id}")
+            warn!(shard_id, "Received closing frame")
         }
         Event::GatewayInvalidateSession(true) => {
-            warn!("Gateway has invalidated session for shard {shard_id}, but its reconnectable")
+            warn!(
+                shard_id,
+                "Gateway has invalidated session but its reconnectable"
+            )
         }
         Event::GatewayInvalidateSession(false) => {
-            warn!("Gateway has invalidated session for shard {shard_id}")
+            warn!(shard_id, "Gateway has invalidated session")
         }
         Event::GatewayReconnect => {
-            info!("Gateway requested shard {shard_id} to reconnect")
+            info!(shard_id, "Gateway requested shard to reconnect")
         }
         Event::GuildCreate(e) => {
             ctx.guild_shards().pin().insert(e.id, shard_id);
             ctx.member_requests.todo_guilds.lock().insert(e.id);
 
             if let Err(err) = ctx.member_requests.tx.send((e.id, shard_id)) {
-                warn!("Failed to forward member request: {err}");
+                warn!(?err, "Failed to forward member request");
             }
         }
         Event::InteractionCreate(e) => handle_interaction(ctx, e.0).await,
@@ -207,8 +212,8 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
                 ctx.remove_msg(id);
             }
         }
-        Event::Ready(_) => info!("Shard {shard_id} is ready"),
-        Event::Resumed => info!("Shard {shard_id} is resumed"),
+        Event::Ready(_) => info!(shard_id, "Shard is ready"),
+        Event::Resumed => info!(shard_id, "Shard is resumed"),
         _ => {}
     }
 

@@ -102,7 +102,7 @@ SET
             .await
             .wrap_err("failed to execute query")?;
 
-        debug!("Inserted GuildConfig for guild {guild_id} into DB");
+        debug!(?guild_id, "Inserted GuildConfig into DB");
 
         Ok(())
     }

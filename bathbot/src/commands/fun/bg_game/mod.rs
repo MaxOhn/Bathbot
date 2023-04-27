@@ -277,7 +277,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
     if let Some(GameState::Running { game }) = ctx.bg_games().write(&channel).await.remove() {
         if let Err(err) = game.stop() {
-            warn!("{:?}", err.wrap_err("failed to stop game"));
+            warn!(?err, "Failed to stop game");
         }
     }
 

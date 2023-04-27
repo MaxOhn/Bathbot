@@ -1,7 +1,7 @@
 use std::{mem, sync::Arc};
 
 use bathbot_model::HlVersion;
-use eyre::{ContextCompat, Report, Result, WrapErr};
+use eyre::{ContextCompat, Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::Receiver;
 use twilight_model::{
@@ -116,14 +116,13 @@ impl GameState {
             Some(rx) => match rx.await {
                 Ok(url) => url,
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("failed to receive image url");
-                    warn!("{report:?}");
+                    warn!(?err, "Failed to receive image url");
 
                     String::new()
                 }
             },
             None => {
-                warn!("tried to await image again");
+                warn!("Tried to await image again");
 
                 String::new()
             }

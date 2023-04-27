@@ -292,7 +292,7 @@ SET
             .await
             .wrap_err("failed to execute query")?;
 
-        debug!("Inserted UserConfig for user {user_id} into DB");
+        debug!(?user_id, "Inserted UserConfig into DB");
 
         Ok(())
     }

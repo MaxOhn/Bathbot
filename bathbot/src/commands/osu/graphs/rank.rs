@@ -202,7 +202,7 @@ pub async fn rank_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", err.wrap_err("failed to draw rank graph"));
+            warn!(?err, "Failed to draw rank graph");
 
             return Ok(None);
         }

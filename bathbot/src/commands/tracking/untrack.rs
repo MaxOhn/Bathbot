@@ -82,7 +82,7 @@ pub(super) async fn untrack(
         match remove_fut.await {
             Ok(_) => success.insert(username),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to remove tracked entry"));
+                warn!(?err, "Failed to remove tracked entry");
 
                 return send_message(&ctx, orig, Some(&username), success).await;
             }

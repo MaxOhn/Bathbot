@@ -207,7 +207,7 @@ impl SkinValidation {
         match Self::validate(ctx, skin_url).await {
             SkinValidation::Ok => Ok(ValidationStatus::Continue),
             SkinValidation::Invalid(reason) => {
-                debug!("Invalid skin url reason: {reason:?}");
+                debug!(?reason, "Invalid skin url reason");
 
                 let content = "Looks like an invalid skin url.\n\
                     Must be a URL to a direct-download of an .osk file or one of these approved sites:\n\

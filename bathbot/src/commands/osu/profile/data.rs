@@ -6,7 +6,6 @@ use std::{
 
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{osu::BonusPP, IntHasher};
-use eyre::Report;
 use eyre::Result;
 use rosu_v2::prelude::{GameMod, GameModIntermode, GameModsIntermode, Score, Username};
 use time::UtcOffset;
@@ -89,7 +88,7 @@ impl ProfileData {
                 None
             }
             Err(err) => {
-                warn!("{:?}", err.wrap_err("failed to get respektive user"));
+                warn!(?err, "Failed to get respektive user");
                 self.score_rank = Availability::Errored;
 
                 None
@@ -121,7 +120,7 @@ impl ProfileData {
         match Top100Stats::new(ctx, scores).await {
             Ok(stats) => Some(self.top100stats.insert(stats)),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("failed to calculate top100 stats"));
+                warn!(?err, "Failed to calculate top100 stats");
 
                 None
             }
@@ -172,7 +171,7 @@ impl ProfileData {
                 let mut names = match ctx.osu_user().names(&ids).await {
                     Ok(names) => names,
                     Err(err) => {
-                        warn!("{:?}", err.wrap_err("failed to get mapper names"));
+                        warn!(?err, "Failed to get mapper names");
 
                         HashMap::default()
                     }
@@ -189,15 +188,14 @@ impl ProfileData {
                         let user = match ctx.osu().user(*id).mode(mode).await {
                             Ok(user) => user,
                             Err(err) => {
-                                let err = Report::new(err).wrap_err("failed to get user");
-                                warn!("{err:?}");
+                                warn!(?err, "Failed to get user");
 
                                 continue;
                             }
                         };
 
                         if let Err(err) = ctx.osu_user().store_user(&user, mode).await {
-                            warn!("{:?}", err.wrap_err("failed to upsert user"));
+                            warn!(?err, "Failed to upsert user");
                         }
 
                         names.insert(user.user_id, user.username);
@@ -255,8 +253,7 @@ impl ProfileData {
         match ctx.osu_scores().top().exec(user_args).await {
             Ok(scores) => Some(self.scores.insert(scores)),
             Err(err) => {
-                let wrap = "failed to get top scores";
-                warn!("{:?}", Report::new(err).wrap_err(wrap));
+                warn!(?err, "Failed to get top scores");
                 self.scores = Availability::Errored;
 
                 None

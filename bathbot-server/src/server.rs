@@ -7,7 +7,7 @@ use axum::{
     routing::{get, get_service},
     Router,
 };
-use eyre::{Report, Result};
+use eyre::Result;
 use hyper::Request;
 use tokio::sync::oneshot::{channel, Receiver, Sender};
 use tower_http::{services::ServeDir, trace::TraceLayer};
@@ -66,7 +66,7 @@ impl Server {
         info!("Running server...");
 
         if let Err(err) = server.await {
-            error!("{:?}", Report::new(err).wrap_err("Server failed"));
+            error!(?err, "Server failed");
         }
     }
 
@@ -74,12 +74,12 @@ impl Server {
         let trace = TraceLayer::new_for_http()
             .on_request(|req: &Request<_>, _: &Span| info!("{} {}", req.method(), req.uri().path()))
             .on_response(|res: &Response, latency: Duration, _: &Span| {
-                let code = res.status().as_u16();
+                let status = res.status().as_u16();
 
-                if (500..600).contains(&code) {
-                    error!("Response: latency={}ms status={code}", latency.as_millis());
+                if (500..600).contains(&status) {
+                    error!(status, "Response: latency={}ms", latency.as_millis());
                 } else {
-                    info!("Response: latency={}ms status={code}", latency.as_millis());
+                    info!(status, "Response: latency={}ms", latency.as_millis());
                 }
             });
 
@@ -102,8 +102,7 @@ impl Server {
             .fallback_service(
                 get_service(ServeDir::new(auth_assets).with_buf_chunk_size(16_384)).handle_error(
                     |err| async move {
-                        let wrap = "Failed to serve static file";
-                        error!("{:?}", Report::new(err).wrap_err(wrap));
+                        error!(?err, "Failed to serve static file");
 
                         StatusCode::INTERNAL_SERVER_ERROR
                     },

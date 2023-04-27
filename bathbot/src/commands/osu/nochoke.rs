@@ -262,7 +262,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
     let rank = match ctx.approx().rank(unchoked_pp, mode).await {
         Ok(rank) => Some(rank),
         Err(err) => {
-            warn!("{:?}", err.wrap_err("failed to get rank pp"));
+            warn!(?err, "Failed to get rank pp");
 
             None
         }

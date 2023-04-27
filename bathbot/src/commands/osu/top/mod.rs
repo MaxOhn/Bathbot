@@ -1196,8 +1196,7 @@ async fn single_embed(
                     })
                 }
                 Err(err) => {
-                    let err = Report::new(err).wrap_err("failed to get global scores");
-                    warn!("{err:?}");
+                    warn!(?err, "Failed to get global scores");
 
                     None
                 }
@@ -1255,8 +1254,7 @@ async fn single_embed(
 
                 if let Some(update_fut) = response.update(&ctx, &builder, permissions) {
                     if let Err(err) = update_fut.await {
-                        let report = Report::new(err).wrap_err("Failed to minimize embed");
-                        warn!("{report:?}");
+                        warn!(?err, "Failed to minimize embed");
                     }
                 }
             });

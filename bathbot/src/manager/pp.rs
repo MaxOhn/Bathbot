@@ -113,7 +113,7 @@ impl<'d, 'm> PpManager<'d, 'm> {
                 None => match self.lookup_attrs().await {
                     Ok(Some(attrs)) => return self.attrs.insert(attrs),
                     Ok(None) => {}
-                    Err(err) => warn!("{:?}", err.wrap_err("Failed to get difficulty attributes")),
+                    Err(err) => warn!(?err, "Failed to get difficulty attributes"),
                 },
             }
         }
@@ -139,7 +139,7 @@ impl<'d, 'm> PpManager<'d, 'm> {
                 .upsert_map_difficulty(self.map_id, self.mods, &attrs);
 
             if let Err(err) = upsert_fut.await {
-                warn!("{:?}", err.wrap_err("Failed to upsert difficulty attrs"));
+                warn!(?err, "Failed to upsert difficulty attrs");
             }
         }
 

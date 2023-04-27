@@ -45,8 +45,8 @@ fn main() {
 
     let _log_worker_guard = logging::init();
 
-    if let Err(report) = runtime.block_on(async_main()) {
-        error!("{:?}", report.wrap_err("Critical error in main"));
+    if let Err(source) = runtime.block_on(async_main()) {
+        error!(?source, "Critical error in main");
     }
 }
 
@@ -180,7 +180,7 @@ async fn async_main() -> Result<()> {
         _ = event_loop(event_ctx, &mut shards) => error!("Event loop ended"),
         res = signal::ctrl_c() => match res {
             Ok(_) => info!("Received Ctrl+C"),
-            Err(err) => error!("{:?}", Report::new(err).wrap_err("Failed to await Ctrl+C")),
+            Err(err) => error!(?err, "Failed to await Ctrl+C"),
         }
     }
 
@@ -208,7 +208,7 @@ async fn async_main() -> Result<()> {
     let resume_data = Context::down_resumable(&mut shards).await;
 
     if let Err(err) = ctx.cache.freeze(&resume_data).await {
-        error!("{:?}", err.wrap_err("Failed to freeze cache"));
+        error!(?err, "Failed to freeze cache");
     }
 
     info!("Shutting down");

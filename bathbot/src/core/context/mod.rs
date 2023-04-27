@@ -198,7 +198,7 @@ impl Context {
             .filter_map(|(shard_id, res)| match res {
                 Ok(opt) => future::ready(opt.map(|session| (shard_id, session))),
                 Err(err) => {
-                    warn!("Failed to close shard {shard_id}: {err}");
+                    warn!(shard_id, ?err, "Failed to close shard");
 
                     future::ready(None)
                 }

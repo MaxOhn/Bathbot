@@ -18,11 +18,10 @@ pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionComm
         "badges" => slash_badges(ctx, command).await,
         "medal" => slash_medal(ctx, command).await,
         "cs" | "compare" | "score" => slash_cs(ctx, command).await,
-        _ => return error!("Unknown autocomplete command `{name}`"),
+        _ => return error!(name, "Unknown autocomplete command"),
     };
 
     if let Err(err) = res {
-        let wrap = format!("Failed to process autocomplete `{name}`");
-        error!("{:?}", err.wrap_err(wrap));
+        error!(name, ?err, "Failed to process autocomplete");
     }
 }

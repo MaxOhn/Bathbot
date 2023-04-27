@@ -2,7 +2,6 @@
 
 use std::{slice, sync::Arc};
 
-use eyre::Report;
 use hashbrown::hash_map::Entry;
 use rosu_v2::prelude::{MatchEvent, OsuError};
 use tokio::time::{interval, Duration};
@@ -66,8 +65,8 @@ impl Context {
 
                 let channel = match send_match_messages(self, channel, embeds).await {
                     Ok(msg) => Channel::new(channel, msg),
-                    Err(report) => {
-                        error!("{report:?}");
+                    Err(err) => {
+                        error!("{err:?}");
 
                         return MatchTrackResult::Error;
                     }
@@ -86,8 +85,8 @@ impl Context {
 
                     let channel = match send_match_messages(self, channel, &embeds).await {
                         Ok(msg) => Channel::new(channel, msg),
-                        Err(report) => {
-                            error!("{report:?}");
+                        Err(err) => {
+                            error!("{err:?}");
 
                             return MatchTrackResult::Error;
                         }
@@ -108,8 +107,7 @@ impl Context {
                     MatchTrackResult::Private
                 }
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("failed to request initial match");
-                    warn!("{report:?}");
+                    warn!(?err, "Failed to request initial match");
 
                     MatchTrackResult::Error
                 }
@@ -187,8 +185,7 @@ impl Context {
                     let next_match = match tracked_match.osu_match.get_next(ctx.osu()).await {
                         Ok(next_match) => next_match,
                         Err(err) => {
-                            let report = Report::new(err).wrap_err("failed to request match");
-                            warn!("{report:?}");
+                            warn!(?err, "Failed to request match");
 
                             continue;
                         }
@@ -224,16 +221,14 @@ impl Context {
                             let update_fut = match update_result {
                                 Ok(update_fut) => update_fut,
                                 Err(err) => {
-                                    let err =
-                                        Report::new(err).wrap_err("Failed to build msg update");
-                                    warn!("{err:?}");
+                                    warn!(?err, "Failed to build msg update");
 
                                     continue;
                                 }
                             };
 
                             if let Err(err) = update_fut.await {
-                                warn!("{:?}", Report::new(err).wrap_err("Failed to update msg"));
+                                warn!(?err, "Failed to update msg");
                             }
                         }
                     }
@@ -243,10 +238,7 @@ impl Context {
                         for Channel { id, msg_id } in entry.channels.iter_mut() {
                             match send_match_messages(&ctx, *id, &embeds).await {
                                 Ok(msg) => *msg_id = msg,
-                                Err(err) => {
-                                    let wrap = format!("Failed to send last msg in channel {id}");
-                                    error!("{:?}", err.wrap_err(wrap));
-                                }
+                                Err(err) => error!(channel = id, ?err, "Failed to send last msg"),
                             }
                         }
 

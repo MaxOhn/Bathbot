@@ -39,7 +39,7 @@ impl UserArgs {
 
         match ctx.osu_user().user_id(name, alt_name.as_deref()).await {
             Ok(Some(user_id)) => return Self::Args(UserArgsSlim::user_id(user_id)),
-            Err(err) => warn!("{:?}", err.wrap_err("Failed to get user id")),
+            Err(err) => warn!(?err, "Failed to get user id"),
             Ok(None) => {}
         }
 
@@ -166,8 +166,7 @@ impl<'c> RedisManager<'c> {
                 // Remove stats of unknown/restricted users so they don't appear in the
                 // leaderboard
                 if let Err(err) = self.ctx.osu_user().remove_stats_and_scores(user_id).await {
-                    let wrap = "Failed to remove stats of unknown user";
-                    warn!("{:?}", err.wrap_err(wrap));
+                    warn!(?err, "Failed to remove stats of unknown user");
                 }
 
                 return Err(OsuError::NotFound);
@@ -186,7 +185,7 @@ impl<'c> RedisManager<'c> {
         if let Some(ref mut conn) = conn {
             // Cache users for 10 minutes
             if let Err(err) = Cache::store::<_, _, 64>(conn, &key, &user, EXPIRE).await {
-                warn!("{:?}", err.wrap_err("Failed to store user"));
+                warn!(?err, "Failed to store user");
             }
         }
 
@@ -206,7 +205,7 @@ impl<'c> RedisManager<'c> {
         let store_fut = self.ctx.cache.store_new::<_, _, 64>(&key, &user, EXPIRE);
 
         if let Err(err) = store_fut.await {
-            warn!("{:?}", err.wrap_err("Failed to store user"));
+            warn!(?err, "Failed to store user");
         }
 
         Ok(RedisData::Original(user))

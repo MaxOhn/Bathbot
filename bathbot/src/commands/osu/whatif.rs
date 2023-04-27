@@ -226,7 +226,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         let rank = match ctx.approx().rank(pp, mode).await {
             Ok(rank) => Some(rank),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to get rank pp"));
+                warn!(?err, "Failed to get rank pp");
 
                 None
             }
@@ -256,7 +256,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         let rank = match ctx.approx().rank(new_pp + bonus_pp, mode).await {
             Ok(rank) => Some(rank),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to get rank pp"));
+                warn!(?err, "Failed to get rank pp");
 
                 None
             }

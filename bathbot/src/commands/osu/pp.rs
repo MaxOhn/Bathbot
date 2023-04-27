@@ -191,7 +191,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
     let rank = match rank_res {
         Ok(rank_pp) => Some(rank_pp),
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get rank pp"));
+            warn!(?err, "Failed to get rank pp");
 
             None
         }

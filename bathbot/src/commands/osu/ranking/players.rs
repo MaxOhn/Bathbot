@@ -41,7 +41,7 @@ pub(super) async fn pp(
         Some(mode) => match ctx.user_config().osu_id(author_id).await {
             Ok(user_id) => (mode.into(), user_id),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("failed to get author id"));
+                warn!(?err, "Failed to get author id");
 
                 (mode.into(), None)
             }
@@ -51,7 +51,7 @@ pub(super) async fn pp(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get user config"));
+                return Err(err.wrap_err("Failed to get user config"));
             }
         },
     };
@@ -123,8 +123,7 @@ async fn pp_author_idx(
                 .map(|n| n as usize - 1)
         }
         Err(err) => {
-            let report = Report::new(err).wrap_err("Failed to get user");
-            warn!("{report:?}");
+            warn!(?err, "Failed to get user");
 
             None
         }
@@ -165,7 +164,7 @@ pub(super) async fn score(
                 Ok(Some(user)) => Some(user.rank as usize - 1),
                 Ok(None) => None,
                 Err(err) => {
-                    warn!("{:?}", err.wrap_err("failed to get respektive user"));
+                    warn!(?err, "Failed to get respektive user");
 
                     None
                 }

@@ -7,7 +7,7 @@ use bathbot_util::{
     numbers::{round, WithComma},
     AuthorBuilder, CowUtils, FooterBuilder,
 };
-use eyre::{Report, Result, WrapErr};
+use eyre::{Result, WrapErr};
 use rosu_pp::{AnyPP, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameModsIntermode, Username};
 use time::OffsetDateTime;
@@ -318,7 +318,7 @@ async fn creator_name<'m>(
         Ok(RedisData::Original(user)) => Some(user.username),
         Ok(RedisData::Archive(user)) => Some(user.username.as_str().into()),
         Err(err) => {
-            warn!("{:?}", Report::new(err).wrap_err("Failed to get user"));
+            warn!(?err, "Failed to get user");
 
             None
         }

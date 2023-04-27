@@ -28,7 +28,7 @@ impl<'m> Args<'m> {
         match self.iter.finish() {
             Ok((rest, _)) => rest,
             Err(err) => {
-                error!("Error while getting rest of args: {err}");
+                error!(?err, "Error while getting rest of args");
 
                 match err {
                     NomErr::Incomplete(_) => "",

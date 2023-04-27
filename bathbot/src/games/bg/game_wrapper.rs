@@ -7,7 +7,7 @@ use std::{
 use bathbot_model::Effects;
 use bathbot_psql::model::games::MapsetTagsEntries;
 use bathbot_util::{constants::OSU_BASE, IntHasher, MessageBuilder};
-use eyre::{Report, Result};
+use eyre::Result;
 use tokio::sync::RwLock;
 use tokio::{
     sync::mpsc::{self, UnboundedSender},
@@ -59,8 +59,7 @@ impl GameWrapper {
                     .attachment("bg_img.png", mem::take(&mut img));
 
                 if let Err(err) = channel.create_message(&ctx, &builder, None).await {
-                    let report = Report::new(err).wrap_err("Failed to send initial bg game msg");
-                    warn!("{report:?}");
+                    warn!(?err, "Failed to send initial bg game msg");
                 }
 
                 let result = tokio::select! {
@@ -84,9 +83,7 @@ impl GameWrapper {
                         );
 
                         if let Err(err) = channel.plain_message(&ctx, &content).await {
-                            let report = Report::new(err)
-                                .wrap_err("Failed to show resolve for bg game restart");
-                            warn!("{report:?}");
+                            warn!(?err, "Failed to show resolve for bg game restart");
                         }
                     }
                     LoopResult::Stop => {
@@ -100,9 +97,7 @@ impl GameWrapper {
                         );
 
                         if let Err(err) = channel.plain_message(&ctx, &content).await {
-                            let report = Report::new(err)
-                                .wrap_err("Failed to show resolve for bg game stop");
-                            warn!("{report:?}");
+                            warn!(?err, "Failed to show resolve for bg game stop");
                         }
 
                         // Store score for winners
@@ -114,7 +109,7 @@ impl GameWrapper {
                         }
 
                         // Then quit
-                        info!("Game finished in channel {channel}");
+                        info!(?channel, "Game finished");
                         break;
                     }
                     LoopResult::Winner(user_id) => {

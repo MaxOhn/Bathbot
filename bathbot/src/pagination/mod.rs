@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use bathbot_util::{numbers::last_multiple, MessageBuilder};
-use eyre::{Report, Result, WrapErr};
+use eyre::{Result, WrapErr};
 use tokio::{
     sync::watch::{self, Receiver, Sender},
     time::sleep,
@@ -286,8 +286,7 @@ impl Pagination {
 
                             if let Some(update_fut) = (msg, channel).update(&ctx, &builder, None) {
                                 if let Err(err) = update_fut.await {
-                                    let err = Report::new(err).wrap_err("failed to remove components");
-                                    warn!("{err:?}");
+                                    warn!(?err, "Failed to remove components");
                                 }
                             }
                         }

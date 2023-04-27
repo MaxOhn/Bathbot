@@ -230,8 +230,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
             _ => None,
         },
         Err(err) => {
-            let wrap = "Failed to get discord id from osu user id";
-            warn!("{:?}", err.wrap_err(wrap));
+            warn!(?err, "Failed to get discord id from osu user id");
 
             None
         }

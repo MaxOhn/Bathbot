@@ -86,7 +86,7 @@ pub async fn snipe_count_graph(
         Ok(graph) => graph,
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", err.wrap_err("failed to create snipe count graph"));
+            warn!(?err, "Failed to create snipe count graph");
 
             return Ok(None);
         }

@@ -1,7 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
 use bathbot_util::MessageBuilder;
-use eyre::Report;
 use tokio::{
     sync::oneshot::{Receiver, Sender},
     time::timeout,
@@ -45,11 +44,10 @@ pub(super) async fn await_retry(
     match (msg, channel).update(&ctx, &builder, None) {
         Some(update_fut) => {
             if let Err(err) = update_fut.await {
-                let wrap = "failed to update retry components after timeout";
-                warn!("{:?}", Report::new(err).wrap_err(wrap));
+                warn!(?err, "Failed to update retry components after timeout");
             }
         }
-        None => warn!("lacking permission to update message"),
+        None => warn!("Lacking permission to update message"),
     }
 
     ctx.hl_retries().lock(&msg).remove();

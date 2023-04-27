@@ -531,8 +531,7 @@ pub(super) async fn score(
         None | Some(Err(OsuError::NotFound)) => None,
         Some(Ok(score)) => Some(score),
         Some(Err(err)) => {
-            let err = Report::new(err).wrap_err("failed to get global scores");
-            warn!("{err:?}");
+            warn!(?err, "Failed to get global scores");
 
             None
         }
@@ -542,7 +541,7 @@ pub(super) async fn score(
         Some(Ok(scores)) => Some(scores),
         None => None,
         Some(Err(err)) => {
-            warn!("{:?}", Report::new(err).wrap_err("Failed to get top100"));
+            warn!(?err, "Failed to get top100");
 
             None
         }
@@ -635,8 +634,7 @@ pub(super) async fn score(
 
                 if let Some(update_fut) = response.update(&ctx, &builder, permissions) {
                     if let Err(err) = update_fut.await {
-                        let report = Report::new(err).wrap_err("Failed to minimize embed");
-                        warn!("{report:?}");
+                        warn!(?err, "Failed to minimize embed");
                     }
                 }
             });
@@ -728,7 +726,7 @@ async fn retrieve_vod(
         }
         Ok(None) => None,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get twitch vod"));
+            warn!(?err, "Failed to get twitch vod");
 
             None
         }

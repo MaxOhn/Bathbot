@@ -381,7 +381,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
     let img_opt = match img_res {
         Ok(img) => Some(img),
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get graph background"));
+            warn!(?err, "Failed to get graph background");
 
             None
         }
@@ -391,13 +391,13 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
         Ok(strain_values) => match graph(strain_values, img_opt) {
             Ok(graph) => Some(graph),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to create graph"));
+                warn!(?err, "Failed to create graph");
 
                 None
             }
         },
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to calculate strain values"));
+            warn!(?err, "Failed to calculate strain values");
 
             None
         }

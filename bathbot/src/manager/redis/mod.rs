@@ -52,7 +52,7 @@ impl<'c> RedisManager<'c> {
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 65_536>(conn, KEY, &badges, EXPIRE).await {
-                warn!("{:?}", err.wrap_err("Failed to store badges"));
+                warn!(?err, "Failed to store badges");
             }
         }
 
@@ -81,7 +81,7 @@ impl<'c> RedisManager<'c> {
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 16_384>(conn, KEY, &medals, EXPIRE).await {
-                warn!("{:?}", err.wrap_err("Failed to store medals"));
+                warn!(?err, "Failed to store medals");
             }
         }
 
@@ -116,7 +116,7 @@ impl<'c> RedisManager<'c> {
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 65_536>(conn, &key, &ranking, EXPIRE).await {
-                warn!("{:?}", err.wrap_err("Failed to store osekai ranking"));
+                warn!(?err, "Failed to store osekai ranking");
             }
         }
 
@@ -145,7 +145,7 @@ impl<'c> RedisManager<'c> {
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 1_024>(conn, &key, &group, EXPIRE).await {
-                warn!("{:?}", err.wrap_err("Failed to store osutracker pp group"));
+                warn!(?err, "Failed to store osutracker pp group");
             }
         }
 
@@ -174,7 +174,7 @@ impl<'c> RedisManager<'c> {
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 32_768>(conn, KEY, &stats, EXPIRE).await {
-                warn!("{:?}", err.wrap_err("Failed to store osutracker stats"));
+                warn!(?err, "Failed to store osutracker stats");
             }
         }
 
@@ -203,7 +203,7 @@ impl<'c> RedisManager<'c> {
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 1>(conn, KEY, &counts, EXPIRE).await {
-                warn!("{:?}", err.wrap_err("Failed to store osutracker counts"));
+                warn!(?err, "Failed to store osutracker counts");
             }
         }
 
@@ -249,7 +249,7 @@ impl<'c> RedisManager<'c> {
             let with = With::<_, Rankings>::cast(&ranking);
 
             if let Err(err) = Cache::store::<_, _, 32_768>(conn, &key, with, EXPIRE).await {
-                warn!("{:?}", err.wrap_err("Failed to store ranking"));
+                warn!(?err, "Failed to store ranking");
             }
         }
 
@@ -327,7 +327,7 @@ impl<'c> RedisManager<'c> {
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 64>(conn, &key, &diffs, EXPIRE).await {
-                warn!("{:?}", err.wrap_err("Failed to store cs diffs"));
+                warn!(?err, "Failed to store cs diffs");
             }
         }
 

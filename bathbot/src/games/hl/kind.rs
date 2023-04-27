@@ -92,7 +92,7 @@ impl GameStateKind {
                     let url = match ScorePp::image(&ctx, &pfp1, &pfp2, mapset1, mapset2).await {
                         Ok(url) => url,
                         Err(err) => {
-                            warn!("{:?}", err.wrap_err("failed to create image"));
+                            warn!(?err, "Failed to create image");
 
                             String::new()
                         }
@@ -125,7 +125,7 @@ impl GameStateKind {
                     let url = match FarmMap::image(&ctx, mapset1, mapset2).await {
                         Ok(url) => url,
                         Err(err) => {
-                            warn!("{:?}", err.wrap_err("failed to create image"));
+                            warn!(?err, "Failed to create image");
 
                             String::new()
                         }
@@ -163,7 +163,7 @@ impl GameStateKind {
         let url = match FarmMap::image(ctx, mapset1, mapset2).await {
             Ok(url) => url,
             Err(err) => {
-                warn!("{:?}", err.wrap_err("failed to create image"));
+                warn!(?err, "Failed to create image");
 
                 String::new()
             }
@@ -206,7 +206,7 @@ impl GameStateKind {
         let url = match ScorePp::image(ctx, pfp1, pfp2, mapset1, mapset2).await {
             Ok(url) => url,
             Err(err) => {
-                warn!("{:?}", err.wrap_err("failed to create image"));
+                warn!(?err, "Failed to create image");
 
                 String::new()
             }
