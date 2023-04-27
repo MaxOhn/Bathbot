@@ -19,7 +19,7 @@ mod modal;
 pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
     let Interaction {
         app_permissions: permissions,
-        channel_id,
+        channel,
         data,
         guild_id,
         id,
@@ -31,7 +31,7 @@ pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
         ..
     } = interaction;
 
-    let Some(channel_id) = channel_id else {
+    let Some(channel_id) = channel.map(|channel| channel.id) else {
         return warn!("no channel id for interaction kind {kind:?}");
     };
 
