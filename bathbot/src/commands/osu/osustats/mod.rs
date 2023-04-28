@@ -20,11 +20,11 @@ mod list;
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "osustats",
+    desc = "Stats about player's appearances in maps' leaderboard",
     help = "Stats about scores that players have on maps' global leaderboards.\n\
-        All data is provided by [osustats](https://osustats.ppy.sh/).\n\
-        Note that the data usually __updates once per day__."
+    All data is provided by [osustats](https://osustats.ppy.sh/).\n\
+    Note that the data usually __updates once per day__."
 )]
-/// Stats about player's appearances in maps' leaderboard
 pub enum OsuStats<'a> {
     #[command(name = "count")]
     Count(OsuStatsCount<'a>),
@@ -35,79 +35,96 @@ pub enum OsuStats<'a> {
 }
 
 #[derive(CommandModel, CreateCommand, Default, HasName)]
-#[command(name = "count")]
-/// Count how often a user appears on top of map leaderboards (same as `/osc`)
+#[command(
+    name = "count",
+    desc = "Count how often a user appears on top of map leaderboards (same as `/osc`)"
+)]
 pub struct OsuStatsCount<'a> {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "players")]
-/// All scores of a player that are on a map's global leaderboard
+#[command(
+    name = "players",
+    desc = "All scores of a player that are on a map's global leaderboard"
+)]
 pub struct OsuStatsPlayers<'a> {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a country (code)
+    #[command(desc = "Specify a country (code)")]
     country: Option<Cow<'a, str>>,
-    #[command(min_value = 1, max_value = 100)]
-    /// Specify a min rank between 1 and 100
+    #[command(
+        min_value = 1,
+        max_value = 100,
+        desc = "Specify a min rank between 1 and 100"
+    )]
     min_rank: Option<u32>,
-    #[command(min_value = 1, max_value = 100)]
-    /// Specify a max rank between 1 and 100
+    #[command(
+        min_value = 1,
+        max_value = 100,
+        desc = "Specify a max rank between 1 and 100"
+    )]
     max_rank: Option<u32>,
 }
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
-#[command(name = "scores")]
-/// All scores of a player that are on a map's global leaderboard
+#[command(
+    name = "scores",
+    desc = "All scores of a player that are on a map's global leaderboard"
+)]
 pub struct OsuStatsScores<'a> {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    /// Choose how the scores should be ordered
+    #[command(desc = "Choose how the scores should be ordered")]
     sort: Option<OsuStatsScoresOrder>,
-    #[command(help = "Filter out all scores that don't match the specified mods.\n\
-    Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
-    or `-mods!` for excluded mods.\n\
-    Examples:\n\
-    - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
-    - `+hdhr!`: Scores must have exactly `HDHR`\n\
-    - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
-    - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
-    /// excluded)
+    #[command(
+        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out all scores that don't match the specified mods.\n\
+        Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
+        or `-mods!` for excluded mods.\n\
+        Examples:\n\
+        - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+        - `+hdhr!`: Scores must have exactly `HDHR`\n\
+        - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+        - `-nm!`: Scores can not be nomod so there must be any other mod"
+    )]
     mods: Option<Cow<'a, str>>,
-    #[command(min_value = 1, max_value = 100)]
-    /// Specify a min rank between 1 and 100
+    #[command(
+        min_value = 1,
+        max_value = 100,
+        desc = "Specify a min rank between 1 and 100"
+    )]
     min_rank: Option<u32>,
-    #[command(min_value = 1, max_value = 100)]
-    /// Specify a max rank between 1 and 100
+    #[command(
+        min_value = 1,
+        max_value = 100,
+        desc = "Specify a max rank between 1 and 100"
+    )]
     max_rank: Option<u32>,
-    #[command(min_value = 0.0, max_value = 100.0)]
-    /// Specify a min accuracy
+    #[command(min_value = 0.0, max_value = 100.0, desc = "Specify a min accuracy")]
     min_acc: Option<f32>,
-    #[command(min_value = 0.0, max_value = 100.0)]
-    /// Specify a max accuracy
+    #[command(min_value = 0.0, max_value = 100.0, desc = "Specify a max accuracy")]
     max_acc: Option<f32>,
-    /// Reverse the resulting score list
+    #[command(desc = "Reverse the resulting score list")]
     reverse: Option<bool>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

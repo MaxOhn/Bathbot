@@ -23,9 +23,12 @@ mod untrack;
 mod untrack_all;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "track", dm_permission = false)]
+#[command(
+    name = "track",
+    dm_permission = false,
+    desc = "Track top score updates for players"
+)]
 #[flags(AUTHORITY)]
-/// Track top score updates for players
 pub enum Track {
     #[command(name = "add")]
     Add(TrackAdd),
@@ -38,40 +41,40 @@ pub enum Track {
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "add",
+    desc = "Track top scores of a player",
     help = "Add users to the tracking list for this channel.\n\
     If a tracked user gets a new top score, this channel will be notified about it."
 )]
-/// Track top scores of a player
 pub struct TrackAdd {
-    /// Choose a username to be tracked
+    #[command(desc = "Choose a username to be tracked")]
     name: String,
-    /// Specify a mode for the tracked users
+    #[command(desc = "Specify a mode for the tracked users")]
     mode: GameModeOption,
     #[command(
         min_value = 1,
         max_value = 100,
+        desc = "Between 1-100, default 50, notify on updates of the user's top X scores",
         help = "If not specified, updates in the user's top50 will trigger notification messages.\n\
         Instead of the top50, this `limit` option allows to adjust the maximum index within \
         the top scores.\nThe value must be between 1 and 100."
     )]
-    /// Between 1-100, default 50, notify on updates of the user's top X scores
     limit: Option<u8>,
-    /// Specify a second username
+    #[command(desc = "Specify a second username")]
     name2: Option<String>,
-    /// Specify a third username
+    #[command(desc = "Specify a third username")]
     name3: Option<String>,
-    /// Specify a fourth username
+    #[command(desc = "Specify a fourth username")]
     name4: Option<String>,
-    /// Specify a fifth username
+    #[command(desc = "Specify a fifth username")]
     name5: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "remove",
+    desc = "Untrack players in a channel",
     help = "Untrack players in a channel i.e. stop sending notifications when they get new top scores"
 )]
-/// Untrack players in a channel
 pub enum TrackRemove {
     #[command(name = "user")]
     User(TrackRemoveUser),
@@ -80,26 +83,26 @@ pub enum TrackRemove {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "user")]
-/// Untrack specific users in a channel
+#[command(name = "user", desc = "Untrack specific users in a channel")]
 pub struct TrackRemoveUser {
-    /// Choose a username to be untracked
+    #[command(desc = "Choose a username to be untracked")]
     name: String,
-    /// Specify a mode for the tracked users
+    #[command(desc = "Specify a mode for the tracked users")]
     mode: Option<GameModeOption>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "all")]
-/// Untrack all users in a channel
+#[command(name = "all", desc = "Untrack all users in a channel")]
 pub struct TrackRemoveAll {
-    /// Specify a mode for the tracked users
+    #[command(desc = "Specify a mode for the tracked users")]
     mode: Option<GameModeOption>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "list")]
-/// List all players that are tracked in this channel
+#[command(
+    name = "list",
+    desc = "List all players that are tracked in this channel"
+)]
 pub struct TrackList;
 
 async fn slash_track(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

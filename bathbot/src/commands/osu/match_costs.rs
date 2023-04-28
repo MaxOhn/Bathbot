@@ -25,40 +25,40 @@ use crate::{
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "matchcost",
+    desc = "Display performance ratings for a multiplayer match",
     help = "Calculate a performance rating for each player in the given multiplayer match.\n\
     Here's the current [formula](https://i.imgur.com/7KFwcUS.png).\n\
     Additionally, scores with the EZ mod are multiplied by 1.7 beforehand.\n\n\
     Keep in mind that all bots use different formulas \
     so comparing with values from other bots makes no sense."
 )]
-/// Display performance ratings for a multiplayer match
 pub struct MatchCost<'a> {
-    /// Specify a match url or match id
+    #[command(desc = "Specify a match url or match id")]
     match_url: Cow<'a, str>,
     #[command(
         min_value = 0,
+        desc = "Specify the amount of warmups to ignore (defaults to 2)",
         help = "Since warmup maps commonly want to be skipped for performance calculations, \
         this option allows you to specify how many maps should be ignored in the beginning.\n\
         If no value is specified, it defaults to 2."
     )]
-    /// Specify the amount of warmups to ignore (defaults to 2)
     warmups: Option<usize>,
     #[command(
         max_value = 100.0,
+        desc = "Specify a multiplier for EZ scores",
         help = "Specify a multiplier for EZ scores.\n\
-            The suggested multiplier range is 1.0-2.0"
+        The suggested multiplier range is 1.0-2.0"
     )]
-    /// Specify a multiplier for EZ scores
     ez_mult: Option<f32>,
     #[command(
         min_value = 0,
+        desc = "Specify the amount of maps to ignore at the end (defaults to 0)",
         help = "In case the last few maps were just for fun, \
-                this options allows to ignore them for the performance rating.\n\
+        this options allows to ignore them for the performance rating.\n\
         Alternatively, in combination with the `warmups` option, \
         you can check the rating for specific maps.\n\
         If no value is specified, it defaults to 0."
     )]
-    /// Specify the amount of maps to ignore at the end (defaults to 0)
     skip_last: Option<usize>,
 }
 

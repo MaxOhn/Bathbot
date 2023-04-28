@@ -21,17 +21,16 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
-#[command(name = "avatar")]
-/// Display someone's osu! profile picture
+#[command(name = "avatar", desc = "Display someone's osu! profile picture")]
 pub struct Avatar<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

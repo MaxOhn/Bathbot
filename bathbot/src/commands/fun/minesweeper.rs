@@ -20,13 +20,13 @@ use crate::{
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "minesweeper",
+    desc = "Play a game of minesweeper",
     help = "Play a game of minesweeper.\n\
-        In case you don't know how it works: Each number indicates the amount of neighboring bombs."
+    In case you don't know how it works: Each number indicates the amount of neighboring bombs."
 )]
 #[flags(SKIP_DEFER)]
-/// Play a game of minesweeper
 pub struct Minesweeper {
-    /// Choose a difficulty
+    #[command(desc = "Choose a difficulty")]
     difficulty: Difficulty,
 }
 

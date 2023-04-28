@@ -20,11 +20,11 @@ pub mod tracked;
 #[command(
     name = "trackstream",
     dm_permission = false,
+    desc = "Track a twitch stream or list all tracked streams in this channel",
     help = "Track a twitch stream in this channel.\n\
     When the stream goes online, a notification will be send to this channel within a few minutes."
 )]
 #[flags(AUTHORITY)]
-/// Track a twitch stream or list all tracked streams in this channel
 pub enum TrackStream {
     #[command(name = "add")]
     Add(TrackStreamAdd),
@@ -37,26 +37,27 @@ pub enum TrackStream {
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "add",
+    desc = "Track a twitch stream in this channel",
     help = "Track a twitch stream in this channel.\n\
     When the stream goes online, a notification will be send to this channel within a few minutes."
 )]
-/// Track a twitch stream in this channel
 pub struct TrackStreamAdd {
-    /// Name of the twitch channel
+    #[command(desc = "Name of the twitch channel")]
     name: String,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "remove")]
-/// Untrack a twitch stream in this channel
+#[command(name = "remove", desc = "Untrack a twitch stream in this channel")]
 pub struct TrackStreamRemove {
-    /// Name of the twitch channel
+    #[command(desc = "Name of the twitch channel")]
     name: String,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "list")]
-/// List all tracked twitch streams in this channel
+#[command(
+    name = "list",
+    desc = "List all tracked twitch streams in this channel"
+)]
 pub struct TrackStreamList;
 
 pub async fn slash_trackstream(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

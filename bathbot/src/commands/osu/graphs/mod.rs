@@ -48,8 +48,7 @@ mod top_index;
 mod top_time;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "graph")]
-/// Display graphs about some user data
+#[command(name = "graph", desc = "Display graphs about some user data")]
 pub enum Graph {
     #[command(name = "medals")]
     Medals(GraphMedals),
@@ -66,110 +65,111 @@ pub enum Graph {
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "medals")]
-/// Display a user's medal progress over time
+#[command(name = "medals", desc = "Display a user's medal progress over time")]
 pub struct GraphMedals {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "playcount_replays")]
-/// Display a user's playcount and replays watched over time
+#[command(
+    name = "playcount_replays",
+    desc = "Display a user's playcount and replays watched over time"
+)]
 pub struct GraphPlaycountReplays {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
-    /// Specify if the playcount curve should be included
+    #[command(desc = "Specify if the playcount curve should be included")]
     playcount: Option<ShowHideOption>,
-    /// Specify if the replay curve should be included
+    #[command(desc = "Specify if the replay curve should be included")]
     replays: Option<ShowHideOption>,
-    /// Specify if the badges should be included
+    #[command(desc = "Specify if the badges should be included")]
     badges: Option<ShowHideOption>,
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "rank")]
-/// Display a user's rank progression over time
+#[command(name = "rank", desc = "Display a user's rank progression over time")]
 pub struct GraphRank {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "sniped")]
-/// Display sniped users of the past 8 weeks
+#[command(name = "sniped", desc = "Display sniped users of the past 8 weeks")]
 pub struct GraphSniped {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "snipe_count")]
-/// Display how a user's national #1 count progressed
+#[command(
+    name = "snipe_count",
+    desc = "Display how a user's national #1 count progressed"
+)]
 pub struct GraphSnipeCount {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
 #[command(
     name = "top",
+    desc = "Display a user's top scores pp",
     help = "Display a user's top scores pp.\n\
     The timezone option is only relevant for the `Time` order."
 )]
-/// Display a user's top scores pp
 pub struct GraphTop {
-    /// Choose by which order the scores should be sorted, defaults to index
+    #[command(desc = "Choose by which order the scores should be sorted, defaults to index")]
     order: GraphTopOrder,
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
-    /// Specify a timezone (only relevant when ordered by `Time`)
+    #[command(desc = "Specify a timezone (only relevant when ordered by `Time`)")]
     timezone: Option<TimezoneOption>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

@@ -54,62 +54,67 @@ mod if_;
 mod old;
 
 #[derive(CommandModel, CreateCommand, HasMods, SlashCommand)]
-#[command(name = "top")]
-/// Display the user's current top100
+#[command(name = "top", desc = "Display the user's current top100")]
 pub struct Top {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
-    #[command(help = "Choose how the scores should be ordered, defaults to `pp`.")]
-    /// Choose how the scores should be ordered
+    #[command(
+        desc = "Choose how the scores should be ordered",
+        help = "Choose how the scores should be ordered, defaults to `pp`."
+    )]
     sort: Option<TopScoreOrder>,
-    #[command(help = "Filter out all scores that don't match the specified mods.\n\
+    #[command(
+        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out all scores that don't match the specified mods.\n\
         Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
         or `-mods!` for excluded mods.\n\
         Examples:\n\
         - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
         - `+hdhr!`: Scores must have exactly `HDHR`\n\
         - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
-        - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
-    /// excluded)
+        - `-nm!`: Scores can not be nomod so there must be any other mod"
+    )]
     mods: Option<String>,
-    #[command(min_value = 1, max_value = 100)]
-    /// Choose a specific score index
+    #[command(min_value = 1, max_value = 100, desc = "Choose a specific score index")]
     index: Option<u32>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
-    /// Reverse the resulting score list
+    #[command(desc = "Reverse the resulting score list")]
     reverse: Option<bool>,
     #[command(
+        desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, creator, difficulty, title, or limit values such as \
         ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
         While ar & co will be adjusted to mods, stars will not."
     )]
-    /// Specify a search query containing artist, difficulty, AR, BPM, ...
     query: Option<String>,
-    /// Consider only scores with this grade
+    #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    #[command(help = "Specify if you want to filter out farm maps.\n\
+    #[command(
+        desc = "Specify if you want to filter out farm maps",
+        help = "Specify if you want to filter out farm maps.\n\
         A map counts as farmy if its mapset appears in the top 727 \
         sets based on how often the set is in people's top100 scores.\n\
         The list of mapsets can be checked with `/popular mapsets` or \
-        on [here](https://osutracker.com/stats)")]
-    /// Specify if you want to filter out farm maps
+        on [here](https://osutracker.com/stats)"
+    )]
     farm: Option<FarmFilter>,
-    /// Filter out all scores that don't have a perfect combo
+    #[command(desc = "Filter out all scores that don't have a perfect combo")]
     perfect_combo: Option<bool>,
-    #[command(help = "Size of the embed.\n\
-      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
-      The default can be set with the `/config` command.")]
-    /// Size of the embed
+    #[command(
+        desc = "Size of the embed",
+        help = "Size of the embed.\n\
+        `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
+        The default can be set with the `/config` command."
+    )]
     size: Option<ListSize>,
 }
 

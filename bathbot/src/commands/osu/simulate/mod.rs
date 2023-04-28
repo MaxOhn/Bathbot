@@ -30,44 +30,44 @@ use crate::{
 };
 
 #[derive(CreateCommand, CommandModel, Default, HasMods, SlashCommand)]
-#[command(name = "simulate")]
-/// Simulate a score on a map
+#[command(name = "simulate", desc = "Simulate a score on a map")]
 pub struct Simulate<'m> {
-    #[command(help = "Specify a map either by map url or map id.\n\
+    #[command(
+        desc = "Specify a map url or map id",
+        help = "Specify a map either by map url or map id.\n\
         If none is specified, it will search in the recent channel history \
-        and pick the first map it can find.")]
-    /// Specify a map url or map id
+        and pick the first map it can find."
+    )]
     map: Option<Cow<'m, str>>,
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify mods
+    #[command(desc = "Specify mods")]
     mods: Option<Cow<'m, str>>,
-    /// Specify a combo
+    #[command(desc = "Specify a combo")]
     combo: Option<u32>,
-    #[command(min_value = 0.0, max_value = 100.0)]
-    /// Specify an accuracy
+    #[command(min_value = 0.0, max_value = 100.0, desc = "Specify an accuracy")]
     acc: Option<f32>,
-    /// Specify a custom clock rate that overwrites mods
+    #[command(desc = "Specify a custom clock rate that overwrites mods")]
     clock_rate: Option<f32>,
-    /// Specify the amount of 300s
+    #[command(desc = "Specify the amount of 300s")]
     n300: Option<u32>,
-    /// Specify the amount of 100s
+    #[command(desc = "Specify the amount of 100s")]
     n100: Option<u32>,
-    /// Specify the amount of 50s
+    #[command(desc = "Specify the amount of 50s")]
     n50: Option<u32>,
-    /// Specify misses
+    #[command(desc = "Specify misses")]
     misses: Option<u32>,
-    /// Specify gekis i.e. n320 in mania
+    #[command(desc = "Specify gekis i.e. n320 in mania")]
     geki: Option<u32>,
-    /// Specify katus i.e. tiny droplet misses in catch and n200 in mania
+    #[command(desc = "Specify katus i.e. tiny droplet misses in catch and n200 in mania")]
     katu: Option<u32>,
-    /// Overwrite the map's approach rate
+    #[command(desc = "Overwrite the map's approach rate")]
     ar: Option<f32>,
-    /// Overwrite the map's circle size
+    #[command(desc = "Overwrite the map's circle size")]
     cs: Option<f32>,
-    /// Overwrite the map's drain rate
+    #[command(desc = "Overwrite the map's drain rate")]
     hp: Option<f32>,
-    /// Overwrite the map's overall difficulty
+    #[command(desc = "Overwrite the map's overall difficulty")]
     od: Option<f32>,
 }
 

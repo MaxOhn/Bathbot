@@ -26,11 +26,11 @@ use crate::{
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "matchlive",
+    desc = "Live track a multiplayer match",
     help = "Similar to what an mp link does, this command will \
     keep a channel up to date about events in a multiplayer match."
 )]
 #[flags(AUTHORITY)]
-/// Live track a multiplayer match
 pub enum Matchlive<'a> {
     #[command(name = "track")]
     Add(MatchliveAdd<'a>),
@@ -39,20 +39,18 @@ pub enum Matchlive<'a> {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "track")]
-/// Start tracking a match
+#[command(name = "track", desc = "Start tracking a match")]
 pub struct MatchliveAdd<'a> {
-    /// Specify a match url or match id
+    #[command(desc = "Specify a match url or match id")]
     match_url: Cow<'a, str>,
-    /// Choose if a new thread should be started
+    #[command(desc = "Choose if a new thread should be started")]
     thread: ThreadChannel,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "untrack")]
-/// Untrack a match
+#[command(name = "untrack", desc = "Untrack a match")]
 pub struct MatchliveRemove<'a> {
-    /// Specify a match url or match id
+    #[command(desc = "Specify a match url or match id")]
     match_url: Cow<'a, str>,
 }
 

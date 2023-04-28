@@ -49,25 +49,29 @@ impl WhatIfData {
 }
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
-#[command(name = "whatif")]
-/// Display the impact of a new X pp score for a user
+#[command(
+    name = "whatif",
+    desc = "Display the impact of a new X pp score for a user"
+)]
 pub struct WhatIf<'a> {
-    #[command(min_value = 0.0)]
-    /// Specify a pp amount
+    #[command(min_value = 0.0, desc = "Specify a pp amount")]
     pp: f32,
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(min_value = 1, max_value = 1000)]
-    /// Specify how many times a score should be added, defaults to 1
+    #[command(
+        min_value = 1,
+        max_value = 1000,
+        desc = "Specify how many times a score should be added, defaults to 1"
+    )]
     count: Option<usize>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

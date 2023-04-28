@@ -15,8 +15,10 @@ mod countries;
 mod players;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "ranking")]
-/// Show the pp, ranked score, or country ranking
+#[command(
+    name = "ranking",
+    desc = "Show the pp, ranked score, or country ranking"
+)]
 pub enum Ranking<'a> {
     #[command(name = "pp")]
     Pp(RankingPp<'a>),
@@ -29,21 +31,24 @@ pub enum Ranking<'a> {
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "pp",
+    desc = "Show the pp ranking",
     help = "Display the global or country based performance points leaderboard"
 )]
-/// Show the pp ranking
 pub struct RankingPp<'a> {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a country (code)
+    #[command(desc = "Specify a country (code)")]
     country: Option<Cow<'a, str>>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "score", help = "Display the global ranked score leaderboard")]
-/// Show the ranked score ranking
+#[command(
+    name = "score",
+    desc = "Show the ranked score ranking",
+    help = "Display the global ranked score leaderboard"
+)]
 pub struct RankingScore {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
 }
 
@@ -56,11 +61,11 @@ impl From<Option<GameModeOption>> for RankingScore {
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "country",
+    desc = "Show the country ranking",
     help = "Display the country leaderboard based on accumulated pp"
 )]
-/// Show the country ranking
 pub struct RankingCountry {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
 }
 

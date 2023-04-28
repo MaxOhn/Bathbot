@@ -28,9 +28,8 @@ mod tracking_interval;
 mod tracking_stats;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "owner")]
+#[command(name = "owner", desc = "You won't be able to use this :^)")]
 #[flags(ONLY_OWNER, SKIP_DEFER)]
-/// You won't be able to use this :^)
 pub enum Owner {
     #[command(name = "add_bg")]
     AddBg(OwnerAddBg),
@@ -46,42 +45,40 @@ pub enum Owner {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "add_bg")]
-/// Add a background the bg game
+#[command(name = "add_bg", desc = "Add a background the bg game")]
 pub struct OwnerAddBg {
-    /// Add a png or jpg image with the mapset id as name
+    #[command(desc = "Add a png or jpg image with the mapset id as name")]
     image: Attachment,
-    /// Specify the mode of the background's map
+    #[command(desc = "Specify the mode of the background's map")]
     mode: Option<GameModeOption>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "add_country")]
-/// Add a country for snipe commands
+#[command(name = "add_country", desc = "Add a country for snipe commands")]
 pub struct OwnerAddCountry {
-    /// Specify the country code
+    #[command(desc = "Specify the country code")]
     code: String,
-    /// Specify the country name
+    #[command(desc = "Specify the country name")]
     name: String,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "cache")]
-/// Display stats about the internal cache
+#[command(name = "cache", desc = "Display stats about the internal cache")]
 pub struct OwnerCache;
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "requestmembers")]
-/// Manually queue a member request for a guild
+#[command(
+    name = "requestmembers",
+    desc = "Manually queue a member request for a guild"
+)]
 pub struct RequestMembers {
-    /// The guild id of which members should be requested
+    #[command(desc = "The guild id of which members should be requested")]
     guild_id: String, // u64 might be larger than what discord accepts as valid integer
 }
 
 #[cfg(feature = "osutracking")]
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "tracking")]
-/// Stuff about osu!tracking
+#[command(name = "tracking", desc = "Stuff about osu!tracking")]
 pub enum OwnerTracking {
     #[command(name = "interval")]
     Interval(OwnerTrackingInterval),
@@ -93,23 +90,20 @@ pub enum OwnerTracking {
 
 #[cfg(feature = "osutracking")]
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "interval")]
-/// Adjust the tracking interval
+#[command(name = "interval", desc = "Adjust the tracking interval")]
 pub struct OwnerTrackingInterval {
-    /// Specify the interval in seconds, defaults to 9000
+    #[command(desc = "Specify the interval in seconds, defaults to 9000")]
     number: Option<i64>,
 }
 
 #[cfg(feature = "osutracking")]
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "stats")]
-/// Display tracking stats
+#[command(name = "stats", desc = "Display tracking stats")]
 pub struct OwnerTrackingStats;
 
 #[cfg(feature = "osutracking")]
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "toggle")]
-/// Enable or disable tracking
+#[command(name = "toggle", desc = "Enable or disable tracking")]
 pub struct OwnerTrackingToggle;
 
 async fn slash_owner(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

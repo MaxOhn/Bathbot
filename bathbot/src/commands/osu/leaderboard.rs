@@ -25,19 +25,20 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "leaderboard")]
-/// Display the global leaderboard of a map
+#[command(name = "leaderboard", desc = "Display the global leaderboard of a map")]
 pub struct Leaderboard<'a> {
-    #[command(help = "Specify a map either by map url or map id.\n\
+    #[command(
+        desc = "Specify a map url or map id",
+        help = "Specify a map either by map url or map id.\n\
         If none is specified, it will search in the recent channel history \
-        and pick the first map it can find.")]
-    /// Specify a map url or map id
+        and pick the first map it can find."
+    )]
     map: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mod!` / `+mod` syntax, \
         e.g. `hdhr` or `+hdhr!`, and filter out all scores that don't match those mods."
     )]
-    /// Specify mods e.g. hdhr or nm
     mods: Option<Cow<'a, str>>,
 }
 

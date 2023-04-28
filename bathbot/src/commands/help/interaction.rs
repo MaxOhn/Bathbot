@@ -29,12 +29,13 @@ use crate::{
 
 #[derive(CreateCommand, SlashCommand)]
 #[flags(SKIP_DEFER)]
-#[command(name = "help")]
+#[command(
+    name = "help",
+    desc = "Display general help or help for a specific command"
+)]
 #[allow(dead_code)]
-/// Display general help or help for a specific command
 pub struct Help {
-    #[command(autocomplete = true)]
-    /// Specify a command base name
+    #[command(autocomplete = true, desc = "Specify a command base name")]
     command: Option<String>,
 }
 

@@ -11,9 +11,8 @@ use crate::{
 };
 
 #[derive(CreateCommand, SlashCommand)]
-#[command(name = "commands")]
+#[command(name = "commands", desc = "Display a list of popular commands")]
 #[flags(SKIP_DEFER)]
-/// Display a list of popular commands
 pub struct Commands;
 
 pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

@@ -117,34 +117,34 @@ async fn song(
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "song",
+    desc = "Let me sing a song for you",
     help = "Let me sing a song for you.\n\
-        Currently available: \
-        [Bombs away](https://youtu.be/xpkkakkDhN4?t=65), \
-        [Catchit](https://youtu.be/BjFWk0ncr70?t=12), \
-        [Chicago](https://www.youtube.com/watch?v=MWserASk0Jg&t=60s), \
-        [Ding](https://youtu.be/_yWU0lFghxU?t=54), \
-        [Fireflies](https://youtu.be/psuRGfAaju4?t=25), \
-        [Flamingo](https://youtu.be/la9C0n7jSsI), \
-        [Glory Days](https://youtu.be/eOSW95OsiaY?t=77), \
-        [Harumachi Clover](https://youtu.be/H0VkjWBXS2U?t=55), \
-        [Hitorigoto](https://youtu.be/Ji5XVPntZY0?t=54), \
-        [Lionheart](https://youtu.be/XIl0cY4X10I?t=53), \
-        [My Love](https://www.youtube.com/watch?v=V3OPDTwH9os&t=53s), \
-        [Padoru](https://youtu.be/u3kRzdSnsTA), \
-        [Pretender](https://youtu.be/SBjQ9tuuTJQ?t=83), \
-        [Rockefeller Street](https://youtu.be/hjGZLnja1o8?t=41), \
-        [Say Goodbye](https://youtu.be/SyJMQg3spck?t=43), \
-        [Start Again](https://youtu.be/g7VNvg_QTMw&t=29), \
-        [Tijdmachine](https://youtu.be/DT6tpUbWOms?t=47), \
-        [Time Traveler](https://youtu.be/iNdDRQFdrmY?t=78), \
-        [The words I never said](https://youtu.be/8er4CQCxPRQ?t=65s), \
-        [Through the Fire and Flames](https://youtu.be/0jgrCKhxE1s?t=77), \
-        [Zen Zen Zense](https://www.youtube.com/watch?v=607QsB38hn8&t=71s)"
+    Currently available: \
+    [Bombs away](https://youtu.be/xpkkakkDhN4?t=65), \
+    [Catchit](https://youtu.be/BjFWk0ncr70?t=12), \
+    [Chicago](https://www.youtube.com/watch?v=MWserASk0Jg&t=60s), \
+    [Ding](https://youtu.be/_yWU0lFghxU?t=54), \
+    [Fireflies](https://youtu.be/psuRGfAaju4?t=25), \
+    [Flamingo](https://youtu.be/la9C0n7jSsI), \
+    [Glory Days](https://youtu.be/eOSW95OsiaY?t=77), \
+    [Harumachi Clover](https://youtu.be/H0VkjWBXS2U?t=55), \
+    [Hitorigoto](https://youtu.be/Ji5XVPntZY0?t=54), \
+    [Lionheart](https://youtu.be/XIl0cY4X10I?t=53), \
+    [My Love](https://www.youtube.com/watch?v=V3OPDTwH9os&t=53s), \
+    [Padoru](https://youtu.be/u3kRzdSnsTA), \
+    [Pretender](https://youtu.be/SBjQ9tuuTJQ?t=83), \
+    [Rockefeller Street](https://youtu.be/hjGZLnja1o8?t=41), \
+    [Say Goodbye](https://youtu.be/SyJMQg3spck?t=43), \
+    [Start Again](https://youtu.be/g7VNvg_QTMw&t=29), \
+    [Tijdmachine](https://youtu.be/DT6tpUbWOms?t=47), \
+    [Time Traveler](https://youtu.be/iNdDRQFdrmY?t=78), \
+    [The words I never said](https://youtu.be/8er4CQCxPRQ?t=65s), \
+    [Through the Fire and Flames](https://youtu.be/0jgrCKhxE1s?t=77), \
+    [Zen Zen Zense](https://www.youtube.com/watch?v=607QsB38hn8&t=71s)"
 )]
 #[flags(SKIP_DEFER)]
-/// Let me sing a song for you
 pub struct Song {
-    /// Choose a song title
+    #[command(desc = "Choose a song title")]
     title: SongTitle,
 }
 

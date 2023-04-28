@@ -25,33 +25,39 @@ use crate::{
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(
     name = "nochoke",
+    desc = "How the top plays would look like with only full combos",
     help = "Remove all misses from top scores and make them full combos.\n\
     Then after recalculating their pp, check how many total pp a user could have had."
 )]
-/// How the top plays would look like with only full combos
 pub struct Nochoke<'a> {
-    #[command(help = "Specify a gamemode. \
-        Since combo does not matter in mania, its scores can't be unchoked.")]
-    /// Specify a gamemode
+    #[command(
+        desc = "Specify a gamemode",
+        help = "Specify a gamemode. \
+        Since combo does not matter in mania, its scores can't be unchoked."
+    )]
     mode: Option<NochokeGameMode>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(min_value = 0)]
-    /// Only unchoke scores with at most this many misses
+    #[command(
+        min_value = 0,
+        desc = "Only unchoke scores with at most this many misses"
+    )]
     miss_limit: Option<u32>,
-    #[command(help = "Specify a version to unchoke scores.\n\
+    #[command(
+        desc = "Specify a version to unchoke scores",
+        help = "Specify a version to unchoke scores.\n\
         - `Unchoke`: Make the score a full combo and transfer all misses to different hitresults. (default)\n\
-        - `Perfect`: Make the score a full combo and transfer all misses to the best hitresults.")]
-    /// Specify a version to unchoke scores
+        - `Perfect`: Make the score a full combo and transfer all misses to the best hitresults."
+    )]
     version: Option<NochokeVersion>,
-    /// Filter out certain scores
+    #[command(desc = "Filter out certain scores")]
     filter: Option<NochokeFilter>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

@@ -33,6 +33,7 @@ use crate::{
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(
     name = "mapper",
+    desc = "How often does the given mapper appear in top a user's top plays",
     help = "Count the top plays on maps of the given mapper.\n\
     It will try to consider guest difficulties so that if a map was created by someone else \
     but the given mapper made the guest diff, it will count.\n\
@@ -40,27 +41,28 @@ use crate::{
     it will not count.\n\
     This does not always work perfectly, especially for older maps but it's what the api provides."
 )]
-/// How often does the given mapper appear in top a user's top plays
 pub struct Mapper<'a> {
-    /// Specify a mapper username
+    #[command(desc = "Specify a mapper username")]
     mapper: Cow<'a, str>,
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    /// Choose how the scores should be ordered
+    #[command(desc = "Choose how the scores should be ordered")]
     sort: Option<ScoreOrder>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
-    #[command(help = "Size of the embed.\n\
-      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
-      The default can be set with the `/config` command.")]
-    /// Size of the embed
+    #[command(
+        desc = "Size of the embed",
+        help = "Size of the embed.\n\
+        `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
+        The default can be set with the `/config` command."
+    )]
     size: Option<ListSize>,
 }
 

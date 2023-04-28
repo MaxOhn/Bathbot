@@ -14,9 +14,11 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "attributes")]
+#[command(
+    name = "attributes",
+    desc = "Check how mods influence the AR, OD, HP, or CS attributes"
+)]
 #[flags(SKIP_DEFER)]
-/// Check how mods influence the AR, OD, HP, or CS attributes
 pub enum Attributes {
     #[command(name = "ar")]
     Ar(AttributesAr),
@@ -29,62 +31,76 @@ pub enum Attributes {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "ar")]
-/// Check how mods influence the approach rate attribute
+#[command(
+    name = "ar",
+    desc = "Check how mods influence the approach rate attribute"
+)]
 pub struct AttributesAr {
-    #[command(rename = "value", min_value = -15.0, max_value = 13.0)]
-    /// Specify an AR value
+    #[command(rename = "value", min_value = -15.0, max_value = 13.0, desc = "Specify an AR value")]
     number: f32,
     #[command(
+        desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mod!` / `+mod` syntax, \
         e.g. `hdhr` or `+hdhr!`"
     )]
-    /// Specify mods e.g. hdhr or nm
     mods: String,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "cs")]
-/// Check how mods influence the circle size attribute
+#[command(
+    name = "cs",
+    desc = "Check how mods influence the circle size attribute"
+)]
 pub struct AttributesCs {
-    #[command(rename = "value", min_value = 0.0, max_value = 20.0)]
-    /// Specify a CS value
+    #[command(
+        rename = "value",
+        min_value = 0.0,
+        max_value = 20.0,
+        desc = "Specify a CS value"
+    )]
     number: f32,
     #[command(
+        desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mod!` / `+mod` syntax, \
         e.g. `hdhr` or `+hdhr!`"
     )]
-    /// Specify mods e.g. hdhr or nm
     mods: String,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "hp")]
-/// Check how mods influence the drain rate attribute
+#[command(
+    name = "hp",
+    desc = "Check how mods influence the drain rate attribute"
+)]
 pub struct AttributesHp {
-    #[command(rename = "value", min_value = 0.0, max_value = 20.0)]
-    /// Specify an HP value
+    #[command(
+        rename = "value",
+        min_value = 0.0,
+        max_value = 20.0,
+        desc = "Specify an HP value"
+    )]
     number: f32,
     #[command(
+        desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mod!` / `+mod` syntax, \
         e.g. `hdhr` or `+hdhr!`"
     )]
-    /// Specify mods e.g. hdhr or nm
     mods: String,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "od")]
-/// Check how mods influence the overall difficulty attribute
+#[command(
+    name = "od",
+    desc = "Check how mods influence the overall difficulty attribute"
+)]
 pub struct AttributesOd {
-    #[command(rename = "value", min_value = -13.33, max_value = 13.33)]
-    /// Specify an OD value
+    #[command(rename = "value", min_value = -13.33, max_value = 13.33, desc = "Specify an OD value")]
     number: f32,
     #[command(
+        desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mod!` / `+mod` syntax, \
         e.g. `hdhr` or `+hdhr!`"
     )]
-    /// Specify mods e.g. hdhr or nm
     mods: String,
 }
 

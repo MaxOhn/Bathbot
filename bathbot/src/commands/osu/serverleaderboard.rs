@@ -17,6 +17,7 @@ use crate::{
 #[command(
     name = "serverleaderboard",
     dm_permission = false,
+    desc = "Various osu! leaderboards for linked server members",
     help = "Various osu! leaderboards for linked server members.\n\
     Whenever any command is used that requests an osu! user, the retrieved user will be cached.\n\
     The leaderboards will contain all members of this server that are linked to an osu! username \
@@ -29,7 +30,6 @@ use crate::{
     Try using any command that retrieves the user, e.g. `/profile`, in order to cache them.\n\
     - Members of this server are not stored as such. Maybe let bade know :eyes:"
 )]
-/// Various osu! leaderboards for linked server members
 pub enum ServerLeaderboard {
     #[command(name = "all_modes")]
     AllModes(ServerLeaderboardAllModes),
@@ -44,46 +44,58 @@ pub enum ServerLeaderboard {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "all_modes")]
-/// Various leaderboards across all modes for linked server members
+#[command(
+    name = "all_modes",
+    desc = "Various leaderboards across all modes for linked server members"
+)]
 pub struct ServerLeaderboardAllModes {
-    #[command(help = "Specify what kind of leaderboard to show.\
-    Notably:\n\
-    - `Comments`: Considers comments on things like osu! articles or mapsets\n\
-    - `Played maps`: Only maps with leaderboards count i.e. ranked, loved, or approved maps")]
-    /// Specify what kind of leaderboard to show
+    #[command(
+        desc = "Specify what kind of leaderboard to show",
+        help = "Specify what kind of leaderboard to show.\
+        Notably:\n\
+        - `Comments`: Considers comments on things like osu! articles or mapsets\n\
+        - `Played maps`: Only maps with leaderboards count i.e. ranked, loved, or approved maps"
+    )]
     kind: UserStatsColumn,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "osu")]
-/// Various osu!standard leaderboards for linked server members
+#[command(
+    name = "osu",
+    desc = "Various osu!standard leaderboards for linked server members"
+)]
 pub struct ServerLeaderboardOsu {
-    /// Specify what kind of leaderboard to show
+    #[command(desc = "Specify what kind of leaderboard to show")]
     kind: UserModeStatsColumn,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "taiko")]
-/// Various osu!taiko leaderboards for linked server members
+#[command(
+    name = "taiko",
+    desc = "Various osu!taiko leaderboards for linked server members"
+)]
 pub struct ServerLeaderboardTaiko {
-    /// Specify what kind of leaderboard to show
+    #[command(desc = "Specify what kind of leaderboard to show")]
     kind: UserModeStatsColumn,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "ctb")]
-/// Various osu!ctb leaderboards for linked server members
+#[command(
+    name = "ctb",
+    desc = "Various osu!ctb leaderboards for linked server members"
+)]
 pub struct ServerLeaderboardCatch {
-    /// Specify what kind of leaderboard to show
+    #[command(desc = "Specify what kind of leaderboard to show")]
     kind: UserModeStatsColumn,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "mania")]
-/// Various osu!mania leaderboards for linked server members
+#[command(
+    name = "mania",
+    desc = "Various osu!mania leaderboards for linked server members"
+)]
 pub struct ServerLeaderboardMania {
-    /// Specify what kind of leaderboard to show
+    #[command(desc = "Specify what kind of leaderboard to show")]
     kind: UserModeStatsColumn,
 }
 

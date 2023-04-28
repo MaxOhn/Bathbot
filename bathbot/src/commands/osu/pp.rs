@@ -18,25 +18,28 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
-#[command(name = "pp")]
-/// How many pp is a user missing to reach the given amount?
+#[command(
+    name = "pp",
+    desc = "How many pp is a user missing to reach the given amount?"
+)]
 pub struct Pp<'a> {
-    /// Specify a target total pp amount
+    #[command(desc = "Specify a target total pp amount")]
     pp: f32,
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(min_value = 0.0)]
-    /// Fill a top100 with scores of this many pp until the target total pp are
-    /// reached
+    #[command(
+        min_value = 0.0,
+        desc = "Fill a top100 with scores of this many pp until the target total pp are reached"
+    )]
     each: Option<f32>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

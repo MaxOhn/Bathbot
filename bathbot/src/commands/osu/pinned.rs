@@ -45,45 +45,47 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
-#[command(name = "pinned")]
-/// Display the user's pinned scores
+#[command(name = "pinned", desc = "Display the user's pinned scores")]
 pub struct Pinned {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
-    /// Choose how the scores should be ordered
+    #[command(desc = "Choose how the scores should be ordered")]
     sort: Option<ScoreOrder>,
     #[command(
+        desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, creator, difficulty, title, or limit values such as \
-    ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
-    While ar & co will be adjusted to mods, stars will not."
+        ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
+        While ar & co will be adjusted to mods, stars will not."
     )]
-    /// Specify a search query containing artist, difficulty, AR, BPM, ...
     query: Option<String>,
-    #[command(help = "Filter out all scores that don't match the specified mods.\n\
+    #[command(
+        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out all scores that don't match the specified mods.\n\
         Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
-    or `-mods!` for excluded mods.\n\
-    Examples:\n\
-    - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
-    - `+hdhr!`: Scores must have exactly `HDHR`\n\
-    - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
-    - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
-    /// excluded)
+        or `-mods!` for excluded mods.\n\
+        Examples:\n\
+        - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+        - `+hdhr!`: Scores must have exactly `HDHR`\n\
+        - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+        - `-nm!`: Scores can not be nomod so there must be any other mod"
+    )]
     mods: Option<String>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
-    #[command(help = "Size of the embed.\n\
-      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
-      The default can be set with the `/config` command.")]
-    /// Size of the embed
+    #[command(
+        desc = "Size of the embed",
+        help = "Size of the embed.\n\
+        `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
+        The default can be set with the `/config` command."
+    )]
     size: Option<ListSize>,
 }
 

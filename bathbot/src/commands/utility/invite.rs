@@ -11,9 +11,8 @@ use twilight_interactions::command::CreateCommand;
 use crate::{core::commands::CommandOrigin, util::interaction::InteractionCommand, Context};
 
 #[derive(CreateCommand, SlashCommand)]
-#[command(name = "invite")]
+#[command(name = "invite", desc = "Invite me to your server")]
 #[flags(SKIP_DEFER)]
-/// Invite me to your server
 pub struct Invite;
 
 #[command]

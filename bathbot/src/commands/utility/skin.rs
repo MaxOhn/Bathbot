@@ -12,8 +12,7 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "skin")]
-/// Set your own skin or check someone else's
+#[command(name = "skin", desc = "Set your own skin or check someone else's")]
 pub enum Skin {
     #[command(name = "check")]
     Check(CheckSkin),
@@ -32,17 +31,16 @@ pub async fn slash_skin(ctx: Arc<Context>, mut command: InteractionCommand) -> R
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "check")]
-/// Check someone's skin
+#[command(name = "check", desc = "Check someone's skin")]
 pub struct CheckSkin {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
@@ -112,18 +110,19 @@ impl CheckSkin {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "set")]
-/// Set the skin you use
+#[command(name = "set", desc = "Set the skin you use")]
 pub struct SetSkin {
-    #[command(help = "Specify a download link for your skin.\n\
-    Must be a URL to a direct-download of an .osk file or of one of these approved sites:\n\
-    - `https://drive.google.com`\n\
-    - `https://www.dropbox.com`\n\
-    - `https://mega.nz`\n\
-    - `https://www.mediafire.com`\n\
-    - `https://skins.osuck.net`\n\
-    If you want to suggest another site let Badewanne3 know.")]
-    /// Specify a download link for your skin
+    #[command(
+        desc = "Specify a download link for your skin",
+        help = "Specify a download link for your skin.\n\
+        Must be a URL to a direct-download of an .osk file or of one of these approved sites:\n\
+        - `https://drive.google.com`\n\
+        - `https://www.dropbox.com`\n\
+        - `https://mega.nz`\n\
+        - `https://www.mediafire.com`\n\
+        - `https://skins.osuck.net`\n\
+        If you want to suggest another site let Badewanne3 know."
+    )]
     url: String,
 }
 
@@ -155,8 +154,7 @@ impl SetSkin {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "unset")]
-/// Remove the skin that you previously set
+#[command(name = "unset", desc = "Remove the skin that you previously set")]
 pub struct UnsetSkin;
 
 impl UnsetSkin {

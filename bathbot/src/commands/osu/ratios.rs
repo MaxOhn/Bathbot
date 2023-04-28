@@ -25,6 +25,7 @@ use crate::{
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
 #[command(
     name = "ratios",
+    desc = "Ratio related stats about a user's mania top100",
     help = "The \"ratio\" of a mania score is generally considered to be `n320/n300` \
     (or sometimes `n320/everything else`).\n\n\
     How to read the embed:\n\
@@ -34,16 +35,15 @@ use crate::{
     For the third column, it calculates the ratio of all scores in that row and displays their average.\n\
     The fourth column shows the average percentual miss amount for scores in the corresponding row."
 )]
-/// Ratio related stats about a user's mania top100
 pub struct Ratios<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

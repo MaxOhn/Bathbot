@@ -24,10 +24,10 @@ mod score;
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "recent",
+    desc = "Display info about a user's recent plays",
     help = "Retrieve a user's recent plays and display them in various forms.\n\
     The osu!api can provide the last 100 recent plays done within the last 24 hours."
 )]
-/// Display info about a user's recent plays
 pub enum Recent<'a> {
     #[command(name = "score")]
     Score(RecentScore<'a>),
@@ -44,102 +44,111 @@ pub enum Recent<'a> {
 #[derive(CommandModel, CreateCommand, HasName)]
 #[command(
     name = "score",
+    desc = "Show a user's recent score (same as `/rs`)",
     help = "Show a user's recent score (same as `/rs`).\n\
     To add a timestamp to a twitch VOD, be sure you linked yourself to a twitch account via `/config`."
 )]
-/// Show a user's recent score (same as `/rs`)
 pub struct RecentScore<'a> {
-    #[command(help = "Specify a gamemode.\n\
-    For mania the combo will be displayed as `[ combo / ratio ]` \
-    with ratio being `n320/n300`.")]
-    /// Specify a gamemode
+    #[command(
+        desc = "Specify a gamemode",
+        help = "Specify a gamemode.\n\
+        For mania the combo will be displayed as `[ combo / ratio ]` \
+        with ratio being `n320/n300`."
+    )]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
         min_value = 1,
         max_value = 100,
+        desc = "Choose the recent score's index",
         help = "By default the very last play will be chosen.\n\
         However, if this index is specified, the play at that index will be displayed instead.\n\
         E.g. `index:1` is the default and `index:2` would show the second most recent play.\n\
         The given index should be between 1 and 100."
     )]
-    /// Choose the recent score's index
     index: Option<usize>,
-    /// Consider only scores with this grade
+    #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    /// Specify whether only passes should be considered
+    #[command(desc = "Specify whether only passes should be considered")]
     passes: Option<bool>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
-#[command(name = "best")]
-/// Display the user's current top100 sorted by date (same as `/rb`)
+#[command(
+    name = "best",
+    desc = "Display the user's current top100 sorted by date (same as `/rb`)"
+)]
 pub struct RecentBest {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
-    #[command(help = "Filter out all scores that don't match the specified mods.\n\
+    #[command(
+        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out all scores that don't match the specified mods.\n\
         Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
         or `-mods!` for excluded mods.\n\
         Examples:\n\
         - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
         - `+hdhr!`: Scores must have exactly `HDHR`\n\
         - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
-        - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
-    /// excluded)
+        - `-nm!`: Scores can not be nomod so there must be any other mod"
+    )]
     mods: Option<String>,
     #[command(
         min_value = 1,
         max_value = 100,
+        desc = "Choose a specific score index",
         help = "By default the command will show paginated embeds containing five scores per page.\n\
         However, if this index is specified, the command will only show the score at the given index.\n\
         E.g. `index:1` will show the top score and \
         `index:3` will show the score with the third highest pp amount."
     )]
-    /// Choose a specific score index
     index: Option<u32>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
-    /// Reverse the resulting score list
+    #[command(desc = "Reverse the resulting score list")]
     reverse: Option<bool>,
     #[command(
+        desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, creator, difficulty, title, or limit values such as \
         ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
         While ar & co will be adjusted to mods, stars will not."
     )]
-    /// Specify a search query containing artist, difficulty, AR, BPM, ...
     query: Option<String>,
-    /// Consider only scores with this grade
+    #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    #[command(help = "Specify if you want to filter out farm maps.\n\
+    #[command(
+        desc = "Specify if you want to filter out farm maps",
+        help = "Specify if you want to filter out farm maps.\n\
         A map counts as farmy if its mapset appears in the top 727 \
         sets based on how often the set is in people's top100 scores.\n\
         The list of mapsets can be checked with `/popular mapsets` or \
-        on [here](https://osutracker.com/stats)")]
-    /// Specify if you want to filter out farm maps
+        on [here](https://osutracker.com/stats)"
+    )]
     farm: Option<FarmFilter>,
-    /// Filter out all scores that don't have a perfect combo
+    #[command(desc = "Filter out all scores that don't have a perfect combo")]
     perfect_combo: Option<bool>,
-    #[command(help = "Size of the embed.\n\
-      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
-      The default can be set with the `/config` command.")]
-    /// Condense top plays
+    #[command(
+        desc = "Condense top plays",
+        help = "Size of the embed.\n\
+        `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
+        The default can be set with the `/config` command."
+    )]
     size: Option<ListSize>,
 }
 
@@ -177,78 +186,80 @@ impl<'a> TryFrom<RecentBest> for TopArgs<'a> {
 }
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
-#[command(name = "leaderboard")]
-/// Show the leaderboard of a user's recently played map
+#[command(
+    name = "leaderboard",
+    desc = "Show the leaderboard of a user's recently played map"
+)]
 pub struct RecentLeaderboard<'a> {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax, \
         e.g. `hdhr` or `+hdhr!`, and filter out all scores that don't match those mods."
     )]
-    /// Specify mods e.g. hdhr or nm
     mods: Option<Cow<'a, str>>,
     #[command(
         min_value = 1,
         max_value = 100,
+        desc = "Choose the recent score's index",
         help = "By default the leaderboard of the very last score will be displayed.\n\
         However, if this index is specified, the leaderboard of the score at that index will be displayed instead.\n\
         E.g. `index:1` is the default and `index:2` for the second most recent play."
     )]
-    /// Choose the recent score's index
     index: Option<usize>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
-#[command(name = "list")]
-/// Show all recent plays of a user
+#[command(name = "list", desc = "Show all recent plays of a user")]
 pub struct RecentList<'a> {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, creator, difficulty, title, or limit values such as \
         ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
         While ar & co will be adjusted to mods, stars will not."
     )]
-    /// Specify a search query containing artist, difficulty, AR, BPM, ...
     query: Option<String>,
-    /// Consider only scores with this grade
+    #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    /// Choose how the scores should be ordered
+    #[command(desc = "Choose how the scores should be ordered")]
     sort: Option<ScoreOrder>,
-    /// Specify whether only passes should be considered
+    #[command(desc = "Specify whether only passes should be considered")]
     passes: Option<bool>,
-    #[command(help = "Filter out all scores that don't match the specified mods.\n\
+    #[command(
+        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out all scores that don't match the specified mods.\n\
         Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
-    or `-mods!` for excluded mods.\n\
-    Examples:\n\
-    - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
-    - `+hdhr!`: Scores must have exactly `HDHR`\n\
-    - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
-    - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
-    /// excluded)
+        or `-mods!` for excluded mods.\n\
+        Examples:\n\
+        - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+        - `+hdhr!`: Scores must have exactly `HDHR`\n\
+        - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+        - `-nm!`: Scores can not be nomod so there must be any other mod"
+    )]
     mods: Option<Cow<'a, str>>,
-    /// Show each map-mod pair only once
+    #[command(desc = "Show each map-mod pair only once")]
     unique: Option<RecentListUnique>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
@@ -261,31 +272,35 @@ pub enum RecentListUnique {
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "fix")]
-/// Display a user's pp after unchoking their recent score
+#[command(
+    name = "fix",
+    desc = "Display a user's pp after unchoking their recent score"
+)]
 pub struct RecentFix {
-    #[command(help = "Specify a gamemode. \
-        Since combo does not matter in mania, its scores can't be fixed.")]
-    /// Specify a gamemode
+    #[command(
+        desc = "Specify a gamemode",
+        help = "Specify a gamemode. \
+        Since combo does not matter in mania, its scores can't be fixed."
+    )]
     mode: Option<RecentFixGameMode>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
         min_value = 1,
         max_value = 100,
+        desc = "Choose the recent score's index",
         help = "By default the very last play will be chosen.\n\
         However, if this index is specified, the play at that index will be fixed instead.\n\
         E.g. `index:1` is the default and `index:2` would fix the second most recent play.\n\
         The given index should be between 1 and 100."
     )]
-    /// Choose the recent score's index
     index: Option<usize>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
@@ -312,66 +327,73 @@ impl From<RecentFixGameMode> for GameMode {
 
 #[allow(unused)] // fields are used through transmute in From impl
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
-#[command(name = "rb")]
-/// Display the user's current top100 sorted by date (same as `/rb`)
+#[command(
+    name = "rb",
+    desc = "Display the user's current top100 sorted by date (same as `/rb`)"
+)]
 pub struct Rb {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
-    #[command(help = "Filter out all scores that don't match the specified mods.\n\
+    #[command(
+        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out all scores that don't match the specified mods.\n\
         Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
         or `-mods!` for excluded mods.\n\
         Examples:\n\
         - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
         - `+hdhr!`: Scores must have exactly `HDHR`\n\
         - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
-        - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
-    /// excluded)
+        - `-nm!`: Scores can not be nomod so there must be any other mod"
+    )]
     mods: Option<String>,
     #[command(
         min_value = 1,
         max_value = 100,
+        desc = "Choose a specific score index",
         help = "By default the command will show paginated embeds containing five scores per page.\n\
         However, if this index is specified, the command will only show the score at the given index.\n\
         E.g. `index:1` will show the top score and \
         `index:3` will show the score with the third highest pp amount."
     )]
-    /// Choose a specific score index
     index: Option<u32>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
-    /// Reverse the resulting score list
+    #[command(desc = "Reverse the resulting score list")]
     reverse: Option<bool>,
     #[command(
+        desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, creator, difficulty, title, or limit values such as \
         ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
         While ar & co will be adjusted to mods, stars will not."
     )]
-    /// Specify a search query containing artist, difficulty, AR, BPM, ...
     query: Option<String>,
-    /// Consider only scores with this grade
+    #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    #[command(help = "Specify if you want to filter out farm maps.\n\
+    #[command(
+        desc = "Specify if you want to filter out farm maps",
+        help = "Specify if you want to filter out farm maps.\n\
         A map counts as farmy if its mapset appears in the top 727 \
         sets based on how often the set is in people's top100 scores.\n\
         The list of mapsets can be checked with `/popular mapsets` or \
-        on [here](https://osutracker.com/stats)")]
-    /// Specify if you want to filter out farm maps
+        on [here](https://osutracker.com/stats)"
+    )]
     farm: Option<FarmFilter>,
-    /// Filter out all scores that don't have a perfect combo
+    #[command(desc = "Filter out all scores that don't have a perfect combo")]
     perfect_combo: Option<bool>,
-    #[command(help = "Size of the embed.\n\
-      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
-      The default can be set with the `/config` command.")]
-    /// Condense top plays
+    #[command(
+        desc = "Condense top plays",
+        help = "Size of the embed.\n\
+        `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
+        The default can be set with the `/config` command."
+    )]
     size: Option<ListSize>,
 }
 

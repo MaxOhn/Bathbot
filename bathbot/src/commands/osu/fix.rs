@@ -35,28 +35,32 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "fix")]
-/// Display a user's pp after unchoking their score on a map
+#[command(
+    name = "fix",
+    desc = "Display a user's pp after unchoking their score on a map"
+)]
 pub struct Fix<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(help = "Specify a map either by map url or map id.\n\
+    #[command(
+        desc = "Specify a map url or map id",
+        help = "Specify a map either by map url or map id.\n\
         If none is specified, it will search in the recent channel history \
         and pick the first map it can find.\
-        Alternatively, you can also provide a score url.")]
-    /// Specify a map url or map id
+        Alternatively, you can also provide a score url."
+    )]
     map: Option<String>,
     #[command(
+        desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
     )]
-    /// Specify mods e.g. hdhr or nm
     mods: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

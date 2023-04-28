@@ -24,10 +24,10 @@ mod user_value;
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "osekai",
+    desc = "Various leaderboards provided by osekai",
     help = "Various leaderboard stats. \
     All data is provided by [osekai](https://osekai.net/)."
 )]
-/// Various leaderboards provided by osekai
 pub enum Osekai {
     #[command(name = "badges")]
     Badges(OsekaiBadges),
@@ -50,75 +50,70 @@ pub enum Osekai {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "badges")]
-/// Who has the most profile badges?
+#[command(name = "badges", desc = "Who has the most profile badges?")]
 pub struct OsekaiBadges {
-    /// If specified, only show users of this country
+    #[command(desc = "If specified, only show users of this country")]
     country: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "loved_mapsets")]
-/// Who created the most loved mapsets?
+#[command(name = "loved_mapsets", desc = "Who created the most loved mapsets?")]
 pub struct OsekaiLovedMapsets {
-    /// If specified, only show users of this country
+    #[command(desc = "If specified, only show users of this country")]
     country: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "medal_count")]
-/// Who has the most medals?
+#[command(name = "medal_count", desc = "Who has the most medals?")]
 pub struct OsekaiMedalCount {
-    /// If specified, only show users of this country
+    #[command(desc = "If specified, only show users of this country")]
     country: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "ranked_mapsets")]
-/// Who created the most ranked mapsets?
+#[command(name = "ranked_mapsets", desc = "Who created the most ranked mapsets?")]
 pub struct OsekaiRankedMapsets {
-    /// If specified, only show users of this country
+    #[command(desc = "If specified, only show users of this country")]
     country: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "rarity")]
-/// What are the rarest medals?
+#[command(name = "rarity", desc = "What are the rarest medals?")]
 pub struct OsekaiRarity;
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "replays")]
-/// Who has the most replays watched?
+#[command(name = "replays", desc = "Who has the most replays watched?")]
 pub struct OsekaiReplays {
-    /// If specified, only show users of this country
+    #[command(desc = "If specified, only show users of this country")]
     country: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "standard_deviation",
+    desc = "Who has the highest pp standard deviation across all modes?",
     help = "Who has the highest pp \
     [standard deviation](https://en.wikipedia.org/wiki/Standard_deviation) across all modes?"
 )]
-/// Who has the highest pp standard deviation across all modes?
 pub struct OsekaiStandardDeviation {
-    /// If specified, only show users of this country
+    #[command(desc = "If specified, only show users of this country")]
     country: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "subscribers")]
-/// Which mapper has the most subscribers?
+#[command(name = "subscribers", desc = "Which mapper has the most subscribers?")]
 pub struct OsekaiSubscribers {
-    /// If specified, only show users of this country
+    #[command(desc = "If specified, only show users of this country")]
     country: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "total_pp")]
-/// Who has the highest total pp in all modes combined?
+#[command(
+    name = "total_pp",
+    desc = "Who has the highest total pp in all modes combined?"
+)]
 pub struct OsekaiTotalPp {
-    /// If specified, only show users of this country
+    #[command(desc = "If specified, only show users of this country")]
     country: Option<String>,
 }
 

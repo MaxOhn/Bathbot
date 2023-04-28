@@ -27,6 +27,7 @@ mod user;
 #[derive(CreateCommand, CommandModel, SlashCommand)]
 #[command(
     name = "scores",
+    desc = "List scores that the bot has stored",
     help = "List scores that the bot has stored.\n\
     The list will only contain scores that have been cached before i.e. \
     scores of the `/rs`, `/top`, `/pinned`, or `/cs` commands.\n\
@@ -34,7 +35,6 @@ mod user;
     To add a missing map, you can simply `<map [map url]` \
     and for missing users it's `<profile [username]`."
 )]
-/// List scores that the bot has stored
 pub enum Scores {
     #[command(name = "server")]
     Server(ServerScores),
@@ -45,31 +45,35 @@ pub enum Scores {
 }
 
 #[derive(CreateCommand, CommandModel, HasMods)]
-#[command(name = "server", dm_permission = false)]
-/// List scores of members in this server
+#[command(
+    name = "server",
+    dm_permission = false,
+    desc = "List scores of members in this server"
+)]
 pub struct ServerScores {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Choose how the scores should be ordered, defaults to PP
+    #[command(desc = "Choose how the scores should be ordered, defaults to PP")]
     sort: Option<ScoresOrder>,
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
-    /// excluded)
+    #[command(
+        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)"
+    )]
     mods: Option<String>,
-    /// Specify a country (code)
+    #[command(desc = "Specify a country (code)")]
     country: Option<String>,
-    /// Filter out scores on maps that don't match this status
+    #[command(desc = "Filter out scores on maps that don't match this status")]
     status: Option<MapStatus>,
-    /// Only show scores on maps of that mapper
+    #[command(desc = "Only show scores on maps of that mapper")]
     mapper: Option<String>,
     #[command(
+        desc = "Specify a search query containing artist, stars, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, difficulty, title, or limit values for \
         ar, cs, hp, od, bpm, length, stars, pp, combo, score, misses, date, or rankeddate.\n\
         Example: `od>=9 od<9.5 len>180 difficulty=insane date<2020-12-31 misses=1`"
     )]
-    /// Specify a search query containing artist, stars, AR, BPM, ...
     query: Option<String>,
-    /// Reverse the list
+    #[command(desc = "Reverse the list")]
     reverse: Option<bool>,
 }
 
@@ -127,70 +131,74 @@ impl From<MapStatus> for RankStatus {
 }
 
 #[derive(CreateCommand, CommandModel, HasMods, HasName)]
-#[command(name = "user")]
-/// List scores of a user
+#[command(name = "user", desc = "List scores of a user")]
 pub struct UserScores {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
-    /// Choose how the scores should be ordered, defaults to PP
+    #[command(desc = "Choose how the scores should be ordered, defaults to PP")]
     sort: Option<ScoresOrder>,
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
-    /// excluded)
+    #[command(
+        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)"
+    )]
     mods: Option<String>,
-    /// Filter out scores on maps that don't match this status
+    #[command(desc = "Filter out scores on maps that don't match this status")]
     status: Option<MapStatus>,
-    /// Only show scores on maps of that mapper
+    #[command(desc = "Only show scores on maps of that mapper")]
     mapper: Option<String>,
     #[command(
+        desc = "Specify a search query containing artist, stars, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, difficulty, title, or limit values for \
         ar, cs, hp, od, bpm, length, stars, pp, combo, score, misses, date, or rankeddate.\n\
         Example: `od>=9 od<9.5 len>180 difficulty=insane date<2020-12-31 misses=1`"
     )]
-    /// Specify a search query containing artist, stars, AR, BPM, ...
     query: Option<String>,
-    /// Reverse the list
+    #[command(desc = "Reverse the list")]
     reverse: Option<bool>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CreateCommand, CommandModel, HasMods)]
-#[command(name = "map")]
-/// List scores on a map
+#[command(name = "map", desc = "List scores on a map")]
 pub struct MapScores {
-    #[command(help = "Specify a map either by map url or map id.\n\
-    If none is specified, it will search in the recent channel history \
-    and pick the first map it can find.")]
-    /// Specify a map url or map id
+    #[command(
+        desc = "Specify a map url or map id",
+        help = "Specify a map either by map url or map id.\n\
+        If none is specified, it will search in the recent channel history \
+        and pick the first map it can find."
+    )]
     map: Option<String>,
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Choose how the scores should be ordered, defaults to PP
+    #[command(desc = "Choose how the scores should be ordered, defaults to PP")]
     sort: Option<ScoresOrder>,
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
-    /// excluded)
+    #[command(
+        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)"
+    )]
     mods: Option<String>,
     #[command(
+        desc = "Specify a search query containing stars, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, difficulty, title, or limit values for \
         ar, cs, hp, od, bpm, length, stars, pp, combo, score, misses, date, or rankeddate.\n\
         Example: `od>=9 od<9.5 len>180 difficulty=insane date<2020-12-31 misses=1`"
     )]
-    /// Specify a search query containing stars, AR, BPM, ...
     query: Option<String>,
-    #[command(min_value = 1, max_value = 50)]
-    /// While checking the channel history, I will choose the index-th map I can
-    /// find
+    #[command(
+        min_value = 1,
+        max_value = 50,
+        desc = "While checking the channel history, I will choose the index-th map I can find"
+    )]
     index: Option<u32>,
-    /// Reverse the list
+    #[command(desc = "Reverse the list")]
     reverse: Option<bool>,
 }
 
