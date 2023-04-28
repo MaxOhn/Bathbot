@@ -16,8 +16,7 @@ mod pp;
 mod score;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "rank")]
-/// How much is missing to reach the given rank?
+#[command(name = "rank", desc = "How much is missing to reach the given rank?")]
 pub enum Rank<'a> {
     #[command(name = "pp")]
     Pp(RankPp<'a>),
@@ -26,48 +25,52 @@ pub enum Rank<'a> {
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "pp")]
-/// How many pp are missing to reach the given rank?
+#[command(name = "pp", desc = "How many pp are missing to reach the given rank?")]
 pub struct RankPp<'a> {
-    #[command(min_value = 1, max_value = 4_294_967_295)]
-    /// Specify the target rank
+    #[command(
+        min_value = 1,
+        max_value = 4_294_967_295,
+        desc = "Specify the target rank"
+    )]
     rank: u32,
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(min_value = 0.0)]
-    /// Fill a top100 with scores of this many pp until the pp of the target
-    /// rank are reached
+    #[command(
+        min_value = 0.0,
+        desc = "Fill a top100 with scores of this many pp until the pp of the target rank are reached"
+    )]
     each: Option<f32>,
-    /// Specify a country (code)
+    #[command(desc = "Specify a country (code)")]
     country: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "score")]
-/// How much ranked score is missing to reach the given rank?
+#[command(
+    name = "score",
+    desc = "How much ranked score is missing to reach the given rank?"
+)]
 pub struct RankScore<'a> {
-    #[command(min_value = 1)]
-    /// Specify the target rank
+    #[command(min_value = 1, desc = "Specify the target rank")]
     rank: usize,
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

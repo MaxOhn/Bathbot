@@ -27,21 +27,20 @@ use crate::{
 mod data;
 
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]
-#[command(name = "profile")]
-/// Display statistics of a user
+#[command(name = "profile", desc = "Display statistics of a user")]
 pub struct Profile<'a> {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    /// Choose an embed type
+    #[command(desc = "Choose an embed type")]
     embed: Option<ProfileKind>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

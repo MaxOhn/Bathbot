@@ -16,12 +16,12 @@ use crate::{
 #[derive(CreateCommand, SlashCommand)]
 #[command(
     name = "link",
+    desc = "Link your discord to an osu! profile",
     help = "Link your discord to an osu! profile.\n\
     To unlink, use the `/config` command.\n\
     To link your discord to a twitch account you can also use the `/config` command."
 )]
 #[flags(EPHEMERAL)]
-/// Link your discord to an osu! profile
 pub struct Link;
 
 async fn slash_link(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {

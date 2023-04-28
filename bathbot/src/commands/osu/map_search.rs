@@ -18,28 +18,27 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "search")]
-/// Search for mapsets
+#[command(name = "search", desc = "Search for mapsets")]
 pub struct Search {
-    /// Specify a search query
+    #[command(desc = "Specify a search query")]
     pub query: Option<String>,
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     pub mode: Option<GameModeOption>,
-    /// Specify a ranking status
+    #[command(desc = "Specify a ranking status")]
     pub status: Option<SearchStatus>,
-    /// Specify the order of mapsets
+    #[command(desc = "Specify the order of mapsets")]
     pub sort: Option<SearchOrder>,
-    /// Specify a genre
+    #[command(desc = "Specify a genre")]
     pub genre: Option<SearchGenre>,
-    /// Specify a language
+    #[command(desc = "Specify a language")]
     pub language: Option<SearchLanguage>,
-    /// Specify if the mapset should have a video
+    #[command(desc = "Specify if the mapset should have a video")]
     pub video: Option<bool>,
-    /// Specify if the mapset should have a storyboard
+    #[command(desc = "Specify if the mapset should have a storyboard")]
     pub storyboard: Option<bool>,
-    /// Specify whether the mapset can be NSFW
+    #[command(desc = "Specify whether the mapset can be NSFW")]
     pub nsfw: Option<bool>,
-    /// Specify whether the resulting list should be reversed
+    #[command(desc = "Specify whether the resulting list should be reversed")]
     pub reverse: Option<bool>,
 }
 

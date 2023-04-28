@@ -36,25 +36,25 @@ use crate::{
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
 #[command(
     name = "ct",
+    desc = "Compare common top scores",
     help = "Compare common top scores between players and see who did better on them"
 )]
-/// Compare common top scores
 #[allow(unused)]
 pub struct Ct<'a> {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name1: Option<Cow<'a, str>>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name2: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name1` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord1: Option<Id<UserMarker>>,
-    /// Specify a linked discord user
+    #[command(desc = "Specify a linked discord user")]
     discord2: Option<Id<UserMarker>>,
 }
 

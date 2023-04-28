@@ -20,17 +20,16 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
-#[command(name = "mostplayed")]
-/// Display the most played maps of a user
+#[command(name = "mostplayed", desc = "Display the most played maps of a user")]
 pub struct MostPlayed<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

@@ -24,36 +24,36 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
-#[command(name = "countrytop")]
-/// Display the country's top scores
+#[command(name = "countrytop", desc = "Display the country's top scores")]
 pub struct CountryTop {
-    /// Specify a country (code)
+    #[command(desc = "Specify a country (code)")]
     country: Option<String>,
-    /// Choose how the scores should be ordered, defaults to PP
+    #[command(desc = "Choose how the scores should be ordered, defaults to PP")]
     sort: Option<CountryTopOrder>,
-    #[command(help = "Filter out all scores that don't match the specified mods.\n\
+    #[command(
+        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out all scores that don't match the specified mods.\n\
         Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
         or `-mods!` for excluded mods.\n\
         Examples:\n\
         - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
         - `+hdhr!`: Scores must have exactly `HDHR`\n\
         - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
-        - `-nm!`: Scores can not be nomod so there must be any other mod")]
-    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for
-    /// excluded)
+        - `-nm!`: Scores can not be nomod so there must be any other mod"
+    )]
     mods: Option<String>,
-    /// Reverse the resulting score list
+    #[command(desc = "Reverse the resulting score list")]
     reverse: Option<bool>,
-    /// Search for a specific artist, title, difficulty, or mapper
+    #[command(desc = "Search for a specific artist, title, difficulty, or mapper")]
     query: Option<String>,
-    /// Only keep scores from this username
+    #[command(desc = "Only keep scores from this username")]
     name: Option<String>,
     #[command(
+        desc = "Only keep scores from this discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Only keep scores from this discord user
     discord: Option<Id<UserMarker>>,
 }
 

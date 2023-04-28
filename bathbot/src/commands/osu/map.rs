@@ -37,35 +37,49 @@ use crate::{
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "map",
+    desc = "Display a bunch of stats about a map(set)",
     help = "Display a bunch of stats about a map(set).\n\
     The values in the map info will be adjusted to mods.\n\
     Since discord does not allow images to be adjusted when editing messages, \
     the strain graph always belongs to the initial map, even after moving to \
     other maps of the set through the pagination buttons."
 )]
-/// Display a bunch of stats about a map(set)
 pub struct Map<'a> {
-    #[command(help = "Specify a map either by map url or map id.\n\
+    #[command(
+        desc = "Specify a map url or map id",
+        help = "Specify a map either by map url or map id.\n\
     If none is specified, it will search in the recent channel history \
-    and pick the first map it can find.")]
-    /// Specify a map url or map id
+    and pick the first map it can find."
+    )]
     map: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
     )]
-    /// Specify mods e.g. hdhr or nm
     mods: Option<Cow<'a, str>>,
-    #[command(min_value = 0.0, max_value = 10.0)]
-    /// Specify an AR value to override the actual one
+    #[command(
+        min_value = 0.0,
+        max_value = 10.0,
+        desc = "Specify an AR value to override the actual one"
+    )]
     ar: Option<f64>,
-    #[command(min_value = 0.0, max_value = 10.0)]
-    /// Specify an OD value to override the actual one
+    #[command(
+        min_value = 0.0,
+        max_value = 10.0,
+        desc = "Specify an OD value to override the actual one"
+    )]
     od: Option<f64>,
-    #[command(min_value = 0.0, max_value = 10.0)]
-    /// Specify a CS value to override the actual one
+    #[command(
+        min_value = 0.0,
+        max_value = 10.0,
+        desc = "Specify a CS value to override the actual one"
+    )]
     cs: Option<f64>,
-    #[command(min_value = 0.0, max_value = 10.0)]
-    /// Specify an HP value to override the actual one
+    #[command(
+        min_value = 0.0,
+        max_value = 10.0,
+        desc = "Specify an HP value to override the actual one"
+    )]
     hp: Option<f64>,
 }
 

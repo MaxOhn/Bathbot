@@ -27,60 +27,72 @@ use crate::{core::BotConfig, util::Emote};
 
 #[cfg(feature = "server")]
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
-#[command(name = "config")]
+#[command(
+    name = "config",
+    desc = "Adjust your default configuration for commands"
+)]
 #[flags(EPHEMERAL)]
-/// Adjust your default configuration for commands
 pub struct Config {
-    #[command(help = "Most osu! commands require a specified username to work.\n\
-    Since using a command is most commonly intended for your own profile, you can link \
-    your discord with an osu! profile so that when no username is specified in commands, \
-    it will choose the linked username.\n\
-    If the value is set to `Link`, it will prompt you to authorize your account.\n\
-    If `Unlink` is selected, you will be unlinked from the osu! profile.")]
-    /// Specify whether you want to link to an osu! profile
+    #[command(
+        desc = "Specify whether you want to link to an osu! profile",
+        help = "Most osu! commands require a specified username to work.\n\
+        Since using a command is most commonly intended for your own profile, you can link \
+        your discord with an osu! profile so that when no username is specified in commands, \
+        it will choose the linked username.\n\
+        If the value is set to `Link`, it will prompt you to authorize your account.\n\
+        If `Unlink` is selected, you will be unlinked from the osu! profile."
+    )]
     pub osu: Option<ConfigLink>,
-    #[command(help = "With this option you can link to a twitch channel.\n\
-    When you have both your osu! and twitch linked, are currently streaming, and anyone uses \
-    the `recent score` command on your osu! username, it will try to retrieve the last VOD from your \
-    twitch channel and link to a timestamp for the score.\n\
-    If the value is set to `Link`, it will prompt you to authorize your account.\n\
-    If `Unlink` is selected, you will be unlinked from the twitch channel.")]
-    /// Specify whether you want to link to a twitch profile
+    #[command(
+        desc = "Specify whether you want to link to a twitch profile",
+        help = "With this option you can link to a twitch channel.\n\
+        When you have both your osu! and twitch linked, are currently streaming, and anyone uses \
+        the `recent score` command on your osu! username, it will try to retrieve the last VOD from your \
+        twitch channel and link to a timestamp for the score.\n\
+        If the value is set to `Link`, it will prompt you to authorize your account.\n\
+        If `Unlink` is selected, you will be unlinked from the twitch channel."
+    )]
     twitch: Option<ConfigLink>,
-    #[command(help = "Always having to specify the `mode` option for any non-std \
-    command can be pretty tedious.\nTo get around that, you can configure a mode here so \
-    that when the `mode` option is not specified in commands, it will choose your config mode.")]
-    /// Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use
-    /// std commands)
+    #[command(
+        desc = "Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)",
+        help = "Always having to specify the `mode` option for any non-std \
+        command can be pretty tedious.\nTo get around that, you can configure a mode here so \
+        that when the `mode` option is not specified in commands, it will choose your config mode."
+    )]
     mode: Option<ConfigGameMode>,
-    #[command(help = "Some embeds are pretty chunky and show too much data.\n\
-    With this option you can make those embeds minimized by default.\n\
-    Affected commands are: `compare score`, `recent score`, `recent simulate`, \
-    and any command showing top scores when the `index` option is specified.")]
-    /// What size should the recent, compare, simulate, ... commands be?
+    #[command(
+        desc = "What size should the recent, compare, simulate, ... commands be?",
+        help = "Some embeds are pretty chunky and show too much data.\n\
+        With this option you can make those embeds minimized by default.\n\
+        Affected commands are: `compare score`, `recent score`, `recent simulate`, \
+        and any command showing top scores when the `index` option is specified."
+    )]
     score_embeds: Option<ScoreSize>,
     #[command(
+        desc = "Adjust the amount of scores shown per page in top, rb, pinned, ...",
         help = "Adjust the amount of scores shown per page in `/top`, `/rb`, `/pinned`, and `/mapper`.\n\
-      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
+        `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
     )]
-    /// Adjust the amount of scores shown per page in top, rb, pinned, ...
     list_embeds: Option<ListSize>,
-    /// Should the amount of retries be shown for the recent command?
+    #[command(desc = "Should the amount of retries be shown for the recent command?")]
     retries: Option<ShowHideOption>,
-    /// Specify whether the recent command should show max or if-fc pp when
-    /// minimized
+    #[command(
+        desc = "Specify whether the recent command should show max or if-fc pp when minimized"
+    )]
     minimized_pp: Option<MinimizedPp>,
-    /// Specify a timezone which will be used for commands like `/graph`
+    #[command(desc = "Specify a timezone which will be used for commands like `/graph`")]
     timezone: Option<TimezoneOption>,
-    #[command(help = "Specify a download link for your skin.\n\
-    Must be a URL to a direct-download of an .osk file or one of these approved sites:\n\
-    - `https://drive.google.com`\n\
-    - `https://www.dropbox.com`\n\
-    - `https://mega.nz`\n\
-    - `https://www.mediafire.com`\n\
-    - `https://skins.osuck.net`\n\
-    If you want to suggest another site let Badewanne3 know.")]
-    /// Specify a download link for your skin
+    #[command(
+        desc = "Specify a download link for your skin",
+        help = "Specify a download link for your skin.\n\
+        Must be a URL to a direct-download of an .osk file or one of these approved sites:\n\
+        - `https://drive.google.com`\n\
+        - `https://www.dropbox.com`\n\
+        - `https://mega.nz`\n\
+        - `https://www.mediafire.com`\n\
+        - `https://skins.osuck.net`\n\
+        If you want to suggest another site let Badewanne3 know."
+    )]
     skin_url: Option<String>,
 }
 
@@ -88,44 +100,52 @@ pub struct Config {
 // tag on fields so we need an entirely new struct for now
 #[cfg(not(feature = "server"))]
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
-#[command(name = "config")]
+#[command(
+    name = "config",
+    desc = "Adjust your default configuration for commands"
+)]
 #[flags(EPHEMERAL)]
-/// Adjust your default configuration for commands
 pub struct Config {
-    #[command(help = "Always having to specify the `mode` option for any non-std \
-    command can be pretty tedious.\nTo get around that, you can configure a mode here so \
-    that when the `mode` option is not specified in commands, it will choose your config mode.")]
-    /// Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use
-    /// std commands)
+    #[command(
+        desc = "Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)",
+        help = "Always having to specify the `mode` option for any non-std \
+        command can be pretty tedious.\nTo get around that, you can configure a mode here so \
+        that when the `mode` option is not specified in commands, it will choose your config mode."
+    )]
     mode: Option<ConfigGameMode>,
-    #[command(help = "Some embeds are pretty chunky and show too much data.\n\
-    With this option you can make those embeds minimized by default.\n\
-    Affected commands are: `compare score`, `recent score`, `recent simulate`, \
-    and any command showing top scores when the `index` option is specified.")]
-    /// What size should the recent, compare, simulate, ... commands be?
+    #[command(
+        desc = "What size should the recent, compare, simulate, ... commands be?",
+        help = "Some embeds are pretty chunky and show too much data.\n\
+        With this option you can make those embeds minimized by default.\n\
+        Affected commands are: `compare score`, `recent score`, `recent simulate`, \
+        and any command showing top scores when the `index` option is specified."
+    )]
     score_embeds: Option<ScoreSize>,
     #[command(
+        desc = "Adjust the amount of scores shown per page in top, rb, pinned, ...",
         help = "Adjust the amount of scores shown per page in top, rb, pinned, and mapper.\n\
-      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
+        `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
     )]
-    /// Adjust the amount of scores shown per page in top, rb, pinned, ...
     list_embeds: Option<ListSize>,
-    /// Should the amount of retries be shown for the recent command?
+    #[command(desc = "Should the amount of retries be shown for the recent command?")]
     retries: Option<ShowHideOption>,
-    /// Specify whether the recent command should show max or if-fc pp when
-    /// minimized
+    #[command(
+        desc = "Specify whether the recent command should show max or if-fc pp when minimized"
+    )]
     minimized_pp: Option<MinimizedPp>,
-    /// Specify a timezone which will be used for commands like `/graph`
+    #[command(desc = "Specify a timezone which will be used for commands like `/graph`")]
     timezone: Option<TimezoneOption>,
-    #[command(help = "Specify a download link for your skin.\n\
-    Must be a URL to a direct-download of an .osk file or one of these approved sites:\n\
-    - `https://drive.google.com`\n\
-    - `https://www.dropbox.com`\n\
-    - `https://mega.nz`\n\
-    - `https://www.mediafire.com`\n\
-    - `https://skins.osuck.net`\n\
-    If you want to suggest another site let Badewanne3 know.")]
-    /// Specify a download link for your skin
+    #[command(
+        desc = "Specify a download link for your skin",
+        help = "Specify a download link for your skin.\n\
+        Must be a URL to a direct-download of an .osk file or one of these approved sites:\n\
+        - `https://drive.google.com`\n\
+        - `https://www.dropbox.com`\n\
+        - `https://mega.nz`\n\
+        - `https://www.mediafire.com`\n\
+        - `https://skins.osuck.net`\n\
+        If you want to suggest another site let Badewanne3 know."
+    )]
     skin_url: Option<String>,
 }
 

@@ -20,8 +20,7 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "higherlower")]
-/// Play a game of osu! themed higher lower
+#[command(name = "higherlower", desc = "Play a game of osu! themed higher lower")]
 pub enum HigherLower {
     #[command(name = "pp")]
     ScorePp(HigherLowerScorePp),
@@ -34,33 +33,35 @@ pub enum HigherLower {
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "pp",
+    desc = "Is the score's pp value higher or lower?",
     help = "Is the score's pp value higher or lower?\n\
     The players are chosen randomly from the top 5,000 and the top score \
     is chosen randomly as well but the higher the current score is, the more \
     likely it is that the next pp value is close to the previous pp."
 )]
-/// Is the score's pp value higher or lower?
 pub struct HigherLowerScorePp {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
 }
 
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "farm",
+    desc = "Is the amount of times the map appears in top scores higher or lower?",
     help = "Is the amount of times the map appears in top scores higher or lower?\n\
     All counts are provided by [osutracker](https://osutracker.com) which only includes a portion \
     of the actual data but it should be representative, at least for >300pp scores.\n\
     The maps are chosen randomly based on [this weight function](https://www.desmos.com/calculator/u4jt9t4jnj)."
 )]
-/// Is the amount of times the map appears in top scores higher or lower?
 pub struct HigherLowerFarmMaps;
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "leaderboard")]
-/// Get the server leaderboard for higherlower highscores
+#[command(
+    name = "leaderboard",
+    desc = "Get the server leaderboard for higherlower highscores"
+)]
 pub struct HigherLowerLeaderboard {
-    /// Specify the version to get the highscores of
+    #[command(desc = "Specify the version to get the highscores of")]
     version: HlVersion,
 }
 

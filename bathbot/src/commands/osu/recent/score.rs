@@ -737,38 +737,40 @@ async fn retrieve_vod(
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(
     name = "rs",
+    desc = "Show a user's recent score",
     help = "Show a user's recent score.\n\
     To add a timestamp to a twitch VOD, be sure you linked yourself to a twitch account via `/config`."
 )]
-/// Show a user's recent score
 pub struct Rs<'a> {
-    #[command(help = "Specify a gamemode.\n\
-    For mania the combo will be displayed as `[ combo / ratio ]` \
-    with ratio being `n320/n300`.")]
-    /// Specify a gamemode
+    #[command(
+        desc = "Specify a gamemode",
+        help = "Specify a gamemode.\n\
+        For mania the combo will be displayed as `[ combo / ratio ]` \
+        with ratio being `n320/n300`."
+    )]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
         min_value = 1,
         max_value = 100,
+        desc = "Choose the recent score's index",
         help = "By default the very last play will be chosen.\n\
         However, if this index is specified, the play at that index will be displayed instead.\n\
         E.g. `index:1` is the default and `index:2` would show the second most recent play.\n\
         The given index should be between 1 and 100."
     )]
-    /// Choose the recent score's index
     index: Option<usize>,
-    /// Consider only scores with this grade
+    #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    /// Specify whether only passes should be considered
+    #[command(desc = "Specify whether only passes should be considered")]
     passes: Option<bool>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

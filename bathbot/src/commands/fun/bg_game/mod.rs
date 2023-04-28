@@ -100,6 +100,7 @@ pub async fn prefix_backgroundgame(
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "bg",
+    desc = "Start a new background guessing game",
     help = "Start a new background guessing game.\n\
     Given part of a map's background, try to guess the **title** of the map's song.\n\
     You don't need to guess content in parentheses `(...)` or content after `ft.` or `feat.`.\n\n\
@@ -114,16 +115,18 @@ pub async fn prefix_backgroundgame(
     I will only show members of this server."
 )]
 #[flags(SKIP_DEFER)]
-/// Start a new background guessing game
 pub struct Bg {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<BgGameMode>,
-    #[command(help = "Increase the difficulty.\n\
-    The higher the difficulty, the more accurate guesses have to be in order to be accepted.")]
-    /// Increase difficulty by requiring better guessing
+    #[command(
+        desc = "Increase difficulty by requiring better guessing",
+        help = "Increase the difficulty.\n\
+        The higher the difficulty, the more accurate guesses have to be in order to be accepted."
+    )]
     difficulty: Option<GameDifficulty>,
-    /// Choose if a new thread should be started, defaults to staying in the
-    /// channel
+    #[command(
+        desc = "Choose if a new thread should be started, defaults to staying in the channel"
+    )]
     thread: Option<ThreadChannel>,
 }
 

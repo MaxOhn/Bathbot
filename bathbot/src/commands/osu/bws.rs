@@ -22,37 +22,37 @@ use crate::{
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(
     name = "bws",
+    desc = "Show the badge weighted seeding for an osu!standard player",
     help = "To combat those pesky derank players ruining everyone's tourneys, \
-many tournaments use a \"Badge Weighted Seeding\" system to adjust a player's rank based \
-on the amount of badges they own.\n\
-Instead of considering a player's global rank at face value, tourneys calculate \
-the player's bws value and use that to determine if they are allowed to \
-participate based on the rank restrictions.\n\
-There are various formulas around but this command uses `rank^(0.9937^(badges^2))`."
+    many tournaments use a \"Badge Weighted Seeding\" system to adjust a player's rank based \
+    on the amount of badges they own.\n\
+    Instead of considering a player's global rank at face value, tourneys calculate \
+    the player's bws value and use that to determine if they are allowed to \
+    participate based on the rank restrictions.\n\
+    There are various formulas around but this command uses `rank^(0.9937^(badges^2))`."
 )]
-/// Show the badge weighted seeding for an osu!standard player
 pub struct Bws<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
         min_value = 1,
+        desc = "Specify a target rank to reach",
         help = "If specified, it will calculate how the bws value would evolve towards the given rank."
     )]
-    /// "Specify a target rank to reach"
     rank: Option<u32>,
     #[command(
         min_value = 0,
+        desc = "Specify an amount of badges to reach",
         help = "Calculate how the bws value evolves towards the given amount of badges.\n\
-    If none is specified, it defaults to the current amount + 2."
+        If none is specified, it defaults to the current amount + 2."
     )]
-    /// Specify an amount of badges to reach
     badges: Option<usize>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

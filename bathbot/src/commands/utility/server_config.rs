@@ -16,9 +16,12 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "serverconfig", dm_permission = false)]
+#[command(
+    name = "serverconfig",
+    dm_permission = false,
+    desc = "Adjust configurations or authority roles for this server"
+)]
 #[flags(AUTHORITY, SKIP_DEFER)]
-/// Adjust configurations or authority roles for this server
 pub enum ServerConfig {
     #[command(name = "authorities")]
     Authorities(ServerConfigAuthorities),
@@ -29,13 +32,13 @@ pub enum ServerConfig {
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "authorities",
+    desc = "Adjust authority roles for a server",
     help = "To use certain commands, users require a special status.\n\
     This command adjusts the authority status of roles.\n\
     Any member with an authority role can use these higher commands.\n\n\
     Authority commands: `matchlive`, `prune`, `roleassign`, \
     `serverconfig`, `track`, `trackstream`."
 )]
-/// Adjust authority roles for a server
 pub enum ServerConfigAuthorities {
     #[command(name = "add")]
     Add(ServerConfigAuthoritiesAdd),
@@ -59,68 +62,69 @@ impl From<ServerConfigAuthorities> for AuthorityCommandKind {
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "add",
+    desc = "Add authority status to a role",
     help = "Add authority status to a role.\n\
     Servers can have at most 10 authority roles."
 )]
-/// Add authority status to a role
 pub struct ServerConfigAuthoritiesAdd {
-    /// Specify the role that should gain authority status
+    #[command(desc = "Specify the role that should gain authority status")]
     role: Id<RoleMarker>,
 }
 
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "remove",
+    desc = "Remove authority status from a role",
     help = "Remove authority status from a role.\n\
     You can only use this if the removed role would __not__ make you lose authority status yourself."
 )]
-/// Remove authority status from a role
 pub struct ServerConfigAuthoritiesRemove {
-    /// Specify the role that should gain authority status
+    #[command(desc = "Specify the role that should gain authority status")]
     role: Id<RoleMarker>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "list")]
-/// Display all current authority roles
+#[command(name = "list", desc = "Display all current authority roles")]
 pub struct ServerConfigAuthoritiesList;
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "edit")]
-/// Adjust configurations for a server
+#[command(name = "edit", desc = "Adjust configurations for a server")]
 pub struct ServerConfigEdit {
-    /// Choose whether song commands can be used or not
+    #[command(desc = "Choose whether song commands can be used or not")]
     song_commands: Option<EnableDisable>,
-    #[command(help = "Some embeds are pretty chunky and show too much data.\n\
+    #[command(
+        desc = "What size should the recent, compare, simulate, ... commands be?",
+        help = "Some embeds are pretty chunky and show too much data.\n\
         With this option you can make those embeds minimized by default.\n\
         Affected commands are: `compare score`, `recent score`, `recent simulate`, \
         and any command showing top scores when the `index` option is specified.\n\
-        Applies only if the member has not specified a config for themselves.")]
-    /// What size should the recent, compare, simulate, ... commands be?
+        Applies only if the member has not specified a config for themselves."
+    )]
     score_embeds: Option<ScoreSize>,
     #[command(
+        desc = "Adjust the amount of scores shown per page in top, rb, pinned, ...",
         help = "Adjust the amount of scores shown per page in top, rb, pinned, and mapper.\n\
         `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
         Applies only if the member has not specified a config for themselves."
     )]
-    /// Adjust the amount of scores shown per page in top, rb, pinned, ...
     list_embeds: Option<ListSize>,
     #[command(
+        desc = "Should the amount of retries be shown for the recent command?",
         help = "Should the amount of retries be shown for the `recent` command?\n\
         Applies only if the member has not specified a config for themselves."
     )]
-    /// Should the amount of retries be shown for the recent command?
     retries: Option<ShowHideOption>,
     #[command(
         min_value = 1,
         max_value = 100,
+        desc = "Specify the default track limit for osu! top scores",
         help = "Specify the default track limit for tracking user's osu! top scores.\n\
         The value must be between 1 and 100, defaults to 50."
     )]
-    /// Specify the default track limit for osu! top scores
     track_limit: Option<i64>,
-    /// Specify whether the recent command should show max or if-fc pp when
-    /// minimized
+    #[command(
+        desc = "Specify whether the recent command should show max or if-fc pp when minimized"
+    )]
     minimized_pp: Option<MinimizedPp>,
 }
 

@@ -14,12 +14,12 @@ use crate::{
 #[derive(CreateCommand, SlashCommand)]
 #[command(
     name = "ping",
+    desc = "Check if the bot is online",
     help = "Most basic command, generally used to check if the bot is online.\n\
     The displayed latency is the time it takes for the bot \
     to receive a response from discord after sending a message."
 )]
 #[flags(SKIP_DEFER)]
-/// Check if the bot is online
 pub struct Ping;
 
 async fn slash_ping(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

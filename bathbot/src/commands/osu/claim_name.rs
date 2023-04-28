@@ -29,6 +29,7 @@ use crate::{
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "claimname",
+    desc = "Check how much longer to wait until a name is up for grabs",
     help = "If a player has not signed in for at least 6 months and has no plays,\
     their username may be claimed.\n\
     If that player does have any plays across all game modes, \
@@ -36,9 +37,8 @@ use crate::{
     how much extra time is added to those 6 months.\n\
     This is to prevent people from stealing the usernames of active or recently retired players."
 )]
-/// Check how much longer to wait until a name is up for grabs
 pub struct ClaimName {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: String,
 }
 

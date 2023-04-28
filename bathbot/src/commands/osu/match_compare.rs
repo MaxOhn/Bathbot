@@ -23,17 +23,16 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "matchcompare")]
+#[command(name = "matchcompare", desc = "Compare two multiplayer matches")]
 #[bucket(MatchCompare)]
-/// Compare two multiplayer matches
 pub struct MatchCompare {
-    /// Specify the first match url or match id
+    #[command(desc = "Specify the first match url or match id")]
     match_url_1: String,
-    /// Specify the second match url or match id
+    #[command(desc = "Specify the second match url or match id")]
     match_url_2: String,
-    /// Specify if the response should be paginated or all at once
+    #[command(desc = "Specify if the response should be paginated or all at once")]
     output: Option<MatchCompareOutput>,
-    /// Specify if it should show comparisons between players or teams
+    #[command(desc = "Specify if it should show comparisons between players or teams")]
     comparison: Option<MatchCompareComparison>,
 }
 

@@ -50,24 +50,31 @@ use crate::{
 #[derive(CreateCommand, SlashCommand)]
 #[command(
     name = "cs",
+    desc = "Compare a score",
     help = "Given a user and a map, display the user's scores on the map"
 )]
 #[allow(dead_code)]
-/// Compare a score
 pub struct Cs<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(help = "Specify a map either by map url or map id.\n\
+    #[command(
+        desc = "Specify a map url or map id",
+        help = "Specify a map either by map url or map id.\n\
         If none is specified, it will search in the recent channel history \
-        and pick the first map it can find.")]
-    /// Specify a map url or map id
+        and pick the first map it can find."
+    )]
     map: Option<Cow<'a, str>>,
-    #[command(autocomplete = true)]
-    /// Specify a difficulty name of the map's mapset
+    #[command(
+        autocomplete = true,
+        desc = "Specify a difficulty name of the map's mapset"
+    )]
     difficulty: Option<String>,
-    /// Choose how the scores should be ordered
+    #[command(desc = "Choose how the scores should be ordered")]
     sort: Option<ScoreOrder>,
-    #[command(help = "Filter out scores based on mods.\n\
+    #[command(
+        desc = "Filter out scores based on mods \
+        (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out scores based on mods.\n\
         Mods must be given as `+mods` to require these mods to be included, \
         `+mods!` to require exactly these mods, \
         or `-mods!` to ignore scores containing any of these mods.\n\
@@ -75,45 +82,53 @@ pub struct Cs<'a> {
         - `+hd`: Remove scores that don't include `HD`\n\
         - `+hdhr!`: Only keep the `HDHR` score\n\
         - `+nm!`: Only keep the nomod score\n\
-        - `-ezhd!`: Remove all scores that have either `EZ` or `HD`")]
-    /// Filter out scores based on mods (`+mods` for included, `+mods!` for
-    /// exact, `-mods!` for excluded)
+        - `-ezhd!`: Remove all scores that have either `EZ` or `HD`"
+    )]
     mods: Option<Cow<'a, str>>,
-    #[command(min_value = 1, max_value = 50)]
-    /// While checking the channel history, I will choose the index-th map I can
-    /// find
+    #[command(
+        min_value = 1,
+        max_value = 50,
+        desc = "While checking the channel history, I will choose the index-th map I can find"
+    )]
     index: Option<u32>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CreateCommand, SlashCommand)]
 #[command(
     name = "score",
+    desc = "Compare a score",
     help = "Given a user and a map, display the user's scores on the map.\n\
-        Its shorter alias is the `/cs` command."
+    Its shorter alias is the `/cs` command."
 )]
 #[allow(dead_code)]
-/// Compare a score
 pub struct CompareScore_<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(help = "Specify a map either by map url or map id.\n\
+    #[command(
+        desc = "Specify a map url or map id",
+        help = "Specify a map either by map url or map id.\n\
         If none is specified, it will search in the recent channel history \
-        and pick the first map it can find.")]
-    /// Specify a map url or map id
+        and pick the first map it can find."
+    )]
     map: Option<Cow<'a, str>>,
-    #[command(autocomplete = true)]
-    /// Specify a difficulty name of the map's mapset
+    #[command(
+        autocomplete = true,
+        desc = "Specify a difficulty name of the map's mapset"
+    )]
     difficulty: Option<String>,
-    /// Choose how the scores should be ordered
+    #[command(desc = "Choose how the scores should be ordered")]
     sort: Option<ScoreOrder>,
-    #[command(help = "Filter out scores based on mods.\n\
+    #[command(
+        desc = "Filter out scores based on mods \
+        (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out scores based on mods.\n\
         Mods must be given as `+mods` to require these mods to be included, \
         `+mods!` to require exactly these mods, \
         or `-mods!` to ignore scores containing any of these mods.\n\
@@ -121,20 +136,21 @@ pub struct CompareScore_<'a> {
         - `+hd`: Remove scores that don't include `HD`\n\
         - `+hdhr!`: Only keep the `HDHR` score\n\
         - `+nm!`: Only keep the nomod score\n\
-        - `-ezhd!`: Remove all scores that have either `EZ` or `HD`")]
-    /// Filter out scores based on mods (`+mods` for included, `+mods!` for
-    /// exact, `-mods!` for excluded)
+        - `-ezhd!`: Remove all scores that have either `EZ` or `HD`"
+    )]
     mods: Option<Cow<'a, str>>,
-    #[command(min_value = 1, max_value = 50)]
-    /// While checking the channel history, I will choose the index-th map I can
-    /// find
+    #[command(
+        min_value = 1,
+        max_value = 50,
+        desc = "While checking the channel history, I will choose the index-th map I can find"
+    )]
     index: Option<u32>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

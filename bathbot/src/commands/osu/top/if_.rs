@@ -27,38 +27,41 @@ use crate::{
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
-#[command(name = "topif")]
-/// How the top plays would look like with different mods
+#[command(
+    name = "topif",
+    desc = "How the top plays would look like with different mods"
+)]
 pub struct TopIf<'a> {
-    #[command(help = "Specify how the top score mods should be adjusted.\n\
+    #[command(
+        desc = "Specify mods (`+mods` to insert them, `+mods!` to replace, `-mods!` to remove)",
+        help = "Specify how the top score mods should be adjusted.\n\
         Mods must be given as `+mods` to included them everywhere, `+mods!` to replace them exactly, \
         or `-mods!` to excluded them everywhere.\n\
         Examples:\n\
         - `+hd`: Add `HD` to all scores\n\
         - `+hdhr!`: Make all scores `HDHR` scores\n\
         - `+nm!`: Make all scores nomod scores\n\
-        - `-ezhd!`: Remove both `EZ` and `HD` from all scores")]
-    /// Specify mods (`+mods` to insert them, `+mods!` to replace, `-mods!` to
-    /// remove)
+        - `-ezhd!`: Remove both `EZ` and `HD` from all scores"
+    )]
     mods: Cow<'a, str>,
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, creator, difficulty, title, or limit values such as \
         ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
         While ar & co will be adjusted to mods, stars will not."
     )]
-    /// Specify a search query containing artist, difficulty, AR, BPM, ...
     query: Option<String>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

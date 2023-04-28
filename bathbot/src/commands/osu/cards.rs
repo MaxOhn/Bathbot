@@ -58,6 +58,7 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]
 #[command(
     name = "card",
+    desc = "Create a user card",
     help = "Create a visual user card containing various fun values about the user.\n\
     Most skill values are based on the strain value of the official pp calculation. \
     Only the accuracy values for [catch](https://www.desmos.com/calculator/cg59pywpry) \
@@ -97,18 +98,17 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     - High accuracy but low strain: `Rhythm Enjoyer`\n\
     - High strain but low accuracy: `Masher` / `Droplet Dodger`"
 )]
-/// Create a user card
 pub struct Card {
-    /// Specify a gamemode
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

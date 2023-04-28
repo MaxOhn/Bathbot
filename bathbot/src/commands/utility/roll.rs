@@ -15,12 +15,10 @@ use crate::{
 const DEFAULT_LIMIT: u64 = 100;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "roll")]
+#[command(name = "roll", desc = "Roll a random number")]
 #[flags(SKIP_DEFER)]
-/// Roll a random number
 pub struct Roll {
-    #[command(min_value = 1)]
-    /// Specify an upper limit, defaults to 100
+    #[command(min_value = 1, desc = "Specify an upper limit, defaults to 100")]
     limit: Option<i64>,
 }
 

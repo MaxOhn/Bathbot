@@ -18,9 +18,8 @@ mod query;
 mod user;
 
 #[derive(CreateCommand, SlashCommand)]
-#[command(name = "badges")]
+#[command(name = "badges", desc = "Display info about badges")]
 #[allow(dead_code)]
-/// Display info about badges
 pub enum Badges {
     #[command(name = "query")]
     Query(BadgesQuery),
@@ -37,14 +36,12 @@ enum Badges_ {
 }
 
 #[derive(CreateCommand)]
-#[command(name = "query")]
+#[command(name = "query", desc = "Display all badges matching the query")]
 #[allow(dead_code)]
-/// Display all badges matching the query
 pub struct BadgesQuery {
-    #[command(autocomplete = true)]
-    /// Specify the badge name or acronym
+    #[command(autocomplete = true, desc = "Specify the badge name or acronym")]
     name: String,
-    /// Choose how the badges should be ordered
+    #[command(desc = "Choose how the badges should be ordered")]
     sort: Option<BadgesOrder>,
 }
 
@@ -56,19 +53,18 @@ struct BadgesQuery_ {
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "user")]
-/// Display all badges of a user
+#[command(name = "user", desc = "Display all badges of a user")]
 pub struct BadgesUser {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<String>,
-    /// Choose how the badges should be ordered
+    #[command(desc = "Choose how the badges should be ordered")]
     sort: Option<BadgesOrder>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

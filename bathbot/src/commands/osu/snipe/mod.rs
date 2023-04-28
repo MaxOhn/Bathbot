@@ -26,11 +26,11 @@ pub mod sniped;
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "snipe",
+    desc = "National #1 related data provided by huismetbenen",
     help = "National #1 related stats. \
     All data is provided by [huismetbenen](https://snipe.huismetbenen.nl).\n\
     Note that the data usually __updates once per week__."
 )]
-/// National #1 related data provided by huismetbenen
 pub enum Snipe<'a> {
     #[command(name = "country")]
     Country(SnipeCountry<'a>),
@@ -39,8 +39,7 @@ pub enum Snipe<'a> {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "country")]
-/// Country related snipe stats
+#[command(name = "country", desc = "Country related snipe stats")]
 pub enum SnipeCountry<'a> {
     #[command(name = "list")]
     List(SnipeCountryList<'a>),
@@ -51,17 +50,19 @@ pub enum SnipeCountry<'a> {
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "list",
+    desc = "Sort the country's #1 leaderboard",
     help = "List all players of a country with a specific order based around #1 stats"
 )]
-/// Sort the country's #1 leaderboard
 pub struct SnipeCountryList<'a> {
-    /// Specify a country (code)
+    #[command(desc = "Specify a country (code)")]
     country: Option<Cow<'a, str>>,
-    #[command(help = "Specify the order of players.\n\
+    #[command(
+        desc = "Specify the order of players",
+        help = "Specify the order of players.\n\
         Available orderings are `count` for amount of #1 scores, `pp` for average pp of #1 scores, \
         `stars` for average star rating of #1 scores, and `weighted_pp` for the total pp a user \
-        would have if only their #1s would count towards it.")]
-    /// Specify the order of players
+        would have if only their #1s would count towards it."
+    )]
     sort: Option<SnipeCountryListOrder>,
 }
 
@@ -84,16 +85,14 @@ impl Default for SnipeCountryListOrder {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "stats")]
-/// #1-count related stats for a country
+#[command(name = "stats", desc = "#1-count related stats for a country")]
 pub struct SnipeCountryStats<'a> {
-    /// Specify a country (code)
+    #[command(desc = "Specify a country (code)")]
     country: Option<Cow<'a, str>>,
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "player")]
-/// Player related snipe stats
+#[command(name = "player", desc = "Player related snipe stats")]
 pub enum SnipePlayer<'a> {
     #[command(name = "gain")]
     Gain(SnipePlayerGain<'a>),
@@ -110,93 +109,92 @@ pub enum SnipePlayer<'a> {
 #[derive(CommandModel, CreateCommand, Default, HasName)]
 #[command(
     name = "gain",
+    desc = "Display a user's recent national #1 scores",
     help = "Display all national #1 scores that a user acquired within the last week"
 )]
-/// Display a user's recent national #1 scores
 pub struct SnipePlayerGain<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
-#[command(name = "list")]
-/// List all national #1 scores of a player
+#[command(name = "list", desc = "List all national #1 scores of a player")]
 pub struct SnipePlayerList<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
-        help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
+        desc = "Specify mods e.g. hdhr or nm",
+        help = "Specify mods either directly or through the explicit \
+        `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
     )]
-    /// Specify mods e.g. hdhr or nm
     mods: Option<Cow<'a, str>>,
-    /// Specify the order of scores
+    #[command(desc = "Specify the order of scores")]
     sort: Option<SnipePlayerListOrder>,
-    /// Choose whether the list should be reversed
+    #[command(desc = "Choose whether the list should be reversed")]
     reverse: Option<bool>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand, Default, HasName)]
 #[command(
     name = "loss",
+    desc = "Display a user's recently lost national #1 scores",
     help = "Display all national #1 scores that a user lost within the last week"
 )]
-/// Display a user's recently lost national #1 scores
 pub struct SnipePlayerLoss<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand, Default, HasName)]
-#[command(name = "stats")]
-/// Stats about a user's national #1 scores
+#[command(name = "stats", desc = "Stats about a user's national #1 scores")]
 pub struct SnipePlayerStats<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
 #[command(
     name = "sniped",
+    desc = "Sniped users of the last 8 weeks",
     help = "Display who sniped and was sniped the most by a user in last 8 weeks"
 )]
-/// Sniped users of the last 8 weeks
 pub struct SnipePlayerSniped<'a> {
-    /// Specify a username
+    #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
+        desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-    /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
 }
 

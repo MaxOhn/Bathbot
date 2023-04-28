@@ -19,11 +19,11 @@ mod mods;
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "popular",
+    desc = "Check out the most popular map(set)s, mods, or mappers",
     help = "Check out the most popular map(set)s, mods, or mappers.\n\
-        All data is provided by [nzbasic](https://osu.ppy.sh/users/9008211)'s \
-        website [osutracker](https://osutracker.com/)."
+    All data is provided by [nzbasic](https://osu.ppy.sh/users/9008211)'s \
+    website [osutracker](https://osutracker.com/)."
 )]
-/// Check out the most popular map(set)s, mods, or mappers
 pub enum Popular {
     #[command(name = "maps")]
     Maps(PopularMaps),
@@ -36,10 +36,9 @@ pub enum Popular {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "maps")]
-/// What are the most common maps per pp range?
+#[command(name = "maps", desc = "What are the most common maps per pp range?")]
 pub struct PopularMaps {
-    /// Specify a pp range
+    #[command(desc = "Specify a pp range")]
     pp: PopularMapsPp,
 }
 
@@ -70,18 +69,21 @@ pub enum PopularMapsPp {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "mapsets")]
-/// What mapsets appear the most in people's top100?
+#[command(
+    name = "mapsets",
+    desc = "What mapsets appear the most in people's top100?"
+)]
 pub struct PopularMapsets;
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "mods")]
-/// What mods appear the most in people's top100?
+#[command(name = "mods", desc = "What mods appear the most in people's top100?")]
 pub struct PopularMods;
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "mappers")]
-/// What mappers' mapsets appear the most in people's top100?
+#[command(
+    name = "mappers",
+    desc = "What mappers' mapsets appear the most in people's top100?"
+)]
 pub struct PopularMappers;
 
 async fn slash_popular(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
