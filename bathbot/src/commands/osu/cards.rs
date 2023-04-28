@@ -24,7 +24,10 @@ use rosu_pp::{
     taiko::TaikoScoreState,
     AnyPP, BeatmapExt, GameMode as Mode, OsuPP,
 };
-use rosu_v2::prelude::{GameModIntermode, GameMode, OsuError, Score};
+use rosu_v2::{
+    mods,
+    prelude::{GameModIntermode, GameMode, OsuError, Score},
+};
 use serde::{Serialize, Serializer};
 use serde_json::{Map, Value};
 use time::OffsetDateTime;
@@ -811,7 +814,7 @@ impl ModDescriptions {
             }
 
             hidden += score.mods.contains_intermode(GameModIntermode::Hidden) as usize;
-            doubletime += score.mods.contains_intermode(GameModIntermode::DoubleTime) as usize;
+            doubletime += score.mods.contains_any(mods!(DT NC)) as usize;
             hardrock += score.mods.contains_intermode(GameModIntermode::HardRock) as usize;
         }
 
@@ -860,7 +863,7 @@ impl ModDescriptions {
         let mut doubletime = 0;
 
         for (score, i) in scores.iter().zip(0..) {
-            doubletime += score.mods.contains_intermode(GameModIntermode::DoubleTime) as usize;
+            doubletime += score.mods.contains_any(mods!(DT NC)) as usize;
 
             let idx = [
                 (GameModIntermode::OneKey, 1),
