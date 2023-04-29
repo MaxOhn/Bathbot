@@ -556,6 +556,10 @@ fn process_scores(
         }
     }
 
+    if reverse == Some(true) {
+        scores.scores_mut().reverse();
+    }
+
     match per_user {
         Some(ScoresPerUser::All) | None => {}
         Some(ScoresPerUser::Best) => {
@@ -563,10 +567,6 @@ fn process_scores(
 
             scores.retain(|score, _, _, _| seen.insert(score.user_id));
         }
-    }
-
-    if reverse == Some(true) {
-        scores.scores_mut().reverse();
     }
 }
 
