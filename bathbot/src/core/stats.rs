@@ -120,6 +120,7 @@ impl BotStats {
         registry.register(Box::new(slash_commands.clone())).unwrap();
         registry.register(Box::new(components.clone())).unwrap();
         registry.register(Box::new(autocompletes.clone())).unwrap();
+        registry.register(Box::new(modals.clone())).unwrap();
         registry.register(Box::new(cache_counter.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
 

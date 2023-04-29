@@ -1953,7 +1953,6 @@ version = "0.7.0"
 source = "git+https://github.com/MaxOhn/rosu-v2?branch=mods#a237ead3327782d66d9335e0ca46112db86503bf"
 dependencies = [
  "bytes",
- "dashmap",
  "futures",
  "hyper",
  "hyper-rustls",
