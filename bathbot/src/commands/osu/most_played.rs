@@ -85,11 +85,9 @@ async fn mostplayed(
 
     // Retrieve the user and their most played maps
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
-    let user_fut = ctx.redis().osu_user(user_args);
-    let maps_fut = ctx.osu().user_most_played(user_id.clone()).limit(100);
 
-    let (user, maps) = match tokio::try_join!(user_fut, maps_fut) {
-        Ok((user, maps)) => (user, maps),
+    let user = match ctx.redis().osu_user(user_args).await {
+        Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = user_not_found(&ctx, user_id).await;
 
@@ -97,7 +95,19 @@ async fn mostplayed(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or maps");
+            let err = Report::new(err).wrap_err("Failed to get user");
+
+            return Err(err);
+        }
+    };
+
+    let maps_fut = ctx.osu().user_most_played(user.user_id()).limit(100);
+
+    let maps = match maps_fut.await {
+        Ok(maps) => maps,
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get maps");
 
             return Err(err);
         }
