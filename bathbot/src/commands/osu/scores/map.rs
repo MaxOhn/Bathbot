@@ -1,10 +1,11 @@
 use std::{borrow::Cow, fmt::Write, sync::Arc};
 
+use bathbot_model::CountryCode;
 use bathbot_util::{
     constants::GENERAL_ISSUE,
     matcher,
     osu::{MapIdType, ModSelection},
-    MessageBuilder,
+    CowUtils, MessageBuilder,
 };
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
@@ -32,7 +33,7 @@ pub async fn map_scores(
 ) -> Result<()> {
     let Some(guild_id) = command.guild_id else {
         // TODO: use mode when /cs uses it
-        let MapScores { map, mode: _, sort, mods, query: _, index, reverse:_ } = args;
+        let MapScores { map, mode: _, sort, mods, country: _, query: _, index, reverse:_ } = args;
 
         let sort = match sort {
             Some(ScoresOrder::Acc) => Some(ScoreOrder::Acc),
@@ -149,6 +150,22 @@ pub async fn map_scores(
         }
     };
 
+    let country_code = match args.country {
+        Some(ref country) => match CountryCode::from_name(country) {
+            Some(code) => Some(Cow::Owned(code.to_string())),
+            None if country.len() == 2 => Some(country.cow_to_ascii_uppercase()),
+            None => {
+                let content =
+                    format!("Looks like `{country}` is neither a country name nor a country code");
+
+                command.error(&ctx, content).await?;
+
+                return Ok(());
+            }
+        },
+        None => None,
+    };
+
     let guild_fut = ctx.cache.guild(guild_id);
     let members_fut = ctx.cache.members(guild_id);
 
@@ -168,9 +185,13 @@ pub async fn map_scores(
         }
     };
 
-    let scores_fut =
-        ctx.osu_scores()
-            .from_discord_ids(&members, mode, mods.as_ref(), None, Some(map_id));
+    let scores_fut = ctx.osu_scores().from_discord_ids(
+        &members,
+        mode,
+        mods.as_ref(),
+        country_code.as_deref(),
+        Some(map_id),
+    );
 
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,
@@ -213,7 +234,12 @@ pub async fn map_scores(
         .query
         .as_deref()
         .map(FilterCriteria::<ScoresCriteria<'_>>::new);
-    let content = msg_content(sort, mods.as_ref(), criteria.as_ref());
+    let content = msg_content(
+        sort,
+        mods.as_ref(),
+        country_code.as_deref(),
+        criteria.as_ref(),
+    );
 
     process_scores(
         &mut scores,
@@ -234,6 +260,7 @@ pub async fn map_scores(
 fn msg_content(
     sort: ScoresOrder,
     mods: Option<&ModSelection>,
+    country: Option<&str>,
     criteria: Option<&FilterCriteria<ScoresCriteria<'_>>>,
 ) -> String {
     let mut content = String::new();
@@ -249,6 +276,11 @@ fn msg_content(
             let _ = write!(content, "`Mods: {mods}`");
         }
         None => {}
+    }
+
+    if let Some(country) = country {
+        separate_content(&mut content);
+        let _ = write!(content, "`Country: {country}`");
     }
 
     if let Some(criteria) = criteria {
