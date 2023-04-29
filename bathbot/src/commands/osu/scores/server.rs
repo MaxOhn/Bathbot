@@ -145,6 +145,7 @@ pub async fn server_scores(
         sort,
         args.status,
         criteria.as_ref(),
+        args.per_user,
         args.reverse,
     );
 

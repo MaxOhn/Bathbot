@@ -53,6 +53,10 @@ impl<S> DbScores<S> {
     pub fn users(&self) -> Iter<'_, u32, DbScoreUser> {
         self.users.iter()
     }
+
+    pub fn user_count(&self) -> usize {
+        self.users.len()
+    }
 }
 
 impl<S: BuildHasher> DbScores<S> {

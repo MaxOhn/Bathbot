@@ -129,6 +129,7 @@ pub async fn user_scores(
         sort,
         args.status,
         criteria.as_ref(),
+        None,
         args.reverse,
     );
 
