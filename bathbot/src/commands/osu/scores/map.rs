@@ -33,7 +33,17 @@ pub async fn map_scores(
 ) -> Result<()> {
     let Some(guild_id) = command.guild_id else {
         // TODO: use mode when /cs uses it
-        let MapScores { map, mode: _, sort, mods, country: _, query: _, index, reverse:_ } = args;
+        let MapScores {
+            map,
+            mode: _,
+            sort,
+            mods,
+            country: _,
+            query: _,
+            per_user: _,
+            index,
+            reverse:_
+        } = args;
 
         let sort = match sort {
             Some(ScoresOrder::Acc) => Some(ScoreOrder::Acc),
@@ -44,13 +54,15 @@ pub async fn map_scores(
             Some(ScoresOrder::Score) => Some(ScoreOrder::Score),
             Some(ScoresOrder::Stars) => Some(ScoreOrder::Stars),
             None => None,
-            Some(ScoresOrder::Ar |
-            ScoresOrder::Bpm |
-            ScoresOrder::Cs |
-            ScoresOrder::Hp |
-            ScoresOrder::Length |
-            ScoresOrder::Od |
-            ScoresOrder::RankedDate) => {
+            Some(
+                ScoresOrder::Ar |
+                ScoresOrder::Bpm |
+                ScoresOrder::Cs |
+                ScoresOrder::Hp |
+                ScoresOrder::Length |
+                ScoresOrder::Od |
+                ScoresOrder::RankedDate
+            ) => {
                 let content = "When using this command in DMs, \
                 the only available sort orders are \
                 `Accuracy`, `Combo`, `Date`, `Misses`, `PP`, `Score`, or `Stars`";
@@ -247,6 +259,7 @@ pub async fn map_scores(
         sort,
         None,
         criteria.as_ref(),
+        args.per_user,
         args.reverse,
     );
 

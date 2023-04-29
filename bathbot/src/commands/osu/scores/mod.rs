@@ -1,4 +1,9 @@
-use std::{cmp::Reverse, collections::HashMap, fmt::Write, sync::Arc};
+use std::{
+    cmp::Reverse,
+    collections::{HashMap, HashSet},
+    fmt::Write,
+    sync::Arc,
+};
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
 use bathbot_psql::model::osu::DbScores;
@@ -73,6 +78,8 @@ pub struct ServerScores {
         Example: `od>=9 od<9.5 len>180 difficulty=insane date<2020-12-31 misses=1`"
     )]
     query: Option<String>,
+    #[command(desc = "Only include each user's best score or all scores")]
+    per_user: Option<ScoresPerUser>,
     #[command(desc = "Reverse the list")]
     reverse: Option<bool>,
 }
@@ -128,6 +135,14 @@ impl From<MapStatus> for RankStatus {
             MapStatus::Approved => RankStatus::Approved,
         }
     }
+}
+
+#[derive(Copy, Clone, CommandOption, CreateOption)]
+enum ScoresPerUser {
+    #[option(name = "All", value = "all")]
+    All,
+    #[option(name = "Best", value = "best")]
+    Best,
 }
 
 #[derive(CreateCommand, CommandModel, HasMods, HasName)]
@@ -194,6 +209,8 @@ pub struct MapScores {
         Example: `od>=9 od<9.5 len>180 difficulty=insane date<2020-12-31 misses=1`"
     )]
     query: Option<String>,
+    #[command(desc = "Only include each user's best score or all scores")]
+    per_user: Option<ScoresPerUser>,
     #[command(
         min_value = 1,
         max_value = 50,
@@ -218,6 +235,7 @@ fn process_scores(
     sort: ScoresOrder,
     status: Option<MapStatus>,
     criteria: Option<&FilterCriteria<ScoresCriteria<'_>>>,
+    per_user: Option<ScoresPerUser>,
     reverse: Option<bool>,
 ) {
     if let Some(criteria) = criteria {
@@ -535,6 +553,15 @@ fn process_scores(
             scores
                 .scores_mut()
                 .sort_unstable_by(|a, b| b.stars.unwrap().total_cmp(&a.stars.unwrap()))
+        }
+    }
+
+    match per_user {
+        Some(ScoresPerUser::All) | None => {}
+        Some(ScoresPerUser::Best) => {
+            let mut seen = HashSet::with_capacity_and_hasher(scores.user_count(), IntHasher);
+
+            scores.retain(|score, _, _, _| seen.insert(score.user_id));
         }
     }
 
