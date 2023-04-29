@@ -184,6 +184,8 @@ pub struct MapScores {
         desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)"
     )]
     mods: Option<String>,
+    #[command(desc = "Specify a country (code)")]
+    country: Option<String>,
     #[command(
         desc = "Specify a search query containing stars, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
