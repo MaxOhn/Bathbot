@@ -4,11 +4,11 @@ use bathbot_macros::pagination;
 use bathbot_model::ScraperScore;
 use bathbot_util::IntHasher;
 use rosu_pp::DifficultyAttributes;
-use rosu_v2::prelude::Username;
 use twilight_model::channel::message::embed::Embed;
 
 use super::Pages;
 use crate::{
+    commands::osu::LeaderboardUserScore,
     core::Context,
     embeds::{EmbedData, LeaderboardEmbed},
     manager::OsuMap,
@@ -21,7 +21,7 @@ pub struct LeaderboardPagination {
     stars: f32,
     max_combo: u32,
     attr_map: HashMap<u32, (DifficultyAttributes, f32), IntHasher>,
-    author_name: Option<Username>,
+    author_data: Option<LeaderboardUserScore>,
     first_place_icon: Option<String>,
 }
 
@@ -31,7 +31,7 @@ impl LeaderboardPagination {
         let scores = &self.scores[pages.index()..end_idx];
 
         let embed_fut = LeaderboardEmbed::new(
-            self.author_name.as_deref(),
+            self.author_data.as_ref(),
             &self.map,
             self.stars,
             self.max_combo,

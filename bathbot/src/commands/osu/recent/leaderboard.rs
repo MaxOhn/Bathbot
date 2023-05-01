@@ -272,8 +272,6 @@ pub(super) async fn leaderboard(
     let content =
         format!("I found {amount} scores with the specified mods on the map's leaderboard");
 
-    let username = Some(user.username().into());
-
     let mut attr_map = HashMap::default();
     let stars = attrs.stars() as f32;
     let max_pp = attrs.pp() as f32;
@@ -286,7 +284,7 @@ pub(super) async fn leaderboard(
         stars,
         max_combo,
         attr_map,
-        username,
+        None, // TODO
         first_place_icon,
     )
     .start_by_update()

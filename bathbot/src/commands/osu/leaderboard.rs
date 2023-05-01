@@ -1,24 +1,33 @@
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
+use bathbot_model::rosu_v2::user::User;
+use bathbot_psql::model::configs::{OsuUserId, UserConfig};
 use bathbot_util::{
     constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
     matcher,
     osu::{MapIdType, ModSelection},
     IntHasher,
 };
-use eyre::Result;
-use rosu_v2::prelude::GameModsIntermode;
+use eyre::{Report, Result, WrapErr};
+use rosu_v2::prelude::{
+    BeatmapUserScore, GameMode, GameMods, GameModsIntermode, Grade, ScoreStatistics, Username,
+};
+use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::{message::MessageType, Message},
     guild::Permissions,
+    id::{marker::UserMarker, Id},
 };
 
 use super::{HasMods, ModsResult};
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
-    manager::MapError,
+    manager::{
+        redis::{osu::UserArgs, RedisData},
+        MapError,
+    },
     pagination::LeaderboardPagination,
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
@@ -172,49 +181,18 @@ async fn leaderboard(
 
     let owner = orig.user_id()?;
 
-    let map_id = match args.map {
-        Some(MapIdType::Map(id)) => id,
-        Some(MapIdType::Set(_)) => {
-            let content = "Looks like you gave me a mapset id, I need a map id though";
+    let map_id_fut = get_map_id(&ctx, &orig, args.map);
+    let config_fut = ctx.user_config().with_osu_id(owner);
 
-            return orig.error(&ctx, content).await;
-        }
-        None if orig.can_read_history() => {
-            let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
-                Ok(msgs) => msgs,
-                Err(err) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+    let (map_id_res, config_res) = tokio::join!(map_id_fut, config_fut);
 
-                    return Err(err);
-                }
-            };
+    let map_id = match map_id_res {
+        Ok(map_id) => map_id,
+        Err(GetMapError::Content(content)) => return orig.error(&ctx, content).await,
+        Err(GetMapError::Err { err, content }) => {
+            let _ = orig.error(&ctx, content).await;
 
-            match MapIdType::map_from_msgs(&msgs, 0) {
-                Some(id) => id,
-                None => {
-                    let content = "No beatmap specified and none found in recent channel history. \
-                        Try specifying a map either by url to the map, or just by map id.";
-
-                    return orig.error(&ctx, content).await;
-                }
-            }
-        }
-        None => {
-            let content =
-                "No beatmap specified and lacking permission to search the channel history for maps.\n\
-                Try specifying a map either by url to the map, or just by map id, \
-                or give me the \"Read Message History\" permission.";
-
-            return orig.error(&ctx, content).await;
-        }
-    };
-
-    let author_name = match ctx.user_config().osu_name(owner).await {
-        Ok(name_opt) => name_opt,
-        Err(err) => {
-            warn!(?err, "Failed to get username");
-
-            None
+            return Err(err);
         }
     };
 
@@ -241,6 +219,7 @@ async fn leaderboard(
         Some(ModSelection::Exclude(_)) | None => None,
     };
 
+    let with_mods = mods.is_some();
     let mods_bits = mods.as_ref().map_or(0, GameModsIntermode::bits);
 
     let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods_bits);
@@ -250,45 +229,167 @@ async fn leaderboard(
         .client()
         .get_leaderboard::<IntHasher>(map_id, mods.as_ref(), map.mode());
 
-    let (scores, attrs) = match tokio::join!(scores_fut, attrs_fut) {
-        (Ok(scores), attrs) => (scores, attrs),
-        (Err(err), _) => {
+    let user_fut = get_user_score(&ctx, config_res, map_id, map.mode(), mods.clone());
+
+    let (scores_res, user_res, attrs) = tokio::join!(scores_fut, user_fut, attrs_fut);
+
+    let scores = match scores_res {
+        Ok(scores) => scores,
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get leaderboard"));
+            return Err(err.wrap_err("Failed to get leaderboard"));
         }
     };
+
+    let user_score = user_res
+        .unwrap_or_else(|err| {
+            warn!(?err, "Failed to get user score");
+
+            None
+        })
+        .map(|(user, score)| LeaderboardUserScore {
+            discord_id: owner,
+            user_id: user.user_id(),
+            username: user.username().into(),
+            pos: score.pos,
+            grade: score.score.grade,
+            accuracy: score.score.accuracy,
+            statistics: score.score.statistics,
+            mods: score.score.mods,
+            pp: score.score.pp,
+            combo: score.score.max_combo,
+            score: score.score.score,
+            ended_at: score.score.ended_at,
+        });
 
     let amount = scores.len();
 
+    let content = if with_mods {
+        format!("I found {amount} scores with the specified mods on the map's leaderboard")
+    } else {
+        format!("I found {amount} scores on the map's leaderboard")
+    };
+
     // Accumulate all necessary data
     let first_place_icon = scores.first().map(|s| format!("{AVATAR_URL}{}", s.user_id));
-
-    // Sending the embed
-    let content = match mods {
-        Some(_) => {
-            format!("I found {amount} scores with the specified mods on the map's leaderboard")
-        }
-        None => format!("I found {amount} scores on the map's leaderboard"),
-    };
 
     let mut attr_map = HashMap::default();
     let stars = attrs.stars() as f32;
     let max_pp = attrs.pp() as f32;
     let max_combo = attrs.max_combo() as u32;
-    attr_map.insert(mods.unwrap_or_default().bits(), (attrs.into(), max_pp));
+    attr_map.insert(mods_bits, (attrs.into(), max_pp));
 
-    LeaderboardPagination::builder(
+    let pagination = LeaderboardPagination::builder(
         map,
         scores,
         stars,
         max_combo,
         attr_map,
-        author_name,
+        user_score,
         first_place_icon,
-    )
-    .start_by_update()
-    .content(content)
-    .start(ctx, orig)
-    .await
+    );
+
+    pagination
+        .start_by_update()
+        .content(content)
+        .start(ctx, orig)
+        .await
+}
+
+enum GetMapError {
+    Content(&'static str),
+    Err { err: Report, content: &'static str },
+}
+
+async fn get_map_id(
+    ctx: &Context,
+    orig: &CommandOrigin<'_>,
+    map: Option<MapIdType>,
+) -> Result<u32, GetMapError> {
+    match map {
+        Some(MapIdType::Map(id)) => Ok(id),
+        Some(MapIdType::Set(_)) => {
+            let content = "Looks like you gave me a mapset id, I need a map id though";
+
+            Err(GetMapError::Content(content))
+        }
+        None if orig.can_read_history() => {
+            let msgs = ctx
+                .retrieve_channel_history(orig.channel_id())
+                .await
+                .map_err(|err| GetMapError::Err {
+                    err,
+                    content: GENERAL_ISSUE,
+                })?;
+
+            match MapIdType::map_from_msgs(&msgs, 0) {
+                Some(id) => Ok(id),
+                None => {
+                    let content = "No beatmap specified and none found in recent channel history. \
+                        Try specifying a map either by url to the map, or just by map id.";
+
+                    Err(GetMapError::Content(content))
+                }
+            }
+        }
+        None => {
+            let content =
+                "No beatmap specified and lacking permission to search the channel history for maps.\n\
+                Try specifying a map either by url to the map, or just by map id, \
+                or give me the \"Read Message History\" permission.";
+
+            Err(GetMapError::Content(content))
+        }
+    }
+}
+
+async fn get_user_score(
+    ctx: &Context,
+    config_res: Result<UserConfig<OsuUserId>>,
+    map_id: u32,
+    mode: GameMode,
+    mods: Option<GameModsIntermode>,
+) -> Result<Option<(RedisData<User>, BeatmapUserScore)>> {
+    let config = match config_res {
+        Ok(config) => config,
+        Err(err) => {
+            warn!(?err, "Failed to get user config");
+
+            return Ok(None);
+        }
+    };
+
+    let Some(user_id) = config.osu else {
+        return Ok(None);
+    };
+
+    let user_args = UserArgs::user_id(user_id).mode(mode);
+    let user_fut = ctx.redis().osu_user(user_args);
+
+    let mut score_fut = ctx.osu().beatmap_user_score(map_id, user_id).mode(mode);
+
+    if let Some(mods) = mods {
+        score_fut = score_fut.mods(mods);
+    }
+
+    let (score, user) =
+        tokio::try_join!(score_fut, user_fut).wrap_err("Failed to get score or user")?;
+
+    Ok(Some((user, score)))
+}
+
+pub struct LeaderboardUserScore {
+    pub discord_id: Id<UserMarker>,
+    pub user_id: u32,
+    pub username: Username,
+    pub pos: usize,
+    pub grade: Grade,
+    pub accuracy: f32,
+    pub statistics: ScoreStatistics,
+    pub mods: GameMods,
+    pub pp: Option<f32>,
+    pub combo: u32,
+    pub score: u32,
+    pub ended_at: OffsetDateTime,
 }
