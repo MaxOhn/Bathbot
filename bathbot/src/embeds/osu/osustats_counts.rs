@@ -31,11 +31,8 @@ impl OsuStatsCountsEmbed {
         let mut description = String::with_capacity(64);
         description.push_str("```\n");
 
-        let has_top100 = counts.top100s.is_some();
-        let top_n_len = 2 + has_top100 as usize;
-
         for TopCount { top_n, count, rank } in counts {
-            let _ = write!(description, "Top {top_n:<top_n_len$}:  {count:>count_len$}");
+            let _ = write!(description, "Top {top_n:<3}:  {count:>count_len$}");
 
             if let Some(rank) = rank {
                 let _ = writeln!(description, "   #{rank}");

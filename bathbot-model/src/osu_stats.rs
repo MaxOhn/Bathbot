@@ -320,7 +320,7 @@ impl Display for OsuStatsScoresOrder {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct OsuStatsParams {
     pub username: Username,
     pub mode: GameMode,
