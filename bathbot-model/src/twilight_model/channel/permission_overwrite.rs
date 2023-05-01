@@ -1,6 +1,10 @@
+use std::mem;
+
 use rkyv::{
+    niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
+    ser::{ScratchSpace, Serializer},
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Archive, Deserialize, Fallible, Serialize,
+    Archive, ArchiveUnsized, Deserialize, Fallible, Serialize,
 };
 use rkyv_with::ArchiveWith;
 use twilight_model::{
@@ -78,4 +82,56 @@ impl<D: Fallible + ?Sized> DeserializeWith<u8, PermissionOverwriteType, D>
 
         Ok(overwrite_type)
     }
+}
+
+pub struct PermissionOverwriteOptionVec;
+
+impl ArchiveWith<Option<Vec<TwPermissionOverwrite>>> for PermissionOverwriteOptionVec {
+    type Archived = ArchivedOptionBox<<[PermissionOverwrite] as ArchiveUnsized>::Archived>;
+    type Resolver = OptionBoxResolver<<[PermissionOverwrite] as ArchiveUnsized>::MetadataResolver>;
+
+    unsafe fn resolve_with(
+        field: &Option<Vec<TwPermissionOverwrite>>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        let opt = field.as_ref().map(Vec::as_slice).map(tw_to_native);
+        ArchivedOptionBox::resolve_from_option(opt, pos, resolver, out);
+    }
+}
+
+impl<S: Serializer + ScratchSpace + Fallible> SerializeWith<Option<Vec<TwPermissionOverwrite>>, S>
+    for PermissionOverwriteOptionVec
+{
+    fn serialize_with(
+        field: &Option<Vec<TwPermissionOverwrite>>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, <S as Fallible>::Error> {
+        let opt = field.as_ref().map(Vec::as_slice).map(tw_to_native);
+
+        ArchivedOptionBox::serialize_from_option(opt, serializer)
+    }
+}
+
+fn tw_to_native(tw: &[TwPermissionOverwrite]) -> &[PermissionOverwrite] {
+    const _: () = {
+        fn assert_eq(permission_overwrite: TwPermissionOverwrite) {
+            let TwPermissionOverwrite {
+                allow,
+                deny,
+                id,
+                kind,
+            } = permission_overwrite;
+            let _ = PermissionOverwrite {
+                allow,
+                deny,
+                id,
+                kind,
+            };
+        }
+    };
+
+    // SAFETY: field equality is checked during compile-time
+    unsafe { mem::transmute(tw) }
 }

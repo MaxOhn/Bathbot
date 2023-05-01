@@ -187,7 +187,7 @@ fn text_channel_permissions(
     permissions: &mut Permissions,
     user: Id<UserMarker>,
     guild: Id<GuildMarker>,
-    permission_overwrites: &Archived<Vec<PermissionOverwrite>>,
+    permission_overwrites: &Archived<Box<[PermissionOverwrite]>>,
     roles: Vec<Id<RoleMarker>>,
 ) {
     let mut everyone_allowed = Permissions::empty();
