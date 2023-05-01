@@ -78,7 +78,7 @@ impl OsuStatsScoresRaw {
         } else {
             let body = String::from_utf8_lossy(&self.bytes);
 
-            eyre::bail!("Failed to deserialize osustats global: {body}")
+            eyre::bail!("Failed to deserialize count of osustats: {body}")
         }
     }
 
