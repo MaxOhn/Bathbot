@@ -4,9 +4,9 @@ use bathbot_model::{
     OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments, OsekaiMap, OsekaiMaps,
     OsekaiMedal, OsekaiMedals, OsekaiRanking, OsekaiRankingEntries, OsuStatsParams, OsuStatsPlayer,
     OsuStatsPlayersArgs, OsuStatsScoresRaw, OsuTrackerCountryDetails, OsuTrackerIdCount,
-    OsuTrackerPpGroup, OsuTrackerStats, RespektiveUser, ScraperScore, ScraperScores,
-    SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent, SnipeScore,
-    SnipeScoreParams,
+    OsuTrackerPpGroup, OsuTrackerStats, RespektiveUser, RespektiveUsers, ScraperScore,
+    ScraperScores, SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent,
+    SnipeScore, SnipeScoreParams,
 };
 use bathbot_util::{
     constants::{HUISMETBENEN, OSU_BASE},
@@ -51,20 +51,31 @@ impl Client {
 
     pub async fn get_respektive_user(
         &self,
-        user_id: u32,
+        user_ids: impl IntoIterator<Item = u32>,
         mode: GameMode,
-    ) -> Result<Option<RespektiveUser>> {
-        let url = format!("https://score.respektive.pw/u/{user_id}?m={}", mode as u8);
+    ) -> Result<RespektiveUsers> {
+        let mut url = "https://score.respektive.pw/u/".to_owned();
+
+        let mut user_ids = user_ids.into_iter();
+
+        let user_id = user_ids.next().expect("must specify at least one user id");
+        let _ = write!(url, "{}", user_id);
+
+        for user_id in user_ids {
+            let _ = write!(url, ",{}", user_id);
+        }
+
+        let _ = write!(url, "?m={}", mode as u8);
+
         let bytes = self.make_get_request(url, Site::Respektive).await?;
 
-        let mut users: Vec<RespektiveUser> =
-            serde_json::from_slice(&bytes).wrap_err_with(|| {
-                let body = String::from_utf8_lossy(&bytes);
+        let users: Vec<RespektiveUser> = serde_json::from_slice(&bytes).wrap_err_with(|| {
+            let body = String::from_utf8_lossy(&bytes);
 
-                format!("Failed to deserialize respektive user: {body}")
-            })?;
+            format!("Failed to deserialize respektive user: {body}")
+        })?;
 
-        Ok(users.pop().filter(|user| user.rank > 0))
+        Ok(users.into())
     }
 
     pub async fn get_respektive_rank(

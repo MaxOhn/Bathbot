@@ -1,7 +1,7 @@
 use std::{
     cmp::{Ordering, Reverse},
     collections::HashMap,
-    hint,
+    hint, iter,
 };
 
 use bathbot_model::rosu_v2::user::User;
@@ -78,15 +78,17 @@ impl ProfileData {
             RedisData::Archive(user) => (user.user_id, user.mode),
         };
 
-        let user_fut = ctx.client().get_respektive_user(user_id, mode);
+        let user_fut = ctx.client().get_respektive_user(iter::once(user_id), mode);
 
         match user_fut.await {
-            Ok(Some(user)) => Some(*self.score_rank.insert(user.rank)),
-            Ok(None) => {
-                self.score_rank = Availability::Errored;
+            Ok(mut iter) => match iter.next().flatten() {
+                Some(user) => Some(*self.score_rank.insert(user.rank)),
+                None => {
+                    self.score_rank = Availability::Errored;
 
-                None
-            }
+                    None
+                }
+            },
             Err(err) => {
                 warn!(?err, "Failed to get respektive user");
                 self.score_rank = Availability::Errored;

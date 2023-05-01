@@ -1,4 +1,4 @@
-use std::{mem, ops::Deref, sync::Arc};
+use std::{iter, mem, ops::Deref, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_model::{
@@ -159,10 +159,12 @@ pub(super) async fn score(
     let ranking_fut = ctx.osu().score_rankings(mode);
 
     let author_idx_fut = async {
-        match osu_id {
+        match osu_id.map(iter::once) {
             Some(user_id) => match ctx.client().get_respektive_user(user_id, mode).await {
-                Ok(Some(user)) => Some(user.rank as usize - 1),
-                Ok(None) => None,
+                Ok(mut iter) => match iter.next().flatten() {
+                    Some(user) => Some(user.rank as usize - 1),
+                    None => None,
+                },
                 Err(err) => {
                     warn!(?err, "Failed to get respektive user");
 

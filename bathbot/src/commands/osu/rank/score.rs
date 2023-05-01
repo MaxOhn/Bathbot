@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{iter, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
@@ -183,8 +183,12 @@ pub(super) async fn score(
         }
     };
 
-    let respektive_user = match ctx.client().get_respektive_user(user.user_id(), mode).await {
-        Ok(user) => user,
+    let rank_fut = ctx
+        .client()
+        .get_respektive_user(iter::once(user.user_id()), mode);
+
+    let respektive_user = match rank_fut.await {
+        Ok(mut iter) => iter.next().flatten(),
         Err(err) => {
             warn!(?err, "Failed to get respektive user");
 

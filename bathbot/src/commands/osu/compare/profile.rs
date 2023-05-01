@@ -186,11 +186,11 @@ pub(super) async fn profile(
 
     let thumbnail_fut = get_combined_thumbnail(&ctx, user1.avatar_url(), user2.avatar_url());
 
-    let score_rank1_fut = ctx.client().get_respektive_user(user1.user_id(), mode);
-    let score_rank2_fut = ctx.client().get_respektive_user(user2.user_id(), mode);
+    let score_ranks_fut = ctx
+        .client()
+        .get_respektive_user([user1.user_id(), user2.user_id()], mode);
 
-    let (thumbnail_res, score_rank1_res, score_rank2_res) =
-        tokio::join!(thumbnail_fut, score_rank1_fut, score_rank2_fut);
+    let (thumbnail_res, score_ranks_res) = tokio::join!(thumbnail_fut, score_ranks_fut);
 
     // Create the thumbnail
     let thumbnail = match thumbnail_res {
@@ -202,23 +202,17 @@ pub(super) async fn profile(
         }
     };
 
-    let score_rank1 = match score_rank1_res {
-        Ok(Some(data)) => Some(data.rank),
-        Ok(None) => None,
-        Err(err) => {
-            warn!(?err, "Failed to get respektive user");
+    let (score_rank1, score_rank2) = match score_ranks_res {
+        Ok(mut iter) => {
+            let rank1 = iter.next().flatten().map(|user| user.rank);
+            let rank2 = iter.next().flatten().map(|user| user.rank);
 
-            None
+            (rank1, rank2)
         }
-    };
-
-    let score_rank2 = match score_rank2_res {
-        Ok(Some(data)) => Some(data.rank),
-        Ok(None) => None,
         Err(err) => {
-            warn!(?err, "Failed to get respektive user");
+            warn!(?err, "Failed to get respektive users");
 
-            None
+            (None, None)
         }
     };
 
