@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    cmp::Ordering,
     collections::{HashMap, HashSet},
     fmt::Write,
     mem,
@@ -16,6 +15,7 @@ use rosu_v2::prelude::{
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
+    commands::ShowHideOption,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, MatchCostEmbed},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
@@ -60,6 +60,11 @@ pub struct MatchCost<'a> {
         If no value is specified, it defaults to 0."
     )]
     skip_last: Option<usize>,
+    #[command(
+        rename = "average_scores",
+        desc = "Whether the average scores should be shown"
+    )]
+    avg_scores: Option<ShowHideOption>,
 }
 
 impl<'m> MatchCost<'m> {
@@ -84,6 +89,7 @@ impl<'m> MatchCost<'m> {
             warmups,
             skip_last: None,
             ez_mult: None,
+            avg_scores: None,
         })
     }
 }
@@ -128,6 +134,7 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
         warmups,
         skip_last,
         ez_mult,
+        avg_scores,
     } = args;
 
     let match_id = match matcher::get_osu_match_id(&match_url) {
@@ -222,11 +229,11 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
         (None, Some(result))
     };
 
-    // Accumulate all necessary data
+    let show_scores = matches!(avg_scores, Some(ShowHideOption::Show));
+
     // TODO: pagination(?)
-    let embed_data = match MatchCostEmbed::new(&mut osu_match, description, match_result) {
-        Some(data) => data,
-        None => return orig.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,
+    let Some(embed_data) = MatchCostEmbed::new(&mut osu_match, description, match_result, show_scores) else {
+        return orig.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
     };
 
     let embed = embed_data.build();
@@ -300,7 +307,7 @@ pub async fn retrieve_previous(osu_match: &mut OsuMatch, osu: &Osu) -> OsuResult
 
 macro_rules! sort {
     ($slice:expr) => {
-        $slice.sort_unstable_by(|(.., a), (.., b)| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+        $slice.sort_unstable_by(|a, b| b.match_cost.total_cmp(&a.match_cost));
     };
 }
 
@@ -350,7 +357,10 @@ pub fn process_match(
             point_costs
                 .entry(score.user_id)
                 .or_insert_with(Vec::new)
-                .push(point_cost);
+                .push(PlayerScore {
+                    point_cost,
+                    score: score.score,
+                });
 
             teams.entry(score.user_id).or_insert(score.team);
 
@@ -378,9 +388,9 @@ pub fn process_match(
             .filter(|(&user_id, _)| game.scores.iter().any(|score| score.user_id == user_id))
             .filter_map(|(_, costs)| costs.last_mut())
             .for_each(|value| {
-                *value -= FLAT_PARTICIPATION_BONUS;
-                *value *= TIEBREAKER_BONUS;
-                *value += FLAT_PARTICIPATION_BONUS;
+                value.point_cost -= FLAT_PARTICIPATION_BONUS;
+                value.point_cost *= TIEBREAKER_BONUS;
+                value.point_cost += FLAT_PARTICIPATION_BONUS;
             });
     }
 
@@ -391,12 +401,12 @@ pub fn process_match(
         .map(|(id, mods)| (id, mods.len() - 2));
 
     for (user_id, count) in mods_count {
-        let multiplier = 1.0 + count as f32 * MOD_BONUS;
+        let mult = 1.0 + count as f32 * MOD_BONUS;
 
-        point_costs.entry(user_id).and_modify(|point_scores| {
-            point_scores
+        point_costs.entry(user_id).and_modify(|point_costs| {
+            point_costs
                 .iter_mut()
-                .for_each(|point_score| *point_score *= multiplier);
+                .for_each(|value| value.point_cost *= mult);
         });
     }
 
@@ -406,9 +416,16 @@ pub fn process_match(
     let mut mvp_avatar_url = None;
 
     for (user_id, point_costs) in point_costs {
-        let sum: f32 = point_costs.iter().sum();
+        let (point_cost_sum, score_sum) =
+            point_costs
+                .iter()
+                .fold((0.0, 0), |(point_cost_sum, score_sum), next| {
+                    (point_cost_sum + next.point_cost, score_sum + next.score)
+                });
+
         let costs_len = point_costs.len() as f32;
-        let mut match_cost = sum / costs_len;
+        let mut match_cost = point_cost_sum / costs_len;
+        let avg_score = (score_sum as f32 / costs_len) as u32;
 
         let exp = match games.len() {
             1 => 0.0,
@@ -419,7 +436,11 @@ pub fn process_match(
 
         data.entry(*teams.get(&user_id).unwrap())
             .or_insert_with(Vec::new)
-            .push((user_id, match_cost));
+            .push(PlayerResult {
+                user_id,
+                match_cost,
+                avg_score,
+            });
 
         if match_cost > highest_cost {
             highest_cost = match_cost;
@@ -460,7 +481,17 @@ pub fn process_match(
     }
 }
 
-type PlayerResult = (u32, f32);
+struct PlayerScore {
+    point_cost: f32,
+    score: u32,
+}
+
+pub struct PlayerResult {
+    pub user_id: u32,
+    pub match_cost: f32,
+    pub avg_score: u32,
+}
+
 type TeamResult = Vec<PlayerResult>;
 
 pub enum MatchResult {
