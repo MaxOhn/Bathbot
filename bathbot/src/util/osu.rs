@@ -135,9 +135,11 @@ impl TopCounts {
 
                     let next_next_fut = ctx.client().get_global_scores(&params_clone);
 
-                    let ((_, next_count_), (_, next_next_count_)) =
-                        tokio::try_join!(next_fut, next_next_fut)
-                            .wrap_err("Failed to get global scores count")?;
+                    let (next_raw, next_next_raw) = tokio::try_join!(next_fut, next_next_fut)
+                        .wrap_err("Failed to get global scores count")?;
+
+                    let next_count_ = next_raw.count()?;
+                    let next_next_count_ = next_next_raw.count()?;
 
                     next_count.write(WithComma::new(next_count_).to_string().into());
                     next_next_count.write(WithComma::new(next_next_count_).to_string().into());
@@ -145,10 +147,11 @@ impl TopCounts {
                     next_next_count_
                 }
                 None => {
-                    let (_, next_count_) = next_fut
+                    let next_raw = next_fut
                         .await
                         .wrap_err("Failed to get global scores count")?;
 
+                    let next_count_ = next_raw.count()?;
                     next_count.write(WithComma::new(next_count_).to_string().into());
 
                     next_count_

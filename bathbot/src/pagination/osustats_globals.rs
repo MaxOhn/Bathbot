@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use bathbot_macros::pagination;
-use bathbot_model::{rosu_v2::user::User, OsuStatsParams, ScoreSlim};
-use eyre::{Result, WrapErr};
+use bathbot_model::{rosu_v2::user::User, OsuStatsParams, OsuStatsScoresRaw, ScoreSlim};
+use eyre::Result;
 use rosu_v2::prelude::{GameMode, Grade, ScoreStatistics};
 use twilight_model::channel::message::embed::Embed;
 
@@ -32,12 +32,12 @@ impl OsuStatsGlobalsPagination {
         if count < pages.per_page() && self.total - pages.index() > count {
             let osustats_page = (pages.index() / 24) + 1;
             self.params.page = osustats_page;
+            let scores_fut = ctx.client().get_global_scores(&self.params);
 
-            let (scores, _) = ctx
-                .client()
-                .get_global_scores(&self.params)
-                .await
-                .wrap_err("failed to get global scores")?;
+            let scores = match scores_fut.await.map(OsuStatsScoresRaw::into_scores) {
+                Ok(Ok(scores)) => scores.scores,
+                Err(err) | Ok(Err(err)) => return Err(err.wrap_err("Failed to get global scores")),
+            };
 
             let maps_id_checksum = scores
                 .iter()
