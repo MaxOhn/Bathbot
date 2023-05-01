@@ -1,7 +1,9 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
 
 use bathbot_macros::command;
-use bathbot_model::{OsuStatsParams, OsuStatsScore, OsuStatsScoresOrder, ScoreSlim};
+use bathbot_model::{
+    OsuStatsParams, OsuStatsScore, OsuStatsScoresOrder, OsuStatsScoresRaw, ScoreSlim,
+};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -199,14 +201,15 @@ pub(super) async fn scores(
     };
 
     let params = args.into_params(user.username().into(), mode, mods);
+    let scores_fut = ctx.client().get_global_scores(&params);
 
     // Retrieve their top global scores
-    let (scores, amount) = match ctx.client().get_global_scores(&params).await {
-        Ok(tuple) => tuple,
-        Err(err) => {
+    let (scores, amount) = match scores_fut.await.map(OsuStatsScoresRaw::into_scores) {
+        Ok(Ok(scores)) => (scores.scores, scores.count),
+        Err(err) | Ok(Err(err)) => {
             let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get global scores"));
+            return Err(err.wrap_err("Failed to get global scores"));
         }
     };
 
@@ -215,7 +218,7 @@ pub(super) async fn scores(
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to process scores"));
+            return Err(err.wrap_err("Failed to process scores"));
         }
     };
 

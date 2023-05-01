@@ -4,6 +4,7 @@ use std::{
 };
 
 use bathbot_util::{osu::ModSelection, ScoreExt, ScoreHasEndedAt};
+use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMod, GameMode, GameMods, Grade, RankStatus, Username};
 use serde::{
     de::{
@@ -53,23 +54,52 @@ impl<'de> Deserialize<'de> for OsuStatsPlayer {
     }
 }
 
+/// Wrapper to avoid premature deserialization of the scores if only the count
+/// is needed
+pub struct OsuStatsScoresRaw {
+    mode: GameMode,
+    bytes: Vec<u8>,
+}
+
+impl OsuStatsScoresRaw {
+    pub fn new(mode: GameMode, bytes: Vec<u8>) -> Self {
+        Self { mode, bytes }
+    }
+
+    pub fn count(&self) -> Result<usize> {
+        let count_res = self
+            .bytes
+            .rsplit(|byte| *byte == b',')
+            .nth(2)
+            .map(|bytes| std::str::from_utf8(bytes).map(str::parse));
+
+        if let Some(Ok(Ok(count))) = count_res {
+            Ok(count)
+        } else {
+            let body = String::from_utf8_lossy(&self.bytes);
+
+            eyre::bail!("Failed to deserialize count of osustats: {body}")
+        }
+    }
+
+    pub fn into_scores(self) -> Result<OsuStatsScores> {
+        let mut deserializer = serde_json::Deserializer::from_slice(&self.bytes);
+
+        self.deserialize(&mut deserializer).wrap_err_with(|| {
+            let body = String::from_utf8_lossy(&self.bytes);
+
+            format!("Failed to deserialize osustats global: {body}")
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct OsuStatsScores {
     pub scores: Vec<OsuStatsScore>,
     pub count: usize,
 }
 
-pub struct OsuStatsScoresSeed {
-    mode: GameMode,
-}
-
-impl OsuStatsScoresSeed {
-    pub fn new(mode: GameMode) -> Self {
-        Self { mode }
-    }
-}
-
-impl<'de> DeserializeSeed<'de> for OsuStatsScoresSeed {
+impl<'de> DeserializeSeed<'de> for &OsuStatsScoresRaw {
     type Value = OsuStatsScores;
 
     fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
@@ -77,7 +107,7 @@ impl<'de> DeserializeSeed<'de> for OsuStatsScoresSeed {
     }
 }
 
-impl<'de> Visitor<'de> for OsuStatsScoresSeed {
+impl<'de> Visitor<'de> for &OsuStatsScoresRaw {
     type Value = OsuStatsScores;
 
     fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
@@ -320,7 +350,7 @@ impl Display for OsuStatsScoresOrder {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct OsuStatsParams {
     pub username: Username,
     pub mode: GameMode,

@@ -85,20 +85,14 @@ pub struct TopCounts {
     pub top25s_rank: Option<String>,
     pub top50s: Cow<'static, str>,
     pub top50s_rank: Option<String>,
-    pub top100s: Option<Cow<'static, str>>,
+    pub top100s: Cow<'static, str>,
     pub top100s_rank: Option<String>,
     pub last_update: Option<OffsetDateTime>,
 }
 
 impl TopCounts {
     pub fn count_len(&self) -> usize {
-        let len = self.top50s.len();
-
-        if let Some(ref top100s) = self.top100s {
-            len.max(top100s.len())
-        } else {
-            len
-        }
+        self.top100s.len()
     }
 
     pub async fn request(ctx: &Context, user: &RedisData<User>, mode: GameMode) -> Result<Self> {
@@ -115,28 +109,56 @@ impl TopCounts {
             MaybeUninit::uninit(),
             MaybeUninit::uninit(),
             MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
         ];
 
         let mut params = OsuStatsParams::new(user.username()).mode(mode);
+        let mut params_clone = params.clone();
         let mut get_amount = true;
 
-        for (rank, count) in [50, 25, 15, 8].into_iter().zip(counts.iter_mut()) {
+        let mut iter = [100, 50, 25, 15, 8].into_iter().zip(counts.iter_mut());
+
+        // Try to request 2 ranks concurrently
+        while let Some((next_rank, next_count)) = iter.next() {
             if !get_amount {
-                count.write("0".into());
+                next_count.write("0".into());
 
                 continue;
             }
 
-            params.max_rank = rank;
-            let (_, count_) = ctx
-                .client()
-                .get_global_scores(&params)
-                .await
-                .wrap_err("failed to get global scores count")?;
+            params.max_rank = next_rank;
+            let next_fut = ctx.client().get_global_scores(&params);
 
-            count.write(WithComma::new(count_).to_string().into());
+            let count = match iter.next() {
+                Some((next_next_rank, next_next_count)) => {
+                    params_clone.max_rank = next_next_rank;
 
-            if count_ == 0 {
+                    let next_next_fut = ctx.client().get_global_scores(&params_clone);
+
+                    let (next_raw, next_next_raw) = tokio::try_join!(next_fut, next_next_fut)
+                        .wrap_err("Failed to get global scores count")?;
+
+                    let next_count_ = next_raw.count()?;
+                    let next_next_count_ = next_next_raw.count()?;
+
+                    next_count.write(WithComma::new(next_count_).to_string().into());
+                    next_next_count.write(WithComma::new(next_next_count_).to_string().into());
+
+                    next_next_count_
+                }
+                None => {
+                    let next_raw = next_fut
+                        .await
+                        .wrap_err("Failed to get global scores count")?;
+
+                    let next_count_ = next_raw.count()?;
+                    next_count.write(WithComma::new(next_count_).to_string().into());
+
+                    next_count_
+                }
+            };
+
+            if count == 0 {
                 get_amount = false;
             }
         }
@@ -148,7 +170,7 @@ impl TopCounts {
 
         let top1s = WithComma::new(top1s).to_string().into();
 
-        let [top50s, top25s, top15s, top8s] = counts;
+        let [top100s, top50s, top25s, top15s, top8s] = counts;
 
         // SAFETY: All counts were initialized in the loop
         let this = unsafe {
@@ -163,7 +185,7 @@ impl TopCounts {
                 top25s_rank: None,
                 top50s: top50s.assume_init(),
                 top50s_rank: None,
-                top100s: None,
+                top100s: top100s.assume_init(),
                 top100s_rank: None,
                 last_update: None,
             }
@@ -235,7 +257,7 @@ impl IntoIterator for TopCounts {
             Some(top15s),
             Some(top25s),
             Some(top50s),
-            top100s,
+            Some(top100s),
         ];
 
         let ranks = [
@@ -311,7 +333,7 @@ impl<'a> IntoIterator for &'a TopCounts {
             Some(top15s.as_ref()),
             Some(top25s.as_ref()),
             Some(top50s.as_ref()),
-            top100s.as_deref(),
+            Some(top100s.as_ref()),
         ];
 
         let ranks = [

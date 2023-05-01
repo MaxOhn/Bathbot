@@ -3,10 +3,10 @@ use std::{collections::HashSet, fmt::Write, hash::BuildHasher, time::Duration};
 use bathbot_model::{
     OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments, OsekaiMap, OsekaiMaps,
     OsekaiMedal, OsekaiMedals, OsekaiRanking, OsekaiRankingEntries, OsuStatsParams, OsuStatsPlayer,
-    OsuStatsPlayersArgs, OsuStatsScore, OsuStatsScores, OsuStatsScoresSeed,
-    OsuTrackerCountryDetails, OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats,
-    RespektiveUser, ScraperScore, ScraperScores, SnipeCountryPlayer, SnipeCountryStatistics,
-    SnipePlayer, SnipeRecent, SnipeScore, SnipeScoreParams,
+    OsuStatsPlayersArgs, OsuStatsScoresRaw, OsuTrackerCountryDetails, OsuTrackerIdCount,
+    OsuTrackerPpGroup, OsuTrackerStats, RespektiveUser, ScraperScore, ScraperScores,
+    SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent, SnipeScore,
+    SnipeScoreParams,
 };
 use bathbot_util::{
     constants::{HUISMETBENEN, OSU_BASE},
@@ -18,7 +18,6 @@ use eyre::{Report, Result, WrapErr};
 use http::{header::USER_AGENT, Method, Request, Response};
 use hyper::Body;
 use rosu_v2::prelude::{mods, GameModIntermode, GameMode, GameModsIntermode};
-use serde::de::DeserializeSeed;
 use time::{format_description::FormatItem, OffsetDateTime};
 use tokio::time::timeout;
 
@@ -400,10 +399,7 @@ impl Client {
     }
 
     /// Be sure whitespaces in the username are **not** replaced
-    pub async fn get_global_scores(
-        &self,
-        params: &OsuStatsParams,
-    ) -> Result<(Vec<OsuStatsScore>, usize)> {
+    pub async fn get_global_scores(&self, params: &OsuStatsParams) -> Result<OsuStatsScoresRaw> {
         let mut form = Multipart::new()
             .push_text("accMin", params.min_acc)
             .push_text("accMax", params.max_acc)
@@ -431,22 +427,12 @@ impl Client {
 
         let bytes = match timeout(Duration::from_secs(4), post_fut).await {
             Ok(Ok(bytes)) => bytes,
-            Ok(Err(ClientError::BadRequest)) => return Ok((Vec::new(), 0)),
+            Ok(Err(ClientError::BadRequest)) => Bytes::from_static(b"[[],0,true,true]"),
             Ok(Err(err)) => return Err(Report::new(err)),
             Err(_) => bail!("timeout while waiting for osustats"),
         };
 
-        let mut d = serde_json::Deserializer::from_slice(&bytes);
-
-        let OsuStatsScores { scores, count } = OsuStatsScoresSeed::new(params.mode)
-            .deserialize(&mut d)
-            .wrap_err_with(|| {
-                let body = String::from_utf8_lossy(&bytes);
-
-                format!("failed to deserialize osustats global: {body}")
-            })?;
-
-        Ok((scores, count))
+        Ok(OsuStatsScoresRaw::new(params.mode, bytes.into()))
     }
 
     // Retrieve the global leaderboard of a map
