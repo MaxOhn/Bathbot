@@ -208,4 +208,4 @@ define_regex! {
 }
 
 pub static QUERY_SYNTAX_REGEX: Regex =
-    Regex::new(r#"\b(?P<key>\w+)(?P<op>(:|=|(>|<)(:|=)?))(?P<value>("".*"")|(\S*))"#);
+    Regex::new(r#"\b(?P<key>\w+)(?P<op>(:|=|(>|<)(:|=)?))(?P<value>(".*")|(\S*))"#);
