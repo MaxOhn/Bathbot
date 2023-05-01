@@ -49,7 +49,7 @@ impl Client {
         }
     }
 
-    pub async fn get_respektive_user(
+    pub async fn get_respektive_users(
         &self,
         user_ids: impl IntoIterator<Item = u32>,
         mode: GameMode,
@@ -58,7 +58,7 @@ impl Client {
 
         let mut user_ids = user_ids.into_iter();
 
-        let user_id = user_ids.next().expect("must specify at least one user id");
+        let user_id = user_ids.next().expect("require at least one user id");
         let _ = write!(url, "{}", user_id);
 
         for user_id in user_ids {

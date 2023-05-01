@@ -78,7 +78,7 @@ impl ProfileData {
             RedisData::Archive(user) => (user.user_id, user.mode),
         };
 
-        let user_fut = ctx.client().get_respektive_user(iter::once(user_id), mode);
+        let user_fut = ctx.client().get_respektive_users(iter::once(user_id), mode);
 
         match user_fut.await {
             Ok(mut iter) => match iter.next().flatten() {

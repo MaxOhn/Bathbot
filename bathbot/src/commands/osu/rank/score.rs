@@ -185,7 +185,7 @@ pub(super) async fn score(
 
     let rank_fut = ctx
         .client()
-        .get_respektive_user(iter::once(user.user_id()), mode);
+        .get_respektive_users(iter::once(user.user_id()), mode);
 
     let respektive_user = match rank_fut.await {
         Ok(mut iter) => iter.next().flatten(),

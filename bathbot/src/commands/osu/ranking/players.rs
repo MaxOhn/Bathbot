@@ -160,7 +160,7 @@ pub(super) async fn score(
 
     let author_idx_fut = async {
         match osu_id.map(iter::once) {
-            Some(user_id) => match ctx.client().get_respektive_user(user_id, mode).await {
+            Some(user_id) => match ctx.client().get_respektive_users(user_id, mode).await {
                 Ok(mut iter) => match iter.next().flatten() {
                     Some(user) => Some(user.rank as usize - 1),
                     None => None,

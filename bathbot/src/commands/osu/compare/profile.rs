@@ -188,7 +188,7 @@ pub(super) async fn profile(
 
     let score_ranks_fut = ctx
         .client()
-        .get_respektive_user([user1.user_id(), user2.user_id()], mode);
+        .get_respektive_users([user1.user_id(), user2.user_id()], mode);
 
     let (thumbnail_res, score_ranks_res) = tokio::join!(thumbnail_fut, score_ranks_fut);
 
