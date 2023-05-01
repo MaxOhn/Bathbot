@@ -54,7 +54,7 @@ pub async fn check_authority(
             .member(guild_id, author)
             .await?
             .wrap_err("Missing member in cache")?
-            .roles
+            .roles()
             .to_vec(),
         RolesLookup::NotFound => {
             bail!("Missing user {author} of guild {guild_id} in cache")
@@ -119,7 +119,7 @@ pub async fn check_guild_permissions(
     }
 
     let member_roles = match cache.member(guild, user).await {
-        Ok(Some(member)) => member.roles.to_vec(),
+        Ok(Some(member)) => member.roles().to_vec(),
         Ok(None) => return (Permissions::empty(), RolesLookup::NotFound),
         Err(err) => {
             warn!("{err:?}");
@@ -164,7 +164,7 @@ pub async fn check_channel_permissions(
                     .await
                     .ok()
                     .flatten()
-                    .map(|member| member.roles.to_vec()),
+                    .map(|member| member.roles().to_vec()),
                 RolesLookup::NotFound => None,
             };
 
@@ -187,7 +187,7 @@ fn text_channel_permissions(
     permissions: &mut Permissions,
     user: Id<UserMarker>,
     guild: Id<GuildMarker>,
-    permission_overwrites: &Archived<Vec<PermissionOverwrite>>,
+    permission_overwrites: &Archived<Box<[PermissionOverwrite]>>,
     roles: Vec<Id<RoleMarker>>,
 ) {
     let mut everyone_allowed = Permissions::empty();

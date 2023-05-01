@@ -1,5 +1,5 @@
 use rkyv::{
-    with::{ArchiveWith, Map, Niche},
+    with::{ArchiveWith, Niche},
     Archive, Deserialize, Serialize,
 };
 use rkyv_with::ArchiveWith;
@@ -23,8 +23,8 @@ mod permission_overwrite;
 pub use self::{
     channel_type::ChannelTypeRkyv,
     permission_overwrite::{
-        ArchivedPermissionOverwrite, PermissionOverwrite, PermissionOverwriteResolver,
-        PermissionOverwriteTypeRkyv,
+        ArchivedPermissionOverwrite, PermissionOverwrite, PermissionOverwriteOptionVec,
+        PermissionOverwriteResolver, PermissionOverwriteTypeRkyv,
     },
 };
 
@@ -42,8 +42,9 @@ pub struct Channel {
     pub name: Option<Box<str>>,
     #[with(IdNiche)]
     pub parent_id: Option<Id<ChannelMarker>>,
-    #[archive_with(from(Option<Vec<TwPermissionOverwrite>>), via(Map<Map<PermissionOverwrite>>))]
-    pub permission_overwrites: Option<Vec<PermissionOverwrite>>, // TODO: make box
+    #[with(Niche)]
+    #[archive_with(from(Option<Vec<TwPermissionOverwrite>>), via(PermissionOverwriteOptionVec))]
+    pub permission_overwrites: Option<Box<[PermissionOverwrite]>>,
     pub position: Option<i32>,
 }
 

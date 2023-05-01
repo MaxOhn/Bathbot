@@ -104,7 +104,7 @@ pub async fn authorities(
                 let member_fut = ctx.cache.member(guild_id, author_id);
 
                 let member_roles = match member_fut.await {
-                    Ok(Some(member)) => member.roles.to_vec(),
+                    Ok(Some(member)) => member.roles().to_vec(),
                     Ok(None) => Vec::new(),
                     Err(err) => {
                         let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
@@ -157,7 +157,7 @@ pub async fn authorities(
                 let member_fut = ctx.cache.member(guild_id, author_id);
 
                 let member_roles = match member_fut.await {
-                    Ok(Some(member)) => member.roles.to_vec(),
+                    Ok(Some(member)) => member.roles().to_vec(),
                     Ok(None) => Vec::new(),
                     Err(err) => {
                         let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
