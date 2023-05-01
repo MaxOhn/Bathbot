@@ -1,3 +1,5 @@
+use std::{mem, num::NonZeroU64};
+
 use rkyv::{
     with::{ArchiveWith, Map, Niche},
     Archive, Deserialize, Serialize,
@@ -13,7 +15,7 @@ use twilight_model::{
 
 use crate::{
     rkyv_util::NicheDerefAsBox,
-    twilight_model::{id::IdRkyv, util::ImageHash},
+    twilight_model::{id::IdVec, util::ImageHash},
 };
 
 #[derive(Archive, ArchiveWith, Deserialize, Serialize)]
@@ -24,9 +26,15 @@ pub struct Member {
     #[with(Niche)]
     #[archive_with(from(Option<String>), via(NicheDerefAsBox))]
     pub nick: Option<Box<str>>,
-    #[with(Map<IdRkyv>)]
-    #[archive_with(from(Vec<Id<RoleMarker>>), via(Map<IdRkyv>))]
-    pub roles: Vec<Id<RoleMarker>>, // TODO: make box
+    #[archive_with(from(Vec<Id<RoleMarker>>), via(IdVec))]
+    roles: Box<[NonZeroU64]>,
+}
+
+impl ArchivedMember {
+    pub fn roles(&self) -> &[Id<RoleMarker>] {
+        // SAFETY: Id<RoleMarker> essentially only consists of a NonZeroU64
+        unsafe { mem::transmute::<&[NonZeroU64], &[Id<RoleMarker>]>(&self.roles) }
+    }
 }
 
 #[cfg(test)]

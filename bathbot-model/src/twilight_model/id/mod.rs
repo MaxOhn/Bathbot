@@ -7,8 +7,9 @@ use rkyv::{
 use twilight_model::id::Id;
 
 mod niche;
+mod vec;
 
-pub use self::niche::IdNiche;
+pub use self::{niche::IdNiche, vec::IdVec};
 
 pub struct IdRkyv;
 
