@@ -1,7 +1,10 @@
 use std::fmt::Write;
 
-use bathbot_cache::Cache;
-use bathbot_model::twilight_model::channel::{PermissionOverwrite, PermissionOverwriteTypeRkyv};
+use bathbot_cache::{model::CachedArchive, Cache};
+use bathbot_model::twilight_model::{
+    channel::{PermissionOverwrite, PermissionOverwriteTypeRkyv},
+    guild::Member,
+};
 use eyre::{ContextCompat, Result};
 use rkyv::{with::DeserializeWith, Archived, Infallible};
 use twilight_model::{
@@ -47,21 +50,19 @@ pub async fn check_authority(
         return Ok(Some(content.to_owned()));
     }
 
-    let member_roles = match roles {
-        RolesLookup::Found(roles) => roles,
+    let member = match roles {
+        RolesLookup::Found(member) => member,
         RolesLookup::NotChecked => ctx
             .cache
             .member(guild_id, author)
             .await?
-            .wrap_err("Missing member in cache")?
-            .roles()
-            .to_vec(),
+            .wrap_err("Missing member in cache")?,
         RolesLookup::NotFound => {
             bail!("Missing user {author} of guild {guild_id} in cache")
         }
     };
 
-    if !member_roles.iter().any(|role| auth_roles.contains(role)) {
+    if !member.roles().iter().any(|role| auth_roles.contains(role)) {
         let mut content = String::from(
             "You need either admin permissions or \
             any of these roles to use this command:\n",
@@ -118,8 +119,8 @@ pub async fn check_guild_permissions(
         }
     }
 
-    let member_roles = match cache.member(guild, user).await {
-        Ok(Some(member)) => member.roles().to_vec(),
+    let member = match cache.member(guild, user).await {
+        Ok(Some(member)) => member,
         Ok(None) => return (Permissions::empty(), RolesLookup::NotFound),
         Err(err) => {
             warn!("{err:?}");
@@ -130,17 +131,17 @@ pub async fn check_guild_permissions(
 
     let mut permissions = Permissions::empty();
 
-    for &role in member_roles.iter() {
+    for &role in member.roles().iter() {
         if let Ok(Some(role)) = cache.role(guild, role).await {
             if role.permissions.contains(Permissions::ADMINISTRATOR) {
-                return (Permissions::all(), RolesLookup::Found(member_roles));
+                return (Permissions::all(), RolesLookup::Found(member));
             }
 
             permissions |= role.permissions;
         }
     }
 
-    (permissions, RolesLookup::Found(member_roles))
+    (permissions, RolesLookup::Found(member))
 }
 
 pub async fn check_channel_permissions(
@@ -157,24 +158,19 @@ pub async fn check_channel_permissions(
 
     if let Ok(Some(channel)) = cache.channel(Some(guild), channel).await {
         if let Some(permission_overwrites) = channel.permission_overwrites.as_ref() {
-            let member_roles = match roles {
+            let member = match roles {
                 RolesLookup::Found(roles) => Some(roles),
-                RolesLookup::NotChecked => cache
-                    .member(guild, user)
-                    .await
-                    .ok()
-                    .flatten()
-                    .map(|member| member.roles().to_vec()),
+                RolesLookup::NotChecked => cache.member(guild, user).await.ok().flatten(),
                 RolesLookup::NotFound => None,
             };
 
-            if let Some(roles) = member_roles {
+            if let Some(member) = member {
                 text_channel_permissions(
                     &mut permissions,
                     user,
                     guild,
                     permission_overwrites,
-                    roles,
+                    member.roles(),
                 )
             }
         }
@@ -188,7 +184,7 @@ fn text_channel_permissions(
     user: Id<UserMarker>,
     guild: Id<GuildMarker>,
     permission_overwrites: &Archived<Box<[PermissionOverwrite]>>,
-    roles: Vec<Id<RoleMarker>>,
+    roles: &[Id<RoleMarker>],
 ) {
     let mut everyone_allowed = Permissions::empty();
     let mut everyone_denied = Permissions::empty();
@@ -231,7 +227,7 @@ fn text_channel_permissions(
 }
 
 pub enum RolesLookup {
-    Found(Vec<Id<RoleMarker>>),
+    Found(CachedArchive<Member>),
     NotChecked,
     NotFound,
 }
