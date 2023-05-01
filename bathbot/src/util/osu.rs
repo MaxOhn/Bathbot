@@ -113,25 +113,49 @@ impl TopCounts {
         ];
 
         let mut params = OsuStatsParams::new(user.username()).mode(mode);
+        let mut params_clone = params.clone();
         let mut get_amount = true;
 
-        for (rank, count) in [100, 50, 25, 15, 8].into_iter().zip(counts.iter_mut()) {
+        let mut iter = [100, 50, 25, 15, 8].into_iter().zip(counts.iter_mut());
+
+        // Try to request 2 ranks concurrently
+        while let Some((next_rank, next_count)) = iter.next() {
             if !get_amount {
-                count.write("0".into());
+                next_count.write("0".into());
 
                 continue;
             }
 
-            params.max_rank = rank;
-            let (_, count_) = ctx
-                .client()
-                .get_global_scores(&params)
-                .await
-                .wrap_err("Failed to get global scores count")?;
+            params.max_rank = next_rank;
+            let next_fut = ctx.client().get_global_scores(&params);
 
-            count.write(WithComma::new(count_).to_string().into());
+            let count = match iter.next() {
+                Some((next_next_rank, next_next_count)) => {
+                    params_clone.max_rank = next_next_rank;
 
-            if count_ == 0 {
+                    let next_next_fut = ctx.client().get_global_scores(&params_clone);
+
+                    let ((_, next_count_), (_, next_next_count_)) =
+                        tokio::try_join!(next_fut, next_next_fut)
+                            .wrap_err("Failed to get global scores count")?;
+
+                    next_count.write(WithComma::new(next_count_).to_string().into());
+                    next_next_count.write(WithComma::new(next_next_count_).to_string().into());
+
+                    next_next_count_
+                }
+                None => {
+                    let (_, next_count_) = next_fut
+                        .await
+                        .wrap_err("Failed to get global scores count")?;
+
+                    next_count.write(WithComma::new(next_count_).to_string().into());
+
+                    next_count_
+                }
+            };
+
+            if count == 0 {
                 get_amount = false;
             }
         }
