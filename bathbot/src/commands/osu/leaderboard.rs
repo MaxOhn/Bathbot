@@ -2,7 +2,6 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_model::rosu_v2::user::User;
-use bathbot_psql::model::configs::{OsuUserId, UserConfig};
 use bathbot_util::{
     constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
     matcher,
@@ -182,9 +181,9 @@ async fn leaderboard(
     let owner = orig.user_id()?;
 
     let map_id_fut = get_map_id(&ctx, &orig, args.map);
-    let config_fut = ctx.user_config().with_osu_id(owner); // TODO: only get osu_id
+    let osu_id_fut = ctx.user_config().osu_id(owner);
 
-    let (map_id_res, config_res) = tokio::join!(map_id_fut, config_fut);
+    let (map_id_res, osu_id_res) = tokio::join!(map_id_fut, osu_id_fut);
 
     let map_id = match map_id_res {
         Ok(map_id) => map_id,
@@ -228,7 +227,7 @@ async fn leaderboard(
         .client()
         .get_leaderboard::<IntHasher>(map_id, mods.as_ref(), map.mode());
 
-    let user_fut = get_user_score(&ctx, config_res, map_id, map.mode(), mods.clone());
+    let user_fut = get_user_score(&ctx, osu_id_res, map_id, map.mode(), mods.clone());
 
     let (scores_res, user_res, attrs) = tokio::join!(scores_fut, user_fut, attrs_fut);
 
@@ -345,13 +344,13 @@ async fn get_map_id(
 
 async fn get_user_score(
     ctx: &Context,
-    config_res: Result<UserConfig<OsuUserId>>,
+    osu_id_res: Result<Option<u32>>,
     map_id: u32,
     mode: GameMode,
     mods: Option<GameModsIntermode>,
 ) -> Result<Option<(RedisData<User>, BeatmapUserScore)>> {
-    let config = match config_res {
-        Ok(config) => config,
+    let osu_id = match osu_id_res {
+        Ok(osu_id) => osu_id,
         Err(err) => {
             warn!(?err, "Failed to get user config");
 
@@ -359,7 +358,7 @@ async fn get_user_score(
         }
     };
 
-    let Some(user_id) = config.osu else {
+    let Some(user_id) = osu_id else {
         return Ok(None);
     };
 
