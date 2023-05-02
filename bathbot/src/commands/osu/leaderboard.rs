@@ -8,9 +8,10 @@ use bathbot_util::{
     osu::{MapIdType, ModSelection},
     IntHasher,
 };
-use eyre::{Report, Result, WrapErr};
+use eyre::{Report, Result};
 use rosu_v2::prelude::{
-    BeatmapUserScore, GameMode, GameMods, GameModsIntermode, Grade, ScoreStatistics, Username,
+    BeatmapUserScore, GameMode, GameMods, GameModsIntermode, Grade, OsuError, ScoreStatistics,
+    Username,
 };
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -371,10 +372,11 @@ async fn get_user_score(
         score_fut = score_fut.mods(mods);
     }
 
-    let (score, user) =
-        tokio::try_join!(score_fut, user_fut).wrap_err("Failed to get score or user")?;
-
-    Ok(Some((user, score)))
+    match tokio::try_join!(user_fut, score_fut) {
+        Ok(tuple) => Ok(Some(tuple)),
+        Err(OsuError::NotFound) => Ok(None),
+        Err(err) => Err(Report::new(err).wrap_err("Failed to get score or user")),
+    }
 }
 
 pub struct LeaderboardUserScore {

@@ -7,7 +7,7 @@ use bathbot_util::{
     osu::ModSelection,
     IntHasher,
 };
-use eyre::{Report, Result, WrapErr};
+use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{BeatmapUserScore, GameMode, GameModsIntermode, OsuError, Score, Username},
     request::UserId,
@@ -358,13 +358,12 @@ async fn get_user_score(
         return Ok(None);
     };
 
+    let name_fut = ctx.osu_user().name(user_id);
     let mut score_fut = ctx.osu().beatmap_user_score(map_id, user_id).mode(mode);
 
     if let Some(mods) = mods {
         score_fut = score_fut.mods(mods);
     }
-
-    let name_fut = ctx.osu_user().name(user_id);
 
     let (score_res, name_res) = tokio::join!(score_fut, name_fut);
 
@@ -372,7 +371,9 @@ async fn get_user_score(
         return Ok(None);
     };
 
-    let score = score_res.wrap_err("Failed to get score")?;
-
-    Ok(Some((score, user_id, name)))
+    match score_res {
+        Ok(score) => Ok(Some((score, user_id, name))),
+        Err(OsuError::NotFound) => Ok(None),
+        Err(err) => Err(Report::new(err).wrap_err("Failed to get score")),
+    }
 }
