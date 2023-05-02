@@ -12,10 +12,11 @@ use bathbot_util::{
     AuthorBuilder, CowUtils, FooterBuilder, IntHasher,
 };
 use rosu_pp::{BeatmapExt, DifficultyAttributes, ScoreState};
-use rosu_v2::prelude::GameMode;
+use rosu_v2::prelude::{CountryCode, GameMode, Username};
 
 use super::PpFormatter;
 use crate::{
+    commands::osu::LeaderboardUserScore,
     core::Context,
     manager::{OsuMap, PpManager},
     pagination::Pages,
@@ -35,7 +36,7 @@ pub struct LeaderboardEmbed {
 impl LeaderboardEmbed {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        author_name: Option<&str>,
+        author_data: Option<&LeaderboardUserScore>,
         map: &OsuMap,
         stars: f32,
         max_combo: u32,
@@ -58,6 +59,8 @@ impl LeaderboardEmbed {
             title = map.title().cow_escape_markdown(),
             version = map.version().cow_escape_markdown(),
         );
+
+        let author_name = author_data.as_ref().map(|score| score.username.as_str());
 
         let description = if let Some(scores) = scores {
             let mut description = String::with_capacity(256);
@@ -94,6 +97,58 @@ impl LeaderboardEmbed {
                     acc = score.accuracy,
                     miss = MissFormat(score.count_miss),
                     ago = HowLongAgoDynamic::new(&score.date),
+                );
+            }
+
+            if let Some(score) = author_data.filter(|score| {
+                !(pages.index() + 1..pages.index() + 1 + scores.len()).contains(&score.pos)
+            }) {
+                username.clear();
+
+                let _ = write!(
+                    username,
+                    "[{name}]({OSU_BASE}users/{id})",
+                    name = score.username.cow_escape_markdown(),
+                    id = score.user_id
+                );
+
+                let scraper_score = ScraperScore {
+                    id: 0,
+                    user_id: score.user_id,
+                    username: Username::new(),
+                    country_code: CountryCode::new(),
+                    accuracy: score.accuracy,
+                    mode: map.mode(), // TODO: fix when mode selection available
+                    mods: score.mods.clone(),
+                    score: score.score,
+                    max_combo: score.combo,
+                    pp: score.pp,
+                    grade: score.grade,
+                    date: score.ended_at,
+                    replay: false,
+                    count50: score.statistics.count_50,
+                    count100: score.statistics.count_100,
+                    count300: score.statistics.count_300,
+                    count_geki: score.statistics.count_geki,
+                    count_katu: score.statistics.count_katu,
+                    count_miss: score.statistics.count_miss,
+                };
+
+                let _ = writeln!(
+                    description,
+                    "\n__**<@{discord_id}>'s score:**__\n\
+                    **{i}.** {grade} **{username}**: {score} [ {combo} ] **+{mods}**\n\
+                    - {pp} • {acc:.2}% • {miss}{ago}",
+                    discord_id = score.discord_id,
+                    i = score.pos,
+                    grade = grade_emote(score.grade),
+                    score = WithComma::new(score.score),
+                    combo = ComboFormatter::new(&scraper_score, max_combo, map.mode()),
+                    mods = score.mods,
+                    pp = pp_format(ctx, attr_map, &scraper_score, map).await,
+                    acc = score.accuracy,
+                    miss = MissFormat(score.statistics.count_miss),
+                    ago = HowLongAgoDynamic::new(&score.ended_at),
                 );
             }
 

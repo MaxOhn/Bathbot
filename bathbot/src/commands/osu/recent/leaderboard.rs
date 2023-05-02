@@ -8,12 +8,15 @@ use bathbot_util::{
     IntHasher,
 };
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, GameModsIntermode, OsuError, Score};
+use rosu_v2::{
+    prelude::{BeatmapUserScore, GameMode, GameModsIntermode, OsuError, Score, Username},
+    request::UserId,
+};
 
 use super::RecentLeaderboard;
 use crate::{
     commands::{
-        osu::{user_not_found, HasMods, ModsResult},
+        osu::{require_link, user_not_found, HasMods, LeaderboardUserScore, ModsResult},
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
@@ -164,7 +167,30 @@ pub(super) async fn leaderboard(
         return orig.error(&ctx, content).await;
     }
 
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+    let owner = orig.user_id()?;
+
+    let config = match ctx.user_config().with_osu_id(owner).await {
+        Ok(config) => config,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err.wrap_err("Failed to get user config"));
+        }
+    };
+
+    let mode = args
+        .mode
+        .map(GameMode::from)
+        .or(config.mode)
+        .unwrap_or(GameMode::Osu);
+
+    let user_id = if let Some(user_id) = user_id!(ctx, orig, args) {
+        user_id
+    } else if let Some(user_id) = config.osu {
+        UserId::Id(user_id)
+    } else {
+        return require_link(&ctx, &orig).await;
+    };
 
     // Retrieve the recent scores
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
@@ -172,7 +198,7 @@ pub(super) async fn leaderboard(
     let scores_fut = ctx
         .osu_scores()
         .recent()
-        .limit(1)
+        .limit(limit)
         .include_fails(true)
         .exec_with_user(user_args);
 
@@ -218,7 +244,7 @@ pub(super) async fn leaderboard(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get scores");
+            let err = Report::new(err).wrap_err("Failed to get scores");
 
             return Err(err);
         }
@@ -233,8 +259,9 @@ pub(super) async fn leaderboard(
         .client()
         .get_leaderboard::<IntHasher>(map_id, mods.as_ref(), mode);
     let map_fut = ctx.osu_map().map(map_id, checksum.as_deref());
+    let user_score_fut = get_user_score(&ctx, map_id, config.osu, mode, mods.clone());
 
-    let (scores_res, map_res) = tokio::join!(scores_fut, map_fut);
+    let (scores_res, map_res, user_score_res) = tokio::join!(scores_fut, map_fut, user_score_fut);
 
     // Retrieving the beatmap
     let map = match map_res {
@@ -252,7 +279,30 @@ pub(super) async fn leaderboard(
         Err(err) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get scores"));
+            return Err(err.wrap_err("Failed to get scores"));
+        }
+    };
+
+    let user_score = match user_score_res {
+        Ok(Some((score, user_id, username))) => Some(LeaderboardUserScore {
+            discord_id: owner,
+            user_id,
+            username,
+            pos: score.pos,
+            grade: score.score.grade,
+            accuracy: score.score.accuracy,
+            statistics: score.score.statistics,
+            mods: score.score.mods,
+            pp: score.score.pp,
+            combo: score.score.max_combo,
+            score: score.score.score,
+            ended_at: score.score.ended_at,
+        }),
+        Ok(None) => None,
+        Err(err) => {
+            warn!(?err, "Failed to get user score");
+
+            None
         }
     };
 
@@ -268,11 +318,11 @@ pub(super) async fn leaderboard(
         .first()
         .map(|_| format!("{AVATAR_URL}{}", user.user_id()));
 
-    // Sending the embed
-    let content =
-        format!("I found {amount} scores with the specified mods on the map's leaderboard");
-
-    let username = Some(user.username().into());
+    let content = if mods.is_some() {
+        format!("I found {amount} scores with the specified mods on the map's leaderboard")
+    } else {
+        format!("I found {amount} scores on the map's leaderboard")
+    };
 
     let mut attr_map = HashMap::default();
     let stars = attrs.stars() as f32;
@@ -280,17 +330,50 @@ pub(super) async fn leaderboard(
     let max_combo = attrs.max_combo() as u32;
     attr_map.insert(mods_bits, (attrs.into(), max_pp));
 
-    LeaderboardPagination::builder(
+    let pagination = LeaderboardPagination::builder(
         map,
         scores,
         stars,
         max_combo,
         attr_map,
-        username,
+        user_score,
         first_place_icon,
-    )
-    .start_by_update()
-    .content(content)
-    .start(ctx, orig)
-    .await
+    );
+
+    pagination
+        .start_by_update()
+        .content(content)
+        .start(ctx, orig)
+        .await
+}
+
+async fn get_user_score(
+    ctx: &Context,
+    map_id: u32,
+    user_id: Option<u32>,
+    mode: GameMode,
+    mods: Option<GameModsIntermode>,
+) -> Result<Option<(BeatmapUserScore, u32, Username)>> {
+    let Some(user_id) = user_id else {
+        return Ok(None);
+    };
+
+    let name_fut = ctx.osu_user().name(user_id);
+    let mut score_fut = ctx.osu().beatmap_user_score(map_id, user_id).mode(mode);
+
+    if let Some(mods) = mods {
+        score_fut = score_fut.mods(mods);
+    }
+
+    let (score_res, name_res) = tokio::join!(score_fut, name_fut);
+
+    let Some(name) = name_res? else {
+        return Ok(None);
+    };
+
+    match score_res {
+        Ok(score) => Ok(Some((score, user_id, name))),
+        Err(OsuError::NotFound) => Ok(None),
+        Err(err) => Err(Report::new(err).wrap_err("Failed to get score")),
+    }
 }
