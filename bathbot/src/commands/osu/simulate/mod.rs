@@ -49,6 +49,8 @@ pub struct Simulate<'m> {
     acc: Option<f32>,
     #[command(desc = "Specify a custom clock rate that overwrites mods")]
     clock_rate: Option<f32>,
+    #[command(desc = "Specify a BPM value instead of a clock rate")]
+    bpm: Option<f32>,
     #[command(desc = "Specify the amount of 300s")]
     n300: Option<u32>,
     #[command(desc = "Specify the amount of 100s")]
@@ -171,6 +173,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         n_miss: args.misses,
         combo: args.combo,
         clock_rate: args.clock_rate,
+        bpm: args.bpm,
         attrs: SimulateAttributes {
             ar: args.ar,
             cs: args.cs,
@@ -202,6 +205,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
     - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
     - n100: `n100=[interger]` or `[integer]x100`\n\
     - n50: `n50=[integer]` or `[integer]x50`\n\
@@ -245,6 +249,7 @@ async fn prefix_simulate(
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
     - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
     - n100: `n100=[interger]` or `[integer]x100`\n\
     - misses: `miss=[integer]` or `[integer]m`\n\
@@ -285,6 +290,7 @@ async fn prefix_simulatetaiko(
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
     - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - fruits: `n300=[integer]` or `[integer]x300`\n\
     - droplets: `n100=[interger]` or `[integer]x100`\n\
     - tiny droplets: `n50=[integer]` or `[integer]x50`\n\
@@ -327,6 +333,7 @@ async fn prefix_simulatectb(
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
     - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - n320: `n320=[integer]` or `[integer]x320`\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
     - n200: `n200=[integer]` or `[integer]x200`\n\
@@ -367,6 +374,7 @@ struct SimulateArgs {
     mods: Option<GameModsIntermode>,
     combo: Option<u32>,
     acc: Option<f32>,
+    bpm: Option<f32>,
     clock_rate: Option<f32>,
     n300: Option<u32>,
     n100: Option<u32>,
@@ -410,6 +418,7 @@ impl SimulateArgs {
 
             match SimulateArg::parse(arg).map_err(ParseError::into_str)? {
                 SimulateArg::Acc(val) => simulate.acc = Some(val.clamp(0.0, 100.0)),
+                SimulateArg::Bpm(val) => simulate.bpm = Some(val),
                 SimulateArg::Combo(val) => simulate.combo = Some(val),
                 SimulateArg::ClockRate(val) => simulate.clock_rate = Some(val),
                 SimulateArg::N300(val) => simulate.n300 = Some(val),
@@ -460,6 +469,7 @@ impl SimulateArgs {
             mods,
             combo: simulate.combo,
             acc: simulate.acc,
+            bpm: simulate.bpm,
             clock_rate: simulate.clock_rate,
             n300: simulate.n300,
             n100: simulate.n100,

@@ -46,6 +46,6 @@ impl SimulatePagination {
             self.map.pp_map.od = od;
         }
 
-        SimulateEmbed::new(&self.map, &self.simulate_data).build()
+        SimulateEmbed::new(&self.map, &mut self.simulate_data).build()
     }
 }

@@ -16,6 +16,7 @@ use rosu_v2::prelude::GameModsIntermode;
 #[derive(Debug, PartialEq)]
 pub enum SimulateArg {
     Acc(f32),
+    Bpm(f32),
     Combo(u32),
     ClockRate(f32),
     N300(u32),
@@ -38,6 +39,7 @@ impl SimulateArg {
         match key_opt {
             None => parse_any(rest),
             Some("acc" | "a" | "accuracy") => parse_acc(rest).map(SimulateArg::Acc),
+            Some("bpm") => parse_bpm(rest).map(SimulateArg::Bpm),
             Some("combo" | "c") => parse_combo(rest).map(SimulateArg::Combo),
             Some("clockrate" | "cr") => parse_clock_rate(rest).map(SimulateArg::ClockRate),
             Some("n300") => parse_n300(rest).map(SimulateArg::N300),
@@ -182,6 +184,7 @@ parse_attr_arg! {
     parse_cs: Cs;
     parse_hp: Hp;
     parse_od: Od;
+    parse_bpm: Bpm;
 }
 
 fn is_some<T>(opt: Option<T>) -> bool {
@@ -280,6 +283,7 @@ fn recognize_miss(input: &str) -> IResult<&str, &str> {
 #[derive(Debug, PartialEq)]
 pub enum ParseError<'s> {
     Acc,
+    Bpm,
     Combo,
     ClockRate,
     N300,
@@ -301,6 +305,7 @@ impl ParseError<'_> {
     pub fn into_str(self) -> Cow<'static, str> {
         match self {
             Self::Acc => "Failed to parse accuracy, must be a number".into(),
+            Self::Bpm => "Failed to parse bpm, must be a number".into(),
             Self::Combo => "Failed to parse combo, must be an integer".into(),
             Self::ClockRate => "Failed to parse clock rate, must be a number".into(),
             Self::N300 => "Failed to parse n300, must be an interger".into(),
@@ -316,7 +321,7 @@ impl ParseError<'_> {
             Self::Od => "Failed to parsed OD, must be a number".into(),
             Self::Nom(input) => format!("Failed to parse argument `{input}`").into(),
             Self::Unknown(input) => format!(
-                "Unknown key `{input}`. Must be `mods`, `acc`, `combo`, `clockrate`, \
+                "Unknown key `{input}`. Must be `mods`, `acc`, `bpm`, `combo`, `clockrate`, \
                 `n300`, `n100`, `n50`, `miss`, `geki`, `katu`, `ar`, `cs`, `hp`, or `od`"
             )
             .into(),
