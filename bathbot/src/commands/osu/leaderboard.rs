@@ -182,7 +182,7 @@ async fn leaderboard(
     let owner = orig.user_id()?;
 
     let map_id_fut = get_map_id(&ctx, &orig, args.map);
-    let config_fut = ctx.user_config().with_osu_id(owner);
+    let config_fut = ctx.user_config().with_osu_id(owner); // TODO: only get osu_id
 
     let (map_id_res, config_res) = tokio::join!(map_id_fut, config_fut);
 
@@ -219,7 +219,6 @@ async fn leaderboard(
         Some(ModSelection::Exclude(_)) | None => None,
     };
 
-    let with_mods = mods.is_some();
     let mods_bits = mods.as_ref().map_or(0, GameModsIntermode::bits);
 
     let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods_bits);
@@ -265,7 +264,7 @@ async fn leaderboard(
 
     let amount = scores.len();
 
-    let content = if with_mods {
+    let content = if mods.is_some() {
         format!("I found {amount} scores with the specified mods on the map's leaderboard")
     } else {
         format!("I found {amount} scores on the map's leaderboard")
