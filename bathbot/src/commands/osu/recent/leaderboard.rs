@@ -261,7 +261,7 @@ pub(super) async fn leaderboard(
         .client()
         .get_leaderboard::<IntHasher>(map_id, mods.as_ref(), mode);
     let map_fut = ctx.osu_map().map(map_id, checksum.as_deref());
-    let user_score_fut = get_user_score(&ctx, map_id, user_id, mode, mods.clone());
+    let user_score_fut = get_user_score(&ctx, map_id, config.osu, mode, mods.clone());
 
     let (scores_res, map_res, user_score_res) = tokio::join!(scores_fut, map_fut, user_score_fut);
 
@@ -352,10 +352,14 @@ pub(super) async fn leaderboard(
 async fn get_user_score(
     ctx: &Context,
     map_id: u32,
-    user_id: u32,
+    user_id: Option<u32>,
     mode: GameMode,
     mods: Option<GameModsIntermode>,
 ) -> Result<Option<BeatmapUserScore>, OsuError> {
+    let Some(user_id) = user_id else {
+        return Ok(None);
+    };
+
     let mut score_fut = ctx.osu().beatmap_user_score(map_id, user_id).mode(mode);
 
     if let Some(mods) = mods {
