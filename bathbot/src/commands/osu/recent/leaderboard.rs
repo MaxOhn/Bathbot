@@ -7,9 +7,9 @@ use bathbot_util::{
     osu::ModSelection,
     IntHasher,
 };
-use eyre::{Report, Result};
+use eyre::{Report, Result, WrapErr};
 use rosu_v2::{
-    prelude::{BeatmapUserScore, GameMode, GameModsIntermode, OsuError, Score},
+    prelude::{BeatmapUserScore, GameMode, GameModsIntermode, OsuError, Score, Username},
     request::UserId,
 };
 
@@ -255,8 +255,6 @@ pub(super) async fn leaderboard(
         Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
     };
 
-    let user_id = user.user_id();
-
     let scores_fut = ctx
         .client()
         .get_leaderboard::<IntHasher>(map_id, mods.as_ref(), mode);
@@ -286,10 +284,10 @@ pub(super) async fn leaderboard(
     };
 
     let user_score = match user_score_res {
-        Ok(Some(score)) => Some(LeaderboardUserScore {
+        Ok(Some((score, user_id, username))) => Some(LeaderboardUserScore {
             discord_id: owner,
             user_id,
-            username: user.username().into(),
+            username,
             pos: score.pos,
             grade: score.score.grade,
             accuracy: score.score.accuracy,
@@ -355,7 +353,7 @@ async fn get_user_score(
     user_id: Option<u32>,
     mode: GameMode,
     mods: Option<GameModsIntermode>,
-) -> Result<Option<BeatmapUserScore>, OsuError> {
+) -> Result<Option<(BeatmapUserScore, u32, Username)>> {
     let Some(user_id) = user_id else {
         return Ok(None);
     };
@@ -366,5 +364,15 @@ async fn get_user_score(
         score_fut = score_fut.mods(mods);
     }
 
-    score_fut.await.map(Some)
+    let name_fut = ctx.osu_user().name(user_id);
+
+    let (score_res, name_res) = tokio::join!(score_fut, name_fut);
+
+    let Some(name) = name_res? else {
+        return Ok(None);
+    };
+
+    let score = score_res.wrap_err("Failed to get score")?;
+
+    Ok(Some((score, user_id, name)))
 }
