@@ -198,7 +198,7 @@ pub(super) async fn leaderboard(
     let scores_fut = ctx
         .osu_scores()
         .recent()
-        .limit(1)
+        .limit(limit)
         .include_fails(true)
         .exec_with_user(user_args);
 
