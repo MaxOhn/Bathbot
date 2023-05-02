@@ -37,7 +37,7 @@ pub struct SimulateEmbed {
 }
 
 impl SimulateEmbed {
-    pub fn new(map: &OsuMap, data: &SimulateData) -> Self {
+    pub fn new(map: &OsuMap, data: &mut SimulateData) -> Self {
         let mut title = format!(
             "{} - {} [{}]",
             map.artist().cow_escape_markdown(),
@@ -195,6 +195,7 @@ pub struct SimulateData {
     pub n_miss: Option<u32>,
     pub combo: Option<u32>,
     pub score: Option<u32>,
+    pub bpm: Option<f32>,
     pub clock_rate: Option<f32>,
     pub version: TopOldVersion,
     pub attrs: SimulateAttributes,
@@ -243,7 +244,6 @@ impl SimulateData {
         set_miss: n_miss as u32;
         set_combo: combo as u32;
         set_score: score as u32;
-        set_clock_rate: clock_rate as f32;
     }
 
     pub fn set_mods(&mut self, mods: Option<GameModsIntermode>, mode: GameMode) -> Result<()> {
@@ -261,8 +261,14 @@ impl SimulateData {
         self.acc = acc.map(|acc| acc.clamp(0.0, 100.0));
     }
 
-    fn simulate(&self, map: &OsuMap) -> SimulateValues {
+    fn simulate(&mut self, map: &OsuMap) -> SimulateValues {
         let mods = self.mods.as_ref().map_or(0, |mods| mods.bits());
+
+        if let Some(new_bpm) = self.bpm.filter(|_| self.clock_rate.is_none()) {
+            let old_bpm = map.bpm();
+
+            self.clock_rate = Some(new_bpm / old_bpm);
+        }
 
         macro_rules! simulate {
             (

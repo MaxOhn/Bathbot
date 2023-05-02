@@ -136,7 +136,6 @@ handle_sim_buttons! {
     handle_sim_mods_button, "E.g. hd or HdHRdteZ", "sim_mods", "Mods", "Specify mods";
     handle_sim_combo_button, "Integer", "sim_combo", "Combo", "Specify combo";
     handle_sim_acc_button, "Number", "sim_acc", "Accuracy", "Specify an accuracy";
-    handle_sim_clock_rate_button, "Number", "sim_clock_rate", "Clock rate", "Specify a clock rate";
     handle_sim_geki_button, "Integer", "sim_geki", "Amount of gekis", "Specify the amount of gekis";
     handle_sim_katu_button, "Integer", "sim_katu", "Amount of katus", "Specify the amount of katus";
     handle_sim_n300_button, "Integer", "sim_n300", "Amount of 300s", "Specify the amount of 300s";
@@ -144,6 +143,30 @@ handle_sim_buttons! {
     handle_sim_n50_button, "Integer", "sim_n50", "Amount of 50s", "Specify the amount of 50s";
     handle_sim_miss_button, "Integer", "sim_miss", "Amount of misses", "Specify the amount of misses";
     handle_sim_score_button, "Integer", "sim_score", "Score", "Specify the score";
+}
+
+pub async fn handle_sim_clock_rate_button(
+    ctx: Arc<Context>,
+    component: InteractionComponent,
+) -> Result<()> {
+    let clock_rate = TextInputBuilder::new("sim_clock_rate", "Clock rate")
+        .placeholder("Specify a clock rate")
+        .required(false);
+
+    let bpm = TextInputBuilder::new("sim_bpm", "BPM (overwritten if clock rate is specified)")
+        .placeholder("Specify a BPM")
+        .required(false);
+
+    let modal = ModalBuilder::new("sim_speed_adjustments", "Speed adjustments")
+        .input(clock_rate)
+        .input(bpm);
+
+    component
+        .modal(&ctx, modal)
+        .await
+        .wrap_err("Failed modal callback")?;
+
+    Ok(())
 }
 
 pub async fn handle_sim_attrs_button(
@@ -175,7 +198,7 @@ pub async fn handle_sim_attrs_button(
     component
         .modal(&ctx, modal)
         .await
-        .wrap_err("failed modal callback")?;
+        .wrap_err("Failed modal callback")?;
 
     Ok(())
 }
@@ -387,7 +410,6 @@ handle_sim_modals! {
     handle_sim_mods_modal: |p, value| p.simulate_data.set_mods(value, p.mode());
     handle_sim_combo_modal: |p, value| Ok(p.simulate_data.set_combo(value));
     handle_sim_acc_modal: |p, value| Ok(p.simulate_data.set_acc(value));
-    handle_sim_clock_rate_modal: |p, value| Ok(p.simulate_data.set_clock_rate(value));
     handle_sim_geki_modal: |p, value| Ok(p.simulate_data.set_geki(value));
     handle_sim_katu_modal: |p, value| Ok(p.simulate_data.set_katu(value));
     handle_sim_n300_modal: |p, value| Ok(p.simulate_data.set_n300(value));
@@ -395,6 +417,68 @@ handle_sim_modals! {
     handle_sim_n50_modal: |p, value| Ok(p.simulate_data.set_n50(value));
     handle_sim_miss_modal: |p, value| Ok(p.simulate_data.set_miss(value));
     handle_sim_score_modal: |p, value| Ok(p.simulate_data.set_score(value));
+}
+
+pub async fn handle_sim_speed_adj_modal(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
+    fn parse_attr(modal: &InteractionModal, component_id: &str) -> Option<f32> {
+        modal
+            .data
+            .components
+            .iter()
+            .find_map(|row| {
+                row.components.first().and_then(|component| {
+                    (component.custom_id == component_id).then(|| {
+                        component
+                            .value
+                            .as_deref()
+                            .filter(|value| !value.is_empty())
+                            .map(str::parse)
+                            .and_then(Result::ok)
+                    })
+                })
+            })
+            .flatten()
+    }
+
+    let clock_rate = parse_attr(&modal, "sim_clock_rate");
+    let bpm = parse_attr(&modal, "sim_bpm");
+
+    let Some(ref msg) = modal.message else {
+        warn!("Received modal without msg");
+
+        return Ok(());
+    };
+
+    let (builder, defer_components) = {
+        let mut guard = ctx.paginations.lock(&msg.id).await;
+
+        let Some(pagination) = guard.get_mut() else {
+            return Ok(());
+        };
+
+        if !pagination.is_author(modal.user_id()?) {
+            return Ok(());
+        }
+
+        let defer_components = pagination.defer_components;
+
+        if defer_components {
+            modal.defer(&ctx).await.wrap_err("Failed to defer")?;
+        }
+
+        pagination.reset_timeout();
+
+        let PaginationKind::Simulate(sim_pagination) = &mut pagination.kind else {
+            return Ok(());
+        };
+
+        sim_pagination.simulate_data.clock_rate = clock_rate;
+        sim_pagination.simulate_data.bpm = bpm;
+
+        (pagination.build(&ctx).await?, defer_components)
+    };
+
+    respond_modal(defer_components, &modal, &ctx, builder).await
 }
 
 pub async fn handle_sim_attrs_modal(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
@@ -443,7 +527,7 @@ pub async fn handle_sim_attrs_modal(ctx: Arc<Context>, modal: InteractionModal) 
         let defer_components = pagination.defer_components;
 
         if defer_components {
-            modal.defer(&ctx).await.wrap_err("failed to defer")?;
+            modal.defer(&ctx).await.wrap_err("Failed to defer")?;
         }
 
         pagination.reset_timeout();
