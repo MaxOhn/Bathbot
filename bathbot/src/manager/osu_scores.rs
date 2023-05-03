@@ -1,5 +1,8 @@
 use bathbot_model::rosu_v2::user::User;
-use bathbot_psql::{model::osu::DbScores, Database};
+use bathbot_psql::{
+    model::osu::{DbScores, DbScoresBuilder},
+    Database,
+};
 use bathbot_util::{osu::ModSelection, IntHasher};
 use eyre::{Result, WrapErr};
 use rosu_v2::{
@@ -24,31 +27,48 @@ impl<'c> ScoresManager<'c> {
         Self { ctx, psql }
     }
 
+    fn scores_builder<'a>(
+        mode: Option<GameMode>,
+        mods: Option<&ModSelection>,
+        country_code: Option<&'a str>,
+        map_id: Option<u32>,
+    ) -> DbScoresBuilder<'a> {
+        let mut builder = DbScoresBuilder::new();
+
+        if let Some(mode) = mode {
+            builder.mode(mode);
+        }
+
+        if let Some(country_code) = country_code {
+            builder.country_code(country_code);
+        }
+
+        if let Some(map_id) = map_id {
+            builder.map_id(map_id as i32);
+        }
+
+        if let Some(mods) = mods {
+            match mods {
+                ModSelection::Include(mods) => builder.mods_include(mods.bits() as i32),
+                ModSelection::Exclude(mods) => builder.mods_exclude(mods.bits() as i32),
+                ModSelection::Exact(mods) => builder.mods_exact(mods.bits() as i32),
+            };
+        }
+
+        builder
+    }
+
     #[allow(clippy::wrong_self_convention)]
     pub async fn from_discord_ids(
         self,
-        discord_users: &[i64],
+        users: &[i64],
         mode: Option<GameMode>,
         mods: Option<&ModSelection>,
         country_code: Option<&str>,
         map_id: Option<u32>,
     ) -> Result<DbScores<IntHasher>> {
-        let ExplicitModSelection {
-            mods_include,
-            mods_exclude,
-            mods_exact,
-        } = ExplicitModSelection::new(mods);
-
-        self.psql
-            .select_scores_by_discord_id(
-                discord_users,
-                mode,
-                country_code,
-                map_id.map(|map_id| map_id as i32),
-                mods_include,
-                mods_exclude,
-                mods_exact,
-            )
+        Self::scores_builder(mode, mods, country_code, map_id)
+            .build_discord(self.psql, users)
             .await
             .wrap_err("Failed to select scores")
     }
@@ -56,28 +76,14 @@ impl<'c> ScoresManager<'c> {
     #[allow(clippy::wrong_self_convention)]
     pub async fn from_osu_ids(
         self,
-        user_ids: &[i32],
+        users: &[i32],
         mode: Option<GameMode>,
         mods: Option<&ModSelection>,
         country_code: Option<&str>,
         map_id: Option<u32>,
     ) -> Result<DbScores<IntHasher>> {
-        let ExplicitModSelection {
-            mods_include,
-            mods_exclude,
-            mods_exact,
-        } = ExplicitModSelection::new(mods);
-
-        self.psql
-            .select_scores_by_osu_id(
-                user_ids,
-                mode,
-                country_code,
-                map_id.map(|map_id| map_id as i32),
-                mods_include,
-                mods_exclude,
-                mods_exact,
-            )
+        Self::scores_builder(mode, mods, country_code, map_id)
+            .build_osu(self.psql, users)
             .await
             .wrap_err("Failed to select scores")
     }
@@ -255,29 +261,6 @@ impl<'c> ScoreArgs<'c> {
                 Ok((user, scores))
             }
             UserArgs::Err(err) => Err(err),
-        }
-    }
-}
-
-struct ExplicitModSelection {
-    mods_include: Option<i32>,
-    mods_exclude: Option<i32>,
-    mods_exact: Option<i32>,
-}
-
-impl ExplicitModSelection {
-    fn new(mods: Option<&ModSelection>) -> Self {
-        let (mods_include, mods_exclude, mods_exact) = match mods {
-            Some(ModSelection::Include(mods)) => (Some(mods.bits() as i32), None, None),
-            Some(ModSelection::Exclude(mods)) => (None, Some(mods.bits() as i32), None),
-            Some(ModSelection::Exact(mods)) => (None, None, Some(mods.bits() as i32)),
-            None => (None, None, None),
-        };
-
-        Self {
-            mods_include,
-            mods_exclude,
-            mods_exact,
         }
     }
 }

@@ -3,12 +3,81 @@ use std::{
     hash::BuildHasher,
 };
 
+use eyre::Result;
 use rosu_v2::prelude::{GameMode, Grade, RankStatus, ScoreStatistics};
 use time::OffsetDateTime;
+
+use crate::Database;
 
 type Maps<S> = HashMap<u32, DbScoreBeatmap, S>;
 type Mapsets<S> = HashMap<u32, DbScoreBeatmapset, S>;
 type Users<S> = HashMap<u32, DbScoreUser, S>;
+
+#[derive(Default)]
+pub struct DbScoresBuilder<'a> {
+    pub(crate) mode: Option<GameMode>,
+    pub(crate) country_code: Option<&'a str>,
+    pub(crate) map_id: Option<i32>,
+    pub(crate) mods_include: Option<i32>,
+    pub(crate) mods_exclude: Option<i32>,
+    pub(crate) mods_exact: Option<i32>,
+}
+
+impl<'a> DbScoresBuilder<'a> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub async fn build_osu<S>(&self, psql: &Database, users: &[i32]) -> Result<DbScores<S>>
+    where
+        S: BuildHasher + Default,
+    {
+        psql.select_scores_by_osu_id::<S>(users, self).await
+    }
+
+    pub async fn build_discord<S>(&self, psql: &Database, users: &[i64]) -> Result<DbScores<S>>
+    where
+        S: BuildHasher + Default,
+    {
+        psql.select_scores_by_discord_id::<S>(users, self).await
+    }
+
+    pub fn mode(&mut self, mode: GameMode) -> &mut Self {
+        self.mode = Some(mode);
+
+        self
+    }
+
+    pub fn country_code(&mut self, country_code: &'a str) -> &mut Self {
+        self.country_code = Some(country_code);
+
+        self
+    }
+
+    pub fn map_id(&mut self, map_id: i32) -> &mut Self {
+        self.map_id = Some(map_id);
+
+        self
+    }
+
+    pub fn mods_include(&mut self, mods: i32) -> &mut Self {
+        self.mods_include = Some(mods);
+
+        self
+    }
+
+    pub fn mods_exclude(&mut self, mods: i32) -> &mut Self {
+        self.mods_exclude = Some(mods);
+
+        self
+    }
+
+    pub fn mods_exact(&mut self, mods: i32) -> &mut Self {
+        self.mods_exact = Some(mods);
+
+        self
+    }
+}
 
 pub struct DbScores<S> {
     pub(crate) scores: Vec<DbScore>,
