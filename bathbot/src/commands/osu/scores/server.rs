@@ -7,12 +7,11 @@ use bathbot_util::{
     CowUtils,
 };
 use eyre::{Report, Result};
-use rosu_v2::{
-    prelude::{GameMode, OsuError},
-    request::UserId,
-};
+use rosu_v2::{prelude::OsuError, request::UserId};
 
-use super::{criteria_to_content, process_scores, separate_content, MapStatus, ServerScores};
+use super::{
+    criteria_to_content, get_mode, process_scores, separate_content, MapStatus, ServerScores,
+};
 use crate::{
     commands::osu::{user_not_found, HasMods, ModsResult},
     core::Context,
@@ -21,7 +20,7 @@ use crate::{
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, ScoresCriteria},
-        InteractionCommandExt,
+        Authored, InteractionCommandExt,
     },
 };
 
@@ -52,8 +51,6 @@ pub async fn server_scores(
         }
     };
 
-    let mode = args.mode.map(GameMode::from);
-
     let country_code = match args.country {
         Some(ref country) => match CountryCode::from_name(country) {
             Some(code) => Some(Cow::Owned(code.to_string())),
@@ -72,8 +69,9 @@ pub async fn server_scores(
 
     let guild_fut = ctx.cache.guild(guild_id);
     let members_fut = ctx.cache.members(guild_id);
+    let mode_fut = get_mode(&ctx, args.mode, command.user_id()?);
 
-    let (guild_res, members_res) = tokio::join!(guild_fut, members_fut);
+    let (guild_res, members_res, mode_res) = tokio::join!(guild_fut, members_fut, mode_fut);
 
     let guild_icon = guild_res
         .ok()
@@ -88,6 +86,12 @@ pub async fn server_scores(
             return Err(err);
         }
     };
+
+    let mode = mode_res.unwrap_or_else(|err| {
+        warn!(?err);
+
+        None
+    });
 
     let scores_fut = ctx.osu_scores().from_discord_ids(
         &members,

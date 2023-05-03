@@ -70,7 +70,21 @@ impl ServerScoresEmbed {
             author = author.icon_url(url);
         }
 
-        let footer_text = format!("Page {}/{}", pages.curr_page(), pages.last_page());
+        let mut footer_text = format!("Page {}/{}", pages.curr_page(), pages.last_page());
+
+        if let Some(mode) = mode {
+            footer_text.push_str(" • Mode: ");
+
+            let mode = match mode {
+                GameMode::Osu => "osu!",
+                GameMode::Taiko => "Taiko",
+                GameMode::Catch => "Catch",
+                GameMode::Mania => "Mania",
+            };
+
+            footer_text.push_str(mode);
+        }
+
         let footer = FooterBuilder::new(footer_text);
 
         let idx = pages.index();

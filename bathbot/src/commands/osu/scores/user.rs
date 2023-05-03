@@ -49,7 +49,7 @@ pub async fn user_scores(
     let author_id = command.user_id()?;
     let config = ctx.user_config().with_osu_id(author_id).await?;
 
-    let mode = args.mode.map(GameMode::from).or(config.mode);
+    let mode = args.mode.map_or(config.mode, Option::from);
 
     let user_id = {
         let orig = CommandOrigin::from(&mut command);
