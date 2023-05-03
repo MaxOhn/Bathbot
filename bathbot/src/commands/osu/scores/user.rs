@@ -7,7 +7,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_v2::{
-    prelude::{GameMode, OsuError},
+    prelude::{GameMode, Grade, OsuError},
     request::UserId,
 };
 
@@ -77,10 +77,12 @@ pub async fn user_scores(
         }
     };
 
+    let grade = args.grade.map(Grade::from);
     let ids = &[user.user_id() as i32];
+
     let scores_fut = ctx
         .osu_scores()
-        .from_osu_ids(ids, mode, mods.as_ref(), None, None);
+        .from_osu_ids(ids, mode, mods.as_ref(), None, None, grade);
 
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,
@@ -120,6 +122,7 @@ pub async fn user_scores(
         mods.as_ref(),
         args.mapper.as_deref(),
         args.status,
+        grade,
         criteria.as_ref(),
     );
 
@@ -159,6 +162,7 @@ fn msg_content(
     mods: Option<&ModSelection>,
     mapper: Option<&str>,
     status: Option<MapStatus>,
+    grade: Option<Grade>,
     criteria: Option<&FilterCriteria<ScoresCriteria<'_>>>,
 ) -> String {
     let mut content = String::new();
@@ -191,6 +195,11 @@ fn msg_content(
         };
 
         let _ = write!(content, "`Status: {status}`");
+    }
+
+    if let Some(grade) = grade {
+        separate_content(&mut content);
+        let _ = write!(content, "`Grade: {grade:?}`");
     }
 
     if let Some(criteria) = criteria {

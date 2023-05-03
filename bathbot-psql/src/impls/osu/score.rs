@@ -9,7 +9,7 @@ use crate::{
     database::Database,
     model::osu::{
         DbScore, DbScoreAny, DbScoreBeatmapRaw, DbScoreBeatmapsetRaw, DbScoreCatch, DbScoreMania,
-        DbScoreOsu, DbScoreTaiko, DbScoreUserRaw, DbScores,
+        DbScoreOsu, DbScoreTaiko, DbScoreUserRaw, DbScores, DbScoresBuilder,
     },
 };
 
@@ -18,21 +18,18 @@ macro_rules! select_scores {
         async fn $fn(
             conn: &mut PoolConnection<Postgres>,
             user_ids: &[i32],
-            country_code: Option<&str>,
-            map_id: Option<i32>,
-            mods_include: Option<i32>,
-            mods_exclude: Option<i32>,
-            mods_exact: Option<i32>,
+            data: &DbScoresBuilder<'_>,
         ) -> Result<Vec<DbScore>> {
             let query = sqlx::query_as!(
                 $ty,
                 $query,
                 user_ids,
-                country_code,
-                mods_include,
-                mods_exclude,
-                mods_exact,
-                map_id,
+                data.country_code,
+                data.mods_include,
+                data.mods_exclude,
+                data.mods_exact,
+                data.map_id,
+                data.grade.map(|grade| grade as i16),
             );
 
             let mut scores = Vec::new();
@@ -114,6 +111,11 @@ r#"WITH scores AS (
       -- exact mods
       $5 :: INT4 IS NULL 
       OR mods = $5
+    )
+    AND (
+      -- grade
+      $7 :: INT2 IS NULL 
+      OR grade = $7
     )
 ) 
 SELECT 
@@ -216,6 +218,11 @@ r#"WITH scores AS (
       $5 :: INT4 IS NULL 
       OR mods = $5
     )
+    AND (
+      -- grade
+      $7 :: INT2 IS NULL 
+      OR grade = $7
+    )
 ) 
 SELECT 
   DISTINCT ON (
@@ -317,6 +324,11 @@ r#"WITH scores AS (
       -- exact mods
       $5 :: INT4 IS NULL 
       OR mods = $5
+    )
+    AND (
+      -- grade
+      $7 :: INT2 IS NULL 
+      OR grade = $7
     )
 ) 
 SELECT 
@@ -423,6 +435,11 @@ r#"WITH scores AS (
       $5 :: INT4 IS NULL 
       OR mods = $5
     )
+    AND (
+      -- grade
+      $7 :: INT2 IS NULL 
+      OR grade = $7
+    )
 ) 
 SELECT 
   DISTINCT ON (
@@ -464,11 +481,7 @@ ORDER BY
     async fn select_any_scores(
         conn: &mut PoolConnection<Postgres>,
         user_ids: &[i32],
-        country_code: Option<&str>,
-        map_id: Option<i32>,
-        mods_include: Option<i32>,
-        mods_exclude: Option<i32>,
-        mods_exact: Option<i32>,
+        data: &DbScoresBuilder<'_>,
     ) -> Result<Vec<DbScore>> {
         let query = sqlx::query_as!(
             DbScoreAny,
@@ -540,6 +553,11 @@ WITH scores AS (
       $5 :: INT4 IS NULL 
       OR mods = $5
     )
+    AND (
+      -- grade
+      $7 :: INT2 IS NULL 
+      OR grade = $7
+    )
 ) 
 SELECT 
   DISTINCT ON (
@@ -610,11 +628,12 @@ ORDER BY
   scores.mods, 
   ended_at DESC"#,
             user_ids,
-            country_code,
-            mods_include,
-            mods_exclude,
-            mods_exact,
-            map_id,
+            data.country_code,
+            data.mods_include,
+            data.mods_exclude,
+            data.mods_exact,
+            data.map_id,
+            data.grade.map(|grade| grade as i16),
         );
 
         let mut scores = Vec::new();
@@ -628,17 +647,10 @@ ORDER BY
         Ok(scores)
     }
 
-    // TODO: use builder pattern type
-    #[allow(clippy::too_many_arguments)]
-    pub async fn select_scores_by_discord_id<S>(
+    pub(crate) async fn select_scores_by_discord_id<S>(
         &self,
-        discord_users: &[i64],
-        mode: Option<GameMode>,
-        country_code: Option<&str>,
-        map_id: Option<i32>,
-        mods_include: Option<i32>,
-        mods_exclude: Option<i32>,
-        mods_exact: Option<i32>,
+        users: &[i64],
+        data: &DbScoresBuilder<'_>,
     ) -> Result<DbScores<S>>
     where
         S: BuildHasher + Default,
@@ -657,10 +669,10 @@ user_configs
 WHERE 
 discord_id = ANY($1) 
 AND osu_id IS NOT NULL"#,
-            discord_users,
+            users,
         );
 
-        let mut user_ids = Vec::with_capacity(discord_users.len());
+        let mut user_ids = Vec::with_capacity(users.len());
 
         {
             let mut rows = user_ids_query.fetch(&mut *conn);
@@ -671,30 +683,13 @@ AND osu_id IS NOT NULL"#,
             }
         }
 
-        Self::select_scores_by_osu_id_(
-            &mut conn,
-            &user_ids,
-            mode,
-            country_code,
-            map_id,
-            mods_include,
-            mods_exclude,
-            mods_exact,
-        )
-        .await
+        Self::select_scores_by_osu_id_(&mut conn, &user_ids, data).await
     }
 
-    // TODO: use builder pattern type
-    #[allow(clippy::too_many_arguments)]
-    pub async fn select_scores_by_osu_id<S>(
+    pub(crate) async fn select_scores_by_osu_id<S>(
         &self,
         user_ids: &[i32],
-        mode: Option<GameMode>,
-        country_code: Option<&str>,
-        map_id: Option<i32>,
-        mods_include: Option<i32>,
-        mods_exclude: Option<i32>,
-        mods_exact: Option<i32>,
+        data: &DbScoresBuilder<'_>,
     ) -> Result<DbScores<S>>
     where
         S: BuildHasher + Default,
@@ -704,95 +699,23 @@ AND osu_id IS NOT NULL"#,
             .await
             .wrap_err("Failed to acquire connection")?;
 
-        Self::select_scores_by_osu_id_(
-            &mut conn,
-            user_ids,
-            mode,
-            country_code,
-            map_id,
-            mods_include,
-            mods_exclude,
-            mods_exact,
-        )
-        .await
+        Self::select_scores_by_osu_id_(&mut conn, user_ids, data).await
     }
 
-    // TODO: use builder pattern type
-    #[allow(clippy::too_many_arguments)]
     async fn select_scores_by_osu_id_<S>(
         conn: &mut PoolConnection<Postgres>,
         user_ids: &[i32],
-        mode: Option<GameMode>,
-        country_code: Option<&str>,
-        map_id: Option<i32>,
-        mods_include: Option<i32>,
-        mods_exclude: Option<i32>,
-        mods_exact: Option<i32>,
+        data: &DbScoresBuilder<'_>,
     ) -> Result<DbScores<S>>
     where
         S: BuildHasher + Default,
     {
-        let scores = match mode {
-            None => {
-                Self::select_any_scores(
-                    conn,
-                    user_ids,
-                    country_code,
-                    map_id,
-                    mods_include,
-                    mods_exclude,
-                    mods_exact,
-                )
-                .await?
-            }
-            Some(GameMode::Osu) => {
-                Self::select_osu_scores(
-                    conn,
-                    user_ids,
-                    country_code,
-                    map_id,
-                    mods_include,
-                    mods_exclude,
-                    mods_exact,
-                )
-                .await?
-            }
-            Some(GameMode::Taiko) => {
-                Self::select_taiko_scores(
-                    conn,
-                    user_ids,
-                    country_code,
-                    map_id,
-                    mods_include,
-                    mods_exclude,
-                    mods_exact,
-                )
-                .await?
-            }
-            Some(GameMode::Catch) => {
-                Self::select_catch_scores(
-                    conn,
-                    user_ids,
-                    country_code,
-                    map_id,
-                    mods_include,
-                    mods_exclude,
-                    mods_exact,
-                )
-                .await?
-            }
-            Some(GameMode::Mania) => {
-                Self::select_mania_scores(
-                    conn,
-                    user_ids,
-                    country_code,
-                    map_id,
-                    mods_include,
-                    mods_exclude,
-                    mods_exact,
-                )
-                .await?
-            }
+        let scores = match data.mode {
+            None => Self::select_any_scores(conn, user_ids, data).await?,
+            Some(GameMode::Osu) => Self::select_osu_scores(conn, user_ids, data).await?,
+            Some(GameMode::Taiko) => Self::select_taiko_scores(conn, user_ids, data).await?,
+            Some(GameMode::Catch) => Self::select_catch_scores(conn, user_ids, data).await?,
+            Some(GameMode::Mania) => Self::select_mania_scores(conn, user_ids, data).await?,
         };
 
         let map_ids: Vec<_> = scores.iter().map(|score| score.map_id as i32).collect();
