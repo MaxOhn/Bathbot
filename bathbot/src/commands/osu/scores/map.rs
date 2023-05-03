@@ -11,7 +11,9 @@ use eyre::Result;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::AutocompleteValue;
 
-use super::{criteria_to_content, process_scores, separate_content, MapScores, ScoresOrder};
+use super::{
+    criteria_to_content, get_mode, process_scores, separate_content, MapScores, ScoresOrder,
+};
 use crate::{
     commands::osu::{
         compare::{slash_compare_score, ScoreOrder},
@@ -100,8 +102,6 @@ pub async fn map_scores(
         }
     };
 
-    let mode = args.mode.map(GameMode::from);
-
     let map = match args.map {
         Some(ref map) => {
             let map_opt = matcher::get_osu_map_id(map)
@@ -180,8 +180,9 @@ pub async fn map_scores(
 
     let guild_fut = ctx.cache.guild(guild_id);
     let members_fut = ctx.cache.members(guild_id);
+    let mode_fut = get_mode(&ctx, args.mode, command.user_id()?);
 
-    let (guild_res, members_res) = tokio::join!(guild_fut, members_fut);
+    let (guild_res, members_res, mode_res) = tokio::join!(guild_fut, members_fut, mode_fut);
 
     let guild_icon = guild_res
         .ok()
@@ -196,6 +197,12 @@ pub async fn map_scores(
             return Err(err);
         }
     };
+
+    let mode = mode_res.unwrap_or_else(|err| {
+        warn!(?err);
+
+        None
+    });
 
     let scores_fut = ctx.osu_scores().from_discord_ids(
         &members,

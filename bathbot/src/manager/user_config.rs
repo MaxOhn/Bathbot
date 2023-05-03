@@ -22,7 +22,7 @@ impl<'d> UserConfigManager<'d> {
             .psql
             .select_user_config_with_osu_id_by_discord_id(user_id);
 
-        match config_fut.await.wrap_err("failed to get user config")? {
+        match config_fut.await.wrap_err("Failed to get user config")? {
             Some(config) => Ok(config),
             None => {
                 let config = UserConfig::default();
@@ -30,7 +30,7 @@ impl<'d> UserConfigManager<'d> {
                 self.psql
                     .upsert_user_config(user_id, &config)
                     .await
-                    .wrap_err("failed to insert default user config")
+                    .wrap_err("Failed to insert default user config")
                     .map(|_| config)
             }
         }
@@ -41,13 +41,13 @@ impl<'d> UserConfigManager<'d> {
             .psql
             .select_user_config_with_osu_name_by_discord_id(user_id);
 
-        match config_fut.await.wrap_err("failed to get user config")? {
+        match config_fut.await.wrap_err("Failed to get user config")? {
             Some(config) => Ok(config),
             None => self
                 .psql
                 .upsert_user_config(user_id, &UserConfig::default())
                 .await
-                .wrap_err("failed to insert default user config")
+                .wrap_err("Failed to insert default user config")
                 .map(|_| UserConfig::default()),
         }
     }
@@ -56,14 +56,14 @@ impl<'d> UserConfigManager<'d> {
         self.psql
             .select_user_mode(user_id)
             .await
-            .wrap_err("failed to get user mode from DB")
+            .wrap_err("Failed to get user mode from DB")
     }
 
     pub async fn osu_id(self, user_id: Id<UserMarker>) -> Result<Option<u32>> {
         self.psql
             .select_osu_id_by_discord_id(user_id)
             .await
-            .wrap_err("failed to get user id from DB")
+            .wrap_err("Failed to get user id from DB")
     }
 
     pub async fn osu_name(self, user_id: Id<UserMarker>) -> Result<Option<Username>> {

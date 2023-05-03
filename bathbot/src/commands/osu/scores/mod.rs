@@ -16,7 +16,6 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use self::{map::map_scores, server::server_scores, user::user_scores};
 use crate::{
-    commands::GameModeOption,
     core::Context,
     util::{
         interaction::InteractionCommand,
@@ -57,7 +56,7 @@ pub enum Scores {
 )]
 pub struct ServerScores {
     #[command(desc = "Specify a gamemode")]
-    mode: Option<GameModeOption>,
+    mode: Option<ScoresGameMode>,
     #[command(desc = "Choose how the scores should be ordered, defaults to PP")]
     sort: Option<ScoresOrder>,
     #[command(
@@ -84,6 +83,31 @@ pub struct ServerScores {
     reverse: Option<bool>,
 }
 
+#[derive(Copy, Clone, CommandOption, CreateOption)]
+pub enum ScoresGameMode {
+    #[option(name = "all", value = "all")]
+    All,
+    #[option(name = "osu", value = "osu")]
+    Osu,
+    #[option(name = "taiko", value = "taiko")]
+    Taiko,
+    #[option(name = "ctb", value = "ctb")]
+    Catch,
+    #[option(name = "mania", value = "mania")]
+    Mania,
+}
+
+impl From<ScoresGameMode> for Option<GameMode> {
+    fn from(mode: ScoresGameMode) -> Self {
+        match mode {
+            ScoresGameMode::All => None,
+            ScoresGameMode::Osu => Some(GameMode::Osu),
+            ScoresGameMode::Taiko => Some(GameMode::Taiko),
+            ScoresGameMode::Catch => Some(GameMode::Catch),
+            ScoresGameMode::Mania => Some(GameMode::Mania),
+        }
+    }
+}
 #[derive(Copy, Clone, CommandOption, CreateOption, Default)]
 pub enum ScoresOrder {
     #[option(name = "Accuracy", value = "acc")]
@@ -149,7 +173,7 @@ enum ScoresPerUser {
 #[command(name = "user", desc = "List scores of a user")]
 pub struct UserScores {
     #[command(desc = "Specify a gamemode")]
-    mode: Option<GameModeOption>,
+    mode: Option<ScoresGameMode>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(desc = "Choose how the scores should be ordered, defaults to PP")]
@@ -192,7 +216,7 @@ pub struct MapScores {
     )]
     map: Option<String>,
     #[command(desc = "Specify a gamemode")]
-    mode: Option<GameModeOption>,
+    mode: Option<ScoresGameMode>,
     #[command(desc = "Choose how the scores should be ordered, defaults to PP")]
     sort: Option<ScoresOrder>,
     #[command(
@@ -706,4 +730,16 @@ fn criteria_to_content(content: &mut String, criteria: &FilterCriteria<ScoresCri
         content.push_str(criteria.search_text());
         content.push('`');
     }
+}
+
+async fn get_mode(
+    ctx: &Context,
+    mode: Option<ScoresGameMode>,
+    user_id: Id<UserMarker>,
+) -> Result<Option<GameMode>> {
+    if let Some(mode) = mode {
+        return Ok(mode.into());
+    }
+
+    ctx.user_config().mode(user_id).await
 }
