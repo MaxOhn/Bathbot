@@ -8,6 +8,7 @@ mod client;
 mod discord;
 mod error;
 mod metrics;
+mod miss_analyzer;
 mod multipart;
 mod osu;
 mod site;

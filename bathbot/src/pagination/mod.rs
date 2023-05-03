@@ -17,12 +17,12 @@ use twilight_model::{
 pub use self::{
     badges::*, common::*, country_snipe_list::*, leaderboard::*, map::*, map_search::*,
     mapscores::*, match_compare::*, medal_recent::*, medals_common::*, medals_list::*,
-    medals_missing::*, most_played::*, most_played_common::*, nochoke::*, osekai_medal_count::*,
-    osekai_medal_rarity::*, osustats_globals::*, osustats_list::*, osutracker_countrytop::*,
-    osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*, osutracker_mods::*,
-    pages::Pages, player_snipe_list::*, profile::*, ranking::*, ranking_countries::*,
-    recent_list::*, scores::*, serverscores::*, simulate::*, skins::*, sniped_difference::*,
-    top::*, top_if::*, userscores::*,
+    medals_missing::*, miss_analyzer::*, most_played::*, most_played_common::*, nochoke::*,
+    osekai_medal_count::*, osekai_medal_rarity::*, osustats_globals::*, osustats_list::*,
+    osutracker_countrytop::*, osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*,
+    osutracker_mods::*, pages::Pages, player_snipe_list::*, profile::*, ranking::*,
+    ranking_countries::*, recent_list::*, scores::*, serverscores::*, simulate::*, skins::*,
+    sniped_difference::*, top::*, top_if::*, userscores::*,
 };
 use crate::{
     commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
@@ -43,6 +43,7 @@ mod medal_recent;
 mod medals_common;
 mod medals_list;
 mod medals_missing;
+mod miss_analyzer;
 mod most_played;
 mod most_played_common;
 mod nochoke;
@@ -86,6 +87,7 @@ pub enum PaginationKind {
     MedalsCommon(Box<MedalsCommonPagination>),
     MedalsList(Box<MedalsListPagination>),
     MedalsMissing(Box<MedalsMissingPagination>),
+    MissAnalyzer(MissAnalyzerPagination),
     MostPlayed(Box<MostPlayedPagination>),
     MostPlayedCommon(Box<MostPlayedCommonPagination>),
     NoChoke(Box<NoChokePagination>),
@@ -130,6 +132,7 @@ impl PaginationKind {
             Self::MedalsCommon(kind) => Ok(kind.build_page(pages)),
             Self::MedalsList(kind) => Ok(kind.build_page(pages)),
             Self::MedalsMissing(kind) => Ok(kind.build_page(pages)),
+            Self::MissAnalyzer(kind) => kind.build_page(),
             Self::MostPlayed(kind) => Ok(kind.build_page(pages)),
             Self::MostPlayedCommon(kind) => Ok(kind.build_page(pages)),
             Self::NoChoke(kind) => Ok(kind.build_page(pages).await),
@@ -156,6 +159,35 @@ impl PaginationKind {
             Self::TopSingle(kind) => kind.build_page(ctx, pages).await,
             Self::UserScores(kind) => Ok(kind.build_page(pages)),
         }
+    }
+
+    async fn on_timeout(
+        &mut self,
+        ctx: &Context,
+        msg: Id<MessageMarker>,
+        channel: Id<ChannelMarker>,
+    ) -> Result<()> {
+        if let Self::MissAnalyzer(pagination) = self {
+            if let Some(embed) = pagination.edited_embed.take() {
+                let mut builder = MessageBuilder::new().embed(embed).components(Vec::new());
+
+                if let Some(content) = pagination.content.take() {
+                    builder = builder.content(content);
+                }
+
+                if let Some(update_fut) = (msg, channel).update(&ctx, &builder, None) {
+                    update_fut.await.wrap_err("Failed to minimize embed")?;
+                }
+            }
+        } else {
+            let builder = MessageBuilder::new().components(Vec::new());
+
+            if let Some(update_fut) = (msg, channel).update(&ctx, &builder, None) {
+                update_fut.await.wrap_err("Failed to remove components")?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -187,7 +219,7 @@ impl Pagination {
         let embed = kind
             .build_page(&ctx, &pages)
             .await
-            .wrap_err("failed to build page")?;
+            .wrap_err("Failed to build page")?;
 
         let components = pages.components(component_kind);
 
@@ -278,16 +310,11 @@ impl Pagination {
                         return
                     },
                     _ = sleep(MINUTE) => {
-                        let pagination_active = ctx.paginations.lock(&msg).await.remove().is_some();
-                        let msg_available = ctx.remove_msg(msg);
+                        let pagination_active = ctx.paginations.lock(&msg).await.remove().filter(|_| ctx.remove_msg(msg));
 
-                        if pagination_active && msg_available {
-                            let builder = MessageBuilder::new().components(Vec::new());
-
-                            if let Some(update_fut) = (msg, channel).update(&ctx, &builder, None) {
-                                if let Err(err) = update_fut.await {
-                                    warn!(?err, "Failed to remove components");
-                                }
+                        if let Some(mut pagination) = pagination_active {
+                            if let Err(err) = pagination.kind.on_timeout(&ctx, msg, channel).await {
+                                warn!(?err, "Failed to process pagination timeout");
                             }
                         }
 
@@ -386,6 +413,12 @@ impl PaginationBuilder {
 
         self
     }
+
+    pub fn miss_analyzer_components(mut self) -> Self {
+        self.component_kind = ComponentKind::MissAnalyzer;
+
+        self
+    }
 }
 
 mod pages {
@@ -395,6 +428,7 @@ mod pages {
     };
 
     use super::*;
+    use crate::commands::osu::miss_analyzer_components;
 
     #[derive(Clone, Debug)]
     pub struct Pages {
@@ -444,6 +478,7 @@ mod pages {
             match kind {
                 ComponentKind::Default => self.default_components(),
                 ComponentKind::MapSearch => self.map_search_components(),
+                ComponentKind::MissAnalyzer => self.miss_analyzer_components(),
                 ComponentKind::Profile => self.profile_components(),
                 ComponentKind::Simulate(version) => self.simulate_components(version),
             }
@@ -870,6 +905,10 @@ mod pages {
 
             vec![Component::ActionRow(ActionRow { components })]
         }
+
+        fn miss_analyzer_components(&self) -> Vec<Component> {
+            miss_analyzer_components()
+        }
     }
 }
 
@@ -877,6 +916,7 @@ mod pages {
 pub enum ComponentKind {
     Default,
     MapSearch,
+    MissAnalyzer,
     Profile,
     Simulate(TopOldVersion),
 }

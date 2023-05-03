@@ -1,3 +1,5 @@
+use twilight_model::id::{marker::UserMarker, Id};
+
 // Colors
 pub const DARK_GREEN: u32 = 0x1F8B4C;
 pub const RED: u32 = 0xE74C3C;
@@ -42,3 +44,4 @@ pub const BATHBOT_WORKSHOP: &str = "https://discord.gg/n9fFstG";
 pub const BATHBOT_GITHUB: &str = "https://github.com/MaxOhn/Bathbot";
 pub const BATHBOT_ROADMAP: &str = "https://github.com/users/MaxOhn/projects/3";
 pub const KOFI: &str = "https://ko-fi.com/bathbot";
+pub const MISS_ANALYZER_ID: Id<UserMarker> = Id::new(752035690237394944);

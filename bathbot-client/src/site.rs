@@ -3,6 +3,7 @@
 pub enum Site {
     DiscordAttachment,
     Huismetbenen,
+    MissAnalyzer,
     Osekai,
     OsuAvatar,
     OsuBadge,
@@ -20,6 +21,7 @@ impl Site {
         match self {
             Self::DiscordAttachment => "DiscordAttachment",
             Self::Huismetbenen => "Huismetbenen",
+            Self::MissAnalyzer => "MissAnalyzer",
             Self::Osekai => "Osekai",
             Self::OsuAvatar => "OsuAvatar",
             Self::OsuBadge => "OsuBadge",

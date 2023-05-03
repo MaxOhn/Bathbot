@@ -32,6 +32,7 @@ use crate::{
         redis::osu::{UserArgs, UserArgsSlim},
         OsuMap,
     },
+    pagination::MissAnalyzerPagination,
     util::{
         interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt,
         MessageExt,
@@ -489,6 +490,11 @@ pub(super) async fn score(
     let grade = score.grade;
     let status = map.status();
     let map_id = score.map_id;
+    let score_id = score.score_id;
+
+    let mut has_miss_analyzer = orig
+        .guild_id()
+        .map_or(false, |guild| ctx.has_miss_analyzer(&guild));
 
     // Prepare retrieval of the the user's top 50 and score position on the map
     let map_score_fut = async {
@@ -511,6 +517,22 @@ pub(super) async fn score(
         }
     };
 
+    let score_id_opt = score_id
+        .filter(|_| has_miss_analyzer && mode == GameMode::Osu)
+        .zip(orig.guild_id());
+
+    let miss_analyzer_fut = async {
+        if let Some((score_id, guild_id)) = score_id_opt {
+            debug!(score_id, "Sending score id to miss analyzer");
+
+            ctx.client()
+                .miss_analyzer_score_request(guild_id.get(), score_id)
+                .await
+        } else {
+            Ok(false)
+        }
+    };
+
     #[cfg(feature = "twitch")]
     let twitch_fut = async {
         if let Some(user_id) = twitch_id {
@@ -520,12 +542,13 @@ pub(super) async fn score(
         }
     };
 
-    // Retrieve and parse response
     #[cfg(feature = "twitch")]
-    let (map_score_res, top100_res, twitch_vod) =
-        tokio::join!(map_score_fut, top100_fut, twitch_fut);
+    let (map_score_res, top100_res, miss_analyzer_res, twitch_vod) =
+        tokio::join!(map_score_fut, top100_fut, miss_analyzer_fut, twitch_fut);
+
     #[cfg(not(feature = "twitch"))]
-    let (map_score_res, top100_res) = tokio::join!(map_score_fut, top100_fut);
+    let (map_score_res, top100_res, miss_analyzer_res) =
+        tokio::join!(map_score_fut, top100_fut, miss_analyzer_fut);
 
     let map_score = match map_score_res {
         None | Some(Err(OsuError::NotFound)) => None,
@@ -546,6 +569,14 @@ pub(super) async fn score(
             None
         }
     };
+
+    match miss_analyzer_res {
+        Ok(wants_button) => has_miss_analyzer &= wants_button,
+        Err(err) => {
+            warn!(?err, "Failed to send score id to miss analyzer");
+            has_miss_analyzer = false;
+        }
+    }
 
     let (guild_minimized_pp, guild_show_retries, guild_score_size) = match orig.guild_id() {
         Some(guild_id) => {
@@ -586,68 +617,120 @@ pub(super) async fn score(
 
     let content = show_retries.then(|| format!("Try #{tries}"));
 
+    let miss_analyzer_score_id = score_id.filter(|_| has_miss_analyzer && mode == GameMode::Osu);
+
     // Only maximize if config allows it
     match score_size {
         ScoreSize::AlwaysMinimized => {
             let embed = embed_data.into_minimized();
-            let mut builder = MessageBuilder::new().embed(embed);
 
-            if let Some(content) = content {
-                builder = builder.content(content);
+            if let Some(score_id) = miss_analyzer_score_id {
+                let mut pagination =
+                    MissAnalyzerPagination::builder(score_id, embed, None, content.clone())
+                        .miss_analyzer_components()
+                        .start_by_update();
+
+                if let Some(content) = content {
+                    pagination = pagination.content(content);
+                }
+
+                pagination.start(ctx, orig).await?;
+            } else {
+                let mut builder = MessageBuilder::new().embed(embed);
+
+                if let Some(content) = content {
+                    builder = builder.content(content);
+                }
+
+                orig.create_message(&ctx, &builder).await?;
             }
-
-            orig.create_message(&ctx, &builder).await?;
         }
         ScoreSize::InitialMaximized => {
             let embed = embed_data.as_maximized();
-            let mut builder = MessageBuilder::new().embed(embed);
 
-            if let Some(content) = content {
-                builder = builder.content(content);
-            }
+            if let Some(score_id) = miss_analyzer_score_id {
+                let edited_embed = embed_data.into_minimized();
 
-            let mut response = orig.create_message(&ctx, &builder).await?.model().await?;
+                let mut pagination = MissAnalyzerPagination::builder(
+                    score_id,
+                    embed,
+                    Some(edited_embed),
+                    content.clone(),
+                );
 
-            // Lacking permission to edit the message
-            if !orig.can_view_channel() {
-                return Ok(());
-            }
-
-            ctx.store_msg(response.id);
-            let ctx = Arc::clone(&ctx);
-            let permissions = orig.permissions();
-
-            // Wait for minimizing
-            tokio::spawn(async move {
-                sleep(Duration::from_secs(45)).await;
-
-                if !ctx.remove_msg(response.id) {
-                    return;
+                if let Some(content) = content {
+                    pagination = pagination.content(content);
                 }
 
-                let embed = embed_data.into_minimized();
+                pagination
+                    .miss_analyzer_components()
+                    .start_by_update()
+                    .start(ctx, orig)
+                    .await?;
+            } else {
                 let mut builder = MessageBuilder::new().embed(embed);
 
-                if !response.content.is_empty() {
-                    builder = builder.content(mem::take(&mut response.content));
+                if let Some(content) = content {
+                    builder = builder.content(content);
                 }
 
-                if let Some(update_fut) = response.update(&ctx, &builder, permissions) {
-                    if let Err(err) = update_fut.await {
-                        warn!(?err, "Failed to minimize embed");
-                    }
+                let mut response = orig.create_message(&ctx, &builder).await?.model().await?;
+
+                // Lacking permission to edit the message
+                if !orig.can_view_channel() {
+                    return Ok(());
                 }
-            });
+
+                ctx.store_msg(response.id);
+                let ctx = Arc::clone(&ctx);
+                let permissions = orig.permissions();
+
+                // Wait for minimizing
+                tokio::spawn(async move {
+                    sleep(Duration::from_secs(45)).await;
+
+                    if !ctx.remove_msg(response.id) {
+                        return;
+                    }
+
+                    let embed = embed_data.into_minimized();
+                    let mut builder = MessageBuilder::new().embed(embed).components(Vec::new());
+
+                    if !response.content.is_empty() {
+                        builder = builder.content(mem::take(&mut response.content));
+                    }
+
+                    if let Some(update_fut) = response.update(&ctx, &builder, permissions) {
+                        if let Err(err) = update_fut.await {
+                            warn!(?err, "Failed to minimize embed");
+                        }
+                    }
+                });
+            }
         }
         ScoreSize::AlwaysMaximized => {
             let embed = embed_data.as_maximized();
-            let mut builder = MessageBuilder::new().embed(embed);
 
-            if let Some(content) = content {
-                builder = builder.content(content);
+            if let Some(score_id) = miss_analyzer_score_id {
+                let mut pagination =
+                    MissAnalyzerPagination::builder(score_id, embed, None, content.clone())
+                        .miss_analyzer_components()
+                        .start_by_update();
+
+                if let Some(content) = content {
+                    pagination = pagination.content(content);
+                }
+
+                pagination.start(ctx, orig).await?;
+            } else {
+                let mut builder = MessageBuilder::new().embed(embed);
+
+                if let Some(content) = content {
+                    builder = builder.content(content);
+                }
+
+                orig.create_message(&ctx, &builder).await?;
             }
-
-            orig.create_message(&ctx, &builder).await?;
         }
     }
 

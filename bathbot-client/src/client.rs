@@ -27,7 +27,7 @@ pub struct Client {
     osu_session: &'static str,
     #[cfg(feature = "twitch")]
     twitch: bathbot_model::TwitchData,
-    ratelimiters: [LeakyBucket; 12],
+    ratelimiters: [LeakyBucket; 13],
     metrics: ClientMetrics,
 }
 
@@ -65,6 +65,7 @@ impl Client {
         let ratelimiters = [
             ratelimiter(2),  // DiscordAttachment
             ratelimiter(2),  // Huismetbenen
+            ratelimiter(5),  // MissAnalyzer
             ratelimiter(2),  // Osekai
             ratelimiter(10), // OsuAvatar
             ratelimiter(10), // OsuBadge
@@ -97,7 +98,7 @@ impl Client {
         site: Site,
     ) -> Result<Bytes, ClientError> {
         let url = url.as_ref();
-        trace!("GET request of url {url}");
+        trace!("GET request to url {url}");
 
         let req = Request::builder()
             .uri(url)
@@ -142,14 +143,14 @@ impl Client {
         bytes_res
     }
 
-    pub(crate) async fn make_post_request(
+    pub(crate) async fn make_multipart_post_request(
         &self,
         url: impl AsRef<str>,
         site: Site,
         form: Multipart,
     ) -> Result<Bytes, ClientError> {
         let url = url.as_ref();
-        trace!("POST request of url {url}");
+        trace!("POST multipart request to url {url}");
 
         let content_type = format!("multipart/form-data; boundary={}", form.boundary());
         let form = form.finish();
@@ -161,14 +162,50 @@ impl Client {
             .header(CONTENT_TYPE, content_type)
             .header(CONTENT_LENGTH, form.len())
             .body(Body::from(form))
-            .wrap_err("failed to build POST request")?;
+            .wrap_err("Failed to build POST request")?;
 
         self.ratelimit(site).await;
 
         let (response, start) = self
             .send_request(req, site)
             .await
-            .wrap_err("failed to receive POST response")?;
+            .wrap_err("Failed to receive POST multipart response")?;
+
+        let bytes_res = Self::error_for_status(response, url).await;
+        let latency = start.elapsed().as_secs_f64();
+
+        self.metrics
+            .response_time
+            .with_label_values(&[site.as_str()])
+            .observe(latency);
+
+        bytes_res
+    }
+
+    pub(crate) async fn make_json_post_request(
+        &self,
+        url: impl AsRef<str>,
+        site: Site,
+        json: Vec<u8>,
+    ) -> Result<Bytes, ClientError> {
+        let url = url.as_ref();
+        trace!("POST json request to url {url}");
+
+        let req = Request::builder()
+            .method(Method::POST)
+            .uri(url)
+            .header(USER_AGENT, MY_USER_AGENT)
+            .header(CONTENT_TYPE, "application/json")
+            .header(CONTENT_LENGTH, json.len())
+            .body(Body::from(json))
+            .wrap_err("Failed to build POST json request")?;
+
+        self.ratelimit(site).await;
+
+        let (response, start) = self
+            .send_request(req, site)
+            .await
+            .wrap_err("Failed to receive POST response")?;
 
         let bytes_res = Self::error_for_status(response, url).await;
         let latency = start.elapsed().as_secs_f64();
@@ -190,12 +227,12 @@ impl Client {
         match status.as_u16() {
             200..=299 => hyper::body::to_bytes(response.into_body())
                 .await
-                .wrap_err("failed to extract response bytes")
+                .wrap_err("Failed to extract response bytes")
                 .map_err(ClientError::Report),
             400 => Err(ClientError::BadRequest),
             404 => Err(ClientError::NotFound),
             429 => Err(ClientError::Ratelimited),
-            _ => Err(eyre!("failed with status code {status} when requesting url {url}").into()),
+            _ => Err(eyre!("Failed with status code {status} when requesting url {url}").into()),
         }
     }
 
