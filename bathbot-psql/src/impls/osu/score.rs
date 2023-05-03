@@ -29,6 +29,7 @@ macro_rules! select_scores {
                 data.mods_exclude,
                 data.mods_exact,
                 data.map_id,
+                data.grade.map(|grade| grade as i16),
             );
 
             let mut scores = Vec::new();
@@ -110,6 +111,11 @@ r#"WITH scores AS (
       -- exact mods
       $5 :: INT4 IS NULL 
       OR mods = $5
+    )
+    AND (
+      -- grade
+      $7 :: INT2 IS NULL 
+      OR grade = $7
     )
 ) 
 SELECT 
@@ -212,6 +218,11 @@ r#"WITH scores AS (
       $5 :: INT4 IS NULL 
       OR mods = $5
     )
+    AND (
+      -- grade
+      $7 :: INT2 IS NULL 
+      OR grade = $7
+    )
 ) 
 SELECT 
   DISTINCT ON (
@@ -313,6 +324,11 @@ r#"WITH scores AS (
       -- exact mods
       $5 :: INT4 IS NULL 
       OR mods = $5
+    )
+    AND (
+      -- grade
+      $7 :: INT2 IS NULL 
+      OR grade = $7
     )
 ) 
 SELECT 
@@ -418,6 +434,11 @@ r#"WITH scores AS (
       -- exact mods
       $5 :: INT4 IS NULL 
       OR mods = $5
+    )
+    AND (
+      -- grade
+      $7 :: INT2 IS NULL 
+      OR grade = $7
     )
 ) 
 SELECT 
@@ -532,6 +553,11 @@ WITH scores AS (
       $5 :: INT4 IS NULL 
       OR mods = $5
     )
+    AND (
+      -- grade
+      $7 :: INT2 IS NULL 
+      OR grade = $7
+    )
 ) 
 SELECT 
   DISTINCT ON (
@@ -607,6 +633,7 @@ ORDER BY
             data.mods_exclude,
             data.mods_exact,
             data.map_id,
+            data.grade.map(|grade| grade as i16),
         );
 
         let mut scores = Vec::new();

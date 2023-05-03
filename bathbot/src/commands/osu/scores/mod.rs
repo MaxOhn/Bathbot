@@ -16,6 +16,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use self::{map::map_scores, server::server_scores, user::user_scores};
 use crate::{
+    commands::GradeOption,
     core::Context,
     util::{
         interaction::InteractionCommand,
@@ -81,6 +82,8 @@ pub struct ServerScores {
     per_user: Option<ScoresPerUser>,
     #[command(desc = "Reverse the list")]
     reverse: Option<bool>,
+    #[command(desc = "Consider only scores with this grade")]
+    grade: Option<GradeOption>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption)]
@@ -196,6 +199,8 @@ pub struct UserScores {
     query: Option<String>,
     #[command(desc = "Reverse the list")]
     reverse: Option<bool>,
+    #[command(desc = "Consider only scores with this grade")]
+    grade: Option<GradeOption>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -243,6 +248,8 @@ pub struct MapScores {
     index: Option<u32>,
     #[command(desc = "Reverse the list")]
     reverse: Option<bool>,
+    #[command(desc = "Consider only scores with this grade")]
+    grade: Option<GradeOption>,
 }
 
 async fn slash_scores(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

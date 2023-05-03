@@ -18,6 +18,7 @@ pub struct DbScoresBuilder<'a> {
     pub(crate) mode: Option<GameMode>,
     pub(crate) country_code: Option<&'a str>,
     pub(crate) map_id: Option<i32>,
+    pub(crate) grade: Option<Grade>,
     pub(crate) mods_include: Option<i32>,
     pub(crate) mods_exclude: Option<i32>,
     pub(crate) mods_exact: Option<i32>,
@@ -56,6 +57,12 @@ impl<'a> DbScoresBuilder<'a> {
 
     pub fn map_id(&mut self, map_id: i32) -> &mut Self {
         self.map_id = Some(map_id);
+
+        self
+    }
+
+    pub fn grade(&mut self, grade: Grade) -> &mut Self {
+        self.grade = Some(grade);
 
         self
     }

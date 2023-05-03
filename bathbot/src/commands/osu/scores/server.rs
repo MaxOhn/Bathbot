@@ -7,7 +7,10 @@ use bathbot_util::{
     CowUtils,
 };
 use eyre::{Report, Result};
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{
+    prelude::{Grade, OsuError},
+    request::UserId,
+};
 
 use super::{
     criteria_to_content, get_mode, process_scores, separate_content, MapStatus, ServerScores,
@@ -93,12 +96,15 @@ pub async fn server_scores(
         None
     });
 
+    let grade = args.grade.map(Grade::from);
+
     let scores_fut = ctx.osu_scores().from_discord_ids(
         &members,
         mode,
         mods.as_ref(),
         country_code.as_deref(),
         None,
+        grade,
     );
 
     let mut scores = match scores_fut.await {
@@ -140,6 +146,7 @@ pub async fn server_scores(
         args.mapper.as_deref(),
         country_code.as_deref(),
         args.status,
+        grade,
         criteria.as_ref(),
     );
 
@@ -165,6 +172,7 @@ fn msg_content(
     mapper: Option<&str>,
     country: Option<&str>,
     status: Option<MapStatus>,
+    grade: Option<Grade>,
     criteria: Option<&FilterCriteria<ScoresCriteria<'_>>>,
 ) -> String {
     let mut content = String::new();
@@ -202,6 +210,11 @@ fn msg_content(
         };
 
         let _ = write!(content, "`Status: {status}`");
+    }
+
+    if let Some(grade) = grade {
+        separate_content(&mut content);
+        let _ = write!(content, "`Grade: {grade:?}`");
     }
 
     if let Some(criteria) = criteria {

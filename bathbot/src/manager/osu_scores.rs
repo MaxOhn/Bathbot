@@ -6,7 +6,7 @@ use bathbot_psql::{
 use bathbot_util::{osu::ModSelection, IntHasher};
 use eyre::{Result, WrapErr};
 use rosu_v2::{
-    prelude::{GameMode, OsuError, Score},
+    prelude::{GameMode, Grade, OsuError, Score},
     OsuResult,
 };
 
@@ -32,6 +32,7 @@ impl<'c> ScoresManager<'c> {
         mods: Option<&ModSelection>,
         country_code: Option<&'a str>,
         map_id: Option<u32>,
+        grade: Option<Grade>,
     ) -> DbScoresBuilder<'a> {
         let mut builder = DbScoresBuilder::new();
 
@@ -45,6 +46,10 @@ impl<'c> ScoresManager<'c> {
 
         if let Some(map_id) = map_id {
             builder.map_id(map_id as i32);
+        }
+
+        if let Some(grade) = grade {
+            builder.grade(grade);
         }
 
         if let Some(mods) = mods {
@@ -66,8 +71,9 @@ impl<'c> ScoresManager<'c> {
         mods: Option<&ModSelection>,
         country_code: Option<&str>,
         map_id: Option<u32>,
+        grade: Option<Grade>,
     ) -> Result<DbScores<IntHasher>> {
-        Self::scores_builder(mode, mods, country_code, map_id)
+        Self::scores_builder(mode, mods, country_code, map_id, grade)
             .build_discord(self.psql, users)
             .await
             .wrap_err("Failed to select scores")
@@ -81,8 +87,9 @@ impl<'c> ScoresManager<'c> {
         mods: Option<&ModSelection>,
         country_code: Option<&str>,
         map_id: Option<u32>,
+        grade: Option<Grade>,
     ) -> Result<DbScores<IntHasher>> {
-        Self::scores_builder(mode, mods, country_code, map_id)
+        Self::scores_builder(mode, mods, country_code, map_id, grade)
             .build_osu(self.psql, users)
             .await
             .wrap_err("Failed to select scores")

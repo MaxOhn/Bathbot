@@ -8,7 +8,7 @@ use bathbot_util::{
     CowUtils, MessageBuilder,
 };
 use eyre::Result;
-use rosu_v2::prelude::GameMode;
+use rosu_v2::prelude::{GameMode, Grade};
 use twilight_interactions::command::AutocompleteValue;
 
 use super::{
@@ -44,7 +44,8 @@ pub async fn map_scores(
             query: _,
             per_user: _,
             index,
-            reverse:_
+            reverse:_,
+            grade: _,
         } = args;
 
         let sort = match sort {
@@ -204,12 +205,15 @@ pub async fn map_scores(
         None
     });
 
+    let grade = args.grade.map(Grade::from);
+
     let scores_fut = ctx.osu_scores().from_discord_ids(
         &members,
         mode,
         mods.as_ref(),
         country_code.as_deref(),
         Some(map_id),
+        grade,
     );
 
     let mut scores = match scores_fut.await {
@@ -257,6 +261,7 @@ pub async fn map_scores(
         sort,
         mods.as_ref(),
         country_code.as_deref(),
+        grade,
         criteria.as_ref(),
     );
 
@@ -281,6 +286,7 @@ fn msg_content(
     sort: ScoresOrder,
     mods: Option<&ModSelection>,
     country: Option<&str>,
+    grade: Option<Grade>,
     criteria: Option<&FilterCriteria<ScoresCriteria<'_>>>,
 ) -> String {
     let mut content = String::new();
@@ -301,6 +307,11 @@ fn msg_content(
     if let Some(country) = country {
         separate_content(&mut content);
         let _ = write!(content, "`Country: {country}`");
+    }
+
+    if let Some(grade) = grade {
+        separate_content(&mut content);
+        let _ = write!(content, "`Grade: {grade:?}`");
     }
 
     if let Some(criteria) = criteria {
