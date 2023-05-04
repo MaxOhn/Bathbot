@@ -24,7 +24,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) 
     };
 
     match process_command(ctx, command, slash).await {
-        Ok(ProcessResult::Success) => info!(name, "Processed slash command"),
+        Ok(ProcessResult::Success) => info!(%name, "Processed slash command"),
         Ok(reason) => info!(?reason, "Command `/{name}` was not processed"),
         Err(err) => error!(name, ?err, "Failed to process slash command"),
     }

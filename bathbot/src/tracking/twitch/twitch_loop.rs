@@ -125,10 +125,18 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelM
                                 debug!("Removed twitch tracking of unknown channel {channel}");
                             }
                         }
-                        err => warn!(?channel, ?err, "Error from API while sending twitch notif"),
+                        err => warn!(
+                            %channel,
+                            ?err,
+                            "Error from API while sending twitch notif"
+                        ),
                     }
                 } else {
-                    warn!(?channel, ?err, "Error while sending twitch notif");
+                    warn!(
+                        %channel,
+                        ?err,
+                        "Error while sending twitch notif"
+                    );
                 }
             }
         }

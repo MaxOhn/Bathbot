@@ -198,10 +198,10 @@ async fn score_loop(
                                     );
                                 }
                             } else {
-                                warn!(?channel, ?error, "Error from API while sending osu notif")
+                                warn!(%channel, ?error, "Error from API while sending osu notif")
                             }
                         } else {
-                            warn!(?channel, ?err, "Error while sending osu notif");
+                            warn!(%channel, ?err, "Error while sending osu notif");
                         }
                     }
                 }

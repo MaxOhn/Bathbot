@@ -152,7 +152,7 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>) {
                 }
             );
 
-            error!(?err, "Event error");
+            error!(%err, "Event error");
 
             if must_reshard {
                 drop(stream);
