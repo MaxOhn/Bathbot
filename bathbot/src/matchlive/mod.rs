@@ -2,7 +2,7 @@
 
 use std::{slice, time::Duration};
 
-use eyre::{Context as EyreContext, Report, Result};
+use eyre::{Context as EyreContext, Result};
 use tokio::time::{interval, MissedTickBehavior};
 use twilight_model::id::{
     marker::{ChannelMarker, MessageMarker},

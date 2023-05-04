@@ -2,7 +2,6 @@ use std::{fmt::Write, sync::Arc};
 
 use bathbot_model::TwitchStream;
 use bathbot_util::{constants::UNKNOWN_CHANNEL, IntHasher};
-use eyre::Report;
 use hashbrown::{HashMap, HashSet};
 use rand::Rng;
 use tokio::time::{interval, Duration};

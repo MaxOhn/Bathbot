@@ -238,7 +238,9 @@ impl Context {
                         for Channel { id, msg_id } in entry.channels.iter_mut() {
                             match send_match_messages(&ctx, *id, &embeds).await {
                                 Ok(msg) => *msg_id = msg,
-                                Err(err) => error!(channel = id, ?err, "Failed to send last msg"),
+                                Err(err) => {
+                                    error!(channel = id.get(), ?err, "Failed to send last msg")
+                                }
                             }
                         }
 
