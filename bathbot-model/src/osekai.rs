@@ -10,7 +10,10 @@ use rkyv::{
     with::{Niche, Raw},
     Archive, Deserialize as RkyvDeserialize, Serialize,
 };
-use rosu_v2::{model::GameMode, prelude::Username};
+use rosu_v2::{
+    model::GameMode,
+    prelude::{CountryCode, Username},
+};
 use serde::{
     de::{Error, IgnoredAny, MapAccess, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
@@ -21,7 +24,7 @@ use twilight_interactions::command::{CommandOption, CreateOption};
 use super::deser;
 use crate::{
     rkyv_util::{time::DateRkyv, DerefAsString},
-    CountryCode, RankingKind,
+    RankingKind,
 };
 
 pub trait OsekaiRanking {
@@ -441,6 +444,7 @@ fn osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>, D::E
 #[archive(as = "ArchivedOsekaiRankingEntry<T>")]
 pub struct OsekaiRankingEntry<T: Archive> {
     pub country: Box<str>,
+    #[with(DerefAsString)]
     pub country_code: CountryCode,
     pub rank: u32,
     pub user_id: u32,
@@ -451,7 +455,7 @@ pub struct OsekaiRankingEntry<T: Archive> {
 
 pub struct ArchivedOsekaiRankingEntry<T: Archive> {
     pub country: <Box<str> as Archive>::Archived,
-    pub country_code: <CountryCode as Archive>::Archived,
+    pub country_code: ArchivedString,
     pub rank: u32,
     pub user_id: u32,
     pub username: ArchivedString,
@@ -627,6 +631,7 @@ pub struct OsekaiUserEntry {
     #[serde(with = "deser::u32_string")]
     pub rank: u32,
     #[serde(rename = "countrycode")]
+    #[with(DerefAsString)]
     pub country_code: CountryCode,
     pub country: Box<str>,
     #[with(DerefAsString)]

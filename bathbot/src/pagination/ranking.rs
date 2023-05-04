@@ -3,7 +3,6 @@ use std::collections::btree_map::Entry;
 use bathbot_macros::pagination;
 use bathbot_model::{BgGameScore, RankingEntries, RankingEntry, RankingKind};
 use eyre::{Result, WrapErr};
-use rkyv::{Deserialize, Infallible};
 use twilight_model::{channel::message::embed::Embed, id::Id};
 
 use super::Pages;
@@ -111,7 +110,7 @@ impl RankingPagination {
                         RedisData::Original(ranking) => {
                             let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
                                 let entry = RankingEntry {
-                                    country: Some(user.country_code.into()),
+                                    country: Some(user.country_code),
                                     name: user.username,
                                     value: user.statistics.expect("missing stats").pp.round()
                                         as u32,
@@ -124,8 +123,7 @@ impl RankingPagination {
                         }
                         RedisData::Archive(ranking) => {
                             let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
-                                let country =
-                                    user.country_code.deserialize(&mut Infallible).unwrap();
+                                let country = user.country_code.as_str().into();
 
                                 let pp = user
                                     .statistics
@@ -159,7 +157,7 @@ impl RankingPagination {
                         RedisData::Original(ranking) => {
                             let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
                                 let entry = RankingEntry {
-                                    country: Some(user.country_code.into()),
+                                    country: Some(user.country_code),
                                     name: user.username,
                                     value: user.statistics.expect("missing stats").pp.round()
                                         as u32,
@@ -172,8 +170,7 @@ impl RankingPagination {
                         }
                         RedisData::Archive(ranking) => {
                             let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
-                                let country =
-                                    user.country_code.deserialize(&mut Infallible).unwrap();
+                                let country = user.country_code.as_str().into();
 
                                 let pp = user
                                     .statistics
@@ -206,7 +203,7 @@ impl RankingPagination {
 
                     let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
                         let entry = RankingEntry {
-                            country: Some(user.country_code.into()),
+                            country: Some(user.country_code),
                             name: user.username,
                             value: user.statistics.expect("missing stats").ranked_score,
                         };

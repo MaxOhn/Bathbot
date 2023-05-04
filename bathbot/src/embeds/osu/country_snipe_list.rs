@@ -1,10 +1,11 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
-use bathbot_model::{CountryCode, SnipeCountryPlayer};
+use bathbot_model::{CountryName, SnipeCountryPlayer};
 use bathbot_util::{
     constants::OSU_BASE, numbers::WithComma, osu::flag_url, CowUtils, FooterBuilder,
 };
+use rosu_v2::prelude::CountryCode;
 
 use crate::{commands::osu::SnipeCountryListOrder, pagination::Pages};
 
@@ -18,7 +19,7 @@ pub struct CountrySnipeListEmbed {
 
 impl CountrySnipeListEmbed {
     pub fn new<'i, S>(
-        country: Option<&(String, CountryCode)>,
+        country: Option<&(CountryName, CountryCode)>,
         order: SnipeCountryListOrder,
         players: S,
         author_idx: Option<usize>,

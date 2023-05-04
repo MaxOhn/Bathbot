@@ -52,6 +52,7 @@ pub struct OsuCounters {
     pub osekai_medals_cached: IntCounter,
     pub osekai_badges_cached: IntCounter,
     pub osekai_ranking_cached: IntCounter,
+    pub snipe_countries_cached: IntCounter,
     pub cs_diffs_cached: IntCounter,
     pub pp_ranking_cached: IntCounter,
 }
@@ -188,6 +189,7 @@ impl BotStats {
                 osekai_badges_cached: osu_metrics.with_label_values(&["Badges cached"]),
                 osekai_ranking_cached: osu_metrics.with_label_values(&["Osekai ranking cached"]),
                 pp_ranking_cached: osu_metrics.with_label_values(&["Rankings cached"]),
+                snipe_countries_cached: osu_metrics.with_label_values(&["Snipe countries cached"]),
                 cs_diffs_cached: osu_metrics.with_label_values(&["Cached cs difficulties"]),
                 rosu: osu_metrics,
             },
@@ -245,6 +247,10 @@ impl BotStats {
 
     pub fn inc_cached_osekai_ranking(&self) {
         self.osu_metrics.osekai_ranking_cached.inc();
+    }
+
+    pub fn inc_cached_snipe_countries(&self) {
+        self.osu_metrics.snipe_countries_cached.inc();
     }
 
     pub fn inc_cached_cs_diffs(&self) {

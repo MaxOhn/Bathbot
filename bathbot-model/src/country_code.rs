@@ -1,675 +1,405 @@
 use std::{
-    borrow::{Borrow, Cow},
-    collections::HashMap,
-    fmt,
-    ops::Deref,
+    borrow::Cow,
+    collections::{hash_map::Entry, HashMap},
+    fmt::{Display, Formatter, Result as FmtResult},
 };
 
 use bathbot_util::CowUtils;
 use once_cell::sync::OnceCell;
-use rkyv::{
-    string::{ArchivedString, StringResolver},
-    Archive, Deserialize as RkyvDeserialize, Fallible, Serialize, SerializeUnsized,
-};
-use rosu_v2::prelude::CountryCode as RosuCountryCode;
-use serde::Deserialize;
 use time::UtcOffset;
 
-static TIMEZONES: OnceCell<HashMap<&'static str, i32>> = OnceCell::new();
+static COUNTRIES: OnceCell<Countries> = OnceCell::new();
 
-fn timezones() -> &'static HashMap<&'static str, i32> {
-    TIMEZONES.get_or_init(|| {
-        const HOUR: i32 = 3600;
-        const HALF_HOUR: i32 = 1800;
-
-        let mut map = HashMap::with_capacity(250);
-
-        // http://1min.in/content/international/time-zones
-        map.insert("AF", 4 * HOUR + HALF_HOUR);
-        map.insert("AL", 3 * HOUR);
-        map.insert("DZ", HOUR);
-        map.insert("AS", -11 * HOUR);
-        map.insert("AD", 2 * HOUR);
-        map.insert("AO", HOUR);
-        map.insert("AI", -4 * HOUR);
-        map.insert("AQ", 7 * HOUR);
-        map.insert("AG", -4 * HOUR);
-        map.insert("AR", -3 * HOUR);
-        map.insert("AM", 4 * HOUR);
-        map.insert("AW", -4 * HOUR);
-        map.insert("AU", 10 * HOUR);
-        map.insert("AT", 2 * HOUR);
-        map.insert("AZ", 4 * HOUR);
-        map.insert("BS", -4 * HOUR);
-        map.insert("BH", 3 * HOUR);
-        map.insert("BD", 6 * HOUR);
-        map.insert("BB", -4 * HOUR);
-        map.insert("BY", 3 * HOUR);
-        map.insert("BE", 2 * HOUR);
-        map.insert("BZ", -6 * HOUR);
-        map.insert("BJ", HOUR);
-        map.insert("BM", -3 * HOUR);
-        map.insert("BT", 6 * HOUR);
-        map.insert("BO", -4 * HOUR);
-        map.insert("BQ", -4 * HOUR);
-        map.insert("BA", 2 * HOUR);
-        map.insert("BW", 2 * HOUR);
-        // map.insert("BV", 0);
-        map.insert("BR", -3 * HOUR);
-        map.insert("IO", 6 * HOUR);
-        map.insert("BN", 8 * HOUR);
-        map.insert("BG", 3 * HOUR);
-        map.insert("BF", 0);
-        map.insert("BI", 2 * HOUR);
-        map.insert("CV", -HOUR);
-        map.insert("KH", 7 * HOUR);
-        map.insert("CM", HOUR);
-        map.insert("CA", -4 * HOUR);
-        map.insert("KY", -5 * HOUR);
-        map.insert("CF", HOUR);
-        map.insert("TD", HOUR);
-        map.insert("CL", -3 * HOUR);
-        map.insert("CN", 8 * HOUR);
-        map.insert("CX", 7 * HOUR);
-        map.insert("CC", 6 * HOUR + HALF_HOUR);
-        map.insert("CO", -5 * HOUR);
-        map.insert("KM", 3 * HOUR);
-        map.insert("CD", HOUR);
-        map.insert("CG", HOUR);
-        map.insert("CK", -10 * HOUR);
-        map.insert("CR", -6 * HOUR);
-        map.insert("HR", 2 * HOUR);
-        map.insert("CU", -4 * HOUR);
-        map.insert("CW", -4 * HOUR);
-        map.insert("CY", 3 * HOUR);
-        map.insert("CZ", 2 * HOUR);
-        map.insert("CI", 0);
-        map.insert("DK", 2 * HOUR);
-        map.insert("DJ", 3 * HOUR);
-        map.insert("DM", -4 * HOUR);
-        map.insert("DO", -4 * HOUR);
-        map.insert("EC", -5 * HOUR);
-        map.insert("EG", 2 * HOUR);
-        map.insert("SV", -6 * HOUR);
-        map.insert("GQ", HOUR);
-        map.insert("ER", 3 * HOUR);
-        map.insert("EE", 3 * HOUR);
-        map.insert("SZ", 2 * HOUR);
-        map.insert("ET", 3 * HOUR);
-        map.insert("FK", -3 * HOUR);
-        map.insert("FO", HOUR);
-        map.insert("FJ", 12 * HOUR);
-        map.insert("FI", 3 * HOUR);
-        map.insert("FR", 2 * HOUR);
-        map.insert("GF", -3 * HOUR);
-        map.insert("PF", -9 * HOUR);
-        map.insert("TF", 5 * HOUR);
-        map.insert("GA", HOUR);
-        map.insert("GM", 0);
-        map.insert("GE", 4 * HOUR);
-        map.insert("DE", 2 * HOUR);
-        map.insert("GH", 0);
-        map.insert("GI", 2 * HOUR);
-        map.insert("GR", 3 * HOUR);
-        map.insert("GL", -2 * HOUR);
-        map.insert("GD", -4 * HOUR);
-        map.insert("GP", -4 * HOUR);
-        map.insert("GU", 10 * HOUR);
-        map.insert("GT", -6 * HOUR);
-        map.insert("GG", HOUR);
-        map.insert("GN", 0);
-        map.insert("GW", 0);
-        map.insert("GY", -4 * HOUR);
-        map.insert("HT", -4 * HOUR);
-        // map.insert("HM", HOUR);
-        map.insert("VA", 2 * HOUR);
-        map.insert("HN", -6 * HOUR);
-        map.insert("HK", 8 * HOUR);
-        map.insert("HU", 2 * HOUR);
-        map.insert("IS", 0);
-        map.insert("IN", 5 * HOUR + HALF_HOUR);
-        map.insert("ID", 7 * HOUR);
-        map.insert("IR", 4 * HOUR + HALF_HOUR);
-        map.insert("IQ", 3 * HOUR);
-        map.insert("IE", HOUR);
-        map.insert("IM", HOUR);
-        map.insert("IL", 3 * HOUR);
-        map.insert("IT", 2 * HOUR);
-        map.insert("JM", -5 * HOUR);
-        map.insert("JP", 9 * HOUR);
-        map.insert("JE", HOUR);
-        map.insert("JO", 3 * HOUR);
-        map.insert("KZ", 5 * HOUR);
-        map.insert("KE", 3 * HOUR);
-        map.insert("KI", 13 * HOUR);
-        map.insert("KP", 8 * HOUR + HALF_HOUR);
-        map.insert("KR", 9 * HOUR);
-        map.insert("KW", 3 * HOUR);
-        map.insert("KG", 6 * HOUR);
-        map.insert("LA", 7 * HOUR);
-        map.insert("LV", 3 * HOUR);
-        map.insert("LB", 3 * HOUR);
-        map.insert("LS", 2 * HOUR);
-        map.insert("LR", 0);
-        map.insert("LY", 2 * HOUR);
-        map.insert("LI", 2 * HOUR);
-        map.insert("LT", 3 * HOUR);
-        map.insert("LU", 2 * HOUR);
-        map.insert("MO", 8 * HOUR);
-        map.insert("MG", 3 * HOUR);
-        map.insert("MW", 2 * HOUR);
-        map.insert("MY", 8 * HOUR);
-        map.insert("MV", 5 * HOUR);
-        map.insert("ML", 0);
-        map.insert("MT", 2 * HOUR);
-        map.insert("MH", 12 * HOUR);
-        map.insert("MQ", -4 * HOUR);
-        map.insert("MR", 0);
-        map.insert("MU", 4 * HOUR);
-        map.insert("YT", 3 * HOUR);
-        map.insert("MX", -6 * HOUR);
-        map.insert("FM", 11 * HOUR);
-        map.insert("MD", 3 * HOUR);
-        map.insert("MC", 2 * HOUR);
-        map.insert("MN", 8 * HOUR);
-        map.insert("ME", 2 * HOUR);
-        map.insert("MS", -4 * HOUR);
-        map.insert("MA", HOUR);
-        map.insert("MZ", 2 * HOUR);
-        map.insert("MM", 6 * HOUR + HALF_HOUR);
-        map.insert("NA", 2 * HOUR);
-        map.insert("NR", 12 * HOUR);
-        map.insert("NP", 5 * HOUR + 2700);
-        map.insert("NL", 2 * HOUR);
-        map.insert("NC", 11 * HOUR);
-        map.insert("NZ", 12 * HOUR);
-        map.insert("NI", -6 * HOUR);
-        map.insert("NE", HOUR);
-        map.insert("NG", HOUR);
-        map.insert("NU", -11 * HOUR);
-        map.insert("NF", 11 * HOUR);
-        map.insert("MP", 10 * HOUR);
-        map.insert("NO", 2 * HOUR);
-        map.insert("OM", 4 * HOUR);
-        map.insert("PK", 5 * HOUR);
-        map.insert("PW", 9 * HOUR);
-        map.insert("PS", 3 * HOUR);
-        map.insert("PA", -5 * HOUR);
-        map.insert("PG", 10 * HOUR);
-        map.insert("PY", -4 * HOUR);
-        map.insert("PE", -5 * HOUR);
-        map.insert("PH", 8 * HOUR);
-        map.insert("PN", -8 * HOUR);
-        map.insert("PL", 2 * HOUR);
-        map.insert("PT", HOUR);
-        map.insert("PR", -4 * HOUR);
-        map.insert("QA", 3 * HOUR);
-        map.insert("MK", 2 * HOUR);
-        map.insert("RO", 3 * HOUR);
-        map.insert("RU", 6 * HOUR);
-        map.insert("RW", 2 * HOUR);
-        map.insert("RE", 4 * HOUR);
-        map.insert("BL", -4 * HOUR);
-        map.insert("SH", 0);
-        map.insert("KN", -4 * HOUR);
-        map.insert("LC", -4 * HOUR);
-        map.insert("MF", -4 * HOUR);
-        map.insert("PM", -2 * HOUR);
-        map.insert("PM", -2 * HOUR);
-        map.insert("VC", -4 * HOUR);
-        map.insert("WS", 13 * HOUR);
-        map.insert("SM", 2 * HOUR);
-        map.insert("ST", HOUR);
-        map.insert("SA", 3 * HOUR);
-        map.insert("SN", 0);
-        map.insert("RS", 2 * HOUR);
-        map.insert("SC", 4 * HOUR);
-        map.insert("SL", 0);
-        map.insert("SG", 8 * HOUR);
-        map.insert("SX", -4 * HOUR);
-        map.insert("SK", 2 * HOUR);
-        map.insert("SI", 2 * HOUR);
-        map.insert("SB", 11 * HOUR);
-        map.insert("SO", 3 * HOUR);
-        map.insert("ZA", 2 * HOUR);
-        map.insert("GS", -2 * HOUR);
-        map.insert("SS", 3 * HOUR);
-        map.insert("ES", HOUR);
-        map.insert("LK", 5 * HOUR + HALF_HOUR);
-        map.insert("SD", 2 * HOUR);
-        map.insert("SR", -3 * HOUR);
-        map.insert("SJ", 2 * HOUR);
-        map.insert("SE", 2 * HOUR);
-        map.insert("CH", 2 * HOUR);
-        map.insert("SY", 3 * HOUR);
-        map.insert("TW", 8 * HOUR);
-        map.insert("TJ", 5 * HOUR);
-        map.insert("TZ", 3 * HOUR);
-        map.insert("TH", 7 * HOUR);
-        map.insert("TL", 9 * HOUR);
-        map.insert("TG", 0);
-        map.insert("TK", 13 * HOUR);
-        map.insert("TO", 13 * HOUR);
-        map.insert("TT", -4 * HOUR);
-        map.insert("TN", HOUR);
-        map.insert("TR", 3 * HOUR);
-        map.insert("TM", 5 * HOUR);
-        map.insert("TC", -4 * HOUR);
-        map.insert("TV", 12 * HOUR);
-        map.insert("UG", 3 * HOUR);
-        map.insert("UA", 3 * HOUR);
-        map.insert("AE", 4 * HOUR);
-        map.insert("GB", HOUR);
-        map.insert("UM", 12 * HOUR);
-        map.insert("US", -5 * HOUR);
-        map.insert("UY", -3 * HOUR);
-        map.insert("UZ", 5 * HOUR);
-        map.insert("VU", 11 * HOUR);
-        map.insert("VE", -4 * HOUR);
-        map.insert("VN", 7 * HOUR);
-        map.insert("VG", -4 * HOUR);
-        map.insert("VI", -4 * HOUR);
-        map.insert("WF", 12 * HOUR);
-        map.insert("EH", HOUR);
-        map.insert("YE", 3 * HOUR);
-        map.insert("ZM", 2 * HOUR);
-        map.insert("ZW", 2 * HOUR);
-
-        map
-    })
+pub struct Countries {
+    name_to_code: HashMap<&'static str, &'static str>,
+    code_to_name: HashMap<&'static str, &'static str>,
+    code_to_timezone: HashMap<&'static str, i32>,
 }
 
-static COUNTRIES: OnceCell<HashMap<&'static str, RosuCountryCode>> = OnceCell::new();
-
-fn countries() -> &'static HashMap<&'static str, RosuCountryCode> {
-    COUNTRIES.get_or_init(|| {
-        let mut map = HashMap::with_capacity(300);
-
-        map.insert("afghanistan", "AF".into());
-        map.insert("albania", "AL".into());
-        map.insert("algeria", "DZ".into());
-        map.insert("american samoa", "AS".into());
-        map.insert("andorra", "AD".into());
-        map.insert("angola", "AO".into());
-        map.insert("anguilla", "AI".into());
-        map.insert("antarctica", "AQ".into());
-        map.insert("antigua", "AG".into());
-        map.insert("barbuda", "AG".into());
-        map.insert("argentina", "AR".into());
-        map.insert("armenia", "AM".into());
-        map.insert("aruba", "AW".into());
-        map.insert("australia", "AU".into());
-        map.insert("austria", "AT".into());
-        map.insert("azerbaijan", "AZ".into());
-        map.insert("bahamas", "BS".into());
-        map.insert("bahrain", "BH".into());
-        map.insert("bangladesh", "BD".into());
-        map.insert("barbados", "BB".into());
-        map.insert("belarus", "BY".into());
-        map.insert("belgium", "BE".into());
-        map.insert("belize", "BZ".into());
-        map.insert("benin", "BJ".into());
-        map.insert("bermuda", "BM".into());
-        map.insert("bhutan", "BT".into());
-        map.insert("bolivia", "BO".into());
-        map.insert("bonaire", "BQ".into());
-        map.insert("sint eustatius", "BQ".into());
-        map.insert("saba", "BQ".into());
-        map.insert("bosnia and herzegovina", "BA".into());
-        map.insert("botswana", "BW".into());
-        map.insert("bouvet island", "BV".into());
-        map.insert("brazil", "BR".into());
-        map.insert("british indian ocean territory", "IO".into());
-        map.insert("brunei darussalam", "BN".into());
-        map.insert("bulgaria", "BG".into());
-        map.insert("burkina faso", "BF".into());
-        map.insert("burundi", "BI".into());
-        map.insert("cabo verde", "CV".into());
-        map.insert("cambodia", "KH".into());
-        map.insert("cameroon", "CM".into());
-        map.insert("canada", "CA".into());
-        map.insert("cayman islands", "KY".into());
-        map.insert("central african republic", "CF".into());
-        map.insert("chad", "TD".into());
-        map.insert("chile", "CL".into());
-        map.insert("china", "CN".into());
-        map.insert("christmas island", "CX".into());
-        map.insert("cocos islands", "CC".into());
-        map.insert("colombia", "CO".into());
-        map.insert("comoros", "KM".into());
-        map.insert("democratic republic of congo", "CD".into());
-        map.insert("democratic republic of the congo", "CD".into());
-        map.insert("congo", "CG".into());
-        map.insert("cook islands", "CK".into());
-        map.insert("costa rica", "CR".into());
-        map.insert("croatia", "HR".into());
-        map.insert("cuba", "CU".into());
-        map.insert("curaçao", "CW".into());
-        map.insert("cyprus", "CY".into());
-        map.insert("czechia", "CZ".into());
-        map.insert("côte d'ivoire", "CI".into());
-        map.insert("denmark", "DK".into());
-        map.insert("djibouti", "DJ".into());
-        map.insert("dominica", "DM".into());
-        map.insert("dominican republic", "DO".into());
-        map.insert("ecuador", "EC".into());
-        map.insert("egypt", "EG".into());
-        map.insert("el salvador", "SV".into());
-        map.insert("equatorial guinea", "GQ".into());
-        map.insert("eritrea", "ER".into());
-        map.insert("estonia", "EE".into());
-        map.insert("eswatini", "SZ".into());
-        map.insert("ethiopia", "ET".into());
-        map.insert("falkland islands", "FK".into());
-        map.insert("malvinas", "FK".into());
-        map.insert("faroe islands", "FO".into());
-        map.insert("fiji", "FJ".into());
-        map.insert("finland", "FI".into());
-        map.insert("france", "FR".into());
-        map.insert("french guiana", "GF".into());
-        map.insert("french polynesia", "PF".into());
-        map.insert("french southern territories", "TF".into());
-        map.insert("gabon", "GA".into());
-        map.insert("gambia", "GM".into());
-        map.insert("georgia", "GE".into());
-        map.insert("germany", "DE".into());
-        map.insert("ghana", "GH".into());
-        map.insert("gibraltar", "GI".into());
-        map.insert("greece", "GR".into());
-        map.insert("greenland", "GL".into());
-        map.insert("grenada", "GD".into());
-        map.insert("guadeloupe", "GP".into());
-        map.insert("guam", "GU".into());
-        map.insert("guatemala", "GT".into());
-        map.insert("guernsey", "GG".into());
-        map.insert("guinea", "GN".into());
-        map.insert("guinea-bissau", "GW".into());
-        map.insert("guyana", "GY".into());
-        map.insert("haiti", "HT".into());
-        map.insert("heard island", "HM".into());
-        map.insert("mcdonald islands", "HM".into());
-        map.insert("holy see", "VA".into());
-        map.insert("honduras", "HN".into());
-        map.insert("hong Kong", "HK".into());
-        map.insert("hungary", "HU".into());
-        map.insert("iceland", "IS".into());
-        map.insert("india", "IN".into());
-        map.insert("indonesia", "ID".into());
-        map.insert("iran", "IR".into());
-        map.insert("iraq", "IQ".into());
-        map.insert("ireland", "IE".into());
-        map.insert("isle of man", "IM".into());
-        map.insert("israel", "IL".into());
-        map.insert("italy", "IT".into());
-        map.insert("jamaica", "JM".into());
-        map.insert("japan", "JP".into());
-        map.insert("jersey", "JE".into());
-        map.insert("jordan", "JO".into());
-        map.insert("kazakhstan", "KZ".into());
-        map.insert("kenya", "KE".into());
-        map.insert("kiribati", "KI".into());
-        map.insert("north korea", "KP".into());
-        map.insert("south korea", "KR".into());
-        map.insert("kuwait", "KW".into());
-        map.insert("kyrgyzstan", "KG".into());
-        map.insert("lao people's democratic republic", "LA".into());
-        map.insert("latvia", "LV".into());
-        map.insert("lebanon", "LB".into());
-        map.insert("lesotho", "LS".into());
-        map.insert("liberia", "LR".into());
-        map.insert("libya", "LY".into());
-        map.insert("liechtenstein", "LI".into());
-        map.insert("lithuania", "LT".into());
-        map.insert("luxembourg", "LU".into());
-        map.insert("macao", "MO".into());
-        map.insert("madagascar", "MG".into());
-        map.insert("malawi", "MW".into());
-        map.insert("malaysia", "MY".into());
-        map.insert("maldives", "MV".into());
-        map.insert("mali", "ML".into());
-        map.insert("malta", "MT".into());
-        map.insert("marshall islands", "MH".into());
-        map.insert("martinique", "MQ".into());
-        map.insert("mauritania", "MR".into());
-        map.insert("mauritius", "MU".into());
-        map.insert("mayotte", "YT".into());
-        map.insert("mexico", "MX".into());
-        map.insert("micronesia", "FM".into());
-        map.insert("moldova", "MD".into());
-        map.insert("monaco", "MC".into());
-        map.insert("mongolia", "MN".into());
-        map.insert("montenegro", "ME".into());
-        map.insert("montserrat", "MS".into());
-        map.insert("morocco", "MA".into());
-        map.insert("mozambique", "MZ".into());
-        map.insert("myanmar", "MM".into());
-        map.insert("namibia", "NA".into());
-        map.insert("nauru", "NR".into());
-        map.insert("nepal", "NP".into());
-        map.insert("the netherlands", "NL".into());
-        map.insert("netherlands", "NL".into());
-        map.insert("new caledonia", "NC".into());
-        map.insert("new zealand", "NZ".into());
-        map.insert("nicaragua", "NI".into());
-        map.insert("niger", "NE".into());
-        map.insert("nigeria", "NG".into());
-        map.insert("niue", "NU".into());
-        map.insert("norfolk island", "NF".into());
-        map.insert("northern mariana islands", "MP".into());
-        map.insert("norway", "NO".into());
-        map.insert("oman", "OM".into());
-        map.insert("pakistan", "PK".into());
-        map.insert("palau", "PW".into());
-        map.insert("palestine", "PS".into());
-        map.insert("panama", "PA".into());
-        map.insert("papua new guinea", "PG".into());
-        map.insert("paraguay", "PY".into());
-        map.insert("peru", "PE".into());
-        map.insert("philippines", "PH".into());
-        map.insert("pitcairn", "PN".into());
-        map.insert("poland", "PL".into());
-        map.insert("portugal", "PT".into());
-        map.insert("puerto rico", "PR".into());
-        map.insert("qatar", "QA".into());
-        map.insert("north macedonia", "MK".into());
-        map.insert("romania", "RO".into());
-        map.insert("russia", "RU".into());
-        map.insert("russian federation", "RU".into());
-        map.insert("rwanda", "RW".into());
-        map.insert("réunion", "RE".into());
-        map.insert("reunion", "RE".into());
-        map.insert("saint barthélemy", "BL".into());
-        map.insert("saint helena", "SH".into());
-        map.insert("saint kitts and nevis", "KN".into());
-        map.insert("saint lucia", "LC".into());
-        map.insert("saint martin", "MF".into());
-        map.insert("saint pierre", "PM".into());
-        map.insert("miquelon", "PM".into());
-        map.insert("saint vincent", "VC".into());
-        map.insert("grenadines", "VC".into());
-        map.insert("samoa", "WS".into());
-        map.insert("san marino", "SM".into());
-        map.insert("sao tome and principe", "ST".into());
-        map.insert("saudi arabia", "SA".into());
-        map.insert("senegal", "SN".into());
-        map.insert("serbia", "RS".into());
-        map.insert("seychelles", "SC".into());
-        map.insert("sierra leone", "SL".into());
-        map.insert("singapore", "SG".into());
-        map.insert("sint maarten", "SX".into());
-        map.insert("slovakia", "SK".into());
-        map.insert("slovenia", "SI".into());
-        map.insert("solomon islands", "SB".into());
-        map.insert("somalia", "SO".into());
-        map.insert("south africa", "ZA".into());
-        map.insert("south georgia", "GS".into());
-        map.insert("south sandwich islands", "GS".into());
-        map.insert("south sudan", "SS".into());
-        map.insert("spain", "ES".into());
-        map.insert("sri lanka", "LK".into());
-        map.insert("sudan", "SD".into());
-        map.insert("suriname", "SR".into());
-        map.insert("svalbard", "SJ".into());
-        map.insert("jan mayen", "SJ".into());
-        map.insert("sweden", "SE".into());
-        map.insert("switzerland", "CH".into());
-        map.insert("syrian arab republic", "SY".into());
-        map.insert("taiwan", "TW".into());
-        map.insert("tajikistan", "TJ".into());
-        map.insert("tanzania", "TZ".into());
-        map.insert("thailand", "TH".into());
-        map.insert("timor-leste", "TL".into());
-        map.insert("togo", "TG".into());
-        map.insert("tokelau", "TK".into());
-        map.insert("tonga", "TO".into());
-        map.insert("trinidad and tobago", "TT".into());
-        map.insert("tunisia", "TN".into());
-        map.insert("turkey", "TR".into());
-        map.insert("turkmenistan", "TM".into());
-        map.insert("turks and caicos islands", "TC".into());
-        map.insert("tuvalu", "TV".into());
-        map.insert("uganda", "UG".into());
-        map.insert("ukraine", "UA".into());
-        map.insert("united arab emirates", "AE".into());
-        map.insert("united kingdom", "GB".into());
-        map.insert("uk", "GB".into());
-        map.insert("great britain", "GB".into());
-        map.insert("united states minor outlying islands", "UM".into());
-        map.insert("united states of america", "US".into());
-        map.insert("usa", "US".into());
-        map.insert("united states", "US".into());
-        map.insert("uruguay", "UY".into());
-        map.insert("uzbekistan", "UZ".into());
-        map.insert("vanuatu", "VU".into());
-        map.insert("venezuela ", "VE".into());
-        map.insert("vietnam", "VN".into());
-        map.insert("virgin islands (british)", "VG".into());
-        map.insert("virgin islands (u.s.)", "VI".into());
-        map.insert("wallis and futuna", "WF".into());
-        map.insert("western sahara", "EH".into());
-        map.insert("yemen", "YE".into());
-        map.insert("zambia", "ZM".into());
-        map.insert("zimbabwe", "ZW".into());
-
-        map
-    })
-}
-
-#[derive(Clone, Debug, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct CountryCode(RosuCountryCode);
-
-impl CountryCode {
-    pub fn from_name(name: &str) -> Option<Self> {
-        countries()
-            .get(name.cow_to_ascii_lowercase().as_ref())
-            .cloned()
-            .map(Self)
+impl Countries {
+    pub fn code(country_code: &str) -> Code<'_> {
+        Code(country_code)
     }
 
-    pub fn timezone(&self) -> UtcOffset {
-        let offset = match timezones().get(self.0.as_str()) {
-            Some(offset) => *offset,
-            None => 0,
+    pub fn name(country_name: &str) -> Name<'_> {
+        Name(country_name)
+    }
+
+    pub fn init() {
+        let mut countries = Countries {
+            name_to_code: HashMap::with_capacity(256),
+            code_to_name: HashMap::with_capacity(256),
+            code_to_timezone: HashMap::with_capacity(256),
         };
 
-        UtcOffset::from_whole_seconds(offset).unwrap()
-    }
-}
+        macro_rules! insert_country {
+            ( $(
+                $name:literal,
+                $code:literal,
+                $tz:literal $( + $minutes:literal )?;
+            )* ) => {
+                $(
+                    countries.name_to_code.insert($name, $code);
 
-impl Deref for CountryCode {
-    type Target = RosuCountryCode;
+                    if let Entry::Vacant(e) = countries.code_to_name.entry($code) {
+                        e.insert($name);
+                        #[allow(clippy::neg_multiply)]
+                        countries.code_to_timezone.insert($code, ($tz * 3600) $( + 60 * $minutes )?);
+                    }
+                )*
+            };
+        }
 
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+        insert_country! {
+            "afghanistan", "AF", 4 + 30;
+            "albania", "AL", 3;
+            "algeria", "DZ", 1;
+            "american samoa", "AS", -11;
+            "andorra", "AD", 2;
+            "angola", "AO", 1;
+            "anguilla", "AI", -4;
+            "antarctica", "AQ", 7;
+            "antigua", "AG", -4;
+            "barbuda", "AG", -4;
+            "argentina", "AR", -3;
+            "armenia", "AM", 4;
+            "aruba", "AW", -4;
+            "australia", "AU", 10;
+            "austria", "AT", 2;
+            "azerbaijan", "AZ", 4;
+            "bahamas", "BS", -4;
+            "bahrain", "BH", 3;
+            "bangladesh", "BD", 6;
+            "barbados", "BB", -4;
+            "belarus", "BY", 3;
+            "belgium", "BE", 2;
+            "belize", "BZ", -6;
+            "benin", "BJ", 1;
+            "bermuda", "BM", -3;
+            "bhutan", "BT", 6;
+            "bolivia", "BO", -4;
+            "bonaire", "BQ", -4;
+            "sint eustatius", "BQ", -4;
+            "saba", "BQ", -4;
+            "bosnia and herzegovina", "BA", 2;
+            "botswana", "BW", 2;
+            "bouvet island", "BV", 0;
+            "brazil", "BR", -3;
+            "british indian ocean territory", "IO", 6;
+            "brunei darussalam", "BN", 8;
+            "bulgaria", "BG", 3;
+            "burkina faso", "BF", 0;
+            "burundi", "BI", 2;
+            "cabo verde", "CV", -1;
+            "cambodia", "KH", 7;
+            "cameroon", "CM", 1;
+            "canada", "CA", -4;
+            "cayman islands", "KY", -5;
+            "central african republic", "CF", 1;
+            "chad", "TD", 1;
+            "chile", "CL", -3;
+            "china", "CN", 8;
+            "christmas island", "CX", 7;
+            "cocos islands", "CC", 6 + 30;
+            "colombia", "CO", -5;
+            "comoros", "KM", 3;
+            "democratic republic of congo", "CD", 1;
+            "democratic republic of the congo", "CD", 1;
+            "congo", "CG", 1;
+            "cook islands", "CK", -10;
+            "costa rica", "CR", -6;
+            "croatia", "HR", 2;
+            "cuba", "CU", -4;
+            "curaçao", "CW", -4;
+            "cyprus", "CY", 3;
+            "czechia", "CZ", 2;
+            "côte d'ivoire", "CI", 0;
+            "denmark", "DK", 2;
+            "djibouti", "DJ", 3;
+            "dominica", "DM", -4;
+            "dominican republic", "DO", -4;
+            "ecuador", "EC", -5;
+            "egypt", "EG", 2;
+            "el salvador", "SV", -6;
+            "equatorial guinea", "GQ", 1;
+            "eritrea", "ER", 3;
+            "estonia", "EE", 3;
+            "eswatini", "SZ", 2;
+            "ethiopia", "ET", 3;
+            "falkland islands", "FK", -3;
+            "malvinas", "FK", -3;
+            "faroe islands", "FO", 1;
+            "fiji", "FJ", 12;
+            "finland", "FI", 2;
+            "france", "FR", 2;
+            "french guiana", "GF", -3;
+            "french polynesia", "PF", -9;
+            "french southern territories", "TF", 5;
+            "gabon", "GA", 1;
+            "gambia", "GM", 0;
+            "georgia", "GE", 4;
+            "germany", "DE", 2;
+            "ghana", "GH", 0;
+            "gibraltar", "GI", 2;
+            "greece", "GR", 3;
+            "greenland", "GL", -2;
+            "grenada", "GD", -4;
+            "guadeloupe", "GP", -4;
+            "guam", "GU", 10;
+            "guatemala", "GT", -6;
+            "guernsey", "GG", 1;
+            "guinea", "GN", 0;
+            "guinea-bissau", "GW", 0;
+            "guyana", "GY", -4;
+            "haiti", "HT", -4;
+            "heard island", "HM", 1;
+            "mcdonald islands", "HM", 1;
+            "holy see", "VA", 2;
+            "honduras", "HN", -6;
+            "hong Kong", "HK", 8;
+            "hungary", "HU", 2;
+            "iceland", "IS", 0;
+            "india", "IN", 5 + 30;
+            "indonesia", "ID", 7;
+            "iran", "IR", 4 + 30;
+            "iraq", "IQ", 3;
+            "ireland", "IE", 1;
+            "isle of man", "IM", 1;
+            "israel", "IL", 3;
+            "italy", "IT", 2;
+            "jamaica", "JM", -5;
+            "japan", "JP", 9;
+            "jersey", "JE", 1;
+            "jordan", "JO", 3;
+            "kazakhstan", "KZ", 5;
+            "kenya", "KE", 3;
+            "kiribati", "KI", 13;
+            "north korea", "KP", 8 + 30;
+            "south korea", "KR", 9;
+            "kuwait", "KW", 3;
+            "kyrgyzstan", "KG", 6;
+            "lao people's democratic republic", "LA", 7;
+            "latvia", "LV", 3;
+            "lebanon", "LB", 3;
+            "lesotho", "LS", 2;
+            "liberia", "LR", 0;
+            "libya", "LY", 2;
+            "liechtenstein", "LI", 2;
+            "lithuania", "LT", 3;
+            "luxembourg", "LU", 2;
+            "macao", "MO", 8;
+            "madagascar", "MG", 3;
+            "malawi", "MW", 2;
+            "malaysia", "MY", 8;
+            "maldives", "MV", 5;
+            "mali", "ML", 0;
+            "malta", "MT", 2;
+            "marshall islands", "MH", 12;
+            "martinique", "MQ", -4;
+            "mauritania", "MR", 0;
+            "mauritius", "MU", 4;
+            "mayotte", "YT", 3;
+            "mexico", "MX", -6;
+            "micronesia", "FM", 11;
+            "moldova", "MD", 3;
+            "monaco", "MC", 2;
+            "mongolia", "MN", 8;
+            "montenegro", "ME", 2;
+            "montserrat", "MS", -4;
+            "morocco", "MA", 1;
+            "mozambique", "MZ", 2;
+            "myanmar", "MM", 6 + 30;
+            "namibia", "NA", 2;
+            "nauru", "NR", 12;
+            "nepal", "NP", 5 + 45;
+            "the netherlands", "NL", 2;
+            "netherlands", "NL", 2;
+            "new caledonia", "NC", 11;
+            "new zealand", "NZ", 12;
+            "nicaragua", "NI", -6;
+            "niger", "NE", 1;
+            "nigeria", "NG", 1;
+            "niue", "NU", -11;
+            "norfolk island", "NF", 11;
+            "northern mariana islands", "MP", 10;
+            "norway", "NO", 2;
+            "oman", "OM", 4;
+            "pakistan", "PK", 5;
+            "palau", "PW", 9;
+            "palestine", "PS", 3;
+            "panama", "PA", -5;
+            "papua new guinea", "PG", 10;
+            "paraguay", "PY", -4;
+            "peru", "PE", -5;
+            "philippines", "PH", 8;
+            "pitcairn", "PN", -8;
+            "poland", "PL", 2;
+            "portugal", "PT", 1;
+            "puerto rico", "PR", -4;
+            "qatar", "QA", 3;
+            "north macedonia", "MK", 2;
+            "romania", "RO", 3;
+            "russia", "RU", 6;
+            "russian federation", "RU", 6;
+            "rwanda", "RW", 2;
+            "réunion", "RE", 4;
+            "reunion", "RE", 4;
+            "saint barthélemy", "BL", -4;
+            "saint helena", "SH", 0;
+            "saint kitts and nevis", "KN", -4;
+            "saint lucia", "LC", -4;
+            "saint martin", "MF", -4;
+            "saint pierre", "PM", -2;
+            "miquelon", "PM", -2;
+            "saint vincent", "VC", -4;
+            "grenadines", "VC", -4;
+            "samoa", "WS", 13;
+            "san marino", "SM", 2;
+            "sao tome and principe", "ST", 1;
+            "saudi arabia", "SA", 3;
+            "senegal", "SN", 0;
+            "serbia", "RS", 2;
+            "seychelles", "SC", 4;
+            "sierra leone", "SL", 0;
+            "singapore", "SG", 8;
+            "sint maarten", "SX", -4;
+            "slovakia", "SK", 2;
+            "slovenia", "SI", 2;
+            "solomon islands", "SB", 11;
+            "somalia", "SO", 3;
+            "south africa", "ZA", 2;
+            "south georgia", "GS", -2;
+            "south sandwich islands", "GS", -2;
+            "south sudan", "SS", 3;
+            "spain", "ES", 1;
+            "sri lanka", "LK", 5 + 30;
+            "sudan", "SD", 2;
+            "suriname", "SR", -3;
+            "svalbard", "SJ", 2;
+            "jan mayen", "SJ", 2;
+            "sweden", "SE", 2;
+            "switzerland", "CH", 2;
+            "syrian arab republic", "SY", 3;
+            "taiwan", "TW", 8;
+            "tajikistan", "TJ", 5;
+            "tanzania", "TZ", 3;
+            "thailand", "TH", 7;
+            "timor-leste", "TL", 9;
+            "togo", "TG", 0;
+            "tokelau", "TK", 13;
+            "tonga", "TO", 13;
+            "trinidad and tobago", "TT", -4;
+            "tunisia", "TN", 1;
+            "turkey", "TR", 3;
+            "turkmenistan", "TM", 5;
+            "turks and caicos islands", "TC", -4;
+            "tuvalu", "TV", 12;
+            "uganda", "UG", 3;
+            "ukraine", "UA", 3;
+            "united arab emirates", "AE", 4;
+            "united kingdom", "GB", 1;
+            "uk", "GB", 1;
+            "great britain", "GB", 1;
+            "united states minor outlying islands", "UM", 12;
+            "united states of america", "US", -5;
+            "usa", "US", -5;
+            "united states", "US", -5;
+            "uruguay", "UY", -3;
+            "uzbekistan", "UZ", 5;
+            "vanuatu", "VU", 11;
+            "venezuela ", "VE", -4;
+            "vietnam", "VN", 7;
+            "virgin islands (british)", "VG", -4;
+            "virgin islands (u.s.)", "VI", -4;
+            "wallis and futuna", "WF", 12;
+            "western sahara", "EH", 1;
+            "yemen", "YE", 3;
+            "zambia", "ZM", 2;
+            "zimbabwe", "ZW", 2;
+        }
 
-impl From<RosuCountryCode> for CountryCode {
-    #[inline]
-    fn from(country_code: RosuCountryCode) -> Self {
-        Self(country_code)
-    }
-}
-
-impl From<String> for CountryCode {
-    #[inline]
-    fn from(code: String) -> Self {
-        Self(code.into())
-    }
-}
-
-impl From<&str> for CountryCode {
-    #[inline]
-    fn from(code: &str) -> Self {
-        Self(code.into())
-    }
-}
-
-impl<'a> From<Cow<'a, str>> for CountryCode {
-    #[inline]
-    fn from(code: Cow<'a, str>) -> Self {
-        match code {
-            Cow::Borrowed(code) => code.into(),
-            Cow::Owned(code) => code.into(),
+        if COUNTRIES.set(countries).is_err() {
+            panic!("Countries were already set");
         }
     }
 }
 
-impl Borrow<str> for CountryCode {
-    #[inline]
-    fn borrow(&self) -> &str {
-        self.0.as_str()
+#[derive(Copy, Clone)]
+pub struct Code<'a>(&'a str);
+
+impl<'a> Code<'a> {
+    pub fn to_name(self) -> Option<CountryName> {
+        unsafe { COUNTRIES.get_unchecked() }
+            .code_to_name
+            .get(self.uppercase().as_ref())
+            .copied()
+            .map(CountryName)
+    }
+
+    pub fn to_timezone(self) -> UtcOffset {
+        let offset = unsafe { COUNTRIES.get_unchecked() }
+            .code_to_timezone
+            .get(self.uppercase().as_ref())
+            .copied()
+            .unwrap_or(0);
+
+        UtcOffset::from_whole_seconds(offset).unwrap()
+    }
+
+    fn uppercase(self) -> Cow<'a, str> {
+        let Self(country_code) = self;
+
+        country_code.cow_to_ascii_uppercase()
     }
 }
 
-impl fmt::Display for CountryCode {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+pub struct CountryName(&'static str);
+
+impl CountryName {
+    pub fn ends_with(&self, c: char) -> bool {
+        self.0.ends_with(c)
     }
 }
 
-impl PartialEq<str> for CountryCode {
-    #[inline]
-    fn eq(&self, other: &str) -> bool {
-        self.0.eq(other)
+impl Display for CountryName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let mut words = self.0.split(' ');
+
+        let Some(word) = words.next() else {
+            return Ok(());
+        };
+
+        let Some(first) = word.chars().next() else {
+            return Ok(());
+        };
+
+        write!(f, "{}", first.to_uppercase())?;
+        f.write_str(&word[first.len_utf8()..])?;
+
+        for word in words {
+            let Some(first) = word.chars().next() else { continue };
+            write!(f, " {}", first.to_uppercase())?;
+            f.write_str(&word[first.len_utf8()..])?;
+        }
+
+        Ok(())
     }
 }
 
-impl PartialEq<String> for CountryCode {
-    #[inline]
-    fn eq(&self, other: &String) -> bool {
-        self.0.eq(other)
+#[derive(Copy, Clone)]
+pub struct Name<'a>(&'a str);
+
+impl<'a> Name<'a> {
+    pub fn to_code(self) -> Option<&'static str> {
+        unsafe { COUNTRIES.get_unchecked() }
+            .name_to_code
+            .get(self.lowercase().as_ref())
+            .copied()
     }
-}
 
-impl Archive for CountryCode {
-    type Archived = ArchivedString;
-    type Resolver = StringResolver;
+    fn lowercase(self) -> Cow<'a, str> {
+        let Self(country_name) = self;
 
-    #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        ArchivedString::resolve_from_str(self.0.as_str(), pos, resolver, out);
-    }
-}
-
-impl<S> Serialize<S> for CountryCode
-where
-    S: Fallible,
-    str: SerializeUnsized<S>,
-{
-    #[inline]
-    fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivedString::serialize_from_str(self.0.as_str(), s)
-    }
-}
-
-impl<D: Fallible> RkyvDeserialize<CountryCode, D> for ArchivedString {
-    #[inline]
-    fn deserialize(&self, _: &mut D) -> Result<CountryCode, <D as Fallible>::Error> {
-        let inner = rosu_v2::prelude::CountryCode::from_str(self.as_str());
-
-        Ok(CountryCode(inner))
+        country_name.cow_to_ascii_lowercase()
     }
 }

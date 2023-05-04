@@ -5,10 +5,13 @@ use std::{
 };
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
-use bathbot_model::{CountryCode, OsuTrackerCountryDetails, OsuTrackerCountryScore};
+use bathbot_model::{Countries, OsuTrackerCountryDetails, OsuTrackerCountryScore};
 use bathbot_util::{osu::ModSelection, CowUtils};
 use eyre::Result;
-use rosu_v2::{prelude::Username, request::UserId};
+use rosu_v2::{
+    prelude::{CountryCode, Username},
+    request::UserId,
+};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -118,8 +121,8 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
     };
 
     let country_code = match args.country.take() {
-        Some(country) => match CountryCode::from_name(&country) {
-            Some(code) => Some(code),
+        Some(country) => match Countries::name(&country).to_code() {
+            Some(code) => Some(CountryCode::from(code)),
             None if country.len() == 2 => Some(CountryCode::from(country)),
             None => {
                 let lowercase = country.cow_to_ascii_lowercase();
@@ -142,7 +145,7 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
 
     let details_fut = ctx
         .client()
-        .get_osutracker_country_details(country_code.as_deref().map(|code| code.as_str()));
+        .get_osutracker_country_details(country_code.as_deref());
 
     let name_fut = async {
         match user_id {
@@ -160,10 +163,7 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
             let content = format!(
                 "Either the country code `{code}` is not supported \
                 or the osutracker api has an issue.",
-                code = country_code
-                    .as_deref()
-                    .map(|code| code.as_str())
-                    .unwrap_or("Global"),
+                code = country_code.as_deref().unwrap_or("Global"),
             );
 
             let _ = command.error(&ctx, content).await;

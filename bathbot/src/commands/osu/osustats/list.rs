@@ -1,14 +1,14 @@
 use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::command;
-use bathbot_model::{CountryCode, OsuStatsPlayer, OsuStatsPlayersArgs};
+use bathbot_model::{Countries, OsuStatsPlayer, OsuStatsPlayersArgs};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
     CowUtils, IntHasher,
 };
 use eyre::Result;
 use hashbrown::HashMap;
-use rosu_v2::model::GameMode;
+use rosu_v2::{model::GameMode, prelude::CountryCode};
 
 use super::OsuStatsPlayers;
 use crate::{
@@ -23,7 +23,7 @@ impl<'a> From<OsuStatsPlayers<'a>> for OsuStatsPlayersArgs {
     fn from(args: OsuStatsPlayers<'a>) -> Self {
         Self {
             mode: args.mode.map_or(GameMode::Osu, GameMode::from),
-            country: args.country.map(|c| c.into()),
+            country: args.country.map(|c| c.as_ref().into()),
             page: 1,
             min_rank: args.min_rank.unwrap_or(OsuStatsPlayers::MIN_RANK),
             max_rank: args.max_rank.unwrap_or(OsuStatsPlayers::MAX_RANK),
@@ -53,8 +53,8 @@ pub(super) async fn players(
 
     if let Some(country) = params.country.as_mut() {
         if country.len() != 2 {
-            match CountryCode::from_name(&*country) {
-                Some(code) => *country = code,
+            match Countries::name(&*country).to_code() {
+                Some(code) => *country = CountryCode::from(code),
                 None => {
                     let content = format!(
                         "Looks like `{country}` is neither a country name nor a country code"
@@ -63,6 +63,8 @@ pub(super) async fn players(
                     return orig.error(&ctx, content).await;
                 }
             }
+        } else {
+            *country = country.to_uppercase().into()
         }
     }
 
@@ -388,8 +390,8 @@ impl<'m> OsuStatsPlayers<'m> {
                 }
             } else if arg.len() == 2 && arg.is_ascii() {
                 country = Some(arg);
-            } else if let Some(code) = CountryCode::from_name(&arg) {
-                country = Some(code.as_str().to_owned().into());
+            } else if let Some(code) = Countries::name(arg.as_ref()).to_code() {
+                country = Some(code.into());
             } else {
                 let content = format!(
                     "Failed to parse `{arg}` as either rank or country.\n\

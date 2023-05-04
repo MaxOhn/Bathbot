@@ -5,7 +5,7 @@ use std::{
 
 use bathbot_util::{osu::ModSelection, ScoreExt, ScoreHasEndedAt};
 use eyre::{Result, WrapErr};
-use rosu_v2::prelude::{GameMod, GameMode, GameMods, Grade, RankStatus, Username};
+use rosu_v2::prelude::{CountryCode, GameMod, GameMode, GameMods, Grade, RankStatus, Username};
 use serde::{
     de::{
         value::StrDeserializer, DeserializeSeed, Error as DeError, IgnoredAny, SeqAccess,
@@ -18,7 +18,6 @@ use time::OffsetDateTime;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
 use super::deser;
-use crate::CountryCode;
 
 #[derive(Debug)]
 pub struct OsuStatsPlayer {

@@ -1,26 +1,24 @@
-use bathbot_psql::Database;
 use bathbot_util::CowUtils;
-use eyre::{Result, WrapErr};
+
+use super::redis::RedisData;
+use crate::core::Context;
 
 #[derive(Copy, Clone)]
-pub struct HuismetbenenCountryManager<'d> {
-    psql: &'d Database,
+pub struct HuismetbenenCountryManager<'c> {
+    ctx: &'c Context,
 }
 
-impl<'d> HuismetbenenCountryManager<'d> {
-    pub fn new(psql: &'d Database) -> Self {
-        Self { psql }
+impl<'c> HuismetbenenCountryManager<'c> {
+    pub fn new(ctx: &'c Context) -> Self {
+        Self { ctx }
     }
 
     pub async fn is_supported(self, country_code: &str) -> bool {
         let country_code = country_code.cow_to_ascii_uppercase();
 
-        let is_supported_fut = self
-            .psql
-            .select_contains_huismetbenen_country(country_code.as_ref());
-
-        match is_supported_fut.await {
-            Ok(is_supported) => is_supported,
+        match self.ctx.redis().snipe_countries().await {
+            Ok(RedisData::Original(countries)) => countries.contains(country_code.as_ref()),
+            Ok(RedisData::Archive(countries)) => countries.contains(country_code.as_ref()),
             Err(err) => {
                 warn!(
                     country_code = country_code.as_ref(),
@@ -31,23 +29,5 @@ impl<'d> HuismetbenenCountryManager<'d> {
                 false
             }
         }
-    }
-
-    pub async fn get_country(self, country_code: &str) -> Option<String> {
-        match self.psql.select_huismetbenen_country(country_code).await {
-            Ok(country_name) => country_name,
-            Err(err) => {
-                warn!(country_code, ?err, "Failed to get huismetbenen country");
-
-                None
-            }
-        }
-    }
-
-    pub async fn add_country(self, country_code: &str, country_name: &str) -> Result<()> {
-        self.psql
-            .upsert_huismetbenen_country(country_code, country_name)
-            .await
-            .wrap_err("failed to upsert huismetbenen country")
     }
 }

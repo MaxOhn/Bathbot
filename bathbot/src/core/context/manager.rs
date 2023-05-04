@@ -38,7 +38,7 @@ impl Context {
     }
 
     pub fn huismetbenen(&self) -> HuismetbenenCountryManager<'_> {
-        HuismetbenenCountryManager::new(&self.clients.psql)
+        HuismetbenenCountryManager::new(self)
     }
 
     pub fn pp<'d, 'm>(&'d self, map: &'m OsuMap) -> PpManager<'d, 'm> {

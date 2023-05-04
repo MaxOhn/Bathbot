@@ -1,10 +1,11 @@
 use bathbot_macros::EmbedData;
-use bathbot_model::{CountryCode, SnipeCountryStatistics};
+use bathbot_model::{CountryName, SnipeCountryStatistics};
 use bathbot_util::{
     numbers::{round, WithComma},
     osu::flag_url,
     CowUtils, FooterBuilder,
 };
+use rosu_v2::prelude::CountryCode;
 use twilight_model::channel::message::embed::EmbedField;
 
 use crate::embeds::attachment;
@@ -19,7 +20,10 @@ pub struct CountrySnipeStatsEmbed {
 }
 
 impl CountrySnipeStatsEmbed {
-    pub fn new(country: Option<(String, CountryCode)>, statistics: SnipeCountryStatistics) -> Self {
+    pub fn new(
+        country: Option<(CountryName, CountryCode)>,
+        statistics: SnipeCountryStatistics,
+    ) -> Self {
         let mut fields = Vec::with_capacity(2);
 
         if let Some(top_gain) = statistics.top_gain {

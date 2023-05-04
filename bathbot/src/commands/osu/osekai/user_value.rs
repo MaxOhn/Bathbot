@@ -1,7 +1,7 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
 
 use bathbot_model::{
-    ArchivedOsekaiRankingEntry, CountryCode, OsekaiRanking, OsekaiRankingEntry, RankingEntries,
+    ArchivedOsekaiRankingEntry, Countries, OsekaiRanking, OsekaiRankingEntry, RankingEntries,
     RankingEntry, RankingKind,
 };
 use bathbot_util::constants::OSEKAI_ISSUE;
@@ -26,9 +26,9 @@ where
     let country_code = match country {
         Some(country) => {
             if country.len() == 2 {
-                Some(country.into())
-            } else if let Some(code) = CountryCode::from_name(&country) {
-                Some(code)
+                Some(Cow::Owned(country))
+            } else if let Some(code) = Countries::name(&country).to_code() {
+                Some(code.into())
             } else {
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");
@@ -84,9 +84,9 @@ where
     let country_code = match country {
         Some(country) => {
             if country.len() == 2 {
-                Some(country.into())
-            } else if let Some(code) = CountryCode::from_name(&country) {
-                Some(code)
+                Some(Cow::Owned(country))
+            } else if let Some(code) = Countries::name(&country).to_code() {
+                Some(code.into())
             } else {
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");

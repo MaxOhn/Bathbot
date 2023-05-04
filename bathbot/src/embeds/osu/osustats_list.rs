@@ -1,13 +1,14 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
-use bathbot_model::{CountryCode, OsuStatsPlayer};
+use bathbot_model::OsuStatsPlayer;
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
     numbers::WithComma,
     osu::flag_url,
     AuthorBuilder, CowUtils, FooterBuilder,
 };
+use rosu_v2::prelude::CountryCode;
 
 use crate::pagination::Pages;
 

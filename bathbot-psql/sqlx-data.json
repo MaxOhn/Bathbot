@@ -1261,26 +1261,6 @@
     },
     "query": "WITH scores AS (\n  SELECT \n    score_id, \n    user_id, \n    map_id, \n    mods, \n    score, \n    maxcombo, \n    grade, \n    count50, \n    count100, \n    count300, \n    countkatu, \n    countmiss, \n    ended_at \n  FROM \n    osu_scores \n  WHERE \n    gamemode = 2 \n    AND user_id = ANY($1) \n    AND (\n      -- map id\n      $6 :: INT4 IS NULL \n      OR map_id = $6\n    ) \n    AND (\n      -- country code\n      $2 :: VARCHAR(2) IS NULL \n      OR (\n        SELECT \n          country_code \n        FROM \n          osu_user_stats \n        WHERE \n          user_id = osu_scores.user_id\n      ) = $2\n    ) \n    AND (\n      -- include mods\n      $3 :: INT4 IS NULL \n      OR (\n        $3 != 0 \n        AND $3 :: bit(32) & mods :: bit(32) = $3 :: bit(32)\n      ) \n      OR (\n        $3 = 0 \n        AND mods = 0\n      )\n    ) \n    AND (\n      -- exclude mods\n      $4 :: INT4 IS NULL \n      OR (\n        $4 != 0 \n        AND $4 :: bit(32) & mods :: bit(32) != $4 :: bit(32)\n      ) \n      OR (\n        $4 = 0 \n        AND mods > 0\n      )\n    ) \n    AND (\n      -- exact mods\n      $5 :: INT4 IS NULL \n      OR mods = $5\n    )\n    AND (\n      -- grade\n      $7 :: INT2 IS NULL \n      OR grade = $7\n    )\n) \nSELECT \n  DISTINCT ON (\n    user_id, scores.map_id, scores.mods\n  ) user_id, \n  scores.map_id, \n  scores.mods, \n  score, \n  maxcombo, \n  grade, \n  count50, \n  count100, \n  count300, \n  countkatu, \n  countmiss, \n  ended_at, \n  pp :: FLOAT4, \n  stars :: FLOAT4 \nFROM \n  scores \n  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_catch\n  ) AS stars ON scores.map_id = stars.map_id \n  AND scores.mods = stars.mods \nORDER BY \n  user_id, \n  scores.map_id, \n  scores.mods, \n  ended_at DESC"
   },
-  "5131ec2023a6ea07d2bb0210a5614211d9a1a59b915838471a0e09c702381e4a": {
-    "describe": {
-      "columns": [
-        {
-          "name": "country_name",
-          "ordinal": 0,
-          "type_info": "Varchar"
-        }
-      ],
-      "nullable": [
-        false
-      ],
-      "parameters": {
-        "Left": [
-          "Text"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  country_name \nFROM \n  huismetbenen_countries \nWHERE \n  country_code = $1"
-  },
   "5c9012746a35ed9aca1d3b21f3e3f9fb93f61f8327458fec9716696faeb5d144": {
     "describe": {
       "columns": [
@@ -2351,19 +2331,6 @@
     },
     "query": "\nSELECT \n  map_id, \n  map_version AS version\nFROM \n  osu_maps \nWHERE \n  mapset_id = $1"
   },
-  "d5c451eaeba2afe1551acd288ab23ff011331a58fd8a49e2a9502e6ed05a46cd": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Varchar",
-          "Varchar"
-        ]
-      }
-    },
-    "query": "\nINSERT INTO huismetbenen_countries (country_code, country_name) \nVAlUES \n  ($1, $2) ON CONFLICT (country_code) DO \nUPDATE \nSET \n  country_name = $2"
-  },
   "d7ec83d0e8fdc8e1d0822a7f14b7e71e7754c14717b047fd6bb33c52e1295d46": {
     "describe": {
       "columns": [],
@@ -2500,26 +2467,6 @@
       }
     },
     "query": "\nSELECT \n  discord_id, \n  highscore \nFROM \n  higherlower_scores \nWHERE \n  game_version = $1"
-  },
-  "fc9c88c1f209ab21abf9fa75d61e9ad730b363cc76fe36078cde6de352157f95": {
-    "describe": {
-      "columns": [
-        {
-          "name": "exists",
-          "ordinal": 0,
-          "type_info": "Bool"
-        }
-      ],
-      "nullable": [
-        null
-      ],
-      "parameters": {
-        "Left": [
-          "Text"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  EXISTS (\n    SELECT \n    FROM \n      huismetbenen_countries \n    WHERE \n      country_code = $1\n  )"
   },
   "fcfc547353fe778233d3a6407bc36fb78992719918d6d3198f1bcf070f72fd00": {
     "describe": {
