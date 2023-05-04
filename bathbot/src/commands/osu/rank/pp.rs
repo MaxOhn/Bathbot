@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bathbot_macros::command;
 use bathbot_model::{
     rosu_v2::{ranking::RankingsUser, user::User},
-    CountryCode,
+    Countries,
 };
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -11,7 +11,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::OsuError;
+use rosu_v2::prelude::{CountryCode, OsuError};
 
 use super::RankPp;
 use crate::{
@@ -34,18 +34,16 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
     } = args;
 
     let country = match country {
-        Some(country) => match CountryCode::from_name(&country) {
-            Some(code) => Some(code),
+        Some(ref country) => match Countries::name(country).to_code() {
+            Some(code) => Some(CountryCode::from(code)),
+            None if country.len() == 2 => {
+                Some(CountryCode::from(country.cow_to_ascii_uppercase().as_ref()))
+            }
             None => {
-                if country.len() == 2 {
-                    Some(CountryCode::from(country.cow_to_ascii_uppercase()))
-                } else {
-                    let content = format!(
-                        "Looks like `{country}` is neither a country name nor a country code"
-                    );
+                let content =
+                    format!("Looks like `{country}` is neither a country name nor a country code");
 
-                    return orig.error(&ctx, content).await;
-                }
+                return orig.error(&ctx, content).await;
             }
         },
         None => None,

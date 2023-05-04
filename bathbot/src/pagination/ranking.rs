@@ -3,7 +3,6 @@ use std::collections::btree_map::Entry;
 use bathbot_macros::pagination;
 use bathbot_model::{BgGameScore, RankingEntries, RankingEntry, RankingKind};
 use eyre::{Result, WrapErr};
-use rkyv::{Deserialize, Infallible};
 use twilight_model::{channel::message::embed::Embed, id::Id};
 
 use super::Pages;
@@ -124,8 +123,7 @@ impl RankingPagination {
                         }
                         RedisData::Archive(ranking) => {
                             let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
-                                let country =
-                                    user.country_code.deserialize(&mut Infallible).unwrap();
+                                let country = user.country_code.as_str().into();
 
                                 let pp = user
                                     .statistics
@@ -172,8 +170,7 @@ impl RankingPagination {
                         }
                         RedisData::Archive(ranking) => {
                             let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
-                                let country =
-                                    user.country_code.deserialize(&mut Infallible).unwrap();
+                                let country = user.country_code.as_str().into();
 
                                 let pp = user
                                     .statistics

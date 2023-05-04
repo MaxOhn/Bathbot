@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{sync::Arc, borrow::Cow};
 
-use bathbot_model::{CountryCode, MedalCount};
+use bathbot_model::{MedalCount, Countries};
 use bathbot_util::constants::OSEKAI_ISSUE;
 use eyre::Result;
 
@@ -19,9 +19,9 @@ pub(super) async fn medal_count(
     let country_code = match args.country {
         Some(country) => {
             if country.len() == 2 {
-                Some(country.into())
-            } else if let Some(code) = CountryCode::from_name(&country) {
-                Some(code)
+                Some(Cow::Owned(country))
+            } else if let Some(code) = Countries::name(&country).to_code() {
+                Some(code.into())
             } else {
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");

@@ -1,13 +1,16 @@
 use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
 
 use bathbot_macros::command;
-use bathbot_model::{CountryCode, SnipeCountryPlayer as SCP};
+use bathbot_model::{Countries, SnipeCountryPlayer as SCP};
 use bathbot_util::{
     constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
     CowUtils,
 };
 use eyre::{Report, Result};
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{
+    prelude::{CountryCode, OsuError},
+    request::UserId,
+};
 
 use super::{SnipeCountryList, SnipeCountryListOrder};
 use crate::{
@@ -88,18 +91,14 @@ pub(super) async fn country_list(
     let SnipeCountryList { country, sort } = args;
 
     let country_code = match country {
-        Some(country) => match CountryCode::from_name(&country) {
-            Some(code) => code,
+        Some(ref country) => match Countries::name(country).to_code() {
+            Some(code) => CountryCode::from(code),
+            None if country.len() == 2 => CountryCode::from(country.as_ref()),
             None => {
-                if country.len() == 2 {
-                    CountryCode::from(country)
-                } else {
-                    let content = format!(
-                        "Looks like `{country}` is neither a country name nor a country code"
-                    );
+                let content =
+                    format!("Looks like `{country}` is neither a country name nor a country code");
 
-                    return orig.error(&ctx, content).await;
-                }
+                return orig.error(&ctx, content).await;
             }
         },
         None => match &osu_user {
@@ -164,11 +163,9 @@ pub(super) async fn country_list(
         .map(|(idx, player)| (idx + 1, player))
         .collect();
 
-    let country = ctx
-        .huismetbenen()
-        .get_country(country_code.as_ref())
-        .await
-        .map(|name| (name, country_code.as_ref().into()));
+    let country = Countries::code(&country_code)
+        .to_name()
+        .map(|name| (name, country_code));
 
     CountrySnipeListPagination::builder(players, country, sort, author_idx)
         .start_by_update()

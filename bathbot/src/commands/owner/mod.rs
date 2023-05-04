@@ -5,7 +5,7 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::Attachment;
 
-use self::{add_bg::*, add_country::*, cache::*, request_members::*};
+use self::{add_bg::*, cache::*, request_members::*};
 #[cfg(feature = "osutracking")]
 use self::{tracking_interval::*, tracking_stats::*};
 use super::GameModeOption;
@@ -17,7 +17,6 @@ use crate::{
 };
 
 mod add_bg;
-mod add_country;
 mod cache;
 mod request_members;
 
@@ -33,8 +32,6 @@ mod tracking_stats;
 pub enum Owner {
     #[command(name = "add_bg")]
     AddBg(OwnerAddBg),
-    #[command(name = "add_country")]
-    AddCountry(OwnerAddCountry),
     #[command(name = "cache")]
     Cache(OwnerCache),
     #[command(name = "requestmembers")]
@@ -51,15 +48,6 @@ pub struct OwnerAddBg {
     image: Attachment,
     #[command(desc = "Specify the mode of the background's map")]
     mode: Option<GameModeOption>,
-}
-
-#[derive(CommandModel, CreateCommand)]
-#[command(name = "add_country", desc = "Add a country for snipe commands")]
-pub struct OwnerAddCountry {
-    #[command(desc = "Specify the country code")]
-    code: String,
-    #[command(desc = "Specify the country name")]
-    name: String,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -109,7 +97,6 @@ pub struct OwnerTrackingToggle;
 async fn slash_owner(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Owner::from_interaction(command.input_data())? {
         Owner::AddBg(bg) => addbg(ctx, command, bg).await,
-        Owner::AddCountry(country) => addcountry(ctx, command, country).await,
         Owner::Cache(_) => cache(ctx, command).await,
         Owner::RequestMembers(args) => request_members(ctx, command, &args.guild_id).await,
         #[cfg(feature = "osutracking")]

@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Write, sync::Arc};
 
-use bathbot_model::CountryCode;
+use bathbot_model::Countries;
 use bathbot_util::{
     constants::GENERAL_ISSUE,
     matcher,
@@ -164,8 +164,8 @@ pub async fn map_scores(
     };
 
     let country_code = match args.country {
-        Some(ref country) => match CountryCode::from_name(country) {
-            Some(code) => Some(Cow::Owned(code.to_string())),
+        Some(ref country) => match Countries::name(country).to_code() {
+            Some(code) => Some(Cow::Borrowed(code)),
             None if country.len() == 2 => Some(country.cow_to_ascii_uppercase()),
             None => {
                 let content =

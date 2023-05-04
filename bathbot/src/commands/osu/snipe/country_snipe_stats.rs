@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
 
 use bathbot_macros::command;
-use bathbot_model::{CountryCode, SnipeCountryPlayer};
+use bathbot_model::{Countries, SnipeCountryPlayer};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
@@ -9,7 +9,10 @@ use bathbot_util::{
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{
+    prelude::{CountryCode, OsuError},
+    request::UserId,
+};
 use skia_safe::{EncodedImageFormat, Surface};
 use twilight_model::guild::Permissions;
 
@@ -56,18 +59,14 @@ pub(super) async fn country_stats(
     let author_id = orig.user_id()?;
 
     let country_code = match args.country {
-        Some(country) => match CountryCode::from_name(&country) {
-            Some(code) => code,
+        Some(ref country) => match Countries::name(country).to_code() {
+            Some(code) => CountryCode::from(code),
+            None if country.len() == 2 => CountryCode::from(country.as_ref()),
             None => {
-                if country.len() == 2 {
-                    CountryCode::from(country)
-                } else {
-                    let content = format!(
-                        "Looks like `{country}` is neither a country name nor a country code"
-                    );
+                let content =
+                    format!("Looks like `{country}` is neither a country name nor a country code");
 
-                    return orig.error(&ctx, content).await;
-                }
+                return orig.error(&ctx, content).await;
             }
         },
         None => match ctx.user_config().osu_id(author_id).await {
@@ -139,10 +138,8 @@ pub(super) async fn country_stats(
         }
     };
 
-    let country = ctx
-        .huismetbenen()
-        .get_country(country_code.as_ref())
-        .await
+    let country = Countries::code(&country_code)
+        .to_name()
         .map(|name| (name, country_code));
 
     let embed_data = CountrySnipeStatsEmbed::new(country, statistics);

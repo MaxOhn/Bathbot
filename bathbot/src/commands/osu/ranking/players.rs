@@ -1,12 +1,12 @@
-use std::{iter, mem, ops::Deref, sync::Arc};
+use std::{borrow::Cow, iter, mem, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_model::{
-    rosu_v2::ranking::Rankings, CountryCode, Either, RankingEntries, RankingEntry, RankingKind,
+    rosu_v2::ranking::Rankings, Countries, Either, RankingEntries, RankingEntry, RankingKind,
 };
 use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, OsuResult, Rankings as RosuRankings};
+use rosu_v2::prelude::{CountryCode, GameMode, OsuResult, Rankings as RosuRankings};
 
 use super::{RankingPp, RankingScore};
 use crate::{
@@ -22,8 +22,8 @@ use crate::{
 fn check_country(arg: &str) -> Result<CountryCode, &'static str> {
     if arg.len() == 2 && arg.is_ascii() {
         Ok(arg.into())
-    } else if let Some(code) = CountryCode::from_name(arg) {
-        Ok(code)
+    } else if let Some(code) = Countries::name(arg).to_code() {
+        Ok(code.into())
     } else {
         Err("The given argument must be a valid country or country code of two ASCII letters")
     }
@@ -57,29 +57,21 @@ pub(super) async fn pp(
     };
 
     let country = match country.as_deref() {
-        Some(country) => {
-            if country.len() != 2 {
-                match CountryCode::from_name(country) {
-                    Some(code) => Some(code),
-                    None => {
-                        let content = format!(
-                            "Looks like `{country}` is neither a country name nor a country code"
-                        );
+        Some(country) if country.len() == 2 => Some(country.to_uppercase().into()),
+        Some(country) => match Countries::name(country).to_code() {
+            Some(code) => Some(CountryCode::from(code)),
+            None => {
+                let content =
+                    format!("Looks like `{country}` is neither a country name nor a country code");
 
-                        return orig.error(&ctx, content).await;
-                    }
-                }
-            } else {
-                Some(country.to_uppercase().into())
+                return orig.error(&ctx, content).await;
             }
-        }
+        },
         None => None,
     };
 
     let ranking_fut = async {
-        let country = country
-            .as_deref()
-            .map(rosu_v2::prelude::CountryCode::as_str);
+        let country = country.as_deref();
 
         ctx.redis()
             .pp_ranking(mode, 1, country)
@@ -326,7 +318,7 @@ pub async fn prefix_ppranking(ctx: Arc<Context>, msg: &Message, mut args: Args<'
 
     let args = RankingPp {
         mode: None,
-        country: country.map(|c| c.deref().clone().into_string().into()),
+        country: country.map(CountryCode::into_string).map(Cow::Owned),
     };
 
     pp(ctx, msg.into(), args).await
@@ -360,7 +352,7 @@ pub async fn prefix_pprankingmania(
 
     let args = RankingPp {
         mode: Some(GameModeOption::Mania),
-        country: country.map(|c| c.deref().clone().into_string().into()),
+        country: country.map(CountryCode::into_string).map(Cow::Owned),
     };
 
     pp(ctx, msg.into(), args).await
@@ -394,7 +386,7 @@ pub async fn prefix_pprankingtaiko(
 
     let args = RankingPp {
         mode: Some(GameModeOption::Taiko),
-        country: country.map(|c| c.deref().clone().into_string().into()),
+        country: country.map(CountryCode::into_string).map(Cow::Owned),
     };
 
     pp(ctx, msg.into(), args).await
@@ -428,7 +420,7 @@ pub async fn prefix_pprankingctb(
 
     let args = RankingPp {
         mode: Some(GameModeOption::Catch),
-        country: country.map(|c| c.deref().clone().into_string().into()),
+        country: country.map(CountryCode::into_string).map(Cow::Owned),
     };
 
     pp(ctx, msg.into(), args).await

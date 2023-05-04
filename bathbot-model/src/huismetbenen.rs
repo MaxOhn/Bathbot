@@ -1,12 +1,19 @@
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
     fmt::{Display, Formatter, Result as FmtResult},
 };
 
-use bathbot_util::osu::ModSelection;
+use bathbot_util::{osu::ModSelection, CowUtils};
+use rkyv::{
+    boxed::ArchivedBox, Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+};
 use rosu_v2::prelude::{CountryCode, GameMode, GameMods, GameModsIntermode, RankStatus, Username};
 use serde::{
-    de::{value::StrDeserializer, Deserializer, Error as DeError, MapAccess, Unexpected, Visitor},
+    de::{
+        value::StrDeserializer, Deserializer, Error as DeError, MapAccess, SeqAccess, Unexpected,
+        Visitor,
+    },
     Deserialize,
 };
 use serde_json::value::RawValue;
@@ -251,7 +258,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
             sniped_id: Option<u32>,
         }
 
-        let inner = SnipeRecentInner::deserialize(d)?;
+        let inner = <SnipeRecentInner as Deserialize>::deserialize(d)?;
 
         let mods = match inner.mods {
             Some(raw) => StrDeserializer::<D::Error>::new(raw.get().trim_matches('"'))
@@ -384,7 +391,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
             map: SnipeBeatmap,
         }
 
-        let inner = SnipeScoreInner::deserialize(d)?;
+        let inner = <SnipeScoreInner as Deserialize>::deserialize(d)?;
 
         let mods = match inner.mods {
             Some(raw) => StrDeserializer::<D::Error>::new(raw.get().trim_matches('"'))
@@ -448,6 +455,73 @@ pub struct SnipeBeatmap {
     pub hp: f32,
     pub bpm: f32,
     pub max_combo: u32,
+}
+
+#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+pub struct SnipeCountries {
+    country_codes: Box<[Box<str>]>,
+}
+
+impl SnipeCountries {
+    pub fn contains(&self, country_code: &str) -> bool {
+        self.country_codes
+            .binary_search_by_key(&country_code, Box::as_ref)
+            .is_ok()
+    }
+}
+
+impl ArchivedSnipeCountries {
+    pub fn contains(&self, country_code: &str) -> bool {
+        self.country_codes
+            .binary_search_by_key(&country_code, ArchivedBox::as_ref)
+            .is_ok()
+    }
+}
+
+impl<'de> Deserialize<'de> for SnipeCountries {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct SnipeCountriesVisitor;
+
+        impl<'de> Visitor<'de> for SnipeCountriesVisitor {
+            type Value = SnipeCountries;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+                f.write_str("a sequence of snipe countries")
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                #[derive(Deserialize)]
+                struct SnipeCountry {
+                    #[serde(deserialize_with = "snipe_country_code")]
+                    country_code: Box<str>,
+                }
+
+                fn snipe_country_code<'de, D>(d: D) -> Result<Box<str>, D::Error>
+                where
+                    D: Deserializer<'de>,
+                {
+                    match <&str as Deserialize>::deserialize(d)?.cow_to_ascii_uppercase() {
+                        Cow::Borrowed(country_code) => Ok(Box::from(country_code)),
+                        Cow::Owned(country_code) => Ok(country_code.into_boxed_str()),
+                    }
+                }
+
+                let mut country_codes = Vec::with_capacity(seq.size_hint().unwrap_or(64));
+
+                while let Some(SnipeCountry { country_code }) = seq.next_element()? {
+                    country_codes.push(country_code);
+                }
+
+                country_codes.sort_unstable();
+
+                Ok(SnipeCountries {
+                    country_codes: country_codes.into_boxed_slice(),
+                })
+            }
+        }
+
+        d.deserialize_seq(SnipeCountriesVisitor)
+    }
 }
 
 mod mod_count {

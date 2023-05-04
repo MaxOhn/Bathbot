@@ -1,5 +1,6 @@
 use bathbot_macros::pagination;
-use bathbot_model::{CountryCode, SnipeCountryPlayer};
+use bathbot_model::{CountryName, SnipeCountryPlayer};
+use rosu_v2::prelude::CountryCode;
 use twilight_model::channel::message::embed::Embed;
 
 use super::Pages;
@@ -11,7 +12,7 @@ use crate::{
 #[pagination(per_page = 10, entries = "players")]
 pub struct CountrySnipeListPagination {
     players: Vec<(usize, SnipeCountryPlayer)>,
-    country: Option<(String, CountryCode)>,
+    country: Option<(CountryName, CountryCode)>,
     order: SnipeCountryListOrder,
     author_idx: Option<usize>,
 }

@@ -3,7 +3,7 @@ use std::{borrow::Cow, fmt::Write};
 use bathbot_cache::Cache;
 use bathbot_model::{
     rosu_v2::ranking::Rankings, OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuTrackerIdCount,
-    OsuTrackerPpGroup, OsuTrackerStats,
+    OsuTrackerPpGroup, OsuTrackerStats, SnipeCountries,
 };
 use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
@@ -254,6 +254,35 @@ impl<'c> RedisManager<'c> {
         }
 
         Ok(RedisData::new(ranking))
+    }
+
+    pub async fn snipe_countries(self) -> RedisResult<SnipeCountries> {
+        const EXPIRE: usize = 43_200; // 12 hours
+        let key = "snipe_countries";
+
+        let mut conn = match self.ctx.cache.fetch(key).await {
+            Ok(Ok(countries)) => {
+                self.ctx.stats.inc_cached_snipe_countries();
+
+                return Ok(RedisData::Archive(countries));
+            }
+            Ok(Err(conn)) => Some(conn),
+            Err(err) => {
+                warn!("{err:?}");
+
+                None
+            }
+        };
+
+        let countries = self.ctx.client().get_snipe_countries().await?;
+
+        if let Some(ref mut conn) = conn {
+            if let Err(err) = Cache::store::<_, _, 712>(conn, key, &countries, EXPIRE).await {
+                warn!(?err, "Failed to store snipe countries");
+            }
+        }
+
+        Ok(RedisData::new(countries))
     }
 
     // Mapset difficulty names for the autocomplete option of the compare command

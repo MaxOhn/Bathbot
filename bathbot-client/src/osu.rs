@@ -5,8 +5,8 @@ use bathbot_model::{
     OsekaiMedal, OsekaiMedals, OsekaiRanking, OsekaiRankingEntries, OsuStatsParams, OsuStatsPlayer,
     OsuStatsPlayersArgs, OsuStatsScoresRaw, OsuTrackerCountryDetails, OsuTrackerIdCount,
     OsuTrackerPpGroup, OsuTrackerStats, RespektiveUser, RespektiveUsers, ScraperScore,
-    ScraperScores, SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent,
-    SnipeScore, SnipeScoreParams,
+    ScraperScores, SnipeCountries, SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer,
+    SnipeRecent, SnipeScore, SnipeScoreParams,
 };
 use bathbot_util::{
     constants::{HUISMETBENEN, OSU_BASE},
@@ -114,7 +114,7 @@ impl Client {
         })
     }
 
-    /// Don't use this; use `RedisCache::osutracker_stats` instead.
+    /// Don't use this; use `RedisManager::osutracker_stats` instead.
     pub async fn get_osutracker_stats(&self) -> Result<OsuTrackerStats> {
         let url = "https://osutracker.com/api/stats";
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
@@ -126,7 +126,7 @@ impl Client {
         })
     }
 
-    /// Don't use this; use `RedisCache::osutracker_pp_group` instead.
+    /// Don't use this; use `RedisManager::osutracker_pp_group` instead.
     pub async fn get_osutracker_pp_group(&self, pp: u32) -> Result<OsuTrackerPpGroup> {
         let url = format!("https://osutracker.com/api/stats/ppBarrier?number={pp}");
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
@@ -138,7 +138,7 @@ impl Client {
         })
     }
 
-    /// Don't use this; use `RedisCache::osutracker_counts` instead.
+    /// Don't use this; use `RedisManager::osutracker_counts` instead.
     pub async fn get_osutracker_counts(&self) -> Result<Vec<OsuTrackerIdCount>> {
         let url = "https://osutracker.com/api/stats/idCounts";
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
@@ -150,7 +150,7 @@ impl Client {
         })
     }
 
-    /// Don't use this; use `RedisCache::badges` instead.
+    /// Don't use this; use `RedisManager::badges` instead.
     pub async fn get_osekai_badges(&self) -> Result<Vec<OsekaiBadge>> {
         let url = "https://osekai.net/badges/api/getBadges.php";
 
@@ -174,7 +174,7 @@ impl Client {
         })
     }
 
-    /// Don't use this; use `RedisCache::medals` instead.
+    /// Don't use this; use `RedisManager::medals` instead.
     pub async fn get_osekai_medals(&self) -> Result<Vec<OsekaiMedal>> {
         let url = "https://osekai.net/medals/api/medals.php";
         let form = Multipart::new().push_text("strSearch", "");
@@ -223,9 +223,7 @@ impl Client {
         Ok(comments.0.unwrap_or_default())
     }
 
-    /// Don't use this; use
-    /// [`RedisCache::osekai_ranking`](crate::core::RedisCache::osekai_ranking)
-    /// instead.
+    /// Don't use this; use `RedisManager::osekai_ranking` instead.
     pub async fn get_osekai_ranking<R: OsekaiRanking>(&self) -> Result<Vec<R::Entry>> {
         let url = "https://osekai.net/rankings/api/api.php";
         let form = Multipart::new().push_text("App", R::FORM);
@@ -376,6 +374,18 @@ impl Client {
             let body = String::from_utf8_lossy(&bytes);
 
             format!("failed to deserialize snipe score count: {body}")
+        })
+    }
+
+    /// Don't use this; use `RedisManager::snipe_countries` instead.
+    pub async fn get_snipe_countries(&self) -> Result<SnipeCountries> {
+        let url = "https://api.huismetbenen.nl/country/all?only_with_data=true";
+        let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
+
+        serde_json::from_slice(&bytes).wrap_err_with(|| {
+            let body = String::from_utf8_lossy(&bytes);
+
+            format!("Failed to deserialize snipe countries: {body}")
         })
     }
 

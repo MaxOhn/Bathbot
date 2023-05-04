@@ -1,13 +1,13 @@
 use std::{collections::BTreeMap, fmt::Write, ops::RangeBounds};
 
 use bathbot_util::{AuthorBuilder, FooterBuilder};
-use rosu_v2::prelude::{CountryCode as RosuCountryCode, GameMode, Username};
+use rosu_v2::prelude::{CountryCode, GameMode, Username};
 use time::OffsetDateTime;
 use twilight_model::id::{marker::GuildMarker, Id};
 
 use crate::{
-    twilight_model::util::ImageHash, BgGameScore, CountryCode, HlGameScore, HlVersion,
-    UserModeStatsColumn, UserStatsColumn, UserStatsEntries, UserStatsEntry,
+    twilight_model::util::ImageHash, BgGameScore, HlGameScore, HlVersion, UserModeStatsColumn,
+    UserStatsColumn, UserStatsEntries, UserStatsEntry,
 };
 
 pub struct RankingEntry<V> {
@@ -20,7 +20,7 @@ impl<V> From<UserStatsEntry<V>> for RankingEntry<V> {
     #[inline]
     fn from(entry: UserStatsEntry<V>) -> Self {
         Self {
-            country: Some(unsafe { RosuCountryCode::from_buf_unchecked(entry.country) }.into()),
+            country: Some(unsafe { CountryCode::from_buf_unchecked(entry.country) }),
             name: entry.name.into(),
             value: entry.value,
         }

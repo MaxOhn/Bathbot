@@ -18,6 +18,7 @@ mod util;
 
 use std::{sync::Arc, time::Duration};
 
+use bathbot_model::Countries;
 use eyre::{Report, Result, WrapErr};
 use tokio::{
     runtime::Builder as RuntimeBuilder,
@@ -53,6 +54,7 @@ fn main() {
 async fn async_main() -> Result<()> {
     // Load config file
     BotConfig::init().context("failed to initialize config")?;
+    Countries::init();
 
     let (member_tx, mut member_rx) = mpsc::unbounded_channel();
 

@@ -1,7 +1,7 @@
 use std::{iter, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
-use bathbot_model::{rosu_v2::user::User, CountryCode};
+use bathbot_model::{rosu_v2::user::User, Countries};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     EmbedBuilder, MessageBuilder,
@@ -413,7 +413,7 @@ async fn top_graph(
         }
     );
 
-    let tz = tz.unwrap_or_else(|| CountryCode::from(country_code).timezone());
+    let tz = tz.unwrap_or_else(|| Countries::code(country_code).to_timezone());
 
     let graph_result = match order {
         GraphTopOrder::Date => top_graph_date(caption, &mut scores)

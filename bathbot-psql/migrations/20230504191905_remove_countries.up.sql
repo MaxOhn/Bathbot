@@ -1,0 +1,1 @@
+DROP TABLE huismetbenen_countries;
