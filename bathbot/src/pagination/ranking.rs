@@ -110,7 +110,7 @@ impl RankingPagination {
                         RedisData::Original(ranking) => {
                             let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
                                 let entry = RankingEntry {
-                                    country: Some(user.country_code.into()),
+                                    country: Some(user.country_code),
                                     name: user.username,
                                     value: user.statistics.expect("missing stats").pp.round()
                                         as u32,
@@ -157,7 +157,7 @@ impl RankingPagination {
                         RedisData::Original(ranking) => {
                             let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
                                 let entry = RankingEntry {
-                                    country: Some(user.country_code.into()),
+                                    country: Some(user.country_code),
                                     name: user.username,
                                     value: user.statistics.expect("missing stats").pp.round()
                                         as u32,
@@ -203,7 +203,7 @@ impl RankingPagination {
 
                     let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
                         let entry = RankingEntry {
-                            country: Some(user.country_code.into()),
+                            country: Some(user.country_code),
                             name: user.username,
                             value: user.statistics.expect("missing stats").ranked_score,
                         };

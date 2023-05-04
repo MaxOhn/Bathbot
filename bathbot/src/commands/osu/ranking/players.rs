@@ -217,7 +217,7 @@ async fn ranking(
                     .ranking
                     .into_iter()
                     .map(|user| RankingEntry {
-                        country: Some(user.country_code.into()),
+                        country: Some(user.country_code),
                         name: user.username,
                         value: user.statistics.as_ref().expect("missing stats").pp.round() as u32,
                     })
@@ -227,7 +227,7 @@ async fn ranking(
                     .ranking
                     .into_iter()
                     .map(|user| RankingEntry {
-                        country: Some(user.country_code.into()),
+                        country: Some(user.country_code),
                         name: user.username,
                         value: user.statistics.as_ref().expect("missing stats").pp.round() as u32,
                     })
@@ -243,7 +243,7 @@ async fn ranking(
                     .ranking
                     .into_iter()
                     .map(|user| RankingEntry {
-                        country: Some(user.country_code.into()),
+                        country: Some(user.country_code),
                         name: user.username,
                         value: user
                             .statistics
@@ -257,7 +257,7 @@ async fn ranking(
                     .ranking
                     .into_iter()
                     .map(|user| RankingEntry {
-                        country: Some(user.country_code.into()),
+                        country: Some(user.country_code),
                         name: user.username,
                         value: user
                             .statistics

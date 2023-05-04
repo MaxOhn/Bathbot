@@ -17,11 +17,11 @@ pub struct Countries {
 }
 
 impl Countries {
-    pub fn code<'a>(country_code: &'a str) -> Code<'a> {
+    pub fn code(country_code: &str) -> Code<'_> {
         Code(country_code)
     }
 
-    pub fn name<'a>(country_name: &'a str) -> Name<'a> {
+    pub fn name(country_name: &str) -> Name<'_> {
         Name(country_name)
     }
 
@@ -43,6 +43,7 @@ impl Countries {
 
                     if let Entry::Vacant(e) = countries.code_to_name.entry($code) {
                         e.insert($name);
+                        #[allow(clippy::neg_multiply)]
                         countries.code_to_timezone.insert($code, ($tz * 3600) $( + 60 * $minutes )?);
                     }
                 )*
