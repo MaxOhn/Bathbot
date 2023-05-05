@@ -480,8 +480,8 @@ impl Client {
         if mode == GameMode::Mania && non_mirror {
             let mods = match mods {
                 None => Some(mods!(Mirror)),
-                Some(mods) => Some(mods.to_owned() | GameModIntermode::Mirror), /* TODO: remove
-                                                                                 * .to_owned() */
+                // TODO: remove .to_owned()
+                Some(mods) => Some(mods.to_owned() | GameModIntermode::Mirror),
             };
 
             let mut new_scores = self._get_leaderboard(map_id, mods.as_ref()).await?;

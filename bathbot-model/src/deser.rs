@@ -1,6 +1,5 @@
 use std::fmt;
 
-use rosu_v2::model::mods::GameMods;
 use serde::{
     de::{Error, Unexpected, Visitor},
     Deserialize, Deserializer,
@@ -113,38 +112,6 @@ pub(super) mod u32_string {
         fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
             v.parse()
                 .map_err(|_| Error::invalid_value(Unexpected::Str(v), &self))
-        }
-    }
-}
-
-pub(super) mod option_mods_string_ {
-    // use super::{mods_string::ModsString, *};
-    use super::*;
-
-    pub(super) struct MaybeModsString;
-
-    impl<'de> Visitor<'de> for MaybeModsString {
-        type Value = Option<GameMods>;
-
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("an optional string containing gamemods")
-        }
-
-        #[inline]
-        fn visit_some<D: Deserializer<'de>>(self, _d: D) -> Result<Self::Value, D::Error> {
-            Ok(None)
-            // TODO
-            // d.deserialize_str(ModsString).map(Some)
-        }
-
-        #[inline]
-        fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
-            self.visit_unit()
-        }
-
-        #[inline]
-        fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
-            Ok(None)
         }
     }
 }
