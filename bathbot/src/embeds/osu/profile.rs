@@ -6,14 +6,14 @@ use bathbot_model::{
 };
 use bathbot_util::{
     datetime::{HowLongAgoText, SecToMinSec, NAIVE_DATETIME_FORMAT},
-    numbers::WithComma,
+    numbers::{round, WithComma},
     AuthorBuilder, EmbedBuilder, FooterBuilder,
 };
 use rkyv::{
     with::{DeserializeWith, Map},
     Infallible,
 };
-use rosu_v2::prelude::{GameModIntermode, GameModsIntermode, Grade};
+use rosu_v2::prelude::{GameModIntermode, GameMode, GameModsIntermode, Grade};
 use time::UtcOffset;
 use twilight_model::channel::message::embed::{Embed, EmbedField};
 
@@ -126,29 +126,52 @@ impl ProfileEmbed {
 
         let stats = user.stats().to_owned();
 
-        let (avatar_url, mode, highest_rank, medals, follower_count) = match user {
-            RedisData::Original(user) => {
-                let avatar_url = user.avatar_url.as_ref();
-                let mode = user.mode;
-                let medals = user.medals.len();
-                let follower_count = user.follower_count;
-                let highest_rank = user.highest_rank.as_ref().cloned();
+        let (avatar_url, mode, highest_rank, medals, follower_count, badges, scores_first_count) =
+            match user {
+                RedisData::Original(user) => {
+                    let avatar_url = user.avatar_url.as_ref();
+                    let mode = user.mode;
+                    let medals = user.medals.len();
+                    let follower_count = user.follower_count;
+                    let highest_rank = user.highest_rank.as_ref().cloned();
+                    let badges = user.badges.len();
+                    let scores_first_count = user.scores_first_count;
 
-                (avatar_url, mode, highest_rank, medals, follower_count)
-            }
-            RedisData::Archive(user) => {
-                let avatar_url = user.avatar_url.as_ref();
-                let mode = user.mode;
-                let medals = user.medals.len();
-                let follower_count = user.follower_count;
+                    (
+                        avatar_url,
+                        mode,
+                        highest_rank,
+                        medals,
+                        follower_count,
+                        badges,
+                        scores_first_count,
+                    )
+                }
+                RedisData::Archive(user) => {
+                    let avatar_url = user.avatar_url.as_ref();
+                    let mode = user.mode;
+                    let medals = user.medals.len();
+                    let follower_count = user.follower_count;
+                    let badges = user.badges.len();
+                    let scores_first_count = user.scores_first_count;
 
-                let highest_rank =
-                    Map::<UserHighestRank>::deserialize_with(&user.highest_rank, &mut Infallible)
-                        .unwrap();
+                    let highest_rank = Map::<UserHighestRank>::deserialize_with(
+                        &user.highest_rank,
+                        &mut Infallible,
+                    )
+                    .unwrap();
 
-                (avatar_url, mode, highest_rank, medals, follower_count)
-            }
-        };
+                    (
+                        avatar_url,
+                        mode,
+                        highest_rank,
+                        medals,
+                        follower_count,
+                        badges,
+                        scores_first_count,
+                    )
+                }
+            };
 
         let mut description = format!(
             "__**{mode} User statistics",
@@ -193,6 +216,16 @@ impl ProfileEmbed {
             stats.playtime / 60 / 60
         );
 
+        // https://github.com/ppy/osu-web/blob/0a41b13acf5f47bb0d2b08bab42a9646b7ab5821/app/Models/UserStatistics/Model.php#L84
+        let recommended_stars = if stats.pp.abs() <= f32::EPSILON {
+            1.0
+        } else {
+            match mode {
+                GameMode::Osu | GameMode::Catch | GameMode::Mania => stats.pp.powf(0.4) * 0.195,
+                GameMode::Taiko => stats.pp.powf(0.35) * 0.27,
+            }
+        };
+
         let fields = fields![
             "Ranked score", WithComma::new(stats.ranked_score).to_string(), true;
             "Max combo", WithComma::new(stats.max_combo).to_string(), true;
@@ -206,6 +239,9 @@ impl ProfileEmbed {
             "Hits per play", WithComma::new(hits_per_play).to_string(), true;
             "Total hits", WithComma::new(stats.total_hits).to_string(), true;
             "Medals", medals.to_string(), true;
+            "Recommended", format!("{}★", round(recommended_stars)), true;
+            "First places", scores_first_count.to_string(), true;
+            "Badges", badges.to_string(), true;
             "Grades", grades_value, false;
             "Play count / time", playcount_value, true;
             "Replays watched", WithComma::new(stats.replays_watched).to_string(), true;
