@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fmt::Write, ops::RangeBounds};
 
-use bathbot_util::{AuthorBuilder, FooterBuilder};
+use bathbot_util::{datetime::HowLongAgoText, AuthorBuilder, FooterBuilder};
 use rosu_v2::prelude::{CountryCode, GameMode, Username};
 use time::OffsetDateTime;
 use twilight_model::id::{marker::GuildMarker, Id};
@@ -188,6 +188,9 @@ pub enum RankingKind {
         global: bool,
         scores: Vec<BgGameScore>,
     },
+    Commands {
+        bootup_time: OffsetDateTime,
+    },
     HlScores {
         scores: Vec<HlGameScore>,
         version: HlVersion,
@@ -241,6 +244,11 @@ impl RankingKind {
                 } else {
                     "Server leaderboard for correct guesses"
                 };
+
+                EmbedHeader::Author(AuthorBuilder::new(text))
+            }
+            Self::Commands { .. } => {
+                let text = "Most popular prefix commands:";
 
                 EmbedHeader::Author(AuthorBuilder::new(text))
             }
@@ -418,6 +426,13 @@ impl RankingKind {
         }
 
         match self {
+            RankingKind::Commands { bootup_time } => {
+                let _ = write!(
+                    text,
+                    " • Started counting {}",
+                    HowLongAgoText::new(bootup_time)
+                );
+            }
             RankingKind::OsekaiRarity
             | RankingKind::OsekaiMedalCount
             | RankingKind::OsekaiReplays
