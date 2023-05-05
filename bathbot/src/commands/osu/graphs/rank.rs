@@ -41,7 +41,7 @@ pub async fn rank_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
@@ -64,6 +64,10 @@ pub async fn rank_graph(
         let mut max_idx = 0;
 
         for (i, &rank) in history.iter().enumerate() {
+            if rank == 0 {
+                continue;
+            }
+
             if rank < min {
                 min = rank;
                 min_idx = i;
@@ -104,7 +108,7 @@ pub async fn rank_graph(
 
             let background = RGBColor(19, 43, 33);
             root.fill(&background)
-                .wrap_err("failed to fill background")?;
+                .wrap_err("Failed to fill background")?;
 
             let style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
                 color: color.to_rgba(),
@@ -118,7 +122,7 @@ pub async fn rank_graph(
                 .margin(10)
                 .margin_left(6)
                 .build_cartesian_2d(0_u32..history_len.saturating_sub(1) as u32, min..max)
-                .wrap_err("failed to build chart")?;
+                .wrap_err("Failed to build chart")?;
 
             chart
                 .configure_mesh()
@@ -133,21 +137,24 @@ pub async fn rank_graph(
                 .axis_style(RGBColor(7, 18, 14))
                 .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
                 .draw()
-                .wrap_err("failed to draw mesh")?;
+                .wrap_err("Failed to draw mesh")?;
 
-            let data = (0..).zip(history.iter().map(|rank| -(*rank as i32)));
+            let data = (0..)
+                .zip(history.iter().map(|rank| -(*rank as i32)))
+                .skip_while(|(_, rank)| *rank == 0)
+                .take_while(|(_, rank)| *rank != 0);
 
             let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
             let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
             let series = AreaSeries::new(data, min, area_style).border_style(border_style);
-            chart.draw_series(series).wrap_err("failed to draw area")?;
+            chart.draw_series(series).wrap_err("Failed to draw area")?;
 
             let max_coords = (min_idx as u32, max);
             let circle = Circle::new(max_coords, 9_u32, style(GREEN).stroke_width(2));
 
             chart
                 .draw_series(iter::once(circle))
-                .wrap_err("failed to draw max circle")?
+                .wrap_err("Failed to draw max circle")?
                 .label(format!("Peak: #{}", WithComma::new(-max)))
                 .legend(|(x, y)| Circle::new((x, y), 5_u32, style(GREEN).stroke_width(2)));
 
@@ -156,7 +163,7 @@ pub async fn rank_graph(
 
             chart
                 .draw_series(iter::once(circle))
-                .wrap_err("failed to draw min circle")?
+                .wrap_err("Failed to draw min circle")?
                 .label(format!("Worst: #{}", WithComma::new(-min)))
                 .legend(|(x, y)| Circle::new((x, y), 5_u32, style(RED).stroke_width(2)));
 
@@ -176,7 +183,7 @@ pub async fn rank_graph(
                 .legend_area_size(13)
                 .label_font(("sans-serif", 15, FontStyle::Bold))
                 .draw()
-                .wrap_err("failed to draw legend")?;
+                .wrap_err("Failed to draw legend")?;
         }
 
         let png_bytes = surface
