@@ -15,14 +15,14 @@ use twilight_model::{
 };
 
 pub use self::{
-    badges::*, command_count::*, common::*, country_snipe_list::*, leaderboard::*, map::*,
-    map_search::*, mapscores::*, match_compare::*, medal_recent::*, medals_common::*,
-    medals_list::*, medals_missing::*, most_played::*, most_played_common::*, nochoke::*,
-    osekai_medal_count::*, osekai_medal_rarity::*, osustats_globals::*, osustats_list::*,
-    osutracker_countrytop::*, osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*,
-    osutracker_mods::*, pages::Pages, player_snipe_list::*, profile::*, ranking::*,
-    ranking_countries::*, recent_list::*, scores::*, serverscores::*, simulate::*,
-    sniped_difference::*, top::*, top_if::*, userscores::*,
+    badges::*, common::*, country_snipe_list::*, leaderboard::*, map::*, map_search::*,
+    mapscores::*, match_compare::*, medal_recent::*, medals_common::*, medals_list::*,
+    medals_missing::*, most_played::*, most_played_common::*, nochoke::*, osekai_medal_count::*,
+    osekai_medal_rarity::*, osustats_globals::*, osustats_list::*, osutracker_countrytop::*,
+    osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*, osutracker_mods::*,
+    pages::Pages, player_snipe_list::*, profile::*, ranking::*, ranking_countries::*,
+    recent_list::*, scores::*, serverscores::*, simulate::*, sniped_difference::*, top::*,
+    top_if::*, userscores::*,
 };
 use crate::{
     commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
@@ -32,7 +32,6 @@ use crate::{
 };
 
 mod badges;
-mod command_count;
 mod common;
 mod country_snipe_list;
 mod leaderboard;
@@ -73,7 +72,6 @@ pub mod components;
 
 pub enum PaginationKind {
     Badge(Box<BadgePagination>),
-    CommandCount(Box<CommandCountPagination>),
     Common(Box<CommonPagination>),
     CountrySnipeList(Box<CountrySnipeListPagination>),
     Leaderboard(Box<LeaderboardPagination>),
@@ -117,7 +115,6 @@ impl PaginationKind {
     async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         match self {
             Self::Badge(kind) => kind.build_page(ctx, pages).await,
-            Self::CommandCount(kind) => Ok(kind.build_page(pages)),
             Self::Common(kind) => Ok(kind.build_page(pages)),
             Self::CountrySnipeList(kind) => Ok(kind.build_page(pages)),
             Self::Leaderboard(kind) => Ok(kind.build_page(ctx, pages).await),
