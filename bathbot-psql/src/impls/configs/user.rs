@@ -1,11 +1,13 @@
 use eyre::{Result, WrapErr};
+use futures::StreamExt;
 use rosu_v2::prelude::{GameMode, Username};
 use time::UtcOffset;
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     model::configs::{
-        DbUserConfig, ListSize, MinimizedPp, OsuUserId, OsuUsername, ScoreSize, UserConfig,
+        DbSkinEntry, DbUserConfig, ListSize, MinimizedPp, OsuUserId, OsuUsername, ScoreSize,
+        SkinEntry, UserConfig,
     },
     Database,
 };
@@ -117,6 +119,52 @@ WHERE
             .and_then(|row| row.osu_id);
 
         Ok(osu_id.map(|id| id as u32))
+    }
+
+    pub async fn select_all_skins(&self) -> Result<Vec<SkinEntry>> {
+        let query = sqlx::query_as!(
+            DbSkinEntry,
+            r#"
+SELECT 
+  osu.user_id, 
+  username, 
+  skin_url 
+FROM 
+  (
+    SELECT DISTINCT ON (osu_id) 
+      skin_url, 
+      osu_id 
+    FROM 
+      user_configs 
+    WHERE 
+      skin_url IS NOT NULL 
+      AND osu_id IS NOT NULL
+  ) AS configs 
+  JOIN osu_user_names AS osu ON configs.osu_id = osu.user_id 
+  JOIN (
+    SELECT 
+      user_id, 
+      MIN(global_rank) AS global_rank 
+    FROM 
+      osu_user_mode_stats 
+    WHERE 
+      global_rank > 0 
+    GROUP BY 
+      user_id
+  ) AS stats ON osu.user_id = stats.user_id 
+ORDER BY 
+  global_rank"#
+        );
+
+        let mut rows = query.fetch(self);
+        let mut entries = Vec::with_capacity(64);
+
+        while let Some(entry_res) = rows.next().await {
+            let entry = entry_res.wrap_err("Failed to get next")?;
+            entries.push(entry.into());
+        }
+
+        Ok(entries)
     }
 
     pub async fn select_skin_url(&self, user_id: Id<UserMarker>) -> Result<Option<String>> {

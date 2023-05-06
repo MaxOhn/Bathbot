@@ -97,24 +97,22 @@ impl RankingEntries {
     }
 
     pub fn name_pos(&self, name: &str) -> Option<usize> {
+        fn cmp_name<V>(name: &str) -> impl Fn(&RankingEntry<V>) -> bool + '_ {
+            move |entry| entry.name == name
+        }
+
         match self {
-            RankingEntries::Accuracy(entries) => {
-                entries.values().position(|entry| entry.name == name)
-            }
-            RankingEntries::Amount(entries) => {
-                entries.values().position(|entry| entry.name == name)
-            }
+            RankingEntries::Accuracy(entries) => entries.values().position(cmp_name(name)),
+            RankingEntries::Amount(entries) => entries.values().position(cmp_name(name)),
             RankingEntries::AmountWithNegative(entries) => {
-                entries.values().position(|entry| entry.name == name)
+                entries.values().position(cmp_name(name))
             }
-            RankingEntries::Date(entries) => entries.values().position(|entry| entry.name == name),
-            RankingEntries::Float(entries) => entries.values().position(|entry| entry.name == name),
-            RankingEntries::Playtime(entries) => {
-                entries.values().position(|entry| entry.name == name)
-            }
-            RankingEntries::PpF32(entries) => entries.values().position(|entry| entry.name == name),
-            RankingEntries::PpU32(entries) => entries.values().position(|entry| entry.name == name),
-            RankingEntries::Rank(entries) => entries.values().position(|entry| entry.name == name),
+            RankingEntries::Date(entries) => entries.values().position(cmp_name(name)),
+            RankingEntries::Float(entries) => entries.values().position(cmp_name(name)),
+            RankingEntries::Playtime(entries) => entries.values().position(cmp_name(name)),
+            RankingEntries::PpF32(entries) => entries.values().position(cmp_name(name)),
+            RankingEntries::PpU32(entries) => entries.values().position(cmp_name(name)),
+            RankingEntries::Rank(entries) => entries.values().position(cmp_name(name)),
         }
     }
 }

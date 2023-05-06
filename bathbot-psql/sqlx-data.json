@@ -1928,6 +1928,36 @@
     },
     "query": "\nDELETE FROM \n  osu_scores \nWHERE \n  user_id = $1"
   },
+  "aae569635dca674787a3c8952802667a0a4f3ad0604338caa708d146cea2bbb9": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "username",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "skin_url",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\nSELECT \n  osu.user_id, \n  username, \n  skin_url \nFROM \n  (\n    SELECT DISTINCT ON (osu_id) \n      skin_url, \n      osu_id \n    FROM \n      user_configs \n    WHERE \n      skin_url IS NOT NULL \n      AND osu_id IS NOT NULL\n  ) AS configs \n  JOIN osu_user_names AS osu ON configs.osu_id = osu.user_id \n  JOIN (\n    SELECT \n      user_id, \n      MIN(global_rank) AS global_rank \n    FROM \n      osu_user_mode_stats \n    WHERE \n      global_rank > 0 \n    GROUP BY \n      user_id\n  ) AS stats ON osu.user_id = stats.user_id \nORDER BY \n  global_rank"
+  },
   "adfe9de02db6d8af635558f7c243b4c7c13093b460943160577157b01cb2c5d4": {
     "describe": {
       "columns": [
