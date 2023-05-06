@@ -5,7 +5,7 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::Comma,
-    Error, Lit, LitInt, MetaNameValue, Token,
+    Error, Expr, ExprLit, Lit, LitInt, MetaNameValue, Token,
 };
 
 pub struct AttributeList {
@@ -56,28 +56,34 @@ impl TryFrom<AttributeList> for Attributes {
 
         for name_value in list.inner {
             match name_value.path.get_ident() {
-                Some(ident) if ident == "per_page" => match name_value.lit {
-                    Lit::Int(lit) => per_page = Some(lit),
+                Some(ident) if ident == "per_page" => match name_value.value {
+                    Expr::Lit(ExprLit {
+                        lit: Lit::Int(lit), ..
+                    }) => per_page = Some(lit),
                     _ => {
                         let message = "Expected an integer";
 
-                        return Err(Error::new(name_value.lit.span(), message));
+                        return Err(Error::new(name_value.value.span(), message));
                     }
                 },
-                Some(ident) if ident == "entries" => match name_value.lit {
-                    Lit::Str(lit) => entries = Some(LengthOrigin::Field(lit.parse()?)),
+                Some(ident) if ident == "entries" => match name_value.value {
+                    Expr::Lit(ExprLit {
+                        lit: Lit::Str(lit), ..
+                    }) => entries = Some(LengthOrigin::Field(lit.parse()?)),
                     _ => {
                         let message = "Expected a string containing the name of a field";
 
-                        return Err(Error::new(name_value.lit.span(), message));
+                        return Err(Error::new(name_value.value.span(), message));
                     }
                 },
-                Some(ident) if ident == "total" => match name_value.lit {
-                    Lit::Str(lit) => entries = Some(LengthOrigin::Value(lit.parse()?)),
+                Some(ident) if ident == "total" => match name_value.value {
+                    Expr::Lit(ExprLit {
+                        lit: Lit::Str(lit), ..
+                    }) => entries = Some(LengthOrigin::Value(lit.parse()?)),
                     _ => {
                         let message = "Expected a string containing the name of a field";
 
-                        return Err(Error::new(name_value.lit.span(), message));
+                        return Err(Error::new(name_value.value.span(), message));
                     }
                 },
                 _ => {

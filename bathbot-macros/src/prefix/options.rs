@@ -1,6 +1,6 @@
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, token::Comma, Attribute, Error, Ident, Lit, Meta,
-    NestedMeta, Result as SynResult,
+    punctuated::Punctuated, spanned::Spanned, token::Comma, Attribute, Error, Ident, LitStr, Meta,
+    MetaList, Result as SynResult,
 };
 
 use crate::{
@@ -29,31 +29,31 @@ pub fn parse_options(attrs: &[Attribute]) -> SynResult<Options> {
     let mut group = None;
 
     for attr in attrs {
-        let meta = attr.parse_meta()?;
+        let meta = &attr.meta;
         let span = meta.span();
         let name = meta.path().get_ident().map(|i| i.to_string());
 
-        let nested = match meta {
+        let meta_list = match meta {
             Meta::Path(_) | Meta::NameValue(_) => {
                 let message = format!("expected attribute of the form `#[{:?}(...)]`", meta.path());
 
                 return Err(Error::new(attr.span(), message));
             }
-            Meta::List(list) => list.nested,
+            Meta::List(list) => list,
         };
 
         match name.as_deref() {
             Some("alias") | Some("aliases") => {
-                aliases = parse_all(nested).map_err(|m| Error::new(span, m))?
+                aliases = parse_all(meta_list).map_err(|m| Error::new(span, m))?
             }
             Some("example") | Some("examples") => {
-                examples = parse_all(nested).map_err(|m| Error::new(span, m))?
+                examples = parse_all(meta_list).map_err(|m| Error::new(span, m))?
             }
-            Some("desc") => desc = parse_one(nested).map_err(|m| Error::new(span, m))?,
-            Some("help") => help = parse_one(nested).map_err(|m| Error::new(span, m))?,
-            Some("usage") => usage = parse_one(nested).map_err(|m| Error::new(span, m))?,
+            Some("desc") => desc = parse_one(meta_list).map_err(|m| Error::new(span, m))?,
+            Some("help") => help = parse_one(meta_list).map_err(|m| Error::new(span, m))?,
+            Some("usage") => usage = parse_one(meta_list).map_err(|m| Error::new(span, m))?,
             Some("group") => {
-                group = Some(parse_meta_ident(nested).map_err(|m| Error::new(span, m))?)
+                group = Some(parse_meta_ident(meta_list).map_err(|m| Error::new(span, m))?)
             }
             Some("flags" | "bucket") => {}
             _ => {
@@ -76,37 +76,27 @@ pub fn parse_options(attrs: &[Attribute]) -> SynResult<Options> {
     })
 }
 
-fn parse_all(nested: Punctuated<NestedMeta, Comma>) -> Result<Vec<String>, &'static str> {
-    nested.iter().map(parse_meta_lit).collect()
+fn parse_all(list: &MetaList) -> Result<Vec<String>, &'static str> {
+    let res = list
+        .parse_args_with(Punctuated::<LitStr, Comma>::parse_separated_nonempty)
+        .map_err(|_| "expected list of literals")?
+        .into_iter()
+        .map(|lit| lit.value())
+        .collect();
+
+    Ok(res)
 }
 
-fn parse_one(nested: Punctuated<NestedMeta, Comma>) -> Result<Option<String>, &'static str> {
-    if nested.len() > 1 {
+fn parse_one(list: &MetaList) -> Result<Option<String>, &'static str> {
+    let mut list = parse_all(list).map_err(|_| "expected string literal")?;
+
+    if list.len() > 1 {
         return Err("expected a single string literal");
     }
 
-    nested.iter().map(parse_meta_lit).next().transpose()
+    Ok(list.pop())
 }
 
-fn parse_meta_lit(meta: &NestedMeta) -> Result<String, &'static str> {
-    match meta {
-        NestedMeta::Lit(Lit::Str(lit)) => Ok(lit.value()),
-        _ => Err("expected string literal"),
-    }
-}
-
-fn parse_meta_ident(mut nested: Punctuated<NestedMeta, Comma>) -> Result<Ident, &'static str> {
-    let ident = nested
-        .pop()
-        .map(|pair| pair.into_value())
-        .and_then(|meta| match meta {
-            NestedMeta::Meta(Meta::Path(mut path)) => path
-                .segments
-                .pop()
-                .map(|pair| pair.into_value())
-                .map(|seg| seg.ident),
-            _ => None,
-        });
-
-    ident.ok_or("expected identifier")
+fn parse_meta_ident(list: &MetaList) -> Result<Ident, &'static str> {
+    list.parse_args().map_err(|_| "expected identifier")
 }
