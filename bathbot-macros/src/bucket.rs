@@ -7,10 +7,7 @@ use crate::util::AsOption;
 pub fn parse_bucket(attrs: &[Attribute]) -> Result<AsOption<Bucket>> {
     attrs
         .iter()
-        .find(|attr| match attr.path.get_ident() {
-            Some(ident) => ident == "bucket",
-            None => false,
-        })
+        .find(|attr| attr.path().is_ident("bucket"))
         .map(|a| a.parse_args())
         .transpose()
         .map(|b| AsOption(b.map(|bucket| Bucket { bucket })))

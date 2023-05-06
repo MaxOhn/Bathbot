@@ -5,7 +5,7 @@ use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     token::Comma,
-    Ident, Lit, Result,
+    Ident, Lit, Result, Token,
 };
 
 pub struct Parenthesised<T>(pub Punctuated<T, Comma>);
@@ -15,7 +15,7 @@ impl<T: Parse> Parse for Parenthesised<T> {
         let content;
         parenthesized!(content in input);
 
-        content.parse_terminated(T::parse).map(Self)
+        content.parse_terminated(T::parse, Token![,]).map(Self)
     }
 }
 

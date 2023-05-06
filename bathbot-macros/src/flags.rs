@@ -26,12 +26,7 @@ impl Flags {
 }
 
 pub fn parse_flags(attrs: &[Attribute]) -> Result<Flags> {
-    let attr_opt = attrs.iter().find(|attr| match attr.path.get_ident() {
-        Some(ident) => ident == "flags",
-        None => false,
-    });
-
-    match attr_opt {
+    match attrs.iter().find(|attr| attr.path().is_ident("flags")) {
         Some(attr) => attr.parse_args(),
         None => Ok(Flags::new(0)),
     }
