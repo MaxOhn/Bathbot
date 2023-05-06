@@ -21,8 +21,8 @@ pub use self::{
     osekai_medal_rarity::*, osustats_globals::*, osustats_list::*, osutracker_countrytop::*,
     osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*, osutracker_mods::*,
     pages::Pages, player_snipe_list::*, profile::*, ranking::*, ranking_countries::*,
-    recent_list::*, scores::*, serverscores::*, simulate::*, sniped_difference::*, top::*,
-    top_if::*, userscores::*,
+    recent_list::*, scores::*, serverscores::*, simulate::*, skins::*, sniped_difference::*,
+    top::*, top_if::*, userscores::*,
 };
 use crate::{
     commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
@@ -63,6 +63,7 @@ mod recent_list;
 mod scores;
 mod serverscores;
 mod simulate;
+mod skins;
 mod sniped_difference;
 mod top;
 mod top_if;
@@ -103,6 +104,7 @@ pub enum PaginationKind {
     Scores(Box<ScoresPagination>),
     ServerScores(Box<ServerScoresPagination>),
     Simulate(Box<SimulatePagination>),
+    Skins(Box<SkinsPagination>),
     SnipedDiff(Box<SnipedDiffPagination>),
     Top(Box<TopPagination>),
     TopCondensed(Box<TopCondensedPagination>),
@@ -146,6 +148,7 @@ impl PaginationKind {
             Self::Scores(kind) => Ok(kind.build_page(pages)),
             Self::ServerScores(kind) => Ok(kind.build_page(pages)),
             Self::Simulate(kind) => Ok(kind.build_page()),
+            Self::Skins(kind) => Ok(kind.build_page(pages)),
             Self::SnipedDiff(kind) => kind.build_page(ctx, pages).await,
             Self::Top(kind) => Ok(kind.build_page(pages)),
             Self::TopCondensed(kind) => Ok(kind.build_page(pages)),

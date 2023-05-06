@@ -7,7 +7,8 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    core::Context,
+    core::{commands::CommandOrigin, Context},
+    pagination::SkinsPagination,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
@@ -16,6 +17,8 @@ use crate::{
 pub enum Skin {
     #[command(name = "check")]
     Check(CheckSkin),
+    #[command(name = "all")]
+    All(AllSkin),
     #[command(name = "set")]
     Set(SetSkin),
     #[command(name = "unset")]
@@ -25,6 +28,7 @@ pub enum Skin {
 pub async fn slash_skin(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Skin::from_interaction(command.input_data())? {
         Skin::Check(args) => args.process(&ctx, &command).await,
+        Skin::All(args) => args.process(ctx, &mut command).await,
         Skin::Set(args) => args.process(&ctx, &command).await,
         Skin::Unset(args) => args.process(&ctx, &command).await,
     }
@@ -106,6 +110,28 @@ impl CheckSkin {
         }
 
         Ok(())
+    }
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "all", desc = "List skins of all users")]
+pub struct AllSkin;
+
+impl AllSkin {
+    async fn process(self, ctx: Arc<Context>, command: &mut InteractionCommand) -> Result<()> {
+        match ctx.user_config().all_skins().await {
+            Ok(entries) => {
+                SkinsPagination::builder(entries)
+                    .start_by_update()
+                    .start(ctx, CommandOrigin::from(command))
+                    .await
+            }
+            Err(err) => {
+                let _ = command.error(&ctx, GENERAL_ISSUE).await;
+
+                Err(err)
+            }
+        }
     }
 }
 

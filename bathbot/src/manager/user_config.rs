@@ -1,5 +1,5 @@
 use bathbot_psql::{
-    model::configs::{OsuUserId, OsuUsername, ScoreSize, UserConfig},
+    model::configs::{OsuUserId, OsuUsername, ScoreSize, SkinEntry, UserConfig},
     Database,
 };
 use bathbot_util::CowUtils;
@@ -108,6 +108,13 @@ impl<'d> UserConfigManager<'d> {
             .select_skin_url_by_osu_name(username.as_ref())
             .await
             .wrap_err("failed to get skin url by username")
+    }
+
+    pub async fn all_skins(self) -> Result<Vec<SkinEntry>> {
+        self.psql
+            .select_all_skins()
+            .await
+            .wrap_err("Failed to select all skins")
     }
 
     pub async fn update_skin(self, user_id: Id<UserMarker>, skin_url: Option<&str>) -> Result<()> {
