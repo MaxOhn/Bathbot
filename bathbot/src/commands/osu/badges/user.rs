@@ -10,10 +10,10 @@ use rosu_v2::{prelude::OsuError, request::UserId};
 
 use super::BadgesUser;
 use crate::{
+    active::{impls::BadgesPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::{commands::CommandOrigin, Context},
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::BadgePagination,
     util::osu::get_combined_thumbnail,
 };
 
@@ -134,17 +134,17 @@ pub(super) async fn user(
     };
 
     let mut owners_map = BTreeMap::new();
-    owners_map.insert(0, owners);
+    owners_map.insert(0, owners.into_boxed_slice());
 
-    let mut builder = BadgePagination::builder(badges, owners_map);
+    let pagination = BadgesPagination::builder()
+        .badges(badges.into_boxed_slice())
+        .owners(owners_map)
+        .attachment(bytes.map(|bytes| ("badge_owners.png".to_owned(), bytes)))
+        .msg_owner(owner)
+        .build();
 
-    if let Some(bytes) = bytes {
-        builder = builder.attachment("badge_owners.png", bytes);
-    }
-
-    builder
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }

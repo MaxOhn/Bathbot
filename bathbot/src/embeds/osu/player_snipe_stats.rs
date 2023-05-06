@@ -3,8 +3,8 @@ use std::fmt::Write;
 use bathbot_macros::EmbedData;
 use bathbot_model::{rosu_v2::user::User, SnipePlayer};
 use bathbot_util::{
-    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::WithComma, AuthorBuilder, CowUtils,
-    FooterBuilder,
+    constants::OSU_BASE, datetime::HowLongAgoDynamic, fields, numbers::WithComma, AuthorBuilder,
+    CowUtils, FooterBuilder,
 };
 use osu::{ComboFormatter, HitResultFormatter, PpFormatter};
 use rosu_v2::prelude::{GameMode, Score};

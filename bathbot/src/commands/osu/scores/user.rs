@@ -15,10 +15,10 @@ use super::{
     criteria_to_content, process_scores, separate_content, MapStatus, ScoresOrder, UserScores,
 };
 use crate::{
+    active::{impls::ScoresUserPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found, HasMods, ModsResult},
     core::{commands::CommandOrigin, Context},
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::UserScoresPagination,
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, ScoresCriteria},
@@ -113,10 +113,12 @@ pub async fn user_scores(
     };
 
     let sort = args.sort.unwrap_or_default();
+
     let criteria = args
         .query
         .as_deref()
         .map(FilterCriteria::<ScoresCriteria<'_>>::new);
+
     let content = msg_content(
         sort,
         mods.as_ref(),
@@ -136,10 +138,18 @@ pub async fn user_scores(
         args.reverse,
     );
 
-    UserScoresPagination::builder(scores, user, mode, sort)
+    let pagination = ScoresUserPagination::builder()
+        .scores(scores)
+        .user(user)
+        .mode(mode)
+        .sort(sort)
         .content(content)
-        .start_by_update()
-        .start(ctx, (&mut command).into())
+        .msg_owner(author_id)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }
 

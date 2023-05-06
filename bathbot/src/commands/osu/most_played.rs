@@ -12,9 +12,9 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{require_link, user_not_found};
 use crate::{
+    active::{impls::MostPlayedPagination, ActiveMessages},
     core::commands::CommandOrigin,
     manager::redis::osu::UserArgs,
-    pagination::MostPlayedPagination,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
@@ -113,8 +113,14 @@ async fn mostplayed(
         }
     };
 
-    MostPlayedPagination::builder(user, maps)
-        .start_by_update()
-        .start(ctx, orig)
+    let pagination = MostPlayedPagination::builder()
+        .user(user)
+        .maps(maps.into_boxed_slice())
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }

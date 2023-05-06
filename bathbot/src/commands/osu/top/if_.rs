@@ -14,10 +14,10 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
+    active::{impls::TopIfPagination, ActiveMessages},
     commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
-    pagination::TopIfPagination,
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, Searchable},
@@ -260,11 +260,20 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     // Accumulate all necessary data
     let pre_pp = user.stats().pp();
 
-    TopIfPagination::builder(user, entries, mode, pre_pp, final_pp, rank)
+    let pagination = TopIfPagination::builder()
+        .user(user)
+        .entries(entries.into_boxed_slice())
+        .mode(mode)
+        .pre_pp(pre_pp)
+        .post_pp(final_pp)
+        .rank(rank)
         .content(content)
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+        .msg_owner(orig.user_id()?)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

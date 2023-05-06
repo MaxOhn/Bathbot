@@ -5,10 +5,10 @@ use eyre::Result;
 use rkyv::{Deserialize, Infallible};
 
 use crate::{
+    active::{impls::PopularModsPagination, ActiveMessages},
     core::Context,
     manager::redis::RedisData,
-    pagination::OsuTrackerModsPagination,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
 pub(super) async fn mods(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
@@ -24,9 +24,13 @@ pub(super) async fn mods(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         }
     };
 
-    OsuTrackerModsPagination::builder(counts)
-        .start_by_update()
-        .defer_components()
-        .start(ctx, (&mut command).into())
+    let pagination = PopularModsPagination::builder()
+        .entries(counts)
+        .msg_owner(command.user_id()?)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }

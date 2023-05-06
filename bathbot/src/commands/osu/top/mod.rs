@@ -15,7 +15,7 @@ use bathbot_util::{
     matcher,
     numbers::round,
     osu::ModSelection,
-    CowUtils, IntHasher, MessageBuilder,
+    CowUtils, IntHasher,
 };
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
@@ -27,25 +27,26 @@ use rosu_v2::{
     },
     request::UserId,
 };
-use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 pub use self::{if_::*, old::*};
 use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
 use crate::{
+    active::{
+        impls::{TopPagination, TopScoreEdit},
+        ActiveMessages,
+    },
     commands::{GameModeOption, GradeOption},
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::TopSingleEmbed,
     manager::{
         redis::{osu::UserArgs, RedisData},
         OsuMap,
     },
-    pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, Searchable},
-        ChannelExt, CheckPermissions, InteractionCommandExt, MessageExt,
+        ChannelExt, InteractionCommandExt,
     },
     Context,
 };
@@ -751,12 +752,14 @@ pub(super) async fn top(
         return orig.error(&ctx, content).await;
     }
 
-    let mut config = match ctx.user_config().with_osu_id(orig.user_id()?).await {
+    let msg_owner = orig.user_id()?;
+
+    let mut config = match ctx.user_config().with_osu_id(msg_owner).await {
         Ok(config) => config,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get user config"));
+            return Err(err);
         }
     };
 
@@ -901,76 +904,54 @@ pub(super) async fn top(
         None => (None, None, None),
     };
 
-    match (args.index, entries.len()) {
-        (Some(num), _) => {
-            let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
+    let single_idx = args
+        .index
+        .map(|num| num.saturating_sub(1))
+        .or_else(|| (entries.len() == 1).then_some(0));
 
-            let minimized_pp = config
-                .minimized_pp
-                .or(guild_minimized_pp)
-                .unwrap_or_default();
+    if let Some(idx) = single_idx {
+        let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
 
-            let entry = &entries[num.saturating_sub(1)];
+        let minimized_pp = config
+            .minimized_pp
+            .or(guild_minimized_pp)
+            .unwrap_or_default();
 
-            single_embed(ctx, orig, user, entry, score_size, minimized_pp, None).await?;
-        }
-        (_, 1) => {
-            let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
+        let content = write_content(username, &args, 1);
+        let entry = &entries[idx];
 
-            let minimized_pp = config
-                .minimized_pp
-                .or(guild_minimized_pp)
-                .unwrap_or_default();
+        single_embed(ctx, orig, user, entry, score_size, minimized_pp, content).await
+    } else {
+        let content = write_content(username, &args, entries.len());
 
-            let content = write_content(username, &args, 1);
-            let entry = &entries[0];
+        let list_size = args
+            .size
+            .or(config.list_size)
+            .or(guild_list_size)
+            .unwrap_or_default();
 
-            single_embed(ctx, orig, user, entry, score_size, minimized_pp, content).await?;
-        }
-        (None, _) => {
-            let content = write_content(username, &args, entries.len());
+        let minimized_pp = config
+            .minimized_pp
+            .or(guild_minimized_pp)
+            .unwrap_or_default();
 
-            let list_size = args
-                .size
-                .or(config.list_size)
-                .or(guild_list_size)
-                .unwrap_or_default();
+        let pagination = TopPagination::builder()
+            .user(user)
+            .mode(mode)
+            .entries(entries.into_boxed_slice())
+            .sort_by(args.sort_by)
+            .farm(farm)
+            .list_size(list_size)
+            .minimized_pp(minimized_pp)
+            .content(content.unwrap_or_default())
+            .msg_owner(msg_owner)
+            .build();
 
-            match list_size {
-                ListSize::Condensed => {
-                    TopCondensedPagination::builder(user, mode, entries, args.sort_by, farm)
-                        .content(content.unwrap_or_default())
-                        .start_by_update()
-                        .defer_components()
-                        .start(ctx, orig)
-                        .await?;
-                }
-                ListSize::Detailed => {
-                    TopPagination::builder(user, mode, entries, args.sort_by, farm)
-                        .content(content.unwrap_or_default())
-                        .start_by_update()
-                        .defer_components()
-                        .start(ctx, orig)
-                        .await?;
-                }
-                ListSize::Single => {
-                    let minimized_pp = config
-                        .minimized_pp
-                        .or(guild_minimized_pp)
-                        .unwrap_or_default();
-
-                    TopSinglePagination::builder(user, entries, minimized_pp)
-                        .content(content.unwrap_or_default())
-                        .start_by_update()
-                        .defer_components()
-                        .start(ctx, orig)
-                        .await?;
-                }
-            }
-        }
+        ActiveMessages::builder(pagination)
+            .start_by_update(true)
+            .begin(ctx, orig)
+            .await
     }
-
-    Ok(())
 }
 
 pub struct TopEntry {
@@ -1211,71 +1192,22 @@ async fn single_embed(
     };
 
     let personal_idx = Some(entry.original_idx);
-    let embed_fut = TopSingleEmbed::new(&user, entry, personal_idx, global_idx, minimized_pp, &ctx);
 
-    let embed = embed_fut.await;
+    let active_msg_fut = TopScoreEdit::create(
+        &ctx,
+        &user,
+        entry,
+        personal_idx,
+        global_idx,
+        minimized_pp,
+        score_size,
+        content,
+    );
 
-    // Only maximize if config allows it
-    match score_size {
-        ScoreSize::AlwaysMinimized => {
-            let mut builder = MessageBuilder::new().embed(embed.into_minimized());
-
-            if let Some(content) = content {
-                builder = builder.content(content);
-            }
-
-            orig.create_message(&ctx, &builder).await?;
-        }
-        ScoreSize::InitialMaximized => {
-            let mut builder = MessageBuilder::new().embed(embed.as_maximized());
-
-            if let Some(ref content) = content {
-                builder = builder.content(content);
-            }
-
-            let response = orig.create_message(&ctx, &builder).await?.model().await?;
-
-            // Lacking permission to edit the message
-            if !orig.can_view_channel() {
-                return Ok(());
-            }
-
-            ctx.store_msg(response.id);
-            let permissions = orig.permissions();
-
-            // Minimize embed after delay
-            tokio::spawn(async move {
-                sleep(Duration::from_secs(45)).await;
-
-                if !ctx.remove_msg(response.id) {
-                    return;
-                }
-
-                let mut builder = MessageBuilder::new().embed(embed.into_minimized());
-
-                if let Some(content) = content {
-                    builder = builder.content(content);
-                }
-
-                if let Some(update_fut) = response.update(&ctx, &builder, permissions) {
-                    if let Err(err) = update_fut.await {
-                        warn!(?err, "Failed to minimize embed");
-                    }
-                }
-            });
-        }
-        ScoreSize::AlwaysMaximized => {
-            let mut builder = MessageBuilder::new().embed(embed.as_maximized());
-
-            if let Some(content) = content {
-                builder = builder.content(content);
-            }
-
-            orig.create_message(&ctx, &builder).await?;
-        }
-    }
-
-    Ok(())
+    ActiveMessages::builder(active_msg_fut.await)
+        .start_by_update(true)
+        .begin(ctx, orig)
+        .await
 }
 
 type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), IntHasher>;

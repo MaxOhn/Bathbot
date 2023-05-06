@@ -6,7 +6,11 @@ use eyre::Result;
 use hashbrown::HashSet;
 use twilight_model::{channel::Message, id::Id};
 
-use crate::{pagination::RankingPagination, util::ChannelExt, Context};
+use crate::{
+    active::{impls::RankingPagination, ActiveMessages},
+    util::ChannelExt,
+    Context,
+};
 
 pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> Result<()> {
     let mut scores = match ctx.games().bggame_leaderboard().await {
@@ -79,7 +83,14 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> Resu
     let global = guild.is_none() || global;
     let data = RankingKind::BgScores { global, scores };
 
-    RankingPagination::builder(entries, total, author_idx, data)
-        .start(ctx, msg.into())
-        .await
+    let pagination = RankingPagination::builder()
+        .entries(entries)
+        .total(total)
+        .author_idx(author_idx)
+        .kind(data)
+        .defer(false)
+        .msg_owner(msg.author.id)
+        .build();
+
+    ActiveMessages::builder(pagination).begin(ctx, msg).await
 }

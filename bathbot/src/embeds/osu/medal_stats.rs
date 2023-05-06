@@ -3,8 +3,8 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 use bathbot_macros::EmbedData;
 use bathbot_model::{rosu_v2::user::User, MedalGroup, MEDAL_GROUPS};
 use bathbot_util::{
-    constants::OSU_BASE, numbers::round, osu::flag_url, AuthorBuilder, CowUtils, FooterBuilder,
-    IntHasher,
+    constants::OSU_BASE, fields, numbers::round, osu::flag_url, AuthorBuilder, CowUtils,
+    FooterBuilder, IntHasher,
 };
 use hashbrown::HashMap;
 use rosu_v2::prelude::MedalCompact;

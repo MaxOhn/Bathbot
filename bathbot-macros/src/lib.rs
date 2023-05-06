@@ -1,4 +1,3 @@
-use pagination::AttributeList;
 use prefix::CommandFun;
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
@@ -80,32 +79,23 @@ pub fn embed_data(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Auxiliary procedural macro for pagination structs.
+/// Macro to generate a corresponding builder type for pagination structs.
 ///
-/// Two attribute name-value pairs are required:
-///   - `per_page = {integer}`: How many entries are shown per page
-///   - `entries = "{field name}"`: Field on which the `len` method will be
-///     called to determine the total amount of pages
-///   - Alternatively to `entries`, you can also specify `total = "{arg name}"`.
-///     The argument must be of type `usize` and will be considered as total
-///     amount of entries.
+/// The last field must be `pages: Pages`.
 ///
-/// Additionally, the struct name is restricted to the form
-/// `{SomeName}Pagination` and the `PaginationKind` enum must have a variant
-/// `{SomeName}`.
+/// One field needs to be denoted with `#[pagination(per_page = int)]` and next
+/// to `per_page` one can also specify the attribute
+/// `len = "expression that evaluates into a usize"`. If `len` is not specified,
+/// it'll use `.len()` on the field that's denoted with the attribute.
 ///
-/// The macro will provide the following function:
-///
-/// `fn builder(...) -> PaginationBuilder`: Each field of the struct must be
-/// given as argument
-#[proc_macro_attribute]
-pub fn pagination(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let attrs = parse_macro_input!(attr as AttributeList);
+/// The macro will provide the function `builder()`.
+#[proc_macro_derive(PaginationBuilder, attributes(pagination))]
+pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    match pagination::impl_(input, attrs) {
-        Ok(result) => result.into(),
-        Err(err) => err.to_compile_error().into(),
+    match pagination::impl_derive(input) {
+        Ok(tokens) => tokens.into(),
+        Err(err) => err.into_compile_error().into(),
     }
 }
 

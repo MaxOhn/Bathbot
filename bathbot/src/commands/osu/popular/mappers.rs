@@ -6,10 +6,10 @@ use eyre::Result;
 use rkyv::{DeserializeUnsized, Infallible};
 
 use crate::{
+    active::{impls::PopularMappersPagination, ActiveMessages},
     core::Context,
     manager::redis::RedisData,
-    pagination::OsuTrackerMappersPagination,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
 pub(super) async fn mappers(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
@@ -52,8 +52,13 @@ pub(super) async fn mappers(ctx: Arc<Context>, mut command: InteractionCommand) 
         }
     };
 
-    OsuTrackerMappersPagination::builder(counts)
-        .start_by_update()
-        .start(ctx, (&mut command).into())
+    let pagination = PopularMappersPagination::builder()
+        .entries(counts.into_boxed_slice())
+        .msg_owner(command.user_id()?)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }

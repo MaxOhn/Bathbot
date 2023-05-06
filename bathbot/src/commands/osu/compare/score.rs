@@ -5,13 +5,13 @@ use std::{
 };
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
-use bathbot_model::ScoreSlim;
+use bathbot_model::{rosu_v2::user::User, ScoreSlim};
 use bathbot_psql::model::osu::{ArchivedMapVersion, MapVersion};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{AVATAR_URL, GENERAL_ISSUE, MAP_THUMB_URL, OSU_API_ISSUE, OSU_BASE},
     matcher,
     osu::{MapIdType, ModSelection},
-    CowUtils, MessageBuilder,
+    CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin,
 };
 use eyre::{Report, Result};
 use rosu_v2::{
@@ -32,17 +32,16 @@ use twilight_model::{
 
 use super::{CompareScoreAutocomplete, ScoreOrder};
 use crate::{
+    active::{impls::CompareScoresPagination, ActiveMessages},
     commands::osu::{require_link, HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{EmbedData, MessageOrigin, ScoresEmbed},
     manager::{
         redis::{
             osu::{UserArgs, UserArgsSlim},
             RedisData,
         },
-        MapError,
+        MapError, OsuMap,
     },
-    pagination::ScoresPagination,
     util::{interaction::InteractionCommand, osu::IfFc, CheckPermissions, InteractionCommandExt},
     Context,
 };
@@ -486,25 +485,25 @@ pub(super) async fn score(
         }
     };
 
-    let entries = match process_scores(
+    let process_fut = process_scores(
         &ctx,
         map_id,
         scores,
         mods.as_ref(),
         sort.unwrap_or_default(),
-    )
-    .await
-    {
+    );
+
+    let entries = match process_fut.await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to process scores"));
+            return Err(err.wrap_err("Failed to process scores"));
         }
     };
 
     if entries.is_empty() {
-        let embed = ScoresEmbed::no_scores(&user, &map, mods).build();
+        let embed = no_scores_embed(&user, &map, mods);
         let builder = MessageBuilder::new().embed(embed);
         orig.create_message(&ctx, &builder).await?;
 
@@ -596,14 +595,21 @@ pub(super) async fn score(
 
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
-    let builder = ScoresPagination::builder(
-        user, map, entries, pinned, personal, global_idx, pp_idx, origin,
-    );
+    let pagination = CompareScoresPagination::builder()
+        .user(user)
+        .map(map)
+        .entries(entries.into_boxed_slice())
+        .pinned(pinned.into_boxed_slice())
+        .personal(personal.into_boxed_slice())
+        .global_idx(global_idx)
+        .pp_idx(pp_idx)
+        .origin(origin)
+        .msg_owner(owner)
+        .build();
 
-    builder
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 
@@ -830,13 +836,21 @@ async fn compare_from_score(
 
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
-    let builder =
-        ScoresPagination::builder(user, map, entries, pinned, best, global_idx, 0, origin);
+    let pagination = CompareScoresPagination::builder()
+        .user(user)
+        .map(map)
+        .entries(entries.into_boxed_slice())
+        .pinned(pinned.into_boxed_slice())
+        .personal(best.into_boxed_slice())
+        .global_idx(global_idx)
+        .pp_idx(0)
+        .origin(origin)
+        .msg_owner(orig.user_id()?)
+        .build();
 
-    builder
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 
@@ -917,4 +931,34 @@ fn global_idx(entries: &[CompareEntry], globals: &[Score], user_id: u32) -> Opti
                     idx_in_map_lb: pos + 1,
                 })
         })
+}
+
+fn no_scores_embed(
+    user: &RedisData<User>,
+    map: &OsuMap,
+    mods: Option<ModSelection>,
+) -> EmbedBuilder {
+    let footer = FooterBuilder::new(format!("{:?} map by {}", map.status(), map.creator()))
+        .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
+
+    let title = format!(
+        "{} - {} [{}]",
+        map.artist().cow_escape_markdown(),
+        map.title().cow_escape_markdown(),
+        map.version().cow_escape_markdown()
+    );
+
+    let description = if mods.is_some() {
+        "No scores with these mods".to_owned()
+    } else {
+        "No scores".to_owned()
+    };
+
+    EmbedBuilder::new()
+        .author(user.author_builder())
+        .description(description)
+        .footer(footer)
+        .thumbnail(format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id()))
+        .title(title)
+        .url(format!("{OSU_BASE}b/{}", map.map_id()))
 }

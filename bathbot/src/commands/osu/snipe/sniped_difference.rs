@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, sync::Arc};
+use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_util::{
@@ -6,16 +6,15 @@ use bathbot_util::{
     matcher, IntHasher, MessageBuilder,
 };
 use eyre::{Report, Result};
-use hashbrown::HashMap;
 use rosu_v2::{prelude::OsuError, request::UserId};
 use time::{Duration, OffsetDateTime};
 
 use super::{SnipePlayerGain, SnipePlayerLoss};
 use crate::{
+    active::{impls::SnipeDifferencePagination, ActiveMessages},
     commands::osu::require_link,
     core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::SnipedDiffPagination,
     Context,
 };
 
@@ -110,9 +109,11 @@ async fn sniped_diff(
     diff: Difference,
     user_id: Option<UserId>,
 ) -> Result<()> {
+    let owner = orig.user_id()?;
+
     let user_id = match user_id {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+        None => match ctx.user_config().osu_id(owner).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
@@ -202,12 +203,18 @@ async fn sniped_diff(
     }
 
     scores.sort_unstable_by_key(|s| Reverse(s.date));
-    let maps = HashMap::with_hasher(IntHasher);
 
-    SnipedDiffPagination::builder(user, diff, scores, maps)
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+    let pagination = SnipeDifferencePagination::builder()
+        .user(user)
+        .diff(diff)
+        .scores(scores.into_boxed_slice())
+        .star_map(HashMap::with_hasher(IntHasher))
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

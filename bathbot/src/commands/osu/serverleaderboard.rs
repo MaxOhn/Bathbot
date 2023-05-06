@@ -8,7 +8,7 @@ use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    pagination::RankingPagination,
+    active::{impls::RankingPagination, ActiveMessages},
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
@@ -230,10 +230,18 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
 
     let author_idx = author_name.and_then(|name| entries.name_pos(&name));
     let total = entries.len();
-    let builder = RankingPagination::builder(entries, total, author_idx, kind);
 
-    builder
-        .start_by_update()
-        .start(ctx, (&mut command).into())
+    let pagination = RankingPagination::builder()
+        .entries(entries)
+        .total(total)
+        .author_idx(author_idx)
+        .kind(kind)
+        .defer(false)
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }

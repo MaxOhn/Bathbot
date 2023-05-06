@@ -15,9 +15,9 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::user_not_found;
 use crate::{
+    active::{impls::NoChokePagination, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
-    pagination::NoChokePagination,
     util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
 };
@@ -297,11 +297,19 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
 
     content.push(':');
 
-    NoChokePagination::builder(user, entries, unchoked_pp, rank)
+    // TODO: content
+    let pagination = NoChokePagination::builder()
+        .user(user)
+        .entries(entries.into_boxed_slice())
+        .unchoked_pp(unchoked_pp)
+        .rank(rank)
         .content(content)
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+        .msg_owner(orig.user_id()?)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

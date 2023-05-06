@@ -6,7 +6,7 @@ use bathbot_util::{
     datetime::HowLongAgoDynamic,
     numbers::WithComma,
     string_cmp::levenshtein_distance,
-    CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
+    CowUtils, EmbedBuilder, MessageBuilder,
 };
 use eyre::{ContextCompat, Result};
 use prometheus::core::Collector;
@@ -18,13 +18,14 @@ use twilight_model::{
     channel::message::embed::EmbedField,
 };
 
-use super::{failed_message_content, option_fields, parse_select_menu, AUTHORITY_STATUS};
+use super::failed_message_content;
 use crate::{
+    active::{impls::HelpInteractionCommand, ActiveMessages},
     core::{
         commands::slash::{SlashCommand, SlashCommands},
         Context,
     },
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
 #[derive(CreateCommand, SlashCommand)]
@@ -51,7 +52,7 @@ pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> R
     match args.command {
         AutocompleteValue::None => help_slash_basic(ctx, command).await,
         AutocompleteValue::Completed(name) => match SlashCommands::get().command(&name) {
-            Some(cmd) => help_slash_command(&ctx, command, cmd).await,
+            Some(cmd) => help_slash_command(ctx, &mut command, cmd).await,
             None => {
                 let dists: BTreeMap<_, _> = SlashCommands::get()
                     .names()
@@ -200,17 +201,11 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
 }
 
 async fn help_slash_command(
-    ctx: &Context,
-    command: InteractionCommand,
-    cmd: &SlashCommand,
+    ctx: Arc<Context>,
+    command: &mut InteractionCommand,
+    cmd: &'static SlashCommand,
 ) -> Result<()> {
-    let ApplicationCommandData {
-        name,
-        description,
-        help,
-        options,
-        ..
-    } = (cmd.create)();
+    let ApplicationCommandData { name, .. } = (cmd.create)();
 
     if name == "owner" {
         let description =
@@ -218,30 +213,12 @@ async fn help_slash_command(
 
         let embed_builder = EmbedBuilder::new().title(name).description(description);
         let builder = MessageBuilder::new().embed(embed_builder);
-        command.callback(ctx, builder, true).await?;
+        command.callback(&ctx, builder, true).await?;
 
         return Ok(());
     }
 
-    let description = help.unwrap_or(description);
+    let help = HelpInteractionCommand::new(name, command.user_id()?);
 
-    let mut embed_builder = EmbedBuilder::new()
-        .title(name)
-        .description(description)
-        .fields(option_fields(&options));
-
-    if cmd.flags.authority() {
-        let footer = FooterBuilder::new(AUTHORITY_STATUS);
-        embed_builder = embed_builder.footer(footer);
-    }
-
-    let menu = parse_select_menu(&options);
-
-    let builder = MessageBuilder::new()
-        .embed(embed_builder)
-        .components(menu.unwrap_or_default());
-
-    command.callback(ctx, builder, true).await?;
-
-    Ok(())
+    ActiveMessages::builder(help).begin(ctx, command).await
 }

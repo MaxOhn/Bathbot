@@ -1,12 +1,12 @@
-use std::{sync::Arc, borrow::Cow};
+use std::{borrow::Cow, sync::Arc};
 
-use bathbot_model::{MedalCount, Countries};
+use bathbot_model::{Countries, MedalCount};
 use bathbot_util::constants::OSEKAI_ISSUE;
 use eyre::Result;
 
 use super::OsekaiMedalCount;
 use crate::{
-    pagination::MedalCountPagination,
+    active::{impls::MedalCountPagination, ActiveMessages},
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
@@ -68,8 +68,14 @@ pub(super) async fn medal_count(
         .as_deref()
         .and_then(|name| ranking.iter().position(|e| e.username.as_str() == name));
 
-    MedalCountPagination::builder(ranking, author_idx)
-        .start_by_update()
-        .start(ctx, (&mut command).into())
+    let pagination = MedalCountPagination::builder()
+        .ranking(ranking.into_boxed_slice())
+        .author_idx(author_idx)
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }

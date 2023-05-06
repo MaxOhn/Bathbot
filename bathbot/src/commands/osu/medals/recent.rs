@@ -1,10 +1,10 @@
-use std::{cmp::Reverse, mem, sync::Arc};
+use std::{cmp::Reverse, collections::HashMap, mem, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::{MedalCompact as MedalCompactRkyv, User};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-    matcher, MessageBuilder,
+    matcher, IntHasher, MessageBuilder,
 };
 use eyre::{Report, Result};
 use rkyv::{
@@ -17,13 +17,12 @@ use rosu_v2::{
 };
 use time::OffsetDateTime;
 
-use super::MedalRecent;
+use super::{MedalEmbed, MedalRecent};
 use crate::{
+    active::{impls::MedalsRecentPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
-    embeds::MedalEmbed,
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::MedalRecentPagination,
     Context,
 };
 
@@ -78,7 +77,7 @@ pub(super) async fn recent(
     let user_fut = ctx.redis().osu_user(user_args);
     let medals_fut = ctx.redis().medals();
 
-    let (mut user, mut all_medals) = match tokio::join!(user_fut, medals_fut) {
+    let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
         (Ok(user), Ok(medals)) => (user, medals.into_original()),
         (Err(OsuError::NotFound), _) => {
             let content = user_not_found(&ctx, user_id).await;
@@ -114,9 +113,9 @@ pub(super) async fn recent(
     }
 
     user_medals.sort_unstable_by_key(|medal| Reverse(medal.achieved_at));
-    let index = args.index.unwrap_or(1);
+    let index = args.index.unwrap_or(1).saturating_sub(1);
 
-    let (medal_id, achieved_at) = match user_medals.get(index - 1) {
+    let (medal_id, achieved_at) = match user_medals.get(index) {
         Some(MedalCompact {
             medal_id,
             achieved_at,
@@ -126,6 +125,7 @@ pub(super) async fn recent(
                 "`{}` only has {} medals, cannot show medal #{index}",
                 user.username(),
                 user_medals.len(),
+                index = index + 1,
             );
 
             return orig.error(&ctx, content).await;
@@ -133,7 +133,7 @@ pub(super) async fn recent(
     };
 
     let medal = match all_medals.iter().position(|m| m.medal_id == medal_id) {
-        Some(idx) => all_medals.swap_remove(idx),
+        Some(idx) => &all_medals[idx],
         None => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
@@ -150,15 +150,30 @@ pub(super) async fn recent(
         medal_count: user_medals.len(),
     };
 
-    let embed_data = MedalEmbed::new(medal.clone(), Some(achieved), Vec::new(), None);
+    let embed_data = MedalEmbed::new(medal, Some(achieved), Vec::new(), None);
 
-    let builder =
-        MedalRecentPagination::builder(user, medal, user_medals, index, embed_data, all_medals);
+    let medals = all_medals
+        .into_iter()
+        .map(|medal| (medal.medal_id, medal))
+        .collect();
 
-    builder
-        .start_by_update()
+    let mut embeds = HashMap::with_hasher(IntHasher);
+    embeds.insert(index, embed_data);
+
+    let mut pagination = MedalsRecentPagination::builder()
+        .user(user)
+        .achieved_medals(user_medals.into_boxed_slice())
+        .embeds(embeds)
+        .medals(medals)
         .content(content)
-        .start(ctx, orig)
+        .msg_owner(owner)
+        .build();
+
+    pagination.set_index(index);
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

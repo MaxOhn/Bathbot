@@ -28,7 +28,7 @@ enum ProcessResult {
     NoAuthority,
 }
 
-enum EventKind {
+pub enum EventKind {
     Autocomplete,
     Component,
     Modal,
@@ -37,7 +37,7 @@ enum EventKind {
 }
 
 impl EventKind {
-    async fn log<A>(self, ctx: &Context, orig: &A, name: &str)
+    pub async fn log<A>(self, ctx: &Context, orig: &A, name: &str)
     where
         A: Authored + Send + Sync,
     {

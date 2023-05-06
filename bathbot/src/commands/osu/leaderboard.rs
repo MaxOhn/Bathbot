@@ -23,12 +23,12 @@ use twilight_model::{
 
 use super::{HasMods, ModsResult};
 use crate::{
+    active::{impls::LeaderboardPagination, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{
         redis::{osu::UserArgs, RedisData},
         MapError,
     },
-    pagination::LeaderboardPagination,
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
@@ -279,20 +279,21 @@ async fn leaderboard(
     let max_combo = attrs.max_combo() as u32;
     attr_map.insert(mods_bits, (attrs.into(), max_pp));
 
-    let pagination = LeaderboardPagination::builder(
-        map,
-        scores,
-        stars,
-        max_combo,
-        attr_map,
-        user_score,
-        first_place_icon,
-    );
-
-    pagination
-        .start_by_update()
+    let pagination = LeaderboardPagination::builder()
+        .map(map)
+        .scores(scores.into_boxed_slice())
+        .stars(stars)
+        .max_combo(max_combo)
+        .attr_map(attr_map)
+        .author_data(user_score)
+        .first_place_icon(first_place_icon)
         .content(content)
-        .start(ctx, orig)
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

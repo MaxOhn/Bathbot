@@ -6,7 +6,7 @@ use time::OffsetDateTime;
 use super::deser;
 use crate::rkyv_util::DerefAsString;
 
-#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
+#[derive(Archive, Copy, Clone, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerIdCount {
     #[serde(rename = "id")]
     pub map_id: u32,

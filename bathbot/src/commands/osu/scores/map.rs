@@ -15,12 +15,12 @@ use super::{
     criteria_to_content, get_mode, process_scores, separate_content, MapScores, ScoresOrder,
 };
 use crate::{
+    active::{impls::ScoresMapPagination, ActiveMessages},
     commands::osu::{
         compare::{slash_compare_score, ScoreOrder},
         CompareScoreAutocomplete, HasMods, ModsResult,
     },
     core::Context,
-    pagination::MapScoresPagination,
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, ScoresCriteria},
@@ -181,7 +181,8 @@ pub async fn map_scores(
 
     let guild_fut = ctx.cache.guild(guild_id);
     let members_fut = ctx.cache.members(guild_id);
-    let mode_fut = get_mode(&ctx, args.mode, command.user_id()?);
+    let owner = command.user_id()?;
+    let mode_fut = get_mode(&ctx, args.mode, owner);
 
     let (guild_res, members_res, mode_res) = tokio::join!(guild_fut, members_fut, mode_fut);
 
@@ -253,10 +254,12 @@ pub async fn map_scores(
     }
 
     let sort = args.sort.unwrap_or_default();
+
     let criteria = args
         .query
         .as_deref()
         .map(FilterCriteria::<ScoresCriteria<'_>>::new);
+
     let content = msg_content(
         sort,
         mods.as_ref(),
@@ -275,10 +278,18 @@ pub async fn map_scores(
         args.reverse,
     );
 
-    MapScoresPagination::builder(scores, mode, sort, guild_icon)
+    let pagination = ScoresMapPagination::builder()
+        .scores(scores)
+        .mode(mode)
+        .sort(sort)
+        .guild_icon(guild_icon)
         .content(content)
-        .start_by_update()
-        .start(ctx, (&mut command).into())
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }
 

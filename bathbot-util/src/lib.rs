@@ -7,7 +7,9 @@ mod exp_backoff;
 mod ext;
 mod hasher;
 mod html_to_png;
+mod macros;
 mod matrix;
+mod msg_origin;
 
 pub mod constants;
 pub mod datetime;
@@ -24,4 +26,5 @@ pub use self::{
     hasher::{IntHash, IntHasher},
     html_to_png::HtmlToPng,
     matrix::Matrix,
+    msg_origin::MessageOrigin,
 };

@@ -16,10 +16,10 @@ use super::{
     criteria_to_content, get_mode, process_scores, separate_content, MapStatus, ServerScores,
 };
 use crate::{
+    active::{impls::ScoresServerPagination, ActiveMessages},
     commands::osu::{user_not_found, HasMods, ModsResult},
     core::Context,
     manager::redis::osu::UserArgs,
-    pagination::ServerScoresPagination,
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, ScoresCriteria},
@@ -72,7 +72,8 @@ pub async fn server_scores(
 
     let guild_fut = ctx.cache.guild(guild_id);
     let members_fut = ctx.cache.members(guild_id);
-    let mode_fut = get_mode(&ctx, args.mode, command.user_id()?);
+    let owner = command.user_id()?;
+    let mode_fut = get_mode(&ctx, args.mode, owner);
 
     let (guild_res, members_res, mode_res) = tokio::join!(guild_fut, members_fut, mode_fut);
 
@@ -136,6 +137,7 @@ pub async fn server_scores(
     };
 
     let sort = args.sort.unwrap_or_default();
+
     let criteria = args
         .query
         .as_deref()
@@ -160,10 +162,18 @@ pub async fn server_scores(
         args.reverse,
     );
 
-    ServerScoresPagination::builder(scores, mode, sort, guild_icon)
+    let pagination = ScoresServerPagination::builder()
+        .scores(scores)
+        .mode(mode)
+        .sort(sort)
+        .guild_icon(guild_icon)
         .content(content)
-        .start_by_update()
-        .start(ctx, (&mut command).into())
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }
 

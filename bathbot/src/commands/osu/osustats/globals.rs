@@ -15,13 +15,13 @@ use rosu_v2::prelude::{GameMode, Grade, OsuError, ScoreStatistics, Username};
 
 use super::OsuStatsScores;
 use crate::{
+    active::{impls::OsuStatsScoresPagination, ActiveMessages},
     commands::{
         osu::{user_not_found, HasMods, ModsResult},
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
-    pagination::OsuStatsGlobalsPagination,
     util::ChannelExt,
     Context,
 };
@@ -246,11 +246,18 @@ pub(super) async fn scores(
         );
     }
 
-    OsuStatsGlobalsPagination::builder(user, entries, amount, params)
-        .content(content)
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+    // TODO: content
+    let pagination = OsuStatsScoresPagination::builder()
+        .user(user)
+        .entries(entries)
+        .total(amount)
+        .params(params)
+        .msg_owner(orig.user_id()?)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

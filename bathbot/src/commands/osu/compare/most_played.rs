@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, fmt::Write, sync::Arc};
+use std::{cmp::Reverse, collections::HashMap, fmt::Write, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::User;
@@ -7,7 +7,6 @@ use bathbot_util::{
     matcher, IntHasher, MessageBuilder,
 };
 use eyre::{Report, Result};
-use hashbrown::HashMap;
 use rosu_v2::{
     prelude::{MostPlayedMap, OsuError},
     request::UserId,
@@ -16,10 +15,10 @@ use rosu_v2::{
 
 use super::{CompareMostPlayed, AT_LEAST_ONE};
 use crate::{
+    active::{impls::CompareMostPlayedPagination, ActiveMessages},
     commands::osu::{user_not_found, UserExtraction},
     core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::MostPlayedCommonPagination,
     Context,
 };
 
@@ -175,10 +174,18 @@ pub(super) async fn mostplayed(
         if amount_common > 1 { "s" } else { "" }
     );
 
-    MostPlayedCommonPagination::builder(user1, user2, maps, map_counts)
-        .start_by_update()
-        .content(content)
-        .start(ctx, orig)
+    // TODO: content
+    let pagination = CompareMostPlayedPagination::builder()
+        .user1(user1)
+        .user2(user2)
+        .maps(maps)
+        .map_counts(map_counts.into_boxed_slice())
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

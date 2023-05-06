@@ -7,10 +7,10 @@ use rkyv::{Deserialize, Infallible};
 
 use super::PopularMapsPp;
 use crate::{
+    active::{impls::PopularMapsPagination, ActiveMessages},
     core::Context,
     manager::redis::RedisData,
-    pagination::OsuTrackerMapsPagination,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
 pub(super) async fn maps(
@@ -30,9 +30,15 @@ pub(super) async fn maps(
         }
     };
 
-    OsuTrackerMapsPagination::builder(pp, entries)
-        .start_by_update()
-        .start(ctx, (&mut command).into())
+    let pagination = PopularMapsPagination::builder()
+        .pp(pp)
+        .entries(entries.into_boxed_slice())
+        .msg_owner(command.user_id()?)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }
 

@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use bathbot_macros::{HasName, SlashCommand};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
-use eyre::{Report, Result};
+use eyre::{Report, Result, WrapErr};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
+    active::{self, ActiveMessages},
     core::{commands::CommandOrigin, Context},
-    pagination::SkinsPagination,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
@@ -121,10 +121,16 @@ impl AllSkin {
     async fn process(self, ctx: Arc<Context>, command: &mut InteractionCommand) -> Result<()> {
         match ctx.user_config().all_skins().await {
             Ok(entries) => {
-                SkinsPagination::builder(entries)
-                    .start_by_update()
-                    .start(ctx, CommandOrigin::from(command))
+                let pagination = active::impls::SkinsPagination::builder()
+                    .entries(entries.into_boxed_slice())
+                    .msg_owner(command.user_id()?)
+                    .build();
+
+                ActiveMessages::builder(pagination)
+                    .start_by_update(true)
+                    .begin(ctx, CommandOrigin::from(command))
                     .await
+                    .wrap_err("Failed to begin active message")
             }
             Err(err) => {
                 let _ = command.error(&ctx, GENERAL_ISSUE).await;

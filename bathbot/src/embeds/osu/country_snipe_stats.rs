@@ -1,6 +1,7 @@
 use bathbot_macros::EmbedData;
 use bathbot_model::{CountryName, SnipeCountryStatistics};
 use bathbot_util::{
+    fields,
     numbers::{round, WithComma},
     osu::flag_url,
     CowUtils, FooterBuilder,

@@ -8,10 +8,7 @@ use bathbot_client::Client as BathbotClient;
 use bathbot_psql::{model::configs::GuildConfig, Database};
 use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
-use flexmap::{
-    std::StdMutexMap,
-    tokio::{TokioMutexMap, TokioRwLockMap},
-};
+use flexmap::tokio::TokioRwLockMap;
 use flurry::{HashMap as FlurryMap, HashSet as FlurrySet};
 use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
@@ -30,7 +27,7 @@ use twilight_model::{
         presence::{ActivityType, MinimalActivity, Status},
     },
     id::{
-        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker, UserMarker},
+        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker},
         Id,
     },
 };
@@ -40,12 +37,8 @@ use super::{buckets::Buckets, BotStats};
 #[cfg(feature = "osutracking")]
 use crate::manager::OsuTrackingManager;
 use crate::{
+    active::{impls::BackgroundGame, ActiveMessages},
     core::BotConfig,
-    games::{
-        bg::GameState as BgGameState,
-        hl::{retry::RetryState, GameState as HlGameState},
-    },
-    pagination::Pagination,
 };
 
 mod games;
@@ -68,7 +61,7 @@ pub struct Context {
     pub shard_senders: RwLock<HashMap<u64, MessageSender>>,
     pub http: Arc<Client>,
     pub member_requests: MemberRequests,
-    pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination, IntHasher>>,
+    pub active_msgs: ActiveMessages,
     pub standby: Standby,
     pub stats: Arc<BotStats>,
     data: ContextData,
@@ -182,7 +175,7 @@ impl Context {
             auth_standby,
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
-            paginations: Arc::new(TokioMutexMap::with_shard_amount_and_hasher(16, IntHasher)),
+            active_msgs: ActiveMessages::new(),
         };
 
         Ok((
@@ -311,23 +304,17 @@ impl ContextData {
 
 struct Games {
     bg: BgGames,
-    hl: HlGames,
-    hl_retries: HlRetries,
 }
 
 impl Games {
     fn new() -> Self {
         Self {
             bg: BgGames::with_shard_amount_and_hasher(16, IntHasher),
-            hl: HlGames::with_shard_amount_and_hasher(16, IntHasher),
-            hl_retries: HlRetries::with_shard_amount_and_hasher(4, IntHasher),
         }
     }
 }
 
-type BgGames = TokioRwLockMap<Id<ChannelMarker>, BgGameState, IntHasher>;
-type HlGames = TokioMutexMap<Id<UserMarker>, HlGameState, IntHasher>;
-type HlRetries = StdMutexMap<Id<MessageMarker>, RetryState, IntHasher>;
+type BgGames = TokioRwLockMap<Id<ChannelMarker>, BackgroundGame, IntHasher>;
 
 async fn discord_http(config: &BotConfig) -> Result<(Arc<Client>, Id<ApplicationMarker>)> {
     let mentions = AllowedMentions {

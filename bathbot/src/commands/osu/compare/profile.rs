@@ -4,6 +4,7 @@ use bathbot_macros::{command, SlashCommand};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
+    numbers::MinMaxAvg,
     osu::{BonusPP, UserStats},
     MessageBuilder,
 };
@@ -26,10 +27,7 @@ use twilight_model::{
 
 use super::{CompareProfile, AT_LEAST_ONE};
 use crate::{
-    commands::{
-        osu::{MinMaxAvg, UserExtraction},
-        GameModeOption,
-    },
+    commands::{osu::UserExtraction, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, ProfileCompareEmbed},
     manager::redis::osu::UserArgs,

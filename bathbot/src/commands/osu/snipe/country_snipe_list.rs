@@ -14,10 +14,10 @@ use rosu_v2::{
 
 use super::{SnipeCountryList, SnipeCountryListOrder};
 use crate::{
+    active::{impls::SnipeCountryListPagination, ActiveMessages},
     commands::osu::user_not_found,
     core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::CountrySnipeListPagination,
     util::ChannelExt,
     Context,
 };
@@ -167,9 +167,17 @@ pub(super) async fn country_list(
         .to_name()
         .map(|name| (name, country_code));
 
-    CountrySnipeListPagination::builder(players, country, sort, author_idx)
-        .start_by_update()
-        .start(ctx, orig)
+    let pagination = SnipeCountryListPagination::builder()
+        .players(players.into_boxed_slice())
+        .country(country)
+        .order(sort)
+        .author_idx(author_idx)
+        .msg_owner(author_id)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

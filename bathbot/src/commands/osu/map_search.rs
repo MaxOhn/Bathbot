@@ -10,9 +10,9 @@ use rosu_v2::prelude::{
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
+    active::{impls::MapSearchPagination, ActiveMessages},
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
-    pagination::MapSearchPagination,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -628,16 +628,16 @@ async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> Res
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(Report::new(err).wrap_err("failed to get search results"));
+            return Err(Report::new(err).wrap_err("Failed to get search results"));
         }
     };
 
     let maps: BTreeMap<usize, Beatmapset> = search_result.mapsets.drain(..).enumerate().collect();
 
-    MapSearchPagination::builder(maps, search_result, args)
-        .map_search_components()
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+    let pagination = MapSearchPagination::new(maps, search_result, args, orig.user_id()?);
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
