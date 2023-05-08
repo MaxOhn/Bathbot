@@ -104,7 +104,7 @@ FROM
             } else {
                 // lerp
 
-                let percent = (higher_pp - pp) / (higher_pp - lower_pp);
+                let percent = (pp - lower_pp) / (higher_pp - lower_pp);
                 let rank = percent * (lower_rank - higher_rank) as f32;
 
                 Ok(lower_rank - rank as u32)
