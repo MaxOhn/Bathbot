@@ -48,7 +48,7 @@ pub enum Owner {
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "add_bg")]
-/// Add a background the bg game
+/// Add a background to the bg game
 pub struct OwnerAddBg {
     /// Add a png or jpg image with the mapset id as name
     image: Attachment,
