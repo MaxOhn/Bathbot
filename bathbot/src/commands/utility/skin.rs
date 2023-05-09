@@ -147,6 +147,7 @@ pub struct SetSkin {
         - `https://mega.nz`\n\
         - `https://www.mediafire.com`\n\
         - `https://skins.osuck.net`\n\
+        - `https://github.com`\n\
         If you want to suggest another site let Badewanne3 know."
     )]
     url: String,
@@ -240,6 +241,7 @@ impl SkinValidation {
                     - `https://mega.nz`\n\
                     - `https://www.mediafire.com`\n\
                     - `https://skins.osuck.net`\n\
+                    - `https://github.com`\n\
                     If you want to suggest another site let Badewanne3 know";
 
                 command.error(ctx, content).await?;
