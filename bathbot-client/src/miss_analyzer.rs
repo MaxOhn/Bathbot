@@ -54,13 +54,8 @@ impl Client {
         };
         let json = serde_json::to_vec(&body).unwrap();
 
-        let bytes = self
-            .make_json_post_request(url, Site::MissAnalyzer, json)
+        self.make_json_post_request(url, Site::MissAnalyzer, json)
             .await?;
-
-        let response = String::from_utf8_lossy(&bytes);
-
-        debug!("Miss analyzer response: {response}");
 
         Ok(())
     }
