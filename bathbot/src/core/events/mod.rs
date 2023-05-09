@@ -5,6 +5,7 @@ use std::{
 
 use bathbot_cache::model::CachedArchive;
 use bathbot_model::twilight_model::{channel::Channel, guild::Guild};
+use bathbot_util::constants::MISS_ANALYZER_ID;
 use eyre::Result;
 use futures::StreamExt;
 use twilight_gateway::{error::ReceiveMessageErrorType, stream::ShardEventStream, Event, Shard};
@@ -203,6 +204,20 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
             }
         }
         Event::InteractionCreate(e) => handle_interaction(ctx, e.0).await,
+        Event::MemberAdd(e) if e.member.user.id == MISS_ANALYZER_ID => {
+            ctx.miss_analyzer_guilds().pin().insert(e.guild_id);
+        }
+        Event::MemberChunk(e) => {
+            if e.members
+                .iter()
+                .any(|member| member.user.id == MISS_ANALYZER_ID)
+            {
+                ctx.miss_analyzer_guilds().pin().insert(e.guild_id);
+            }
+        }
+        Event::MemberRemove(e) if e.user.id == MISS_ANALYZER_ID => {
+            ctx.miss_analyzer_guilds().pin().remove(&e.guild_id);
+        }
         Event::MessageCreate(msg) => handle_message(ctx, msg.0).await,
         Event::MessageDelete(e) => {
             ctx.remove_msg(e.id);

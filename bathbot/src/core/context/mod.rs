@@ -12,7 +12,7 @@ use flexmap::{
     std::StdMutexMap,
     tokio::{TokioMutexMap, TokioRwLockMap},
 };
-use flurry::HashMap as FlurryMap;
+use flurry::{HashMap as FlurryMap, HashSet as FlurrySet};
 use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
 use parking_lot::Mutex;
@@ -58,6 +58,7 @@ mod twitch;
 type GuildShards = FlurryMap<Id<GuildMarker>, u64>;
 type GuildConfigs = FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>;
 type TrackedStreams = FlurryMap<u64, Vec<Id<ChannelMarker>>, IntHasher>;
+type MissAnalyzerGuilds = FlurrySet<Id<GuildMarker>, IntHasher>;
 
 pub struct Context {
     #[cfg(feature = "server")]
@@ -95,6 +96,14 @@ impl Context {
 
     pub fn guild_shards(&self) -> &GuildShards {
         &self.data.guild_shards
+    }
+
+    pub fn miss_analyzer_guilds(&self) -> &MissAnalyzerGuilds {
+        &self.data.miss_analyzer_guilds
+    }
+
+    pub fn has_miss_analyzer(&self, guild: &Id<GuildMarker>) -> bool {
+        self.miss_analyzer_guilds().pin().contains(guild)
     }
 
     pub async fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Result<ContextTuple> {
@@ -263,9 +272,10 @@ struct ContextData {
     matchlive: crate::matchlive::MatchLiveChannels,
     #[cfg(feature = "osutracking")]
     osu_tracking: crate::tracking::OsuTracking,
-    guild_configs: GuildConfigs,     // read-heavy
-    tracked_streams: TrackedStreams, // read-heavy
-    guild_shards: GuildShards,       // necessary to request members for a guild
+    guild_configs: GuildConfigs,              // read-heavy
+    tracked_streams: TrackedStreams,          // read-heavy
+    guild_shards: GuildShards,                // necessary to request members for a guild
+    miss_analyzer_guilds: MissAnalyzerGuilds, // read-heavy
 }
 
 impl ContextData {
@@ -294,6 +304,7 @@ impl ContextData {
             osu_tracking: crate::tracking::OsuTracking::new(OsuTrackingManager::new(psql))
                 .await
                 .wrap_err("Failed to create osu tracking")?,
+            miss_analyzer_guilds: MissAnalyzerGuilds::default(),
         })
     }
 }

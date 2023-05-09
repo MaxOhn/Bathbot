@@ -71,7 +71,13 @@ use bathbot_util::osu::ModSelection;
 use eyre::{Report, Result, WrapErr};
 use rosu_v2::request::UserId;
 use twilight_interactions::command::{CommandOption, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::{
+    channel::message::{
+        component::{ActionRow, Button, ButtonStyle},
+        Component,
+    },
+    id::{marker::UserMarker, Id},
+};
 
 #[cfg(feature = "server")]
 pub use self::link::*;
@@ -84,7 +90,7 @@ pub use self::{
     osustats::*, pinned::*, popular::*, pp::*, profile::*, rank::*, ranking::*, ratios::*,
     recent::*, scores::*, serverleaderboard::*, simulate::*, snipe::*, top::*, whatif::*,
 };
-use crate::{core::commands::CommandOrigin, Context};
+use crate::{core::commands::CommandOrigin, util::Emote, Context};
 
 mod attributes;
 mod avatar;
@@ -321,4 +327,19 @@ enum UserExtraction {
     Err(Report),
     Content(String),
     None,
+}
+
+pub fn miss_analyzer_components() -> Vec<Component> {
+    let miss_analyzer = Button {
+        custom_id: Some("miss_analyzer".to_owned()),
+        disabled: false,
+        emoji: Some(Emote::Miss.reaction_type()),
+        label: Some("Miss analyzer".to_owned()),
+        style: ButtonStyle::Secondary,
+        url: None,
+    };
+
+    let components = vec![Component::Button(miss_analyzer)];
+
+    vec![Component::ActionRow(ActionRow { components })]
 }

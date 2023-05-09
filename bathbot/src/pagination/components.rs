@@ -639,3 +639,40 @@ pub async fn handle_profile_menu(
 
     handle_pagination_component(ctx, component, |_| idx).await
 }
+
+pub async fn handle_miss_analyzer_button(
+    ctx: Arc<Context>,
+    component: InteractionComponent,
+) -> Result<()> {
+    let remove_res = remove_components(&ctx, &component).await;
+
+    let score_id = {
+        let mut guard = ctx.paginations.lock(&component.message.id).await;
+
+        let Some(pagination) = guard.get_mut() else {
+            return remove_res;
+        };
+
+        let PaginationKind::MissAnalyzer(ref pagination) = pagination.kind else {
+            return remove_res;
+        };
+
+        pagination.score_id
+    };
+
+    let guild = component
+        .guild_id
+        .wrap_err("Missing guild id for miss analyzer button")?
+        .get();
+
+    let channel = component.channel_id.get();
+    let msg = component.message.id.get();
+
+    debug!(msg, channel, guild, "Sending message to miss analyzer");
+
+    ctx.client()
+        .miss_analyzer_score_response(guild, channel, msg, score_id)
+        .await?;
+
+    remove_res
+}

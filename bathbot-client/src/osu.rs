@@ -179,7 +179,9 @@ impl Client {
         let url = "https://osekai.net/medals/api/medals.php";
         let form = Multipart::new().push_text("strSearch", "");
 
-        let bytes = self.make_post_request(url, Site::Osekai, form).await?;
+        let bytes = self
+            .make_multipart_post_request(url, Site::Osekai, form)
+            .await?;
 
         let medals: OsekaiMedals = serde_json::from_slice(&bytes).wrap_err_with(|| {
             let body = String::from_utf8_lossy(&bytes);
@@ -194,7 +196,9 @@ impl Client {
         let url = "https://osekai.net/medals/api/beatmaps.php";
         let form = Multipart::new().push_text("strSearch", medal_name);
 
-        let bytes = self.make_post_request(url, Site::Osekai, form).await?;
+        let bytes = self
+            .make_multipart_post_request(url, Site::Osekai, form)
+            .await?;
 
         let maps: OsekaiMaps = serde_json::from_slice(&bytes).wrap_err_with(|| {
             let body = String::from_utf8_lossy(&bytes);
@@ -212,7 +216,9 @@ impl Client {
             .push_text("strMedalID", medal_id)
             .push_text("bGetComments", "true");
 
-        let bytes = self.make_post_request(url, Site::Osekai, form).await?;
+        let bytes = self
+            .make_multipart_post_request(url, Site::Osekai, form)
+            .await?;
 
         let comments: OsekaiComments = serde_json::from_slice(&bytes).wrap_err_with(|| {
             let body = String::from_utf8_lossy(&bytes);
@@ -228,7 +234,9 @@ impl Client {
         let url = "https://osekai.net/rankings/api/api.php";
         let form = Multipart::new().push_text("App", R::FORM);
 
-        let bytes = self.make_post_request(url, Site::Osekai, form).await?;
+        let bytes = self
+            .make_multipart_post_request(url, Site::Osekai, form)
+            .await?;
 
         serde_json::from_slice::<OsekaiRankingEntries<R>>(&bytes)
             .map(Vec::from)
@@ -404,7 +412,7 @@ impl Client {
         }
 
         let url = "https://osustats.ppy.sh/api/getScoreRanking";
-        let post_fut = self.make_post_request(url, Site::OsuStats, form);
+        let post_fut = self.make_multipart_post_request(url, Site::OsuStats, form);
 
         let bytes = match timeout(Duration::from_secs(4), post_fut).await {
             Ok(Ok(bytes)) => bytes,
@@ -444,7 +452,7 @@ impl Client {
         }
 
         let url = "https://osustats.ppy.sh/api/getScores";
-        let post_fut = self.make_post_request(url, Site::OsuStats, form);
+        let post_fut = self.make_multipart_post_request(url, Site::OsuStats, form);
 
         let bytes = match timeout(Duration::from_secs(4), post_fut).await {
             Ok(Ok(bytes)) => bytes,
