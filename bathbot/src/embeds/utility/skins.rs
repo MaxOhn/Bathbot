@@ -52,6 +52,7 @@ impl SkinsEmbed {
                 let _ = write!(
                     description,
                     "|`#{idx:<idx_len$}` [`{name:<name_len$}`]({OSU_BASE}u/{user_id}) [`Skin`]({skin_url})",
+                    idx = idx + 10,
                     idx_len = right_lengths.idx,
                     name = right.username,
                     name_len = right_lengths.name,
