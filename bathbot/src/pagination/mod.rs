@@ -175,14 +175,14 @@ impl PaginationKind {
                     builder = builder.content(content);
                 }
 
-                if let Some(update_fut) = (msg, channel).update(&ctx, &builder, None) {
+                if let Some(update_fut) = (msg, channel).update(ctx, &builder, None) {
                     update_fut.await.wrap_err("Failed to minimize embed")?;
                 }
             }
         } else {
             let builder = MessageBuilder::new().components(Vec::new());
 
-            if let Some(update_fut) = (msg, channel).update(&ctx, &builder, None) {
+            if let Some(update_fut) = (msg, channel).update(ctx, &builder, None) {
                 update_fut.await.wrap_err("Failed to remove components")?;
             }
         }
