@@ -25,7 +25,7 @@ impl MissAnalyzerPagination {
         };
         let pages = Pages::new(1, 3); // pagination only starts when there's more than one page
 
-        PaginationBuilder::new(PaginationKind::MissAnalyzer(kind), pages)
+        PaginationBuilder::new(PaginationKind::MissAnalyzer(Box::new(kind)), pages)
     }
 
     pub fn build_page(&mut self) -> Result<Embed> {

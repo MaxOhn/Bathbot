@@ -87,7 +87,7 @@ pub enum PaginationKind {
     MedalsCommon(Box<MedalsCommonPagination>),
     MedalsList(Box<MedalsListPagination>),
     MedalsMissing(Box<MedalsMissingPagination>),
-    MissAnalyzer(MissAnalyzerPagination),
+    MissAnalyzer(Box<MissAnalyzerPagination>),
     MostPlayed(Box<MostPlayedPagination>),
     MostPlayedCommon(Box<MostPlayedCommonPagination>),
     NoChoke(Box<NoChokePagination>),
