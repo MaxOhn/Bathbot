@@ -547,9 +547,10 @@ fn process_scores(
         ScoresOrder::Pp => {
             scores.retain(|score, _, _, _| score.pp.is_some());
 
-            scores
-                .scores_mut()
-                .sort_unstable_by(|a, b| b.pp.unwrap().total_cmp(&a.pp.unwrap()))
+            scores.scores_mut().sort_unstable_by(|a, b| {
+                b.pp.unwrap().total_cmp(&a.pp.unwrap())
+                    .then_with(|| a.score_id.cmp(&b.score_id))
+            });
         }
         ScoresOrder::RankedDate => {
             scores.retain(|score, maps, mapsets, _| {
@@ -577,7 +578,7 @@ fn process_scores(
         }
         ScoresOrder::Score => scores
             .scores_mut()
-            .sort_unstable_by_key(|score| Reverse(score.score)),
+            .sort_unstable_by_key(|score| (Reverse(score.score), score.score_id)),
         ScoresOrder::Stars => {
             scores.retain(|score, _, _, _| score.stars.is_some());
 
