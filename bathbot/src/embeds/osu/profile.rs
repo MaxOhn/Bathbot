@@ -82,9 +82,10 @@ impl ProfileEmbed {
         );
 
         if let Some(skin_url) = skin_url {
+            let skin_tooltip = skin_url.trim_start_matches("https://");
             let _ = write!(
                 description,
-                " • [**Link to skin**]({skin_url} \"{skin_url}\")"
+                " • [**Link to skin**]({skin_url} \"{skin_tooltip}\")"
             );
         }
 
