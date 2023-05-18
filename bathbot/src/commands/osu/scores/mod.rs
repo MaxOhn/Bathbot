@@ -577,7 +577,7 @@ fn process_scores(
         }
         ScoresOrder::Score => scores
             .scores_mut()
-            .sort_unstable_by_key(|score| Reverse(score.score)),
+            .sort_unstable_by_key(|score| (Reverse(score.score), score.score_id)),
         ScoresOrder::Stars => {
             scores.retain(|score, _, _, _| score.stars.is_some());
 
