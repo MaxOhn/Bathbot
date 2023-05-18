@@ -18,6 +18,7 @@ use super::{require_link, user_not_found};
 use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
+    embeds::MessageOrigin,
     manager::redis::osu::UserArgs,
     pagination::ProfilePagination,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
@@ -237,7 +238,8 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
 
     let tz = no_user_specified.then_some(config.timezone).flatten();
     let profile_data = ProfileData::new(user, discord_id, tz);
-    let builder = ProfilePagination::builder(kind, profile_data);
+    let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
+    let builder = ProfilePagination::builder(kind, profile_data, origin);
 
     builder
         .profile_components()
