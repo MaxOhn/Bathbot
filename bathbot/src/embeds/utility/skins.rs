@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
 use bathbot_psql::model::configs::SkinEntry;
-use bathbot_util::{constants::OSU_BASE, CowUtils, FooterBuilder};
+use bathbot_util::{constants::OSU_BASE, FooterBuilder};
 
 use crate::pagination::Pages;
 
@@ -46,7 +46,7 @@ impl SkinsEmbed {
                 name_len = left_lengths.name,
                 user_id = left.user_id,
                 skin_url = left.skin_url,
-                skin_tooltip = left.skin_url.cow_replace("https://", ""),
+                skin_tooltip = left.skin_url.trim_start_matches("https://"),
             );
 
             if let Some(right) = right {
@@ -59,7 +59,7 @@ impl SkinsEmbed {
                     name_len = right_lengths.name,
                     user_id = right.user_id,
                     skin_url = right.skin_url,
-                    skin_tooltip = right.skin_url.cow_replace("https://", ""),
+                    skin_tooltip = right.skin_url.trim_start_matches("https://"),
                 );
             }
 
