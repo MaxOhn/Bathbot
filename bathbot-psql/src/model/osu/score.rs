@@ -158,6 +158,7 @@ pub struct DbScore {
     pub mods: u32,
     pub pp: Option<f32>,
     pub score: u32,
+    pub score_id: u64,
     pub stars: Option<f32>,
     pub statistics: ScoreStatistics,
     pub user_id: u32,
@@ -248,6 +249,7 @@ impl From<DbScoreUserRaw> for DbScoreUser {
 }
 
 pub(crate) struct DbScoreAny {
+    pub score_id: i64,
     pub user_id: i32,
     pub map_id: i32,
     pub gamemode: i16,
@@ -270,6 +272,7 @@ pub(crate) struct DbScoreAny {
 }
 
 pub(crate) struct DbScoreOsu {
+    pub score_id: i64,
     pub user_id: i32,
     pub map_id: i32,
     pub mods: i32,
@@ -286,6 +289,7 @@ pub(crate) struct DbScoreOsu {
 }
 
 pub(crate) struct DbScoreTaiko {
+    pub score_id: i64,
     pub user_id: i32,
     pub map_id: i32,
     pub mods: i32,
@@ -301,6 +305,7 @@ pub(crate) struct DbScoreTaiko {
 }
 
 pub(crate) struct DbScoreCatch {
+    pub score_id: i64,
     pub user_id: i32,
     pub map_id: i32,
     pub mods: i32,
@@ -318,6 +323,7 @@ pub(crate) struct DbScoreCatch {
 }
 
 pub(crate) struct DbScoreMania {
+    pub score_id: i64,
     pub user_id: i32,
     pub map_id: i32,
     pub mods: i32,
@@ -386,6 +392,7 @@ impl From<DbScoreAny> for DbScore {
             mods: score.mods as u32,
             pp: score.pp,
             score: score.score as u32,
+            score_id: score.score_id as u64,
             stars: match mode {
                 GameMode::Osu => score.stars_osu,
                 GameMode::Taiko => score.stars_taiko,
@@ -416,6 +423,7 @@ impl From<(DbScoreOsu, GameMode)> for DbScore {
             mods: score.mods as u32,
             pp: score.pp,
             score: score.score as u32,
+            score_id: score.score_id as u64,
             stars: score.stars,
             statistics: ScoreStatistics {
                 count_geki: 0,
@@ -441,6 +449,7 @@ impl From<(DbScoreTaiko, GameMode)> for DbScore {
             mods: score.mods as u32,
             pp: score.pp,
             score: score.score as u32,
+            score_id: score.score_id as u64,
             stars: score.stars,
             statistics: ScoreStatistics {
                 count_geki: 0,
@@ -466,6 +475,7 @@ impl From<(DbScoreCatch, GameMode)> for DbScore {
             mods: score.mods as u32,
             pp: score.pp,
             score: score.score as u32,
+            score_id: score.score_id as u64,
             stars: score.stars,
             statistics: ScoreStatistics {
                 count_geki: 0,
@@ -491,6 +501,7 @@ impl From<(DbScoreMania, GameMode)> for DbScore {
             mods: score.mods as u32,
             pp: score.pp,
             score: score.score as u32,
+            score_id: score.score_id as u64,
             stars: score.stars,
             statistics: ScoreStatistics {
                 count_geki: score.countgeki as u32,
