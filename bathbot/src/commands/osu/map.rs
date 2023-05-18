@@ -58,26 +58,18 @@ pub struct Map<'a> {
     )]
     mods: Option<Cow<'a, str>>,
     #[command(
-        min_value = 0.0,
-        max_value = 10.0,
         desc = "Specify an AR value to override the actual one"
     )]
     ar: Option<f64>,
     #[command(
-        min_value = 0.0,
-        max_value = 10.0,
         desc = "Specify an OD value to override the actual one"
     )]
     od: Option<f64>,
     #[command(
-        min_value = 0.0,
-        max_value = 10.0,
         desc = "Specify a CS value to override the actual one"
     )]
     cs: Option<f64>,
     #[command(
-        min_value = 0.0,
-        max_value = 10.0,
         desc = "Specify an HP value to override the actual one"
     )]
     hp: Option<f64>,
