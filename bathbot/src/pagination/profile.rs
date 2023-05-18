@@ -4,17 +4,18 @@ use super::{Pages, PaginationBuilder, PaginationKind};
 use crate::{
     commands::osu::{ProfileData, ProfileKind},
     core::Context,
-    embeds::{EmbedData, ProfileEmbed},
+    embeds::{EmbedData, MessageOrigin, ProfileEmbed},
 };
 
 // Not using #[pagination(...)] since it requires special initialization
 pub struct ProfilePagination {
     kind: ProfileKind,
     data: ProfileData,
+    origin: MessageOrigin,
 }
 
 impl ProfilePagination {
-    pub fn builder(curr_kind: ProfileKind, data: ProfileData) -> PaginationBuilder {
+    pub fn builder(curr_kind: ProfileKind, data: ProfileData, origin: MessageOrigin) -> PaginationBuilder {
         // initialization doesn't really matter since the index is always set manually
         // anyway
         let mut pages = Pages::new(1, usize::MAX);
@@ -23,6 +24,7 @@ impl ProfilePagination {
         let pagination = Self {
             kind: curr_kind,
             data,
+            origin,
         };
 
         let kind = PaginationKind::Profile(Box::new(pagination));
@@ -41,7 +43,7 @@ impl ProfilePagination {
             _ => unreachable!(),
         };
 
-        ProfileEmbed::new(ctx, self.kind, &mut self.data)
+        ProfileEmbed::new(ctx, self.kind, &mut self.data, self.origin)
             .await
             .build()
     }

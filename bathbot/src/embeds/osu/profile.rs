@@ -20,7 +20,7 @@ use twilight_model::channel::message::embed::{Embed, EmbedField};
 use crate::{
     commands::osu::{MinMaxAvg, Number, ProfileData, ProfileKind, Top100Stats},
     core::Context,
-    embeds::EmbedData,
+    embeds:: {EmbedData, MessageOrigin},
     manager::redis::RedisData,
     util::{osu::grade_emote, Emote},
 };
@@ -34,10 +34,10 @@ pub struct ProfileEmbed {
 }
 
 impl ProfileEmbed {
-    pub async fn new(ctx: &Context, kind: ProfileKind, data: &mut ProfileData) -> Self {
+    pub async fn new(ctx: &Context, kind: ProfileKind, data: &mut ProfileData, origin: MessageOrigin) -> Self {
         match kind {
-            ProfileKind::Compact => Self::compact(ctx, data).await,
-            ProfileKind::UserStats => Self::user_stats(ctx, data).await,
+            ProfileKind::Compact => Self::compact(ctx, data, origin).await,
+            ProfileKind::UserStats => Self::user_stats(ctx, data, origin).await,
             ProfileKind::Top100Stats => Self::top100_stats(ctx, data).await,
             ProfileKind::Top100Mods => Self::top100_mods(ctx, data).await,
             ProfileKind::Top100Mappers => Self::top100_mappers(ctx, data).await,
@@ -45,7 +45,7 @@ impl ProfileEmbed {
         }
     }
 
-    async fn compact(ctx: &Context, data: &mut ProfileData) -> Self {
+    async fn compact(ctx: &Context, data: &mut ProfileData, origin: MessageOrigin) -> Self {
         let skin_url = data.skin_url(ctx).await;
         let ProfileData { user, tz, .. } = data;
 
@@ -71,7 +71,7 @@ impl ProfileEmbed {
         let stats = user.stats();
 
         let mut description = format!(
-            "Accuracy: `{acc:.2}%` • Level: `{level:.2}`\n\
+            "Accuracy: [`{acc:.2}%`]({origin} \"{acc}\") • Level: `{level:.2}`\n\
             Playcount: `{playcount}` (`{playtime} hrs`)\n\
             {mode} • Medals: `{medals}`",
             acc = stats.accuracy(),
@@ -106,7 +106,7 @@ impl ProfileEmbed {
         }
     }
 
-    async fn user_stats(ctx: &Context, data: &mut ProfileData) -> Self {
+    async fn user_stats(ctx: &Context, data: &mut ProfileData, origin: MessageOrigin) -> Self {
         let bonus_pp = match data.bonus_pp(ctx).await {
             Some(pp) => format!("{pp:.2}pp"),
             None => "-".to_string(),
@@ -229,7 +229,7 @@ impl ProfileEmbed {
         let fields = fields![
             "Ranked score", WithComma::new(stats.ranked_score).to_string(), true;
             "Max combo", WithComma::new(stats.max_combo).to_string(), true;
-            "Accuracy", format!("{:.2}%", stats.accuracy), true;
+            "Accuracy", format!("[{:.2}%]({origin} \"{}\")", stats.accuracy, stats.accuracy), true;
             "Total score", WithComma::new(stats.total_score).to_string(), true;
             "Score rank", score_rank, true;
             "Level", format!("{:.2}", stats.level.float()), true;
