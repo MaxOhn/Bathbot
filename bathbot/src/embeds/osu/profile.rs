@@ -7,7 +7,7 @@ use bathbot_model::{
 use bathbot_util::{
     datetime::{HowLongAgoText, SecToMinSec, NAIVE_DATETIME_FORMAT},
     numbers::{round, WithComma},
-    AuthorBuilder, EmbedBuilder, FooterBuilder,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
 };
 use rkyv::{
     with::{DeserializeWith, Map},
@@ -82,9 +82,10 @@ impl ProfileEmbed {
         );
 
         if let Some(skin_url) = skin_url {
+            let skin_tooltip = skin_url.cow_replace("https://", "");
             let _ = write!(
                 description,
-                " • [**Link to skin**]({skin_url} \"{skin_url}\")"
+                " • [**Link to skin**]({skin_url} \"{skin_tooltip}\")"
             );
         }
 
