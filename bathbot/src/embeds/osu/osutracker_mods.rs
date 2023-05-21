@@ -49,7 +49,7 @@ impl OsuTrackerModsEmbed {
                 "`{i:>i_len$}.` `{mods}{pad}` `{count:>c_len$}`",
                 i_len = sizes.idx_left,
                 mods = entry.mods,
-                pad = " ".repeat(2 * (sizes.mods_left - entry.mods.to_string().len())),
+                pad = " ".repeat(sizes.mods_left - entry.mods.to_string().len()),
                 count = WithComma::new(entry.count).to_string(),
                 c_len = sizes.count_left,
             );
@@ -63,7 +63,7 @@ impl OsuTrackerModsEmbed {
                     i = i + 10,
                     i_len = sizes.idx_right,
                     mods = entry.mods,
-                    pad = " ".repeat(2 * (sizes.mods_right - entry.mods.to_string().len())),
+                    pad = " ".repeat(sizes.mods_right - entry.mods.to_string().len()),
                     count = WithComma::new(entry.count).to_string(),
                     c_len = sizes.count_right,
                 );
