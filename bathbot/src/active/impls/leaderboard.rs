@@ -106,101 +106,94 @@ impl LeaderboardPagination {
             .as_ref()
             .map(|score| score.username.as_str());
 
-        // TODO: remove Some(_)
-        let description = if let Some(scores) = Some(scores) {
-            let mut description = String::with_capacity(256);
-            let mut username = String::with_capacity(32);
+        let mut description = String::with_capacity(256);
+        let mut username = String::with_capacity(32);
 
-            for (score, i) in scores.iter().zip(pages.index() + 1..) {
-                let found_author = author_name == Some(score.username.as_str());
-                username.clear();
+        for (score, i) in scores.iter().zip(pages.index() + 1..) {
+            let found_author = author_name == Some(score.username.as_str());
+            username.clear();
 
-                if found_author {
-                    username.push_str("__");
-                }
-
-                let _ = write!(
-                    username,
-                    "[{name}]({OSU_BASE}users/{id})",
-                    name = score.username.cow_escape_markdown(),
-                    id = score.user_id
-                );
-
-                if found_author {
-                    username.push_str("__");
-                }
-
-                let _ = writeln!(
-                    description,
-                    "**{i}.** {grade} **{username}**: {score} [ {combo} ] **+{mods}**\n\
-                    - {pp} • {acc:.2}% • {miss}{ago}",
-                    grade = grade_emote(score.grade),
-                    score = WithComma::new(score.score),
-                    combo = ComboFormatter::new(score, self.max_combo, self.map.mode()),
-                    mods = score.mods,
-                    pp = pp_format(&ctx, &mut self.attr_map, score, &self.map).await,
-                    acc = score.accuracy,
-                    miss = MissFormat(score.count_miss),
-                    ago = HowLongAgoDynamic::new(&score.date),
-                );
+            if found_author {
+                username.push_str("__");
             }
 
-            if let Some(score) = self.author_data.as_ref().filter(|score| {
-                !(pages.index() + 1..pages.index() + 1 + scores.len()).contains(&score.pos)
-            }) {
-                username.clear();
+            let _ = write!(
+                username,
+                "[{name}]({OSU_BASE}users/{id})",
+                name = score.username.cow_escape_markdown(),
+                id = score.user_id
+            );
 
-                let _ = write!(
-                    username,
-                    "[{name}]({OSU_BASE}users/{id})",
-                    name = score.username.cow_escape_markdown(),
-                    id = score.user_id
-                );
-
-                let scraper_score = ScraperScore {
-                    id: 0,
-                    user_id: score.user_id,
-                    username: Username::new(),
-                    country_code: CountryCode::new(),
-                    accuracy: score.accuracy,
-                    mode: self.map.mode(), // TODO: fix when mode selection available
-                    mods: score.mods.clone(),
-                    score: score.score,
-                    max_combo: score.combo,
-                    pp: score.pp,
-                    grade: score.grade,
-                    date: score.ended_at,
-                    replay: false,
-                    count50: score.statistics.count_50,
-                    count100: score.statistics.count_100,
-                    count300: score.statistics.count_300,
-                    count_geki: score.statistics.count_geki,
-                    count_katu: score.statistics.count_katu,
-                    count_miss: score.statistics.count_miss,
-                };
-
-                let _ = writeln!(
-                    description,
-                    "\n__**<@{discord_id}>'s score:**__\n\
-                    **{i}.** {grade} **{username}**: {score} [ {combo} ] **+{mods}**\n\
-                    - {pp} • {acc:.2}% • {miss}{ago}",
-                    discord_id = score.discord_id,
-                    i = score.pos,
-                    grade = grade_emote(score.grade),
-                    score = WithComma::new(score.score),
-                    combo = ComboFormatter::new(&scraper_score, self.max_combo, self.map.mode()),
-                    mods = score.mods,
-                    pp = pp_format(&ctx, &mut self.attr_map, &scraper_score, &self.map).await,
-                    acc = score.accuracy,
-                    miss = MissFormat(score.statistics.count_miss),
-                    ago = HowLongAgoDynamic::new(&score.ended_at),
-                );
+            if found_author {
+                username.push_str("__");
             }
 
-            description
-        } else {
-            "No scores found".to_string()
-        };
+            let _ = writeln!(
+                description,
+                "**{i}.** {grade} **{username}**: {score} [ {combo} ] **+{mods}**\n\
+                - {pp} • {acc:.2}% • {miss}{ago}",
+                grade = grade_emote(score.grade),
+                score = WithComma::new(score.score),
+                combo = ComboFormatter::new(score, self.max_combo, self.map.mode()),
+                mods = score.mods,
+                pp = pp_format(&ctx, &mut self.attr_map, score, &self.map).await,
+                acc = score.accuracy,
+                miss = MissFormat(score.count_miss),
+                ago = HowLongAgoDynamic::new(&score.date),
+            );
+        }
+
+        if let Some(score) = self.author_data.as_ref().filter(|score| {
+            !(pages.index() + 1..pages.index() + 1 + scores.len()).contains(&score.pos)
+        }) {
+            username.clear();
+
+            let _ = write!(
+                username,
+                "[{name}]({OSU_BASE}users/{id})",
+                name = score.username.cow_escape_markdown(),
+                id = score.user_id
+            );
+
+            let scraper_score = ScraperScore {
+                id: 0,
+                user_id: score.user_id,
+                username: Username::new(),
+                country_code: CountryCode::new(),
+                accuracy: score.accuracy,
+                mode: self.map.mode(), // TODO: fix when mode selection available
+                mods: score.mods.clone(),
+                score: score.score,
+                max_combo: score.combo,
+                pp: score.pp,
+                grade: score.grade,
+                date: score.ended_at,
+                replay: false,
+                count50: score.statistics.count_50,
+                count100: score.statistics.count_100,
+                count300: score.statistics.count_300,
+                count_geki: score.statistics.count_geki,
+                count_katu: score.statistics.count_katu,
+                count_miss: score.statistics.count_miss,
+            };
+
+            let _ = writeln!(
+                description,
+                "\n__**<@{discord_id}>'s score:**__\n\
+                **{i}.** {grade} **{username}**: {score} [ {combo} ] **+{mods}**\n\
+                - {pp} • {acc:.2}% • {miss}{ago}",
+                discord_id = score.discord_id,
+                i = score.pos,
+                grade = grade_emote(score.grade),
+                score = WithComma::new(score.score),
+                combo = ComboFormatter::new(&scraper_score, self.max_combo, self.map.mode()),
+                mods = score.mods,
+                pp = pp_format(&ctx, &mut self.attr_map, &scraper_score, &self.map).await,
+                acc = score.accuracy,
+                miss = MissFormat(score.statistics.count_miss),
+                ago = HowLongAgoDynamic::new(&score.ended_at),
+            );
+        }
 
         let mut author =
             AuthorBuilder::new(author_text).url(format!("{OSU_BASE}b/{}", self.map.map_id()));
