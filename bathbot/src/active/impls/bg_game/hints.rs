@@ -1,3 +1,5 @@
+use std::iter;
+
 use rand::seq::SliceRandom;
 
 pub struct Hints {
@@ -20,18 +22,15 @@ impl Hints {
 
         let mut rng = rand::thread_rng();
         indices.shuffle(&mut rng);
-        let mut title_mask = Vec::with_capacity(title.len());
-        title_mask.push(true);
 
-        // TODO: extend instead of pushing
-        for c in title.chars().skip(1) {
-            title_mask.push(c == ' ');
-        }
+        let title_mask = iter::once(true)
+            .chain(title.chars().skip(1).map(|c| c == ' '))
+            .collect();
 
         Self {
             artist_guessed: false,
             hint_level: 0,
-            title_mask: title_mask.into_boxed_slice(),
+            title_mask,
             indices,
         }
     }
@@ -50,27 +49,34 @@ impl Hints {
                 first = title.chars().next().unwrap(),
             )
         } else if self.hint_level == 2 && !self.artist_guessed {
-            let mut artist_hint = String::with_capacity(3 * artist.len() - 2);
-            artist_hint.push(artist.chars().next().unwrap());
+            let mut artist_hint = "Here's my second hint: The artist looks like `".to_owned();
+            artist_hint.reserve(3 * artist.len() - 1);
 
-            // TODO: write directly instead of pushing
-            for c in artist.chars().skip(1) {
-                artist_hint.push(if c == ' ' { c } else { '▢' });
+            let mut artist_iter = artist.chars();
+
+            if let Some(c) = artist_iter.next() {
+                artist_hint.push(c);
+                artist_hint.extend(artist_iter.map(|c| if c == ' ' { c } else { '▢' }));
             }
 
-            format!("Here's my second hint: The artist looks like `{artist_hint}`")
+            artist_hint.push('`');
+
+            artist_hint
         } else if let Some(i) = self.indices.pop() {
             self.title_mask[i] = true;
 
-            // TODO: write directly instead of collecting
-            let title_hint: String = self
-                .title_mask
-                .iter()
-                .zip(title.chars())
-                .map(|(mask, c)| if *mask { c } else { '▢' })
-                .collect();
+            let mut title_hint = "Slowly constructing the title: `".to_owned();
 
-            format!("Slowly constructing the title: `{title_hint}`")
+            let title_iter =
+                self.title_mask
+                    .iter()
+                    .zip(title.chars())
+                    .map(|(mask, c)| if *mask { c } else { '▢' });
+
+            title_hint.extend(title_iter);
+            title_hint.push('`');
+
+            title_hint
         } else {
             format!("Bruh the title is literally `{title}` xd")
         }
