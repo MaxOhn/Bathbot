@@ -38,7 +38,7 @@ pub struct MatchComparePagination {
 }
 
 impl IActiveMessage for MatchComparePagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let embed = self.embeds[self.pages.index()].clone();
 
         BuildPage::new(embed, false).boxed()

@@ -324,7 +324,7 @@ impl TopPagination {
 }
 
 impl IActiveMessage for TopPagination {
-    fn build_page<'a>(&'a mut self, ctx: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         match self.list_size {
             ListSize::Condensed => self.build_condensed().boxed(),
             ListSize::Detailed => self.build_detailed().boxed(),

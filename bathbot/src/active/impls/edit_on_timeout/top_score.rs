@@ -24,6 +24,7 @@ use crate::{
 pub struct TopScoreEdit;
 
 impl TopScoreEdit {
+    #[allow(clippy::too_many_arguments)]
     pub async fn create(
         ctx: &Context,
         user: &RedisData<User>,
@@ -233,7 +234,7 @@ impl TopScoreEdit {
 
                 let _ = write!(result, "{:.2}", score.pp);
 
-                if let Some(ref if_fc) = if_fc {
+                if let Some(if_fc) = if_fc {
                     let _ = write!(result, "pp** ~~({:.2}pp)~~", if_fc.pp);
                 } else {
                     result.push_str("**/");
@@ -308,7 +309,7 @@ impl TopScoreEdit {
             "Hits", hits, true;
         }];
 
-        if let Some(ref if_fc) = if_fc {
+        if let Some(if_fc) = if_fc {
             fields![fields {
                 "**If FC**: PP", PpFormatter::new(Some(if_fc.pp), Some(max_pp)).to_string(), true;
                 "Acc", format!("{}%", round(if_fc.accuracy())), true;

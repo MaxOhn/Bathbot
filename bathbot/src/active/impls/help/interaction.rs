@@ -31,7 +31,7 @@ pub struct HelpInteractionCommand {
 }
 
 impl IActiveMessage for HelpInteractionCommand {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let Some(command) = self.find_command()  else {
             let err = eyre!("Unknown command title={:?}", self.next_title);
 
@@ -232,7 +232,7 @@ fn option_fields(children: Vec<CommandOptionExt>) -> Vec<EmbedField> {
                 name.push_str(" (required)");
             }
 
-            let value = child.help.unwrap_or_else(|| child.inner.description);
+            let value = child.help.unwrap_or(child.inner.description);
 
             let field = EmbedField {
                 inline: value.len() <= 40,

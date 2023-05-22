@@ -32,7 +32,7 @@ pub struct MapSearchPagination {
 }
 
 impl IActiveMessage for MapSearchPagination {
-    fn build_page<'a>(&'a mut self, ctx: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         Box::pin(self.async_build_page(ctx))
     }
 

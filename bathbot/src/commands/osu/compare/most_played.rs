@@ -176,8 +176,8 @@ pub(super) async fn mostplayed(
 
     // TODO: content
     let pagination = CompareMostPlayedPagination::builder()
-        .user1(user1)
-        .user2(user2)
+        .username1(user1.username().into())
+        .username2(user2.username().into())
         .maps(maps)
         .map_counts(map_counts.into_boxed_slice())
         .msg_owner(owner)

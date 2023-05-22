@@ -34,7 +34,7 @@ pub struct MedalsMissingPagination {
 }
 
 impl IActiveMessage for MedalsMissingPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let pages = &self.pages;
         let idx = pages.index();
 

@@ -35,7 +35,7 @@ pub struct SnipeCountryListPagination {
 }
 
 impl IActiveMessage for SnipeCountryListPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let players = self
             .players
             .iter()

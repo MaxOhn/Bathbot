@@ -64,7 +64,7 @@ pub struct ProfileMenu {
 }
 
 impl IActiveMessage for ProfileMenu {
-    fn build_page<'a>(&'a mut self, ctx: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         match self.kind {
             ProfileKind::Compact => Box::pin(self.compact(ctx)),
             ProfileKind::UserStats => Box::pin(self.user_stats(ctx)),
@@ -599,7 +599,7 @@ impl ProfileMenu {
 
         let fields = if let Some(stats) = Top100Mods::prepare(&ctx, self).await {
             fn mod_value<M, V, F, const N: usize>(
-                map: Box<[(M, V)]>,
+                map: &[(M, V)],
                 to_string: F,
                 suffix: &str,
             ) -> Option<String>
@@ -611,10 +611,10 @@ impl ProfileMenu {
                 let mut vals_len = [0; N];
 
                 let collected: Vec<_> = map
-                    .into_iter()
+                    .iter()
                     .enumerate()
                     .map(|(i, (key, value))| {
-                        let value = to_string(&value);
+                        let value = to_string(value);
 
                         let i = i % N;
                         mods_len[i] = mods_len[i].max(key.len());
@@ -659,17 +659,17 @@ impl ProfileMenu {
 
             let mut fields = Vec::with_capacity(3);
 
-            if let Some(val) = mod_value::<_, _, _, 4>(stats.percent_mods, u8::to_string, "%") {
+            if let Some(val) = mod_value::<_, _, _, 4>(&stats.percent_mods, u8::to_string, "%") {
                 fields![fields { "Favourite mods", val, false }];
             }
 
-            if let Some(val) = mod_value::<_, _, _, 3>(stats.percent_mod_comps, u8::to_string, "%")
+            if let Some(val) = mod_value::<_, _, _, 3>(&stats.percent_mod_comps, u8::to_string, "%")
             {
                 fields![fields { "Favourite mod combinations", val, false }];
             }
 
             if let Some(val) =
-                mod_value::<_, _, _, 3>(stats.pp_mod_comps, |pp| format!("{pp:.1}"), "")
+                mod_value::<_, _, _, 3>(&stats.pp_mod_comps, |pp| format!("{pp:.1}"), "")
             {
                 fields![fields { "Profitable mod combinations (pp)", val, false }];
             }

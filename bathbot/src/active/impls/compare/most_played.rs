@@ -1,7 +1,6 @@
 use std::{cmp::Ordering, collections::HashMap, fmt::Write, sync::Arc};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{constants::OSU_BASE, CowUtils, EmbedBuilder, IntHasher};
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -17,14 +16,13 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     core::Context,
-    manager::redis::RedisData,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 
 #[derive(PaginationBuilder)]
 pub struct CompareMostPlayedPagination {
-    user1: RedisData<User>,
-    user2: RedisData<User>,
+    username1: Box<str>,
+    username2: Box<str>,
     #[pagination(per_page = 10)]
     maps: HashMap<u32, ([usize; 2], MostPlayedMap), IntHasher>,
     map_counts: Box<[(u32, usize)]>,
@@ -33,15 +31,12 @@ pub struct CompareMostPlayedPagination {
 }
 
 impl IActiveMessage for CompareMostPlayedPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let pages = &self.pages;
         let idx = pages.index();
         let map_counts = &self.map_counts[idx..self.maps.len().min(idx + pages.per_page())];
 
         let mut description = String::with_capacity(512);
-
-        let name1 = self.user1.username();
-        let name2 = self.user2.username();
 
         for ((map_id, _), i) in map_counts.iter().zip(pages.index() + 1..) {
             let ([count1, count2], map) = &self.maps[map_id];
@@ -59,6 +54,8 @@ impl IActiveMessage for CompareMostPlayedPagination {
                 title = map.mapset.title.cow_escape_markdown(),
                 version = map.map.version.cow_escape_markdown(),
                 stars = map.map.stars,
+                name1 = self.username1,
+                name2 = self.username2,
             );
         }
 

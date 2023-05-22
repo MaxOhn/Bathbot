@@ -57,7 +57,7 @@ pub enum ActiveMessage {
     CompareScoresPagination,
     CompareTopPagination,
     CountryTopPagination,
-    EditOnTimeout,
+    EditOnTimeout(Box<EditOnTimeout>),
     HelpInteractionCommand,
     HelpPrefixMenu,
     HigherLowerGame,
@@ -104,11 +104,17 @@ pub struct ActiveMessages {
     inner: TokioMutexMap<Id<MessageMarker>, FullActiveMessage, IntHasher>,
 }
 
-impl ActiveMessages {
-    pub fn new() -> Self {
+impl Default for ActiveMessages {
+    fn default() -> Self {
         Self {
             inner: TokioMutexMap::with_shard_amount_and_hasher(32, IntHasher),
         }
+    }
+}
+
+impl ActiveMessages {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn builder(active_msg: impl Into<ActiveMessage>) -> ActiveMessagesBuilder {
@@ -157,14 +163,12 @@ impl ActiveMessages {
                         } else {
                             return warn!("Lacking permission to update message through component");
                         }
-                    } else {
-                        if let Err(err) = component.callback(&ctx, builder).await {
-                            return error!(
-                                name = %component.data.custom_id,
-                                ?err,
-                                "Failed to callback component",
-                            );
-                        }
+                    } else if let Err(err) = component.callback(&ctx, builder).await {
+                        return error!(
+                            name = %component.data.custom_id,
+                            ?err,
+                            "Failed to callback component",
+                        );
                     }
 
                     let _ = activity_tx.send(());
@@ -236,14 +240,12 @@ impl ActiveMessages {
                     } else {
                         return warn!("Lacking permission to update message through modal");
                     }
-                } else {
-                    if let Err(err) = modal.callback(&ctx, builder).await {
-                        return error!(
-                            name = %modal.data.custom_id,
-                            ?err,
-                            "Failed to callback modal",
-                        );
-                    }
+                } else if let Err(err) = modal.callback(&ctx, builder).await {
+                    return error!(
+                        name = %modal.data.custom_id,
+                        ?err,
+                        "Failed to callback modal",
+                    );
                 }
 
                 let _ = activity_tx.send(());
@@ -268,7 +270,7 @@ impl ActiveMessages {
 #[enum_dispatch]
 pub trait IActiveMessage {
     /// The content of responses.
-    fn build_page<'a>(&'a mut self, ctx: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>>;
+    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>>;
 
     /// The components that are added to the message.
     ///
@@ -314,7 +316,7 @@ pub trait IActiveMessage {
     ) -> BoxFuture<'a, Result<()>> {
         let builder = MessageBuilder::new().components(Vec::new());
 
-        match (msg, channel).update(&ctx, &builder, None) {
+        match (msg, channel).update(ctx, &builder, None) {
             Some(update_fut) => {
                 let fut = async {
                     update_fut

@@ -41,7 +41,7 @@ pub struct RecentListPagination {
 }
 
 impl IActiveMessage for RecentListPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let pages = &self.pages;
         let end_idx = self.entries.len().min(pages.index() + pages.per_page());
         let entries = &self.entries[pages.index()..end_idx];

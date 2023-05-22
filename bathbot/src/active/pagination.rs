@@ -259,7 +259,7 @@ async fn async_handle_pagination_modal(
     }
 
     if defer {
-        modal.defer(&ctx).await.wrap_err("Failed to defer modal")?;
+        modal.defer(ctx).await.wrap_err("Failed to defer modal")?;
     }
 
     pages.set_index((page - 1) * pages.per_page());

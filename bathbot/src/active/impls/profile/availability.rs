@@ -62,7 +62,7 @@ impl Availability<MapperNames> {
     ) -> Option<&MapperNames> {
         match self {
             Availability::Received(ref names) => Some(names),
-            Availability::Errored => return None,
+            Availability::Errored => None,
             Availability::NotRequested => {
                 let ids: Vec<_> = entries.iter().map(|(id, _)| *id as i32).collect();
 

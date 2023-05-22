@@ -45,7 +45,7 @@ pub struct BackgroundGameSetup {
 }
 
 impl IActiveMessage for BackgroundGameSetup {
-    fn build_page<'a>(&'a mut self, ctx: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         if let SetupState::Ready { channel } = self.state {
             return Box::pin(self.start(ctx, channel));
         }
@@ -426,7 +426,7 @@ impl BackgroundGameSetup {
             .embed("Aborted background game setup")
             .components(Vec::new());
 
-        match component.callback(&ctx, builder).await {
+        match component.callback(ctx, builder).await {
             Ok(_) => ComponentResult::Ignore,
             Err(err) => {
                 let wrap = "Failed to callback on background game setup cancel";

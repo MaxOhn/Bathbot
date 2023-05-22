@@ -38,7 +38,7 @@ pub struct MedalsRecentPagination {
 }
 
 impl IActiveMessage for MedalsRecentPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let idx = self.pages.index();
 
         let embed = match self.embeds.entry(idx) {

@@ -30,7 +30,7 @@ pub struct HelpPrefixMenu {
 }
 
 impl IActiveMessage for HelpPrefixMenu {
-    fn build_page<'a>(&'a mut self, ctx: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let Some(group) = self.current_group else {
             return Box::pin(self.handle_general(ctx));
         };

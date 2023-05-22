@@ -47,7 +47,7 @@ pub struct SimulateComponents {
 }
 
 impl IActiveMessage for SimulateComponents {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         if let Some(ar) = self.data.attrs.ar {
             self.map.pp_map.ar = ar;
         }
@@ -530,10 +530,10 @@ impl SimulateComponents {
                 self.data.bpm = parse_attr(&*modal, "sim_bpm");
             }
             "sim_attrs" => {
-                self.data.attrs.ar = parse_attr(&modal, "sim_ar");
-                self.data.attrs.cs = parse_attr(&modal, "sim_cs");
-                self.data.attrs.hp = parse_attr(&modal, "sim_hp");
-                self.data.attrs.od = parse_attr(&modal, "sim_od");
+                self.data.attrs.ar = parse_attr(&*modal, "sim_ar");
+                self.data.attrs.cs = parse_attr(&*modal, "sim_cs");
+                self.data.attrs.hp = parse_attr(&*modal, "sim_hp");
+                self.data.attrs.od = parse_attr(&*modal, "sim_od");
             }
             other => warn!(name = %other, ?modal, "Unknown simulate modal"),
         }

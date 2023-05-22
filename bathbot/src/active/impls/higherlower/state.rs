@@ -21,17 +21,19 @@ pub(super) const W: u32 = 900;
 pub(super) const H: u32 = 250;
 
 pub(super) enum ButtonState {
-    EnableHigherLower,
-    EnableNext {
+    HigherLower,
+    Next {
         image: Option<Box<str>>,
         last_guess: HlGuess,
     },
-    EnableRetry {
+    TryAgain {
         image: Option<Box<str>>,
         last_guess: HlGuess,
     },
 }
 
+// seems to be a false alarm by clippy
+#[allow(clippy::large_enum_variant)]
 pub(super) enum HigherLowerState {
     ScorePp {
         mode: GameMode,

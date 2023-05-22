@@ -51,7 +51,7 @@ pub struct ScoresMapPagination {
 }
 
 impl IActiveMessage for ScoresMapPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let pages = &self.pages;
         let data = &self.scores;
 

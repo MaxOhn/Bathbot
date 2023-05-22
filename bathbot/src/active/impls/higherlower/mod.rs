@@ -44,7 +44,7 @@ pub struct HigherLowerGame {
 }
 
 impl IActiveMessage for HigherLowerGame {
-    fn build_page<'a>(&'a mut self, ctx: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         Box::pin(self.async_build_page(ctx))
     }
 
@@ -101,9 +101,9 @@ impl IActiveMessage for HigherLowerGame {
 
     fn until_timeout(&self) -> Option<Duration> {
         match self.buttons {
-            ButtonState::EnableHigherLower => Some(Duration::from_secs(90)),
-            ButtonState::EnableNext { .. } => Some(Duration::from_secs(30)),
-            ButtonState::EnableRetry { .. } => Some(Duration::from_secs(30)),
+            ButtonState::HigherLower => Some(Duration::from_secs(90)),
+            ButtonState::Next { .. } => Some(Duration::from_secs(30)),
+            ButtonState::TryAgain { .. } => Some(Duration::from_secs(30)),
         }
     }
 }
@@ -127,7 +127,7 @@ impl HigherLowerGame {
             img_url_rx: Some(rx),
             current_score: 0,
             highscore,
-            buttons: ButtonState::EnableHigherLower,
+            buttons: ButtonState::HigherLower,
             msg_owner,
         })
     }
@@ -151,7 +151,7 @@ impl HigherLowerGame {
             img_url_rx: Some(rx),
             current_score: 0,
             highscore,
-            buttons: ButtonState::EnableHigherLower,
+            buttons: ButtonState::HigherLower,
             msg_owner,
         })
     }
@@ -160,7 +160,7 @@ impl HigherLowerGame {
         let mut embed = self.state.to_embed(self.revealed);
 
         let deferred = match self.buttons {
-            ButtonState::EnableHigherLower => {
+            ButtonState::HigherLower => {
                 let footer = format!(
                     "Current score: {} • Highscore: {}",
                     self.current_score, self.highscore
@@ -178,7 +178,7 @@ impl HigherLowerGame {
 
                 true
             }
-            ButtonState::EnableNext {
+            ButtonState::Next {
                 ref mut image,
                 last_guess,
             } => {
@@ -204,7 +204,7 @@ impl HigherLowerGame {
 
                 true
             }
-            ButtonState::EnableRetry {
+            ButtonState::TryAgain {
                 ref mut image,
                 last_guess,
             } => {
@@ -249,7 +249,7 @@ impl HigherLowerGame {
     ) -> Result<()> {
         let builder = MessageBuilder::new().components(self.disabled_buttons());
 
-        let update_res = match (msg, channel).update(&ctx, &builder, None) {
+        let update_res = match (msg, channel).update(ctx, &builder, None) {
             Some(update_fut) => update_fut.await,
             None => return Err(eyre!("Lacking permission to disable components on timeout")),
         };
@@ -284,14 +284,14 @@ impl HigherLowerGame {
 
             self.current_score += 1;
 
-            self.buttons = ButtonState::EnableNext {
+            self.buttons = ButtonState::Next {
                 image,
                 last_guess: guess,
             };
 
             ComponentResult::BuildPage
         } else {
-            self.buttons = ButtonState::EnableRetry {
+            self.buttons = ButtonState::TryAgain {
                 image,
                 last_guess: guess,
             };
@@ -309,7 +309,7 @@ impl HigherLowerGame {
             warn!(?err, "Failed to defer next button");
         }
 
-        self.buttons = ButtonState::EnableHigherLower;
+        self.buttons = ButtonState::HigherLower;
 
         ComponentResult::BuildPage
     }
@@ -348,7 +348,7 @@ impl HigherLowerGame {
         self.img_url_rx = Some(rx);
         self.highscore = self.highscore.max(self.current_score);
         self.current_score = 0;
-        self.buttons = ButtonState::EnableHigherLower;
+        self.buttons = ButtonState::HigherLower;
 
         ComponentResult::BuildPage
     }
@@ -363,7 +363,7 @@ impl HigherLowerGame {
     fn raw_buttons(&self) -> [Button; 4] {
         let higher = Button {
             custom_id: Some("higher_button".to_owned()),
-            disabled: !matches!(self.buttons, ButtonState::EnableHigherLower),
+            disabled: !matches!(self.buttons, ButtonState::HigherLower),
             emoji: None,
             label: Some("Higher".to_owned()),
             style: ButtonStyle::Success,
@@ -372,7 +372,7 @@ impl HigherLowerGame {
 
         let lower = Button {
             custom_id: Some("lower_button".to_owned()),
-            disabled: !matches!(self.buttons, ButtonState::EnableHigherLower),
+            disabled: !matches!(self.buttons, ButtonState::HigherLower),
             emoji: None,
             label: Some("Lower".to_owned()),
             style: ButtonStyle::Danger,
@@ -381,7 +381,7 @@ impl HigherLowerGame {
 
         let next = Button {
             custom_id: Some("next_higherlower".to_owned()),
-            disabled: !matches!(self.buttons, ButtonState::EnableNext { .. }),
+            disabled: !matches!(self.buttons, ButtonState::Next { .. }),
             emoji: Some(Emote::SingleStep.reaction_type()),
             label: Some("Next".to_owned()),
             style: ButtonStyle::Secondary,
@@ -390,7 +390,7 @@ impl HigherLowerGame {
 
         let retry = Button {
             custom_id: Some("try_again_button".to_owned()),
-            disabled: !matches!(self.buttons, ButtonState::EnableRetry { .. }),
+            disabled: !matches!(self.buttons, ButtonState::TryAgain { .. }),
             emoji: Some(ReactionType::Unicode {
                 name: "🔁".to_owned(),
             }),

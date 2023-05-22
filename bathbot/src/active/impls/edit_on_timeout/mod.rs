@@ -20,8 +20,11 @@ use twilight_model::{
 
 pub use self::{recent_score::RecentScoreEdit, top_score::TopScoreEdit};
 use crate::{
-    active::ComponentResult,
-    util::{interaction::InteractionComponent, Emote, MessageExt},
+    active::{ActiveMessage, ComponentResult},
+    util::{
+        interaction::{InteractionComponent, InteractionModal},
+        Emote, MessageExt,
+    },
 };
 use crate::{
     active::{BuildPage, IActiveMessage},
@@ -37,7 +40,7 @@ pub struct EditOnTimeout {
 }
 
 impl IActiveMessage for EditOnTimeout {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         Box::pin(ready(self.inner.build_page()))
     }
 
@@ -223,6 +226,8 @@ impl EditOnTimeoutKind {
     }
 }
 
+// TODO: slim down EmbedBuilder
+#[allow(clippy::large_enum_variant)]
 enum EditOnTimeoutInner {
     Stay(BuildPage),
     Edit {
@@ -237,5 +242,52 @@ impl EditOnTimeoutInner {
             EditOnTimeoutInner::Stay(build) => Ok(build.to_owned()),
             EditOnTimeoutInner::Edit { initial, .. } => Ok(initial.to_owned()),
         }
+    }
+}
+
+// TODO: remove when EmbedBuilder has been slimmed down
+impl From<EditOnTimeout> for ActiveMessage {
+    fn from(edit_on_timeout: EditOnTimeout) -> Self {
+        Self::EditOnTimeout(Box::new(edit_on_timeout))
+    }
+}
+
+// TODO: remove when EmbedBuilder has been slimmed down
+impl IActiveMessage for Box<EditOnTimeout> {
+    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+        EditOnTimeout::build_page(self, ctx)
+    }
+
+    fn build_components(&self) -> Vec<Component> {
+        EditOnTimeout::build_components(self)
+    }
+
+    fn handle_component<'a>(
+        &'a mut self,
+        ctx: &'a Context,
+        component: &'a mut InteractionComponent,
+    ) -> BoxFuture<'a, ComponentResult> {
+        EditOnTimeout::handle_component(self, ctx, component)
+    }
+
+    fn handle_modal<'a>(
+        &'a mut self,
+        ctx: &'a Context,
+        modal: &'a mut InteractionModal,
+    ) -> BoxFuture<'a, Result<()>> {
+        EditOnTimeout::handle_modal(self, ctx, modal)
+    }
+
+    fn on_timeout<'a>(
+        &'a mut self,
+        ctx: &'a Context,
+        msg: Id<MessageMarker>,
+        channel: Id<ChannelMarker>,
+    ) -> BoxFuture<'a, Result<()>> {
+        EditOnTimeout::on_timeout(self, ctx, msg, channel)
+    }
+
+    fn until_timeout(&self) -> Option<Duration> {
+        EditOnTimeout::until_timeout(self)
     }
 }

@@ -183,14 +183,20 @@ pub struct MinMaxAvg<N> {
     len: N,
 }
 
-impl<N: Number> MinMaxAvg<N> {
-    pub fn new() -> Self {
+impl<N: Number> Default for MinMaxAvg<N> {
+    fn default() -> Self {
         Self {
             min: N::max(),
             max: N::min(),
             sum: N::zero(),
             len: N::zero(),
         }
+    }
+}
+
+impl<N: Number> MinMaxAvg<N> {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn add(&mut self, n: N) {

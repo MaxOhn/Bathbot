@@ -21,12 +21,14 @@ use crate::{
     util::interaction::{InteractionComponent, InteractionModal},
 };
 
+type CachedMaps = HashMap<u32, ([CommonScore; 2], Beatmap, BeatmapsetCompact), IntHasher>;
+
 #[derive(PaginationBuilder)]
 pub struct CompareTopPagination {
     name1: Username,
     name2: Username,
     #[pagination(per_page = 10)]
-    maps: HashMap<u32, ([CommonScore; 2], Beatmap, BeatmapsetCompact), IntHasher>,
+    maps: CachedMaps,
     map_pps: Vec<(u32, f32)>,
     wins: [u8; 2],
     attachment: Option<(String, Vec<u8>)>,
@@ -35,7 +37,7 @@ pub struct CompareTopPagination {
 }
 
 impl IActiveMessage for CompareTopPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let pages = &self.pages;
         let idx = pages.index();
         let map_pps = &self.map_pps[idx..(idx + pages.per_page()).min(self.maps.len())];

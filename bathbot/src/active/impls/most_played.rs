@@ -31,7 +31,7 @@ pub struct MostPlayedPagination {
 }
 
 impl IActiveMessage for MostPlayedPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let pages = &self.pages;
         let end_idx = self.maps.len().min(pages.index() + pages.per_page());
         let maps = &self.maps[pages.index()..end_idx];

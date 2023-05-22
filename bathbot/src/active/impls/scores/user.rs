@@ -50,7 +50,7 @@ pub struct ScoresUserPagination {
 }
 
 impl IActiveMessage for ScoresUserPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let author = if self.mode.is_some() {
             self.user.author_builder()
         } else {

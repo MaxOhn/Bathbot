@@ -30,7 +30,7 @@ pub struct RankingCountriesPagination {
 }
 
 impl IActiveMessage for RankingCountriesPagination {
-    fn build_page<'a>(&'a mut self, ctx: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         Box::pin(self.async_build_page(ctx))
     }
 
@@ -56,7 +56,7 @@ impl IActiveMessage for RankingCountriesPagination {
 }
 
 impl RankingCountriesPagination {
-    async fn async_build_page<'a>(&'a mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
         let pages = &self.pages;
 
         let count = self

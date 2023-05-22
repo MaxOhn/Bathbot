@@ -361,7 +361,7 @@ impl RecentScoreEdit {
             "Hits", hits, true;
         }];
 
-        if let Some(ref if_fc) = if_fc {
+        if let Some(if_fc) = if_fc {
             fields![fields {
                 "**If FC**: PP", PpFormatter::new(Some(if_fc.pp), max_pp).to_string(), true;
                 "Acc", format!("{}%", round(if_fc.accuracy())), true;

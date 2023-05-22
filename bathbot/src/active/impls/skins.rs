@@ -29,7 +29,7 @@ pub struct SkinsPagination {
 }
 
 impl IActiveMessage for SkinsPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let Self { pages, entries, .. } = &*self;
 
         let idx = pages.index();

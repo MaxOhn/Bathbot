@@ -35,7 +35,7 @@ pub struct MedalsListPagination {
 }
 
 impl IActiveMessage for MedalsListPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let pages = &self.pages;
         let idx = pages.index();
         let limit = self.medals.len().min(idx + pages.per_page());

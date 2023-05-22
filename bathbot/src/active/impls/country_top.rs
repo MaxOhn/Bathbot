@@ -40,7 +40,7 @@ pub struct CountryTopPagination {
 }
 
 impl IActiveMessage for CountryTopPagination {
-    fn build_page<'a>(&'a mut self, _: Arc<Context>) -> BoxFuture<'a, Result<BuildPage>> {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let idx = self.pages.index();
         let scores = &self.scores[idx..self.scores.len().min(idx + self.pages.per_page())];
 
