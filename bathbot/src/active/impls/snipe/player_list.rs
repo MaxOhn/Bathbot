@@ -39,6 +39,7 @@ pub struct SnipePlayerListPagination {
     maps: HashMap<u32, OsuMap, IntHasher>,
     total: usize,
     params: SnipeScoreParams,
+    content: String,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -131,7 +132,7 @@ impl SnipePlayerListPagination {
                 .footer(FooterBuilder::new("Page 1/1 ~ Total #1 scores: 0"))
                 .thumbnail(self.user.avatar_url());
 
-            return Ok(BuildPage::new(embed, true));
+            return Ok(BuildPage::new(embed, true).content(self.content.clone()));
         }
 
         let page = pages.curr_page();
@@ -183,6 +184,6 @@ impl SnipePlayerListPagination {
             .footer(footer)
             .thumbnail(self.user.avatar_url());
 
-        Ok(BuildPage::new(embed, true))
+        Ok(BuildPage::new(embed, true).content(self.content.clone()))
     }
 }

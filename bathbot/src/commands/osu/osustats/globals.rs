@@ -246,12 +246,12 @@ pub(super) async fn scores(
         );
     }
 
-    // TODO: content
     let pagination = OsuStatsScoresPagination::builder()
         .user(user)
         .entries(entries)
         .total(amount)
         .params(params)
+        .content(content)
         .msg_owner(orig.user_id()?)
         .build();
 

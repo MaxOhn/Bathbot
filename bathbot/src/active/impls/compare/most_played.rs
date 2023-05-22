@@ -26,6 +26,7 @@ pub struct CompareMostPlayedPagination {
     #[pagination(per_page = 10)]
     maps: HashMap<u32, ([usize; 2], MostPlayedMap), IntHasher>,
     map_counts: Box<[(u32, usize)]>,
+    content: String,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -63,7 +64,9 @@ impl IActiveMessage for CompareMostPlayedPagination {
 
         let embed = EmbedBuilder::new().description(description);
 
-        BuildPage::new(embed, false).boxed()
+        BuildPage::new(embed, false)
+            .content(self.content.clone())
+            .boxed()
     }
 
     fn build_components(&self) -> Vec<Component> {

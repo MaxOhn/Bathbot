@@ -38,6 +38,7 @@ pub struct OsuStatsScoresPagination {
     entries: BTreeMap<usize, OsuStatsEntry>,
     total: usize,
     params: OsuStatsParams,
+    content: String,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -156,7 +157,7 @@ impl OsuStatsScoresPagination {
                 .footer(FooterBuilder::new("Page 1/1 ~ Total scores: 0"))
                 .thumbnail(self.user.avatar_url());
 
-            return Ok(BuildPage::new(embed, true));
+            return Ok(BuildPage::new(embed, true).content(self.content.clone()));
         }
 
         let page = pages.curr_page();
@@ -207,6 +208,6 @@ impl OsuStatsScoresPagination {
             .footer(footer)
             .thumbnail(self.user.avatar_url());
 
-        Ok(BuildPage::new(embed, true))
+        Ok(BuildPage::new(embed, true).content(self.content.clone()))
     }
 }

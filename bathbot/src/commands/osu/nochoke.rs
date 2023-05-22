@@ -297,7 +297,6 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
 
     content.push(':');
 
-    // TODO: content
     let pagination = NoChokePagination::builder()
         .user(user)
         .entries(entries.into_boxed_slice())

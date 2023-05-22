@@ -321,7 +321,6 @@ pub(super) async fn common(
     let user1 = MedalsCommonUser::new(username1, winner1);
     let user2 = MedalsCommonUser::new(username2, winner2);
 
-    // TODO: attachment
     let pagination = MedalsCommonPagination::builder()
         .user1(user1)
         .user2(user2)

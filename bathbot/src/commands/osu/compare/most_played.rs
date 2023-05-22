@@ -174,12 +174,12 @@ pub(super) async fn mostplayed(
         if amount_common > 1 { "s" } else { "" }
     );
 
-    // TODO: content
     let pagination = CompareMostPlayedPagination::builder()
         .username1(user1.username().into())
         .username2(user2.username().into())
         .maps(maps)
         .map_counts(map_counts.into_boxed_slice())
+        .content(content)
         .msg_owner(owner)
         .build();
 

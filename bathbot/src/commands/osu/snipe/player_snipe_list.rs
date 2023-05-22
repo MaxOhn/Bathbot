@@ -185,13 +185,13 @@ pub(super) async fn player_list(
         let _ = write!(content, " ~ `Mods: {mods}`");
     }
 
-    // TODO: content
     let pagination = SnipePlayerListPagination::builder()
         .user(user)
         .scores(scores)
         .maps(maps)
         .total(count)
         .params(params)
+        .content(content)
         .msg_owner(owner)
         .build();
 
