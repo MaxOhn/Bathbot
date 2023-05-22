@@ -2,8 +2,6 @@ use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
 
-#[cfg(feature = "twitch")]
-use bathbot_model::TwitchVideo;
 use bathbot_util::MessageBuilder;
 use eyre::{Result, WrapErr};
 use futures::future::{ready, BoxFuture};

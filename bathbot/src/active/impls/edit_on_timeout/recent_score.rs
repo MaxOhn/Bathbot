@@ -239,7 +239,8 @@ impl RecentScoreEdit {
         combo: String,
         minimized_pp: MinimizedPp,
         author: AuthorBuilder,
-        description: String,
+        #[allow(unused_mut)] // feature-gated
+        mut description: String,
         mut title: String,
         url: String,
         #[cfg(feature = "twitch")] twitch_vod: Option<&TwitchVideo>,
@@ -296,7 +297,7 @@ impl RecentScoreEdit {
         #[cfg(feature = "twitch")]
         if let Some(vod) = twitch_vod {
             let _ = write!(
-                self.description,
+                description,
                 " {} [Liveplay on twitch]({})",
                 crate::util::Emote::Twitch.text(),
                 vod.url
