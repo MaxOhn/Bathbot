@@ -167,7 +167,7 @@ pub async fn server_scores(
         .mode(mode)
         .sort(sort)
         .guild_icon(guild_icon)
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(owner)
         .build();
 

@@ -943,7 +943,7 @@ pub(super) async fn top(
             .farm(farm)
             .list_size(list_size)
             .minimized_pp(minimized_pp)
-            .content(content.unwrap_or_default())
+            .content(content.unwrap_or_default().into_boxed_str())
             .msg_owner(msg_owner)
             .build();
 

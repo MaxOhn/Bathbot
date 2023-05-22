@@ -1,6 +1,6 @@
 use std::{future::IntoFuture, slice};
 
-use bathbot_util::{constants::RED, EmbedBuilder, MessageBuilder};
+use bathbot_util::{EmbedBuilder, MessageBuilder};
 use twilight_http::response::ResponseFuture;
 use twilight_model::{
     channel::Message,
@@ -62,7 +62,7 @@ impl ChannelExt for Id<ChannelMarker> {
 
     #[inline]
     fn error(&self, ctx: &Context, content: impl Into<String>) -> ResponseFuture<Message> {
-        let embed = EmbedBuilder::new().color(RED).description(content).build();
+        let embed = EmbedBuilder::new().color_red().description(content).build();
 
         ctx.http
             .create_message(*self)

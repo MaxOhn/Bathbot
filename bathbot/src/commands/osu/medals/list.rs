@@ -205,7 +205,7 @@ pub(super) async fn list(
         .user(user)
         .acquired(acquired)
         .medals(medals.into_boxed_slice())
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(owner)
         .build();
 

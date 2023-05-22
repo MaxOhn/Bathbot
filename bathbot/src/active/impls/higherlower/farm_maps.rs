@@ -18,8 +18,8 @@ pub type FarmEntries = RedisData<Vec<OsuTrackerIdCount>>;
 pub(super) struct FarmMap {
     pub mapset_id: u32,
     pub farm: u32,
-    map_string: String,
-    map_url: String,
+    map_string: Box<str>,
+    map_url: Box<str>,
     stars: f32,
     seconds_drain: u32,
     combo: u32,
@@ -212,8 +212,9 @@ impl FarmMap {
                 artist = map.artist(),
                 title = map.title(),
                 version = map.version(),
-            ),
-            map_url: format!("{OSU_BASE}b/{}", map.map_id()),
+            )
+            .into_boxed_str(),
+            map_url: format!("{OSU_BASE}b/{}", map.map_id()).into_boxed_str(),
             mapset_id: map.mapset_id(),
             stars: attrs.stars() as f32,
             seconds_drain: map.seconds_drain(),

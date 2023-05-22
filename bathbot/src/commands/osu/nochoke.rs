@@ -302,7 +302,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
         .entries(entries.into_boxed_slice())
         .unchoked_pp(unchoked_pp)
         .rank(rank)
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(orig.user_id()?)
         .build();
 

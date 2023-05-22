@@ -193,7 +193,7 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
         .details(details)
         .scores(scores.into_boxed_slice())
         .sort_by(sort)
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(command.user_id()?)
         .build();
 

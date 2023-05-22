@@ -26,7 +26,7 @@ pub struct CompareMostPlayedPagination {
     #[pagination(per_page = 10)]
     maps: HashMap<u32, ([usize; 2], MostPlayedMap), IntHasher>,
     map_counts: Box<[(u32, usize)]>,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }

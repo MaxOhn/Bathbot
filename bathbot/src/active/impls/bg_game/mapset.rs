@@ -6,9 +6,9 @@ use crate::core::Context;
 
 pub struct GameMapset {
     pub mapset_id: u32,
-    artist: String, // TODO: shrink struct size
-    title: String,
-    title_adjusted: Option<String>,
+    artist: Box<str>,
+    title: Box<str>,
+    title_adjusted: Option<Box<str>>,
 }
 
 impl GameMapset {
@@ -47,10 +47,10 @@ impl GameMapset {
         };
 
         let mapset = Self {
-            artist,
             mapset_id,
-            title,
-            title_adjusted,
+            artist: artist.into_boxed_str(),
+            title: title.into_boxed_str(),
+            title_adjusted: title_adjusted.map(String::into_boxed_str),
         };
 
         Ok(mapset)
@@ -59,23 +59,23 @@ impl GameMapset {
     pub fn title(&self) -> &str {
         match self.title_adjusted.as_deref() {
             Some(title) => title,
-            None => &self.title,
+            None => self.title.as_ref(),
         }
     }
 
     pub fn artist(&self) -> &str {
-        &self.artist
+        self.artist.as_ref()
     }
 
     pub fn matches_title(&self, content: &str, difficulty: f32) -> Option<bool> {
         self.title_adjusted
             .as_deref()
             .and_then(|title| Self::matches(title, content, difficulty))
-            .or_else(|| Self::matches(&self.title, content, difficulty))
+            .or_else(|| Self::matches(self.title.as_ref(), content, difficulty))
     }
 
     pub fn matches_artist(&self, content: &str, difficulty: f32) -> Option<bool> {
-        Self::matches(&self.artist, content, difficulty)
+        Self::matches(self.artist.as_ref(), content, difficulty)
     }
 
     fn matches(src: &str, content: &str, difficulty: f32) -> Option<bool> {

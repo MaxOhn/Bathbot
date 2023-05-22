@@ -39,7 +39,7 @@ pub struct SnipePlayerListPagination {
     maps: HashMap<u32, OsuMap, IntHasher>,
     total: usize,
     params: SnipeScoreParams,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }

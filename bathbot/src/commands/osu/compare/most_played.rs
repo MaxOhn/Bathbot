@@ -179,7 +179,7 @@ pub(super) async fn mostplayed(
         .username2(user2.username().into())
         .maps(maps)
         .map_counts(map_counts.into_boxed_slice())
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(owner)
         .build();
 

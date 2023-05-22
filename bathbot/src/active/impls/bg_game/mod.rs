@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use bathbot_model::{Effects, MapsetTags};
 use bathbot_psql::model::games::DbMapTagsParams;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, RED},
-    fields, EmbedBuilder, FooterBuilder, MessageBuilder,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, fields, EmbedBuilder, FooterBuilder, MessageBuilder};
 use eyre::{Report, Result};
 use futures::future::BoxFuture;
 use rosu_v2::prelude::GameMode;
@@ -355,7 +352,7 @@ impl BackgroundGameSetup {
             Ok(entries) => entries,
             Err(err) => {
                 warn!(?err, "Failed to get background game tags");
-                let embed = EmbedBuilder::new().color(RED).description(GENERAL_ISSUE);
+                let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
 
                 return Ok(BuildPage::new(embed, true));
             }

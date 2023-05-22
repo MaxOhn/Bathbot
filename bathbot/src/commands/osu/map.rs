@@ -57,21 +57,13 @@ pub struct Map<'a> {
         help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
     )]
     mods: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify an AR value to override the actual one"
-    )]
+    #[command(desc = "Specify an AR value to override the actual one")]
     ar: Option<f64>,
-    #[command(
-        desc = "Specify an OD value to override the actual one"
-    )]
+    #[command(desc = "Specify an OD value to override the actual one")]
     od: Option<f64>,
-    #[command(
-        desc = "Specify a CS value to override the actual one"
-    )]
+    #[command(desc = "Specify a CS value to override the actual one")]
     cs: Option<f64>,
-    #[command(
-        desc = "Specify an HP value to override the actual one"
-    )]
+    #[command(desc = "Specify an HP value to override the actual one")]
     hp: Option<f64>,
 }
 
@@ -419,8 +411,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
         .mods(mods)
         .attrs(attrs)
         .origin(origin)
-        .content(content.unwrap_or_default())
-        .attachment(graph.map(|bytes| ("map_graph.png".to_owned(), bytes)))
+        .content(content.unwrap_or_default().into_boxed_str())
         .msg_owner(orig.user_id()?)
         .build();
 
@@ -428,6 +419,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
+        .attachment(graph.map(|bytes| ("map_graph.png".to_owned(), bytes)))
         .begin(ctx, orig)
         .await
 }

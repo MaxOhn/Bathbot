@@ -338,7 +338,7 @@ pub(super) async fn leaderboard(
         .attr_map(attr_map)
         .author_data(user_score)
         .first_place_icon(first_place_icon)
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(owner)
         .build();
 

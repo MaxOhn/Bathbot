@@ -280,14 +280,21 @@ pub(super) async fn top(
                 Ordering::Greater => wins[0] += 1,
             }
 
-            Some((map.map_id, ([score1, score2], map, mapset)))
+            let map_id = map.map_id;
+
+            let map = CompareTopMap {
+                title: mapset.title.into_boxed_str(),
+                version: map.version.into_boxed_str(),
+            };
+
+            Some((map_id, ([score1, score2], map)))
         })
         .collect();
 
     // Sort the maps by their score's avg pp values
-    let mut map_pps: Vec<_> = maps
+    let mut map_pps: Box<[_]> = maps
         .iter()
-        .map(|(map_id, ([a, b], ..))| (*map_id, a.pp + b.pp))
+        .map(|(map_id, ([a, b], _))| (*map_id, a.pp + b.pp))
         .collect();
 
     map_pps.sort_unstable_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap_or(Ordering::Equal));
@@ -325,12 +332,12 @@ pub(super) async fn top(
         .maps(maps)
         .map_pps(map_pps)
         .wins(wins)
-        .attachment(thumbnail.map(|bytes| ("avatar_fuse.png".to_owned(), bytes)))
         .msg_owner(owner)
         .build();
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
+        .attachment(thumbnail.map(|bytes| ("avatar_fuse.png".to_owned(), bytes)))
         .begin(ctx, orig)
         .await
 }
@@ -442,4 +449,9 @@ impl<'m> CompareTop<'m> {
 
         args_
     }
+}
+
+pub struct CompareTopMap {
+    pub title: Box<str>,
+    pub version: Box<str>,
 }

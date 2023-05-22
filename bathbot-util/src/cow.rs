@@ -181,7 +181,9 @@ impl<'s> CowUtils<'s> for &'s str {
 
     /// This is similar to [`CowUtils::cow_replace`], but replaces multiple
     /// patterns at once, namely all markdown characters (_, *, ~, `) get
-    /// prefixed with a backslash. ```
+    /// prefixed with a backslash.
+    ///
+    /// ```
     /// # use cow_utils::CowUtils;
     /// # use assert_matches::assert_matches;
     /// # use std::borrow::Cow;

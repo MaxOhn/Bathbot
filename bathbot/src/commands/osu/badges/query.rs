@@ -135,12 +135,12 @@ pub(super) async fn query(
     let pagination = BadgesPagination::builder()
         .badges(badges.into_boxed_slice())
         .owners(owners_map)
-        .attachment(bytes.map(|bytes| ("badge_owners.png".to_owned(), bytes)))
         .msg_owner(command.user_id()?)
         .build();
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
+        .attachment(bytes.map(|bytes| ("badge_owners.png".to_owned(), bytes)))
         .begin(ctx, &mut command)
         .await
 }

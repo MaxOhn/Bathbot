@@ -1,34 +1,29 @@
+use std::num::NonZeroU32;
+
 use time::OffsetDateTime;
 use twilight_model::{
-    channel::message::embed::{Embed, EmbedAuthor, EmbedField, EmbedImage, EmbedThumbnail},
+    channel::message::embed::{Embed, EmbedField, EmbedImage, EmbedThumbnail},
     util::Timestamp,
 };
 
-use super::footer::IntoEmbedFooter;
-use crate::constants::DARK_GREEN;
+use super::footer::IntoFooterBuilder;
+use crate::{
+    constants::{DARK_GREEN, RED},
+    AuthorBuilder, FooterBuilder,
+};
 
-// TODO: slim size down
-#[derive(Clone)]
-pub struct EmbedBuilder(Embed);
-
-impl Default for EmbedBuilder {
-    fn default() -> Self {
-        Self(Embed {
-            author: None,
-            color: Some(DARK_GREEN),
-            description: None,
-            fields: Vec::new(),
-            footer: None,
-            image: None,
-            kind: String::new(),
-            provider: None,
-            thumbnail: None,
-            timestamp: None,
-            title: None,
-            url: None,
-            video: None,
-        })
-    }
+#[derive(Clone, Default)]
+pub struct EmbedBuilder {
+    pub author: Option<AuthorBuilder>,
+    pub color: Option<NonZeroU32>,
+    pub description: Option<String>,
+    pub fields: Vec<EmbedField>,
+    pub footer: Option<FooterBuilder>,
+    pub image_url: Option<String>,
+    pub thumbnail_url: Option<String>,
+    pub timestamp: Option<Timestamp>,
+    pub title: Option<String>,
+    pub url: Option<String>,
 }
 
 impl EmbedBuilder {
@@ -36,95 +31,117 @@ impl EmbedBuilder {
         Self::default()
     }
 
-    pub fn build(mut self) -> Embed {
-        self.0.kind.push_str("rich");
-
-        self.0
+    pub fn build(self) -> Embed {
+        Embed {
+            author: self.author.map(AuthorBuilder::build),
+            color: Some(self.color.map_or(DARK_GREEN, NonZeroU32::get)),
+            description: self.description,
+            fields: self.fields,
+            footer: self.footer.map(FooterBuilder::build),
+            image: self.image_url.map(|url| EmbedImage {
+                height: None,
+                proxy_url: None,
+                url,
+                width: None,
+            }),
+            kind: "rich".to_owned(),
+            provider: None,
+            thumbnail: self.thumbnail_url.map(|url| EmbedThumbnail {
+                height: None,
+                proxy_url: None,
+                url,
+                width: None,
+            }),
+            timestamp: self.timestamp,
+            title: self.title,
+            url: self.url,
+            video: None,
+        }
     }
 
-    pub fn author(mut self, author: impl Into<EmbedAuthor>) -> Self {
-        self.0.author = Some(author.into());
+    pub fn author(mut self, author: AuthorBuilder) -> Self {
+        self.author = Some(author);
 
         self
     }
 
-    pub fn color(mut self, color: u32) -> Self {
-        self.0.color = Some(color);
+    pub fn color_green(self) -> Self {
+        self.color(DARK_GREEN)
+    }
+
+    pub fn color_red(self) -> Self {
+        self.color(RED)
+    }
+
+    #[cfg_attr(debug_assertions, track_caller)]
+    fn color(mut self, color: u32) -> Self {
+        debug_assert!(color != 0, "color {color} must be non-zero");
+
+        // SAFETY: This method is private and only used for the RED and DARK_GREEN
+        // constants which are both non-zero but even if they were zero, it would have
+        // been caught with the debug_assert.
+        self.color = Some(unsafe { NonZeroU32::new_unchecked(color) });
 
         self
     }
 
     pub fn description(mut self, description: impl Into<String>) -> Self {
         let description = description.into();
-        self.0.description = Some(description);
+        self.description = Some(description);
 
         self
     }
 
     pub fn fields(mut self, fields: Vec<EmbedField>) -> Self {
-        self.0.fields = fields;
+        self.fields = fields;
 
         self
     }
 
     pub fn push_field(&mut self, field: EmbedField) {
-        self.0.fields.push(field);
+        self.fields.push(field);
     }
 
-    pub fn footer(mut self, footer: impl IntoEmbedFooter) -> Self {
-        self.0.footer = Some(footer.into());
+    pub fn footer(mut self, footer: impl IntoFooterBuilder) -> Self {
+        self.footer = Some(footer.into());
 
         self
     }
 
-    pub fn image(mut self, image: impl Into<String>) -> Self {
-        let url = image.into();
+    pub fn image(mut self, url: impl Into<String>) -> Self {
+        let url = url.into();
 
         if !url.is_empty() {
-            let image = EmbedImage {
-                height: None,
-                width: None,
-                proxy_url: None,
-                url,
-            };
+            self.image_url = Some(url);
+        }
 
-            self.0.image = Some(image);
+        self
+    }
+
+    pub fn thumbnail(mut self, url: impl Into<String>) -> Self {
+        let url = url.into();
+
+        if !url.is_empty() {
+            self.thumbnail_url = Some(url);
         }
 
         self
     }
 
     pub fn timestamp(mut self, timestamp: OffsetDateTime) -> Self {
-        self.0.timestamp = Timestamp::from_secs(timestamp.unix_timestamp()).ok();
+        self.timestamp = Timestamp::from_secs(timestamp.unix_timestamp()).ok();
 
         self
     }
 
     pub fn title(mut self, title: impl Into<String>) -> Self {
-        self.0.title = Some(title.into());
-
-        self
-    }
-
-    pub fn thumbnail(mut self, thumbnail: impl Into<String>) -> Self {
-        let url = thumbnail.into();
-
-        if !url.is_empty() {
-            let thumbnail = EmbedThumbnail {
-                height: None,
-                width: None,
-                proxy_url: None,
-                url,
-            };
-
-            self.0.thumbnail = Some(thumbnail);
-        }
+        self.title = Some(title.into());
 
         self
     }
 
     pub fn url(mut self, url: impl Into<String>) -> Self {
-        self.0.url = Some(url.into());
+        self.url = Some(url.into());
 
         self
     }

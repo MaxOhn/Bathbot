@@ -267,7 +267,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
         .pre_pp(pre_pp)
         .post_pp(final_pp)
         .rank(rank)
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(orig.user_id()?)
         .build();
 

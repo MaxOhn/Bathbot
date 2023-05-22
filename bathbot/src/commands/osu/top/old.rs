@@ -679,7 +679,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         .mode(mode)
         .pre_pp(pre_pp)
         .post_pp(adjusted_pp)
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(owner)
         .build();
 
