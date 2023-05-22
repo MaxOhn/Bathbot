@@ -9,8 +9,8 @@ use eyre::Result;
 use rosu_v2::prelude::Username;
 
 use crate::{
+    active::{impls::RankingPagination, ActiveMessages},
     manager::redis::RedisData,
-    pagination::RankingPagination,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
@@ -205,10 +205,17 @@ async fn send_response(
 
     let total = entries.len();
 
-    let builder = RankingPagination::builder(entries, total, author_idx, data);
+    let pagination = RankingPagination::builder()
+        .entries(entries)
+        .total(total)
+        .author_idx(author_idx)
+        .kind(data)
+        .defer(false)
+        .msg_owner(command.user_id()?)
+        .build();
 
-    builder
-        .start_by_update()
-        .start(ctx, (&mut command).into())
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }

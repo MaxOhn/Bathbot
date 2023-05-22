@@ -12,7 +12,7 @@ use bathbot_model::{rosu_v2::user::User, OsuStatsParams, ScoreSlim};
 use bathbot_util::{
     datetime::SecToMinSec,
     numbers::{round, WithComma},
-    ScoreExt,
+    MessageOrigin, ScoreExt,
 };
 use eyre::{Result, WrapErr};
 use futures::{stream::FuturesOrdered, StreamExt};
@@ -28,7 +28,7 @@ use time::OffsetDateTime;
 
 use crate::{
     core::{BotConfig, Context},
-    embeds::{HitResultFormatter, MessageOrigin},
+    embeds::HitResultFormatter,
     manager::{redis::RedisData, OsuMap},
     util::Emote,
 };

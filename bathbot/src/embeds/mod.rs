@@ -1,46 +1,11 @@
-macro_rules! fields {
-    // Push fields to a vec
-    ($fields:ident {
-        $($name:expr, $value:expr, $inline:expr $(;)? )+
-    }) => {{
-        $(
-            $fields.push(
-                twilight_model::channel::message::embed::EmbedField {
-                    name: $name.into(),
-                    value: $value,
-                    inline: $inline,
-                }
-            );
-        )+
-    }};
-
-    // Create a new vec of fields
-    ($($name:expr, $value:expr, $inline:expr);+) => {
-        fields![$($name, $value, $inline;)+]
-    };
-
-    ($($name:expr, $value:expr, $inline:expr;)+) => {
-        vec![
-            $(
-                twilight_model::channel::message::embed::EmbedField {
-                    name: $name.into(),
-                    value: $value,
-                    inline: $inline,
-                },
-            )+
-        ]
-    };
-}
-
 use twilight_model::channel::message::embed::Embed;
 
 #[cfg(feature = "osutracking")]
 pub use self::tracking::*;
 #[cfg(feature = "twitchtracking")]
 pub use self::twitch::*;
-pub use self::{fun::*, osu::*, utility::*};
+pub use self::{osu::*, utility::*};
 
-mod fun;
 mod osu;
 mod twitch;
 mod utility;

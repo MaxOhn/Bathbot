@@ -7,6 +7,7 @@ use twilight_model::{
 use super::footer::IntoEmbedFooter;
 use crate::constants::DARK_GREEN;
 
+// TODO: slim size down
 #[derive(Clone)]
 pub struct EmbedBuilder(Embed);
 
@@ -64,6 +65,10 @@ impl EmbedBuilder {
         self.0.fields = fields;
 
         self
+    }
+
+    pub fn push_field(&mut self, field: EmbedField) {
+        self.0.fields.push(field);
     }
 
     pub fn footer(mut self, footer: impl IntoEmbedFooter) -> Self {

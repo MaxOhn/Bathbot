@@ -22,13 +22,13 @@ use twilight_model::{
 
 use super::{CompareTop, AT_LEAST_ONE};
 use crate::{
+    active::{impls::CompareTopPagination, ActiveMessages},
     commands::{
         osu::{user_not_found, UserExtraction},
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::CommonPagination,
     util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
     Context,
 };
@@ -157,6 +157,8 @@ pub(super) async fn top(
     orig: CommandOrigin<'_>,
     mut args: CompareTop<'_>,
 ) -> Result<()> {
+    let owner = orig.user_id()?;
+
     let user_id1 = match extract_user_id(&ctx, &mut args).await {
         UserExtraction::Id(user_id) => user_id,
         UserExtraction::Err(err) => {
@@ -176,7 +178,7 @@ pub(super) async fn top(
             return Err(err);
         }
         UserExtraction::Content(content) => return orig.error(&ctx, content).await,
-        UserExtraction::None => match ctx.user_config().osu_id(orig.user_id()?).await {
+        UserExtraction::None => match ctx.user_config().osu_id(owner).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => {
                 let content =
@@ -198,7 +200,7 @@ pub(super) async fn top(
 
     let mode = match args.mode {
         Some(mode) => mode.into(),
-        None => match ctx.user_config().mode(orig.user_id()?).await {
+        None => match ctx.user_config().mode(owner).await {
             Ok(mode) => mode.unwrap_or(GameMode::Osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -317,13 +319,20 @@ pub(super) async fn top(
         }
     };
 
-    let mut builder = CommonPagination::builder(user1.name, user2.name, maps, map_pps, wins);
+    let pagination = CompareTopPagination::builder()
+        .name1(user1.name)
+        .name2(user2.name)
+        .maps(maps)
+        .map_pps(map_pps)
+        .wins(wins)
+        .attachment(thumbnail.map(|bytes| ("avatar_fuse.png".to_owned(), bytes)))
+        .msg_owner(owner)
+        .build();
 
-    if let Some(bytes) = thumbnail {
-        builder = builder.attachment("avatar_fuse.png", bytes);
-    }
-
-    builder.start_by_update().start(ctx, orig).await
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
+        .await
 }
 
 async fn get_user_and_scores(

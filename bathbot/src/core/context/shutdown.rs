@@ -1,6 +1,6 @@
 use futures::stream::StreamExt;
 
-use crate::{games::bg::GameState, util::ChannelExt, Context};
+use crate::{util::ChannelExt, Context};
 
 impl Context {
     #[cold]
@@ -10,7 +10,7 @@ impl Context {
 
         while let Some(guard) = stream.next().await {
             let key = *guard.key();
-            let value: GameState = guard.value().clone();
+            let value = guard.value().to_owned();
 
             active_games.push((key, value));
         }
@@ -24,20 +24,14 @@ impl Context {
         let content = "I'll abort this game because I'm about to reboot, \
             you can start a new game again in just a moment...";
 
-        for (channel, state) in active_games {
-            match state {
-                GameState::Running { game } => match game.stop() {
-                    Ok(_) => {
-                        let _ = channel.plain_message(self, content).await;
-                        count += 1;
-                    }
-                    Err(err) => {
-                        warn!(?channel, ?err, "Error while stopping game");
-                    }
-                },
-                GameState::Setup { .. } => {
+        for (channel, game) in active_games {
+            match game.stop() {
+                Ok(_) => {
                     let _ = channel.plain_message(self, content).await;
                     count += 1;
+                }
+                Err(err) => {
+                    warn!(%channel, ?err, "Error while stopping game");
                 }
             }
         }

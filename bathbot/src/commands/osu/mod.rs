@@ -60,24 +60,13 @@ macro_rules! user_id_mode {
     }};
 }
 
-use std::{
-    cmp::PartialOrd,
-    future::Future,
-    ops::{AddAssign, Div},
-    pin::Pin,
-};
+use std::{future::Future, pin::Pin};
 
 use bathbot_util::osu::ModSelection;
 use eyre::{Report, Result, WrapErr};
 use rosu_v2::request::UserId;
 use twilight_interactions::command::{CommandOption, CreateOption};
-use twilight_model::{
-    channel::message::{
-        component::{ActionRow, Button, ButtonStyle},
-        Component,
-    },
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 #[cfg(feature = "server")]
 pub use self::link::*;
@@ -90,7 +79,7 @@ pub use self::{
     osustats::*, pinned::*, popular::*, pp::*, profile::*, rank::*, ranking::*, ratios::*,
     recent::*, scores::*, serverleaderboard::*, simulate::*, snipe::*, top::*, whatif::*,
 };
-use crate::{core::commands::CommandOrigin, util::Emote, Context};
+use crate::{core::commands::CommandOrigin, Context};
 
 mod attributes;
 mod avatar;
@@ -184,113 +173,6 @@ pub async fn user_not_found(ctx: &Context, user_id: UserId) -> String {
     }
 }
 
-pub trait Number: AddAssign + Copy + Div<Output = Self> + PartialOrd {
-    fn zero() -> Self;
-    fn max() -> Self;
-    fn min() -> Self;
-    fn inc(&mut self);
-}
-
-macro_rules! impl_number {
-    ( $( $ty:ident: $one:literal ),* ) => {
-        $(
-           impl Number for $ty {
-                fn zero() -> Self { $ty::default() }
-                fn max() -> Self { $ty::MAX }
-                fn min() -> Self { $ty::MIN }
-                fn inc(&mut self) { *self += $one }
-            }
-        )*
-    }
-}
-
-impl_number!(u32: 1, f32: 1.0, f64: 1.0);
-
-pub struct MinMaxAvg<N> {
-    min: N,
-    max: N,
-    sum: N,
-    len: N,
-}
-
-impl<N: Number> MinMaxAvg<N> {
-    fn new() -> Self {
-        Self {
-            min: N::max(),
-            max: N::min(),
-            sum: N::zero(),
-            len: N::zero(),
-        }
-    }
-
-    pub fn add(&mut self, n: N) {
-        if self.min > n {
-            self.min = n;
-        }
-
-        if self.max < n {
-            self.max = n;
-        }
-
-        self.sum += n;
-        self.len.inc();
-    }
-
-    pub fn min(&self) -> N {
-        self.min
-    }
-
-    pub fn max(&self) -> N {
-        self.max
-    }
-
-    pub fn avg(&self) -> N {
-        self.sum / self.len
-    }
-}
-
-pub trait AsFloat {
-    fn into_f32(self) -> f32;
-    fn into_f64(self) -> f64;
-}
-
-macro_rules! impl_as_float {
-    ( $( $ty:ident ),* ) => {
-        $(
-            impl AsFloat for $ty {
-                #[inline]
-                fn into_f32(self) -> f32 {
-                    self as f32
-                }
-
-                #[inline]
-                fn into_f64(self) -> f64 {
-                    self as f64
-                }
-            }
-        )*
-    }
-}
-
-impl_as_float!(u32);
-
-impl<N: Number + AsFloat> MinMaxAvg<N> {
-    pub fn avg_float(&self) -> f32 {
-        self.sum.into_f32() / self.len.into_f32()
-    }
-}
-
-impl From<MinMaxAvg<f32>> for MinMaxAvg<u32> {
-    fn from(other: MinMaxAvg<f32>) -> Self {
-        Self {
-            min: other.min as u32,
-            max: other.max as u32,
-            sum: other.sum as u32,
-            len: other.len as u32,
-        }
-    }
-}
-
 #[derive(Copy, Clone, Eq, PartialEq, CommandOption, CreateOption)]
 pub enum ScoreOrder {
     #[option(name = "Accuracy", value = "acc")]
@@ -327,19 +209,4 @@ enum UserExtraction {
     Err(Report),
     Content(String),
     None,
-}
-
-pub fn miss_analyzer_components() -> Vec<Component> {
-    let miss_analyzer = Button {
-        custom_id: Some("miss_analyzer".to_owned()),
-        disabled: false,
-        emoji: Some(Emote::Miss.reaction_type()),
-        label: Some("Miss analyzer".to_owned()),
-        style: ButtonStyle::Secondary,
-        url: None,
-    };
-
-    let components = vec![Component::Button(miss_analyzer)];
-
-    vec![Component::ActionRow(ActionRow { components })]
 }

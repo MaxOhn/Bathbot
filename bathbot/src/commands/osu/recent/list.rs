@@ -20,13 +20,13 @@ use rosu_v2::prelude::{GameMode, Grade, OsuError, Score};
 
 use super::{RecentList, RecentListUnique};
 use crate::{
+    active::{impls::RecentListPagination, ActiveMessages},
     commands::{
         osu::{user_not_found, HasMods, ModsResult, ScoreOrder},
         GameModeOption, GradeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
-    pagination::RecentListPagination,
     util::{
         query::{FilterCriteria, Searchable},
         ChannelExt,
@@ -401,13 +401,19 @@ pub(super) async fn list(
         }
     };
 
-    let content = message_content(grade, mods.as_ref(), query.as_deref());
+    let content = message_content(grade, mods.as_ref(), query.as_deref()).unwrap_or_default();
 
-    RecentListPagination::builder(user, entries, maps)
-        .content(content.unwrap_or_default())
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+    let pagination = RecentListPagination::builder()
+        .user(user)
+        .entries(entries.into_boxed_slice())
+        .maps(maps)
+        .content(content)
+        .msg_owner(orig.user_id()?)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

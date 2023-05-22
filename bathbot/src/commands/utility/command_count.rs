@@ -7,8 +7,10 @@ use prometheus::core::Collector;
 use twilight_interactions::command::CreateCommand;
 
 use crate::{
-    core::commands::CommandOrigin, pagination::RankingPagination,
-    util::interaction::InteractionCommand, Context,
+    active::{impls::RankingPagination, ActiveMessages},
+    core::commands::CommandOrigin,
+    util::interaction::InteractionCommand,
+    Context,
 };
 
 #[derive(CreateCommand, SlashCommand)]
@@ -56,6 +58,7 @@ async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
         })
         .collect();
 
+    let msg_owner = orig.user_id()?;
     let entries = RankingEntries::Amount(entries);
     let total = entries.len();
 
@@ -63,7 +66,13 @@ async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
         bootup_time: ctx.stats.start_time,
     };
 
-    RankingPagination::builder(entries, total, None, kind)
-        .start(ctx, orig)
-        .await
+    let pagination = RankingPagination::builder()
+        .entries(entries)
+        .total(total)
+        .kind(kind)
+        .defer(false)
+        .msg_owner(msg_owner)
+        .build();
+
+    ActiveMessages::builder(pagination).begin(ctx, orig).await
 }

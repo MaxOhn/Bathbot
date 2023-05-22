@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bathbot_macros::EmbedData;
 use bathbot_model::{rosu_v2::user::User, SnipeRecent};
-use bathbot_util::AuthorBuilder;
+use bathbot_util::{fields, AuthorBuilder};
 use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{embeds::attachment, manager::redis::RedisData};

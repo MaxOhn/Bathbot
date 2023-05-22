@@ -16,10 +16,10 @@ use time::OffsetDateTime;
 
 use super::{MedalList, MedalListOrder};
 use crate::{
+    active::{impls::MedalsListPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::MedalsListPagination,
     Context,
 };
 
@@ -28,9 +28,11 @@ pub(super) async fn list(
     orig: CommandOrigin<'_>,
     args: MedalList<'_>,
 ) -> Result<()> {
+    let owner = orig.user_id()?;
+
     let user_id = match user_id!(ctx, orig, args) {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+        None => match ctx.user_config().osu_id(owner).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
@@ -199,10 +201,17 @@ pub(super) async fn list(
         }
     };
 
-    MedalsListPagination::builder(user, acquired, medals)
+    let pagination = MedalsListPagination::builder()
+        .user(user)
+        .acquired(acquired)
+        .medals(medals.into_boxed_slice())
         .content(content)
-        .start_by_update()
-        .start(ctx, orig)
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

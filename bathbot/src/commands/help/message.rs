@@ -3,29 +3,23 @@ use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use bathbot_macros::command;
 use bathbot_psql::model::configs::{GuildConfig, DEFAULT_PREFIX};
 use bathbot_util::{
-    constants::{BATHBOT_ROADMAP, BATHBOT_WORKSHOP},
-    string_cmp::levenshtein_distance,
-    AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder,
+    string_cmp::levenshtein_distance, AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
-use eyre::{ContextCompat, Result};
+use eyre::Result;
 use hashbrown::HashSet;
 use twilight_model::{
-    channel::message::{
-        component::{ActionRow, SelectMenu, SelectMenuOption},
-        embed::EmbedField,
-        Component, Message, ReactionType,
-    },
+    channel::message::{embed::EmbedField, Message},
     guild::Permissions,
-    id::{marker::GuildMarker, Id},
 };
 
 use super::failed_message_content;
 use crate::{
+    active::{impls::HelpPrefixMenu, ActiveMessageOriginError, ActiveMessages},
     core::{
-        commands::prefix::{PrefixCommand, PrefixCommandGroup, PrefixCommands},
+        commands::prefix::{PrefixCommand, PrefixCommands},
         Context,
     },
-    util::{interaction::InteractionComponent, ChannelExt, ComponentExt, Emote},
+    util::ChannelExt,
 };
 
 #[command]
@@ -208,63 +202,6 @@ async fn command_help(
     Ok(())
 }
 
-async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String {
-    let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
-        let f = |config: &GuildConfig| {
-            let prefixes = &config.prefixes;
-
-            if let Some(prefix) = prefixes.first().cloned() {
-                if prefix == DEFAULT_PREFIX && prefixes.len() == 1 {
-                    (None, prefix)
-                } else {
-                    let prefix_iter = prefixes.iter().skip(1);
-                    let mut prefixes_str = String::with_capacity(9);
-                    let _ = write!(prefixes_str, "`{prefix}`");
-
-                    for prefix in prefix_iter {
-                        let _ = write!(prefixes_str, ", `{prefix}`");
-                    }
-
-                    (Some(prefixes_str), prefix)
-                }
-            } else {
-                (None, DEFAULT_PREFIX.into())
-            }
-        };
-
-        ctx.guild_config().peek(guild_id, f).await
-    } else {
-        (None, DEFAULT_PREFIX.into())
-    };
-
-    let prefix_desc = custom_prefix.map_or_else(
-        || format!("Prefix: `{DEFAULT_PREFIX}` (none required in DMs)"),
-        |p| format!("Server prefix: {p}\nDM prefix: `{DEFAULT_PREFIX}` or none at all"),
-    );
-
-    format!(
-        ":fire: **Slash commands now supported!** Type `/` to check them out :fire:\n\n\
-        {prefix_desc}\n\
-        __**General**__\n\
-        - To find out more about a command like what arguments you can give or which shorter aliases \
-        it has,  use __**`{first_prefix}help [command]`**__, e.g. `{first_prefix}help simulate`.
-        - If you want to specify an argument, e.g. a username, that contains \
-        spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
-        - If you've used the `/link` command to connect to an osu! account, \
-        you can omit the username for any command that needs one.\n\
-        - If you have questions, complains, or suggestions for the bot, feel free to join its \
-        [discord server]({BATHBOT_WORKSHOP}) and let Badewanne3 know.\n\
-        [This roadmap]({BATHBOT_ROADMAP}) shows already suggested features and known bugs.\n\
-        __**Mods for osu!**__
-        Many commands allow you to specify mods. You can do so with `+mods` \
-        for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\n\
-        `+hdhr`: scores that include at least HD and HR\n\
-        `+hd!`: only HD scores\n\
-        `-nm!`: scores that are not NoMod\n\
-        `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ"
-    )
-}
-
 async fn dm_help(ctx: Arc<Context>, msg: &Message, permissions: Option<Permissions>) -> Result<()> {
     let owner = msg.author.id;
 
@@ -286,188 +223,17 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message, permissions: Option<Permissio
         let _ = msg.create_message(&ctx, &builder, permissions).await;
     }
 
-    let desc = description(&ctx, msg.guild_id).await;
-    let embed = EmbedBuilder::new().description(desc).build();
-    let components = help_select_menu(None);
-    let builder = MessageBuilder::new().embed(embed).components(components);
+    let help_menu = HelpPrefixMenu::new(msg.guild_id);
+    let active_fut = ActiveMessages::builder(help_menu).begin_with_err(Arc::clone(&ctx), channel);
 
-    if let Err(err) = channel.create_message(&ctx, &builder, permissions).await {
-        warn!(?err, "Failed to send help chunk");
-        let content = "Could not DM you, perhaps you disabled it?";
-        msg.error(&ctx, content).await?;
-    }
+    match active_fut.await {
+        Ok(_) => Ok(()),
+        Err(ActiveMessageOriginError::Report(err)) => Err(err),
+        Err(ActiveMessageOriginError::CannotDmUser) => {
+            let content = "Could not DM you, perhaps you disabled it?";
+            msg.error(&ctx, content).await?;
 
-    Ok(())
-}
-
-pub async fn handle_help_category(
-    ctx: &Context,
-    mut component: InteractionComponent,
-) -> Result<()> {
-    let value = component.data.values.pop().wrap_err("missing menu value")?;
-
-    let group = match value.as_str() {
-        "general" => {
-            let desc = description(ctx, None).await;
-            let embed = EmbedBuilder::new().description(desc).build();
-            let components = help_select_menu(None);
-            let builder = MessageBuilder::new().embed(embed).components(components);
-
-            component.callback(ctx, builder).await?;
-
-            return Ok(());
+            Ok(())
         }
-        "osu" => PrefixCommandGroup::Osu,
-        "taiko" => PrefixCommandGroup::Taiko,
-        "ctb" => PrefixCommandGroup::Catch,
-        "mania" => PrefixCommandGroup::Mania,
-        "all_modes" => PrefixCommandGroup::AllModes,
-        "tracking" => PrefixCommandGroup::Tracking,
-        "twitch" => PrefixCommandGroup::Twitch,
-        "games" => PrefixCommandGroup::Games,
-        "utility" => PrefixCommandGroup::Utility,
-        "songs" => PrefixCommandGroup::Songs,
-        _ => bail!("got unexpected value `{value}`"),
-    };
-
-    let mut cmds: Vec<_> = {
-        let mut dedups = HashSet::new();
-
-        PrefixCommands::get()
-            .iter()
-            .filter(|cmd| cmd.group == group)
-            .filter(|cmd| dedups.insert(cmd.name()))
-            .collect()
-    };
-
-    cmds.sort_unstable_by_key(|cmd| cmd.name());
-
-    let mut desc = String::with_capacity(64);
-
-    let emote = group.emote();
-    let name = group.name();
-    let _ = writeln!(desc, "{emote} __**{name}**__");
-
-    for cmd in cmds {
-        let name = cmd.name();
-        let authority = if cmd.flags.authority() { "**\\***" } else { "" };
-        let _ = writeln!(desc, "`{name}`{authority}: {}", cmd.desc);
     }
-
-    let footer = FooterBuilder::new(
-        "*: Either can't be used in DMs or requires authority status in the server",
-    );
-
-    let embed = EmbedBuilder::new().description(desc).footer(footer).build();
-    let components = help_select_menu(Some(group));
-    let builder = MessageBuilder::new().embed(embed).components(components);
-
-    component.callback(ctx, builder).await?;
-
-    Ok(())
-}
-
-fn help_select_menu(default: Option<PrefixCommandGroup>) -> Vec<Component> {
-    let options = vec![
-        SelectMenuOption {
-            default: matches!(default, None),
-            description: None,
-            emoji: Some(ReactionType::Unicode {
-                name: "🛁".to_owned(),
-            }),
-            label: "General".to_owned(),
-            value: "general".to_owned(),
-        },
-        SelectMenuOption {
-            default: matches!(default, Some(PrefixCommandGroup::Osu)),
-            description: None,
-            emoji: Some(Emote::Std.reaction_type()),
-            label: "osu!".to_owned(),
-            value: "osu".to_owned(),
-        },
-        SelectMenuOption {
-            default: matches!(default, Some(PrefixCommandGroup::Taiko)),
-            description: None,
-            emoji: Some(Emote::Tko.reaction_type()),
-            label: "Taiko".to_owned(),
-            value: "taiko".to_owned(),
-        },
-        SelectMenuOption {
-            default: matches!(default, Some(PrefixCommandGroup::Catch)),
-            description: None,
-            emoji: Some(Emote::Ctb.reaction_type()),
-            label: "Catch".to_owned(),
-            value: "ctb".to_owned(),
-        },
-        SelectMenuOption {
-            default: matches!(default, Some(PrefixCommandGroup::Mania)),
-            description: None,
-            emoji: Some(Emote::Mna.reaction_type()),
-            label: "Mania".to_owned(),
-            value: "mania".to_owned(),
-        },
-        SelectMenuOption {
-            default: matches!(default, Some(PrefixCommandGroup::AllModes)),
-            description: None,
-            emoji: Some(Emote::Osu.reaction_type()),
-            label: "All Modes".to_owned(),
-            value: "all_modes".to_owned(),
-        },
-        SelectMenuOption {
-            default: matches!(default, Some(PrefixCommandGroup::Tracking)),
-            description: None,
-            emoji: Some(Emote::Tracking.reaction_type()),
-            label: "Tracking".to_owned(),
-            value: "tracking".to_owned(),
-        },
-        SelectMenuOption {
-            default: matches!(default, Some(PrefixCommandGroup::Twitch)),
-            description: None,
-            emoji: Some(Emote::Twitch.reaction_type()),
-            label: "Twitch".to_owned(),
-            value: "twitch".to_owned(),
-        },
-        SelectMenuOption {
-            default: matches!(default, Some(PrefixCommandGroup::Games)),
-            description: None,
-            emoji: Some(ReactionType::Unicode {
-                name: "🎮".to_owned(),
-            }),
-            label: "Games".to_owned(),
-            value: "games".to_owned(),
-        },
-        SelectMenuOption {
-            default: matches!(default, Some(PrefixCommandGroup::Utility)),
-            description: None,
-            emoji: Some(ReactionType::Unicode {
-                name: "🛠️".to_owned(),
-            }),
-            label: "Utility".to_owned(),
-            value: "utility".to_owned(),
-        },
-        SelectMenuOption {
-            default: matches!(default, Some(PrefixCommandGroup::Songs)),
-            description: None,
-            emoji: Some(ReactionType::Unicode {
-                name: "🎵".to_owned(),
-            }),
-            label: "Songs".to_owned(),
-            value: "songs".to_owned(),
-        },
-    ];
-
-    let category = SelectMenu {
-        custom_id: "help_category".to_owned(),
-        disabled: false,
-        max_values: Some(1),
-        min_values: Some(1),
-        options,
-        placeholder: None,
-    };
-
-    let category_row = ActionRow {
-        components: vec![Component::SelectMenu(category)],
-    };
-
-    vec![Component::ActionRow(category_row)]
 }

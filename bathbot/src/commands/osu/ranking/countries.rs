@@ -7,8 +7,10 @@ use rosu_v2::prelude::GameMode;
 
 use super::RankingCountry;
 use crate::{
-    commands::GameModeOption, core::commands::CommandOrigin,
-    pagination::RankingCountriesPagination, Context,
+    active::{impls::RankingCountriesPagination, ActiveMessages},
+    commands::GameModeOption,
+    core::commands::CommandOrigin,
+    Context,
 };
 
 #[command]
@@ -66,17 +68,23 @@ pub(super) async fn country(
         Ok(ranking) => ranking,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get country ranking");
+            let err = Report::new(err).wrap_err("Failed to get country ranking");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
     let countries: BTreeMap<_, _> = ranking.ranking.drain(..).enumerate().collect();
 
-    RankingCountriesPagination::builder(mode, countries, ranking.total as usize)
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+    let pagination = RankingCountriesPagination::builder()
+        .mode(mode)
+        .countries(countries)
+        .total(ranking.total as usize)
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }

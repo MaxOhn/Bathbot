@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_model::{Countries, OsuStatsPlayer, OsuStatsPlayersArgs};
@@ -7,14 +7,13 @@ use bathbot_util::{
     CowUtils, IntHasher,
 };
 use eyre::Result;
-use hashbrown::HashMap;
 use rosu_v2::{model::GameMode, prelude::CountryCode};
 
 use super::OsuStatsPlayers;
 use crate::{
+    active::{impls::OsuStatsPlayersPagination, ActiveMessages},
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
-    pagination::OsuStatsListPagination,
     util::ChannelExt,
     Context,
 };
@@ -101,11 +100,12 @@ pub(super) async fn players(
         rank_max = params.max_rank,
     );
 
-    OsuStatsListPagination::builder(players, params, first_place_id, amount)
-        .content(content)
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+    let pagination =
+        OsuStatsPlayersPagination::new(players, params, first_place_id, amount, content, owner);
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 
@@ -126,7 +126,7 @@ pub(super) async fn players(
 async fn prepare_players(
     ctx: &Context,
     params: &mut OsuStatsPlayersArgs,
-) -> Result<(usize, HashMap<usize, Vec<OsuStatsPlayer>, IntHasher>)> {
+) -> Result<(usize, HashMap<usize, Box<[OsuStatsPlayer]>, IntHasher>)> {
     let mut players = HashMap::with_capacity_and_hasher(2, IntHasher);
 
     // Retrieve page one
@@ -220,12 +220,12 @@ async fn prepare_players(
 }
 
 fn insert(
-    map: &mut HashMap<usize, Vec<OsuStatsPlayer>, IntHasher>,
+    map: &mut HashMap<usize, Box<[OsuStatsPlayer]>, IntHasher>,
     page: usize,
     players: Vec<OsuStatsPlayer>,
 ) {
     if !players.is_empty() {
-        map.insert(page, players);
+        map.insert(page, players.into_boxed_slice());
     }
 }
 

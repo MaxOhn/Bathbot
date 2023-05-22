@@ -5,19 +5,27 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::OsekaiMedal;
+use bathbot_model::{OsekaiComment, OsekaiMap, OsekaiMedal};
 use bathbot_util::{
-    constants::OSEKAI_ISSUE, string_cmp::levenshtein_similarity, CowUtils, MessageBuilder,
+    constants::{FIELD_VALUE_SIZE, OSEKAI_ISSUE, OSU_BASE},
+    fields,
+    osu::flag_url,
+    string_cmp::levenshtein_similarity,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
 use eyre::{Result, WrapErr};
 use rkyv::{Deserialize, Infallible};
+use rosu_v2::prelude::GameMode;
+use time::OffsetDateTime;
 use twilight_interactions::command::AutocompleteValue;
-use twilight_model::application::command::{CommandOptionChoice, CommandOptionChoiceValue};
+use twilight_model::{
+    application::command::{CommandOptionChoice, CommandOptionChoiceValue},
+    channel::message::embed::EmbedField,
+};
 
-use super::MedalInfo_;
+use super::{MedalAchieved, MedalInfo_};
 use crate::{
     core::commands::CommandOrigin,
-    embeds::MedalEmbed,
     manager::redis::RedisData,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
@@ -122,7 +130,7 @@ pub(super) async fn info(
 
     maps.sort_unstable_by_key(|map| Reverse(map.vote_sum));
 
-    let embed_data = MedalEmbed::new(medal, None, maps, top_comment);
+    let embed_data = MedalEmbed::new(&medal, None, maps, top_comment);
     let embed = embed_data.maximized();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;
@@ -198,7 +206,7 @@ pub async fn handle_autocomplete(
         .redis()
         .medals()
         .await
-        .wrap_err("failed to get cached medals")?;
+        .wrap_err("Failed to get cached medals")?;
 
     let mut choices = Vec::with_capacity(25);
 
@@ -237,5 +245,178 @@ fn new_choice(name: &str) -> CommandOptionChoice {
         name: name.to_owned(),
         name_localizations: None,
         value: CommandOptionChoiceValue::String(name.to_owned()),
+    }
+}
+
+#[derive(Clone)]
+pub struct MedalEmbed {
+    achieved: Option<(AuthorBuilder, FooterBuilder, OffsetDateTime)>,
+    fields: Vec<EmbedField>,
+    thumbnail: String,
+    title: String,
+    url: String,
+}
+
+impl MedalEmbed {
+    pub fn new(
+        medal: &OsekaiMedal,
+        achieved: Option<MedalAchieved<'_>>,
+        maps: Vec<OsekaiMap>,
+        comment: Option<OsekaiComment>,
+    ) -> Self {
+        let mut fields = Vec::with_capacity(7);
+
+        fields![fields { "Description", medal.description.as_ref().to_owned(), false }];
+
+        if let Some(solution) = medal.solution.as_ref().filter(|s| !s.is_empty()) {
+            let solution = solution.cow_replace("<br>", "").into_owned();
+
+            fields![fields { "Solution", solution, false }];
+        }
+
+        let mode_mods = match (medal.restriction, medal.mods.as_deref()) {
+            (None, None) => "Any".to_owned(),
+            (None, Some(mods)) => format!("Any • {mods}"),
+            (Some(mode), None) => format!("{mode} • Any"),
+            (Some(mode), Some(mods)) => format!("{mode} • {mods}"),
+        };
+
+        fields![fields {
+            "Rarity", format!("{:.2}%", medal.rarity), true;
+            "Mode • Mods", mode_mods, true;
+            "Group", medal.grouping.to_string(), true;
+        }];
+
+        if !maps.is_empty() {
+            let len = maps.len();
+            let mut map_value = String::with_capacity(256);
+
+            for map in maps {
+                let OsekaiMap {
+                    title,
+                    version,
+                    map_id,
+                    vote_sum,
+                    ..
+                } = map;
+
+                let m = format!(
+                    " - [{title} [{version}]]({OSU_BASE}b/{map_id}) ({vote_sum:+})\n",
+                    title = title.cow_escape_markdown(),
+                    version = version.cow_escape_markdown()
+                );
+
+                if m.len() + map_value.len() + 7 >= FIELD_VALUE_SIZE {
+                    map_value.push_str("`...`\n");
+
+                    break;
+                } else {
+                    map_value += &m;
+                }
+            }
+
+            map_value.pop();
+
+            fields![fields { format!("Beatmaps: {len}"), map_value, false }];
+        }
+
+        if let Some(comment) = comment {
+            let OsekaiComment {
+                content,
+                username,
+                vote_sum,
+                ..
+            } = comment;
+
+            let value = format!(
+                "```\n\
+                {content}\n    \
+                - {username} [{vote_sum:+}]\n\
+                ```",
+                content = content.trim(),
+            );
+
+            fields![fields { "Top comment", value, false }];
+        }
+
+        let title = medal.name.as_ref().to_owned();
+        let thumbnail = medal.icon_url.as_ref().to_owned();
+
+        let url = format!(
+            "https://osekai.net/medals/?medal={}",
+            title.cow_replace(' ', "+").cow_replace(',', "%2C")
+        );
+
+        let achieved = achieved.map(|achieved| {
+            let user = achieved.user;
+
+            let (country_code, username, user_id) = match &user {
+                RedisData::Original(user) => {
+                    let country_code = user.country_code.as_str();
+                    let username = user.username.as_str();
+                    let user_id = user.user_id;
+
+                    (country_code, username, user_id)
+                }
+                RedisData::Archive(user) => {
+                    let country_code = user.country_code.as_str();
+                    let username = user.username.as_str();
+                    let user_id = user.user_id;
+
+                    (country_code, username, user_id)
+                }
+            };
+
+            let mut author_url = format!("{OSU_BASE}users/{user_id}");
+
+            match medal.restriction {
+                None => {}
+                Some(GameMode::Osu) => author_url.push_str("/osu"),
+                Some(GameMode::Taiko) => author_url.push_str("/taiko"),
+                Some(GameMode::Catch) => author_url.push_str("/fruits"),
+                Some(GameMode::Mania) => author_url.push_str("/mania"),
+            }
+
+            let author = AuthorBuilder::new(username)
+                .url(author_url)
+                .icon_url(flag_url(country_code));
+
+            let footer = FooterBuilder::new(format!(
+                "Medal {}/{} | Achieved",
+                achieved.index + 1,
+                achieved.medal_count
+            ));
+
+            (author, footer, achieved.achieved_at)
+        });
+
+        Self {
+            achieved,
+            fields,
+            thumbnail,
+            title,
+            url,
+        }
+    }
+
+    pub fn minimized(mut self) -> EmbedBuilder {
+        self.fields.truncate(5);
+
+        self.maximized()
+    }
+
+    pub fn maximized(self) -> EmbedBuilder {
+        let builder = EmbedBuilder::new()
+            .fields(self.fields)
+            .thumbnail(self.thumbnail)
+            .title(self.title)
+            .url(self.url);
+
+        match self.achieved {
+            Some((author, footer, timestamp)) => {
+                builder.author(author).footer(footer).timestamp(timestamp)
+            }
+            None => builder,
+        }
     }
 }

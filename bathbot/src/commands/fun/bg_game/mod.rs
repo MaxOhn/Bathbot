@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bathbot_macros::{command, SlashCommand};
-use bathbot_model::{Effects, MapsetTags};
+use bathbot_model::Effects;
 use bathbot_psql::model::games::DbMapTagsParams;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, INVALID_ACTION_FOR_CHANNEL_TYPE, THREADS_UNAVAILABLE},
@@ -12,21 +12,17 @@ use rosu_v2::prelude::GameMode;
 use twilight_http::{api_error::ApiError, error::ErrorType};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
-    channel::{
-        message::{
-            component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
-            Component,
-        },
-        thread::AutoArchiveDuration,
-        ChannelType,
-    },
+    channel::{thread::AutoArchiveDuration, ChannelType},
     guild::Permissions,
 };
 
 use self::{bigger::*, hint::*, rankings::*, skip::*, stop::*};
 use crate::{
+    active::{
+        impls::{BackgroundGame, BackgroundGameSetup},
+        ActiveMessages,
+    },
     commands::ThreadChannel,
-    games::bg::{GameState, GameWrapper},
     util::{interaction::InteractionCommand, Authored, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -278,7 +274,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
         }
     }
 
-    if let Some(GameState::Running { game }) = ctx.bg_games().write(&channel).await.remove() {
+    if let Some(game) = ctx.bg_games().write(&channel).await.remove() {
         if let Err(err) = game.stop() {
             warn!(?err, "Failed to stop game");
         }
@@ -286,33 +282,19 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
     let difficulty = difficulty.unwrap_or_default();
 
-    let state = match mode {
+    match mode {
         Some(BgGameMode::Osu) | None => {
-            let components = bg_components();
-
-            let content = format!(
-                "<@{author}> select which tags should be included \
-                and which ones should be excluded, then start the game.\n\
-                Only you can use the components below.",
-            );
-
-            let builder = MessageBuilder::new().embed(content).components(components);
+            let setup = BackgroundGameSetup::new(difficulty, author);
 
             if matches!(thread, Some(ThreadChannel::Thread)) {
                 let res_builder = MessageBuilder::new().embed("Starting new thread...");
                 command.callback(&ctx, res_builder, true).await?;
 
-                channel.create_message(&ctx, &builder, None).await?;
+                ActiveMessages::builder(setup).begin(ctx, channel).await
             } else {
-                command.callback(&ctx, builder, false).await?;
-            }
-
-            GameState::Setup {
-                author,
-                difficulty,
-                effects: Effects::empty(),
-                excluded: MapsetTags::empty(),
-                included: MapsetTags::empty(),
+                ActiveMessages::builder(setup)
+                    .begin(ctx, &mut command)
+                    .await
             }
         }
         Some(BgGameMode::Mania) => {
@@ -343,7 +325,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
                 command.callback(&ctx, builder, false).await?;
             }
 
-            let game_fut = GameWrapper::new(
+            let game_fut = BackgroundGame::new(
                 Arc::clone(&ctx),
                 channel,
                 entries,
@@ -351,225 +333,9 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
                 difficulty,
             );
 
-            GameState::Running {
-                game: game_fut.await,
-            }
+            ctx.bg_games().own(channel).await.insert(game_fut.await);
+
+            Ok(())
         }
-    };
-
-    ctx.bg_games().own(channel).await.insert(state);
-
-    Ok(())
-}
-
-fn bg_components() -> Vec<Component> {
-    let options = vec![
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "Easy".to_owned(),
-            value: "easy".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "Hard".to_owned(),
-            value: "hard".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "Meme".to_owned(),
-            value: "meme".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "Weeb".to_owned(),
-            value: "weeb".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "K-Pop".to_owned(),
-            value: "kpop".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "Farm".to_owned(),
-            value: "farm".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "Hard name".to_owned(),
-            value: "hardname".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "Alternate".to_owned(),
-            value: "alt".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "Blue sky".to_owned(),
-            value: "bluesky".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "English".to_owned(),
-            value: "english".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "Streams".to_owned(),
-            value: "streams".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "Old".to_owned(),
-            value: "old".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: None,
-            emoji: None,
-            label: "Tech".to_owned(),
-            value: "tech".to_owned(),
-        },
-    ];
-
-    let include_menu = SelectMenu {
-        custom_id: "bg_start_include".to_owned(),
-        disabled: false,
-        max_values: Some(options.len() as u8),
-        min_values: Some(0),
-        options: options.clone(),
-        placeholder: Some("Select which tags should be included".to_owned()),
-    };
-
-    let include_row = ActionRow {
-        components: vec![Component::SelectMenu(include_menu)],
-    };
-
-    let exclude_menu = SelectMenu {
-        custom_id: "bg_start_exclude".to_owned(),
-        disabled: false,
-        max_values: Some(options.len() as u8),
-        min_values: Some(0),
-        options,
-        placeholder: Some("Select which tags should be excluded".to_owned()),
-    };
-
-    let exclude_row = ActionRow {
-        components: vec![Component::SelectMenu(exclude_menu)],
-    };
-
-    let start_button = Button {
-        custom_id: Some("bg_start_button".to_owned()),
-        disabled: false,
-        emoji: None,
-        label: Some("Start".to_owned()),
-        style: ButtonStyle::Success,
-        url: None,
-    };
-
-    let cancel_button = Button {
-        custom_id: Some("bg_start_cancel".to_owned()),
-        disabled: false,
-        emoji: None,
-        label: Some("Cancel".to_owned()),
-        style: ButtonStyle::Danger,
-        url: None,
-    };
-
-    let button_row = ActionRow {
-        components: vec![
-            Component::Button(start_button),
-            Component::Button(cancel_button),
-        ],
-    };
-
-    let effects = vec![
-        SelectMenuOption {
-            default: false,
-            description: Some("Blur the image".to_owned()),
-            emoji: None,
-            label: "Blur".to_owned(),
-            value: "blur".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: Some("Increase the color contrast".to_owned()),
-            emoji: None,
-            label: "Contrast".to_owned(),
-            value: "contrast".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: Some("Flip the image horizontally".to_owned()),
-            emoji: None,
-            label: "Flip horizontal".to_owned(),
-            value: "flip_h".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: Some("Flip the image vertically".to_owned()),
-            emoji: None,
-            label: "Flip vertical".to_owned(),
-            value: "flip_v".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: Some("Grayscale the colors".to_owned()),
-            emoji: None,
-            label: "Grayscale".to_owned(),
-            value: "grayscale".to_owned(),
-        },
-        SelectMenuOption {
-            default: false,
-            description: Some("Invert the colors".to_owned()),
-            emoji: None,
-            label: "Invert".to_owned(),
-            value: "invert".to_owned(),
-        },
-    ];
-
-    let effects_menu = SelectMenu {
-        custom_id: "bg_start_effects".to_owned(),
-        disabled: false,
-        max_values: Some(effects.len() as u8),
-        min_values: Some(0),
-        options: effects,
-        placeholder: Some("Modify images through effects".to_owned()),
-    };
-
-    let effects_row = ActionRow {
-        components: vec![Component::SelectMenu(effects_menu)],
-    };
-
-    vec![
-        Component::ActionRow(include_row),
-        Component::ActionRow(exclude_row),
-        Component::ActionRow(effects_row),
-        Component::ActionRow(button_row),
-    ]
+    }
 }

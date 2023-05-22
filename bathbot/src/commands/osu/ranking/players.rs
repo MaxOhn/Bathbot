@@ -10,10 +10,10 @@ use rosu_v2::prelude::{CountryCode, GameMode, OsuResult, Rankings as RosuRanking
 
 use super::{RankingPp, RankingScore};
 use crate::{
+    active::{impls::RankingPagination, ActiveMessages},
     commands::GameModeOption,
     core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::RankingPagination,
     util::ChannelExt,
     Context,
 };
@@ -35,10 +35,10 @@ pub(super) async fn pp(
     args: RankingPp<'_>,
 ) -> Result<()> {
     let RankingPp { country, mode } = args;
-    let author_id = orig.user_id()?;
+    let owner = orig.user_id()?;
 
     let (mode, author_id) = match mode {
-        Some(mode) => match ctx.user_config().osu_id(author_id).await {
+        Some(mode) => match ctx.user_config().osu_id(owner).await {
             Ok(user_id) => (mode.into(), user_id),
             Err(err) => {
                 warn!(?err, "Failed to get author id");
@@ -46,7 +46,7 @@ pub(super) async fn pp(
                 (mode.into(), None)
             }
         },
-        None => match ctx.user_config().with_osu_id(author_id).await {
+        None => match ctx.user_config().with_osu_id(owner).await {
             Ok(config) => (config.mode.unwrap_or(GameMode::Osu), config.osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -127,10 +127,10 @@ pub(super) async fn score(
     orig: CommandOrigin<'_>,
     args: RankingScore,
 ) -> Result<()> {
-    let author_id = orig.user_id()?;
+    let owner = orig.user_id()?;
 
     let (mode, osu_id) = match args.mode.map(GameMode::from) {
-        Some(mode) => match ctx.user_config().osu_id(author_id).await {
+        Some(mode) => match ctx.user_config().osu_id(owner).await {
             Ok(user_id) => (mode, user_id),
             Err(err) => {
                 warn!("{err:?}");
@@ -138,7 +138,7 @@ pub(super) async fn score(
                 (mode, None)
             }
         },
-        None => match ctx.user_config().with_osu_id(author_id).await {
+        None => match ctx.user_config().with_osu_id(owner).await {
             Ok(config) => (config.mode.unwrap_or(GameMode::Osu), config.osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -285,12 +285,18 @@ async fn ranking(
         RankingKind::RankedScore { mode }
     };
 
-    let builder = RankingPagination::builder(entries, total, author_idx, ranking_kind);
+    let pagination = RankingPagination::builder()
+        .entries(entries)
+        .total(total)
+        .author_idx(author_idx)
+        .kind(ranking_kind)
+        .defer(true)
+        .msg_owner(orig.user_id()?)
+        .build();
 
-    builder
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

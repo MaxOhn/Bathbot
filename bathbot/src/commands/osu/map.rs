@@ -7,6 +7,7 @@ use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     osu::MapIdType,
+    MessageOrigin,
 };
 use enterpolation::{linear::Linear, Curve};
 use eyre::{ContextCompat, Report, Result, WrapErr};
@@ -27,9 +28,8 @@ use twilight_model::{
 
 use super::{BitMapElement, HasMods, ModsResult};
 use crate::{
+    active::{impls::MapPagination, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::MessageOrigin,
-    pagination::MapPagination,
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
@@ -412,20 +412,23 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
     let content = attrs.content();
 
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
-    let mut builder = MapPagination::builder(mapset, maps, mods, map_idx, attrs, origin);
 
-    if let Some(bytes) = graph {
-        builder = builder.attachment("map_graph.png", bytes);
-    }
+    let mut pagination = MapPagination::builder()
+        .mapset(mapset)
+        .maps(maps.into_boxed_slice())
+        .mods(mods)
+        .attrs(attrs)
+        .origin(origin)
+        .content(content.unwrap_or_default())
+        .attachment(graph.map(|bytes| ("map_graph.png".to_owned(), bytes)))
+        .msg_owner(orig.user_id()?)
+        .build();
 
-    if let Some(content) = content {
-        builder = builder.content(content);
-    }
+    pagination.set_index(map_idx);
 
-    builder
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

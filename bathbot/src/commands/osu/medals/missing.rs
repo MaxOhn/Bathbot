@@ -13,10 +13,10 @@ use rosu_v2::{prelude::OsuError, request::UserId};
 
 use super::{MedalMissing, MedalMissingOrder};
 use crate::{
+    active::{impls::MedalsMissingPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::MedalsMissingPagination,
     Context,
 };
 
@@ -158,9 +158,16 @@ pub(super) async fn missing(
         }),
     }
 
-    MedalsMissingPagination::builder(user, medals, medal_count)
-        .start_by_update()
-        .start(ctx, orig)
+    let pagination = MedalsMissingPagination::builder()
+        .user(user)
+        .medals(medals.into_boxed_slice())
+        .medal_count(medal_count)
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

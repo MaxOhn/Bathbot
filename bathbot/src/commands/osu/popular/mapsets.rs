@@ -1,4 +1,4 @@
-use std::{alloc, mem, sync::Arc};
+use std::{alloc, collections::HashMap, mem, sync::Arc};
 
 use bathbot_model::OsuTrackerMapsetEntry;
 use bathbot_util::{
@@ -6,16 +6,15 @@ use bathbot_util::{
     IntHasher,
 };
 use eyre::{Report, Result};
-use hashbrown::HashMap;
 use rkyv::{DeserializeUnsized, Infallible};
 use rosu_v2::prelude::Username;
 use time::OffsetDateTime;
 
 use crate::{
+    active::{impls::PopularMapsetsPagination, ActiveMessages},
     core::Context,
     manager::redis::RedisData,
-    pagination::OsuTrackerMapsetsPagination,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
 const COUNTS_LEN: usize = 727;
@@ -82,10 +81,15 @@ pub(super) async fn mapsets(ctx: Arc<Context>, mut command: InteractionCommand) 
         mapsets.insert(mapset_id, entry);
     }
 
-    OsuTrackerMapsetsPagination::builder(counts, mapsets)
-        .start_by_update()
-        .defer_components()
-        .start(ctx, (&mut command).into())
+    let pagination = PopularMapsetsPagination::builder()
+        .entries(counts.into_boxed_slice())
+        .mapsets(mapsets)
+        .msg_owner(command.user_id()?)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }
 

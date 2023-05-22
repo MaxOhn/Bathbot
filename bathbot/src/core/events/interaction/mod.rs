@@ -2,19 +2,15 @@ use std::sync::Arc;
 
 use twilight_model::application::interaction::{Interaction, InteractionData, InteractionType};
 
-use self::{
-    autocomplete::handle_autocomplete, command::handle_command, component::handle_component,
-    modal::handle_modal,
-};
+use self::{autocomplete::handle_autocomplete, command::handle_command};
 use crate::{
+    active::ActiveMessages,
     core::Context,
     util::interaction::{InteractionCommand, InteractionComponent, InteractionModal},
 };
 
 mod autocomplete;
 mod command;
-mod component;
-mod modal;
 
 pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
     let Interaction {
@@ -73,7 +69,7 @@ pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
                 user,
             };
 
-            handle_component(ctx, component).await
+            ActiveMessages::handle_component(ctx, component).await
         }
         Some(InteractionData::ModalSubmit(data)) => {
             let modal = InteractionModal {
@@ -88,7 +84,7 @@ pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
                 user,
             };
 
-            handle_modal(ctx, modal).await
+            ActiveMessages::handle_modal(ctx, modal).await
         }
         _ => {}
     }

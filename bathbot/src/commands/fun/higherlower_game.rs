@@ -5,17 +5,19 @@ use std::{
 
 use bathbot_macros::SlashCommand;
 use bathbot_model::{HlVersion, RankingEntries, RankingEntry, RankingKind};
-use bathbot_util::{constants::GENERAL_ISSUE, IntHasher, MessageBuilder};
-use eyre::{ContextCompat, Result, WrapErr};
+use bathbot_util::{constants::GENERAL_ISSUE, IntHasher};
+use eyre::Result;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::Id;
 
 use crate::{
+    active::{
+        impls::{HigherLowerGame, RankingPagination},
+        ActiveMessages,
+    },
     commands::GameModeOption,
-    games::hl::{GameState, HlComponents},
-    pagination::RankingPagination,
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt, MessageExt},
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
 
@@ -67,23 +69,7 @@ pub struct HigherLowerLeaderboard {
 
 async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = HigherLower::from_interaction(command.input_data())?;
-
-    if let HigherLower::Leaderboard(ref args) = args {
-        return higherlower_leaderboard(ctx, command, args.version).await;
-    }
-
     let user = command.user_id()?;
-
-    if let Some(game) = ctx.hl_games().lock(&user).await.remove() {
-        let components = HlComponents::disabled();
-        let builder = MessageBuilder::new().components(components);
-
-        (game.msg, game.channel)
-            .update(&ctx, &builder, command.permissions)
-            .wrap_err("lacking permission to update message")?
-            .await
-            .wrap_err("failed to remove components of previous game")?;
-    }
 
     let game_res = match args {
         HigherLower::ScorePp(args) => {
@@ -92,31 +78,27 @@ async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -
                 None => ctx.user_config().mode(user).await?.unwrap_or(GameMode::Osu),
             };
 
-            GameState::score_pp(&ctx, &command, mode).await
+            HigherLowerGame::new_score_pp(&ctx, mode, user).await
         }
-        HigherLower::FarmMaps(_) => GameState::farm_maps(&ctx, &command).await,
-        HigherLower::Leaderboard(_) => unreachable!(),
+        HigherLower::FarmMaps(_) => HigherLowerGame::new_farm_maps(&ctx, user).await,
+        HigherLower::Leaderboard(ref args) => {
+            return higherlower_leaderboard(ctx, command, args.version).await
+        }
     };
 
-    let mut game = match game_res {
-        Ok(game) => game,
+    match game_res {
+        Ok(game) => {
+            ActiveMessages::builder(game)
+                .start_by_update(true)
+                .begin(ctx, &mut command)
+                .await
+        }
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            Err(err)
         }
-    };
-
-    let embed = game.make_embed().await;
-    let components = HlComponents::higherlower();
-    let builder = MessageBuilder::new().embed(embed).components(components);
-
-    let response = command.update(&ctx, &builder).await?.model().await?;
-
-    game.msg = response.id;
-    ctx.hl_games().own(user).await.insert(game);
-
-    Ok(())
+    }
 }
 
 async fn higherlower_leaderboard(
@@ -153,7 +135,8 @@ async fn higherlower_leaderboard(
 
     scores.retain(|row| members.contains(&row.discord_id));
 
-    let author = command.user_id()?.get() as i64;
+    let owner = command.user_id()?;
+    let author = owner.get() as i64;
 
     scores.sort_unstable_by(|a, b| b.highscore.cmp(&a.highscore));
     let author_idx = scores.iter().position(|row| row.discord_id == author);
@@ -197,8 +180,17 @@ async fn higherlower_leaderboard(
     let total = scores.len();
     let data = RankingKind::HlScores { scores, version };
 
-    RankingPagination::builder(entries, total, author_idx, data)
-        .start_by_update()
-        .start(ctx, (&mut command).into())
+    let pagination = RankingPagination::builder()
+        .entries(entries)
+        .total(total)
+        .author_idx(author_idx)
+        .kind(data)
+        .defer(false)
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }

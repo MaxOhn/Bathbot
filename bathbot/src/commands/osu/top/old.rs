@@ -19,10 +19,10 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::TopIfEntry;
 use crate::{
+    active::{impls::TopIfPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
-    pagination::TopIfPagination,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -596,9 +596,11 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         TopOld::Mania(m) => (user_id_ref!(ctx, orig, m), GameMode::Mania),
     };
 
+    let owner = orig.user_id()?;
+
     let user_id = match user_id {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+        None => match ctx.user_config().osu_id(owner).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
@@ -635,8 +637,8 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         .map(|weight| weight.pp)
         .sum();
 
-    let post_pp = user.stats().pp();
-    let bonus_pp = post_pp - actual_pp;
+    let pre_pp = user.stats().pp();
+    let bonus_pp = pre_pp - actual_pp;
 
     let mut entries = match process_scores(&ctx, scores, &args).await {
         Ok(scores) => scores,
@@ -671,11 +673,19 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         version = args.date_range(),
     );
 
-    TopIfPagination::builder(user, entries, mode, post_pp, adjusted_pp, None)
+    let pagination = TopIfPagination::builder()
+        .user(user)
+        .entries(entries.into_boxed_slice())
+        .mode(mode)
+        .pre_pp(pre_pp)
+        .post_pp(adjusted_pp)
         .content(content)
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

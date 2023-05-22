@@ -33,6 +33,7 @@ pub const TWITCH_API_ISSUE: &str = "Some issue with the twitch api, blame bade";
 pub const THREADS_UNAVAILABLE: &str = "Cannot start new thread from here";
 
 // Discord error codes
+pub const CANNOT_DM_USER: u64 = 50007;
 pub const INVALID_ACTION_FOR_CHANNEL_TYPE: u64 = 50024;
 pub const MESSAGE_TOO_OLD_TO_BULK_DELETE: u64 = 50034;
 

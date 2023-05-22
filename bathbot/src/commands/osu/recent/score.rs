@@ -2,10 +2,10 @@ use std::{borrow::Cow, mem, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
-use bathbot_psql::model::configs::{GuildConfig, ScoreSize};
+use bathbot_psql::model::configs::GuildConfig;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher, CowUtils, MessageBuilder,
+    matcher, CowUtils, MessageOrigin,
 };
 use eyre::{Report, Result};
 use rosu_v2::{
@@ -16,27 +16,22 @@ use rosu_v2::{
     },
     request::UserId,
 };
-use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use super::RecentScore;
 use crate::{
+    active::{impls::RecentScoreEdit, ActiveMessages},
     commands::{
         osu::{require_link, user_not_found},
         GameModeOption, GradeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{MessageOrigin, RecentEmbed},
     manager::{
         redis::osu::{UserArgs, UserArgsSlim},
         OsuMap,
     },
-    pagination::MissAnalyzerPagination,
-    util::{
-        interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt,
-        MessageExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 
@@ -597,7 +592,15 @@ pub(super) async fn score(
     let entry = RecentEntry::new(&ctx, score, map).await;
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
-    let data_fut = RecentEmbed::new(
+    // Creating the embed
+    let show_retries = config.show_retries.or(guild_show_retries).unwrap_or(true);
+    let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
+
+    let content = show_retries.then(|| format!("Try #{tries}"));
+    let miss_analyzer_score_id = score_id.filter(|_| has_miss_analyzer && mode == GameMode::Osu);
+
+    let active_msg_fut = RecentScoreEdit::create(
+        &ctx,
         &user,
         &entry,
         top100.as_deref(),
@@ -605,136 +608,16 @@ pub(super) async fn score(
         #[cfg(feature = "twitch")]
         twitch_vod,
         minimized_pp,
+        miss_analyzer_score_id,
         &origin,
-        &ctx,
+        score_size,
+        content,
     );
 
-    let embed_data = data_fut.await;
-
-    // Creating the embed
-    let show_retries = config.show_retries.or(guild_show_retries).unwrap_or(true);
-    let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
-
-    let content = show_retries.then(|| format!("Try #{tries}"));
-
-    let miss_analyzer_score_id = score_id.filter(|_| has_miss_analyzer && mode == GameMode::Osu);
-
-    // Only maximize if config allows it
-    match score_size {
-        ScoreSize::AlwaysMinimized => {
-            let embed = embed_data.into_minimized();
-
-            if let Some(score_id) = miss_analyzer_score_id {
-                let mut pagination =
-                    MissAnalyzerPagination::builder(score_id, embed, None, content.clone())
-                        .miss_analyzer_components()
-                        .start_by_update();
-
-                if let Some(content) = content {
-                    pagination = pagination.content(content);
-                }
-
-                pagination.start(ctx, orig).await?;
-            } else {
-                let mut builder = MessageBuilder::new().embed(embed);
-
-                if let Some(content) = content {
-                    builder = builder.content(content);
-                }
-
-                orig.create_message(&ctx, &builder).await?;
-            }
-        }
-        ScoreSize::InitialMaximized => {
-            let embed = embed_data.as_maximized();
-
-            if let Some(score_id) = miss_analyzer_score_id {
-                let edited_embed = embed_data.into_minimized();
-
-                let mut pagination = MissAnalyzerPagination::builder(
-                    score_id,
-                    embed,
-                    Some(edited_embed),
-                    content.clone(),
-                );
-
-                if let Some(content) = content {
-                    pagination = pagination.content(content);
-                }
-
-                pagination
-                    .miss_analyzer_components()
-                    .start_by_update()
-                    .start(ctx, orig)
-                    .await?;
-            } else {
-                let mut builder = MessageBuilder::new().embed(embed);
-
-                if let Some(content) = content {
-                    builder = builder.content(content);
-                }
-
-                let mut response = orig.create_message(&ctx, &builder).await?.model().await?;
-
-                // Lacking permission to edit the message
-                if !orig.can_view_channel() {
-                    return Ok(());
-                }
-
-                ctx.store_msg(response.id);
-                let ctx = Arc::clone(&ctx);
-                let permissions = orig.permissions();
-
-                // Wait for minimizing
-                tokio::spawn(async move {
-                    sleep(Duration::from_secs(45)).await;
-
-                    if !ctx.remove_msg(response.id) {
-                        return;
-                    }
-
-                    let embed = embed_data.into_minimized();
-                    let mut builder = MessageBuilder::new().embed(embed).components(Vec::new());
-
-                    if !response.content.is_empty() {
-                        builder = builder.content(mem::take(&mut response.content));
-                    }
-
-                    if let Some(update_fut) = response.update(&ctx, &builder, permissions) {
-                        if let Err(err) = update_fut.await {
-                            warn!(?err, "Failed to minimize embed");
-                        }
-                    }
-                });
-            }
-        }
-        ScoreSize::AlwaysMaximized => {
-            let embed = embed_data.as_maximized();
-
-            if let Some(score_id) = miss_analyzer_score_id {
-                let mut pagination =
-                    MissAnalyzerPagination::builder(score_id, embed, None, content.clone())
-                        .miss_analyzer_components()
-                        .start_by_update();
-
-                if let Some(content) = content {
-                    pagination = pagination.content(content);
-                }
-
-                pagination.start(ctx, orig).await?;
-            } else {
-                let mut builder = MessageBuilder::new().embed(embed);
-
-                if let Some(content) = content {
-                    builder = builder.content(content);
-                }
-
-                orig.create_message(&ctx, &builder).await?;
-            }
-        }
-    }
-
-    Ok(())
+    ActiveMessages::builder(active_msg_fut.await)
+        .start_by_update(true)
+        .begin(ctx, orig)
+        .await
 }
 
 #[cfg(feature = "twitch")]

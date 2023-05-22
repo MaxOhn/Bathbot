@@ -6,13 +6,12 @@ extern crate tracing;
 #[macro_use]
 extern crate eyre;
 
+mod active;
 mod commands;
 mod core;
 mod embeds;
-mod games;
 mod manager;
 mod matchlive;
-mod pagination;
 mod tracking;
 mod util;
 

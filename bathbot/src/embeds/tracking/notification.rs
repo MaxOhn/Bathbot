@@ -2,6 +2,7 @@ use bathbot_macros::EmbedData;
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE,
+    fields,
     numbers::{round, WithComma},
     AuthorBuilder, CowUtils,
 };

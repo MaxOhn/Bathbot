@@ -18,14 +18,16 @@ use super::{
     TopOldTaikoVersion,
 };
 use crate::{
+    active::{
+        impls::{SimulateAttributes, SimulateComponents, SimulateData, TopOldVersion},
+        ActiveMessages,
+    },
     commands::GameModeOption,
     core::{
         commands::{prefix::Args, CommandOrigin},
         Context,
     },
-    embeds::{SimulateAttributes, SimulateData, TopOldVersion},
     manager::MapError,
-    pagination::SimulatePagination,
     util::{interaction::InteractionCommand, CheckPermissions, InteractionCommandExt},
 };
 
@@ -187,11 +189,11 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         max_combo,
     };
 
-    SimulatePagination::builder(map, simulate_data)
-        .content("Simulated score:")
-        .simulate_components(version)
-        .start_by_update()
-        .start(ctx, orig)
+    let active = SimulateComponents::new(map, simulate_data, orig.user_id()?);
+
+    ActiveMessages::builder(active)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

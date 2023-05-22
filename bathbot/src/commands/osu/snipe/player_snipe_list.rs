@@ -18,10 +18,10 @@ use rosu_v2::{prelude::OsuError, request::UserId};
 
 use super::{SnipePlayerList, SnipePlayerListOrder};
 use crate::{
+    active::{impls::SnipePlayerListPagination, ActiveMessages},
     commands::osu::{require_link, HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::PlayerSnipeListPagination,
     util::ChannelExt,
     Context,
 };
@@ -77,9 +77,11 @@ pub(super) async fn player_list(
         }
     };
 
+    let owner = orig.user_id()?;
+
     let user_id = match user_id!(ctx, orig, args) {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+        None => match ctx.user_config().osu_id(owner).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
@@ -183,11 +185,19 @@ pub(super) async fn player_list(
         let _ = write!(content, " ~ `Mods: {mods}`");
     }
 
-    PlayerSnipeListPagination::builder(user, scores, maps, count, params)
+    let pagination = SnipePlayerListPagination::builder()
+        .user(user)
+        .scores(scores)
+        .maps(maps)
+        .total(count)
+        .params(params)
         .content(content)
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
+        .msg_owner(owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
         .await
 }
 

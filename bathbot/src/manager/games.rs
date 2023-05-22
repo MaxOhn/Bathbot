@@ -46,7 +46,7 @@ impl GameManager<'_> {
         self.psql
             .upsert_higherlower_highscore(user_id, version as i16, score)
             .await
-            .wrap_err("failed to upsert higherlower score")
+            .wrap_err("Failed to upsert higherlower score")
     }
 }
 
@@ -65,7 +65,7 @@ impl GameManager<'_> {
             .psql
             .select_map_tags(params)
             .await
-            .wrap_err("failed to get map tags")?;
+            .wrap_err("Failed to get map tags")?;
 
         Ok(MapsetTagsEntries { mode, tags })
     }

@@ -15,16 +15,18 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rkyv::{with::DeserializeWith, Infallible};
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{
+    prelude::{OsuError, Username},
+    request::UserId,
+};
 use time::OffsetDateTime;
 
 use super::{MedalCommon, MedalCommonFilter, MedalCommonOrder};
 use crate::{
+    active::{impls::MedalsCommonPagination, ActiveMessages},
     commands::osu::UserExtraction,
     core::commands::CommandOrigin,
-    embeds::MedalsCommonUser,
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::MedalsCommonPagination,
     util::osu::get_combined_thumbnail,
     Context,
 };
@@ -319,13 +321,18 @@ pub(super) async fn common(
     let user1 = MedalsCommonUser::new(username1, winner1);
     let user2 = MedalsCommonUser::new(username2, winner2);
 
-    let mut builder = MedalsCommonPagination::builder(user1, user2, medals);
+    let pagination = MedalsCommonPagination::builder()
+        .user1(user1)
+        .user2(user2)
+        .medals(medals.into_boxed_slice())
+        .attachment(thumbnail.map(|bytes| ("avatar_fuse.png".to_owned(), bytes)))
+        .msg_owner(orig.user_id()?)
+        .build();
 
-    if let Some(bytes) = thumbnail {
-        builder = builder.attachment("avatar_fuse.png", bytes);
-    }
-
-    builder.start_by_update().start(ctx, orig).await
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
+        .await
 }
 
 pub struct MedalEntryCommon {
@@ -351,5 +358,16 @@ fn extract_medals(user: &RedisData<User>) -> HashMap<u32, OffsetDateTime, IntHas
                 (medal.medal_id, achieved_at)
             })
             .collect(),
+    }
+}
+
+pub struct MedalsCommonUser {
+    pub name: Username,
+    pub winner: usize,
+}
+
+impl MedalsCommonUser {
+    pub fn new(name: Username, winner: usize) -> Self {
+        Self { name, winner }
     }
 }

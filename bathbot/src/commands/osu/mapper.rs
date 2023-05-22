@@ -22,10 +22,10 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{require_link, user_not_found, ScoreOrder, TopEntry};
 use crate::{
+    active::{impls::TopPagination, ActiveMessages},
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
-    pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -209,7 +209,9 @@ async fn slash_mapper(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
 }
 
 async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
-    let mut config = match ctx.user_config().with_osu_id(orig.user_id()?).await {
+    let msg_owner = orig.user_id()?;
+
+    let mut config = match ctx.user_config().with_osu_id(msg_owner).await {
         Ok(config) => config,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -328,44 +330,37 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         },
     };
 
-    match list_size {
-        ListSize::Condensed => {
-            TopCondensedPagination::builder(user, mode, entries, sort_by, farm)
-                .content(content)
-                .start_by_update()
-                .defer_components()
-                .start(ctx, orig)
-                .await
-        }
-        ListSize::Detailed => {
-            TopPagination::builder(user, mode, entries, sort_by, farm)
-                .content(content)
-                .start_by_update()
-                .defer_components()
-                .start(ctx, orig)
-                .await
-        }
-        ListSize::Single => {
-            let minimized_pp = match config.minimized_pp {
-                Some(minimized_pp) => minimized_pp,
-                None => match orig.guild_id() {
-                    Some(guild_id) => ctx
-                        .guild_config()
-                        .peek(guild_id, |config| config.minimized_pp)
-                        .await
-                        .unwrap_or_default(),
-                    None => MinimizedPp::default(),
-                },
-            };
+    let minimized_pp = match config.minimized_pp {
+        Some(minimized_pp) => minimized_pp,
+        None => match list_size {
+            ListSize::Condensed | ListSize::Detailed => MinimizedPp::default(),
+            ListSize::Single => match orig.guild_id() {
+                Some(guild_id) => ctx
+                    .guild_config()
+                    .peek(guild_id, |config| config.minimized_pp)
+                    .await
+                    .unwrap_or_default(),
+                None => MinimizedPp::default(),
+            },
+        },
+    };
 
-            TopSinglePagination::builder(user, entries, minimized_pp)
-                .content(content)
-                .start_by_update()
-                .defer_components()
-                .start(ctx, orig)
-                .await
-        }
-    }
+    let pagination = TopPagination::builder()
+        .user(user)
+        .mode(mode)
+        .entries(entries.into_boxed_slice())
+        .sort_by(sort_by)
+        .farm(farm)
+        .list_size(list_size)
+        .minimized_pp(minimized_pp)
+        .content(content)
+        .msg_owner(msg_owner)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
+        .await
 }
 
 async fn process_scores(

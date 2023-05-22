@@ -6,7 +6,6 @@ use twilight_model::{channel::Message, guild::Permissions};
 
 use crate::{
     core::{buckets::BucketName, commands::checks::check_ratelimit},
-    games::bg::GameState,
     util::ChannelExt,
     Context,
 };
@@ -42,7 +41,7 @@ pub async fn bigger(
     let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
 
     match ctx.bg_games().read(&msg.channel_id).await.get() {
-        Some(GameState::Running { game }) => match game.sub_image().await {
+        Some(game) => match game.sub_image().await {
             Ok(bytes) => {
                 let builder = MessageBuilder::new().attachment("bg_img.png", bytes);
                 msg.create_message(&ctx, &builder, permissions).await?;
@@ -50,17 +49,9 @@ pub async fn bigger(
             Err(err) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get subimage"));
+                return Err(err.wrap_err("Failed to get subimage"));
             }
         },
-        Some(GameState::Setup { author, .. }) => {
-            let content = format!(
-                "The game is currently being setup.\n\
-                    <@{author}> must click on the \"Start\" button to begin."
-            );
-
-            msg.error(&ctx, content).await?;
-        }
         None => {
             let content = "No running game in this channel. Start one with `/bg`.";
             msg.error(&ctx, content).await?;

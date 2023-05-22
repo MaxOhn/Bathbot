@@ -17,12 +17,12 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{HasMods, ModsResult, ScoreOrder};
 use crate::{
+    active::{impls::CountryTopPagination, ActiveMessages},
     core::{commands::CommandOrigin, Context},
-    pagination::OsuTrackerCountryTopPagination,
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, Searchable},
-        InteractionCommandExt,
+        Authored, InteractionCommandExt,
     },
 };
 
@@ -189,10 +189,17 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
     let content = write_content(&details.country, &args, mods.as_ref(), scores.len(), name);
     let sort = args.sort.unwrap_or_default().into();
 
-    OsuTrackerCountryTopPagination::builder(details, scores, sort)
+    let pagination = CountryTopPagination::builder()
+        .details(details)
+        .scores(scores.into_boxed_slice())
+        .sort_by(sort)
         .content(content)
-        .start_by_update()
-        .start(ctx, (&mut command).into())
+        .msg_owner(command.user_id()?)
+        .build();
+
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }
 

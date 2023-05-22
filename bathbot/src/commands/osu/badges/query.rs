@@ -9,10 +9,13 @@ use twilight_model::application::command::{CommandOptionChoice, CommandOptionCho
 
 use super::BadgesQuery_;
 use crate::{
+    active::{impls::BadgesPagination, ActiveMessages},
     core::Context,
     manager::redis::RedisData,
-    pagination::BadgePagination,
-    util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
+    util::{
+        interaction::InteractionCommand, osu::get_combined_thumbnail, Authored,
+        InteractionCommandExt,
+    },
 };
 
 pub(super) async fn query(
@@ -104,7 +107,7 @@ pub(super) async fn query(
             Err(err) => {
                 let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get badge owners"));
+                return Err(err.wrap_err("Failed to get badge owners"));
             }
         }
     } else {
@@ -127,18 +130,18 @@ pub(super) async fn query(
     };
 
     let mut owners_map = BTreeMap::new();
-    owners_map.insert(0, owners);
+    owners_map.insert(0, owners.into_boxed_slice());
 
-    let mut builder = BadgePagination::builder(badges, owners_map);
+    let pagination = BadgesPagination::builder()
+        .badges(badges.into_boxed_slice())
+        .owners(owners_map)
+        .attachment(bytes.map(|bytes| ("badge_owners.png".to_owned(), bytes)))
+        .msg_owner(command.user_id()?)
+        .build();
 
-    if let Some(bytes) = bytes {
-        builder = builder.attachment("badge_owners.png", bytes);
-    }
-
-    builder
-        .start_by_update()
-        .defer_components()
-        .start(ctx, (&mut command).into())
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, &mut command)
         .await
 }
 

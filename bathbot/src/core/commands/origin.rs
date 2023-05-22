@@ -144,7 +144,6 @@ impl CommandOrigin<'_> {
         }
     }
 
-    #[allow(unused)]
     /// Update a response and return the resulting response message.
     ///
     /// In case of an interaction, be sure this is the first and only time you
