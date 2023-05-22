@@ -1,6 +1,6 @@
 use std::{borrow::Cow, future::IntoFuture, mem, slice};
 
-use bathbot_util::{constants::RED, EmbedBuilder, MessageBuilder};
+use bathbot_util::{EmbedBuilder, MessageBuilder};
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_interactions::command::CommandInputData;
 use twilight_model::{
@@ -158,7 +158,7 @@ impl InteractionCommandExt for InteractionCommand {
 
     #[inline]
     fn error(&self, ctx: &Context, content: impl Into<String>) -> ResponseFuture<Message> {
-        let embed = EmbedBuilder::new().description(content).color(RED).build();
+        let embed = EmbedBuilder::new().description(content).color_red().build();
 
         ctx.interaction()
             .update_response(&self.token)
@@ -173,7 +173,7 @@ impl InteractionCommandExt for InteractionCommand {
         ctx: &Context,
         content: impl Into<String>,
     ) -> ResponseFuture<EmptyBody> {
-        let embed = EmbedBuilder::new().description(content).color(RED).build();
+        let embed = EmbedBuilder::new().description(content).color_red().build();
 
         let data = InteractionResponseData {
             embeds: Some(vec![embed]),

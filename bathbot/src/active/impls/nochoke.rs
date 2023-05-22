@@ -38,7 +38,7 @@ pub struct NoChokePagination {
     entries: Box<[NochokeEntry]>,
     unchoked_pp: f32,
     rank: Option<u32>,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }

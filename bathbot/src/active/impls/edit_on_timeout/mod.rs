@@ -18,11 +18,8 @@ use twilight_model::{
 
 pub use self::{recent_score::RecentScoreEdit, top_score::TopScoreEdit};
 use crate::{
-    active::{ActiveMessage, ComponentResult},
-    util::{
-        interaction::{InteractionComponent, InteractionModal},
-        Emote, MessageExt,
-    },
+    active::ComponentResult,
+    util::{interaction::InteractionComponent, Emote, MessageExt},
 };
 use crate::{
     active::{BuildPage, IActiveMessage},
@@ -68,8 +65,8 @@ impl IActiveMessage for EditOnTimeout {
                     .embed(edited.embed)
                     .components(Vec::new());
 
-                if let Some(content) = edited.content {
-                    builder = builder.content(content);
+                if let Some(ref content) = edited.content {
+                    builder = builder.content(content.as_ref());
                 }
 
                 match (msg, channel).update(ctx, &builder, None) {
@@ -108,7 +105,10 @@ impl EditOnTimeout {
 
     fn new_edit(initial: BuildPage, edited: BuildPage, kind: impl Into<EditOnTimeoutKind>) -> Self {
         Self {
-            inner: EditOnTimeoutInner::Edit { initial, edited },
+            inner: EditOnTimeoutInner::Edit {
+                initial,
+                edited: Box::new(edited),
+            },
             kind: kind.into(),
         }
     }
@@ -224,13 +224,11 @@ impl EditOnTimeoutKind {
     }
 }
 
-// TODO: slim down EmbedBuilder
-#[allow(clippy::large_enum_variant)]
 enum EditOnTimeoutInner {
     Stay(BuildPage),
     Edit {
         initial: BuildPage,
-        edited: BuildPage,
+        edited: Box<BuildPage>,
     },
 }
 
@@ -240,52 +238,5 @@ impl EditOnTimeoutInner {
             EditOnTimeoutInner::Stay(build) => Ok(build.to_owned()),
             EditOnTimeoutInner::Edit { initial, .. } => Ok(initial.to_owned()),
         }
-    }
-}
-
-// TODO: remove when EmbedBuilder has been slimmed down
-impl From<EditOnTimeout> for ActiveMessage {
-    fn from(edit_on_timeout: EditOnTimeout) -> Self {
-        Self::EditOnTimeout(Box::new(edit_on_timeout))
-    }
-}
-
-// TODO: remove when EmbedBuilder has been slimmed down
-impl IActiveMessage for Box<EditOnTimeout> {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        EditOnTimeout::build_page(self, ctx)
-    }
-
-    fn build_components(&self) -> Vec<Component> {
-        EditOnTimeout::build_components(self)
-    }
-
-    fn handle_component<'a>(
-        &'a mut self,
-        ctx: &'a Context,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        EditOnTimeout::handle_component(self, ctx, component)
-    }
-
-    fn handle_modal<'a>(
-        &'a mut self,
-        ctx: &'a Context,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        EditOnTimeout::handle_modal(self, ctx, modal)
-    }
-
-    fn on_timeout<'a>(
-        &'a mut self,
-        ctx: &'a Context,
-        msg: Id<MessageMarker>,
-        channel: Id<ChannelMarker>,
-    ) -> BoxFuture<'a, Result<()>> {
-        EditOnTimeout::on_timeout(self, ctx, msg, channel)
-    }
-
-    fn until_timeout(&self) -> Option<Duration> {
-        EditOnTimeout::until_timeout(self)
     }
 }

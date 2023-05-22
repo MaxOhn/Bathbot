@@ -34,7 +34,7 @@ pub struct CountryTopPagination {
     #[pagination(per_page = 10)]
     scores: Box<[(OsuTrackerCountryScore, usize)]>,
     sort_by: ScoreOrder,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }

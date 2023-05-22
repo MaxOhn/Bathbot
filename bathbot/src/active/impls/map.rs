@@ -40,8 +40,7 @@ pub struct MapPagination {
     mods: GameModsIntermode,
     attrs: CustomAttrs,
     origin: MessageOrigin,
-    content: String,
-    attachment: Option<(String, Vec<u8>)>,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -301,9 +300,7 @@ impl MapPagination {
             .title(title)
             .url(map.url.as_str());
 
-        let build = BuildPage::new(embed, true)
-            .content(self.content.clone())
-            .attachment(self.attachment.clone());
+        let build = BuildPage::new(embed, true).content(self.content.clone());
 
         Ok(build)
     }

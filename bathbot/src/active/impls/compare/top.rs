@@ -4,7 +4,7 @@ use bathbot_macros::PaginationBuilder;
 use bathbot_util::{constants::OSU_BASE, EmbedBuilder, FooterBuilder, IntHasher};
 use eyre::Result;
 use futures::future::BoxFuture;
-use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, Username};
+use rosu_v2::prelude::Username;
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -15,13 +15,13 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    commands::osu::CommonScore,
+    commands::osu::{CommonScore, CompareTopMap},
     core::Context,
     embeds::attachment,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 
-type CachedMaps = HashMap<u32, ([CommonScore; 2], Beatmap, BeatmapsetCompact), IntHasher>;
+type CachedMaps = HashMap<u32, ([CommonScore; 2], CompareTopMap), IntHasher>;
 
 #[derive(PaginationBuilder)]
 pub struct CompareTopPagination {
@@ -29,9 +29,8 @@ pub struct CompareTopPagination {
     name2: Username,
     #[pagination(per_page = 10)]
     maps: CachedMaps,
-    map_pps: Vec<(u32, f32)>,
+    map_pps: Box<[(u32, f32)]>,
     wins: [u8; 2],
-    attachment: Option<(String, Vec<u8>)>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -45,7 +44,7 @@ impl IActiveMessage for CompareTopPagination {
         let mut description = String::with_capacity(1024);
 
         for ((map_id, _), i) in map_pps.iter().zip(pages.index() + 1..) {
-            let ([score1, score2], map, mapset) = &self.maps[map_id];
+            let ([score1, score2], map) = &self.maps[map_id];
 
             let (medal1, medal2) = match score1.cmp(score2) {
                 Ordering::Less => ("second", "first"),
@@ -57,7 +56,7 @@ impl IActiveMessage for CompareTopPagination {
                 description,
                 "**{i}.** [{title} [{version}]]({OSU_BASE}b/{map_id})\n\
                 - :{medal1}_place: `{name1}`: {pp1:.2}pp :{medal2}_place: `{name2}`: {pp2:.2}pp",
-                title = mapset.title,
+                title = map.title,
                 version = map.version,
                 name1 = self.name1,
                 pp1 = score1.pp,
@@ -81,9 +80,7 @@ impl IActiveMessage for CompareTopPagination {
             .footer(FooterBuilder::new(footer_text))
             .thumbnail(attachment("avatar_fuse.png"));
 
-        BuildPage::new(embed, false)
-            .attachment(self.attachment.clone())
-            .boxed()
+        BuildPage::new(embed, false).boxed()
     }
 
     fn build_components(&self) -> Vec<Component> {

@@ -407,7 +407,7 @@ pub(super) async fn list(
         .user(user)
         .entries(entries.into_boxed_slice())
         .maps(maps)
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(orig.user_id()?)
         .build();
 

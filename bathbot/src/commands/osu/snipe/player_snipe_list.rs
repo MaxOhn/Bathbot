@@ -191,7 +191,7 @@ pub(super) async fn player_list(
         .maps(maps)
         .total(count)
         .params(params)
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(owner)
         .build();
 

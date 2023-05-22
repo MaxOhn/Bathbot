@@ -45,7 +45,7 @@ pub struct ScoresServerPagination {
     mode: Option<GameMode>,
     sort: ScoresOrder,
     guild_icon: Option<(Id<GuildMarker>, ImageHash)>,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }

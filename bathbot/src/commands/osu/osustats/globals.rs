@@ -251,7 +251,7 @@ pub(super) async fn scores(
         .entries(entries)
         .total(amount)
         .params(params)
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(orig.user_id()?)
         .build();
 

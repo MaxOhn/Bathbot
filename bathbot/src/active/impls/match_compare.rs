@@ -87,8 +87,14 @@ impl MatchComparePagination {
             .events
             .retain(|event| matches!(event, MatchEvent::Game { .. }));
 
-        let mut processed1 = ProcessedMatch::new(mem::take(&mut match1.name), match1.match_id);
-        let mut processed2 = ProcessedMatch::new(mem::take(&mut match2.name), match2.match_id);
+        let mut processed1 = ProcessedMatch::new(
+            mem::take(&mut match1.name).into_boxed_str(),
+            match1.match_id,
+        );
+        let mut processed2 = ProcessedMatch::new(
+            mem::take(&mut match2.name).into_boxed_str(),
+            match2.match_id,
+        );
 
         let mut common_maps = Vec::new();
 
@@ -294,9 +300,9 @@ impl MatchComparePagination {
                 None => format!("`User id {}`", score.user_id).into(),
             };
 
-            let score_str = WithComma::new(score.score).to_string();
-            let combo = WithComma::new(score.combo).to_string();
-            let mods = score.mods.to_string();
+            let score_str = WithComma::new(score.score).to_string().into_boxed_str();
+            let combo = WithComma::new(score.combo).to_string().into_boxed_str();
+            let mods = score.mods.to_string().into_boxed_str();
 
             sizes.name = sizes.name.max(name.len());
             sizes.combo = sizes.combo.max(combo.len());
@@ -404,19 +410,19 @@ impl MatchComparePagination {
 }
 
 pub struct CommonMap {
-    pub map: String,
+    pub map: Box<str>,
     pub map_id: u32,
-    pub match1: Vec<MatchCompareScore>,
+    pub match1: Box<[MatchCompareScore]>,
     pub match1_scores: [u32; 3],
-    pub match2: Vec<MatchCompareScore>,
+    pub match2: Box<[MatchCompareScore]>,
     pub match2_scores: [u32; 3],
 }
 
 impl CommonMap {
-    fn new(map: String, map_id: u32, game1: &mut MatchGame, game2: &mut MatchGame) -> Self {
+    fn new(map: Box<str>, map_id: u32, game1: &mut MatchGame, game2: &mut MatchGame) -> Self {
         let mut match1_scores = [0; 3];
 
-        let mut match1: Vec<_> = game1
+        let mut match1: Box<[_]> = game1
             .scores
             .drain(..)
             .map(|score| MatchCompareScore::new(score, game1.mode))
@@ -425,7 +431,7 @@ impl CommonMap {
 
         let mut match2_scores = [0; 3];
 
-        let mut match2: Vec<_> = game2
+        let mut match2: Box<[_]> = game2
             .scores
             .drain(..)
             .map(|score| MatchCompareScore::new(score, game2.mode))
@@ -480,16 +486,16 @@ impl MatchCompareScore {
 }
 
 pub struct ProcessedMatch {
-    pub name: String,
+    pub name: Box<str>,
     pub match_id: u32,
     pub unique_maps: Vec<UniqueMap>,
 }
 
 impl ProcessedMatch {
-    fn new(name: String, match_id: u32) -> Self {
+    fn new(name: Box<str>, match_id: u32) -> Self {
         let name = match name.cow_escape_markdown() {
             Cow::Borrowed(_) => name,
-            Cow::Owned(owned) => owned,
+            Cow::Owned(owned) => owned.into_boxed_str(),
         };
 
         Self {
@@ -501,17 +507,17 @@ impl ProcessedMatch {
 }
 
 pub struct UniqueMap {
-    pub map: String,
+    pub map: Box<str>,
     pub map_id: u32,
 }
 
 impl UniqueMap {
-    fn new(map: String, map_id: u32) -> Self {
+    fn new(map: Box<str>, map_id: u32) -> Self {
         Self { map, map_id }
     }
 }
 
-fn map_name(map: &BeatmapCompact) -> String {
+fn map_name(map: &BeatmapCompact) -> Box<str> {
     let mut name = String::new();
 
     if let Some(ref mapset) = map.mapset {
@@ -522,16 +528,16 @@ fn map_name(map: &BeatmapCompact) -> String {
 
     let _ = write!(name, " [{}]", map.version.cow_escape_markdown());
 
-    name
+    name.into_boxed_str()
 }
 
 struct EmbedScore<'n> {
     username: Cow<'n, str>,
-    mods: String,
+    mods: Box<str>,
     accuracy: f32,
     grade: Grade,
-    combo: String,
-    score_str: String,
+    combo: Box<str>,
+    score_str: Box<str>,
     team: Team,
 }
 

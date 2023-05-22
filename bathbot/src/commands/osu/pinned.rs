@@ -249,7 +249,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
             .farm(HashMap::with_hasher(IntHasher))
             .list_size(list_size)
             .minimized_pp(minimized_pp)
-            .content(content.unwrap_or_default())
+            .content(content.unwrap_or_default().into_boxed_str())
             .msg_owner(msg_owner)
             .build();
 

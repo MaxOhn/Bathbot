@@ -3,7 +3,7 @@ use rand::seq::SliceRandom;
 pub struct Hints {
     pub artist_guessed: bool,
     hint_level: u8,
-    title_mask: Vec<bool>, // TODO: shrink struct size
+    title_mask: Box<[bool]>,
     indices: Vec<usize>,
 }
 
@@ -23,6 +23,7 @@ impl Hints {
         let mut title_mask = Vec::with_capacity(title.len());
         title_mask.push(true);
 
+        // TODO: extend instead of pushing
         for c in title.chars().skip(1) {
             title_mask.push(c == ' ');
         }
@@ -30,7 +31,7 @@ impl Hints {
         Self {
             artist_guessed: false,
             hint_level: 0,
-            title_mask,
+            title_mask: title_mask.into_boxed_slice(),
             indices,
         }
     }
@@ -52,6 +53,7 @@ impl Hints {
             let mut artist_hint = String::with_capacity(3 * artist.len() - 2);
             artist_hint.push(artist.chars().next().unwrap());
 
+            // TODO: write directly instead of pushing
             for c in artist.chars().skip(1) {
                 artist_hint.push(if c == ' ' { c } else { '▢' });
             }
@@ -60,6 +62,7 @@ impl Hints {
         } else if let Some(i) = self.indices.pop() {
             self.title_mask[i] = true;
 
+            // TODO: write directly instead of collecting
             let title_hint: String = self
                 .title_mask
                 .iter()

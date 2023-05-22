@@ -353,7 +353,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         .farm(farm)
         .list_size(list_size)
         .minimized_pp(minimized_pp)
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(msg_owner)
         .build();
 

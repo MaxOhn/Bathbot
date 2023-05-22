@@ -44,7 +44,7 @@ pub struct ScoresUserPagination {
     user: RedisData<User>,
     mode: Option<GameMode>,
     sort: ScoresOrder,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }

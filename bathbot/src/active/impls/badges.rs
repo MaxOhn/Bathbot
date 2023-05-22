@@ -31,7 +31,6 @@ pub struct BadgesPagination {
     #[pagination(per_page = 1)]
     badges: Box<[OsekaiBadge]>,
     owners: BTreeMap<usize, Box<[OsekaiBadgeOwner]>>,
-    attachment: Option<(String, Vec<u8>)>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -119,6 +118,6 @@ impl BadgesPagination {
             .title(badge.description.as_ref())
             .url(url);
 
-        Ok(BuildPage::new(embed, true).attachment(self.attachment.clone()))
+        Ok(BuildPage::new(embed, true))
     }
 }

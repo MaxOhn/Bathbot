@@ -57,7 +57,7 @@ pub enum ActiveMessage {
     CompareScoresPagination,
     CompareTopPagination,
     CountryTopPagination,
-    EditOnTimeout(Box<EditOnTimeout>),
+    EditOnTimeout,
     HelpInteractionCommand,
     HelpPrefixMenu,
     HigherLowerGame,
@@ -144,12 +144,9 @@ impl ActiveMessages {
                         .embed(build.embed)
                         .components(active_msg.build_components());
 
-                    if let Some(content) = build.content {
-                        builder = builder.content(content);
+                    if let Some(ref content) = build.content {
+                        builder = builder.content(content.as_ref());
                     }
-
-                    // Attachments should only be included in the initial response so we don't need
-                    // to add them after receiving a component
 
                     if build.defer {
                         if let Some(fut) = component.update(&ctx, &builder) {
@@ -221,12 +218,9 @@ impl ActiveMessages {
                     .embed(build.embed)
                     .components(active_msg.build_components());
 
-                if let Some(content) = build.content {
-                    builder = builder.content(content);
+                if let Some(ref content) = build.content {
+                    builder = builder.content(content.as_ref());
                 }
-
-                // Attachments should only be included in the initial response so we don't need
-                // to add them after receiving a modal
 
                 if build.defer {
                     if let Some(fut) = modal.update(&ctx, &builder) {
@@ -346,8 +340,7 @@ pub trait IActiveMessage {
 pub struct BuildPage {
     embed: EmbedBuilder,
     defer: bool,
-    content: Option<String>,
-    attachment: Option<(String, Vec<u8>)>,
+    content: Option<Box<str>>,
 }
 
 impl BuildPage {
@@ -356,7 +349,6 @@ impl BuildPage {
             embed,
             defer,
             content: None,
-            attachment: None,
         }
     }
 
@@ -366,14 +358,8 @@ impl BuildPage {
         Box::pin(future::ready(Ok(self)))
     }
 
-    pub fn content(mut self, content: impl Into<String>) -> Self {
+    pub fn content(mut self, content: impl Into<Box<str>>) -> Self {
         self.content = Some(content.into());
-
-        self
-    }
-
-    pub fn attachment(mut self, attachment: Option<(String, Vec<u8>)>) -> Self {
-        self.attachment = attachment;
 
         self
     }

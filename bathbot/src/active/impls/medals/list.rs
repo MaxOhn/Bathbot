@@ -29,7 +29,7 @@ pub struct MedalsListPagination {
     acquired: (usize, usize),
     #[pagination(per_page = 10)]
     medals: Box<[MedalEntryList]>,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }

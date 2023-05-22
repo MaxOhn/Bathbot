@@ -48,7 +48,7 @@ pub struct TopPagination {
     farm: Farm,
     list_size: ListSize,
     minimized_pp: MinimizedPp, // only relevant for `ListSize::Single`
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -365,7 +365,7 @@ pub struct TopPaginationBuilder {
     farm: Option<Farm>,
     list_size: Option<ListSize>,
     minimized_pp: Option<MinimizedPp>,
-    content: Option<String>,
+    content: Option<Box<str>>,
     msg_owner: Option<Id<UserMarker>>,
 }
 
@@ -443,7 +443,7 @@ impl TopPaginationBuilder {
         self
     }
 
-    pub fn content(&mut self, content: String) -> &mut Self {
+    pub fn content(&mut self, content: Box<str>) -> &mut Self {
         self.content = Some(content);
 
         self

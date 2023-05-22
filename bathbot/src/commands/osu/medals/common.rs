@@ -325,12 +325,12 @@ pub(super) async fn common(
         .user1(user1)
         .user2(user2)
         .medals(medals.into_boxed_slice())
-        .attachment(thumbnail.map(|bytes| ("avatar_fuse.png".to_owned(), bytes)))
         .msg_owner(orig.user_id()?)
         .build();
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
+        .attachment(thumbnail.map(|bytes| ("avatar_fuse.png".to_owned(), bytes)))
         .begin(ctx, orig)
         .await
 }

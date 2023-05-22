@@ -143,7 +143,7 @@ pub async fn user_scores(
         .user(user)
         .mode(mode)
         .sort(sort)
-        .content(content)
+        .content(content.into_boxed_str())
         .msg_owner(author_id)
         .build();
 

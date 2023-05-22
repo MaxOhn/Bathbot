@@ -40,7 +40,7 @@ pub struct TopIfPagination {
     pre_pp: f32,
     post_pp: f32,
     rank: Option<u32>,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }

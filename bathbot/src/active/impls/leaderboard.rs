@@ -49,7 +49,7 @@ pub struct LeaderboardPagination {
     attr_map: AttrMap,
     author_data: Option<LeaderboardUserScore>,
     first_place_icon: Option<String>,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }

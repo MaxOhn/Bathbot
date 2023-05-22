@@ -31,7 +31,7 @@ pub struct OsuStatsPlayersPagination {
     players: HashMap<usize, Box<[OsuStatsPlayer]>, IntHasher>,
     params: OsuStatsPlayersArgs,
     first_place_id: u32,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -75,7 +75,7 @@ impl OsuStatsPlayersPagination {
             players,
             params,
             first_place_id,
-            content,
+            content: content.into_boxed_str(),
             msg_owner,
             pages: Pages::new(15, amount),
         }

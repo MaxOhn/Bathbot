@@ -38,7 +38,7 @@ pub struct OsuStatsScoresPagination {
     entries: BTreeMap<usize, OsuStatsEntry>,
     total: usize,
     params: OsuStatsParams,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }

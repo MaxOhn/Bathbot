@@ -35,7 +35,7 @@ pub struct RecentListPagination {
     #[pagination(per_page = 10)]
     entries: Box<[RecentListEntry]>,
     maps: HashMap<u32, OsuMap, IntHasher>,
-    content: String,
+    content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }

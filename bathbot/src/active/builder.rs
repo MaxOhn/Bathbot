@@ -19,6 +19,7 @@ use crate::core::Context;
 
 pub struct ActiveMessagesBuilder {
     inner: ActiveMessage,
+    attachment: Option<(String, Vec<u8>)>,
     start_by_update: Option<bool>,
 }
 
@@ -26,6 +27,7 @@ impl ActiveMessagesBuilder {
     pub fn new(active_msg: impl Into<ActiveMessage>) -> Self {
         Self {
             inner: active_msg.into(),
+            attachment: None,
             start_by_update: None,
         }
     }
@@ -50,13 +52,13 @@ impl ActiveMessagesBuilder {
     ) -> Result<(), ActiveMessageOriginError> {
         let Self {
             inner: mut active_msg,
+            attachment,
             start_by_update,
         } = self;
 
         let BuildPage {
             embed,
             content,
-            attachment,
             defer: _,
         } = active_msg
             .build_page(Arc::clone(&ctx))
@@ -67,8 +69,8 @@ impl ActiveMessagesBuilder {
 
         let mut builder = MessageBuilder::new().embed(embed).components(components);
 
-        if let Some(content) = content {
-            builder = builder.content(content);
+        if let Some(ref content) = content {
+            builder = builder.content(content.as_ref());
         }
 
         if let Some((name, bytes)) = attachment {
@@ -104,6 +106,10 @@ impl ActiveMessagesBuilder {
         }
 
         Ok(())
+    }
+
+    pub fn attachment(self, attachment: Option<(String, Vec<u8>)>) -> Self {
+        Self { attachment, ..self }
     }
 
     pub fn start_by_update(self, start_by_update: bool) -> Self {

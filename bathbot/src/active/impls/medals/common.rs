@@ -29,7 +29,6 @@ pub struct MedalsCommonPagination {
     user2: MedalsCommonUser,
     #[pagination(per_page = 10)]
     medals: Box<[MedalEntryCommon]>,
-    attachment: Option<(String, Vec<u8>)>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -91,9 +90,7 @@ impl IActiveMessage for MedalsCommonPagination {
             .thumbnail(attachment("avatar_fuse.png"))
             .title("Who got which medal first");
 
-        BuildPage::new(embed, false)
-            .attachment(self.attachment.clone())
-            .boxed()
+        BuildPage::new(embed, false).boxed()
     }
 
     fn build_components(&self) -> Vec<Component> {
