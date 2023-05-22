@@ -881,7 +881,7 @@ async fn handle_autocomplete(
                 Some(CommandOptionChoice {
                     name: version,
                     name_localizations: None,
-                    // TODO: use integer?
+                    // Discord requires these as strings
                     value: CommandOptionChoiceValue::String(map_id.to_string()),
                 })
             })
@@ -899,7 +899,7 @@ async fn handle_autocomplete(
                 Some(CommandOptionChoice {
                     name: version.as_str().to_owned(),
                     name_localizations: None,
-                    // TODO: use integer?
+                    // Discord requires these as strings
                     value: CommandOptionChoiceValue::String(map_id.to_string()),
                 })
             })
