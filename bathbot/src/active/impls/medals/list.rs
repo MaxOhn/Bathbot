@@ -46,8 +46,8 @@ impl IActiveMessage for MedalsListPagination {
         for (entry, i) in medals.iter().zip(pages.index() + 1..) {
             let _ = writeln!(
                 description,
-                "**{i}. [{medal}](https://osekai.net/medals/?medal={url_name})**\n\
-                • `{rarity:>5.2}%` • <t:{timestamp}:d> • {group}",
+                "**#{i} [{medal}](https://osekai.net/medals/?medal={url_name})**\n\
+                `{rarity:>5.2}%` • <t:{timestamp}:d> • {group}",
                 medal = entry.medal.name,
                 url_name = entry.medal.name.cow_replace(' ', "+"),
                 rarity = entry.rarity,
@@ -60,7 +60,7 @@ impl IActiveMessage for MedalsListPagination {
         let pages = pages.last_page();
 
         let footer = FooterBuilder::new(format!(
-            "Page {page}/{pages} | Acquired {}/{} medals",
+            "Page {page}/{pages} • Acquired {}/{} medals",
             self.acquired.0, self.acquired.1
         ));
 

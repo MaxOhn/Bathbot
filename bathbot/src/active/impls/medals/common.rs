@@ -44,7 +44,7 @@ impl IActiveMessage for MedalsCommonPagination {
         for (entry, i) in medals.iter().zip(pages.index() + 1..) {
             let _ = writeln!(
                 description,
-                "**{i}. [{name}](https://osekai.net/medals/?medal={medal})**",
+                "**#{i} [{name}](https://osekai.net/medals/?medal={medal})**",
                 name = entry.medal.name,
                 medal = entry
                     .medal
@@ -66,7 +66,7 @@ impl IActiveMessage for MedalsCommonPagination {
 
             let _ = writeln!(
                 description,
-                "- :{medal1}_place: `{name1}`: {timestamp1} \
+                ":{medal1}_place: `{name1}`: {timestamp1} \
                 :{medal2}_place: `{name2}`: {timestamp2}",
                 medal1 = if first_earlier { "first" } else { "second" },
                 name1 = self.user1.name,
@@ -80,7 +80,7 @@ impl IActiveMessage for MedalsCommonPagination {
         description.pop();
 
         let footer_text = format!(
-            "🥇 count | {}: {} | {}: {}",
+            "🥇 count | {}: {} • {}: {}",
             self.user1.name, self.user1.winner, self.user2.name, self.user2.winner
         );
 
