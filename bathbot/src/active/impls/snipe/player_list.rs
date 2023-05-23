@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap},
-    fmt::Write,
+    fmt::{Display, Formatter, Result as FmtResult, Write},
     sync::Arc,
 };
 
@@ -11,10 +11,12 @@ use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
     numbers::{round, WithComma},
+    osu::calculate_grade,
     CowUtils, EmbedBuilder, FooterBuilder, IntHasher,
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
+use rosu_v2::prelude::{GameMode, ScoreStatistics};
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -26,9 +28,12 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     core::Context,
-    embeds::{ModsFormatter, PpFormatter},
+    embeds::{HitResultFormatter, ModsFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap},
-    util::interaction::{InteractionComponent, InteractionModal},
+    util::{
+        interaction::{InteractionComponent, InteractionModal},
+        osu::grade_emote,
+    },
 };
 
 #[derive(PaginationBuilder)]
@@ -129,52 +134,65 @@ impl SnipePlayerListPagination {
             let embed = EmbedBuilder::new()
                 .author(self.user.author_builder())
                 .description("No scores were found")
-                .footer(FooterBuilder::new("Page 1/1 ~ Total #1 scores: 0"))
+                .footer(FooterBuilder::new("Page 1/1 • Total #1 scores: 0"))
                 .thumbnail(self.user.avatar_url());
 
             return Ok(BuildPage::new(embed, true).content(self.content.clone()));
         }
 
-        let page = pages.curr_page();
-        let pages = pages.last_page();
-        let index = (page - 1) * 5;
-        let entries = self.scores.range(index..index + 5);
+        let entries = self
+            .scores
+            .range(pages.index()..pages.index() + pages.per_page());
+
         let mut description = String::with_capacity(1024);
 
-        // TODO: update formatting
         for (idx, score) in entries {
             let map = self.maps.get(&score.map.map_id).expect("missing map");
             let mods = score.mods.as_ref().map(Cow::Borrowed).unwrap_or_default();
             let max_pp = ctx.pp(map).mods(mods.bits()).performance().await.pp() as f32;
 
+            let stats = ScoreStatistics {
+                count_geki: 0,
+                count_300: score.count_300.unwrap_or(0),
+                count_katu: 0,
+                count_100: score.count_100.unwrap_or(0),
+                count_50: score.count_50.unwrap_or(0),
+                count_miss: score.count_miss.unwrap_or(0),
+            };
+
+            let grade = calculate_grade(GameMode::Osu, mods.as_ref(), &stats);
+
             let _ = write!(
                 description,
-                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
-                {pp} ~ ({acc}%) ~ {score}\n{{{n300}/{n100}/{n50}/{nmiss}}}",
+                "**#{idx} [{title} [{version}]]({OSU_BASE}b/{map_id}) {mods}** [{stars:.2}★]\n\
+                {grade} {pp} • {acc}% • {score}\n\
+                [ {combo} ] • {hits}",
                 idx = idx + 1,
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
-                id = score.map.map_id,
+                map_id = score.map.map_id,
                 mods = ModsFormatter::new(&mods),
                 stars = score.stars,
+                grade = grade_emote(grade),
                 pp = PpFormatter::new(score.pp, Some(max_pp)),
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),
-                n300 = score.count_300.unwrap_or(0),
-                n100 = score.count_100.unwrap_or(0),
-                n50 = score.count_50.unwrap_or(0),
-                nmiss = score.count_miss.unwrap_or(0),
+                combo = ComboFormatter::new(score.max_combo, score.map.max_combo),
+                hits = HitResultFormatter::new(GameMode::Osu, stats),
             );
 
             if let Some(ref date) = score.date_set {
-                let _ = write!(description, " ~ {ago}", ago = HowLongAgoDynamic::new(date));
+                let _ = write!(description, " • {ago}", ago = HowLongAgoDynamic::new(date));
             }
 
             description.push('\n');
         }
 
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+
         let footer = FooterBuilder::new(format!(
-            "Page {page}/{pages} ~ Total scores: {}",
+            "Page {page}/{pages} • Total scores: {}",
             self.total,
         ));
 
@@ -185,5 +203,27 @@ impl SnipePlayerListPagination {
             .thumbnail(self.user.avatar_url());
 
         Ok(BuildPage::new(embed, true).content(self.content.clone()))
+    }
+}
+
+struct ComboFormatter {
+    combo: Option<u32>,
+    max_combo: u32,
+}
+
+impl ComboFormatter {
+    fn new(combo: Option<u32>, max_combo: u32) -> Self {
+        Self { combo, max_combo }
+    }
+}
+
+impl Display for ComboFormatter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self.combo {
+            Some(combo) => write!(f, "**{combo}x**/")?,
+            None => f.write_str("-/")?,
+        }
+
+        write!(f, "{}x", self.max_combo)
     }
 }

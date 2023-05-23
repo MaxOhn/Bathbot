@@ -35,7 +35,7 @@ use crate::{
 pub struct SnipeDifferencePagination {
     user: RedisData<User>,
     diff: Difference,
-    #[pagination(per_page = 5)]
+    #[pagination(per_page = 10)]
     scores: Box<[SnipeRecent]>,
     star_map: HashMap<u32, f32, IntHasher>,
     msg_owner: Id<UserMarker>,
@@ -75,7 +75,7 @@ impl SnipeDifferencePagination {
 
         // not necessary but less ugly than the iterator
         #[allow(clippy::needless_range_loop)]
-        for idx in pages.index()..self.scores.len().min(pages.index() + 5) {
+        for idx in pages.index()..self.scores.len().min(pages.index() + pages.per_page()) {
             let score = &self.scores[idx];
 
             let stars = match score.stars {
@@ -108,7 +108,8 @@ impl SnipeDifferencePagination {
 
             let _ = write!(
                 description,
-                "**{idx}. [{artist} - {title} [{version}]]({OSU_BASE}b/{id}) {mods}**\n[{stars:.2}★] ~ ({acc}%) ~ ",
+                "**#{idx} [{artist} - {title} [{version}]]({OSU_BASE}b/{id}) {mods}**\n\
+                [{stars:.2}★] • {acc}% • ",
                 idx = idx + 1,
                 artist = score.artist.cow_escape_markdown(),
                 title = score.title.cow_escape_markdown(),
@@ -160,7 +161,7 @@ impl SnipeDifferencePagination {
         };
 
         let footer = FooterBuilder::new(format!(
-            "Page {}/{} ~ Total: {}",
+            "Page {}/{} • Total: {}",
             self.pages.curr_page(),
             self.pages.last_page(),
             self.scores.len()
