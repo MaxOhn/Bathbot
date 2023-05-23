@@ -154,7 +154,7 @@ impl OsuStatsScoresPagination {
             let embed = EmbedBuilder::new()
                 .author(self.user.author_builder())
                 .description("No scores with these parameters were found")
-                .footer(FooterBuilder::new("Page 1/1 ~ Total scores: 0"))
+                .footer(FooterBuilder::new("Page 1/1 • Total scores: 0"))
                 .thumbnail(self.user.avatar_url());
 
             return Ok(BuildPage::new(embed, true).content(self.content.clone()));
@@ -182,8 +182,9 @@ impl OsuStatsScoresPagination {
 
             let _ = writeln!(
                 description,
-                "**[#{rank}] [{title} [{version}]]({OSU_BASE}b/{map_id}) {mods}** [{stars:.2}★]\n\
-                {grade} {pp} ~ ({acc}%) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
+                "**#{rank} [{title} [{version}]]({OSU_BASE}b/{map_id}) {mods}** [{stars:.2}★]\n\
+                {grade} {pp} • {acc}% • {score}\n\
+                [ {combo} ] • {hits} • {ago}",
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 map_id = map.map_id(),
@@ -198,7 +199,7 @@ impl OsuStatsScoresPagination {
         }
 
         let footer = FooterBuilder::new(format!(
-            "Page {page}/{pages} ~ Total scores: {}",
+            "Page {page}/{pages} • Total scores: {}",
             self.total
         ));
 

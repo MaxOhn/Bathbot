@@ -111,10 +111,10 @@ impl OsuStatsPlayersPagination {
         for (player, i) in players.iter().zip(pages.index() + 1..) {
             let _ = writeln!(
                 description,
-                "**{i}. [{}]({OSU_BASE}users/{})**: {}",
-                player.username.cow_escape_markdown(),
-                player.user_id,
-                WithComma::new(player.count)
+                "**#{i} [{username}]({OSU_BASE}users/{user_id})**: {count}",
+                username = player.username.cow_escape_markdown(),
+                user_id = player.user_id,
+                count = WithComma::new(player.count)
             );
         }
 
