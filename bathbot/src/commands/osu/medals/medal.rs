@@ -290,6 +290,7 @@ impl MedalEmbed {
         if !maps.is_empty() {
             let len = maps.len();
             let mut map_value = String::with_capacity(256);
+            let mut map_buf = String::new();
 
             for map in maps {
                 let OsekaiMap {
@@ -300,18 +301,21 @@ impl MedalEmbed {
                     ..
                 } = map;
 
-                let m = format!(
-                    " - [{title} [{version}]]({OSU_BASE}b/{map_id}) ({vote_sum:+})\n",
+                map_buf.clear();
+
+                let _ = write!(
+                    map_buf,
+                    "- [{title} [{version}]]({OSU_BASE}b/{map_id}) ({vote_sum:+})\n",
                     title = title.cow_escape_markdown(),
                     version = version.cow_escape_markdown()
                 );
 
-                if m.len() + map_value.len() + 7 >= FIELD_VALUE_SIZE {
+                if map_buf.len() + map_value.len() + 7 >= FIELD_VALUE_SIZE {
                     map_value.push_str("`...`\n");
 
                     break;
                 } else {
-                    map_value += &m;
+                    map_value.push_str(&map_buf);
                 }
             }
 
