@@ -188,7 +188,7 @@ impl MatchComparePagination {
         let author = AuthorBuilder::new(author_text);
 
         let footer_text = format!(
-            "Page {common_idx}/{pages} | Common maps: {common_total}/{maps_total}",
+            "Page {common_idx}/{pages} • Common maps: {common_total}/{maps_total}",
             pages = common_total + 2,
         );
 
@@ -271,7 +271,8 @@ impl MatchComparePagination {
         for (score, i) in scores.into_iter().zip(1..) {
             let _ = writeln!(
                 value,
-                "**{i}.** `{score}` :{team}_circle:\n> {name}",
+                "**#{i}** `{score}` :{team}_circle:\n\
+                {name}",
                 score = WithComma::new(score.score),
                 team = if score.team == Team::Blue {
                     "blue"
