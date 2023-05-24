@@ -240,6 +240,7 @@ pub struct OsekaiMedal {
     #[with(Niche)]
     pub solution: Option<Box<str>>,
     #[with(Niche)]
+    #[serde(deserialize_with = "medal_mods")]
     pub mods: Option<Box<str>>,
     #[serde(rename = "ModeOrder")]
     pub mode_order: usize,
@@ -377,6 +378,10 @@ impl Ord for OsekaiMedal {
             .cmp(&other.grouping_order())
             .then_with(|| self.medal_id.cmp(&other.medal_id))
     }
+}
+
+fn medal_mods<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Box<str>>, D::Error> {
+    <Option<Box<str>> as Deserialize>::deserialize(d).map(|opt| opt.filter(|mods| !mods.is_empty()))
 }
 
 fn osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>, D::Error> {
