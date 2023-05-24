@@ -67,8 +67,8 @@ impl IActiveMessage for CountryTopPagination {
         for (score, i) in scores.iter() {
             let _ = writeln!(
                 description,
-                "**{i}.** [{map_name}]({OSU_BASE}b/{map_id}) **+{mods}**\n\
-                > by __[{user}]({OSU_BASE}u/{adjusted_user})__ • **{pp}pp** • {acc}% • <t:{timestamp}:R>{appendix}",
+                "**#{i}** [{map_name}]({OSU_BASE}b/{map_id}) **+{mods}**\n\
+                by __[{user}]({OSU_BASE}u/{adjusted_user})__ • **{pp}pp** • {acc}% • <t:{timestamp}:R>{appendix}",
                 map_name = score.name.cow_escape_markdown(),
                 map_id = score.map_id,
                 mods = score.mods,

@@ -252,8 +252,8 @@ impl MapSearchPagination {
 
             let _ = writeln!(
                 description,
-                "**{idx}. [{artist} - {title}]({OSU_BASE}s/{set_id})** [{count} map{plural}]\n\
-                Creator: [{creator}]({OSU_BASE}u/{creator_id}) ({status:?}) ~ BPM: {bpm} ~ Mode: {mode}",
+                "**#{idx} [{artist} - {title}]({OSU_BASE}s/{set_id})** [{count} map{plural}]\n\
+                Creator: [{creator}]({OSU_BASE}u/{creator_id}) ({status:?}) • BPM: {bpm} • Mode: {mode}",
                 idx = i + 1,
                 artist = mapset.artist.cow_escape_markdown(),
                 title = mapset.title.cow_escape_markdown(),

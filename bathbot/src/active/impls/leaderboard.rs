@@ -15,7 +15,7 @@ use bathbot_util::{
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_pp::{BeatmapExt, DifficultyAttributes, ScoreState};
-use rosu_v2::prelude::{CountryCode, GameMode, Username};
+use rosu_v2::prelude::{CountryCode, GameMode};
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -82,9 +82,8 @@ impl IActiveMessage for LeaderboardPagination {
 
 impl LeaderboardPagination {
     async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
-        let pages = &self.pages;
-        let end_idx = self.scores.len().min(pages.index() + pages.per_page());
-        let scores = &self.scores[pages.index()..end_idx];
+        let start_idx = self.pages.index();
+        let end_idx = self.scores.len().min(start_idx + self.pages.per_page());
 
         let mut author_text = String::with_capacity(32);
 
@@ -106,59 +105,33 @@ impl LeaderboardPagination {
             .as_ref()
             .map(|score| score.username.as_str());
 
-        let mut description = String::with_capacity(256);
-        let mut username = String::with_capacity(32);
+        let mut description = String::with_capacity(1024);
 
-        for (score, i) in scores.iter().zip(pages.index() + 1..) {
+        for (score, i) in self.scores[start_idx..end_idx].iter().zip(start_idx + 1..) {
             let found_author = author_name == Some(score.username.as_str());
-            username.clear();
 
-            if found_author {
-                username.push_str("__");
-            }
-
-            let _ = write!(
-                username,
-                "[{name}]({OSU_BASE}users/{id})",
-                name = score.username.cow_escape_markdown(),
-                id = score.user_id
+            let fmt_fut = ScoreFormatter::new(
+                i,
+                score,
+                found_author,
+                &ctx,
+                &mut self.attr_map,
+                &self.map,
+                self.max_combo,
             );
 
-            if found_author {
-                username.push_str("__");
-            }
-
-            let _ = writeln!(
-                description,
-                "**{i}.** {grade} **{username}**: {score} [ {combo} ] **+{mods}**\n\
-                - {pp} • {acc:.2}% • {miss}{ago}",
-                grade = grade_emote(score.grade),
-                score = WithComma::new(score.score),
-                combo = ComboFormatter::new(score, self.max_combo, self.map.mode()),
-                mods = score.mods,
-                pp = pp_format(&ctx, &mut self.attr_map, score, &self.map).await,
-                acc = score.accuracy,
-                miss = MissFormat(score.count_miss),
-                ago = HowLongAgoDynamic::new(&score.date),
-            );
+            let _ = write!(description, "{}", fmt_fut.await);
         }
 
-        if let Some(score) = self.author_data.as_ref().filter(|score| {
-            !(pages.index() + 1..pages.index() + 1 + scores.len()).contains(&score.pos)
-        }) {
-            username.clear();
-
-            let _ = write!(
-                username,
-                "[{name}]({OSU_BASE}users/{id})",
-                name = score.username.cow_escape_markdown(),
-                id = score.user_id
-            );
-
+        if let Some(score) = self
+            .author_data
+            .as_ref()
+            .filter(|score| !(start_idx + 1..end_idx + 1).contains(&score.pos))
+        {
             let scraper_score = ScraperScore {
                 id: 0,
                 user_id: score.user_id,
-                username: Username::new(),
+                username: score.username.clone(),
                 country_code: CountryCode::new(),
                 accuracy: score.accuracy,
                 mode: self.map.mode(), // TODO: fix when mode selection available
@@ -177,22 +150,19 @@ impl LeaderboardPagination {
                 count_miss: score.statistics.count_miss,
             };
 
-            let _ = writeln!(
-                description,
-                "\n__**<@{discord_id}>'s score:**__\n\
-                **{i}.** {grade} **{username}**: {score} [ {combo} ] **+{mods}**\n\
-                - {pp} • {acc:.2}% • {miss}{ago}",
-                discord_id = score.discord_id,
-                i = score.pos,
-                grade = grade_emote(score.grade),
-                score = WithComma::new(score.score),
-                combo = ComboFormatter::new(&scraper_score, self.max_combo, self.map.mode()),
-                mods = score.mods,
-                pp = pp_format(&ctx, &mut self.attr_map, &scraper_score, &self.map).await,
-                acc = score.accuracy,
-                miss = MissFormat(score.statistics.count_miss),
-                ago = HowLongAgoDynamic::new(&score.ended_at),
+            let _ = writeln!(description, "\n__**<@{}>'s score:**__", score.discord_id);
+
+            let fmt_fut = ScoreFormatter::new(
+                score.pos,
+                &scraper_score,
+                false,
+                &ctx,
+                &mut self.attr_map,
+                &self.map,
+                self.max_combo,
             );
+
+            let _ = write!(description, "{}", fmt_fut.await);
         }
 
         let mut author =
@@ -202,8 +172,8 @@ impl LeaderboardPagination {
             author = author.icon_url(author_icon.to_owned());
         }
 
-        let page = pages.curr_page();
-        let pages = pages.last_page();
+        let page = self.pages.curr_page();
+        let pages = self.pages.last_page();
 
         let footer_text = format!(
             "Page {page}/{pages} • {status:?} mapset of {creator}",
@@ -226,52 +196,6 @@ impl LeaderboardPagination {
             .thumbnail(thumbnail);
 
         Ok(BuildPage::new(embed, true).content(self.content.clone()))
-    }
-}
-
-async fn pp_format(
-    ctx: &Context,
-    attr_map: &mut AttrMap,
-    score: &ScraperScore,
-    map: &OsuMap,
-) -> PpFormatter {
-    let mods = score.mods.bits();
-
-    match attr_map.entry(mods) {
-        Entry::Occupied(entry) => {
-            let (attrs, max_pp) = entry.get();
-
-            let state = ScoreState {
-                max_combo: score.max_combo as usize,
-                n_geki: score.count_geki as usize,
-                n_katu: score.count_katu as usize,
-                n300: score.count300 as usize,
-                n100: score.count100 as usize,
-                n50: score.count50 as usize,
-                n_misses: score.count_miss as usize,
-            };
-
-            let pp = map
-                .pp_map
-                .pp()
-                .attributes(attrs.to_owned())
-                .mode(PpManager::mode_conversion(score.mode))
-                .mods(mods)
-                .state(state)
-                .calculate()
-                .pp() as f32;
-
-            PpFormatter::new(Some(pp), Some(*max_pp))
-        }
-        Entry::Vacant(entry) => {
-            let mut calc = ctx.pp(map).mode(score.mode).mods(mods);
-            let attrs = calc.performance().await;
-            let max_pp = attrs.pp() as f32;
-            let pp = calc.score(score).performance().await.pp() as f32;
-            entry.insert((attrs.into(), max_pp));
-
-            PpFormatter::new(Some(pp), Some(max_pp))
-        }
     }
 }
 
@@ -324,6 +248,97 @@ impl Display for MissFormat {
             "{miss}{emote} ",
             miss = self.0,
             emote = Emote::Miss.text()
+        )
+    }
+}
+
+struct ScoreFormatter<'a> {
+    i: usize,
+    score: &'a ScraperScore,
+    pp: PpFormatter,
+    combo: ComboFormatter<'a>,
+    found_author: bool,
+}
+
+impl<'a> ScoreFormatter<'a> {
+    async fn new(
+        i: usize,
+        score: &'a ScraperScore,
+        found_author: bool,
+        ctx: &Context,
+        attr_map: &mut AttrMap,
+        map: &OsuMap,
+        max_combo: u32,
+    ) -> ScoreFormatter<'a> {
+        let mods = score.mods.bits();
+
+        let pp = match attr_map.entry(mods) {
+            Entry::Occupied(entry) => {
+                let (attrs, max_pp) = entry.get();
+
+                let state = ScoreState {
+                    max_combo: score.max_combo as usize,
+                    n_geki: score.count_geki as usize,
+                    n_katu: score.count_katu as usize,
+                    n300: score.count300 as usize,
+                    n100: score.count100 as usize,
+                    n50: score.count50 as usize,
+                    n_misses: score.count_miss as usize,
+                };
+
+                let pp = map
+                    .pp_map
+                    .pp()
+                    .attributes(attrs.to_owned())
+                    .mode(PpManager::mode_conversion(score.mode))
+                    .mods(mods)
+                    .state(state)
+                    .calculate()
+                    .pp() as f32;
+
+                PpFormatter::new(Some(pp), Some(*max_pp))
+            }
+            Entry::Vacant(entry) => {
+                let mut calc = ctx.pp(map).mode(score.mode).mods(mods);
+                let attrs = calc.performance().await;
+                let max_pp = attrs.pp() as f32;
+                let pp = calc.score(score).performance().await.pp() as f32;
+                entry.insert((attrs.into(), max_pp));
+
+                PpFormatter::new(Some(pp), Some(max_pp))
+            }
+        };
+
+        let combo = ComboFormatter::new(score, max_combo, map.mode());
+
+        Self {
+            i,
+            score,
+            pp,
+            combo,
+            found_author,
+        }
+    }
+}
+
+impl Display for ScoreFormatter<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        writeln!(
+            f,
+            "**#{i}** {underline}**[{username}]({OSU_BASE}users/{user_id})**{underline}: {score} [ {combo} ] **+{mods}**\n\
+            {grade} {pp} • {acc:.2}% • {miss}{ago}",
+            i = self.i,
+            underline = if self.found_author { "__" } else { "" },
+            username = self.score.username.cow_escape_markdown(),
+            user_id = self.score.user_id,
+            grade = grade_emote(self.score.grade),
+            score = WithComma::new(self.score.score),
+            combo = self.combo,
+            mods = self.score.mods,
+            pp = self.pp,
+            acc = self.score.accuracy,
+            miss = MissFormat(self.score.count_miss),
+            ago = HowLongAgoDynamic::new(&self.score.date),
         )
     }
 }

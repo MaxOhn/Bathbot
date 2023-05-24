@@ -191,7 +191,7 @@ pub struct SnipeRecent {
     pub score_id: u64,
     pub map_id: u32,
     pub user_id: u32,
-    pub country: rosu_v2::prelude::CountryCode,
+    pub country: CountryCode,
     pub pp: Option<f32>,
     pub stars: Option<f32>,
     pub accuracy: f32,
@@ -226,7 +226,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
             map_id: u32,
             #[serde(rename = "player_id")]
             user_id: u32,
-            country: rosu_v2::prelude::CountryCode,
+            country: CountryCode,
             pp: Option<f32>,
             #[serde(rename = "sr")]
             stars: Option<f32>,
@@ -334,7 +334,7 @@ pub struct SnipeScore {
     pub score_id: u64,
     pub user_id: u32,
     pub username: Username,
-    pub country: rosu_v2::prelude::CountryCode,
+    pub country: CountryCode,
     pub score: u32,
     pub pp: Option<f32>,
     pub stars: f32,
@@ -365,7 +365,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
             #[serde(rename = "player_id")]
             user_id: u32,
             username: Username,
-            country: rosu_v2::prelude::CountryCode,
+            country: CountryCode,
             score: u32,
             pp: Option<f32>,
             #[serde(rename = "sr")]

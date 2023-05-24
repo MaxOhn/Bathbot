@@ -66,8 +66,9 @@ impl IActiveMessage for TopIfPagination {
 
             let _ = writeln!(
                 description,
-                "**{original_idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
-                {grade} {old_pp:.2} → {pp} • {acc}% • {score}\n[ {combo} ] • {hits} • {ago}",
+                "**#{original_idx} [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
+                {grade} {old_pp:.2} → {pp} • {acc}% • {score}\n\
+                [ {combo} ] • {hits} • {ago}",
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),

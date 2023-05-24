@@ -95,7 +95,7 @@ pub(super) async fn players(
     let first_place_id = players[&1].first().unwrap().user_id;
 
     let content = format!(
-        "Country: `{country}` ~ `Rank: {rank_min} - {rank_max}`",
+        "Country: `{country}` • `Rank: {rank_min} - {rank_max}`",
         rank_min = params.min_rank,
         rank_max = params.max_rank,
     );

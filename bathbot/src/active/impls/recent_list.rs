@@ -66,7 +66,7 @@ impl IActiveMessage for RecentListPagination {
 
             let _ = write!(
                 description,
-                "**{i}. {grade}\t[{title} [{version}]]({OSU_BASE}b/{map_id})** [{stars:.2}★]",
+                "**#{i} {grade}\t[{title} [{version}]]({OSU_BASE}b/{map_id})** [{stars:.2}★]",
                 i = *idx + 1,
                 grade = grade_completion_mods(&score.mods, score.grade, score.total_hits(), map),
                 title = map.title().cow_escape_markdown(),

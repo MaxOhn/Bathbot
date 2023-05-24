@@ -71,8 +71,8 @@ impl IActiveMessage for SnipeCountryListPagination {
         for (idx, player) in players {
             let _ = writeln!(
                 description,
-                "**{idx}. [{name}]({OSU_BASE}users/{id})**: {w}Weighted pp: {weighted}{w}\n\
-                    {c}Count: {count}{c} ~ {p}Avg pp: {pp}{p} ~ {s}Avg stars: {stars:.2}★{s}",
+                "**#{idx} [{name}]({OSU_BASE}users/{id})**: {w}Weighted pp: {weighted}{w}\n\
+                {c}Count: {count}{c} • {p}Avg pp: {pp}{p} • {s}Avg stars: {stars:.2}★{s}",
                 name = player.username.cow_escape_markdown(),
                 id = player.user_id,
                 c = if self.order == SnipeCountryListOrder::Count {
@@ -109,7 +109,7 @@ impl IActiveMessage for SnipeCountryListPagination {
         let mut footer_text = format!("Page {page}/{pages}");
 
         if let Some(idx) = self.author_idx {
-            let _ = write!(footer_text, " ~ Your position: {}", idx + 1);
+            let _ = write!(footer_text, " • Your position: {}", idx + 1);
         }
 
         let embed = EmbedBuilder::new()

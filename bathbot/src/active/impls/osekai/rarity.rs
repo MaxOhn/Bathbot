@@ -21,7 +21,7 @@ use crate::{
 
 #[derive(PaginationBuilder)]
 pub struct MedalRarityPagination {
-    #[pagination(per_page = 10)]
+    #[pagination(per_page = 15)]
     ranking: Box<[OsekaiRarityEntry]>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
@@ -43,7 +43,7 @@ impl IActiveMessage for MedalRarityPagination {
 
             let _ = writeln!(
                 description,
-                "**{i}. [{medal}](https://osekai.net/medals/?medal={url_name})**: `{rarity}%`\n ▸ `{description}`",
+                "**#{i} [{medal}](https://osekai.net/medals/?medal={url_name} \"{description}\")**: `{rarity}%`",
                 medal = entry.medal_name,
                 rarity = round(entry.possession_percent),
                 description = entry.description,

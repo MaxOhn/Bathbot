@@ -223,8 +223,8 @@ pub(super) async fn scores(
     };
 
     let mut content = format!(
-        "`Rank: {rank_min} - {rank_max}` ~ \
-        `Acc: {acc_min}% - {acc_max}%` ~ \
+        "`Rank: {rank_min} - {rank_max}` • \
+        `Acc: {acc_min}% - {acc_max}%` • \
         `Order: {order} {descending}`",
         acc_min = params.min_acc,
         acc_max = params.max_acc,
@@ -237,7 +237,7 @@ pub(super) async fn scores(
     if let Some(ref selection) = params.mods {
         let _ = write!(
             content,
-            " ~ `Mods: {}`",
+            " • `Mods: {}`",
             match selection {
                 ModSelection::Exact(mods) => mods.to_string(),
                 ModSelection::Exclude(mods) => format!("Exclude {mods}"),
