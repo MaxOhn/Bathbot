@@ -131,7 +131,9 @@ pub(super) async fn missing(
 
     medals.extend(MEDAL_GROUPS.iter().copied().map(MedalType::Group));
 
-    match args.sort.unwrap_or_default() {
+    let sort = args.sort.unwrap_or_default();
+
+    match sort {
         MedalMissingOrder::Alphabet => medals.sort_unstable_by(|a, b| {
             a.group().cmp(&b.group()).then_with(|| match (a, b) {
                 (MedalType::Group(_), MedalType::Medal(_)) => Ordering::Less,
@@ -162,6 +164,7 @@ pub(super) async fn missing(
         .user(user)
         .medals(medals.into_boxed_slice())
         .medal_count(medal_count)
+        .sort(sort)
         .msg_owner(owner)
         .build();
 

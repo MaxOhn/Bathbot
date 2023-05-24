@@ -1,7 +1,10 @@
-use std::{fmt::Write, sync::Arc};
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult, Write},
+    sync::Arc,
+};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::rosu_v2::user::User;
+use bathbot_model::{rosu_v2::user::User, OsekaiMedal};
 use bathbot_util::{
     constants::OSU_BASE, osu::flag_url, AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
 };
@@ -17,7 +20,7 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    commands::osu::MedalType,
+    commands::osu::{MedalMissingOrder, MedalType},
     core::Context,
     manager::redis::RedisData,
     util::interaction::{InteractionComponent, InteractionModal},
@@ -29,6 +32,7 @@ pub struct MedalsMissingPagination {
     #[pagination(per_page = 15)]
     medals: Box<[MedalType]>,
     medal_count: (usize, usize),
+    sort: MedalMissingOrder,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -58,10 +62,10 @@ impl IActiveMessage for MedalsMissingPagination {
                 MedalType::Medal(m) => {
                     let _ = writeln!(
                         description,
-                        "- [{}](https://osekai.net/medals/?medal={} \"Rarity: {:.2}%\")",
-                        m.name,
-                        m.name.cow_replace(' ', "+"),
-                        m.rarity,
+                        "- [{name}](https://osekai.net/medals/?medal={url_name} \"{hover}\")",
+                        name = m.name,
+                        url_name = m.name.cow_replace(' ', "+"),
+                        hover = HoverFormatter::new(self.sort, m),
                     );
                 }
             }
@@ -126,5 +130,28 @@ impl IActiveMessage for MedalsMissingPagination {
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
         handle_pagination_modal(ctx, modal, self.msg_owner, false, &mut self.pages)
+    }
+}
+
+enum HoverFormatter {
+    Rarity(f32),
+    MedalId(u32),
+}
+
+impl HoverFormatter {
+    fn new(sort: MedalMissingOrder, medal: &OsekaiMedal) -> Self {
+        match sort {
+            MedalMissingOrder::MedalId => Self::MedalId(medal.medal_id),
+            MedalMissingOrder::Alphabet | MedalMissingOrder::Rarity => Self::Rarity(medal.rarity),
+        }
+    }
+}
+
+impl Display for HoverFormatter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            HoverFormatter::Rarity(rarity) => write!(f, "Rarity: {rarity:.2}%"),
+            HoverFormatter::MedalId(medal_id) => write!(f, "Medal ID: {medal_id}"),
+        }
     }
 }

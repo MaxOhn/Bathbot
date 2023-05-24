@@ -211,7 +211,7 @@ pub struct MedalMissing<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum MedalMissingOrder {
     #[option(name = "Alphabetically", value = "alphabet")]
     Alphabet,
