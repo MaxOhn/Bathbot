@@ -61,8 +61,8 @@ pub fn grade_completion_mods(
         mods.is_empty(),
         grade == Grade::F && mode != GameMode::Catch,
     ) {
-        (true, true) => format!("{grade_str} ({}%)", completion(score_hits, map)).into(),
-        (false, true) => format!("{grade_str} ({}%) +{mods}", completion(score_hits, map)).into(),
+        (true, true) => format!("{grade_str}@{}%", completion(score_hits, map)).into(),
+        (false, true) => format!("{grade_str}@{}% +{mods}", completion(score_hits, map)).into(),
         (true, false) => grade_str.into(),
         (false, false) => format!("{grade_str} +{mods}").into(),
     }
