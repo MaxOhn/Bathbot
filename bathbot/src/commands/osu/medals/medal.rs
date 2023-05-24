@@ -303,9 +303,9 @@ impl MedalEmbed {
 
                 map_buf.clear();
 
-                let _ = write!(
+                let _ = writeln!(
                     map_buf,
-                    "- [{title} [{version}]]({OSU_BASE}b/{map_id}) ({vote_sum:+})\n",
+                    "- [{title} [{version}]]({OSU_BASE}b/{map_id}) ({vote_sum:+})",
                     title = title.cow_escape_markdown(),
                     version = version.cow_escape_markdown()
                 );
