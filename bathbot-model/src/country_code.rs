@@ -373,7 +373,7 @@ impl Display for CountryName {
             return Ok(());
         };
 
-        write!(f, "{}", first.to_uppercase())?;
+        Display::fmt(&first.to_uppercase(), f)?;
         f.write_str(&word[first.len_utf8()..])?;
 
         for word in words {

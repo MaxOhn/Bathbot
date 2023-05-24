@@ -41,7 +41,7 @@ macro_rules! impl_with_comma {
                         triples += 1;
                     }
 
-                    write!(f, "{}", rev % 1000)?;
+                    Display::fmt(&(rev % 1000), f)?;
 
                     for _ in 0..triples - 1 {
                         rev /= 1000;
@@ -95,7 +95,7 @@ macro_rules! impl_with_comma {
                         triples += 1;
                     }
 
-                    write!(f, "{}", rev % 1000)?;
+                    Display::fmt(&(rev % 1000), f)?;
 
                     for _ in 0..triples - 1 {
                         rev /= 1000;
@@ -128,7 +128,7 @@ macro_rules! impl_with_comma {
                         triples += 1;
                     }
 
-                    write!(f, "{}", rev % 1000)?;
+                    Display::fmt(&(rev % 1000), f)?;
 
                     for _ in 0..triples - 1 {
                         rev /= 1000;

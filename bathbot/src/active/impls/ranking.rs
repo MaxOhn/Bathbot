@@ -485,7 +485,7 @@ impl Display for Accuracy<'_> {
 impl Display for Amount<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", AmountWithNegative::from(&(*self.inner as i64)))
+        Display::fmt(&AmountWithNegative::from(&(*self.inner as i64)), f)
     }
 }
 
@@ -493,7 +493,7 @@ impl Display for AmountWithNegative<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if self.inner.abs() < 1_000_000_000 {
-            write!(f, "{}", WithComma::new(*self.inner))
+            Display::fmt(&WithComma::new(*self.inner), f)
         } else {
             let score = (self.inner / 10_000_000) as f32 / 100.0;
 
@@ -505,7 +505,7 @@ impl Display for AmountWithNegative<'_> {
 impl Display for Date<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self.inner.date())
+        Display::fmt(&self.inner.date(), f)
     }
 }
 

@@ -617,7 +617,7 @@ impl Display for ScoreFormat {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if self.0 < 10_000 {
-            write!(f, "{}", self.0)
+            Display::fmt(&self.0, f)
         } else {
             write!(f, "{}K", self.0 / 1000)
         }

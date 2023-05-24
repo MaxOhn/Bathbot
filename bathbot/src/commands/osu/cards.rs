@@ -681,7 +681,7 @@ struct Title {
 impl Display for Title {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self.prefix)?;
+        Display::fmt(&self.prefix, f)?;
 
         if !self.mods.is_empty() {
             write!(f, " {}", self.mods)?;

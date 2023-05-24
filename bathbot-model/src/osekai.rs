@@ -492,7 +492,7 @@ impl<T: Debug> Debug for ValueWrapper<T> {
 impl<T: Display> Display for ValueWrapper<T> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self.0)
+        Display::fmt(&self.0, f)
     }
 }
 
