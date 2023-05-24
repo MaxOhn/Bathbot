@@ -87,8 +87,8 @@ I wouldn't necessarily recommend to try and get the bot running yourself but fee
   - to inspect the redis container, use `docker exec -it bathbot-redis redis-cli`
   - to shut the databases down, use `docker-compose down`
 - Next, install `sqlx-cli` if you haven't already. You can do so with `cargo install sqlx-cli --no-default-features --features postgres,rustls`.
-- Then migrate the database with `sqlx migrate run`. This command will complain if the `DATABASE_URL` variable in `.env` is not correct.
-- And finally you can compile and run the bot with `cargo run`. To make compiling take longer in order for the bot to be faster, use `cargo run --release`.
+- Then `cd bathbot-psql` and migrate the database with `sqlx migrate run`. This command will complain if the `DATABASE_URL` variable in `.env` is not correct.
+- And finally you can `cd ..` again to compile and run the bot with `cargo run`. To make the bot run faster but compiling take longer, use `cargo run --release`.
 
 The bot also has various features that can be enabled in compilation:
 - `global_slash`: Instead of only registering slash commands in the server specified as `DEV_GUILD_ID` in the `.env`, register them globally so that they work in all servers and DMs.
