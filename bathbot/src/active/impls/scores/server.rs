@@ -130,8 +130,8 @@ impl IActiveMessage for ScoresServerPagination {
 
             let _ = writeln!(
                 description,
-                "**{i}. [{map}]({OSU_BASE}b/{map_id}) +{mods}**{stars}\n\
-                > by __[{user}]({OSU_BASE}u/{user_id})__ {grade} **{pp}pp** \
+                "**#{i} [{map}]({OSU_BASE}b/{map_id}) +{mods}**{stars}\n\
+                by __[{user}]({OSU_BASE}u/{user_id})__ {grade} **{pp}pp** \
                 • {acc}% {mode} {appendix}",
                 map = MapFormatter::new(map, mapset),
                 map_id = score.map_id,

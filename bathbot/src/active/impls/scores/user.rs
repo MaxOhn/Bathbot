@@ -104,7 +104,7 @@ impl IActiveMessage for ScoresUserPagination {
 
             let _ = writeln!(
                 description,
-                "**{i}. [{map}]({OSU_BASE}b/{map_id})**{stars}\n\
+                "**#{i} [{map}]({OSU_BASE}b/{map_id})**{stars}\n\
                 {grade} **{pp}pp** • {acc}% [ **{combo}x** ] \
                 {mode}**+{mods}** {appendix}",
                 map = MapFormatter::new(map, mapset),

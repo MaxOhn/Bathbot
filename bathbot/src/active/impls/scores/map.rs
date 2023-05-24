@@ -110,9 +110,9 @@ impl IActiveMessage for ScoresMapPagination {
 
             let _ = writeln!(
                 description,
-                "**{i}.** {grade} [**{user}**]({OSU_BASE}u/{user_id}): \
+                "**#{i} [{user}]({OSU_BASE}u/{user_id})**: \
                 {score} [ **{combo}x** ] **+{mods}**{stars}\n\
-                > **{pp}pp** • {acc}% {mode}{miss} {appendix}",
+                {grade} **{pp}pp** • {acc}% {mode}{miss} {appendix}",
                 grade = config.grade(score.grade),
                 user = UserFormatter::new(data.user(score.user_id)),
                 user_id = score.user_id,
