@@ -5,7 +5,9 @@ use std::{
 
 use bathbot_util::{osu::ModSelection, ScoreExt, ScoreHasEndedAt};
 use eyre::{Result, WrapErr};
-use rosu_v2::prelude::{CountryCode, GameMod, GameMode, GameMods, Grade, RankStatus, Username};
+use rosu_v2::prelude::{
+    CountryCode, GameMod, GameModIntermode, GameMode, GameMods, Grade, RankStatus, Username,
+};
 use serde::{
     de::{
         value::StrDeserializer, DeserializeSeed, Error as DeError, IgnoredAny, SeqAccess,
@@ -210,9 +212,20 @@ impl<'de> Visitor<'de> for OsuStatsScoreVecSeed {
         let mut scores = Vec::with_capacity(seq.size_hint().unwrap_or(0));
 
         while let Some(inner) = seq.next_element::<OsuStatsScoreInner<'de>>()? {
+            let mut mods = StrDeserializer::new(inner.mods.get().trim_matches('"'))
+                .deserialize_str(OsuStatsScoreModsVisitor { mode: self.mode })?;
+
+            // osustats doesn't seem to validate mods so we have to do it
+            if mods.contains_intermode(GameModIntermode::Nightcore) {
+                mods.remove_intermode(GameModIntermode::DoubleTime);
+            }
+
+            if mods.contains_intermode(GameModIntermode::Perfect) {
+                mods.remove_intermode(GameModIntermode::SuddenDeath);
+            }
+
             let score = OsuStatsScore {
-                mods: StrDeserializer::new(inner.mods.get().trim_matches('"'))
-                    .deserialize_str(OsuStatsScoreModsVisitor { mode: self.mode })?,
+                mods,
                 user_id: inner.user_id,
                 position: inner.position,
                 grade: inner.grade,
