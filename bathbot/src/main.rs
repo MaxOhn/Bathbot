@@ -18,7 +18,6 @@ mod util;
 use std::{sync::Arc, time::Duration};
 
 use bathbot_model::Countries;
-use dotenvy::Error as DotenvError;
 use eyre::{Report, Result, WrapErr};
 use tokio::{
     runtime::Builder as RuntimeBuilder,
@@ -38,15 +37,7 @@ fn main() {
         .expect("Could not build runtime");
 
     if let Err(err) = dotenvy::dotenv() {
-        match err {
-            DotenvError::LineParse(line, error_index) => panic!(
-                "Failed to prepare .env variables: Error parsing line: \
-                '{line}', error at line index: {error_index}"
-            ),
-            DotenvError::Io(err) => panic!("Failed to prepare .env variables: {err}"),
-            DotenvError::EnvVar(err) => panic!("Failed to prepare .env variables: {err}"),
-            _ => panic!("Failed to prepare .env variables"),
-        }
+        panic!("Failed to prepare .env variables: {err}");
     }
 
     let _log_worker_guard = logging::init();
