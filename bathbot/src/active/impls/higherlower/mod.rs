@@ -349,6 +349,7 @@ impl HigherLowerGame {
         self.img_url_rx = Some(rx);
         self.highscore = self.highscore.max(self.current_score);
         self.current_score = 0;
+        self.revealed = false;
         self.buttons = ButtonState::HigherLower;
 
         ComponentResult::BuildPage
