@@ -11,6 +11,9 @@ use twilight_gateway::Session;
 
 pub struct SessionRkyv;
 
+type Sessions<S> = HashMap<u64, Session, S>;
+type ArchivedSessions = ArchivedHashMap<u64, ArchivedSession>;
+
 pub struct ArchivedSession {
     pub id: Archived<Box<str>>,
     pub sequence: Archived<u64>,
@@ -43,10 +46,7 @@ impl ArchiveWith<Session> for SessionRkyv {
 
 impl<S: Fallible + Serializer + ?Sized> SerializeWith<Session, S> for SessionRkyv {
     #[inline]
-    fn serialize_with(
-        session: &Session,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, <S as Fallible>::Error> {
+    fn serialize_with(session: &Session, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(SessionResolver {
             id: Serialize::serialize(With::<_, RefAsBox>::cast(&session.id()), serializer)?,
         })
@@ -55,11 +55,8 @@ impl<S: Fallible + Serializer + ?Sized> SerializeWith<Session, S> for SessionRky
 
 impl<D: Fallible + ?Sized> DeserializeWith<ArchivedSession, Session, D> for SessionRkyv {
     #[inline]
-    fn deserialize_with(
-        session: &ArchivedSession,
-        deserializer: &mut D,
-    ) -> Result<Session, <D as Fallible>::Error> {
-        let id: Box<str> = session.id.deserialize(deserializer)?;
+    fn deserialize_with(session: &ArchivedSession, d: &mut D) -> Result<Session, D::Error> {
+        let id: Box<str> = session.id.deserialize(d)?;
         let sequence = session.sequence;
 
         Ok(Session::new(sequence, id.into()))
@@ -68,13 +65,13 @@ impl<D: Fallible + ?Sized> DeserializeWith<ArchivedSession, Session, D> for Sess
 
 pub struct SessionsRkyv;
 
-impl<S> ArchiveWith<HashMap<u64, Session, S>> for SessionsRkyv {
-    type Archived = ArchivedHashMap<u64, Session>;
+impl<S> ArchiveWith<Sessions<S>> for SessionsRkyv {
+    type Archived = ArchivedSessions;
     type Resolver = HashMapResolver;
 
     #[inline]
     unsafe fn resolve_with(
-        map: &HashMap<u64, Session, S>,
+        map: &Sessions<S>,
         pos: usize,
         resolver: Self::Resolver,
         out: *mut Self::Archived,
@@ -83,15 +80,12 @@ impl<S> ArchiveWith<HashMap<u64, Session, S>> for SessionsRkyv {
     }
 }
 
-impl<H, S: Fallible + ?Sized> SerializeWith<HashMap<u64, Session, H>, S> for SessionsRkyv
+impl<H, S: Fallible + ?Sized> SerializeWith<Sessions<H>, S> for SessionsRkyv
 where
     S: Serializer + ScratchSpace,
 {
     #[inline]
-    fn serialize_with(
-        map: &HashMap<u64, Session, H>,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, <S as Fallible>::Error> {
+    fn serialize_with(map: &Sessions<H>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         let iter = map
             .iter()
             .map(|(shard_id, session)| (shard_id, With::<_, SessionRkyv>::cast(session)));
@@ -100,25 +94,17 @@ where
     }
 }
 
-impl<S, D>
-    DeserializeWith<
-        <Self as ArchiveWith<HashMap<u64, Session, S>>>::Archived,
-        HashMap<u64, Session, S>,
-        D,
-    > for SessionsRkyv
+impl<S, D> DeserializeWith<ArchivedSessions, Sessions<S>, D> for SessionsRkyv
 where
     D: Fallible + ?Sized,
     S: BuildHasher + Default,
 {
     #[inline]
-    fn deserialize_with(
-        map: &<Self as ArchiveWith<HashMap<u64, Session, S>>>::Archived,
-        _: &mut D,
-    ) -> Result<HashMap<u64, Session, S>, <D as Fallible>::Error> {
+    fn deserialize_with(map: &ArchivedSessions, d: &mut D) -> Result<Sessions<S>, D::Error> {
         let mut result = HashMap::with_capacity_and_hasher(map.len(), S::default());
 
         for (shard_id, session) in map.iter() {
-            result.insert(*shard_id, session.to_owned());
+            result.insert(*shard_id, SessionRkyv::deserialize_with(session, d)?);
         }
 
         Ok(result)
