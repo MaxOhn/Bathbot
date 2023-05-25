@@ -1,7 +1,11 @@
 use std::{cmp::Ordering, collections::BTreeMap, fmt::Write, sync::Arc};
 
 use bathbot_model::OsekaiBadge;
-use bathbot_util::{constants::OSEKAI_ISSUE, string_cmp::levenshtein_similarity, CowUtils};
+use bathbot_util::{
+    constants::{AVATAR_URL, OSEKAI_ISSUE},
+    string_cmp::levenshtein_similarity,
+    CowUtils,
+};
 use eyre::{Result, WrapErr};
 use rkyv::{Deserialize, Infallible};
 use twilight_interactions::command::AutocompleteValue;
@@ -114,7 +118,12 @@ pub(super) async fn query(
         return no_badge_found(&ctx, &command, name).await;
     };
 
-    let urls = owners.iter().map(|owner| owner.avatar_url.as_ref());
+    let urls: Vec<_> = owners
+        .iter()
+        .map(|owner| format!("{AVATAR_URL}{}", owner.user_id).into_boxed_str())
+        .collect();
+
+    let urls = urls.iter().map(Box::as_ref);
 
     let bytes = if badges.len() == 1 {
         match get_combined_thumbnail(&ctx, urls, owners.len() as u32, Some(1024)).await {

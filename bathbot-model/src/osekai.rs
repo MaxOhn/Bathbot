@@ -698,7 +698,6 @@ fn string_of_vec_of_u32s<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u32>, D:
 // data contains many more fields but none of use as of now
 #[derive(Debug, Deserialize)]
 pub struct OsekaiBadgeOwner {
-    pub avatar_url: Box<str>,
     pub country_code: CountryCode,
     #[serde(rename = "id")]
     pub user_id: u32,

@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    constants::{AVATAR_URL, GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
 };
 use eyre::{Report, Result};
@@ -118,7 +118,12 @@ pub(super) async fn user(
         return Ok(());
     };
 
-    let urls = owners.iter().map(|owner| owner.avatar_url.as_ref());
+    let urls: Vec<_> = owners
+        .iter()
+        .map(|owner| format!("{AVATAR_URL}{}", owner.user_id).into_boxed_str())
+        .collect();
+
+    let urls = urls.iter().map(Box::as_ref);
 
     let bytes = if badges.len() == 1 {
         match get_combined_thumbnail(&ctx, urls, owners.len() as u32, Some(1024)).await {
