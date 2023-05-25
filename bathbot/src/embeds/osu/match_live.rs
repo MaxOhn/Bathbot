@@ -447,7 +447,7 @@ impl MatchLiveEmbed {
         };
 
         if let Some(ref footer) = self.footer {
-            builder.footer(footer).build()
+            builder.footer(footer.to_owned()).build()
         } else {
             builder.build()
         }

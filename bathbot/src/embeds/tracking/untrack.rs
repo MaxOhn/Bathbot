@@ -1,6 +1,7 @@
 use std::{collections::HashSet, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_util::fields;
 use rosu_v2::prelude::Username;
 use twilight_model::channel::message::embed::EmbedField;
 
