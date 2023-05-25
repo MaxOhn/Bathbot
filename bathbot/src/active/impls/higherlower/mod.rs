@@ -309,6 +309,7 @@ impl HigherLowerGame {
             warn!(?err, "Failed to defer next button");
         }
 
+        self.revealed = false;
         self.buttons = ButtonState::HigherLower;
 
         ComponentResult::BuildPage
