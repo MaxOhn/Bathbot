@@ -239,12 +239,16 @@ pub async fn handle_autocomplete(
     match badges {
         RedisData::Original(badges) => {
             for badge in badges.iter() {
-                if badge.name.cow_to_ascii_lowercase().starts_with(name) {
-                    choices.push(new_choice(&badge.name));
+                if badge.name.cow_to_ascii_lowercase().contains(name) {
+                    if let Some(choice) = new_choice(&badge.name) {
+                        choices.push(choice);
+                    }
                 }
 
-                if badge.description.to_ascii_lowercase().starts_with(name) {
-                    choices.push(new_choice(&badge.description));
+                if badge.description.to_ascii_lowercase().contains(name) {
+                    if let Some(choice) = new_choice(&badge.description) {
+                        choices.push(choice);
+                    }
                 }
 
                 if choices.len() >= 25 {
@@ -256,12 +260,16 @@ pub async fn handle_autocomplete(
         }
         RedisData::Archive(badges) => {
             for badge in badges.iter() {
-                if badge.name.cow_to_ascii_lowercase().starts_with(name) {
-                    choices.push(new_choice(&badge.name));
+                if badge.name.cow_to_ascii_lowercase().contains(name) {
+                    if let Some(choice) = new_choice(&badge.name) {
+                        choices.push(choice);
+                    }
                 }
 
-                if badge.description.to_ascii_lowercase().starts_with(name) {
-                    choices.push(new_choice(&badge.description));
+                if badge.description.to_ascii_lowercase().contains(name) {
+                    if let Some(choice) = new_choice(&badge.description) {
+                        choices.push(choice);
+                    }
                 }
 
                 if choices.len() >= 25 {
@@ -278,12 +286,12 @@ pub async fn handle_autocomplete(
     Ok(())
 }
 
-fn new_choice(name: &str) -> CommandOptionChoice {
-    CommandOptionChoice {
+fn new_choice(name: &str) -> Option<CommandOptionChoice> {
+    (name.len() <= 100).then(|| CommandOptionChoice {
         name: name.to_owned(),
         name_localizations: None,
         value: CommandOptionChoiceValue::String(name.to_owned()),
-    }
+    })
 }
 
 #[derive(Debug)]
