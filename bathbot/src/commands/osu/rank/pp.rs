@@ -407,7 +407,7 @@ impl RankData {
                     return format!(
                         "Rank {rank} is currently held by {holder_name} with \
                         **{holder_pp}pp**, so {username} is already above that with **{pp}pp**.",
-                        rank = RankFormat::new(*rank, country.is_none(), &rank_holder),
+                        rank = RankFormat::new(*rank, country.is_none(), rank_holder),
                         holder_name = rank_holder.username.cow_escape_markdown(),
                         holder_pp = WithComma::new(rank_holder_pp),
                         pp = WithComma::new(user_pp)
@@ -419,7 +419,7 @@ impl RankData {
                         "Rank {rank} is currently held by {holder_name} with \
                         **{holder_pp}pp**, so {username} is missing **{holder_pp}** raw pp, \
                         achievable with a single score worth **{holder_pp}pp**.",
-                        rank = RankFormat::new(*rank, country.is_none(), &rank_holder),
+                        rank = RankFormat::new(*rank, country.is_none(), rank_holder),
                         holder_name = rank_holder.username.cow_escape_markdown(),
                         holder_pp = WithComma::new(rank_holder_pp),
                     );
@@ -434,7 +434,7 @@ impl RankData {
                                     **{holder_pp}pp**, so {username} is missing **{missing}** raw pp.\n\
                                     A new top100 score requires at least **{last_pp}pp** \
                                     so {holder_pp} total pp can't be reached with {each}pp scores.",
-                                    rank = RankFormat::new(*rank, country.is_none(), &rank_holder),
+                                    rank = RankFormat::new(*rank, country.is_none(), rank_holder),
                                     holder_name = rank_holder.username.cow_escape_markdown(),
                                     holder_pp = WithComma::new(rank_holder_pp),
                                     missing = WithComma::new(rank_holder_pp - user_pp),
@@ -460,7 +460,7 @@ impl RankData {
                                 **{holder_pp}pp**, so {username} is missing **{missing}** raw pp.\n\
                                 To reach {holder_pp}pp with one additional score, {username} needs to \
                                 perform a **{required}pp** score which would be the top {approx}#{idx}",
-                                rank = RankFormat::new(*rank, country.is_none(), &rank_holder),
+                                rank = RankFormat::new(*rank, country.is_none(), rank_holder),
                                 holder_name = rank_holder.username.cow_escape_markdown(),
                                 holder_pp = WithComma::new(rank_holder_pp),
                                 missing = WithComma::new(rank_holder_pp - user_pp),
@@ -513,7 +513,7 @@ impl RankData {
                                 Filling up {username}'{genitiv} top scores with {amount} new \
                                 {each}pp score{plural} would only lead to {approx}**{top}pp** which \
                                 is still less than {holder_pp}pp.",
-                                rank = RankFormat::new(*rank, country.is_none(), &rank_holder),
+                                rank = RankFormat::new(*rank, country.is_none(), rank_holder),
                                 holder_name = rank_holder.username.cow_escape_markdown(),
                                 holder_pp = WithComma::new(rank_holder_pp),
                                 amount = len - idx,
@@ -542,7 +542,7 @@ impl RankData {
                             **{holder_pp}pp**, so {username} is missing **{missing}** raw pp.\n\
                             To reach {holder_pp}pp, {username} needs to perform **{n_each}** \
                             more {each}pp score{plural} and one **{required}pp** score.",
-                            rank = RankFormat::new(*rank, country.is_none(), &rank_holder),
+                            rank = RankFormat::new(*rank, country.is_none(), rank_holder),
                             holder_name = rank_holder.username.cow_escape_markdown(),
                             holder_pp = WithComma::new(rank_holder_pp),
                             missing = WithComma::new(rank_holder_pp - user_pp),
@@ -565,7 +565,7 @@ impl RankData {
                             "Rank {rank} is currently held by {holder_name} with \
                             **{holder_pp}pp**, so {username} is missing **{missing}** raw pp, achievable \
                             with a single score worth **{pp}pp** which would be the top {approx}#{idx}.",
-                            rank = RankFormat::new(*rank, country.is_none(), &rank_holder),
+                            rank = RankFormat::new(*rank, country.is_none(), rank_holder),
                             holder_name = rank_holder.username.cow_escape_markdown(),
                             holder_pp = WithComma::new(rank_holder_pp),
                             missing = WithComma::new(rank_holder_pp - user_pp),
