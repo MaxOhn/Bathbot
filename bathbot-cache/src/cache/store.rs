@@ -24,8 +24,9 @@ use crate::{
 };
 
 impl Cache {
+    /// Serializes a values into bytes and stores them for the given key.
     pub async fn store<K, T, const N: usize>(
-        CacheConnection(conn): &mut CacheConnection<'_>,
+        conn: &mut CacheConnection<'_>,
         key: &K,
         value: &T,
         expire_seconds: usize,
@@ -35,13 +36,29 @@ impl Cache {
         T: Serialize<AllocSerializer<N>>,
     {
         let bytes = SingleSerializer::any(value)?;
+
+        Self::store_raw(conn, key, bytes.as_slice(), expire_seconds).await
+    }
+
+    async fn store_raw<K>(
+        CacheConnection(conn): &mut CacheConnection<'_>,
+        key: &K,
+        bytes: &[u8],
+        expire_seconds: usize,
+    ) -> Result<()>
+    where
+        K: ToCacheKey + ?Sized,
+    {
         let key = RedisKey::from(key);
 
-        conn.set_ex(key, bytes.as_slice(), expire_seconds)
+        conn.set_ex(key, bytes, expire_seconds)
             .await
             .map_err(Report::new)
     }
 
+    /// Serializes a values into bytes, opens a new connection, and stores the
+    /// bytes for the given key.
+    ///
     /// **Note**: `Cache::store` should always be preferred if `Cache::fetch`
     /// was called beforehand.
     pub async fn store_new<K, T, const N: usize>(
@@ -57,6 +74,15 @@ impl Cache {
         let mut conn = CacheConnection(self.connection().await?);
 
         Self::store(&mut conn, key, value, expire_seconds).await
+    }
+
+    pub async fn store_new_raw<K>(&self, key: &K, bytes: &[u8], expire_seconds: usize) -> Result<()>
+    where
+        K: ToCacheKey + ?Sized,
+    {
+        let mut conn = CacheConnection(self.connection().await?);
+
+        Self::store_raw(&mut conn, key, bytes, expire_seconds).await
     }
 
     pub(crate) async fn cache_channel(&self, channel: &Channel) -> Result<CacheChange> {

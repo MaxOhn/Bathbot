@@ -1,10 +1,52 @@
+use bathbot_model::twilight_model::id::IdRkyv;
+use eyre::{Result, WrapErr};
 use futures::stream::StreamExt;
+use rkyv::{
+    ser::{serializers::AllocSerializer, Serializer},
+    vec::ArchivedVec,
+    with::With,
+    Archive,
+};
+use twilight_gateway::Shard;
+use twilight_model::id::{marker::GuildMarker, Id};
 
 use crate::{util::ChannelExt, Context};
 
 impl Context {
+    pub async fn shutdown(&self, shards: &mut [Shard]) {
+        // Disable tracking while preparing shutdown
+        #[cfg(feature = "osutracking")]
+        self.tracking().set_stop_tracking(true);
+
+        // Prevent non-minimized msgs from getting minimized
+        self.clear_msgs_to_process();
+
+        let count = self.stop_all_games().await;
+        info!("Stopped {count} bg games");
+
+        #[cfg(feature = "matchlive")]
+        {
+            let count = self.notify_match_live_shutdown().await;
+            info!("Stopped match tracking in {count} channels");
+        }
+
+        let resume_data = Self::down_resumable(shards).await;
+
+        if let Err(err) = self.cache.freeze(&resume_data).await {
+            error!(?err, "Failed to freeze cache");
+        }
+
+        const STORE_DURATION: usize = 240;
+
+        match self.store_guild_shards(STORE_DURATION).await {
+            Ok(len) => info!("Stored {len} guild shards"),
+            Err(err) => error!(?err, "Failed to store guild shards"),
+        }
+    }
+
+    /// Notify all active bg games that they'll be aborted due to a bot restart
     #[cold]
-    pub async fn stop_all_games(&self) -> usize {
+    async fn stop_all_games(&self) -> usize {
         let mut active_games = Vec::new();
         let mut stream = self.bg_games().iter();
 
@@ -37,5 +79,53 @@ impl Context {
         }
 
         count
+    }
+
+    /// Serialize guild shards and store them in redis for 240 seconds
+    #[cold]
+    async fn store_guild_shards(&self, store_duration: usize) -> Result<usize> {
+        let mut serializer = AllocSerializer::<0>::default();
+
+        // Will be serialized as ArchivedVec
+        let guild_shards = self.guild_shards().pin();
+        let len = guild_shards.len();
+
+        // Serialize data
+        for (guild, shard) in guild_shards.iter() {
+            serializer
+                .serialize_value(With::<_, IdRkyv>::cast(guild))
+                .wrap_err("Failed to serialize guild")?;
+
+            serializer
+                .serialize_value(shard)
+                .wrap_err("Failed to serialize shard")?;
+        }
+
+        // Align buffer
+        serializer
+            .align_for::<ArchivedVec<(<With<Id<GuildMarker>, IdRkyv> as Archive>::Archived, u64)>>()
+            .wrap_err("Failed to align serializer")?;
+
+        // Serialize relative pointer
+        for byte in (-(serializer.pos() as i32)).to_le_bytes() {
+            serializer
+                .serialize_value(&byte)
+                .wrap_err("Failed to serialize rel ptr")?;
+        }
+
+        // Serialize length
+        serializer
+            .serialize_value(&len)
+            .wrap_err("Failed to serialize length")?;
+
+        let bytes = serializer.into_serializer().into_inner();
+
+        // Store bytes
+        self.cache
+            .store_new_raw("guild_shards", &bytes, store_duration)
+            .await
+            .wrap_err("Failed to store in redis")?;
+
+        Ok(len)
     }
 }

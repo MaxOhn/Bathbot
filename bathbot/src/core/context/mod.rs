@@ -5,6 +5,7 @@ use std::{
 
 use bathbot_cache::Cache;
 use bathbot_client::Client as BathbotClient;
+use bathbot_model::twilight_model::id::IdRkyv;
 use bathbot_psql::{model::configs::GuildConfig, Database};
 use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
@@ -13,6 +14,7 @@ use flurry::{HashMap as FlurryMap, HashSet as FlurrySet};
 use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
 use parking_lot::Mutex;
+use rkyv::with::With;
 use rosu_v2::Osu;
 use tokio::sync::mpsc::UnboundedSender;
 use twilight_gateway::{
@@ -118,13 +120,13 @@ impl Context {
             .await
             .wrap_err("Failed to create osu client")?;
 
-        let data = ContextData::new(&psql, application_id)
-            .await
-            .wrap_err("Failed to create context data")?;
-
         let cache = Cache::new(&config.redis_host, config.redis_port, config.redis_db_idx)
             .await
             .wrap_err("Failed to create redis cache")?;
+
+        let data = ContextData::new(&psql, &cache, application_id)
+            .await
+            .wrap_err("Failed to create context data")?;
 
         let resume_data = cache.defrost().await.wrap_err("Failed to defrost cache")?;
 
@@ -272,10 +274,15 @@ struct ContextData {
 }
 
 impl ContextData {
-    async fn new(psql: &Database, application_id: Id<ApplicationMarker>) -> Result<Self> {
-        let (guild_configs_res, tracked_streams_res) = tokio::join!(
+    async fn new(
+        psql: &Database,
+        cache: &Cache,
+        application_id: Id<ApplicationMarker>,
+    ) -> Result<Self> {
+        let (guild_configs_res, tracked_streams_res, guild_shards) = tokio::join!(
             psql.select_guild_configs::<IntHasher>(),
             psql.select_tracked_twitch_streams::<IntHasher>(),
+            Self::fetch_guild_shards(cache),
         );
 
         Ok(Self {
@@ -289,7 +296,7 @@ impl ContextData {
                 .collect(),
             application_id,
             games: Games::new(),
-            guild_shards: GuildShards::default(),
+            guild_shards,
             #[cfg(feature = "matchlive")]
             matchlive: crate::matchlive::MatchLiveChannels::new(),
             msgs_to_process: Mutex::new(HashSet::default()),
@@ -299,6 +306,20 @@ impl ContextData {
                 .wrap_err("Failed to create osu tracking")?,
             miss_analyzer_guilds: MissAnalyzerGuilds::default(),
         })
+    }
+
+    async fn fetch_guild_shards(cache: &Cache) -> GuildShards {
+        let fetch_fut = cache.fetch::<_, Vec<(With<Id<GuildMarker>, IdRkyv>, u64)>>("guild_shards");
+
+        match fetch_fut.await {
+            Ok(Ok(guild_shards)) => guild_shards.iter().collect(),
+            Ok(Err(_)) => GuildShards::default(),
+            Err(err) => {
+                warn!(?err, "Failed to fetch guild shards, creating default...");
+
+                GuildShards::default()
+            }
+        }
     }
 }
 
