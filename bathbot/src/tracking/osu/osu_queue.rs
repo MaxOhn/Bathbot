@@ -53,7 +53,7 @@ impl OsuTracking {
             .map(|queue| Self { queue })
     }
 
-    pub fn set_tracking(&self, value: bool) {
+    pub fn set_stop_tracking(&self, value: bool) {
         self.queue.stop_tracking.store(value, Ordering::SeqCst);
     }
 

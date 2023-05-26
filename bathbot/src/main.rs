@@ -187,27 +187,7 @@ async fn async_main() -> Result<()> {
         error!("Failed to send shutdown message to server");
     }
 
-    // Disable tracking while preparing shutdown
-    #[cfg(feature = "osutracking")]
-    ctx.tracking().set_tracking(true);
-
-    // Prevent non-minimized msgs from getting minimized
-    ctx.clear_msgs_to_process();
-
-    let count = ctx.stop_all_games().await;
-    info!("Stopped {count} bg games");
-
-    #[cfg(feature = "matchlive")]
-    {
-        let count = ctx.notify_match_live_shutdown().await;
-        info!("Stopped match tracking in {count} channels");
-    }
-
-    let resume_data = Context::down_resumable(&mut shards).await;
-
-    if let Err(err) = ctx.cache.freeze(&resume_data).await {
-        error!(?err, "Failed to freeze cache");
-    }
+    ctx.shutdown(&mut shards).await;
 
     info!("Shutting down");
 
