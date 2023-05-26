@@ -13,6 +13,7 @@ use twilight_model::id::{marker::GuildMarker, Id};
 use crate::{util::ChannelExt, Context};
 
 impl Context {
+    #[cold]
     pub async fn shutdown(&self, shards: &mut [Shard]) {
         // Disable tracking while preparing shutdown
         #[cfg(feature = "osutracking")]
@@ -41,6 +42,11 @@ impl Context {
         match self.store_guild_shards(STORE_DURATION).await {
             Ok(len) => info!("Stored {len} guild shards"),
             Err(err) => error!(?err, "Failed to store guild shards"),
+        }
+
+        match self.store_miss_analyzer_guilds(STORE_DURATION).await {
+            Ok(len) => info!("Stored {len} miss analyzer guilds"),
+            Err(err) => error!(?err, "Failed to store miss analyzer guilds"),
         }
     }
 
@@ -72,9 +78,7 @@ impl Context {
                     let _ = channel.plain_message(self, content).await;
                     count += 1;
                 }
-                Err(err) => {
-                    warn!(%channel, ?err, "Error while stopping game");
-                }
+                Err(err) => warn!(%channel, ?err, "Error while stopping game"),
             }
         }
 
@@ -101,11 +105,52 @@ impl Context {
                 .wrap_err("Failed to serialize shard")?;
         }
 
+        type ArchivedData =
+            ArchivedVec<(<With<Id<GuildMarker>, IdRkyv> as Archive>::Archived, u64)>;
+
         // Align buffer
         serializer
-            .align_for::<ArchivedVec<(<With<Id<GuildMarker>, IdRkyv> as Archive>::Archived, u64)>>()
+            .align_for::<ArchivedData>()
             .wrap_err("Failed to align serializer")?;
 
+        self.finalize_store_as_vec(serializer, len, "guild_shards", store_duration)
+            .await
+    }
+
+    #[cold]
+    async fn store_miss_analyzer_guilds(&self, store_duration: usize) -> Result<usize> {
+        let mut serializer = AllocSerializer::<0>::default();
+
+        // Will be serialized as ArchivedVec
+        let miss_analyzer_guilds = self.miss_analyzer_guilds().pin();
+        let len = miss_analyzer_guilds.len();
+
+        // Serialize data
+        for guild in miss_analyzer_guilds.iter() {
+            serializer
+                .serialize_value(With::<_, IdRkyv>::cast(guild))
+                .wrap_err("Failed to serialize guild")?;
+        }
+
+        type ArchivedData = ArchivedVec<<With<Id<GuildMarker>, IdRkyv> as Archive>::Archived>;
+
+        // Align buffer
+        serializer
+            .align_for::<ArchivedData>()
+            .wrap_err("Failed to align serializer")?;
+
+        self.finalize_store_as_vec(serializer, len, "miss_analyzer_guilds", store_duration)
+            .await
+    }
+
+    // Does not include serializer alignment to avoid generics
+    async fn finalize_store_as_vec<const N: usize>(
+        &self,
+        mut serializer: AllocSerializer<N>,
+        len: usize,
+        key: &str,
+        duration: usize,
+    ) -> Result<usize> {
         // Serialize relative pointer
         for byte in (-(serializer.pos() as i32)).to_le_bytes() {
             serializer
@@ -122,7 +167,7 @@ impl Context {
 
         // Store bytes
         self.cache
-            .store_new_raw("guild_shards", &bytes, store_duration)
+            .store_new_raw(key, &bytes, duration)
             .await
             .wrap_err("Failed to store in redis")?;
 

@@ -279,10 +279,11 @@ impl ContextData {
         cache: &Cache,
         application_id: Id<ApplicationMarker>,
     ) -> Result<Self> {
-        let (guild_configs_res, tracked_streams_res, guild_shards) = tokio::join!(
+        let (guild_configs_res, tracked_streams_res, guild_shards, miss_analyzer_guilds) = tokio::join!(
             psql.select_guild_configs::<IntHasher>(),
             psql.select_tracked_twitch_streams::<IntHasher>(),
             Self::fetch_guild_shards(cache),
+            Self::fetch_miss_analyzer_guilds(cache),
         );
 
         Ok(Self {
@@ -304,7 +305,7 @@ impl ContextData {
             osu_tracking: crate::tracking::OsuTracking::new(OsuTrackingManager::new(psql))
                 .await
                 .wrap_err("Failed to create osu tracking")?,
-            miss_analyzer_guilds: MissAnalyzerGuilds::default(),
+            miss_analyzer_guilds,
         })
     }
 
@@ -318,6 +319,24 @@ impl ContextData {
                 warn!(?err, "Failed to fetch guild shards, creating default...");
 
                 GuildShards::default()
+            }
+        }
+    }
+
+    async fn fetch_miss_analyzer_guilds(cache: &Cache) -> MissAnalyzerGuilds {
+        let fetch_fut =
+            cache.fetch::<_, Vec<With<Id<GuildMarker>, IdRkyv>>>("miss_analyzer_guilds");
+
+        match fetch_fut.await {
+            Ok(Ok(miss_analyzer_guilds)) => miss_analyzer_guilds.iter().collect(),
+            Ok(Err(_)) => MissAnalyzerGuilds::default(),
+            Err(err) => {
+                warn!(
+                    ?err,
+                    "Failed to fetch miss analyzer guilds, creating default..."
+                );
+
+                MissAnalyzerGuilds::default()
             }
         }
     }
