@@ -75,11 +75,7 @@ async fn prefix_prefix(
         }
     };
 
-    let mut args: Vec<Prefix> = args
-        .filter(|prefix| PrefixValidator::is_valid(prefix))
-        .take(5)
-        .map(Prefix::from)
-        .collect();
+    let mut args: Vec<Prefix> = args.take(5).map(Prefix::from).collect();
 
     if args.is_empty() {
         let content = "After the first argument you should specify some prefix(es)";
@@ -102,6 +98,8 @@ async fn prefix_prefix(
 
     let update_fut = ctx.guild_config().update(guild_id, |config| match action {
         Action::Add => {
+            args.retain(|prefix| PrefixValidator::is_valid(prefix));
+
             let remaining_len = config.prefixes.remaining_capacity();
 
             if remaining_len == 0 {
