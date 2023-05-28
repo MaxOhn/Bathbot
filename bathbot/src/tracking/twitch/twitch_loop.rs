@@ -1,7 +1,10 @@
 use std::{fmt::Write, sync::Arc};
 
-use bathbot_model::TwitchStream;
-use bathbot_util::{constants::UNKNOWN_CHANNEL, IntHasher};
+use bathbot_model::TwitchUser;
+use bathbot_util::{
+    constants::{TWITCH_BASE, UNKNOWN_CHANNEL},
+    AuthorBuilder, EmbedBuilder, IntHasher,
+};
 use hashbrown::{HashMap, HashSet};
 use rand::Rng;
 use tokio::time::{interval, Duration};
@@ -11,10 +14,7 @@ use twilight_http::{
 };
 use twilight_model::id::{marker::ChannelMarker, Id};
 
-use crate::{
-    embeds::{EmbedData, TwitchNotifEmbed},
-    Context,
-};
+use crate::Context;
 
 #[cold]
 pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
@@ -39,7 +39,20 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
         };
 
         // Filter streams whether they're live
-        streams.retain(TwitchStream::is_live);
+        {
+            let guard = ctx.online_twitch_streams().guard();
+
+            streams.retain(|stream| {
+                if stream.live {
+                    ctx.online_twitch_streams().set_online(stream, &guard);
+                } else {
+                    ctx.online_twitch_streams().set_offline(stream, &guard);
+                }
+
+                stream.live
+            });
+        }
+
         let now_online: HashSet<_, IntHasher> =
             streams.iter().map(|stream| stream.user_id).collect();
 
@@ -62,7 +75,10 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
         let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
 
         let users: HashMap<_, _, IntHasher> = match ctx.client().get_twitch_users(&ids).await {
-            Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
+            Ok(users) => users
+                .into_iter()
+                .map(|u| (u.user_id, TwitchUserCompact::from(u)))
+                .collect(),
             Err(err) => {
                 warn!(?err, "Failed to retrieve twitch users");
 
@@ -82,20 +98,33 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
 
         // Process each stream by notifying all corresponding channels
         for mut stream in streams {
-            let channels = match ctx.tracked_channels_for(stream.user_id) {
-                Some(channels) => channels,
-                None => continue,
-            };
+            let Some(channels) = ctx.tracked_channels_for(stream.user_id) else { continue };
 
             // Adjust streams' thumbnail url
             let url_len = stream.thumbnail_url.len();
             stream.thumbnail_url.truncate(url_len - 20); // cut off "{width}x{height}.jpg"
             let _ = write!(stream.thumbnail_url, "{width}x{height}.jpg");
 
-            let data = TwitchNotifEmbed::new(&stream, &users[&stream.user_id]);
+            let user = &users[&stream.user_id];
+
+            let embed = EmbedBuilder::new()
+                .author(AuthorBuilder::new("Now live on twitch:"))
+                .description(stream.title.as_ref())
+                .image(&stream.thumbnail_url)
+                .thumbnail(user.image_url.as_ref())
+                .title(stream.username.as_ref())
+                .url(format!("{TWITCH_BASE}{}", user.display_name));
+
+            let mut channels = channels.into_iter();
+            let last = channels.next_back();
 
             for channel in channels {
-                send_notif(&ctx, &data, channel).await;
+                send_notif(&ctx, embed.clone(), channel).await;
+            }
+
+            // doing last one separately so we don't clone embed
+            if let Some(channel) = last {
+                send_notif(&ctx, embed, channel).await;
             }
         }
 
@@ -103,8 +132,8 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
     }
 }
 
-async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelMarker>) {
-    let embed = data.to_owned().build();
+async fn send_notif(ctx: &Context, embed: EmbedBuilder, channel: Id<ChannelMarker>) {
+    let embed = embed.build();
 
     match ctx.http.create_message(channel).embeds(&[embed]) {
         Ok(msg_fut) => {
@@ -117,7 +146,7 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelM
                         }) => {
                             if let Err(err) = ctx.twitch().untrack_all(channel).await {
                                 warn!(
-                                    ?channel,
+                                    %channel,
                                     ?err,
                                     "Failed to remove stream tracks from unknown channel"
                                 );
@@ -142,6 +171,20 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelM
         }
         Err(err) => {
             warn!(?err, "Invalid embed for twitch notif");
+        }
+    }
+}
+
+struct TwitchUserCompact {
+    display_name: Box<str>,
+    image_url: Box<str>,
+}
+
+impl From<TwitchUser> for TwitchUserCompact {
+    fn from(user: TwitchUser) -> Self {
+        Self {
+            display_name: user.display_name,
+            image_url: user.image_url,
         }
     }
 }

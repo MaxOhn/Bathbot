@@ -49,7 +49,7 @@ impl Client {
             .header(CONTENT_TYPE, content_type)
             .header(CONTENT_LENGTH, form.len())
             .body(Body::from(form))
-            .wrap_err("failed to build POST request")?;
+            .wrap_err("Failed to build POST request")?;
 
         let response = client.request(req).await?;
         let bytes = Self::error_for_status(response, TWITCH_OAUTH).await?;
@@ -57,7 +57,7 @@ impl Client {
         let oauth_token = serde_json::from_slice(&bytes).wrap_err_with(|| {
             let body = String::from_utf8_lossy(&bytes);
 
-            format!("failed to deserialize twitch token: {body}")
+            format!("Failed to deserialize twitch token: {body}")
         })?;
 
         Ok(TwitchData {
@@ -79,7 +79,6 @@ impl Client {
         V: Display,
     {
         let url = url.as_ref();
-        trace!("GET request of url {url}");
 
         let mut uri = format!("{url}?");
         let mut iter = data.into_iter();
@@ -106,7 +105,7 @@ impl Client {
             serde_json::from_slice(&bytes).wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
-                format!("failed to deserialize twitch username: {body}")
+                format!("Failed to deserialize twitch username: {body}")
             })?;
 
         Ok(users.data.pop())
@@ -123,7 +122,7 @@ impl Client {
             serde_json::from_slice(&bytes).wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
-                format!("failed to deserialize twitch user id: {body}")
+                format!("Failed to deserialize twitch user id: {body}")
             })?;
 
         Ok(users.data.pop())
@@ -139,17 +138,34 @@ impl Client {
                 .make_twitch_get_request(TWITCH_USERS_ENDPOINT, data)
                 .await?;
 
-            let parsed_response: TwitchDataList<TwitchUser> = serde_json::from_slice(&bytes)
+            let mut parsed_response: TwitchDataList<TwitchUser> = serde_json::from_slice(&bytes)
                 .wrap_err_with(|| {
                     let body = String::from_utf8_lossy(&bytes);
 
-                    format!("failed to deserialize twitch users: {body}")
+                    format!("Failed to deserialize twitch users: {body}")
                 })?;
 
-            users.extend(parsed_response.data);
+            users.append(&mut parsed_response.data);
         }
 
         Ok(users)
+    }
+
+    pub async fn get_twitch_stream(&self, user_id: u64) -> Result<Option<TwitchStream>> {
+        let data = [("user_id", user_id)];
+
+        let bytes = self
+            .make_twitch_get_request(TWITCH_STREAM_ENDPOINT, data)
+            .await?;
+
+        let mut streams: TwitchDataList<TwitchStream> = serde_json::from_slice(&bytes)
+            .wrap_err_with(|| {
+                let body = String::from_utf8_lossy(&bytes);
+
+                format!("Failed to deserialize twitch stream: {body}")
+            })?;
+
+        Ok(streams.data.pop())
     }
 
     pub async fn get_twitch_streams(&self, user_ids: &[u64]) -> Result<Vec<TwitchStream>> {
@@ -165,14 +181,14 @@ impl Client {
                 .make_twitch_get_request(TWITCH_STREAM_ENDPOINT, data)
                 .await?;
 
-            let parsed_response: TwitchDataList<TwitchStream> = serde_json::from_slice(&bytes)
+            let mut parsed_response: TwitchDataList<TwitchStream> = serde_json::from_slice(&bytes)
                 .wrap_err_with(|| {
                     let body = String::from_utf8_lossy(&bytes);
 
-                    format!("failed to deserialize twitch streams: {body}")
+                    format!("Failed to deserialize twitch streams: {body}")
                 })?;
 
-            streams.extend(parsed_response.data);
+            streams.append(&mut parsed_response.data);
         }
 
         Ok(streams)
@@ -194,7 +210,7 @@ impl Client {
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
-                format!("failed to deserialize twitch videos: {body}")
+                format!("Failed to deserialize twitch videos: {body}")
             })?;
 
         Ok(videos.data.pop())

@@ -2,8 +2,6 @@ use std::fmt::Write;
 
 use bathbot_model::rosu_v2::user::User;
 use bathbot_model::ScoreSlim;
-#[cfg(feature = "twitch")]
-use bathbot_model::TwitchVideo;
 use bathbot_psql::model::configs::{MinimizedPp, ScoreSize};
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
@@ -16,13 +14,14 @@ use bathbot_util::{
 use rosu_v2::prelude::{BeatmapUserScore, GameMode, Score};
 
 use super::{EditOnTimeout, EditOnTimeoutKind};
-use crate::embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};
-use crate::manager::OsuMap;
+#[cfg(feature = "twitch")]
+use crate::commands::osu::RecentTwitchStream;
 use crate::{
     active::BuildPage,
     commands::osu::RecentEntry,
     core::Context,
-    manager::redis::RedisData,
+    embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
+    manager::{redis::RedisData, OsuMap},
     util::osu::{grade_completion_mods, IfFc, MapInfo, PersonalBestIndex},
 };
 
@@ -38,7 +37,7 @@ impl RecentScoreEdit {
         entry: &RecentEntry,
         personal: Option<&[Score]>,
         map_score: Option<&BeatmapUserScore>,
-        #[cfg(feature = "twitch")] twitch_vod: Option<TwitchVideo>,
+        #[cfg(feature = "twitch")] twitch_stream: Option<RecentTwitchStream>,
         minimized_pp: MinimizedPp,
         miss_analyzer_score_id: Option<u64>,
         origin: &MessageOrigin,
@@ -142,7 +141,7 @@ impl RecentScoreEdit {
                     title,
                     url,
                     #[cfg(feature = "twitch")]
-                    twitch_vod.as_ref(),
+                    twitch_stream.as_ref(),
                 );
 
                 let mut build = BuildPage::new(minimized, false);
@@ -167,7 +166,7 @@ impl RecentScoreEdit {
                     title,
                     url,
                     #[cfg(feature = "twitch")]
-                    twitch_vod.as_ref(),
+                    twitch_stream.as_ref(),
                 );
 
                 let mut build = BuildPage::new(maximized, false);
@@ -193,7 +192,7 @@ impl RecentScoreEdit {
                     title.clone(),
                     url.clone(),
                     #[cfg(feature = "twitch")]
-                    twitch_vod.as_ref(),
+                    twitch_stream.as_ref(),
                 );
                 let maximized = Self::maximized(
                     score,
@@ -208,7 +207,7 @@ impl RecentScoreEdit {
                     title,
                     url,
                     #[cfg(feature = "twitch")]
-                    twitch_vod.as_ref(),
+                    twitch_stream.as_ref(),
                 );
 
                 let mut edited = BuildPage::new(minimized, false);
@@ -243,7 +242,7 @@ impl RecentScoreEdit {
         mut description: String,
         mut title: String,
         url: String,
-        #[cfg(feature = "twitch")] twitch_vod: Option<&TwitchVideo>,
+        #[cfg(feature = "twitch")] twitch_stream: Option<&RecentTwitchStream>,
     ) -> EmbedBuilder {
         let name = format!(
             "{grade_completion_mods}\t{score}\t({acc}%)\t{ago}",
@@ -295,13 +294,23 @@ impl RecentScoreEdit {
         let fields = fields![name, value, false];
 
         #[cfg(feature = "twitch")]
-        if let Some(vod) = twitch_vod {
-            let _ = write!(
-                description,
-                " {} [Liveplay on twitch]({})",
-                crate::util::Emote::Twitch.text(),
-                vod.url
-            );
+        match twitch_stream {
+            Some(RecentTwitchStream::Stream { username }) => {
+                let _ = write!(
+                    description,
+                    " {emote} [Streaming on twitch]({base}{username})",
+                    emote = crate::util::Emote::Twitch.text(),
+                    base = bathbot_util::constants::TWITCH_BASE,
+                );
+            }
+            Some(RecentTwitchStream::Video { vod_url, .. }) => {
+                let _ = write!(
+                    description,
+                    " {emote} [Liveplay on twitch]({vod_url})",
+                    emote = crate::util::Emote::Twitch.text(),
+                );
+            }
+            None => {}
         }
 
         EmbedBuilder::new()
@@ -323,10 +332,11 @@ impl RecentScoreEdit {
         if_fc: Option<&IfFc>,
         combo: String,
         author: AuthorBuilder,
-        description: String,
+        #[allow(unused_mut)] // feature-gated
+        mut description: String,
         title: String,
         url: String,
-        #[cfg(feature = "twitch")] twitch_vod: Option<&TwitchVideo>,
+        #[cfg(feature = "twitch")] twitch_stream: Option<&RecentTwitchStream>,
     ) -> EmbedBuilder {
         let mut score_str = WithComma::new(score.score).to_string();
         score_str = highlight_funny_numeral(&score_str).into_owned();
@@ -374,19 +384,29 @@ impl RecentScoreEdit {
         fields![fields { "Map Info".to_owned(), map_info, false }];
 
         #[cfg(feature = "twitch")]
-        if let Some(vod) = twitch_vod {
-            let twitch_channel = format!(
-                "[**{name}**]({base}{name})",
-                base = bathbot_util::constants::TWITCH_BASE,
-                name = vod.username
-            );
+        match twitch_stream {
+            Some(RecentTwitchStream::Stream { username }) => {
+                let _ = write!(
+                    description,
+                    " {emote} [Streaming on twitch]({base}{username})",
+                    emote = crate::util::Emote::Twitch.text(),
+                    base = bathbot_util::constants::TWITCH_BASE,
+                );
+            }
+            Some(RecentTwitchStream::Video { username, vod_url }) => {
+                let twitch_channel = format!(
+                    "[**{username}**]({base}{username})",
+                    base = bathbot_util::constants::TWITCH_BASE,
+                );
 
-            let vod_hyperlink = format!("[**VOD**]({})", vod.url);
+                let vod_hyperlink = format!("[**VOD**]({vod_url})");
 
-            fields![fields {
-                "Live on twitch", twitch_channel, true;
-                "Liveplay of this score", vod_hyperlink, true;
-            }];
+                fields![fields {
+                    "Live on twitch", twitch_channel, true;
+                    "Liveplay of this score", vod_hyperlink, true;
+                }];
+            }
+            None => {}
         }
 
         let footer = FooterBuilder::new(map.footer_text())
