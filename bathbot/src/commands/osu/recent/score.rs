@@ -531,14 +531,14 @@ pub(super) async fn score(
     #[cfg(feature = "twitch")]
     let twitch_fut = async {
         if let Some(user_id) = twitch_id {
-            retrieve_vod(&ctx, user_id, &score, &map).await
+            twitch_stream(&ctx, user_id, &score, &map).await
         } else {
             None
         }
     };
 
     #[cfg(feature = "twitch")]
-    let (map_score_res, top100_res, miss_analyzer_res, twitch_vod) =
+    let (map_score_res, top100_res, miss_analyzer_res, twitch_stream) =
         tokio::join!(map_score_fut, top100_fut, miss_analyzer_fut, twitch_fut);
 
     #[cfg(not(feature = "twitch"))]
@@ -606,7 +606,7 @@ pub(super) async fn score(
         top100.as_deref(),
         map_score.as_ref(),
         #[cfg(feature = "twitch")]
-        twitch_vod,
+        twitch_stream,
         minimized_pp,
         miss_analyzer_score_id,
         &origin,
@@ -621,82 +621,170 @@ pub(super) async fn score(
 }
 
 #[cfg(feature = "twitch")]
-async fn retrieve_vod(
+pub enum RecentTwitchStream {
+    Stream {
+        username: Box<str>,
+    },
+    Video {
+        username: Box<str>,
+        vod_url: Box<str>,
+    },
+}
+
+#[cfg(feature = "twitch")]
+impl RecentTwitchStream {
+    fn new_stream(username: Box<str>) -> Self {
+        Self::Stream { username }
+    }
+
+    fn new_vod(username: Box<str>, vod_url: String) -> Self {
+        Self::Video {
+            username,
+            vod_url: vod_url.into_boxed_str(),
+        }
+    }
+}
+
+#[cfg(feature = "twitch")]
+async fn twitch_stream(
     ctx: &Context,
     user_id: u64,
     score: &rosu_v2::prelude::Score,
     map: &crate::manager::OsuMap,
-) -> Option<bathbot_model::TwitchVideo> {
-    use std::fmt::Write;
+) -> Option<RecentTwitchStream> {
+    let is_online = ctx.online_twitch_streams().is_user_online(user_id);
 
-    use rosu_pp::Mods;
+    if is_online {
+        match ctx.client().get_last_twitch_vod(user_id).await {
+            Ok(Some(vod)) => {
+                let score_started_at = score_started_at(score, map);
 
-    match ctx.client().get_last_twitch_vod(user_id).await {
-        Ok(Some(mut vod)) => {
-            let parsed_map = &map.pp_map;
+                let vod_start = vod.created_at;
+                let vod_end = vod.ended_at();
 
-            let vod_start = vod.created_at.unix_timestamp();
-            let vod_end = vod_start + vod.duration as i64;
-            let mut map_len = map.seconds_drain() as f64;
+                if vod_start < score_started_at && score_started_at < vod_end {
+                    let mut url = vod.url;
+                    let offset = score_started_at - vod_start;
+                    bathbot_model::TwitchVideo::append_url_timestamp(&mut url, offset);
 
-            // Adjust map length with passed objects in case of fail
-            if score.grade == Grade::F {
-                let passed = score.total_hits() as f64;
-
-                if map.mode() == GameMode::Catch {
-                    // amount objects in .osu file != amount of hitobjects for catch
-                    map_len += 2.0;
-                } else if let Some(obj) = (passed as usize)
-                    .checked_sub(1)
-                    .and_then(|i| parsed_map.hit_objects.get(i))
-                {
-                    map_len = obj.start_time / 1000.0;
-                } else {
-                    let total = map.n_objects() as f64;
-                    map_len *= passed / total;
-
-                    map_len += 2.0;
+                    return Some(RecentTwitchStream::new_vod(vod.username, url));
                 }
-            } else {
-                map_len += parsed_map.total_break_time() / 1000.0;
             }
+            Ok(None) => {}
+            Err(err) => {
+                warn!(?err, "Failed to get twitch vod");
+                ctx.online_twitch_streams().set_offline_by_user(user_id);
 
-            map_len /= score.mods.bits().clock_rate();
-
-            let map_start = score.ended_at.unix_timestamp() - map_len as i64 - 3;
-
-            if vod_start > map_start || vod_end < map_start {
                 return None;
             }
-
-            let mut offset = map_start - vod_start;
-
-            // Add timestamp
-            vod.url.push_str("?t=");
-
-            if offset >= 3600 {
-                let _ = write!(vod.url, "{}h", offset / 3600);
-                offset %= 3600;
-            }
-
-            if offset >= 60 {
-                let _ = write!(vod.url, "{}m", offset / 60);
-                offset %= 60;
-            }
-
-            if offset > 0 {
-                let _ = write!(vod.url, "{offset}s");
-            }
-
-            Some(vod)
         }
-        Ok(None) => None,
-        Err(err) => {
-            warn!(?err, "Failed to get twitch vod");
 
-            None
+        match ctx.client().get_twitch_stream(user_id).await {
+            Ok(Some(stream)) => {
+                if stream.live {
+                    Some(RecentTwitchStream::new_stream(stream.username))
+                } else {
+                    let guard = ctx.online_twitch_streams().guard();
+                    ctx.online_twitch_streams().set_offline(&stream, &guard);
+
+                    None
+                }
+            }
+            Ok(None) => {
+                // TODO: remove twitch id from user config
+
+                None
+            }
+            Err(err) => {
+                warn!(?err, "Failed to get twitch stream");
+                ctx.online_twitch_streams().set_offline_by_user(user_id);
+
+                None
+            }
+        }
+    } else {
+        match ctx.client().get_twitch_stream(user_id).await {
+            Ok(Some(stream)) => {
+                if !stream.live {
+                    return None;
+                }
+
+                {
+                    let guard = ctx.online_twitch_streams().guard();
+                    ctx.online_twitch_streams().set_online(&stream, &guard);
+                }
+
+                match ctx.client().get_last_twitch_vod(user_id).await {
+                    Ok(Some(vod)) => {
+                        let score_started_at = score_started_at(score, map);
+
+                        let vod_start = vod.created_at;
+                        let vod_end = vod.ended_at();
+
+                        if vod_start < score_started_at && score_started_at < vod_end {
+                            let mut url = vod.url;
+                            let offset = score_started_at - vod_start;
+                            bathbot_model::TwitchVideo::append_url_timestamp(&mut url, offset);
+
+                            Some(RecentTwitchStream::new_vod(vod.username, url))
+                        } else {
+                            Some(RecentTwitchStream::new_stream(stream.username))
+                        }
+                    }
+                    Ok(None) => Some(RecentTwitchStream::new_stream(stream.username)),
+                    Err(err) => {
+                        warn!(?err, "Failed to get twitch vod");
+
+                        None
+                    }
+                }
+            }
+            Ok(None) => {
+                // TODO: remove twitch id from user config
+
+                None
+            }
+            Err(err) => {
+                warn!(?err, "Failed to get twitch stream");
+
+                None
+            }
         }
     }
+}
+
+#[cfg(feature = "twitch")]
+fn score_started_at(
+    score: &rosu_v2::prelude::Score,
+    map: &crate::manager::OsuMap,
+) -> time::OffsetDateTime {
+    let mut map_len = map.seconds_drain() as f64;
+
+    // Adjust map length with passed objects in case of fail
+    if score.grade == Grade::F {
+        let passed = score.total_hits();
+
+        if map.mode() == GameMode::Catch {
+            // amount objects in .osu file != amount of hitobjects for catch
+            map_len += 2.0;
+        } else if let Some(obj) = passed
+            .checked_sub(1)
+            .and_then(|i| map.pp_map.hit_objects.get(i as usize))
+        {
+            map_len = obj.start_time / 1000.0;
+        } else {
+            let total = map.n_objects();
+            map_len *= passed as f64 / total as f64;
+
+            map_len += 2.0;
+        }
+    } else {
+        map_len += map.pp_map.total_break_time() / 1000.0;
+    }
+
+    map_len /= rosu_pp::Mods::clock_rate(score.mods.bits());
+
+    score.ended_at - std::time::Duration::from_secs(map_len as u64 + 3)
 }
 
 #[allow(unused)] // fields are used through transmute in From impl

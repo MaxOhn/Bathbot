@@ -2,12 +2,9 @@ use twilight_model::channel::message::embed::Embed;
 
 #[cfg(feature = "osutracking")]
 pub use self::tracking::*;
-#[cfg(feature = "twitchtracking")]
-pub use self::twitch::*;
 pub use self::{osu::*, utility::*};
 
 mod osu;
-mod twitch;
 mod utility;
 
 #[cfg(feature = "osutracking")]

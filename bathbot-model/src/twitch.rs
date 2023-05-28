@@ -1,8 +1,8 @@
-use std::fmt;
+use std::{fmt, fmt::Write};
 
 use http::HeaderValue;
 use serde::{de::Error, Deserialize, Deserializer};
-use time::OffsetDateTime;
+use time::{Duration, OffsetDateTime};
 
 fn str_to_u64<'de, D: Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
     <&str as Deserialize>::deserialize(d)?
@@ -55,7 +55,7 @@ pub struct TwitchStream {
     pub game_id: Option<u64>,
     #[serde(rename = "id", deserialize_with = "str_to_u64")]
     pub stream_id: u64,
-    // gets modified inside the struct so required to keep as `String`
+    // Gets modified inside the struct so required to keep as `String`
     pub thumbnail_url: String,
     pub title: Box<str>,
     #[serde(deserialize_with = "str_to_u64")]
@@ -64,6 +64,8 @@ pub struct TwitchStream {
     pub username: Box<str>,
     #[serde(rename = "type", deserialize_with = "get_live")]
     pub live: bool,
+    #[serde(with = "datetime")]
+    pub started_at: OffsetDateTime,
 }
 
 impl TwitchStream {
@@ -85,7 +87,7 @@ pub struct TwitchDataList<T> {
 pub struct TwitchVideo {
     #[serde(with = "datetime")]
     pub created_at: OffsetDateTime,
-    /// video duration in seconds
+    /// Video duration in seconds
     #[serde(deserialize_with = "duration_to_u32")]
     pub duration: u32,
     #[serde(deserialize_with = "str_to_u64")]
@@ -93,10 +95,36 @@ pub struct TwitchVideo {
     #[serde(with = "datetime")]
     pub published_at: OffsetDateTime,
     pub title: Box<str>,
-    // gets modified inside the struct so required to keep as `String`
+    // Gets modified inside the struct so required to keep as `String`
     pub url: String,
     #[serde(rename = "user_name")]
     pub username: Box<str>,
+}
+
+impl TwitchVideo {
+    pub fn ended_at(&self) -> OffsetDateTime {
+        self.created_at + Duration::seconds(self.duration as i64)
+    }
+
+    pub fn append_url_timestamp(url: &mut String, offset: Duration) {
+        let mut offset = offset.whole_seconds();
+
+        url.push_str("?t=");
+
+        if offset >= 3600 {
+            let _ = write!(url, "{}h", offset / 3600);
+            offset %= 3600;
+        }
+
+        if offset >= 60 {
+            let _ = write!(url, "{}m", offset / 60);
+            offset %= 60;
+        }
+
+        if offset > 0 {
+            let _ = write!(url, "{offset}s");
+        }
+    }
 }
 
 fn duration_to_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {

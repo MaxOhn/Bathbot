@@ -38,6 +38,8 @@ use twilight_standby::Standby;
 use super::{buckets::Buckets, BotStats};
 #[cfg(feature = "osutracking")]
 use crate::manager::OsuTrackingManager;
+#[cfg(feature = "twitch")]
+use crate::tracking::OnlineTwitchStreams;
 use crate::{
     active::{impls::BackgroundGame, ActiveMessages},
     core::BotConfig,
@@ -99,6 +101,11 @@ impl Context {
 
     pub fn has_miss_analyzer(&self, guild: &Id<GuildMarker>) -> bool {
         self.miss_analyzer_guilds().pin().contains(guild)
+    }
+
+    #[cfg(feature = "twitch")]
+    pub fn online_twitch_streams(&self) -> &OnlineTwitchStreams {
+        &self.data.online_twitch_streams
     }
 
     pub async fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Result<ContextTuple> {
@@ -271,6 +278,8 @@ struct ContextData {
     tracked_streams: TrackedStreams,          // read-heavy
     guild_shards: GuildShards,                // necessary to request members for a guild
     miss_analyzer_guilds: MissAnalyzerGuilds, // read-heavy
+    #[cfg(feature = "twitch")]
+    online_twitch_streams: OnlineTwitchStreams,
 }
 
 impl ContextData {
@@ -306,6 +315,8 @@ impl ContextData {
                 .await
                 .wrap_err("Failed to create osu tracking")?,
             miss_analyzer_guilds,
+            #[cfg(feature = "twitch")]
+            online_twitch_streams: OnlineTwitchStreams::default(),
         })
     }
 
