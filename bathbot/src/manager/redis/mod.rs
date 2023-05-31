@@ -1,14 +1,14 @@
 use std::{borrow::Cow, fmt::Write};
 
-use bathbot_cache::Cache;
+use bathbot_cache::{Cache, CacheSerializer};
 use bathbot_model::{
-    rosu_v2::ranking::Rankings, OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuTrackerIdCount,
-    OsuTrackerPpGroup, OsuTrackerStats, SnipeCountries,
+    rosu_v2::ranking::Rankings, OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuStatsBestScores,
+    OsuStatsBestTimeframe, OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats, SnipeCountries,
 };
 use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
 use eyre::{Report, Result};
-use rkyv::{ser::serializers::AllocSerializer, with::With, Serialize};
+use rkyv::{with::With, Serialize};
 use rosu_v2::prelude::{GameMode, OsuError, Rankings as RosuRankings};
 
 pub use self::data::RedisData;
@@ -91,7 +91,7 @@ impl<'c> RedisManager<'c> {
     pub async fn osekai_ranking<R>(self) -> RedisResult<Vec<R::Entry>>
     where
         R: OsekaiRanking,
-        <R as OsekaiRanking>::Entry: Serialize<AllocSerializer<65_536>>,
+        <R as OsekaiRanking>::Entry: Serialize<CacheSerializer<65_536>>,
     {
         const EXPIRE: usize = 7200;
 
@@ -254,6 +254,39 @@ impl<'c> RedisManager<'c> {
         }
 
         Ok(RedisData::new(ranking))
+    }
+
+    pub async fn osustats_best(
+        self,
+        timeframe: OsuStatsBestTimeframe,
+        mode: GameMode,
+    ) -> RedisResult<OsuStatsBestScores> {
+        const EXPIRE: usize = 3600;
+        let key = format!("osustats_best_{}_{}", timeframe as u8, mode as u8);
+
+        let mut conn = match self.ctx.cache.fetch(&key).await {
+            Ok(Ok(scores)) => {
+                self.ctx.stats.inc_cached_osustats_best();
+
+                return Ok(RedisData::Archive(scores));
+            }
+            Ok(Err(conn)) => Some(conn),
+            Err(err) => {
+                warn!("{err:?}");
+
+                None
+            }
+        };
+
+        let scores = self.ctx.client().get_osustats_best(timeframe, mode).await?;
+
+        if let Some(ref mut conn) = conn {
+            if let Err(err) = Cache::store::<_, _, 8192>(conn, &key, &scores, EXPIRE).await {
+                warn!(?err, "Failed to store osustats best");
+            }
+        }
+
+        Ok(RedisData::new(scores))
     }
 
     pub async fn snipe_countries(self) -> RedisResult<SnipeCountries> {

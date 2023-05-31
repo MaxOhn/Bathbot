@@ -2,7 +2,6 @@ use bathbot_model::twilight_model::guild::Member;
 use bb8_redis::redis::AsyncCommands;
 use eyre::{Report, Result, WrapErr};
 use rkyv::{
-    ser::serializers::AllocSerializer,
     with::{ArchiveWith, SerializeWith},
     AlignedVec, Serialize,
 };
@@ -18,7 +17,7 @@ use twilight_model::{
 use crate::{
     key::{RedisKey, ToCacheKey},
     model::{CacheChange, CacheConnection},
-    serializer::{MemberSerializer, MultiSerializer, SingleSerializer},
+    serializer::{CacheSerializer, MemberSerializer, MultiSerializer, SingleSerializer},
     util::{AlignedVecRedisArgs, Zipped},
     Cache,
 };
@@ -33,7 +32,7 @@ impl Cache {
     ) -> Result<()>
     where
         K: ToCacheKey + ?Sized,
-        T: Serialize<AllocSerializer<N>>,
+        T: Serialize<CacheSerializer<N>>,
     {
         let bytes = SingleSerializer::any(value)?;
 
@@ -69,7 +68,7 @@ impl Cache {
     ) -> Result<()>
     where
         K: ToCacheKey + ?Sized,
-        T: Serialize<AllocSerializer<N>>,
+        T: Serialize<CacheSerializer<N>>,
     {
         let mut conn = CacheConnection(self.connection().await?);
 

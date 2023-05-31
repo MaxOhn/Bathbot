@@ -13,12 +13,9 @@ mod debug {
     };
     use twilight_model::{channel::Channel, guild::Role, user::User};
 
-    use crate::serializer::{
-        single::{InnerSerializer, SingleSerializer},
-        MEMBER_SCRATCH_SIZE,
-    };
+    use crate::serializer::{single::SingleSerializer, CacheSerializer, MEMBER_SCRATCH_SIZE};
 
-    pub(crate) type MemberSerializer = InnerSerializer<MEMBER_SCRATCH_SIZE>;
+    pub(crate) type MemberSerializer = CacheSerializer<MEMBER_SCRATCH_SIZE>;
 
     #[derive(Default)]
     pub(crate) struct MultiSerializer;
@@ -54,7 +51,7 @@ mod release {
     };
     use eyre::{Result, WrapErr};
     use rkyv::{
-        ser::{serializers::AllocSerializer, Serializer},
+        ser::Serializer,
         with::{ArchiveWith, SerializeWith, With},
         AlignedVec, Serialize,
     };
@@ -63,16 +60,17 @@ mod release {
     };
 
     use crate::serializer::{
-        CHANNEL_SCRATCH_SIZE, MEMBER_SCRATCH_SIZE, ROLE_SCRATCH_SIZE, USER_SCRATCH_SIZE,
+        CacheSerializer, CHANNEL_SCRATCH_SIZE, MEMBER_SCRATCH_SIZE, ROLE_SCRATCH_SIZE,
+        USER_SCRATCH_SIZE,
     };
 
     const MAX_SCRATCH_SIZE: usize = max_scratch_size();
 
-    pub(crate) type MemberSerializer = AllocSerializer<MAX_SCRATCH_SIZE>;
+    pub(crate) type MemberSerializer = CacheSerializer<MAX_SCRATCH_SIZE>;
 
     #[derive(Default)]
     pub(crate) struct MultiSerializer {
-        inner: Option<AllocSerializer<MAX_SCRATCH_SIZE>>,
+        inner: Option<CacheSerializer<MAX_SCRATCH_SIZE>>,
     }
 
     impl MultiSerializer {
@@ -83,7 +81,7 @@ mod release {
 
         pub(crate) fn member<M>(&mut self, member: &M) -> Result<AlignedVec>
         where
-            Member: ArchiveWith<M> + SerializeWith<M, AllocSerializer<MAX_SCRATCH_SIZE>>,
+            Member: ArchiveWith<M> + SerializeWith<M, CacheSerializer<MAX_SCRATCH_SIZE>>,
         {
             self.to_bytes_mut(With::<_, Member>::cast(member))
                 .wrap_err("Failed to serialize member")
@@ -101,16 +99,14 @@ mod release {
 
         fn to_bytes_mut<T>(&mut self, value: &T) -> Result<AlignedVec>
         where
-            T: Serialize<AllocSerializer<MAX_SCRATCH_SIZE>>,
+            T: Serialize<CacheSerializer<MAX_SCRATCH_SIZE>>,
         {
             let mut serializer = self.inner.take().unwrap_or_default();
 
             serializer.serialize_value(value)?;
-            let (serializer, scratch, shard) = serializer.into_components();
+            let (serializer, scratch, shared) = serializer.into_components();
 
-            let _ = self
-                .inner
-                .insert(AllocSerializer::new(Default::default(), scratch, shard));
+            let _ = self.inner.insert(CacheSerializer::new(scratch, shared));
 
             Ok(serializer.into_inner())
         }

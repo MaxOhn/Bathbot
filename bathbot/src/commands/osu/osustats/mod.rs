@@ -1,11 +1,12 @@
 use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
-use bathbot_model::OsuStatsScoresOrder;
+use bathbot_model::{OsuStatsBestTimeframe, OsuStatsScoresOrder};
 use eyre::Result;
-use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use self::best::*;
 pub use self::{counts::*, globals::*, list::*};
 use crate::{
     commands::GameModeOption,
@@ -13,6 +14,7 @@ use crate::{
     Context,
 };
 
+mod best;
 mod counts;
 mod globals;
 mod list;
@@ -32,6 +34,8 @@ pub enum OsuStats<'a> {
     Players(OsuStatsPlayers<'a>),
     #[command(name = "scores")]
     Scores(OsuStatsScores<'a>),
+    #[command(name = "best")]
+    Best(OsuStatsBest),
 }
 
 #[derive(CommandModel, CreateCommand, Default, HasName)]
@@ -128,10 +132,46 @@ pub struct OsuStatsScores<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "best", desc = "Global top scores of a certain timeframe")]
+pub struct OsuStatsBest {
+    #[command(desc = "Only show scores of this timeframe")]
+    timeframe: OsuStatsBestTimeframe,
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
+    #[command(desc = "Choose how the scores should be ordered")]
+    sort: Option<OsuStatsBestSort>,
+}
+
+#[derive(Copy, Clone, CommandOption, CreateOption)]
+pub enum OsuStatsBestSort {
+    #[option(name = "Accuracy", value = "acc")]
+    Accuracy,
+    #[option(name = "Combo", value = "combo")]
+    Combo,
+    #[option(name = "Date", value = "date")]
+    Date,
+    #[option(name = "Leaderboard Position", value = "pos")]
+    LeaderboardPosition,
+    #[option(name = "Misses", value = "miss")]
+    Misses,
+    #[option(name = "PP", value = "pp")]
+    Pp,
+    #[option(name = "Score", value = "score")]
+    Score,
+}
+
+impl Default for OsuStatsBestSort {
+    fn default() -> Self {
+        Self::Pp
+    }
+}
+
 async fn slash_osustats(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match OsuStats::from_interaction(command.input_data())? {
         OsuStats::Count(args) => count(ctx, (&mut command).into(), args).await,
         OsuStats::Players(args) => players(ctx, (&mut command).into(), args).await,
         OsuStats::Scores(args) => scores(ctx, (&mut command).into(), args).await,
+        OsuStats::Best(args) => recentbest(ctx, (&mut command).into(), args).await,
     }
 }
