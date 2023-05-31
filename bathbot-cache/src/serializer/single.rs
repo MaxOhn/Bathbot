@@ -16,17 +16,11 @@ mod debug {
     use eyre::{Result, WrapErr};
     use once_cell::sync::OnceCell;
     use rkyv::{
-        de::deserializers::SharedDeserializeMap,
-        ser::{
-            serializers::{
-                AlignedSerializer, AllocScratch, AllocSerializer, CompositeSerializer,
-                FallbackScratch, HeapScratch, ScratchTracker,
-            },
-            Serializer,
-        },
+        ser::Serializer,
         with::{ArchiveWith, SerializeWith, With},
         AlignedVec, Serialize,
     };
+    use tracing::debug;
     use twilight_model::{
         channel::Channel as TwChannel,
         guild::Role as TwRole,
@@ -34,7 +28,7 @@ mod debug {
     };
 
     use crate::serializer::{
-        multi::MemberSerializer, CHANNEL_SCRATCH_SIZE, CURRENT_USER_SCRATCH_SIZE,
+        multi::MemberSerializer, CacheSerializer, CHANNEL_SCRATCH_SIZE, CURRENT_USER_SCRATCH_SIZE,
         GUILD_SCRATCH_SIZE, MEMBER_SCRATCH_SIZE, ROLE_SCRATCH_SIZE, USER_SCRATCH_SIZE,
     };
 
@@ -45,12 +39,6 @@ mod debug {
     static ROLE_TRACKER: OnceCell<SingleSerializer> = OnceCell::new();
     static USER_TRACKER: OnceCell<SingleSerializer> = OnceCell::new();
 
-    pub(crate) type InnerSerializer<const N: usize> = CompositeSerializer<
-        AlignedSerializer<AlignedVec>,
-        ScratchTracker<FallbackScratch<HeapScratch<N>, AllocScratch>>,
-        SharedDeserializeMap,
-    >;
-
     #[derive(Default)]
     pub(crate) struct SingleSerializer {
         serialization_count: AtomicUsize,
@@ -60,9 +48,27 @@ mod debug {
     impl SingleSerializer {
         pub(crate) fn any<T, const N: usize>(value: &T) -> Result<AlignedVec>
         where
-            T: Serialize<AllocSerializer<N>>,
+            T: Serialize<CacheSerializer<N>>,
         {
-            rkyv::to_bytes(value).wrap_err("Failed to serialize value")
+            let mut serializer = CacheSerializer::default();
+
+            serializer
+                .serialize_value(value)
+                .wrap_err("Failed to serialize value")?;
+
+            let (serializer, scratch, _) = serializer.into_components();
+            let min_buf_size = scratch.min_buffer_size();
+
+            if N < min_buf_size {
+                debug!(
+                    allocated = N,
+                    min_buf_size, "Default scratch size too small"
+                );
+            } else if N > min_buf_size.next_power_of_two() {
+                debug!(allocated = N, min_buf_size, "Default scratch size too big");
+            }
+
+            Ok(serializer.into_inner())
         }
 
         pub(crate) fn channel(channel: &TwChannel) -> Result<AlignedVec> {
@@ -85,7 +91,7 @@ mod debug {
 
         pub(crate) fn guild<G>(guild: &G) -> Result<AlignedVec>
         where
-            Guild: ArchiveWith<G> + SerializeWith<G, InnerSerializer<GUILD_SCRATCH_SIZE>>,
+            Guild: ArchiveWith<G> + SerializeWith<G, CacheSerializer<GUILD_SCRATCH_SIZE>>,
         {
             Self::to_bytes::<_, GUILD_SCRATCH_SIZE>(
                 With::<_, Guild>::cast(guild),
@@ -125,21 +131,21 @@ mod debug {
             .wrap_err("Failed to serialize user")
         }
 
-        fn update_min_buffer_size(&self, min_buffer_size: usize, kind: &str, allocated: usize) {
+        fn update_min_buffer_size(&self, min_buf_size: usize, kind: &str, allocated: usize) {
             let serialization_count = 1 + self.serialization_count.fetch_add(1, Ordering::Relaxed);
 
-            let accum_min_buffer_size = min_buffer_size
+            let accum_min_buf_size = min_buf_size
                 + self
                     .accum_min_buffer_size
-                    .fetch_add(min_buffer_size, Ordering::Relaxed);
+                    .fetch_add(min_buf_size, Ordering::Relaxed);
 
             if serialization_count >= 10 {
-                let avg_min_buffer_size = accum_min_buffer_size / serialization_count;
+                let avg_min_buf_size = accum_min_buf_size / serialization_count;
 
-                if allocated < avg_min_buffer_size {
-                    tracing::debug!(
-                        "Allocated {allocated} byte(s) to serialize {kind} but \
-                        the average min buffer size was {avg_min_buffer_size}"
+                if allocated < avg_min_buf_size {
+                    debug!(
+                        allocated,
+                        avg_min_buf_size, kind, "Default scratch size too small"
                     );
                 }
             }
@@ -151,14 +157,9 @@ mod debug {
             kind: &str,
         ) -> Result<AlignedVec>
         where
-            T: Serialize<InnerSerializer<N>>,
+            T: Serialize<CacheSerializer<N>>,
         {
-            let mut serializer = InnerSerializer::new(
-                Default::default(),
-                ScratchTracker::new(Default::default()),
-                Default::default(),
-            );
-
+            let mut serializer = CacheSerializer::default();
             serializer.serialize_value(value)?;
 
             let (serializer, scratch, _) = serializer.into_components();
@@ -182,7 +183,7 @@ mod release {
     };
     use eyre::{Result, WrapErr};
     use rkyv::{
-        ser::serializers::AllocSerializer,
+        ser::Serializer,
         with::{ArchiveWith, SerializeWith, With},
         AlignedVec, Serialize,
     };
@@ -193,8 +194,8 @@ mod release {
     };
 
     use crate::serializer::{
-        CHANNEL_SCRATCH_SIZE, CURRENT_USER_SCRATCH_SIZE, GUILD_SCRATCH_SIZE, ROLE_SCRATCH_SIZE,
-        USER_SCRATCH_SIZE,
+        CacheSerializer, CHANNEL_SCRATCH_SIZE, CURRENT_USER_SCRATCH_SIZE, GUILD_SCRATCH_SIZE,
+        ROLE_SCRATCH_SIZE, USER_SCRATCH_SIZE,
     };
 
     pub(crate) struct SingleSerializer;
@@ -202,36 +203,44 @@ mod release {
     impl SingleSerializer {
         pub(crate) fn any<T, const N: usize>(value: &T) -> Result<AlignedVec>
         where
-            T: Serialize<AllocSerializer<N>>,
+            T: Serialize<CacheSerializer<N>>,
         {
-            rkyv::to_bytes(value).wrap_err("Failed to serialize value")
+            let mut serializer = CacheSerializer::<N>::default();
+
+            serializer
+                .serialize_value(value)
+                .wrap_err("Failed to serialize value")?;
+
+            Ok(serializer.into_bytes())
         }
 
         pub(crate) fn channel(channel: &TwChannel) -> Result<AlignedVec> {
-            rkyv::to_bytes::<_, CHANNEL_SCRATCH_SIZE>(With::<_, Channel>::cast(channel))
+            CacheSerializer::<CHANNEL_SCRATCH_SIZE>::serialize(With::<_, Channel>::cast(channel))
                 .wrap_err("Failed to serialize channel")
         }
 
         pub(crate) fn current_user(user: &TwCurrentUser) -> Result<AlignedVec> {
-            rkyv::to_bytes::<_, CURRENT_USER_SCRATCH_SIZE>(With::<_, CurrentUser>::cast(user))
-                .wrap_err("Failed to serialize current user")
+            CacheSerializer::<CURRENT_USER_SCRATCH_SIZE>::serialize(With::<_, CurrentUser>::cast(
+                user,
+            ))
+            .wrap_err("Failed to serialize current user")
         }
 
         pub(crate) fn guild<G>(guild: &G) -> Result<AlignedVec>
         where
-            Guild: ArchiveWith<G> + SerializeWith<G, AllocSerializer<GUILD_SCRATCH_SIZE>>,
+            Guild: ArchiveWith<G> + SerializeWith<G, CacheSerializer<GUILD_SCRATCH_SIZE>>,
         {
-            rkyv::to_bytes::<_, GUILD_SCRATCH_SIZE>(With::<_, Guild>::cast(guild))
+            CacheSerializer::<GUILD_SCRATCH_SIZE>::serialize(With::<_, Guild>::cast(guild))
                 .wrap_err("Failed to serialize guild")
         }
 
         pub(crate) fn role(role: &TwRole) -> Result<AlignedVec> {
-            rkyv::to_bytes::<_, ROLE_SCRATCH_SIZE>(With::<_, Role>::cast(role))
+            CacheSerializer::<ROLE_SCRATCH_SIZE>::serialize(With::<_, Role>::cast(role))
                 .wrap_err("Failed to serialize role")
         }
 
         pub(crate) fn user(user: &TwUser) -> Result<AlignedVec> {
-            rkyv::to_bytes::<_, USER_SCRATCH_SIZE>(With::<_, User>::cast(user))
+            CacheSerializer::<USER_SCRATCH_SIZE>::serialize(With::<_, User>::cast(user))
                 .wrap_err("Failed to serialize user")
         }
     }

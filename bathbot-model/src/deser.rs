@@ -1,5 +1,6 @@
-use std::fmt;
+use std::{fmt, marker::PhantomData};
 
+use rosu_v2::prelude::GameMode;
 use serde::{
     de::{Error, Unexpected, Visitor},
     Deserialize, Deserializer,
@@ -260,5 +261,34 @@ pub(super) mod date {
         fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
             Date::parse(v, DATE_FORMAT).map_err(Error::custom)
         }
+    }
+}
+
+pub struct ModeAsSeed<T> {
+    pub(crate) mode: GameMode,
+    phantom: PhantomData<T>,
+}
+
+impl<T> Clone for ModeAsSeed<T> {
+    fn clone(&self) -> Self {
+        Self {
+            mode: self.mode,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> Copy for ModeAsSeed<T> {}
+
+impl<T> ModeAsSeed<T> {
+    pub fn new(mode: GameMode) -> Self {
+        Self {
+            mode,
+            phantom: PhantomData,
+        }
+    }
+
+    pub fn cast<U>(self) -> ModeAsSeed<U> {
+        ModeAsSeed::new(self.mode)
     }
 }

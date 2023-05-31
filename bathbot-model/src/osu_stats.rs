@@ -16,10 +16,14 @@ use serde::{
     Deserialize, Deserializer,
 };
 use serde_json::value::RawValue;
-use time::OffsetDateTime;
+use time::{Date, OffsetDateTime};
 use twilight_interactions::command::{CommandOption, CreateOption};
 
 use super::deser;
+use crate::{
+    deser::ModeAsSeed,
+    rkyv_util::time::{DateRkyv, DateTimeRkyv},
+};
 
 #[derive(Debug)]
 pub struct OsuStatsPlayer {
@@ -117,7 +121,7 @@ impl<'de> Visitor<'de> for &OsuStatsScoresRaw {
 
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         let scores = seq
-            .next_element_seed(OsuStatsScoreVecSeed::new(self.mode))?
+            .next_element_seed(ModeAsSeed::<Vec<OsuStatsScore>>::new(self.mode))?
             .ok_or_else(|| {
                 DeError::custom("OsuStatsScores sequence must contain scores as first element")
             })?;
@@ -152,17 +156,7 @@ pub struct OsuStatsScore {
     pub map: OsuStatsMap,
 }
 
-pub struct OsuStatsScoreVecSeed {
-    mode: GameMode,
-}
-
-impl OsuStatsScoreVecSeed {
-    pub fn new(mode: GameMode) -> Self {
-        Self { mode }
-    }
-}
-
-impl<'de> DeserializeSeed<'de> for OsuStatsScoreVecSeed {
+impl<'de> DeserializeSeed<'de> for ModeAsSeed<Vec<OsuStatsScore>> {
     type Value = Vec<OsuStatsScore>;
 
     fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
@@ -170,7 +164,7 @@ impl<'de> DeserializeSeed<'de> for OsuStatsScoreVecSeed {
     }
 }
 
-impl<'de> Visitor<'de> for OsuStatsScoreVecSeed {
+impl<'de> Visitor<'de> for ModeAsSeed<Vec<OsuStatsScore>> {
     type Value = Vec<OsuStatsScore>;
 
     fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
@@ -212,17 +206,8 @@ impl<'de> Visitor<'de> for OsuStatsScoreVecSeed {
         let mut scores = Vec::with_capacity(seq.size_hint().unwrap_or(0));
 
         while let Some(inner) = seq.next_element::<OsuStatsScoreInner<'de>>()? {
-            let mut mods = StrDeserializer::new(inner.mods.get().trim_matches('"'))
-                .deserialize_str(OsuStatsScoreModsVisitor { mode: self.mode })?;
-
-            // osustats doesn't seem to validate mods so we have to do it
-            if mods.contains_intermode(GameModIntermode::Nightcore) {
-                mods.remove_intermode(GameModIntermode::DoubleTime);
-            }
-
-            if mods.contains_intermode(GameModIntermode::Perfect) {
-                mods.remove_intermode(GameModIntermode::SuddenDeath);
-            }
+            let mods = StrDeserializer::new(inner.mods.get().trim_matches('"'))
+                .deserialize_str(self.cast::<GameMods>())?;
 
             let score = OsuStatsScore {
                 mods,
@@ -250,11 +235,7 @@ impl<'de> Visitor<'de> for OsuStatsScoreVecSeed {
     }
 }
 
-struct OsuStatsScoreModsVisitor {
-    mode: GameMode,
-}
-
-impl<'de> Visitor<'de> for OsuStatsScoreModsVisitor {
+impl<'de> Visitor<'de> for ModeAsSeed<GameMods> {
     type Value = GameMods;
 
     fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
@@ -281,12 +262,24 @@ impl<'de> Visitor<'de> for OsuStatsScoreModsVisitor {
             }
         }
 
-        v.split(',')
+        let mut mods = v
+            .split(',')
             .map(|s| GameMod::new(s, self.mode).or_else(|| parse_mod_alt(s)))
             .collect::<Option<GameMods>>()
             .ok_or_else(|| {
                 DeError::invalid_value(Unexpected::Str(v), &"comma separated list of acronyms")
-            })
+            })?;
+
+        // osustats doesn't seem to validate mods so we have to do it
+        if mods.contains_intermode(GameModIntermode::Nightcore) {
+            mods.remove_intermode(GameModIntermode::DoubleTime);
+        }
+
+        if mods.contains_intermode(GameModIntermode::Perfect) {
+            mods.remove_intermode(GameModIntermode::SuddenDeath);
+        }
+
+        Ok(mods)
     }
 }
 
@@ -333,7 +326,6 @@ pub struct OsuStatsMap {
     pub title: Box<str>,
     pub creator: Username,
     pub bpm: f32,
-    // pub source: Box<str>,
     #[serde(rename = "diffRating", with = "deser::option_f32_string")]
     pub stars: Option<f32>,
     #[serde(rename = "diffSize", with = "deser::f32_string")]
@@ -432,4 +424,182 @@ pub struct OsuStatsPlayersArgs {
     pub page: usize,
     pub min_rank: u32,
     pub max_rank: u32,
+}
+
+#[derive(Copy, Clone, CommandOption, CreateOption)]
+pub enum OsuStatsBestTimeframe {
+    #[option(name = "Yesterday", value = "yesterday")]
+    Yesterday = 1,
+    #[option(name = "Last Week", value = "week")]
+    LastWeek = 2,
+    #[option(name = "Last Month", value = "month")]
+    LastMonth = 3,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct OsuStatsBestScores {
+    #[with(DateRkyv)]
+    pub start_date: Date,
+    #[with(DateRkyv)]
+    pub end_date: Date,
+    pub scores: Box<[OsuStatsBestScore]>,
+}
+
+impl<'de> DeserializeSeed<'de> for ModeAsSeed<OsuStatsBestScores> {
+    type Value = OsuStatsBestScores;
+
+    fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+        d.deserialize_seq(self)
+    }
+}
+
+impl<'de> Visitor<'de> for ModeAsSeed<OsuStatsBestScores> {
+    type Value = OsuStatsBestScores;
+
+    fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str("a sequence with two entries")
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+        #[derive(Deserialize)]
+        struct OsuStatsBestDates {
+            #[serde(with = "deser::date")]
+            start: Date,
+            #[serde(with = "deser::date")]
+            end: Date,
+        }
+
+        let Some(OsuStatsBestDates { start, end }) = seq.next_element()? else {
+            return Err(DeError::custom(
+                "first entry of sequence must contain start and end date"
+            ));
+        };
+
+        let Some(scores) = seq.next_element_seed(self.cast::<Vec<OsuStatsBestScore>>())? else {
+            return Err(DeError::custom(
+                "second entry of sequence must be list of recentbest scores"
+            ));
+        };
+
+        Ok(OsuStatsBestScores {
+            start_date: start,
+            end_date: end,
+            scores: scores.into_boxed_slice(),
+        })
+    }
+}
+
+impl<'de> DeserializeSeed<'de> for ModeAsSeed<Vec<OsuStatsBestScore>> {
+    type Value = Vec<OsuStatsBestScore>;
+
+    fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+        d.deserialize_seq(self)
+    }
+}
+
+impl<'de> Visitor<'de> for ModeAsSeed<Vec<OsuStatsBestScore>> {
+    type Value = Vec<OsuStatsBestScore>;
+
+    fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str("a sequence of recent best scores")
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+        let mut scores = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+
+        while let Some(score) = seq.next_element_seed(self.cast::<OsuStatsBestScore>())? {
+            scores.push(score);
+        }
+
+        Ok(scores)
+    }
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct OsuStatsBestScore {
+    pub accuracy: f32,
+    pub count_miss: u32,
+    pub mods: GameMods,
+    pub max_combo: u32,
+    #[with(DateTimeRkyv)]
+    pub ended_at: OffsetDateTime,
+    pub position: u32,
+    pub pp: f32,
+    pub grade: Grade,
+    pub score: u32,
+    pub map: OsuStatsBestScoreMap,
+    pub user: OsuStatsBestScoreUser,
+}
+
+impl<'de> DeserializeSeed<'de> for ModeAsSeed<OsuStatsBestScore> {
+    type Value = OsuStatsBestScore;
+
+    fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+        #[derive(Deserialize)]
+        struct OsuStatsBestScoreInner<'a> {
+            #[serde(with = "deser::f32_string")]
+            accuracy: f32,
+            #[serde(rename = "countMiss")]
+            count_miss: u32,
+            #[serde(borrow, rename = "enabledMods")]
+            mods: &'a RawValue,
+            #[serde(rename = "maxCombo")]
+            max_combo: u32,
+            #[serde(rename = "playDate", with = "deser::naive_datetime")]
+            ended_at: OffsetDateTime,
+            position: u32,
+            #[serde(rename = "ppValue")]
+            pp: f32,
+            #[serde(rename = "rank")]
+            grade: Grade,
+            score: u32,
+            #[serde(rename = "beatmap")]
+            map: OsuStatsBestScoreMap,
+            #[serde(rename = "osu_user")]
+            user: OsuStatsBestScoreUser,
+        }
+
+        let score = OsuStatsBestScoreInner::deserialize(d)?;
+
+        let mods = StrDeserializer::new(score.mods.get().trim_matches('"'))
+            .deserialize_str(self.cast::<GameMods>())?;
+
+        let score = OsuStatsBestScore {
+            accuracy: score.accuracy,
+            count_miss: score.count_miss,
+            mods,
+            max_combo: score.max_combo,
+            ended_at: score.ended_at,
+            position: score.position,
+            pp: score.pp,
+            grade: score.grade,
+            score: score.score,
+            map: score.map,
+            user: score.user,
+        };
+
+        Ok(score)
+    }
+}
+
+#[derive(Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct OsuStatsBestScoreMap {
+    #[serde(rename = "beatmapId")]
+    pub map_id: u32,
+    #[serde(rename = "beatmapSetId")]
+    pub mapset_id: u32,
+    pub artist: Box<str>,
+    pub title: Box<str>,
+    pub version: Box<str>,
+    pub creator: Box<str>,
+    #[serde(rename = "maxCombo")]
+    pub max_combo: u32,
+}
+
+#[derive(Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct OsuStatsBestScoreUser {
+    #[serde(rename = "userId")]
+    pub user_id: u32,
+    #[serde(rename = "userName")]
+    pub username: Box<str>,
 }

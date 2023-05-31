@@ -17,7 +17,7 @@ pub use self::{
     most_played::MostPlayedPagination,
     nochoke::NoChokePagination,
     osekai::{MedalCountPagination, MedalRarityPagination},
-    osustats::{OsuStatsPlayersPagination, OsuStatsScoresPagination},
+    osustats::{OsuStatsBestPagination, OsuStatsPlayersPagination, OsuStatsScoresPagination},
     popular::{
         PopularMappersPagination, PopularMapsPagination, PopularMapsetsPagination,
         PopularModsPagination,
