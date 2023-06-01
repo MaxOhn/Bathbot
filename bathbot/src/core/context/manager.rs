@@ -3,7 +3,7 @@ use rosu_v2::prelude::GameMode;
 
 use super::Context;
 use crate::manager::{
-    redis::RedisManager, ApproxManager, GameManager, GuildConfigManager,
+    redis::RedisManager, ApproxManager, BookmarkManager, GameManager, GuildConfigManager,
     HuismetbenenCountryManager, MapManager, OsuMap, OsuTrackingManager, OsuUserManager, PpManager,
     ScoresManager, TwitchManager, UserConfigManager,
 };
@@ -65,5 +65,9 @@ impl Context {
 
     pub fn twitch(&self) -> TwitchManager<'_> {
         TwitchManager::new(&self.clients.psql)
+    }
+
+    pub fn bookmarks(&self) -> BookmarkManager<'_> {
+        BookmarkManager::new(&self.clients.psql)
     }
 }

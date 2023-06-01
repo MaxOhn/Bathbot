@@ -1,6 +1,7 @@
 pub use self::{
     badges::BadgesPagination,
     bg_game::{BackgroundGame, BackgroundGameSetup},
+    bookmarks::BookmarksPagination,
     compare::{CompareMostPlayedPagination, CompareScoresPagination, CompareTopPagination},
     country_top::CountryTopPagination,
     edit_on_timeout::{EditOnTimeout, RecentScoreEdit, TopScoreEdit},
@@ -36,6 +37,7 @@ pub use self::{
 
 mod badges;
 mod bg_game;
+mod bookmarks;
 mod compare;
 mod country_top;
 mod edit_on_timeout;

@@ -89,7 +89,7 @@ impl MapPagination {
         );
 
         #[cfg(not(feature = "server"))]
-        let url = "";
+        let url = "https://www.google.com";
 
         #[cfg(feature = "server")]
         let url = &crate::core::BotConfig::get().server.public_url;

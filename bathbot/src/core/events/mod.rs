@@ -33,7 +33,7 @@ pub enum EventKind {
     Component,
     Modal,
     PrefixCommand,
-    SlashCommand,
+    InteractionCommand,
 }
 
 impl EventKind {
@@ -60,7 +60,7 @@ impl Display for EventKind {
             Self::Component => f.write_str("used component"),
             Self::Modal => f.write_str("used modal"),
             Self::PrefixCommand => f.write_str("used prefix command"),
-            Self::SlashCommand => f.write_str("used slash command"),
+            Self::InteractionCommand => f.write_str("used interaction command"),
         }
     }
 }

@@ -26,11 +26,11 @@ pub trait InteractionCommandExt {
 
     /// Ackownledge the command but don't respond yet.
     ///
-    /// Must use [`ApplicationCommandExt::update`] afterwards!
+    /// Must use [`InteractionCommandExt::update`] afterwards!
     fn defer(&self, ctx: &Context, ephemeral: bool) -> ResponseFuture<EmptyBody>;
 
     /// After having already ackowledged the command either via
-    /// [`ApplicationCommandExt::callback`] or [`ApplicationCommandExt::defer`],
+    /// [`InteractionCommandExt::callback`] or [`InteractionCommandExt::defer`],
     /// use this to update the response.
     fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message>;
 

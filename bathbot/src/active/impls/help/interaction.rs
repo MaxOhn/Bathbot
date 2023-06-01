@@ -5,7 +5,7 @@ use eyre::Result;
 use futures::future::{ready, BoxFuture};
 use twilight_interactions::command::{ApplicationCommandData, CommandOptionExt};
 use twilight_model::{
-    application::command::CommandOptionType,
+    application::command::{Command, CommandOptionType},
     channel::message::{
         component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
         embed::EmbedField,
@@ -17,7 +17,7 @@ use twilight_model::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     core::{
-        commands::slash::{SlashCommand, SlashCommands},
+        commands::interaction::{InteractionCommandKind, InteractionCommands},
         Context,
     },
     util::{interaction::InteractionComponent, Authored},
@@ -54,7 +54,7 @@ impl IActiveMessage for HelpInteractionCommand {
             .description(help)
             .fields(option_fields(options));
 
-        if command.flags.authority() {
+        if command.flags().authority() {
             embed = embed.footer(FooterBuilder::new(AUTHORITY_STATUS));
         }
 
@@ -175,13 +175,13 @@ impl HelpInteractionCommand {
         }
     }
 
-    fn find_command(&self) -> Option<&'static SlashCommand> {
+    fn find_command(&self) -> Option<InteractionCommandKind> {
         let base = self.next_title.split(' ').next()?;
 
-        SlashCommands::get().command(base)
+        InteractionCommands::get().command(base)
     }
 
-    fn command_parts(&self, command: &'static SlashCommand) -> Result<CommandParts> {
+    fn command_parts(&self, command: InteractionCommandKind) -> Result<CommandParts> {
         let mut iter = CommandIter::from(command);
 
         if let CommandIterStatus::DoneOrInvalidName = iter.parse(&self.next_title) {
@@ -247,7 +247,7 @@ fn option_fields(children: Vec<CommandOptionExt>) -> Vec<EmbedField> {
 
 enum EitherCommand {
     Base {
-        command: &'static SlashCommand,
+        command: InteractionCommandKind,
         used: bool,
     },
     Option(Box<CommandOptionExt>),
@@ -263,9 +263,9 @@ enum CommandIterStatus {
     DoneOrInvalidName,
 }
 
-impl From<&'static SlashCommand> for CommandIter {
+impl From<InteractionCommandKind> for CommandIter {
     #[inline]
-    fn from(command: &'static SlashCommand) -> Self {
+    fn from(command: InteractionCommandKind) -> Self {
         Self {
             curr: EitherCommand::Base {
                 command,
@@ -301,11 +301,22 @@ impl CommandIter {
             }
             None => match &mut self.curr {
                 EitherCommand::Base { command, used } => {
-                    let ApplicationCommandData {
-                        name: name_,
-                        options,
-                        ..
-                    } = (command.create)();
+                    let (name_, options) = match command {
+                        InteractionCommandKind::Chat(command) => {
+                            let ApplicationCommandData {
+                                name: name_,
+                                options,
+                                ..
+                            } = (command.create)();
+
+                            (name_, options)
+                        }
+                        InteractionCommandKind::Message(command) => {
+                            let Command { name: name_, .. } = (command.create)();
+
+                            (name_, Vec::new())
+                        }
+                    };
 
                     if *used {
                         options
@@ -352,15 +363,33 @@ struct CommandParts {
     options: Vec<CommandOptionExt>,
 }
 
-impl From<&'static SlashCommand> for CommandParts {
+impl From<InteractionCommandKind> for CommandParts {
     #[inline]
-    fn from(command: &'static SlashCommand) -> Self {
-        let command = (command.create)();
+    fn from(command: InteractionCommandKind) -> Self {
+        match command {
+            InteractionCommandKind::Chat(command) => {
+                let ApplicationCommandData {
+                    help,
+                    description,
+                    options,
+                    ..
+                } = (command.create)();
 
-        Self {
-            help: command.help.unwrap_or(command.description),
-            root: true,
-            options: command.options,
+                Self {
+                    help: help.unwrap_or(description),
+                    root: true,
+                    options,
+                }
+            }
+            InteractionCommandKind::Message(command) => {
+                let Command { description, .. } = (command.create)();
+
+                Self {
+                    help: description,
+                    root: true,
+                    options: Vec::new(),
+                }
+            }
         }
     }
 }

@@ -6,7 +6,7 @@ use once_cell::sync::OnceCell;
 use radix_trie::{iter::Keys, Trie, TrieCommon};
 use twilight_model::application::command::Command;
 
-pub use self::command::SlashCommand;
+pub use self::command::{InteractionCommandKind, MessageCommand, SlashCommand};
 #[cfg(feature = "osutracking")]
 use crate::commands::tracking::*;
 #[cfg(feature = "twitch")]
@@ -15,37 +15,44 @@ use crate::commands::{fun::*, help::*, osu::*, owner::*, songs::*, utility::*};
 
 mod command;
 
-macro_rules! slash_trie {
-    ( $( $( #[$meta:meta] )? $cmd:ident => $fun:ident ,)* ) => {
-        use twilight_interactions::command::CreateCommand;
+macro_rules! interaction_trie {
+    ( $( $( #[$meta:meta] )? $front:ident $( => $back:ident )? ,)* ) => {
+            use twilight_interactions::command::CreateCommand;
 
-        let mut trie = Trie::new();
+            let mut trie = Trie::new();
 
-        $(
-            $( #[$meta] )?
-            trie.insert($cmd::NAME, &$fun);
-        )*
+            $( interaction_trie!(trie, $( #[$meta] )? $front $( => $back)? ) ;)*
 
-        SlashCommands(trie)
-    }
+            InteractionCommands(trie)
+    };
+    ($trie:ident, $( #[$meta:meta] )? $cmd:ident => $fun:ident ) => {
+        $( #[$meta] )?
+        $trie.insert($cmd::NAME, InteractionCommandKind::Chat(&$fun));
+    };
+    ($trie:ident, $( #[$meta:meta] )? $msg_cmd:ident ) => {
+        $( #[$meta] )?
+        $trie.insert($msg_cmd.name, InteractionCommandKind::Message(&$msg_cmd));
+    };
 }
 
-static SLASH_COMMANDS: OnceCell<SlashCommands> = OnceCell::new();
+static INTERACTION_COMMANDS: OnceCell<InteractionCommands> = OnceCell::new();
 
-pub struct SlashCommands(Trie<&'static str, &'static SlashCommand>);
+pub struct InteractionCommands(Trie<&'static str, InteractionCommandKind>);
 
 pub type CommandResult = Pin<Box<dyn Future<Output = Result<()>> + 'static + Send>>;
 
-type CommandKeys<'t> = Copied<Keys<'t, &'static str, &'static SlashCommand>>;
+type CommandKeys<'t> = Copied<Keys<'t, &'static str, InteractionCommandKind>>;
 
-impl SlashCommands {
+impl InteractionCommands {
     pub fn get() -> &'static Self {
-        SLASH_COMMANDS.get_or_init(|| {
-            slash_trie! {
+        INTERACTION_COMMANDS.get_or_init(|| {
+            interaction_trie! {
                 Avatar => AVATAR_SLASH,
                 Attributes => ATTRIBUTES_SLASH,
                 Badges => BADGES_SLASH,
                 Bg => BG_SLASH,
+                Bookmarks => BOOKMARKS_SLASH,
+                BOOKMARK_MAP_MSG,
                 Bws => BWS_SLASH,
                 Card => CARD_SLASH,
                 ClaimName => CLAIMNAME_SLASH,
@@ -112,12 +119,15 @@ impl SlashCommands {
         })
     }
 
-    pub fn command(&self, command: &str) -> Option<&'static SlashCommand> {
+    pub fn command(&self, command: &str) -> Option<InteractionCommandKind> {
         self.0.get(command).copied()
     }
 
     pub fn collect(&self) -> Vec<Command> {
-        self.0.values().map(|c| (c.create)().into()).collect()
+        self.0
+            .values()
+            .map(InteractionCommandKind::create)
+            .collect()
     }
 
     pub fn names(&self) -> CommandKeys<'_> {

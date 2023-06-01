@@ -1,5 +1,6 @@
-pub use self::{map::*, mapset::*, score::*, tracked_user::*, user::*};
+pub use self::{bookmark::*, map::*, mapset::*, score::*, tracked_user::*, user::*};
 
+mod bookmark;
 mod map;
 mod mapset;
 mod score;

@@ -1,3 +1,4 @@
+mod bookmarks;
 mod configs;
 mod games;
 mod osu;

@@ -21,7 +21,7 @@ pub use self::origin::ActiveMessageOriginError;
 use self::{
     builder::ActiveMessagesBuilder,
     impls::{
-        BackgroundGameSetup, BadgesPagination, CompareMostPlayedPagination,
+        BackgroundGameSetup, BadgesPagination, BookmarksPagination, CompareMostPlayedPagination,
         CompareScoresPagination, CompareTopPagination, CountryTopPagination, EditOnTimeout,
         HelpInteractionCommand, HelpPrefixMenu, HigherLowerGame, LeaderboardPagination,
         MapPagination, MapSearchPagination, MatchComparePagination, MedalCountPagination,
@@ -53,6 +53,7 @@ mod pagination;
 pub enum ActiveMessage {
     BackgroundGameSetup,
     BadgesPagination,
+    BookmarksPagination,
     CompareMostPlayedPagination,
     CompareScoresPagination,
     CompareTopPagination,

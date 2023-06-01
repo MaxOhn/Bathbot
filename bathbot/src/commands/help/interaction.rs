@@ -10,11 +10,9 @@ use bathbot_util::{
 };
 use eyre::{ContextCompat, Result};
 use prometheus::core::Collector;
-use twilight_interactions::command::{
-    ApplicationCommandData, AutocompleteValue, CommandModel, CreateCommand,
-};
+use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateCommand};
 use twilight_model::{
-    application::command::{CommandOptionChoice, CommandOptionChoiceValue},
+    application::command::{Command, CommandOptionChoice, CommandOptionChoiceValue},
     channel::message::embed::EmbedField,
 };
 
@@ -22,7 +20,7 @@ use super::failed_message_content;
 use crate::{
     active::{impls::HelpInteractionCommand, ActiveMessages},
     core::{
-        commands::slash::{SlashCommand, SlashCommands},
+        commands::interaction::{InteractionCommandKind, InteractionCommands},
         Context,
     },
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
@@ -51,10 +49,10 @@ pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> R
 
     match args.command {
         AutocompleteValue::None => help_slash_basic(ctx, command).await,
-        AutocompleteValue::Completed(name) => match SlashCommands::get().command(&name) {
+        AutocompleteValue::Completed(name) => match InteractionCommands::get().command(&name) {
             Some(cmd) => help_slash_command(ctx, &mut command, cmd).await,
             None => {
-                let dists: BTreeMap<_, _> = SlashCommands::get()
+                let dists: BTreeMap<_, _> = InteractionCommands::get()
                     .names()
                     .map(|cmd| (levenshtein_distance(&name, cmd).0, cmd))
                     .filter(|(dist, _)| *dist < 5)
@@ -70,7 +68,7 @@ pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> R
             let name = name.cow_to_ascii_lowercase();
             let arg = name.trim();
 
-            let choices = match (arg, SlashCommands::get().descendants(arg)) {
+            let choices = match (arg, InteractionCommands::get().descendants(arg)) {
                 ("", _) | (_, None) => Vec::new(),
                 (_, Some(cmds)) => cmds
                     .map(|cmd| CommandOptionChoice {
@@ -203,9 +201,9 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
 async fn help_slash_command(
     ctx: Arc<Context>,
     command: &mut InteractionCommand,
-    cmd: &'static SlashCommand,
+    cmd: InteractionCommandKind,
 ) -> Result<()> {
-    let ApplicationCommandData { name, .. } = (cmd.create)();
+    let Command { name, .. } = cmd.create();
 
     if name == "owner" {
         let description =

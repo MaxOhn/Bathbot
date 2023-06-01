@@ -6,7 +6,7 @@ use crate::{
     core::{
         commands::{
             checks::{check_authority, check_ratelimit},
-            slash::{SlashCommand, SlashCommands},
+            interaction::{InteractionCommandKind, InteractionCommands, SlashCommand},
         },
         events::{EventKind, ProcessResult},
         BotConfig, Context,
@@ -16,37 +16,49 @@ use crate::{
 
 pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) {
     let name = mem::take(&mut command.data.name);
-    EventKind::SlashCommand.log(&ctx, &command, &name).await;
+    EventKind::InteractionCommand
+        .log(&ctx, &command, &name)
+        .await;
 
-    let slash = match SlashCommands::get().command(&name) {
-        Some(slash) => slash,
-        None => return error!(name, "Unknown slash command"),
+    let Some(cmd) = InteractionCommands::get().command(&name) else {
+        return error!(name, "Unknown interaction command");
     };
 
-    match process_command(ctx, command, slash).await {
-        Ok(ProcessResult::Success) => info!(%name, "Processed slash command"),
-        Ok(reason) => info!(?reason, "Command `/{name}` was not processed"),
-        Err(err) => error!(name, ?err, "Failed to process slash command"),
+    match process_command(ctx, command, cmd).await {
+        Ok(ProcessResult::Success) => info!(%name, "Processed interaction command"),
+        Ok(reason) => info!(?reason, "Interaction command `{name}` was not processed"),
+        Err(err) => error!(name, ?err, "Failed to process interaction command"),
     }
 }
 
 async fn process_command(
     ctx: Arc<Context>,
     command: InteractionCommand,
-    slash: &SlashCommand,
+    cmd: InteractionCommandKind,
 ) -> Result<ProcessResult> {
-    match pre_process_command(&ctx, &command, slash).await? {
-        Some(result) => Ok(result),
-        None => {
-            if slash.flags.defer() {
-                command.defer(&ctx, slash.flags.ephemeral()).await?;
+    match cmd {
+        InteractionCommandKind::Chat(cmd) => {
+            match pre_process_command(&ctx, &command, cmd).await? {
+                Some(result) => return Ok(result),
+                None => {
+                    if cmd.flags.defer() {
+                        command.defer(&ctx, cmd.flags.ephemeral()).await?;
+                    }
+
+                    (cmd.exec)(ctx, command).await?;
+                }
+            }
+        }
+        InteractionCommandKind::Message(cmd) => {
+            if cmd.flags.defer() {
+                command.defer(&ctx, cmd.flags.ephemeral()).await?;
             }
 
-            (slash.exec)(ctx, command).await?;
-
-            Ok(ProcessResult::Success)
+            (cmd.exec)(ctx, command).await?;
         }
     }
+
+    Ok(ProcessResult::Success)
 }
 
 async fn pre_process_command(

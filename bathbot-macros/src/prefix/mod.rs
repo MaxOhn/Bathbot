@@ -69,7 +69,6 @@ pub fn fun(mut fun: CommandFun) -> Result<TokenStream2> {
         }
     };
 
-    let flags = flags.into_tokens();
     let path = quote!(crate::core::commands::prefix::PrefixCommand);
 
     let tokens = quote! {

@@ -149,6 +149,170 @@
     },
     "query": "\nINSERT INTO osu_scores (\n  score_id, user_id, map_id, gamemode, \n  mods, score, maxcombo, grade, count50, \n  count100, count300, countmiss, countgeki, \n  countkatu, perfect, ended_at\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16\n  ) ON CONFLICT (score_id) DO NOTHING"
   },
+  "02fe3a854468f7bd55076081084d0c89a5f5745b0ee8fe20eba752d6fd5d92e6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "insert_date",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "map_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mapset_id",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mapper_id",
+          "ordinal": 3,
+          "type_info": "Int4"
+        },
+        {
+          "name": "map_version",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "seconds_drain",
+          "ordinal": 5,
+          "type_info": "Int4"
+        },
+        {
+          "name": "seconds_total",
+          "ordinal": 6,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_circles",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_sliders",
+          "ordinal": 8,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_spinners",
+          "ordinal": 9,
+          "type_info": "Int4"
+        },
+        {
+          "name": "hp",
+          "ordinal": 10,
+          "type_info": "Float4"
+        },
+        {
+          "name": "cs",
+          "ordinal": 11,
+          "type_info": "Float4"
+        },
+        {
+          "name": "od",
+          "ordinal": 12,
+          "type_info": "Float4"
+        },
+        {
+          "name": "ar",
+          "ordinal": 13,
+          "type_info": "Float4"
+        },
+        {
+          "name": "bpm",
+          "ordinal": 14,
+          "type_info": "Float4"
+        },
+        {
+          "name": "gamemode",
+          "ordinal": 15,
+          "type_info": "Int2"
+        },
+        {
+          "name": "artist",
+          "ordinal": 16,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 17,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "creator",
+          "ordinal": 18,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "creator_id",
+          "ordinal": 19,
+          "type_info": "Int4"
+        },
+        {
+          "name": "rank_status",
+          "ordinal": 20,
+          "type_info": "Int2"
+        },
+        {
+          "name": "ranked_date",
+          "ordinal": 21,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "genre_id",
+          "ordinal": 22,
+          "type_info": "Int2"
+        },
+        {
+          "name": "language_id",
+          "ordinal": 23,
+          "type_info": "Int2"
+        },
+        {
+          "name": "cover",
+          "ordinal": 24,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  bookmarks.insert_date, \n  maps.map_id, \n  maps.mapset_id, \n  maps.user_id AS mapper_id, \n  maps.map_version, \n  maps.seconds_drain, \n  maps.seconds_total, \n  maps.count_circles, \n  maps.count_sliders, \n  maps.count_spinners, \n  maps.hp, \n  maps.cs, \n  maps.od, \n  maps.ar, \n  maps.bpm, \n  maps.gamemode, \n  mapsets.artist, \n  mapsets.title, \n  mapsets.creator, \n  mapsets.user_id AS creator_id, \n  mapsets.rank_status, \n  mapsets.ranked_date, \n  mapsets.genre_id, \n  mapsets.language_id, \n  mapsets.cover \nFROM \n  (\n    SELECT \n      map_id, \n      insert_date \n    FROM \n      user_map_bookmarks \n    WHERE \n      user_id = $1\n  ) AS bookmarks \n  JOIN (\n    SELECT \n      map_id, \n      mapset_id, \n      user_id, \n      map_version, \n      seconds_drain, \n      seconds_total, \n      count_circles, \n      count_sliders, \n      count_spinners, \n      hp, \n      cs, \n      od, \n      ar, \n      bpm, \n      gamemode \n    FROM \n      osu_maps\n  ) AS maps ON bookmarks.map_id = maps.map_id \n  JOIN (\n    SELECT \n      mapset_id, \n      artist, \n      title, \n      creator, \n      user_id, \n      rank_status, \n      ranked_date, \n      genre_id, \n      language_id, \n      cover \n    FROM \n      osu_mapsets\n  ) AS mapsets ON maps.mapset_id = mapsets.mapset_id \nORDER BY \n  bookmarks.insert_date DESC"
+  },
   "04813deb7752ed349d4e5b7748cf5b40c83ccbd2f0ee490ef6c8cc63d8aacd88": {
     "describe": {
       "columns": [
@@ -526,6 +690,19 @@
       }
     },
     "query": "\nSELECT \n  map_id, \n  map_version AS version\nFROM \n  (\n    SELECT \n      map_id, \n      mapset_id, \n      map_version \n    FROM \n      osu_maps\n  ) AS maps \n  JOIN (\n    SELECT \n      mapset_id \n    FROM \n      osu_maps \n    WHERE \n      map_id = $1\n  ) AS mapset ON maps.mapset_id = mapset.mapset_id"
+  },
+  "222389f3bfc98a2e36d29b44792b23d2bae7007aff9a70b3161c4c72ef85c34e": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO user_map_bookmarks (user_id, map_id) \nVALUES \n  ($1, $2) ON CONFLICT (user_id, map_id) DO NOTHING"
   },
   "26b20d4e1aae8f234e4a5295d5c892ba739303b90c57992685af8a5d565885bf": {
     "describe": {
@@ -1833,6 +2010,19 @@
       }
     },
     "query": "\nINSERT INTO osu_map_difficulty_catch (\n  map_id, mods, stars, ar, n_fruits, n_droplets, \n  n_tiny_droplets\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (map_id, mods) DO \nUPDATE \nSET \n  stars = $3, \n  ar = $4, \n  n_fruits = $5, \n  n_droplets = $6, \n  n_tiny_droplets = $7"
+  },
+  "97fc6f5b147aa68eeb73d4ee5768d1ffcc3bacf38b714c231efdfafa5607a126": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  user_map_bookmarks \nWHERE \n  user_id = $1 \n  AND map_id = $2"
   },
   "9956ebc2544c0db0b81478c8ec7be5e3020e2db5bd6d0fd03469e63b89a52f6c": {
     "describe": {
