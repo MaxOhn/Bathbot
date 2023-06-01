@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use bathbot_macros::SlashCommand;
 use bathbot_psql::model::osu::MapBookmark;
@@ -29,6 +29,20 @@ pub struct Bookmarks {
 pub enum BookmarksSort {
     #[option(name = "Bookmark date", value = "bookmark_date")]
     BookmarkDate,
+    #[option(name = "Artist", value = "artist")]
+    Artist,
+    #[option(name = "Title", value = "title")]
+    Title,
+    #[option(name = "AR", value = "ar")]
+    Ar,
+    #[option(name = "CS", value = "cs")]
+    Cs,
+    #[option(name = "HP", value = "hp")]
+    Hp,
+    #[option(name = "OD", value = "od")]
+    Od,
+    #[option(name = "Length", value = "len")]
+    Length,
 }
 
 impl Default for BookmarksSort {
@@ -71,7 +85,38 @@ pub async fn slash_bookmarks(ctx: Arc<Context>, mut command: InteractionCommand)
 fn process_bookmarks(bookmarks: &mut [MapBookmark], args: Bookmarks) {
     match args.sort.unwrap_or_default() {
         BookmarksSort::BookmarkDate => {
-            bookmarks.sort_unstable_by_key(|bookmark| Reverse(bookmark.insert_date))
+            // Sorted by database
         }
+        BookmarksSort::Artist => bookmarks.sort_unstable_by(|a, b| {
+            a.artist
+                .cmp(&b.artist)
+                .then_with(|| b.insert_date.cmp(&a.insert_date))
+        }),
+        BookmarksSort::Title => bookmarks.sort_unstable_by(|a, b| {
+            a.title
+                .cmp(&b.title)
+                .then_with(|| b.insert_date.cmp(&a.insert_date))
+        }),
+        BookmarksSort::Ar => bookmarks.sort_unstable_by(|a, b| {
+            a.ar.total_cmp(&b.ar)
+                .then_with(|| b.insert_date.cmp(&a.insert_date))
+        }),
+        BookmarksSort::Cs => bookmarks.sort_unstable_by(|a, b| {
+            a.cs.total_cmp(&b.cs)
+                .then_with(|| b.insert_date.cmp(&a.insert_date))
+        }),
+        BookmarksSort::Hp => bookmarks.sort_unstable_by(|a, b| {
+            a.hp.total_cmp(&b.hp)
+                .then_with(|| b.insert_date.cmp(&a.insert_date))
+        }),
+        BookmarksSort::Od => bookmarks.sort_unstable_by(|a, b| {
+            a.od.total_cmp(&b.od)
+                .then_with(|| b.insert_date.cmp(&a.insert_date))
+        }),
+        BookmarksSort::Length => bookmarks.sort_unstable_by(|a, b| {
+            a.seconds_drain
+                .cmp(&b.seconds_drain)
+                .then_with(|| b.insert_date.cmp(&a.insert_date))
+        }),
     }
 }
