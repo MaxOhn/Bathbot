@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, fmt::Write, sync::Arc};
 
 use bathbot_macros::SlashCommand;
 use bathbot_psql::model::osu::MapBookmark;
@@ -81,7 +81,14 @@ pub async fn slash_bookmarks(ctx: Arc<Context>, mut command: InteractionCommand)
         }
     };
 
-    process_bookmarks(&mut bookmarks, args);
+    let criteria = args
+        .query
+        .as_deref()
+        .map(FilterCriteria::<BookmarkCriteria<'_>>::new);
+
+    process_bookmarks(&mut bookmarks, &args, criteria.as_ref());
+    let content = msg_content(&args, criteria.as_ref());
+    let filtered = criteria.is_some() || args.mode.is_some();
 
     let origin = MessageOrigin::new(command.guild_id(), command.channel_id());
 
@@ -89,7 +96,9 @@ pub async fn slash_bookmarks(ctx: Arc<Context>, mut command: InteractionCommand)
         .bookmarks(bookmarks)
         .origin(origin)
         .cached_entries(HashMap::default())
+        .filtered_maps(Some(filtered))
         .defer_next(false)
+        .content(content)
         .msg_owner(owner)
         .build();
 
@@ -99,14 +108,16 @@ pub async fn slash_bookmarks(ctx: Arc<Context>, mut command: InteractionCommand)
         .await
 }
 
-fn process_bookmarks(bookmarks: &mut Vec<MapBookmark>, args: Bookmarks) {
+fn process_bookmarks(
+    bookmarks: &mut Vec<MapBookmark>,
+    args: &Bookmarks,
+    criteria: Option<&FilterCriteria<BookmarkCriteria<'_>>>,
+) {
     if let Some(mode) = args.mode.map(GameMode::from) {
         bookmarks.retain(|bookmark| bookmark.mode == mode);
     }
 
-    if let Some(ref criteria) = args.query {
-        let criteria = FilterCriteria::<BookmarkCriteria<'_>>::new(criteria);
-
+    if let Some(criteria) = criteria {
         let inner = criteria.inner();
 
         bookmarks.retain(|bookmark| {
@@ -163,12 +174,14 @@ fn process_bookmarks(bookmarks: &mut Vec<MapBookmark>, args: Bookmarks) {
         }
         BookmarksSort::Artist => bookmarks.sort_unstable_by(|a, b| {
             a.artist
-                .cmp(&b.artist)
+                .cow_to_ascii_lowercase()
+                .cmp(&b.artist.cow_to_ascii_lowercase())
                 .then_with(|| b.insert_date.cmp(&a.insert_date))
         }),
         BookmarksSort::Title => bookmarks.sort_unstable_by(|a, b| {
             a.title
-                .cmp(&b.title)
+                .cow_to_ascii_lowercase()
+                .cmp(&b.title.cow_to_ascii_lowercase())
                 .then_with(|| b.insert_date.cmp(&a.insert_date))
         }),
         BookmarksSort::Ar => bookmarks.sort_unstable_by(|a, b| {
@@ -192,5 +205,144 @@ fn process_bookmarks(bookmarks: &mut Vec<MapBookmark>, args: Bookmarks) {
                 .cmp(&b.seconds_drain)
                 .then_with(|| b.insert_date.cmp(&a.insert_date))
         }),
+    }
+}
+
+fn msg_content(
+    args: &Bookmarks,
+    criteria: Option<&FilterCriteria<BookmarkCriteria<'_>>>,
+) -> String {
+    let mut content = String::new();
+
+    if let Some(mode) = args.mode.map(GameMode::from) {
+        let _ = write!(
+            content,
+            "`Mode: {}`",
+            match mode {
+                GameMode::Osu => "osu!",
+                GameMode::Taiko => "Taiko",
+                GameMode::Catch => "Catch",
+                GameMode::Mania => "Mania",
+            }
+        );
+    }
+
+    if let Some(criteria) = criteria {
+        let BookmarkCriteria {
+            ar,
+            cs,
+            hp,
+            od,
+            length,
+            bpm,
+            insert_date,
+            ranked_date,
+            artist,
+            title,
+            version,
+            language,
+            genre,
+        } = criteria.inner();
+
+        let mut only_search_text = true;
+
+        if !ar.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`AR: {ar:?}`");
+            only_search_text = false;
+        }
+
+        if !cs.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`CS: {cs:?}`");
+            only_search_text = false;
+        }
+
+        if !hp.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`HP: {hp:?}`");
+            only_search_text = false;
+        }
+
+        if !od.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`OD: {od:?}`");
+            only_search_text = false;
+        }
+
+        if !length.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`Length: {length:?}`");
+            only_search_text = false;
+        }
+
+        if !bpm.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`BPM: {bpm:?}`");
+            only_search_text = false;
+        }
+
+        if !artist.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`Artist: {artist:?}`");
+            only_search_text = false;
+        }
+
+        if !title.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`Title: {title:?}`");
+            only_search_text = false;
+        }
+
+        if !version.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`Version: {version:?}`");
+            only_search_text = false;
+        }
+
+        if !insert_date.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`Date: {insert_date:?}`");
+            only_search_text = false;
+        }
+
+        if !ranked_date.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`Ranked: {ranked_date:?}`");
+            only_search_text = false;
+        }
+
+        if !language.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`Language: {language:?}`");
+            only_search_text = false;
+        }
+
+        if !genre.is_empty() {
+            separate_content(&mut content);
+            let _ = write!(content, "`Genre: {genre:?}`");
+            only_search_text = false;
+        }
+
+        if criteria.has_search_terms() {
+            separate_content(&mut content);
+
+            if only_search_text {
+                content.push_str("`Query: ");
+            } else {
+                content.push_str("`Remaining query: ");
+            }
+
+            content.push_str(criteria.search_text());
+            content.push('`');
+        }
+    }
+
+    content
+}
+
+fn separate_content(content: &mut String) {
+    if !content.is_empty() {
+        content.push_str(" • ");
     }
 }

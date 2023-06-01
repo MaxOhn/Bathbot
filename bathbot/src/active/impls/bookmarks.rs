@@ -44,8 +44,9 @@ pub struct BookmarksPagination {
     origin: MessageOrigin,
     cached_entries: CachedBookmarkEntries,
     defer_next: bool,
+    filtered_maps: Option<bool>,
     msg_owner: Id<UserMarker>,
-    content: Option<String>,
+    content: String,
     pages: Pages,
 }
 
@@ -72,11 +73,21 @@ impl BookmarksPagination {
         let defer = mem::replace(&mut self.defer_next, false);
 
         if self.bookmarks.is_empty() {
-            let description = "Looks like you haven't bookmarked any maps. \n\
-            You can do so by:\n\
-            1. Rightclicking a bot message that contains a single map\n\
-            2. Click on `Apps`\n\
-            3. Click on `Bookmark map`";
+            let mut description = if self.filtered_maps.unwrap_or(false) {
+                "No bookmarked maps match your criteria. \n\
+                You can bookmark more maps by:\n"
+                    .to_owned()
+            } else {
+                "Looks like you haven't bookmarked any maps. \n\
+                You can do so by:\n"
+                    .to_owned()
+            };
+
+            description.push_str(
+                "1. Rightclicking a bot message that contains a single map\n\
+                2. Click on `Apps`\n\
+                3. Click on `Bookmark map`",
+            );
 
             let embed = EmbedBuilder::new().description(description);
 
@@ -248,9 +259,7 @@ impl BookmarksPagination {
             .title(title)
             .url(format!("{OSU_BASE}b/{}", map.map_id));
 
-        let content = self.content.clone().unwrap_or_default();
-
-        Ok(BuildPage::new(embed, defer).content(content))
+        Ok(BuildPage::new(embed, defer).content(self.content.clone()))
     }
 
     async fn handle_remove(

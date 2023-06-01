@@ -133,7 +133,7 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
         .origin(origin)
         .cached_entries(HashMap::default())
         .defer_next(false)
-        .content(Some(content))
+        .content(content)
         .msg_owner(user_id)
         .build();
 
