@@ -1,4 +1,3 @@
-use prefix::CommandFun;
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
@@ -7,6 +6,7 @@ mod embed_data;
 mod flags;
 mod has_mods;
 mod has_name;
+mod message;
 mod pagination;
 mod prefix;
 mod slash;
@@ -15,7 +15,7 @@ mod util;
 /// Create a static SlashCommand `{uppercased_name}_SLASH`.
 ///
 /// Make sure there is a function in scope with the signature
-/// `async fn slash_{lowercased_name}(Arc<Context>, Box<ApplicationCommand>) ->
+/// `async fn slash_{lowercased_name}(Arc<Context>, InteractionCommand) ->
 /// Result<()>`
 #[proc_macro_derive(SlashCommand, attributes(bucket, flags))]
 pub fn slash_command(input: TokenStream) -> TokenStream {
@@ -114,9 +114,27 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
         return err.into_compile_error().into();
     }
 
-    let fun = parse_macro_input!(input as CommandFun);
+    let fun = parse_macro_input!(input as prefix::CommandFun);
 
     match prefix::fun(fun) {
+        Ok(result) => result.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+/// Create a static MessageCommand `{uppercased_name}_MSG`.
+///
+/// The function that's denoted with this attribute must have the signature
+/// `async fn(Arc<Context>, InteractionCommand) -> Result<()>`.
+///
+/// Must specify `name = "..."` and optionally `dm_permission = ...` and
+/// `flags(...)`.
+#[proc_macro_attribute]
+pub fn msg_command(attr: TokenStream, input: TokenStream) -> TokenStream {
+    let attrs = parse_macro_input!(attr as message::CommandAttrs);
+    let fun = parse_macro_input!(input as message::CommandFun);
+
+    match message::impl_cmd(attrs, fun) {
         Ok(result) => result.into(),
         Err(err) => err.to_compile_error().into(),
     }

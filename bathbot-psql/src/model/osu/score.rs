@@ -7,7 +7,10 @@ use eyre::Result;
 use rosu_v2::prelude::{GameMode, Grade, RankStatus, ScoreStatistics};
 use time::OffsetDateTime;
 
-use crate::Database;
+use crate::{
+    util::{parse_grade, parse_mode, parse_status},
+    Database,
+};
 
 type Maps<S> = HashMap<u32, DbScoreBeatmap, S>;
 type Mapsets<S> = HashMap<u32, DbScoreBeatmapset, S>;
@@ -339,44 +342,6 @@ pub(crate) struct DbScoreMania {
     pub ended_at: OffsetDateTime,
     pub pp: Option<f32>,
     pub stars: Option<f32>,
-}
-
-fn parse_mode(mode: i16) -> GameMode {
-    match mode {
-        0 => GameMode::Osu,
-        1 => GameMode::Taiko,
-        2 => GameMode::Catch,
-        3 => GameMode::Mania,
-        _ => unreachable!(),
-    }
-}
-
-fn parse_grade(grade: i16) -> Grade {
-    match grade {
-        0 => Grade::F,
-        1 => Grade::D,
-        2 => Grade::C,
-        3 => Grade::B,
-        4 => Grade::A,
-        5 => Grade::S,
-        6 => Grade::SH,
-        7 => Grade::X,
-        8 => Grade::XH,
-        _ => unreachable!(),
-    }
-}
-
-fn parse_status(status: i16) -> RankStatus {
-    match status {
-        -2 => RankStatus::Graveyard,
-        -1 => RankStatus::WIP,
-        0 => RankStatus::Pending,
-        1 => RankStatus::Ranked,
-        2 => RankStatus::Approved,
-        3 => RankStatus::Qualified,
-        4 => RankStatus::Loved,
-        _ => unreachable!(),
-    }
 }
 
 impl From<DbScoreAny> for DbScore {

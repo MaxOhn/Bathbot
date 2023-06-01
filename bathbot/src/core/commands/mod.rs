@@ -4,5 +4,5 @@ mod flags;
 mod origin;
 
 pub mod checks;
+pub mod interaction;
 pub mod prefix;
-pub mod slash;

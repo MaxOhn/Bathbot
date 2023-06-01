@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     Attribute, Ident, Result, Token,
@@ -15,14 +15,6 @@ impl Flags {
             tokens: quote!(#bits),
         }
     }
-
-    pub fn into_tokens(self) -> TokenStream {
-        let bits = self.tokens;
-
-        quote! {
-            unsafe { crate::core::commands::CommandFlags::from_bits_unchecked(#bits) }
-        }
-    }
 }
 
 pub fn parse_flags(attrs: &[Attribute]) -> Result<Flags> {
@@ -32,6 +24,7 @@ pub fn parse_flags(attrs: &[Attribute]) -> Result<Flags> {
     }
 }
 
+// TODO: cleanup
 impl Parse for Flags {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut tokens = quote!(0);
@@ -61,6 +54,16 @@ impl Parse for Flags {
         }
 
         Ok(Self { tokens })
+    }
+}
+
+impl ToTokens for Flags {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let bits = &self.tokens;
+
+        tokens.extend(
+            quote!(unsafe { crate::core::commands::CommandFlags::from_bits_unchecked(#bits) }),
+        );
     }
 }
 

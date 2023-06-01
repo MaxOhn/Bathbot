@@ -1,4 +1,5 @@
 pub use self::{
+    bookmarks::BookmarkManager,
     games::GameManager,
     guild_config::GuildConfigManager,
     huismetbenen_country::HuismetbenenCountryManager,
@@ -14,6 +15,7 @@ pub use self::{
 
 pub mod redis;
 
+mod bookmarks;
 mod games;
 mod guild_config;
 mod huismetbenen_country;

@@ -73,7 +73,7 @@ pub use self::link::*;
 #[cfg(feature = "matchlive")]
 pub use self::match_live::*;
 pub use self::{
-    attributes::*, avatar::*, badges::*, bws::*, cards::*, claim_name::*, compare::*,
+    attributes::*, avatar::*, badges::*, bookmarks::*, bws::*, cards::*, claim_name::*, compare::*,
     country_top::*, fix::*, graphs::*, leaderboard::*, map::*, map_search::*, mapper::*,
     match_compare::*, match_costs::*, medals::*, most_played::*, nochoke::*, osekai::*,
     osustats::*, pinned::*, popular::*, pp::*, profile::*, rank::*, ranking::*, ratios::*,
@@ -84,6 +84,7 @@ use crate::{core::commands::CommandOrigin, Context};
 mod attributes;
 mod avatar;
 mod badges;
+mod bookmarks;
 mod bws;
 mod cards;
 mod claim_name;

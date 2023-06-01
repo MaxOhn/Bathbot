@@ -46,7 +46,7 @@ pub trait IdentExt: Sized {
 
 impl IdentExt for Ident {
     fn to_uppercase(&self) -> Self {
-        format_ident!("{}", self.to_string().to_uppercase())
+        format_ident!("{}", self.to_string().to_uppercase(), span = self.span())
     }
 }
 

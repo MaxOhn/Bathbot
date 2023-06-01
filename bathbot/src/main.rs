@@ -27,7 +27,9 @@ use tokio::{
 };
 use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
 
-use crate::core::{commands::slash::SlashCommands, event_loop, logging, BotConfig, Context};
+use crate::core::{
+    commands::interaction::InteractionCommands, event_loop, logging, BotConfig, Context,
+};
 
 fn main() {
     let runtime = RuntimeBuilder::new_multi_thread()
@@ -67,7 +69,7 @@ async fn async_main() -> Result<()> {
     let ctx = Arc::new(ctx);
 
     // Initialize commands
-    let slash_commands = SlashCommands::get().collect();
+    let slash_commands = InteractionCommands::get().collect();
     info!("Setting {} slash commands...", slash_commands.len());
     let interaction_client = ctx.interaction();
 

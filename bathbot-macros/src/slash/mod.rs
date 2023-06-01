@@ -16,8 +16,8 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
     let slash_cmd = format_ident!("slash_{}", name_str.to_lowercase());
     let exec = format_ident!("{slash_cmd}__");
     let bucket = parse_bucket(&input.attrs)?;
-    let flags = parse_flags(&input.attrs)?.into_tokens();
-    let path = quote!(crate::core::commands::slash::SlashCommand);
+    let flags = parse_flags(&input.attrs)?;
+    let path = quote!(crate::core::commands::interaction::SlashCommand);
 
     let tokens = quote! {
         pub static #static_name: #path = #path {
@@ -27,10 +27,10 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
             flags: #flags,
         };
 
-        pub fn #exec(
+        fn #exec(
             ctx: std::sync::Arc<crate::core::Context>,
             command: crate::util::interaction::InteractionCommand,
-        ) -> crate::core::commands::slash::CommandResult {
+        ) -> crate::core::commands::interaction::CommandResult {
             Box::pin(#slash_cmd(ctx, command))
         }
     };
