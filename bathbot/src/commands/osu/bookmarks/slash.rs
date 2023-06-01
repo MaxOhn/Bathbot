@@ -4,10 +4,12 @@ use bathbot_macros::SlashCommand;
 use bathbot_psql::model::osu::MapBookmark;
 use bathbot_util::{constants::GENERAL_ISSUE, CowUtils, MessageOrigin};
 use eyre::Result;
+use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
     active::{impls::BookmarksPagination, ActiveMessages},
+    commands::GameModeOption,
     core::Context,
     util::{
         interaction::InteractionCommand,
@@ -36,6 +38,8 @@ pub struct Bookmarks {
         Example: `od>=9 od<9.5 len>180 difficulty=insane bookmarked<2020-12-31 genre=electronic`"
     )]
     query: Option<String>,
+    #[command(desc = "Filter out maps that don't belong to a gamemode")]
+    mode: Option<GameModeOption>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption)]
@@ -96,6 +100,10 @@ pub async fn slash_bookmarks(ctx: Arc<Context>, mut command: InteractionCommand)
 }
 
 fn process_bookmarks(bookmarks: &mut Vec<MapBookmark>, args: Bookmarks) {
+    if let Some(mode) = args.mode.map(GameMode::from) {
+        bookmarks.retain(|bookmark| bookmark.mode == mode);
+    }
+
     if let Some(ref criteria) = args.query {
         let criteria = FilterCriteria::<BookmarkCriteria<'_>>::new(criteria);
 
