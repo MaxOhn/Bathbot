@@ -61,7 +61,7 @@ impl BookmarksPagination {
         };
 
         let map_fut = ctx.osu_map().pp_map(map.map_id);
-        let creator_fut = creator_name(&ctx, map);
+        let creator_fut = creator_name(ctx, map);
         let (map_res, gd_creator) = tokio::join!(map_fut, creator_fut);
         let pp_map = map_res.wrap_err("Failed to get pp map")?;
 

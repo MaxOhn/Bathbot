@@ -16,7 +16,7 @@ pub struct CommandAttrs {
 
 impl Parse for CommandAttrs {
     fn parse(input: ParseStream) -> Result<Self> {
-        let metas = Punctuated::<Meta, Comma>::parse_separated_nonempty(&input)?;
+        let metas = Punctuated::<Meta, Comma>::parse_separated_nonempty(input)?;
 
         let mut attr_name = None;
         let mut dm_permission = None;
