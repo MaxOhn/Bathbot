@@ -1,6 +1,7 @@
+use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated, spanned::Spanned, token::Comma, Attribute, Error, Ident, LitStr, Meta,
-    MetaList, Result as SynResult,
+    MetaList, Result as SynResult, Result,
 };
 
 use crate::{
@@ -10,22 +11,22 @@ use crate::{
 };
 
 pub struct Options {
-    pub aliases: Vec<String>,
-    pub desc: Option<String>,
-    pub help: AsOption<String>,
-    pub usage: AsOption<String>,
-    pub examples: Vec<String>,
+    pub aliases: Box<[Box<str>]>,
+    pub desc: Option<Box<str>>,
+    pub help: AsOption<Box<str>>,
+    pub usage: AsOption<Box<str>>,
+    pub examples: Box<[Box<str>]>,
     pub bucket: AsOption<Bucket>,
     pub flags: Flags,
     pub group: Option<Ident>,
 }
 
 pub fn parse_options(attrs: &[Attribute]) -> SynResult<Options> {
-    let mut aliases = Vec::new();
+    let mut aliases = None;
     let mut desc = None;
     let mut help = None;
     let mut usage = None;
-    let mut examples = Vec::new();
+    let mut examples = None;
     let mut group = None;
 
     for attr in attrs {
@@ -43,18 +44,12 @@ pub fn parse_options(attrs: &[Attribute]) -> SynResult<Options> {
         };
 
         match name.as_deref() {
-            Some("alias") | Some("aliases") => {
-                aliases = parse_all(meta_list).map_err(|m| Error::new(span, m))?
-            }
-            Some("example") | Some("examples") => {
-                examples = parse_all(meta_list).map_err(|m| Error::new(span, m))?
-            }
-            Some("desc") => desc = parse_one(meta_list).map_err(|m| Error::new(span, m))?,
-            Some("help") => help = parse_one(meta_list).map_err(|m| Error::new(span, m))?,
-            Some("usage") => usage = parse_one(meta_list).map_err(|m| Error::new(span, m))?,
-            Some("group") => {
-                group = Some(parse_meta_ident(meta_list).map_err(|m| Error::new(span, m))?)
-            }
+            Some("alias") | Some("aliases") => aliases = Some(parse_all(meta_list)?),
+            Some("example") | Some("examples") => examples = Some(parse_all(meta_list)?),
+            Some("desc") => desc = parse_one(meta_list, span)?,
+            Some("help") => help = parse_one(meta_list, span)?,
+            Some("usage") => usage = parse_one(meta_list, span)?,
+            Some("group") => group = Some(meta_list.parse_args()?),
             Some("flags" | "bucket") => {}
             _ => {
                 let message = r#"expected "alias", "desc", "help", "usage", "example", "flags", "bucket", or "group""#;
@@ -65,38 +60,33 @@ pub fn parse_options(attrs: &[Attribute]) -> SynResult<Options> {
     }
 
     Ok(Options {
-        aliases,
+        aliases: aliases.unwrap_or_default(),
         desc,
         help: AsOption(help),
         usage: AsOption(usage),
-        examples,
+        examples: examples.unwrap_or_default(),
         bucket: parse_bucket(attrs)?,
         flags: parse_flags(attrs)?,
         group,
     })
 }
 
-fn parse_all(list: &MetaList) -> Result<Vec<String>, &'static str> {
+fn parse_all(list: &MetaList) -> Result<Box<[Box<str>]>> {
     let res = list
-        .parse_args_with(Punctuated::<LitStr, Comma>::parse_separated_nonempty)
-        .map_err(|_| "expected list of literals")?
+        .parse_args_with(Punctuated::<LitStr, Comma>::parse_separated_nonempty)?
         .into_iter()
-        .map(|lit| lit.value())
+        .map(|lit| lit.value().into_boxed_str())
         .collect();
 
     Ok(res)
 }
 
-fn parse_one(list: &MetaList) -> Result<Option<String>, &'static str> {
-    let mut list = parse_all(list).map_err(|_| "expected string literal")?;
+fn parse_one(list: &MetaList, err_span: Span) -> Result<Option<Box<str>>> {
+    let list = parse_all(list)?;
 
     if list.len() > 1 {
-        return Err("expected a single string literal");
+        return Err(Error::new(err_span, "expected a single string literal"));
     }
 
-    Ok(list.pop())
-}
-
-fn parse_meta_ident(list: &MetaList) -> Result<Ident, &'static str> {
-    list.parse_args().map_err(|_| "expected identifier")
+    Ok(list.into_vec().pop())
 }

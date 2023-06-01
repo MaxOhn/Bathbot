@@ -12,9 +12,9 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
 
     let name = input.ident;
     let name_str = name.to_string();
-    let static_name = format_ident!("{}_SLASH", name_str.to_uppercase());
-    let slash_cmd = format_ident!("slash_{}", name_str.to_lowercase());
-    let exec = format_ident!("{slash_cmd}__");
+    let static_name = format_ident!("{}_SLASH", name_str.to_uppercase(), span = name.span());
+    let slash_cmd = format_ident!("slash_{}", name_str.to_lowercase(), span = name.span());
+    let exec = format_ident!("{slash_cmd}__", span = name.span());
     let bucket = parse_bucket(&input.attrs)?;
     let flags = parse_flags(&input.attrs)?;
     let path = quote!(crate::core::commands::interaction::SlashCommand);

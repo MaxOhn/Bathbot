@@ -33,11 +33,6 @@ pub fn impl_cmd(attrs: CommandAttrs, fun: CommandFun) -> Result<TokenStream> {
     let create = format_ident!("create_{cmd_name}__");
     let exec = format_ident!("exec_{cmd_name}__");
 
-    let dm_permission = match dm_permission {
-        Some(dm_permission) => quote!(Some(#dm_permission)),
-        None => quote!(None),
-    };
-
     let path = quote!(crate::core::commands::interaction::MessageCommand);
 
     let tokens = quote! {

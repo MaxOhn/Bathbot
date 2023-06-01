@@ -137,8 +137,8 @@ impl TryFrom<FnArg> for Argument {
 
     fn try_from(arg: FnArg) -> Result<Self> {
         match arg {
-            FnArg::Receiver(_) => Err(Error::new(
-                arg.span(),
+            FnArg::Receiver(_) => Err(Error::new_spanned(
+                arg,
                 "expected arguments of the form `identifier: type`",
             )),
             FnArg::Typed(typed) => {
@@ -155,8 +155,8 @@ impl TryFrom<FnArg> for Argument {
                         name: ArgumentName::Wild(wild.underscore_token),
                         ty,
                     }),
-                    _ => Err(Error::new(
-                        pat.span(),
+                    _ => Err(Error::new_spanned(
+                        pat,
                         "expected either _ or identifier before `:`",
                     )),
                 }

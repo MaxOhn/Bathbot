@@ -40,9 +40,8 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
             return false;
         }
 
-        let path = match field.ty {
-            Type::Path(ref path) => path,
-            _ => return false,
+        let Type::Path(ref path) = field.ty else {
+            return false;
         };
 
         let segment = match path.path.segments.last() {
@@ -50,14 +49,12 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
             _ => return false,
         };
 
-        let args = match segment.arguments {
-            PathArguments::AngleBracketed(ref args) => args,
-            _ => return false,
+        let PathArguments::AngleBracketed(ref args) = segment.arguments else {
+            return false;
         };
 
-        let path = match args.args.first() {
-            Some(GenericArgument::Type(Type::Path(path))) => path,
-            _ => return false,
+        let Some(GenericArgument::Type(Type::Path(path))) = args.args.first() else {
+            return false;
         };
 
         matches!(path.path.segments.first(), Some(seg) if seg.ident == "String" || seg.ident == "Cow")
