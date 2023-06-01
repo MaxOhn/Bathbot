@@ -2,14 +2,18 @@ use std::{collections::HashMap, sync::Arc};
 
 use bathbot_macros::SlashCommand;
 use bathbot_psql::model::osu::MapBookmark;
-use bathbot_util::{constants::GENERAL_ISSUE, MessageOrigin};
+use bathbot_util::{constants::GENERAL_ISSUE, CowUtils, MessageOrigin};
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
     active::{impls::BookmarksPagination, ActiveMessages},
     core::Context,
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
+    util::{
+        interaction::InteractionCommand,
+        query::{BookmarkCriteria, FilterCriteria},
+        Authored, InteractionCommandExt,
+    },
 };
 
 #[derive(CreateCommand, CommandModel, SlashCommand)]
@@ -23,6 +27,14 @@ use crate::{
 pub struct Bookmarks {
     #[command(desc = "Choose how the maps should be ordered")]
     sort: Option<BookmarksSort>,
+    #[command(
+        desc = "Specify a search query containing artist, AR, BPM, language, ...",
+        help = "Filter out maps similarly as you filter maps in osu! itself.\n\
+        You can specify the artist, difficulty, title, language, genre or limit values for \
+        ar, cs, hp, od, bpm, length, bookmarked, or rankeddate.\n\
+        Example: `od>=9 od<9.5 len>180 difficulty=insane bookmarked<2020-12-31 genre=electronic`"
+    )]
+    query: Option<String>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption)]
@@ -82,7 +94,60 @@ pub async fn slash_bookmarks(ctx: Arc<Context>, mut command: InteractionCommand)
         .await
 }
 
-fn process_bookmarks(bookmarks: &mut [MapBookmark], args: Bookmarks) {
+fn process_bookmarks(bookmarks: &mut Vec<MapBookmark>, args: Bookmarks) {
+    if let Some(ref criteria) = args.query {
+        let criteria = FilterCriteria::<BookmarkCriteria<'_>>::new(criteria);
+
+        let inner = criteria.inner();
+
+        bookmarks.retain(|bookmark| {
+            let mut matches = true;
+
+            matches &= inner.ar.contains(bookmark.ar);
+            matches &= inner.cs.contains(bookmark.cs);
+            matches &= inner.hp.contains(bookmark.hp);
+            matches &= inner.od.contains(bookmark.od);
+            matches &= inner.length.contains(bookmark.seconds_drain as f32);
+            matches &= inner.bpm.contains(bookmark.bpm);
+
+            matches &= inner.insert_date.contains(bookmark.insert_date.date());
+            matches &= bookmark.ranked_date.map_or(false, |datetime| {
+                inner.ranked_date.contains(datetime.date())
+            });
+
+            let version = bookmark.version.cow_to_ascii_lowercase();
+            matches &= inner.version.matches(&version);
+
+            let artist = bookmark.artist.cow_to_ascii_lowercase();
+            matches &= inner.artist.matches(&artist);
+
+            let title = bookmark.title.cow_to_ascii_lowercase();
+            matches &= inner.title.matches(&title);
+
+            let language = format!("{:?}", bookmark.language).to_lowercase();
+            matches &= inner.language.matches(&language);
+
+            let genre = format!("{:?}", bookmark.genre).to_lowercase();
+            matches &= inner.genre.matches(&genre);
+
+            if matches && criteria.has_search_terms() {
+                let terms = [
+                    artist.as_ref(),
+                    title.as_ref(),
+                    version.as_ref(),
+                    language.as_str(),
+                    genre.as_str(),
+                ];
+
+                matches &= criteria
+                    .search_terms()
+                    .all(|term| terms.iter().any(|searchable| searchable.contains(term)))
+            }
+
+            matches
+        });
+    }
+
     match args.sort.unwrap_or_default() {
         BookmarksSort::BookmarkDate => {
             // Sorted by database

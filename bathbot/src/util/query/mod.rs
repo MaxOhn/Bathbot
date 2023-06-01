@@ -1,3 +1,4 @@
+mod bookmark_criteria;
 mod filter;
 mod operator;
 mod optional;
@@ -6,7 +7,8 @@ mod scores_criteria;
 mod searchable;
 
 pub use self::{
-    filter::*, regular_criteria::RegularCriteria, scores_criteria::ScoresCriteria, searchable::*,
+    bookmark_criteria::BookmarkCriteria, filter::*, regular_criteria::RegularCriteria,
+    scores_criteria::ScoresCriteria, searchable::*,
 };
 use self::{operator::Operator, optional::OptionalRange};
 

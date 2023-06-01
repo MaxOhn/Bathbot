@@ -328,8 +328,8 @@ fn process_scores(
             matches &= inner.od.contains(attrs.od as f32);
 
             let clock_rate = attrs.clock_rate as f32;
-            inner.length.contains(map.seconds_drain as f32 / clock_rate);
-            inner.bpm.contains(map.bpm * clock_rate);
+            matches &= inner.length.contains(map.seconds_drain as f32 / clock_rate);
+            matches &= inner.bpm.contains(map.bpm * clock_rate);
 
             let version = map.version.cow_to_ascii_lowercase();
             matches &= inner.version.matches(&version);
@@ -548,7 +548,8 @@ fn process_scores(
             scores.retain(|score, _, _, _| score.pp.is_some());
 
             scores.scores_mut().sort_unstable_by(|a, b| {
-                b.pp.unwrap().total_cmp(&a.pp.unwrap())
+                b.pp.unwrap()
+                    .total_cmp(&a.pp.unwrap())
                     .then_with(|| a.score_id.cmp(&b.score_id))
             });
         }
