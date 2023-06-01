@@ -20,9 +20,10 @@ use crate::{
 #[command(
     name = "bookmarks",
     desc = "List all your bookmarked maps",
-    help = "List all your bookmarked maps.\n\
-    You can bookmark maps by rightclicking a bot message containing a map, \
-    \"Apps\", and then click on \"Bookmark map\"."
+    help = "List all your bookmarked maps. You can bookmark maps by:\n\
+    1. Rightclicking a bot message that contains a single map\n\
+    2. Click on `Apps`\n\
+    3. Click on `Bookmark map`."
 )]
 pub struct Bookmarks {
     #[command(desc = "Choose how the maps should be ordered")]
