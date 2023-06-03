@@ -250,9 +250,9 @@ pub struct OsekaiMedal {
 }
 
 pub static MEDAL_GROUPS: [MedalGroup; 8] = [
-    MedalGroup::Skill,
-    MedalGroup::Dedication,
+    MedalGroup::SkillDedication,
     MedalGroup::HushHush,
+    MedalGroup::HushHushExpert,
     MedalGroup::BeatmapPacks,
     MedalGroup::BeatmapChallengePacks,
     MedalGroup::SeasonalSpotlights,
@@ -275,12 +275,12 @@ pub static MEDAL_GROUPS: [MedalGroup; 8] = [
     Serialize,
 )]
 pub enum MedalGroup {
-    #[option(name = "Skill", value = "skill")]
-    Skill,
-    #[option(name = "Dedication", value = "dedication")]
-    Dedication,
+    #[option(name = "Skill & Dedication", value = "skill_dedication")]
+    SkillDedication,
     #[option(name = "Hush-Hush", value = "hush_hush")]
     HushHush,
+    #[option(name = "Hush-Hush (Expert)", value = "hush_hush_expert")]
+    HushHushExpert,
     #[option(name = "Beatmap Packs", value = "map_packs")]
     BeatmapPacks,
     #[option(name = "Beatmap Challenge Packs", value = "map_challenge_packs")]
@@ -298,9 +298,9 @@ impl FromStr for MedalGroup {
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let group = match s {
-            "Skill" => MedalGroup::Skill,
-            "Dedication" => MedalGroup::Dedication,
+            "Skill & Dedication" => MedalGroup::SkillDedication,
             "Hush-Hush" => MedalGroup::HushHush,
+            "Hush-Hush (Expert)" => MedalGroup::HushHushExpert,
             "Beatmap Packs" => MedalGroup::BeatmapPacks,
             "Beatmap Challenge Packs" => MedalGroup::BeatmapChallengePacks,
             "Seasonal Spotlights" => MedalGroup::SeasonalSpotlights,
@@ -320,14 +320,14 @@ impl MedalGroup {
 
     pub fn as_str(self) -> &'static str {
         match self {
-            MedalGroup::Skill => "Skill",
-            MedalGroup::Dedication => "Dedication",
-            MedalGroup::HushHush => "Hush-Hush",
-            MedalGroup::BeatmapPacks => "Beatmap Packs",
-            MedalGroup::BeatmapChallengePacks => "Beatmap Challenge Packs",
-            MedalGroup::SeasonalSpotlights => "Seasonal Spotlights",
-            MedalGroup::BeatmapSpotlights => "Beatmap Spotlights",
-            MedalGroup::ModIntroduction => "Mod Introduction",
+            Self::SkillDedication => "Skill & Dedication",
+            Self::HushHush => "Hush-Hush",
+            Self::HushHushExpert => "Hush-Hush (Expert)",
+            Self::BeatmapPacks => "Beatmap Packs",
+            Self::BeatmapChallengePacks => "Beatmap Challenge Packs",
+            Self::SeasonalSpotlights => "Seasonal Spotlights",
+            Self::BeatmapSpotlights => "Beatmap Spotlights",
+            Self::ModIntroduction => "Mod Introduction",
         }
     }
 }
@@ -490,14 +490,14 @@ pub struct ValueWrapper<T>(T);
 impl<T: Debug> Debug for ValueWrapper<T> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{:?}", self.0)
+        <T as Debug>::fmt(&self.0, f)
     }
 }
 
 impl<T: Display> Display for ValueWrapper<T> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        Display::fmt(&self.0, f)
+        <T as Display>::fmt(&self.0, f)
     }
 }
 

@@ -18,7 +18,7 @@ pub struct MedalStatsEmbed {
     fields: Vec<EmbedField>,
     footer: FooterBuilder,
     image: String,
-    thumbnail: String,
+    // thumbnail: String,
 }
 
 impl MedalStatsEmbed {
@@ -142,7 +142,7 @@ impl MedalStatsEmbed {
             author,
             fields,
             footer,
-            thumbnail: user.avatar_url().to_owned(),
+            // thumbnail: user.avatar_url().to_owned(),
         }
     }
 }

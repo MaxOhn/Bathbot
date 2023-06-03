@@ -111,12 +111,12 @@ pub enum MedalCommonFilter {
     None,
     #[option(name = "Unique", value = "unique")]
     Unique,
-    #[option(name = "Skill", value = "skill")]
-    Skill,
-    #[option(name = "Dedication", value = "dedication")]
-    Dedication,
+    #[option(name = "Skill & Dedication", value = "skill_dedication")]
+    SkillDedication,
     #[option(name = "Hush-Hush", value = "hush_hush")]
     HushHush,
+    #[option(name = "Hush-Hush (Expert)", value = "hush_hush_expert")]
+    HushHushExpert,
     #[option(name = "Beatmap Packs", value = "map_packs")]
     BeatmapPacks,
     #[option(name = "Beatmap Challenge Packs", value = "map_challenge_packs")]
