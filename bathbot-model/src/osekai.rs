@@ -197,38 +197,11 @@ pub struct OsekaiComment {
     pub vote_sum: u32,
 }
 
-pub struct OsekaiMedals(pub Vec<OsekaiMedal>);
-
-impl<'de> Deserialize<'de> for OsekaiMedals {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        struct OsekaiGroupingVisitor;
-
-        impl<'de> Visitor<'de> for OsekaiGroupingVisitor {
-            type Value = Vec<OsekaiMedal>;
-
-            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-                f.write_str("an object containing fields mapping to a list of osekai medals")
-            }
-
-            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                let mut medals = Vec::with_capacity(256);
-
-                while let Some((_, mut medals_)) = map.next_entry::<&str, Vec<OsekaiMedal>>()? {
-                    medals.append(&mut medals_);
-                }
-
-                Ok(medals)
-            }
-        }
-
-        Ok(Self(d.deserialize_map(OsekaiGroupingVisitor)?))
-    }
-}
-
 #[derive(Archive, Clone, Debug, Deserialize, RkyvDeserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct OsekaiMedal {
     #[serde(rename = "MedalID")]
+    #[serde(with = "deser::u32_string")]
     pub medal_id: u32,
     pub name: Box<str>,
     #[serde(rename = "Link")]
@@ -243,16 +216,18 @@ pub struct OsekaiMedal {
     #[serde(deserialize_with = "medal_mods")]
     pub mods: Option<Box<str>>,
     #[serde(rename = "ModeOrder")]
-    pub mode_order: usize,
-    pub ordering: usize,
-    #[serde(rename = "Rarity")]
+    #[serde(with = "deser::u32_string")]
+    pub mode_order: u32,
+    #[serde(with = "deser::u32_string")]
+    pub ordering: u32,
+    #[serde(rename = "Rarity", with = "deser::f32_string")]
     pub rarity: f32,
 }
 
 pub static MEDAL_GROUPS: [MedalGroup; 8] = [
-    MedalGroup::Skill,
-    MedalGroup::Dedication,
+    MedalGroup::SkillDedication,
     MedalGroup::HushHush,
+    MedalGroup::HushHushExpert,
     MedalGroup::BeatmapPacks,
     MedalGroup::BeatmapChallengePacks,
     MedalGroup::SeasonalSpotlights,
@@ -275,12 +250,12 @@ pub static MEDAL_GROUPS: [MedalGroup; 8] = [
     Serialize,
 )]
 pub enum MedalGroup {
-    #[option(name = "Skill", value = "skill")]
-    Skill,
-    #[option(name = "Dedication", value = "dedication")]
-    Dedication,
+    #[option(name = "Skill & Dedication", value = "skill_dedication")]
+    SkillDedication,
     #[option(name = "Hush-Hush", value = "hush_hush")]
     HushHush,
+    #[option(name = "Hush-Hush (Expert)", value = "hush_hush_expert")]
+    HushHushExpert,
     #[option(name = "Beatmap Packs", value = "map_packs")]
     BeatmapPacks,
     #[option(name = "Beatmap Challenge Packs", value = "map_challenge_packs")]
@@ -298,9 +273,9 @@ impl FromStr for MedalGroup {
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let group = match s {
-            "Skill" => MedalGroup::Skill,
-            "Dedication" => MedalGroup::Dedication,
+            "Skill & Dedication" => MedalGroup::SkillDedication,
             "Hush-Hush" => MedalGroup::HushHush,
+            "Hush-Hush (Expert)" => MedalGroup::HushHushExpert,
             "Beatmap Packs" => MedalGroup::BeatmapPacks,
             "Beatmap Challenge Packs" => MedalGroup::BeatmapChallengePacks,
             "Seasonal Spotlights" => MedalGroup::SeasonalSpotlights,
@@ -320,14 +295,14 @@ impl MedalGroup {
 
     pub fn as_str(self) -> &'static str {
         match self {
-            MedalGroup::Skill => "Skill",
-            MedalGroup::Dedication => "Dedication",
-            MedalGroup::HushHush => "Hush-Hush",
-            MedalGroup::BeatmapPacks => "Beatmap Packs",
-            MedalGroup::BeatmapChallengePacks => "Beatmap Challenge Packs",
-            MedalGroup::SeasonalSpotlights => "Seasonal Spotlights",
-            MedalGroup::BeatmapSpotlights => "Beatmap Spotlights",
-            MedalGroup::ModIntroduction => "Mod Introduction",
+            Self::SkillDedication => "Skill & Dedication",
+            Self::HushHush => "Hush-Hush",
+            Self::HushHushExpert => "Hush-Hush (Expert)",
+            Self::BeatmapPacks => "Beatmap Packs",
+            Self::BeatmapChallengePacks => "Beatmap Challenge Packs",
+            Self::SeasonalSpotlights => "Seasonal Spotlights",
+            Self::BeatmapSpotlights => "Beatmap Spotlights",
+            Self::ModIntroduction => "Mod Introduction",
         }
     }
 }
@@ -490,14 +465,14 @@ pub struct ValueWrapper<T>(T);
 impl<T: Debug> Debug for ValueWrapper<T> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{:?}", self.0)
+        <T as Debug>::fmt(&self.0, f)
     }
 }
 
 impl<T: Display> Display for ValueWrapper<T> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        Display::fmt(&self.0, f)
+        <T as Display>::fmt(&self.0, f)
     }
 }
 

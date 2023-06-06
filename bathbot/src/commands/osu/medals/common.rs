@@ -214,9 +214,9 @@ pub(super) async fn common(
         }
         Some(other) => {
             let group = match other {
-                MedalCommonFilter::Skill => MedalGroup::Skill,
-                MedalCommonFilter::Dedication => MedalGroup::Dedication,
+                MedalCommonFilter::SkillDedication => MedalGroup::SkillDedication,
                 MedalCommonFilter::HushHush => MedalGroup::HushHush,
+                MedalCommonFilter::HushHushExpert => MedalGroup::HushHushExpert,
                 MedalCommonFilter::BeatmapPacks => MedalGroup::BeatmapPacks,
                 MedalCommonFilter::BeatmapChallengePacks => MedalGroup::BeatmapChallengePacks,
                 MedalCommonFilter::SeasonalSpotlights => MedalGroup::SeasonalSpotlights,

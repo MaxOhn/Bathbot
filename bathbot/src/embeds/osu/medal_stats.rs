@@ -18,7 +18,6 @@ pub struct MedalStatsEmbed {
     fields: Vec<EmbedField>,
     footer: FooterBuilder,
     image: String,
-    thumbnail: String,
 }
 
 impl MedalStatsEmbed {
@@ -98,16 +97,18 @@ impl MedalStatsEmbed {
                 }
             }
 
+            // Adjust the order a little to improve formatting
+            let mut groups = MEDAL_GROUPS;
+            groups.swap(0, 1);
+            groups.swap(1, 2);
+
             // Add to fields
-            MEDAL_GROUPS
-                .iter()
-                .map(|group| group.as_str())
-                .for_each(|group| {
-                    if let Some((total, owned)) = counts.get(group) {
-                        let value = format!("{owned} / {total}");
-                        fields![fields { group.to_string(), value, true }];
-                    }
-                });
+            groups.iter().map(|group| group.as_str()).for_each(|group| {
+                if let Some((total, owned)) = counts.get(group) {
+                    let value = format!("{owned} / {total}");
+                    fields![fields { group.to_string(), value, true }];
+                }
+            });
         }
 
         let (country_code, username, user_id) = match user {
@@ -142,7 +143,6 @@ impl MedalStatsEmbed {
             author,
             fields,
             footer,
-            thumbnail: user.avatar_url().to_owned(),
         }
     }
 }
