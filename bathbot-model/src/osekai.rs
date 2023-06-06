@@ -197,38 +197,11 @@ pub struct OsekaiComment {
     pub vote_sum: u32,
 }
 
-pub struct OsekaiMedals(pub Vec<OsekaiMedal>);
-
-impl<'de> Deserialize<'de> for OsekaiMedals {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        struct OsekaiGroupingVisitor;
-
-        impl<'de> Visitor<'de> for OsekaiGroupingVisitor {
-            type Value = Vec<OsekaiMedal>;
-
-            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-                f.write_str("an object containing fields mapping to a list of osekai medals")
-            }
-
-            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                let mut medals = Vec::with_capacity(256);
-
-                while let Some((_, mut medals_)) = map.next_entry::<&str, Vec<OsekaiMedal>>()? {
-                    medals.append(&mut medals_);
-                }
-
-                Ok(medals)
-            }
-        }
-
-        Ok(Self(d.deserialize_map(OsekaiGroupingVisitor)?))
-    }
-}
-
 #[derive(Archive, Clone, Debug, Deserialize, RkyvDeserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct OsekaiMedal {
     #[serde(rename = "MedalID")]
+    #[serde(with = "deser::u32_string")]
     pub medal_id: u32,
     pub name: Box<str>,
     #[serde(rename = "Link")]
@@ -243,9 +216,11 @@ pub struct OsekaiMedal {
     #[serde(deserialize_with = "medal_mods")]
     pub mods: Option<Box<str>>,
     #[serde(rename = "ModeOrder")]
-    pub mode_order: usize,
-    pub ordering: usize,
-    #[serde(rename = "Rarity")]
+    #[serde(with = "deser::u32_string")]
+    pub mode_order: u32,
+    #[serde(with = "deser::u32_string")]
+    pub ordering: u32,
+    #[serde(rename = "Rarity", with = "deser::f32_string")]
     pub rarity: f32,
 }
 

@@ -2,7 +2,7 @@ use std::{collections::HashSet, fmt::Write, hash::BuildHasher, time::Duration};
 
 use bathbot_model::{
     ModeAsSeed, OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments, OsekaiMap,
-    OsekaiMaps, OsekaiMedal, OsekaiMedals, OsekaiRanking, OsekaiRankingEntries, OsuStatsBestScores,
+    OsekaiMaps, OsekaiMedal, OsekaiRanking, OsekaiRankingEntries, OsuStatsBestScores,
     OsuStatsBestTimeframe, OsuStatsParams, OsuStatsPlayer, OsuStatsPlayersArgs, OsuStatsScoresRaw,
     OsuTrackerCountryDetails, OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats,
     RespektiveUser, RespektiveUsers, ScraperScore, ScraperScores, SnipeCountries,
@@ -185,13 +185,11 @@ impl Client {
             .make_multipart_post_request(url, Site::Osekai, form)
             .await?;
 
-        let medals: OsekaiMedals = serde_json::from_slice(&bytes).wrap_err_with(|| {
+        serde_json::from_slice(&bytes).wrap_err_with(|| {
             let body = String::from_utf8_lossy(&bytes);
 
-            format!("failed to deserialize osekai medals: {body}")
-        })?;
-
-        Ok(medals.0)
+            format!("Failed to deserialize osekai medals: {body}")
+        })
     }
 
     pub async fn get_osekai_beatmaps(&self, medal_name: &str) -> Result<Vec<OsekaiMap>> {
