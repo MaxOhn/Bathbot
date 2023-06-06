@@ -33,7 +33,7 @@ jobs:
         run: SQLX_OFFLINE=TRUE cargo build --release --features full,offline
 
       - name: Deploy
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.SCP_HOST }}
           username: ${{ secrets.SCP_USERNAME }}
