@@ -10,7 +10,7 @@ bathbot-util = { path = "../bathbot-util" }
 bytes = { version = "1.0" }
 eyre = { version = "0.6" }
 http = { version = "0.2" }
-hyper = { version = "0.14", default-features = false, features = ["server"] }
+hyper = { version = "0.14", default-features = false }
 hyper-rustls = { version = "0.23", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
 prometheus = { version = "0.13" }
