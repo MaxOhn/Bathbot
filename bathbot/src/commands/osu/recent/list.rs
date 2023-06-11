@@ -135,7 +135,7 @@ async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[alias("rlp", "recentlistpasses")]
+#[alias("rlp", "recentlistpasses", "rpl")]
 #[group(Osu)]
 async fn prefix_recentlistpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(None, args) {
