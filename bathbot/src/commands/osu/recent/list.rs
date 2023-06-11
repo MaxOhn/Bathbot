@@ -135,7 +135,7 @@ async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[alias("rlp", "recentlistpasses")]
+#[alias("rlp", "recentlistpasses", "rpl")]
 #[group(Osu)]
 async fn prefix_recentlistpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(None, args) {
@@ -161,7 +161,7 @@ async fn prefix_recentlistpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>)
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[alias("rlpm", "recentlistpassesmania")]
+#[alias("rlpm", "recentlistpassesmania", "rplm")]
 #[group(Mania)]
 async fn prefix_recentlistpassmania(
     ctx: Arc<Context>,
@@ -192,7 +192,7 @@ async fn prefix_recentlistpassmania(
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[alias("rlpt", "recentlistpassestaiko")]
+#[alias("rlpt", "recentlistpassestaiko", "rplt")]
 #[group(Taiko)]
 async fn prefix_recentlistpasstaiko(
     ctx: Arc<Context>,
@@ -227,7 +227,8 @@ async fn prefix_recentlistpasstaiko(
     "rlpc",
     "recentlistpasscatch",
     "recentlistpassesctb",
-    "recentlistpassescatch"
+    "recentlistpassescatch",
+    "rplc"
 )]
 #[group(Catch)]
 async fn prefix_recentlistpassctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
