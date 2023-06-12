@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     cmp::Ordering,
     fmt::{Debug, Display, Formatter, Result as FmtResult},
     marker::PhantomData,
@@ -211,7 +212,7 @@ pub struct OsekaiMedal {
     pub restriction: Option<GameMode>,
     pub grouping: MedalGroup,
     #[with(Niche)]
-    pub solution: Option<Box<str>>,
+    solution: Option<Box<str>>,
     #[with(Niche)]
     #[serde(deserialize_with = "medal_mods")]
     pub mods: Option<Box<str>>,
@@ -325,6 +326,55 @@ impl<'de> Deserialize<'de> for MedalGroup {
 }
 
 impl OsekaiMedal {
+    /// Returns the solution of the medal, if available.
+    ///
+    /// All content inbetween brackets (`<>`) is removed.
+    pub fn solution(&self) -> Option<Cow<'_, str>> {
+        let solution = self.solution.as_deref()?;
+
+        let mut res = Cow::<'_, str>::default();
+        let mut stack = Vec::new();
+        let mut brackets = Vec::new();
+
+        struct Bracket {
+            open: usize,
+            close: usize,
+        }
+
+        for (i, c) in solution.char_indices() {
+            match c {
+                '<' => stack.push(i),
+                '>' => {
+                    if let Some(open) = stack.pop() {
+                        brackets.push(Bracket { open, close: i });
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let mut last_close = 0;
+
+        if !brackets.is_empty() {
+            brackets.sort_unstable_by_key(|bracket| bracket.open);
+
+            for Bracket { open, close } in brackets {
+                if close < last_close {
+                    continue;
+                }
+
+                // SAFETY: Indices are guaranteed to be within bounds
+                res += unsafe { solution.get_unchecked(last_close..open) };
+                last_close = close + 1;
+            }
+        }
+
+        // SAFETY: Index is guaranteed to be within bounds
+        res += unsafe { solution.get_unchecked(last_close..) };
+
+        Some(res)
+    }
+
     fn grouping_order(&self) -> u32 {
         self.grouping.order()
     }

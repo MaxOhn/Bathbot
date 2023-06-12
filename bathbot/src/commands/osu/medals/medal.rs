@@ -268,10 +268,8 @@ impl MedalEmbed {
 
         fields![fields { "Description", medal.description.as_ref().to_owned(), false }];
 
-        if let Some(solution) = medal.solution.as_ref().filter(|s| !s.is_empty()) {
-            let solution = solution.cow_replace("<br>", "").into_owned();
-
-            fields![fields { "Solution", solution, false }];
+        if let Some(solution) = medal.solution().filter(|s| !s.is_empty()) {
+            fields![fields { "Solution", solution.into_owned(), false }];
         }
 
         let mode_mods = match (medal.restriction, medal.mods.as_deref()) {
