@@ -275,7 +275,7 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
 
     let embed_data = FixScoreEmbed::new(&entry, mods);
     let builder = embed_data.build().into();
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

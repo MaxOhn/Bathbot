@@ -43,6 +43,7 @@ use crate::tracking::OnlineTwitchStreams;
 use crate::{
     active::{impls::BackgroundGame, ActiveMessages},
     core::BotConfig,
+    tracking::Ordr,
 };
 
 mod games;
@@ -84,6 +85,10 @@ impl Context {
     /// Returns the custom client
     pub fn client(&self) -> &BathbotClient {
         &self.clients.custom
+    }
+
+    pub fn ordr(&self) -> &Ordr {
+        &self.clients.ordr
     }
 
     #[cfg(feature = "osutracking")]
@@ -154,7 +159,8 @@ impl Context {
             .await
             .wrap_err("Failed to create custom client")?;
 
-        let clients = Clients::new(psql, osu, custom_client);
+        let ordr = Arc::new(Ordr::new().await?);
+        let clients = Clients::new(psql, osu, custom_client, ordr);
 
         let shards = discord_gateway(config, &http, resume_data)
             .await
@@ -258,11 +264,17 @@ struct Clients {
     custom: BathbotClient,
     osu: Osu,
     psql: Database,
+    ordr: Arc<Ordr>,
 }
 
 impl Clients {
-    fn new(psql: Database, osu: Osu, custom: BathbotClient) -> Self {
-        Self { psql, osu, custom }
+    fn new(psql: Database, osu: Osu, custom: BathbotClient, ordr: Arc<Ordr>) -> Self {
+        Self {
+            psql,
+            osu,
+            custom,
+            ordr,
+        }
     }
 }
 

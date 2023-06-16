@@ -1,5 +1,11 @@
-use std::{collections::HashSet, fmt::Write, hash::BuildHasher, time::Duration};
+use std::{
+    collections::HashSet,
+    fmt::{Formatter, Result as FmtResult, Write},
+    hash::BuildHasher,
+    time::Duration,
+};
 
+use base64::{engine::general_purpose::STANDARD, Engine};
 use bathbot_model::{
     ModeAsSeed, OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments, OsekaiMap,
     OsekaiMaps, OsekaiMedal, OsekaiRanking, OsekaiRankingEntries, OsuStatsBestScores,
@@ -19,7 +25,10 @@ use eyre::{Report, Result, WrapErr};
 use http::{header::USER_AGENT, Method, Request, Response};
 use hyper::Body;
 use rosu_v2::prelude::{mods, GameModIntermode, GameMode, GameModsIntermode};
-use serde::de::DeserializeSeed;
+use serde::{
+    de::{DeserializeSeed, Error as DeError, Visitor},
+    Deserialize, Deserializer,
+};
 use time::{format_description::FormatItem, OffsetDateTime};
 use tokio::time::timeout;
 
@@ -614,5 +623,46 @@ impl Client {
         let url = format!("{OSU_BASE}osu/{map_id}");
 
         self.make_get_request(&url, Site::OsuMapFile).await
+    }
+
+    pub async fn get_raw_osu_replay(&self, key: &str, score_id: u64) -> Result<Option<Box<[u8]>>> {
+        #[derive(Deserialize)]
+        struct RawReplayBody {
+            #[serde(rename = "content", deserialize_with = "decode_base64")]
+            decoded: Option<Box<[u8]>>,
+        }
+
+        fn decode_base64<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Box<[u8]>>, D::Error> {
+            struct RawReplayVisitor;
+
+            impl<'de> Visitor<'de> for RawReplayVisitor {
+                type Value = Box<[u8]>;
+
+                fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+                    f.write_str("a base64 encoded string")
+                }
+
+                fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
+                    STANDARD
+                        .decode(v)
+                        .map(Vec::into_boxed_slice)
+                        .map_err(|e| DeError::custom(format!("Failed to decode base64: {e}")))
+                }
+            }
+
+            d.deserialize_str(RawReplayVisitor).map(Some)
+        }
+
+        let url = format!("https://osu.ppy.sh/api/get_replay?k={key}&s={score_id}");
+
+        let bytes = self.make_get_request(url, Site::OsuReplay).await?;
+
+        let RawReplayBody { decoded } = serde_json::from_slice(&bytes).wrap_err_with(|| {
+            let body = String::from_utf8_lossy(&bytes);
+
+            format!("Failed to deserialize replay body: {body}")
+        })?;
+
+        Ok(decoded)
     }
 }

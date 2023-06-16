@@ -189,14 +189,13 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
 
     let embed = EmbedBuilder::new()
         .author(user.author_builder())
-        .image(attachment("card.png"))
-        .build();
+        .image(attachment("card.png"));
 
     let builder = MessageBuilder::new()
         .attachment("card.png", bytes)
         .embed(embed);
 
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

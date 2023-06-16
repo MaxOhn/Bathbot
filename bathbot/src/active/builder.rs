@@ -80,7 +80,7 @@ impl ActiveMessagesBuilder {
         let orig: ActiveMessageOrigin<'_> = orig.into();
 
         let response_raw = if start_by_update.unwrap_or(false) {
-            orig.create_message(&ctx, &builder).await?
+            orig.create_message(&ctx, builder).await?
         } else {
             orig.callback(&ctx, builder).await?
         };

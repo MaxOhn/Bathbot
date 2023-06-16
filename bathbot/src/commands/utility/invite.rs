@@ -32,8 +32,7 @@ async fn invite(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let embed = EmbedBuilder::new()
         .description(INVITE_LINK)
         .footer(FooterBuilder::new("The initial prefix will be <"))
-        .title("Invite me to your server!")
-        .build();
+        .title("Invite me to your server!");
 
     let builder = MessageBuilder::new().content(BATHBOT_WORKSHOP).embed(embed);
     orig.callback(&ctx, builder).await?;

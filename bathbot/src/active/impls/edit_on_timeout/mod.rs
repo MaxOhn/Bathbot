@@ -69,7 +69,7 @@ impl IActiveMessage for EditOnTimeout {
                     builder = builder.content(content.as_ref());
                 }
 
-                match (msg, channel).update(ctx, &builder, None) {
+                match (msg, channel).update(ctx, builder, None) {
                     Some(update_fut) => {
                         let fut = async {
                             update_fut
@@ -206,7 +206,7 @@ impl EditOnTimeoutKind {
                 Some(_) => {
                     let builder = MessageBuilder::new().components(Vec::new());
 
-                    match (msg, channel).update(ctx, &builder, None) {
+                    match (msg, channel).update(ctx, builder, None) {
                         Some(update_fut) => {
                             update_fut
                                 .await

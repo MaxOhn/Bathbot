@@ -162,7 +162,7 @@ pub(super) async fn player_sniped(
         builder = builder.attachment("sniped_graph.png", bytes);
     }
 
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

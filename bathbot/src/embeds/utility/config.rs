@@ -4,10 +4,7 @@ use ::time::UtcOffset;
 use bathbot_psql::model::configs::{ListSize, MinimizedPp, OsuUsername, ScoreSize, UserConfig};
 use bathbot_util::{AuthorBuilder, EmbedBuilder, FooterBuilder};
 use rosu_v2::prelude::GameMode;
-use twilight_model::{
-    channel::message::embed::{Embed, EmbedField},
-    user::User,
-};
+use twilight_model::{channel::message::embed::EmbedField, user::User};
 
 use crate::embeds::EmbedData;
 
@@ -157,7 +154,7 @@ pub(super) fn create_field<T: Eq>(
 
 impl EmbedData for ConfigEmbed {
     #[inline]
-    fn build(self) -> Embed {
+    fn build(self) -> EmbedBuilder {
         let mut builder = EmbedBuilder::new()
             .author(self.author)
             .fields(self.fields)
@@ -167,6 +164,6 @@ impl EmbedData for ConfigEmbed {
             builder = builder.footer(footer);
         }
 
-        builder.build()
+        builder
     }
 }

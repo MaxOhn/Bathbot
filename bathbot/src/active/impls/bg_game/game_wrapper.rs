@@ -58,7 +58,7 @@ impl BackgroundGame {
                     .content("Here's the next one:")
                     .attachment("bg_img.png", mem::take(&mut img));
 
-                if let Err(err) = channel.create_message(&ctx, &builder, None).await {
+                if let Err(err) = channel.create_message(&ctx, builder, None).await {
                     warn!(?err, "Failed to send initial bg game msg");
                 }
 

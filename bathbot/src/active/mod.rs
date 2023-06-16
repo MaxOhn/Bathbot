@@ -30,9 +30,9 @@ use self::{
         OsuStatsBestPagination, OsuStatsPlayersPagination, OsuStatsScoresPagination,
         PopularMappersPagination, PopularMapsPagination, PopularMapsetsPagination,
         PopularModsPagination, ProfileMenu, RankingCountriesPagination, RankingPagination,
-        RecentListPagination, ScoresMapPagination, ScoresServerPagination, ScoresUserPagination,
-        SimulateComponents, SkinsPagination, SnipeCountryListPagination, SnipeDifferencePagination,
-        SnipePlayerListPagination, TopIfPagination, TopPagination,
+        RecentListPagination, RenderSettingsActive, ScoresMapPagination, ScoresServerPagination,
+        ScoresUserPagination, SimulateComponents, SkinsPagination, SnipeCountryListPagination,
+        SnipeDifferencePagination, SnipePlayerListPagination, TopIfPagination, TopPagination,
     },
 };
 use crate::{
@@ -85,6 +85,7 @@ pub enum ActiveMessage {
     RankingPagination,
     RankingCountriesPagination,
     RecentListPagination,
+    RenderSettingsActive,
     ScoresMapPagination,
     ScoresServerPagination,
     ScoresUserPagination,
@@ -151,7 +152,7 @@ impl ActiveMessages {
                     }
 
                     if build.defer {
-                        if let Some(fut) = component.update(&ctx, &builder) {
+                        if let Some(fut) = component.update(&ctx, builder) {
                             if let Err(err) = fut.await {
                                 return error!(
                                     name = %component.data.custom_id,
@@ -225,7 +226,7 @@ impl ActiveMessages {
                 }
 
                 if build.defer {
-                    if let Some(fut) = modal.update(&ctx, &builder) {
+                    if let Some(fut) = modal.update(&ctx, builder) {
                         if let Err(err) = fut.await {
                             return error!(
                                 name = %modal.data.custom_id,
@@ -312,7 +313,7 @@ pub trait IActiveMessage {
     ) -> BoxFuture<'a, Result<()>> {
         let builder = MessageBuilder::new().components(Vec::new());
 
-        match (msg, channel).update(ctx, &builder, None) {
+        match (msg, channel).update(ctx, builder, None) {
             Some(update_fut) => {
                 let fut = async {
                     update_fut

@@ -57,7 +57,7 @@ impl CommandOrigin<'_> {
     pub async fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> Result<()> {
         match self {
             Self::Message { msg, permissions } => msg
-                .create_message(ctx, &builder, *permissions)
+                .create_message(ctx, builder, *permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to create message to callback"),
@@ -79,7 +79,7 @@ impl CommandOrigin<'_> {
     ) -> Result<Response<Message>> {
         match self {
             Self::Message { msg, permissions } => msg
-                .create_message(ctx, &builder, *permissions)
+                .create_message(ctx, builder, *permissions)
                 .await
                 .wrap_err("failed to create message for response callback"),
             Self::Interaction { command } => {
@@ -109,7 +109,7 @@ impl CommandOrigin<'_> {
     ) -> Result<()> {
         match self {
             Self::Message { msg, permissions } => msg
-                .create_message(ctx, &builder, *permissions)
+                .create_message(ctx, builder, *permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to create message for flagged callback"),
@@ -130,7 +130,7 @@ impl CommandOrigin<'_> {
     pub async fn create_message(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
     ) -> Result<Response<Message>> {
         match self {
             Self::Message { msg, permissions } => msg
@@ -151,7 +151,7 @@ impl CommandOrigin<'_> {
     pub async fn update(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
     ) -> Result<Response<Message>> {
         match self {
             Self::Message { msg, permissions } => msg

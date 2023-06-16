@@ -303,7 +303,7 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
 
             let embed_data = ConfigEmbed::new(author, config, twitch_name, skin_url);
             let builder = embed_data.build().into();
-            command.update(&ctx, &builder).await?;
+            command.update(&ctx, builder).await?;
 
             Ok(())
         }

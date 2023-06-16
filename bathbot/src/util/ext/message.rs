@@ -1,4 +1,4 @@
-use std::{future::IntoFuture, slice};
+use std::future::IntoFuture;
 
 use bathbot_util::MessageBuilder;
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
@@ -17,7 +17,7 @@ pub trait MessageExt {
     fn update(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> Option<ResponseFuture<Message>>;
 
@@ -28,7 +28,7 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
     fn update(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> Option<ResponseFuture<Message>> {
         let can_view_channel = permissions.map_or(true, |permissions| {
@@ -48,11 +48,8 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
                 .expect("invalid content");
         }
 
-        if let Some(ref embed) = builder.embed {
-            req = req
-                .embeds(Some(slice::from_ref(embed)))
-                .expect("invalid embed");
-        }
+        let embed = builder.embed.build();
+        req = req.embeds(embed.as_option_slice()).expect("invalid embed");
 
         if let Some(ref components) = builder.components {
             req = req
@@ -74,7 +71,7 @@ impl MessageExt for Message {
     fn update(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> Option<ResponseFuture<Message>> {
         (self.id, self.channel_id).update(ctx, builder, permissions)

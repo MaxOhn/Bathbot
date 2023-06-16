@@ -9,6 +9,7 @@ pub use self::{
     osu_user::OsuUserManager,
     pp::PpManager,
     rank_pp_approx::ApproxManager,
+    replay::ReplayManager,
     twitch::TwitchManager,
     user_config::UserConfigManager,
 };
@@ -25,5 +26,6 @@ mod osu_tracking;
 mod osu_user;
 mod pp;
 mod rank_pp_approx;
+mod replay;
 mod twitch;
 mod user_config;

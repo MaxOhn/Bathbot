@@ -107,7 +107,7 @@ pub(super) async fn recent(
     if user_medals.is_empty() {
         let content = format!("`{}` has not achieved any medals yet :(", user.username());
         let builder = MessageBuilder::new().embed(content);
-        orig.create_message(&ctx, &builder).await?;
+        orig.create_message(&ctx, builder).await?;
 
         return Ok(());
     }

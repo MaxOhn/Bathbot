@@ -30,7 +30,7 @@ pub async fn hint(
         Some(game) => match game.hint().await {
             Ok(hint) => {
                 let builder = MessageBuilder::new().content(hint);
-                msg.create_message(&ctx, &builder, permissions).await?;
+                msg.create_message(&ctx, builder, permissions).await?;
             }
             Err(err) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;

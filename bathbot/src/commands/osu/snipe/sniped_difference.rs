@@ -197,7 +197,7 @@ async fn sniped_diff(
         );
 
         let builder = MessageBuilder::new().embed(content);
-        orig.create_message(&ctx, &builder).await?;
+        orig.create_message(&ctx, builder).await?;
 
         return Ok(());
     }

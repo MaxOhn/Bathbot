@@ -133,7 +133,7 @@ pub(super) async fn info(
     let embed_data = MedalEmbed::new(&medal, None, maps, top_comment);
     let embed = embed_data.maximized();
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

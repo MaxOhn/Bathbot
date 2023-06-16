@@ -97,6 +97,7 @@ impl InteractionCommands {
                 Rb => RB_SLASH,
                 Rs => RS_SLASH,
                 Recent => RECENT_SLASH,
+                Render => RENDER_SLASH,
                 Roll => ROLL_SLASH,
                 Scores => SCORES_SLASH,
                 Search => SEARCH_SLASH,

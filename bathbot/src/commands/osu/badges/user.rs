@@ -113,7 +113,7 @@ pub(super) async fn user(
         };
 
         let builder = MessageBuilder::new().embed(content);
-        orig.create_message(&ctx, &builder).await?;
+        orig.create_message(&ctx, builder).await?;
 
         return Ok(());
     };

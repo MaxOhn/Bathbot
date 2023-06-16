@@ -56,12 +56,12 @@ impl CheckSkin {
                 Ok(Some(skin_url)) => {
                     let content = format!("`{username}`'s current skin: {skin_url}");
                     let builder = MessageBuilder::new().embed(content);
-                    command.update(ctx, &builder).await?;
+                    command.update(ctx, builder).await?;
                 }
                 Ok(None) => {
                     let content = format!("`{username}` has not yet set their skin.");
                     let builder = MessageBuilder::new().embed(content);
-                    command.update(ctx, &builder).await?;
+                    command.update(ctx, builder).await?;
                 }
                 Err(err) => {
                     let _ = command.error(ctx, GENERAL_ISSUE).await;
@@ -75,12 +75,12 @@ impl CheckSkin {
                 Ok(Some(skin_url)) => {
                     let content = format!("<@{user_id}>'s current skin: {skin_url}");
                     let builder = MessageBuilder::new().embed(content);
-                    command.update(ctx, &builder).await?;
+                    command.update(ctx, builder).await?;
                 }
                 Ok(None) => {
                     let content = format!("<@{user_id}> has not yet set their skin.");
                     let builder = MessageBuilder::new().embed(content);
-                    command.update(ctx, &builder).await?;
+                    command.update(ctx, builder).await?;
                 }
                 Err(err) => {
                     let _ = command.error(ctx, GENERAL_ISSUE).await;
@@ -94,12 +94,12 @@ impl CheckSkin {
                 Ok(Some(skin_url)) => {
                     let content = format!("Your current skin: {skin_url}");
                     let builder = MessageBuilder::new().embed(content);
-                    command.update(ctx, &builder).await?;
+                    command.update(ctx, builder).await?;
                 }
                 Ok(None) => {
                     let content = "You have not yet set your skin. You can do so with `/skin set`";
                     let builder = MessageBuilder::new().embed(content);
-                    command.update(ctx, &builder).await?;
+                    command.update(ctx, builder).await?;
                 }
                 Err(err) => {
                     let _ = command.error(ctx, GENERAL_ISSUE).await;
@@ -180,7 +180,7 @@ impl SetSkin {
 
         let content = format!("Successfully set your skin to `{url}`");
         let builder = MessageBuilder::new().embed(content);
-        command.update(ctx, &builder).await?;
+        command.update(ctx, builder).await?;
 
         Ok(())
     }
@@ -202,7 +202,7 @@ impl UnsetSkin {
 
         let content = "Successfully unset your skin";
         let builder = MessageBuilder::new().embed(content);
-        command.update(ctx, &builder).await?;
+        command.update(ctx, builder).await?;
 
         Ok(())
     }

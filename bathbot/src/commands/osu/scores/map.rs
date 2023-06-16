@@ -242,13 +242,13 @@ pub async fn map_scores(
             }
         );
         let builder = MessageBuilder::new().embed(content);
-        command.update(&ctx, &builder).await?;
+        command.update(&ctx, builder).await?;
 
         return Ok(());
     } else if scores.maps().next().zip(scores.mapsets().next()).is_none() {
         let content = format!("Looks like I don't have map id {map_id} stored");
         let builder = MessageBuilder::new().embed(content);
-        command.update(&ctx, &builder).await?;
+        command.update(&ctx, builder).await?;
 
         return Ok(());
     }

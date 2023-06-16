@@ -98,7 +98,7 @@ async fn song(
             let builder = MessageBuilder::new().content(&content);
 
             response = response
-                .update(&ctx, &builder, None)
+                .update(&ctx, builder, None)
                 .wrap_err("lacking permission to update message")?
                 .await?
                 .model()

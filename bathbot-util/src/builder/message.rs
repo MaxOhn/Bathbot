@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, slice};
 
 use twilight_model::{
     channel::message::{embed::Embed, Component},
@@ -10,9 +10,53 @@ use super::EmbedBuilder;
 #[derive(Default)]
 pub struct MessageBuilder<'c> {
     pub content: Option<Cow<'c, str>>,
-    pub embed: Option<Embed>,
+    pub embed: EmbedOption,
     pub attachment: Option<Attachment>,
     pub components: Option<Vec<Component>>,
+}
+
+#[derive(Default)]
+pub enum EmbedOption {
+    Include(EmbedBuilder),
+    Clear,
+    #[default]
+    None,
+}
+
+impl EmbedOption {
+    pub fn build(self) -> BuiltEmbedOption {
+        match self {
+            EmbedOption::Include(embed) => BuiltEmbedOption::Include(embed.build()),
+            EmbedOption::Clear => BuiltEmbedOption::Clear,
+            EmbedOption::None => BuiltEmbedOption::None,
+        }
+    }
+}
+
+impl From<EmbedOption> for Option<Vec<Embed>> {
+    fn from(embed: EmbedOption) -> Self {
+        match embed {
+            EmbedOption::Include(embed) => Some(vec![embed.build()]),
+            EmbedOption::Clear => Some(Vec::new()),
+            EmbedOption::None => None,
+        }
+    }
+}
+
+pub enum BuiltEmbedOption {
+    Include(Embed),
+    Clear,
+    None,
+}
+
+impl BuiltEmbedOption {
+    pub fn as_option_slice(&self) -> Option<&'_ [Embed]> {
+        match self {
+            BuiltEmbedOption::Include(embed) => Some(slice::from_ref(embed)),
+            BuiltEmbedOption::Clear => Some(&[]),
+            BuiltEmbedOption::None => None,
+        }
+    }
 }
 
 impl<'c> MessageBuilder<'c> {
@@ -27,7 +71,7 @@ impl<'c> MessageBuilder<'c> {
     }
 
     pub fn embed(mut self, embed: impl IntoEmbed) -> Self {
-        self.embed = Some(embed.into_embed());
+        self.embed = embed.into_embed();
 
         self
     }
@@ -45,44 +89,49 @@ impl<'c> MessageBuilder<'c> {
     }
 }
 
-impl<'c> From<Embed> for MessageBuilder<'c> {
+impl From<EmbedBuilder> for MessageBuilder<'_> {
     #[inline]
-    fn from(embed: Embed) -> Self {
+    fn from(embed: EmbedBuilder) -> Self {
         Self {
-            embed: Some(embed),
+            embed: EmbedOption::Include(embed),
             ..Default::default()
         }
     }
 }
 
+/// Not implementing this for [`Embed`] itself because turning [`Embed`] into
+/// [`EmbedBuilder`] is not efficient so it should be avoided.
 pub trait IntoEmbed {
-    fn into_embed(self) -> Embed;
-}
-
-impl IntoEmbed for Embed {
-    #[inline]
-    fn into_embed(self) -> Embed {
-        self
-    }
+    fn into_embed(self) -> EmbedOption;
 }
 
 impl IntoEmbed for EmbedBuilder {
     #[inline]
-    fn into_embed(self) -> Embed {
-        self.build()
+    fn into_embed(self) -> EmbedOption {
+        EmbedOption::Include(self)
     }
 }
 
 impl IntoEmbed for String {
     #[inline]
-    fn into_embed(self) -> Embed {
-        EmbedBuilder::new().description(self).build()
+    fn into_embed(self) -> EmbedOption {
+        EmbedOption::Include(EmbedBuilder::new().description(self))
     }
 }
 
 impl<'s> IntoEmbed for &'s str {
     #[inline]
-    fn into_embed(self) -> Embed {
-        EmbedBuilder::new().description(self).build()
+    fn into_embed(self) -> EmbedOption {
+        EmbedOption::Include(EmbedBuilder::new().description(self))
+    }
+}
+
+impl IntoEmbed for Option<EmbedBuilder> {
+    #[inline]
+    fn into_embed(self) -> EmbedOption {
+        match self {
+            Some(inner) => EmbedOption::Include(inner),
+            None => EmbedOption::Clear,
+        }
     }
 }

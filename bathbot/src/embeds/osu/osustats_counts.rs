@@ -4,7 +4,6 @@ use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
-use twilight_model::channel::message::embed::Embed;
 
 use crate::{
     embeds::EmbedData,
@@ -65,7 +64,7 @@ impl OsuStatsCountsEmbed {
 
 impl EmbedData for OsuStatsCountsEmbed {
     #[inline]
-    fn build(self) -> Embed {
+    fn build(self) -> EmbedBuilder {
         let mut builder = EmbedBuilder::new()
             .description(self.description)
             .title(self.title)
@@ -76,6 +75,6 @@ impl EmbedData for OsuStatsCountsEmbed {
             builder = builder.footer(footer).timestamp(timestamp);
         }
 
-        builder.build()
+        builder
     }
 }

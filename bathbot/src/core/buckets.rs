@@ -4,7 +4,7 @@ use bathbot_util::IntHasher;
 use parking_lot::Mutex;
 use time::OffsetDateTime;
 
-pub struct Buckets([Mutex<Bucket>; 7]);
+pub struct Buckets([Mutex<Bucket>; 8]);
 
 impl Buckets {
     #[allow(clippy::new_without_default)]
@@ -25,6 +25,7 @@ impl Buckets {
             make_bucket(2, 20, 3),  // BgSkip
             make_bucket(15, 0, 1),  // MatchCompare
             make_bucket(5, 900, 3), // MatchLive
+            make_bucket(0, 600, 2), // Render
             make_bucket(20, 0, 1),  // Songs
         ])
     }
@@ -37,7 +38,8 @@ impl Buckets {
             BucketName::BgSkip => &self.0[3],
             BucketName::MatchCompare => &self.0[4],
             BucketName::MatchLive => &self.0[5],
-            BucketName::Songs => &self.0[6],
+            BucketName::Render => &self.0[6],
+            BucketName::Songs => &self.0[7],
         }
     }
 }
@@ -105,5 +107,6 @@ pub enum BucketName {
     BgSkip,
     MatchCompare,
     MatchLive,
+    Render,
     Songs,
 }

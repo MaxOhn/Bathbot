@@ -489,6 +489,65 @@
     },
     "query": "WITH scores AS (\n  SELECT \n    score_id, \n    user_id, \n    map_id, \n    mods, \n    score, \n    maxcombo, \n    grade, \n    count100, \n    count300, \n    countmiss, \n    ended_at \n  FROM \n    osu_scores \n  WHERE \n    gamemode = 1 \n    AND user_id = ANY($1) \n    AND (\n      -- map id\n      $6 :: INT4 IS NULL \n      OR map_id = $6\n    ) \n    AND (\n      -- country code\n      $2 :: VARCHAR(2) IS NULL \n      OR (\n        SELECT \n          country_code \n        FROM \n          osu_user_stats \n        WHERE \n          user_id = osu_scores.user_id\n      ) = $2\n    ) \n    AND (\n      -- include mods\n      $3 :: INT4 IS NULL \n      OR (\n        $3 != 0 \n        AND $3 :: bit(32) & mods :: bit(32) = $3 :: bit(32)\n      ) \n      OR (\n        $3 = 0 \n        AND mods = 0\n      )\n    ) \n    AND (\n      -- exclude mods\n      $4 :: INT4 IS NULL \n      OR (\n        $4 != 0 \n        AND $4 :: bit(32) & mods :: bit(32) != $4 :: bit(32)\n      ) \n      OR (\n        $4 = 0 \n        AND mods > 0\n      )\n    ) \n    AND (\n      -- exact mods\n      $5 :: INT4 IS NULL \n      OR mods = $5\n    )\n    AND (\n      -- grade\n      $7 :: INT2 IS NULL \n      OR grade = $7\n    )\n) \nSELECT \n  DISTINCT ON (\n    user_id, scores.map_id, scores.mods\n  ) user_id, \n  scores.map_id, \n  scores.mods, \n  score, \n  scores.score_id, \n  maxcombo, \n  grade, \n  count100, \n  count300, \n  countmiss, \n  ended_at, \n  pp :: FLOAT4, \n  stars :: FLOAT4 \nFROM \n  scores \n  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_taiko\n  ) AS stars ON scores.map_id = stars.map_id \n  AND scores.mods = stars.mods \nORDER BY \n  user_id, \n  scores.map_id, \n  scores.mods, \n  ended_at DESC"
   },
+  "0d3a6d942b7c430b4fcac0e2f23bf7cb920ea8e1698259ebb86a97f87d521a8e": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Varchar",
+          "Bool",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Float4",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool"
+        ]
+      }
+    },
+    "query": "INSERT INTO user_render_settings (\n  discord_id, skin_name, is_custom_skin, \n  global_volume, music_volume, hitsound_volume, \n  show_hit_error_meter, show_unstable_rate, \n  show_score, show_hp_bar, show_combo_counter, \n  show_pp_counter, show_key_overlay, \n  show_scoreboard, show_borders, show_mods, \n  show_result_screen, use_skin_cursor, \n  use_skin_hitsounds, use_beatmap_colors, \n  cursor_scale_to_cs, cursor_rainbow, \n  cursor_trail_glow, draw_follow_points, \n  draw_combo_numbers, cursor_size, \n  cursor_trail, beat_scaling, slider_merge, \n  objects_rainbow, flash_objects, \n  use_slider_hitcircle_color, seizure_warning, \n  load_storyboard, load_video, intro_bg_dim, \n  ingame_bg_dim, break_bg_dim, bg_parallax, \n  show_danser_logo, skip_intro, cursor_ripples, \n  slider_snaking_in, slider_snaking_out, \n  show_hit_counter, show_avatars_on_scoreboard, \n  show_aim_error_meter, play_nightcore_samples\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16, $17, $18, \n    $19, $20, $21, $22, $23, $24, $25, $26, \n    $27, $28, $29, $30, $31, $32, $33, $34, \n    $35, $36, $37, $38, $39, $40, $41, $42, \n    $43, $44, $45, $46, $47, $48\n  ) ON CONFLICT (discord_id) DO \nUPDATE \nSET \n  skin_name = $2, \n  is_custom_skin = $3, \n  global_volume = $4, \n  music_volume = $5, \n  hitsound_volume = $6, \n  show_hit_error_meter = $7, \n  show_unstable_rate = $8, \n  show_score = $9, \n  show_hp_bar = $10, \n  show_combo_counter = $11, \n  show_pp_counter = $12, \n  show_key_overlay = $13, \n  show_scoreboard = $14, \n  show_borders = $15, \n  show_mods = $16, \n  show_result_screen = $17, \n  use_skin_cursor = $18, \n  use_skin_hitsounds = $19, \n  use_beatmap_colors = $20, \n  cursor_scale_to_cs = $21, \n  cursor_rainbow = $22, \n  cursor_trail_glow = $23, \n  draw_follow_points = $24, \n  draw_combo_numbers = $25, \n  cursor_size = $26, \n  cursor_trail = $27, \n  beat_scaling = $28, \n  slider_merge = $29, \n  objects_rainbow = $30, \n  flash_objects = $31, \n  use_slider_hitcircle_color = $32, \n  seizure_warning = $33, \n  load_storyboard = $34, \n  load_video = $35, \n  intro_bg_dim = $36, \n  ingame_bg_dim = $37, \n  break_bg_dim = $38, \n  bg_parallax = $39, \n  show_danser_logo = $40, \n  skip_intro = $41, \n  cursor_ripples = $42, \n  slider_snaking_in = $43, \n  slider_snaking_out = $44, \n  show_hit_counter = $45, \n  show_avatars_on_scoreboard = $46, \n  show_aim_error_meter = $47, \n  play_nightcore_samples = $48"
+  },
   "0e433f1a5f1609bac4b8d161fa57557e6514d3036432ff81a1e022b23b76013d": {
     "describe": {
       "columns": [
@@ -1451,6 +1510,19 @@
       }
     },
     "query": "\nSELECT \nuser_id, \nusername \nfrom \nosu_user_names \nWHERE \nusername ILIKE ANY($1)"
+  },
+  "62fab7c476b991a91b952f778442a7897cbbac8c2e6fd30d140fee58b6434f9b": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Bytea"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_replays (score_id, replay) \nVALUES \n  ($1, $2) ON CONFLICT (score_id) DO NOTHING"
   },
   "68356a75b1e66719f90cf17ddeed1a170c119343d0d4c515308f6409997f2557": {
     "describe": {
@@ -2561,6 +2633,302 @@
     },
     "query": "\nWITH stats AS (\n  SELECT \n    global_rank, \n    pp, \n    last_update \n  FROM \n    osu_user_mode_stats \n  WHERE \n    gamemode = $1 \n    AND global_rank > 0 \n    AND NOW() - last_update < interval '2 days'\n) \nSELECT \n  * \nFROM \n  (\n    (\n      SELECT \n        global_rank, \n        pp, \n        0::INT2 AS pos \n      FROM \n        (\n          SELECT \n            * \n          FROM \n            stats \n          WHERE \n            pp >= $2 \n          ORDER BY \n            pp ASC \n          LIMIT \n            5\n        ) AS innerTable \n      ORDER BY \n        last_update DESC \n      LIMIT \n        1\n    ) \n    UNION ALL \n      (\n        SELECT \n          global_rank, \n          pp, \n          1::INT2 AS pos \n        FROM \n          (\n            SELECT \n              * \n            FROM \n              stats \n            WHERE \n              pp <= $2 \n            ORDER BY \n              pp DESC \n            LIMIT \n              5\n          ) AS innerTable \n        ORDER BY \n          last_update DESC \n        LIMIT \n          1\n      )\n  ) AS neighbors"
   },
+  "d39570c46d1475eb00b7c959713a1b92fc1d3b598e4df762fa1ed8f87df4e6a1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "skin_name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "is_custom_skin",
+          "ordinal": 1,
+          "type_info": "Bool"
+        },
+        {
+          "name": "global_volume",
+          "ordinal": 2,
+          "type_info": "Int2"
+        },
+        {
+          "name": "music_volume",
+          "ordinal": 3,
+          "type_info": "Int2"
+        },
+        {
+          "name": "hitsound_volume",
+          "ordinal": 4,
+          "type_info": "Int2"
+        },
+        {
+          "name": "show_hit_error_meter",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_unstable_rate",
+          "ordinal": 6,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_score",
+          "ordinal": 7,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_hp_bar",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_combo_counter",
+          "ordinal": 9,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_pp_counter",
+          "ordinal": 10,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_key_overlay",
+          "ordinal": 11,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_scoreboard",
+          "ordinal": 12,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_borders",
+          "ordinal": 13,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_mods",
+          "ordinal": 14,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_result_screen",
+          "ordinal": 15,
+          "type_info": "Bool"
+        },
+        {
+          "name": "use_skin_cursor",
+          "ordinal": 16,
+          "type_info": "Bool"
+        },
+        {
+          "name": "use_skin_hitsounds",
+          "ordinal": 17,
+          "type_info": "Bool"
+        },
+        {
+          "name": "use_beatmap_colors",
+          "ordinal": 18,
+          "type_info": "Bool"
+        },
+        {
+          "name": "cursor_scale_to_cs",
+          "ordinal": 19,
+          "type_info": "Bool"
+        },
+        {
+          "name": "cursor_rainbow",
+          "ordinal": 20,
+          "type_info": "Bool"
+        },
+        {
+          "name": "cursor_trail_glow",
+          "ordinal": 21,
+          "type_info": "Bool"
+        },
+        {
+          "name": "draw_follow_points",
+          "ordinal": 22,
+          "type_info": "Bool"
+        },
+        {
+          "name": "draw_combo_numbers",
+          "ordinal": 23,
+          "type_info": "Bool"
+        },
+        {
+          "name": "cursor_size",
+          "ordinal": 24,
+          "type_info": "Float4"
+        },
+        {
+          "name": "cursor_trail",
+          "ordinal": 25,
+          "type_info": "Bool"
+        },
+        {
+          "name": "beat_scaling",
+          "ordinal": 26,
+          "type_info": "Bool"
+        },
+        {
+          "name": "slider_merge",
+          "ordinal": 27,
+          "type_info": "Bool"
+        },
+        {
+          "name": "objects_rainbow",
+          "ordinal": 28,
+          "type_info": "Bool"
+        },
+        {
+          "name": "flash_objects",
+          "ordinal": 29,
+          "type_info": "Bool"
+        },
+        {
+          "name": "use_slider_hitcircle_color",
+          "ordinal": 30,
+          "type_info": "Bool"
+        },
+        {
+          "name": "seizure_warning",
+          "ordinal": 31,
+          "type_info": "Bool"
+        },
+        {
+          "name": "load_storyboard",
+          "ordinal": 32,
+          "type_info": "Bool"
+        },
+        {
+          "name": "load_video",
+          "ordinal": 33,
+          "type_info": "Bool"
+        },
+        {
+          "name": "intro_bg_dim",
+          "ordinal": 34,
+          "type_info": "Int2"
+        },
+        {
+          "name": "ingame_bg_dim",
+          "ordinal": 35,
+          "type_info": "Int2"
+        },
+        {
+          "name": "break_bg_dim",
+          "ordinal": 36,
+          "type_info": "Int2"
+        },
+        {
+          "name": "bg_parallax",
+          "ordinal": 37,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_danser_logo",
+          "ordinal": 38,
+          "type_info": "Bool"
+        },
+        {
+          "name": "skip_intro",
+          "ordinal": 39,
+          "type_info": "Bool"
+        },
+        {
+          "name": "cursor_ripples",
+          "ordinal": 40,
+          "type_info": "Bool"
+        },
+        {
+          "name": "slider_snaking_in",
+          "ordinal": 41,
+          "type_info": "Bool"
+        },
+        {
+          "name": "slider_snaking_out",
+          "ordinal": 42,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_hit_counter",
+          "ordinal": 43,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_avatars_on_scoreboard",
+          "ordinal": 44,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_aim_error_meter",
+          "ordinal": 45,
+          "type_info": "Bool"
+        },
+        {
+          "name": "play_nightcore_samples",
+          "ordinal": 46,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  skin_name, \n  is_custom_skin, \n  global_volume, \n  music_volume, \n  hitsound_volume, \n  show_hit_error_meter, \n  show_unstable_rate, \n  show_score, \n  show_hp_bar, \n  show_combo_counter, \n  show_pp_counter, \n  show_key_overlay, \n  show_scoreboard, \n  show_borders, \n  show_mods, \n  show_result_screen, \n  use_skin_cursor, \n  use_skin_hitsounds, \n  use_beatmap_colors, \n  cursor_scale_to_cs, \n  cursor_rainbow, \n  cursor_trail_glow, \n  draw_follow_points, \n  draw_combo_numbers, \n  cursor_size, \n  cursor_trail, \n  beat_scaling, \n  slider_merge, \n  objects_rainbow, \n  flash_objects, \n  use_slider_hitcircle_color, \n  seizure_warning, \n  load_storyboard, \n  load_video, \n  intro_bg_dim, \n  ingame_bg_dim, \n  break_bg_dim, \n  bg_parallax, \n  show_danser_logo, \n  skip_intro, \n  cursor_ripples, \n  slider_snaking_in, \n  slider_snaking_out, \n  show_hit_counter, \n  show_avatars_on_scoreboard, \n  show_aim_error_meter, \n  play_nightcore_samples \nFROM \n  user_render_settings \nWHERE \n  discord_id = $1"
+  },
   "d3cf8c0f097a2226bdad1d81f955bc1707989a0857782dd20098fd38a385e195": {
     "describe": {
       "columns": [
@@ -2864,5 +3232,25 @@
       }
     },
     "query": "\nDELETE FROM \n  tracked_twitch_streams \nWHERE \n  channel_id = $1 \n  AND user_id = $2"
+  },
+  "ffd820fbdf987b68780011586413f1b8c3eb2f0b93083d839c8de935eb1ab28b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "replay",
+          "ordinal": 0,
+          "type_info": "Bytea"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  replay \nFROM \n  osu_replays \nWHERE \n  score_id = $1"
   }
 }

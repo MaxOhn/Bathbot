@@ -27,6 +27,7 @@ pub use self::{
     ranking::RankingPagination,
     ranking_countries::RankingCountriesPagination,
     recent_list::RecentListPagination,
+    render_settings::RenderSettingsActive,
     scores::{ScoresMapPagination, ScoresServerPagination, ScoresUserPagination},
     simulate::{SimulateAttributes, SimulateComponents, SimulateData, TopOldVersion},
     skins::SkinsPagination,
@@ -57,6 +58,7 @@ mod profile;
 mod ranking;
 mod ranking_countries;
 mod recent_list;
+mod render_settings;
 mod scores;
 mod simulate;
 mod skins;
