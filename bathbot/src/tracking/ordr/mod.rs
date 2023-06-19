@@ -56,6 +56,7 @@ impl Ordr {
         let client = Client::builder()
             .verification(verification)
             .with_websocket(true)
+            .render_ratelimit(5_000, 1, 2) // Two request per 10 seconds
             .on_render_done(move |msg| {
                 let done_clone = Arc::clone(&done_clone);
 
