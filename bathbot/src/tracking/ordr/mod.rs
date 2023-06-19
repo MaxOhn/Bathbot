@@ -38,15 +38,23 @@ pub struct OrdrReceivers {
 }
 
 impl Ordr {
-    pub async fn new() -> Result<Self> {
+    pub async fn new(
+        #[cfg(not(debug_assertions))] verification_key: impl Into<Box<str>>,
+    ) -> Result<Self> {
         let senders = Arc::new(SenderMap::with_shard_amount_and_hasher(8, IntHasher));
 
         let done_clone = Arc::clone(&senders);
         let fail_clone = Arc::clone(&senders);
         let progress_clone = Arc::clone(&senders);
 
+        #[cfg(debug_assertions)]
+        let verification = Verification::DevModeSuccess;
+
+        #[cfg(not(debug_assertions))]
+        let verification = Verification::Key(verification_key.into());
+
         let client = Client::builder()
-            .verification(Verification::DevModeSuccess) // TODO
+            .verification(verification)
             .with_websocket(true)
             .on_render_done(move |msg| {
                 let done_clone = Arc::clone(&done_clone);

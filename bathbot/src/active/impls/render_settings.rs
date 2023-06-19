@@ -63,7 +63,7 @@ impl RenderSettingsActive {
 
     async fn handle_group_menu(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let Some(value) = component.data.values.pop() else {
@@ -88,7 +88,7 @@ impl RenderSettingsActive {
 
     async fn handle_edit_menu(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let Some(value) = component.data.values.pop() else {
@@ -380,7 +380,7 @@ impl RenderSettingsActive {
             "beat_scaling" => parse_input!(bool: beat_scaling),
             "use_beatmap_colors" => parse_input!(bool: use_beatmap_colors),
             "draw_follow_points" => parse_input!(bool: draw_follow_points),
-            other => return bail!("Unknown settings modal `{other}`"),
+            other => bail!("Unknown settings modal `{other}`"),
         }
 
         if !deferred {
@@ -508,7 +508,7 @@ impl IActiveMessage for RenderSettingsActive {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {

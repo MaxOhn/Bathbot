@@ -49,11 +49,20 @@ pub struct Ratelimit {
     pub limit: Option<(i64, i32)>,
 }
 
-#[derive(Default)]
 pub struct MemberRatelimit {
     pub last_time: i64,
     pub set_time: i64,
     pub tickets: i32,
+}
+
+impl Default for MemberRatelimit {
+    fn default() -> Self {
+        Self {
+            last_time: 0,
+            set_time: OffsetDateTime::now_utc().unix_timestamp(),
+            tickets: 0,
+        }
+    }
 }
 
 pub struct Bucket {
@@ -78,7 +87,7 @@ impl Bucket {
             .or_insert_with(MemberRatelimit::default);
 
         if let Some((timespan, limit)) = self.ratelimit.limit {
-            if (user.tickets + 1) > limit {
+            if user.tickets + 1 > limit {
                 if time < (user.set_time + timespan) {
                     return (user.set_time + timespan) - time;
                 } else {

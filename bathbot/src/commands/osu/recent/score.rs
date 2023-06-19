@@ -2,7 +2,7 @@ use std::{borrow::Cow, mem, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
-use bathbot_psql::model::configs::GuildConfig;
+use bathbot_psql::model::configs::{GuildConfig, MinimizedPp, ScoreSize};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, CowUtils, MessageOrigin,
@@ -17,7 +17,10 @@ use rosu_v2::{
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::{
+    guild::Permissions,
+    id::{marker::UserMarker, Id},
+};
 
 use super::RecentScore;
 use crate::{
@@ -29,9 +32,9 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::{
         redis::osu::{UserArgs, UserArgsSlim},
-        OsuMap,
+        OsuMap, OwnedReplayScore,
     },
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
+    util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
 
@@ -339,14 +342,26 @@ pub(super) async fn score(
 ) -> Result<()> {
     let author = orig.user_id()?;
 
-    let config = match ctx.user_config().with_osu_id(author).await {
+    let user_config_fut = ctx.user_config().with_osu_id(author);
+    let guild_values_fut = get_guild_values(&ctx, &orig);
+
+    let (user_config_res, guild_values) = tokio::join!(user_config_fut, guild_values_fut);
+
+    let config = match user_config_res {
         Ok(config) => config,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get user config"));
+            return Err(err.wrap_err("Failed to get user config"));
         }
     };
+
+    let GuildValues {
+        minimized_pp: guild_minimized_pp,
+        show_retries: guild_show_retries,
+        score_size: guild_score_size,
+        render_button: guild_render_button,
+    } = guild_values;
 
     let mode = args
         .mode
@@ -487,9 +502,15 @@ pub(super) async fn score(
     let map_id = score.map_id;
     let score_id = score.score_id;
 
-    let mut has_miss_analyzer = orig
+    let mut with_miss_analyzer = orig
         .guild_id()
         .map_or(false, |guild| ctx.has_miss_analyzer(&guild));
+
+    let mut with_render = match (guild_render_button, config.render_button) {
+        (Some(false), _) | (None, None) => false,
+        (None | Some(true), Some(with_render)) => with_render,
+        (Some(true), None) => true,
+    };
 
     // Prepare retrieval of the the user's top 50 and score position on the map
     let map_score_fut = async {
@@ -512,12 +533,14 @@ pub(super) async fn score(
         }
     };
 
-    let score_id_opt = score_id
-        .filter(|_| has_miss_analyzer && mode == GameMode::Osu)
-        .zip(orig.guild_id());
+    let score_id_opt = score_id.zip(orig.guild_id());
+    with_miss_analyzer &= mode == GameMode::Osu;
+    with_render &= mode == GameMode::Osu
+        && score.replay == Some(true)
+        && orig.has_permission_to(Permissions::SEND_MESSAGES);
 
     let miss_analyzer_fut = async {
-        if let Some((score_id, guild_id)) = score_id_opt {
+        if let Some((score_id, guild_id)) = score_id_opt.filter(|_| with_miss_analyzer) {
             debug!(score_id, "Sending score id to miss analyzer");
 
             ctx.client()
@@ -566,29 +589,19 @@ pub(super) async fn score(
     };
 
     match miss_analyzer_res {
-        Ok(wants_button) => has_miss_analyzer &= wants_button,
+        Ok(wants_button) => with_miss_analyzer &= wants_button,
         Err(err) => {
             warn!(?err, "Failed to send score id to miss analyzer");
-            has_miss_analyzer = false;
+            with_miss_analyzer = false;
         }
     }
-
-    let (guild_minimized_pp, guild_show_retries, guild_score_size) = match orig.guild_id() {
-        Some(guild_id) => {
-            let f = |config: &GuildConfig| {
-                (config.minimized_pp, config.show_retries, config.score_size)
-            };
-
-            ctx.guild_config().peek(guild_id, f).await
-        }
-        None => (None, None, None),
-    };
 
     let minimized_pp = config
         .minimized_pp
         .or(guild_minimized_pp)
         .unwrap_or_default();
 
+    let replay_score = with_render.then(|| OwnedReplayScore::from(&score));
     let entry = RecentEntry::new(&ctx, score, map).await;
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
@@ -597,7 +610,6 @@ pub(super) async fn score(
     let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
 
     let content = show_retries.then(|| format!("Try #{tries}"));
-    let miss_analyzer_score_id = score_id.filter(|_| has_miss_analyzer && mode == GameMode::Osu);
 
     let active_msg_fut = RecentScoreEdit::create(
         &ctx,
@@ -608,7 +620,9 @@ pub(super) async fn score(
         #[cfg(feature = "twitch")]
         twitch_stream,
         minimized_pp,
-        miss_analyzer_score_id,
+        score_id,
+        with_miss_analyzer,
+        replay_score,
         &origin,
         score_size,
         content,
@@ -871,5 +885,35 @@ impl RecentEntry {
             max_pp,
             max_combo: attrs.max_combo() as u32,
         }
+    }
+}
+
+#[derive(Default)]
+struct GuildValues {
+    minimized_pp: Option<MinimizedPp>,
+    show_retries: Option<bool>,
+    score_size: Option<ScoreSize>,
+    render_button: Option<bool>,
+}
+
+impl From<&GuildConfig> for GuildValues {
+    fn from(config: &GuildConfig) -> Self {
+        Self {
+            minimized_pp: config.minimized_pp,
+            show_retries: config.show_retries,
+            score_size: config.score_size,
+            render_button: config.render_button,
+        }
+    }
+}
+
+async fn get_guild_values(ctx: &Context, orig: &CommandOrigin<'_>) -> GuildValues {
+    match orig.guild_id() {
+        Some(guild_id) => {
+            ctx.guild_config()
+                .peek(guild_id, |config| GuildValues::from(config))
+                .await
+        }
+        None => GuildValues::default(),
     }
 }

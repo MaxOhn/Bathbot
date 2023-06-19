@@ -20,12 +20,17 @@ use twilight_model::{
 
 use crate::{
     active::{impls::RenderSettingsActive, ActiveMessages},
-    core::Context,
+    core::{
+        buckets::BucketName,
+        commands::{checks::check_ratelimit, OwnedCommandOrigin},
+        Context,
+    },
+    manager::ReplayScore,
     tracking::OrdrReceivers,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
-const RENDERER_NAME: &str = "Bathbot";
+pub const RENDERER_NAME: &str = "Bathbot";
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
@@ -35,7 +40,6 @@ const RENDERER_NAME: &str = "Bathbot";
     Since [danser](https://github.com/Wieku/danser-go) is being used, \
     only osu!standard is supported."
 )]
-#[bucket(Render)]
 #[flags(SKIP_DEFER)]
 pub enum Render {
     #[command(name = "replay")]
@@ -107,6 +111,17 @@ async fn render_replay(
     command: InteractionCommand,
     replay: RenderReplay,
 ) -> Result<()> {
+    let owner = command.user_id()?;
+
+    if let Some(cooldown) = check_ratelimit(&ctx, owner, BucketName::Render).await {
+        trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
+
+        let content = format!("Command on cooldown, try again in {cooldown} seconds");
+        command.error_callback(&ctx, content).await?;
+
+        return Ok(());
+    }
+
     let RenderReplay { replay } = replay;
 
     if !replay.filename.ends_with(".osr") {
@@ -116,10 +131,10 @@ async fn render_replay(
         return Ok(());
     }
 
-    let status = RenderStatus::new(false);
+    let status = RenderStatus::new_commisioning_replay();
     command.callback(&ctx, status.as_message(), false).await?;
 
-    let (skin, settings) = match ctx.replay().get_settings(command.user_id()?).await {
+    let (skin, settings) = match ctx.replay().get_settings(owner).await {
         Ok(tuple) => tuple,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
@@ -149,13 +164,7 @@ async fn render_replay(
         }
     };
 
-    let ongoing = OngoingRender {
-        command,
-        render_id: render.render_id,
-        receivers: ctx.ordr().subscribe_render_id(render.render_id).await,
-        status,
-        ctx,
-    };
+    let ongoing = OngoingRender::new(ctx, render.render_id, command, status, None).await;
 
     tokio::spawn(ongoing.await_render_url());
 
@@ -167,10 +176,35 @@ async fn render_score(
     command: InteractionCommand,
     score: RenderScore,
 ) -> Result<()> {
-    let RenderScore { score_id } = score;
-    let mut status = RenderStatus::new(true);
+    let owner = command.user_id()?;
 
-    command.callback(&ctx, status.as_message(), false).await?;
+    command.defer(&ctx, false).await?;
+
+    let RenderScore { score_id } = score;
+
+    // Check if the score id has already been rendered
+    match ctx.replay().get_video_url(score_id).await {
+        Ok(Some(video_url)) => {
+            let builder = MessageBuilder::new().content(video_url.as_ref());
+            command.update(&ctx, builder).await?;
+
+            return Ok(());
+        }
+        Ok(None) => {}
+        Err(err) => warn!(?err),
+    }
+
+    if let Some(cooldown) = check_ratelimit(&ctx, owner, BucketName::Render).await {
+        trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
+
+        let content = format!("Command on cooldown, try again in {cooldown} seconds");
+        command.error(&ctx, content).await?;
+
+        return Ok(());
+    }
+
+    let mut status = RenderStatus::new_requesting_score();
+    command.update(&ctx, status.as_message()).await?;
 
     let score = match ctx.osu().score(score_id, GameMode::Osu).await {
         Ok(score) => score,
@@ -187,13 +221,15 @@ async fn render_score(
         }
     };
 
+    let replay_score = ReplayScore::from(&score);
+
     // Just a status update, no need to propagate an error
     status.set(RenderStatusInner::PreparingReplay);
     let _ = command.update(&ctx, status.as_message()).await;
 
     let replay_manager = ctx.replay();
-    let replay_fut = replay_manager.get(&score);
-    let settings_fut = replay_manager.get_settings(command.user_id()?);
+    let replay_fut = replay_manager.get(score.score_id, &replay_score);
+    let settings_fut = replay_manager.get_settings(owner);
 
     let (replay_res, settings_res) = tokio::join!(replay_fut, settings_fut);
 
@@ -240,49 +276,58 @@ async fn render_score(
         }
     };
 
-    let ongoing = OngoingRender {
-        command,
-        render_id: render.render_id,
-        receivers: ctx.ordr().subscribe_render_id(render.render_id).await,
-        status,
-        ctx,
-    };
+    let ongoing = OngoingRender::new(ctx, render.render_id, command, status, Some(score_id)).await;
 
     tokio::spawn(ongoing.await_render_url());
 
     Ok(())
 }
 
-struct RenderStatus {
-    inner: RenderStatusInner,
-    skipped_preparation: bool,
+pub struct RenderStatus {
+    start: RenderStatusInner,
+    curr: RenderStatusInner,
 }
 
 impl RenderStatus {
-    fn new(with_requesting_score: bool) -> Self {
-        if with_requesting_score {
-            Self {
-                inner: RenderStatusInner::RequestingScore,
-                skipped_preparation: false,
-            }
-        } else {
-            Self {
-                inner: RenderStatusInner::CommissioningRender,
-                skipped_preparation: true,
-            }
+    pub fn new_requesting_score() -> Self {
+        Self {
+            start: RenderStatusInner::RequestingScore,
+            curr: RenderStatusInner::RequestingScore,
         }
     }
 
-    fn set(&mut self, status: RenderStatusInner) {
-        self.inner = status;
+    pub fn new_preparing_replay() -> Self {
+        Self {
+            start: RenderStatusInner::PreparingReplay,
+            curr: RenderStatusInner::PreparingReplay,
+        }
     }
 
-    fn as_message(&self) -> MessageBuilder<'static> {
-        fn preparation_done_emote(status: &RenderStatus) -> ProgressEmote {
-            if status.skipped_preparation {
-                ProgressEmote::Skipped
-            } else {
-                ProgressEmote::Done
+    pub fn new_commisioning_replay() -> Self {
+        Self {
+            start: RenderStatusInner::CommissioningRender,
+            curr: RenderStatusInner::CommissioningRender,
+        }
+    }
+
+    pub fn set(&mut self, status: RenderStatusInner) {
+        self.curr = status;
+    }
+
+    pub fn as_message(&self) -> MessageBuilder<'static> {
+        fn preparation_done_emote(
+            start: &RenderStatusInner,
+            check: &RenderStatusInner,
+        ) -> ProgressEmote {
+            match (start, check) {
+                (RenderStatusInner::PreparingReplay, RenderStatusInner::RequestingScore) => {
+                    ProgressEmote::Skipped
+                }
+                (
+                    RenderStatusInner::CommissioningRender,
+                    RenderStatusInner::RequestingScore | RenderStatusInner::PreparingReplay,
+                ) => ProgressEmote::Skipped,
+                _ => ProgressEmote::Done,
             }
         }
 
@@ -301,7 +346,7 @@ impl RenderStatus {
             )
         }
 
-        let content = match self.inner {
+        let content = match self.curr {
             RenderStatusInner::RequestingScore => description(
                 ProgressEmote::Running,
                 ProgressEmote::Waiting,
@@ -310,22 +355,22 @@ impl RenderStatus {
                 "Rendering",
             ),
             RenderStatusInner::PreparingReplay => description(
-                preparation_done_emote(&self),
+                preparation_done_emote(&self.start, &RenderStatusInner::RequestingScore),
                 ProgressEmote::Running,
                 ProgressEmote::Waiting,
                 ProgressEmote::Waiting,
                 "Rendering",
             ),
             RenderStatusInner::CommissioningRender => description(
-                preparation_done_emote(&self),
-                preparation_done_emote(&self),
+                preparation_done_emote(&self.start, &RenderStatusInner::RequestingScore),
+                preparation_done_emote(&self.start, &RenderStatusInner::PreparingReplay),
                 ProgressEmote::Running,
                 ProgressEmote::Waiting,
                 "Rendering",
             ),
             RenderStatusInner::Rendering(ref rendering) => description(
-                preparation_done_emote(&self),
-                preparation_done_emote(&self),
+                preparation_done_emote(&self.start, &RenderStatusInner::RequestingScore),
+                preparation_done_emote(&self.start, &RenderStatusInner::PreparingReplay),
                 ProgressEmote::Done,
                 ProgressEmote::Running,
                 rendering,
@@ -341,7 +386,7 @@ impl RenderStatus {
     }
 }
 
-enum RenderStatusInner {
+pub enum RenderStatusInner {
     RequestingScore,
     PreparingReplay,
     CommissioningRender,
@@ -366,16 +411,34 @@ impl Display for ProgressEmote {
     }
 }
 
-struct OngoingRender {
+pub struct OngoingRender {
     ctx: Arc<Context>,
     render_id: u32,
-    command: InteractionCommand,
+    orig: OwnedCommandOrigin,
     status: RenderStatus,
     receivers: OrdrReceivers,
+    score_id: Option<u64>,
 }
 
 impl OngoingRender {
-    async fn await_render_url(mut self) {
+    pub async fn new(
+        ctx: Arc<Context>,
+        render_id: u32,
+        orig: impl Into<OwnedCommandOrigin>,
+        status: RenderStatus,
+        score_id: Option<u64>,
+    ) -> Self {
+        Self {
+            orig: orig.into(),
+            render_id,
+            receivers: ctx.ordr().subscribe_render_id(render_id).await,
+            status,
+            ctx,
+            score_id,
+        }
+    }
+
+    pub async fn await_render_url(mut self) {
         const MINUTE: Duration = Duration::from_secs(60);
         const INTERVAL: Duration = Duration::from_secs(5);
 
@@ -390,6 +453,8 @@ impl OngoingRender {
                         continue;
                     }
 
+                    last_update = now;
+
                     let Some(progress) = progress else {
                         return warn!("progress channel was closed");
                     };
@@ -398,12 +463,9 @@ impl OngoingRender {
                     self.status.set(RenderStatusInner::Rendering(progress.progress));
                     let builder = self.status.as_message();
 
-                    if let Err(err) = self.command.update(&self.ctx, builder).await {
+                    if let Err(err) = self.orig.update(&self.ctx, builder).await {
                         warn!(?err, "Failed to update message");
                     }
-
-                    last_update = now;
-
                 },
                 done = self.receivers.done.recv() => {
                     let Some(done) = done else {
@@ -412,11 +474,20 @@ impl OngoingRender {
 
                     let builder = MessageBuilder::new().content(done.video_url.as_ref()).embed(None);
 
-                    if let Err(err) = self.command.update(&self.ctx, builder).await {
+                    if let Err(err) = self.orig.update(&self.ctx, builder).await {
                         warn!(?err, "Failed to update message");
                     }
 
                     self.ctx.ordr().unsubscribe_render_id(done.render_id).await;
+
+                    if let Some(score_id) = self.score_id {
+                        let replay_manager = self.ctx.replay();
+                        let store_fut = replay_manager.store_video_url(score_id, done.video_url.as_ref());
+
+                        if let Err(err) = store_fut.await {
+                            warn!(?err, "Failed to store video url");
+                        }
+                    }
 
                     return;
                 },
@@ -430,7 +501,7 @@ impl OngoingRender {
                     let embed = EmbedBuilder::new().description(failed.error_message).color_red();
                     let builder = MessageBuilder::new().embed(embed);
 
-                    if let Err(err) = self.command.update(&self.ctx, builder).await {
+                    if let Err(err) = self.orig.update(&self.ctx, builder).await {
                         warn!(?err, "Failed to update message");
                     }
 
@@ -442,7 +513,7 @@ impl OngoingRender {
                     let content = "Timeout while waiting for o!rdr updates, \
                         there was probably a network issue.";
 
-                    if let Err(err) = self.command.error(&self.ctx, content).await {
+                    if let Err(err) = self.orig.error(&self.ctx, content).await {
                         warn!(?err, "Failed to update message");
                     }
 

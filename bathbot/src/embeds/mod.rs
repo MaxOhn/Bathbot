@@ -14,13 +14,6 @@ pub trait EmbedData {
     fn build(self) -> EmbedBuilder;
 }
 
-// TODO
-// impl EmbedData for Embed {
-//     fn build(self) -> EmbedBuilder {
-//         self
-//     }
-// }
-
 pub fn attachment(filename: impl AsRef<str>) -> String {
     let filename = filename.as_ref();
 

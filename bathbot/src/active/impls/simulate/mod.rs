@@ -217,7 +217,7 @@ impl IActiveMessage for SimulateComponents {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {
@@ -372,7 +372,7 @@ impl SimulateComponents {
 
     async fn handle_topold_menu(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let Some(version) = component.data.values.first() else {
@@ -383,7 +383,7 @@ impl SimulateComponents {
             return ComponentResult::Err(eyre!("Unknown TopOldVersion `{version}`"));
         };
 
-        if let Err(err) = component.defer(ctx).await.map_err(Report::new) {
+        if let Err(err) = component.defer(&ctx).await.map_err(Report::new) {
             return ComponentResult::Err(err.wrap_err("Failed to defer component"));
         }
 

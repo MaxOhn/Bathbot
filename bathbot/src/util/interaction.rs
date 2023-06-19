@@ -70,7 +70,7 @@ macro_rules! impl_authored {
                         .as_ref()
                         .and_then(|member| member.user.as_ref())
                         .or(self.user.as_ref())
-                        .wrap_err("expected to member or user")
+                        .wrap_err("Missing both member and user")
                 }
             }
         )*

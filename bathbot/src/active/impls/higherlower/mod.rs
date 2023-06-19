@@ -66,7 +66,7 @@ impl IActiveMessage for HigherLowerGame {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {
@@ -266,7 +266,7 @@ impl HigherLowerGame {
 
     async fn handle_higherlower(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         component: &mut InteractionComponent,
         guess: HlGuess,
     ) -> ComponentResult {
@@ -279,7 +279,7 @@ impl HigherLowerGame {
         let image = embed.image.map(|image| image.url.into_boxed_str());
 
         if self.state.check_guess(guess) {
-            if let Err(err) = component.defer(ctx).await {
+            if let Err(err) = component.defer(&ctx).await {
                 warn!(?err, "Failed to defer higherlower button");
             }
 
@@ -303,10 +303,10 @@ impl HigherLowerGame {
 
     async fn handle_next(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         component: &InteractionComponent,
     ) -> ComponentResult {
-        if let Err(err) = component.defer(ctx).await {
+        if let Err(err) = component.defer(&ctx).await {
             warn!(?err, "Failed to defer next button");
         }
 
@@ -318,7 +318,7 @@ impl HigherLowerGame {
 
     async fn handle_try_again(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let Some(embed) = component.message.embeds.pop() else {
@@ -373,11 +373,11 @@ impl HigherLowerGame {
             .embed(eb)
             .components(self.disabled_buttons());
 
-        if let Err(err) = component.callback(ctx, builder).await {
+        if let Err(err) = component.callback(&ctx, builder).await {
             warn!(?err, "Failed to callback try again button");
         }
 
-        let (state, rx) = match self.state.restart(ctx).await {
+        let (state, rx) = match self.state.restart(&ctx).await {
             Ok(tuple) => tuple,
             Err(err) => return ComponentResult::Err(err),
         };

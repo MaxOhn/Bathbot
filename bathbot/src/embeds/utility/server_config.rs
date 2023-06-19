@@ -64,12 +64,16 @@ impl ServerConfigEmbed {
         let track_limit = config.track_limit.unwrap_or(50);
         let _ = writeln!(description, "\nDefault track limit: {track_limit}\n```");
 
+        let mut song_commands = create_field(
+            "Song commands",
+            config.allow_songs.unwrap_or(true),
+            &[(true, "enabled"), (false, "disabled")],
+        );
+
+        song_commands.inline = false;
+
         let fields = vec![
-            create_field(
-                "Song commands",
-                config.allow_songs.unwrap_or(true),
-                &[(true, "enabled"), (false, "disabled")],
-            ),
+            song_commands,
             create_field(
                 "Retries*",
                 config.show_retries.unwrap_or(true),
@@ -79,6 +83,11 @@ impl ServerConfigEmbed {
                 "Minimized PP*",
                 config.minimized_pp.unwrap_or_default(),
                 &[(MinimizedPp::MaxPp, "max pp"), (MinimizedPp::IfFc, "if FC")],
+            ),
+            create_field(
+                "Render button",
+                config.render_button.unwrap_or(true),
+                &[(false, "hide"), (true, "let user decide")],
             ),
             create_field(
                 "Score embeds*",

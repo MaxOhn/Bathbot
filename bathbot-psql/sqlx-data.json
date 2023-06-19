@@ -313,71 +313,26 @@
     },
     "query": "\nSELECT \n  bookmarks.insert_date, \n  maps.map_id, \n  maps.mapset_id, \n  maps.user_id AS mapper_id, \n  maps.map_version, \n  maps.seconds_drain, \n  maps.seconds_total, \n  maps.count_circles, \n  maps.count_sliders, \n  maps.count_spinners, \n  maps.hp, \n  maps.cs, \n  maps.od, \n  maps.ar, \n  maps.bpm, \n  maps.gamemode, \n  mapsets.artist, \n  mapsets.title, \n  mapsets.creator, \n  mapsets.user_id AS creator_id, \n  mapsets.rank_status, \n  mapsets.ranked_date, \n  mapsets.genre_id, \n  mapsets.language_id, \n  mapsets.cover \nFROM \n  (\n    SELECT \n      map_id, \n      insert_date \n    FROM \n      user_map_bookmarks \n    WHERE \n      user_id = $1\n  ) AS bookmarks \n  JOIN (\n    SELECT \n      map_id, \n      mapset_id, \n      user_id, \n      map_version, \n      seconds_drain, \n      seconds_total, \n      count_circles, \n      count_sliders, \n      count_spinners, \n      hp, \n      cs, \n      od, \n      ar, \n      bpm, \n      gamemode \n    FROM \n      osu_maps\n  ) AS maps ON bookmarks.map_id = maps.map_id \n  JOIN (\n    SELECT \n      mapset_id, \n      artist, \n      title, \n      creator, \n      user_id, \n      rank_status, \n      ranked_date, \n      genre_id, \n      language_id, \n      cover \n    FROM \n      osu_mapsets\n  ) AS mapsets ON maps.mapset_id = mapsets.mapset_id \nORDER BY \n  bookmarks.insert_date DESC"
   },
-  "04813deb7752ed349d4e5b7748cf5b40c83ccbd2f0ee490ef6c8cc63d8aacd88": {
+  "04de550034bf917c4c9eea80d5a3a7b1fd1b0deaa35003572e9ec65b21169e3a": {
     "describe": {
-      "columns": [
-        {
-          "name": "guild_id",
-          "ordinal": 0,
-          "type_info": "Int8"
-        },
-        {
-          "name": "authorities",
-          "ordinal": 1,
-          "type_info": "Bytea"
-        },
-        {
-          "name": "prefixes",
-          "ordinal": 2,
-          "type_info": "Bytea"
-        },
-        {
-          "name": "allow_songs",
-          "ordinal": 3,
-          "type_info": "Bool"
-        },
-        {
-          "name": "score_size",
-          "ordinal": 4,
-          "type_info": "Int2"
-        },
-        {
-          "name": "show_retries",
-          "ordinal": 5,
-          "type_info": "Bool"
-        },
-        {
-          "name": "osu_track_limit",
-          "ordinal": 6,
-          "type_info": "Int2"
-        },
-        {
-          "name": "minimized_pp",
-          "ordinal": 7,
-          "type_info": "Int2"
-        },
-        {
-          "name": "list_size",
-          "ordinal": 8,
-          "type_info": "Int2"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true
-      ],
+      "columns": [],
+      "nullable": [],
       "parameters": {
-        "Left": []
+        "Left": [
+          "Int8",
+          "Int4",
+          "Int2",
+          "Int8",
+          "Int2",
+          "Bool",
+          "Int2",
+          "Int2",
+          "Int4",
+          "Bool"
+        ]
       }
     },
-    "query": "\nSELECT \n  guild_id,\n  authorities,\n  prefixes,\n  allow_songs,\n  score_size,\n  show_retries,\n  osu_track_limit,\n  minimized_pp,\n  list_size\nFROM \n  guild_configs"
+    "query": "\nINSERT INTO user_configs (\n  discord_id, osu_id, gamemode, twitch_id, \n  score_size, show_retries, minimized_pp, \n  list_size, timezone_seconds, render_button\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (discord_id) DO \nUPDATE \nSET \n  osu_id = $2, \n  gamemode = $3, \n  twitch_id = $4, \n  score_size = $5, \n  show_retries = $6, \n  minimized_pp = $7, \n  list_size = $8, \n  timezone_seconds = $9, \n  render_button = $10"
   },
   "057d3f9a920c8ef1d8e2bd97f0a7dd429a599506df9b65768c5e358e4b36f460": {
     "describe": {
@@ -703,6 +658,19 @@
     },
     "query": "\nINSERT INTO tracked_osu_users (user_id, gamemode, channels) \nVALUES \n  ($1, $2, $3) ON CONFLICT (user_id, gamemode) DO \nUPDATE \nSET \n  last_update = NOW() RETURNING channels"
   },
+  "14dc3fec9ff696d82c4a4e4d3b73807c62d95550b4dade6650487b28d0427e4d": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO render_video_urls (score_id, video_url) \nVALUES \n  ($1, $2) ON CONFLICT (score_id) DO \nUPDATE \nSET \n  video_url = $2"
+  },
   "1d359cbace668cd27222e76337e61f7fb6b5bd78d61d0b134563fba190341435": {
     "describe": {
       "columns": [
@@ -762,6 +730,27 @@
       }
     },
     "query": "\nINSERT INTO user_map_bookmarks (user_id, map_id) \nVALUES \n  ($1, $2) ON CONFLICT (user_id, map_id) DO NOTHING"
+  },
+  "22ea2cb21ab94bb011008b77146615f91f669f5634a555bb8744f5b27a9f17f6": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Bytea",
+          "Bytea",
+          "Bool",
+          "Int2",
+          "Bool",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Bool"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO guild_configs (\n  guild_id, authorities, prefixes, allow_songs, \n  score_size, show_retries, osu_track_limit, \n  minimized_pp, list_size, render_button\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (guild_id) DO \nUPDATE \nSET \n  authorities = $2, \n  prefixes = $3, \n  allow_songs = $4, \n  score_size = $5, \n  show_retries = $6, \n  osu_track_limit = $7, \n  minimized_pp = $8, \n  list_size = $9, \n  render_button = $10"
   },
   "26b20d4e1aae8f234e4a5295d5c892ba739303b90c57992685af8a5d565885bf": {
     "describe": {
@@ -912,68 +901,6 @@
       }
     },
     "query": "WITH scores AS (\n  SELECT \n    score_id, \n    user_id, \n    map_id, \n    mods, \n    score, \n    maxcombo, \n    grade, \n    count50, \n    count100, \n    count300, \n    countgeki, \n    countkatu, \n    countmiss, \n    ended_at \n  FROM \n    osu_scores \n  WHERE \n    gamemode = 3 \n    AND user_id = ANY($1) \n    AND (\n      -- map id\n      $6 :: INT4 IS NULL \n      OR map_id = $6\n    ) \n    AND (\n      -- country code\n      $2 :: VARCHAR(2) IS NULL \n      OR (\n        SELECT \n          country_code \n        FROM \n          osu_user_stats \n        WHERE \n          user_id = osu_scores.user_id\n      ) = $2\n    ) \n    AND (\n      -- include mods\n      $3 :: INT4 IS NULL \n      OR (\n        $3 != 0 \n        AND $3 :: bit(32) & mods :: bit(32) = $3 :: bit(32)\n      ) \n      OR (\n        $3 = 0 \n        AND mods = 0\n      )\n    ) \n    AND (\n      -- exclude mods\n      $4 :: INT4 IS NULL \n      OR (\n        $4 != 0 \n        AND $4 :: bit(32) & mods :: bit(32) != $4 :: bit(32)\n      ) \n      OR (\n        $4 = 0 \n        AND mods > 0\n      )\n    ) \n    AND (\n      -- exact mods\n      $5 :: INT4 IS NULL \n      OR mods = $5\n    )\n    AND (\n      -- grade\n      $7 :: INT2 IS NULL \n      OR grade = $7\n    )\n) \nSELECT \n  DISTINCT ON (\n    user_id, scores.map_id, scores.mods\n  ) user_id, \n  scores.map_id, \n  scores.mods, \n  score, \n  scores.score_id, \n  maxcombo, \n  grade, \n  count50, \n  count100, \n  count300, \n  countgeki, \n  countkatu, \n  countmiss, \n  ended_at, \n  pp :: FLOAT4, \n  stars :: FLOAT4 \nFROM \n  scores \n  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_mania\n  ) AS stars ON scores.map_id = stars.map_id \n  AND scores.mods = stars.mods \nORDER BY \n  user_id, \n  scores.map_id, \n  scores.mods, \n  ended_at DESC"
-  },
-  "291b32ade35e0e86960037bbbf43bf015751fe21457239209c3d4f7d4fd8968a": {
-    "describe": {
-      "columns": [
-        {
-          "name": "score_size",
-          "ordinal": 0,
-          "type_info": "Int2"
-        },
-        {
-          "name": "list_size",
-          "ordinal": 1,
-          "type_info": "Int2"
-        },
-        {
-          "name": "minimized_pp",
-          "ordinal": 2,
-          "type_info": "Int2"
-        },
-        {
-          "name": "gamemode",
-          "ordinal": 3,
-          "type_info": "Int2"
-        },
-        {
-          "name": "username",
-          "ordinal": 4,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "show_retries",
-          "ordinal": 5,
-          "type_info": "Bool"
-        },
-        {
-          "name": "twitch_id",
-          "ordinal": 6,
-          "type_info": "Int8"
-        },
-        {
-          "name": "timezone_seconds",
-          "ordinal": 7,
-          "type_info": "Int4"
-        }
-      ],
-      "nullable": [
-        true,
-        true,
-        true,
-        true,
-        null,
-        true,
-        true,
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Int8"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  score_size, \n  list_size, \n  minimized_pp, \n  gamemode, \n  (\n    SELECT \n      username \n    FROM \n      osu_user_names \n    WHERE \n      user_id = osu_id\n  ), \n  show_retries, \n  twitch_id, \n  timezone_seconds \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
   },
   "2969365f091f2408b8e9fbce514024420d26fe358dbf08afc58074515d3c1e78": {
     "describe": {
@@ -1199,6 +1126,26 @@
     },
     "query": "\nSELECT \n  stars, \n  ar, \n  n_fruits, \n  n_droplets, \n  n_tiny_droplets \nFROM \n  osu_map_difficulty_catch \nWHERE \n  map_id = $1 \n  AND mods = $2"
   },
+  "3a26d9aab70278d6d23e9b224a416c9010b50ab450cdb2cba7689ecd25d73d6f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "video_url",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  video_url \nFROM \n  render_video_urls \nWHERE \n  score_id = $1"
+  },
   "3f462bfc0b9c6a4945debc3c2f0535aa53e258cfb40f44f52f9bec5c69433b71": {
     "describe": {
       "columns": [],
@@ -1337,6 +1284,74 @@
       }
     },
     "query": "\nSELECT \n  username \nFROM \n  osu_user_names \nWHERE \n  user_id = (\n    SELECT \n      osu_id \n    FROM \n      user_configs \n    WHERE \n      discord_id = $1\n  )"
+  },
+  "494f9d1bef7d23da3de01570e65156207ffe3a7efd1e86fb3807b0e3fd583faf": {
+    "describe": {
+      "columns": [
+        {
+          "name": "score_size",
+          "ordinal": 0,
+          "type_info": "Int2"
+        },
+        {
+          "name": "list_size",
+          "ordinal": 1,
+          "type_info": "Int2"
+        },
+        {
+          "name": "minimized_pp",
+          "ordinal": 2,
+          "type_info": "Int2"
+        },
+        {
+          "name": "gamemode",
+          "ordinal": 3,
+          "type_info": "Int2"
+        },
+        {
+          "name": "osu_id",
+          "ordinal": 4,
+          "type_info": "Int4"
+        },
+        {
+          "name": "show_retries",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "twitch_id",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "timezone_seconds",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "render_button",
+          "ordinal": 8,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  score_size, \n  list_size, \n  minimized_pp, \n  gamemode, \n  osu_id, \n  show_retries, \n  twitch_id, \n  timezone_seconds, \n  render_button \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
   },
   "4a68c5fcc41e7e8ec22b308bead494ffa1c29e8418da381ddfb340c1f0c49a0e": {
     "describe": {
@@ -1679,46 +1694,6 @@
       }
     },
     "query": "WITH scores AS (\n  SELECT \n    score_id, \n    user_id, \n    map_id, \n    mods, \n    score, \n    maxcombo, \n    grade, \n    count50, \n    count100, \n    count300, \n    countkatu, \n    countmiss, \n    ended_at \n  FROM \n    osu_scores \n  WHERE \n    gamemode = 2 \n    AND user_id = ANY($1) \n    AND (\n      -- map id\n      $6 :: INT4 IS NULL \n      OR map_id = $6\n    ) \n    AND (\n      -- country code\n      $2 :: VARCHAR(2) IS NULL \n      OR (\n        SELECT \n          country_code \n        FROM \n          osu_user_stats \n        WHERE \n          user_id = osu_scores.user_id\n      ) = $2\n    ) \n    AND (\n      -- include mods\n      $3 :: INT4 IS NULL \n      OR (\n        $3 != 0 \n        AND $3 :: bit(32) & mods :: bit(32) = $3 :: bit(32)\n      ) \n      OR (\n        $3 = 0 \n        AND mods = 0\n      )\n    ) \n    AND (\n      -- exclude mods\n      $4 :: INT4 IS NULL \n      OR (\n        $4 != 0 \n        AND $4 :: bit(32) & mods :: bit(32) != $4 :: bit(32)\n      ) \n      OR (\n        $4 = 0 \n        AND mods > 0\n      )\n    ) \n    AND (\n      -- exact mods\n      $5 :: INT4 IS NULL \n      OR mods = $5\n    )\n    AND (\n      -- grade\n      $7 :: INT2 IS NULL \n      OR grade = $7\n    )\n) \nSELECT \n  DISTINCT ON (\n    user_id, scores.map_id, scores.mods\n  ) user_id, \n  scores.map_id, \n  scores.mods, \n  score, \n  scores.score_id, \n  maxcombo, \n  grade, \n  count50, \n  count100, \n  count300, \n  countkatu, \n  countmiss, \n  ended_at, \n  pp :: FLOAT4, \n  stars :: FLOAT4 \nFROM \n  scores \n  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_catch\n  ) AS stars ON scores.map_id = stars.map_id \n  AND scores.mods = stars.mods \nORDER BY \n  user_id, \n  scores.map_id, \n  scores.mods, \n  ended_at DESC"
-  },
-  "6e254059f52776f2643adb168e1084744c88281c47a59c919464e344572881e3": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Int8",
-          "Int4",
-          "Int2",
-          "Int8",
-          "Int2",
-          "Bool",
-          "Int2",
-          "Int2",
-          "Int4"
-        ]
-      }
-    },
-    "query": "\nINSERT INTO user_configs (\n  discord_id, osu_id, gamemode, twitch_id, \n  score_size, show_retries, minimized_pp, \n  list_size, timezone_seconds\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (discord_id) DO \nUPDATE \nSET \n  osu_id = $2, \n  gamemode = $3, \n  twitch_id = $4, \n  score_size = $5, \n  show_retries = $6, \n  minimized_pp = $7, \n  list_size = $8,\n  timezone_seconds = $9"
-  },
-  "6fb91a2921f874a56bed6b90fd218806f59b553b481fd527aa38c84c426550ea": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Int8",
-          "Bytea",
-          "Bytea",
-          "Bool",
-          "Int2",
-          "Bool",
-          "Int2",
-          "Int2",
-          "Int2"
-        ]
-      }
-    },
-    "query": "\nINSERT INTO guild_configs (\n  guild_id, authorities, prefixes, allow_songs, \n  score_size, show_retries, osu_track_limit, \n  minimized_pp, list_size\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (guild_id) DO \nUPDATE \nSET \n  authorities = $2, \n  prefixes = $3, \n  allow_songs = $4, \n  score_size = $5, \n  show_retries = $6, \n  osu_track_limit = $7, \n  minimized_pp = $8, \n  list_size = $9"
   },
   "74ed6117f3b940209a8c16e41f94f6909c24d51bfbddc02746a9ca4400abc374": {
     "describe": {
@@ -2270,68 +2245,6 @@
     },
     "query": "\nSELECT \n  gamemode \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
   },
-  "b42895ff2c5fb37ef689292c5e798878e1ba3e491dab3c3304588a57f1e5e837": {
-    "describe": {
-      "columns": [
-        {
-          "name": "score_size",
-          "ordinal": 0,
-          "type_info": "Int2"
-        },
-        {
-          "name": "list_size",
-          "ordinal": 1,
-          "type_info": "Int2"
-        },
-        {
-          "name": "minimized_pp",
-          "ordinal": 2,
-          "type_info": "Int2"
-        },
-        {
-          "name": "gamemode",
-          "ordinal": 3,
-          "type_info": "Int2"
-        },
-        {
-          "name": "osu_id",
-          "ordinal": 4,
-          "type_info": "Int4"
-        },
-        {
-          "name": "show_retries",
-          "ordinal": 5,
-          "type_info": "Bool"
-        },
-        {
-          "name": "twitch_id",
-          "ordinal": 6,
-          "type_info": "Int8"
-        },
-        {
-          "name": "timezone_seconds",
-          "ordinal": 7,
-          "type_info": "Int4"
-        }
-      ],
-      "nullable": [
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Int8"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  score_size, \n  list_size, \n  minimized_pp, \n  gamemode, \n  osu_id, \n  show_retries, \n  twitch_id, \n  timezone_seconds \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
-  },
   "b74e27a3bb9d5dcaf9fc099fd35d00bc5160ccf581dfb80a172d3cc904cbac89": {
     "describe": {
       "columns": [],
@@ -2551,6 +2464,78 @@
       }
     },
     "query": "\nWITH scores AS (\n  SELECT \n    score_id, \n    user_id, \n    map_id, \n    gamemode, \n    mods, \n    score, \n    maxcombo, \n    grade, \n    count50, \n    count100, \n    count300, \n    countgeki, \n    countkatu, \n    countmiss, \n    ended_at \n  FROM \n    osu_scores \n  WHERE \n    user_id = ANY($1) \n    AND (\n      -- map id\n      $6 :: INT4 IS NULL \n      OR map_id = $6\n    ) \n    AND (\n      -- country code\n      $2 :: VARCHAR(2) IS NULL \n      OR (\n        SELECT \n          country_code \n        FROM \n          osu_user_stats \n        WHERE \n          user_id = osu_scores.user_id\n      ) = $2\n    ) \n    AND (\n      -- include mods\n      $3 :: INT4 IS NULL \n      OR (\n        $3 != 0 \n        AND $3 :: bit(32) & mods :: bit(32) = $3 :: bit(32)\n      ) \n      OR (\n        $3 = 0 \n        AND mods = 0\n      )\n    ) \n    AND (\n      -- exclude mods\n      $4 :: INT4 IS NULL \n      OR (\n        $4 != 0 \n        AND $4 :: bit(32) & mods :: bit(32) != $4 :: bit(32)\n      ) \n      OR (\n        $4 = 0 \n        AND mods > 0\n      )\n    ) \n    AND (\n      -- exact mods\n      $5 :: INT4 IS NULL \n      OR mods = $5\n    )\n    AND (\n      -- grade\n      $7 :: INT2 IS NULL \n      OR grade = $7\n    )\n) \nSELECT \n  DISTINCT ON (\n    user_id, scores.map_id, gamemode, \n    scores.mods\n  ) user_id, \n  scores.map_id, \n  gamemode, \n  scores.mods, \n  score, \n  scores.score_id, \n  maxcombo, \n  grade, \n  count50, \n  count100, \n  count300, \n  countgeki, \n  countkatu, \n  countmiss, \n  ended_at, \n  pp :: FLOAT4, \n  stars_osu.stars :: FLOAT4 AS stars_osu, \n  stars_taiko.stars :: FLOAT4 AS stars_taiko, \n  stars_catch.stars :: FLOAT4 AS stars_catch, \n  stars_mania.stars :: FLOAT4 AS stars_mania \nFROM \n  scores \n  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty\n  ) AS stars_osu ON scores.map_id = stars_osu.map_id \n  AND scores.mods = stars_osu.mods \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_taiko\n  ) AS stars_taiko ON scores.map_id = stars_taiko.map_id \n  AND scores.mods = stars_taiko.mods \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_catch\n  ) AS stars_catch ON scores.map_id = stars_catch.map_id \n  AND scores.mods = stars_catch.mods \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_mania\n  ) AS stars_mania ON scores.map_id = stars_mania.map_id \n  AND scores.mods = stars_mania.mods \nORDER BY \n  user_id, \n  scores.map_id, \n  gamemode, \n  scores.mods, \n  ended_at DESC"
+  },
+  "c43c4f5a3cea2019a840a14a259b61343ec175156915ba84c644d1d3f521665c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "guild_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "authorities",
+          "ordinal": 1,
+          "type_info": "Bytea"
+        },
+        {
+          "name": "prefixes",
+          "ordinal": 2,
+          "type_info": "Bytea"
+        },
+        {
+          "name": "allow_songs",
+          "ordinal": 3,
+          "type_info": "Bool"
+        },
+        {
+          "name": "score_size",
+          "ordinal": 4,
+          "type_info": "Int2"
+        },
+        {
+          "name": "show_retries",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "osu_track_limit",
+          "ordinal": 6,
+          "type_info": "Int2"
+        },
+        {
+          "name": "minimized_pp",
+          "ordinal": 7,
+          "type_info": "Int2"
+        },
+        {
+          "name": "list_size",
+          "ordinal": 8,
+          "type_info": "Int2"
+        },
+        {
+          "name": "render_button",
+          "ordinal": 9,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\nSELECT \n  guild_id,\n  authorities,\n  prefixes,\n  allow_songs,\n  score_size,\n  show_retries,\n  osu_track_limit,\n  minimized_pp,\n  list_size, \n  render_button \nFROM \n  guild_configs"
   },
   "c4c480dc37d6046fd92a5e6139853b40282e34470c1137aaf46a423d979da95d": {
     "describe": {
@@ -2979,6 +2964,74 @@
       }
     },
     "query": "\nDELETE FROM \n  tracked_osu_users \nWHERE \n  user_id = $1 \n  AND gamemode = $2"
+  },
+  "dd9da504325b99f9512825b315093038c9bd72112a92a1966e389f1ca2b810f9": {
+    "describe": {
+      "columns": [
+        {
+          "name": "score_size",
+          "ordinal": 0,
+          "type_info": "Int2"
+        },
+        {
+          "name": "list_size",
+          "ordinal": 1,
+          "type_info": "Int2"
+        },
+        {
+          "name": "minimized_pp",
+          "ordinal": 2,
+          "type_info": "Int2"
+        },
+        {
+          "name": "gamemode",
+          "ordinal": 3,
+          "type_info": "Int2"
+        },
+        {
+          "name": "username",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "show_retries",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "twitch_id",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "timezone_seconds",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "render_button",
+          "ordinal": 8,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        true,
+        true,
+        true,
+        true,
+        null,
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  score_size, \n  list_size, \n  minimized_pp, \n  gamemode, \n  (\n    SELECT \n      username \n    FROM \n      osu_user_names \n    WHERE \n      user_id = osu_id\n  ), \n  show_retries, \n  twitch_id, \n  timezone_seconds, \n  render_button \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
   },
   "dffdc3cb9035cbf7d8d2dfbd1dc7cf503d4af5b60fc0b3f3fa057202cbd56483": {
     "describe": {

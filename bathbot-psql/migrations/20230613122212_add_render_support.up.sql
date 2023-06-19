@@ -55,3 +55,12 @@ CREATE TABLE IF NOT EXISTS user_render_settings (
     play_nightcore_samples     BOOLEAN NOT NULL,
     PRIMARY KEY (discord_id)
 );
+
+ALTER TABLE user_configs ADD COLUMN render_button BOOLEAN;
+ALTER TABLE guild_configs ADD COLUMN render_button BOOLEAN;
+
+CREATE TABLE IF NOT EXISTS render_video_urls (
+    score_id  INT8 NOT NULL,
+    video_url VARCHAR(128) NOT NULL,
+    PRIMARY KEY (score_id)
+);

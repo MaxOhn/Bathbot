@@ -113,7 +113,7 @@ impl IActiveMessage for PopularMappersPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)

@@ -291,7 +291,7 @@ impl IActiveMessage for BackgroundGameSetup {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {
@@ -418,12 +418,16 @@ impl BackgroundGameSetup {
         }
     }
 
-    async fn cancel(&mut self, ctx: &Context, component: &InteractionComponent) -> ComponentResult {
+    async fn cancel(
+        &mut self,
+        ctx: Arc<Context>,
+        component: &InteractionComponent,
+    ) -> ComponentResult {
         let builder = MessageBuilder::new()
             .embed("Aborted background game setup")
             .components(Vec::new());
 
-        match component.callback(ctx, builder).await {
+        match component.callback(&ctx, builder).await {
             Ok(_) => ComponentResult::Ignore,
             Err(err) => {
                 let wrap = "Failed to callback on background game setup cancel";

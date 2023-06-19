@@ -12,6 +12,7 @@ pub struct DbUserConfig {
     pub show_retries: Option<bool>,
     pub twitch_id: Option<i64>,
     pub timezone_seconds: Option<i32>,
+    pub render_button: Option<bool>,
 }
 
 pub trait OsuId {
@@ -42,6 +43,7 @@ pub struct UserConfig<O: OsuId> {
     pub show_retries: Option<bool>,
     pub twitch_id: Option<u64>,
     pub timezone: Option<UtcOffset>,
+    pub render_button: Option<bool>,
 }
 
 impl<O: OsuId> Default for UserConfig<O> {
@@ -56,6 +58,7 @@ impl<O: OsuId> Default for UserConfig<O> {
             show_retries: None,
             twitch_id: None,
             timezone: None,
+            render_button: None,
         }
     }
 }
@@ -72,6 +75,7 @@ impl From<DbUserConfig> for UserConfig<OsuUserId> {
             show_retries,
             twitch_id,
             timezone_seconds,
+            render_button,
         } = config;
 
         Self {
@@ -85,6 +89,7 @@ impl From<DbUserConfig> for UserConfig<OsuUserId> {
             timezone: timezone_seconds
                 .map(UtcOffset::from_whole_seconds)
                 .map(Result::unwrap),
+            render_button,
         }
     }
 }

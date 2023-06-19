@@ -140,7 +140,10 @@ impl ActiveMessages {
             );
         };
 
-        match active_msg.handle_component(&ctx, &mut component).await {
+        match active_msg
+            .handle_component(Arc::clone(&ctx), &mut component)
+            .await
+        {
             ComponentResult::BuildPage => match active_msg.build_page(Arc::clone(&ctx)).await {
                 Ok(build) => {
                     let mut builder = MessageBuilder::new()
@@ -281,7 +284,7 @@ pub trait IActiveMessage {
     /// Defaults to ginoring the component.
     fn handle_component<'a>(
         &'a mut self,
-        _ctx: &'a Context,
+        _ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         warn!(name = %component.data.custom_id, ?component, "Unknown component");

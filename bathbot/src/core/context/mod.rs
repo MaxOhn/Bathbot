@@ -159,7 +159,11 @@ impl Context {
             .await
             .wrap_err("Failed to create custom client")?;
 
-        let ordr = Arc::new(Ordr::new().await?);
+        let ordr_fut = Ordr::new(
+            #[cfg(not(debug_assertions))]
+            config.tokens.ordr_key.as_ref(),
+        );
+        let ordr = Arc::new(ordr_fut.await?);
         let clients = Clients::new(psql, osu, custom_client, ordr);
 
         let shards = discord_gateway(config, &http, resume_data)

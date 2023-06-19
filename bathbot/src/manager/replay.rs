@@ -3,7 +3,7 @@ use bathbot_client::Client as BathbotClient;
 use bathbot_psql::{model::render::DbRenderOptions, Database};
 use eyre::{Result, WrapErr};
 use rosu_render::model::{RenderOptions, RenderResolution, RenderSkinOption};
-use rosu_v2::prelude::Score;
+use rosu_v2::prelude::{GameMode, Score, ScoreStatistics};
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -25,8 +25,12 @@ impl<'d> ReplayManager<'d> {
         }
     }
 
-    pub async fn get(self, score: &Score) -> Result<Option<Box<[u8]>>> {
-        let Some(score_id) = score.score_id else {
+    pub async fn get(
+        self,
+        score_id: Option<u64>,
+        score: &ReplayScore<'_>,
+    ) -> Result<Option<Box<[u8]>>> {
+        let Some(score_id) = score_id else {
             return Ok(None);
         };
 
@@ -60,7 +64,7 @@ impl<'d> ReplayManager<'d> {
             return Ok(None);
         };
 
-        let replay = complete_replay(score, &raw_replay);
+        let replay = complete_replay(score, score_id, &raw_replay);
 
         if let Err(err) = self.psql.insert_osu_replay(score_id, &replay).await {
             warn!(?err, "Failed to insert replay into DB");
@@ -217,37 +221,158 @@ impl<'d> ReplayManager<'d> {
             .await
             .wrap_err("Failed to upsert settings")
     }
+
+    pub async fn get_video_url(&self, score_id: u64) -> Result<Option<Box<str>>> {
+        self.psql
+            .select_replay_video_url(score_id)
+            .await
+            .wrap_err("Failed to get replay video url")
+    }
+
+    pub async fn store_video_url(&self, score_id: u64, video_url: &str) -> Result<()> {
+        self.psql
+            .upsert_replay_video_url(score_id, video_url)
+            .await
+            .wrap_err("Failed to store replay video url")
+    }
+}
+
+pub enum ReplayScore<'s> {
+    Owned(OwnedReplayScore),
+    Borrowed(&'s Score),
+}
+
+impl<'s> From<&'s Score> for ReplayScore<'s> {
+    fn from(score: &'s Score) -> Self {
+        Self::Borrowed(score)
+    }
+}
+
+impl ReplayScore<'_> {
+    fn mode(&self) -> GameMode {
+        match self {
+            Self::Owned(score) => score.mode,
+            Self::Borrowed(score) => score.mode,
+        }
+    }
+
+    fn ended_at(&self) -> OffsetDateTime {
+        match self {
+            Self::Owned(score) => score.ended_at,
+            Self::Borrowed(score) => score.ended_at,
+        }
+    }
+
+    fn map_checksum(&self) -> Option<&str> {
+        match self {
+            Self::Owned(score) => score.map_checksum.as_deref(),
+            Self::Borrowed(score) => score.map.as_ref().and_then(|map| map.checksum.as_deref()),
+        }
+    }
+
+    fn username(&self) -> &str {
+        match self {
+            Self::Owned(score) => score.username.as_ref(),
+            Self::Borrowed(score) => score
+                .user
+                .as_ref()
+                .map(|user| user.username.as_str())
+                .unwrap_or_default(),
+        }
+    }
+
+    fn statistics(&self) -> &ScoreStatistics {
+        match self {
+            Self::Owned(score) => &score.statistics,
+            Self::Borrowed(score) => &score.statistics,
+        }
+    }
+
+    fn score(&self) -> u32 {
+        match self {
+            Self::Owned(score) => score.score,
+            Self::Borrowed(score) => score.score,
+        }
+    }
+
+    fn max_combo(&self) -> u16 {
+        match self {
+            Self::Owned(score) => score.max_combo,
+            Self::Borrowed(score) => score.max_combo as u16,
+        }
+    }
+
+    fn perfect(&self) -> bool {
+        match self {
+            Self::Owned(score) => score.perfect,
+            Self::Borrowed(score) => score.perfect,
+        }
+    }
+
+    fn mods(&self) -> u32 {
+        match self {
+            Self::Owned(score) => score.mods,
+            Self::Borrowed(score) => score.mods.bits(),
+        }
+    }
+}
+
+pub struct OwnedReplayScore {
+    mode: GameMode,
+    ended_at: OffsetDateTime,
+    map_checksum: Option<Box<str>>,
+    username: Box<str>,
+    statistics: ScoreStatistics,
+    score: u32,
+    max_combo: u16,
+    perfect: bool,
+    mods: u32,
+}
+
+impl From<&Score> for OwnedReplayScore {
+    fn from(score: &Score) -> Self {
+        Self {
+            mode: score.mode,
+            ended_at: score.ended_at,
+            map_checksum: score
+                .map
+                .as_ref()
+                .and_then(|map| map.checksum.as_deref())
+                .map(Box::from),
+            username: score
+                .user
+                .as_ref()
+                .map(|user| user.username.as_str())
+                .unwrap_or_default()
+                .into(),
+            statistics: score.statistics.clone(),
+            score: score.score,
+            max_combo: score.max_combo as u16,
+            perfect: score.perfect,
+            mods: score.mods.bits(),
+        }
+    }
 }
 
 // https://osu.ppy.sh/wiki/en/Client/File_formats/Osr_%28file_format%29
-fn complete_replay(score: &Score, raw_replay: &[u8]) -> Box<[u8]> {
+fn complete_replay(score: &ReplayScore<'_>, score_id: u64, raw_replay: &[u8]) -> Box<[u8]> {
     let mut replay = Vec::with_capacity(128 + raw_replay.len());
 
     let mut bytes_written = 0;
 
-    bytes_written += encode_byte(&mut replay, score.mode as u8);
-    bytes_written += encode_int(&mut replay, game_version(score.ended_at.date()));
+    bytes_written += encode_byte(&mut replay, score.mode() as u8);
+    bytes_written += encode_int(&mut replay, game_version(score.ended_at().date()));
 
-    let map_md5 = score
-        .map
-        .as_ref()
-        .and_then(|map| map.checksum.as_deref())
-        .unwrap_or_default();
-
+    let map_md5 = score.map_checksum().unwrap_or_default();
     bytes_written += encode_string(&mut replay, map_md5);
 
-    let username = score
-        .user
-        .as_ref()
-        .map(|user| user.username.as_str())
-        .unwrap_or_default();
-
+    let username = score.username();
     bytes_written += encode_string(&mut replay, username);
 
     let replay_md5 = String::new();
     bytes_written += encode_string(&mut replay, &replay_md5);
 
-    let stats = &score.statistics;
+    let stats = score.statistics();
     bytes_written += encode_short(&mut replay, stats.count_300 as u16);
     bytes_written += encode_short(&mut replay, stats.count_100 as u16);
     bytes_written += encode_short(&mut replay, stats.count_50 as u16);
@@ -255,25 +380,24 @@ fn complete_replay(score: &Score, raw_replay: &[u8]) -> Box<[u8]> {
     bytes_written += encode_short(&mut replay, stats.count_katu as u16);
     bytes_written += encode_short(&mut replay, stats.count_miss as u16);
 
-    bytes_written += encode_int(&mut replay, score.score);
+    bytes_written += encode_int(&mut replay, score.score());
 
-    bytes_written += encode_short(&mut replay, score.max_combo as u16);
+    bytes_written += encode_short(&mut replay, score.max_combo());
 
-    bytes_written += encode_byte(&mut replay, score.perfect as u8);
+    bytes_written += encode_byte(&mut replay, score.perfect() as u8);
 
-    bytes_written += encode_int(&mut replay, score.mods.bits());
+    bytes_written += encode_int(&mut replay, score.mods());
 
     let lifebar = String::new();
     bytes_written += encode_string(&mut replay, &lifebar);
 
-    bytes_written += encode_datetime(&mut replay, score.ended_at);
+    bytes_written += encode_datetime(&mut replay, score.ended_at());
 
     bytes_written += encode_int(&mut replay, raw_replay.len() as u32);
     replay.extend_from_slice(raw_replay);
 
-    bytes_written += encode_long(&mut replay, score.score_id.unwrap_or(0));
+    bytes_written += encode_long(&mut replay, score_id);
 
-    #[cfg(debug_assertions)]
     if bytes_written > 128 {
         warn!(bytes_written, "Wrote more bytes than initial allocation");
     }

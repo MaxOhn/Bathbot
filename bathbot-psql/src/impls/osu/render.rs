@@ -307,4 +307,44 @@ VALUES
 
         Ok(())
     }
+
+    pub async fn select_replay_video_url(&self, score_id: u64) -> Result<Option<Box<str>>> {
+        let query = sqlx::query!(
+            r#"
+SELECT 
+  video_url 
+FROM 
+  render_video_urls 
+WHERE 
+  score_id = $1"#,
+            score_id as i64
+        );
+
+        query
+            .fetch_optional(self)
+            .await
+            .map(|opt| opt.map(|row| row.video_url.into_boxed_str()))
+            .wrap_err("Failed to fetch optional")
+    }
+
+    pub async fn upsert_replay_video_url(&self, score_id: u64, video_url: &str) -> Result<()> {
+        let query = sqlx::query!(
+            r#"
+INSERT INTO render_video_urls (score_id, video_url) 
+VALUES 
+  ($1, $2) ON CONFLICT (score_id) DO 
+UPDATE 
+SET 
+  video_url = $2"#,
+            score_id as i64,
+            video_url
+        );
+
+        query
+            .execute(self)
+            .await
+            .wrap_err("Failed to execute query")?;
+
+        Ok(())
+    }
 }

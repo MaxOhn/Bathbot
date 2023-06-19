@@ -59,7 +59,7 @@ impl ConfigEmbed {
 
         let mut fields = vec![
             EmbedField {
-                inline: true,
+                inline: false,
                 name: "Accounts".to_owned(),
                 value: account_value,
             },
@@ -72,6 +72,11 @@ impl ConfigEmbed {
                 "Minimized PP",
                 config.minimized_pp.unwrap_or_default(),
                 &[(MinimizedPp::MaxPp, "max pp"), (MinimizedPp::IfFc, "if FC")],
+            ),
+            create_field(
+                "Render button",
+                config.render_button,
+                &[(Some(true), "show"), (Some(false), "hide")],
             ),
             create_field(
                 "Score embeds",
@@ -95,7 +100,6 @@ impl ConfigEmbed {
                 "Mode",
                 config.mode,
                 &[
-                    (None, "none"),
                     (Some(GameMode::Osu), "osu"),
                     (Some(GameMode::Taiko), "taiko"),
                     (Some(GameMode::Catch), "catch"),

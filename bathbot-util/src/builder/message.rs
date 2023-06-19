@@ -15,6 +15,9 @@ pub struct MessageBuilder<'c> {
     pub components: Option<Vec<Component>>,
 }
 
+// essentially an extension to Option<EmbedBuilder> which will be Some most of
+// the time
+#[allow(clippy::large_enum_variant)]
 #[derive(Default)]
 pub enum EmbedOption {
     Include(EmbedBuilder),
@@ -43,6 +46,8 @@ impl From<EmbedOption> for Option<Vec<Embed>> {
     }
 }
 
+// essentially an extension to Option<Embed> which will be Some most of the time
+#[allow(clippy::large_enum_variant)]
 pub enum BuiltEmbedOption {
     Include(Embed),
     Clear,

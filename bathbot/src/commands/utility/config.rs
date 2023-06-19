@@ -94,6 +94,13 @@ pub struct Config {
         If you want to suggest another site let Badewanne3 know."
     )]
     skin_url: Option<String>,
+    #[command(
+        desc = "Should the recent command include a render button?",
+        help = "Should the `recent` command include a render button?\n\
+        The button would be a shortcut for the `/render` command.\n\
+        In servers, this requires that the render button is not disabled in `/serverconfigs`."
+    )]
+    render_button: Option<ShowHideOption>,
 }
 
 // FIXME: Some attribute command does not register the #[cfg(feature = "")]
@@ -147,6 +154,13 @@ pub struct Config {
         If you want to suggest another site let Badewanne3 know."
     )]
     skin_url: Option<String>,
+    #[command(
+        desc = "Should the recent command include a render button?",
+        help = "Should the `recent` command include a render button?\n\
+        The button would be a shortcut for the `/render` command.\n\
+        In servers, this requires that the render button is not disabled in `/serverconfigs`."
+    )]
+    render_button: Option<ShowHideOption>,
 }
 
 #[derive(CommandOption, CreateOption)]
@@ -202,6 +216,7 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
         minimized_pp,
         timezone,
         mut skin_url,
+        render_button,
     } = config;
 
     if let Some(ref skin_url) = skin_url {
@@ -249,6 +264,10 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
 
     if let Some(tz) = timezone.map(UtcOffset::from) {
         config.timezone = Some(tz);
+    }
+
+    if let Some(render_button) = render_button {
+        config.render_button = Some(matches!(render_button, ShowHideOption::Show));
     }
 
     #[cfg(feature = "server")]
@@ -584,6 +603,7 @@ async fn convert_config(
         show_retries,
         twitch_id,
         timezone,
+        render_button,
     } = config;
 
     UserConfig {
@@ -595,6 +615,7 @@ async fn convert_config(
         show_retries,
         twitch_id,
         timezone,
+        render_button,
     }
 }
 
