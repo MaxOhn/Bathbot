@@ -2035,6 +2035,7 @@ dependencies = [
 [[package]]
 name = "rosu-render"
 version = "0.1.0"
+source = "git+https://github.com/MaxOhn/rosu-render?branch=main#87271bef0409ea940700c2ca7ee24b688798c862"
 dependencies = [
  "form_urlencoded",
  "futures",
