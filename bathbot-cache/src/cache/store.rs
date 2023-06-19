@@ -84,6 +84,25 @@ impl Cache {
         Self::store_raw(&mut conn, key, bytes, expire_seconds).await
     }
 
+    /// Insert a value into a set.
+    ///
+    /// Returns whether the value was newly inserted. That is:
+    ///
+    /// - If the set did not previously contain this value, `true` is returned.
+    /// - If the set already contained this value, `false` is returned.
+    ///
+    /// The currently only use is for values of type `u64`. If other use-cases
+    /// arise, this type should be adjusted.
+    pub async fn insert_into_set<K>(&self, key: &K, value: u64) -> Result<bool>
+    where
+        K: ToCacheKey + ?Sized,
+    {
+        let key = RedisKey::from(key);
+        let count: u8 = self.connection().await?.sadd(key, value).await?;
+
+        Ok(count == 1)
+    }
+
     pub(crate) async fn cache_channel(&self, channel: &Channel) -> Result<CacheChange> {
         let bytes = SingleSerializer::channel(channel)?;
         let mut conn = self.connection().await?;

@@ -28,7 +28,8 @@ SELECT
   show_retries,
   osu_track_limit,
   minimized_pp,
-  list_size
+  list_size, 
+  render_button 
 FROM 
   guild_configs"#
         );
@@ -59,6 +60,7 @@ FROM
             show_retries,
             track_limit,
             allow_songs,
+            render_button,
         } = config;
 
         let authorities =
@@ -72,10 +74,10 @@ FROM
 INSERT INTO guild_configs (
   guild_id, authorities, prefixes, allow_songs, 
   score_size, show_retries, osu_track_limit, 
-  minimized_pp, list_size
+  minimized_pp, list_size, render_button
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (guild_id) DO 
+  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (guild_id) DO 
 UPDATE 
 SET 
   authorities = $2, 
@@ -85,7 +87,8 @@ SET
   show_retries = $6, 
   osu_track_limit = $7, 
   minimized_pp = $8, 
-  list_size = $9"#,
+  list_size = $9, 
+  render_button = $10"#,
             guild_id.get() as i64,
             &authorities as &[u8],
             &prefixes as &[u8],
@@ -95,6 +98,7 @@ SET
             track_limit.map(|limit| limit as i16),
             minimized_pp.map(i16::from),
             list_size.map(i16::from),
+            *render_button,
         );
 
         query
@@ -160,6 +164,7 @@ pub(in crate::impls) mod tests {
             show_retries: Some(true),
             track_limit: Some(42),
             allow_songs: Some(true),
+            render_button: Some(true),
         }
     }
 

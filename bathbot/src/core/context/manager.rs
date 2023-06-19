@@ -5,7 +5,7 @@ use super::Context;
 use crate::manager::{
     redis::RedisManager, ApproxManager, BookmarkManager, GameManager, GuildConfigManager,
     HuismetbenenCountryManager, MapManager, OsuMap, OsuTrackingManager, OsuUserManager, PpManager,
-    ScoresManager, TwitchManager, UserConfigManager,
+    ReplayManager, ScoresManager, TwitchManager, UserConfigManager,
 };
 
 impl Context {
@@ -69,5 +69,9 @@ impl Context {
 
     pub fn bookmarks(&self) -> BookmarkManager<'_> {
         BookmarkManager::new(&self.clients.psql)
+    }
+
+    pub fn replay(&self) -> ReplayManager<'_> {
+        ReplayManager::new(&self.clients.psql, &self.clients.custom, &self.cache)
     }
 }

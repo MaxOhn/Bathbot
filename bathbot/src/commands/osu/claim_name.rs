@@ -73,7 +73,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 
     if let Some(content) = content {
         let builder = MessageBuilder::new().embed(content);
-        command.update(&ctx, &builder).await?;
+        command.update(&ctx, builder).await?;
 
         return Ok(());
     }
@@ -89,7 +89,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
             };
 
             let builder = MessageBuilder::new().embed(content);
-            command.update(&ctx, &builder).await?;
+            command.update(&ctx, builder).await?;
 
             return Ok(());
         }
@@ -205,7 +205,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 
     let embed = ClaimNameEmbed::new(&user, &name).build();
     let builder = MessageBuilder::new().embed(embed);
-    command.update(&ctx, &builder).await?;
+    command.update(&ctx, builder).await?;
 
     Ok(())
 }

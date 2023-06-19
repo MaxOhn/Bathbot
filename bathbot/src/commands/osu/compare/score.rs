@@ -505,7 +505,7 @@ pub(super) async fn score(
     if entries.is_empty() {
         let embed = no_scores_embed(&user, &map, mods);
         let builder = MessageBuilder::new().embed(embed);
-        orig.create_message(&ctx, &builder).await?;
+        orig.create_message(&ctx, builder).await?;
 
         return Ok(());
     }

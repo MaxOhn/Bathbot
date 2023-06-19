@@ -186,10 +186,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         kofi,
     ];
 
-    let embed = EmbedBuilder::new()
-        .description(description)
-        .fields(fields)
-        .build();
+    let embed = EmbedBuilder::new().description(description).fields(fields);
 
     let builder = MessageBuilder::new().embed(embed);
 

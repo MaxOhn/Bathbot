@@ -116,7 +116,7 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
 
     let embed = FixScoreEmbed::new(&entry, None).build();
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

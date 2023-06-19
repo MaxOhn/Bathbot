@@ -41,7 +41,7 @@ async fn prefix_prefix(
         ctx.guild_config().peek(guild_id, f).await;
 
         let builder = MessageBuilder::new().embed(content);
-        msg.create_message(&ctx, &builder, permissions).await?;
+        msg.create_message(&ctx, builder, permissions).await?;
 
         return Ok(());
     };
@@ -145,7 +145,7 @@ async fn prefix_prefix(
             ctx.guild_config().peek(guild_id, f).await;
 
             let builder = MessageBuilder::new().embed(content);
-            msg.create_message(&ctx, &builder, permissions).await?;
+            msg.create_message(&ctx, builder, permissions).await?;
 
             Ok(())
         }

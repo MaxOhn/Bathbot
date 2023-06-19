@@ -103,10 +103,7 @@ async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) ->
                 .url(format!("{OSU_BASE}u/{}", user.user_id))
                 .icon_url(flag_url(&user.country_code));
 
-            EmbedBuilder::new()
-                .author(author)
-                .image(user.avatar_url)
-                .build()
+            EmbedBuilder::new().author(author).image(user.avatar_url)
         }
         RedisData::Archive(user) => {
             let author = AuthorBuilder::new(user.username.as_str())
@@ -116,12 +113,11 @@ async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) ->
             EmbedBuilder::new()
                 .author(author)
                 .image(user.avatar_url.as_ref())
-                .build()
         }
     };
 
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

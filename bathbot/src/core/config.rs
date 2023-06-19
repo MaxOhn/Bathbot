@@ -51,7 +51,9 @@ pub struct Tokens {
     pub discord: Box<str>,
     pub osu_client_id: u64,
     pub osu_client_secret: Box<str>,
+    pub osu_key: Box<str>,
     pub osu_session: Box<str>,
+    pub ordr_key: Box<str>,
     #[cfg(feature = "twitch")]
     pub twitch_client_id: Box<str>,
     #[cfg(feature = "twitch")]
@@ -104,6 +106,7 @@ impl BotConfig {
             "single_step",
             "jump_end",
             "miss",
+            "ordr",
         ];
 
         let emotes = emotes
@@ -122,7 +125,9 @@ impl BotConfig {
                 discord: env_var("DISCORD_TOKEN")?,
                 osu_client_id: env_var("OSU_CLIENT_ID")?,
                 osu_client_secret: env_var("OSU_CLIENT_SECRET")?,
+                osu_key: env_var("OSU_API_KEY")?,
                 osu_session: env_var("OSU_SESSION")?,
+                ordr_key: env_var("ORDR_KEY")?,
                 #[cfg(feature = "twitch")]
                 twitch_client_id: env_var("TWITCH_CLIENT_ID")?,
                 #[cfg(feature = "twitch")]

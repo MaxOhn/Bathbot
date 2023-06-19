@@ -338,7 +338,7 @@ impl IActiveMessage for TopPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let defer = matches!(self.list_size, ListSize::Single);

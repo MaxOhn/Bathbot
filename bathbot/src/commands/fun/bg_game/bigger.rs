@@ -44,7 +44,7 @@ pub async fn bigger(
         Some(game) => match game.sub_image().await {
             Ok(bytes) => {
                 let builder = MessageBuilder::new().attachment("bg_img.png", bytes);
-                msg.create_message(&ctx, &builder, permissions).await?;
+                msg.create_message(&ctx, builder, permissions).await?;
             }
             Err(err) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;

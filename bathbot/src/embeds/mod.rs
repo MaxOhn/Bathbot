@@ -1,4 +1,4 @@
-use twilight_model::channel::message::embed::Embed;
+use bathbot_util::EmbedBuilder;
 
 #[cfg(feature = "osutracking")]
 pub use self::tracking::*;
@@ -11,13 +11,7 @@ mod utility;
 mod tracking;
 
 pub trait EmbedData {
-    fn build(self) -> Embed;
-}
-
-impl EmbedData for Embed {
-    fn build(self) -> Embed {
-        self
-    }
+    fn build(self) -> EmbedBuilder;
 }
 
 pub fn attachment(filename: impl AsRef<str>) -> String {

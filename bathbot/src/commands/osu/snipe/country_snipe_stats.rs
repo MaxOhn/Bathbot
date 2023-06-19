@@ -152,7 +152,7 @@ pub(super) async fn country_stats(
         builder = builder.attachment("stats_graph.png", bytes);
     }
 
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

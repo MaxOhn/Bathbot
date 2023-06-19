@@ -126,6 +126,14 @@ pub struct ServerConfigEdit {
         desc = "Specify whether the recent command should show max or if-fc pp when minimized"
     )]
     minimized_pp: Option<MinimizedPp>,
+    #[command(
+        desc = "Should the recent command include a render button?",
+        help = "Should the `recent` command include a render button?\n\
+        The button would be a shortcut for the `/render` command.\n\
+        If hidden, the button will never show. If shown, members \
+        will have the option to choose via `/config`."
+    )]
+    render_button: Option<ShowHideOption>,
 }
 
 impl ServerConfigEdit {
@@ -136,6 +144,7 @@ impl ServerConfigEdit {
             || self.retries.is_some()
             || self.track_limit.is_some()
             || self.minimized_pp.is_some()
+            || self.render_button.is_some()
     }
 }
 
@@ -175,6 +184,7 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
                 retries,
                 song_commands,
                 track_limit,
+                render_button,
             } = args;
 
             if let Some(score_embeds) = score_embeds {
@@ -199,6 +209,10 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
 
             if let Some(with_lyrics) = song_commands {
                 config.allow_songs = Some(with_lyrics == EnableDisable::Enable);
+            }
+
+            if let Some(render_button) = render_button {
+                config.render_button = Some(render_button == ShowHideOption::Show);
             }
         };
 

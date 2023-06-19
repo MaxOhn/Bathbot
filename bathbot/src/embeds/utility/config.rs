@@ -4,10 +4,7 @@ use ::time::UtcOffset;
 use bathbot_psql::model::configs::{ListSize, MinimizedPp, OsuUsername, ScoreSize, UserConfig};
 use bathbot_util::{AuthorBuilder, EmbedBuilder, FooterBuilder};
 use rosu_v2::prelude::GameMode;
-use twilight_model::{
-    channel::message::embed::{Embed, EmbedField},
-    user::User,
-};
+use twilight_model::{channel::message::embed::EmbedField, user::User};
 
 use crate::embeds::EmbedData;
 
@@ -62,7 +59,7 @@ impl ConfigEmbed {
 
         let mut fields = vec![
             EmbedField {
-                inline: true,
+                inline: false,
                 name: "Accounts".to_owned(),
                 value: account_value,
             },
@@ -75,6 +72,11 @@ impl ConfigEmbed {
                 "Minimized PP",
                 config.minimized_pp.unwrap_or_default(),
                 &[(MinimizedPp::MaxPp, "max pp"), (MinimizedPp::IfFc, "if FC")],
+            ),
+            create_field(
+                "Render button",
+                config.render_button,
+                &[(Some(true), "show"), (Some(false), "hide")],
             ),
             create_field(
                 "Score embeds",
@@ -98,7 +100,6 @@ impl ConfigEmbed {
                 "Mode",
                 config.mode,
                 &[
-                    (None, "none"),
                     (Some(GameMode::Osu), "osu"),
                     (Some(GameMode::Taiko), "taiko"),
                     (Some(GameMode::Catch), "catch"),
@@ -157,7 +158,7 @@ pub(super) fn create_field<T: Eq>(
 
 impl EmbedData for ConfigEmbed {
     #[inline]
-    fn build(self) -> Embed {
+    fn build(self) -> EmbedBuilder {
         let mut builder = EmbedBuilder::new()
             .author(self.author)
             .fields(self.fields)
@@ -167,6 +168,6 @@ impl EmbedData for ConfigEmbed {
             builder = builder.footer(footer);
         }
 
-        builder.build()
+        builder
     }
 }

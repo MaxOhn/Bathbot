@@ -21,11 +21,8 @@ pub trait ComponentExt {
     /// After having already ackowledged the component either via
     /// [`ComponentExt::callback`] or [`ComponentExt::defer`],
     /// use this to update the message.
-    fn update(
-        &self,
-        ctx: &Context,
-        builder: &MessageBuilder<'_>,
-    ) -> Option<ResponseFuture<Message>>;
+    fn update(&self, ctx: &Context, builder: MessageBuilder<'_>)
+        -> Option<ResponseFuture<Message>>;
 
     /// Acknowledge a component by responding with a modal.
     fn modal(&self, ctx: &Context, modal: ModalBuilder) -> ResponseFuture<EmptyBody>;
@@ -45,7 +42,7 @@ impl ComponentExt for InteractionComponent {
 
         let data = InteractionResponseData {
             components: builder.components,
-            embeds: builder.embed.map(|e| vec![e]),
+            embeds: builder.embed.into(),
             content: builder.content.map(Cow::into_owned),
             attachments,
             ..Default::default()
@@ -77,7 +74,7 @@ impl ComponentExt for InteractionComponent {
     fn update(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
     ) -> Option<ResponseFuture<Message>> {
         self.message.update(ctx, builder, self.permissions)
     }

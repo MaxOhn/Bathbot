@@ -155,18 +155,17 @@ async fn matchcompare(
 
             if let Some(embed) = embeds.next() {
                 let builder = MessageBuilder::new().embed(embed);
-                command.update(&ctx, &builder).await?;
+                command.update(&ctx, builder).await?;
 
                 let mut interval = interval(Duration::from_secs(1));
                 interval.tick().await;
 
                 for embed in embeds {
                     interval.tick().await;
-                    let embed = embed.build();
 
                     command
                         .channel_id
-                        .create_message(&ctx, &embed.into(), command.permissions)
+                        .create_message(&ctx, embed.into(), command.permissions)
                         .await?;
                 }
             }

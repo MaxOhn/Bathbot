@@ -80,7 +80,7 @@ pub async fn playcount_replays_graph(
                 name = user.username()
             );
 
-            let builder = &MessageBuilder::new().embed(content);
+            let builder = MessageBuilder::new().embed(content);
             orig.create_message(ctx, builder).await?;
 
             return Ok(None);

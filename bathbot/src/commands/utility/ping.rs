@@ -55,7 +55,7 @@ async fn ping(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let builder = MessageBuilder::new().content(content);
 
     response
-        .update(&ctx, &builder, orig.permissions())
+        .update(&ctx, builder, orig.permissions())
         .wrap_err("lacking permission to update message")?
         .await?;
 

@@ -227,7 +227,7 @@ pub(super) async fn profile(
         builder = builder.attachment("avatar_fuse.png", bytes);
     }
 
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

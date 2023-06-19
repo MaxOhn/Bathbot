@@ -137,11 +137,11 @@ impl IActiveMessage for ProfileMenu {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         async fn inner(
-            ctx: &Context,
+            ctx: Arc<Context>,
             component: &mut InteractionComponent,
             kind: &mut ProfileKind,
             msg_owner: Id<UserMarker>,
@@ -170,7 +170,7 @@ impl IActiveMessage for ProfileMenu {
                 None => return ComponentResult::Err(eyre!("Missing value for profile menu")),
             };
 
-            if let Err(err) = component.defer(ctx).await {
+            if let Err(err) = component.defer(&ctx).await {
                 warn!(?err, "Failed to defer component");
             }
 

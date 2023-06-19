@@ -175,7 +175,7 @@ impl IActiveMessage for HelpPrefixMenu {
 
     fn handle_component<'a>(
         &'a mut self,
-        _: &'a Context,
+        _: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let Some(value) = component.data.values.pop() else {

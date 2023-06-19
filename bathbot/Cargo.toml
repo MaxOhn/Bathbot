@@ -41,6 +41,7 @@ rosu-pp = { workspace = true }
 rosu-v2 = { workspace = true }
 rkyv = { version = "0.7" }
 rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
+rosu-render = { git = "https://github.com/MaxOhn/rosu-render", branch = "main" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 skia-safe = { version = "0.58.0" }

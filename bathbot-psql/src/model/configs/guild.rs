@@ -12,6 +12,7 @@ pub struct DbGuildConfig {
     pub show_retries: Option<bool>,
     pub osu_track_limit: Option<i16>,
     pub allow_songs: Option<bool>,
+    pub render_button: Option<bool>,
 }
 
 #[derive(Clone, Default)]
@@ -24,6 +25,7 @@ pub struct GuildConfig {
     pub show_retries: Option<bool>,
     pub track_limit: Option<u8>,
     pub allow_songs: Option<bool>,
+    pub render_button: Option<bool>,
 }
 
 impl From<DbGuildConfig> for GuildConfig {
@@ -39,6 +41,7 @@ impl From<DbGuildConfig> for GuildConfig {
             show_retries,
             osu_track_limit,
             allow_songs,
+            render_button,
         } = config;
 
         // SAFETY: The bytes originate from the DB which only provides valid archived
@@ -55,6 +58,7 @@ impl From<DbGuildConfig> for GuildConfig {
             show_retries,
             track_limit: osu_track_limit.map(|limit| limit as u8),
             allow_songs,
+            render_button,
         }
     }
 }

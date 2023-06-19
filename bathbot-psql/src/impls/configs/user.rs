@@ -28,7 +28,8 @@ SELECT
   osu_id, 
   show_retries, 
   twitch_id, 
-  timezone_seconds 
+  timezone_seconds, 
+  render_button 
 FROM 
   user_configs 
 WHERE 
@@ -65,7 +66,8 @@ SELECT
   ), 
   show_retries, 
   twitch_id, 
-  timezone_seconds 
+  timezone_seconds, 
+  render_button 
 FROM 
   user_configs 
 WHERE 
@@ -76,7 +78,7 @@ WHERE
         let config_opt = query
             .fetch_optional(self)
             .await
-            .wrap_err("failed to fetch optional")?
+            .wrap_err("Failed to fetch optional")?
             .map(|row| UserConfig {
                 score_size: row.score_size.map(ScoreSize::try_from).and_then(Result::ok),
                 list_size: row.list_size.map(ListSize::try_from).and_then(Result::ok),
@@ -92,6 +94,7 @@ WHERE
                     .timezone_seconds
                     .map(UtcOffset::from_whole_seconds)
                     .map(Result::unwrap),
+                render_button: row.render_button,
             });
 
         Ok(config_opt)
@@ -305,15 +308,27 @@ FROM
         user_id: Id<UserMarker>,
         config: &UserConfig<OsuUserId>,
     ) -> Result<()> {
+        let UserConfig {
+            score_size,
+            list_size,
+            minimized_pp,
+            mode,
+            osu,
+            show_retries,
+            twitch_id,
+            timezone,
+            render_button,
+        } = config;
+
         let query = sqlx::query!(
             r#"
 INSERT INTO user_configs (
   discord_id, osu_id, gamemode, twitch_id, 
   score_size, show_retries, minimized_pp, 
-  list_size, timezone_seconds
+  list_size, timezone_seconds, render_button
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (discord_id) DO 
+  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (discord_id) DO 
 UPDATE 
 SET 
   osu_id = $2, 
@@ -322,17 +337,19 @@ SET
   score_size = $5, 
   show_retries = $6, 
   minimized_pp = $7, 
-  list_size = $8,
-  timezone_seconds = $9"#,
+  list_size = $8, 
+  timezone_seconds = $9, 
+  render_button = $10"#,
             user_id.get() as i64,
-            config.osu.map(|id| id as i32),
-            config.mode.map(|mode| mode as i16) as Option<i16>,
-            config.twitch_id.map(|id| id as i64),
-            config.score_size.map(i16::from),
-            config.show_retries,
-            config.minimized_pp.map(i16::from),
-            config.list_size.map(i16::from),
-            config.timezone.map(UtcOffset::whole_seconds),
+            osu.map(|id| id as i32),
+            mode.map(|mode| mode as i16) as Option<i16>,
+            twitch_id.map(|id| id as i64),
+            score_size.map(i16::from),
+            *show_retries,
+            minimized_pp.map(i16::from),
+            list_size.map(i16::from),
+            timezone.map(UtcOffset::whole_seconds),
+            *render_button,
         );
 
         query
@@ -481,6 +498,7 @@ pub(in crate::impls) mod tests {
             show_retries: Some(true),
             twitch_id: None,
             timezone: Some(UtcOffset::from_whole_seconds(-7272).unwrap()),
+            render_button: Some(true),
         }
     }
 
