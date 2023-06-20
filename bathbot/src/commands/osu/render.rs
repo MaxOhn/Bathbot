@@ -19,7 +19,10 @@ use twilight_model::{
 };
 
 use crate::{
-    active::{impls::RenderSettingsActive, ActiveMessages},
+    active::{
+        impls::{RenderSettingsActive, SettingsImport},
+        ActiveMessages,
+    },
     core::{
         buckets::BucketName,
         commands::{checks::check_ratelimit, OwnedCommandOrigin},
@@ -69,6 +72,8 @@ pub struct RenderScore {
 pub enum RenderSettings {
     #[command(name = "modify")]
     Modify(RenderSettingsModify),
+    #[command(name = "import")]
+    Import(RenderSettingsImport),
     #[command(name = "copy")]
     Copy(RenderSettingsCopy),
     #[command(name = "default")]
@@ -78,6 +83,10 @@ pub enum RenderSettings {
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "modify", desc = "Modify your o!rdr render settings")]
 pub struct RenderSettingsModify;
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "import", desc = "Import your render settings from Yuna bot")]
+pub struct RenderSettingsImport;
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "copy", desc = "Use someone else's render settings as your own")]
@@ -96,6 +105,9 @@ pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) ->
         Render::Score(args) => render_score(ctx, command, args).await,
         Render::Settings(RenderSettings::Modify(_)) => {
             render_settings_modify(ctx, &mut command).await
+        }
+        Render::Settings(RenderSettings::Import(_)) => {
+            render_settings_import(ctx, &mut command).await
         }
         Render::Settings(RenderSettings::Copy(args)) => {
             render_settings_copy(ctx, &mut command, args).await
@@ -547,6 +559,12 @@ async fn render_settings_modify(ctx: Arc<Context>, command: &mut InteractionComm
 
     ActiveMessages::builder(active)
         .start_by_update(true)
+        .begin(ctx, command)
+        .await
+}
+
+async fn render_settings_import(ctx: Arc<Context>, command: &mut InteractionCommand) -> Result<()> {
+    ActiveMessages::builder(SettingsImport::new(command.user_id()?))
         .begin(ctx, command)
         .await
 }

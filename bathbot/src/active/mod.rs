@@ -31,8 +31,9 @@ use self::{
         PopularMappersPagination, PopularMapsPagination, PopularMapsetsPagination,
         PopularModsPagination, ProfileMenu, RankingCountriesPagination, RankingPagination,
         RecentListPagination, RenderSettingsActive, ScoresMapPagination, ScoresServerPagination,
-        ScoresUserPagination, SimulateComponents, SkinsPagination, SnipeCountryListPagination,
-        SnipeDifferencePagination, SnipePlayerListPagination, TopIfPagination, TopPagination,
+        ScoresUserPagination, SettingsImport, SimulateComponents, SkinsPagination,
+        SnipeCountryListPagination, SnipeDifferencePagination, SnipePlayerListPagination,
+        TopIfPagination, TopPagination,
     },
 };
 use crate::{
@@ -89,6 +90,7 @@ pub enum ActiveMessage {
     ScoresMapPagination,
     ScoresServerPagination,
     ScoresUserPagination,
+    SettingsImport,
     SimulateComponents,
     SkinsPagination,
     SnipeCountryListPagination,
