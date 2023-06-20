@@ -3,7 +3,7 @@ use std::{cmp::Ordering, convert::identity, fmt::Write};
 use bathbot_macros::EmbedData;
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
-    constants::{MAP_THUMB_URL, OSU_BASE},
+    constants::OSU_BASE,
     numbers::{round, WithComma},
     osu::{ExtractablePp, PpListUtil},
     AuthorBuilder, CowUtils,
@@ -31,7 +31,7 @@ impl FixScoreEmbed {
 
         let author = user.author_builder();
         let url = format!("{OSU_BASE}b/{}", map.map_id());
-        let thumbnail = format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id());
+        let thumbnail = map.thumbnail().to_owned();
 
         let title = format!(
             "{} - {} [{}]",

@@ -8,7 +8,7 @@ use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
 use bathbot_psql::model::osu::{ArchivedMapVersion, MapVersion};
 use bathbot_util::{
-    constants::{AVATAR_URL, GENERAL_ISSUE, MAP_THUMB_URL, OSU_API_ISSUE, OSU_BASE},
+    constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
     matcher,
     osu::{MapIdType, ModSelection},
     CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin,
@@ -958,7 +958,7 @@ fn no_scores_embed(
         .author(user.author_builder())
         .description(description)
         .footer(footer)
-        .thumbnail(format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id()))
+        .thumbnail(map.thumbnail())
         .title(title)
         .url(format!("{OSU_BASE}b/{}", map.map_id()))
 }
