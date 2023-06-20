@@ -11,7 +11,7 @@ use futures::future::{ready, BoxFuture};
 use twilight_model::{
     channel::message::{
         component::{ActionRow, Button, ButtonStyle},
-        Component,
+        Component, ReactionType,
     },
     guild::Permissions,
     id::{
@@ -227,7 +227,9 @@ impl EditOnTimeoutKind {
                     let render = Button {
                         custom_id: Some("render".to_owned()),
                         disabled: false,
-                        emoji: Some(Emote::Ordr.reaction_type()),
+                        emoji: Some(ReactionType::Unicode {
+                            name: "🎥".to_owned(),
+                        }),
                         label: Some("Render".to_owned()),
                         style: ButtonStyle::Primary,
                         url: None,

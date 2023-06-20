@@ -24,7 +24,6 @@ pub enum Emote {
     JumpEnd,
 
     Miss,
-    Ordr,
 }
 
 impl Emote {
@@ -105,7 +104,6 @@ impl FromStr for Emote {
             "single_step" => Self::SingleStep,
             "jump_end" => Self::JumpEnd,
             "miss" => Self::Miss,
-            "ordr" => Self::Ordr,
             _ => return Err(()),
         };
 

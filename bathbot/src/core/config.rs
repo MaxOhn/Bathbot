@@ -106,7 +106,6 @@ impl BotConfig {
             "single_step",
             "jump_end",
             "miss",
-            "ordr",
         ];
 
         let emotes = emotes
