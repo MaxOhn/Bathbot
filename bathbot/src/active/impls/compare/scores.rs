@@ -6,7 +6,7 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
 use bathbot_util::{
-    constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+    constants::{AVATAR_URL, OSU_BASE},
     datetime::HowLongAgoDynamic,
     numbers::{round, WithComma},
     CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin, ScoreExt,
@@ -204,14 +204,13 @@ impl IActiveMessage for CompareScoresPagination {
             let _ = write!(title_text, "[{}K] ", self.map.cs() as u32);
         }
 
-        let thumbnail = format!("{MAP_THUMB_URL}{}l.jpg", self.map.mapset_id());
         let url = format!("{OSU_BASE}b/{}", self.map.map_id());
 
         let embed = EmbedBuilder::new()
             .author(self.user.author_builder())
             .description(description)
             .footer(footer)
-            .thumbnail(thumbnail)
+            .thumbnail(self.map.thumbnail())
             .title(title_text)
             .url(url);
 

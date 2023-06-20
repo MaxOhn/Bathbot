@@ -71,6 +71,7 @@ impl IActiveMessage for ScoresMapPagination {
                 "https://cdn.discordapp.com/icons/{id}/{icon}.{ext}",
                 ext = if icon.animated { "gif" } else { "webp" }
             ),
+            // FIXME: MAP_THUMB_URL endpoint is sometimes wrong, see issue #426
             None => format!("{MAP_THUMB_URL}{mapset_id}l.jpg"),
         };
 
