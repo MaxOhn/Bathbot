@@ -7,7 +7,7 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::ScraperScore;
 use bathbot_util::{
-    constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+    constants::{AVATAR_URL, OSU_BASE},
     datetime::HowLongAgoDynamic,
     numbers::WithComma,
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher,
@@ -187,13 +187,11 @@ impl LeaderboardPagination {
         );
         let footer = FooterBuilder::new(footer_text).icon_url(footer_icon);
 
-        let thumbnail = format!("{MAP_THUMB_URL}{}l.jpg", self.map.mapset_id());
-
         let embed = EmbedBuilder::new()
             .author(author)
             .description(description)
             .footer(footer)
-            .thumbnail(thumbnail);
+            .thumbnail(self.map.thumbnail());
 
         Ok(BuildPage::new(embed, true).content(self.content.clone()))
     }

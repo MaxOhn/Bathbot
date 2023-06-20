@@ -10,6 +10,7 @@ pub const FIELD_VALUE_SIZE: usize = 1024;
 
 // osu!
 pub const OSU_BASE: &str = "https://osu.ppy.sh/";
+/// FIXME: Endpoint is sometimes wrong so avoid using it, see issue #426
 pub const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
 pub const AVATAR_URL: &str = "https://a.ppy.sh/";
 pub const HUISMETBENEN: &str = "https://api.huismetbenen.nl/";
