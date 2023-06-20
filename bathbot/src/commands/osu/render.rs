@@ -39,7 +39,7 @@ pub const RENDERER_NAME: &str = "Bathbot";
 #[command(
     name = "render",
     desc = "Render an osu!standard play via o!rdr",
-    help = "Render a play via o!rdr.\n\
+    help = "Render a play via [o!rdr](https://ordr.issou.best/).\n\
     Since [danser](https://github.com/Wieku/danser-go) is being used, \
     only osu!standard is supported."
 )]
