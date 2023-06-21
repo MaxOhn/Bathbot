@@ -1,7 +1,6 @@
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
-    future::ready,
-    mem,
+    ptr,
     sync::Arc,
 };
 
@@ -20,6 +19,7 @@ use twilight_model::{
     id::{marker::UserMarker, Id},
 };
 
+use super::RenderSettingsActive;
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     core::Context,
@@ -33,15 +33,42 @@ use crate::{
 enum ImportResult {
     #[default]
     None,
-    Ok,
+    OkWithDefer(RenderSettingsActive),
+    Ok(RenderSettingsActive),
     ParseError(ParseError),
     Err(Report),
+}
+
+impl ImportResult {
+    /// If `self` is `Self::OkWithDefer`, replace it with `Self::Ok` and return
+    /// `true`. Otherwise do nothing and return `false`.
+    fn skip_defer(&mut self) -> bool {
+        if !matches!(self, Self::OkWithDefer(_)) {
+            return false;
+        }
+
+        debug_assert!(matches!(self, Self::OkWithDefer(_)));
+
+        // SAFETY: self is valid for reads, properly aligned, and initialized
+        let tmp = unsafe { ptr::read(self) };
+
+        // Code must not panic between ptr::read and ptr::write
+
+        let new = match tmp {
+            Self::OkWithDefer(s) => Self::Ok(s),
+            _ => unreachable!(), // previous assert ensures that this can not happen
+        };
+
+        // SAFETY: self is valid for writes, and properly aligned
+        unsafe { ptr::write(self, new) };
+
+        true
+    }
 }
 
 pub struct SettingsImport {
     msg_owner: Id<UserMarker>,
     import_result: ImportResult,
-    done: bool,
 }
 
 impl SettingsImport {
@@ -49,7 +76,6 @@ impl SettingsImport {
         Self {
             msg_owner,
             import_result: Default::default(),
-            done: false,
         }
     }
 
@@ -87,7 +113,21 @@ impl SettingsImport {
                         let user = modal.user_id()?;
 
                         match ctx.replay().set_settings(user, &skin, &settings).await {
-                            Ok(_) => ImportResult::Ok,
+                            Ok(_) => {
+                                let skin = RenderSkinOption::<'static> {
+                                    skin_name: skin.skin_name.into_owned().into(),
+                                    ..skin
+                                };
+
+                                let active = RenderSettingsActive::new(
+                                    skin,
+                                    settings,
+                                    Some("Successfully imported settings"),
+                                    self.msg_owner,
+                                );
+
+                                ImportResult::OkWithDefer(active)
+                            }
                             Err(err) => ImportResult::Err(err),
                         }
                     }
@@ -107,19 +147,33 @@ impl SettingsImport {
 }
 
 impl IActiveMessage for SettingsImport {
-    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         const TITLE: &str = "Copy Yuna's settings, click the button, and paste them in";
         const IMAGE_URL: &str = "https://media.discordapp.net/attachments/579428622964621324/1120820561443029154/image.png";
 
-        let (embed, defer) = match mem::take(&mut self.import_result) {
-            ImportResult::None => (EmbedBuilder::new().title(TITLE).image(IMAGE_URL), false),
-            ImportResult::Ok => {
-                self.done = true;
-                let embed = EmbedBuilder::new().description("Successfully imported settings");
+        let skipped_defer = self.import_result.skip_defer();
 
-                (embed, true)
+        let (embed, defer) = match self.import_result {
+            ImportResult::None => (EmbedBuilder::new().title(TITLE).image(IMAGE_URL), false),
+            ImportResult::Ok(ref mut active) => {
+                if skipped_defer {
+                    let fut = async {
+                        match active.build_page(ctx).await {
+                            Ok(mut build) => {
+                                build.defer = true;
+
+                                Ok(build)
+                            }
+                            err @ Err(_) => err,
+                        }
+                    };
+
+                    return Box::pin(fut);
+                } else {
+                    return active.build_page(ctx);
+                }
             }
-            ImportResult::ParseError(err) => {
+            ImportResult::ParseError(ref err) => {
                 let footer = match err {
                     ParseError::InsufficientLineCount => {
                         "Error: Expected more lines, did you copy-paste everything?".to_owned()
@@ -140,8 +194,7 @@ impl IActiveMessage for SettingsImport {
 
                 (embed, true)
             }
-            ImportResult::Err(err) => {
-                self.done = true;
+            ImportResult::Err(ref err) => {
                 warn!(?err, "Import result error");
 
                 let embed = EmbedBuilder::new()
@@ -150,42 +203,53 @@ impl IActiveMessage for SettingsImport {
 
                 (embed, true)
             }
+            ImportResult::OkWithDefer(_) => unreachable!(),
         };
 
         BuildPage::new(embed, defer).boxed()
     }
 
     fn build_components(&self) -> Vec<Component> {
-        if self.done {
-            return Vec::new();
+        match &self.import_result {
+            ImportResult::None | ImportResult::ParseError(_) => {
+                let import = Button {
+                    custom_id: Some("import".to_owned()),
+                    disabled: false,
+                    emoji: Some(ReactionType::Unicode {
+                        name: "📋".to_owned(),
+                    }),
+                    label: Some("Paste settings".to_owned()),
+                    style: ButtonStyle::Success,
+                    url: None,
+                };
+
+                let row = ActionRow {
+                    components: vec![Component::Button(import)],
+                };
+
+                vec![Component::ActionRow(row)]
+            }
+            ImportResult::OkWithDefer(active) | ImportResult::Ok(active) => {
+                active.build_components()
+            }
+            ImportResult::Err(_) => Vec::new(),
         }
-
-        let import = Button {
-            custom_id: Some("import".to_owned()),
-            disabled: false,
-            emoji: Some(ReactionType::Unicode {
-                name: "📋".to_owned(),
-            }),
-            label: Some("Paste settings".to_owned()),
-            style: ButtonStyle::Success,
-            url: None,
-        };
-
-        let row = ActionRow {
-            components: vec![Component::Button(import)],
-        };
-
-        vec![Component::ActionRow(row)]
     }
 
     fn handle_component<'a>(
         &'a mut self,
-        _: Arc<Context>,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
+        if let ImportResult::OkWithDefer(active) | ImportResult::Ok(active) =
+            &mut self.import_result
+        {
+            return active.handle_component(ctx, component);
+        }
+
         #[cfg(debug_assertions)]
         if component.data.custom_id != "import" {
-            return Box::pin(ready(ComponentResult::Err(eyre!(
+            return Box::pin(std::future::ready(ComponentResult::Err(eyre!(
                 "Unexpected setting import component `{}`",
                 component.data.custom_id
             ))));
@@ -215,6 +279,12 @@ impl IActiveMessage for SettingsImport {
         ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
+        if let ImportResult::OkWithDefer(ref mut active) | ImportResult::Ok(ref mut active) =
+            self.import_result
+        {
+            return active.handle_modal(ctx, modal);
+        }
+
         Box::pin(self.async_handle_modal(ctx, modal))
     }
 }
