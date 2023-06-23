@@ -1,5 +1,5 @@
 use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
+    fmt::{Display, Formatter, Result as FmtResult, Write},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -28,7 +28,7 @@ use crate::{
         commands::{checks::check_ratelimit, OwnedCommandOrigin},
         Context,
     },
-    manager::ReplayScore,
+    manager::{ReplayScore, ReplaySettings},
     tracking::OrdrReceivers,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
@@ -146,8 +146,8 @@ async fn render_replay(
     let status = RenderStatus::new_commisioning_replay();
     command.callback(&ctx, status.as_message(), false).await?;
 
-    let (skin, settings) = match ctx.replay().get_settings(owner).await {
-        Ok(tuple) => tuple,
+    let settings = match ctx.replay().get_settings(owner).await {
+        Ok(settings) => settings,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
@@ -155,15 +155,19 @@ async fn render_replay(
         }
     };
 
+    let skin = settings.skin();
+
     let render_fut = ctx
         .ordr()
         .client()
         .render_with_replay_url(&replay.url, RENDERER_NAME, &skin)
-        .options(&settings);
+        .options(settings.options());
 
     let render = match render_fut.await {
         Ok(render) => render,
-        Err(OrdrError::Response { error, .. }) if error.code == OrdrErrorCode::InvalidGameMode => {
+        Err(OrdrError::Response { error, .. })
+            if error.code() == Some(OrdrErrorCode::InvalidGameMode) =>
+        {
             let content = "I can only render osu!standard scores";
             command.error(&ctx, content).await?;
 
@@ -176,7 +180,7 @@ async fn render_replay(
         }
     };
 
-    let ongoing = OngoingRender::new(ctx, render.render_id, command, status, None).await;
+    let ongoing = OngoingRender::new(ctx, render.render_id, command, status, None, owner).await;
 
     tokio::spawn(ongoing.await_render_url());
 
@@ -197,7 +201,9 @@ async fn render_score(
     // Check if the score id has already been rendered
     match ctx.replay().get_video_url(score_id).await {
         Ok(Some(video_url)) => {
-            let builder = MessageBuilder::new().content(video_url.as_ref());
+            let mut video_url = video_url.into_string();
+            let _ = write!(video_url, " <@{owner}>");
+            let builder = MessageBuilder::new().content(video_url);
             command.update(&ctx, builder).await?;
 
             return Ok(());
@@ -260,8 +266,8 @@ async fn render_score(
         }
     };
 
-    let (skin, settings) = match settings_res {
-        Ok(tuple) => tuple,
+    let settings = match settings_res {
+        Ok(settings) => settings,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
@@ -272,12 +278,13 @@ async fn render_score(
     // Just a status update, no need to propagate an error
     status.set(RenderStatusInner::CommissioningRender);
     let _ = command.update(&ctx, status.as_message()).await;
+    let skin = settings.skin();
 
     let render_fut = ctx
         .ordr()
         .client()
         .render_with_replay_file(&replay, RENDERER_NAME, &skin)
-        .options(&settings);
+        .options(settings.options());
 
     let render = match render_fut.await {
         Ok(render) => render,
@@ -288,9 +295,16 @@ async fn render_score(
         }
     };
 
-    let ongoing = OngoingRender::new(ctx, render.render_id, command, status, Some(score_id)).await;
+    let ongoing_fut = OngoingRender::new(
+        ctx,
+        render.render_id,
+        command,
+        status,
+        Some(score_id),
+        owner,
+    );
 
-    tokio::spawn(ongoing.await_render_url());
+    tokio::spawn(ongoing_fut.await.await_render_url());
 
     Ok(())
 }
@@ -430,6 +444,7 @@ pub struct OngoingRender {
     status: RenderStatus,
     receivers: OrdrReceivers,
     score_id: Option<u64>,
+    msg_owner: Id<UserMarker>,
 }
 
 impl OngoingRender {
@@ -439,6 +454,7 @@ impl OngoingRender {
         orig: impl Into<OwnedCommandOrigin>,
         status: RenderStatus,
         score_id: Option<u64>,
+        msg_owner: Id<UserMarker>,
     ) -> Self {
         Self {
             orig: orig.into(),
@@ -447,6 +463,7 @@ impl OngoingRender {
             status,
             ctx,
             score_id,
+            msg_owner,
         }
     }
 
@@ -484,7 +501,12 @@ impl OngoingRender {
                         return warn!("done channel was closed");
                     };
 
-                    let builder = MessageBuilder::new().content(done.video_url.as_ref()).embed(None);
+                    let mut video_url = done.video_url.into_string();
+                    let video_url_clone = video_url.clone();
+
+                    let _ = write!(video_url, " <@{}>", self.msg_owner);
+
+                    let builder = MessageBuilder::new().content(video_url).embed(None);
 
                     if let Err(err) = self.orig.update(&self.ctx, builder).await {
                         warn!(?err, "Failed to update message");
@@ -494,7 +516,7 @@ impl OngoingRender {
 
                     if let Some(score_id) = self.score_id {
                         let replay_manager = self.ctx.replay();
-                        let store_fut = replay_manager.store_video_url(score_id, done.video_url.as_ref());
+                        let store_fut = replay_manager.store_video_url(score_id, &video_url_clone);
 
                         if let Err(err) = store_fut.await {
                             warn!(?err, "Failed to store video url");
@@ -546,8 +568,8 @@ async fn render_settings_modify(ctx: Arc<Context>, command: &mut InteractionComm
 
     let owner = command.user_id()?;
 
-    let (skin, settings) = match ctx.replay().get_settings(owner).await {
-        Ok(tuple) => tuple,
+    let settings = match ctx.replay().get_settings(owner).await {
+        Ok(settings) => settings,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
@@ -555,7 +577,7 @@ async fn render_settings_modify(ctx: Arc<Context>, command: &mut InteractionComm
         }
     };
 
-    let active = RenderSettingsActive::new(skin, settings, None, owner);
+    let active = RenderSettingsActive::new(settings, None, owner);
 
     ActiveMessages::builder(active)
         .start_by_update(true)
@@ -582,8 +604,8 @@ async fn render_settings_copy(
     let owner = command.user_id()?;
     let replay_manager = ctx.replay();
 
-    let (skin, settings) = match replay_manager.get_settings(args.user).await {
-        Ok(tuple) => tuple,
+    let settings = match replay_manager.get_settings(args.user).await {
+        Ok(settings) => settings,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
@@ -591,14 +613,14 @@ async fn render_settings_copy(
         }
     };
 
-    if let Err(err) = replay_manager.set_settings(owner, &skin, &settings).await {
+    if let Err(err) = replay_manager.set_settings(owner, &settings).await {
         let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
         return Err(err);
     }
 
     let content = "Settings copied successfully";
-    let active = RenderSettingsActive::new(skin, settings, Some(content), owner);
+    let active = RenderSettingsActive::new(settings, Some(content), owner);
 
     ActiveMessages::builder(active)
         .start_by_update(true)
@@ -617,17 +639,16 @@ async fn render_settings_default(
 
     let owner = command.user_id()?;
     let replay_manager = ctx.replay();
+    let settings = ReplaySettings::default();
 
-    let (skin, settings) = replay_manager.get_default_settings();
-
-    if let Err(err) = replay_manager.set_settings(owner, &skin, &settings).await {
+    if let Err(err) = replay_manager.set_settings(owner, &settings).await {
         let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
         return Err(err);
     }
 
     let content = "Settings reset to default successfully";
-    let active = RenderSettingsActive::new(skin, settings, Some(content), owner);
+    let active = RenderSettingsActive::new(settings, Some(content), owner);
 
     ActiveMessages::builder(active)
         .start_by_update(true)

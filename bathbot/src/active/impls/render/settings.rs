@@ -27,6 +27,7 @@ use twilight_model::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     core::Context,
+    manager::ReplaySettings,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         Authored, ComponentExt, ModalExt,
@@ -34,8 +35,7 @@ use crate::{
 };
 
 pub struct RenderSettingsActive {
-    skin: RenderSkinOption<'static>,
-    settings: RenderOptions,
+    settings: ReplaySettings,
     group: SettingsGroup,
     skin_status: SkinStatus,
     content: Option<&'static str>,
@@ -45,13 +45,11 @@ pub struct RenderSettingsActive {
 
 impl RenderSettingsActive {
     pub fn new(
-        skin: RenderSkinOption<'static>,
-        settings: RenderOptions,
+        settings: ReplaySettings,
         content: Option<&'static str>,
         msg_owner: Id<UserMarker>,
     ) -> Self {
         Self {
-            skin,
             settings,
             group: SettingsGroup::default(),
             skin_status: SkinStatus::default(),
@@ -104,10 +102,17 @@ impl RenderSettingsActive {
         }
 
         let modal = match value.as_str() {
-            "skin" => create_modal("skin", "Specify a skin name", "Name"),
-            "use_skin_cursor" => create_modal("use_skin_cursor", "Use the skin cursor", "Boolean"),
+            "official_skin" => create_modal(
+                "official_skin",
+                "Specify the name of an official skin",
+                "Name",
+            ),
+            "custom_skin" => create_modal("custom_skin", "Specify the ID of a custom skin", "ID"),
+            "use_skin_cursor" => {
+                create_modal("use_skin_cursor", "Use the skin cursor", "true/false")
+            }
             "use_skin_hitsounds" => {
-                create_modal("use_skin_hitsounds", "Use the skin hitsounds", "Boolean")
+                create_modal("use_skin_hitsounds", "Use the skin hitsounds", "true/false")
             }
             "global_volume" => create_modal(
                 "global_volume",
@@ -127,64 +132,72 @@ impl RenderSettingsActive {
             "play_nightcore_samples" => create_modal(
                 "play_nightcore_samples",
                 "Play nightcore hitsounds",
-                "Boolean",
+                "true/false",
             ),
             "show_hit_error_meter" => create_modal(
                 "show_hit_error_meter",
                 "Show the hit error meter",
-                "Boolean",
+                "true/false",
             ),
             "show_aim_error_meter" => create_modal(
                 "show_aim_error_meter",
                 "Show the aim error meter",
-                "Boolean",
+                "true/false",
             ),
-            "show_hp_bar" => create_modal("show_hp_bar", "Show the HP bar", "Boolean"),
+            "show_hp_bar" => create_modal("show_hp_bar", "Show the HP bar", "true/false"),
             "show_key_overlay" => {
-                create_modal("show_key_overlay", "Show the key overlay", "Boolean")
+                create_modal("show_key_overlay", "Show the key overlay", "true/false")
             }
-            "show_borders" => create_modal("show_borders", "Show the playfield borders", "Boolean"),
-            "show_mods" => create_modal("show_mods", "Show mods during the game", "Boolean"),
-            "show_score" => create_modal("show_score", "Show the score", "Boolean"),
+            "show_borders" => {
+                create_modal("show_borders", "Show the playfield borders", "true/false")
+            }
+            "show_mods" => create_modal("show_mods", "Show mods during the game", "true/false"),
+            "show_score" => create_modal("show_score", "Show the score", "true/false"),
             "show_combo_counter" => {
-                create_modal("show_combo_counter", "Show the combo counter", "Boolean")
+                create_modal("show_combo_counter", "Show the combo counter", "true/false")
             }
-            "show_pp_counter" => create_modal("show_pp_counter", "Show the pp counter", "Boolean"),
+            "show_pp_counter" => {
+                create_modal("show_pp_counter", "Show the pp counter", "true/false")
+            }
             "show_hit_counter" => create_modal(
                 "show_hit_counter",
                 "Show a hit counter (100, 50, miss)",
-                "Boolean",
+                "true/false",
             ),
             "show_unstable_rate" => {
-                create_modal("show_unstable_rate", "Show the unstable rate", "Boolean")
+                create_modal("show_unstable_rate", "Show the unstable rate", "true/false")
             }
-            "show_scoreboard" => create_modal("show_scoreboard", "Show the scoreboard", "Boolean"),
+            "show_scoreboard" => {
+                create_modal("show_scoreboard", "Show the scoreboard", "true/false")
+            }
             "show_avatars_on_scoreboard" => create_modal(
                 "show_avatars_on_scoreboard",
                 "Show user avatars in the scoreboard",
-                "Boolean",
+                "true/false",
             ),
             "cursor_rainbow" => {
-                create_modal("cursor_rainbow", "Make the cursor rainbow", "Boolean")
+                create_modal("cursor_rainbow", "Make the cursor rainbow", "true/false")
             }
-            "cursor_trail_glow" => {
-                create_modal("cursor_trail_glow", "Have a glow with the trail", "Boolean")
-            }
+            "cursor_trail_glow" => create_modal(
+                "cursor_trail_glow",
+                "Have a glow with the trail",
+                "true/false",
+            ),
             "cursor_size" => create_modal(
                 "cursor_size",
                 "Specify a cursor size",
                 "Number between 0.5 and 2.0",
             ),
-            "cursor_trail" => create_modal("cursor_trail", "Show the cursor trail", "Boolean"),
+            "cursor_trail" => create_modal("cursor_trail", "Show the cursor trail", "true/false"),
             "cursor_ripples" => create_modal(
                 "cursor_ripples",
                 "Show cursor ripples on keypress",
-                "Boolean",
+                "true/false",
             ),
             "cursor_scale_to_cs" => create_modal(
                 "cursor_scale_to_cs",
                 "Scale cursor to circle size",
-                "Boolean",
+                "true/false",
             ),
             "intro_bg_dim" => create_modal(
                 "intro_bg_dim",
@@ -201,55 +214,59 @@ impl RenderSettingsActive {
                 "Specify a BG dim during breaks",
                 "Integer between 0 and 100",
             ),
-            "bg_parallax" => create_modal("bg_parallax", "Add a parallax effect", "Boolean"),
-            "load_storyboard" => create_modal("load_storyboard", "Load the storyboard", "Boolean"),
-            "load_video" => create_modal("load_video", "Load the video", "Boolean"),
-            "skip_intro" => create_modal("skip_intro", "Skip the intro", "Boolean"),
+            "bg_parallax" => create_modal("bg_parallax", "Add a parallax effect", "true/false"),
+            "load_storyboard" => {
+                create_modal("load_storyboard", "Load the storyboard", "true/false")
+            }
+            "load_video" => create_modal("load_video", "Load the video", "true/false"),
+            "skip_intro" => create_modal("skip_intro", "Skip the intro", "true/false"),
             "show_danser_logo" => create_modal(
                 "show_danser_logo",
                 "Show danser logo in the intro",
-                "Boolean",
+                "true/false",
             ),
             "seizure_warning" => create_modal(
                 "seizure_warning",
                 "Show seizure warning in the intro",
-                "Boolean",
+                "true/false",
             ),
             "objects_rainbow" => {
-                create_modal("objects_rainbow", "Make the objects rainbow", "Boolean")
+                create_modal("objects_rainbow", "Make the objects rainbow", "true/false")
             }
             "flash_objects" => create_modal(
                 "flash_objects",
                 "Make the objects flash to the beat",
-                "Boolean",
+                "true/false",
             ),
-            "slider_merge" => create_modal("slider_merge", "Merge sliders", "Boolean"),
+            "slider_merge" => create_modal("slider_merge", "Merge sliders", "true/false"),
             "slider_snaking_in" => {
-                create_modal("slider_snaking_in", "Have sliders snake in", "Boolean")
+                create_modal("slider_snaking_in", "Have sliders snake in", "true/false")
             }
             "slider_snaking_out" => {
-                create_modal("slider_snaking_out", "Have sliders snake out", "Boolean")
+                create_modal("slider_snaking_out", "Have sliders snake out", "true/false")
             }
             "use_slider_hitcircle_color" => create_modal(
                 "use_slider_hitcircle_color",
                 "Sliders have the same color as hitcircles",
-                "Boolean",
+                "true/false",
             ),
             "draw_combo_numbers" => create_modal(
                 "draw_combo_numbers",
                 "Show the combo numbers in objets",
-                "Boolean",
+                "true/false",
             ),
-            "beat_scaling" => create_modal("beat_scaling", "Scale objects to the beat", "Boolean"),
+            "beat_scaling" => {
+                create_modal("beat_scaling", "Scale objects to the beat", "true/false")
+            }
             "use_beatmap_colors" => create_modal(
                 "use_beatmap_colors",
                 "Use the beatmap combo colors",
-                "Boolean",
+                "true/false",
             ),
             "draw_follow_points" => create_modal(
                 "draw_follow_points",
                 "Draw follow points between objects",
-                "Boolean",
+                "true/false",
             ),
             other => {
                 return ComponentResult::Err(eyre!("Unknown settings edit menu option `{other}`"))
@@ -273,10 +290,11 @@ impl RenderSettingsActive {
             .wrap_err(eyre!("Missing input in modal"))?;
 
         let mut deferred = false;
+        let options = self.settings.options_mut();
 
         macro_rules! parse_input {
             (bool: $field:ident) => {
-                self.settings.$field = match input.cow_to_ascii_lowercase().as_ref() {
+                options.$field = match input.cow_to_ascii_lowercase().as_ref() {
                     "true" | "t" | "1" | "yes" | "y" => true,
                     "false" | "f" | "0" | "no" | "n" => false,
                     _ => bail!(
@@ -286,7 +304,7 @@ impl RenderSettingsActive {
                 }
             };
             (percent: $field:ident) => {
-                self.settings.$field = input
+                options.$field = input
                     .parse::<u8>()
                     .map_err(|_| {
                         eyre!(
@@ -299,33 +317,38 @@ impl RenderSettingsActive {
         }
 
         match modal.data.custom_id.as_str() {
-            "skin" => {
-                if let Err(err) = modal.defer(ctx).await {
-                    warn!("Failed to defer modal");
-                }
-
+            "official_skin" => {
+                modal.defer(ctx).await.wrap_err("Failed to defer modal")?;
                 deferred = true;
-                let mut chars = input.char_indices().rev();
-
-                // truncate suffixed whitespace
-                if let Some((_, ' ')) = chars.next() {
-                    if let Some((i, c)) = chars.find(|(_, c)| *c != ' ') {
-                        input.truncate(i + c.len_utf8());
-                    }
-                }
+                let input = input.trim();
 
                 // We're not simply propagating errors because the modal must be deferred
                 // already so we need to respond properly
-                match ctx.ordr().client().skin_list().search(&input).await {
+                match ctx.ordr().client().skin_list().search(input).await {
                     Ok(mut skin_list) => match skin_list.skins.pop() {
-                        Some(skin) => {
-                            self.skin.skin_name = skin.presentation_name.into_string().into();
-                        }
-                        None => self.skin_status = SkinStatus::NotFound,
+                        Some(skin) => self.settings.official_skin(skin),
+                        None => self.skin_status = SkinStatus::NotFoundName,
                     },
                     Err(err) => {
-                        warn!(?err, "Failed to search for skin `{input}`");
+                        warn!(?err, "Failed to search for official skin `{input}`");
                         self.skin_status = SkinStatus::Err;
+                    }
+                }
+            }
+            "custom_skin" => {
+                let id = input
+                    .trim()
+                    .parse()
+                    .map_err(|_| eyre!("Failed to parse custom skin id input `{input}`"))?;
+
+                modal.defer(ctx).await.wrap_err("Failed to defer modal")?;
+                deferred = true;
+
+                match ctx.ordr().client().custom_skin_info(id).await {
+                    Ok(info) => self.settings.custom_skin(id, info),
+                    Err(err) => {
+                        warn!(?err, "Failed to search for custom skin `{input}`");
+                        self.skin_status = SkinStatus::NotFoundId;
                     }
                 }
             }
@@ -351,7 +374,7 @@ impl RenderSettingsActive {
             "cursor_rainbow" => parse_input!(bool: cursor_rainbow),
             "cursor_trail_glow" => parse_input!(bool: cursor_trail_glow),
             "cursor_size" => {
-                self.settings.cursor_size = input
+                options.cursor_size = input
                     .parse::<f32>()
                     .map_err(|_| {
                         eyre!("Invalid render settings input `{input}` for `cursor_size`")
@@ -391,7 +414,7 @@ impl RenderSettingsActive {
 
         let res = ctx
             .replay()
-            .set_settings(self.msg_owner, &self.skin, &self.settings)
+            .set_settings(self.msg_owner, &self.settings)
             .await;
 
         self.defer_next = res.is_ok();
@@ -403,7 +426,6 @@ impl RenderSettingsActive {
 impl IActiveMessage for RenderSettingsActive {
     fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         let Self {
-            skin,
             settings,
             group,
             content,
@@ -412,7 +434,7 @@ impl IActiveMessage for RenderSettingsActive {
 
         let embed = EmbedBuilder::new()
             .title(group.title())
-            .description(group.description(skin, settings, self.skin_status.take()));
+            .description(group.description(settings, self.skin_status.take()));
 
         BuildPage::new(embed, mem::replace(&mut self.defer_next, false))
             .content(content.take().unwrap_or_default())
@@ -563,30 +585,29 @@ impl SettingsGroup {
         format!("Your current render settings for `{kind}`:")
     }
 
-    fn description(
-        self,
-        skin: &RenderSkinOption<'_>,
-        settings: &RenderOptions,
-        skin_status: SkinStatus,
-    ) -> String {
+    fn description(self, settings: &ReplaySettings, skin_status: SkinStatus) -> String {
+        let options = settings.options();
+
         match self {
             SettingsGroup::Skin => format!(
                 "{skin_status}- Skin: `{}`\n\
                 - Use skin cursor: `{}`\n\
                 - Use skin hitsounds: `{}`\n\
                 \n\
-                Check out [the website](https://ordr.issou.best/skins) to see all available skins",
-                skin.skin_name, settings.use_skin_cursor, settings.use_skin_hitsounds,
+                Check out [the website](https://ordr.issou.best/skins) to see all official skins",
+                settings.skin_name(),
+                options.use_skin_cursor,
+                options.use_skin_hitsounds,
             ),
             SettingsGroup::Audio => format!(
                 "- Global volume: `{}`\n\
                 - Music volume: `{}`\n\
                 - Hitsound volume: `{}`\n\
                 - Play nightcore samples: `{}`",
-                settings.global_volume,
-                settings.music_volume,
-                settings.hitsound_volume,
-                settings.play_nightcore_samples,
+                options.global_volume,
+                options.music_volume,
+                options.hitsound_volume,
+                options.play_nightcore_samples,
             ),
             SettingsGroup::Hud => format!(
                 "- Show hit error meter: `{}`\n\
@@ -602,19 +623,19 @@ impl SettingsGroup {
                 - Show unstable rate: `{}`\n\
                 - Show scoreboard: `{}`\n\
                 - Show avatars on scoreboard: `{}`",
-                settings.show_hit_error_meter,
-                settings.show_aim_error_meter,
-                settings.show_hp_bar,
-                settings.show_key_overlay,
-                settings.show_borders,
-                settings.show_mods,
-                settings.show_score,
-                settings.show_combo_counter,
-                settings.show_pp_counter,
-                settings.show_hit_counter,
-                settings.show_unstable_rate,
-                settings.show_scoreboard,
-                settings.show_avatars_on_scoreboard,
+                options.show_hit_error_meter,
+                options.show_aim_error_meter,
+                options.show_hp_bar,
+                options.show_key_overlay,
+                options.show_borders,
+                options.show_mods,
+                options.show_score,
+                options.show_combo_counter,
+                options.show_pp_counter,
+                options.show_hit_counter,
+                options.show_unstable_rate,
+                options.show_scoreboard,
+                options.show_avatars_on_scoreboard,
             ),
             SettingsGroup::Cursor => format!(
                 "- Cursor rainbow: `{}`\n\
@@ -623,12 +644,12 @@ impl SettingsGroup {
                 - Cursor trail: `{}`\n\
                 - Cursor ripples: `{}`\n\
                 - Cursor scale to CS: `{}`",
-                settings.cursor_rainbow,
-                settings.cursor_trail_glow,
-                round(settings.cursor_size),
-                settings.cursor_trail,
-                settings.cursor_ripples,
-                settings.cursor_scale_to_cs,
+                options.cursor_rainbow,
+                options.cursor_trail_glow,
+                round(options.cursor_size),
+                options.cursor_trail,
+                options.cursor_ripples,
+                options.cursor_scale_to_cs,
             ),
             SettingsGroup::Background => format!(
                 "- Intro BG dim: `{}`\n\
@@ -637,22 +658,22 @@ impl SettingsGroup {
                 - BG parallax: `{}`\n\
                 - Load storyboard: `{}`\n\
                 - Load video: `{}`",
-                settings.intro_bg_dim,
-                settings.ingame_bg_dim,
-                settings.break_bg_dim,
-                settings.bg_parallax,
-                settings.load_storyboard,
-                settings.load_video,
+                options.intro_bg_dim,
+                options.ingame_bg_dim,
+                options.break_bg_dim,
+                options.bg_parallax,
+                options.load_storyboard,
+                options.load_video,
             ),
             SettingsGroup::Intro => format!(
                 "- Intro BG dim: `{}`\n\
                 - Skip intro: `{}`\n\
                 - Show danser logo: `{}`\n\
                 - Seizure warning: `{}`",
-                settings.intro_bg_dim,
-                settings.skip_intro,
-                settings.show_danser_logo,
-                settings.seizure_warning,
+                options.intro_bg_dim,
+                options.skip_intro,
+                options.show_danser_logo,
+                options.seizure_warning,
             ),
             SettingsGroup::Objects => format!(
                 "- Object rainbow: `{}`\n\
@@ -665,16 +686,16 @@ impl SettingsGroup {
                 - Beat scaling: `{}`\n\
                 - Use beatmap colors: `{}`\n\
                 - Draw follow points: `{}`",
-                settings.objects_rainbow,
-                settings.flash_objects,
-                settings.slider_merge,
-                settings.slider_snaking_in,
-                settings.slider_snaking_out,
-                settings.use_slider_hitcircle_color,
-                settings.draw_combo_numbers,
-                settings.beat_scaling,
-                settings.use_beatmap_colors,
-                settings.draw_follow_points,
+                options.objects_rainbow,
+                options.flash_objects,
+                options.slider_merge,
+                options.slider_snaking_in,
+                options.slider_snaking_out,
+                options.use_slider_hitcircle_color,
+                options.draw_combo_numbers,
+                options.beat_scaling,
+                options.use_beatmap_colors,
+                options.draw_follow_points,
             ),
         }
     }
@@ -685,11 +706,20 @@ impl SettingsGroup {
                 SelectMenuOption {
                     default: false,
                     description: Some(
-                        "The name of the skin to use".to_owned(),
+                        "The name of an official skin".to_owned(),
                     ),
                     emoji: None,
-                    label: "Skin".to_owned(),
-                    value: "skin".to_owned(),
+                    label: "Official skin".to_owned(),
+                    value: "official_skin".to_owned(),
+                },
+                SelectMenuOption {
+                    default: false,
+                    description: Some(
+                        "The ID of a custom skin".to_owned(),
+                    ),
+                    emoji: None,
+                    label: "Custom skin".to_owned(),
+                    value: "custom_skin".to_owned(),
                 },
                 SelectMenuOption {
                     default: false,
@@ -1031,8 +1061,9 @@ impl SettingsGroup {
 enum SkinStatus {
     #[default]
     Ok,
-    NotFound,
+    NotFoundName,
     Err,
+    NotFoundId,
 }
 
 impl SkinStatus {
@@ -1045,7 +1076,8 @@ impl Display for SkinStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             SkinStatus::Ok => Ok(()),
-            SkinStatus::NotFound => f.write_str("⚠️ No skin found for your last input\n"),
+            SkinStatus::NotFoundName => f.write_str("⚠️ No official skin fits the name you gave\n"),
+            SkinStatus::NotFoundId => f.write_str("⚠️ No custom skin found for the ID you gave\n"),
             SkinStatus::Err => f.write_str("⚠️ Failed to validate skin, maybe try again later\n"),
         }
     }

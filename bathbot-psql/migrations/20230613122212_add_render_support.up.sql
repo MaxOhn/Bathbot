@@ -6,8 +6,9 @@ CREATE TABLE IF NOT EXISTS osu_replays (
 
 CREATE TABLE IF NOT EXISTS user_render_settings (
     discord_id                 INT8 NOT NULL,
-    skin_name                  VARCHAR(128) NOT NULL,
-    is_custom_skin             BOOLEAN NOT NULL,
+    skin_id                    INT4,
+    skin_name                  VARCHAR(128),
+    skin_presentation_name     VARCHAR(128) NOT NULL,
     global_volume              INT2 NOT NULL,
     music_volume               INT2 NOT NULL,
     hitsound_volume            INT2 NOT NULL,

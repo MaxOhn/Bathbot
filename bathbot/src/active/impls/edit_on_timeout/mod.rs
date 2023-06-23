@@ -1,6 +1,4 @@
-use std::mem;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{fmt::Write, mem, sync::Arc, time::Duration};
 
 use bathbot_util::{
     constants::{GENERAL_ISSUE, ORDR_ISSUE},
@@ -344,7 +342,9 @@ async fn handle_render_button(
     // Check if the score id has already been rendered
     match ctx.replay().get_video_url(score_id).await {
         Ok(Some(video_url)) => {
-            let builder = MessageBuilder::new().content(video_url.as_ref());
+            let mut video_url = video_url.into_string();
+            let _ = write!(video_url, " <@{owner}>");
+            let builder = MessageBuilder::new().content(video_url);
 
             if let Err(err) = orig.reply(&ctx, builder, permissions).await {
                 error!(?err, "Failed to reply with cached video url");
@@ -412,8 +412,8 @@ async fn handle_render_button(
         }
     };
 
-    let (skin, settings) = match settings_res {
-        Ok(tuple) => tuple,
+    let settings = match settings_res {
+        Ok(settings) => settings,
         Err(err) => {
             let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
             let builder = MessageBuilder::new().embed(embed);
@@ -432,11 +432,13 @@ async fn handle_render_button(
         let _ = update_fut.await;
     }
 
+    let skin = settings.skin();
+
     let render_fut = ctx
         .ordr()
         .client()
         .render_with_replay_file(&replay, RENDERER_NAME, &skin)
-        .options(&settings);
+        .options(settings.options());
 
     let render = match render_fut.await {
         Ok(render) => render,
@@ -458,6 +460,7 @@ async fn handle_render_button(
         (msg, permissions),
         status,
         Some(score_id),
+        owner,
     );
 
     ongoing_fut.await.await_render_url().await;

@@ -23,6 +23,7 @@ use super::RenderSettingsActive;
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     core::Context,
+    manager::ReplaySettings,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         Authored, ModalExt,
@@ -104,43 +105,73 @@ impl SettingsImport {
 
         modal.defer(ctx).await.wrap_err("Failed to defer modal")?;
 
-        self.import_result = match parse(&input) {
-            Ok((settings, skin)) => {
-                let ordr = ctx.ordr().client();
+        let (options, skin) = match parse(&input) {
+            Ok(tuple) => tuple,
+            Err(err) => {
+                self.import_result = ImportResult::ParseError(err);
 
-                match ordr.skin_list().search(skin.skin_name.as_ref()).await {
-                    Ok(skin_list) if !skin_list.skins.is_empty() => {
-                        let user = modal.user_id()?;
+                return Ok(());
+            }
+        };
 
-                        match ctx.replay().set_settings(user, &skin, &settings).await {
-                            Ok(_) => {
-                                let skin = RenderSkinOption::<'static> {
-                                    skin_name: skin.skin_name.into_owned().into(),
-                                    ..skin
-                                };
+        let user = modal.user_id()?;
+        let ordr = ctx.ordr().client();
 
-                                let active = RenderSettingsActive::new(
-                                    skin,
-                                    settings,
-                                    Some("Successfully imported settings"),
-                                    self.msg_owner,
-                                );
+        let settings = match skin {
+            RenderSkinOption::Official { ref name } => {
+                match ordr.skin_list().search(name.as_ref()).await {
+                    Ok(mut skin_list) => match skin_list.skins.pop() {
+                        Some(skin) => {
+                            let skin_ = RenderSkinOption::from(skin.skin.into_string());
 
-                                ImportResult::OkWithDefer(active)
-                            }
-                            Err(err) => ImportResult::Err(err),
+                            ReplaySettings::new(options, skin_, skin.presentation_name)
                         }
-                    }
-                    Ok(_) => {
-                        ImportResult::ParseError(ParseError::InvalidValue(Setting::DefaultSkin))
-                    }
+                        None => {
+                            self.import_result = ImportResult::ParseError(
+                                ParseError::InvalidValue(Setting::DefaultSkin),
+                            );
+
+                            return Ok(());
+                        }
+                    },
                     Err(err) => {
-                        ImportResult::Err(Report::new(err).wrap_err("Failed to request skin"))
+                        self.import_result = ImportResult::Err(
+                            Report::new(err).wrap_err("Failed to request official skin"),
+                        );
+
+                        return Ok(());
                     }
                 }
             }
-            Err(err) => ImportResult::ParseError(err),
+            RenderSkinOption::Custom { ref id } => match ordr.custom_skin_info(*id).await {
+                Ok(info) => {
+                    let skin = RenderSkinOption::from(*id);
+
+                    ReplaySettings::new(options, skin, info.name)
+                }
+                Err(err) => {
+                    self.import_result = ImportResult::Err(
+                        Report::new(err).wrap_err("Failed to request custom skin"),
+                    );
+
+                    return Ok(());
+                }
+            },
         };
+
+        if let Err(err) = ctx.replay().set_settings(user, &settings).await {
+            self.import_result = ImportResult::Err(err);
+
+            return Ok(());
+        }
+
+        let active = RenderSettingsActive::new(
+            settings,
+            Some("Successfully imported settings"),
+            self.msg_owner,
+        );
+
+        self.import_result = ImportResult::OkWithDefer(active);
 
         Ok(())
     }
@@ -153,8 +184,12 @@ impl IActiveMessage for SettingsImport {
 
         let skipped_defer = self.import_result.skip_defer();
 
-        let (embed, defer) = match self.import_result {
-            ImportResult::None => (EmbedBuilder::new().title(TITLE).image(IMAGE_URL), false),
+        match self.import_result {
+            ImportResult::None => {
+                let embed = EmbedBuilder::new().title(TITLE).image(IMAGE_URL);
+
+                BuildPage::new(embed, false).boxed()
+            }
             ImportResult::Ok(ref mut active) => {
                 if skipped_defer {
                     let fut = async {
@@ -168,9 +203,9 @@ impl IActiveMessage for SettingsImport {
                         }
                     };
 
-                    return Box::pin(fut);
+                    Box::pin(fut)
                 } else {
-                    return active.build_page(ctx);
+                    active.build_page(ctx)
                 }
             }
             ImportResult::ParseError(ref err) => {
@@ -192,7 +227,7 @@ impl IActiveMessage for SettingsImport {
                     .color_red()
                     .footer(FooterBuilder::new(footer));
 
-                (embed, true)
+                BuildPage::new(embed, true).boxed()
             }
             ImportResult::Err(ref err) => {
                 warn!(?err, "Import result error");
@@ -201,12 +236,10 @@ impl IActiveMessage for SettingsImport {
                     .color_red()
                     .description("Something went wrong, try again later");
 
-                (embed, true)
+                BuildPage::new(embed, true).boxed()
             }
             ImportResult::OkWithDefer(_) => unreachable!(),
-        };
-
-        BuildPage::new(embed, defer).boxed()
+        }
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -406,8 +439,6 @@ fn parse(mut input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), Parse
     let video_storyboard = parse_bool(load_video_storyboard)
         .ok_or(ParseError::InvalidValue(Setting::LoadVideoStoryboard))?;
 
-    let skin = RenderSkinOption::new(skin, true);
-
     let options = RenderOptions {
         music_volume: parse_percent(music_volume)
             .ok_or(ParseError::InvalidValue(Setting::MusicVolume))?,
@@ -446,6 +477,11 @@ fn parse(mut input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), Parse
         use_slider_hitcircle_color,
         ..Default::default()
     };
+
+    let skin = skin
+        .split_once(" (custom n°")
+        .and_then(|(_, suffix)| suffix.strip_suffix(')')?.parse::<u32>().ok())
+        .map_or_else(|| RenderSkinOption::from(skin), RenderSkinOption::from);
 
     Ok((options, skin))
 }

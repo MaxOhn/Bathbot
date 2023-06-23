@@ -1,8 +1,10 @@
+use std::fmt::{Display, Formatter, Result as FmtResult};
+
 use bathbot_cache::Cache as BathbotCache;
 use bathbot_client::Client as BathbotClient;
 use bathbot_psql::{model::render::DbRenderOptions, Database};
 use eyre::{Result, WrapErr};
-use rosu_render::model::{RenderOptions, RenderResolution, RenderSkinOption};
+use rosu_render::model::{RenderOptions, RenderResolution, RenderSkinOption, Skin, SkinInfo};
 use rosu_v2::prelude::{GameMode, Score, ScoreStatistics};
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -73,17 +75,7 @@ impl<'d> ReplayManager<'d> {
         Ok(Some(replay))
     }
 
-    pub fn get_default_settings(&self) -> (RenderSkinOption<'static>, RenderOptions) {
-        let default_skin = RenderSkinOption::new("Danser default skin (Redd glass)", true);
-        let default_options = RenderOptions::default();
-
-        (default_skin, default_options)
-    }
-
-    pub async fn get_settings(
-        self,
-        user: Id<UserMarker>,
-    ) -> Result<(RenderSkinOption<'static>, RenderOptions)> {
+    pub async fn get_settings(self, user: Id<UserMarker>) -> Result<ReplaySettings> {
         let options = self
             .psql
             .select_user_render_settings(user)
@@ -91,71 +83,15 @@ impl<'d> ReplayManager<'d> {
             .wrap_err("Failed to load settings")?;
 
         match options {
-            Some(options) => {
-                let skin = RenderSkinOption {
-                    skin_name: options.skin_name.into(),
-                    is_custom: options.is_custom_skin,
-                };
-
-                let settings = RenderOptions {
-                    resolution: RenderResolution::HD720,
-                    global_volume: options.global_volume as u8,
-                    music_volume: options.music_volume as u8,
-                    hitsound_volume: options.hitsound_volume as u8,
-                    show_hit_error_meter: options.show_hit_error_meter,
-                    show_unstable_rate: options.show_unstable_rate,
-                    show_score: options.show_score,
-                    show_hp_bar: options.show_hp_bar,
-                    show_combo_counter: options.show_combo_counter,
-                    show_pp_counter: options.show_pp_counter,
-                    show_key_overlay: options.show_key_overlay,
-                    show_scoreboard: options.show_scoreboard,
-                    show_borders: options.show_borders,
-                    show_mods: options.show_mods,
-                    show_result_screen: options.show_result_screen,
-                    use_skin_cursor: options.use_skin_cursor,
-                    use_skin_hitsounds: options.use_skin_hitsounds,
-                    use_beatmap_colors: options.use_beatmap_colors,
-                    cursor_scale_to_cs: options.cursor_scale_to_cs,
-                    cursor_rainbow: options.cursor_rainbow,
-                    cursor_trail_glow: options.cursor_trail_glow,
-                    draw_follow_points: options.draw_follow_points,
-                    draw_combo_numbers: options.draw_combo_numbers,
-                    cursor_size: options.cursor_size,
-                    cursor_trail: options.cursor_trail,
-                    beat_scaling: options.beat_scaling,
-                    slider_merge: options.slider_merge,
-                    objects_rainbow: options.objects_rainbow,
-                    flash_objects: options.flash_objects,
-                    use_slider_hitcircle_color: options.use_slider_hitcircle_color,
-                    seizure_warning: options.seizure_warning,
-                    load_storyboard: options.load_storyboard,
-                    load_video: options.load_video,
-                    intro_bg_dim: options.intro_bg_dim as u8,
-                    ingame_bg_dim: options.ingame_bg_dim as u8,
-                    break_bg_dim: options.break_bg_dim as u8,
-                    bg_parallax: options.bg_parallax,
-                    show_danser_logo: options.show_danser_logo,
-                    skip_intro: options.skip_intro,
-                    cursor_ripples: options.cursor_ripples,
-                    slider_snaking_in: options.slider_snaking_in,
-                    slider_snaking_out: options.slider_snaking_out,
-                    show_hit_counter: options.show_hit_counter,
-                    show_avatars_on_scoreboard: options.show_avatars_on_scoreboard,
-                    show_aim_error_meter: options.show_aim_error_meter,
-                    play_nightcore_samples: options.play_nightcore_samples,
-                };
-
-                Ok((skin, settings))
-            }
+            Some(options) => Ok(ReplaySettings::from(options)),
             None => {
-                let (skin, settings) = self.get_default_settings();
+                let settings = ReplaySettings::default();
 
-                if let Err(err) = self.set_settings(user, &skin, &settings).await {
+                if let Err(err) = self.set_settings(user, &settings).await {
                     warn!(?err);
                 }
 
-                Ok((skin, settings))
+                Ok(settings)
             }
         }
     }
@@ -163,58 +99,9 @@ impl<'d> ReplayManager<'d> {
     pub async fn set_settings<'a>(
         self,
         user: Id<UserMarker>,
-        skin: &RenderSkinOption<'a>,
-        settings: &RenderOptions,
+        settings: &ReplaySettings,
     ) -> Result<()> {
-        let db_options = DbRenderOptions {
-            skin_name: skin.skin_name.to_string(),
-            is_custom_skin: skin.is_custom,
-            global_volume: settings.global_volume as i16,
-            music_volume: settings.music_volume as i16,
-            hitsound_volume: settings.hitsound_volume as i16,
-            show_hit_error_meter: settings.show_hit_error_meter,
-            show_unstable_rate: settings.show_unstable_rate,
-            show_score: settings.show_score,
-            show_hp_bar: settings.show_hp_bar,
-            show_combo_counter: settings.show_combo_counter,
-            show_pp_counter: settings.show_pp_counter,
-            show_key_overlay: settings.show_key_overlay,
-            show_scoreboard: settings.show_scoreboard,
-            show_borders: settings.show_borders,
-            show_mods: settings.show_mods,
-            show_result_screen: settings.show_result_screen,
-            use_skin_cursor: settings.use_skin_cursor,
-            use_skin_hitsounds: settings.use_skin_hitsounds,
-            use_beatmap_colors: settings.use_beatmap_colors,
-            cursor_scale_to_cs: settings.cursor_scale_to_cs,
-            cursor_rainbow: settings.cursor_rainbow,
-            cursor_trail_glow: settings.cursor_trail_glow,
-            draw_follow_points: settings.draw_follow_points,
-            draw_combo_numbers: settings.draw_combo_numbers,
-            cursor_size: settings.cursor_size,
-            cursor_trail: settings.cursor_trail,
-            beat_scaling: settings.beat_scaling,
-            slider_merge: settings.slider_merge,
-            objects_rainbow: settings.objects_rainbow,
-            flash_objects: settings.flash_objects,
-            use_slider_hitcircle_color: settings.use_slider_hitcircle_color,
-            seizure_warning: settings.seizure_warning,
-            load_storyboard: settings.load_storyboard,
-            load_video: settings.load_video,
-            intro_bg_dim: settings.intro_bg_dim as i16,
-            ingame_bg_dim: settings.ingame_bg_dim as i16,
-            break_bg_dim: settings.break_bg_dim as i16,
-            bg_parallax: settings.bg_parallax,
-            show_danser_logo: settings.show_danser_logo,
-            skip_intro: settings.skip_intro,
-            cursor_ripples: settings.cursor_ripples,
-            slider_snaking_in: settings.slider_snaking_in,
-            slider_snaking_out: settings.slider_snaking_out,
-            show_hit_counter: settings.show_hit_counter,
-            show_avatars_on_scoreboard: settings.show_avatars_on_scoreboard,
-            show_aim_error_meter: settings.show_aim_error_meter,
-            play_nightcore_samples: settings.play_nightcore_samples,
-        };
+        let db_options = DbRenderOptions::from(settings);
 
         self.psql
             .upsert_user_render_settings(user, &db_options)
@@ -237,6 +124,216 @@ impl<'d> ReplayManager<'d> {
     }
 }
 
+pub struct ReplaySettings {
+    options: RenderOptions,
+    skin: RenderSkinOption<'static>,
+    skin_presentation_name: Box<str>,
+}
+impl ReplaySettings {
+    pub fn new(
+        options: RenderOptions,
+        skin: RenderSkinOption<'static>,
+        skin_presentation_name: Box<str>,
+    ) -> Self {
+        Self {
+            options,
+            skin,
+            skin_presentation_name,
+        }
+    }
+
+    pub fn options(&self) -> &RenderOptions {
+        &self.options
+    }
+
+    pub fn options_mut(&mut self) -> &mut RenderOptions {
+        &mut self.options
+    }
+
+    pub fn skin(&self) -> &RenderSkinOption<'static> {
+        &self.skin
+    }
+
+    pub fn official_skin(&mut self, skin: Skin) {
+        self.skin = RenderSkinOption::Official {
+            name: skin.skin.into_string().into(),
+        };
+        self.skin_presentation_name = skin.presentation_name;
+    }
+
+    pub fn custom_skin(&mut self, id: u32, skin: SkinInfo) {
+        self.skin = RenderSkinOption::Custom { id };
+        self.skin_presentation_name = skin.name;
+    }
+
+    pub fn skin_name(&self) -> SkinName<'_> {
+        SkinName {
+            name: self.skin_presentation_name.as_ref(),
+            custom_skin_id: match self.skin {
+                RenderSkinOption::Official { .. } => None,
+                RenderSkinOption::Custom { ref id } => Some(*id),
+            },
+        }
+    }
+}
+
+pub struct SkinName<'n> {
+    name: &'n str,
+    custom_skin_id: Option<u32>,
+}
+
+impl Display for SkinName<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(self.name)?;
+
+        if let Some(id) = self.custom_skin_id {
+            write!(f, " (custom #{id})")?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Default for ReplaySettings {
+    fn default() -> Self {
+        Self {
+            options: RenderOptions::default(),
+            skin: RenderSkinOption::default(),
+            skin_presentation_name: Box::from("Danser default skin (Redd glass)"),
+        }
+    }
+}
+
+impl From<DbRenderOptions> for ReplaySettings {
+    fn from(options: DbRenderOptions) -> Self {
+        let settings = RenderOptions {
+            resolution: RenderResolution::HD720,
+            global_volume: options.global_volume as u8,
+            music_volume: options.music_volume as u8,
+            hitsound_volume: options.hitsound_volume as u8,
+            show_hit_error_meter: options.show_hit_error_meter,
+            show_unstable_rate: options.show_unstable_rate,
+            show_score: options.show_score,
+            show_hp_bar: options.show_hp_bar,
+            show_combo_counter: options.show_combo_counter,
+            show_pp_counter: options.show_pp_counter,
+            show_key_overlay: options.show_key_overlay,
+            show_scoreboard: options.show_scoreboard,
+            show_borders: options.show_borders,
+            show_mods: options.show_mods,
+            show_result_screen: options.show_result_screen,
+            use_skin_cursor: options.use_skin_cursor,
+            use_skin_hitsounds: options.use_skin_hitsounds,
+            use_beatmap_colors: options.use_beatmap_colors,
+            cursor_scale_to_cs: options.cursor_scale_to_cs,
+            cursor_rainbow: options.cursor_rainbow,
+            cursor_trail_glow: options.cursor_trail_glow,
+            draw_follow_points: options.draw_follow_points,
+            draw_combo_numbers: options.draw_combo_numbers,
+            cursor_size: options.cursor_size,
+            cursor_trail: options.cursor_trail,
+            beat_scaling: options.beat_scaling,
+            slider_merge: options.slider_merge,
+            objects_rainbow: options.objects_rainbow,
+            flash_objects: options.flash_objects,
+            use_slider_hitcircle_color: options.use_slider_hitcircle_color,
+            seizure_warning: options.seizure_warning,
+            load_storyboard: options.load_storyboard,
+            load_video: options.load_video,
+            intro_bg_dim: options.intro_bg_dim as u8,
+            ingame_bg_dim: options.ingame_bg_dim as u8,
+            break_bg_dim: options.break_bg_dim as u8,
+            bg_parallax: options.bg_parallax,
+            show_danser_logo: options.show_danser_logo,
+            skip_intro: options.skip_intro,
+            cursor_ripples: options.cursor_ripples,
+            slider_snaking_in: options.slider_snaking_in,
+            slider_snaking_out: options.slider_snaking_out,
+            show_hit_counter: options.show_hit_counter,
+            show_avatars_on_scoreboard: options.show_avatars_on_scoreboard,
+            show_aim_error_meter: options.show_aim_error_meter,
+            play_nightcore_samples: options.play_nightcore_samples,
+        };
+
+        let skin = match (options.skin_id, options.skin_name) {
+            (None, Some(name)) => RenderSkinOption::Official { name: name.into() },
+            (Some(id), None) => RenderSkinOption::Custom { id: id as u32 },
+            (Some(_), Some(_)) | (None, None) => unreachable!(),
+        };
+
+        Self {
+            options: settings,
+            skin,
+            skin_presentation_name: options.skin_presentation_name.into_boxed_str(),
+        }
+    }
+}
+
+impl From<&ReplaySettings> for DbRenderOptions {
+    fn from(settings: &ReplaySettings) -> Self {
+        let ReplaySettings {
+            options,
+            skin,
+            skin_presentation_name,
+        } = settings;
+
+        let (skin_id, skin_name) = match skin {
+            RenderSkinOption::Official { name } => (None, Some(name.as_ref().to_owned())),
+            RenderSkinOption::Custom { id } => (Some(*id as i32), None),
+        };
+
+        Self {
+            skin_id,
+            skin_name,
+            skin_presentation_name: skin_presentation_name.as_ref().to_owned(),
+            global_volume: options.global_volume as i16,
+            music_volume: options.music_volume as i16,
+            hitsound_volume: options.hitsound_volume as i16,
+            show_hit_error_meter: options.show_hit_error_meter,
+            show_unstable_rate: options.show_unstable_rate,
+            show_score: options.show_score,
+            show_hp_bar: options.show_hp_bar,
+            show_combo_counter: options.show_combo_counter,
+            show_pp_counter: options.show_pp_counter,
+            show_key_overlay: options.show_key_overlay,
+            show_scoreboard: options.show_scoreboard,
+            show_borders: options.show_borders,
+            show_mods: options.show_mods,
+            show_result_screen: options.show_result_screen,
+            use_skin_cursor: options.use_skin_cursor,
+            use_skin_hitsounds: options.use_skin_hitsounds,
+            use_beatmap_colors: options.use_beatmap_colors,
+            cursor_scale_to_cs: options.cursor_scale_to_cs,
+            cursor_rainbow: options.cursor_rainbow,
+            cursor_trail_glow: options.cursor_trail_glow,
+            draw_follow_points: options.draw_follow_points,
+            draw_combo_numbers: options.draw_combo_numbers,
+            cursor_size: options.cursor_size,
+            cursor_trail: options.cursor_trail,
+            beat_scaling: options.beat_scaling,
+            slider_merge: options.slider_merge,
+            objects_rainbow: options.objects_rainbow,
+            flash_objects: options.flash_objects,
+            use_slider_hitcircle_color: options.use_slider_hitcircle_color,
+            seizure_warning: options.seizure_warning,
+            load_storyboard: options.load_storyboard,
+            load_video: options.load_video,
+            intro_bg_dim: options.intro_bg_dim as i16,
+            ingame_bg_dim: options.ingame_bg_dim as i16,
+            break_bg_dim: options.break_bg_dim as i16,
+            bg_parallax: options.bg_parallax,
+            show_danser_logo: options.show_danser_logo,
+            skip_intro: options.skip_intro,
+            cursor_ripples: options.cursor_ripples,
+            slider_snaking_in: options.slider_snaking_in,
+            slider_snaking_out: options.slider_snaking_out,
+            show_hit_counter: options.show_hit_counter,
+            show_avatars_on_scoreboard: options.show_avatars_on_scoreboard,
+            show_aim_error_meter: options.show_aim_error_meter,
+            play_nightcore_samples: options.play_nightcore_samples,
+        }
+    }
+}
 pub enum ReplayScore<'s> {
     Owned(OwnedReplayScore),
     Borrowed(&'s Score),
