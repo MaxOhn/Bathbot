@@ -323,10 +323,15 @@ impl RenderSettingsActive {
                 // We're not simply propagating errors because the modal must be deferred
                 // already so we need to respond properly
                 match ctx.ordr().client().skin_list().search(input).await {
-                    Ok(mut skin_list) => match skin_list.skins.pop() {
-                        Some(skin) => self.settings.official_skin(skin),
-                        None => self.skin_status = SkinStatus::NotFoundName,
-                    },
+                    Ok(mut skin_list) => {
+                        let skin_opt =
+                            (!skin_list.skins.is_empty()).then(|| skin_list.skins.swap_remove(0));
+
+                        match skin_opt {
+                            Some(skin) => self.settings.official_skin(skin),
+                            None => self.skin_status = SkinStatus::NotFoundName,
+                        }
+                    }
                     Err(err) => {
                         warn!(?err, "Failed to search for official skin `{input}`");
                         self.skin_status = SkinStatus::Err;
