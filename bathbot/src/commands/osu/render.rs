@@ -155,12 +155,21 @@ async fn render_replay(
         }
     };
 
-    let skin = settings.skin();
+    let allow_custom_skins = match command.guild_id {
+        Some(guild_id) => {
+            ctx.guild_config()
+                .peek(guild_id, |config| config.allow_custom_skins.unwrap_or(true))
+                .await
+        }
+        None => true,
+    };
+
+    let skin = settings.skin(allow_custom_skins);
 
     let render_fut = ctx
         .ordr()
         .client()
-        .render_with_replay_url(&replay.url, RENDERER_NAME, &skin)
+        .render_with_replay_url(&replay.url, RENDERER_NAME, &skin.skin)
         .options(settings.options());
 
     let render = match render_fut.await {
@@ -278,12 +287,22 @@ async fn render_score(
     // Just a status update, no need to propagate an error
     status.set(RenderStatusInner::CommissioningRender);
     let _ = command.update(&ctx, status.as_message()).await;
-    let skin = settings.skin();
+
+    let allow_custom_skins = match command.guild_id {
+        Some(guild_id) => {
+            ctx.guild_config()
+                .peek(guild_id, |config| config.allow_custom_skins.unwrap_or(true))
+                .await
+        }
+        None => true,
+    };
+
+    let skin = settings.skin(allow_custom_skins);
 
     let render_fut = ctx
         .ordr()
         .client()
-        .render_with_replay_file(&replay, RENDERER_NAME, &skin)
+        .render_with_replay_file(&replay, RENDERER_NAME, &skin.skin)
         .options(settings.options());
 
     let render = match render_fut.await {

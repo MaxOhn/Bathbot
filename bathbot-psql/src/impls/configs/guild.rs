@@ -29,7 +29,8 @@ SELECT
   osu_track_limit,
   minimized_pp,
   list_size, 
-  render_button 
+  render_button, 
+  allow_custom_skins 
 FROM 
   guild_configs"#
         );
@@ -61,6 +62,7 @@ FROM
             track_limit,
             allow_songs,
             render_button,
+            allow_custom_skins,
         } = config;
 
         let authorities =
@@ -74,10 +76,14 @@ FROM
 INSERT INTO guild_configs (
   guild_id, authorities, prefixes, allow_songs, 
   score_size, show_retries, osu_track_limit, 
-  minimized_pp, list_size, render_button
+  minimized_pp, list_size, render_button, 
+  allow_custom_skins
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (guild_id) DO 
+  (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
+    $11
+  ) ON CONFLICT (guild_id) DO 
 UPDATE 
 SET 
   authorities = $2, 
@@ -88,7 +94,8 @@ SET
   osu_track_limit = $7, 
   minimized_pp = $8, 
   list_size = $9, 
-  render_button = $10"#,
+  render_button = $10, 
+  allow_custom_skins = $11"#,
             guild_id.get() as i64,
             &authorities as &[u8],
             &prefixes as &[u8],
@@ -99,6 +106,7 @@ SET
             minimized_pp.map(i16::from),
             list_size.map(i16::from),
             *render_button,
+            *allow_custom_skins
         );
 
         query
@@ -165,6 +173,7 @@ pub(in crate::impls) mod tests {
             track_limit: Some(42),
             allow_songs: Some(true),
             render_button: Some(true),
+            allow_custom_skins: None,
         }
     }
 

@@ -13,6 +13,7 @@ pub struct DbGuildConfig {
     pub osu_track_limit: Option<i16>,
     pub allow_songs: Option<bool>,
     pub render_button: Option<bool>,
+    pub allow_custom_skins: Option<bool>,
 }
 
 #[derive(Clone, Default)]
@@ -26,6 +27,7 @@ pub struct GuildConfig {
     pub track_limit: Option<u8>,
     pub allow_songs: Option<bool>,
     pub render_button: Option<bool>,
+    pub allow_custom_skins: Option<bool>,
 }
 
 impl From<DbGuildConfig> for GuildConfig {
@@ -42,6 +44,7 @@ impl From<DbGuildConfig> for GuildConfig {
             osu_track_limit,
             allow_songs,
             render_button,
+            allow_custom_skins,
         } = config;
 
         // SAFETY: The bytes originate from the DB which only provides valid archived
@@ -59,6 +62,7 @@ impl From<DbGuildConfig> for GuildConfig {
             track_limit: osu_track_limit.map(|limit| limit as u8),
             allow_songs,
             render_button,
+            allow_custom_skins,
         }
     }
 }

@@ -13,7 +13,7 @@ use twilight_model::{
     },
     guild::Permissions,
     id::{
-        marker::{ChannelMarker, MessageMarker, UserMarker},
+        marker::{ChannelMarker, GuildMarker, MessageMarker, UserMarker},
         Id,
     },
 };
@@ -184,6 +184,7 @@ impl EditOnTimeout {
                         score_id,
                         score,
                         owner,
+                        component.guild_id,
                     ));
 
                     ComponentResult::BuildPage
@@ -338,6 +339,7 @@ async fn handle_render_button(
     score_id: u64,
     score: OwnedReplayScore,
     owner: Id<UserMarker>,
+    guild: Option<Id<GuildMarker>>,
 ) {
     // Check if the score id has already been rendered
     match ctx.replay().get_video_url(score_id).await {
@@ -432,12 +434,21 @@ async fn handle_render_button(
         let _ = update_fut.await;
     }
 
-    let skin = settings.skin();
+    let allow_custom_skins = match guild {
+        Some(guild_id) => {
+            ctx.guild_config()
+                .peek(guild_id, |config| config.allow_custom_skins.unwrap_or(true))
+                .await
+        }
+        None => true,
+    };
+
+    let skin = settings.skin(allow_custom_skins);
 
     let render_fut = ctx
         .ordr()
         .client()
-        .render_with_replay_file(&replay, RENDERER_NAME, &skin)
+        .render_with_replay_file(&replay, RENDERER_NAME, &skin.skin)
         .options(settings.options());
 
     let render = match render_fut.await {

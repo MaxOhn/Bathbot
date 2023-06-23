@@ -1,7 +1,8 @@
 pub struct DbRenderOptions {
-    pub skin_id: Option<i32>,
-    pub skin_name: Option<String>,
-    pub skin_presentation_name: String,
+    pub official_skin_name: String,
+    pub official_skin_display_name: String,
+    pub custom_skin_id: Option<i32>,
+    pub custom_skin_display_name: Option<String>,
     pub global_volume: i16,
     pub music_volume: i16,
     pub hitsound_volume: i16,

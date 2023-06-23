@@ -126,19 +126,46 @@ impl<'d> ReplayManager<'d> {
 
 pub struct ReplaySettings {
     options: RenderOptions,
-    skin: RenderSkinOption<'static>,
-    skin_presentation_name: Box<str>,
+    official_skin: ReplaySkin,
+    custom_skin: Option<ReplaySkin>,
 }
+
+pub struct ReplaySkin {
+    pub skin: RenderSkinOption<'static>,
+    pub display_name: Box<str>,
+}
+
+impl Default for ReplaySkin {
+    fn default() -> Self {
+        Self {
+            skin: RenderSkinOption::Official {
+                name: "default".into(),
+            },
+            display_name: "Danser default skin (Redd glass)".into(),
+        }
+    }
+}
+
 impl ReplaySettings {
-    pub fn new(
-        options: RenderOptions,
-        skin: RenderSkinOption<'static>,
-        skin_presentation_name: Box<str>,
-    ) -> Self {
+    pub fn new_with_official_skin(options: RenderOptions, skin: Skin) -> Self {
         Self {
             options,
-            skin,
-            skin_presentation_name,
+            official_skin: ReplaySkin {
+                skin: RenderSkinOption::from(skin.skin.into_string()),
+                display_name: skin.presentation_name,
+            },
+            custom_skin: None,
+        }
+    }
+
+    pub fn new_with_custom_skin(options: RenderOptions, skin: SkinInfo, id: u32) -> Self {
+        Self {
+            options,
+            official_skin: ReplaySkin::default(),
+            custom_skin: Some(ReplaySkin {
+                skin: RenderSkinOption::Custom { id },
+                display_name: skin.name,
+            }),
         }
     }
 
@@ -150,47 +177,56 @@ impl ReplaySettings {
         &mut self.options
     }
 
-    pub fn skin(&self) -> &RenderSkinOption<'static> {
-        &self.skin
+    pub fn skin(&self, allow_custom_skin: bool) -> &ReplaySkin {
+        if allow_custom_skin {
+            self.custom_skin.as_ref().unwrap_or(&self.official_skin)
+        } else {
+            &self.official_skin
+        }
     }
 
     pub fn official_skin(&mut self, skin: Skin) {
-        self.skin = RenderSkinOption::Official {
-            name: skin.skin.into_string().into(),
+        self.official_skin = ReplaySkin {
+            skin: RenderSkinOption::Official {
+                name: skin.skin.into_string().into(),
+            },
+            display_name: skin.presentation_name,
         };
-        self.skin_presentation_name = skin.presentation_name;
     }
 
     pub fn custom_skin(&mut self, id: u32, skin: SkinInfo) {
-        self.skin = RenderSkinOption::Custom { id };
-        self.skin_presentation_name = skin.name;
+        self.custom_skin = Some(ReplaySkin {
+            skin: RenderSkinOption::Custom { id },
+            display_name: skin.name,
+        });
     }
 
-    pub fn skin_name(&self) -> SkinName<'_> {
-        SkinName {
-            name: self.skin_presentation_name.as_ref(),
-            custom_skin_id: match self.skin {
-                RenderSkinOption::Official { .. } => None,
-                RenderSkinOption::Custom { ref id } => Some(*id),
-            },
-        }
+    pub fn remove_custom_skin(&mut self) {
+        self.custom_skin.take();
+    }
+
+    pub fn skin_name(&self) -> (&str, Option<CustomSkinName<'_>>) {
+        let custom = self.custom_skin.as_ref().map(|skin| {
+            let RenderSkinOption::Custom { id } = skin.skin else { unreachable!() };
+
+            CustomSkinName {
+                name: skin.display_name.as_ref(),
+                id,
+            }
+        });
+
+        (self.official_skin.display_name.as_ref(), custom)
     }
 }
 
-pub struct SkinName<'n> {
+pub struct CustomSkinName<'n> {
     name: &'n str,
-    custom_skin_id: Option<u32>,
+    id: u32,
 }
 
-impl Display for SkinName<'_> {
+impl Display for CustomSkinName<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.write_str(self.name)?;
-
-        if let Some(id) = self.custom_skin_id {
-            write!(f, " (custom #{id})")?;
-        }
-
-        Ok(())
+        write!(f, "{} (ID {})", self.name, self.id)
     }
 }
 
@@ -198,8 +234,8 @@ impl Default for ReplaySettings {
     fn default() -> Self {
         Self {
             options: RenderOptions::default(),
-            skin: RenderSkinOption::default(),
-            skin_presentation_name: Box::from("Danser default skin (Redd glass)"),
+            official_skin: ReplaySkin::default(),
+            custom_skin: None,
         }
     }
 }
@@ -255,16 +291,25 @@ impl From<DbRenderOptions> for ReplaySettings {
             play_nightcore_samples: options.play_nightcore_samples,
         };
 
-        let skin = match (options.skin_id, options.skin_name) {
-            (None, Some(name)) => RenderSkinOption::Official { name: name.into() },
-            (Some(id), None) => RenderSkinOption::Custom { id: id as u32 },
-            (Some(_), Some(_)) | (None, None) => unreachable!(),
+        let official_skin = ReplaySkin {
+            skin: RenderSkinOption::Official {
+                name: options.official_skin_name.into(),
+            },
+            display_name: options.official_skin_display_name.into(),
         };
+
+        let custom_skin = options
+            .custom_skin_id
+            .zip(options.custom_skin_display_name)
+            .map(|(id, name)| ReplaySkin {
+                skin: RenderSkinOption::Custom { id: id as u32 },
+                display_name: name.into(),
+            });
 
         Self {
             options: settings,
-            skin,
-            skin_presentation_name: options.skin_presentation_name.into_boxed_str(),
+            official_skin,
+            custom_skin,
         }
     }
 }
@@ -273,19 +318,27 @@ impl From<&ReplaySettings> for DbRenderOptions {
     fn from(settings: &ReplaySettings) -> Self {
         let ReplaySettings {
             options,
-            skin,
-            skin_presentation_name,
+            official_skin,
+            custom_skin,
         } = settings;
 
-        let (skin_id, skin_name) = match skin {
-            RenderSkinOption::Official { name } => (None, Some(name.as_ref().to_owned())),
-            RenderSkinOption::Custom { id } => (Some(*id as i32), None),
+        let RenderSkinOption::Official { ref name } = official_skin.skin else { unreachable!() };
+
+        let (custom_skin_id, custom_skin_display_name) = match custom_skin {
+            Some(skin) => {
+                let RenderSkinOption::Custom { id } = skin.skin else { unreachable!() };
+                let name = skin.display_name.as_ref().to_string();
+
+                (Some(id as i32), Some(name))
+            }
+            None => (None, None),
         };
 
         Self {
-            skin_id,
-            skin_name,
-            skin_presentation_name: skin_presentation_name.as_ref().to_owned(),
+            official_skin_name: name.as_ref().to_string(),
+            official_skin_display_name: official_skin.display_name.as_ref().to_string(),
+            custom_skin_id,
+            custom_skin_display_name,
             global_volume: options.global_volume as i16,
             music_volume: options.music_volume as i16,
             hitsound_volume: options.hitsound_volume as i16,

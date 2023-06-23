@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
+    fmt::{Display, Formatter, Result as FmtResult, Write},
     future::ready,
     mem,
     sync::Arc,
@@ -102,12 +102,10 @@ impl RenderSettingsActive {
         }
 
         let modal = match value.as_str() {
-            "official_skin" => create_modal(
-                "official_skin",
-                "Specify the name of an official skin",
-                "Name",
-            ),
-            "custom_skin" => create_modal("custom_skin", "Specify the ID of a custom skin", "ID"),
+            "official_skin" => {
+                create_modal("official_skin", "Specify an official skin", "Skin name")
+            }
+            "custom_skin" => create_modal("custom_skin", "Specify a custom skin", "ID or `remove`"),
             "use_skin_cursor" => {
                 create_modal("use_skin_cursor", "Use the skin cursor", "true/false")
             }
@@ -335,23 +333,25 @@ impl RenderSettingsActive {
                     }
                 }
             }
-            "custom_skin" => {
-                let id = input
-                    .trim()
-                    .parse()
-                    .map_err(|_| eyre!("Failed to parse custom skin id input `{input}`"))?;
+            "custom_skin" => match input.trim() {
+                "remove" => self.settings.remove_custom_skin(),
+                input => {
+                    let id = input
+                        .parse()
+                        .map_err(|_| eyre!("Failed to parse custom skin id input `{input}`"))?;
 
-                modal.defer(ctx).await.wrap_err("Failed to defer modal")?;
-                deferred = true;
+                    modal.defer(ctx).await.wrap_err("Failed to defer modal")?;
+                    deferred = true;
 
-                match ctx.ordr().client().custom_skin_info(id).await {
-                    Ok(info) => self.settings.custom_skin(id, info),
-                    Err(err) => {
-                        warn!(?err, "Failed to search for custom skin `{input}`");
-                        self.skin_status = SkinStatus::NotFoundId;
+                    match ctx.ordr().client().custom_skin_info(id).await {
+                        Ok(info) => self.settings.custom_skin(id, info),
+                        Err(err) => {
+                            warn!(?err, "Failed to search for custom skin `{input}`");
+                            self.skin_status = SkinStatus::NotFoundId;
+                        }
                     }
                 }
-            }
+            },
             "use_skin_cursor" => parse_input!(bool: use_skin_cursor),
             "use_skin_hitsounds" => parse_input!(bool: use_skin_hitsounds),
             "global_volume" => parse_input!(percent: global_volume),
@@ -589,16 +589,33 @@ impl SettingsGroup {
         let options = settings.options();
 
         match self {
-            SettingsGroup::Skin => format!(
-                "{skin_status}- Skin: `{}`\n\
-                - Use skin cursor: `{}`\n\
-                - Use skin hitsounds: `{}`\n\
-                \n\
-                Check out [the website](https://ordr.issou.best/skins) to see all official skins",
-                settings.skin_name(),
-                options.use_skin_cursor,
-                options.use_skin_hitsounds,
-            ),
+            SettingsGroup::Skin => {
+                let (official, custom) = settings.skin_name();
+
+                let mut description = skin_status.to_string();
+
+                if let Some(custom) = custom {
+                    let _ = writeln!(
+                        description,
+                        "- Custom skin: `{custom}`\n\
+                        - Fallback skin: `{official}`"
+                    );
+                } else {
+                    let _ = writeln!(description, "- Skin: `{official}`");
+                }
+
+                let _ = write!(
+                    description,
+                    "- Use skin cursor: `{}`\n\
+                    - Use skin hitsounds: `{}`\n\
+                    \n\
+                    Check out [the website](https://ordr.issou.best/skins) to see all official skins",
+                    options.use_skin_cursor,
+                    options.use_skin_hitsounds,
+                );
+
+                description
+            }
             SettingsGroup::Audio => format!(
                 "- Global volume: `{}`\n\
                 - Music volume: `{}`\n\

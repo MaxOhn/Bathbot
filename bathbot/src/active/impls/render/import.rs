@@ -121,11 +121,7 @@ impl SettingsImport {
             RenderSkinOption::Official { ref name } => {
                 match ordr.skin_list().search(name.as_ref()).await {
                     Ok(mut skin_list) => match skin_list.skins.pop() {
-                        Some(skin) => {
-                            let skin_ = RenderSkinOption::from(skin.skin.into_string());
-
-                            ReplaySettings::new(options, skin_, skin.presentation_name)
-                        }
+                        Some(skin) => ReplaySettings::new_with_official_skin(options, skin),
                         None => {
                             self.import_result = ImportResult::ParseError(
                                 ParseError::InvalidValue(Setting::DefaultSkin),
@@ -144,11 +140,7 @@ impl SettingsImport {
                 }
             }
             RenderSkinOption::Custom { ref id } => match ordr.custom_skin_info(*id).await {
-                Ok(info) => {
-                    let skin = RenderSkinOption::from(*id);
-
-                    ReplaySettings::new(options, skin, info.name)
-                }
+                Ok(info) => ReplaySettings::new_with_custom_skin(options, info, *id),
                 Err(err) => {
                     self.import_result = ImportResult::Err(
                         Report::new(err).wrap_err("Failed to request custom skin"),
@@ -381,7 +373,16 @@ impl Display for Setting {
     }
 }
 
-fn parse(mut input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), ParseError> {
+fn parse(input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), ParseError> {
+    match parse_yuna(input) {
+        Ok(settings) => Ok(settings),
+        Err(err) => parse_shisha(input)
+            .map(|options| (options, RenderSkinOption::default()))
+            .ok_or(err),
+    }
+}
+
+fn parse_yuna(mut input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), ParseError> {
     let start = input
         .find("Default skin:")
         .ok_or(ParseError::Missing(Setting::DefaultSkin))?;
@@ -484,4 +485,63 @@ fn parse(mut input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), Parse
         .map_or_else(|| RenderSkinOption::from(skin), RenderSkinOption::from);
 
     Ok((options, skin))
+}
+
+fn parse_shisha(input: &str) -> Option<RenderOptions> {
+    let mut lines = input.lines().skip_while(|&line| line != "Beatmap");
+
+    fn parse_percent(input: &str) -> Option<u8> {
+        input.strip_suffix('%')?.parse().ok()
+    }
+
+    fn parse_bool(input: &str) -> Option<bool> {
+        match input {
+            "on" => Some(true),
+            "off" => Some(false),
+            _ => None,
+        }
+    }
+
+    let mut get_line = |skip: usize, prefix: &str| {
+        lines
+            .by_ref()
+            .skip(skip)
+            .next()
+            .and_then(|line| line.split_once(": "))
+            .filter(|(prefix_, _)| *prefix_ == prefix)
+            .map(|(_, status)| status)
+    };
+
+    let load_storyboard = get_line(1, "storyboard")?;
+    let load_video = get_line(0, "video")?;
+    let ingame_bg_dim = get_line(0, "dim")?;
+    let show_scoreboard = get_line(1, "leaderboard")?;
+    let show_key_overlay = get_line(0, "key overlay")?;
+    let music_volume = get_line(1, "music volume")?;
+    let hitsound_volume = get_line(0, "hitsound volume")?;
+    let beatmap_hitsounds = get_line(0, "beatmap hitsounds")?;
+    let cursor_size = get_line(1, "cursor scale")?;
+    let cursor_ripples = get_line(0, "cursor ripples")?;
+    let show_pp_counter = get_line(1, "show pp counter")?;
+    let show_hit_counter = get_line(2, "show hit counter")?;
+    let show_hit_error_meter = get_line(5, "show hit error meter")?;
+    let show_aim_error_meter = get_line(2, "show aim error meter")?;
+
+    Some(RenderOptions {
+        music_volume: parse_percent(music_volume)?,
+        hitsound_volume: parse_percent(hitsound_volume)?,
+        show_hit_error_meter: parse_bool(show_hit_error_meter)?,
+        show_scoreboard: parse_bool(show_scoreboard)?,
+        cursor_size: cursor_size.parse().ok()?,
+        load_storyboard: parse_bool(load_storyboard)?,
+        load_video: parse_bool(load_video)?,
+        ingame_bg_dim: parse_percent(ingame_bg_dim)?,
+        cursor_ripples: parse_bool(cursor_ripples)?,
+        show_pp_counter: parse_bool(show_pp_counter)?,
+        show_hit_counter: parse_bool(show_hit_counter)?,
+        show_aim_error_meter: parse_bool(show_aim_error_meter)?,
+        show_key_overlay: parse_bool(show_key_overlay)?,
+        use_skin_cursor: !parse_bool(beatmap_hitsounds)?,
+        ..Default::default()
+    })
 }

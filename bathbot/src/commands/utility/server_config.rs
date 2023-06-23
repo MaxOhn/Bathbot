@@ -134,17 +134,35 @@ pub struct ServerConfigEdit {
         will have the option to choose via `/config`."
     )]
     render_button: Option<ShowHideOption>,
+    #[command(
+        desc = "Are members allowed to use custom skins when rendering?",
+        help = "Are members allowed to use custom skins when rendering?\n\
+        Handy for disallowing potentially obscene skins."
+    )]
+    allow_custom_skins: Option<bool>,
 }
 
 impl ServerConfigEdit {
     fn any(&self) -> bool {
-        self.song_commands.is_some()
-            || self.score_embeds.is_some()
-            || self.list_embeds.is_some()
-            || self.retries.is_some()
-            || self.track_limit.is_some()
-            || self.minimized_pp.is_some()
-            || self.render_button.is_some()
+        let Self {
+            song_commands,
+            score_embeds,
+            list_embeds,
+            retries,
+            track_limit,
+            minimized_pp,
+            render_button,
+            allow_custom_skins,
+        } = self;
+
+        song_commands.is_some()
+            || score_embeds.is_some()
+            || list_embeds.is_some()
+            || retries.is_some()
+            || track_limit.is_some()
+            || minimized_pp.is_some()
+            || render_button.is_some()
+            || allow_custom_skins.is_some()
     }
 }
 
@@ -185,6 +203,7 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
                 song_commands,
                 track_limit,
                 render_button,
+                allow_custom_skins,
             } = args;
 
             if let Some(score_embeds) = score_embeds {
@@ -213,6 +232,10 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
 
             if let Some(render_button) = render_button {
                 config.render_button = Some(render_button == ShowHideOption::Show);
+            }
+
+            if let Some(allow_custom_skins) = allow_custom_skins {
+                config.allow_custom_skins = Some(allow_custom_skins);
             }
         };
 

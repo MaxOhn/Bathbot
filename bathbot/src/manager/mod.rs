@@ -9,7 +9,7 @@ pub use self::{
     osu_user::OsuUserManager,
     pp::PpManager,
     rank_pp_approx::ApproxManager,
-    replay::{OwnedReplayScore, ReplayManager, ReplayScore, ReplaySettings},
+    replay::{OwnedReplayScore, ReplayManager, ReplayScore, ReplaySettings, ReplaySkin},
     twitch::TwitchManager,
     user_config::UserConfigManager,
 };

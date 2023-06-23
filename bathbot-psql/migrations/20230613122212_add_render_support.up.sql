@@ -6,9 +6,10 @@ CREATE TABLE IF NOT EXISTS osu_replays (
 
 CREATE TABLE IF NOT EXISTS user_render_settings (
     discord_id                 INT8 NOT NULL,
-    skin_id                    INT4,
-    skin_name                  VARCHAR(128),
-    skin_presentation_name     VARCHAR(128) NOT NULL,
+    official_skin_name         VARCHAR(128) NOT NULL,
+    official_skin_display_name VARCHAR(128) NOT NULL,
+    custom_skin_id             INT4,
+    custom_skin_display_name   VARCHAR(128),
     global_volume              INT2 NOT NULL,
     music_volume               INT2 NOT NULL,
     hitsound_volume            INT2 NOT NULL,
@@ -58,7 +59,7 @@ CREATE TABLE IF NOT EXISTS user_render_settings (
 );
 
 ALTER TABLE user_configs ADD COLUMN render_button BOOLEAN;
-ALTER TABLE guild_configs ADD COLUMN render_button BOOLEAN;
+ALTER TABLE guild_configs ADD COLUMN render_button BOOLEAN, ADD COLUMN allow_custom_skins BOOLEAN;
 
 CREATE TABLE IF NOT EXISTS render_video_urls (
     score_id  INT8 NOT NULL,
