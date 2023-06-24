@@ -27,7 +27,7 @@ pub use self::{
     ranking::RankingPagination,
     ranking_countries::RankingCountriesPagination,
     recent_list::RecentListPagination,
-    render::{RenderSettingsActive, SettingsImport},
+    render::{CachedRender, RenderSettingsActive, SettingsImport},
     scores::{ScoresMapPagination, ScoresServerPagination, ScoresUserPagination},
     simulate::{SimulateAttributes, SimulateComponents, SimulateData, TopOldVersion},
     skins::SkinsPagination,

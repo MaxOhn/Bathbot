@@ -13,7 +13,8 @@ use twilight_model::{
 use crate::{
     core::Context,
     util::{
-        interaction::InteractionCommand, Authored, ChannelExt, InteractionCommandExt, MessageExt,
+        interaction::{InteractionCommand, InteractionComponent},
+        Authored, ChannelExt, InteractionCommandExt, MessageExt,
     },
 };
 
@@ -308,5 +309,15 @@ impl From<(Message, Option<Permissions>)> for OwnedCommandOrigin {
 impl From<InteractionCommand> for OwnedCommandOrigin {
     fn from(command: InteractionCommand) -> Self {
         Self::Interaction { command }
+    }
+}
+
+impl From<&InteractionComponent> for OwnedCommandOrigin {
+    fn from(component: &InteractionComponent) -> Self {
+        Self::Message {
+            msg: component.message.id,
+            channel: component.message.channel_id,
+            permissions: component.permissions,
+        }
     }
 }

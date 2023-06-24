@@ -1,4 +1,5 @@
+mod cached;
 mod import;
 mod settings;
 
-pub use self::{import::SettingsImport, settings::RenderSettingsActive};
+pub use self::{cached::CachedRender, import::SettingsImport, settings::RenderSettingsActive};

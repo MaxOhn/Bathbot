@@ -1,4 +1,4 @@
-use std::{fmt::Write, mem, sync::Arc, time::Duration};
+use std::{mem, sync::Arc, time::Duration};
 
 use bathbot_util::{
     constants::{GENERAL_ISSUE, ORDR_ISSUE},
@@ -19,8 +19,9 @@ use twilight_model::{
 };
 
 pub use self::{recent_score::RecentScoreEdit, top_score::TopScoreEdit};
+use super::render::CachedRender;
 use crate::{
-    active::ComponentResult,
+    active::{ActiveMessages, ComponentResult},
     commands::osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
     core::{buckets::BucketName, commands::checks::check_ratelimit},
     manager::{OwnedReplayScore, ReplayScore},
@@ -344,12 +345,10 @@ async fn handle_render_button(
     // Check if the score id has already been rendered
     match ctx.replay().get_video_url(score_id).await {
         Ok(Some(video_url)) => {
-            let mut video_url = video_url.into_string();
-            let _ = write!(video_url, " <@{owner}>");
-            let builder = MessageBuilder::new().content(video_url);
+            let cached = CachedRender::new(score_id, Some(score), video_url, owner);
 
-            if let Err(err) = orig.reply(&ctx, builder, permissions).await {
-                error!(?err, "Failed to reply with cached video url");
+            if let Err(err) = ActiveMessages::builder(cached).begin(ctx, orig.1).await {
+                error!(?err, "Failed to begin cached render message");
             }
 
             return;

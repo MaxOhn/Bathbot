@@ -20,7 +20,7 @@ use twilight_model::{
 
 use crate::{
     active::{
-        impls::{RenderSettingsActive, SettingsImport},
+        impls::{CachedRender, RenderSettingsActive, SettingsImport},
         ActiveMessages,
     },
     core::{
@@ -143,7 +143,7 @@ async fn render_replay(
         return Ok(());
     }
 
-    let status = RenderStatus::new_commisioning_replay();
+    let status = RenderStatus::new_commissioning_replay();
     command.callback(&ctx, status.as_message(), false).await?;
 
     let settings = match ctx.replay().get_settings(owner).await {
@@ -198,10 +198,19 @@ async fn render_replay(
 
 async fn render_score(
     ctx: Arc<Context>,
-    command: InteractionCommand,
+    mut command: InteractionCommand,
     score: RenderScore,
 ) -> Result<()> {
     let owner = command.user_id()?;
+
+    if let Some(cooldown) = check_ratelimit(&ctx, owner, BucketName::Render).await {
+        trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
+
+        let content = format!("Command on cooldown, try again in {cooldown} seconds");
+        command.error_callback(&ctx, content).await?;
+
+        return Ok(());
+    }
 
     command.defer(&ctx, false).await?;
 
@@ -210,24 +219,15 @@ async fn render_score(
     // Check if the score id has already been rendered
     match ctx.replay().get_video_url(score_id).await {
         Ok(Some(video_url)) => {
-            let mut video_url = video_url.into_string();
-            let _ = write!(video_url, " <@{owner}>");
-            let builder = MessageBuilder::new().content(video_url);
-            command.update(&ctx, builder).await?;
+            let cached = CachedRender::new(score_id, None, video_url, owner);
 
-            return Ok(());
+            return ActiveMessages::builder(cached)
+                .start_by_update(true)
+                .begin(ctx, &mut command)
+                .await;
         }
         Ok(None) => {}
         Err(err) => warn!(?err),
-    }
-
-    if let Some(cooldown) = check_ratelimit(&ctx, owner, BucketName::Render).await {
-        trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
-
-        let content = format!("Command on cooldown, try again in {cooldown} seconds");
-        command.error(&ctx, content).await?;
-
-        return Ok(());
     }
 
     let mut status = RenderStatus::new_requesting_score();
@@ -348,7 +348,7 @@ impl RenderStatus {
         }
     }
 
-    pub fn new_commisioning_replay() -> Self {
+    pub fn new_commissioning_replay() -> Self {
         Self {
             start: RenderStatusInner::CommissioningRender,
             curr: RenderStatusInner::CommissioningRender,
