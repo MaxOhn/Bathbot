@@ -505,8 +505,7 @@ fn parse_shisha(input: &str) -> Option<RenderOptions> {
     let mut get_line = |skip: usize, prefix: &str| {
         lines
             .by_ref()
-            .skip(skip)
-            .next()
+            .nth(skip)
             .and_then(|line| line.split_once(": "))
             .filter(|(prefix_, _)| *prefix_ == prefix)
             .map(|(_, status)| status)

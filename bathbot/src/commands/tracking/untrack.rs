@@ -103,7 +103,7 @@ async fn send_message(
     let success = success.into_iter().collect();
     let embed = UntrackEmbed::new(success, name).build();
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(ctx, &builder).await?;
+    orig.create_message(ctx, builder).await?;
 
     Ok(())
 }

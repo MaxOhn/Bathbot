@@ -251,7 +251,7 @@ async fn matchliveremove(
             format!("Stopped live tracking [the match]({OSU_BASE}community/matches/{match_id})",);
 
         let builder = MessageBuilder::new().embed(content);
-        orig.create_message(&ctx, &builder).await?;
+        orig.create_message(&ctx, builder).await?;
 
         Ok(())
     } else {

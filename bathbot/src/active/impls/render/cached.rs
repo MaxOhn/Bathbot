@@ -319,7 +319,7 @@ impl IActiveMessage for CachedRender {
             .embed(None)
             .components(Vec::new());
 
-        let Some(fut) = (msg, channel).update(&ctx, builder, None) else {
+        let Some(fut) = (msg, channel).update(ctx, builder, None) else {
             return Box::pin(ready(Err(eyre!(
                 "Lacking permissions to handle cached render timeout"
             ))));

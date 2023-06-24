@@ -49,8 +49,7 @@ pub async fn trackingstats(ctx: Arc<Context>, command: InteractionCommand) -> Re
         .footer(FooterBuilder::new("Last pop"))
         .timestamp(stats.last_pop)
         .title(title)
-        .fields(fields)
-        .build();
+        .fields(fields);
 
     let builder = MessageBuilder::new().embed(embed);
     command.callback(&ctx, builder, false).await?;

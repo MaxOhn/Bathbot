@@ -57,7 +57,7 @@ pub async fn removestream(ctx: Arc<Context>, orig: CommandOrigin<'_>, name: &'_ 
                 format!("I'm no longer tracking `{name}`'s twitch stream in this channel");
 
             let builder = MessageBuilder::new().embed(content);
-            orig.create_message(&ctx, &builder).await?;
+            orig.create_message(&ctx, builder).await?;
 
             Ok(())
         }

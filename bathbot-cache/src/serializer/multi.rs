@@ -113,6 +113,7 @@ mod release {
     }
 
     const fn max_scratch_size() -> usize {
+        #[allow(clippy::absurd_extreme_comparisons)]
         let mut size = if CHANNEL_SCRATCH_SIZE > MEMBER_SCRATCH_SIZE {
             CHANNEL_SCRATCH_SIZE
         } else {

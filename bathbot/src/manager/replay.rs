@@ -124,6 +124,7 @@ impl<'d> ReplayManager<'d> {
     }
 }
 
+#[derive(Default)]
 pub struct ReplaySettings {
     options: RenderOptions,
     official_skin: ReplaySkin,
@@ -227,16 +228,6 @@ pub struct CustomSkinName<'n> {
 impl Display for CustomSkinName<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{} (ID {})", self.name, self.id)
-    }
-}
-
-impl Default for ReplaySettings {
-    fn default() -> Self {
-        Self {
-            options: RenderOptions::default(),
-            official_skin: ReplaySkin::default(),
-            custom_skin: None,
-        }
     }
 }
 

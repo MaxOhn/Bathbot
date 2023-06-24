@@ -514,7 +514,7 @@ async fn handle_ephemeral<T>(
     builder: MessageBuilder<'_>,
     fut: impl std::future::Future<Output = Result<T, AuthenticationStandbyError>>,
 ) -> Option<Result<T>> {
-    if let Err(err) = command.update(ctx, &builder).await {
+    if let Err(err) = command.update(ctx, builder).await {
         return Some(Err(eyre::Report::new(err)));
     }
 
