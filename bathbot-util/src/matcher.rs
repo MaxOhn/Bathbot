@@ -204,7 +204,7 @@ define_regex! {
 
     OSU_SCORE_URL_MATCHER: r"https://osu.ppy.sh/scores/(osu|taiko|mania|fruits)/(\d+)";
 
-    APPROVED_SKIN_SITE: r"^https://(?:www\.)?(?:(?:drive\.google\.com|dropbox\.com|mega\.nz|mediafire\.com|github\.com|gist\.github\.com)/.*$|skins\.osuck\.net/skins/\d+.*)";
+    APPROVED_SKIN_SITE: r"^https://(?:(?:www\.)?(?:drive\.google\.com|dropbox\.com|mega\.nz|mediafire\.com|github\.com|gist\.github\.com)/.*$|skins\.osuck\.net/skins/\d+.*|link.issou.best/skin/\d+$)";
 }
 
 pub static QUERY_SYNTAX_REGEX: Regex =
