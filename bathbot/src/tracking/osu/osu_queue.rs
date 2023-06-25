@@ -21,7 +21,7 @@ use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::manager::OsuTrackingManager;
 
-static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(150));
+static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(180));
 
 pub fn default_tracking_interval() -> Duration {
     unsafe { *OSU_TRACKING_INTERVAL.get_unchecked() }
