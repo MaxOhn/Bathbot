@@ -10,7 +10,9 @@ use bathbot_util::{
     EmbedBuilder, MessageBuilder,
 };
 use eyre::{Report, Result, WrapErr};
-use rosu_render::error::{Error as OrdrError, ErrorCode as OrdrErrorCode};
+use rosu_render::error::{
+    ApiError as OrdrApiError, Error as OrdrError, ErrorCode as OrdrErrorCode,
+};
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
@@ -174,18 +176,40 @@ async fn render_replay(
 
     let render = match render_fut.await {
         Ok(render) => render,
-        Err(OrdrError::Response { error, .. })
-            if error.code() == Some(OrdrErrorCode::InvalidGameMode) =>
-        {
+        Err(OrdrError::Response {
+            error:
+                OrdrApiError {
+                    code: Some(OrdrErrorCode::InvalidGameMode),
+                    ..
+                },
+            ..
+        }) => {
             let content = "I can only render osu!standard scores";
             command.error(&ctx, content).await?;
 
             return Ok(());
         }
         Err(err) => {
-            let _ = command.error(&ctx, ORDR_ISSUE).await;
+            return match err {
+                OrdrError::Response {
+                    error:
+                        OrdrApiError {
+                            code: Some(code), ..
+                        },
+                    ..
+                } => {
+                    let content =
+                        format!("Error code {int} from o!rdr: {code}", int = code.to_u8());
+                    command.error(&ctx, content).await?;
 
-            return Err(Report::new(err).wrap_err("Failed to commission render"));
+                    Ok(())
+                }
+                _ => {
+                    let _ = command.error(&ctx, ORDR_ISSUE).await;
+
+                    Err(Report::new(err).wrap_err("Failed to commission render"))
+                }
+            }
         }
     };
 
