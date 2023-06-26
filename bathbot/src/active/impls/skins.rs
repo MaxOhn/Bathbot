@@ -22,7 +22,7 @@ use crate::{
 // TODO: replace with ranking pagination once it supports code block hyperlinks
 #[derive(PaginationBuilder)]
 pub struct SkinsPagination {
-    #[pagination(per_page = 20)]
+    #[pagination(per_page = 12)]
     entries: Box<[SkinEntry]>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
@@ -30,28 +30,31 @@ pub struct SkinsPagination {
 
 impl IActiveMessage for SkinsPagination {
     fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+        const PER_PAGE: usize = 12;
+        const PER_SIDE: usize = PER_PAGE / 2;
+
         let Self { pages, entries, .. } = &*self;
 
         let idx = pages.index();
-        let end_left = entries.len().min(idx + 10);
+        let end_left = entries.len().min(idx + PER_SIDE);
 
         let left = &entries[idx..end_left];
 
-        let right = (entries.len() > idx + 10)
+        let right = (entries.len() > idx + PER_SIDE)
             .then(|| {
-                let end_right = entries.len().min(idx + 20);
+                let end_right = entries.len().min(idx + PER_PAGE);
 
-                &entries[idx + 10..end_right]
+                &entries[idx + PER_SIDE..end_right]
             })
             .unwrap_or(&[]);
 
         let left_lengths = Lengths::new(idx, left);
-        let right_lengths = Lengths::new(idx + 10, right);
+        let right_lengths = Lengths::new(idx + PER_SIDE, right);
 
         // Ensuring the right side has ten elements for the zip
-        let user_iter = left.iter().zip((0..10).map(|i| right.get(i)));
+        let user_iter = left.iter().zip((0..PER_SIDE).map(|i| right.get(i)));
 
-        let mut description = String::with_capacity(1024);
+        let mut description = String::with_capacity(2048);
 
         for ((left, right), idx) in user_iter.zip(idx + 1..) {
             let _ = write!(
@@ -69,7 +72,7 @@ impl IActiveMessage for SkinsPagination {
                 let _ = write!(
                     description,
                     "|`#{idx:<idx_len$}` [`{name:<name_len$}`]({OSU_BASE}u/{user_id}) [`Skin`]({skin_url} \"{skin_tooltip}\")",
-                    idx = idx + 10,
+                    idx = idx + PER_SIDE,
                     idx_len = right_lengths.idx,
                     name = right.username,
                     name_len = right_lengths.name,
