@@ -507,9 +507,9 @@ pub(super) async fn score(
         .map_or(false, |guild| ctx.has_miss_analyzer(&guild));
 
     let mut with_render = match (guild_render_button, config.render_button) {
-        (Some(false), _) | (None, None) => false,
+        (None | Some(true), None) => true,
         (None | Some(true), Some(with_render)) => with_render,
-        (Some(true), None) => true,
+        (Some(false), _) => false,
     };
 
     // Prepare retrieval of the the user's top 50 and score position on the map
