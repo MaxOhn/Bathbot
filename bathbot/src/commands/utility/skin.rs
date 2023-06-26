@@ -1,10 +1,17 @@
-use std::sync::Arc;
+use std::{
+    mem::MaybeUninit,
+    sync::{
+        atomic::{AtomicPtr, Ordering::Relaxed},
+        Arc,
+    },
+};
 
 use bathbot_macros::{HasName, SlashCommand};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, EmbedBuilder, MessageBuilder};
 use eyre::{Report, Result, WrapErr};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
+use url::{SyntaxViolation, Url};
 
 use crate::{
     active::{self, ActiveMessages},
@@ -244,6 +251,7 @@ pub enum Reason {
     NeitherAttachmentNorInline,
     MissingFilename,
     NotOsk,
+    UrlSyntaxViolation(SyntaxViolation),
 }
 
 impl SkinValidation {
@@ -255,7 +263,7 @@ impl SkinValidation {
         match Self::validate(ctx, skin_url).await {
             SkinValidation::Ok => Ok(ValidationStatus::Continue),
             SkinValidation::Invalid(reason) => {
-                debug!(?reason, "Invalid skin url reason");
+                debug!(?reason, "Invalid skin url");
 
                 let content = "Looks like an invalid skin url.\n\
                     Must be a URL to a direct-download of an .osk file or one of these approved sites:\n\
@@ -275,7 +283,7 @@ impl SkinValidation {
                 let content = "Failed to validate skin url";
                 let _ = command.error(ctx, content).await;
 
-                Err(err.wrap_err("failed to validate skin url"))
+                Err(err.wrap_err("Failed to validate skin url"))
             }
         }
     }
@@ -284,7 +292,7 @@ impl SkinValidation {
         if skin_url.len() > 256 {
             return Self::Invalid(Reason::TooLong);
         } else if matcher::is_approved_skin_site(skin_url) {
-            return Self::Ok;
+            return Self::is_valid_url(skin_url);
         } else if !(skin_url.starts_with("https://") && skin_url.contains('.')) {
             return Self::Invalid(Reason::InvalidUrl);
         }
@@ -324,6 +332,32 @@ impl SkinValidation {
             Self::Ok
         } else {
             Self::Invalid(Reason::NotOsk)
+        }
+    }
+
+    // Passed miri safety test
+    fn is_valid_url(url: &str) -> Self {
+        let mut violation = MaybeUninit::new(None::<SyntaxViolation>);
+        let violation_ptr = AtomicPtr::new(violation.as_mut_ptr());
+
+        let cb = |v| {
+            let _ = violation_ptr.fetch_update(Relaxed, Relaxed, |ptr| {
+                // SAFETY: ptr comes from MaybeUninit and is thus aligned and safe to write
+                unsafe { ptr.write(Some(v)) };
+
+                Some(ptr)
+            });
+        };
+
+        let options = Url::options().syntax_violation_callback(Some(&cb));
+
+        match options.parse(url) {
+            // SAFETY: guaranteed to be a valid pointer
+            Ok(_) => match unsafe { &mut *violation_ptr.load(Relaxed) }.take() {
+                Some(violation) => Self::Invalid(Reason::UrlSyntaxViolation(violation)),
+                None => Self::Ok,
+            },
+            Err(_) => Self::Invalid(Reason::InvalidUrl),
         }
     }
 }
