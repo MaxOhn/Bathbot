@@ -628,7 +628,7 @@ impl Client {
     pub async fn get_raw_osu_replay(&self, key: &str, score_id: u64) -> Result<Option<Box<[u8]>>> {
         #[derive(Deserialize)]
         struct RawReplayBody {
-            #[serde(rename = "content", deserialize_with = "decode_base64")]
+            #[serde(default, rename = "content", deserialize_with = "decode_base64")]
             decoded: Option<Box<[u8]>>,
         }
 
