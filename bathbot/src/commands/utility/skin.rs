@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bathbot_macros::{HasName, SlashCommand};
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, EmbedBuilder, MessageBuilder};
 use eyre::{Report, Result, WrapErr};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -92,8 +92,14 @@ impl CheckSkin {
             // User didn't specify anything, choose user themselves
             match ctx.user_config().skin(command.user_id()?).await {
                 Ok(Some(skin_url)) => {
-                    let content = format!("Your current skin: {skin_url}");
-                    let builder = MessageBuilder::new().embed(content);
+                    let embed = EmbedBuilder::new()
+                        .description(format!("Your current skin: {skin_url}"))
+                        .footer(
+                            "Note that this isn't your render skin, \
+                            use `/render settings modify` for that",
+                        );
+
+                    let builder = MessageBuilder::new().embed(embed);
                     command.update(ctx, builder).await?;
                 }
                 Ok(None) => {
@@ -114,7 +120,7 @@ impl CheckSkin {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "all", desc = "List skins of all users")]
+#[command(name = "all", desc = "List all linked skins")]
 pub struct AllSkin;
 
 impl AllSkin {
@@ -142,7 +148,12 @@ impl AllSkin {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "set", desc = "Set the skin you use")]
+#[command(
+    name = "set",
+    desc = "Set the skin you use",
+    help = "Set the skin you use.\n\
+    Note that this is **not** the render skin, use `/render settings modify` for that."
+)]
 pub struct SetSkin {
     #[command(
         desc = "Specify a download link for your skin",
@@ -178,8 +189,14 @@ impl SetSkin {
             return Err(err);
         }
 
-        let content = format!("Successfully set your skin to `{url}`");
-        let builder = MessageBuilder::new().embed(content);
+        let embed = EmbedBuilder::new()
+            .description(format!("Successfully set your skin to `{url}`"))
+            .footer(
+                "Note that this isn't your render skin, \
+                use `/render settings modify` for that",
+            );
+
+        let builder = MessageBuilder::new().embed(embed);
         command.update(ctx, builder).await?;
 
         Ok(())
