@@ -58,6 +58,7 @@ twilight-http = { workspace = true }
 twilight-interactions = { workspace = true }
 twilight-model = { workspace = true }
 twilight-standby = { workspace = true }
+url = { version = "2.4", default-features = false }
 
 [features]
 default = ["offline"]
