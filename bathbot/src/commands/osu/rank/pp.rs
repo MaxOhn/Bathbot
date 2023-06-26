@@ -281,14 +281,10 @@ impl<'m> RankPp<'m> {
 
             let mut chars = input.chars();
 
-            fn is_ascii_numeric(c: char) -> bool {
-                matches!(c, '0'..='9')
-            }
-
             let valid_country = chars.by_ref().take(2).all(|c| c.is_ascii_alphabetic());
 
-            let valid_rank =
-                chars.next().is_some_and(is_ascii_numeric) && chars.all(is_ascii_numeric);
+            let valid_rank = chars.next().is_some_and(|c| c.is_ascii_digit())
+                && chars.all(|c| c.is_ascii_digit());
 
             if valid_country && valid_rank {
                 let (country, rank) = input.split_at(2);
