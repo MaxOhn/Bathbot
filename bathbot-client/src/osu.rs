@@ -1,7 +1,5 @@
 use std::{
-    collections::HashSet,
     fmt::{Formatter, Result as FmtResult, Write},
-    hash::BuildHasher,
     time::Duration,
 };
 
@@ -11,9 +9,8 @@ use bathbot_model::{
     OsekaiMaps, OsekaiMedal, OsekaiRanking, OsekaiRankingEntries, OsuStatsBestScores,
     OsuStatsBestTimeframe, OsuStatsParams, OsuStatsPlayer, OsuStatsPlayersArgs, OsuStatsScoresRaw,
     OsuTrackerCountryDetails, OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats,
-    RespektiveUser, RespektiveUsers, ScraperScore, ScraperScores, SnipeCountries,
-    SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent, SnipeScore,
-    SnipeScoreParams,
+    RespektiveUser, RespektiveUsers, SnipeCountries, SnipeCountryPlayer, SnipeCountryStatistics,
+    SnipePlayer, SnipeRecent, SnipeScore, SnipeScoreParams,
 };
 use bathbot_util::{
     constants::{HUISMETBENEN, OSU_BASE},
@@ -24,7 +21,7 @@ use bytes::Bytes;
 use eyre::{Report, Result, WrapErr};
 use http::{header::USER_AGENT, Method, Request, Response};
 use hyper::Body;
-use rosu_v2::prelude::{mods, GameModIntermode, GameMode, GameModsIntermode};
+use rosu_v2::prelude::GameMode;
 use serde::{
     de::{DeserializeSeed, Error as DeError, Visitor},
     Deserialize, Deserializer,
@@ -502,104 +499,6 @@ impl Client {
 
                 format!("Failed to deserialize osustats recentbest: {body}")
             })
-    }
-
-    // Retrieve the global leaderboard of a map
-    // If mods contain DT / NC, it will do another request for the opposite
-    // If mods dont contain Mirror and its a mania map, it will perform the
-    // same requests again but with Mirror enabled
-    pub async fn get_leaderboard<S>(
-        &self,
-        map_id: u32,
-        mods: Option<&GameModsIntermode>,
-        mode: GameMode,
-    ) -> Result<Vec<ScraperScore>>
-    where
-        S: BuildHasher + Default,
-    {
-        let mut scores = self._get_leaderboard(map_id, mods).await?;
-
-        let non_mirror = mods
-            .as_ref()
-            .map(|mods| !mods.contains(GameModIntermode::Mirror))
-            .unwrap_or(true);
-
-        // Check if another request for mania's MR is needed
-        if mode == GameMode::Mania && non_mirror {
-            let mods = match mods {
-                None => Some(mods!(Mirror)),
-                // TODO: remove .to_owned()
-                Some(mods) => Some(mods.to_owned() | GameModIntermode::Mirror),
-            };
-
-            let mut new_scores = self._get_leaderboard(map_id, mods.as_ref()).await?;
-            scores.append(&mut new_scores);
-            scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
-            let mut uniques = HashSet::with_capacity_and_hasher(50, S::default());
-            scores.retain(|s| uniques.insert(s.user_id));
-            scores.truncate(50);
-        }
-
-        // Check if DT / NC is included
-        let mods = match mods {
-            Some(mods) if mods.contains(GameModIntermode::DoubleTime) => {
-                Some(mods.to_owned() | GameModIntermode::Nightcore)
-            }
-            Some(mods) if mods.contains(GameModIntermode::Nightcore) => {
-                Some((mods.to_owned() - GameModIntermode::Nightcore) | GameModIntermode::DoubleTime)
-            }
-            Some(_) | None => None,
-        };
-
-        // If DT / NC included, make another request
-        if mods.is_some() {
-            if mode == GameMode::Mania && non_mirror {
-                // TODO: remove .clone()
-                let mods = mods.clone().map(|mods| mods | GameModIntermode::Mirror);
-                let mut new_scores = self._get_leaderboard(map_id, mods.as_ref()).await?;
-                scores.append(&mut new_scores);
-            }
-
-            let mut new_scores = self._get_leaderboard(map_id, mods.as_ref()).await?;
-            scores.append(&mut new_scores);
-            scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
-            let mut uniques = HashSet::with_capacity_and_hasher(50, S::default());
-            scores.retain(|s| uniques.insert(s.user_id));
-            scores.truncate(50);
-        }
-
-        scores.sort_unstable_by(|a, b| b.score.cmp(&a.score).then_with(|| a.date.cmp(&b.date)));
-
-        Ok(scores)
-    }
-
-    // Retrieve the global leaderboard of a map
-    async fn _get_leaderboard(
-        &self,
-        map_id: u32,
-        mods: Option<&GameModsIntermode>,
-    ) -> Result<Vec<ScraperScore>> {
-        let mut url = format!("{OSU_BASE}beatmaps/{map_id}/scores?");
-
-        if let Some(mods) = mods {
-            if mods.is_empty() {
-                url.push_str("&mods[]=NM");
-            } else {
-                for m in mods.iter() {
-                    let _ = write!(url, "&mods[]={m}");
-                }
-            }
-        }
-
-        let bytes = self.make_get_request(url, Site::OsuHiddenApi).await?;
-
-        let scores: ScraperScores = serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
-
-            format!("failed to deserialize leaderboard: {body}")
-        })?;
-
-        Ok(scores.get())
     }
 
     pub async fn get_avatar(&self, url: &str) -> Result<Bytes> {
