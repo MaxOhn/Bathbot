@@ -6,7 +6,6 @@ use bathbot_util::{
     constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
     matcher,
     osu::{MapIdType, ModSelection},
-    IntHasher,
 };
 use eyre::{Report, Result};
 use rosu_v2::prelude::{
@@ -225,8 +224,8 @@ async fn leaderboard(
     let attrs_fut = calc.performance();
 
     let scores_fut = ctx
-        .client()
-        .get_leaderboard::<IntHasher>(map_id, mods.as_ref(), map.mode());
+        .osu_scores()
+        .map_leaderboard(map_id, map.mode(), mods.clone());
 
     let user_fut = get_user_score(&ctx, osu_id_res, map_id, map.mode(), mods.clone());
 

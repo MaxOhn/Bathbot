@@ -149,7 +149,6 @@ impl Context {
         }
 
         let client_fut = BathbotClient::new(
-            &config.tokens.osu_session,
             #[cfg(feature = "twitch")]
             (&config.tokens.twitch_client_id, &config.tokens.twitch_token),
             &registry,

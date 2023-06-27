@@ -6,7 +6,7 @@ use bathbot_psql::{
 use bathbot_util::{osu::ModSelection, IntHasher};
 use eyre::{Result, WrapErr};
 use rosu_v2::{
-    prelude::{GameMode, Grade, OsuError, Score},
+    prelude::{GameMode, GameModsIntermode, Grade, OsuError, Score},
     OsuResult,
 };
 
@@ -93,6 +93,27 @@ impl<'c> ScoresManager<'c> {
             .build_osu(self.psql, users)
             .await
             .wrap_err("Failed to select scores")
+    }
+
+    pub async fn map_leaderboard(
+        self,
+        map_id: u32,
+        mode: GameMode,
+        mods: Option<GameModsIntermode>,
+    ) -> Result<Vec<Score>> {
+        let mut req = self.ctx.osu().beatmap_scores(map_id).limit(100).mode(mode);
+
+        if let Some(mods) = mods {
+            req = req.mods(mods);
+        }
+
+        let scores = req.await.wrap_err("Failed to get map leaderboard")?;
+
+        if let Err(err) = self.store(&scores).await {
+            warn!(?err, "Failed to store leaderboard scores");
+        }
+
+        Ok(scores)
     }
 
     pub fn top(self) -> ScoreArgs<'c> {
