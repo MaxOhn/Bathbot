@@ -56,7 +56,7 @@ impl<'q> IFilterCriteria<'q> for ScoresCriteria<'q> {
             "ranked" | "rankeddate" | "ranked_date" => self.ranked_date.try_update_date(op, &value),
             "artist" => self.artist.try_update(op, value),
             "title" => self.title.try_update(op, value),
-            "difficulty" | "version" => self.version.try_update(op, value),
+            "difficulty" | "version" | "diff" => self.version.try_update(op, value),
             _ => false,
         }
     }
