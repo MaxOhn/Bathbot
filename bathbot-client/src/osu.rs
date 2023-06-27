@@ -568,6 +568,8 @@ impl Client {
             scores.truncate(50);
         }
 
+        scores.sort_unstable_by(|a, b| b.score.cmp(&a.score).then_with(|| a.date.cmp(&b.date)));
+
         Ok(scores)
     }
 
