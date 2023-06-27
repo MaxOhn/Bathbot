@@ -2059,7 +2059,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.7.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=mods#a237ead3327782d66d9335e0ca46112db86503bf"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=mods#3bcf032e47258c57cf3078beb7e1e3af964a2b11"
 dependencies = [
  "bytes",
  "futures",

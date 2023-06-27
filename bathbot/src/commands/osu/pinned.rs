@@ -408,8 +408,7 @@ async fn single_embed(
             let user_args = UserArgsSlim::user_id(user_id).mode(entry.score.mode);
             let best_fut = ctx.osu_scores().top().limit(100).exec(user_args);
 
-            // TODO: Add .limit(50) when supported by osu!api
-            let global_fut = ctx.osu().beatmap_scores(entry.map.map_id());
+            let global_fut = ctx.osu().beatmap_scores(entry.map.map_id()).limit(50);
             let (best_res, global_res) = tokio::join!(best_fut, global_fut);
 
             let personal_idx = match best_res {
