@@ -95,21 +95,18 @@ impl Context {
         }
 
         for embed in embeds {
-            let render_id_opt = embed
-                .video
+            let video_url_opt = embed
+                .url
                 .as_ref()
-                .and_then(|video| video.url.as_ref())
-                .and_then(|url| url.strip_suffix(".mp4"))
-                .and_then(|is_mp4| is_mp4[is_mp4.rfind('/')? + 1..].strip_prefix("render"))
-                .and_then(|id| id.parse::<u32>().ok());
+                .and_then(|url| url.strip_prefix("https://link.issou.best/"));
 
-            let Some(render_id) = render_id_opt else { continue };
+            let Some(video_url) = video_url_opt else { continue };
 
             let render_opt = self
                 .ordr()
                 .client()
                 .render_list()
-                .render_id(render_id)
+                .link(&video_url)
                 .page_size(1)
                 .page(1)
                 .await
