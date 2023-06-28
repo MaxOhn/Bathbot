@@ -6,7 +6,8 @@ use std::{
 
 use eyre::Result;
 use rosu_v2::prelude::{
-    mods, GameMod, GameMode, GameMods, GameModsIntermode, Grade, Score, ScoreStatistics,
+    mods, GameMod, GameModIntermode, GameMode, GameMods, GameModsIntermode, Grade, Score,
+    ScoreStatistics,
 };
 use time::OffsetDateTime;
 use twilight_model::channel::message::{embed::Embed, Message};
@@ -35,17 +36,26 @@ impl ModSelection {
 
     /// Returns `true` if the score's mods coincide with this [`ModSelection`]
     pub fn filter_score(&self, score: &Score) -> bool {
+        const DT: GameModIntermode = GameModIntermode::DoubleTime;
+        const NC: GameModIntermode = GameModIntermode::Nightcore;
+        const SD: GameModIntermode = GameModIntermode::SuddenDeath;
+        const PF: GameModIntermode = GameModIntermode::Perfect;
+
         match self {
             ModSelection::Include(mods) | ModSelection::Exact(mods) if mods.is_empty() => {
                 score.mods.is_empty()
             }
-            ModSelection::Include(mods) => mods
-                .iter()
-                .all(|gamemod| score.mods.contains_intermode(gamemod)),
+            ModSelection::Include(mods) => mods.iter().all(|gamemod| match gamemod {
+                DT => score.mods.contains_intermode(DT) || score.mods.contains_intermode(NC),
+                SD => score.mods.contains_intermode(SD) || score.mods.contains_intermode(PF),
+                _ => score.mods.contains_intermode(gamemod),
+            }),
             ModSelection::Exclude(mods) if mods.is_empty() => !score.mods.is_empty(),
-            ModSelection::Exclude(mods) => !mods
-                .iter()
-                .any(|gamemod| score.mods.contains_intermode(gamemod)),
+            ModSelection::Exclude(mods) => !mods.iter().any(|gamemod| match gamemod {
+                DT => score.mods.contains_intermode(DT) || score.mods.contains_intermode(NC),
+                SD => score.mods.contains_intermode(SD) || score.mods.contains_intermode(PF),
+                _ => score.mods.contains_intermode(gamemod),
+            }),
             ModSelection::Exact(mods) => score.mods.iter().map(GameMod::intermode).eq(mods.iter()),
         }
     }
