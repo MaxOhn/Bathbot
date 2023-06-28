@@ -11,17 +11,19 @@ use bathbot_util::{
 };
 use rosu_v2::prelude::GameMode;
 
-use super::{EditOnTimeout, EditOnTimeoutKind};
+use super::{ButtonData, EditOnTimeout, EditOnTimeoutKind};
 use crate::{
     active::BuildPage,
     commands::osu::TopEntry,
     core::Context,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
-    manager::{redis::RedisData, OsuMap},
+    manager::{redis::RedisData, OsuMap, OwnedReplayScore},
     util::osu::{grade_completion_mods, IfFc, MapInfo},
 };
 
-pub struct TopScoreEdit;
+pub struct TopScoreEdit {
+    pub(super) button_data: ButtonData,
+}
 
 impl TopScoreEdit {
     #[allow(clippy::too_many_arguments)]
@@ -32,6 +34,8 @@ impl TopScoreEdit {
         personal_idx: Option<usize>,
         global_idx: Option<usize>,
         minimized_pp: MinimizedPp,
+        score_id: Option<u64>,
+        replay_score: Option<OwnedReplayScore>,
         size: ScoreSize,
         content: Option<String>,
     ) -> EditOnTimeout {
@@ -42,6 +46,7 @@ impl TopScoreEdit {
             max_pp,
             max_combo,
             stars,
+            replay: _,
         } = entry;
 
         let if_fc = IfFc::new(ctx, score, map).await;
@@ -106,7 +111,14 @@ impl TopScoreEdit {
 
         let url = format!("{OSU_BASE}b/{}", map.map_id());
         let author = user.author_builder();
-        let kind = Self;
+
+        let kind = Self {
+            button_data: ButtonData {
+                score_id,
+                with_miss_analyzer_button: false,
+                replay_score,
+            },
+        };
 
         match size {
             ScoreSize::AlwaysMinimized => {

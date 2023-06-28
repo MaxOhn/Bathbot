@@ -9,7 +9,7 @@ use rosu_v2::prelude::{GameMode, Score, ScoreStatistics};
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::core::BotConfig;
+use crate::{commands::osu::TopEntry, core::BotConfig};
 
 #[derive(Copy, Clone)]
 pub struct ReplayManager<'d> {
@@ -468,6 +468,26 @@ pub struct OwnedReplayScore {
     max_combo: u16,
     perfect: bool,
     mods: u32,
+}
+
+impl OwnedReplayScore {
+    pub fn from_top_entry(
+        entry: &TopEntry,
+        username: impl Into<Box<str>>,
+        map_checksum: impl Into<Box<str>>,
+    ) -> Self {
+        Self {
+            mode: entry.score.mode,
+            ended_at: entry.score.ended_at,
+            map_checksum: Some(map_checksum.into()),
+            username: username.into(),
+            statistics: entry.score.statistics.clone(),
+            score: entry.score.score,
+            max_combo: entry.score.max_combo as u16,
+            perfect: entry.max_combo == entry.score.max_combo,
+            mods: entry.score.mods.bits(),
+        }
+    }
 }
 
 impl From<&Score> for OwnedReplayScore {

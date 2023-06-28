@@ -258,6 +258,13 @@ impl<'d> MapManager<'d> {
             .map_err(MapError::Report)
     }
 
+    pub async fn checksum(self, map_id: u32) -> eyre::Result<Option<Box<str>>> {
+        self.psql
+            .select_beatmap_checksum(map_id)
+            .await
+            .wrap_err("Failed to get map checksum")
+    }
+
     pub async fn store(self, mapset: &Beatmapset) -> eyre::Result<()> {
         self.psql
             .upsert_beatmapset(mapset)

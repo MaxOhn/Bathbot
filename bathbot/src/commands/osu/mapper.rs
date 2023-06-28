@@ -401,6 +401,7 @@ async fn process_scores(
 
         let entry = TopEntry {
             original_idx: i,
+            replay: score.replay,
             score: ScoreSlim::new(score, pp),
             map,
             max_pp,

@@ -100,8 +100,14 @@ impl<'c> ScoresManager<'c> {
         map_id: u32,
         mode: GameMode,
         mods: Option<GameModsIntermode>,
+        limit: u32,
     ) -> Result<Vec<Score>> {
-        let mut req = self.ctx.osu().beatmap_scores(map_id).limit(100).mode(mode);
+        let mut req = self
+            .ctx
+            .osu()
+            .beatmap_scores(map_id)
+            .limit(limit)
+            .mode(mode);
 
         if let Some(mods) = mods {
             req = req.mods(mods);

@@ -254,7 +254,9 @@ pub(super) async fn leaderboard(
         Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
     };
 
-    let scores_fut = ctx.osu_scores().map_leaderboard(map_id, mode, mods.clone());
+    let scores_fut = ctx
+        .osu_scores()
+        .map_leaderboard(map_id, mode, mods.clone(), 100);
     let map_fut = ctx.osu_map().map(map_id, checksum.as_deref());
     let user_score_fut = get_user_score(&ctx, map_id, config.osu, mode, mods.clone());
 

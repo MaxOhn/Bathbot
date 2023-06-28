@@ -1,4 +1,4 @@
-use std::{fmt::Write, mem};
+use std::fmt::Write;
 
 use bathbot_model::rosu_v2::user::User;
 use bathbot_model::ScoreSlim;
@@ -13,7 +13,7 @@ use bathbot_util::{
 };
 use rosu_v2::prelude::{BeatmapUserScore, GameMode, Score};
 
-use super::{EditOnTimeout, EditOnTimeoutKind};
+use super::{ButtonData, EditOnTimeout, EditOnTimeoutKind};
 #[cfg(feature = "twitch")]
 use crate::commands::osu::RecentTwitchStream;
 use crate::{
@@ -26,9 +26,7 @@ use crate::{
 };
 
 pub struct RecentScoreEdit {
-    score_id: Option<u64>,
-    with_miss_analyzer_button: bool,
-    replay_score: Option<OwnedReplayScore>,
+    pub(super) button_data: ButtonData,
 }
 
 impl RecentScoreEdit {
@@ -127,9 +125,11 @@ impl RecentScoreEdit {
         let max_pp = Some(*max_pp);
 
         let kind = Self {
-            score_id,
-            with_miss_analyzer_button,
-            replay_score,
+            button_data: ButtonData {
+                score_id,
+                with_miss_analyzer_button,
+                replay_score,
+            },
         };
 
         match size {
@@ -428,24 +428,6 @@ impl RecentScoreEdit {
             .timestamp(score.ended_at)
             .title(title)
             .url(url)
-    }
-
-    pub fn with_miss_analyzer(&self) -> bool {
-        self.with_miss_analyzer_button
-    }
-
-    pub fn take_miss_analyzer(&mut self) -> Option<u64> {
-        let with_miss_analyzer = mem::replace(&mut self.with_miss_analyzer_button, false);
-
-        self.score_id.filter(|_| with_miss_analyzer)
-    }
-
-    pub fn with_render(&self) -> bool {
-        self.replay_score.is_some()
-    }
-
-    pub fn borrow_mut_render(&mut self) -> (Option<u64>, &mut Option<OwnedReplayScore>) {
-        (self.score_id, &mut self.replay_score)
     }
 }
 

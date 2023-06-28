@@ -8,7 +8,7 @@ use std::{
 };
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
-use bathbot_model::{rosu_v2::user::User, OsuTrackerMapsetEntry, ScoreSlim};
+use bathbot_model::{OsuTrackerMapsetEntry, ScoreSlim};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
@@ -28,7 +28,10 @@ use rosu_v2::{
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::{
+    guild::Permissions,
+    id::{marker::UserMarker, Id},
+};
 
 pub use self::{if_::*, old::*};
 use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
@@ -41,12 +44,12 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::{
         redis::{osu::UserArgs, RedisData},
-        OsuMap,
+        OsuMap, OwnedReplayScore,
     },
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, Searchable},
-        ChannelExt, InteractionCommandExt,
+        ChannelExt, CheckPermissions, InteractionCommandExt,
     },
     Context,
 };
@@ -894,14 +897,18 @@ pub(super) async fn top(
         return orig.error(&ctx, content).await;
     }
 
-    let (guild_score_size, guild_list_size, guild_minimized_pp) = match orig.guild_id() {
+    let GuildValues {
+        minimized_pp: guild_minimized_pp,
+        score_size: guild_score_size,
+        list_size: guild_list_size,
+        render_button: guild_render_button,
+    } = match orig.guild_id() {
         Some(guild_id) => {
-            let f =
-                |config: &GuildConfig| (config.score_size, config.list_size, config.minimized_pp);
-
-            ctx.guild_config().peek(guild_id, f).await
+            ctx.guild_config()
+                .peek(guild_id, |config| GuildValues::from(config))
+                .await
         }
-        None => (None, None, None),
+        None => GuildValues::default(),
     };
 
     let single_idx = args
@@ -920,7 +927,78 @@ pub(super) async fn top(
         let content = write_content(username, &args, 1);
         let entry = &entries[idx];
 
-        single_embed(ctx, orig, user, entry, score_size, minimized_pp, content).await
+        // Prepare retrieval of the map's global top 50 and the user's top 100
+        let global_idx = match entry.map.status() {
+            Ranked | Loved | Qualified | Approved => {
+                match ctx
+                    .osu_scores()
+                    .map_leaderboard(entry.map.map_id(), entry.score.mode, None, 50)
+                    .await
+                {
+                    Ok(scores) => {
+                        let user_id = user.user_id();
+                        let timestamp = entry.score.ended_at.unix_timestamp();
+
+                        scores.iter().position(|s| {
+                            s.user_id == user_id
+                                && (timestamp - s.ended_at.unix_timestamp()).abs() <= 2
+                        })
+                    }
+                    Err(err) => {
+                        warn!(?err, "Failed to get global scores");
+
+                        None
+                    }
+                }
+            }
+            _ => None,
+        };
+
+        let mut with_render = match (guild_render_button, config.render_button) {
+            (None | Some(true), None) => true,
+            (None | Some(true), Some(with_render)) => with_render,
+            (Some(false), _) => false,
+        };
+
+        with_render &= mode == GameMode::Osu
+            && entry.replay == Some(true)
+            && orig.has_permission_to(Permissions::SEND_MESSAGES);
+
+        let replay_score = if with_render {
+            match ctx.osu_map().checksum(entry.map.map_id()).await {
+                Ok(Some(checksum)) => {
+                    Some(OwnedReplayScore::from_top_entry(entry, username, checksum))
+                }
+                Ok(None) => None,
+                Err(err) => {
+                    warn!(?err);
+
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        let personal_idx = Some(entry.original_idx);
+
+        let active_msg_fut = TopScoreEdit::create(
+            &ctx,
+            &user,
+            entry,
+            personal_idx,
+            global_idx,
+            minimized_pp,
+            entry.score.score_id,
+            replay_score,
+            score_size,
+            content,
+        );
+
+        ActiveMessages::builder(active_msg_fut.await)
+            .start_by_update(true)
+            .begin(ctx, orig)
+            .await
     } else {
         let content = write_content(username, &args, entries.len());
 
@@ -961,6 +1039,7 @@ pub struct TopEntry {
     pub max_pp: f32,
     pub stars: f32,
     pub max_combo: u32,
+    pub replay: Option<bool>,
 }
 
 async fn process_scores(
@@ -1063,6 +1142,7 @@ async fn process_scores(
 
         let entry = TopEntry {
             original_idx: i,
+            replay: score.replay,
             score: ScoreSlim::new(score, pp),
             map,
             max_pp,
@@ -1154,60 +1234,6 @@ fn mode_long(mode: GameMode) -> &'static str {
         GameMode::Taiko => "taiko",
         GameMode::Catch => "ctb",
     }
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn single_embed(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    user: RedisData<User>,
-    entry: &TopEntry,
-    score_size: ScoreSize,
-    minimized_pp: MinimizedPp,
-    content: Option<String>,
-) -> Result<()> {
-    // Prepare retrieval of the map's global top 50 and the user's top 100
-    let global_idx = match entry.map.status() {
-        Ranked | Loved | Qualified | Approved => {
-            // TODO: Add .limit(50) when supported by osu!api
-            match ctx.osu().beatmap_scores(entry.map.map_id()).await {
-                Ok(scores) => {
-                    let user_id = user.user_id();
-
-                    scores.iter().position(|s| {
-                        s.user_id == user_id
-                            && (entry.score.ended_at.unix_timestamp() - s.ended_at.unix_timestamp())
-                                .abs()
-                                <= 2
-                    })
-                }
-                Err(err) => {
-                    warn!(?err, "Failed to get global scores");
-
-                    None
-                }
-            }
-        }
-        _ => None,
-    };
-
-    let personal_idx = Some(entry.original_idx);
-
-    let active_msg_fut = TopScoreEdit::create(
-        &ctx,
-        &user,
-        entry,
-        personal_idx,
-        global_idx,
-        minimized_pp,
-        score_size,
-        content,
-    );
-
-    ActiveMessages::builder(active_msg_fut.await)
-        .start_by_update(true)
-        .begin(ctx, orig)
-        .await
 }
 
 type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), IntHasher>;
@@ -1357,4 +1383,23 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
     let _ = write!(content, "\nFound {amount} matching top score{plural}:");
 
     content
+}
+
+#[derive(Default)]
+struct GuildValues {
+    minimized_pp: Option<MinimizedPp>,
+    score_size: Option<ScoreSize>,
+    list_size: Option<ListSize>,
+    render_button: Option<bool>,
+}
+
+impl From<&GuildConfig> for GuildValues {
+    fn from(config: &GuildConfig) -> Self {
+        Self {
+            minimized_pp: config.minimized_pp,
+            score_size: config.score_size,
+            list_size: config.list_size,
+            render_button: config.render_button,
+        }
+    }
 }
