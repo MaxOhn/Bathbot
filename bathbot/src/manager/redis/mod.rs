@@ -374,7 +374,7 @@ impl<'c> RedisManager<'c> {
                 Err(err) => return Err(Report::new(err).wrap_err("Failed to get score")),
             },
             None => match self.ctx.retrieve_channel_history(command.channel_id).await {
-                Ok(msgs) => MapIdType::from_msgs(&msgs, idx),
+                Ok(msgs) => self.ctx.find_map_id_in_msgs(&msgs, idx).await,
                 Err(err) => return Err(err.wrap_err("Failed to retrieve channel history")),
             },
         };

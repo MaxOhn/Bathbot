@@ -57,7 +57,11 @@ struct LeaderboardArgs<'a> {
 }
 
 impl<'m> LeaderboardArgs<'m> {
-    fn args(msg: &Message, args: Args<'m>) -> Result<Self, String> {
+    async fn args(
+        ctx: &Context,
+        msg: &Message,
+        args: Args<'m>,
+    ) -> Result<LeaderboardArgs<'m>, String> {
         let mut map = None;
         let mut mods = None;
 
@@ -84,8 +88,10 @@ impl<'m> LeaderboardArgs<'m> {
             .as_deref()
             .filter(|_| msg.kind == MessageType::Reply);
 
-        if let Some(id) = reply.and_then(MapIdType::from_msg) {
-            map = Some(id);
+        if let Some(reply) = reply {
+            if let Some(id) = ctx.find_map_id_in_msg(reply).await {
+                map = Some(id);
+            }
         }
 
         Ok(Self { map, mods })
@@ -137,7 +143,7 @@ async fn prefix_leaderboard(
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    match LeaderboardArgs::args(msg, args) {
+    match LeaderboardArgs::args(&ctx, msg, args).await {
         Ok(args) => leaderboard(ctx, CommandOrigin::from_msg(msg, permissions), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -322,9 +328,9 @@ async fn get_map_id(
                     content: GENERAL_ISSUE,
                 })?;
 
-            match MapIdType::map_from_msgs(&msgs, 0) {
-                Some(id) => Ok(id),
-                None => {
+            match ctx.find_map_id_in_msgs(&msgs, 0).await {
+                Some(MapIdType::Map(id)) => Ok(id),
+                None | Some(MapIdType::Set(_)) => {
                     let content = "No beatmap specified and none found in recent channel history. \
                         Try specifying a map either by url to the map, or just by map id.";
 

@@ -275,7 +275,7 @@ async fn prefix_compare(
         .filter(|_| msg.kind == MessageType::Reply);
 
     if let Some(msg) = reply {
-        if let Some(id) = MapIdType::from_msg(msg) {
+        if let Some(id) = ctx.find_map_id_in_msg(msg).await {
             args.map = Some(MapOrScore::Map(id));
         } else if let Some((mode, id)) = matcher::get_osu_score_id(&msg.content) {
             args.map = Some(MapOrScore::Score { id, mode });
@@ -392,16 +392,16 @@ pub(super) async fn score(
                     }
                 };
 
-                match MapIdType::map_from_msgs(&msgs, idx) {
-                    Some(id) => id,
-                    None if idx == 0 => {
+                match ctx.find_map_id_in_msgs(&msgs, idx).await {
+                    Some(MapIdType::Map(id)) => id,
+                    None | Some(MapIdType::Set(_)) if idx == 0 => {
                         let content =
                             "No beatmap specified and none found in recent channel history.\n\
-                        Try specifying a map either by url to the map, or just by map id.";
+                            Try specifying a map either by url to the map, or just by map id.";
 
                         return orig.error(&ctx, content).await;
                     }
-                    None => {
+                    None | Some(MapIdType::Set(_)) => {
                         let content = format!(
                             "No beatmap specified and none found at index {} \
                             of the recent channel history.\nTry decreasing the index or \

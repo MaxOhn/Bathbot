@@ -140,9 +140,9 @@ pub async fn map_scores(
                 }
             };
 
-            match MapIdType::map_from_msgs(&msgs, 0) {
-                Some(id) => id,
-                None => {
+            match ctx.find_map_id_in_msgs(&msgs, 0).await {
+                Some(MapIdType::Map(id)) => id,
+                None | Some(MapIdType::Set(_)) => {
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
                     command.error(&ctx, content).await?;

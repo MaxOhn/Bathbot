@@ -30,7 +30,7 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
         return Err(eyre!("Missing resolved message"));
     };
 
-    let map_id = match MapIdType::from_msg(msg) {
+    let map_id = match ctx.find_map_id_in_msg(msg).await {
         Some(MapIdType::Map(map_id)) => map_id,
         Some(MapIdType::Set(mapset_id)) => {
             let content = format!(
