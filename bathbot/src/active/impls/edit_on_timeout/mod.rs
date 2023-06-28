@@ -125,10 +125,14 @@ impl EditOnTimeout {
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         match &mut self.kind {
-            EditOnTimeoutKind::RecentScore(recent_score) => match component.data.custom_id.as_str()
+            EditOnTimeoutKind::RecentScore(RecentScoreEdit { button_data })
+            | EditOnTimeoutKind::TopScore(TopScoreEdit { button_data }) => match component
+                .data
+                .custom_id
+                .as_str()
             {
                 "miss_analyzer" => {
-                    let Some(score_id) = recent_score.take_miss_analyzer() else {
+                    let Some(score_id) = button_data.take_miss_analyzer() else {
                         return ComponentResult::Err(eyre!(
                             "Unexpected miss analyzer component for recent score"
                         ));
@@ -137,7 +141,7 @@ impl EditOnTimeout {
                     handle_miss_analyzer_button(&ctx, component, score_id).await
                 }
                 "render" => {
-                    let (Some(score_id), score_opt) = recent_score.borrow_mut_render() else {
+                    let (Some(score_id), score_opt) = button_data.borrow_mut_render() else {
                         return ComponentResult::Err(eyre!(
                             "Unexpected render component for recent score"
                         ));
@@ -190,11 +194,8 @@ impl EditOnTimeout {
 
                     ComponentResult::BuildPage
                 }
-                other => ComponentResult::Err(eyre!("Unknown recent score component `{other}`")),
+                other => ComponentResult::Err(eyre!("Unknown EditOnTimeout component `{other}`")),
             },
-            EditOnTimeoutKind::TopScore(_) => {
-                ComponentResult::Err(eyre!("Unexpected component on single top score"))
-            }
         }
     }
 }
@@ -207,10 +208,11 @@ enum EditOnTimeoutKind {
 impl EditOnTimeoutKind {
     fn build_components(&self) -> Vec<Component> {
         match self {
-            Self::RecentScore(recent_score) => {
+            Self::RecentScore(RecentScoreEdit { button_data })
+            | Self::TopScore(TopScoreEdit { button_data }) => {
                 let mut components = Vec::new();
 
-                if recent_score.with_miss_analyzer() {
+                if button_data.with_miss_analyzer() {
                     let miss_analyzer = Button {
                         custom_id: Some("miss_analyzer".to_owned()),
                         disabled: false,
@@ -223,7 +225,7 @@ impl EditOnTimeoutKind {
                     components.push(Component::Button(miss_analyzer));
                 }
 
-                if recent_score.with_render() {
+                if button_data.with_render() {
                     let render = Button {
                         custom_id: Some("render".to_owned()),
                         disabled: false,
@@ -244,16 +246,15 @@ impl EditOnTimeoutKind {
 
                 components
             }
-            Self::TopScore(_) => Vec::new(),
         }
     }
 
     fn until_timeout(&self) -> Option<Duration> {
         match self {
-            Self::RecentScore(recent_score) => (recent_score.with_miss_analyzer()
-                || recent_score.with_render())
+            Self::RecentScore(RecentScoreEdit { button_data })
+            | Self::TopScore(TopScoreEdit { button_data }) => (button_data.with_miss_analyzer()
+                || button_data.with_render())
             .then_some(Duration::from_secs(45)),
-            Self::TopScore(_) => None,
         }
     }
 
@@ -264,8 +265,9 @@ impl EditOnTimeoutKind {
         channel: Id<ChannelMarker>,
     ) -> Result<()> {
         match self {
-            Self::RecentScore(recent_score)
-                if recent_score.with_miss_analyzer() || recent_score.with_render() =>
+            Self::RecentScore(RecentScoreEdit { button_data })
+            | Self::TopScore(TopScoreEdit { button_data })
+                if button_data.with_miss_analyzer() || button_data.with_render() =>
             {
                 let builder = MessageBuilder::new().components(Vec::new());
 
@@ -280,8 +282,7 @@ impl EditOnTimeoutKind {
                     None => bail!("Lacking permission to update message on timeout"),
                 }
             }
-            Self::RecentScore(_) => Ok(()),
-            Self::TopScore(_) => Ok(()),
+            Self::RecentScore(_) | Self::TopScore(_) => Ok(()),
         }
     }
 }
@@ -474,4 +475,30 @@ async fn handle_render_button(
     );
 
     ongoing_fut.await.await_render_url().await;
+}
+
+struct ButtonData {
+    score_id: Option<u64>,
+    with_miss_analyzer_button: bool,
+    replay_score: Option<OwnedReplayScore>,
+}
+
+impl ButtonData {
+    fn with_miss_analyzer(&self) -> bool {
+        self.with_miss_analyzer_button
+    }
+
+    fn take_miss_analyzer(&mut self) -> Option<u64> {
+        let with_miss_analyzer = mem::replace(&mut self.with_miss_analyzer_button, false);
+
+        self.score_id.filter(|_| with_miss_analyzer)
+    }
+
+    fn with_render(&self) -> bool {
+        self.replay_score.is_some()
+    }
+
+    fn borrow_mut_render(&mut self) -> (Option<u64>, &mut Option<OwnedReplayScore>) {
+        (self.score_id, &mut self.replay_score)
+    }
 }

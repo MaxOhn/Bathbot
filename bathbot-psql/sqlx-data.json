@@ -907,6 +907,26 @@
     },
     "query": "\nINSERT INTO tracked_osu_users (user_id, gamemode, channels) \nVALUES \n  ($1, $2, $3) ON CONFLICT (user_id, gamemode) DO \nUPDATE \nSET \n  last_update = NOW() RETURNING channels"
   },
+  "107c2ad205ff181f354f375cf3ff545c36d841ae39bbddb2795453ed530ef13b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "checksum",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  checksum \nFROM \n  osu_maps \nWHERE \n  map_id = $1"
+  },
   "14dc3fec9ff696d82c4a4e4d3b73807c62d95550b4dade6650487b28d0427e4d": {
     "describe": {
       "columns": [],

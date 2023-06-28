@@ -231,7 +231,7 @@ async fn leaderboard(
 
     let scores_fut = ctx
         .osu_scores()
-        .map_leaderboard(map_id, map.mode(), mods.clone());
+        .map_leaderboard(map_id, map.mode(), mods.clone(), 100);
 
     let user_fut = get_user_score(&ctx, osu_id_res, map_id, map.mode(), mods.clone());
 
