@@ -101,9 +101,9 @@ impl Context {
                 .and_then(|url| url.strip_prefix("https://link.issou.best/"));
 
             let Some(video_url) = video_url_opt else { continue };
+            let Some(ordr) = self.ordr() else { continue };
 
-            let render_opt = self
-                .ordr()
+            let render_opt = ordr
                 .client()
                 .render_list()
                 .link(&video_url)

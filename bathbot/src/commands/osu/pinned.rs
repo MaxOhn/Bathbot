@@ -251,7 +251,8 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
         with_render &= mode == GameMode::Osu
             && entry.replay == Some(true)
-            && orig.has_permission_to(Permissions::SEND_MESSAGES);
+            && orig.has_permission_to(Permissions::SEND_MESSAGES)
+            && ctx.ordr().is_some();
 
         let replay_score = if with_render {
             match ctx.osu_map().checksum(entry.map.map_id()).await {

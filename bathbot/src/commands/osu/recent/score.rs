@@ -537,7 +537,8 @@ pub(super) async fn score(
     with_miss_analyzer &= mode == GameMode::Osu;
     with_render &= mode == GameMode::Osu
         && score.replay == Some(true)
-        && orig.has_permission_to(Permissions::SEND_MESSAGES);
+        && orig.has_permission_to(Permissions::SEND_MESSAGES)
+        && ctx.ordr().is_some();
 
     let miss_analyzer_fut = async {
         if let Some((score_id, guild_id)) = score_id_opt.filter(|_| with_miss_analyzer) {

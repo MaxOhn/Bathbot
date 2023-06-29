@@ -102,6 +102,14 @@ pub struct RenderSettingsCopy {
 pub struct RenderSettingsDefault;
 
 pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+    if ctx.ordr().is_none() {
+        command
+            .error_callback(&ctx, "Rendering is currently unavailable")
+            .await?;
+
+        return Ok(());
+    };
+
     match Render::from_interaction(command.input_data())? {
         Render::Replay(args) => render_replay(ctx, command, args).await,
         Render::Score(args) => render_score(ctx, command, args).await,
@@ -170,6 +178,7 @@ async fn render_replay(
 
     let render_fut = ctx
         .ordr()
+        .expect("ordr unavailable")
         .client()
         .render_with_replay_url(&replay.url, RENDERER_NAME, &skin.skin)
         .options(settings.options());
@@ -325,6 +334,7 @@ async fn render_score(
 
     let render_fut = ctx
         .ordr()
+        .expect("ordr unavailable")
         .client()
         .render_with_replay_file(&replay, RENDERER_NAME, &skin.skin)
         .options(settings.options());
@@ -502,7 +512,11 @@ impl OngoingRender {
         Self {
             orig: orig.into(),
             render_id,
-            receivers: ctx.ordr().subscribe_render_id(render_id).await,
+            receivers: ctx
+                .ordr()
+                .expect("ordr unavailable")
+                .subscribe_render_id(render_id)
+                .await,
             status,
             ctx,
             score_id,
@@ -555,7 +569,7 @@ impl OngoingRender {
                         warn!(?err, "Failed to update message");
                     }
 
-                    self.ctx.ordr().unsubscribe_render_id(done.render_id).await;
+                    self.ctx.ordr().expect("ordr unavailable").unsubscribe_render_id(done.render_id).await;
 
                     if let Some(score_id) = self.score_id {
                         let replay_manager = self.ctx.replay();
@@ -582,7 +596,7 @@ impl OngoingRender {
                         warn!(?err, "Failed to update message");
                     }
 
-                    self.ctx.ordr().unsubscribe_render_id(failed.render_id).await;
+                    self.ctx.ordr().expect("ordr unavailable").unsubscribe_render_id(failed.render_id).await;
 
                     return;
                 },
@@ -594,7 +608,7 @@ impl OngoingRender {
                         warn!(?err, "Failed to update message");
                     }
 
-                    self.ctx.ordr().unsubscribe_render_id(self.render_id).await;
+                    self.ctx.ordr().expect("ordr unavailable").unsubscribe_render_id(self.render_id).await;
 
                     return;
                 },

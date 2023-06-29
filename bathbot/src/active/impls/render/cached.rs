@@ -200,6 +200,7 @@ impl CachedRender {
 
         let render_fut = ctx
             .ordr()
+            .expect("ordr unavailable")
             .client()
             .render_with_replay_file(&replay, RENDERER_NAME, &skin.skin)
             .options(settings.options());

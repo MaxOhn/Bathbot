@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
+    time::Duration,
 };
 
 use bathbot_cache::Cache;
@@ -87,8 +88,8 @@ impl Context {
         &self.clients.custom
     }
 
-    pub fn ordr(&self) -> &Ordr {
-        &self.clients.ordr
+    pub fn ordr(&self) -> Option<&Ordr> {
+        self.clients.ordr.as_deref()
     }
 
     #[cfg(feature = "osutracking")]
@@ -162,7 +163,17 @@ impl Context {
             #[cfg(not(debug_assertions))]
             config.tokens.ordr_key.as_ref(),
         );
-        let ordr = Arc::new(ordr_fut.await?);
+
+        let ordr = match tokio::time::timeout(Duration::from_secs(20), ordr_fut).await {
+            Ok(Ok(ordr)) => Some(Arc::new(ordr)),
+            Ok(Err(err)) => return Err(err),
+            Err(_) => {
+                warn!("o!rdr timed out, initializing without it");
+
+                None
+            }
+        };
+
         let clients = Clients::new(psql, osu, custom_client, ordr);
 
         let shards = discord_gateway(config, &http, resume_data)
@@ -267,11 +278,11 @@ struct Clients {
     custom: BathbotClient,
     osu: Osu,
     psql: Database,
-    ordr: Arc<Ordr>,
+    ordr: Option<Arc<Ordr>>,
 }
 
 impl Clients {
-    fn new(psql: Database, osu: Osu, custom: BathbotClient, ordr: Arc<Ordr>) -> Self {
+    fn new(psql: Database, osu: Osu, custom: BathbotClient, ordr: Option<Arc<Ordr>>) -> Self {
         Self {
             psql,
             osu,

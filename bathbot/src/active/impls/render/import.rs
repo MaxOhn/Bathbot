@@ -115,7 +115,7 @@ impl SettingsImport {
         };
 
         let user = modal.user_id()?;
-        let ordr = ctx.ordr().client();
+        let ordr = ctx.ordr().expect("ordr unavailable").client();
 
         let settings = match skin {
             RenderSkinOption::Official { ref name } => {
