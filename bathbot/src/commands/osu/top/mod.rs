@@ -48,7 +48,7 @@ use crate::{
     },
     util::{
         interaction::InteractionCommand,
-        query::{FilterCriteria, Searchable},
+        query::{IFilterCriteria, RegularCriteria, Searchable},
         ChannelExt, CheckPermissions, InteractionCommandExt,
     },
     Context,
@@ -1065,7 +1065,7 @@ async fn process_scores(
         (Some(min), Some(max)) => Some(min..=max),
     };
 
-    let filter_criteria = args.query.as_deref().map(FilterCriteria::new);
+    let filter_criteria = args.query.as_deref().map(RegularCriteria::create);
 
     let maps_id_checksum = scores
         .iter()
@@ -1329,31 +1329,31 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
     match (args.min_acc, args.max_acc) {
         (None, None) => {}
         (None, Some(max)) => {
-            let _ = write!(content, " ~ `Acc: 0% - {}%`", round(max));
+            let _ = write!(content, " • `Acc: 0% - {}%`", round(max));
         }
         (Some(min), None) => {
-            let _ = write!(content, " ~ `Acc: {}% - 100%`", round(min));
+            let _ = write!(content, " • `Acc: {}% - 100%`", round(min));
         }
         (Some(min), Some(max)) => {
-            let _ = write!(content, " ~ `Acc: {}% - {}%`", round(min), round(max));
+            let _ = write!(content, " • `Acc: {}% - {}%`", round(min), round(max));
         }
     }
 
     match (args.min_combo, args.max_combo) {
         (None, None) => {}
         (None, Some(max)) => {
-            let _ = write!(content, " ~ `Combo: 0 - {max}`");
+            let _ = write!(content, " • `Combo: 0 - {max}`");
         }
         (Some(min), None) => {
-            let _ = write!(content, " ~ `Combo: {min} - ∞`");
+            let _ = write!(content, " • `Combo: {min} - ∞`");
         }
         (Some(min), Some(max)) => {
-            let _ = write!(content, " ~ `Combo: {min} - {max}`");
+            let _ = write!(content, " • `Combo: {min} - {max}`");
         }
     }
 
     if let Some(grade) = args.grade {
-        let _ = write!(content, " ~ `Grade: {grade}`");
+        let _ = write!(content, " • `Grade: {grade}`");
     }
 
     if let Some(ref selection) = args.mods {
@@ -1363,20 +1363,20 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
             ModSelection::Exact(mods) => ("", mods),
         };
 
-        let _ = write!(content, " ~ `Mods: {pre}{mods}`");
+        let _ = write!(content, " • `Mods: {pre}{mods}`");
     }
 
     if let Some(perfect_combo) = args.perfect_combo {
-        let _ = write!(content, " ~ `Perfect combo: {perfect_combo}`");
+        let _ = write!(content, " • `Perfect combo: {perfect_combo}`");
     }
 
     if let Some(query) = args.query.as_deref() {
-        let _ = write!(content, " ~ `Query: {query}`");
+        RegularCriteria::create(query).display(&mut content);
     }
 
     match args.farm {
-        Some(FarmFilter::OnlyFarm) => content.push_str(" ~ `Only farm`"),
-        Some(FarmFilter::NoFarm) => content.push_str(" ~ `Without farm`"),
+        Some(FarmFilter::OnlyFarm) => content.push_str(" • `Only farm`"),
+        Some(FarmFilter::NoFarm) => content.push_str(" • `Without farm`"),
         None => {}
     }
 

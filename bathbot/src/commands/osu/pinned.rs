@@ -45,7 +45,7 @@ use crate::{
     },
     util::{
         interaction::InteractionCommand,
-        query::{FilterCriteria, Searchable},
+        query::{IFilterCriteria, RegularCriteria, Searchable},
         CheckPermissions, InteractionCommandExt,
     },
     Context,
@@ -362,7 +362,7 @@ async fn process_scores(
     top100: &[Score],
     size_single: bool,
 ) -> Result<Vec<TopEntry>> {
-    let filter_criteria = args.query.as_deref().map(FilterCriteria::new);
+    let filter_criteria = args.query.as_deref().map(RegularCriteria::create);
 
     let mut entries = Vec::new();
 
@@ -544,7 +544,7 @@ fn content_with_condition(args: &Pinned, amount: usize, mods: Option<ModSelectio
 
     if let Some(selection) = mods {
         if !content.is_empty() {
-            content.push_str(" ~ ");
+            content.push_str(" • ");
         }
 
         let (pre, mods) = match selection {
@@ -557,11 +557,7 @@ fn content_with_condition(args: &Pinned, amount: usize, mods: Option<ModSelectio
     }
 
     if let Some(query) = args.query.as_deref() {
-        if !content.is_empty() {
-            content.push_str(" ~ ");
-        }
-
-        let _ = write!(content, "`Query: {query}`");
+        RegularCriteria::create(query).display(&mut content);
     }
 
     let plural = if amount == 1 { "" } else { "s" };

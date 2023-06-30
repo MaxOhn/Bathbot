@@ -1,16 +1,21 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Deref};
 
 use bathbot_util::{matcher::QUERY_SYNTAX_REGEX, CowUtils};
 
-use super::operator::Operator;
+use super::{operator::Operator, separate_content};
 
-pub trait IFilterCriteria<'q> {
-    fn try_parse_keyword_criteria(
-        &mut self,
-        key: Cow<'q, str>,
-        value: Cow<'q, str>,
-        op: Operator,
-    ) -> bool;
+pub trait IFilterCriteria<'q>: Sized + Default {
+    fn try_parse_key_value(&mut self, key: Cow<'q, str>, value: Cow<'q, str>, op: Operator)
+        -> bool;
+
+    /// Whether the criteria has any non-empty field
+    fn any_field(&self) -> bool;
+
+    fn display(&self, content: &mut String);
+
+    fn create(query: &'q str) -> FilterCriteria<Self> {
+        FilterCriteria::new(query)
+    }
 }
 
 #[derive(Default)]
@@ -23,7 +28,7 @@ impl<'q, F> FilterCriteria<F>
 where
     F: Default + IFilterCriteria<'q>,
 {
-    pub fn new(query: &'q str) -> Self {
+    fn new(query: &'q str) -> Self {
         let mut search_text = query.to_owned();
         let mut inner = F::default();
         let mut removed = 0;
@@ -41,7 +46,7 @@ where
             let op = Operator::from(&capture["op"]);
             let value = value_match.as_str().cow_to_ascii_lowercase();
 
-            if inner.try_parse_keyword_criteria(key, value, op) {
+            if inner.try_parse_key_value(key, value, op) {
                 let range = key_match.start() - removed..value_match.end() - removed;
                 search_text.replace_range(range, "");
                 removed += value_match.end() - key_match.start();
@@ -91,11 +96,28 @@ where
         self.search_text.split_whitespace()
     }
 
-    pub fn search_text(&self) -> &str {
-        &self.search_text
-    }
+    pub fn display(&self, content: &mut String) {
+        self.inner.display(content);
 
-    pub fn inner(&self) -> &F {
+        if self.has_search_terms() {
+            separate_content(content);
+
+            if self.inner.any_field() {
+                content.push_str("`Remaining query: ");
+            } else {
+                content.push_str("`Query: ");
+            }
+
+            content.push_str(&self.search_text);
+            content.push('`');
+        }
+    }
+}
+
+impl<F> Deref for FilterCriteria<F> {
+    type Target = F;
+
+    fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }

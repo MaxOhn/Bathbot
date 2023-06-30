@@ -28,7 +28,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     util::{
-        query::{FilterCriteria, Searchable},
+        query::{IFilterCriteria, RegularCriteria, Searchable},
         ChannelExt,
     },
     Context,
@@ -481,7 +481,7 @@ async fn process_scores(
         ..
     } = args;
 
-    let filter_criteria = query.as_deref().map(FilterCriteria::new);
+    let filter_criteria = query.as_deref().map(RegularCriteria::create);
     let grade = grade.map(Grade::from);
     let mut entries = Vec::new();
 

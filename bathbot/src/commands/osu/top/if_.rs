@@ -20,7 +20,7 @@ use crate::{
     manager::{redis::osu::UserArgs, OsuMap},
     util::{
         interaction::InteractionCommand,
-        query::{FilterCriteria, Searchable},
+        query::{IFilterCriteria, RegularCriteria, Searchable},
         ChannelExt, InteractionCommandExt,
     },
     Context,
@@ -241,7 +241,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     });
 
     if let Some(query) = args.query.as_deref() {
-        let criteria = FilterCriteria::new(query);
+        let criteria = RegularCriteria::create(query);
 
         entries.retain(|entry| entry.matches(&criteria));
     }

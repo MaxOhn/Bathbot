@@ -13,7 +13,7 @@ use crate::{
     core::Context,
     util::{
         interaction::InteractionCommand,
-        query::{BookmarkCriteria, FilterCriteria},
+        query::{BookmarkCriteria, FilterCriteria, IFilterCriteria},
         Authored, InteractionCommandExt,
     },
 };
@@ -81,10 +81,7 @@ pub async fn slash_bookmarks(ctx: Arc<Context>, mut command: InteractionCommand)
         }
     };
 
-    let criteria = args
-        .query
-        .as_deref()
-        .map(FilterCriteria::<BookmarkCriteria<'_>>::new);
+    let criteria = args.query.as_deref().map(BookmarkCriteria::create);
 
     process_bookmarks(&mut bookmarks, &args, criteria.as_ref());
     let content = msg_content(&args, criteria.as_ref());
@@ -118,37 +115,35 @@ fn process_bookmarks(
     }
 
     if let Some(criteria) = criteria {
-        let inner = criteria.inner();
-
         bookmarks.retain(|bookmark| {
             let mut matches = true;
 
-            matches &= inner.ar.contains(bookmark.ar);
-            matches &= inner.cs.contains(bookmark.cs);
-            matches &= inner.hp.contains(bookmark.hp);
-            matches &= inner.od.contains(bookmark.od);
-            matches &= inner.length.contains(bookmark.seconds_drain as f32);
-            matches &= inner.bpm.contains(bookmark.bpm);
+            matches &= criteria.ar.contains(bookmark.ar);
+            matches &= criteria.cs.contains(bookmark.cs);
+            matches &= criteria.hp.contains(bookmark.hp);
+            matches &= criteria.od.contains(bookmark.od);
+            matches &= criteria.length.contains(bookmark.seconds_drain as f32);
+            matches &= criteria.bpm.contains(bookmark.bpm);
 
-            matches &= inner.insert_date.contains(bookmark.insert_date.date());
+            matches &= criteria.insert_date.contains(bookmark.insert_date.date());
             matches &= bookmark.ranked_date.map_or(false, |datetime| {
-                inner.ranked_date.contains(datetime.date())
+                criteria.ranked_date.contains(datetime.date())
             });
 
             let version = bookmark.version.cow_to_ascii_lowercase();
-            matches &= inner.version.matches(&version);
+            matches &= criteria.version.matches(&version);
 
             let artist = bookmark.artist.cow_to_ascii_lowercase();
-            matches &= inner.artist.matches(&artist);
+            matches &= criteria.artist.matches(&artist);
 
             let title = bookmark.title.cow_to_ascii_lowercase();
-            matches &= inner.title.matches(&title);
+            matches &= criteria.title.matches(&title);
 
             let language = format!("{:?}", bookmark.language).to_lowercase();
-            matches &= inner.language.matches(&language);
+            matches &= criteria.language.matches(&language);
 
             let genre = format!("{:?}", bookmark.genre).to_lowercase();
-            matches &= inner.genre.matches(&genre);
+            matches &= criteria.genre.matches(&genre);
 
             if matches && criteria.has_search_terms() {
                 let terms = [
@@ -228,121 +223,8 @@ fn msg_content(
     }
 
     if let Some(criteria) = criteria {
-        let BookmarkCriteria {
-            ar,
-            cs,
-            hp,
-            od,
-            length,
-            bpm,
-            insert_date,
-            ranked_date,
-            artist,
-            title,
-            version,
-            language,
-            genre,
-        } = criteria.inner();
-
-        let mut only_search_text = true;
-
-        if !ar.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`AR: {ar:?}`");
-            only_search_text = false;
-        }
-
-        if !cs.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`CS: {cs:?}`");
-            only_search_text = false;
-        }
-
-        if !hp.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`HP: {hp:?}`");
-            only_search_text = false;
-        }
-
-        if !od.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`OD: {od:?}`");
-            only_search_text = false;
-        }
-
-        if !length.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`Length: {length:?}`");
-            only_search_text = false;
-        }
-
-        if !bpm.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`BPM: {bpm:?}`");
-            only_search_text = false;
-        }
-
-        if !artist.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`Artist: {artist:?}`");
-            only_search_text = false;
-        }
-
-        if !title.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`Title: {title:?}`");
-            only_search_text = false;
-        }
-
-        if !version.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`Version: {version:?}`");
-            only_search_text = false;
-        }
-
-        if !insert_date.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`Date: {insert_date:?}`");
-            only_search_text = false;
-        }
-
-        if !ranked_date.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`Ranked: {ranked_date:?}`");
-            only_search_text = false;
-        }
-
-        if !language.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`Language: {language:?}`");
-            only_search_text = false;
-        }
-
-        if !genre.is_empty() {
-            separate_content(&mut content);
-            let _ = write!(content, "`Genre: {genre:?}`");
-            only_search_text = false;
-        }
-
-        if criteria.has_search_terms() {
-            separate_content(&mut content);
-
-            if only_search_text {
-                content.push_str("`Query: ");
-            } else {
-                content.push_str("`Remaining query: ");
-            }
-
-            content.push_str(criteria.search_text());
-            content.push('`');
-        }
+        criteria.display(&mut content);
     }
 
     content
-}
-
-fn separate_content(content: &mut String) {
-    if !content.is_empty() {
-        content.push_str(" • ");
-    }
 }

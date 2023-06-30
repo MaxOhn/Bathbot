@@ -1,7 +1,6 @@
 use std::{
     cmp::Reverse,
     collections::{HashMap, HashSet},
-    fmt::Write,
     sync::Arc,
 };
 
@@ -270,36 +269,34 @@ fn process_scores(
     reverse: Option<bool>,
 ) {
     if let Some(criteria) = criteria {
-        let inner = criteria.inner();
-
         scores.retain(|score, maps, mapsets, _| {
             let mut matches = true;
 
-            matches &= inner.combo.contains(score.max_combo);
-            matches &= inner.miss.contains(score.statistics.count_miss);
-            matches &= inner.score.contains(score.score);
-            matches &= inner.date.contains(score.ended_at.date());
+            matches &= criteria.combo.contains(score.max_combo);
+            matches &= criteria.miss.contains(score.statistics.count_miss);
+            matches &= criteria.score.contains(score.score);
+            matches &= criteria.date.contains(score.ended_at.date());
 
-            if !inner.stars.is_empty() {
+            if !criteria.stars.is_empty() {
                 let Some(stars) = score.stars else { return false };
-                matches &= inner.stars.contains(stars);
+                matches &= criteria.stars.contains(stars);
             }
 
-            if !inner.pp.is_empty() {
+            if !criteria.pp.is_empty() {
                 let Some(pp) = score.pp else { return false };
-                matches &= inner.pp.contains(pp);
+                matches &= criteria.pp.contains(pp);
             }
 
-            if inner.ar.is_empty()
-                && inner.cs.is_empty()
-                && inner.hp.is_empty()
-                && inner.od.is_empty()
-                && inner.length.is_empty()
-                && inner.bpm.is_empty()
-                && inner.version.is_empty()
-                && inner.artist.is_empty()
-                && inner.title.is_empty()
-                && inner.ranked_date.is_empty()
+            if criteria.ar.is_empty()
+                && criteria.cs.is_empty()
+                && criteria.hp.is_empty()
+                && criteria.od.is_empty()
+                && criteria.length.is_empty()
+                && criteria.bpm.is_empty()
+                && criteria.version.is_empty()
+                && criteria.artist.is_empty()
+                && criteria.title.is_empty()
+                && criteria.ranked_date.is_empty()
                 && !criteria.has_search_terms()
             {
                 return matches;
@@ -322,21 +319,23 @@ fn process_scores(
                 // TODO: maybe add gamemode to DbBeatmap so we can check for converts
                 .build();
 
-            matches &= inner.ar.contains(attrs.ar as f32);
-            matches &= inner.cs.contains(attrs.cs as f32);
-            matches &= inner.hp.contains(attrs.hp as f32);
-            matches &= inner.od.contains(attrs.od as f32);
+            matches &= criteria.ar.contains(attrs.ar as f32);
+            matches &= criteria.cs.contains(attrs.cs as f32);
+            matches &= criteria.hp.contains(attrs.hp as f32);
+            matches &= criteria.od.contains(attrs.od as f32);
 
             let clock_rate = attrs.clock_rate as f32;
-            matches &= inner.length.contains(map.seconds_drain as f32 / clock_rate);
-            matches &= inner.bpm.contains(map.bpm * clock_rate);
+            matches &= criteria
+                .length
+                .contains(map.seconds_drain as f32 / clock_rate);
+            matches &= criteria.bpm.contains(map.bpm * clock_rate);
 
             let version = map.version.cow_to_ascii_lowercase();
-            matches &= inner.version.matches(&version);
+            matches &= criteria.version.matches(&version);
 
-            if inner.artist.is_empty()
-                && inner.title.is_empty()
-                && inner.ranked_date.is_empty()
+            if criteria.artist.is_empty()
+                && criteria.title.is_empty()
+                && criteria.ranked_date.is_empty()
                 && !criteria.has_search_terms()
             {
                 return matches;
@@ -344,16 +343,16 @@ fn process_scores(
 
             let Some(mapset) = mapsets.get(&map.mapset_id) else { return false };
 
-            if !inner.ranked_date.is_empty() {
+            if !criteria.ranked_date.is_empty() {
                 let Some(datetime) = mapset.ranked_date else { return false };
-                matches &= inner.ranked_date.contains(datetime.date());
+                matches &= criteria.ranked_date.contains(datetime.date());
             }
 
             let artist = mapset.artist.cow_to_ascii_lowercase();
-            matches &= inner.artist.matches(&artist);
+            matches &= criteria.artist.matches(&artist);
 
             let title = mapset.title.cow_to_ascii_lowercase();
-            matches &= inner.title.matches(&title);
+            matches &= criteria.title.matches(&title);
 
             if matches && criteria.has_search_terms() {
                 let terms = [artist, title, version];
@@ -606,138 +605,6 @@ fn process_scores(
 fn separate_content(content: &mut String) {
     if !content.is_empty() {
         content.push_str(" • ");
-    }
-}
-
-fn criteria_to_content(content: &mut String, criteria: &FilterCriteria<ScoresCriteria<'_>>) {
-    let ScoresCriteria {
-        ar,
-        cs,
-        hp,
-        od,
-        length,
-        stars,
-        pp,
-        bpm,
-        combo,
-        miss,
-        score,
-        date,
-        ranked_date,
-        artist,
-        title,
-        version,
-    } = criteria.inner();
-
-    let mut only_search_text = true;
-
-    if !ar.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`AR: {ar:?}`");
-        only_search_text = false;
-    }
-
-    if !cs.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`CS: {cs:?}`");
-        only_search_text = false;
-    }
-
-    if !hp.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`HP: {hp:?}`");
-        only_search_text = false;
-    }
-
-    if !od.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`OD: {od:?}`");
-        only_search_text = false;
-    }
-
-    if !length.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`Length: {length:?}`");
-        only_search_text = false;
-    }
-
-    if !stars.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`Stars: {stars:?}`");
-        only_search_text = false;
-    }
-
-    if !bpm.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`BPM: {bpm:?}`");
-        only_search_text = false;
-    }
-
-    if !combo.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`Combo: {combo:?}`");
-        only_search_text = false;
-    }
-
-    if !miss.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`Misses: {miss:?}`");
-        only_search_text = false;
-    }
-
-    if !score.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`Score: {score:?}`");
-        only_search_text = false;
-    }
-
-    if !pp.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`PP: {pp:?}`");
-        only_search_text = false;
-    }
-
-    if !artist.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`Artist: {artist:?}`");
-        only_search_text = false;
-    }
-
-    if !title.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`Title: {title:?}`");
-        only_search_text = false;
-    }
-
-    if !version.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`Version: {version:?}`");
-        only_search_text = false;
-    }
-
-    if !date.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`Date: {date:?}`");
-        only_search_text = false;
-    }
-
-    if !ranked_date.is_empty() {
-        separate_content(content);
-        let _ = write!(content, "`Ranked: {ranked_date:?}`");
-        only_search_text = false;
-    }
-
-    if criteria.has_search_terms() {
-        separate_content(content);
-
-        if only_search_text {
-            content.push_str("`Query: ");
-        } else {
-            content.push_str("`Remaining query: ");
-        }
-
-        content.push_str(criteria.search_text());
-        content.push('`');
     }
 }
 

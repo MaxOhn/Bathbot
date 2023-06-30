@@ -11,9 +11,7 @@ use eyre::Result;
 use rosu_v2::prelude::{GameMode, Grade};
 use twilight_interactions::command::AutocompleteValue;
 
-use super::{
-    criteria_to_content, get_mode, process_scores, separate_content, MapScores, ScoresOrder,
-};
+use super::{get_mode, process_scores, separate_content, MapScores, ScoresOrder};
 use crate::{
     active::{impls::ScoresMapPagination, ActiveMessages},
     commands::osu::{
@@ -23,7 +21,7 @@ use crate::{
     core::Context,
     util::{
         interaction::InteractionCommand,
-        query::{FilterCriteria, ScoresCriteria},
+        query::{FilterCriteria, IFilterCriteria, ScoresCriteria},
         Authored, CheckPermissions, InteractionCommandExt,
     },
 };
@@ -255,10 +253,7 @@ pub async fn map_scores(
 
     let sort = args.sort.unwrap_or_default();
 
-    let criteria = args
-        .query
-        .as_deref()
-        .map(FilterCriteria::<ScoresCriteria<'_>>::new);
+    let criteria = args.query.as_deref().map(ScoresCriteria::create);
 
     let content = msg_content(
         sort,
@@ -326,7 +321,7 @@ fn msg_content(
     }
 
     if let Some(criteria) = criteria {
-        criteria_to_content(&mut content, criteria);
+        criteria.display(&mut content);
     }
 
     separate_content(&mut content);

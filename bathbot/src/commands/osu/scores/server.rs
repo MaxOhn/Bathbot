@@ -12,9 +12,7 @@ use rosu_v2::{
     request::UserId,
 };
 
-use super::{
-    criteria_to_content, get_mode, process_scores, separate_content, MapStatus, ServerScores,
-};
+use super::{get_mode, process_scores, separate_content, MapStatus, ServerScores};
 use crate::{
     active::{impls::ScoresServerPagination, ActiveMessages},
     commands::osu::{user_not_found, HasMods, ModsResult},
@@ -22,7 +20,7 @@ use crate::{
     manager::redis::osu::UserArgs,
     util::{
         interaction::InteractionCommand,
-        query::{FilterCriteria, ScoresCriteria},
+        query::{FilterCriteria, IFilterCriteria, ScoresCriteria},
         Authored, InteractionCommandExt,
     },
 };
@@ -138,10 +136,7 @@ pub async fn server_scores(
 
     let sort = args.sort.unwrap_or_default();
 
-    let criteria = args
-        .query
-        .as_deref()
-        .map(FilterCriteria::<ScoresCriteria<'_>>::new);
+    let criteria = args.query.as_deref().map(ScoresCriteria::create);
 
     let content = msg_content(
         mods.as_ref(),
@@ -228,7 +223,7 @@ fn msg_content(
     }
 
     if let Some(criteria) = criteria {
-        criteria_to_content(&mut content, criteria);
+        criteria.display(&mut content);
     }
 
     content
