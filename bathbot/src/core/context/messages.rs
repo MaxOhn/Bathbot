@@ -103,7 +103,7 @@ impl Context {
             let render_opt = ordr
                 .client()
                 .render_list()
-                .link(&video_url)
+                .link(video_url)
                 .page_size(1)
                 .page(1)
                 .await
