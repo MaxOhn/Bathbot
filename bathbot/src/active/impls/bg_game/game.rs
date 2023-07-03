@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::RwLock};
 
 use bathbot_model::Effects;
 use bathbot_psql::model::games::MapsetTagsEntries;
@@ -8,7 +8,6 @@ use image::{
     imageops::{self, colorops},
     GenericImageView,
 };
-use parking_lot::RwLock;
 use rosu_v2::model::GameMode;
 use tokio::{fs, sync::RwLock as TokioRwLock};
 use tokio_stream::StreamExt;
@@ -39,7 +38,7 @@ impl Game {
         loop {
             match Game::new_(ctx, entries, previous_ids, effects, difficulty).await {
                 Ok(game) => {
-                    let sub_image_result = { game.reveal.read().sub_image() };
+                    let sub_image_result = { game.reveal.read().unwrap().sub_image() };
 
                     match sub_image_result {
                         Ok(img) => return (game, img),
@@ -133,14 +132,14 @@ impl Game {
     }
 
     pub fn sub_image(&self) -> Result<Vec<u8>> {
-        let mut reveal = self.reveal.write();
+        let mut reveal = self.reveal.write().unwrap();
         reveal.increase_radius();
 
         reveal.sub_image()
     }
 
     pub fn hint(&self) -> String {
-        let mut hints = self.hints.write();
+        let mut hints = self.hints.write().unwrap();
 
         hints.get(self.mapset.title(), self.mapset.artist())
     }
@@ -156,7 +155,7 @@ impl Game {
             None => {}
         }
 
-        if !self.hints.read().artist_guessed {
+        if !self.hints.read().unwrap().artist_guessed {
             match self.mapset.matches_artist(content, self.difficulty) {
                 Some(true) => return ContentResult::Artist(true),
                 Some(false) => return ContentResult::Artist(false),
@@ -210,10 +209,7 @@ pub async fn game_loop(
             }
             // Artist correct?
             ContentResult::Artist(exact) => {
-                {
-                    let mut hints = game.hints.write();
-                    hints.artist_guessed = true;
-                }
+                game.hints.write().unwrap().artist_guessed = true;
 
                 let content = if exact {
                     format!(

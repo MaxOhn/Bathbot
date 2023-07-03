@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
     time::Duration,
 };
 
@@ -14,7 +14,6 @@ use flexmap::tokio::TokioRwLockMap;
 use flurry::{HashMap as FlurryMap, HashSet as FlurrySet};
 use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
-use parking_lot::Mutex;
 use rkyv::with::With;
 use rosu_v2::Osu;
 use tokio::sync::mpsc::UnboundedSender;
