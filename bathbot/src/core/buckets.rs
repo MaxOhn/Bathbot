@@ -1,7 +1,6 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, sync::Mutex};
 
 use bathbot_util::IntHasher;
-use parking_lot::Mutex;
 use time::OffsetDateTime;
 
 pub struct Buckets([Mutex<Bucket>; 8]);

@@ -30,13 +30,16 @@ use twilight_model::{
         presence::{ActivityType, MinimalActivity, Status},
     },
     id::{
-        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker},
+        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker, UserMarker},
         Id,
     },
 };
 use twilight_standby::Standby;
 
-use super::{buckets::Buckets, BotStats};
+use super::{
+    buckets::{BucketName, Buckets},
+    BotStats,
+};
 #[cfg(feature = "osutracking")]
 use crate::manager::OsuTrackingManager;
 #[cfg(feature = "twitch")]
@@ -213,6 +216,14 @@ impl Context {
             #[cfg(feature = "server")]
             server_tx,
         ))
+    }
+
+    /// Acquire an entry for the user in the bucket and optionally return the
+    /// cooldown in amount of seconds if acquiring the entry was ratelimitted.
+    pub fn check_ratelimit(&self, user_id: Id<UserMarker>, bucket: BucketName) -> Option<i64> {
+        let ratelimit = self.buckets.get(bucket).lock().unwrap().take(user_id.get());
+
+        (ratelimit > 0).then_some(ratelimit)
     }
 
     pub async fn down_resumable(shards: &mut [Shard]) -> HashMap<u64, Session, IntHasher> {

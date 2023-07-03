@@ -25,11 +25,7 @@ use crate::{
         impls::{CachedRender, RenderSettingsActive, SettingsImport},
         ActiveMessages,
     },
-    core::{
-        buckets::BucketName,
-        commands::{checks::check_ratelimit, OwnedCommandOrigin},
-        Context,
-    },
+    core::{buckets::BucketName, commands::OwnedCommandOrigin, Context},
     manager::{ReplayScore, ReplaySettings},
     tracking::OrdrReceivers,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
@@ -135,7 +131,7 @@ async fn render_replay(
 ) -> Result<()> {
     let owner = command.user_id()?;
 
-    if let Some(cooldown) = check_ratelimit(&ctx, owner, BucketName::Render).await {
+    if let Some(cooldown) = ctx.check_ratelimit(owner, BucketName::Render) {
         trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
 
         let content = format!("Command on cooldown, try again in {cooldown} seconds");
@@ -236,7 +232,7 @@ async fn render_score(
 ) -> Result<()> {
     let owner = command.user_id()?;
 
-    if let Some(cooldown) = check_ratelimit(&ctx, owner, BucketName::Render).await {
+    if let Some(cooldown) = ctx.check_ratelimit(owner, BucketName::Render) {
         trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
 
         let content = format!("Command on cooldown, try again in {cooldown} seconds");

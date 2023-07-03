@@ -4,18 +4,14 @@ use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::Result;
 use twilight_model::{channel::Message, guild::Permissions};
 
-use crate::{
-    core::{buckets::BucketName, commands::checks::check_ratelimit},
-    util::ChannelExt,
-    Context,
-};
+use crate::{core::buckets::BucketName, util::ChannelExt, Context};
 
 pub async fn hint(
     ctx: Arc<Context>,
     msg: &Message,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    let ratelimit = check_ratelimit(&ctx, msg.author.id, BucketName::BgHint).await;
+    let ratelimit = ctx.check_ratelimit(msg.author.id, BucketName::BgHint);
 
     if let Some(cooldown) = ratelimit {
         trace!(

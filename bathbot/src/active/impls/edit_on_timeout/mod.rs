@@ -23,7 +23,7 @@ use super::render::CachedRender;
 use crate::{
     active::{ActiveMessages, ComponentResult},
     commands::osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
-    core::{buckets::BucketName, commands::checks::check_ratelimit},
+    core::buckets::BucketName,
     manager::{OwnedReplayScore, ReplayScore},
     util::{interaction::InteractionComponent, Authored, Emote, MessageExt},
 };
@@ -124,78 +124,75 @@ impl EditOnTimeout {
         ctx: Arc<Context>,
         component: &mut InteractionComponent,
     ) -> ComponentResult {
-        match &mut self.kind {
+        let button_data = match &mut self.kind {
             EditOnTimeoutKind::RecentScore(RecentScoreEdit { button_data })
-            | EditOnTimeoutKind::TopScore(TopScoreEdit { button_data }) => match component
-                .data
-                .custom_id
-                .as_str()
-            {
-                "miss_analyzer" => {
-                    let Some(score_id) = button_data.take_miss_analyzer() else {
-                        return ComponentResult::Err(eyre!(
-                            "Unexpected miss analyzer component for recent score"
-                        ));
-                    };
+            | EditOnTimeoutKind::TopScore(TopScoreEdit { button_data }) => button_data,
+        };
 
-                    handle_miss_analyzer_button(&ctx, component, score_id).await
-                }
-                "render" => {
-                    let (Some(score_id), score_opt) = button_data.borrow_mut_render() else {
-                        return ComponentResult::Err(eyre!(
-                            "Unexpected render component for recent score"
-                        ));
-                    };
-
-                    let owner = match component.user_id() {
-                        Ok(user_id) => user_id,
-                        Err(err) => return ComponentResult::Err(err),
-                    };
-
-                    if let Some(cooldown) = check_ratelimit(&ctx, owner, BucketName::Render).await {
-                        let content = format!(
-                            "Rendering is on cooldown for you <@{owner}>, try again in {cooldown} seconds"
-                        );
-
-                        let embed = EmbedBuilder::new().description(content).color_red();
-                        let builder = MessageBuilder::new().embed(embed);
-
-                        let reply_fut =
-                            component
-                                .message
-                                .reply(&ctx, builder, component.permissions);
-
-                        return match reply_fut.await {
-                            Ok(_) => ComponentResult::BuildPage,
-                            Err(err) => {
-                                let wrap = "Failed to reply for render cooldown error";
-
-                                ComponentResult::Err(Report::new(err).wrap_err(wrap))
-                            }
-                        };
-                    }
-
-                    let Some(score) = score_opt.take() else {
-                        return ComponentResult::Err(eyre!("Missing replay score"));
-                    };
-
-                    let orig = (component.message.id, component.message.channel_id);
-                    let permissions = component.permissions;
-
-                    tokio::spawn(handle_render_button(
-                        ctx,
-                        orig,
-                        permissions,
-                        score_id,
-                        score,
-                        owner,
-                        component.guild_id,
+        match component.data.custom_id.as_str() {
+            "miss_analyzer" => {
+                let Some(score_id) = button_data.take_miss_analyzer() else {
+                    return ComponentResult::Err(eyre!(
+                        "Unexpected miss analyzer component for recent score"
                     ));
+                };
 
-                    ComponentResult::BuildPage
+                handle_miss_analyzer_button(&ctx, component, score_id).await
+            }
+            "render" => {
+                let (Some(score_id), score_opt) = button_data.borrow_mut_render() else {
+                    return ComponentResult::Err(eyre!(
+                        "Unexpected render component for recent score"
+                    ));
+                };
+
+                let owner = match component.user_id() {
+                    Ok(user_id) => user_id,
+                    Err(err) => return ComponentResult::Err(err),
+                };
+
+                if let Some(cooldown) = ctx.check_ratelimit(owner, BucketName::Render) {
+                    let content = format!(
+                        "Rendering is on cooldown for you <@{owner}>, try again in {cooldown} seconds"
+                    );
+
+                    let embed = EmbedBuilder::new().description(content).color_red();
+                    let builder = MessageBuilder::new().embed(embed);
+
+                    let reply_fut = component
+                        .message
+                        .reply(&ctx, builder, component.permissions);
+
+                    return match reply_fut.await {
+                        Ok(_) => ComponentResult::BuildPage,
+                        Err(err) => {
+                            let wrap = "Failed to reply for render cooldown error";
+
+                            ComponentResult::Err(Report::new(err).wrap_err(wrap))
+                        }
+                    };
                 }
-                other => ComponentResult::Err(eyre!("Unknown EditOnTimeout component `{other}`")),
-            },
+
+                let Some(score) = score_opt.take() else {
+                    return ComponentResult::Err(eyre!("Missing replay score"));
+                };
+
+                let orig = (component.message.id, component.message.channel_id);
+                let permissions = component.permissions;
+
+                tokio::spawn(handle_render_button(
+                    ctx,
+                    orig,
+                    permissions,
+                    score_id,
+                    score,
+                    owner,
+                    component.guild_id,
+                ));
+
+                ComponentResult::BuildPage
+            }
+            other => ComponentResult::Err(eyre!("Unknown EditOnTimeout component `{other}`")),
         }
     }
 }
