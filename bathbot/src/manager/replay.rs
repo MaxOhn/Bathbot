@@ -27,7 +27,7 @@ impl<'d> ReplayManager<'d> {
         }
     }
 
-    pub async fn get(
+    pub async fn get_replay(
         self,
         score_id: Option<u64>,
         score: &ReplayScore<'_>,

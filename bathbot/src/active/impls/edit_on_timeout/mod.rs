@@ -378,7 +378,7 @@ async fn handle_render_button(
     }
 
     let replay_manager = ctx.replay();
-    let replay_fut = replay_manager.get(Some(score_id), &score);
+    let replay_fut = replay_manager.get_replay(Some(score_id), &score);
     let settings_fut = replay_manager.get_settings(owner);
 
     let (replay_res, settings_res) = tokio::join!(replay_fut, settings_fut);

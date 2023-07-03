@@ -157,7 +157,7 @@ impl<'c> ScoresManager<'c> {
         self.psql
             .insert_scores(scores)
             .await
-            .wrap_err("Failed to store top scores")
+            .wrap_err("Failed to store scores")
     }
 }
 

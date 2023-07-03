@@ -1,5 +1,5 @@
 use std::{
-    fmt::{Display, Formatter, Result as FmtResult, Write},
+    fmt::{Display, Formatter, Result as FmtResult},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -10,8 +10,9 @@ use bathbot_util::{
     EmbedBuilder, MessageBuilder,
 };
 use eyre::{Report, Result, WrapErr};
-use rosu_render::error::{
-    ApiError as OrdrApiError, Error as OrdrError, ErrorCode as OrdrErrorCode,
+use rosu_render::{
+    error::{ApiError as OrdrApiError, Error as OrdrError, ErrorCode as OrdrErrorCode},
+    model::RenderDone,
 };
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -284,7 +285,7 @@ async fn render_score(
     let _ = command.update(&ctx, status.as_message()).await;
 
     let replay_manager = ctx.replay();
-    let replay_fut = replay_manager.get(score.score_id, &replay_score);
+    let replay_fut = replay_manager.get_replay(score.score_id, &replay_score);
     let settings_fut = replay_manager.get_settings(owner);
 
     let (replay_res, settings_res) = tokio::join!(replay_fut, settings_fut);
@@ -550,31 +551,31 @@ impl OngoingRender {
                     }
                 },
                 done = self.receivers.done.recv() => {
-                    let Some(done) = done else {
+                    let Some(RenderDone { render_id, video_url }) = done else {
                         return warn!("done channel was closed");
                     };
 
-                    let mut video_url = done.video_url.into_string();
-                    let video_url_clone = video_url.clone();
+                    if let Some(score_id) = self.score_id {
+                        let replay_manager = self.ctx.replay();
+                        let store_fut = replay_manager.store_video_url(score_id, video_url.as_ref());
 
-                    let _ = write!(video_url, " <@{}>", self.msg_owner);
+                        if let Err(err) = store_fut.await {
+                            warn!(?err, score_id, video_url, "Failed to store video url");
+                        } else {
+                            debug!(score_id, video_url, "Stored render video url");
+                        }
+                    } else {
+                        debug!("Missing score id, skip storing video url");
+                    }
 
-                    let builder = MessageBuilder::new().content(video_url).embed(None);
+                    let video_url_with_user = format!("{video_url} <@{}>", self.msg_owner);
+                    let builder = MessageBuilder::new().content(video_url_with_user).embed(None);
 
                     if let Err(err) = self.orig.update(&self.ctx, builder).await {
                         warn!(?err, "Failed to update message");
                     }
 
-                    self.ctx.ordr().expect("ordr unavailable").unsubscribe_render_id(done.render_id).await;
-
-                    if let Some(score_id) = self.score_id {
-                        let replay_manager = self.ctx.replay();
-                        let store_fut = replay_manager.store_video_url(score_id, &video_url_clone);
-
-                        if let Err(err) = store_fut.await {
-                            warn!(?err, "Failed to store video url");
-                        }
-                    }
+                    self.ctx.ordr().expect("ordr unavailable").unsubscribe_render_id(render_id).await;
 
                     return;
                 },

@@ -95,7 +95,7 @@ impl CachedRender {
 
                 let replay_manager = ctx.replay();
                 let score = ReplayScore::Owned(score);
-                let replay_fut = replay_manager.get(Some(self.score_id), &score);
+                let replay_fut = replay_manager.get_replay(Some(self.score_id), &score);
                 let settings_fut = replay_manager.get_settings(owner);
 
                 (status, tokio::join!(replay_fut, settings_fut))
@@ -129,7 +129,7 @@ impl CachedRender {
 
                 let replay_manager = ctx.replay();
                 let replay_score = ReplayScore::from(&score);
-                let replay_fut = replay_manager.get(score.score_id, &replay_score);
+                let replay_fut = replay_manager.get_replay(score.score_id, &replay_score);
                 let settings_fut = replay_manager.get_settings(owner);
 
                 (status, tokio::join!(replay_fut, settings_fut))
