@@ -378,43 +378,67 @@ impl From<&ReplaySettings> for DbRenderOptions {
         }
     }
 }
-pub enum ReplayScore<'s> {
+
+pub struct ReplayScore<'s> {
+    // Hide inner enum so that the Borrowed variant cannot be constructed outside
+    // and thus is certain to be validated when constructed through methods.
+    inner: ReplayScoreInner<'s>,
+}
+
+impl From<OwnedReplayScore> for ReplayScore<'_> {
+    fn from(score: OwnedReplayScore) -> Self {
+        Self {
+            inner: ReplayScoreInner::Owned(score),
+        }
+    }
+}
+
+enum ReplayScoreInner<'s> {
     Owned(OwnedReplayScore),
     Borrowed(&'s Score),
 }
 
-impl<'s> From<&'s Score> for ReplayScore<'s> {
-    fn from(score: &'s Score) -> Self {
-        Self::Borrowed(score)
+impl<'s> ReplayScore<'s> {
+    /// Constructs a [`ReplayScore`], returning `None` if the `Score` had no map
+    /// checksum.
+    pub fn from_score(score: &'s Score) -> Option<Self> {
+        score
+            .map
+            .as_ref()
+            .is_some_and(|map| map.checksum.is_some())
+            .then_some(ReplayScoreInner::Borrowed(score))
+            .map(|inner| Self { inner })
     }
-}
 
-impl ReplayScore<'_> {
     fn mode(&self) -> GameMode {
-        match self {
-            Self::Owned(score) => score.mode,
-            Self::Borrowed(score) => score.mode,
+        match &self.inner {
+            ReplayScoreInner::Owned(score) => score.mode,
+            ReplayScoreInner::Borrowed(score) => score.mode,
         }
     }
 
     fn ended_at(&self) -> OffsetDateTime {
-        match self {
-            Self::Owned(score) => score.ended_at,
-            Self::Borrowed(score) => score.ended_at,
+        match &self.inner {
+            ReplayScoreInner::Owned(score) => score.ended_at,
+            ReplayScoreInner::Borrowed(score) => score.ended_at,
         }
     }
 
-    fn map_checksum(&self) -> Option<&str> {
-        match self {
-            Self::Owned(score) => score.map_checksum.as_deref(),
-            Self::Borrowed(score) => score.map.as_ref().and_then(|map| map.checksum.as_deref()),
+    fn map_checksum(&self) -> &str {
+        match &self.inner {
+            ReplayScoreInner::Owned(score) => score.map_checksum.as_ref(),
+            ReplayScoreInner::Borrowed(score) => score
+                .map
+                .as_ref()
+                .and_then(|map| map.checksum.as_deref())
+                .expect("missing map checksum"),
         }
     }
 
     fn username(&self) -> &str {
-        match self {
-            Self::Owned(score) => score.username.as_ref(),
-            Self::Borrowed(score) => score
+        match &self.inner {
+            ReplayScoreInner::Owned(score) => score.username.as_ref(),
+            ReplayScoreInner::Borrowed(score) => score
                 .user
                 .as_ref()
                 .map(|user| user.username.as_str())
@@ -423,37 +447,37 @@ impl ReplayScore<'_> {
     }
 
     fn statistics(&self) -> &ScoreStatistics {
-        match self {
-            Self::Owned(score) => &score.statistics,
-            Self::Borrowed(score) => &score.statistics,
+        match &self.inner {
+            ReplayScoreInner::Owned(score) => &score.statistics,
+            ReplayScoreInner::Borrowed(score) => &score.statistics,
         }
     }
 
     fn score(&self) -> u32 {
-        match self {
-            Self::Owned(score) => score.score,
-            Self::Borrowed(score) => score.score,
+        match &self.inner {
+            ReplayScoreInner::Owned(score) => score.score,
+            ReplayScoreInner::Borrowed(score) => score.score,
         }
     }
 
     fn max_combo(&self) -> u16 {
-        match self {
-            Self::Owned(score) => score.max_combo,
-            Self::Borrowed(score) => score.max_combo as u16,
+        match &self.inner {
+            ReplayScoreInner::Owned(score) => score.max_combo,
+            ReplayScoreInner::Borrowed(score) => score.max_combo as u16,
         }
     }
 
     fn perfect(&self) -> bool {
-        match self {
-            Self::Owned(score) => score.perfect,
-            Self::Borrowed(score) => score.perfect,
+        match &self.inner {
+            ReplayScoreInner::Owned(score) => score.perfect,
+            ReplayScoreInner::Borrowed(score) => score.perfect,
         }
     }
 
     fn mods(&self) -> u32 {
-        match self {
-            Self::Owned(score) => score.mods,
-            Self::Borrowed(score) => score.mods.bits(),
+        match &self.inner {
+            ReplayScoreInner::Owned(score) => score.mods,
+            ReplayScoreInner::Borrowed(score) => score.mods.bits(),
         }
     }
 }
@@ -461,7 +485,7 @@ impl ReplayScore<'_> {
 pub struct OwnedReplayScore {
     mode: GameMode,
     ended_at: OffsetDateTime,
-    map_checksum: Option<Box<str>>,
+    map_checksum: Box<str>,
     username: Box<str>,
     statistics: ScoreStatistics,
     score: u32,
@@ -479,7 +503,7 @@ impl OwnedReplayScore {
         Self {
             mode: entry.score.mode,
             ended_at: entry.score.ended_at,
-            map_checksum: Some(map_checksum.into()),
+            map_checksum: map_checksum.into(),
             username: username.into(),
             statistics: entry.score.statistics.clone(),
             score: entry.score.score,
@@ -488,18 +512,14 @@ impl OwnedReplayScore {
             mods: entry.score.mods.bits(),
         }
     }
-}
 
-impl From<&Score> for OwnedReplayScore {
-    fn from(score: &Score) -> Self {
-        Self {
+    pub fn from_score(score: &Score) -> Option<Self> {
+        let map_checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref())?;
+
+        Some(Self {
             mode: score.mode,
             ended_at: score.ended_at,
-            map_checksum: score
-                .map
-                .as_ref()
-                .and_then(|map| map.checksum.as_deref())
-                .map(Box::from),
+            map_checksum: Box::from(map_checksum),
             username: score
                 .user
                 .as_ref()
@@ -511,7 +531,7 @@ impl From<&Score> for OwnedReplayScore {
             max_combo: score.max_combo as u16,
             perfect: score.perfect,
             mods: score.mods.bits(),
-        }
+        })
     }
 }
 
@@ -524,7 +544,7 @@ fn complete_replay(score: &ReplayScore<'_>, score_id: u64, raw_replay: &[u8]) ->
     bytes_written += encode_byte(&mut replay, score.mode() as u8);
     bytes_written += encode_int(&mut replay, game_version(score.ended_at().date()));
 
-    let map_md5 = score.map_checksum().unwrap_or_default();
+    let map_md5 = score.map_checksum();
     bytes_written += encode_string(&mut replay, map_md5);
 
     let username = score.username();

@@ -602,7 +602,10 @@ pub(super) async fn score(
         .or(guild_minimized_pp)
         .unwrap_or_default();
 
-    let replay_score = with_render.then(|| OwnedReplayScore::from(&score));
+    let replay_score = with_render
+        .then(|| OwnedReplayScore::from_score(&score))
+        .flatten();
+
     let entry = RecentEntry::new(&ctx, score, map).await;
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 

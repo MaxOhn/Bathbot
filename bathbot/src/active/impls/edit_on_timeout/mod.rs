@@ -356,7 +356,7 @@ async fn handle_render_button(
     }
 
     let mut status = RenderStatus::new_preparing_replay();
-    let score = ReplayScore::Owned(score);
+    let score = ReplayScore::from(score);
 
     let msg = match orig.reply(&ctx, status.as_message(), permissions).await {
         Ok(response) => match response.model().await {

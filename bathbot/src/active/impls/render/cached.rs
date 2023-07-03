@@ -94,7 +94,7 @@ impl CachedRender {
                 self.done = true;
 
                 let replay_manager = ctx.replay();
-                let score = ReplayScore::Owned(score);
+                let score = ReplayScore::from(score);
                 let replay_fut = replay_manager.get_replay(Some(self.score_id), &score);
                 let settings_fut = replay_manager.get_settings(owner);
 
@@ -120,6 +120,18 @@ impl CachedRender {
                     }
                 };
 
+                let Some(replay_score) = ReplayScore::from_score(&score) else {
+                    let content = "Failed to prepare the replay";
+                    let embed = EmbedBuilder::new().color_red().description(content);
+                    let builder = MessageBuilder::new().embed(embed);
+
+                    if let Some(update_fut) = component.update(&ctx, builder) {
+                        update_fut.await?;
+                    }
+
+                    return Ok(());
+                };
+
                 // Just a status update, no need to propagate an error
                 status.set(RenderStatusInner::PreparingReplay);
 
@@ -128,7 +140,6 @@ impl CachedRender {
                 }
 
                 let replay_manager = ctx.replay();
-                let replay_score = ReplayScore::from(&score);
                 let replay_fut = replay_manager.get_replay(score.score_id, &replay_score);
                 let settings_fut = replay_manager.get_settings(owner);
 

@@ -278,7 +278,12 @@ async fn render_score(
         }
     };
 
-    let replay_score = ReplayScore::from(&score);
+    let Some(replay_score) = ReplayScore::from_score(&score) else {
+        let content = "Failed to prepare the replay";
+        command.error(&ctx, content).await?;
+
+        return Ok(());
+    };
 
     // Just a status update, no need to propagate an error
     status.set(RenderStatusInner::PreparingReplay);
