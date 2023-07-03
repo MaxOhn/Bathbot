@@ -339,7 +339,7 @@ dependencies = [
  "flurry",
  "futures",
  "handlebars",
- "hashbrown 0.12.3",
+ "hashbrown 0.14.0",
  "image",
  "itertools",
  "leaky-bucket-lite",
