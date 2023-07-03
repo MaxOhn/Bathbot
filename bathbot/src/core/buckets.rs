@@ -18,14 +18,14 @@ impl Buckets {
         };
 
         Self([
-            make_bucket(0, 9, 4),   // All
-            make_bucket(1, 8, 2),   // BgBigger
-            make_bucket(0, 10, 4),  // BgHint
-            make_bucket(2, 20, 3),  // BgSkip
-            make_bucket(15, 0, 1),  // MatchCompare
-            make_bucket(5, 900, 3), // MatchLive
-            make_bucket(0, 600, 2), // Render
-            make_bucket(20, 0, 1),  // Songs
+            make_bucket(0, 9, 4),    // All
+            make_bucket(1, 8, 2),    // BgBigger
+            make_bucket(0, 10, 4),   // BgHint
+            make_bucket(2, 20, 3),   // BgSkip
+            make_bucket(15, 0, 1),   // MatchCompare
+            make_bucket(5, 900, 3),  // MatchLive
+            make_bucket(60, 600, 2), // Render
+            make_bucket(20, 0, 1),   // Songs
         ])
     }
 
