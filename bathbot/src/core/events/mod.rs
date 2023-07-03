@@ -220,11 +220,11 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
         }
         Event::MessageCreate(msg) => handle_message(ctx, msg.0).await,
         Event::MessageDelete(e) => {
-            ctx.remove_msg(e.id);
+            ctx.active_msgs.remove(e.id).await;
         }
         Event::MessageDeleteBulk(msgs) => {
             for id in msgs.ids.into_iter() {
-                ctx.remove_msg(id);
+                ctx.active_msgs.remove(id).await;
             }
         }
         Event::Ready(_) => info!(shard_id, "Shard is ready"),

@@ -20,7 +20,7 @@ impl Context {
         self.tracking().set_stop_tracking(true);
 
         // Prevent non-minimized msgs from getting minimized
-        self.clear_msgs_to_process();
+        self.active_msgs.clear().await;
 
         let count = self.stop_all_games().await;
         info!("Stopped {count} bg games");

@@ -1,13 +1,10 @@
-use std::{sync::Arc, time::Duration};
+use std::{future::ready, sync::Arc, time::Duration};
 
 use bathbot_util::{modal::ModalBuilder, EmbedBuilder, IntHasher, MessageBuilder};
 use enum_dispatch::enum_dispatch;
 use eyre::{Report, Result, WrapErr};
 use flexmap::tokio::TokioMutexMap;
-use futures::{
-    future,
-    future::{ready, BoxFuture},
-};
+use futures::{future, future::BoxFuture};
 use tokio::sync::watch::Sender;
 use twilight_model::{
     channel::message::Component,
@@ -261,7 +258,15 @@ impl ActiveMessages {
         }
     }
 
-    async fn remove(&self, msg: Id<MessageMarker>) -> Option<FullActiveMessage> {
+    pub async fn clear(&self) {
+        self.inner.clear().await
+    }
+
+    pub async fn remove(&self, msg: Id<MessageMarker>) {
+        self.remove_full(msg).await;
+    }
+
+    async fn remove_full(&self, msg: Id<MessageMarker>) -> Option<FullActiveMessage> {
         self.inner.lock(&msg).await.remove()
     }
 

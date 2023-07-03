@@ -29,7 +29,7 @@ use twilight_model::{
         presence::{ActivityType, MinimalActivity, Status},
     },
     id::{
-        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker, UserMarker},
+        marker::{ApplicationMarker, ChannelMarker, GuildMarker, UserMarker},
         Id,
     },
 };
@@ -305,7 +305,6 @@ impl Clients {
 struct ContextData {
     application_id: Id<ApplicationMarker>,
     games: Games,
-    msgs_to_process: Mutex<HashSet<Id<MessageMarker>, IntHasher>>,
     #[cfg(feature = "matchlive")]
     matchlive: crate::matchlive::MatchLiveChannels,
     #[cfg(feature = "osutracking")]
@@ -345,7 +344,6 @@ impl ContextData {
             guild_shards,
             #[cfg(feature = "matchlive")]
             matchlive: crate::matchlive::MatchLiveChannels::new(),
-            msgs_to_process: Mutex::new(HashSet::default()),
             #[cfg(feature = "osutracking")]
             osu_tracking: crate::tracking::OsuTracking::new(OsuTrackingManager::new(psql))
                 .await
