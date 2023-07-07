@@ -9,12 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
-name = "adler32"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
-
-[[package]]
 name = "ahash"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -62,28 +56,6 @@ name = "assert_float_eq"
 version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cea652ffbedecf29e9cd41bb4c066881057a42c0c119040f022802b26853e77"
-
-[[package]]
-name = "async-stream"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd56dd203fef61ac097dd65721a419ddccb106b2d2b70ba60a6b529f03961a51"
-dependencies = [
- "async-stream-impl",
- "futures-core",
- "pin-project-lite",
-]
-
-[[package]]
-name = "async-stream-impl"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16e62a023e7c117e27523144c5d2459f4397fcc3cab0085af8e2224f643a0193"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.10",
-]
 
 [[package]]
 name = "async-trait"
@@ -172,17 +144,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.107",
-]
-
-[[package]]
-name = "backoff"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b62ddb9cb1ec0a098ad4bbf9344d0713fa193ae1a80af55febcff2627b6a00c1"
-dependencies = [
- "getrandom",
- "instant",
- "rand",
 ]
 
 [[package]]
@@ -2062,8 +2023,9 @@ dependencies = [
 [[package]]
 name = "rosu-render"
 version = "0.1.0"
-source = "git+https://github.com/MaxOhn/rosu-render?branch=main#5596386ca8d32124b50a462bf51c22871a5e4625"
+source = "git+https://github.com/MaxOhn/rosu-render?branch=main#704fc5e9232cae8b75cae959df028507439dcfc0"
 dependencies = [
+ "bytes",
  "form_urlencoded",
  "futures",
  "hyper",
@@ -2072,14 +2034,18 @@ dependencies = [
  "leaky-bucket",
  "pin-project",
  "rand",
- "rust_socketio",
+ "rustls 0.21.1",
  "ryu",
  "serde",
  "serde_json",
  "serde_urlencoded",
  "thiserror",
  "time",
+ "tokio",
+ "tokio-tungstenite 0.19.0",
  "tracing",
+ "url",
+ "webpki-roots 0.23.1",
 ]
 
 [[package]]
@@ -2101,50 +2067,6 @@ dependencies = [
  "smallstr",
  "thiserror",
  "time",
- "tokio",
- "url",
-]
-
-[[package]]
-name = "rust_engineio"
-version = "0.4.1-alpha.1"
-source = "git+https://github.com/MaxOhn/rust-socketio?branch=custom#672d7614d6c880446bd6c822ab7d0e5d591c698f"
-dependencies = [
- "adler32",
- "async-stream",
- "async-trait",
- "base64 0.21.0",
- "bytes",
- "futures-util",
- "http",
- "hyper",
- "hyper-rustls 0.24.0",
- "rustls 0.21.1",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tokio-tungstenite 0.19.0",
- "url",
-]
-
-[[package]]
-name = "rust_socketio"
-version = "0.4.1-alpha.2"
-source = "git+https://github.com/MaxOhn/rust-socketio?branch=custom#672d7614d6c880446bd6c822ab7d0e5d591c698f"
-dependencies = [
- "adler32",
- "async-stream",
- "backoff",
- "base64 0.21.0",
- "bytes",
- "futures-util",
- "log",
- "rand",
- "rust_engineio",
- "serde",
- "serde_json",
- "thiserror",
  "tokio",
  "url",
 ]

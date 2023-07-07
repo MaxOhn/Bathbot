@@ -11,7 +11,9 @@ use bathbot_util::{
 };
 use eyre::{Report, Result, WrapErr};
 use rosu_render::{
-    error::{ApiError as OrdrApiError, Error as OrdrError, ErrorCode as OrdrErrorCode},
+    client::error::{
+        ApiError as OrdrApiError, ClientError as OrdrError, ErrorCode as OrdrErrorCode,
+    },
     model::RenderDone,
 };
 use rosu_v2::prelude::{GameMode, OsuError};

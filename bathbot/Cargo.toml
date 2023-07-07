@@ -40,14 +40,14 @@ rosu-pp = { workspace = true }
 rosu-v2 = { workspace = true }
 rkyv = { version = "0.7" }
 rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
-rosu-render = { git = "https://github.com/MaxOhn/rosu-render", branch = "main" }
+rosu-render = { git = "https://github.com/MaxOhn/rosu-render", branch = "main", default-features = false, features = ["rustls-webpki-roots"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 skia-safe = { version = "0.58.0" }
 smallvec = { version = "1.0" }
 thiserror = { version = "1.0" }
 time = { version = "0.3", features = ["parsing"] }
-tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "parking_lot", "rt-multi-thread", "signal", "sync", "time"] }
+tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = { version = "0.1", default-features = false }
 tracing = { version = "0.1" }
 tracing-appender = { version = "0.2" }

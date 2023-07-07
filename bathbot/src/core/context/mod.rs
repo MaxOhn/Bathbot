@@ -166,8 +166,7 @@ impl Context {
             config.tokens.ordr_key.as_ref(),
         );
 
-        #[allow(unused_mut)] // TODO: remove
-        let mut ordr = match tokio::time::timeout(Duration::from_secs(20), ordr_fut).await {
+        let ordr = match tokio::time::timeout(Duration::from_secs(20), ordr_fut).await {
             Ok(Ok(ordr)) => Some(Arc::new(ordr)),
             Ok(Err(err)) => return Err(err),
             Err(_) => {
@@ -176,9 +175,6 @@ impl Context {
                 None
             }
         };
-
-        #[cfg(not(debug_assertions))]
-        ordr.take(); // temporarily remove ordr client until websocket has been fixed
 
         let clients = Clients::new(psql, osu, custom_client, ordr);
 

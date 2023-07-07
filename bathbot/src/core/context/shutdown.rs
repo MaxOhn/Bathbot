@@ -32,9 +32,7 @@ impl Context {
         }
 
         if let Some(ordr) = self.ordr() {
-            if let Err(err) = ordr.client().disconnect().await {
-                warn!(?err, "Failed to disconnect from o!rdr websocket");
-            }
+            ordr.disconnect();
         }
 
         let resume_data = Self::down_resumable(shards).await;
