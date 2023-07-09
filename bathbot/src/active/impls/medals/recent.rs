@@ -5,6 +5,7 @@ use std::{
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{rosu_v2::user::User, OsekaiMedal};
+use bathbot_psql::model::configs::HideSolutions;
 use bathbot_util::IntHasher;
 use eyre::Result;
 use futures::future::{ready, BoxFuture};
@@ -32,6 +33,7 @@ pub struct MedalsRecentPagination {
     #[pagination(per_page = 1)]
     achieved_medals: Box<[MedalCompact]>,
     embeds: HashMap<usize, MedalEmbed, IntHasher>,
+    hide_solutions: HideSolutions,
     content: &'static str,
     msg_owner: Id<UserMarker>,
     pages: Pages,
@@ -62,7 +64,8 @@ impl IActiveMessage for MedalsRecentPagination {
                     medal_count: self.achieved_medals.len(),
                 };
 
-                let embed_data = MedalEmbed::new(medal, Some(achieved), Vec::new(), None);
+                let embed_data =
+                    MedalEmbed::new(medal, Some(achieved), Vec::new(), None, self.hide_solutions);
 
                 e.insert(embed_data).to_owned()
             }

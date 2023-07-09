@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use bathbot_macros::{command, SlashCommand};
-use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, Retries, ScoreSize};
+use bathbot_psql::model::configs::{
+    GuildConfig, HideSolutions, ListSize, MinimizedPp, Retries, ScoreSize,
+};
 use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -140,6 +142,8 @@ pub struct ServerConfigEdit {
         Handy for disallowing potentially obscene skins."
     )]
     allow_custom_skins: Option<bool>,
+    #[command(desc = "Should medal solutions should be hidden behind spoiler tags?")]
+    hide_medal_solutions: Option<HideSolutions>,
 }
 
 impl ServerConfigEdit {
@@ -153,6 +157,7 @@ impl ServerConfigEdit {
             minimized_pp,
             render_button,
             allow_custom_skins,
+            hide_medal_solutions,
         } = self;
 
         song_commands.is_some()
@@ -163,6 +168,7 @@ impl ServerConfigEdit {
             || minimized_pp.is_some()
             || render_button.is_some()
             || allow_custom_skins.is_some()
+            || hide_medal_solutions.is_some()
     }
 }
 
@@ -204,6 +210,7 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
                 track_limit,
                 render_button,
                 allow_custom_skins,
+                hide_medal_solutions,
             } = args;
 
             if let Some(score_embeds) = score_embeds {
@@ -236,6 +243,10 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
 
             if let Some(allow_custom_skins) = allow_custom_skins {
                 config.allow_custom_skins = Some(allow_custom_skins);
+            }
+
+            if let Some(hide_medal_solutions) = hide_medal_solutions {
+                config.hide_medal_solution = Some(hide_medal_solutions);
             }
         };
 
