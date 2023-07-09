@@ -420,6 +420,14 @@ impl RenderSettingsActive {
             "draw_combo_numbers" => parse_input!(bool: draw_combo_numbers),
             "beat_scaling" => parse_input!(bool: beat_scaling),
             "use_beatmap_colors" => parse_input!(bool: use_beatmap_colors),
+            "use_beatmap_colors" => {
+                options.use_beatmap_colors = match input.cow_to_ascii_lowercase().as_ref() {
+                    "true" | "t" | "1" | "yes" | "y" => true,
+                    "false" | "f" | "0" | "no" | "n" => false,
+                    _ => bail!("Invalid render settings input `{input}` for `use_beatmap_colors`"),
+                };
+                options.use_skin_colors = !options.use_beatmap_colors;
+            }
             "draw_follow_points" => parse_input!(bool: draw_follow_points),
             other => bail!("Unknown settings modal `{other}`"),
         }
@@ -1075,7 +1083,7 @@ impl SettingsGroup {
                 },
                 SelectMenuOption {
                     default: false,
-                    description: Some("Use the beatmap combo colors (overrides 'Use skin colors' if set to true)".to_owned()),
+                    description: Some("Use the beatmap combo colors".to_owned()),
                     emoji: None,
                     label: "Use beatmap colors".to_owned(),
                     value: "use_beatmap_colors".to_owned(),

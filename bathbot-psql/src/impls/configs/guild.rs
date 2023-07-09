@@ -25,12 +25,13 @@ SELECT
   prefixes,
   allow_songs,
   score_size,
-  show_retries,
+  retries,
   osu_track_limit,
   minimized_pp,
   list_size, 
   render_button, 
-  allow_custom_skins 
+  allow_custom_skins, 
+  hide_medal_solution 
 FROM 
   guild_configs"#
         );
@@ -58,11 +59,12 @@ FROM
             list_size,
             minimized_pp,
             prefixes,
-            show_retries,
+            retries,
             track_limit,
             allow_songs,
             render_button,
             allow_custom_skins,
+            hide_medal_solution,
         } = config;
 
         let authorities =
@@ -75,14 +77,14 @@ FROM
             r#"
 INSERT INTO guild_configs (
   guild_id, authorities, prefixes, allow_songs, 
-  score_size, show_retries, osu_track_limit, 
+  score_size, retries, osu_track_limit, 
   minimized_pp, list_size, render_button, 
-  allow_custom_skins
+  allow_custom_skins, hide_medal_solution
 ) 
 VALUES 
   (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
-    $11
+    $11, $12
   ) ON CONFLICT (guild_id) DO 
 UPDATE 
 SET 
@@ -90,23 +92,25 @@ SET
   prefixes = $3, 
   allow_songs = $4, 
   score_size = $5, 
-  show_retries = $6, 
+  retries = $6, 
   osu_track_limit = $7, 
   minimized_pp = $8, 
   list_size = $9, 
   render_button = $10, 
-  allow_custom_skins = $11"#,
+  allow_custom_skins = $11, 
+  hide_medal_solution = $12"#,
             guild_id.get() as i64,
             &authorities as &[u8],
             &prefixes as &[u8],
             *allow_songs,
             score_size.map(i16::from),
-            *show_retries,
+            retries.map(i16::from),
             track_limit.map(|limit| limit as i16),
             minimized_pp.map(i16::from),
             list_size.map(i16::from),
             *render_button,
-            *allow_custom_skins
+            *allow_custom_skins,
+            hide_medal_solution.map(i16::from),
         );
 
         query
@@ -145,7 +149,10 @@ pub(in crate::impls) mod tests {
     use futures::Future;
 
     use crate::{
-        model::configs::{Authorities, GuildConfig, ListSize, MinimizedPp, Prefixes, ScoreSize},
+        model::configs::{
+            Authorities, GuildConfig, HideSolutions, ListSize, MinimizedPp, Prefixes, Retries,
+            ScoreSize,
+        },
         tests::{database, discord_id},
         Database,
     };
@@ -169,11 +176,12 @@ pub(in crate::impls) mod tests {
             list_size: Some(ListSize::Detailed),
             minimized_pp: Some(MinimizedPp::MaxPp),
             prefixes,
-            show_retries: Some(true),
+            retries: Some(Retries::IgnoreMods),
             track_limit: Some(42),
             allow_songs: Some(true),
             render_button: Some(true),
             allow_custom_skins: None,
+            hide_medal_solution: Some(HideSolutions::HideHushHush),
         }
     }
 

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use ::time::UtcOffset;
 use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{
-    ListSize, MinimizedPp, OsuUserId, OsuUsername, ScoreSize, UserConfig,
+    ListSize, MinimizedPp, OsuUserId, OsuUsername, Retries, ScoreSize, UserConfig,
 };
 #[cfg(feature = "server")]
 use bathbot_server::AuthenticationStandbyError;
@@ -75,7 +75,7 @@ pub struct Config {
     )]
     list_embeds: Option<ListSize>,
     #[command(desc = "Should the amount of retries be shown for the recent command?")]
-    retries: Option<ShowHideOption>,
+    retries: Option<Retries>,
     #[command(
         desc = "Specify whether the recent command should show max or if-fc pp when minimized"
     )]
@@ -134,8 +134,8 @@ pub struct Config {
         `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
     )]
     list_embeds: Option<ListSize>,
-    #[command(desc = "Should the amount of retries be shown for the recent command?")]
-    retries: Option<ShowHideOption>,
+    #[command(desc = "Specify if and how retries should be shown for the recent command")]
+    retries: Option<Retries>,
     #[command(
         desc = "Specify whether the recent command should show max or if-fc pp when minimized"
     )]
@@ -259,7 +259,7 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
     }
 
     if let Some(retries) = retries {
-        config.show_retries = Some(matches!(retries, ShowHideOption::Show));
+        config.retries = Some(retries);
     }
 
     if let Some(tz) = timezone.map(UtcOffset::from) {
@@ -600,7 +600,7 @@ async fn convert_config(
         minimized_pp,
         mode,
         osu: _,
-        show_retries,
+        retries,
         twitch_id,
         timezone,
         render_button,
@@ -612,7 +612,7 @@ async fn convert_config(
         minimized_pp,
         mode,
         osu: Some(username),
-        show_retries,
+        retries,
         twitch_id,
         timezone,
         render_button,

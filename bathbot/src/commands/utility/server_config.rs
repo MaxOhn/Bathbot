@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bathbot_macros::{command, SlashCommand};
-use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
+use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, Retries, ScoreSize};
 use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -113,7 +113,7 @@ pub struct ServerConfigEdit {
         help = "Should the amount of retries be shown for the `recent` command?\n\
         Applies only if the member has not specified a config for themselves."
     )]
-    retries: Option<ShowHideOption>,
+    retries: Option<Retries>,
     #[command(
         min_value = 1,
         max_value = 100,
@@ -219,7 +219,7 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
             }
 
             if let Some(retries) = retries {
-                config.show_retries = Some(retries == ShowHideOption::Show);
+                config.retries = Some(retries);
             }
 
             if let Some(limit) = track_limit {

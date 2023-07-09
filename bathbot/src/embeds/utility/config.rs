@@ -1,7 +1,9 @@
 use std::fmt::{Display, Write};
 
 use ::time::UtcOffset;
-use bathbot_psql::model::configs::{ListSize, MinimizedPp, OsuUsername, ScoreSize, UserConfig};
+use bathbot_psql::model::configs::{
+    ListSize, MinimizedPp, OsuUsername, Retries, ScoreSize, UserConfig,
+};
 use bathbot_util::{AuthorBuilder, EmbedBuilder, FooterBuilder};
 use rosu_v2::prelude::GameMode;
 use twilight_model::{channel::message::embed::EmbedField, user::User};
@@ -65,8 +67,12 @@ impl ConfigEmbed {
             },
             create_field(
                 "Retries",
-                config.show_retries.unwrap_or(true),
-                &[(true, "show"), (false, "hide")],
+                config.retries.unwrap_or(Retries::ConsiderMods),
+                &[
+                    (Retries::Hide, "hide"),
+                    (Retries::ConsiderMods, "reset on different mods"),
+                    (Retries::IgnoreMods, "ignore mods"),
+                ],
             ),
             create_field(
                 "Minimized PP",
