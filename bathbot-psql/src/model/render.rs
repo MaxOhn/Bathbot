@@ -18,6 +18,7 @@ pub struct DbRenderOptions {
     pub show_mods: bool,
     pub show_result_screen: bool,
     pub use_skin_cursor: bool,
+    pub use_skin_colors: bool,
     pub use_skin_hitsounds: bool,
     pub use_beatmap_colors: bool,
     pub cursor_scale_to_cs: bool,

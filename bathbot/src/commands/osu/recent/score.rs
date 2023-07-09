@@ -2,7 +2,7 @@ use std::{borrow::Cow, mem, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
-use bathbot_psql::model::configs::{GuildConfig, MinimizedPp, ScoreSize};
+use bathbot_psql::model::configs::{GuildConfig, MinimizedPp, Retries, ScoreSize};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, CowUtils, MessageOrigin,
@@ -358,7 +358,7 @@ pub(super) async fn score(
 
     let GuildValues {
         minimized_pp: guild_minimized_pp,
-        show_retries: guild_show_retries,
+        retries: guild_retries,
         score_size: guild_score_size,
         render_button: guild_render_button,
     } = guild_values;
@@ -458,6 +458,11 @@ pub(super) async fn score(
 
     let num = index.unwrap_or(1).saturating_sub(1);
 
+    let retries = config
+        .retries
+        .or(guild_retries)
+        .unwrap_or(Retries::ConsiderMods);
+
     let (score, map, tries) = {
         let len = scores.len();
         let mut iter = scores.into_iter().skip(num);
@@ -489,9 +494,15 @@ pub(super) async fn score(
 
         let mods = &score.mods;
 
-        let tries = 1 + iter
-            .take_while(|s| &s.mods == mods && s.map_id == map_id)
-            .count();
+        let tries = match retries {
+            Retries::Hide => None,
+            Retries::ConsiderMods => Some(
+                1 + iter
+                    .take_while(|s| &s.mods == mods && s.map_id == map_id)
+                    .count(),
+            ),
+            Retries::IgnoreMods => Some(1 + iter.take_while(|s| s.map_id == map_id).count()),
+        };
 
         (score, map, tries)
     };
@@ -609,11 +620,8 @@ pub(super) async fn score(
     let entry = RecentEntry::new(&ctx, score, map).await;
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
-    // Creating the embed
-    let show_retries = config.show_retries.or(guild_show_retries).unwrap_or(true);
     let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
-
-    let content = show_retries.then(|| format!("Try #{tries}"));
+    let content = tries.map(|tries| format!("Try #{tries}"));
 
     let active_msg_fut = RecentScoreEdit::create(
         &ctx,
@@ -895,7 +903,7 @@ impl RecentEntry {
 #[derive(Default)]
 struct GuildValues {
     minimized_pp: Option<MinimizedPp>,
-    show_retries: Option<bool>,
+    retries: Option<Retries>,
     score_size: Option<ScoreSize>,
     render_button: Option<bool>,
 }
@@ -904,7 +912,7 @@ impl From<&GuildConfig> for GuildValues {
     fn from(config: &GuildConfig) -> Self {
         Self {
             minimized_pp: config.minimized_pp,
-            show_retries: config.show_retries,
+            retries: config.retries,
             score_size: config.score_size,
             render_button: config.render_button,
         }

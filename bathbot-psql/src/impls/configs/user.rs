@@ -6,8 +6,8 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     model::configs::{
-        DbSkinEntry, DbUserConfig, ListSize, MinimizedPp, OsuUserId, OsuUsername, ScoreSize,
-        SkinEntry, UserConfig,
+        DbSkinEntry, DbUserConfig, ListSize, MinimizedPp, OsuUserId, OsuUsername, Retries,
+        ScoreSize, SkinEntry, UserConfig,
     },
     Database,
 };
@@ -26,7 +26,7 @@ SELECT
   minimized_pp, 
   gamemode, 
   osu_id, 
-  show_retries, 
+  retries, 
   twitch_id, 
   timezone_seconds, 
   render_button 
@@ -64,7 +64,7 @@ SELECT
     WHERE 
       user_id = osu_id
   ), 
-  show_retries, 
+  retries, 
   twitch_id, 
   timezone_seconds, 
   render_button 
@@ -88,7 +88,7 @@ WHERE
                     .and_then(Result::ok),
                 mode: row.gamemode.map(|mode| GameMode::from(mode as u8)),
                 osu: row.username.map(Username::from),
-                show_retries: row.show_retries,
+                retries: row.retries.map(Retries::try_from).and_then(Result::ok),
                 twitch_id: row.twitch_id.map(|id| id as u64),
                 timezone: row
                     .timezone_seconds
@@ -314,7 +314,7 @@ FROM
             minimized_pp,
             mode,
             osu,
-            show_retries,
+            retries,
             twitch_id,
             timezone,
             render_button,
@@ -324,7 +324,7 @@ FROM
             r#"
 INSERT INTO user_configs (
   discord_id, osu_id, gamemode, twitch_id, 
-  score_size, show_retries, minimized_pp, 
+  score_size, retries, minimized_pp, 
   list_size, timezone_seconds, render_button
 ) 
 VALUES 
@@ -335,7 +335,7 @@ SET
   gamemode = $3, 
   twitch_id = $4, 
   score_size = $5, 
-  show_retries = $6, 
+  retries = $6, 
   minimized_pp = $7, 
   list_size = $8, 
   timezone_seconds = $9, 
@@ -345,7 +345,7 @@ SET
             mode.map(|mode| mode as i16) as Option<i16>,
             twitch_id.map(|id| id as i64),
             score_size.map(i16::from),
-            *show_retries,
+            retries.map(i16::from),
             minimized_pp.map(i16::from),
             list_size.map(i16::from),
             timezone.map(UtcOffset::whole_seconds),
@@ -483,7 +483,7 @@ pub(in crate::impls) mod tests {
     use time::UtcOffset;
 
     use crate::{
-        model::configs::{ListSize, MinimizedPp, OsuUserId, ScoreSize, UserConfig},
+        model::configs::{ListSize, MinimizedPp, OsuUserId, Retries, ScoreSize, UserConfig},
         tests::{database, discord_id, osu_user_id},
         Database,
     };
@@ -495,7 +495,7 @@ pub(in crate::impls) mod tests {
             minimized_pp: Some(MinimizedPp::MaxPp),
             mode: Some(GameMode::Catch),
             osu: Some(osu_user_id()),
-            show_retries: Some(true),
+            retries: Some(Retries::ConsiderMods),
             twitch_id: None,
             timezone: Some(UtcOffset::from_whole_seconds(-7272).unwrap()),
             render_button: Some(true),

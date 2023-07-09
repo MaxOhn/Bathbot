@@ -2,6 +2,7 @@ use std::{cmp::Reverse, collections::HashMap, mem, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::{MedalCompact as MedalCompactRkyv, User};
+use bathbot_psql::model::configs::HideSolutions;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher, MessageBuilder,
@@ -150,7 +151,18 @@ pub(super) async fn recent(
         medal_count: user_medals.len(),
     };
 
-    let embed_data = MedalEmbed::new(medal, Some(achieved), Vec::new(), None);
+    let hide_solutions = match orig.guild_id() {
+        Some(guild) => {
+            ctx.guild_config()
+                .peek(guild, |config| {
+                    config.hide_medal_solution.unwrap_or(HideSolutions::ShowAll)
+                })
+                .await
+        }
+        None => HideSolutions::ShowAll,
+    };
+
+    let embed_data = MedalEmbed::new(medal, Some(achieved), Vec::new(), None, hide_solutions);
 
     let medals = all_medals
         .into_iter()
@@ -165,6 +177,7 @@ pub(super) async fn recent(
         .achieved_medals(user_medals.into_boxed_slice())
         .embeds(embeds)
         .medals(medals)
+        .hide_solutions(hide_solutions)
         .content(content)
         .msg_owner(owner)
         .build();
