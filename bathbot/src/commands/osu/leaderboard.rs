@@ -219,25 +219,27 @@ async fn leaderboard(
         }
     };
 
-    let mods = match mods {
-        Some(ModSelection::Include(mods) | ModSelection::Exact(mods)) => Some(mods),
+    let specify_mods = match mods {
+        Some(ModSelection::Include(ref mods) | ModSelection::Exact(ref mods)) => {
+            Some(mods.to_owned())
+        }
         Some(ModSelection::Exclude(_)) | None => None,
     };
 
-    let mods_bits = mods.as_ref().map_or(0, GameModsIntermode::bits);
+    let mods_bits = specify_mods.as_ref().map_or(0, GameModsIntermode::bits);
 
     let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods_bits);
     let attrs_fut = calc.performance();
 
-    let scores_fut = ctx
-        .osu_scores()
-        .map_leaderboard(map_id, map.mode(), mods.clone(), 100);
+    let scores_fut =
+        ctx.osu_scores()
+            .map_leaderboard(map_id, map.mode(), specify_mods.clone(), 100);
 
-    let user_fut = get_user_score(&ctx, osu_id_res, map_id, map.mode(), mods.clone());
+    let user_fut = get_user_score(&ctx, osu_id_res, map_id, map.mode(), specify_mods.clone());
 
     let (scores_res, user_res, attrs) = tokio::join!(scores_fut, user_fut, attrs_fut);
 
-    let scores = match scores_res {
+    let mut scores = match scores_res {
         Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
@@ -246,7 +248,7 @@ async fn leaderboard(
         }
     };
 
-    let user_score = user_res
+    let mut user_score = user_res
         .unwrap_or_else(|err| {
             warn!(?err, "Failed to get user score");
 
@@ -268,6 +270,26 @@ async fn leaderboard(
         });
 
     let amount = scores.len();
+
+    if let Some(ModSelection::Exclude(ref mods)) = mods {
+        if mods.is_empty() {
+            scores.retain(|score| !score.mods.is_empty());
+
+            if let Some(ref score) = user_score {
+                if score.mods.is_empty() {
+                    user_score.take();
+                }
+            }
+        } else {
+            scores.retain(|score| !score.mods.contains_any(mods.iter()));
+
+            if let Some(ref score) = user_score {
+                if score.mods.contains_any(mods.iter()) {
+                    user_score.take();
+                }
+            }
+        }
+    }
 
     let content = if mods.is_some() {
         format!("I found {amount} scores with the specified mods on the map's leaderboard")
