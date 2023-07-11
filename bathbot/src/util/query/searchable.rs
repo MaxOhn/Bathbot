@@ -7,10 +7,7 @@ use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap as Map, GameMode as Mod
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameModIntermode, GameMode, GameMods, Score};
 
 use super::{FilterCriteria, RegularCriteria as RC};
-use crate::{
-    commands::osu::{TopEntry, TopIfEntry},
-    manager::OsuMap,
-};
+use crate::{commands::osu::TopIfEntry, manager::OsuMap};
 
 pub trait Searchable<F> {
     fn matches(&self, criteria: &FilterCriteria<F>) -> bool;
@@ -226,22 +223,6 @@ impl Searchable<RC<'_>> for OsuTrackerCountryScore {
 }
 
 impl Searchable<RC<'_>> for TopIfEntry {
-    #[inline]
-    fn matches(&self, criteria: &FilterCriteria<RC<'_>>) -> bool {
-        let Self {
-            score, map, stars, ..
-        } = self;
-
-        let mut matches = true;
-
-        matches &= criteria.stars.contains(*stars);
-        matches &= (score, map).matches(criteria);
-
-        matches
-    }
-}
-
-impl Searchable<RC<'_>> for TopEntry {
     #[inline]
     fn matches(&self, criteria: &FilterCriteria<RC<'_>>) -> bool {
         let Self {
