@@ -23,7 +23,11 @@ use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
+    util::{
+        interaction::InteractionCommand,
+        query::{IFilterCriteria, Searchable, TopCriteria},
+        ChannelExt, InteractionCommandExt,
+    },
     Context,
 };
 
@@ -73,6 +77,14 @@ pub struct TopOldOsu<'a> {
         Only works on users who have used the `/link` command."
     )]
     discord: Option<Id<UserMarker>>,
+    #[command(
+        desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
+        help = "Filter out scores similarly as you filter maps in osu! itself.\n\
+        You can specify the artist, creator, difficulty, title, or limit values such as \
+        ar, cs, hp, od, bpm, length, stars, pp, acc, score, misses, date or ranked_date \
+        e.g. `ar>10 od>=9 ranked<2017-01-01 creator=monstrata acc>99 acc<=99.5`."
+    )]
+    query: Option<String>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
@@ -152,6 +164,14 @@ pub struct TopOldTaiko<'a> {
         Only works on users who have used the `/link` command."
     )]
     discord: Option<Id<UserMarker>>,
+    #[command(
+        desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
+        help = "Filter out scores similarly as you filter maps in osu! itself.\n\
+        You can specify the artist, creator, difficulty, title, or limit values such as \
+        ar, cs, hp, od, bpm, length, stars, pp, acc, score, misses, date or ranked_date \
+        e.g. `ar>10 od>=9 ranked<2017-01-01 creator=monstrata acc>99 acc<=99.5`."
+    )]
+    query: Option<String>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
@@ -201,6 +221,14 @@ pub struct TopOldCatch<'a> {
         Only works on users who have used the `/link` command."
     )]
     discord: Option<Id<UserMarker>>,
+    #[command(
+        desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
+        help = "Filter out scores similarly as you filter maps in osu! itself.\n\
+        You can specify the artist, creator, difficulty, title, or limit values such as \
+        ar, cs, hp, od, bpm, length, stars, pp, acc, score, misses, date or ranked_date \
+        e.g. `ar>10 od>=9 ranked<2017-01-01 creator=monstrata acc>99 acc<=99.5`."
+    )]
+    query: Option<String>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
@@ -245,6 +273,14 @@ pub struct TopOldMania<'a> {
         Only works on users who have used the `/link` command."
     )]
     discord: Option<Id<UserMarker>>,
+    #[command(
+        desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
+        help = "Filter out scores similarly as you filter maps in osu! itself.\n\
+        You can specify the artist, creator, difficulty, title, or limit values such as \
+        ar, cs, hp, od, bpm, length, stars, pp, acc, score, misses, date or ranked_date \
+        e.g. `ar>10 od>=9 ranked<2017-01-01 creator=monstrata acc>99 acc<=99.5`."
+    )]
+    query: Option<String>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
@@ -414,6 +450,7 @@ impl<'m> TopOld<'m> {
                     version,
                     name,
                     discord,
+                    query: None,
                 };
 
                 Self::Osu(osu)
@@ -425,6 +462,7 @@ impl<'m> TopOld<'m> {
                     version,
                     name,
                     discord,
+                    query: None,
                 };
 
                 Self::Taiko(taiko)
@@ -436,6 +474,7 @@ impl<'m> TopOld<'m> {
                     version,
                     name,
                     discord,
+                    query: None,
                 };
 
                 Self::Catch(catch)
@@ -447,6 +486,7 @@ impl<'m> TopOld<'m> {
                     version,
                     name,
                     discord,
+                    query: None,
                 };
 
                 Self::Mania(mania)
@@ -589,11 +629,27 @@ macro_rules! user_id_ref {
 }
 
 async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
-    let (user_id, mode) = match &args {
-        TopOld::Osu(o) => (user_id_ref!(ctx, orig, o), GameMode::Osu),
-        TopOld::Taiko(t) => (user_id_ref!(ctx, orig, t), GameMode::Taiko),
-        TopOld::Catch(c) => (user_id_ref!(ctx, orig, c), GameMode::Catch),
-        TopOld::Mania(m) => (user_id_ref!(ctx, orig, m), GameMode::Mania),
+    let (user_id, mode, query) = match &args {
+        TopOld::Osu(o) => (
+            user_id_ref!(ctx, orig, o),
+            GameMode::Osu,
+            o.query.as_deref(),
+        ),
+        TopOld::Taiko(t) => (
+            user_id_ref!(ctx, orig, t),
+            GameMode::Taiko,
+            t.query.as_deref(),
+        ),
+        TopOld::Catch(c) => (
+            user_id_ref!(ctx, orig, c),
+            GameMode::Catch,
+            c.query.as_deref(),
+        ),
+        TopOld::Mania(m) => (
+            user_id_ref!(ctx, orig, m),
+            GameMode::Mania,
+            m.query.as_deref(),
+        ),
     };
 
     let owner = orig.user_id()?;
@@ -665,13 +721,25 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
     let adjusted_pp = round(bonus_pp + adjusted_pp);
     let username = user.username();
 
+    // Process query afterwards so that total pp is calculated with *all* scores
+    if let Some(query) = query {
+        let criteria = TopCriteria::create(query);
+        entries.retain(|entry| entry.matches(&criteria));
+    }
+
     // Accumulate all necessary data
-    let content = format!(
-        "`{username}`{plural} {mode}top100 {version}:",
+    let mut content = format!(
+        "`{username}`{plural} {mode}top100 {version}",
         plural = plural(username),
         mode = mode_str(mode),
         version = args.date_range(),
     );
+
+    if let Some(query) = query {
+        TopCriteria::create(query).display(&mut content);
+    }
+
+    content.push(':');
 
     let pagination = TopIfPagination::builder()
         .user(user)

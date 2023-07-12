@@ -242,6 +242,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
         sum + entry.score.pp * 0.95_f32.powi(i)
     });
 
+    // Process query afterwards so that total pp is calculated with *all* scores
     if let Some(query) = args.query.as_deref() {
         let criteria = TopCriteria::create(query);
         entries.retain(|entry| entry.matches(&criteria));
