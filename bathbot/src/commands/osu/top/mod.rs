@@ -97,8 +97,8 @@ pub struct Top {
         desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, creator, difficulty, title, or limit values such as \
-        ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
-        While ar & co will be adjusted to mods, stars will not."
+        ar, cs, hp, od, bpm, length, stars, pp, acc, score, misses, date or ranked_date \
+        e.g. `ar>10 od>=9 ranked<2017-01-01 creator=monstrata acc>99 acc<=99.5`."
     )]
     query: Option<String>,
     #[command(desc = "Consider only scores with this grade")]
