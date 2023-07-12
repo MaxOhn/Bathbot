@@ -24,10 +24,7 @@ pub struct FilterCriteria<F> {
     search_text: String,
 }
 
-impl<'q, F> FilterCriteria<F>
-where
-    F: Default + IFilterCriteria<'q>,
-{
+impl<'q, F: IFilterCriteria<'q>> FilterCriteria<F> {
     fn new(query: &'q str) -> Self {
         let mut search_text = query.to_owned();
         let mut inner = F::default();

@@ -1,9 +1,10 @@
-use std::{borrow::Cow, fmt::Write};
+use std::borrow::Cow;
 
+use super::{display_range, display_text};
 use crate::util::query::{
     operator::Operator,
     optional::{OptionalRange, OptionalText},
-    separate_content, IFilterCriteria,
+    IFilterCriteria,
 };
 
 #[derive(Default)]
@@ -88,59 +89,19 @@ impl<'q> IFilterCriteria<'q> for RegularCriteria<'q> {
             title,
         } = self;
 
-        if !ar.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`AR: {ar:?}`");
-        }
+        display_range(content, "AR", ar);
+        display_range(content, "CS", cs);
+        display_range(content, "HP", hp);
+        display_range(content, "OD", od);
+        display_range(content, "Length", length);
+        display_range(content, "Stars", stars);
+        display_range(content, "BPM", bpm);
+        display_range(content, "Keys", keys);
+        display_range(content, "AR", ar);
+        display_range(content, "AR", ar);
 
-        if !cs.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`CS: {cs:?}`");
-        }
-
-        if !hp.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`HP: {hp:?}`");
-        }
-
-        if !od.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`OD: {od:?}`");
-        }
-
-        if !length.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Length: {length:?}`");
-        }
-
-        if !stars.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Stars: {stars:?}`");
-        }
-
-        if !bpm.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`BPM: {bpm:?}`");
-        }
-
-        if !keys.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Keys: {keys:?}`");
-        }
-
-        if !artist.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Artist: {artist:?}`");
-        }
-
-        if !title.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Title: {title:?}`");
-        }
-
-        if !creator.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Creator: {creator:?}`");
-        }
+        display_text(content, "Artist", artist);
+        display_text(content, "Title", title);
+        display_text(content, "Creator", creator);
     }
 }

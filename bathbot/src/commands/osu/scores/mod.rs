@@ -5,7 +5,7 @@ use std::{
 };
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
-use bathbot_psql::model::osu::DbScores;
+use bathbot_psql::model::osu::{DbScore, DbScoreBeatmap, DbScoreBeatmapset, DbScores};
 use bathbot_util::{CowUtils, IntHasher};
 use eyre::Result;
 use rosu_pp::{beatmap::BeatmapAttributesBuilder, GameMode as GameModePp};
@@ -19,7 +19,7 @@ use crate::{
     core::Context,
     util::{
         interaction::InteractionCommand,
-        query::{FilterCriteria, ScoresCriteria},
+        query::{FilterCriteria, ScoresCriteria, Searchable},
         InteractionCommandExt,
     },
 };
@@ -259,6 +259,112 @@ async fn slash_scores(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
     }
 }
 
+impl<'q> Searchable<ScoresCriteria<'q>>
+    for (
+        &'_ DbScore,
+        &'_ HashMap<u32, DbScoreBeatmap, IntHasher>,
+        &'_ HashMap<u32, DbScoreBeatmapset, IntHasher>,
+    )
+{
+    fn matches(&self, criteria: &FilterCriteria<ScoresCriteria<'q>>) -> bool {
+        let (score, maps, mapsets) = *self;
+        let mut matches = true;
+
+        matches &= criteria.combo.contains(score.max_combo);
+        matches &= criteria.miss.contains(score.statistics.count_miss);
+        matches &= criteria.score.contains(score.score);
+        matches &= criteria.date.contains(score.ended_at.date());
+
+        if !criteria.stars.is_empty() {
+            let Some(stars) = score.stars else { return false };
+            matches &= criteria.stars.contains(stars);
+        }
+
+        if !criteria.pp.is_empty() {
+            let Some(pp) = score.pp else { return false };
+            matches &= criteria.pp.contains(pp);
+        }
+
+        if !matches
+            || (criteria.ar.is_empty()
+                && criteria.cs.is_empty()
+                && criteria.hp.is_empty()
+                && criteria.od.is_empty()
+                && criteria.length.is_empty()
+                && criteria.bpm.is_empty()
+                && criteria.version.is_empty()
+                && criteria.artist.is_empty()
+                && criteria.title.is_empty()
+                && criteria.ranked_date.is_empty()
+                && !criteria.has_search_terms())
+        {
+            return matches;
+        }
+
+        let Some(map) = maps.get(&score.map_id) else { return false };
+
+        let attrs = BeatmapAttributesBuilder::default()
+            .ar(map.ar)
+            .cs(map.cs)
+            .hp(map.hp)
+            .od(map.od)
+            .mods(score.mods)
+            .mode(match score.mode {
+                GameMode::Osu => GameModePp::Osu,
+                GameMode::Taiko => GameModePp::Taiko,
+                GameMode::Catch => GameModePp::Catch,
+                GameMode::Mania => GameModePp::Mania,
+            })
+            // TODO: maybe add gamemode to DbBeatmap so we can check for converts
+            .build();
+
+        matches &= criteria.ar.contains(attrs.ar as f32);
+        matches &= criteria.cs.contains(attrs.cs as f32);
+        matches &= criteria.hp.contains(attrs.hp as f32);
+        matches &= criteria.od.contains(attrs.od as f32);
+
+        let clock_rate = attrs.clock_rate as f32;
+        matches &= criteria
+            .length
+            .contains(map.seconds_drain as f32 / clock_rate);
+        matches &= criteria.bpm.contains(map.bpm * clock_rate);
+
+        let version = map.version.cow_to_ascii_lowercase();
+        matches &= criteria.version.matches(&version);
+
+        if criteria.artist.is_empty()
+            && criteria.title.is_empty()
+            && criteria.ranked_date.is_empty()
+            && !criteria.has_search_terms()
+        {
+            return matches;
+        }
+
+        let Some(mapset) = mapsets.get(&map.mapset_id) else { return false };
+
+        if !criteria.ranked_date.is_empty() {
+            let Some(datetime) = mapset.ranked_date else { return false };
+            matches &= criteria.ranked_date.contains(datetime.date());
+        }
+
+        let artist = mapset.artist.cow_to_ascii_lowercase();
+        matches &= criteria.artist.matches(&artist);
+
+        let title = mapset.title.cow_to_ascii_lowercase();
+        matches &= criteria.title.matches(&title);
+
+        if matches && criteria.has_search_terms() {
+            let terms = [artist, title, version];
+
+            matches &= criteria
+                .search_terms()
+                .all(|term| terms.iter().any(|searchable| searchable.contains(term)))
+        }
+
+        matches
+    }
+}
+
 fn process_scores(
     scores: &mut DbScores<IntHasher>,
     creator_id: Option<u32>,
@@ -269,101 +375,7 @@ fn process_scores(
     reverse: Option<bool>,
 ) {
     if let Some(criteria) = criteria {
-        scores.retain(|score, maps, mapsets, _| {
-            let mut matches = true;
-
-            matches &= criteria.combo.contains(score.max_combo);
-            matches &= criteria.miss.contains(score.statistics.count_miss);
-            matches &= criteria.score.contains(score.score);
-            matches &= criteria.date.contains(score.ended_at.date());
-
-            if !criteria.stars.is_empty() {
-                let Some(stars) = score.stars else { return false };
-                matches &= criteria.stars.contains(stars);
-            }
-
-            if !criteria.pp.is_empty() {
-                let Some(pp) = score.pp else { return false };
-                matches &= criteria.pp.contains(pp);
-            }
-
-            if criteria.ar.is_empty()
-                && criteria.cs.is_empty()
-                && criteria.hp.is_empty()
-                && criteria.od.is_empty()
-                && criteria.length.is_empty()
-                && criteria.bpm.is_empty()
-                && criteria.version.is_empty()
-                && criteria.artist.is_empty()
-                && criteria.title.is_empty()
-                && criteria.ranked_date.is_empty()
-                && !criteria.has_search_terms()
-            {
-                return matches;
-            }
-
-            let Some(map) = maps.get(&score.map_id) else { return false };
-
-            let attrs = BeatmapAttributesBuilder::default()
-                .ar(map.ar)
-                .cs(map.cs)
-                .hp(map.hp)
-                .od(map.od)
-                .mods(score.mods)
-                .mode(match score.mode {
-                    GameMode::Osu => GameModePp::Osu,
-                    GameMode::Taiko => GameModePp::Taiko,
-                    GameMode::Catch => GameModePp::Catch,
-                    GameMode::Mania => GameModePp::Mania,
-                })
-                // TODO: maybe add gamemode to DbBeatmap so we can check for converts
-                .build();
-
-            matches &= criteria.ar.contains(attrs.ar as f32);
-            matches &= criteria.cs.contains(attrs.cs as f32);
-            matches &= criteria.hp.contains(attrs.hp as f32);
-            matches &= criteria.od.contains(attrs.od as f32);
-
-            let clock_rate = attrs.clock_rate as f32;
-            matches &= criteria
-                .length
-                .contains(map.seconds_drain as f32 / clock_rate);
-            matches &= criteria.bpm.contains(map.bpm * clock_rate);
-
-            let version = map.version.cow_to_ascii_lowercase();
-            matches &= criteria.version.matches(&version);
-
-            if criteria.artist.is_empty()
-                && criteria.title.is_empty()
-                && criteria.ranked_date.is_empty()
-                && !criteria.has_search_terms()
-            {
-                return matches;
-            }
-
-            let Some(mapset) = mapsets.get(&map.mapset_id) else { return false };
-
-            if !criteria.ranked_date.is_empty() {
-                let Some(datetime) = mapset.ranked_date else { return false };
-                matches &= criteria.ranked_date.contains(datetime.date());
-            }
-
-            let artist = mapset.artist.cow_to_ascii_lowercase();
-            matches &= criteria.artist.matches(&artist);
-
-            let title = mapset.title.cow_to_ascii_lowercase();
-            matches &= criteria.title.matches(&title);
-
-            if matches && criteria.has_search_terms() {
-                let terms = [artist, title, version];
-
-                matches &= criteria
-                    .search_terms()
-                    .all(|term| terms.iter().any(|searchable| searchable.contains(term)))
-            }
-
-            matches
-        });
+        scores.retain(|score, maps, mapsets, _| (score, maps, mapsets).matches(criteria));
     }
 
     if let Some(creator_id) = creator_id {

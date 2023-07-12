@@ -1,11 +1,12 @@
-use std::{borrow::Cow, fmt::Write};
+use std::borrow::Cow;
 
 use time::Date;
 
+use super::{display_range, display_text};
 use crate::util::query::{
     operator::Operator,
     optional::{OptionalRange, OptionalText},
-    separate_content, IFilterCriteria,
+    IFilterCriteria,
 };
 
 #[derive(Default)]
@@ -104,69 +105,21 @@ impl<'q> IFilterCriteria<'q> for BookmarkCriteria<'q> {
             genre,
         } = self;
 
-        if !ar.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`AR: {ar:?}`");
-        }
+        display_range(content, "AR", ar);
+        display_range(content, "CS", cs);
+        display_range(content, "HP", hp);
+        display_range(content, "OD", od);
+        display_range(content, "Length", length);
+        display_range(content, "BPM", bpm);
 
-        if !cs.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`CS: {cs:?}`");
-        }
+        display_text(content, "Artist", artist);
+        display_text(content, "Title", title);
+        display_text(content, "Version", version);
 
-        if !hp.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`HP: {hp:?}`");
-        }
+        display_range(content, "Date", insert_date);
+        display_range(content, "Ranked", ranked_date);
 
-        if !od.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`OD: {od:?}`");
-        }
-
-        if !length.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Length: {length:?}`");
-        }
-
-        if !bpm.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`BPM: {bpm:?}`");
-        }
-
-        if !artist.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Artist: {artist:?}`");
-        }
-
-        if !title.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Title: {title:?}`");
-        }
-
-        if !version.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Version: {version:?}`");
-        }
-
-        if !insert_date.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Date: {insert_date:?}`");
-        }
-
-        if !ranked_date.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Ranked: {ranked_date:?}`");
-        }
-
-        if !language.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Language: {language:?}`");
-        }
-
-        if !genre.is_empty() {
-            separate_content(content);
-            let _ = write!(content, "`Genre: {genre:?}`");
-        }
+        display_text(content, "Language", language);
+        display_text(content, "Genre", genre);
     }
 }

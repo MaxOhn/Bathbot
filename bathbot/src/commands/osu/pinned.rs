@@ -45,7 +45,7 @@ use crate::{
     },
     util::{
         interaction::InteractionCommand,
-        query::{IFilterCriteria, RegularCriteria, Searchable},
+        query::{IFilterCriteria, Searchable, TopCriteria},
         CheckPermissions, InteractionCommandExt,
     },
     Context,
@@ -362,16 +362,12 @@ async fn process_scores(
     top100: &[Score],
     size_single: bool,
 ) -> Result<Vec<TopEntry>> {
-    let filter_criteria = args.query.as_deref().map(RegularCriteria::create);
+    let filter_criteria = args.query.as_deref().map(TopCriteria::create);
 
     let mut entries = Vec::new();
 
     let maps_id_checksum = pinned
         .iter()
-        .filter(|score| match filter_criteria {
-            Some(ref criteria) => score.matches(criteria),
-            None => true,
-        })
         .filter(|score| match mods {
             None => true,
             Some(selection) => selection.filter_score(score),
@@ -424,7 +420,11 @@ async fn process_scores(
             replay,
         };
 
-        entries.push(entry);
+        if let Some(ref criteria) = filter_criteria {
+            if entry.matches(criteria) {
+                entries.push(entry);
+            }
+        }
     }
 
     match args.sort {
@@ -557,7 +557,7 @@ fn content_with_condition(args: &Pinned, amount: usize, mods: Option<ModSelectio
     }
 
     if let Some(query) = args.query.as_deref() {
-        RegularCriteria::create(query).display(&mut content);
+        TopCriteria::create(query).display(&mut content);
     }
 
     let plural = if amount == 1 { "" } else { "s" };
