@@ -7,8 +7,10 @@ use bathbot_util::{
     matcher,
     numbers::round,
     osu::ModSelection,
+    CowUtils,
 };
 use eyre::{Report, Result};
+use rosu_pp::{beatmap::BeatmapAttributesBuilder, GameMode as GameModePp};
 use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, GameModsIntermode, OsuError, Score};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -20,7 +22,7 @@ use crate::{
     manager::{redis::osu::UserArgs, OsuMap},
     util::{
         interaction::InteractionCommand,
-        query::{IFilterCriteria, RegularCriteria, Searchable},
+        query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
         ChannelExt, InteractionCommandExt,
     },
     Context,
@@ -241,8 +243,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     });
 
     if let Some(query) = args.query.as_deref() {
-        let criteria = RegularCriteria::create(query);
-
+        let criteria = TopCriteria::create(query);
         entries.retain(|entry| entry.matches(&criteria));
     }
 
@@ -285,6 +286,116 @@ pub struct TopIfEntry {
     pub stars: f32,
     pub max_pp: f32,
     pub max_combo: u32,
+}
+
+impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
+    fn matches(&self, criteria: &FilterCriteria<TopCriteria<'q>>) -> bool {
+        let mut matches = true;
+
+        matches &= criteria.combo.contains(self.score.max_combo);
+        matches &= criteria.miss.contains(self.score.statistics.count_miss);
+        matches &= criteria.score.contains(self.score.score);
+        matches &= criteria.date.contains(self.score.ended_at.date());
+        matches &= criteria.stars.contains(self.stars);
+        matches &= criteria.pp.contains(self.score.pp);
+        matches &= criteria.acc.contains(self.score.accuracy);
+
+        if !criteria.ranked_date.is_empty() {
+            let Some(datetime) = self.map.ranked_date() else { return false };
+            matches &= criteria.ranked_date.contains(datetime.date());
+        }
+
+        let keys = [
+            (GameModIntermode::OneKey, 1.0),
+            (GameModIntermode::TwoKeys, 2.0),
+            (GameModIntermode::ThreeKeys, 3.0),
+            (GameModIntermode::FourKeys, 4.0),
+            (GameModIntermode::FiveKeys, 5.0),
+            (GameModIntermode::SixKeys, 6.0),
+            (GameModIntermode::SevenKeys, 7.0),
+            (GameModIntermode::EightKeys, 8.0),
+            (GameModIntermode::NineKeys, 9.0),
+            (GameModIntermode::TenKeys, 10.0),
+        ]
+        .into_iter()
+        .find_map(|(gamemod, keys)| self.score.mods.contains_intermode(gamemod).then_some(keys))
+        .unwrap_or(self.map.cs());
+
+        matches &= self.map.mode() != GameMode::Mania || criteria.keys.contains(keys);
+
+        if !matches
+            || (criteria.ar.is_empty()
+                && criteria.cs.is_empty()
+                && criteria.hp.is_empty()
+                && criteria.od.is_empty()
+                && criteria.length.is_empty()
+                && criteria.bpm.is_empty()
+                && criteria.artist.is_empty()
+                && criteria.creator.is_empty()
+                && criteria.version.is_empty()
+                && criteria.title.is_empty()
+                && !criteria.has_search_terms())
+        {
+            return matches;
+        }
+
+        let attrs = BeatmapAttributesBuilder::default()
+            .ar(self.map.ar())
+            .cs(self.map.cs())
+            .hp(self.map.hp())
+            .od(self.map.od())
+            .mods(self.score.mods.bits())
+            .mode(match self.score.mode {
+                GameMode::Osu => GameModePp::Osu,
+                GameMode::Taiko => GameModePp::Taiko,
+                GameMode::Catch => GameModePp::Catch,
+                GameMode::Mania => GameModePp::Mania,
+            })
+            .converted(self.score.mode != self.map.mode())
+            .build();
+
+        matches &= criteria.ar.contains(attrs.ar as f32);
+        matches &= criteria.cs.contains(attrs.cs as f32);
+        matches &= criteria.hp.contains(attrs.hp as f32);
+        matches &= criteria.od.contains(attrs.od as f32);
+
+        let clock_rate = attrs.clock_rate as f32;
+        matches &= criteria
+            .length
+            .contains(self.map.seconds_drain() as f32 / clock_rate);
+        matches &= criteria.bpm.contains(self.map.bpm() * clock_rate);
+
+        if criteria.artist.is_empty()
+            && criteria.creator.is_empty()
+            && criteria.title.is_empty()
+            && criteria.version.is_empty()
+            && !criteria.has_search_terms()
+        {
+            return matches;
+        }
+
+        let artist = self.map.artist().cow_to_ascii_lowercase();
+        matches &= criteria.artist.matches(&artist);
+
+        let creator = self.map.creator().cow_to_ascii_lowercase();
+        matches &= criteria.creator.matches(&creator);
+
+        let version = self.map.version().cow_to_ascii_lowercase();
+        matches &= criteria.version.matches(&version);
+
+        let title = self.map.title().cow_to_ascii_lowercase();
+        matches &= criteria.title.matches(&title);
+
+        if matches && criteria.has_search_terms() {
+            let terms = [artist, creator, version, title];
+
+            matches &= criteria
+                .search_terms()
+                .all(|term| terms.iter().any(|searchable| searchable.contains(term)))
+        }
+
+        matches
+    }
 }
 
 async fn process_scores(
@@ -463,10 +574,10 @@ fn get_content(name: &str, mode: GameMode, mods: &ModSelection, query: Option<&s
     };
 
     if let Some(query) = query {
-        let _ = write!(content, " (`Query: {query}`):");
-    } else {
-        content.push(':');
+        TopCriteria::create(query).display(&mut content);
     }
+
+    content.push(':');
 
     content
 }
