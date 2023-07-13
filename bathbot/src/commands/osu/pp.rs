@@ -12,7 +12,7 @@ use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, PpMissingEmbed},
-    manager::redis::osu::UserArgs,
+    manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -23,8 +23,13 @@ use crate::{
     desc = "How many pp is a user missing to reach the given amount?"
 )]
 pub struct Pp<'a> {
-    #[command(desc = "Specify a target total pp amount")]
-    pp: f32,
+    #[command(
+        desc = "Specify a target total pp amount",
+        help = "Specify a target total pp amount.\n\
+        Alternatively, prefix the value with a `+` so that it'll be interpreted as \"delta\" \
+        meaning the current total pp + the given value"
+    )]
+    pp: Cow<'a, str>,
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
@@ -50,8 +55,8 @@ impl<'m> Pp<'m> {
         let mut pp = None;
 
         for arg in args.take(2) {
-            if let Ok(num) = arg.parse() {
-                pp = Some(num);
+            if arg.parse::<f32>().is_ok() {
+                pp = Some(Cow::Borrowed(arg));
             } else if let Some(id) = matcher::get_mention_user(arg) {
                 discord = Some(id);
             } else {
@@ -78,11 +83,12 @@ async fn slash_pp(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 #[command]
 #[desc("How many pp are missing to reach the given amount?")]
 #[help(
-    "Calculate what score a user is missing to \
-     reach the given total pp amount"
+    "Calculate what score a user is missing to reach the given total pp amount.\n\
+    Alternatively, prefix the value with a `+` so that it'll be interpreted as \"delta\" \
+    meaning the current total pp + the given value"
 )]
-#[usage("[username] [number]")]
-#[example("badewanne3 8000")]
+#[usage("[username] [+][number]")]
+#[example("badewanne3 8000", "+72.7")]
 #[group(Osu)]
 pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Pp::args(None, args) {
@@ -98,11 +104,12 @@ pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resu
 #[command]
 #[desc("How many pp are missing to reach the given amount?")]
 #[help(
-    "Calculate what score a mania user is missing to \
-     reach the given total pp amount"
+    "Calculate what score a mania user is missing to reach the given total pp amount.\n\
+    Alternatively, prefix the value with a `+` so that it'll be interpreted as \"delta\" \
+    meaning the current total pp + the given value"
 )]
-#[usage("[username] [number]")]
-#[example("badewanne3 8000")]
+#[usage("[username] [+][number]")]
+#[example("badewanne3 8000", "+72.7")]
 #[alias("ppm")]
 #[group(Mania)]
 pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
@@ -119,11 +126,12 @@ pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[command]
 #[desc("How many pp are missing to reach the given amount?")]
 #[help(
-    "Calculate what score a taiko user is missing to \
-     reach the given total pp amount"
+    "Calculate what score a taiko user is missing to reach the given total pp amount.\n\
+    Alternatively, prefix the value with a `+` so that it'll be interpreted as \"delta\" \
+    meaning the current total pp + the given value"
 )]
-#[usage("[username] [number]")]
-#[example("badewanne3 8000")]
+#[usage("[username] [+][number]")]
+#[example("badewanne3 8000", "+72.7")]
 #[alias("ppt")]
 #[group(Taiko)]
 pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
@@ -140,11 +148,12 @@ pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[command]
 #[desc("How many pp are missing to reach the given amount?")]
 #[help(
-    "Calculate what score a ctb user is missing to \
-     reach the given total pp amount"
+    "Calculate what score a ctb user is missing to reach the given total pp amount.\n\
+    Alternatively, prefix the value with a `+` so that it'll be interpreted as \"delta\" \
+    meaning the current total pp + the given value"
 )]
-#[usage("[username] [number]")]
-#[example("badewanne3 8000")]
+#[usage("[username] [+][number]")]
+#[example("badewanne3 8000", "+72.7")]
 #[aliases("ppc", "ppcatch")]
 #[group(Catch)]
 pub async fn prefix_ppctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
@@ -163,20 +172,25 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
 
     let Pp { pp, each, .. } = args;
 
-    if pp < 0.0 {
+    let Some(pp) = PpValue::parse(pp.as_ref()) else {
+        let content = "Failed to parse pp. Be sure to specify a decimal number.";
+
+        return orig.error(&ctx, content).await;
+    };
+
+    let pp_value = pp.value();
+
+    if pp_value < 0.0 {
         return orig.error(&ctx, "The pp number must be non-negative").await;
-    } else if pp > (i64::MAX / 1024) as f32 {
+    } else if pp_value > (i64::MAX / 1024) as f32 {
         return orig.error(&ctx, "Number too large").await;
     }
 
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
     let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
-    let rank_fut = ctx.approx().rank(pp, mode);
 
-    let (user_scores_res, rank_res) = tokio::join!(scores_fut, rank_fut);
-
-    let (user, scores) = match user_scores_res {
+    let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = user_not_found(&ctx, user_id).await;
@@ -191,7 +205,21 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
         }
     };
 
-    let rank = match rank_res {
+    let target_pp = match pp {
+        PpValue::Raw(value) => value,
+        PpValue::Delta(value) => match user {
+            RedisData::Original(ref user) => user
+                .statistics
+                .as_ref()
+                .map_or(value, |stats| stats.pp + value),
+            RedisData::Archive(ref user) => user
+                .statistics
+                .as_ref()
+                .map_or(value, |stats| stats.pp + value),
+        },
+    };
+
+    let rank = match ctx.approx().rank(target_pp, mode).await {
         Ok(rank_pp) => Some(rank_pp),
         Err(err) => {
             warn!(?err, "Failed to get rank pp");
@@ -201,7 +229,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
     };
 
     // Accumulate all necessary data
-    let embed_data = PpMissingEmbed::new(&user, &scores, pp, rank, each);
+    let embed_data = PpMissingEmbed::new(&user, &scores, target_pp, rank, each);
 
     // Creating the embed
     let embed = embed_data.build();
@@ -209,4 +237,31 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
     orig.create_message(&ctx, builder).await?;
 
     Ok(())
+}
+
+#[derive(Copy, Clone)]
+enum PpValue {
+    Delta(f32),
+    Raw(f32),
+}
+
+impl PpValue {
+    fn parse(input: &str) -> Option<Self> {
+        let pp = input.parse().ok()?;
+
+        let this = if input.starts_with('+') {
+            Self::Delta(pp)
+        } else {
+            Self::Raw(pp)
+        };
+
+        Some(this)
+    }
+
+    fn value(self) -> f32 {
+        match self {
+            PpValue::Delta(value) => value,
+            PpValue::Raw(value) => value,
+        }
+    }
 }
