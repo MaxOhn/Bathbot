@@ -1,16 +1,17 @@
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
-use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     numbers::round,
+    osu::ModSelection,
 };
 use eyre::{Report, Result};
 use rosu_pp_older::*;
 use rosu_v2::{
-    prelude::{GameMode, OsuError, Score},
+    prelude::{GameMode, OsuError, Score, GameMod},
     request::UserId,
 };
 use time::OffsetDateTime;
@@ -20,12 +21,12 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::TopIfEntry;
 use crate::{
     active::{impls::TopIfPagination, ActiveMessages},
-    commands::osu::{require_link, user_not_found},
+    commands::osu::{require_link, user_not_found, HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     util::{
         interaction::InteractionCommand,
-        query::{IFilterCriteria, Searchable, TopCriteria},
+        query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
         ChannelExt, InteractionCommandExt,
     },
     Context,
@@ -48,7 +49,16 @@ pub enum TopOld<'a> {
     Mania(TopOldMania<'a>),
 }
 
-#[derive(CommandModel, CreateCommand, HasName)]
+#[derive(Copy, Clone, Default, CommandOption, CreateOption, Eq, PartialEq)]
+pub enum TopOldScoreOrder {
+    #[default]
+    #[option(name = "PP", value = "pp")]
+    Pp,
+    #[option(name = "Stars", value = "stars")]
+    Stars,
+}
+
+#[derive(CommandModel, CreateCommand, HasMods, HasName)]
 #[command(
     name = "osu",
     desc = "How the current osu!standard top plays would look like on a previous pp system",
@@ -85,6 +95,25 @@ pub struct TopOldOsu<'a> {
         e.g. `ar>10 od>=9 ranked<2017-01-01 creator=monstrata acc>99 acc<=99.5`."
     )]
     query: Option<String>,
+    #[command(
+        desc = "Choose how the scores should be ordered",
+        help = "Choose how the scores should be ordered, defaults to `pp`."
+    )]
+    sort: Option<TopOldScoreOrder>,
+    #[command(
+        desc = "Filter mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out all scores that don't match the specified mods.\n\
+        Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
+        or `-mods!` for excluded mods.\n\
+        Examples:\n\
+        - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+        - `+hdhr!`: Scores must have exactly `HDHR`\n\
+        - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+        - `-nm!`: Scores can not be nomod so there must be any other mod"
+    )]
+    mods: Option<String>,
+    #[command(desc = "Reverse the resulting score list")]
+    reverse: Option<bool>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
@@ -143,7 +172,7 @@ impl TryFrom<i32> for TopOldOsuVersion {
     }
 }
 
-#[derive(CommandModel, CreateCommand, HasName)]
+#[derive(CommandModel, CreateCommand, HasMods, HasName)]
 #[command(
     name = "taiko",
     desc = "How the current osu!taiko top plays would look like on a previous pp system",
@@ -172,6 +201,25 @@ pub struct TopOldTaiko<'a> {
         e.g. `ar>10 od>=9 ranked<2017-01-01 creator=monstrata acc>99 acc<=99.5`."
     )]
     query: Option<String>,
+    #[command(
+        desc = "Choose how the scores should be ordered",
+        help = "Choose how the scores should be ordered, defaults to `pp`."
+    )]
+    sort: Option<TopOldScoreOrder>,
+    #[command(
+        desc = "Filter mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out all scores that don't match the specified mods.\n\
+        Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
+        or `-mods!` for excluded mods.\n\
+        Examples:\n\
+        - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+        - `+hdhr!`: Scores must have exactly `HDHR`\n\
+        - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+        - `-nm!`: Scores can not be nomod so there must be any other mod"
+    )]
+    mods: Option<String>,
+    #[command(desc = "Reverse the resulting score list")]
+    reverse: Option<bool>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
@@ -201,7 +249,7 @@ impl TryFrom<i32> for TopOldTaikoVersion {
     }
 }
 
-#[derive(CommandModel, CreateCommand, HasName)]
+#[derive(CommandModel, CreateCommand, HasMods, HasName)]
 #[command(
     name = "ctb",
     desc = "How the current osu!ctb top plays would look like on a previous pp system",
@@ -229,6 +277,25 @@ pub struct TopOldCatch<'a> {
         e.g. `ar>10 od>=9 ranked<2017-01-01 creator=monstrata acc>99 acc<=99.5`."
     )]
     query: Option<String>,
+    #[command(
+        desc = "Choose how the scores should be ordered",
+        help = "Choose how the scores should be ordered, defaults to `pp`."
+    )]
+    sort: Option<TopOldScoreOrder>,
+    #[command(
+        desc = "Filter mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out all scores that don't match the specified mods.\n\
+        Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
+        or `-mods!` for excluded mods.\n\
+        Examples:\n\
+        - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+        - `+hdhr!`: Scores must have exactly `HDHR`\n\
+        - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+        - `-nm!`: Scores can not be nomod so there must be any other mod"
+    )]
+    mods: Option<String>,
+    #[command(desc = "Reverse the resulting score list")]
+    reverse: Option<bool>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
@@ -252,7 +319,7 @@ impl TryFrom<i32> for TopOldCatchVersion {
     }
 }
 
-#[derive(CommandModel, CreateCommand, HasName)]
+#[derive(CommandModel, CreateCommand, HasMods, HasName)]
 #[command(
     name = "mania",
     desc = "How the current osu!mania top plays would look like on a previous pp system",
@@ -281,6 +348,25 @@ pub struct TopOldMania<'a> {
         e.g. `ar>10 od>=9 ranked<2017-01-01 creator=monstrata acc>99 acc<=99.5`."
     )]
     query: Option<String>,
+    #[command(
+        desc = "Choose how the scores should be ordered",
+        help = "Choose how the scores should be ordered, defaults to `pp`."
+    )]
+    sort: Option<TopOldScoreOrder>,
+    #[command(
+        desc = "Filter mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        help = "Filter out all scores that don't match the specified mods.\n\
+        Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
+        or `-mods!` for excluded mods.\n\
+        Examples:\n\
+        - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+        - `+hdhr!`: Scores must have exactly `HDHR`\n\
+        - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+        - `-nm!`: Scores can not be nomod so there must be any other mod"
+    )]
+    mods: Option<String>,
+    #[command(desc = "Reverse the resulting score list")]
+    reverse: Option<bool>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
@@ -451,6 +537,9 @@ impl<'m> TopOld<'m> {
                     name,
                     discord,
                     query: None,
+                    sort: None,
+                    mods: None,
+                    reverse: None,
                 };
 
                 Self::Osu(osu)
@@ -463,6 +552,9 @@ impl<'m> TopOld<'m> {
                     name,
                     discord,
                     query: None,
+                    sort: None,
+                    mods: None,
+                    reverse: None,
                 };
 
                 Self::Taiko(taiko)
@@ -475,6 +567,9 @@ impl<'m> TopOld<'m> {
                     name,
                     discord,
                     query: None,
+                    sort: None,
+                    mods: None,
+                    reverse: None,
                 };
 
                 Self::Catch(catch)
@@ -487,6 +582,9 @@ impl<'m> TopOld<'m> {
                     name,
                     discord,
                     query: None,
+                    sort: None,
+                    mods: None,
+                    reverse: None,
                 };
 
                 Self::Mania(mania)
@@ -629,29 +727,23 @@ macro_rules! user_id_ref {
 }
 
 async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
-    let (user_id, mode, query) = match &args {
-        TopOld::Osu(o) => (
-            user_id_ref!(ctx, orig, o),
-            GameMode::Osu,
-            o.query.as_deref(),
-        ),
-        TopOld::Taiko(t) => (
-            user_id_ref!(ctx, orig, t),
-            GameMode::Taiko,
-            t.query.as_deref(),
-        ),
-        TopOld::Catch(c) => (
-            user_id_ref!(ctx, orig, c),
-            GameMode::Catch,
-            c.query.as_deref(),
-        ),
-        TopOld::Mania(m) => (
-            user_id_ref!(ctx, orig, m),
-            GameMode::Mania,
-            m.query.as_deref(),
-        ),
+    let (user_id, common) = match &args {
+        TopOld::Osu(args) => (user_id_ref!(ctx, orig, args), args.to_common()),
+        TopOld::Taiko(args) => (user_id_ref!(ctx, orig, args), args.to_common()),
+        TopOld::Catch(args) => (user_id_ref!(ctx, orig, args), args.to_common()),
+        TopOld::Mania(args) => (user_id_ref!(ctx, orig, args), args.to_common()),
     };
 
+    let Some(common) = common else {
+        let content = "Failed to parse mods.\n\
+            If you want included mods, specify it e.g. as `+hrdt`.\n\
+            If you want exact mods, specify it e.g. as `+hdhr!`.\n\
+            And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
+        
+        return orig.error(&ctx, content).await;
+    };
+
+    let mode = common.mode;
     let owner = orig.user_id()?;
 
     let user_id = match user_id {
@@ -721,11 +813,8 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
     let adjusted_pp = round(bonus_pp + adjusted_pp);
     let username = user.username();
 
-    // Process query afterwards so that total pp is calculated with *all* scores
-    if let Some(query) = query {
-        let criteria = TopCriteria::create(query);
-        entries.retain(|entry| entry.matches(&criteria));
-    }
+    // Process filter/sorting afterwards
+    common.process(&mut entries);
 
     // Accumulate all necessary data
     let mut content = format!(
@@ -735,8 +824,8 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         version = args.date_range(),
     );
 
-    if let Some(query) = query {
-        TopCriteria::create(query).display(&mut content);
+    if let Some(criteria) = common.query {
+        criteria.display(&mut content);
     }
 
     content.push(':');
@@ -907,4 +996,86 @@ fn mode_str(mode: GameMode) -> &'static str {
         GameMode::Catch => "ctb ",
         GameMode::Mania => "mania ",
     }
+}
+
+struct CommonArgs<'a> {
+    mode: GameMode,
+    sort: Option<TopOldScoreOrder>,
+    mods: Option<ModSelection>,
+    query: Option<FilterCriteria<TopCriteria<'a>>>,
+    reverse: Option<bool>,
+}
+
+impl CommonArgs<'_> {
+    fn process(&self, entries: &mut Vec<TopIfEntry>) {
+        if let Some(ref criteria) = self.query {
+            entries.retain(|entry| entry.matches(criteria));
+        }
+
+        if let Some(ref selection) = self.mods {
+            match selection {
+                ModSelection::Include(mods) | ModSelection::Exact(mods) if mods.is_empty() => {
+                    entries.retain(|entry| entry.score.mods.is_empty())
+                }
+                ModSelection::Include(mods) => entries.retain(|entry| {
+                    mods.iter()
+                        .all(|gamemod| entry.score.mods.contains_intermode(gamemod))
+                }),
+                ModSelection::Exclude(mods) if mods.is_empty() => {
+                    entries.retain(|entry| !entry.score.mods.is_empty())
+                }
+                ModSelection::Exclude(mods) => entries.retain(|entry| {
+                    !mods
+                        .iter()
+                        .any(|gamemod| entry.score.mods.contains_intermode(gamemod))
+                }),
+                ModSelection::Exact(mods) => {
+                    entries.retain(|entry| entry.score.mods.iter().map(GameMod::intermode).eq(mods.iter()))
+                }
+            }
+        }
+
+        match self.sort.unwrap_or_default() {
+            TopOldScoreOrder::Pp => {} // already sorted
+            TopOldScoreOrder::Stars => entries.sort_unstable_by(|a, b| b.stars.total_cmp(&a.stars)),
+        }
+
+        if self.reverse.unwrap_or(false) {
+            entries.reverse();
+        }
+    }
+}
+
+macro_rules! impl_from {
+    ( $( $ty:ident: $mode:ident ,)* ) => {
+        $(
+            impl $ty<'_> {
+                #[doc = "Returns `None` if the mods have an invalid format"]
+                fn to_common(&self) -> Option<CommonArgs<'_>> {
+                    let mods = match self.mods() {
+                        ModsResult::Mods(mods) => Some(mods),
+                        ModsResult::None => None,
+                        ModsResult::Invalid => return None,
+                    };
+
+                    let args = CommonArgs {
+                        mode: GameMode::$mode,
+                        sort: self.sort,
+                        mods,
+                        query: self.query.as_deref().map(TopCriteria::create),
+                        reverse: self.reverse,
+                    };
+
+                    Some(args)
+                }
+            }
+        )*
+    };
+}
+
+impl_from! {
+    TopOldOsu: Osu,
+    TopOldTaiko: Taiko,
+    TopOldCatch: Catch,
+    TopOldMania: Mania,
 }

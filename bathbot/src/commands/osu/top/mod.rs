@@ -71,7 +71,7 @@ pub struct Top {
     )]
     sort: Option<TopScoreOrder>,
     #[command(
-        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        desc = "Filter mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
         help = "Filter out all scores that don't match the specified mods.\n\
         Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
         or `-mods!` for excluded mods.\n\
@@ -123,7 +123,7 @@ pub struct Top {
     size: Option<ListSize>,
 }
 
-#[derive(Copy, Clone, CommandOption, CreateOption, Eq, PartialEq)]
+#[derive(Copy, Clone, Default, CommandOption, CreateOption, Eq, PartialEq)]
 pub enum TopScoreOrder {
     #[option(name = "Accuracy", value = "acc")]
     Acc,
@@ -141,19 +141,13 @@ pub enum TopScoreOrder {
     RankedDate,
     #[option(name = "Misses", value = "miss")]
     Misses,
+    #[default]
     #[option(name = "PP", value = "pp")]
     Pp,
     #[option(name = "Score", value = "score")]
     Score,
     #[option(name = "Stars", value = "stars")]
     Stars,
-}
-
-impl Default for TopScoreOrder {
-    #[inline]
-    fn default() -> Self {
-        Self::Pp
-    }
 }
 
 impl From<ScoreOrder> for TopScoreOrder {
