@@ -21,7 +21,7 @@ pub trait IFilterCriteria<'q>: Sized + Default {
 #[derive(Default)]
 pub struct FilterCriteria<F> {
     inner: F,
-    search_text: String,
+    search_text: Box<str>,
 }
 
 impl<'q, F: IFilterCriteria<'q>> FilterCriteria<F> {
@@ -82,7 +82,10 @@ impl<'q, F: IFilterCriteria<'q>> FilterCriteria<F> {
 
         adjust_search_text(&mut search_text);
 
-        Self { inner, search_text }
+        Self {
+            inner,
+            search_text: search_text.into_boxed_str(),
+        }
     }
 
     pub fn has_search_terms(&self) -> bool {
@@ -105,7 +108,7 @@ impl<'q, F: IFilterCriteria<'q>> FilterCriteria<F> {
                 content.push_str("`Query: ");
             }
 
-            content.push_str(&self.search_text);
+            content.push_str(self.search_text.as_ref());
             content.push('`');
         }
     }
