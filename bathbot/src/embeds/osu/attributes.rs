@@ -13,7 +13,12 @@ pub struct AttributesEmbed {
 }
 
 impl AttributesEmbed {
-    pub fn new(kind: AttributeKind, value: f32, mods: GameModsIntermode) -> Self {
+    pub fn new(
+        kind: AttributeKind,
+        value: f32,
+        mods: GameModsIntermode,
+        clock_rate: Option<f32>,
+    ) -> Self {
         let mut builder = BeatmapAttributesBuilder::default();
 
         match kind {
@@ -24,6 +29,10 @@ impl AttributesEmbed {
         };
 
         builder.mods(mods.bits());
+
+        if let Some(clock_rate) = clock_rate {
+            builder.clock_rate(clock_rate as f64);
+        }
 
         let title = format!(
             "Adjusting {}",
