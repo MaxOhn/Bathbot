@@ -56,8 +56,13 @@ impl AttributesEmbed {
             value: round(adjusted as f32).to_string(),
         };
 
-        if let AttributeKind::Ar = kind {
-            let ms = attrs.hit_windows.ar;
+        let ms = match kind {
+            AttributeKind::Ar => Some(attrs.hit_windows.ar),
+            AttributeKind::Od => Some(attrs.hit_windows.od),
+            AttributeKind::Cs | AttributeKind::Hp => None,
+        };
+
+        if let Some(ms) = ms {
             let _ = write!(mods_field.value, " ({}ms)", round(ms as f32));
         }
 
