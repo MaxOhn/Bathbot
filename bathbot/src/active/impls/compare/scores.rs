@@ -341,7 +341,7 @@ impl Display for MissFormat<'_> {
         let miss = self.score.statistics.count_miss;
 
         if miss > 0 || !self.score.is_fc(self.mode, self.max_combo) {
-            write!(f, "{miss}{}", Emote::Miss.text())
+            write!(f, "{miss}{}", Emote::Miss)
         } else {
             f.write_str("**FC**")
         }

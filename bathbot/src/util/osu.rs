@@ -30,22 +30,10 @@ use crate::{
     core::{BotConfig, Context},
     embeds::HitResultFormatter,
     manager::{redis::RedisData, OsuMap},
-    util::Emote,
 };
 
 pub fn grade_emote(grade: Grade) -> &'static str {
     BotConfig::get().grade(grade)
-}
-
-pub fn mode_emote(mode: GameMode) -> &'static str {
-    let emote = match mode {
-        GameMode::Osu => Emote::Std,
-        GameMode::Taiko => Emote::Tko,
-        GameMode::Catch => Emote::Ctb,
-        GameMode::Mania => Emote::Mna,
-    };
-
-    emote.text()
 }
 
 pub fn grade_completion_mods(

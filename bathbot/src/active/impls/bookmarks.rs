@@ -34,7 +34,7 @@ use crate::{
     },
     core::Context,
     manager::redis::{osu::UserArgs, RedisData},
-    util::{interaction::InteractionComponent, osu::mode_emote, Authored, ComponentExt, Emote},
+    util::{interaction::InteractionComponent, Authored, ComponentExt, Emote},
 };
 
 #[derive(PaginationBuilder)]
@@ -185,7 +185,7 @@ impl BookmarksPagination {
             map.count_spinners,
         );
 
-        let info_name = format!("{mode} Map info", mode = mode_emote(map.mode));
+        let info_name = format!("{mode} Map info", mode = Emote::from(map.mode));
 
         #[cfg(not(feature = "server"))]
         let url = "https://www.google.com";

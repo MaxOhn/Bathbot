@@ -1,4 +1,9 @@
-pub use self::{check_permissions::CheckPermissions, emote::Emote, ext::*, monthly::Monthly};
+pub use self::{
+    check_permissions::CheckPermissions,
+    emote::{CustomEmote, Emote},
+    ext::*,
+    monthly::Monthly,
+};
 
 pub mod interaction;
 pub mod osu;

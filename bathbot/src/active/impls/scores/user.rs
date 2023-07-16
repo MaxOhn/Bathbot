@@ -217,7 +217,7 @@ impl Display for OrderAppendix<'_> {
                 f,
                 "{miss}{emote}",
                 miss = self.score.statistics.count_miss,
-                emote = Emote::Miss.text()
+                emote = Emote::Miss
             ),
             ScoresOrder::Od => {
                 let attrs = BeatmapAttributesBuilder::default()
@@ -292,7 +292,7 @@ impl GameModeFormatter {
 impl Display for GameModeFormatter {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.mode {
-            Some(mode) => write!(f, "{} ", Emote::from(mode).text()),
+            Some(mode) => write!(f, "{} ", Emote::from(mode)),
             None => Ok(()),
         }
     }

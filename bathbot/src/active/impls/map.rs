@@ -28,7 +28,7 @@ use crate::{
     manager::redis::{osu::UserArgs, RedisData},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::mode_emote,
+        Emote,
     },
 };
 
@@ -220,7 +220,7 @@ impl MapPagination {
 
         let mut info_name = format!(
             "{mode} __[{version}]__",
-            mode = mode_emote(map.mode),
+            mode = Emote::from(map.mode),
             version = map.version.as_str().cow_escape_markdown()
         );
 

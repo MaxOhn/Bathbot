@@ -264,7 +264,7 @@ impl GameModeFormatter {
 impl Display for GameModeFormatter {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.mode {
-            Some(mode) => f.write_str(Emote::from(mode).text()),
+            Some(mode) => Display::fmt(&Emote::from(mode), f),
             None => Ok(()),
         }
     }
@@ -309,7 +309,7 @@ impl Display for MissFormatter {
             f,
             " • {misses}{emote}",
             misses = self.misses,
-            emote = Emote::Miss.text()
+            emote = Emote::Miss
         )
     }
 }

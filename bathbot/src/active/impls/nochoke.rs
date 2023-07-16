@@ -151,7 +151,7 @@ impl Display for MissFormat {
             f,
             " • *Removed {miss}{emote}*",
             miss = self.0,
-            emote = Emote::Miss.text()
+            emote = Emote::Miss
         )
     }
 }

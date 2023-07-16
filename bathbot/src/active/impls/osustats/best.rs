@@ -159,7 +159,7 @@ impl Display for OrderAppendix<'_> {
                 f,
                 "{miss}{emote}",
                 miss = self.score.count_miss,
-                emote = Emote::Miss.text()
+                emote = Emote::Miss
             ),
             OsuStatsBestSort::Score => write!(f, "`{}`", WithComma::new(self.score.score)),
             OsuStatsBestSort::Accuracy

@@ -239,7 +239,7 @@ impl ProfileMenu {
             level = stats.level().float(),
             playcount = WithComma::new(stats.playcount()),
             playtime = stats.playtime() / 60 / 60,
-            mode = Emote::from(mode).text(),
+            mode = Emote::from(mode),
         );
 
         if let Some(skin_url) = skin_url {
@@ -320,10 +320,7 @@ impl ProfileMenu {
             }
         };
 
-        let mut description = format!(
-            "__**{mode} User statistics",
-            mode = Emote::from(mode).text(),
-        );
+        let mut description = format!("__**{mode} User statistics", mode = Emote::from(mode));
 
         if let Some(discord_id) = self.discord_id {
             let _ = write!(description, " for <@{discord_id}>");
@@ -411,7 +408,7 @@ impl ProfileMenu {
         let _ = write!(
             description,
             "__**{mode} Top100 statistics",
-            mode = Emote::from(mode).text(),
+            mode = Emote::from(mode),
         );
 
         if let Some(discord_id) = self.discord_id {
@@ -589,7 +586,7 @@ impl ProfileMenu {
 
     async fn top100_mods(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
         let mode = self.user.mode();
-        let mut description = format!("__**{mode} Top100 mods", mode = Emote::from(mode).text(),);
+        let mut description = format!("__**{mode} Top100 mods", mode = Emote::from(mode));
 
         if let Some(discord_id) = self.discord_id {
             let _ = write!(description, " for <@{discord_id}>");
@@ -693,7 +690,7 @@ impl ProfileMenu {
     async fn top100_mappers(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
         let mut description = format!(
             "__**{mode} Top100 mappers",
-            mode = Emote::from(self.user.mode()).text(),
+            mode = Emote::from(self.user.mode()),
         );
 
         if let Some(discord_id) = self.discord_id {
@@ -815,10 +812,7 @@ impl ProfileMenu {
             }
         };
 
-        let mut description = format!(
-            "__**{mode} Mapper statistics",
-            mode = Emote::from(mode).text(),
-        );
+        let mut description = format!("__**{mode} Mapper statistics", mode = Emote::from(mode));
 
         if let Some(discord_id) = self.discord_id {
             let _ = write!(description, " for <@{discord_id}>");
