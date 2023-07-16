@@ -424,6 +424,8 @@ async fn process_scores(
             if entry.matches(criteria) {
                 entries.push(entry);
             }
+        } else {
+            entries.push(entry);
         }
     }
 

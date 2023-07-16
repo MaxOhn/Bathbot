@@ -1115,11 +1115,12 @@ impl<'q> Searchable<TopCriteria<'q>> for TopEntry {
             .contains(self.map.seconds_drain() as f32 / clock_rate);
         matches &= criteria.bpm.contains(self.map.bpm() * clock_rate);
 
-        if criteria.artist.is_empty()
-            && criteria.creator.is_empty()
-            && criteria.title.is_empty()
-            && criteria.version.is_empty()
-            && !criteria.has_search_terms()
+        if !matches
+            || (criteria.artist.is_empty()
+                && criteria.creator.is_empty()
+                && criteria.title.is_empty()
+                && criteria.version.is_empty()
+                && !criteria.has_search_terms())
         {
             return matches;
         }
@@ -1256,6 +1257,8 @@ async fn process_scores(
             if entry.matches(criteria) {
                 entries.push(entry);
             }
+        } else {
+            entries.push(entry);
         }
     }
 
