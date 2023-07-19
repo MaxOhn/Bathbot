@@ -146,10 +146,6 @@ pub fn is_hit_results(msg: &str) -> bool {
     HIT_RESULTS_MATCHER.get().is_match(msg)
 }
 
-pub fn tourney_badge(description: &str) -> bool {
-    !IGNORE_BADGE_MATCHER.get().is_match_at(description, 0)
-}
-
 pub fn highlight_funny_numeral(content: &str) -> Cow<'_, str> {
     SEVEN_TWO_SEVEN.get().replace_all(content, "__${num}__")
 }
@@ -197,8 +193,6 @@ define_regex! {
     HIT_RESULTS_MATCHER: r".*\{(\d+/){2,}\d+}.*";
 
     EMOJI_MATCHER: r"<(a?):([^:\n]+):(\d+)>";
-
-    IGNORE_BADGE_MATCHER: r"^(?i:contrib|nomination|assessment|global|moderation|beatmap|spotlight|map|pending|aspire|elite|monthly|exemplary|outstanding|longstanding|idol[^@]+)|(?i:(?:fan| |^)art contest)";
 
     SEVEN_TWO_SEVEN: "(?P<num>7[.,]?2[.,]?7)";
 

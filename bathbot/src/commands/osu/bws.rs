@@ -3,7 +3,7 @@ use std::{borrow::Cow, mem, sync::Arc};
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher, MessageBuilder,
+    matcher, MessageBuilder, TourneyBadges,
 };
 use eyre::{Report, Result};
 use rosu_v2::{prelude::OsuError, request::UserId};
@@ -174,17 +174,17 @@ async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> Resul
         }
     };
 
-    let badges_curr = match &user {
-        RedisData::Original(user) => user
-            .badges
-            .iter()
-            .filter(|badge| matcher::tourney_badge(&badge.description))
-            .count(),
-        RedisData::Archive(user) => user
-            .badges
-            .iter()
-            .filter(|badge| matcher::tourney_badge(badge.description.as_ref()))
-            .count(),
+    let badges_curr = match user {
+        RedisData::Original(ref user) => {
+            let badges = user.badges.iter().map(|badge| &badge.description);
+
+            TourneyBadges::count(badges)
+        }
+        RedisData::Archive(ref user) => {
+            let badges = user.badges.iter().map(|badge| &badge.description);
+
+            TourneyBadges::count(badges)
+        }
     };
 
     let (badges_min, badges_max) = match badges {
