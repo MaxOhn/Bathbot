@@ -10,6 +10,7 @@ mod html_to_png;
 mod macros;
 mod matrix;
 mod msg_origin;
+mod tourney_badges;
 
 pub mod constants;
 pub mod datetime;
@@ -27,4 +28,5 @@ pub use self::{
     html_to_png::HtmlToPng,
     matrix::Matrix,
     msg_origin::MessageOrigin,
+    tourney_badges::TourneyBadges,
 };
