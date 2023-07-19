@@ -1509,18 +1509,6 @@
     },
     "query": "\nSELECT \nosu_id \nFROM \nuser_configs \nWHERE \ndiscord_id = ANY($1) \nAND osu_id IS NOT NULL"
   },
-  "457cfe8740ed9f395bcc718e3712abbe4b39af90c167cb3ad8b838d51a935eba": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Int8"
-        ]
-      }
-    },
-    "query": "\nDELETE FROM \n  user_configs \nWHERE \n  discord_id = $1"
-  },
   "46f62972a9ab0535c92b020be111bb5d4aed8c8af3f2156afb2a61c2aeae6355": {
     "describe": {
       "columns": [
@@ -2866,18 +2854,6 @@
       }
     },
     "query": "\nINSERT INTO osu_map_difficulty_mania (\n  map_id, mods, stars, hit_window, max_combo\n) \nVALUES \n  ($1, $2, $3, $4, $5) ON CONFLICT (map_id, mods) DO \nUPDATE \nSET \n  stars = $3, \n  hit_window = $4, \n  max_combo = $5"
-  },
-  "c520350b82928ce52bc2c324e1e0ec22cc1bd6656ee2bc4dde64d9cd4b8917b0": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Int8"
-        ]
-      }
-    },
-    "query": "\nDELETE FROM \n  guild_configs \nWHERE \n  guild_id = $1"
   },
   "c869e094800f4fcdceb1f3105e472cf1f2af9c230d3acb0ba4c073021c3d7d13": {
     "describe": {
