@@ -283,7 +283,7 @@ impl MatchLiveEmbed {
 
                         // Previous game not yet finished but next one already there => override
                         if !state.finished {
-                            let (mut embed, empty) = match embeds.last_mut() {
+                            let (embed, empty) = match embeds.last_mut() {
                                 Some(embed) => (embed, false),
                                 None => (&mut *self, true),
                             };

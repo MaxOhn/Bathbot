@@ -136,9 +136,11 @@ impl BotConfig {
         let mut emotes = Box::new([(); N].map(|_| MaybeUninit::uninit()));
 
         for name in names {
-            let Ok(key) = name.parse::<K>() else { unreachable!() };
+            let Ok(key) = name.parse::<K>() else {
+                unreachable!()
+            };
             let value: V = env_var(name)?;
-            emotes[key.as_usize()].write(value);
+            emotes[key.to_usize()].write(value);
         }
 
         // SAFETY: All emotes have been initialized.
@@ -213,17 +215,17 @@ fn env_var<T: EnvKind>(name: &str) -> Result<T> {
 }
 
 trait AsUsize {
-    fn as_usize(self) -> usize;
+    fn to_usize(self) -> usize;
 }
 
 impl AsUsize for Grade {
-    fn as_usize(self) -> usize {
+    fn to_usize(self) -> usize {
         self as usize
     }
 }
 
 impl AsUsize for Emote {
-    fn as_usize(self) -> usize {
+    fn to_usize(self) -> usize {
         self as usize
     }
 }

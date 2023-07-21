@@ -140,7 +140,7 @@ impl Cache {
             return Ok(CacheChange::default());
         }
 
-        let mut serializer = MultiSerializer::default();
+        let mut serializer = MultiSerializer;
 
         let (channels, channel_ids) = channels
             .iter()
@@ -289,7 +289,7 @@ impl Cache {
             })
         }
 
-        let mut serializer = MultiSerializer::default();
+        let mut serializer = MultiSerializer;
         let member_bytes = serializer.member(member)?;
 
         inner(self, guild, member_bytes, user, serializer).await
@@ -304,7 +304,7 @@ impl Cache {
             return Ok(CacheChange::default());
         }
 
-        let mut serializer = MultiSerializer::default();
+        let mut serializer = MultiSerializer;
 
         let (zipped_members, users) = members
             .iter()
@@ -433,7 +433,7 @@ impl Cache {
     where
         I: IntoIterator<Item = &'r Role>,
     {
-        let mut serializer = MultiSerializer::default();
+        let mut serializer = MultiSerializer;
 
         let (roles, role_ids) = roles
             .into_iter()

@@ -247,7 +247,7 @@ impl OsuTrackingQueue {
             .await
             .get_mut()
             .filter(|value| new_date > value.last_update)
-            .map_or(false, |mut value| {
+            .map_or(false, |value| {
                 value.last_update = new_date;
 
                 true

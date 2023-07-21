@@ -469,7 +469,7 @@ fn finish_preparing(
         .group_by(|(_, date)| *date)
         .into_iter()
         .map(|(date, group)| {
-            let mut counts = HashMap::with_hasher(IntHasher::default());
+            let mut counts = HashMap::with_hasher(IntHasher);
 
             for (user_id, _) in group {
                 *counts.entry(user_id).or_insert(0) += 1;
