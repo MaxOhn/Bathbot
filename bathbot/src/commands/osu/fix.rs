@@ -359,7 +359,7 @@ async fn request_by_map(
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let wrap = "failed to get user";
+            let wrap = "Failed to get user";
 
             return ScoreResult::Error(Report::new(err).wrap_err(wrap));
         }
@@ -367,6 +367,7 @@ async fn request_by_map(
 
     let score_opt = match scores_res {
         Ok(scores) => match mods {
+            None => scores.into_iter().max_by_key(|score| score.ended_at),
             Some(mods) => scores.into_iter().find(|score| {
                 let intermode = score
                     .mods
@@ -376,11 +377,10 @@ async fn request_by_map(
 
                 &intermode == mods
             }),
-            None => scores.into_iter().next(),
         },
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let wrap = "failed to get scores";
+            let wrap = "Failed to get scores";
 
             return ScoreResult::Error(Report::new(err).wrap_err(wrap));
         }
