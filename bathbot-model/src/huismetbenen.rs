@@ -438,10 +438,6 @@ pub struct SnipeBeatmap {
     pub title: Box<str>,
     #[serde(rename = "diff_name")]
     pub version: Box<str>,
-    #[serde(rename = "total_length")]
-    pub seconds_total: u32,
-    #[serde(with = "deser::naive_datetime")]
-    pub date_ranked: OffsetDateTime,
     #[serde(rename = "count_normal")]
     pub count_circles: u32,
     #[serde(rename = "count_slider")]
