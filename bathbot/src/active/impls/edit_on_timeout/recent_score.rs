@@ -306,7 +306,7 @@ impl RecentScoreEdit {
                 let _ = write!(
                     description,
                     " {emote} [Streaming on twitch]({base}{username})",
-                    emote = crate::util::Emote::Twitch.text(),
+                    emote = crate::util::Emote::Twitch,
                     base = bathbot_util::constants::TWITCH_BASE,
                 );
             }
@@ -314,7 +314,7 @@ impl RecentScoreEdit {
                 let _ = write!(
                     description,
                     " {emote} [Liveplay on twitch]({vod_url})",
-                    emote = crate::util::Emote::Twitch.text(),
+                    emote = crate::util::Emote::Twitch,
                 );
             }
             None => {}
@@ -396,7 +396,7 @@ impl RecentScoreEdit {
                 let _ = write!(
                     description,
                     " {emote} [Streaming on twitch]({base}{username})",
-                    emote = crate::util::Emote::Twitch.text(),
+                    emote = crate::util::Emote::Twitch,
                     base = bathbot_util::constants::TWITCH_BASE,
                 );
             }

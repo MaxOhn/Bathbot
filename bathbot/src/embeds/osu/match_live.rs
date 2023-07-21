@@ -757,11 +757,6 @@ impl Display for MissFormat {
             return Ok(());
         }
 
-        write!(
-            f,
-            " {miss}{emote}",
-            miss = self.0,
-            emote = Emote::Miss.text()
-        )
+        write!(f, " {miss}{emote}", miss = self.0, emote = Emote::Miss)
     }
 }

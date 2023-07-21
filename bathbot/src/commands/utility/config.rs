@@ -342,7 +342,7 @@ fn osu_content(state: u8) -> String {
         "{emote} [Click here](https://osu.ppy.sh/oauth/authorize?client_id={client_id}&\
         response_type=code&scope=identify&redirect_uri={url}/auth/osu&state={state}) \
         to authenticate your osu! profile",
-        emote = Emote::Osu.text(),
+        emote = Emote::Osu,
         client_id = config.tokens.osu_client_id,
         url = config.server.public_url,
     )
@@ -356,7 +356,7 @@ fn twitch_content(state: u8) -> String {
         "{emote} [Click here](https://id.twitch.tv/oauth2/authorize?client_id={client_id}\
         &response_type=code&scope=user:read:email&redirect_uri={url}/auth/twitch\
         &state={state}) to authenticate your twitch channel",
-        emote = Emote::Twitch.text(),
+        emote = Emote::Twitch,
         client_id = config.tokens.twitch_client_id,
         url = config.server.public_url,
     )
