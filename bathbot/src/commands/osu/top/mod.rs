@@ -1363,6 +1363,15 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
     } else {
         let genitive = if name.ends_with('s') { "" } else { "s" };
         let reverse = if args.reverse { "reversed " } else { "" };
+        let ordinal_suffix = if args.index.filter(|n| *n == 1).is_some() { 
+            "st" 
+        } else if args.index.filter(|n| *n == 2).is_some() { 
+            "nd" 
+        } else if args.index.filter(|n| *n == 3).is_some() { 
+            "rd" 
+        } else { 
+            "th" 
+        };
 
         let content = match args.sort_by {
             TopScoreOrder::Farm if args.reverse => {
@@ -1380,8 +1389,14 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
             TopScoreOrder::Combo => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}combo:")
             }
+            TopScoreOder::Date if (args.reverse && args.index.filter(|n| *n > 0).is_some()) => {
+                format!("{index_string}{ordinal_suffix} oldest score in `{name}`'{genitive} top100:", index_string = args.index.unwrap())
+            }
             TopScoreOrder::Date if args.reverse => {
                 format!("Oldest scores in `{name}`'{genitive} top100:")
+            }
+            TopScoreOder::Date if args.index.filter(|n| *n > 0).is_some() => {
+                format!("{index_string}{ordinal_suffix} most recent score in `{name}`'{genitive} top100:", index_string = args.index.unwrap())
             }
             TopScoreOrder::Date => {
                 format!("Most recent scores in `{name}`'{genitive} top100:")
