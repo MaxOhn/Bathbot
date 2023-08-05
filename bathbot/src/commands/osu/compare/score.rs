@@ -259,7 +259,7 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
     "badewanne3 2240404 +eznc",
     "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
-#[aliases("c", "score", "scores")]
+#[aliases("c", "score", "scores", "gap")]
 #[group(AllModes)]
 async fn prefix_compare(
     ctx: Arc<Context>,
