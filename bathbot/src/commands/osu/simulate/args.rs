@@ -41,7 +41,7 @@ impl SimulateArg {
             Some("acc" | "a" | "accuracy") => parse_acc(rest).map(SimulateArg::Acc),
             Some("bpm") => parse_bpm(rest).map(SimulateArg::Bpm),
             Some("combo" | "c") => parse_combo(rest).map(SimulateArg::Combo),
-            Some("clockrate" | "cr") => parse_clock_rate(rest).map(SimulateArg::ClockRate),
+            Some("clockrate" | "cr" | "rate") => parse_clock_rate(rest).map(SimulateArg::ClockRate),
             Some("n300") => parse_n300(rest).map(SimulateArg::N300),
             Some("n100") => parse_n100(rest).map(SimulateArg::N100),
             Some("n50") => parse_n50(rest).map(SimulateArg::N50),
@@ -389,7 +389,20 @@ mod tests {
             SimulateArg::parse("123*"),
             Ok(SimulateArg::ClockRate(123.0))
         );
+        assert_eq!(
+            SimulateArg::parse("rate=123*"),
+            Ok(SimulateArg::ClockRate(123.0))
+        );
+        assert_eq!(
+            SimulateArg::parse("rate=123.0x"),
+            Ok(SimulateArg::ClockRate(123.0))
+        );
+        assert_eq!(
+            SimulateArg::parse("rate=123.0"),
+            Ok(SimulateArg::ClockRate(123.0))
+        );
         assert_eq!(SimulateArg::parse("cr=123%"), Err(ParseError::ClockRate));
+        assert_eq!(SimulateArg::parse("rate=123%"), Err(ParseError::ClockRate));
     }
 
     #[test]
