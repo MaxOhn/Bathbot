@@ -744,7 +744,7 @@ pub(super) async fn top(
     orig: CommandOrigin<'_>,
     args: TopArgs<'_>,
 ) -> Result<()> {
-    if args.index.is_some_and((|n| *n > 100))() {
+    if args.index.is_some_and(|n| *n > 100) {
         let content = "Can't have more than 100 top scores.";
 
         return orig.error(&ctx, content).await;
@@ -883,7 +883,7 @@ pub(super) async fn top(
 
     let username = user.username();
 
-    if args.index.is_some_and((|n| *n > entries.len()))() {
+    if args.index.is_some_and(|n| *n > entries.len()) {
         let content = format!(
             "`{username}` only has {} top scores with the specified properties",
             entries.len(),
