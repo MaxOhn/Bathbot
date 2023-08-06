@@ -1387,7 +1387,7 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
             TopScoreOrder::Combo => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}combo:")
             }
-            TopScoreOrder::Date if (args.reverse && args.index.is_some_and(|n| n == 1)) => {
+            TopScoreOrder::Date if (args.reverse && args.index.is_some_and(|n| n <= 1)) => {
                 format!("Oldest score in `{name}`'{genitive} top100:")
             }
             TopScoreOrder::Date if (args.reverse && args.index.is_some_and(|n| n > 1)) => {
@@ -1396,7 +1396,7 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
             TopScoreOrder::Date if args.reverse => {
                 format!("Oldest scores in `{name}`'{genitive} top100:")
             }
-            TopScoreOrder::Date if args.index.is_some_and(|n| n == 1) => {
+            TopScoreOrder::Date if args.index.is_some_and(|n| n <= 1) => {
                 format!("Most recent score in `{name}`'{genitive} top100:")
             }
             TopScoreOrder::Date if args.index.is_some_and(|n| n > 1) => {
