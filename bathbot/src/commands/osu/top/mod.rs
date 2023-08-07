@@ -744,7 +744,7 @@ pub(super) async fn top(
     orig: CommandOrigin<'_>,
     args: TopArgs<'_>,
 ) -> Result<()> {
-    if args.index.filter(|n| *n > 100).is_some() {
+    if args.index.is_some_and(|n| n > 100) {
         let content = "Can't have more than 100 top scores.";
 
         return orig.error(&ctx, content).await;
@@ -883,7 +883,7 @@ pub(super) async fn top(
 
     let username = user.username();
 
-    if args.index.filter(|n| *n > entries.len()).is_some() {
+    if args.index.is_some_and(|n| n > entries.len()) {
         let content = format!(
             "`{username}` only has {} top scores with the specified properties",
             entries.len(),
@@ -1363,9 +1363,9 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
     } else {
         let genitive = if name.ends_with('s') { "" } else { "s" };
         let reverse = if args.reverse { "reversed " } else { "" };
-        let ordinal_suffix = if args.index.filter(|n| *n == 2).is_some() { 
+        let ordinal_suffix = if args.index.is_some_and(|n| n == 2) { 
             "nd" 
-        } else if args.index.filter(|n| *n == 3).is_some() { 
+        } else if args.index.is_some_and(|n| n == 3) { 
             "rd" 
         } else { 
             "th" 
@@ -1387,19 +1387,19 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
             TopScoreOrder::Combo => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}combo:")
             }
-            TopScoreOrder::Date if (args.reverse && args.index.filter(|n| *n == 1).is_some()) => {
+            TopScoreOrder::Date if (args.reverse && args.index.is_some_and(|n| n <= 1)) => {
                 format!("Oldest score in `{name}`'{genitive} top100:")
             }
-            TopScoreOrder::Date if (args.reverse && args.index.filter(|n| *n > 1).is_some()) => {
+            TopScoreOrder::Date if (args.reverse && args.index.is_some_and(|n| n > 1)) => {
                 format!("{index_string}{ordinal_suffix} oldest score in `{name}`'{genitive} top100:", index_string = args.index.unwrap())
             }
             TopScoreOrder::Date if args.reverse => {
                 format!("Oldest scores in `{name}`'{genitive} top100:")
             }
-            TopScoreOrder::Date if args.index.filter(|n| *n == 1).is_some() => {
+            TopScoreOrder::Date if args.index.is_some_and(|n| n <= 1) => {
                 format!("Most recent score in `{name}`'{genitive} top100:")
             }
-            TopScoreOrder::Date if args.index.filter(|n| *n > 1).is_some() => {
+            TopScoreOrder::Date if args.index.is_some_and(|n| n > 1) => {
                 format!("{index_string}{ordinal_suffix} most recent score in `{name}`'{genitive} top100:", index_string = args.index.unwrap())
             }
             TopScoreOrder::Date => {
