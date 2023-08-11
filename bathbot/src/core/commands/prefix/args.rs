@@ -57,6 +57,7 @@ impl<'m> Args<'m> {
             quote_delimited('“', '“'),
             quote_delimited('«', '»'),
             quote_delimited('„', '“'),
+            quote_delimited('“', '”'),
             simple,
         );
 
