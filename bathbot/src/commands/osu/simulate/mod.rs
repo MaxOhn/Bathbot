@@ -206,7 +206,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
     Various arguments can be specified in multiple ways:\n\
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
-    - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Clock rate: `clockrate=[number]` or `[number]*` or `rate=[number]`\n\
     - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
     - n100: `n100=[interger]` or `[integer]x100`\n\
@@ -250,7 +250,7 @@ async fn prefix_simulate(
     Various arguments can be specified in multiple ways:\n\
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
-    - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Clock rate: `clockrate=[number]` or `[number]*` or `rate=[number]`\n\
     - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
     - n100: `n100=[interger]` or `[integer]x100`\n\
@@ -291,7 +291,7 @@ async fn prefix_simulatetaiko(
     Various arguments can be specified in multiple ways:\n\
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
-    - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Clock rate: `clockrate=[number]` or `[number]*` or `rate=[number]`\n\
     - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - fruits: `n300=[integer]` or `[integer]x300`\n\
     - droplets: `n100=[interger]` or `[integer]x100`\n\
@@ -334,7 +334,7 @@ async fn prefix_simulatectb(
     Various arguments can be specified in multiple ways:\n\
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
-    - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Clock rate: `clockrate=[number]` or `[number]*` or `rate=[number]`\n\
     - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - n320: `n320=[integer]` or `[integer]x320`\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
