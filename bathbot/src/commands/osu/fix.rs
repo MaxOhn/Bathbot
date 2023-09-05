@@ -84,6 +84,19 @@ impl<'m> FixArgs<'m> {
         let mut id_ = None;
         let mut mods = None;
 
+        let reply = msg
+            .referenced_message
+            .as_deref()
+            .filter(|_| msg.kind == MessageType::Reply);
+
+        if let Some(reply) = reply {
+            if let Some(id) = ctx.find_map_id_in_msg(reply).await {
+                id_ = Some(MapOrScore::Map(id));
+            } else if let Some((mode, id)) = matcher::get_osu_score_id(&reply.content) {
+                id_ = Some(MapOrScore::Score { mode, id });
+            }
+        }
+
         for arg in args.take(3) {
             if let Some(id) = matcher::get_osu_map_id(arg)
                 .map(MapIdType::Map)
@@ -98,19 +111,6 @@ impl<'m> FixArgs<'m> {
                 discord = Some(id);
             } else {
                 name = Some(arg.into());
-            }
-        }
-
-        let reply = msg
-            .referenced_message
-            .as_deref()
-            .filter(|_| msg.kind == MessageType::Reply);
-
-        if let Some(reply) = reply {
-            if let Some(id) = ctx.find_map_id_in_msg(reply).await {
-                id_ = Some(MapOrScore::Map(id));
-            } else if let Some((mode, id)) = matcher::get_osu_score_id(&reply.content) {
-                id_ = Some(MapOrScore::Score { mode, id });
             }
         }
 
