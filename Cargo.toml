@@ -9,6 +9,7 @@ members = [
     "bathbot-server",
     "bathbot-util",
 ]
+resolver = "2"
 
 [workspace.package]
 version = "3.5.3"
