@@ -1,9 +1,9 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
-use bathbot_model::{rosu_v2::user::User, MedalGroup, MEDAL_GROUPS};
+use bathbot_model::{rosu_v2::user::User, MedalGroup, OsekaiMedal, MEDAL_GROUPS};
 use bathbot_util::{
-    fields, numbers::round, osu::flag_url, AuthorBuilder, CowUtils, FooterBuilder, IntHasher,
+    fields, numbers::round, osu::flag_url, AuthorBuilder, FooterBuilder, IntHasher,
 };
 use hashbrown::HashMap;
 use rosu_v2::prelude::MedalCompact;
@@ -155,12 +155,16 @@ struct MedalUrl<'n> {
 
 impl Display for MedalUrl<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(
-            f,
-            "https://osekai.net/medals/?medal={name} \"Rarity: {rarity}%\"",
-            name = self.name.cow_replace(' ', "+").cow_replace(',', "%2C"),
-            rarity = self.rarity,
-        )
+        let url = match OsekaiMedal::name_to_url(self.name) {
+            Ok(url) => url,
+            Err(err) => {
+                warn!(?err);
+
+                OsekaiMedal::backup_name_to_url(self.name)
+            }
+        };
+
+        write!(f, "{url} \"Rarity: {rarity}%\"", rarity = self.rarity)
     }
 }
 

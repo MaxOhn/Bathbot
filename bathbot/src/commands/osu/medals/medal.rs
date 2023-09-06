@@ -366,10 +366,14 @@ impl MedalEmbed {
         let title = medal.name.as_ref().to_owned();
         let thumbnail = medal.icon_url.as_ref().to_owned();
 
-        let url = format!(
-            "https://osekai.net/medals/?medal={}",
-            title.cow_replace(' ', "+").cow_replace(',', "%2C")
-        );
+        let url = match medal.url() {
+            Ok(url) => url,
+            Err(err) => {
+                warn!(?err);
+
+                medal.backup_url()
+            }
+        };
 
         let achieved = achieved.map(|achieved| {
             let user = achieved.user;
