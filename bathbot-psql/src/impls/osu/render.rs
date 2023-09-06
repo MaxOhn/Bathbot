@@ -61,7 +61,10 @@ SELECT
   show_hit_counter, 
   show_avatars_on_scoreboard, 
   show_aim_error_meter, 
-  play_nightcore_samples 
+  play_nightcore_samples, 
+  show_strain_graph, 
+  show_slider_breaks, 
+  ignore_fail 
 FROM 
   user_render_settings 
 WHERE 
@@ -131,6 +134,9 @@ WHERE
             show_avatars_on_scoreboard,
             show_aim_error_meter,
             play_nightcore_samples,
+            show_strain_graph,
+            show_slider_breaks,
+            ignore_fail,
         } = settings;
 
         let query = sqlx::query!(
@@ -156,7 +162,8 @@ INSERT INTO user_render_settings (
   show_danser_logo, skip_intro, cursor_ripples, 
   slider_snaking_in, slider_snaking_out, 
   show_hit_counter, show_avatars_on_scoreboard, 
-  show_aim_error_meter, play_nightcore_samples
+  show_aim_error_meter, play_nightcore_samples, 
+  show_strain_graph, show_slider_breaks, ignore_fail
 ) 
 VALUES 
   (
@@ -166,7 +173,7 @@ VALUES
     $27, $28, $29, $30, $31, $32, $33, $34, 
     $35, $36, $37, $38, $39, $40, $41, $42, 
     $43, $44, $45, $46, $47, $48, $49, $50, 
-    $51
+    $51, $52, $53, $54
   ) ON CONFLICT (discord_id) DO 
 UPDATE 
 SET 
@@ -219,7 +226,10 @@ SET
   show_hit_counter = $48, 
   show_avatars_on_scoreboard = $49, 
   show_aim_error_meter = $50, 
-  play_nightcore_samples = $51"#,
+  play_nightcore_samples = $51, 
+  show_strain_graph = $52, 
+  show_slider_breaks = $53, 
+  ignore_fail = $54"#,
             user_id.get() as i64,
             official_skin_name,
             official_skin_display_name,
@@ -271,6 +281,9 @@ SET
             show_avatars_on_scoreboard,
             show_aim_error_meter,
             play_nightcore_samples,
+            show_strain_graph,
+            show_slider_breaks,
+            ignore_fail,
         );
 
         query

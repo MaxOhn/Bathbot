@@ -208,7 +208,9 @@ impl ReplaySettings {
 
     pub fn skin_name(&self) -> (&str, Option<CustomSkinName<'_>>) {
         let custom = self.custom_skin.as_ref().map(|skin| {
-            let RenderSkinOption::Custom { id } = skin.skin else { unreachable!() };
+            let RenderSkinOption::Custom { id } = skin.skin else {
+                unreachable!()
+            };
 
             CustomSkinName {
                 name: skin.display_name.as_ref(),
@@ -281,6 +283,9 @@ impl From<DbRenderOptions> for ReplaySettings {
             show_avatars_on_scoreboard: options.show_avatars_on_scoreboard,
             show_aim_error_meter: options.show_aim_error_meter,
             play_nightcore_samples: options.play_nightcore_samples,
+            show_strain_graph: options.show_strain_graph,
+            show_slider_breaks: options.show_slider_breaks,
+            ignore_fail: options.ignore_fail,
         };
 
         let official_skin = ReplaySkin {
@@ -314,11 +319,15 @@ impl From<&ReplaySettings> for DbRenderOptions {
             custom_skin,
         } = settings;
 
-        let RenderSkinOption::Official { ref name } = official_skin.skin else { unreachable!() };
+        let RenderSkinOption::Official { ref name } = official_skin.skin else {
+            unreachable!()
+        };
 
         let (custom_skin_id, custom_skin_display_name) = match custom_skin {
             Some(skin) => {
-                let RenderSkinOption::Custom { id } = skin.skin else { unreachable!() };
+                let RenderSkinOption::Custom { id } = skin.skin else {
+                    unreachable!()
+                };
                 let name = skin.display_name.as_ref().to_string();
 
                 (Some(id as i32), Some(name))
@@ -377,6 +386,9 @@ impl From<&ReplaySettings> for DbRenderOptions {
             show_avatars_on_scoreboard: options.show_avatars_on_scoreboard,
             show_aim_error_meter: options.show_aim_error_meter,
             play_nightcore_samples: options.play_nightcore_samples,
+            show_strain_graph: options.show_strain_graph,
+            show_slider_breaks: options.show_slider_breaks,
+            ignore_fail: options.ignore_fail,
         }
     }
 }

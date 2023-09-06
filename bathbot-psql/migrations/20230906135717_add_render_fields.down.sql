@@ -1,0 +1,1 @@
+ALTER TABLE user_render_settings DROP COLUMN show_strain_graph, DROP COLUMN show_slider_breaks, DROP COLUMN ignore_fail;
