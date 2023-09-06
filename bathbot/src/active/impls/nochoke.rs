@@ -60,11 +60,17 @@ impl IActiveMessage for NoChokePagination {
                 map,
                 max_pp,
                 stars,
-                unchoked: _,
+                unchoked,
                 max_combo,
             } = entry;
 
-            let unchoked_stats = entry.unchoked_statistics();
+            let misses = match unchoked {
+                Some(_) => MissFormat::Misses(original_score.statistics.count_miss),
+                None => match original_score.statistics.count_miss {
+                    0 => MissFormat::None,
+                    _ => MissFormat::Skipped,
+                },
+            };
 
             let _ = writeln!(
                 description,
@@ -83,7 +89,6 @@ impl IActiveMessage for NoChokePagination {
                 new_acc = entry.unchoked_accuracy(),
                 old_combo = original_score.max_combo,
                 new_combo = entry.unchoked_max_combo(),
-                misses = MissFormat(original_score.statistics.count_miss - unchoked_stats.count_miss),
             );
         }
 
@@ -138,20 +143,21 @@ impl IActiveMessage for NoChokePagination {
     }
 }
 
-struct MissFormat(u32);
+enum MissFormat {
+    Misses(u32),
+    Skipped,
+    None,
+}
 
 impl Display for MissFormat {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        if self.0 == 0 {
-            return Ok(());
+        match self {
+            MissFormat::Misses(count) => {
+                write!(f, " • *Removed {count}{emote}*", emote = Emote::Miss)
+            }
+            MissFormat::Skipped => f.write_str(" • *Skipped :track_next:*"),
+            MissFormat::None => Ok(()),
         }
-
-        write!(
-            f,
-            " • *Removed {miss}{emote}*",
-            miss = self.0,
-            emote = Emote::Miss
-        )
     }
 }
