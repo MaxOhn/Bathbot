@@ -330,6 +330,12 @@ impl OsekaiMedal {
     ///
     /// All content inbetween brackets (`<>`) is removed.
     pub fn solution(&self) -> Option<Cow<'_, str>> {
+        // The Internment medal solution contains CSS and is too long
+        // so instead of solving it programmatically, it'll just be hardcoded.
+        if self.medal_id == INTERNMENT_ID {
+            return Some(Cow::Borrowed(INTERNMENT_SOLUTION));
+        }
+
         let solution = self.solution.as_deref()?;
 
         let mut res = Cow::<'_, str>::default();
@@ -379,6 +385,28 @@ impl OsekaiMedal {
         self.grouping.order()
     }
 }
+
+const INTERNMENT_ID: u32 = 323;
+
+const INTERNMENT_SOLUTION: &str =
+    "On any 'Insane' difficulty (4.0\\* - 5.29\\*) of *`Frums - theyaremanycolors`*, \
+set three plays in a row that have combos equal to the R, G, and B values \
+of the difficulty indicator (on the osu! website) for the map you are playing.\n\
+The possible combinations are as follows:\n\
+```\n\
+Play | Combo (vanchanical) | Combo (celi)\n\
+-----+---------------------+-------------\n\
+1st  | 255x                | 243x\n\
+2nd  | 104x                | 76x\n\
+3rd  | 108x                | 133x\n\
+```\n\
+You can find an explanation to the solution in the pinned comments.\n\
+NOTE: You **must** get the scores back-to-back, and the third one must be a pass; \
+if you overcombo at any point on the second or third play, fail the third play, \
+or fail to reach the max combo requirement for the second or third score, \
+you must restart the medal from the beginning.\n\
+NOTE: Using difficulty reduction mods such as HT **is** allowed, \
+despite the category the medal is in. (Unsure if NF works or not, needs to be tested).";
 
 impl PartialEq for OsekaiMedal {
     #[inline]
