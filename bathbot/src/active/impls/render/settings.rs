@@ -76,6 +76,7 @@ impl RenderSettingsActive {
             "background" => SettingsGroup::Background,
             "intro" => SettingsGroup::Intro,
             "objects" => SettingsGroup::Objects,
+            "other" => SettingsGroup::Other,
             other => {
                 return ComponentResult::Err(eyre!("Unknown settings group menu option `{other}`"))
             }
@@ -142,6 +143,9 @@ impl RenderSettingsActive {
                 "Show the aim error meter",
                 "true/false",
             ),
+            "show_strain_graph" => {
+                create_modal("show_strain_graph", "Show the strain graph", "true/false")
+            }
             "show_hp_bar" => create_modal("show_hp_bar", "Show the HP bar", "true/false"),
             "show_key_overlay" => {
                 create_modal("show_key_overlay", "Show the key overlay", "true/false")
@@ -160,6 +164,11 @@ impl RenderSettingsActive {
             "show_hit_counter" => create_modal(
                 "show_hit_counter",
                 "Show a hit counter (100, 50, miss)",
+                "true/false",
+            ),
+            "show_slider_breaks" => create_modal(
+                "show_slider_breaks",
+                "Show slider breaks count in hit counter",
                 "true/false",
             ),
             "show_unstable_rate" => {
@@ -266,6 +275,10 @@ impl RenderSettingsActive {
                 "Draw follow points between objects",
                 "true/false",
             ),
+            "show_result_screen" => {
+                create_modal("show_result_screen", "Show the result screen", "true/false")
+            }
+            "ignore_fail" => create_modal("ignore_fail", "Ignore fail", "true/false"),
             other => {
                 return ComponentResult::Err(eyre!("Unknown settings edit menu option `{other}`"))
             }
@@ -378,6 +391,7 @@ impl RenderSettingsActive {
             "play_nightcore_samples" => parse_input!(bool: play_nightcore_samples),
             "show_hit_error_meter" => parse_input!(bool: show_hit_error_meter),
             "show_aim_error_meter" => parse_input!(bool: show_aim_error_meter),
+            "show_strain_graph" => parse_input!(bool: show_strain_graph),
             "show_hp_bar" => parse_input!(bool: show_hp_bar),
             "show_key_overlay" => parse_input!(bool: show_key_overlay),
             "show_borders" => parse_input!(bool: show_borders),
@@ -386,6 +400,7 @@ impl RenderSettingsActive {
             "show_combo_counter" => parse_input!(bool: show_combo_counter),
             "show_pp_counter" => parse_input!(bool: show_pp_counter),
             "show_hit_counter" => parse_input!(bool: show_hit_counter),
+            "show_slider_breaks" => parse_input!(bool: show_slider_breaks),
             "show_unstable_rate" => parse_input!(bool: show_unstable_rate),
             "show_scoreboard" => parse_input!(bool: show_scoreboard),
             "show_avatars_on_scoreboard" => parse_input!(bool: show_avatars_on_scoreboard),
@@ -429,6 +444,8 @@ impl RenderSettingsActive {
                 options.use_skin_colors = !options.use_beatmap_colors;
             }
             "draw_follow_points" => parse_input!(bool: draw_follow_points),
+            "show_result_screen" => parse_input!(bool: show_result_screen),
+            "ignore_fail" => parse_input!(bool: ignore_fail),
             other => bail!("Unknown settings modal `{other}`"),
         }
 
@@ -518,6 +535,13 @@ impl IActiveMessage for RenderSettingsActive {
                 label: "Objects".to_owned(),
                 value: "objects".to_owned(),
             },
+            SelectMenuOption {
+                default: false,
+                description: None,
+                emoji: None,
+                label: "Other".to_owned(),
+                value: "other".to_owned(),
+            },
         ];
 
         let group = SelectMenu {
@@ -594,18 +618,20 @@ enum SettingsGroup {
     Background,
     Intro,
     Objects,
+    Other,
 }
 
 impl SettingsGroup {
     fn title(self) -> String {
         let kind = match self {
-            SettingsGroup::Skin => "Skin",
-            SettingsGroup::Audio => "Audio",
-            SettingsGroup::Hud => "HUD",
-            SettingsGroup::Cursor => "Cursor",
-            SettingsGroup::Background => "Background",
-            SettingsGroup::Intro => "Intro",
-            SettingsGroup::Objects => "Objects",
+            Self::Skin => "Skin",
+            Self::Audio => "Audio",
+            Self::Hud => "HUD",
+            Self::Cursor => "Cursor",
+            Self::Background => "Background",
+            Self::Intro => "Intro",
+            Self::Objects => "Objects",
+            Self::Other => "Other",
         };
 
         format!("Your current render settings for `{kind}`:")
@@ -615,7 +641,7 @@ impl SettingsGroup {
         let options = settings.options();
 
         match self {
-            SettingsGroup::Skin => {
+            Self::Skin => {
                 let (official, custom) = settings.skin_name();
 
                 let mut description = skin_status.to_string();
@@ -642,7 +668,7 @@ impl SettingsGroup {
 
                 description
             }
-            SettingsGroup::Audio => format!(
+            Self::Audio => format!(
                 "- Global volume: `{}`\n\
                 - Music volume: `{}`\n\
                 - Hitsound volume: `{}`\n\
@@ -652,9 +678,10 @@ impl SettingsGroup {
                 options.hitsound_volume,
                 options.play_nightcore_samples,
             ),
-            SettingsGroup::Hud => format!(
+            Self::Hud => format!(
                 "- Show hit error meter: `{}`\n\
                 - Show aim error meter: `{}`\n\
+                - Show strain graph: `{}`\n\
                 - Show HP bar: `{}`\n\
                 - Show key overlay: `{}`\n\
                 - Show borders: `{}`\n\
@@ -663,11 +690,13 @@ impl SettingsGroup {
                 - Show combo counter: `{}`\n\
                 - Show pp counter: `{}`\n\
                 - Show hit counter: `{}`\n\
+                - Show slider breaks count: `{}`\n\
                 - Show unstable rate: `{}`\n\
                 - Show scoreboard: `{}`\n\
                 - Show avatars on scoreboard: `{}`",
                 options.show_hit_error_meter,
                 options.show_aim_error_meter,
+                options.show_strain_graph,
                 options.show_hp_bar,
                 options.show_key_overlay,
                 options.show_borders,
@@ -676,11 +705,12 @@ impl SettingsGroup {
                 options.show_combo_counter,
                 options.show_pp_counter,
                 options.show_hit_counter,
+                options.show_slider_breaks,
                 options.show_unstable_rate,
                 options.show_scoreboard,
                 options.show_avatars_on_scoreboard,
             ),
-            SettingsGroup::Cursor => format!(
+            Self::Cursor => format!(
                 "- Cursor rainbow: `{}`\n\
                 - Cursor trail glow: `{}`\n\
                 - Cursor size: `{}`\n\
@@ -694,7 +724,7 @@ impl SettingsGroup {
                 options.cursor_ripples,
                 options.cursor_scale_to_cs,
             ),
-            SettingsGroup::Background => format!(
+            Self::Background => format!(
                 "- Intro BG dim: `{}`\n\
                 - Ingame BG dim: `{}`\n\
                 - Break BG dim: `{}`\n\
@@ -708,7 +738,7 @@ impl SettingsGroup {
                 options.load_storyboard,
                 options.load_video,
             ),
-            SettingsGroup::Intro => format!(
+            Self::Intro => format!(
                 "- Intro BG dim: `{}`\n\
                 - Skip intro: `{}`\n\
                 - Show danser logo: `{}`\n\
@@ -718,7 +748,7 @@ impl SettingsGroup {
                 options.show_danser_logo,
                 options.seizure_warning,
             ),
-            SettingsGroup::Objects => format!(
+            Self::Objects => format!(
                 "- Object rainbow: `{}`\n\
                 - Flash objects: `{}`\n\
                 - Slider merge: `{}`\n\
@@ -740,12 +770,17 @@ impl SettingsGroup {
                 options.use_beatmap_colors,
                 options.draw_follow_points,
             ),
+            Self::Other => format!(
+                "- Show result screen: `{}`\n\
+                - Ignore fail: `{}`",
+                options.show_result_screen, options.ignore_fail
+            ),
         }
     }
 
     fn edit_options(self) -> Vec<SelectMenuOption> {
         match self {
-            SettingsGroup::Skin => vec![
+            Self::Skin => vec![
                 SelectMenuOption {
                     default: false,
                     description: Some(
@@ -783,7 +818,7 @@ impl SettingsGroup {
                     value: "use_skin_hitsounds".to_owned(),
                 },
             ],
-            SettingsGroup::Audio => vec![
+            Self::Audio => vec![
                 SelectMenuOption {
                     default: false,
                     description: Some("The global volume for the video".to_owned()),
@@ -813,7 +848,7 @@ impl SettingsGroup {
                     value: "play_nightcore_samples".to_owned(),
                 },
             ],
-            SettingsGroup::Hud => vec![
+            Self::Hud => vec![
                 SelectMenuOption {
                     default: false,
                     description: Some("Show the hit error meter".to_owned()),
@@ -827,6 +862,13 @@ impl SettingsGroup {
                     emoji: None,
                     label: "Show aim error meter".to_owned(),
                     value: "show_aim_error_meter".to_owned(),
+                },
+                SelectMenuOption {
+                    default: false,
+                    description: Some("Show the strain graph".to_owned()),
+                    emoji: None,
+                    label: "Show strain graph".to_owned(),
+                    value: "show_strain_graph".to_owned(),
                 },
                 SelectMenuOption {
                     default: false,
@@ -886,6 +928,13 @@ impl SettingsGroup {
                 },
                 SelectMenuOption {
                     default: false,
+                    description: Some("Show the slider breaks count in the hit counter".to_owned()),
+                    emoji: None,
+                    label: "Show slider breaks count".to_owned(),
+                    value: "show_slider_breaks".to_owned(),
+                },
+                SelectMenuOption {
+                    default: false,
                     description: Some("Show the unstable rate (only takes effect if 'Show hit error meter' is set to true)".to_owned()),
                     emoji: None,
                     label: "Show unstable rate".to_owned(),
@@ -906,7 +955,7 @@ impl SettingsGroup {
                     value: "show_avatars_on_scoreboard".to_owned(),
                 },
             ],
-            SettingsGroup::Cursor => vec![
+            Self::Cursor => vec![
                 SelectMenuOption {
                     default: false,
                     description: Some("Makes the cursor rainbow (only takes effect if 'Use skin cursor' is set to false)".to_owned()),
@@ -950,7 +999,7 @@ impl SettingsGroup {
                     value: "cursor_scale_to_cs".to_owned(),
                 },
             ],
-            SettingsGroup::Background => vec![
+            Self::Background => vec![
                 SelectMenuOption {
                     default: false,
                     description: Some("Background dim for the intro".to_owned()),
@@ -994,7 +1043,7 @@ impl SettingsGroup {
                     value: "load_video".to_owned(),
                 },
             ],
-            SettingsGroup::Intro => vec![
+            Self::Intro => vec![
                 SelectMenuOption {
                     default: false,
                     description: Some("Background dim for the intro".to_owned()),
@@ -1024,7 +1073,7 @@ impl SettingsGroup {
                     value: "seizure_warning".to_owned(),
                 },
             ],
-            SettingsGroup::Objects => vec![
+            Self::Objects => vec![
                 SelectMenuOption {
                     default: false,
                     description: Some("Makes the objects rainbow (overrides 'Use skin colors' and 'Use beatmap colors')".to_owned()),
@@ -1094,6 +1143,22 @@ impl SettingsGroup {
                     emoji: None,
                     label: "Draw follow points".to_owned(),
                     value: "draw_follow_points".to_owned(),
+                },
+            ],
+            Self::Other => vec![
+                SelectMenuOption {
+                    default: false,
+                    description: Some("Show the result screen at the end".to_owned()),
+                    emoji: None,
+                    label: "Show result screen".to_owned(),
+                    value: "show_result_screen".to_owned(),
+                },
+                SelectMenuOption {
+                    default: false,
+                    description: Some("Ignore fail e.g. on a multi score".to_owned()),
+                    emoji: None,
+                    label: "Ignore fail".to_owned(),
+                    value: "ignore_fail".to_owned(),
                 },
             ],
         }

@@ -671,6 +671,71 @@
     },
     "query": "\nINSERT INTO user_map_bookmarks (user_id, map_id) \nVALUES \n  ($1, $2) ON CONFLICT (user_id, map_id) DO NOTHING"
   },
+  "257bfc063d14483df622995734492914045486a967fe30e321828491a1dab84a": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Varchar",
+          "Varchar",
+          "Int4",
+          "Varchar",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Float4",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool",
+          "Bool"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO user_render_settings (\n  discord_id, official_skin_name, official_skin_display_name, \n  custom_skin_id, custom_skin_display_name, \n  global_volume, music_volume, hitsound_volume, \n  show_hit_error_meter, show_unstable_rate, \n  show_score, show_hp_bar, show_combo_counter, \n  show_pp_counter, show_key_overlay, \n  show_scoreboard, show_borders, show_mods, \n  show_result_screen, use_skin_cursor, \n  use_skin_colors, use_skin_hitsounds, \n  use_beatmap_colors, cursor_scale_to_cs, \n  cursor_rainbow, cursor_trail_glow, \n  draw_follow_points, draw_combo_numbers, \n  cursor_size, cursor_trail, beat_scaling, \n  slider_merge, objects_rainbow, flash_objects, \n  use_slider_hitcircle_color, seizure_warning, \n  load_storyboard, load_video, intro_bg_dim, \n  ingame_bg_dim, break_bg_dim, bg_parallax, \n  show_danser_logo, skip_intro, cursor_ripples, \n  slider_snaking_in, slider_snaking_out, \n  show_hit_counter, show_avatars_on_scoreboard, \n  show_aim_error_meter, play_nightcore_samples, \n  show_strain_graph, show_slider_breaks, ignore_fail\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16, $17, $18, \n    $19, $20, $21, $22, $23, $24, $25, $26, \n    $27, $28, $29, $30, $31, $32, $33, $34, \n    $35, $36, $37, $38, $39, $40, $41, $42, \n    $43, $44, $45, $46, $47, $48, $49, $50, \n    $51, $52, $53, $54\n  ) ON CONFLICT (discord_id) DO \nUPDATE \nSET \n  official_skin_name = $2, \n  official_skin_display_name = $3, \n  custom_skin_id = $4, \n  custom_skin_display_name = $5, \n  global_volume = $6, \n  music_volume = $7, \n  hitsound_volume = $8, \n  show_hit_error_meter = $9, \n  show_unstable_rate = $10, \n  show_score = $11, \n  show_hp_bar = $12, \n  show_combo_counter = $13, \n  show_pp_counter = $14, \n  show_key_overlay = $15, \n  show_scoreboard = $16, \n  show_borders = $17, \n  show_mods = $18, \n  show_result_screen = $19, \n  use_skin_cursor = $20, \n  use_skin_colors = $21, \n  use_skin_hitsounds = $22, \n  use_beatmap_colors = $23, \n  cursor_scale_to_cs = $24, \n  cursor_rainbow = $25, \n  cursor_trail_glow = $26, \n  draw_follow_points = $27, \n  draw_combo_numbers = $28, \n  cursor_size = $29, \n  cursor_trail = $30, \n  beat_scaling = $31, \n  slider_merge = $32, \n  objects_rainbow = $33, \n  flash_objects = $34, \n  use_slider_hitcircle_color = $35, \n  seizure_warning = $36, \n  load_storyboard = $37, \n  load_video = $38, \n  intro_bg_dim = $39, \n  ingame_bg_dim = $40, \n  break_bg_dim = $41, \n  bg_parallax = $42, \n  show_danser_logo = $43, \n  skip_intro = $44, \n  cursor_ripples = $45, \n  slider_snaking_in = $46, \n  slider_snaking_out = $47, \n  show_hit_counter = $48, \n  show_avatars_on_scoreboard = $49, \n  show_aim_error_meter = $50, \n  play_nightcore_samples = $51, \n  show_strain_graph = $52, \n  show_slider_breaks = $53, \n  ignore_fail = $54"
+  },
   "26b20d4e1aae8f234e4a5295d5c892ba739303b90c57992685af8a5d565885bf": {
     "describe": {
       "columns": [
@@ -1022,320 +1087,6 @@
       }
     },
     "query": "\nSELECT \n  discord_id \nFROM \n  user_configs \nWHERE \n  osu_id = $1"
-  },
-  "382cff02822d56af433c2a67c9158ae0827bfe8a173acc160203e09c487579a6": {
-    "describe": {
-      "columns": [
-        {
-          "name": "official_skin_name",
-          "ordinal": 0,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "official_skin_display_name",
-          "ordinal": 1,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "custom_skin_id",
-          "ordinal": 2,
-          "type_info": "Int4"
-        },
-        {
-          "name": "custom_skin_display_name",
-          "ordinal": 3,
-          "type_info": "Varchar"
-        },
-        {
-          "name": "global_volume",
-          "ordinal": 4,
-          "type_info": "Int2"
-        },
-        {
-          "name": "music_volume",
-          "ordinal": 5,
-          "type_info": "Int2"
-        },
-        {
-          "name": "hitsound_volume",
-          "ordinal": 6,
-          "type_info": "Int2"
-        },
-        {
-          "name": "show_hit_error_meter",
-          "ordinal": 7,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_unstable_rate",
-          "ordinal": 8,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_score",
-          "ordinal": 9,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_hp_bar",
-          "ordinal": 10,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_combo_counter",
-          "ordinal": 11,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_pp_counter",
-          "ordinal": 12,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_key_overlay",
-          "ordinal": 13,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_scoreboard",
-          "ordinal": 14,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_borders",
-          "ordinal": 15,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_mods",
-          "ordinal": 16,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_result_screen",
-          "ordinal": 17,
-          "type_info": "Bool"
-        },
-        {
-          "name": "use_skin_cursor",
-          "ordinal": 18,
-          "type_info": "Bool"
-        },
-        {
-          "name": "use_skin_colors",
-          "ordinal": 19,
-          "type_info": "Bool"
-        },
-        {
-          "name": "use_skin_hitsounds",
-          "ordinal": 20,
-          "type_info": "Bool"
-        },
-        {
-          "name": "use_beatmap_colors",
-          "ordinal": 21,
-          "type_info": "Bool"
-        },
-        {
-          "name": "cursor_scale_to_cs",
-          "ordinal": 22,
-          "type_info": "Bool"
-        },
-        {
-          "name": "cursor_rainbow",
-          "ordinal": 23,
-          "type_info": "Bool"
-        },
-        {
-          "name": "cursor_trail_glow",
-          "ordinal": 24,
-          "type_info": "Bool"
-        },
-        {
-          "name": "draw_follow_points",
-          "ordinal": 25,
-          "type_info": "Bool"
-        },
-        {
-          "name": "draw_combo_numbers",
-          "ordinal": 26,
-          "type_info": "Bool"
-        },
-        {
-          "name": "cursor_size",
-          "ordinal": 27,
-          "type_info": "Float4"
-        },
-        {
-          "name": "cursor_trail",
-          "ordinal": 28,
-          "type_info": "Bool"
-        },
-        {
-          "name": "beat_scaling",
-          "ordinal": 29,
-          "type_info": "Bool"
-        },
-        {
-          "name": "slider_merge",
-          "ordinal": 30,
-          "type_info": "Bool"
-        },
-        {
-          "name": "objects_rainbow",
-          "ordinal": 31,
-          "type_info": "Bool"
-        },
-        {
-          "name": "flash_objects",
-          "ordinal": 32,
-          "type_info": "Bool"
-        },
-        {
-          "name": "use_slider_hitcircle_color",
-          "ordinal": 33,
-          "type_info": "Bool"
-        },
-        {
-          "name": "seizure_warning",
-          "ordinal": 34,
-          "type_info": "Bool"
-        },
-        {
-          "name": "load_storyboard",
-          "ordinal": 35,
-          "type_info": "Bool"
-        },
-        {
-          "name": "load_video",
-          "ordinal": 36,
-          "type_info": "Bool"
-        },
-        {
-          "name": "intro_bg_dim",
-          "ordinal": 37,
-          "type_info": "Int2"
-        },
-        {
-          "name": "ingame_bg_dim",
-          "ordinal": 38,
-          "type_info": "Int2"
-        },
-        {
-          "name": "break_bg_dim",
-          "ordinal": 39,
-          "type_info": "Int2"
-        },
-        {
-          "name": "bg_parallax",
-          "ordinal": 40,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_danser_logo",
-          "ordinal": 41,
-          "type_info": "Bool"
-        },
-        {
-          "name": "skip_intro",
-          "ordinal": 42,
-          "type_info": "Bool"
-        },
-        {
-          "name": "cursor_ripples",
-          "ordinal": 43,
-          "type_info": "Bool"
-        },
-        {
-          "name": "slider_snaking_in",
-          "ordinal": 44,
-          "type_info": "Bool"
-        },
-        {
-          "name": "slider_snaking_out",
-          "ordinal": 45,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_hit_counter",
-          "ordinal": 46,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_avatars_on_scoreboard",
-          "ordinal": 47,
-          "type_info": "Bool"
-        },
-        {
-          "name": "show_aim_error_meter",
-          "ordinal": 48,
-          "type_info": "Bool"
-        },
-        {
-          "name": "play_nightcore_samples",
-          "ordinal": 49,
-          "type_info": "Bool"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        true,
-        true,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false
-      ],
-      "parameters": {
-        "Left": [
-          "Int8"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  official_skin_name, \n  official_skin_display_name, \n  custom_skin_id, \n  custom_skin_display_name, \n  global_volume, \n  music_volume, \n  hitsound_volume, \n  show_hit_error_meter, \n  show_unstable_rate, \n  show_score, \n  show_hp_bar, \n  show_combo_counter, \n  show_pp_counter, \n  show_key_overlay, \n  show_scoreboard, \n  show_borders, \n  show_mods, \n  show_result_screen, \n  use_skin_cursor, \n  use_skin_colors, \n  use_skin_hitsounds, \n  use_beatmap_colors, \n  cursor_scale_to_cs, \n  cursor_rainbow, \n  cursor_trail_glow, \n  draw_follow_points, \n  draw_combo_numbers, \n  cursor_size, \n  cursor_trail, \n  beat_scaling, \n  slider_merge, \n  objects_rainbow, \n  flash_objects, \n  use_slider_hitcircle_color, \n  seizure_warning, \n  load_storyboard, \n  load_video, \n  intro_bg_dim, \n  ingame_bg_dim, \n  break_bg_dim, \n  bg_parallax, \n  show_danser_logo, \n  skip_intro, \n  cursor_ripples, \n  slider_snaking_in, \n  slider_snaking_out, \n  show_hit_counter, \n  show_avatars_on_scoreboard, \n  show_aim_error_meter, \n  play_nightcore_samples \nFROM \n  user_render_settings \nWHERE \n  discord_id = $1"
   },
   "3908f87ffa05a9481f31675f1a26da370c5cb2892330f65f2a90bbdd547b39b1": {
     "describe": {
@@ -2049,68 +1800,6 @@
       }
     },
     "query": "\nDELETE FROM \n  osu_map_difficulty_mania \nWHERE \n  map_id = $1"
-  },
-  "8b29519ee423825ae6fa87dfeac42d31ace4ca771627576f4bfa01b9f3e44133": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Int8",
-          "Varchar",
-          "Varchar",
-          "Int4",
-          "Varchar",
-          "Int2",
-          "Int2",
-          "Int2",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Float4",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Int2",
-          "Int2",
-          "Int2",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool",
-          "Bool"
-        ]
-      }
-    },
-    "query": "\nINSERT INTO user_render_settings (\n  discord_id, official_skin_name, official_skin_display_name, \n  custom_skin_id, custom_skin_display_name, \n  global_volume, music_volume, hitsound_volume, \n  show_hit_error_meter, show_unstable_rate, \n  show_score, show_hp_bar, show_combo_counter, \n  show_pp_counter, show_key_overlay, \n  show_scoreboard, show_borders, show_mods, \n  show_result_screen, use_skin_cursor, \n  use_skin_colors, use_skin_hitsounds, \n  use_beatmap_colors, cursor_scale_to_cs, \n  cursor_rainbow, cursor_trail_glow, \n  draw_follow_points, draw_combo_numbers, \n  cursor_size, cursor_trail, beat_scaling, \n  slider_merge, objects_rainbow, flash_objects, \n  use_slider_hitcircle_color, seizure_warning, \n  load_storyboard, load_video, intro_bg_dim, \n  ingame_bg_dim, break_bg_dim, bg_parallax, \n  show_danser_logo, skip_intro, cursor_ripples, \n  slider_snaking_in, slider_snaking_out, \n  show_hit_counter, show_avatars_on_scoreboard, \n  show_aim_error_meter, play_nightcore_samples\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16, $17, $18, \n    $19, $20, $21, $22, $23, $24, $25, $26, \n    $27, $28, $29, $30, $31, $32, $33, $34, \n    $35, $36, $37, $38, $39, $40, $41, $42, \n    $43, $44, $45, $46, $47, $48, $49, $50, \n    $51\n  ) ON CONFLICT (discord_id) DO \nUPDATE \nSET \n  official_skin_name = $2, \n  official_skin_display_name = $3, \n  custom_skin_id = $4, \n  custom_skin_display_name = $5, \n  global_volume = $6, \n  music_volume = $7, \n  hitsound_volume = $8, \n  show_hit_error_meter = $9, \n  show_unstable_rate = $10, \n  show_score = $11, \n  show_hp_bar = $12, \n  show_combo_counter = $13, \n  show_pp_counter = $14, \n  show_key_overlay = $15, \n  show_scoreboard = $16, \n  show_borders = $17, \n  show_mods = $18, \n  show_result_screen = $19, \n  use_skin_cursor = $20, \n  use_skin_colors = $21, \n  use_skin_hitsounds = $22, \n  use_beatmap_colors = $23, \n  cursor_scale_to_cs = $24, \n  cursor_rainbow = $25, \n  cursor_trail_glow = $26, \n  draw_follow_points = $27, \n  draw_combo_numbers = $28, \n  cursor_size = $29, \n  cursor_trail = $30, \n  beat_scaling = $31, \n  slider_merge = $32, \n  objects_rainbow = $33, \n  flash_objects = $34, \n  use_slider_hitcircle_color = $35, \n  seizure_warning = $36, \n  load_storyboard = $37, \n  load_video = $38, \n  intro_bg_dim = $39, \n  ingame_bg_dim = $40, \n  break_bg_dim = $41, \n  bg_parallax = $42, \n  show_danser_logo = $43, \n  skip_intro = $44, \n  cursor_ripples = $45, \n  slider_snaking_in = $46, \n  slider_snaking_out = $47, \n  show_hit_counter = $48, \n  show_avatars_on_scoreboard = $49, \n  show_aim_error_meter = $50, \n  play_nightcore_samples = $51"
   },
   "8b88f6e2659ffeb87114f3c9e099c9ba96a6ce79c842fffe9a665fc1f5334822": {
     "describe": {
@@ -2979,6 +2668,338 @@
       }
     },
     "query": "\nSELECT \n  guild_id,\n  authorities,\n  prefixes,\n  allow_songs,\n  score_size,\n  retries,\n  osu_track_limit,\n  minimized_pp,\n  list_size, \n  render_button, \n  allow_custom_skins, \n  hide_medal_solution \nFROM \n  guild_configs"
+  },
+  "cf16c21ccc39e70343cf7f2a17a67991142059b67d3e4c36c315e669c27d07d4": {
+    "describe": {
+      "columns": [
+        {
+          "name": "official_skin_name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "official_skin_display_name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "custom_skin_id",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "custom_skin_display_name",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "global_volume",
+          "ordinal": 4,
+          "type_info": "Int2"
+        },
+        {
+          "name": "music_volume",
+          "ordinal": 5,
+          "type_info": "Int2"
+        },
+        {
+          "name": "hitsound_volume",
+          "ordinal": 6,
+          "type_info": "Int2"
+        },
+        {
+          "name": "show_hit_error_meter",
+          "ordinal": 7,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_unstable_rate",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_score",
+          "ordinal": 9,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_hp_bar",
+          "ordinal": 10,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_combo_counter",
+          "ordinal": 11,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_pp_counter",
+          "ordinal": 12,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_key_overlay",
+          "ordinal": 13,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_scoreboard",
+          "ordinal": 14,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_borders",
+          "ordinal": 15,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_mods",
+          "ordinal": 16,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_result_screen",
+          "ordinal": 17,
+          "type_info": "Bool"
+        },
+        {
+          "name": "use_skin_cursor",
+          "ordinal": 18,
+          "type_info": "Bool"
+        },
+        {
+          "name": "use_skin_colors",
+          "ordinal": 19,
+          "type_info": "Bool"
+        },
+        {
+          "name": "use_skin_hitsounds",
+          "ordinal": 20,
+          "type_info": "Bool"
+        },
+        {
+          "name": "use_beatmap_colors",
+          "ordinal": 21,
+          "type_info": "Bool"
+        },
+        {
+          "name": "cursor_scale_to_cs",
+          "ordinal": 22,
+          "type_info": "Bool"
+        },
+        {
+          "name": "cursor_rainbow",
+          "ordinal": 23,
+          "type_info": "Bool"
+        },
+        {
+          "name": "cursor_trail_glow",
+          "ordinal": 24,
+          "type_info": "Bool"
+        },
+        {
+          "name": "draw_follow_points",
+          "ordinal": 25,
+          "type_info": "Bool"
+        },
+        {
+          "name": "draw_combo_numbers",
+          "ordinal": 26,
+          "type_info": "Bool"
+        },
+        {
+          "name": "cursor_size",
+          "ordinal": 27,
+          "type_info": "Float4"
+        },
+        {
+          "name": "cursor_trail",
+          "ordinal": 28,
+          "type_info": "Bool"
+        },
+        {
+          "name": "beat_scaling",
+          "ordinal": 29,
+          "type_info": "Bool"
+        },
+        {
+          "name": "slider_merge",
+          "ordinal": 30,
+          "type_info": "Bool"
+        },
+        {
+          "name": "objects_rainbow",
+          "ordinal": 31,
+          "type_info": "Bool"
+        },
+        {
+          "name": "flash_objects",
+          "ordinal": 32,
+          "type_info": "Bool"
+        },
+        {
+          "name": "use_slider_hitcircle_color",
+          "ordinal": 33,
+          "type_info": "Bool"
+        },
+        {
+          "name": "seizure_warning",
+          "ordinal": 34,
+          "type_info": "Bool"
+        },
+        {
+          "name": "load_storyboard",
+          "ordinal": 35,
+          "type_info": "Bool"
+        },
+        {
+          "name": "load_video",
+          "ordinal": 36,
+          "type_info": "Bool"
+        },
+        {
+          "name": "intro_bg_dim",
+          "ordinal": 37,
+          "type_info": "Int2"
+        },
+        {
+          "name": "ingame_bg_dim",
+          "ordinal": 38,
+          "type_info": "Int2"
+        },
+        {
+          "name": "break_bg_dim",
+          "ordinal": 39,
+          "type_info": "Int2"
+        },
+        {
+          "name": "bg_parallax",
+          "ordinal": 40,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_danser_logo",
+          "ordinal": 41,
+          "type_info": "Bool"
+        },
+        {
+          "name": "skip_intro",
+          "ordinal": 42,
+          "type_info": "Bool"
+        },
+        {
+          "name": "cursor_ripples",
+          "ordinal": 43,
+          "type_info": "Bool"
+        },
+        {
+          "name": "slider_snaking_in",
+          "ordinal": 44,
+          "type_info": "Bool"
+        },
+        {
+          "name": "slider_snaking_out",
+          "ordinal": 45,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_hit_counter",
+          "ordinal": 46,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_avatars_on_scoreboard",
+          "ordinal": 47,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_aim_error_meter",
+          "ordinal": 48,
+          "type_info": "Bool"
+        },
+        {
+          "name": "play_nightcore_samples",
+          "ordinal": 49,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_strain_graph",
+          "ordinal": 50,
+          "type_info": "Bool"
+        },
+        {
+          "name": "show_slider_breaks",
+          "ordinal": 51,
+          "type_info": "Bool"
+        },
+        {
+          "name": "ignore_fail",
+          "ordinal": 52,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  official_skin_name, \n  official_skin_display_name, \n  custom_skin_id, \n  custom_skin_display_name, \n  global_volume, \n  music_volume, \n  hitsound_volume, \n  show_hit_error_meter, \n  show_unstable_rate, \n  show_score, \n  show_hp_bar, \n  show_combo_counter, \n  show_pp_counter, \n  show_key_overlay, \n  show_scoreboard, \n  show_borders, \n  show_mods, \n  show_result_screen, \n  use_skin_cursor, \n  use_skin_colors, \n  use_skin_hitsounds, \n  use_beatmap_colors, \n  cursor_scale_to_cs, \n  cursor_rainbow, \n  cursor_trail_glow, \n  draw_follow_points, \n  draw_combo_numbers, \n  cursor_size, \n  cursor_trail, \n  beat_scaling, \n  slider_merge, \n  objects_rainbow, \n  flash_objects, \n  use_slider_hitcircle_color, \n  seizure_warning, \n  load_storyboard, \n  load_video, \n  intro_bg_dim, \n  ingame_bg_dim, \n  break_bg_dim, \n  bg_parallax, \n  show_danser_logo, \n  skip_intro, \n  cursor_ripples, \n  slider_snaking_in, \n  slider_snaking_out, \n  show_hit_counter, \n  show_avatars_on_scoreboard, \n  show_aim_error_meter, \n  play_nightcore_samples, \n  show_strain_graph, \n  show_slider_breaks, \n  ignore_fail \nFROM \n  user_render_settings \nWHERE \n  discord_id = $1"
   },
   "cf5dde0579ccfb3d865308979fa79cbe1ea0f97822294db00f588d8fb617ff9f": {
     "describe": {

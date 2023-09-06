@@ -49,4 +49,7 @@ pub struct DbRenderOptions {
     pub show_avatars_on_scoreboard: bool,
     pub show_aim_error_meter: bool,
     pub play_nightcore_samples: bool,
+    pub show_strain_graph: bool,
+    pub show_slider_breaks: bool,
+    pub ignore_fail: bool,
 }
