@@ -10,7 +10,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{
-        GameMode, Grade, OsuError,
+        GameMod, GameMode, GameMods, Grade, OsuError,
         RankStatus::{Approved, Loved, Qualified, Ranked},
         Score,
     },
@@ -496,11 +496,51 @@ pub(super) async fn score(
 
         let tries = match retries {
             Retries::Hide => None,
-            Retries::ConsiderMods => Some(
-                1 + iter
-                    .take_while(|s| &s.mods == mods && s.map_id == map_id)
-                    .count(),
-            ),
+            Retries::ConsiderMods => {
+                fn same_mods(a: &GameMods, b: &GameMods) -> bool {
+                    a.iter().zip(b.iter()).all(|(a, b)| match (a, b) {
+                        (GameMod::DoubleTimeOsu(a), GameMod::NightcoreOsu(b))
+                        | (GameMod::NightcoreOsu(b), GameMod::DoubleTimeOsu(a)) => {
+                            a.speed_change.eq(&b.speed_change)
+                        }
+                        (GameMod::SuddenDeathOsu(a), GameMod::PerfectOsu(b))
+                        | (GameMod::PerfectOsu(b), GameMod::SuddenDeathOsu(a)) => {
+                            a.restart.eq(&b.restart)
+                        }
+                        (GameMod::DoubleTimeTaiko(a), GameMod::NightcoreTaiko(b))
+                        | (GameMod::NightcoreTaiko(b), GameMod::DoubleTimeTaiko(a)) => {
+                            a.speed_change.eq(&b.speed_change)
+                        }
+                        (GameMod::SuddenDeathTaiko(a), GameMod::PerfectTaiko(b))
+                        | (GameMod::PerfectTaiko(b), GameMod::SuddenDeathTaiko(a)) => {
+                            a.restart.eq(&b.restart)
+                        }
+                        (GameMod::DoubleTimeCatch(a), GameMod::NightcoreCatch(b))
+                        | (GameMod::NightcoreCatch(b), GameMod::DoubleTimeCatch(a)) => {
+                            a.speed_change.eq(&b.speed_change)
+                        }
+                        (GameMod::SuddenDeathCatch(a), GameMod::PerfectCatch(b))
+                        | (GameMod::PerfectCatch(b), GameMod::SuddenDeathCatch(a)) => {
+                            a.restart.eq(&b.restart)
+                        }
+                        (GameMod::DoubleTimeMania(a), GameMod::NightcoreMania(b))
+                        | (GameMod::NightcoreMania(b), GameMod::DoubleTimeMania(a)) => {
+                            a.speed_change.eq(&b.speed_change)
+                        }
+                        (GameMod::SuddenDeathMania(a), GameMod::PerfectMania(b))
+                        | (GameMod::PerfectMania(b), GameMod::SuddenDeathMania(a)) => {
+                            a.restart.eq(&b.restart)
+                        }
+                        (a, b) => a.eq(b),
+                    })
+                }
+
+                Some(
+                    1 + iter
+                        .take_while(|s| same_mods(&s.mods, mods) && s.map_id == map_id)
+                        .count(),
+                )
+            }
             Retries::IgnoreMods => Some(1 + iter.take_while(|s| s.map_id == map_id).count()),
         };
 
