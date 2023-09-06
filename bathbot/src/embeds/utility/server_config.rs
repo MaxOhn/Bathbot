@@ -78,9 +78,9 @@ impl ServerConfigEmbed {
                 &[(true, "enabled"), (false, "disabled")],
             ),
             create_field(
-                "Allow custom skins",
+                "Custom render skins",
                 config.allow_custom_skins.unwrap_or(true),
-                &[(true, "true"), (false, "false")],
+                &[(true, "allow"), (false, "deny")],
             ),
             create_field(
                 "Score embeds*",
