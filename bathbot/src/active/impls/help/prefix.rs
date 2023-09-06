@@ -71,7 +71,7 @@ impl IActiveMessage for HelpPrefixMenu {
     fn build_components(&self) -> Vec<Component> {
         let options = vec![
             SelectMenuOption {
-                default: matches!(self.current_group, None),
+                default: self.current_group.is_none(),
                 description: None,
                 emoji: Some(ReactionType::Unicode {
                     name: "🛁".to_owned(),
@@ -179,7 +179,7 @@ impl IActiveMessage for HelpPrefixMenu {
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let Some(value) = component.data.values.pop() else {
-            return ComponentResult::Err(eyre!("Missing help menu value")).boxed()
+            return ComponentResult::Err(eyre!("Missing help menu value")).boxed();
         };
 
         self.current_group = match value.as_str() {

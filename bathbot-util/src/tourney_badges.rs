@@ -87,6 +87,6 @@ mod tests {
             Innovative Storyboarding (osu!) Runner Up and Song Title Runner Up", // /u/2330619
         ];
 
-        assert_eq!(TourneyBadges::count(&badges), 0);
+        assert_eq!(TourneyBadges::count(badges), 0);
     }
 }

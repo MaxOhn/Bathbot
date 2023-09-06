@@ -228,10 +228,7 @@ pub struct ModeAsSeed<T> {
 
 impl<T> Clone for ModeAsSeed<T> {
     fn clone(&self) -> Self {
-        Self {
-            mode: self.mode,
-            phantom: PhantomData,
-        }
+        *self
     }
 }
 
