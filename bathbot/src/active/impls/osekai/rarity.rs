@@ -1,8 +1,8 @@
 use std::{fmt::Write, sync::Arc};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::OsekaiRarityEntry;
-use bathbot_util::{numbers::round, CowUtils, EmbedBuilder, FooterBuilder};
+use bathbot_model::{OsekaiMedal, OsekaiRarityEntry};
+use bathbot_util::{numbers::round, EmbedBuilder, FooterBuilder};
 use eyre::Result;
 use futures::future::BoxFuture;
 use twilight_model::{
@@ -38,12 +38,19 @@ impl IActiveMessage for MedalRarityPagination {
 
         for (entry, i) in ranking.iter().zip(pages.index() + 1..) {
             let medal_name = entry.medal_name.as_ref();
-            let tmp = medal_name.cow_replace(' ', "+");
-            let url_name = tmp.cow_replace(',', "%2C");
+
+            let url = match OsekaiMedal::name_to_url(medal_name) {
+                Ok(url) => url,
+                Err(err) => {
+                    warn!(?err);
+
+                    OsekaiMedal::backup_name_to_url(medal_name)
+                }
+            };
 
             let _ = writeln!(
                 description,
-                "**#{i} [{medal}](https://osekai.net/medals/?medal={url_name} \"{description}\")**: `{rarity}%`",
+                "**#{i} [{medal}]({url} \"{description}\")**: `{rarity}%`",
                 medal = entry.medal_name,
                 rarity = round(entry.possession_percent),
                 description = entry.description,

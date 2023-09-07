@@ -3,7 +3,7 @@ use std::{fmt::Write, sync::Arc};
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
-    constants::OSU_BASE, osu::flag_url, AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
+    constants::OSU_BASE, osu::flag_url, AuthorBuilder, EmbedBuilder, FooterBuilder,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -44,12 +44,20 @@ impl IActiveMessage for MedalsListPagination {
         let mut description = String::with_capacity(1024);
 
         for (entry, i) in medals.iter().zip(pages.index() + 1..) {
+            let url = match entry.medal.url() {
+                Ok(url) => url,
+                Err(err) => {
+                    warn!(?err);
+
+                    entry.medal.backup_url()
+                }
+            };
+
             let _ = writeln!(
                 description,
-                "**#{i} [{medal}](https://osekai.net/medals/?medal={url_name})**\n\
+                "**#{i} [{medal}]({url})**\n\
                 `{rarity:>5.2}%` • <t:{timestamp}:d> • {group}",
                 medal = entry.medal.name,
-                url_name = entry.medal.name.cow_replace(' ', "+"),
                 rarity = entry.rarity,
                 timestamp = entry.achieved.unix_timestamp(),
                 group = entry.medal.grouping,
