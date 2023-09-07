@@ -125,16 +125,14 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
             Ok(rankings) => {
                 let idx = ((rank + 49) % 50) as usize;
 
-                let rank_holder = match rankings {
+                match rankings {
                     RedisData::Original(mut rankings) => {
                         RankingsUser::from(rankings.ranking.swap_remove(idx))
                     }
                     RedisData::Archive(rankings) => {
                         rankings.ranking[idx].deserialize(&mut Infallible).unwrap()
                     }
-                };
-
-                rank_holder
+                }
             }
             Err(OsuError::NotFound) => {
                 let content = user_not_found(&ctx, user_id).await;
