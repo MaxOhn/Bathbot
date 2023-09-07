@@ -279,7 +279,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
     // Sending the embed
     let embed = WhatIfEmbed::new(&user, pp, whatif_data);
     let builder = MessageBuilder::new().embed(embed.build());
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

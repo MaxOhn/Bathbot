@@ -179,7 +179,7 @@ impl Context {
 
                 // For every match that is being tracked
                 for entry in match_live.match_channels.values_mut() {
-                    let mut tracked_match = &mut entry.tracked;
+                    let tracked_match = &mut entry.tracked;
 
                     // Request an update
                     let next_match = match tracked_match.osu_match.get_next(ctx.osu()).await {

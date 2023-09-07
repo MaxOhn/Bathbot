@@ -32,7 +32,7 @@ pub trait InteractionCommandExt {
     /// After having already ackowledged the command either via
     /// [`InteractionCommandExt::callback`] or [`InteractionCommandExt::defer`],
     /// use this to update the response.
-    fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message>;
+    fn update(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<Message>;
 
     /// Update a command to some content in a red embed.
     ///
@@ -84,7 +84,7 @@ impl InteractionCommandExt for InteractionCommand {
         let data = InteractionResponseData {
             components: builder.components,
             content: builder.content.map(|c| c.into_owned()),
-            embeds: builder.embed.map(|e| vec![e]),
+            embeds: builder.embed.into(),
             flags: ephemeral.then_some(MessageFlags::EPHEMERAL),
             attachments,
             ..Default::default()
@@ -121,7 +121,7 @@ impl InteractionCommandExt for InteractionCommand {
     fn update<'l>(
         &'l self,
         ctx: &'l Context,
-        builder: &'l MessageBuilder<'l>,
+        builder: MessageBuilder<'l>,
     ) -> ResponseFuture<Message> {
         let client = ctx.interaction();
 
@@ -133,11 +133,8 @@ impl InteractionCommandExt for InteractionCommand {
                 .expect("invalid content");
         }
 
-        if let Some(ref embed) = builder.embed {
-            req = req
-                .embeds(Some(slice::from_ref(embed)))
-                .expect("invalid embed");
-        }
+        let embed = builder.embed.build();
+        req = req.embeds(embed.as_option_slice()).expect("invalid embed");
 
         if let Some(ref components) = builder.components {
             req = req

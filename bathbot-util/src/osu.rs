@@ -1,17 +1,15 @@
 use std::{
     iter::{self, Copied, Map},
     slice::Iter,
-    time::Duration,
 };
 
 use eyre::Result;
 use rosu_v2::prelude::{
-    mods, GameMod, GameMode, GameMods, GameModsIntermode, Grade, Score, ScoreStatistics,
+    mods, GameMod, GameModIntermode, GameMode, GameMods, GameModsIntermode, Grade, Score,
+    ScoreStatistics,
 };
-use time::OffsetDateTime;
-use twilight_model::channel::message::{embed::Embed, Message};
 
-use crate::{constants::OSU_BASE, matcher, numbers::round};
+use crate::{constants::OSU_BASE, numbers::round};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ModSelection {
@@ -35,17 +33,26 @@ impl ModSelection {
 
     /// Returns `true` if the score's mods coincide with this [`ModSelection`]
     pub fn filter_score(&self, score: &Score) -> bool {
+        const DT: GameModIntermode = GameModIntermode::DoubleTime;
+        const NC: GameModIntermode = GameModIntermode::Nightcore;
+        const SD: GameModIntermode = GameModIntermode::SuddenDeath;
+        const PF: GameModIntermode = GameModIntermode::Perfect;
+
         match self {
             ModSelection::Include(mods) | ModSelection::Exact(mods) if mods.is_empty() => {
                 score.mods.is_empty()
             }
-            ModSelection::Include(mods) => mods
-                .iter()
-                .all(|gamemod| score.mods.contains_intermode(gamemod)),
+            ModSelection::Include(mods) => mods.iter().all(|gamemod| match gamemod {
+                DT => score.mods.contains_intermode(DT) || score.mods.contains_intermode(NC),
+                SD => score.mods.contains_intermode(SD) || score.mods.contains_intermode(PF),
+                _ => score.mods.contains_intermode(gamemod),
+            }),
             ModSelection::Exclude(mods) if mods.is_empty() => !score.mods.is_empty(),
-            ModSelection::Exclude(mods) => !mods
-                .iter()
-                .any(|gamemod| score.mods.contains_intermode(gamemod)),
+            ModSelection::Exclude(mods) => !mods.iter().any(|gamemod| match gamemod {
+                DT => score.mods.contains_intermode(DT) || score.mods.contains_intermode(NC),
+                SD => score.mods.contains_intermode(SD) || score.mods.contains_intermode(PF),
+                _ => score.mods.contains_intermode(gamemod),
+            }),
             ModSelection::Exact(mods) => score.mods.iter().map(GameMod::intermode).eq(mods.iter()),
         }
     }
@@ -254,93 +261,6 @@ pub fn pp_missing(start: f32, goal: f32, pps: impl IntoPpIter) -> (f32, usize) {
 pub enum MapIdType {
     Map(u32),
     Set(u32),
-}
-
-impl MapIdType {
-    const SKIP_DELAY: Duration = Duration::from_millis(500);
-
-    /// Looks for map or mapset id
-    pub fn from_msgs(msgs: &[Message], idx: usize) -> Option<Self> {
-        let now = OffsetDateTime::now_utc() - Self::SKIP_DELAY;
-        let secs = (now.unix_timestamp_nanos() / 1000) as i64;
-
-        msgs.iter()
-            .skip_while(|msg| msg.timestamp.as_micros() > secs)
-            .filter_map(Self::from_msg)
-            .nth(idx)
-    }
-
-    /// Looks for map or mapset id
-    pub fn from_msg(msg: &Message) -> Option<Self> {
-        if msg.content.chars().all(|c| c.is_numeric()) {
-            return Self::from_embeds(&msg.embeds);
-        }
-
-        matcher::get_osu_map_id(&msg.content)
-            .map(Self::Map)
-            .or_else(|| matcher::get_osu_mapset_id(&msg.content).map(Self::Set))
-            .or_else(|| Self::from_embeds(&msg.embeds))
-    }
-
-    /// Looks for map or mapset id
-    pub fn from_embeds(embeds: &[Embed]) -> Option<Self> {
-        embeds.iter().find_map(|embed| {
-            let url = embed
-                .author
-                .as_ref()
-                .and_then(|author| author.url.as_deref());
-
-            url.and_then(matcher::get_osu_map_id)
-                .map(Self::Map)
-                .or_else(|| url.and_then(matcher::get_osu_mapset_id).map(Self::Set))
-                .or_else(|| {
-                    embed
-                        .url
-                        .as_deref()
-                        .and_then(matcher::get_osu_map_id)
-                        .map(Self::Map)
-                })
-                .or_else(|| {
-                    embed
-                        .url
-                        .as_deref()
-                        .and_then(matcher::get_osu_mapset_id)
-                        .map(Self::Set)
-                })
-        })
-    }
-
-    /// Only looks for map id
-    pub fn map_from_msgs(msgs: &[Message], idx: usize) -> Option<u32> {
-        let now = OffsetDateTime::now_utc() - Self::SKIP_DELAY;
-        let secs = (now.unix_timestamp_nanos() / 1000) as i64;
-
-        msgs.iter()
-            .skip_while(|msg| msg.timestamp.as_micros() > secs)
-            .filter_map(Self::map_from_msg)
-            .nth(idx)
-    }
-
-    /// Only looks for map id
-    pub fn map_from_msg(msg: &Message) -> Option<u32> {
-        if msg.content.chars().all(|c| c.is_numeric()) {
-            return Self::map_from_embeds(&msg.embeds);
-        }
-
-        matcher::get_osu_map_id(&msg.content).or_else(|| Self::map_from_embeds(&msg.embeds))
-    }
-
-    /// Only looks for map id
-    pub fn map_from_embeds(embeds: &[Embed]) -> Option<u32> {
-        embeds.iter().find_map(|embed| {
-            embed
-                .author
-                .as_ref()
-                .and_then(|author| author.url.as_deref())
-                .and_then(matcher::get_osu_map_id)
-                .or_else(|| embed.url.as_deref().and_then(matcher::get_osu_map_id))
-        })
-    }
 }
 
 // Credits to https://github.com/RoanH/osu-BonusPP/blob/master/BonusPP/src/me/roan/bonuspp/BonusPP.java#L202

@@ -28,7 +28,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     util::{
-        query::{FilterCriteria, Searchable},
+        query::{IFilterCriteria, RegularCriteria, Searchable},
         ChannelExt,
     },
     Context,
@@ -481,31 +481,39 @@ async fn process_scores(
         ..
     } = args;
 
-    let filter_criteria = query.as_deref().map(FilterCriteria::new);
+    let filter_criteria = query.as_deref().map(RegularCriteria::create);
     let grade = grade.map(Grade::from);
     let mut entries = Vec::new();
 
+    let score_filter = |score: &Score| {
+        if filter_criteria.as_ref().is_some_and(|c| !score.matches(c)) {
+            return false;
+        }
+
+        let grade_res = if let Some(grade) = grade {
+            score.grade.eq_letter(grade)
+        } else if let Some(true) = passes {
+            score.grade != Grade::F
+        } else if let Some(false) = passes {
+            score.grade == Grade::F
+        } else {
+            true
+        };
+
+        if !grade_res {
+            return false;
+        }
+
+        if mods.is_some_and(|selection| !selection.filter_score(score)) {
+            return false;
+        }
+
+        true
+    };
+
     let maps_id_checksum = scores
         .iter()
-        .filter(|score| match filter_criteria {
-            Some(ref criteria) => score.matches(criteria),
-            None => true,
-        })
-        .filter(|score| {
-            if let Some(grade) = grade {
-                score.grade.eq_letter(grade)
-            } else if let Some(true) = passes {
-                score.grade != Grade::F
-            } else if let Some(false) = passes {
-                score.grade == Grade::F
-            } else {
-                true
-            }
-        })
-        .filter(|score| match mods {
-            None => true,
-            Some(selection) => selection.filter_score(score),
-        })
+        .filter(|&score| score_filter(score))
         .filter_map(|score| score.map.as_ref())
         .map(|map| (map.map_id as i32, map.checksum.as_deref()))
         .collect();
@@ -519,7 +527,12 @@ async fn process_scores(
     let mut attrs_map: HashMap<(u32, u32), DifficultyAttributes> =
         HashMap::with_capacity(maps.len());
 
-    for (idx, score) in scores.into_iter().enumerate() {
+    let scores = scores
+        .into_iter()
+        .enumerate()
+        .filter(|(_, score)| score_filter(score));
+
+    for (idx, score) in scores {
         let Some(map) = maps.get(&score.map_id) else { continue };
 
         let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods.bits());

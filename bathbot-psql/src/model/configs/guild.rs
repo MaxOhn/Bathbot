@@ -1,5 +1,6 @@
 use super::{
-    list_size::ListSize, minimized_pp::MinimizedPp, score_size::ScoreSize, Authorities, Prefixes,
+    list_size::ListSize, minimized_pp::MinimizedPp, score_size::ScoreSize, Authorities,
+    HideSolutions, Prefixes, Retries,
 };
 
 pub struct DbGuildConfig {
@@ -9,9 +10,12 @@ pub struct DbGuildConfig {
     pub list_size: Option<i16>,
     pub minimized_pp: Option<i16>,
     pub prefixes: Vec<u8>,
-    pub show_retries: Option<bool>,
+    pub retries: Option<i16>,
     pub osu_track_limit: Option<i16>,
     pub allow_songs: Option<bool>,
+    pub render_button: Option<bool>,
+    pub allow_custom_skins: Option<bool>,
+    pub hide_medal_solution: Option<i16>,
 }
 
 #[derive(Clone, Default)]
@@ -21,9 +25,12 @@ pub struct GuildConfig {
     pub list_size: Option<ListSize>,
     pub minimized_pp: Option<MinimizedPp>,
     pub prefixes: Prefixes,
-    pub show_retries: Option<bool>,
+    pub retries: Option<Retries>,
     pub track_limit: Option<u8>,
     pub allow_songs: Option<bool>,
+    pub render_button: Option<bool>,
+    pub allow_custom_skins: Option<bool>,
+    pub hide_medal_solution: Option<HideSolutions>,
 }
 
 impl From<DbGuildConfig> for GuildConfig {
@@ -36,9 +43,12 @@ impl From<DbGuildConfig> for GuildConfig {
             list_size,
             minimized_pp,
             prefixes,
-            show_retries,
+            retries,
             osu_track_limit,
             allow_songs,
+            render_button,
+            allow_custom_skins,
+            hide_medal_solution,
         } = config;
 
         // SAFETY: The bytes originate from the DB which only provides valid archived
@@ -52,9 +62,14 @@ impl From<DbGuildConfig> for GuildConfig {
             list_size: list_size.map(ListSize::try_from).and_then(Result::ok),
             minimized_pp: minimized_pp.map(MinimizedPp::try_from).and_then(Result::ok),
             prefixes,
-            show_retries,
+            retries: retries.map(Retries::try_from).and_then(Result::ok),
             track_limit: osu_track_limit.map(|limit| limit as u8),
             allow_songs,
+            render_button,
+            allow_custom_skins,
+            hide_medal_solution: hide_medal_solution
+                .map(HideSolutions::try_from)
+                .and_then(Result::ok),
         }
     }
 }

@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashMap, num::NonZeroU64, slice, sync::Arc};
 
 use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::osu::{TrackedOsuUserKey, TrackedOsuUserValue};
-use bathbot_util::{constants::UNKNOWN_CHANNEL, IntHasher};
+use bathbot_util::{constants::UNKNOWN_CHANNEL, EmbedBuilder, IntHasher};
 use eyre::Report;
 use rosu_v2::{
     prelude::{OsuError, Score},
@@ -13,7 +13,7 @@ use twilight_http::{
     api_error::{ApiError, GeneralApiError},
     error::ErrorType as TwilightErrorType,
 };
-use twilight_model::{channel::message::embed::Embed, id::Id};
+use twilight_model::id::Id;
 
 use crate::{
     embeds::{EmbedData, TrackNotificationEmbed},
@@ -163,7 +163,7 @@ async fn score_loop(
             }
         };
 
-        let embed = user.embed(ctx, score, &map, idx).await?;
+        let embed = user.embed(ctx, score, &map, idx).await?.build();
 
         // Send the embed to each tracking channel
         for (&channel, &limit) in channels.iter() {
@@ -235,7 +235,7 @@ impl<'u> TrackUser<'u> {
         score: &Score,
         map: &OsuMap,
         idx: u8,
-    ) -> OsuResult<Embed> {
+    ) -> OsuResult<EmbedBuilder> {
         let data = if let Some(user) = self.user.as_deref() {
             TrackNotificationEmbed::new(user, score, map, idx, ctx).await
         } else {

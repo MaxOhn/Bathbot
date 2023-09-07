@@ -28,7 +28,7 @@ use crate::{
     manager::redis::{osu::UserArgs, RedisData},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::mode_emote,
+        Emote,
     },
 };
 
@@ -56,7 +56,7 @@ impl IActiveMessage for MapPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         handle_pagination_component(ctx, component, self.msg_owner, true, &mut self.pages)
@@ -220,7 +220,7 @@ impl MapPagination {
 
         let mut info_name = format!(
             "{mode} __[{version}]__",
-            mode = mode_emote(map.mode),
+            mode = Emote::from(map.mode),
             version = map.version.as_str().cow_escape_markdown()
         );
 

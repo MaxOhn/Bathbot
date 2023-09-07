@@ -1,6 +1,6 @@
 use std::{borrow::Cow, mem};
 
-use bathbot_model::{OsuStatsScore, ScoreSlim, ScraperScore};
+use bathbot_model::{OsuStatsScore, ScoreSlim};
 use bathbot_psql::Database;
 use eyre::Result;
 use rosu_pp::{
@@ -239,26 +239,6 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
             },
             mods: score.mods.bits(),
             mode: None,
-            partial: score.grade == Grade::F,
-        }
-    }
-}
-
-impl<'s> From<&'s ScraperScore> for ScoreData {
-    #[inline]
-    fn from(score: &'s ScraperScore) -> Self {
-        Self {
-            state: ScoreState {
-                max_combo: score.max_combo as usize,
-                n_geki: score.count_geki as usize,
-                n_katu: score.count_katu as usize,
-                n300: score.count300 as usize,
-                n100: score.count100 as usize,
-                n50: score.count50 as usize,
-                n_misses: score.count_miss as usize,
-            },
-            mods: score.mods.bits(),
-            mode: Some(score.mode),
             partial: score.grade == Grade::F,
         }
     }

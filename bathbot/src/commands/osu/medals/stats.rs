@@ -163,7 +163,7 @@ pub(super) async fn stats(
         builder = builder.attachment("medal_graph.png", graph);
     }
 
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

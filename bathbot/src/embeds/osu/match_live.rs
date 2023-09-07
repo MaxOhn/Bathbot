@@ -283,7 +283,7 @@ impl MatchLiveEmbed {
 
                         // Previous game not yet finished but next one already there => override
                         if !state.finished {
-                            let (mut embed, empty) = match embeds.last_mut() {
+                            let (embed, empty) = match embeds.last_mut() {
                                 Some(embed) => (embed, false),
                                 None => (&mut *self, true),
                             };
@@ -757,11 +757,6 @@ impl Display for MissFormat {
             return Ok(());
         }
 
-        write!(
-            f,
-            " {miss}{emote}",
-            miss = self.0,
-            emote = Emote::Miss.text()
-        )
+        write!(f, " {miss}{emote}", miss = self.0, emote = Emote::Miss)
     }
 }

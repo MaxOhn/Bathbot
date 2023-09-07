@@ -125,7 +125,7 @@ impl CustomAttrs {
 }
 
 impl<'m> MapArgs<'m> {
-    fn args(msg: &Message, args: Args<'m>) -> Result<Self, String> {
+    async fn args(ctx: &Context, msg: &Message, args: Args<'m>) -> Result<MapArgs<'m>, String> {
         let mut map = None;
         let mut mods = None;
 
@@ -152,8 +152,10 @@ impl<'m> MapArgs<'m> {
             .as_deref()
             .filter(|_| msg.kind == MessageType::Reply);
 
-        if let Some(id) = reply.and_then(MapIdType::from_msg) {
-            map = Some(id);
+        if let Some(reply) = reply {
+            if let Some(id) = ctx.find_map_id_in_msg(reply).await {
+                map = Some(id);
+            }
         }
 
         Ok(Self {
@@ -217,7 +219,7 @@ async fn prefix_map(
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    match MapArgs::args(msg, args) {
+    match MapArgs::args(&ctx, msg, args).await {
         Ok(args) => map(ctx, CommandOrigin::from_msg(msg, permissions), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -270,7 +272,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
             }
         };
 
-        match MapIdType::from_msgs(&msgs, 0) {
+        match ctx.find_map_id_in_msgs(&msgs, 0).await {
             Some(id) => id,
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \

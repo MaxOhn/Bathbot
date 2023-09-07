@@ -77,7 +77,8 @@ pub use self::{
     country_top::*, fix::*, graphs::*, leaderboard::*, map::*, map_search::*, mapper::*,
     match_compare::*, match_costs::*, medals::*, most_played::*, nochoke::*, osekai::*,
     osustats::*, pinned::*, popular::*, pp::*, profile::*, rank::*, ranking::*, ratios::*,
-    recent::*, scores::*, serverleaderboard::*, simulate::*, snipe::*, top::*, whatif::*,
+    recent::*, render::*, scores::*, serverleaderboard::*, simulate::*, snipe::*, top::*,
+    whatif::*,
 };
 use crate::{core::commands::CommandOrigin, Context};
 
@@ -113,6 +114,7 @@ mod rank;
 mod ranking;
 mod ratios;
 mod recent;
+mod render;
 mod scores;
 mod serverleaderboard;
 mod simulate;

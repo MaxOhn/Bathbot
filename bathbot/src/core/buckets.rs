@@ -1,10 +1,9 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, sync::Mutex};
 
 use bathbot_util::IntHasher;
-use parking_lot::Mutex;
 use time::OffsetDateTime;
 
-pub struct Buckets([Mutex<Bucket>; 7]);
+pub struct Buckets([Mutex<Bucket>; 8]);
 
 impl Buckets {
     #[allow(clippy::new_without_default)]
@@ -19,13 +18,14 @@ impl Buckets {
         };
 
         Self([
-            make_bucket(0, 9, 4),   // All
-            make_bucket(1, 8, 2),   // BgBigger
-            make_bucket(0, 10, 4),  // BgHint
-            make_bucket(2, 20, 3),  // BgSkip
-            make_bucket(15, 0, 1),  // MatchCompare
-            make_bucket(5, 900, 3), // MatchLive
-            make_bucket(20, 0, 1),  // Songs
+            make_bucket(0, 9, 4),    // All
+            make_bucket(1, 8, 2),    // BgBigger
+            make_bucket(0, 10, 4),   // BgHint
+            make_bucket(2, 20, 3),   // BgSkip
+            make_bucket(15, 0, 1),   // MatchCompare
+            make_bucket(5, 900, 3),  // MatchLive
+            make_bucket(60, 600, 2), // Render
+            make_bucket(20, 0, 1),   // Songs
         ])
     }
 
@@ -37,7 +37,8 @@ impl Buckets {
             BucketName::BgSkip => &self.0[3],
             BucketName::MatchCompare => &self.0[4],
             BucketName::MatchLive => &self.0[5],
-            BucketName::Songs => &self.0[6],
+            BucketName::Render => &self.0[6],
+            BucketName::Songs => &self.0[7],
         }
     }
 }
@@ -47,11 +48,20 @@ pub struct Ratelimit {
     pub limit: Option<(i64, i32)>,
 }
 
-#[derive(Default)]
 pub struct MemberRatelimit {
     pub last_time: i64,
     pub set_time: i64,
     pub tickets: i32,
+}
+
+impl Default for MemberRatelimit {
+    fn default() -> Self {
+        Self {
+            last_time: 0,
+            set_time: OffsetDateTime::now_utc().unix_timestamp(),
+            tickets: 0,
+        }
+    }
 }
 
 pub struct Bucket {
@@ -76,7 +86,7 @@ impl Bucket {
             .or_insert_with(MemberRatelimit::default);
 
         if let Some((timespan, limit)) = self.ratelimit.limit {
-            if (user.tickets + 1) > limit {
+            if user.tickets + 1 > limit {
                 if time < (user.set_time + timespan) {
                     return (user.set_time + timespan) - time;
                 } else {
@@ -105,5 +115,6 @@ pub enum BucketName {
     BgSkip,
     MatchCompare,
     MatchLive,
+    Render,
     Songs,
 }

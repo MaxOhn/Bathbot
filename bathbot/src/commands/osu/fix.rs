@@ -78,11 +78,24 @@ enum MapOrScore {
 }
 
 impl<'m> FixArgs<'m> {
-    fn args(msg: &Message, args: Args<'m>) -> Self {
+    async fn args(ctx: &Context, msg: &Message, args: Args<'m>) -> FixArgs<'m> {
         let mut name = None;
         let mut discord = None;
         let mut id_ = None;
         let mut mods = None;
+
+        let reply = msg
+            .referenced_message
+            .as_deref()
+            .filter(|_| msg.kind == MessageType::Reply);
+
+        if let Some(reply) = reply {
+            if let Some(id) = ctx.find_map_id_in_msg(reply).await {
+                id_ = Some(MapOrScore::Map(id));
+            } else if let Some((mode, id)) = matcher::get_osu_score_id(&reply.content) {
+                id_ = Some(MapOrScore::Score { mode, id });
+            }
+        }
 
         for arg in args.take(3) {
             if let Some(id) = matcher::get_osu_map_id(arg)
@@ -98,19 +111,6 @@ impl<'m> FixArgs<'m> {
                 discord = Some(id);
             } else {
                 name = Some(arg.into());
-            }
-        }
-
-        let reply = msg
-            .referenced_message
-            .as_deref()
-            .filter(|_| msg.kind == MessageType::Reply);
-
-        if let Some(reply) = reply {
-            if let Some(id) = MapIdType::from_msg(reply) {
-                id_ = Some(MapOrScore::Map(id));
-            } else if let Some((mode, id)) = matcher::get_osu_score_id(&reply.content) {
-                id_ = Some(MapOrScore::Score { mode, id });
             }
         }
 
@@ -190,7 +190,7 @@ async fn prefix_fix(
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    let args = FixArgs::args(msg, args);
+    let args = FixArgs::args(&ctx, msg, args).await;
 
     fix(ctx, CommandOrigin::from_msg(msg, permissions), args).await
 }
@@ -247,9 +247,11 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
                 }
             };
 
-            match MapIdType::map_from_msgs(&msgs, 0) {
-                Some(id) => request_by_map(&ctx, &orig, id, user_id, mods.as_ref()).await,
-                None => {
+            match ctx.find_map_id_in_msgs(&msgs, 0).await {
+                Some(MapIdType::Map(id)) => {
+                    request_by_map(&ctx, &orig, id, user_id, mods.as_ref()).await
+                }
+                None | Some(MapIdType::Set(_)) => {
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
 
@@ -275,7 +277,7 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
 
     let embed_data = FixScoreEmbed::new(&entry, mods);
     let builder = embed_data.build().into();
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }
@@ -357,7 +359,7 @@ async fn request_by_map(
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let wrap = "failed to get user";
+            let wrap = "Failed to get user";
 
             return ScoreResult::Error(Report::new(err).wrap_err(wrap));
         }
@@ -365,6 +367,7 @@ async fn request_by_map(
 
     let score_opt = match scores_res {
         Ok(scores) => match mods {
+            None => scores.into_iter().max_by_key(|score| score.ended_at),
             Some(mods) => scores.into_iter().find(|score| {
                 let intermode = score
                     .mods
@@ -374,11 +377,10 @@ async fn request_by_map(
 
                 &intermode == mods
             }),
-            None => scores.into_iter().next(),
         },
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let wrap = "failed to get scores";
+            let wrap = "Failed to get scores";
 
             return ScoreResult::Error(Report::new(err).wrap_err(wrap));
         }

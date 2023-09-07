@@ -202,7 +202,7 @@ pub(super) async fn score(
     // Creating the embed
     let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

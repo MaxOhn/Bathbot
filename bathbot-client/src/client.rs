@@ -2,10 +2,7 @@ use std::time::Instant;
 
 use bytes::Bytes;
 use eyre::{Result, WrapErr};
-use http::{
-    header::{CONTENT_LENGTH, COOKIE},
-    Response,
-};
+use http::{header::CONTENT_LENGTH, Response};
 use hyper::{
     client::{connect::dns::GaiResolver, Client as HyperClient, HttpConnector},
     header::{CONTENT_TYPE, USER_AGENT},
@@ -24,7 +21,6 @@ pub(crate) type InnerClient = HyperClient<HttpsConnector<HttpConnector<GaiResolv
 
 pub struct Client {
     pub(crate) client: InnerClient,
-    osu_session: &'static str,
     #[cfg(feature = "twitch")]
     twitch: bathbot_model::TwitchData,
     ratelimiters: [LeakyBucket; 13],
@@ -34,7 +30,6 @@ pub struct Client {
 impl Client {
     /// `twitch_login` consists of `(twitch client id, twitch token)`
     pub async fn new(
-        osu_session: &'static str,
         #[cfg(feature = "twitch")] (twitch_client_id, twitch_token): (&str, &str),
         metrics: &Registry,
     ) -> Result<Self> {
@@ -69,18 +64,22 @@ impl Client {
             ratelimiter(2),  // Osekai
             ratelimiter(10), // OsuAvatar
             ratelimiter(10), // OsuBadge
-            ratelimiter(2),  // OsuHiddenApi
             ratelimiter(2),  // OsuMapFile
             ratelimiter(10), // OsuMapsetCover
-            ratelimiter(2),  // OsuStats
-            ratelimiter(2),  // OsuTracker
-            ratelimiter(1),  // Respektive
-            ratelimiter(5),  // Twitch
+            LeakyBucket::builder() // OsuReplay, allows 6 per minute
+                .max(10)
+                .tokens(10)
+                .refill_interval(Duration::from_secs(7))
+                .refill_amount(1)
+                .build(),
+            ratelimiter(2), // OsuStats
+            ratelimiter(2), // OsuTracker
+            ratelimiter(1), // Respektive
+            ratelimiter(5), // Twitch
         ];
 
         Ok(Self {
             client,
-            osu_session,
             ratelimiters,
             #[cfg(feature = "twitch")]
             twitch,
@@ -106,7 +105,6 @@ impl Client {
             .header(USER_AGENT, MY_USER_AGENT);
 
         let req = match site {
-            Site::OsuHiddenApi => req.header(COOKIE, format!("osu_session={}", self.osu_session)),
             #[cfg(not(feature = "twitch"))]
             Site::Twitch => {
                 return Err(ClientError::Report(eyre::Report::msg(
@@ -152,16 +150,16 @@ impl Client {
         let url = url.as_ref();
         trace!("POST multipart request to url {url}");
 
-        let content_type = format!("multipart/form-data; boundary={}", form.boundary());
-        let form = form.finish();
+        let content_type = form.content_type();
+        let content = form.build();
 
         let req = Request::builder()
             .method(Method::POST)
             .uri(url)
             .header(USER_AGENT, MY_USER_AGENT)
             .header(CONTENT_TYPE, content_type)
-            .header(CONTENT_LENGTH, form.len())
-            .body(Body::from(form))
+            .header(CONTENT_LENGTH, content.len())
+            .body(Body::from(content))
             .wrap_err("Failed to build POST request")?;
 
         self.ratelimit(site).await;

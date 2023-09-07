@@ -80,7 +80,7 @@ impl ActiveMessagesBuilder {
         let orig: ActiveMessageOrigin<'_> = orig.into();
 
         let response_raw = if start_by_update.unwrap_or(false) {
-            orig.create_message(&ctx, &builder).await?
+            orig.create_message(&ctx, builder).await?
         } else {
             orig.callback(&ctx, builder).await?
         };
@@ -135,7 +135,7 @@ impl ActiveMessagesBuilder {
                         return
                     },
                     _ = sleep(until_timeout) => {
-                        let active_msg = ctx.active_msgs.remove(msg).await;
+                        let active_msg = ctx.active_msgs.remove_full(msg).await;
 
                         if let Some(FullActiveMessage { mut active_msg, .. }) = active_msg {
                             if let Err(err) = active_msg.on_timeout(&ctx, msg, channel).await {

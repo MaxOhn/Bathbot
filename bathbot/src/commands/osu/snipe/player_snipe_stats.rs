@@ -128,7 +128,7 @@ pub(super) async fn player_stats(
         Ok(None) => {
             let content = format!("`{username}` has never had any national #1s");
             let builder = MessageBuilder::new().embed(content);
-            orig.create_message(&ctx, &builder).await?;
+            orig.create_message(&ctx, builder).await?;
 
             return Ok(());
         }
@@ -179,7 +179,7 @@ pub(super) async fn player_stats(
         builder = builder.attachment("stats_graph.png", bytes);
     }
 
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

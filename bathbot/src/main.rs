@@ -140,6 +140,7 @@ async fn async_main() -> Result<()> {
                 .member_requests
                 .todo_guilds
                 .lock()
+                .unwrap()
                 .remove(&guild_id);
 
             // If a guild is in the channel twice, only process the first and ignore the

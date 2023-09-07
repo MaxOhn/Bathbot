@@ -1,11 +1,11 @@
-use bathbot_util::MessageBuilder;
+use bathbot_util::{EmbedBuilder, MessageBuilder};
 use eyre::{ContextCompat, Result, WrapErr};
 use twilight_http::Response;
 use twilight_model::{
     channel::Message,
     guild::Permissions,
     id::{
-        marker::{ChannelMarker, GuildMarker, UserMarker},
+        marker::{ChannelMarker, GuildMarker, MessageMarker, UserMarker},
         Id,
     },
 };
@@ -13,7 +13,8 @@ use twilight_model::{
 use crate::{
     core::Context,
     util::{
-        interaction::InteractionCommand, Authored, ChannelExt, InteractionCommandExt, MessageExt,
+        interaction::{InteractionCommand, InteractionComponent},
+        Authored, ChannelExt, InteractionCommandExt, MessageExt,
     },
 };
 
@@ -57,7 +58,7 @@ impl CommandOrigin<'_> {
     pub async fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> Result<()> {
         match self {
             Self::Message { msg, permissions } => msg
-                .create_message(ctx, &builder, *permissions)
+                .create_message(ctx, builder, *permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to create message to callback"),
@@ -79,7 +80,7 @@ impl CommandOrigin<'_> {
     ) -> Result<Response<Message>> {
         match self {
             Self::Message { msg, permissions } => msg
-                .create_message(ctx, &builder, *permissions)
+                .create_message(ctx, builder, *permissions)
                 .await
                 .wrap_err("failed to create message for response callback"),
             Self::Interaction { command } => {
@@ -109,7 +110,7 @@ impl CommandOrigin<'_> {
     ) -> Result<()> {
         match self {
             Self::Message { msg, permissions } => msg
-                .create_message(ctx, &builder, *permissions)
+                .create_message(ctx, builder, *permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to create message for flagged callback"),
@@ -130,7 +131,7 @@ impl CommandOrigin<'_> {
     pub async fn create_message(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
     ) -> Result<Response<Message>> {
         match self {
             Self::Message { msg, permissions } => msg
@@ -151,7 +152,7 @@ impl CommandOrigin<'_> {
     pub async fn update(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
     ) -> Result<Response<Message>> {
         match self {
             Self::Message { msg, permissions } => msg
@@ -225,5 +226,98 @@ impl<'d> From<&'d mut InteractionCommand> for CommandOrigin<'d> {
     #[inline]
     fn from(command: &'d mut InteractionCommand) -> Self {
         Self::from_interaction(command)
+    }
+}
+
+pub enum OwnedCommandOrigin {
+    Message {
+        msg: Id<MessageMarker>,
+        channel: Id<ChannelMarker>,
+        permissions: Option<Permissions>,
+    },
+    Interaction {
+        command: InteractionCommand,
+    },
+}
+
+impl OwnedCommandOrigin {
+    /// Update a response and return the resulting response message.
+    ///
+    /// In case of an interaction, be sure this is the first and only time you
+    /// call this. Afterwards, you must update the resulting message.
+    pub async fn update(
+        &self,
+        ctx: &Context,
+        builder: MessageBuilder<'_>,
+    ) -> Result<Response<Message>> {
+        match self {
+            Self::Message {
+                msg,
+                channel,
+                permissions,
+            } => (*msg, *channel)
+                .update(ctx, builder, *permissions)
+                .wrap_err("Lacking permission to update message")?
+                .await
+                .wrap_err("Failed to update message"),
+            Self::Interaction { command } => command
+                .update(ctx, builder)
+                .await
+                .wrap_err("Failed to update interaction message"),
+        }
+    }
+
+    /// Respond with a red embed.
+    ///
+    /// In case of an interaction, be sure you already called back beforehand.
+    pub async fn error(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
+        match self {
+            Self::Message {
+                msg,
+                channel,
+                permissions,
+            } => {
+                let embed = EmbedBuilder::new().color_red().description(content);
+                let builder = MessageBuilder::new().embed(embed);
+
+                (*msg, *channel)
+                    .update(ctx, builder, *permissions)
+                    .wrap_err("Lacking permission to respond with error")?
+                    .await
+                    .map(|_| ())
+                    .wrap_err("Failed to respond with error")
+            }
+            Self::Interaction { command } => command
+                .error(ctx, content)
+                .await
+                .map(|_| ())
+                .wrap_err("Failed to respond with error"),
+        }
+    }
+}
+
+impl From<(Message, Option<Permissions>)> for OwnedCommandOrigin {
+    fn from((msg, permissions): (Message, Option<Permissions>)) -> Self {
+        Self::Message {
+            msg: msg.id,
+            channel: msg.channel_id,
+            permissions,
+        }
+    }
+}
+
+impl From<InteractionCommand> for OwnedCommandOrigin {
+    fn from(command: InteractionCommand) -> Self {
+        Self::Interaction { command }
+    }
+}
+
+impl From<&InteractionComponent> for OwnedCommandOrigin {
+    fn from(component: &InteractionComponent) -> Self {
+        Self::Message {
+            msg: component.message.id,
+            channel: component.message.channel_id,
+            permissions: component.permissions,
+        }
     }
 }

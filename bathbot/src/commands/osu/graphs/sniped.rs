@@ -89,7 +89,7 @@ pub async fn sniped_graph(
                 "`{username}` was neither sniped nor sniped other people in the last 8 weeks"
             );
             let builder = MessageBuilder::new().embed(content);
-            orig.create_message(ctx, &builder).await?;
+            orig.create_message(ctx, builder).await?;
 
             return Ok(None);
         }

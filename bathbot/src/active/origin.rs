@@ -24,7 +24,7 @@ impl ActiveMessageOrigin<'_> {
     pub(super) async fn create_message(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
     ) -> Result<Response<Message>, ActiveMessageOriginError> {
         match self {
             Self::Channel(channel) => {
@@ -56,7 +56,7 @@ impl ActiveMessageOrigin<'_> {
         match self {
             Self::Channel(channel) => {
                 channel
-                    .create_message(ctx, &builder, None)
+                    .create_message(ctx, builder, None)
                     .await
                     .map_err(|err| {
                         if cannot_dm(&err) {

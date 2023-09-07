@@ -1,13 +1,16 @@
-use std::{collections::HashSet, fmt::Write, hash::BuildHasher, time::Duration};
+use std::{
+    fmt::{Formatter, Result as FmtResult, Write},
+    time::Duration,
+};
 
+use base64::{engine::general_purpose::STANDARD, Engine};
 use bathbot_model::{
     ModeAsSeed, OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments, OsekaiMap,
     OsekaiMaps, OsekaiMedal, OsekaiRanking, OsekaiRankingEntries, OsuStatsBestScores,
     OsuStatsBestTimeframe, OsuStatsParams, OsuStatsPlayer, OsuStatsPlayersArgs, OsuStatsScoresRaw,
     OsuTrackerCountryDetails, OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats,
-    RespektiveUser, RespektiveUsers, ScraperScore, ScraperScores, SnipeCountries,
-    SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent, SnipeScore,
-    SnipeScoreParams,
+    RespektiveUser, RespektiveUsers, SnipeCountries, SnipeCountryPlayer, SnipeCountryStatistics,
+    SnipePlayer, SnipeRecent, SnipeScore, SnipeScoreParams,
 };
 use bathbot_util::{
     constants::{HUISMETBENEN, OSU_BASE},
@@ -18,8 +21,13 @@ use bytes::Bytes;
 use eyre::{Report, Result, WrapErr};
 use http::{header::USER_AGENT, Method, Request, Response};
 use hyper::Body;
-use rosu_v2::prelude::{mods, GameModIntermode, GameMode, GameModsIntermode};
-use serde::de::DeserializeSeed;
+use itoa::Buffer as IntBuffer;
+use rosu_v2::prelude::GameMode;
+use ryu::Buffer as FloatBuffer;
+use serde::{
+    de::{DeserializeSeed, Error as DeError, Visitor},
+    Deserialize, Deserializer,
+};
 use time::{format_description::FormatItem, OffsetDateTime};
 use tokio::time::timeout;
 
@@ -179,7 +187,9 @@ impl Client {
     /// Don't use this; use `RedisManager::medals` instead.
     pub async fn get_osekai_medals(&self) -> Result<Vec<OsekaiMedal>> {
         let url = "https://osekai.net/medals/api/medals.php";
-        let form = Multipart::new().push_text("strSearch", "");
+
+        let mut form = Multipart::new();
+        form.push_text("strSearch", "");
 
         let bytes = self
             .make_multipart_post_request(url, Site::Osekai, form)
@@ -194,7 +204,8 @@ impl Client {
 
     pub async fn get_osekai_beatmaps(&self, medal_name: &str) -> Result<Vec<OsekaiMap>> {
         let url = "https://osekai.net/medals/api/beatmaps.php";
-        let form = Multipart::new().push_text("strSearch", medal_name);
+        let mut form = Multipart::new();
+        form.push_text("strSearch", medal_name);
 
         let bytes = self
             .make_multipart_post_request(url, Site::Osekai, form)
@@ -212,8 +223,9 @@ impl Client {
     pub async fn get_osekai_comments(&self, medal_id: u32) -> Result<Vec<OsekaiComment>> {
         let url = "https://osekai.net/global/api/comment_system.php";
 
-        let form = Multipart::new()
-            .push_text("strMedalID", medal_id)
+        let mut buf = IntBuffer::new();
+        let mut form = Multipart::new();
+        form.push_int("strMedalID", medal_id, &mut buf)
             .push_text("bGetComments", "true");
 
         let bytes = self
@@ -232,7 +244,9 @@ impl Client {
     /// Don't use this; use `RedisManager::osekai_ranking` instead.
     pub async fn get_osekai_ranking<R: OsekaiRanking>(&self) -> Result<Vec<R::Entry>> {
         let url = "https://osekai.net/rankings/api/api.php";
-        let form = Multipart::new().push_text("App", R::FORM);
+
+        let mut form = Multipart::new();
+        form.push_text("App", R::FORM);
 
         let bytes = self
             .make_multipart_post_request(url, Site::Osekai, form)
@@ -401,14 +415,16 @@ impl Client {
         &self,
         params: &OsuStatsPlayersArgs,
     ) -> Result<Vec<OsuStatsPlayer>> {
-        let mut form = Multipart::new()
-            .push_text("rankMin", params.min_rank)
-            .push_text("rankMax", params.max_rank)
-            .push_text("gamemode", params.mode as u8)
-            .push_text("page", params.page);
+        let mut buf = IntBuffer::new();
+        let mut form = Multipart::new();
+
+        form.push_int("rankMin", params.min_rank, &mut buf)
+            .push_int("rankMax", params.max_rank, &mut buf)
+            .push_int("gamemode", params.mode as u8, &mut buf)
+            .push_int("page", params.page, &mut buf);
 
         if let Some(ref country) = params.country {
-            form = form.push_text("country", country);
+            form.push_text("country", country.as_str());
         }
 
         let url = "https://osustats.ppy.sh/api/getScoreRanking";
@@ -429,16 +445,19 @@ impl Client {
 
     /// Be sure whitespaces in the username are **not** replaced
     pub async fn get_global_scores(&self, params: &OsuStatsParams) -> Result<OsuStatsScoresRaw> {
-        let mut form = Multipart::new()
-            .push_text("accMin", params.min_acc)
-            .push_text("accMax", params.max_acc)
-            .push_text("rankMin", params.min_rank)
-            .push_text("rankMax", params.max_rank)
-            .push_text("gamemode", params.mode as u8)
-            .push_text("sortBy", params.order as u8)
-            .push_text("sortOrder", !params.descending as u8)
-            .push_text("page", params.page)
-            .push_text("u1", &params.username);
+        let mut int_buf = IntBuffer::new();
+        let mut float_buf = FloatBuffer::new();
+        let mut form = Multipart::new();
+
+        form.push_float("accMin", params.min_acc, &mut float_buf)
+            .push_float("accMax", params.max_acc, &mut float_buf)
+            .push_int("rankMin", params.min_rank, &mut int_buf)
+            .push_int("rankMax", params.max_rank, &mut int_buf)
+            .push_int("gamemode", params.mode as u8, &mut int_buf)
+            .push_int("sortBy", params.order as u8, &mut int_buf)
+            .push_int("sortOrder", !params.descending as u8, &mut int_buf)
+            .push_int("page", params.page, &mut int_buf)
+            .push_text("u1", params.username.as_str());
 
         if let Some(ref selection) = params.mods {
             let mod_str = match selection {
@@ -448,7 +467,7 @@ impl Client {
                 ModSelection::Exact(mods) => format!("!{mods}"),
             };
 
-            form = form.push_text("mods", mod_str);
+            form.push_text("mods", mod_str);
         }
 
         let url = "https://osustats.ppy.sh/api/getScores";
@@ -470,10 +489,12 @@ impl Client {
         timeframe: OsuStatsBestTimeframe,
         mode: GameMode,
     ) -> Result<OsuStatsBestScores> {
-        let form = Multipart::new()
-            .push_text("gamemode", mode as u8)
-            .push_text("amount", 100)
-            .push_text("duration", timeframe as u8);
+        let mut buf = IntBuffer::new();
+        let mut form = Multipart::new();
+
+        form.push_int("gamemode", mode as u8, &mut buf)
+            .push_int("amount", 100, &mut buf)
+            .push_int("duration", timeframe as u8, &mut buf);
 
         let url = "https://osustats.ppy.sh/api/getBestDayScores";
         let post_fut = self.make_multipart_post_request(url, Site::OsuStats, form);
@@ -493,102 +514,6 @@ impl Client {
 
                 format!("Failed to deserialize osustats recentbest: {body}")
             })
-    }
-
-    // Retrieve the global leaderboard of a map
-    // If mods contain DT / NC, it will do another request for the opposite
-    // If mods dont contain Mirror and its a mania map, it will perform the
-    // same requests again but with Mirror enabled
-    pub async fn get_leaderboard<S>(
-        &self,
-        map_id: u32,
-        mods: Option<&GameModsIntermode>,
-        mode: GameMode,
-    ) -> Result<Vec<ScraperScore>>
-    where
-        S: BuildHasher + Default,
-    {
-        let mut scores = self._get_leaderboard(map_id, mods).await?;
-
-        let non_mirror = mods
-            .as_ref()
-            .map(|mods| !mods.contains(GameModIntermode::Mirror))
-            .unwrap_or(true);
-
-        // Check if another request for mania's MR is needed
-        if mode == GameMode::Mania && non_mirror {
-            let mods = match mods {
-                None => Some(mods!(Mirror)),
-                // TODO: remove .to_owned()
-                Some(mods) => Some(mods.to_owned() | GameModIntermode::Mirror),
-            };
-
-            let mut new_scores = self._get_leaderboard(map_id, mods.as_ref()).await?;
-            scores.append(&mut new_scores);
-            scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
-            let mut uniques = HashSet::with_capacity_and_hasher(50, S::default());
-            scores.retain(|s| uniques.insert(s.user_id));
-            scores.truncate(50);
-        }
-
-        // Check if DT / NC is included
-        let mods = match mods {
-            Some(mods) if mods.contains(GameModIntermode::DoubleTime) => {
-                Some(mods.to_owned() | GameModIntermode::Nightcore)
-            }
-            Some(mods) if mods.contains(GameModIntermode::Nightcore) => {
-                Some((mods.to_owned() - GameModIntermode::Nightcore) | GameModIntermode::DoubleTime)
-            }
-            Some(_) | None => None,
-        };
-
-        // If DT / NC included, make another request
-        if mods.is_some() {
-            if mode == GameMode::Mania && non_mirror {
-                // TODO: remove .clone()
-                let mods = mods.clone().map(|mods| mods | GameModIntermode::Mirror);
-                let mut new_scores = self._get_leaderboard(map_id, mods.as_ref()).await?;
-                scores.append(&mut new_scores);
-            }
-
-            let mut new_scores = self._get_leaderboard(map_id, mods.as_ref()).await?;
-            scores.append(&mut new_scores);
-            scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
-            let mut uniques = HashSet::with_capacity_and_hasher(50, S::default());
-            scores.retain(|s| uniques.insert(s.user_id));
-            scores.truncate(50);
-        }
-
-        Ok(scores)
-    }
-
-    // Retrieve the global leaderboard of a map
-    async fn _get_leaderboard(
-        &self,
-        map_id: u32,
-        mods: Option<&GameModsIntermode>,
-    ) -> Result<Vec<ScraperScore>> {
-        let mut url = format!("{OSU_BASE}beatmaps/{map_id}/scores?");
-
-        if let Some(mods) = mods {
-            if mods.is_empty() {
-                url.push_str("&mods[]=NM");
-            } else {
-                for m in mods.iter() {
-                    let _ = write!(url, "&mods[]={m}");
-                }
-            }
-        }
-
-        let bytes = self.make_get_request(url, Site::OsuHiddenApi).await?;
-
-        let scores: ScraperScores = serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
-
-            format!("failed to deserialize leaderboard: {body}")
-        })?;
-
-        Ok(scores.get())
     }
 
     pub async fn get_avatar(&self, url: &str) -> Result<Bytes> {
@@ -614,5 +539,46 @@ impl Client {
         let url = format!("{OSU_BASE}osu/{map_id}");
 
         self.make_get_request(&url, Site::OsuMapFile).await
+    }
+
+    pub async fn get_raw_osu_replay(&self, key: &str, score_id: u64) -> Result<Option<Box<[u8]>>> {
+        #[derive(Deserialize)]
+        struct RawReplayBody {
+            #[serde(default, rename = "content", deserialize_with = "decode_base64")]
+            decoded: Option<Box<[u8]>>,
+        }
+
+        fn decode_base64<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Box<[u8]>>, D::Error> {
+            struct RawReplayVisitor;
+
+            impl<'de> Visitor<'de> for RawReplayVisitor {
+                type Value = Box<[u8]>;
+
+                fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+                    f.write_str("a base64 encoded string")
+                }
+
+                fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
+                    STANDARD
+                        .decode(v)
+                        .map(Vec::into_boxed_slice)
+                        .map_err(|e| DeError::custom(format!("Failed to decode base64: {e}")))
+                }
+            }
+
+            d.deserialize_str(RawReplayVisitor).map(Some)
+        }
+
+        let url = format!("https://osu.ppy.sh/api/get_replay?k={key}&s={score_id}");
+
+        let bytes = self.make_get_request(url, Site::OsuReplay).await?;
+
+        let RawReplayBody { decoded } = serde_json::from_slice(&bytes).wrap_err_with(|| {
+            let body = String::from_utf8_lossy(&bytes);
+
+            format!("Failed to deserialize replay body: {body}")
+        })?;
+
+        Ok(decoded)
     }
 }

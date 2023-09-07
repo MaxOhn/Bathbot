@@ -3,7 +3,9 @@ use std::fmt::Write;
 use bathbot_cache::model::CachedArchive;
 use bathbot_macros::EmbedData;
 use bathbot_model::twilight_model::guild::Guild;
-use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
+use bathbot_psql::model::configs::{
+    GuildConfig, HideSolutions, ListSize, MinimizedPp, Retries, ScoreSize,
+};
 use bathbot_util::AuthorBuilder;
 use twilight_model::channel::message::embed::EmbedField;
 
@@ -66,19 +68,19 @@ impl ServerConfigEmbed {
 
         let fields = vec![
             create_field(
+                "Render button",
+                config.render_button.unwrap_or(true),
+                &[(false, "hide"), (true, "let user decide")],
+            ),
+            create_field(
                 "Song commands",
                 config.allow_songs.unwrap_or(true),
                 &[(true, "enabled"), (false, "disabled")],
             ),
             create_field(
-                "Retries*",
-                config.show_retries.unwrap_or(true),
-                &[(true, "show"), (false, "hide")],
-            ),
-            create_field(
-                "Minimized PP*",
-                config.minimized_pp.unwrap_or_default(),
-                &[(MinimizedPp::MaxPp, "max pp"), (MinimizedPp::IfFc, "if FC")],
+                "Custom render skins",
+                config.allow_custom_skins.unwrap_or(true),
+                &[(true, "allow"), (false, "deny")],
             ),
             create_field(
                 "Score embeds*",
@@ -96,6 +98,29 @@ impl ServerConfigEmbed {
                     (ListSize::Condensed, "condensed"),
                     (ListSize::Detailed, "detailed"),
                     (ListSize::Single, "single"),
+                ],
+            ),
+            create_field(
+                "Medal solutions",
+                config.hide_medal_solution.unwrap_or(HideSolutions::ShowAll),
+                &[
+                    (HideSolutions::ShowAll, "show"),
+                    (HideSolutions::HideHushHush, "hide hush-hush"),
+                    (HideSolutions::HideAll, "hide all"),
+                ],
+            ),
+            create_field(
+                "Minimized PP*",
+                config.minimized_pp.unwrap_or_default(),
+                &[(MinimizedPp::MaxPp, "max pp"), (MinimizedPp::IfFc, "if FC")],
+            ),
+            create_field(
+                "Retries*",
+                config.retries.unwrap_or(Retries::ConsiderMods),
+                &[
+                    (Retries::Hide, "hide"),
+                    (Retries::ConsiderMods, "reset on different mods"),
+                    (Retries::IgnoreMods, "ignore mods"),
                 ],
             ),
         ];

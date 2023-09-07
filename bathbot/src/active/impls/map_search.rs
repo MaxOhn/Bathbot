@@ -42,7 +42,7 @@ impl IActiveMessage for MapSearchPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         Box::pin(self.async_handle_component(ctx, component))
@@ -281,7 +281,7 @@ impl MapSearchPagination {
 
     async fn async_handle_component(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let user_id = match component.user_id() {
@@ -298,7 +298,7 @@ impl MapSearchPagination {
                 self.pages.set_index(0);
 
                 if self.defer() {
-                    if let Err(err) = component.defer(ctx).await.map_err(Report::new) {
+                    if let Err(err) = component.defer(&ctx).await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
                 }
@@ -308,7 +308,7 @@ impl MapSearchPagination {
                 self.pages.set_index(new_index);
 
                 if self.defer() {
-                    if let Err(err) = component.defer(ctx).await.map_err(Report::new) {
+                    if let Err(err) = component.defer(&ctx).await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
                 }
@@ -318,7 +318,7 @@ impl MapSearchPagination {
                 self.pages.set_index(new_index);
 
                 if self.defer() {
-                    if let Err(err) = component.defer(ctx).await.map_err(Report::new) {
+                    if let Err(err) = component.defer(&ctx).await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
                 }
@@ -327,7 +327,7 @@ impl MapSearchPagination {
                 self.pages.set_index(self.pages.last_index());
 
                 if self.defer() {
-                    if let Err(err) = component.defer(ctx).await.map_err(Report::new) {
+                    if let Err(err) = component.defer(&ctx).await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
                 }

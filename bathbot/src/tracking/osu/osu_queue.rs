@@ -1,7 +1,10 @@
 use std::{
     cmp::Reverse,
     collections::HashMap as StdHashMap,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        RwLock,
+    },
     time::Duration as StdDuration,
 };
 
@@ -13,7 +16,6 @@ use flexmap::tokio::TokioMutexMap;
 use futures::{future, StreamExt};
 use hashbrown::hash_map::{DefaultHashBuilder, Entry};
 use once_cell::sync::OnceCell;
-use parking_lot::RwLock;
 use priority_queue::PriorityQueue;
 use rosu_v2::model::GameMode;
 use tokio::{sync::Mutex, time};
@@ -21,7 +23,7 @@ use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::manager::OsuTrackingManager;
 
-static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(150));
+static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(180));
 
 pub fn default_tracking_interval() -> Duration {
     unsafe { *OSU_TRACKING_INTERVAL.get_unchecked() }
@@ -66,11 +68,11 @@ impl OsuTracking {
     }
 
     pub fn set_interval(&self, duration: Duration) {
-        *self.queue.interval.write() = duration;
+        *self.queue.interval.write().unwrap() = duration;
     }
 
     pub fn interval(&self) -> Duration {
-        *self.queue.interval.read()
+        *self.queue.interval.read().unwrap()
     }
 
     pub async fn reset(&self, key: TrackedOsuUserKey) {
@@ -245,7 +247,7 @@ impl OsuTrackingQueue {
             .await
             .get_mut()
             .filter(|value| new_date > value.last_update)
-            .map_or(false, |mut value| {
+            .map_or(false, |value| {
                 value.last_update = new_date;
 
                 true
@@ -273,7 +275,7 @@ impl OsuTrackingQueue {
         }
 
         let last_date = *self.last_date.lock().await;
-        let interval = last_date + *self.interval.read() - OffsetDateTime::now_utc();
+        let interval = last_date + *self.interval.read().unwrap() - OffsetDateTime::now_utc();
         let ms_per_track = interval.whole_milliseconds() as f32 / len as f32;
         time::sleep(StdDuration::from_millis(ms_per_track as u64)).await;
 
@@ -455,7 +457,7 @@ impl OsuTrackingQueue {
 
         let users = self.users.len().await;
         let last_pop = *self.last_date.lock().await;
-        let interval = *self.interval.read();
+        let interval = *self.interval.read().unwrap();
         let tracking = !self.stop_tracking.load(Ordering::Acquire);
 
         let wait_interval = last_pop + interval - OffsetDateTime::now_utc();

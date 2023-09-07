@@ -2,7 +2,8 @@ use std::borrow::Cow;
 
 use time::Date;
 
-use super::{
+use super::{display_range, display_text};
+use crate::util::query::{
     operator::Operator,
     optional::{OptionalRange, OptionalText},
     IFilterCriteria,
@@ -29,7 +30,7 @@ pub struct BookmarkCriteria<'q> {
 }
 
 impl<'q> IFilterCriteria<'q> for BookmarkCriteria<'q> {
-    fn try_parse_keyword_criteria(
+    fn try_parse_key_value(
         &mut self,
         key: Cow<'q, str>,
         value: Cow<'q, str>,
@@ -53,5 +54,72 @@ impl<'q> IFilterCriteria<'q> for BookmarkCriteria<'q> {
             "genre" => self.genre.try_update(op, value),
             _ => false,
         }
+    }
+
+    fn any_field(&self) -> bool {
+        let Self {
+            ar,
+            cs,
+            hp,
+            od,
+            length,
+            bpm,
+            insert_date,
+            ranked_date,
+            artist,
+            title,
+            version,
+            language,
+            genre,
+        } = self;
+
+        !(ar.is_empty()
+            && cs.is_empty()
+            && hp.is_empty()
+            && od.is_empty()
+            && length.is_empty()
+            && bpm.is_empty()
+            && insert_date.is_empty()
+            && ranked_date.is_empty()
+            && artist.is_empty()
+            && title.is_empty()
+            && version.is_empty()
+            && language.is_empty()
+            && genre.is_empty())
+    }
+
+    fn display(&self, content: &mut String) {
+        let Self {
+            ar,
+            cs,
+            hp,
+            od,
+            length,
+            bpm,
+            insert_date,
+            ranked_date,
+            artist,
+            title,
+            version,
+            language,
+            genre,
+        } = self;
+
+        display_range(content, "AR", ar);
+        display_range(content, "CS", cs);
+        display_range(content, "HP", hp);
+        display_range(content, "OD", od);
+        display_range(content, "Length", length);
+        display_range(content, "BPM", bpm);
+
+        display_text(content, "Artist", artist);
+        display_text(content, "Title", title);
+        display_text(content, "Version", version);
+
+        display_range(content, "Date", insert_date);
+        display_range(content, "Ranked", ranked_date);
+
+        display_text(content, "Language", language);
+        display_text(content, "Genre", genre);
     }
 }

@@ -15,7 +15,7 @@ pub trait ChannelExt {
     fn create_message(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> ResponseFuture<Message>;
 
@@ -30,7 +30,7 @@ impl ChannelExt for Id<ChannelMarker> {
     fn create_message(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> ResponseFuture<Message> {
         let mut req = ctx.http.create_message(*self);
@@ -39,8 +39,10 @@ impl ChannelExt for Id<ChannelMarker> {
             req = req.content(content.as_ref()).expect("invalid content");
         }
 
-        if let Some(ref embed) = builder.embed {
-            req = req.embeds(slice::from_ref(embed)).expect("invalid embed");
+        let embed = builder.embed.build();
+
+        if let Some(slice) = embed.as_option_slice() {
+            req = req.embeds(slice).expect("invalid embed");
         }
 
         if let Some(components) = builder.components.as_deref() {
@@ -86,7 +88,7 @@ impl ChannelExt for Message {
     fn create_message(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> ResponseFuture<Message> {
         self.channel_id.create_message(ctx, builder, permissions)

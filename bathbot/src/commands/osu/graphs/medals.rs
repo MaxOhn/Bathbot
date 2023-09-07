@@ -56,7 +56,7 @@ pub async fn medals_graph(
         Ok(None) => {
             let content = format!("`{}` does not have any medals", user.username());
             let builder = MessageBuilder::new().embed(content);
-            orig.create_message(ctx, &builder).await?;
+            orig.create_message(ctx, builder).await?;
 
             return Ok(None);
         }

@@ -71,6 +71,7 @@ impl IActiveMessage for ScoresMapPagination {
                 "https://cdn.discordapp.com/icons/{id}/{icon}.{ext}",
                 ext = if icon.animated { "gif" } else { "webp" }
             ),
+            // FIXME: MAP_THUMB_URL endpoint is sometimes wrong, see issue #426
             None => format!("{MAP_THUMB_URL}{mapset_id}l.jpg"),
         };
 
@@ -144,7 +145,7 @@ impl IActiveMessage for ScoresMapPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
@@ -263,7 +264,7 @@ impl GameModeFormatter {
 impl Display for GameModeFormatter {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.mode {
-            Some(mode) => f.write_str(Emote::from(mode).text()),
+            Some(mode) => Display::fmt(&Emote::from(mode), f),
             None => Ok(()),
         }
     }
@@ -308,7 +309,7 @@ impl Display for MissFormatter {
             f,
             " • {misses}{emote}",
             misses = self.misses,
-            emote = Emote::Miss.text()
+            emote = Emote::Miss
         )
     }
 }

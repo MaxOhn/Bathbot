@@ -23,11 +23,8 @@ pub trait ModalExt {
     /// use this to update the message.
     ///
     /// Note: Can only be used if `ModalSubmitInteraction::message` is `Some`.
-    fn update(
-        &self,
-        ctx: &Context,
-        builder: &MessageBuilder<'_>,
-    ) -> Option<ResponseFuture<Message>>;
+    fn update(&self, ctx: &Context, builder: MessageBuilder<'_>)
+        -> Option<ResponseFuture<Message>>;
 }
 
 impl ModalExt for InteractionModal {
@@ -44,7 +41,7 @@ impl ModalExt for InteractionModal {
 
         let data = InteractionResponseData {
             components: builder.components,
-            embeds: builder.embed.map(|e| vec![e]),
+            embeds: builder.embed.into(),
             attachments,
             ..Default::default()
         };
@@ -75,7 +72,7 @@ impl ModalExt for InteractionModal {
     fn update(
         &self,
         ctx: &Context,
-        builder: &MessageBuilder<'_>,
+        builder: MessageBuilder<'_>,
     ) -> Option<ResponseFuture<Message>> {
         self.message
             .as_ref()

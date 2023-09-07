@@ -21,7 +21,7 @@ use crate::{
     core::{commands::CommandOrigin, Context},
     util::{
         interaction::InteractionCommand,
-        query::{FilterCriteria, Searchable},
+        query::{IFilterCriteria, RegularCriteria, Searchable},
         Authored, InteractionCommandExt,
     },
 };
@@ -227,7 +227,7 @@ async fn filter_scores(
     }
 
     if let Some(query) = args.query.as_deref() {
-        let criteria = FilterCriteria::new(query);
+        let criteria = RegularCriteria::create(query);
 
         scores.retain(|(score, _)| score.matches(&criteria));
     }

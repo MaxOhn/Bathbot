@@ -137,11 +137,11 @@ impl IActiveMessage for ProfileMenu {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         async fn inner(
-            ctx: &Context,
+            ctx: Arc<Context>,
             component: &mut InteractionComponent,
             kind: &mut ProfileKind,
             msg_owner: Id<UserMarker>,
@@ -170,7 +170,7 @@ impl IActiveMessage for ProfileMenu {
                 None => return ComponentResult::Err(eyre!("Missing value for profile menu")),
             };
 
-            if let Err(err) = component.defer(ctx).await {
+            if let Err(err) = component.defer(&ctx).await {
                 warn!(?err, "Failed to defer component");
             }
 
@@ -239,7 +239,7 @@ impl ProfileMenu {
             level = stats.level().float(),
             playcount = WithComma::new(stats.playcount()),
             playtime = stats.playtime() / 60 / 60,
-            mode = Emote::from(mode).text(),
+            mode = Emote::from(mode),
         );
 
         if let Some(skin_url) = skin_url {
@@ -320,10 +320,7 @@ impl ProfileMenu {
             }
         };
 
-        let mut description = format!(
-            "__**{mode} User statistics",
-            mode = Emote::from(mode).text(),
-        );
+        let mut description = format!("__**{mode} User statistics", mode = Emote::from(mode));
 
         if let Some(discord_id) = self.discord_id {
             let _ = write!(description, " for <@{discord_id}>");
@@ -411,7 +408,7 @@ impl ProfileMenu {
         let _ = write!(
             description,
             "__**{mode} Top100 statistics",
-            mode = Emote::from(mode).text(),
+            mode = Emote::from(mode),
         );
 
         if let Some(discord_id) = self.discord_id {
@@ -589,7 +586,7 @@ impl ProfileMenu {
 
     async fn top100_mods(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
         let mode = self.user.mode();
-        let mut description = format!("__**{mode} Top100 mods", mode = Emote::from(mode).text(),);
+        let mut description = format!("__**{mode} Top100 mods", mode = Emote::from(mode));
 
         if let Some(discord_id) = self.discord_id {
             let _ = write!(description, " for <@{discord_id}>");
@@ -693,7 +690,7 @@ impl ProfileMenu {
     async fn top100_mappers(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
         let mut description = format!(
             "__**{mode} Top100 mappers",
-            mode = Emote::from(self.user.mode()).text(),
+            mode = Emote::from(self.user.mode()),
         );
 
         if let Some(discord_id) = self.discord_id {
@@ -815,10 +812,7 @@ impl ProfileMenu {
             }
         };
 
-        let mut description = format!(
-            "__**{mode} Mapper statistics",
-            mode = Emote::from(mode).text(),
-        );
+        let mut description = format!("__**{mode} Mapper statistics", mode = Emote::from(mode));
 
         if let Some(discord_id) = self.discord_id {
             let _ = write!(description, " for <@{discord_id}>");

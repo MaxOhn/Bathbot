@@ -6,7 +6,7 @@ use std::{
 };
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
-use bathbot_model::{rosu_v2::user::User, ScoreSlim};
+use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -23,7 +23,10 @@ use rosu_v2::{
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::{
+    guild::Permissions,
+    id::{marker::UserMarker, Id},
+};
 
 use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder, TopEntry};
 use crate::{
@@ -33,14 +36,17 @@ use crate::{
     },
     commands::GameModeOption,
     core::commands::CommandOrigin,
-    manager::redis::{
-        osu::{UserArgs, UserArgsSlim},
-        RedisData,
+    manager::{
+        redis::{
+            osu::{UserArgs, UserArgsSlim},
+            RedisData,
+        },
+        OwnedReplayScore,
     },
     util::{
         interaction::InteractionCommand,
-        query::{FilterCriteria, Searchable},
-        InteractionCommandExt,
+        query::{IFilterCriteria, Searchable, TopCriteria},
+        CheckPermissions, InteractionCommandExt,
     },
     Context,
 };
@@ -127,14 +133,18 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         .or(config.mode)
         .unwrap_or(GameMode::Osu);
 
-    let (guild_score_size, guild_list_size, guild_minimized_pp) = match orig.guild_id() {
+    let GuildValues {
+        minimized_pp: guild_minimized_pp,
+        score_size: guild_score_size,
+        list_size: guild_list_size,
+        render_button: guild_render_button,
+    } = match orig.guild_id() {
         Some(guild_id) => {
-            let f =
-                |config: &GuildConfig| (config.score_size, config.list_size, config.minimized_pp);
-
-            ctx.guild_config().peek(guild_id, f).await
+            ctx.guild_config()
+                .peek(guild_id, |config| GuildValues::from(config))
+                .await
         }
-        None => (None, None, None),
+        None => GuildValues::default(),
     };
 
     let list_size = args
@@ -221,7 +231,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
     let username = user.username();
 
-    if let [score] = &entries[..] {
+    if let [entry] = &entries[..] {
         let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
 
         let minimized_pp = config
@@ -231,7 +241,91 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
         let content = write_content(username, &args, 1, mods);
 
-        single_embed(ctx, orig, user, score, score_size, minimized_pp, content).await
+        let user_id = user.user_id();
+
+        let mut with_render = match (guild_render_button, config.render_button) {
+            (None | Some(true), None) => true,
+            (None | Some(true), Some(with_render)) => with_render,
+            (Some(false), _) => false,
+        };
+
+        with_render &= mode == GameMode::Osu
+            && entry.replay == Some(true)
+            && orig.has_permission_to(Permissions::SEND_MESSAGES)
+            && ctx.ordr().is_some();
+
+        let replay_score = if with_render {
+            match ctx.osu_map().checksum(entry.map.map_id()).await {
+                Ok(Some(checksum)) => {
+                    Some(OwnedReplayScore::from_top_entry(entry, username, checksum))
+                }
+                Ok(None) => None,
+                Err(err) => {
+                    warn!(?err);
+
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        // Get indices of score in user top100 and map top50
+        let (personal_idx, global_idx) = match entry.map.status() {
+            Ranked | Loved | Qualified | Approved => {
+                let user_args = UserArgsSlim::user_id(user_id).mode(entry.score.mode);
+                let best_fut = ctx.osu_scores().top().limit(100).exec(user_args);
+
+                let global_fut = ctx.osu_scores().map_leaderboard(
+                    entry.map.map_id(),
+                    entry.score.mode,
+                    None,
+                    50,
+                );
+                let (best_res, global_res) = tokio::join!(best_fut, global_fut);
+
+                let personal_idx = match best_res {
+                    Ok(scores) => scores.iter().position(|s| entry.score.is_eq(s)),
+                    Err(err) => {
+                        warn!(?err, "Failed to get top scores");
+
+                        None
+                    }
+                };
+
+                let global_idx = match global_res {
+                    Ok(scores) => scores
+                        .iter()
+                        .position(|s| s.user_id == user_id && entry.score.is_eq(s)),
+                    Err(err) => {
+                        warn!(?err, "Failed to get global scores");
+
+                        None
+                    }
+                };
+
+                (personal_idx, global_idx)
+            }
+            _ => (None, None),
+        };
+
+        let active_msg_fut = TopScoreEdit::create(
+            &ctx,
+            &user,
+            entry,
+            personal_idx,
+            global_idx,
+            minimized_pp,
+            entry.score.score_id,
+            replay_score,
+            score_size,
+            content,
+        );
+
+        ActiveMessages::builder(active_msg_fut.await)
+            .start_by_update(true)
+            .begin(ctx, orig)
+            .await
     } else {
         let content = write_content(username, &args, entries.len(), mods);
         let sort_by = args.sort.unwrap_or(ScoreOrder::Pp).into(); // TopOrder::Pp does not show anything
@@ -268,16 +362,12 @@ async fn process_scores(
     top100: &[Score],
     size_single: bool,
 ) -> Result<Vec<TopEntry>> {
-    let filter_criteria = args.query.as_deref().map(FilterCriteria::new);
+    let filter_criteria = args.query.as_deref().map(TopCriteria::create);
 
     let mut entries = Vec::new();
 
     let maps_id_checksum = pinned
         .iter()
-        .filter(|score| match filter_criteria {
-            Some(ref criteria) => score.matches(criteria),
-            None => true,
-        })
         .filter(|score| match mods {
             None => true,
             Some(selection) => selection.filter_score(score),
@@ -310,6 +400,7 @@ async fn process_scores(
             None => calc.score(&score).performance().await.pp() as f32,
         };
 
+        let replay = score.replay;
         let score = ScoreSlim::new(score, pp);
 
         if size_single {
@@ -326,9 +417,16 @@ async fn process_scores(
             max_pp,
             stars,
             max_combo,
+            replay,
         };
 
-        entries.push(entry);
+        if let Some(ref criteria) = filter_criteria {
+            if entry.matches(criteria) {
+                entries.push(entry);
+            }
+        } else {
+            entries.push(entry);
+        }
     }
 
     match args.sort {
@@ -391,69 +489,6 @@ async fn process_scores(
     Ok(entries)
 }
 
-async fn single_embed(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    user: RedisData<User>,
-    entry: &TopEntry,
-    score_size: ScoreSize,
-    minimized_pp: MinimizedPp,
-    content: Option<String>,
-) -> Result<()> {
-    let user_id = user.user_id();
-
-    // Get indices of score in user top100 and map top50
-    let (personal_idx, global_idx) = match entry.map.status() {
-        Ranked | Loved | Qualified | Approved => {
-            let user_args = UserArgsSlim::user_id(user_id).mode(entry.score.mode);
-            let best_fut = ctx.osu_scores().top().limit(100).exec(user_args);
-
-            // TODO: Add .limit(50) when supported by osu!api
-            let global_fut = ctx.osu().beatmap_scores(entry.map.map_id());
-            let (best_res, global_res) = tokio::join!(best_fut, global_fut);
-
-            let personal_idx = match best_res {
-                Ok(scores) => scores.iter().position(|s| entry.score.is_eq(s)),
-                Err(err) => {
-                    warn!(?err, "Failed to get top scores");
-
-                    None
-                }
-            };
-
-            let global_idx = match global_res {
-                Ok(scores) => scores
-                    .iter()
-                    .position(|s| s.user_id == user_id && entry.score.is_eq(s)),
-                Err(err) => {
-                    warn!(?err, "Failed to get global scores");
-
-                    None
-                }
-            };
-
-            (personal_idx, global_idx)
-        }
-        _ => (None, None),
-    };
-
-    let active_msg_fut = TopScoreEdit::create(
-        &ctx,
-        &user,
-        entry,
-        personal_idx,
-        global_idx,
-        minimized_pp,
-        score_size,
-        content,
-    );
-
-    ActiveMessages::builder(active_msg_fut.await)
-        .start_by_update(true)
-        .begin(ctx, orig)
-        .await
-}
-
 fn write_content(
     name: &str,
     args: &Pinned,
@@ -511,7 +546,7 @@ fn content_with_condition(args: &Pinned, amount: usize, mods: Option<ModSelectio
 
     if let Some(selection) = mods {
         if !content.is_empty() {
-            content.push_str(" ~ ");
+            content.push_str(" • ");
         }
 
         let (pre, mods) = match selection {
@@ -524,15 +559,30 @@ fn content_with_condition(args: &Pinned, amount: usize, mods: Option<ModSelectio
     }
 
     if let Some(query) = args.query.as_deref() {
-        if !content.is_empty() {
-            content.push_str(" ~ ");
-        }
-
-        let _ = write!(content, "`Query: {query}`");
+        TopCriteria::create(query).display(&mut content);
     }
 
     let plural = if amount == 1 { "" } else { "s" };
     let _ = write!(content, "\nFound {amount} matching pinned score{plural}:");
 
     content
+}
+
+#[derive(Default)]
+struct GuildValues {
+    minimized_pp: Option<MinimizedPp>,
+    score_size: Option<ScoreSize>,
+    list_size: Option<ListSize>,
+    render_button: Option<bool>,
+}
+
+impl From<&GuildConfig> for GuildValues {
+    fn from(config: &GuildConfig) -> Self {
+        Self {
+            minimized_pp: config.minimized_pp,
+            score_size: config.score_size,
+            list_size: config.list_size,
+            render_button: config.render_button,
+        }
+    }
 }
