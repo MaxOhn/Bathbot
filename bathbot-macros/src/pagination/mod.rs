@@ -15,14 +15,16 @@ pub(super) fn impl_derive(input: DeriveInput) -> Result<TokenStream, Error> {
         data,
     } = input;
 
-    let ident_span = ident.span();
     let builder_name = format_ident!("{ident}Builder");
 
     let data = extract_data(data)
-        .map_err(|span| Error::new(span, "Can only derive `Builder` for structs"))?;
+        .map_err(|span| Error::new(span, "Can only derive `PaginationBuilder` for structs"))?;
 
-    let mut fields = extract_fields(data.fields)
-        .ok_or_else(|| Error::new(ident_span, "Can only derive `Builder` for named fields"))?;
+    let mut fields = extract_fields(data.fields).ok_or_else(|| {
+        let msg = "Can only derive `PaginationBuilder` for named fields";
+
+        Error::new_spanned(&ident, msg)
+    })?;
 
     remove_pages_field(&mut fields)?;
 
@@ -54,11 +56,10 @@ pub(super) fn impl_derive(input: DeriveInput) -> Result<TokenStream, Error> {
         }
     });
 
-    let finalized_fields = fields.named.iter().map(|field| {
-        let Some(ref name) = field.ident else { unreachable!() };
-
-        name
-    });
+    let finalized_fields = fields
+        .named
+        .iter()
+        .map(|field| field.ident.as_ref().unwrap());
 
     let builder_fields = fields.named.iter().map(|field| {
         let ty = &field.ty;
@@ -147,7 +148,7 @@ fn extract_fields(fields: Fields) -> Option<FieldsNamed> {
 
 fn remove_pages_field(fields: &mut FieldsNamed) -> Result<(), Error> {
     let Some(last) = fields.named.last() else {
-        return Err(Error::new(Span::call_site(), "must have fields"));
+        return Err(Error::new_spanned(fields, "must have fields"));
     };
 
     let valid_name = last.ident.as_ref().map_or(false, |ident| ident == "pages");
@@ -240,8 +241,8 @@ fn extract_pages_data(fields: &FieldsNamed) -> Result<PagesData, Error> {
             }
         })
         .unwrap_or_else(|| {
-            Err(Error::new(
-                Span::call_site(),
+            Err(Error::new_spanned(
+                fields,
                 "one field must be denoted with the `pagination` attribute",
             ))
         })
