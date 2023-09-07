@@ -27,6 +27,7 @@ use crate::{
     2. Click on `Apps`\n\
     3. Click on `Bookmark map`."
 )]
+#[flags(EPHEMERAL)]
 pub struct Bookmarks {
     #[command(desc = "Choose how the maps should be ordered")]
     sort: Option<BookmarksSort>,
