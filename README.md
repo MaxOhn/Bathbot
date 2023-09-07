@@ -15,6 +15,9 @@
 <p align="center">
     <img src="https://img.shields.io/badge/dynamic/json?color=blueviolet&label=server%20count&query=guild_count&url=https%3A%2F%2Fbathbot.de%2Fguild_count&style=flat&cacheSeconds=3600" alt="Server count">
     <img src="https://tokei.rs/b1/github/MaxOhn/Bathbot?category=code" alt="Lines of Code">
+    <a href="https://github.com/MaxOhn/Bathbot/actions/workflows/check.yml">
+      <img src="https://github.com/MaxOhn/Bathbot/actions/workflows/check.yml/badge.svg" alt="CI check">
+    </a>
 </p>
 
 # Features
