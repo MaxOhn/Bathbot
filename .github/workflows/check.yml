@@ -1,0 +1,80 @@
+name: Check project
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+env:
+  SQLX_OFFLINE: true
+
+jobs:
+  clippy:
+    runs-on: ubuntu-20.04
+
+    strategy:
+      matrix:
+        include:
+          - kind: no-features
+            features: offline
+          - kind: full-features
+            features: full,offline
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Add problem matchers
+        run: echo "::add-matcher::.github/rust.json"
+
+      - name: Run clippy
+        run: cargo clippy --features ${{ matrix.features }} --all-targets
+
+  rustfmt:
+    name: Format
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+            components: rustfmt
+            toolchain: nightly
+
+      - name: Add problem matchers
+        run: echo "::add-matcher::.github/rust.json"
+
+      - name: Check code formatting
+        run: cargo fmt -- --check
+
+  test:
+    name: Test
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Add problem matchers
+        run: echo "::add-matcher::.github/rust.json"
+
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Run tests
+        run: cargo nextest run -F full,offline --no-fail-fast --failure-output=immediate-final
