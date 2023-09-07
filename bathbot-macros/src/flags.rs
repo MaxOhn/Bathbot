@@ -7,20 +7,16 @@ use syn::{
 
 use crate::util::PunctuatedExt;
 
+#[derive(Default)]
 pub struct Flags {
     list: Box<[Ident]>,
 }
 
-impl Flags {
-    pub fn new() -> Self {
-        Self { list: Box::new([]) }
-    }
-}
-
+// TODO: remove
 pub fn parse_flags(attrs: &[Attribute]) -> Result<Flags> {
     match attrs.iter().find(|attr| attr.path().is_ident("flags")) {
         Some(attr) => attr.parse_args(),
-        None => Ok(Flags::new()),
+        None => Ok(Flags::default()),
     }
 }
 

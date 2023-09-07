@@ -75,7 +75,7 @@ impl Parse for CommandAttrs {
             name: attr_name
                 .ok_or_else(|| Error::new(Span::call_site(), "must specify `name = \"...\"`"))?,
             dm_permission: AsOption(dm_permission),
-            flags: flags.unwrap_or_else(Flags::new),
+            flags: flags.unwrap_or_default(),
         })
     }
 }

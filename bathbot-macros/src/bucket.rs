@@ -1,9 +1,13 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{Attribute, Ident, Result};
+use syn::{
+    parse::{Parse, ParseStream},
+    Attribute, Ident, Result,
+};
 
 use crate::util::AsOption;
 
+// TODO: remove
 pub fn parse_bucket(attrs: &[Attribute]) -> Result<AsOption<Bucket>> {
     attrs
         .iter()
@@ -15,6 +19,12 @@ pub fn parse_bucket(attrs: &[Attribute]) -> Result<AsOption<Bucket>> {
 
 pub struct Bucket {
     bucket: Ident,
+}
+
+impl Parse for Bucket {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
+        input.parse().map(|bucket| Self { bucket })
+    }
 }
 
 impl ToTokens for Bucket {
