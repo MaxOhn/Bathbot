@@ -20,7 +20,7 @@ pub struct RankRankedScoreEmbed {
 impl RankRankedScoreEmbed {
     pub fn new(
         user: &RedisData<User>,
-        rank: usize,
+        rank: u32,
         rank_holder: UserCompact,
         respektive_user: Option<RespektiveUser>,
     ) -> Self {
