@@ -73,14 +73,21 @@ pub async fn playcount_replays_graph(
         .flags(flags);
 
     let bytes = match graphs(params).await {
-        Ok(Some(graph)) => graph,
-        Ok(None) => {
+        Ok(GraphResult::Ok(graph)) => graph,
+        Ok(GraphResult::NotEnoughDatapoints) => {
             let content = format!(
-                "`{name}` does not have enough playcount data points",
-                name = user.username()
+                "`{}` does not have enough playcount data points",
+                user.username()
             );
 
-            let builder = &MessageBuilder::new().embed(content);
+            let builder = MessageBuilder::new().embed(content);
+            orig.create_message(ctx, builder).await?;
+
+            return Ok(None);
+        }
+        Ok(GraphResult::NoBadges) => {
+            let content = format!("`{}` does not have any badges", user.username());
+            let builder = MessageBuilder::new().embed(content);
             orig.create_message(ctx, builder).await?;
 
             return Ok(None);
@@ -210,7 +217,7 @@ async fn gather_badges(
     }
 }
 
-pub async fn graphs(params: ProfileGraphParams<'_>) -> Result<Option<Vec<u8>>> {
+async fn graphs(params: ProfileGraphParams<'_>) -> Result<GraphResult> {
     let w = params.w;
     let h = params.h;
 
@@ -221,8 +228,10 @@ pub async fn graphs(params: ProfileGraphParams<'_>) -> Result<Option<Vec<u8>>> {
     let mut surface = Surface::new_raster_n32_premul((w as i32, h as i32))
         .wrap_err("Failed to create surface")?;
 
-    if !draw(&mut surface, params, &badges)? {
-        return Ok(None);
+    if params.flags == ProfileGraphFlags::BADGES && badges.is_empty() {
+        return Ok(GraphResult::NoBadges);
+    } else if !draw(&mut surface, params, &badges)? {
+        return Ok(GraphResult::NotEnoughDatapoints);
     }
 
     let png_bytes = surface
@@ -231,7 +240,7 @@ pub async fn graphs(params: ProfileGraphParams<'_>) -> Result<Option<Vec<u8>>> {
         .wrap_err("Failed to encode image")?
         .to_vec();
 
-    Ok(Some(png_bytes))
+    Ok(GraphResult::Ok(png_bytes))
 }
 
 fn draw(surface: &mut Surface, params: ProfileGraphParams<'_>, badges: &[Bytes]) -> Result<bool> {
@@ -689,4 +698,10 @@ fn spoof_monthly_counts(counts: &mut Vec<MonthlyCount>) {
             next = next.replace_year(next.year() + 1).unwrap();
         }
     }
+}
+
+enum GraphResult {
+    Ok(Vec<u8>),
+    NotEnoughDatapoints,
+    NoBadges,
 }

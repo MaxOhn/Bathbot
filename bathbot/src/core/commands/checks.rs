@@ -16,7 +16,7 @@ use twilight_model::{
     },
 };
 
-use crate::core::{buckets::BucketName, BotConfig, Context};
+use crate::core::{BotConfig, Context};
 
 /// Is authority -> Ok(None)
 /// No authority -> Ok(Some(message to user))
@@ -85,16 +85,6 @@ pub async fn check_authority(
     }
 
     Ok(None)
-}
-
-pub async fn check_ratelimit(
-    ctx: &Context,
-    user: Id<UserMarker>,
-    bucket: BucketName,
-) -> Option<i64> {
-    let ratelimit = ctx.buckets.get(bucket).lock().take(user.get());
-
-    (ratelimit > 0).then_some(ratelimit)
 }
 
 pub async fn check_guild_permissions(

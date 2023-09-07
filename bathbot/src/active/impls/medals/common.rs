@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_util::{CowUtils, EmbedBuilder, FooterBuilder};
+use bathbot_util::{EmbedBuilder, FooterBuilder};
 use eyre::Result;
 use futures::future::BoxFuture;
 use twilight_model::{
@@ -42,15 +42,19 @@ impl IActiveMessage for MedalsCommonPagination {
         let mut description = String::with_capacity(512);
 
         for (entry, i) in medals.iter().zip(pages.index() + 1..) {
+            let url = match entry.medal.url() {
+                Ok(url) => url,
+                Err(err) => {
+                    warn!(?err);
+
+                    entry.medal.backup_url()
+                }
+            };
+
             let _ = writeln!(
                 description,
-                "**#{i} [{name}](https://osekai.net/medals/?medal={medal})**",
+                "**#{i} [{name}]({url})**",
                 name = entry.medal.name,
-                medal = entry
-                    .medal
-                    .name
-                    .cow_replace(' ', "+")
-                    .cow_replace(',', "%2C"),
             );
 
             let (timestamp1, timestamp2, first_earlier) = match (entry.achieved1, entry.achieved2) {
@@ -99,7 +103,7 @@ impl IActiveMessage for MedalsCommonPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)

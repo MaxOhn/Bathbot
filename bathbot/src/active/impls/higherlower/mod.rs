@@ -5,15 +5,16 @@ use std::{
 };
 
 use bathbot_model::HlVersion;
-use bathbot_util::MessageBuilder;
+use bathbot_util::{AuthorBuilder, EmbedBuilder, MessageBuilder};
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
 use rosu_v2::prelude::GameMode;
+use time::OffsetDateTime;
 use tokio::sync::oneshot::Receiver;
 use twilight_model::{
     channel::message::{
         component::{ActionRow, Button, ButtonStyle},
-        embed::{EmbedField, EmbedFooter},
+        embed::EmbedField,
         Component, ReactionType,
     },
     id::{
@@ -65,7 +66,7 @@ impl IActiveMessage for HigherLowerGame {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {
@@ -249,7 +250,7 @@ impl HigherLowerGame {
     ) -> Result<()> {
         let builder = MessageBuilder::new().components(self.disabled_buttons());
 
-        let update_res = match (msg, channel).update(ctx, &builder, None) {
+        let update_res = match (msg, channel).update(ctx, builder, None) {
             Some(update_fut) => update_fut.await,
             None => return Err(eyre!("Lacking permission to disable components on timeout")),
         };
@@ -265,7 +266,7 @@ impl HigherLowerGame {
 
     async fn handle_higherlower(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         component: &mut InteractionComponent,
         guess: HlGuess,
     ) -> ComponentResult {
@@ -278,7 +279,7 @@ impl HigherLowerGame {
         let image = embed.image.map(|image| image.url.into_boxed_str());
 
         if self.state.check_guess(guess) {
-            if let Err(err) = component.defer(ctx).await {
+            if let Err(err) = component.defer(&ctx).await {
                 warn!(?err, "Failed to defer higherlower button");
             }
 
@@ -302,10 +303,10 @@ impl HigherLowerGame {
 
     async fn handle_next(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         component: &InteractionComponent,
     ) -> ComponentResult {
-        if let Err(err) = component.defer(ctx).await {
+        if let Err(err) = component.defer(&ctx).await {
             warn!(?err, "Failed to defer next button");
         }
 
@@ -317,30 +318,66 @@ impl HigherLowerGame {
 
     async fn handle_try_again(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         component: &mut InteractionComponent,
     ) -> ComponentResult {
-        let Some(mut embed) = component.message.embeds.pop() else {
+        let Some(embed) = component.message.embeds.pop() else {
             return ComponentResult::Err(eyre!("Missing embed in higherlower message"));
         };
 
-        let footer = EmbedFooter {
-            icon_url: None,
-            proxy_icon_url: None,
-            text: "Preparing game, give me a moment...".to_owned(),
-        };
+        // Little awkward to go from Embed -> EmbedBuilder but MessageBuilder
+        // requires EmbedBuilder
+        let mut eb = EmbedBuilder::new()
+            .fields(embed.fields)
+            .footer("Preparing game, give me a moment...");
 
-        embed.footer = Some(footer);
+        if let Some(author) = embed.author {
+            let mut ab = AuthorBuilder::new(author.name);
+
+            if let Some(url) = author.url {
+                ab = ab.url(url);
+            }
+
+            if let Some(icon_url) = author.icon_url {
+                ab = ab.icon_url(icon_url);
+            }
+
+            eb = eb.author(ab);
+        }
+
+        if let Some(description) = embed.description {
+            eb = eb.description(description);
+        }
+
+        if let Some(image) = embed.image {
+            eb = eb.image(image.url);
+        }
+
+        if let Some(thumbnail) = embed.thumbnail {
+            eb = eb.thumbnail(thumbnail.url);
+        }
+
+        if let Some(timestamp) = embed.timestamp {
+            eb = eb.timestamp(OffsetDateTime::from_unix_timestamp(timestamp.as_secs()).unwrap());
+        }
+
+        if let Some(title) = embed.title {
+            eb = eb.title(title);
+        }
+
+        if let Some(url) = embed.url {
+            eb = eb.url(url);
+        }
 
         let builder = MessageBuilder::new()
-            .embed(embed)
+            .embed(eb)
             .components(self.disabled_buttons());
 
-        if let Err(err) = component.callback(ctx, builder).await {
+        if let Err(err) = component.callback(&ctx, builder).await {
             warn!(?err, "Failed to callback try again button");
         }
 
-        let (state, rx) = match self.state.restart(ctx).await {
+        let (state, rx) = match self.state.restart(&ctx).await {
             Ok(tuple) => tuple,
             Err(err) => return ComponentResult::Err(err),
         };

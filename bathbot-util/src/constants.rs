@@ -10,6 +10,7 @@ pub const FIELD_VALUE_SIZE: usize = 1024;
 
 // osu!
 pub const OSU_BASE: &str = "https://osu.ppy.sh/";
+/// FIXME: Endpoint is sometimes wrong so avoid using it, see issue #426
 pub const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
 pub const AVATAR_URL: &str = "https://a.ppy.sh/";
 pub const HUISMETBENEN: &str = "https://api.huismetbenen.nl/";
@@ -25,6 +26,7 @@ pub const TWITCH_OAUTH: &str = "https://id.twitch.tv/oauth2/token";
 pub const GENERAL_ISSUE: &str = "Something went wrong, blame bade";
 pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
 pub const OSU_WEB_ISSUE: &str = "Some issue with the osu website, DDoS protection?";
+pub const ORDR_ISSUE: &str = "Some issue with the o!rdr api, blame bade";
 pub const OSEKAI_ISSUE: &str = "Some issue with the osekai api, blame bade";
 pub const HUISMETBENEN_ISSUE: &str = "Some issue with the huismetbenen api, blame bade";
 pub const OSUSTATS_API_ISSUE: &str = "Some issue with the osustats api, blame bade";

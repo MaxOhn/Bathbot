@@ -6,7 +6,6 @@ use bathbot_util::{
     constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
     matcher,
     osu::{MapIdType, ModSelection},
-    IntHasher,
 };
 use eyre::{Report, Result};
 use rosu_v2::prelude::{
@@ -58,7 +57,11 @@ struct LeaderboardArgs<'a> {
 }
 
 impl<'m> LeaderboardArgs<'m> {
-    fn args(msg: &Message, args: Args<'m>) -> Result<Self, String> {
+    async fn args(
+        ctx: &Context,
+        msg: &Message,
+        args: Args<'m>,
+    ) -> Result<LeaderboardArgs<'m>, String> {
         let mut map = None;
         let mut mods = None;
 
@@ -85,8 +88,10 @@ impl<'m> LeaderboardArgs<'m> {
             .as_deref()
             .filter(|_| msg.kind == MessageType::Reply);
 
-        if let Some(id) = reply.and_then(MapIdType::from_msg) {
-            map = Some(id);
+        if let Some(reply) = reply {
+            if let Some(id) = ctx.find_map_id_in_msg(reply).await {
+                map = Some(id);
+            }
         }
 
         Ok(Self { map, mods })
@@ -138,7 +143,7 @@ async fn prefix_leaderboard(
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    match LeaderboardArgs::args(msg, args) {
+    match LeaderboardArgs::args(&ctx, msg, args).await {
         Ok(args) => leaderboard(ctx, CommandOrigin::from_msg(msg, permissions), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -214,25 +219,27 @@ async fn leaderboard(
         }
     };
 
-    let mods = match mods {
-        Some(ModSelection::Include(mods) | ModSelection::Exact(mods)) => Some(mods),
+    let specify_mods = match mods {
+        Some(ModSelection::Include(ref mods) | ModSelection::Exact(ref mods)) => {
+            Some(mods.to_owned())
+        }
         Some(ModSelection::Exclude(_)) | None => None,
     };
 
-    let mods_bits = mods.as_ref().map_or(0, GameModsIntermode::bits);
+    let mods_bits = specify_mods.as_ref().map_or(0, GameModsIntermode::bits);
 
     let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods_bits);
     let attrs_fut = calc.performance();
 
-    let scores_fut = ctx
-        .client()
-        .get_leaderboard::<IntHasher>(map_id, mods.as_ref(), map.mode());
+    let scores_fut =
+        ctx.osu_scores()
+            .map_leaderboard(map_id, map.mode(), specify_mods.clone(), 100);
 
-    let user_fut = get_user_score(&ctx, osu_id_res, map_id, map.mode(), mods.clone());
+    let user_fut = get_user_score(&ctx, osu_id_res, map_id, map.mode(), specify_mods.clone());
 
     let (scores_res, user_res, attrs) = tokio::join!(scores_fut, user_fut, attrs_fut);
 
-    let scores = match scores_res {
+    let mut scores = match scores_res {
         Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
@@ -241,7 +248,7 @@ async fn leaderboard(
         }
     };
 
-    let user_score = user_res
+    let mut user_score = user_res
         .unwrap_or_else(|err| {
             warn!(?err, "Failed to get user score");
 
@@ -263,6 +270,26 @@ async fn leaderboard(
         });
 
     let amount = scores.len();
+
+    if let Some(ModSelection::Exclude(ref mods)) = mods {
+        if mods.is_empty() {
+            scores.retain(|score| !score.mods.is_empty());
+
+            if let Some(ref score) = user_score {
+                if score.mods.is_empty() {
+                    user_score.take();
+                }
+            }
+        } else {
+            scores.retain(|score| !score.mods.contains_any(mods.iter()));
+
+            if let Some(ref score) = user_score {
+                if score.mods.contains_any(mods.iter()) {
+                    user_score.take();
+                }
+            }
+        }
+    }
 
     let content = if mods.is_some() {
         format!("I found {amount} scores with the specified mods on the map's leaderboard")
@@ -323,9 +350,9 @@ async fn get_map_id(
                     content: GENERAL_ISSUE,
                 })?;
 
-            match MapIdType::map_from_msgs(&msgs, 0) {
-                Some(id) => Ok(id),
-                None => {
+            match ctx.find_map_id_in_msgs(&msgs, 0).await {
+                Some(MapIdType::Map(id)) => Ok(id),
+                None | Some(MapIdType::Set(_)) => {
                     let content = "No beatmap specified and none found in recent channel history. \
                         Try specifying a map either by url to the map, or just by map id.";
 

@@ -3,7 +3,6 @@ mod deser;
 mod either;
 mod games;
 mod huismetbenen;
-mod map_leaderboard;
 mod osekai;
 mod osu_stats;
 mod osu_tracker;
@@ -20,7 +19,7 @@ pub mod twilight_model;
 pub mod rkyv_util;
 
 pub use self::{
-    country_code::*, deser::ModeAsSeed, either::Either, games::*, huismetbenen::*,
-    map_leaderboard::*, osekai::*, osu_stats::*, osu_tracker::*, ranking_entries::*, respektive::*,
-    score_slim::*, twitch::*, user_stats::*,
+    country_code::*, deser::ModeAsSeed, either::Either, games::*, huismetbenen::*, osekai::*,
+    osu_stats::*, osu_tracker::*, ranking_entries::*, respektive::*, score_slim::*, twitch::*,
+    user_stats::*,
 };

@@ -6,11 +6,8 @@ use bathbot_util::CowUtils;
 use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap as Map, GameMode as Mode, Mods};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameModIntermode, GameMode, GameMods, Score};
 
-use super::{regular_criteria::RegularCriteria as RC, FilterCriteria};
-use crate::{
-    commands::osu::{TopEntry, TopIfEntry},
-    manager::OsuMap,
-};
+use super::{FilterCriteria, RegularCriteria as RC};
+use crate::{commands::osu::TopIfEntry, manager::OsuMap};
 
 pub trait Searchable<F> {
     fn matches(&self, criteria: &FilterCriteria<F>) -> bool;
@@ -20,18 +17,14 @@ impl Searchable<RC<'_>> for Beatmap {
     fn matches(&self, criteria: &FilterCriteria<RC<'_>>) -> bool {
         let mut matches = true;
 
-        {
-            let criteria = criteria.inner();
-
-            matches &= criteria.stars.contains(self.stars);
-            matches &= criteria.ar.contains(self.ar);
-            matches &= criteria.cs.contains(self.cs);
-            matches &= criteria.hp.contains(self.hp);
-            matches &= criteria.od.contains(self.od);
-            matches &= criteria.length.contains(self.seconds_drain as f32);
-            matches &= criteria.bpm.contains(self.bpm);
-            matches &= self.mode != GameMode::Mania || criteria.keys.contains(self.cs);
-        }
+        matches &= criteria.stars.contains(self.stars);
+        matches &= criteria.ar.contains(self.ar);
+        matches &= criteria.cs.contains(self.cs);
+        matches &= criteria.hp.contains(self.hp);
+        matches &= criteria.od.contains(self.od);
+        matches &= criteria.length.contains(self.seconds_drain as f32);
+        matches &= criteria.bpm.contains(self.bpm);
+        matches &= self.mode != GameMode::Mania || criteria.keys.contains(self.cs);
 
         if let Some(ref mapset) = self.mapset {
             matches &= mapset.matches(criteria);
@@ -52,12 +45,8 @@ impl Searchable<RC<'_>> for DbBeatmap {
     fn matches(&self, criteria: &FilterCriteria<RC<'_>>) -> bool {
         let mut matches = true;
 
-        {
-            let criteria = criteria.inner();
-
-            matches &= criteria.length.contains(self.seconds_drain as f32);
-            matches &= criteria.bpm.contains(self.bpm);
-        }
+        matches &= criteria.length.contains(self.seconds_drain as f32);
+        matches &= criteria.bpm.contains(self.bpm);
 
         if matches && criteria.has_search_terms() {
             let version = self.map_version.cow_to_ascii_lowercase();
@@ -77,13 +66,9 @@ impl Searchable<RC<'_>> for Beatmapset {
         let creator = self.creator_name.cow_to_ascii_lowercase();
         let title = self.title.cow_to_ascii_lowercase();
 
-        {
-            let criteria = criteria.inner();
-
-            matches &= criteria.artist.matches(artist.as_ref());
-            matches &= criteria.creator.matches(creator.as_ref());
-            matches &= criteria.title.matches(title.as_ref());
-        }
+        matches &= criteria.artist.matches(artist.as_ref());
+        matches &= criteria.creator.matches(creator.as_ref());
+        matches &= criteria.title.matches(title.as_ref());
 
         if let Some(ref maps) = self.maps {
             matches &= maps.iter().any(|map| map.matches(criteria));
@@ -118,13 +103,9 @@ impl Searchable<RC<'_>> for DbBeatmapset {
         let creator = self.creator.cow_to_ascii_lowercase();
         let title = self.title.cow_to_ascii_lowercase();
 
-        {
-            let criteria = criteria.inner();
-
-            matches &= criteria.artist.matches(artist.as_ref());
-            matches &= criteria.creator.matches(creator.as_ref());
-            matches &= criteria.title.matches(title.as_ref());
-        }
+        matches &= criteria.artist.matches(artist.as_ref());
+        matches &= criteria.creator.matches(creator.as_ref());
+        matches &= criteria.title.matches(title.as_ref());
 
         if matches && criteria.has_search_terms() {
             let terms = [artist, creator, title];
@@ -143,14 +124,10 @@ impl Searchable<RC<'_>> for Map {
     fn matches(&self, criteria: &FilterCriteria<RC<'_>>) -> bool {
         let mut matches = true;
 
-        {
-            let criteria = criteria.inner();
-
-            matches &= criteria.ar.contains(self.ar);
-            matches &= criteria.cs.contains(self.cs);
-            matches &= criteria.hp.contains(self.hp);
-            matches &= criteria.od.contains(self.od);
-        }
+        matches &= criteria.ar.contains(self.ar);
+        matches &= criteria.cs.contains(self.cs);
+        matches &= criteria.hp.contains(self.hp);
+        matches &= criteria.od.contains(self.od);
 
         matches
     }
@@ -186,20 +163,16 @@ impl Searchable<RC<'_>> for Score {
             let clock_rate = attrs.clock_rate as f32;
             let len = map.seconds_drain as f32 / clock_rate;
 
-            {
-                let criteria = criteria.inner();
+            matches &= criteria.stars.contains(map.stars);
+            matches &= criteria.ar.contains(attrs.ar as f32);
+            matches &= criteria.cs.contains(attrs.cs as f32);
+            matches &= criteria.hp.contains(attrs.hp as f32);
+            matches &= criteria.od.contains(attrs.od as f32);
+            matches &= criteria.length.contains(len);
+            matches &= criteria.bpm.contains(map.bpm * clock_rate);
 
-                matches &= criteria.stars.contains(map.stars);
-                matches &= criteria.ar.contains(attrs.ar as f32);
-                matches &= criteria.cs.contains(attrs.cs as f32);
-                matches &= criteria.hp.contains(attrs.hp as f32);
-                matches &= criteria.od.contains(attrs.od as f32);
-                matches &= criteria.length.contains(len);
-                matches &= criteria.bpm.contains(map.bpm * clock_rate);
-
-                let keys = keys(&self.mods, map.cs);
-                matches &= map.mode != GameMode::Mania || criteria.keys.contains(keys);
-            }
+            let keys = keys(&self.mods, map.cs);
+            matches &= map.mode != GameMode::Mania || criteria.keys.contains(keys);
 
             version = map.version.cow_to_ascii_lowercase();
         }
@@ -209,13 +182,9 @@ impl Searchable<RC<'_>> for Score {
             creator = mapset.creator_name.cow_to_ascii_lowercase();
             title = mapset.title.cow_to_ascii_lowercase();
 
-            {
-                let criteria = criteria.inner();
-
-                matches &= criteria.artist.matches(artist.as_ref());
-                matches &= criteria.creator.matches(creator.as_ref());
-                matches &= criteria.title.matches(title.as_ref());
-            }
+            matches &= criteria.artist.matches(artist.as_ref());
+            matches &= criteria.creator.matches(creator.as_ref());
+            matches &= criteria.title.matches(title.as_ref());
         }
 
         if matches && criteria.has_search_terms() {
@@ -236,14 +205,10 @@ impl Searchable<RC<'_>> for OsuTrackerCountryScore {
 
         let creator = self.mapper.cow_to_ascii_lowercase();
 
-        {
-            let criteria = criteria.inner();
+        let len = self.seconds_total as f32 / self.mods.bits().clock_rate() as f32;
+        matches &= criteria.length.contains(len);
 
-            let len = self.seconds_total as f32 / self.mods.bits().clock_rate() as f32;
-            matches &= criteria.length.contains(len);
-
-            matches &= criteria.creator.matches(creator.as_ref());
-        }
+        matches &= criteria.creator.matches(creator.as_ref());
 
         if matches && criteria.has_search_terms() {
             let name = self.name.cow_to_ascii_lowercase();
@@ -266,23 +231,7 @@ impl Searchable<RC<'_>> for TopIfEntry {
 
         let mut matches = true;
 
-        matches &= criteria.inner().stars.contains(*stars);
-        matches &= (score, map).matches(criteria);
-
-        matches
-    }
-}
-
-impl Searchable<RC<'_>> for TopEntry {
-    #[inline]
-    fn matches(&self, criteria: &FilterCriteria<RC<'_>>) -> bool {
-        let Self {
-            score, map, stars, ..
-        } = self;
-
-        let mut matches = true;
-
-        matches &= criteria.inner().stars.contains(*stars);
+        matches &= criteria.stars.contains(*stars);
         matches &= (score, map).matches(criteria);
 
         matches
@@ -313,19 +262,15 @@ impl Searchable<RC<'_>> for (&'_ ScoreSlim, &'_ OsuMap) {
         let clock_rate = attrs.clock_rate as f32;
         let len = map.seconds_drain() as f32 / clock_rate;
 
-        {
-            let criteria = criteria.inner();
+        matches &= criteria.ar.contains(attrs.ar as f32);
+        matches &= criteria.cs.contains(attrs.cs as f32);
+        matches &= criteria.hp.contains(attrs.hp as f32);
+        matches &= criteria.od.contains(attrs.od as f32);
+        matches &= criteria.length.contains(len);
+        matches &= criteria.bpm.contains(map.bpm() * clock_rate);
 
-            matches &= criteria.ar.contains(attrs.ar as f32);
-            matches &= criteria.cs.contains(attrs.cs as f32);
-            matches &= criteria.hp.contains(attrs.hp as f32);
-            matches &= criteria.od.contains(attrs.od as f32);
-            matches &= criteria.length.contains(len);
-            matches &= criteria.bpm.contains(map.bpm() * clock_rate);
-
-            let keys = keys(&score.mods, map.cs());
-            matches &= score.mode != GameMode::Mania || criteria.keys.contains(keys);
-        }
+        let keys = keys(&score.mods, map.cs());
+        matches &= score.mode != GameMode::Mania || criteria.keys.contains(keys);
 
         if matches && criteria.has_search_terms() {
             let artist = map.artist().cow_to_ascii_lowercase();
@@ -333,13 +278,9 @@ impl Searchable<RC<'_>> for (&'_ ScoreSlim, &'_ OsuMap) {
             let title = map.title().cow_to_ascii_lowercase();
             let version = map.version().cow_to_ascii_lowercase();
 
-            {
-                let criteria = criteria.inner();
-
-                matches &= criteria.artist.matches(artist.as_ref());
-                matches &= criteria.creator.matches(creator.as_ref());
-                matches &= criteria.title.matches(title.as_ref());
-            }
+            matches &= criteria.artist.matches(artist.as_ref());
+            matches &= criteria.creator.matches(creator.as_ref());
+            matches &= criteria.title.matches(title.as_ref());
 
             let terms = [artist, creator, title, version];
 

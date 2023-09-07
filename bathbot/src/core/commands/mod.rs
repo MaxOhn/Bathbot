@@ -1,4 +1,7 @@
-pub use self::{flags::CommandFlags, origin::CommandOrigin};
+pub use self::{
+    flags::CommandFlags,
+    origin::{CommandOrigin, OwnedCommandOrigin},
+};
 
 mod flags;
 mod origin;

@@ -5,7 +5,7 @@ use eyre::Result;
 use crate::{
     core::{
         commands::{
-            checks::{check_authority, check_ratelimit},
+            checks::check_authority,
             interaction::{InteractionCommandKind, InteractionCommands, SlashCommand},
         },
         events::{EventKind, ProcessResult},
@@ -78,7 +78,7 @@ async fn pre_process_command(
 
     // Ratelimited?
     if let Some(bucket) = slash.bucket {
-        if let Some(cooldown) = check_ratelimit(ctx, user_id, bucket).await {
+        if let Some(cooldown) = ctx.check_ratelimit(user_id, bucket) {
             trace!("Ratelimiting user {user_id} on bucket `{bucket:?}` for {cooldown} seconds");
 
             let content = format!("Command on cooldown, try again in {cooldown} seconds");

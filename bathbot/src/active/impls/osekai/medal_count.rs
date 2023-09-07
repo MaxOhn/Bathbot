@@ -1,7 +1,7 @@
 use std::{fmt::Write, sync::Arc};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::OsekaiUserEntry;
+use bathbot_model::{OsekaiMedal, OsekaiUserEntry};
 use bathbot_util::{constants::OSU_BASE, numbers::round, CowUtils, EmbedBuilder, FooterBuilder};
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -39,14 +39,21 @@ impl IActiveMessage for MedalCountPagination {
 
         for (entry, idx) in ranking.iter().zip(pages.index()..) {
             let medal_name = entry.rarest_medal.as_ref();
-            let tmp = medal_name.cow_replace(' ', "+");
-            let url_name = tmp.cow_replace(',', "%2C");
+
+            let medal_url = match OsekaiMedal::name_to_url(medal_name) {
+                Ok(url) => url,
+                Err(err) => {
+                    warn!(?err);
+
+                    OsekaiMedal::backup_name_to_url(medal_name)
+                }
+            };
 
             let _ =
                 writeln!(
                 description,
                 "**{i}.** :flag_{country}: [{author}**{user}**{author}]({OSU_BASE}u/{user_id}): \
-                `{count}` (`{percent}%`) ▸ [{medal}](https://osekai.net/medals/?medal={url_name})",
+                `{count}` (`{percent}%`) ▸ [{medal}]({medal_url})",
                 i = idx + 1,
                 country = entry.country_code.to_ascii_lowercase(),
                 author = if self.author_idx == Some(idx) { "__" } else { "" },
@@ -86,7 +93,7 @@ impl IActiveMessage for MedalCountPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)

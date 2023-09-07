@@ -337,14 +337,13 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
 
     let embed = EmbedBuilder::new()
         .author(user.author_builder())
-        .image(attachment("graph.png"))
-        .build();
+        .image(attachment("graph.png"));
 
     let builder = MessageBuilder::new()
         .embed(embed)
         .attachment("graph.png", graph);
 
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

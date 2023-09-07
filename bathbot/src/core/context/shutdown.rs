@@ -20,7 +20,7 @@ impl Context {
         self.tracking().set_stop_tracking(true);
 
         // Prevent non-minimized msgs from getting minimized
-        self.clear_msgs_to_process();
+        self.active_msgs.clear().await;
 
         let count = self.stop_all_games().await;
         info!("Stopped {count} bg games");
@@ -29,6 +29,10 @@ impl Context {
         {
             let count = self.notify_match_live_shutdown().await;
             info!("Stopped match tracking in {count} channels");
+        }
+
+        if let Some(ordr) = self.ordr() {
+            ordr.disconnect();
         }
 
         let resume_data = Self::down_resumable(shards).await;

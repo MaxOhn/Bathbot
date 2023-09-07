@@ -5,7 +5,8 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{OsekaiComment, OsekaiMap, OsekaiMedal};
+use bathbot_model::{MedalGroup, OsekaiComment, OsekaiMap, OsekaiMedal};
+use bathbot_psql::model::configs::HideSolutions;
 use bathbot_util::{
     constants::{FIELD_VALUE_SIZE, OSEKAI_ISSUE, OSU_BASE},
     fields,
@@ -130,10 +131,21 @@ pub(super) async fn info(
 
     maps.sort_unstable_by_key(|map| Reverse(map.vote_sum));
 
-    let embed_data = MedalEmbed::new(&medal, None, maps, top_comment);
+    let hide_solution = match orig.guild_id() {
+        Some(guild) => {
+            ctx.guild_config()
+                .peek(guild, |config| {
+                    config.hide_medal_solution.unwrap_or(HideSolutions::ShowAll)
+                })
+                .await
+        }
+        None => HideSolutions::ShowAll,
+    };
+
+    let embed_data = MedalEmbed::new(&medal, None, maps, top_comment, hide_solution);
     let embed = embed_data.maximized();
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }
@@ -263,13 +275,23 @@ impl MedalEmbed {
         achieved: Option<MedalAchieved<'_>>,
         maps: Vec<OsekaiMap>,
         comment: Option<OsekaiComment>,
+        hide_solution: HideSolutions,
     ) -> Self {
         let mut fields = Vec::with_capacity(7);
 
         fields![fields { "Description", medal.description.as_ref().to_owned(), false }];
 
         if let Some(solution) = medal.solution().filter(|s| !s.is_empty()) {
-            fields![fields { "Solution", solution.into_owned(), false }];
+            let solution = match hide_solution {
+                HideSolutions::ShowAll => solution.into_owned(),
+                HideSolutions::HideHushHush => match medal.grouping {
+                    MedalGroup::HushHush | MedalGroup::HushHushExpert => format!("||{solution}||"),
+                    _ => solution.into_owned(),
+                },
+                HideSolutions::HideAll => format!("||{solution}||"),
+            };
+
+            fields![fields { "Solution", solution, false }];
         }
 
         let mode_mods = match (medal.restriction, medal.mods.as_deref()) {
@@ -344,10 +366,14 @@ impl MedalEmbed {
         let title = medal.name.as_ref().to_owned();
         let thumbnail = medal.icon_url.as_ref().to_owned();
 
-        let url = format!(
-            "https://osekai.net/medals/?medal={}",
-            title.cow_replace(' ', "+").cow_replace(',', "%2C")
-        );
+        let url = match medal.url() {
+            Ok(url) => url,
+            Err(err) => {
+                warn!(?err);
+
+                medal.backup_url()
+            }
+        };
 
         let achieved = achieved.map(|achieved| {
             let user = achieved.user;

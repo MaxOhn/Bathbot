@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bathbot_util::modal::{ModalBuilder, TextInputBuilder};
 use bathbot_util::numbers::last_multiple;
 use eyre::{ContextCompat, Result, WrapErr};
@@ -124,7 +126,7 @@ impl Pages {
 }
 
 pub fn handle_pagination_component<'a>(
-    ctx: &'a Context,
+    ctx: Arc<Context>,
     component: &'a mut InteractionComponent,
     msg_owner: Id<UserMarker>,
     defer: bool,
@@ -140,7 +142,7 @@ pub fn handle_pagination_component<'a>(
 }
 
 async fn async_handle_pagination_component(
-    ctx: &Context,
+    ctx: Arc<Context>,
     component: &mut InteractionComponent,
     msg_owner: Id<UserMarker>,
     defer: bool,
@@ -154,7 +156,7 @@ async fn async_handle_pagination_component(
         "pagination_start" => {
             if defer {
                 component
-                    .defer(ctx)
+                    .defer(&ctx)
                     .await
                     .wrap_err("Failed to defer component")?;
             }
@@ -164,7 +166,7 @@ async fn async_handle_pagination_component(
         "pagination_back" => {
             if defer {
                 component
-                    .defer(ctx)
+                    .defer(&ctx)
                     .await
                     .wrap_err("Failed to defer component")?;
             }
@@ -174,7 +176,7 @@ async fn async_handle_pagination_component(
         "pagination_step" => {
             if defer {
                 component
-                    .defer(ctx)
+                    .defer(&ctx)
                     .await
                     .wrap_err("Failed to defer component")?;
             }
@@ -184,7 +186,7 @@ async fn async_handle_pagination_component(
         "pagination_end" => {
             if defer {
                 component
-                    .defer(ctx)
+                    .defer(&ctx)
                     .await
                     .wrap_err("Failed to defer component")?;
             }

@@ -103,9 +103,9 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
                 }
             };
 
-            match MapIdType::map_from_msgs(&msgs, 0) {
-                Some(id) => id,
-                None => {
+            match ctx.find_map_id_in_msgs(&msgs, 0).await {
+                Some(MapIdType::Map(id)) => id,
+                None | Some(MapIdType::Set(_)) => {
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
 
@@ -206,7 +206,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
     Various arguments can be specified in multiple ways:\n\
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
-    - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Clock rate: `clockrate=[number]` or `[number]*` or `rate=[number]`\n\
     - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
     - n100: `n100=[interger]` or `[integer]x100`\n\
@@ -235,7 +235,7 @@ async fn prefix_simulate(
 ) -> Result<()> {
     let orig = CommandOrigin::from_msg(msg, permissions);
 
-    match SimulateArgs::from_args(None, msg, args) {
+    match SimulateArgs::from_args(&ctx, None, msg, args).await {
         Ok(args) => simulate(ctx, orig, args).await,
         Err(content) => orig.error(&ctx, content).await,
     }
@@ -250,7 +250,7 @@ async fn prefix_simulate(
     Various arguments can be specified in multiple ways:\n\
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
-    - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Clock rate: `clockrate=[number]` or `[number]*` or `rate=[number]`\n\
     - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
     - n100: `n100=[interger]` or `[integer]x100`\n\
@@ -276,7 +276,7 @@ async fn prefix_simulatetaiko(
 ) -> Result<()> {
     let orig = CommandOrigin::from_msg(msg, permissions);
 
-    match SimulateArgs::from_args(Some(GameMode::Taiko), msg, args) {
+    match SimulateArgs::from_args(&ctx, Some(GameMode::Taiko), msg, args).await {
         Ok(args) => simulate(ctx, orig, args).await,
         Err(content) => orig.error(&ctx, content).await,
     }
@@ -291,7 +291,7 @@ async fn prefix_simulatetaiko(
     Various arguments can be specified in multiple ways:\n\
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
-    - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Clock rate: `clockrate=[number]` or `[number]*` or `rate=[number]`\n\
     - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - fruits: `n300=[integer]` or `[integer]x300`\n\
     - droplets: `n100=[interger]` or `[integer]x100`\n\
@@ -319,7 +319,7 @@ async fn prefix_simulatectb(
 ) -> Result<()> {
     let orig = CommandOrigin::from_msg(msg, permissions);
 
-    match SimulateArgs::from_args(Some(GameMode::Catch), msg, args) {
+    match SimulateArgs::from_args(&ctx, Some(GameMode::Catch), msg, args).await {
         Ok(args) => simulate(ctx, orig, args).await,
         Err(content) => orig.error(&ctx, content).await,
     }
@@ -334,7 +334,7 @@ async fn prefix_simulatectb(
     Various arguments can be specified in multiple ways:\n\
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
-    - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - Clock rate: `clockrate=[number]` or `[number]*` or `rate=[number]`\n\
     - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - n320: `n320=[integer]` or `[integer]x320`\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
@@ -363,7 +363,7 @@ async fn prefix_simulatemania(
 ) -> Result<()> {
     let orig = CommandOrigin::from_msg(msg, permissions);
 
-    match SimulateArgs::from_args(Some(GameMode::Mania), msg, args) {
+    match SimulateArgs::from_args(&ctx, Some(GameMode::Mania), msg, args).await {
         Ok(args) => simulate(ctx, orig, args).await,
         Err(content) => orig.error(&ctx, content).await,
     }
@@ -391,7 +391,8 @@ struct SimulateArgs {
 }
 
 impl SimulateArgs {
-    fn from_args(
+    async fn from_args(
+        ctx: &Context,
         mode: Option<GameMode>,
         msg: &Message,
         args: Args<'_>,
@@ -401,9 +402,17 @@ impl SimulateArgs {
             .as_deref()
             .filter(|_| msg.kind == MessageType::Reply);
 
+        let mut map = None;
+
+        if let Some(reply) = reply {
+            if let Some(id) = ctx.find_map_id_in_msg(reply).await {
+                map = Some(id);
+            }
+        }
+
         let mut simulate = Self {
             mode,
-            map: reply.and_then(MapIdType::from_msg),
+            map,
             ..Default::default()
         };
 

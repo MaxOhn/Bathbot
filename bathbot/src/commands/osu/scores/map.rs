@@ -11,9 +11,7 @@ use eyre::Result;
 use rosu_v2::prelude::{GameMode, Grade};
 use twilight_interactions::command::AutocompleteValue;
 
-use super::{
-    criteria_to_content, get_mode, process_scores, separate_content, MapScores, ScoresOrder,
-};
+use super::{get_mode, process_scores, separate_content, MapScores, ScoresOrder};
 use crate::{
     active::{impls::ScoresMapPagination, ActiveMessages},
     commands::osu::{
@@ -23,7 +21,7 @@ use crate::{
     core::Context,
     util::{
         interaction::InteractionCommand,
-        query::{FilterCriteria, ScoresCriteria},
+        query::{FilterCriteria, IFilterCriteria, ScoresCriteria},
         Authored, CheckPermissions, InteractionCommandExt,
     },
 };
@@ -140,9 +138,9 @@ pub async fn map_scores(
                 }
             };
 
-            match MapIdType::map_from_msgs(&msgs, 0) {
-                Some(id) => id,
-                None => {
+            match ctx.find_map_id_in_msgs(&msgs, 0).await {
+                Some(MapIdType::Map(id)) => id,
+                None | Some(MapIdType::Set(_)) => {
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
                     command.error(&ctx, content).await?;
@@ -242,23 +240,20 @@ pub async fn map_scores(
             }
         );
         let builder = MessageBuilder::new().embed(content);
-        command.update(&ctx, &builder).await?;
+        command.update(&ctx, builder).await?;
 
         return Ok(());
     } else if scores.maps().next().zip(scores.mapsets().next()).is_none() {
         let content = format!("Looks like I don't have map id {map_id} stored");
         let builder = MessageBuilder::new().embed(content);
-        command.update(&ctx, &builder).await?;
+        command.update(&ctx, builder).await?;
 
         return Ok(());
     }
 
     let sort = args.sort.unwrap_or_default();
 
-    let criteria = args
-        .query
-        .as_deref()
-        .map(FilterCriteria::<ScoresCriteria<'_>>::new);
+    let criteria = args.query.as_deref().map(ScoresCriteria::create);
 
     let content = msg_content(
         sort,
@@ -326,7 +321,7 @@ fn msg_content(
     }
 
     if let Some(criteria) = criteria {
-        criteria_to_content(&mut content, criteria);
+        criteria.display(&mut content);
     }
 
     separate_content(&mut content);

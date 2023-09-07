@@ -197,7 +197,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
         }
         Event::GuildCreate(e) => {
             ctx.guild_shards().pin().insert(e.id, shard_id);
-            ctx.member_requests.todo_guilds.lock().insert(e.id);
+            ctx.member_requests.todo_guilds.lock().unwrap().insert(e.id);
 
             if let Err(err) = ctx.member_requests.tx.send((e.id, shard_id)) {
                 warn!(?err, "Failed to forward member request");
@@ -220,11 +220,11 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
         }
         Event::MessageCreate(msg) => handle_message(ctx, msg.0).await,
         Event::MessageDelete(e) => {
-            ctx.remove_msg(e.id);
+            ctx.active_msgs.remove(e.id).await;
         }
         Event::MessageDeleteBulk(msgs) => {
             for id in msgs.ids.into_iter() {
-                ctx.remove_msg(id);
+                ctx.active_msgs.remove(id).await;
             }
         }
         Event::Ready(_) => info!(shard_id, "Shard is ready"),

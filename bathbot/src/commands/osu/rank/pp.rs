@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt::{Display, Formatter, Result as FmtResult},
     iter,
     sync::Arc,
@@ -182,7 +183,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         .title(title);
 
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }
@@ -272,33 +273,90 @@ async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Res
 }
 
 impl<'m> RankPp<'m> {
-    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, &'static str> {
-        let mut name = None;
-        let mut discord = None;
-        let mut country = None;
-        let mut rank = None;
-
-        for arg in args.take(2) {
-            if let Ok(num) = arg.parse() {
-                rank = Some(num);
-
-                continue;
-            } else if arg.len() >= 3 {
-                let (prefix, suffix) = arg.split_at(2);
-                let valid_country = prefix.chars().all(|c| c.is_ascii_alphabetic());
-
-                if let (true, Ok(num)) = (valid_country, suffix.parse()) {
-                    country = Some(prefix.into());
-                    rank = Some(num);
-
-                    continue;
-                }
+    fn args(mode: Option<GameModeOption>, mut args: Args<'m>) -> Result<Self, &'static str> {
+        fn parse_rank(input: &str) -> Option<(u32, Option<&'_ str>)> {
+            if let Ok(num) = input.parse() {
+                return Some((num, None));
             }
 
-            if let Some(id) = matcher::get_mention_user(arg) {
-                discord = Some(id);
+            let mut chars = input.chars();
+
+            let valid_country = chars.by_ref().take(2).all(|c| c.is_ascii_alphabetic());
+
+            let valid_rank = chars.next().is_some_and(|c| c.is_ascii_digit())
+                && chars.all(|c| c.is_ascii_digit());
+
+            if valid_country && valid_rank {
+                let (country, rank) = input.split_at(2);
+
+                Some((rank.parse().ok()?, Some(country)))
             } else {
-                name = Some(arg.into());
+                None
+            }
+        }
+
+        fn strip_prefix(input: &str) -> Option<&str> {
+            input
+                .strip_prefix("rank=")
+                .or_else(|| input.strip_prefix("r="))
+        }
+
+        let mut name = None;
+        let mut country = None;
+        let mut rank = None;
+        let mut discord = None;
+
+        if let Some(first) = args.next() {
+            if let Some(second) = args.next() {
+                if let Some(first) = strip_prefix(first) {
+                    if let Some((rank_, country_)) = parse_rank(first) {
+                        rank = Some(rank_);
+                        country = country_.map(Cow::Borrowed);
+                    }
+
+                    if let Some(id) = matcher::get_mention_user(second) {
+                        discord = Some(id);
+                    } else {
+                        name = Some(second.into());
+                    }
+                } else if let Some(second) = strip_prefix(second) {
+                    if let Some((rank_, country_)) = parse_rank(second) {
+                        rank = Some(rank_);
+                        country = country_.map(Cow::Borrowed);
+                    }
+
+                    if let Some(id) = matcher::get_mention_user(first) {
+                        discord = Some(id);
+                    } else {
+                        name = Some(first.into());
+                    }
+                } else if let Some((rank_, country_)) = parse_rank(first) {
+                    rank = Some(rank_);
+                    country = country_.map(Cow::Borrowed);
+
+                    if let Some(id) = matcher::get_mention_user(second) {
+                        discord = Some(id);
+                    } else {
+                        name = Some(second.into());
+                    }
+                } else if let Some((rank_, country_)) = parse_rank(second) {
+                    rank = Some(rank_);
+                    country = country_.map(Cow::Borrowed);
+
+                    if let Some(id) = matcher::get_mention_user(first) {
+                        discord = Some(id);
+                    } else {
+                        name = Some(first.into());
+                    }
+                }
+            } else if let Some(first) = strip_prefix(first) {
+                if let Some((rank_, country_)) = parse_rank(first) {
+                    rank = Some(rank_);
+                    country = country_.map(Cow::Borrowed);
+                }
+            } else if let Some((rank_, country_)) = parse_rank(first) {
+                rank = Some(rank_);
+                country = country_.map(Cow::Borrowed);
             }
         }
 

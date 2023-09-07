@@ -5,7 +5,6 @@ use bathbot_util::{
     constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
     matcher,
     osu::ModSelection,
-    IntHasher,
 };
 use eyre::{Report, Result};
 use rosu_v2::{
@@ -250,16 +249,18 @@ pub(super) async fn leaderboard(
         }
     };
 
-    let mods = match mods {
+    let specify_mods = match mods {
         Some(ModSelection::Exclude(_)) | None => None,
-        Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
+        Some(ModSelection::Include(ref mods)) | Some(ModSelection::Exact(ref mods)) => {
+            Some(mods.to_owned())
+        }
     };
 
     let scores_fut = ctx
-        .client()
-        .get_leaderboard::<IntHasher>(map_id, mods.as_ref(), mode);
+        .osu_scores()
+        .map_leaderboard(map_id, mode, specify_mods.clone(), 100);
     let map_fut = ctx.osu_map().map(map_id, checksum.as_deref());
-    let user_score_fut = get_user_score(&ctx, map_id, config.osu, mode, mods.clone());
+    let user_score_fut = get_user_score(&ctx, map_id, config.osu, mode, specify_mods.clone());
 
     let (scores_res, map_res, user_score_res) = tokio::join!(scores_fut, map_fut, user_score_fut);
 
@@ -274,7 +275,7 @@ pub(super) async fn leaderboard(
     };
 
     // Retrieve the map's leaderboard
-    let scores = match scores_res {
+    let mut scores = match scores_res {
         Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
@@ -283,7 +284,7 @@ pub(super) async fn leaderboard(
         }
     };
 
-    let user_score = match user_score_res {
+    let mut user_score = match user_score_res {
         Ok(Some((score, user_id, username))) => Some(LeaderboardUserScore {
             discord_id: owner,
             user_id,
@@ -306,10 +307,30 @@ pub(super) async fn leaderboard(
         }
     };
 
-    let mods_bits = mods.as_ref().map_or(0, GameModsIntermode::bits);
+    let mods_bits = specify_mods.as_ref().map_or(0, GameModsIntermode::bits);
 
     let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods_bits);
     let attrs = calc.performance().await;
+
+    if let Some(ModSelection::Exclude(ref mods)) = mods {
+        if mods.is_empty() {
+            scores.retain(|score| !score.mods.is_empty());
+
+            if let Some(ref score) = user_score {
+                if score.mods.is_empty() {
+                    user_score.take();
+                }
+            }
+        } else {
+            scores.retain(|score| !score.mods.contains_any(mods.iter()));
+
+            if let Some(ref score) = user_score {
+                if score.mods.contains_any(mods.iter()) {
+                    user_score.take();
+                }
+            }
+        }
+    }
 
     let amount = scores.len();
 

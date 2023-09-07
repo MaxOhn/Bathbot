@@ -7,7 +7,6 @@ use bathbot_util::{
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
 };
 use rosu_v2::prelude::Score;
-use twilight_model::channel::message::embed::Embed;
 
 use crate::{embeds::EmbedData, manager::redis::RedisData};
 
@@ -210,7 +209,7 @@ impl PpMissingEmbed {
 }
 
 impl EmbedData for PpMissingEmbed {
-    fn build(self) -> Embed {
+    fn build(self) -> EmbedBuilder {
         let builder = EmbedBuilder::new()
             .author(self.author)
             .description(self.description)
@@ -218,9 +217,9 @@ impl EmbedData for PpMissingEmbed {
             .title(self.title);
 
         if let Some(footer) = self.footer {
-            builder.footer(footer).build()
+            builder.footer(footer)
         } else {
-            builder.build()
+            builder
         }
     }
 }

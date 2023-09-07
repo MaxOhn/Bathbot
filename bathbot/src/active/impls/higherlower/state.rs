@@ -243,7 +243,7 @@ impl HigherLowerState {
 
         let mut message = BotConfig::get()
             .hl_channel
-            .create_message(ctx, &builder, None)
+            .create_message(ctx, builder, None)
             .await?
             .model()
             .await

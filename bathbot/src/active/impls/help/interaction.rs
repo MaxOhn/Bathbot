@@ -83,7 +83,7 @@ impl IActiveMessage for HelpInteractionCommand {
             options,
         } = parts;
 
-        if options.is_empty() {
+        if root && options.is_empty() {
             return Vec::new();
         }
 
@@ -143,7 +143,7 @@ impl IActiveMessage for HelpInteractionCommand {
 
     fn handle_component<'a>(
         &'a mut self,
-        _: &'a Context,
+        _: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {

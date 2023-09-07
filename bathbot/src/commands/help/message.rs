@@ -194,10 +194,10 @@ async fn command_help(
 
     let footer = FooterBuilder::new(footer_text);
 
-    let embed = eb.footer(footer).fields(fields).build();
+    let embed = eb.footer(footer).fields(fields);
     let builder = MessageBuilder::new().embed(embed);
 
-    msg.create_message(&ctx, &builder, permissions).await?;
+    msg.create_message(&ctx, builder, permissions).await?;
 
     Ok(())
 }
@@ -220,7 +220,7 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message, permissions: Option<Permissio
     if msg.guild_id.is_some() {
         let content = "Don't mind me sliding into your DMs :eyes:";
         let builder = MessageBuilder::new().embed(content);
-        let _ = msg.create_message(&ctx, &builder, permissions).await;
+        let _ = msg.create_message(&ctx, builder, permissions).await;
     }
 
     let help_menu = HelpPrefixMenu::new(msg.guild_id);

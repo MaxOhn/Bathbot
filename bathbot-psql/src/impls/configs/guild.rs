@@ -25,10 +25,13 @@ SELECT
   prefixes,
   allow_songs,
   score_size,
-  show_retries,
+  retries,
   osu_track_limit,
   minimized_pp,
-  list_size
+  list_size, 
+  render_button, 
+  allow_custom_skins, 
+  hide_medal_solution 
 FROM 
   guild_configs"#
         );
@@ -56,9 +59,12 @@ FROM
             list_size,
             minimized_pp,
             prefixes,
-            show_retries,
+            retries,
             track_limit,
             allow_songs,
+            render_button,
+            allow_custom_skins,
+            hide_medal_solution,
         } = config;
 
         let authorities =
@@ -71,30 +77,40 @@ FROM
             r#"
 INSERT INTO guild_configs (
   guild_id, authorities, prefixes, allow_songs, 
-  score_size, show_retries, osu_track_limit, 
-  minimized_pp, list_size
+  score_size, retries, osu_track_limit, 
+  minimized_pp, list_size, render_button, 
+  allow_custom_skins, hide_medal_solution
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (guild_id) DO 
+  (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
+    $11, $12
+  ) ON CONFLICT (guild_id) DO 
 UPDATE 
 SET 
   authorities = $2, 
   prefixes = $3, 
   allow_songs = $4, 
   score_size = $5, 
-  show_retries = $6, 
+  retries = $6, 
   osu_track_limit = $7, 
   minimized_pp = $8, 
-  list_size = $9"#,
+  list_size = $9, 
+  render_button = $10, 
+  allow_custom_skins = $11, 
+  hide_medal_solution = $12"#,
             guild_id.get() as i64,
             &authorities as &[u8],
             &prefixes as &[u8],
             *allow_songs,
             score_size.map(i16::from),
-            *show_retries,
+            retries.map(i16::from),
             track_limit.map(|limit| limit as i16),
             minimized_pp.map(i16::from),
             list_size.map(i16::from),
+            *render_button,
+            *allow_custom_skins,
+            hide_medal_solution.map(i16::from),
         );
 
         query
@@ -105,82 +121,5 @@ SET
         debug!(guild_id = guild_id.get(), "Inserted GuildConfig into DB");
 
         Ok(())
-    }
-
-    #[cfg(test)]
-    pub async fn delete_guild_config_by_discord_id(&self, guild_id: Id<GuildMarker>) -> Result<()> {
-        let query = sqlx::query!(
-            r#"
-DELETE FROM 
-  guild_configs 
-WHERE 
-  guild_id = $1"#,
-            guild_id.get() as i64
-        );
-
-        query
-            .execute(self)
-            .await
-            .wrap_err("failed to execute query")?;
-
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-pub(in crate::impls) mod tests {
-    use eyre::Result;
-    use futures::Future;
-
-    use crate::{
-        model::configs::{Authorities, GuildConfig, ListSize, MinimizedPp, Prefixes, ScoreSize},
-        tests::{database, discord_id},
-        Database,
-    };
-
-    fn config() -> GuildConfig {
-        let mut authorities = Authorities::default();
-        authorities.push(discord_id());
-
-        let mut prefixes = Prefixes::default();
-        prefixes.try_push("!!".into()).unwrap();
-        prefixes.try_push("HOLY SHIT LOOK AT THIS ".into()).unwrap();
-        prefixes
-            .try_push(
-                "jarvis if you would be so kind, could you please show me the command ".into(),
-            )
-            .unwrap();
-
-        GuildConfig {
-            authorities,
-            score_size: Some(ScoreSize::AlwaysMinimized),
-            list_size: Some(ListSize::Detailed),
-            minimized_pp: Some(MinimizedPp::MaxPp),
-            prefixes,
-            show_retries: Some(true),
-            track_limit: Some(42),
-            allow_songs: Some(true),
-        }
-    }
-
-    pub async fn wrap_upsert_delete<F>(psql: &Database, fut: F) -> Result<()>
-    where
-        F: Future<Output = Result<()>>,
-    {
-        let guild_id = discord_id();
-        let config = config();
-
-        psql.upsert_guild_config(guild_id, &config).await?;
-        fut.await?;
-        psql.delete_guild_config_by_discord_id(guild_id).await?;
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn upsert_delete() -> Result<()> {
-        let psql = database()?;
-
-        wrap_upsert_delete(&psql, async { Ok(()) }).await
     }
 }

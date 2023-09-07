@@ -163,7 +163,7 @@ pub(super) async fn mostplayed(
     if amount_common == 0 {
         content.push_str(" don't share any maps in their 100 most played maps");
         let builder = MessageBuilder::new().embed(content);
-        orig.create_message(&ctx, &builder).await?;
+        orig.create_message(&ctx, builder).await?;
 
         return Ok(());
     }

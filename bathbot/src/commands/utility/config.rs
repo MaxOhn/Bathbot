@@ -3,7 +3,7 @@ use std::sync::Arc;
 use ::time::UtcOffset;
 use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{
-    ListSize, MinimizedPp, OsuUserId, OsuUsername, ScoreSize, UserConfig,
+    ListSize, MinimizedPp, OsuUserId, OsuUsername, Retries, ScoreSize, UserConfig,
 };
 #[cfg(feature = "server")]
 use bathbot_server::AuthenticationStandbyError;
@@ -75,7 +75,7 @@ pub struct Config {
     )]
     list_embeds: Option<ListSize>,
     #[command(desc = "Should the amount of retries be shown for the recent command?")]
-    retries: Option<ShowHideOption>,
+    retries: Option<Retries>,
     #[command(
         desc = "Specify whether the recent command should show max or if-fc pp when minimized"
     )]
@@ -94,6 +94,13 @@ pub struct Config {
         If you want to suggest another site let Badewanne3 know."
     )]
     skin_url: Option<String>,
+    #[command(
+        desc = "Should the recent command include a render button?",
+        help = "Should the `recent` command include a render button?\n\
+        The button would be a shortcut for the `/render` command.\n\
+        In servers, this requires that the render button is not disabled in `/serverconfigs`."
+    )]
+    render_button: Option<ShowHideOption>,
 }
 
 // FIXME: Some attribute command does not register the #[cfg(feature = "")]
@@ -127,8 +134,8 @@ pub struct Config {
         `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
     )]
     list_embeds: Option<ListSize>,
-    #[command(desc = "Should the amount of retries be shown for the recent command?")]
-    retries: Option<ShowHideOption>,
+    #[command(desc = "Specify if and how retries should be shown for the recent command")]
+    retries: Option<Retries>,
     #[command(
         desc = "Specify whether the recent command should show max or if-fc pp when minimized"
     )]
@@ -147,6 +154,13 @@ pub struct Config {
         If you want to suggest another site let Badewanne3 know."
     )]
     skin_url: Option<String>,
+    #[command(
+        desc = "Should the recent command include a render button?",
+        help = "Should the `recent` command include a render button?\n\
+        The button would be a shortcut for the `/render` command.\n\
+        In servers, this requires that the render button is not disabled in `/serverconfigs`."
+    )]
+    render_button: Option<ShowHideOption>,
 }
 
 #[derive(CommandOption, CreateOption)]
@@ -202,6 +216,7 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
         minimized_pp,
         timezone,
         mut skin_url,
+        render_button,
     } = config;
 
     if let Some(ref skin_url) = skin_url {
@@ -244,11 +259,15 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
     }
 
     if let Some(retries) = retries {
-        config.show_retries = Some(matches!(retries, ShowHideOption::Show));
+        config.retries = Some(retries);
     }
 
     if let Some(tz) = timezone.map(UtcOffset::from) {
         config.timezone = Some(tz);
+    }
+
+    if let Some(render_button) = render_button {
+        config.render_button = Some(matches!(render_button, ShowHideOption::Show));
     }
 
     #[cfg(feature = "server")]
@@ -303,7 +322,7 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
 
             let embed_data = ConfigEmbed::new(author, config, twitch_name, skin_url);
             let builder = embed_data.build().into();
-            command.update(&ctx, &builder).await?;
+            command.update(&ctx, builder).await?;
 
             Ok(())
         }
@@ -323,7 +342,7 @@ fn osu_content(state: u8) -> String {
         "{emote} [Click here](https://osu.ppy.sh/oauth/authorize?client_id={client_id}&\
         response_type=code&scope=identify&redirect_uri={url}/auth/osu&state={state}) \
         to authenticate your osu! profile",
-        emote = Emote::Osu.text(),
+        emote = Emote::Osu,
         client_id = config.tokens.osu_client_id,
         url = config.server.public_url,
     )
@@ -337,7 +356,7 @@ fn twitch_content(state: u8) -> String {
         "{emote} [Click here](https://id.twitch.tv/oauth2/authorize?client_id={client_id}\
         &response_type=code&scope=user:read:email&redirect_uri={url}/auth/twitch\
         &state={state}) to authenticate your twitch channel",
-        emote = Emote::Twitch.text(),
+        emote = Emote::Twitch,
         client_id = config.tokens.twitch_client_id,
         url = config.server.public_url,
     )
@@ -495,7 +514,7 @@ async fn handle_ephemeral<T>(
     builder: MessageBuilder<'_>,
     fut: impl std::future::Future<Output = Result<T, AuthenticationStandbyError>>,
 ) -> Option<Result<T>> {
-    if let Err(err) = command.update(ctx, &builder).await {
+    if let Err(err) = command.update(ctx, builder).await {
         return Some(Err(eyre::Report::new(err)));
     }
 
@@ -581,9 +600,10 @@ async fn convert_config(
         minimized_pp,
         mode,
         osu: _,
-        show_retries,
+        retries,
         twitch_id,
         timezone,
+        render_button,
     } = config;
 
     UserConfig {
@@ -592,9 +612,10 @@ async fn convert_config(
         minimized_pp,
         mode,
         osu: Some(username),
-        show_retries,
+        retries,
         twitch_id,
         timezone,
+        render_button,
     }
 }
 

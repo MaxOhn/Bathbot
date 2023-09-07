@@ -15,7 +15,7 @@ use crate::{
     core::Context,
     embeds::osu,
     manager::{redis::RedisData, OsuMap},
-    util::osu::{grade_completion_mods, mode_emote},
+    util::{osu::grade_completion_mods, Emote},
 };
 
 #[derive(EmbedData)]
@@ -37,7 +37,7 @@ impl TrackNotificationEmbed {
         idx: u8,
         ctx: &Context,
     ) -> Self {
-        let description = format!("{} __**Personal Best #{idx}**__", mode_emote(score.mode));
+        let description = format!("{} __**Personal Best #{idx}**__", Emote::from(score.mode));
 
         let attrs = ctx
             .pp(map)

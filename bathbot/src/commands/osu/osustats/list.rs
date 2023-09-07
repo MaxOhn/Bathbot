@@ -37,7 +37,7 @@ pub(super) async fn players(
 ) -> Result<()> {
     let owner = orig.user_id()?;
 
-    if matches!(args.mode, None) {
+    if args.mode.is_none() {
         args.mode = match ctx.user_config().mode(owner).await {
             Ok(mode) => mode.map(GameModeOption::from),
             Err(err) => {

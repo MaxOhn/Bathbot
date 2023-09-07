@@ -13,7 +13,7 @@ use bathbot_util::{
 };
 use rosu_v2::prelude::{BeatmapUserScore, GameMode, Score};
 
-use super::{EditOnTimeout, EditOnTimeoutKind};
+use super::{ButtonData, EditOnTimeout, EditOnTimeoutKind};
 #[cfg(feature = "twitch")]
 use crate::commands::osu::RecentTwitchStream;
 use crate::{
@@ -21,12 +21,12 @@ use crate::{
     commands::osu::RecentEntry,
     core::Context,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
-    manager::{redis::RedisData, OsuMap},
+    manager::{redis::RedisData, OsuMap, OwnedReplayScore},
     util::osu::{grade_completion_mods, IfFc, MapInfo, PersonalBestIndex},
 };
 
 pub struct RecentScoreEdit {
-    pub(super) miss_analyzer_score_id: Option<u64>,
+    pub(super) button_data: ButtonData,
 }
 
 impl RecentScoreEdit {
@@ -39,7 +39,9 @@ impl RecentScoreEdit {
         map_score: Option<&BeatmapUserScore>,
         #[cfg(feature = "twitch")] twitch_stream: Option<RecentTwitchStream>,
         minimized_pp: MinimizedPp,
-        miss_analyzer_score_id: Option<u64>,
+        score_id: Option<u64>,
+        with_miss_analyzer_button: bool,
+        replay_score: Option<OwnedReplayScore>,
         origin: &MessageOrigin,
         size: ScoreSize,
         content: Option<String>,
@@ -121,8 +123,13 @@ impl RecentScoreEdit {
         let author = user.author_builder();
         let pp = Some(score.pp);
         let max_pp = Some(*max_pp);
+
         let kind = Self {
-            miss_analyzer_score_id,
+            button_data: ButtonData {
+                score_id,
+                with_miss_analyzer_button,
+                replay_score,
+            },
         };
 
         match size {
@@ -299,7 +306,7 @@ impl RecentScoreEdit {
                 let _ = write!(
                     description,
                     " {emote} [Streaming on twitch]({base}{username})",
-                    emote = crate::util::Emote::Twitch.text(),
+                    emote = crate::util::Emote::Twitch,
                     base = bathbot_util::constants::TWITCH_BASE,
                 );
             }
@@ -307,7 +314,7 @@ impl RecentScoreEdit {
                 let _ = write!(
                     description,
                     " {emote} [Liveplay on twitch]({vod_url})",
-                    emote = crate::util::Emote::Twitch.text(),
+                    emote = crate::util::Emote::Twitch,
                 );
             }
             None => {}
@@ -389,7 +396,7 @@ impl RecentScoreEdit {
                 let _ = write!(
                     description,
                     " {emote} [Streaming on twitch]({base}{username})",
-                    emote = crate::util::Emote::Twitch.text(),
+                    emote = crate::util::Emote::Twitch,
                     base = bathbot_util::constants::TWITCH_BASE,
                 );
             }

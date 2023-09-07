@@ -44,6 +44,8 @@ pub struct AttributesAr {
         e.g. `hdhr` or `+hdhr!`"
     )]
     mods: String,
+    #[command(desc = "Specify a custom clock rate that overwrites mods")]
+    clock_rate: Option<f32>,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -65,6 +67,8 @@ pub struct AttributesCs {
         e.g. `hdhr` or `+hdhr!`"
     )]
     mods: String,
+    #[command(desc = "Specify a custom clock rate that overwrites mods")]
+    clock_rate: Option<f32>,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -86,6 +90,8 @@ pub struct AttributesHp {
         e.g. `hdhr` or `+hdhr!`"
     )]
     mods: String,
+    #[command(desc = "Specify a custom clock rate that overwrites mods")]
+    clock_rate: Option<f32>,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -102,16 +108,18 @@ pub struct AttributesOd {
         e.g. `hdhr` or `+hdhr!`"
     )]
     mods: String,
+    #[command(desc = "Specify a custom clock rate that overwrites mods")]
+    clock_rate: Option<f32>,
 }
 
 async fn slash_attributes(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let attrs = Attributes::from_interaction(command.input_data())?;
 
-    let (kind, value, mods) = match attrs {
-        Attributes::Ar(args) => (AttributeKind::Ar, args.number, args.mods),
-        Attributes::Cs(args) => (AttributeKind::Cs, args.number, args.mods),
-        Attributes::Hp(args) => (AttributeKind::Hp, args.number, args.mods),
-        Attributes::Od(args) => (AttributeKind::Od, args.number, args.mods),
+    let (kind, value, mods, clock_rate) = match attrs {
+        Attributes::Ar(args) => (AttributeKind::Ar, args.number, args.mods, args.clock_rate),
+        Attributes::Cs(args) => (AttributeKind::Cs, args.number, args.mods, args.clock_rate),
+        Attributes::Hp(args) => (AttributeKind::Hp, args.number, args.mods, args.clock_rate),
+        Attributes::Od(args) => (AttributeKind::Od, args.number, args.mods, args.clock_rate),
     };
 
     let mods = if let Ok(mods) = mods.parse() {
@@ -144,7 +152,7 @@ async fn slash_attributes(ctx: Arc<Context>, mut command: InteractionCommand) ->
         return Ok(());
     }
 
-    let embed = AttributesEmbed::new(kind, value, mods).build();
+    let embed = AttributesEmbed::new(kind, value, mods, clock_rate).build();
     let builder = MessageBuilder::new().embed(embed);
     command.callback(&ctx, builder, false).await?;
 

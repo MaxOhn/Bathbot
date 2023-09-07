@@ -13,7 +13,7 @@ use super::{EventKind, ProcessResult};
 use crate::{
     core::{
         buckets::BucketName,
-        commands::checks::{check_authority, check_channel_permissions, check_ratelimit},
+        commands::checks::{check_authority, check_channel_permissions},
         Context,
     },
     util::ChannelExt,
@@ -101,23 +101,14 @@ async fn process_command<'m>(
     };
 
     // Ratelimited?
-    let ratelimit = ctx
-        .buckets
-        .get(BucketName::All)
-        .lock()
-        .take(msg.author.id.get());
-
-    if ratelimit > 0 {
-        trace!(
-            "Ratelimiting user {} for {ratelimit} seconds",
-            msg.author.id,
-        );
+    if let Some(cooldown) = ctx.check_ratelimit(msg.author.id, BucketName::All) {
+        trace!("Ratelimiting user {} for {cooldown} seconds", msg.author.id);
 
         return Ok(ProcessResult::Ratelimited(BucketName::All));
     }
 
     if let Some(bucket) = cmd.bucket {
-        if let Some(cooldown) = check_ratelimit(&ctx, msg.author.id, bucket).await {
+        if let Some(cooldown) = ctx.check_ratelimit(msg.author.id, bucket) {
             trace!(
                 "Ratelimiting user {} on bucket `{bucket:?}` for {cooldown} seconds",
                 msg.author.id,

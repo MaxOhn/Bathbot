@@ -8,7 +8,7 @@ use std::{
 };
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
-use bathbot_model::{rosu_v2::user::User, OsuTrackerMapsetEntry, ScoreSlim};
+use bathbot_model::{OsuTrackerMapsetEntry, ScoreSlim};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
@@ -19,16 +19,20 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
+use rosu_pp::{beatmap::BeatmapAttributesBuilder, GameMode as GameModePp};
 use rosu_v2::{
     prelude::{
-        GameMode, Grade, OsuError,
+        GameModIntermode, GameMode, Grade, OsuError,
         RankStatus::{Approved, Loved, Qualified, Ranked},
         Score,
     },
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::{
+    guild::Permissions,
+    id::{marker::UserMarker, Id},
+};
 
 pub use self::{if_::*, old::*};
 use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
@@ -41,12 +45,12 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::{
         redis::{osu::UserArgs, RedisData},
-        OsuMap,
+        OsuMap, OwnedReplayScore,
     },
     util::{
         interaction::InteractionCommand,
-        query::{FilterCriteria, Searchable},
-        ChannelExt, InteractionCommandExt,
+        query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
+        ChannelExt, CheckPermissions, InteractionCommandExt,
     },
     Context,
 };
@@ -67,7 +71,7 @@ pub struct Top {
     )]
     sort: Option<TopScoreOrder>,
     #[command(
-        desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
+        desc = "Filter mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
         help = "Filter out all scores that don't match the specified mods.\n\
         Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
         or `-mods!` for excluded mods.\n\
@@ -93,8 +97,8 @@ pub struct Top {
         desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
         help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, creator, difficulty, title, or limit values such as \
-        ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
-        While ar & co will be adjusted to mods, stars will not."
+        ar, cs, hp, od, bpm, length, stars, pp, acc, score, misses, date or ranked_date \
+        e.g. `ar>10 od>=9 ranked<2017-01-01 creator=monstrata acc>99 acc<=99.5`."
     )]
     query: Option<String>,
     #[command(desc = "Consider only scores with this grade")]
@@ -119,7 +123,7 @@ pub struct Top {
     size: Option<ListSize>,
 }
 
-#[derive(Copy, Clone, CommandOption, CreateOption, Eq, PartialEq)]
+#[derive(Copy, Clone, Default, CommandOption, CreateOption, Eq, PartialEq)]
 pub enum TopScoreOrder {
     #[option(name = "Accuracy", value = "acc")]
     Acc,
@@ -137,19 +141,13 @@ pub enum TopScoreOrder {
     RankedDate,
     #[option(name = "Misses", value = "miss")]
     Misses,
+    #[default]
     #[option(name = "PP", value = "pp")]
     Pp,
     #[option(name = "Score", value = "score")]
     Score,
     #[option(name = "Stars", value = "stars")]
     Stars,
-}
-
-impl Default for TopScoreOrder {
-    #[inline]
-    fn default() -> Self {
-        Self::Pp
-    }
 }
 
 impl From<ScoreOrder> for TopScoreOrder {
@@ -746,7 +744,7 @@ pub(super) async fn top(
     orig: CommandOrigin<'_>,
     args: TopArgs<'_>,
 ) -> Result<()> {
-    if args.index.filter(|n| *n > 100).is_some() {
+    if args.index.is_some_and(|n| n > 100) {
         let content = "Can't have more than 100 top scores.";
 
         return orig.error(&ctx, content).await;
@@ -885,7 +883,7 @@ pub(super) async fn top(
 
     let username = user.username();
 
-    if args.index.filter(|n| *n > entries.len()).is_some() {
+    if args.index.is_some_and(|n| n > entries.len()) {
         let content = format!(
             "`{username}` only has {} top scores with the specified properties",
             entries.len(),
@@ -894,14 +892,18 @@ pub(super) async fn top(
         return orig.error(&ctx, content).await;
     }
 
-    let (guild_score_size, guild_list_size, guild_minimized_pp) = match orig.guild_id() {
+    let GuildValues {
+        minimized_pp: guild_minimized_pp,
+        score_size: guild_score_size,
+        list_size: guild_list_size,
+        render_button: guild_render_button,
+    } = match orig.guild_id() {
         Some(guild_id) => {
-            let f =
-                |config: &GuildConfig| (config.score_size, config.list_size, config.minimized_pp);
-
-            ctx.guild_config().peek(guild_id, f).await
+            ctx.guild_config()
+                .peek(guild_id, |config| GuildValues::from(config))
+                .await
         }
-        None => (None, None, None),
+        None => GuildValues::default(),
     };
 
     let single_idx = args
@@ -920,7 +922,79 @@ pub(super) async fn top(
         let content = write_content(username, &args, 1);
         let entry = &entries[idx];
 
-        single_embed(ctx, orig, user, entry, score_size, minimized_pp, content).await
+        // Prepare retrieval of the map's global top 50 and the user's top 100
+        let global_idx = match entry.map.status() {
+            Ranked | Loved | Qualified | Approved => {
+                match ctx
+                    .osu_scores()
+                    .map_leaderboard(entry.map.map_id(), entry.score.mode, None, 50)
+                    .await
+                {
+                    Ok(scores) => {
+                        let user_id = user.user_id();
+                        let timestamp = entry.score.ended_at.unix_timestamp();
+
+                        scores.iter().position(|s| {
+                            s.user_id == user_id
+                                && (timestamp - s.ended_at.unix_timestamp()).abs() <= 2
+                        })
+                    }
+                    Err(err) => {
+                        warn!(?err, "Failed to get global scores");
+
+                        None
+                    }
+                }
+            }
+            _ => None,
+        };
+
+        let mut with_render = match (guild_render_button, config.render_button) {
+            (None | Some(true), None) => true,
+            (None | Some(true), Some(with_render)) => with_render,
+            (Some(false), _) => false,
+        };
+
+        with_render &= mode == GameMode::Osu
+            && entry.replay == Some(true)
+            && orig.has_permission_to(Permissions::SEND_MESSAGES)
+            && ctx.ordr().is_some();
+
+        let replay_score = if with_render {
+            match ctx.osu_map().checksum(entry.map.map_id()).await {
+                Ok(Some(checksum)) => {
+                    Some(OwnedReplayScore::from_top_entry(entry, username, checksum))
+                }
+                Ok(None) => None,
+                Err(err) => {
+                    warn!(?err);
+
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        let personal_idx = Some(entry.original_idx);
+
+        let active_msg_fut = TopScoreEdit::create(
+            &ctx,
+            &user,
+            entry,
+            personal_idx,
+            global_idx,
+            minimized_pp,
+            entry.score.score_id,
+            replay_score,
+            score_size,
+            content,
+        );
+
+        ActiveMessages::builder(active_msg_fut.await)
+            .start_by_update(true)
+            .begin(ctx, orig)
+            .await
     } else {
         let content = write_content(username, &args, entries.len());
 
@@ -961,6 +1035,118 @@ pub struct TopEntry {
     pub max_pp: f32,
     pub stars: f32,
     pub max_combo: u32,
+    pub replay: Option<bool>,
+}
+
+impl<'q> Searchable<TopCriteria<'q>> for TopEntry {
+    fn matches(&self, criteria: &FilterCriteria<TopCriteria<'q>>) -> bool {
+        let mut matches = true;
+
+        matches &= criteria.combo.contains(self.score.max_combo);
+        matches &= criteria.miss.contains(self.score.statistics.count_miss);
+        matches &= criteria.score.contains(self.score.score);
+        matches &= criteria.date.contains(self.score.ended_at.date());
+        matches &= criteria.stars.contains(self.stars);
+        matches &= criteria.pp.contains(self.score.pp);
+        matches &= criteria.acc.contains(self.score.accuracy);
+
+        if !criteria.ranked_date.is_empty() {
+            let Some(datetime) = self.map.ranked_date() else { return false };
+            matches &= criteria.ranked_date.contains(datetime.date());
+        }
+
+        let keys = [
+            (GameModIntermode::OneKey, 1.0),
+            (GameModIntermode::TwoKeys, 2.0),
+            (GameModIntermode::ThreeKeys, 3.0),
+            (GameModIntermode::FourKeys, 4.0),
+            (GameModIntermode::FiveKeys, 5.0),
+            (GameModIntermode::SixKeys, 6.0),
+            (GameModIntermode::SevenKeys, 7.0),
+            (GameModIntermode::EightKeys, 8.0),
+            (GameModIntermode::NineKeys, 9.0),
+            (GameModIntermode::TenKeys, 10.0),
+        ]
+        .into_iter()
+        .find_map(|(gamemod, keys)| self.score.mods.contains_intermode(gamemod).then_some(keys))
+        .unwrap_or(self.map.cs());
+
+        matches &= self.map.mode() != GameMode::Mania || criteria.keys.contains(keys);
+
+        if !matches
+            || (criteria.ar.is_empty()
+                && criteria.cs.is_empty()
+                && criteria.hp.is_empty()
+                && criteria.od.is_empty()
+                && criteria.length.is_empty()
+                && criteria.bpm.is_empty()
+                && criteria.artist.is_empty()
+                && criteria.creator.is_empty()
+                && criteria.version.is_empty()
+                && criteria.title.is_empty()
+                && !criteria.has_search_terms())
+        {
+            return matches;
+        }
+
+        let attrs = BeatmapAttributesBuilder::default()
+            .ar(self.map.ar())
+            .cs(self.map.cs())
+            .hp(self.map.hp())
+            .od(self.map.od())
+            .mods(self.score.mods.bits())
+            .mode(match self.score.mode {
+                GameMode::Osu => GameModePp::Osu,
+                GameMode::Taiko => GameModePp::Taiko,
+                GameMode::Catch => GameModePp::Catch,
+                GameMode::Mania => GameModePp::Mania,
+            })
+            .converted(self.score.mode != self.map.mode())
+            .build();
+
+        matches &= criteria.ar.contains(attrs.ar as f32);
+        matches &= criteria.cs.contains(attrs.cs as f32);
+        matches &= criteria.hp.contains(attrs.hp as f32);
+        matches &= criteria.od.contains(attrs.od as f32);
+
+        let clock_rate = attrs.clock_rate as f32;
+        matches &= criteria
+            .length
+            .contains(self.map.seconds_drain() as f32 / clock_rate);
+        matches &= criteria.bpm.contains(self.map.bpm() * clock_rate);
+
+        if !matches
+            || (criteria.artist.is_empty()
+                && criteria.creator.is_empty()
+                && criteria.title.is_empty()
+                && criteria.version.is_empty()
+                && !criteria.has_search_terms())
+        {
+            return matches;
+        }
+
+        let artist = self.map.artist().cow_to_ascii_lowercase();
+        matches &= criteria.artist.matches(&artist);
+
+        let creator = self.map.creator().cow_to_ascii_lowercase();
+        matches &= criteria.creator.matches(&creator);
+
+        let version = self.map.version().cow_to_ascii_lowercase();
+        matches &= criteria.version.matches(&version);
+
+        let title = self.map.title().cow_to_ascii_lowercase();
+        matches &= criteria.title.matches(&title);
+
+        if matches && criteria.has_search_terms() {
+            let terms = [artist, creator, version, title];
+
+            matches &= criteria
+                .search_terms()
+                .all(|term| terms.iter().any(|searchable| searchable.contains(term)))
+        }
+
+        matches
+    }
 }
 
 async fn process_scores(
@@ -985,7 +1171,7 @@ async fn process_scores(
         (Some(min), Some(max)) => Some(min..=max),
     };
 
-    let filter_criteria = args.query.as_deref().map(FilterCriteria::new);
+    let filter_criteria = args.query.as_deref().map(TopCriteria::create);
 
     let maps_id_checksum = scores
         .iter()
@@ -1028,10 +1214,6 @@ async fn process_scores(
                 farm.get(&mapset_id).map_or(true, |(_, farm)| !*farm)
             }
         })
-        .filter(|score| match filter_criteria {
-            Some(ref criteria) => score.matches(criteria),
-            None => true,
-        })
         .map(|score| {
             (
                 score.map_id as i32,
@@ -1063,6 +1245,7 @@ async fn process_scores(
 
         let entry = TopEntry {
             original_idx: i,
+            replay: score.replay,
             score: ScoreSlim::new(score, pp),
             map,
             max_pp,
@@ -1070,7 +1253,13 @@ async fn process_scores(
             max_combo: attrs.max_combo() as u32,
         };
 
-        entries.push(entry);
+        if let Some(ref criteria) = filter_criteria {
+            if entry.matches(criteria) {
+                entries.push(entry);
+            }
+        } else {
+            entries.push(entry);
+        }
     }
 
     if let Some(perfect_combo) = args.perfect_combo {
@@ -1156,60 +1345,6 @@ fn mode_long(mode: GameMode) -> &'static str {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn single_embed(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    user: RedisData<User>,
-    entry: &TopEntry,
-    score_size: ScoreSize,
-    minimized_pp: MinimizedPp,
-    content: Option<String>,
-) -> Result<()> {
-    // Prepare retrieval of the map's global top 50 and the user's top 100
-    let global_idx = match entry.map.status() {
-        Ranked | Loved | Qualified | Approved => {
-            // TODO: Add .limit(50) when supported by osu!api
-            match ctx.osu().beatmap_scores(entry.map.map_id()).await {
-                Ok(scores) => {
-                    let user_id = user.user_id();
-
-                    scores.iter().position(|s| {
-                        s.user_id == user_id
-                            && (entry.score.ended_at.unix_timestamp() - s.ended_at.unix_timestamp())
-                                .abs()
-                                <= 2
-                    })
-                }
-                Err(err) => {
-                    warn!(?err, "Failed to get global scores");
-
-                    None
-                }
-            }
-        }
-        _ => None,
-    };
-
-    let personal_idx = Some(entry.original_idx);
-
-    let active_msg_fut = TopScoreEdit::create(
-        &ctx,
-        &user,
-        entry,
-        personal_idx,
-        global_idx,
-        minimized_pp,
-        score_size,
-        content,
-    );
-
-    ActiveMessages::builder(active_msg_fut.await)
-        .start_by_update(true)
-        .begin(ctx, orig)
-        .await
-}
-
 type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), IntHasher>;
 
 fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String> {
@@ -1228,6 +1363,13 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
     } else {
         let genitive = if name.ends_with('s') { "" } else { "s" };
         let reverse = if args.reverse { "reversed " } else { "" };
+        let ordinal_suffix = if args.index.is_some_and(|n| n == 2) { 
+            "nd" 
+        } else if args.index.is_some_and(|n| n == 3) { 
+            "rd" 
+        } else { 
+            "th" 
+        };
 
         let content = match args.sort_by {
             TopScoreOrder::Farm if args.reverse => {
@@ -1245,8 +1387,20 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
             TopScoreOrder::Combo => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}combo:")
             }
+            TopScoreOrder::Date if (args.reverse && args.index.is_some_and(|n| n <= 1)) => {
+                format!("Oldest score in `{name}`'{genitive} top100:")
+            }
+            TopScoreOrder::Date if (args.reverse && args.index.is_some_and(|n| n > 1)) => {
+                format!("{index_string}{ordinal_suffix} oldest score in `{name}`'{genitive} top100:", index_string = args.index.unwrap())
+            }
             TopScoreOrder::Date if args.reverse => {
                 format!("Oldest scores in `{name}`'{genitive} top100:")
+            }
+            TopScoreOrder::Date if args.index.is_some_and(|n| n <= 1) => {
+                format!("Most recent score in `{name}`'{genitive} top100:")
+            }
+            TopScoreOrder::Date if args.index.is_some_and(|n| n > 1) => {
+                format!("{index_string}{ordinal_suffix} most recent score in `{name}`'{genitive} top100:", index_string = args.index.unwrap())
             }
             TopScoreOrder::Date => {
                 format!("Most recent scores in `{name}`'{genitive} top100:")
@@ -1302,31 +1456,31 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
     match (args.min_acc, args.max_acc) {
         (None, None) => {}
         (None, Some(max)) => {
-            let _ = write!(content, " ~ `Acc: 0% - {}%`", round(max));
+            let _ = write!(content, " • `Acc: 0% - {}%`", round(max));
         }
         (Some(min), None) => {
-            let _ = write!(content, " ~ `Acc: {}% - 100%`", round(min));
+            let _ = write!(content, " • `Acc: {}% - 100%`", round(min));
         }
         (Some(min), Some(max)) => {
-            let _ = write!(content, " ~ `Acc: {}% - {}%`", round(min), round(max));
+            let _ = write!(content, " • `Acc: {}% - {}%`", round(min), round(max));
         }
     }
 
     match (args.min_combo, args.max_combo) {
         (None, None) => {}
         (None, Some(max)) => {
-            let _ = write!(content, " ~ `Combo: 0 - {max}`");
+            let _ = write!(content, " • `Combo: 0 - {max}`");
         }
         (Some(min), None) => {
-            let _ = write!(content, " ~ `Combo: {min} - ∞`");
+            let _ = write!(content, " • `Combo: {min} - ∞`");
         }
         (Some(min), Some(max)) => {
-            let _ = write!(content, " ~ `Combo: {min} - {max}`");
+            let _ = write!(content, " • `Combo: {min} - {max}`");
         }
     }
 
     if let Some(grade) = args.grade {
-        let _ = write!(content, " ~ `Grade: {grade}`");
+        let _ = write!(content, " • `Grade: {grade}`");
     }
 
     if let Some(ref selection) = args.mods {
@@ -1336,20 +1490,20 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
             ModSelection::Exact(mods) => ("", mods),
         };
 
-        let _ = write!(content, " ~ `Mods: {pre}{mods}`");
+        let _ = write!(content, " • `Mods: {pre}{mods}`");
     }
 
     if let Some(perfect_combo) = args.perfect_combo {
-        let _ = write!(content, " ~ `Perfect combo: {perfect_combo}`");
+        let _ = write!(content, " • `Perfect combo: {perfect_combo}`");
     }
 
     if let Some(query) = args.query.as_deref() {
-        let _ = write!(content, " ~ `Query: {query}`");
+        TopCriteria::create(query).display(&mut content);
     }
 
     match args.farm {
-        Some(FarmFilter::OnlyFarm) => content.push_str(" ~ `Only farm`"),
-        Some(FarmFilter::NoFarm) => content.push_str(" ~ `Without farm`"),
+        Some(FarmFilter::OnlyFarm) => content.push_str(" • `Only farm`"),
+        Some(FarmFilter::NoFarm) => content.push_str(" • `Without farm`"),
         None => {}
     }
 
@@ -1357,4 +1511,23 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
     let _ = write!(content, "\nFound {amount} matching top score{plural}:");
 
     content
+}
+
+#[derive(Default)]
+struct GuildValues {
+    minimized_pp: Option<MinimizedPp>,
+    score_size: Option<ScoreSize>,
+    list_size: Option<ListSize>,
+    render_button: Option<bool>,
+}
+
+impl From<&GuildConfig> for GuildValues {
+    fn from(config: &GuildConfig) -> Self {
+        Self {
+            minimized_pp: config.minimized_pp,
+            score_size: config.score_size,
+            list_size: config.list_size,
+            render_button: config.render_button,
+        }
+    }
 }

@@ -9,9 +9,10 @@ members = [
     "bathbot-server",
     "bathbot-util",
 ]
+resolver = "2"
 
 [workspace.package]
-version = "3.4.0"
+version = "3.5.3"
 authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2021"
 
@@ -31,3 +32,6 @@ opt-level = 3
 lto = "thin"
 codegen-units = 1
 strip = "debuginfo"
+
+[profile.dev]
+incremental = false # await fix of ICE

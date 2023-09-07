@@ -185,7 +185,7 @@ pub(super) async fn count(
     let embed_data = OsuStatsCountsEmbed::new(&user, mode, counts);
     let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

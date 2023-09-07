@@ -1,7 +1,7 @@
 use rosu_v2::prelude::{GameMode, Username};
 use time::UtcOffset;
 
-use super::{list_size::ListSize, minimized_pp::MinimizedPp, score_size::ScoreSize};
+use super::{list_size::ListSize, minimized_pp::MinimizedPp, score_size::ScoreSize, Retries};
 
 pub struct DbUserConfig {
     pub score_size: Option<i16>,
@@ -9,9 +9,10 @@ pub struct DbUserConfig {
     pub minimized_pp: Option<i16>,
     pub gamemode: Option<i16>,
     pub osu_id: Option<i32>,
-    pub show_retries: Option<bool>,
+    pub retries: Option<i16>,
     pub twitch_id: Option<i64>,
     pub timezone_seconds: Option<i32>,
+    pub render_button: Option<bool>,
 }
 
 pub trait OsuId {
@@ -39,9 +40,10 @@ pub struct UserConfig<O: OsuId> {
     pub minimized_pp: Option<MinimizedPp>,
     pub mode: Option<GameMode>,
     pub osu: Option<O::Type>,
-    pub show_retries: Option<bool>,
+    pub retries: Option<Retries>,
     pub twitch_id: Option<u64>,
     pub timezone: Option<UtcOffset>,
+    pub render_button: Option<bool>,
 }
 
 impl<O: OsuId> Default for UserConfig<O> {
@@ -53,9 +55,10 @@ impl<O: OsuId> Default for UserConfig<O> {
             minimized_pp: None,
             mode: None,
             osu: None,
-            show_retries: None,
+            retries: None,
             twitch_id: None,
             timezone: None,
+            render_button: None,
         }
     }
 }
@@ -69,9 +72,10 @@ impl From<DbUserConfig> for UserConfig<OsuUserId> {
             minimized_pp,
             gamemode,
             osu_id,
-            show_retries,
+            retries,
             twitch_id,
             timezone_seconds,
+            render_button,
         } = config;
 
         Self {
@@ -80,11 +84,12 @@ impl From<DbUserConfig> for UserConfig<OsuUserId> {
             minimized_pp: minimized_pp.map(MinimizedPp::try_from).and_then(Result::ok),
             mode: gamemode.map(|mode| GameMode::from(mode as u8)),
             osu: osu_id.map(|id| id as u32),
-            show_retries,
+            retries: retries.map(Retries::try_from).and_then(Result::ok),
             twitch_id: twitch_id.map(|id| id as u64),
             timezone: timezone_seconds
                 .map(UtcOffset::from_whole_seconds)
                 .map(Result::unwrap),
+            render_button,
         }
     }
 }

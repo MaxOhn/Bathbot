@@ -55,7 +55,7 @@ pub async fn addstream(ctx: Arc<Context>, orig: CommandOrigin<'_>, name: &'_ str
 
             trace!("Now tracking twitch stream {name} for channel {channel}");
 
-            orig.create_message(&ctx, &builder).await?;
+            orig.create_message(&ctx, builder).await?;
 
             Ok(())
         }

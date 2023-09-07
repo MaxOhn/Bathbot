@@ -1,0 +1,348 @@
+use std::{fmt::Write, future::ready, mem, sync::Arc};
+
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
+    EmbedBuilder, MessageBuilder,
+};
+use eyre::{Report, Result};
+use futures::future::BoxFuture;
+use rosu_v2::prelude::GameMode;
+use twilight_model::{
+    channel::message::{
+        component::{ActionRow, Button, ButtonStyle},
+        Component,
+    },
+    id::{
+        marker::{ChannelMarker, MessageMarker, UserMarker},
+        Id,
+    },
+};
+
+use crate::{
+    active::{BuildPage, ComponentResult, IActiveMessage},
+    commands::osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
+    core::Context,
+    manager::{OwnedReplayScore, ReplayScore},
+    util::{interaction::InteractionComponent, Authored, ComponentExt, MessageExt},
+};
+
+pub struct CachedRender {
+    score_id: u64,
+    score: Option<OwnedReplayScore>,
+    video_url: Box<str>,
+    msg_owner: Id<UserMarker>,
+    done: bool,
+}
+
+impl CachedRender {
+    pub fn new(
+        score_id: u64,
+        score: Option<OwnedReplayScore>,
+        video_url: Box<str>,
+        msg_owner: Id<UserMarker>,
+    ) -> Self {
+        Self {
+            score_id,
+            score,
+            video_url,
+            msg_owner,
+            done: false,
+        }
+    }
+
+    async fn send_link(
+        &mut self,
+        ctx: Arc<Context>,
+        component: &mut InteractionComponent,
+    ) -> Result<()> {
+        // Anyone, not only the msg_owner, is allowed to use this
+
+        let mut video_url = mem::take(&mut self.video_url).into_string();
+        let _ = write!(video_url, " <@{}>", self.msg_owner);
+
+        let builder = MessageBuilder::new()
+            .content(video_url)
+            .embed(None)
+            .components(Vec::new());
+
+        if let Err(err) = component.callback(&ctx, builder).await {
+            return Err(Report::new(err).wrap_err("Failed to callback component"));
+        }
+
+        self.done = true;
+
+        Ok(())
+    }
+
+    async fn render_anyway(
+        &mut self,
+        ctx: Arc<Context>,
+        component: &mut InteractionComponent,
+    ) -> Result<()> {
+        let owner = component.user_id()?;
+
+        // Only the msg_owner is allowed to use this
+        if self.msg_owner != owner {
+            return Ok(());
+        }
+
+        let (mut status, (replay_res, settings_res)) = match self.score.take() {
+            Some(score) => {
+                let status = RenderStatus::new_preparing_replay();
+                let builder = status.as_message().components(Vec::new());
+                component.callback(&ctx, builder).await?;
+                self.done = true;
+
+                let replay_manager = ctx.replay();
+                let score = ReplayScore::from(score);
+                let replay_fut = replay_manager.get_replay(Some(self.score_id), &score);
+                let settings_fut = replay_manager.get_settings(owner);
+
+                (status, tokio::join!(replay_fut, settings_fut))
+            }
+            None => {
+                let mut status = RenderStatus::new_requesting_score();
+                let builder = status.as_message().components(Vec::new());
+                component.callback(&ctx, builder).await?;
+                self.done = true;
+
+                let score = match ctx.osu().score(self.score_id, GameMode::Osu).await {
+                    Ok(score) => score,
+                    Err(err) => {
+                        let embed = EmbedBuilder::new().color_red().description(OSU_API_ISSUE);
+                        let builder = MessageBuilder::new().embed(embed);
+
+                        if let Some(update_fut) = component.update(&ctx, builder) {
+                            let _ = update_fut.await;
+                        }
+
+                        return Err(Report::new(err).wrap_err("Failed to get score"));
+                    }
+                };
+
+                let Some(replay_score) = ReplayScore::from_score(&score) else {
+                    let content = "Failed to prepare the replay";
+                    let embed = EmbedBuilder::new().color_red().description(content);
+                    let builder = MessageBuilder::new().embed(embed);
+
+                    if let Some(update_fut) = component.update(&ctx, builder) {
+                        update_fut.await?;
+                    }
+
+                    return Ok(());
+                };
+
+                // Just a status update, no need to propagate an error
+                status.set(RenderStatusInner::PreparingReplay);
+
+                if let Some(update_fut) = component.update(&ctx, status.as_message()) {
+                    let _ = update_fut.await;
+                }
+
+                let replay_manager = ctx.replay();
+                let replay_fut = replay_manager.get_replay(score.score_id, &replay_score);
+                let settings_fut = replay_manager.get_settings(owner);
+
+                (status, tokio::join!(replay_fut, settings_fut))
+            }
+        };
+
+        let replay = match replay_res {
+            Ok(Some(replay)) => replay,
+            Ok(None) => {
+                let embed = EmbedBuilder::new()
+                    .color_red()
+                    .description("Looks like the replay for that score is not available");
+
+                let builder = MessageBuilder::new().embed(embed);
+
+                match component.update(&ctx, builder) {
+                    Some(update_fut) => {
+                        update_fut.await?;
+
+                        return Ok(());
+                    }
+                    None => bail!("Lacking permission to update cached render component"),
+                }
+            }
+            Err(err) => {
+                let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
+                let builder = MessageBuilder::new().embed(embed);
+
+                if let Some(update_fut) = component.update(&ctx, builder) {
+                    let _ = update_fut.await;
+                }
+
+                return Err(err.wrap_err("Failed to get replay"));
+            }
+        };
+
+        let settings = match settings_res {
+            Ok(settings) => settings,
+            Err(err) => {
+                let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
+                let builder = MessageBuilder::new().embed(embed);
+
+                if let Some(update_fut) = component.update(&ctx, builder) {
+                    let _ = update_fut.await;
+                }
+
+                return Err(err);
+            }
+        };
+
+        // Just a status update, no need to propagate an error
+        status.set(RenderStatusInner::CommissioningRender);
+
+        if let Some(update_fut) = component.update(&ctx, status.as_message()) {
+            let _ = update_fut.await;
+        }
+
+        let allow_custom_skins = match component.guild_id {
+            Some(guild_id) => {
+                ctx.guild_config()
+                    .peek(guild_id, |config| config.allow_custom_skins.unwrap_or(true))
+                    .await
+            }
+            None => true,
+        };
+
+        let skin = settings.skin(allow_custom_skins);
+
+        let render_fut = ctx
+            .ordr()
+            .expect("ordr unavailable")
+            .client()
+            .render_with_replay_file(&replay, RENDERER_NAME, &skin.skin)
+            .options(settings.options());
+
+        let render = match render_fut.await {
+            Ok(render) => render,
+            Err(err) => {
+                let embed = EmbedBuilder::new().color_red().description(ORDR_ISSUE);
+                let builder = MessageBuilder::new().embed(embed);
+
+                if let Some(update_fut) = component.update(&ctx, builder) {
+                    let _ = update_fut.await;
+                }
+
+                return Err(Report::new(err).wrap_err("Failed to commission render"));
+            }
+        };
+
+        let ongoing_fut = OngoingRender::new(
+            ctx,
+            render.render_id,
+            &*component,
+            status,
+            Some(self.score_id),
+            owner,
+        );
+
+        tokio::spawn(ongoing_fut.await.await_render_url());
+
+        Ok(())
+    }
+
+    async fn async_handle_component(
+        &mut self,
+        ctx: Arc<Context>,
+        component: &mut InteractionComponent,
+    ) -> ComponentResult {
+        let res = match component.data.custom_id.as_str() {
+            "send_link" => self.send_link(ctx, component).await,
+            "render_anyway" => self.render_anyway(ctx, component).await,
+            other => Err(eyre!("Unknown cached render component `{other}`")),
+        };
+
+        match res {
+            Ok(_) => ComponentResult::Ignore,
+            Err(err) => ComponentResult::Err(err),
+        }
+    }
+}
+
+impl IActiveMessage for CachedRender {
+    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+        let description =
+            "Do you want to save time and send the video link here or re-record this score?";
+
+        let embed = EmbedBuilder::new()
+            .title("This score has already been recorded")
+            .description(description);
+
+        BuildPage::new(embed, false).boxed()
+    }
+
+    fn build_components(&self) -> Vec<Component> {
+        if self.done {
+            return Vec::new();
+        }
+
+        let send_link = Button {
+            custom_id: Some("send_link".to_owned()),
+            disabled: false,
+            emoji: None,
+            label: Some("Send link".to_owned()),
+            style: ButtonStyle::Success,
+            url: None,
+        };
+
+        let render_anyway = Button {
+            custom_id: Some("render_anyway".to_owned()),
+            disabled: false,
+            emoji: None,
+            label: Some("Render anways".to_owned()),
+            style: ButtonStyle::Danger,
+            url: None,
+        };
+
+        let components = vec![
+            Component::Button(send_link),
+            Component::Button(render_anyway),
+        ];
+
+        vec![Component::ActionRow(ActionRow { components })]
+    }
+
+    fn handle_component<'a>(
+        &'a mut self,
+        ctx: Arc<Context>,
+        component: &'a mut InteractionComponent,
+    ) -> BoxFuture<'a, ComponentResult> {
+        Box::pin(self.async_handle_component(ctx, component))
+    }
+
+    fn on_timeout<'a>(
+        &'a mut self,
+        ctx: &'a Context,
+        msg: Id<MessageMarker>,
+        channel: Id<ChannelMarker>,
+    ) -> BoxFuture<'a, Result<()>> {
+        if self.done {
+            return Box::pin(ready(Ok(())));
+        }
+
+        let mut video_url = mem::take(&mut self.video_url).into_string();
+        let _ = write!(video_url, " <@{}>", self.msg_owner);
+
+        let builder = MessageBuilder::new()
+            .content(video_url)
+            .embed(None)
+            .components(Vec::new());
+
+        let Some(fut) = (msg, channel).update(ctx, builder, None) else {
+            return Box::pin(ready(Err(eyre!(
+                "Lacking permissions to handle cached render timeout"
+            ))));
+        };
+
+        let fut = async {
+            fut.await
+                .map(|_| ())
+                .map_err(|err| Report::new(err).wrap_err("Failed to callback component"))
+        };
+
+        Box::pin(fut)
+    }
+}

@@ -61,7 +61,7 @@ pub async fn snipe_count_graph(
             Ok(None) => {
                 let content = format!("`{username}` has never had any national #1s");
                 let builder = MessageBuilder::new().embed(content);
-                orig.create_message(ctx, &builder).await?;
+                orig.create_message(ctx, builder).await?;
 
                 return Ok(None);
             }

@@ -106,6 +106,7 @@ impl TopPagination {
                 stars,
                 max_pp: _,
                 max_combo,
+                replay: _,
             } = entry;
 
             let _ = writeln!(
@@ -140,6 +141,7 @@ impl TopPagination {
                 max_pp: _,
                 max_combo: _,
                 stars: _,
+                replay: _,
             } = entry;
 
             let stats = &score.statistics;
@@ -182,6 +184,7 @@ impl TopPagination {
                 max_pp,
                 max_combo,
                 stars,
+                replay: _,
             } = entry;
 
             let _ = writeln!(
@@ -235,6 +238,7 @@ impl TopPagination {
             max_pp,
             max_combo,
             stars,
+            replay: _,
         } = entry;
 
         let if_fc = IfFc::new(&ctx, score, map).await;
@@ -338,7 +342,7 @@ impl IActiveMessage for TopPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let defer = matches!(self.list_size, ListSize::Single);
@@ -602,12 +606,7 @@ impl Display for MissFormat {
             return Ok(());
         }
 
-        write!(
-            f,
-            "{miss}{emote} ",
-            miss = self.0,
-            emote = Emote::Miss.text()
-        )
+        write!(f, "{miss}{emote} ", miss = self.0, emote = Emote::Miss)
     }
 }
 

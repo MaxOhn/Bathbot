@@ -3,8 +3,11 @@ use std::fmt::Write;
 use bathbot_macros::EmbedData;
 use bathbot_model::{rosu_v2::user::User, SnipePlayer};
 use bathbot_util::{
-    constants::OSU_BASE, datetime::HowLongAgoDynamic, fields, numbers::WithComma, AuthorBuilder,
-    CowUtils, FooterBuilder,
+    constants::OSU_BASE,
+    datetime::HowLongAgoDynamic,
+    fields,
+    numbers::{round, WithComma},
+    AuthorBuilder, CowUtils, FooterBuilder,
 };
 use osu::{ComboFormatter, HitResultFormatter, PpFormatter};
 use rosu_v2::prelude::{GameMode, Score};
@@ -76,8 +79,8 @@ impl PlayerSnipeStatsEmbed {
             // TODO: update formatting
             let value = format!(
                 "**[{map}]({OSU_BASE}b/{id})**\t\
-                    {grade}\t[{stars:.2}★]\t{score}\t({acc}%)\t[{combo}]\t\
-                    [{pp}]\t {hits}\t{ago}",
+                {grade}\t[{stars:.2}★]\t{score}\t({acc}%)\t[{combo}]\t\
+                [{pp}]\t {hits}\t{ago}",
                 map = player.oldest_first.map.cow_escape_markdown(),
                 id = oldest_map.map_id(),
                 grade = grade_completion_mods(
@@ -87,7 +90,7 @@ impl PlayerSnipeStatsEmbed {
                     oldest_map
                 ),
                 score = WithComma::new(oldest_score.score),
-                acc = oldest_score.accuracy,
+                acc = round(oldest_score.accuracy),
                 combo = ComboFormatter::new(oldest_score.max_combo, Some(max_combo)),
                 pp = PpFormatter::new(Some(pp), Some(max_pp)),
                 hits = HitResultFormatter::new(GameMode::Osu, oldest_score.statistics.clone()),

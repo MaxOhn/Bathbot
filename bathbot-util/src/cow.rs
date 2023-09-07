@@ -97,14 +97,13 @@ impl<'s> CowUtils<'s> for &'s str {
     /// This is similar to [`str::replace`](https://doc.rust-lang.org/std/primitive.str.html#method.replace), but returns
     /// a slice of the original string when possible:
     /// ```
-    /// # use cow_utils::CowUtils;
-    /// # use assert_matches::assert_matches;
     /// # use std::borrow::Cow;
-    /// assert_matches!("abc".cow_replace("def", "ghi"), Cow::Borrowed("abc"));
-    /// assert_matches!("$$str$$".cow_replace("$", ""), Cow::Borrowed("str"));
-    /// assert_matches!("aaaaa".cow_replace("a", ""), Cow::Borrowed(""));
-    /// assert_matches!("abc".cow_replace("b", "d"), Cow::Owned(s) if s == "adc");
-    /// assert_matches!("$a$b$".cow_replace("$", ""), Cow::Owned(s) if s == "ab");
+    /// # use bathbot_util::CowUtils;
+    /// assert!(matches!("abc".cow_replace("def", "ghi"), Cow::Borrowed("abc")));
+    /// assert!(matches!("$$str$$".cow_replace("$", ""), Cow::Borrowed("str")));
+    /// assert!(matches!("aaaaa".cow_replace("a", ""), Cow::Borrowed("")));
+    /// assert!(matches!("abc".cow_replace("b", "d"), Cow::Owned(s) if s == "adc"));
+    /// assert!(matches!("$a$b$".cow_replace("$", ""), Cow::Owned(s) if s == "ab"));
     /// ```
     fn cow_replace(self, from: impl Pattern<'s>, to: &str) -> Self::Output {
         unsafe { cow_replace(self, from.match_indices_in(self), to) }
@@ -113,15 +112,14 @@ impl<'s> CowUtils<'s> for &'s str {
     /// This is similar to [`str::replacen`](https://doc.rust-lang.org/std/primitive.str.html#method.replacen), but returns
     /// a slice of the original string when possible:
     /// ```
-    /// # use cow_utils::CowUtils;
-    /// # use assert_matches::assert_matches;
     /// # use std::borrow::Cow;
-    /// assert_matches!("abc".cow_replacen("def", "ghi", 10), Cow::Borrowed("abc"));
-    /// assert_matches!("$$str$$".cow_replacen("$", "", 2), Cow::Borrowed("str$$"));
-    /// assert_matches!("$a$b$".cow_replacen("$", "", 1), Cow::Borrowed("a$b$"));
-    /// assert_matches!("aaaaa".cow_replacen("a", "", 10), Cow::Borrowed(""));
-    /// assert_matches!("aaaaa".cow_replacen("a", "b", 0), Cow::Borrowed("aaaaa"));
-    /// assert_matches!("abc".cow_replacen("b", "d", 1), Cow::Owned(s) if s == "adc");
+    /// # use bathbot_util::CowUtils;
+    /// assert!(matches!("abc".cow_replacen("def", "ghi", 10), Cow::Borrowed("abc")));
+    /// assert!(matches!("$$str$$".cow_replacen("$", "", 2), Cow::Borrowed("str$$")));
+    /// assert!(matches!("$a$b$".cow_replacen("$", "", 1), Cow::Borrowed("a$b$")));
+    /// assert!(matches!("aaaaa".cow_replacen("a", "", 10), Cow::Borrowed("")));
+    /// assert!(matches!("aaaaa".cow_replacen("a", "b", 0), Cow::Borrowed("aaaaa")));
+    /// assert!(matches!("abc".cow_replacen("b", "d", 1), Cow::Owned(s) if s == "adc"));
     /// ```
     fn cow_replacen(self, from: impl Pattern<'s>, to: &str, count: usize) -> Self::Output {
         unsafe { cow_replace(self, from.match_indices_in(self).take(count), to) }
@@ -130,13 +128,12 @@ impl<'s> CowUtils<'s> for &'s str {
     /// This is similar to [`str::to_ascii_lowercase`](https://doc.rust-lang.org/std/primitive.str.html#method.to_ascii_lowercase), but returns
     /// original slice when possible:
     /// ```
-    /// # use cow_utils::CowUtils;
-    /// # use assert_matches::assert_matches;
     /// # use std::borrow::Cow;
-    /// assert_matches!("abcd123".cow_to_ascii_lowercase(), Cow::Borrowed("abcd123"));
-    /// assert_matches!("ὀδυσσεύς".cow_to_ascii_lowercase(), Cow::Borrowed("ὀδυσσεύς"));
-    /// assert_matches!("ὈΔΥΣΣΕΎΣ".cow_to_ascii_lowercase(), Cow::Borrowed("ὈΔΥΣΣΕΎΣ"));
-    /// assert_matches!("AbCd".cow_to_ascii_lowercase(), Cow::Owned(s) if s == "abcd");
+    /// # use bathbot_util::CowUtils;
+    /// assert!(matches!("abcd123".cow_to_ascii_lowercase(), Cow::Borrowed("abcd123")));
+    /// assert!(matches!("ὀδυσσεύς".cow_to_ascii_lowercase(), Cow::Borrowed("ὀδυσσεύς")));
+    /// assert!(matches!("ὈΔΥΣΣΕΎΣ".cow_to_ascii_lowercase(), Cow::Borrowed("ὈΔΥΣΣΕΎΣ")));
+    /// assert!(matches!("AbCd".cow_to_ascii_lowercase(), Cow::Owned(s) if s == "abcd"));
     /// ```
     fn cow_to_ascii_lowercase(self) -> Self::Output {
         match self.as_bytes().iter().position(u8::is_ascii_uppercase) {
@@ -156,13 +153,12 @@ impl<'s> CowUtils<'s> for &'s str {
     /// This is similar to [`str::to_ascii_uppercase`](https://doc.rust-lang.org/std/primitive.str.html#method.to_ascii_uppercase), but returns
     /// original slice when possible:
     /// ```
-    /// # use cow_utils::CowUtils;
-    /// # use assert_matches::assert_matches;
     /// # use std::borrow::Cow;
-    /// assert_matches!("ABCD123".cow_to_ascii_uppercase(), Cow::Borrowed("ABCD123"));
-    /// assert_matches!("ὈΔΥΣΣΕΎΣ".cow_to_ascii_uppercase(), Cow::Borrowed("ὈΔΥΣΣΕΎΣ"));
-    /// assert_matches!("ὀδυσσεύς".cow_to_ascii_uppercase(), Cow::Borrowed("ὀδυσσεύς"));
-    /// assert_matches!("AbCd".cow_to_ascii_uppercase(), Cow::Owned(s) if s == "ABCD");
+    /// # use bathbot_util::CowUtils;
+    /// assert!(matches!("ABCD123".cow_to_ascii_uppercase(), Cow::Borrowed("ABCD123")));
+    /// assert!(matches!("ὈΔΥΣΣΕΎΣ".cow_to_ascii_uppercase(), Cow::Borrowed("ὈΔΥΣΣΕΎΣ")));
+    /// assert!(matches!("ὀδυσσεύς".cow_to_ascii_uppercase(), Cow::Borrowed("ὀδυσσεύς")));
+    /// assert!(matches!("AbCd".cow_to_ascii_uppercase(), Cow::Owned(s) if s == "ABCD"));
     /// ```
     fn cow_to_ascii_uppercase(self) -> Self::Output {
         match self.as_bytes().iter().position(u8::is_ascii_lowercase) {
@@ -184,14 +180,16 @@ impl<'s> CowUtils<'s> for &'s str {
     /// prefixed with a backslash.
     ///
     /// ```
-    /// # use cow_utils::CowUtils;
-    /// # use assert_matches::assert_matches;
     /// # use std::borrow::Cow;
-    /// assert_matches!(
+    /// # use bathbot_util::CowUtils;
+    /// assert!(matches!(
     ///     "__abc*_d*".cow_escape_markdown(),
-    ///     Cow::Owned("\\_\\_abc\\*\\_d\\*")
-    /// );
-    /// assert_matches!("abcd".cow_escape_markdown(), Cow::Borrowed("abcd"));
+    ///     Cow::Owned(s) if s == "\\_\\_abc\\*\\_d\\*"
+    /// ));
+    /// assert!(matches!(
+    ///     "abcd".cow_escape_markdown(),
+    ///     Cow::Borrowed("abcd")
+    /// ));
     /// ```
     fn cow_escape_markdown(self) -> Self::Output {
         let markdown = ['_', '*', '~', '`'];

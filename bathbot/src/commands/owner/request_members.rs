@@ -27,7 +27,11 @@ pub async fn request_members(
         return Ok(());
     };
 
-    ctx.member_requests.todo_guilds.lock().insert(guild);
+    ctx.member_requests
+        .todo_guilds
+        .lock()
+        .unwrap()
+        .insert(guild);
 
     match ctx.member_requests.tx.send((guild, shard_id)) {
         Ok(_) => {

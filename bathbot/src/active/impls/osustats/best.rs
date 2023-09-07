@@ -125,7 +125,7 @@ impl IActiveMessage for OsuStatsBestPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
@@ -159,7 +159,7 @@ impl Display for OrderAppendix<'_> {
                 f,
                 "{miss}{emote}",
                 miss = self.score.count_miss,
-                emote = Emote::Miss.text()
+                emote = Emote::Miss
             ),
             OsuStatsBestSort::Score => write!(f, "`{}`", WithComma::new(self.score.score)),
             OsuStatsBestSort::Accuracy

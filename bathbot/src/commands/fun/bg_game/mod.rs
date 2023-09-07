@@ -64,7 +64,7 @@ pub async fn prefix_backgroundgame(
                 I will only show members of this server.";
 
             let builder = MessageBuilder::new().embed(content);
-            msg.create_message(&ctx, &builder, permissions).await?;
+            msg.create_message(&ctx, builder, permissions).await?;
 
             Ok(())
         }
@@ -320,7 +320,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
                 let res_builder = MessageBuilder::new().embed("Starting new thread...");
                 command.callback(&ctx, res_builder, true).await?;
 
-                channel.create_message(&ctx, &builder, None).await?;
+                channel.create_message(&ctx, builder, None).await?;
             } else {
                 command.callback(&ctx, builder, false).await?;
             }

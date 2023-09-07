@@ -5,9 +5,8 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::ScraperScore;
 use bathbot_util::{
-    constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+    constants::{AVATAR_URL, OSU_BASE},
     datetime::HowLongAgoDynamic,
     numbers::WithComma,
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher,
@@ -15,7 +14,7 @@ use bathbot_util::{
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_pp::{BeatmapExt, DifficultyAttributes, ScoreState};
-use rosu_v2::prelude::{CountryCode, GameMode};
+use rosu_v2::prelude::{GameMode, Grade, Score, UserCompact};
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -43,7 +42,7 @@ type AttrMap = HashMap<u32, (DifficultyAttributes, f32), IntHasher>;
 pub struct LeaderboardPagination {
     map: OsuMap,
     #[pagination(per_page = 10)]
-    scores: Box<[ScraperScore]>,
+    scores: Box<[Score]>,
     stars: f32,
     max_combo: u32,
     attr_map: AttrMap,
@@ -65,7 +64,7 @@ impl IActiveMessage for LeaderboardPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         handle_pagination_component(ctx, component, self.msg_owner, true, &mut self.pages)
@@ -108,7 +107,10 @@ impl LeaderboardPagination {
         let mut description = String::with_capacity(1024);
 
         for (score, i) in self.scores[start_idx..end_idx].iter().zip(start_idx + 1..) {
-            let found_author = author_name == Some(score.username.as_str());
+            let found_author = score
+                .user
+                .as_ref()
+                .is_some_and(|user| Some(user.username.as_str()) == author_name);
 
             let fmt_fut = ScoreFormatter::new(
                 i,
@@ -128,33 +130,82 @@ impl LeaderboardPagination {
             .as_ref()
             .filter(|score| !(start_idx + 1..end_idx + 1).contains(&score.pos))
         {
-            let scraper_score = ScraperScore {
-                id: 0,
-                user_id: score.user_id,
-                username: score.username.clone(),
-                country_code: CountryCode::new(),
+            let score_ = Score {
                 accuracy: score.accuracy,
+                ended_at: score.ended_at,
+                passed: score.grade != Grade::F,
+                grade: score.grade,
+                map_id: self.map.map_id(),
+                max_combo: score.combo,
+                map: None,
+                mapset: None,
                 mode: self.map.mode(), // TODO: fix when mode selection available
                 mods: score.mods.clone(),
-                score: score.score,
-                max_combo: score.combo,
+                perfect: false,
                 pp: score.pp,
-                grade: score.grade,
-                date: score.ended_at,
-                replay: false,
-                count50: score.statistics.count_50,
-                count100: score.statistics.count_100,
-                count300: score.statistics.count_300,
-                count_geki: score.statistics.count_geki,
-                count_katu: score.statistics.count_katu,
-                count_miss: score.statistics.count_miss,
+                rank_country: None,
+                rank_global: None,
+                replay: None,
+                score: score.score,
+                score_id: None,
+                statistics: score.statistics.clone(),
+                user: Some(UserCompact {
+                    avatar_url: Default::default(),
+                    country_code: Default::default(),
+                    default_group: Default::default(),
+                    is_active: Default::default(),
+                    is_bot: Default::default(),
+                    is_deleted: Default::default(),
+                    is_online: Default::default(),
+                    is_supporter: Default::default(),
+                    last_visit: Default::default(),
+                    pm_friends_only: Default::default(),
+                    profile_color: Default::default(),
+                    user_id: Default::default(),
+                    username: score.username.clone(),
+                    account_history: Default::default(),
+                    badges: Default::default(),
+                    beatmap_playcounts_count: Default::default(),
+                    country: Default::default(),
+                    cover: Default::default(),
+                    favourite_mapset_count: Default::default(),
+                    follower_count: Default::default(),
+                    graveyard_mapset_count: Default::default(),
+                    groups: Default::default(),
+                    guest_mapset_count: Default::default(),
+                    highest_rank: Default::default(),
+                    is_admin: Default::default(),
+                    is_bng: Default::default(),
+                    is_full_bn: Default::default(),
+                    is_gmt: Default::default(),
+                    is_limited_bn: Default::default(),
+                    is_moderator: Default::default(),
+                    is_nat: Default::default(),
+                    is_silenced: Default::default(),
+                    loved_mapset_count: Default::default(),
+                    medals: Default::default(),
+                    monthly_playcounts: Default::default(),
+                    page: Default::default(),
+                    previous_usernames: Default::default(),
+                    rank_history: Default::default(),
+                    ranked_mapset_count: Default::default(),
+                    replays_watched_counts: Default::default(),
+                    scores_best_count: Default::default(),
+                    scores_first_count: Default::default(),
+                    scores_recent_count: Default::default(),
+                    statistics: Default::default(),
+                    support_level: Default::default(),
+                    pending_mapset_count: Default::default(),
+                }),
+                user_id: score.user_id,
+                weight: None,
             };
 
             let _ = writeln!(description, "\n__**<@{}>'s score:**__", score.discord_id);
 
             let fmt_fut = ScoreFormatter::new(
                 score.pos,
-                &scraper_score,
+                &score_,
                 false,
                 &ctx,
                 &mut self.attr_map,
@@ -187,26 +238,24 @@ impl LeaderboardPagination {
         );
         let footer = FooterBuilder::new(footer_text).icon_url(footer_icon);
 
-        let thumbnail = format!("{MAP_THUMB_URL}{}l.jpg", self.map.mapset_id());
-
         let embed = EmbedBuilder::new()
             .author(author)
             .description(description)
             .footer(footer)
-            .thumbnail(thumbnail);
+            .thumbnail(self.map.thumbnail());
 
         Ok(BuildPage::new(embed, true).content(self.content.clone()))
     }
 }
 
 struct ComboFormatter<'a> {
-    score: &'a ScraperScore,
+    score: &'a Score,
     max_combo: u32,
     mode: GameMode,
 }
 
 impl<'a> ComboFormatter<'a> {
-    fn new(score: &'a ScraperScore, max_combo: u32, mode: GameMode) -> Self {
+    fn new(score: &'a Score, max_combo: u32, mode: GameMode) -> Self {
         Self {
             score,
             max_combo,
@@ -221,10 +270,10 @@ impl<'a> Display for ComboFormatter<'a> {
         write!(f, "**{}x**", self.score.max_combo)?;
 
         if self.mode == GameMode::Mania {
-            let mut ratio = self.score.count_geki as f32;
+            let mut ratio = self.score.statistics.count_geki as f32;
 
-            if self.score.count300 > 0 {
-                ratio /= self.score.count300 as f32
+            if self.score.statistics.count_300 > 0 {
+                ratio /= self.score.statistics.count_300 as f32
             }
 
             write!(f, " / {ratio:.2}")
@@ -243,18 +292,13 @@ impl Display for MissFormat {
             return Ok(());
         }
 
-        write!(
-            f,
-            "{miss}{emote} ",
-            miss = self.0,
-            emote = Emote::Miss.text()
-        )
+        write!(f, "{miss}{emote} ", miss = self.0, emote = Emote::Miss)
     }
 }
 
 struct ScoreFormatter<'a> {
     i: usize,
-    score: &'a ScraperScore,
+    score: &'a Score,
     pp: PpFormatter,
     combo: ComboFormatter<'a>,
     found_author: bool,
@@ -263,7 +307,7 @@ struct ScoreFormatter<'a> {
 impl<'a> ScoreFormatter<'a> {
     async fn new(
         i: usize,
-        score: &'a ScraperScore,
+        score: &'a Score,
         found_author: bool,
         ctx: &Context,
         attr_map: &mut AttrMap,
@@ -278,12 +322,12 @@ impl<'a> ScoreFormatter<'a> {
 
                 let state = ScoreState {
                     max_combo: score.max_combo as usize,
-                    n_geki: score.count_geki as usize,
-                    n_katu: score.count_katu as usize,
-                    n300: score.count300 as usize,
-                    n100: score.count100 as usize,
-                    n50: score.count50 as usize,
-                    n_misses: score.count_miss as usize,
+                    n_geki: score.statistics.count_geki as usize,
+                    n_katu: score.statistics.count_katu as usize,
+                    n300: score.statistics.count_300 as usize,
+                    n100: score.statistics.count_100 as usize,
+                    n50: score.statistics.count_50 as usize,
+                    n_misses: score.statistics.count_miss as usize,
                 };
 
                 let pp = map
@@ -329,7 +373,7 @@ impl Display for ScoreFormatter<'_> {
             {grade} {pp} • {acc:.2}% • {miss}{ago}",
             i = self.i,
             underline = if self.found_author { "__" } else { "" },
-            username = self.score.username.cow_escape_markdown(),
+            username = self.score.user.as_ref().map_or("<unknown user>", |user| user.username.as_str()),
             user_id = self.score.user_id,
             grade = grade_emote(self.score.grade),
             score = WithComma::new(self.score.score),
@@ -337,8 +381,8 @@ impl Display for ScoreFormatter<'_> {
             mods = self.score.mods,
             pp = self.pp,
             acc = self.score.accuracy,
-            miss = MissFormat(self.score.count_miss),
-            ago = HowLongAgoDynamic::new(&self.score.date),
+            miss = MissFormat(self.score.statistics.count_miss),
+            ago = HowLongAgoDynamic::new(&self.score.ended_at),
         )
     }
 }

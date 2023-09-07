@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
+    time::Duration,
 };
 
 use bathbot_cache::Cache;
@@ -13,7 +14,6 @@ use flexmap::tokio::TokioRwLockMap;
 use flurry::{HashMap as FlurryMap, HashSet as FlurrySet};
 use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
-use parking_lot::Mutex;
 use rkyv::with::With;
 use rosu_v2::Osu;
 use tokio::sync::mpsc::UnboundedSender;
@@ -29,13 +29,16 @@ use twilight_model::{
         presence::{ActivityType, MinimalActivity, Status},
     },
     id::{
-        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker},
+        marker::{ApplicationMarker, ChannelMarker, GuildMarker, UserMarker},
         Id,
     },
 };
 use twilight_standby::Standby;
 
-use super::{buckets::Buckets, BotStats};
+use super::{
+    buckets::{BucketName, Buckets},
+    BotStats,
+};
 #[cfg(feature = "osutracking")]
 use crate::manager::OsuTrackingManager;
 #[cfg(feature = "twitch")]
@@ -43,6 +46,7 @@ use crate::tracking::OnlineTwitchStreams;
 use crate::{
     active::{impls::BackgroundGame, ActiveMessages},
     core::BotConfig,
+    tracking::Ordr,
 };
 
 mod games;
@@ -84,6 +88,10 @@ impl Context {
     /// Returns the custom client
     pub fn client(&self) -> &BathbotClient {
         &self.clients.custom
+    }
+
+    pub fn ordr(&self) -> Option<&Ordr> {
+        self.clients.ordr.as_deref()
     }
 
     #[cfg(feature = "osutracking")]
@@ -144,7 +152,6 @@ impl Context {
         }
 
         let client_fut = BathbotClient::new(
-            &config.tokens.osu_session,
             #[cfg(feature = "twitch")]
             (&config.tokens.twitch_client_id, &config.tokens.twitch_token),
             &registry,
@@ -154,7 +161,22 @@ impl Context {
             .await
             .wrap_err("Failed to create custom client")?;
 
-        let clients = Clients::new(psql, osu, custom_client);
+        let ordr_fut = Ordr::new(
+            #[cfg(not(debug_assertions))]
+            config.tokens.ordr_key.as_ref(),
+        );
+
+        let ordr = match tokio::time::timeout(Duration::from_secs(20), ordr_fut).await {
+            Ok(Ok(ordr)) => Some(Arc::new(ordr)),
+            Ok(Err(err)) => return Err(err),
+            Err(_) => {
+                warn!("o!rdr timed out, initializing without it");
+
+                None
+            }
+        };
+
+        let clients = Clients::new(psql, osu, custom_client, ordr);
 
         let shards = discord_gateway(config, &http, resume_data)
             .await
@@ -193,6 +215,14 @@ impl Context {
             #[cfg(feature = "server")]
             server_tx,
         ))
+    }
+
+    /// Acquire an entry for the user in the bucket and optionally return the
+    /// cooldown in amount of seconds if acquiring the entry was ratelimitted.
+    pub fn check_ratelimit(&self, user_id: Id<UserMarker>, bucket: BucketName) -> Option<i64> {
+        let ratelimit = self.buckets.get(bucket).lock().unwrap().take(user_id.get());
+
+        (ratelimit > 0).then_some(ratelimit)
     }
 
     pub async fn down_resumable(shards: &mut [Shard]) -> HashMap<u64, Session, IntHasher> {
@@ -258,18 +288,23 @@ struct Clients {
     custom: BathbotClient,
     osu: Osu,
     psql: Database,
+    ordr: Option<Arc<Ordr>>,
 }
 
 impl Clients {
-    fn new(psql: Database, osu: Osu, custom: BathbotClient) -> Self {
-        Self { psql, osu, custom }
+    fn new(psql: Database, osu: Osu, custom: BathbotClient, ordr: Option<Arc<Ordr>>) -> Self {
+        Self {
+            psql,
+            osu,
+            custom,
+            ordr,
+        }
     }
 }
 
 struct ContextData {
     application_id: Id<ApplicationMarker>,
     games: Games,
-    msgs_to_process: Mutex<HashSet<Id<MessageMarker>, IntHasher>>,
     #[cfg(feature = "matchlive")]
     matchlive: crate::matchlive::MatchLiveChannels,
     #[cfg(feature = "osutracking")]
@@ -309,7 +344,6 @@ impl ContextData {
             guild_shards,
             #[cfg(feature = "matchlive")]
             matchlive: crate::matchlive::MatchLiveChannels::new(),
-            msgs_to_process: Mutex::new(HashSet::default()),
             #[cfg(feature = "osutracking")]
             osu_tracking: crate::tracking::OsuTracking::new(OsuTrackingManager::new(psql))
                 .await

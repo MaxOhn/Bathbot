@@ -207,7 +207,7 @@ impl ScorePp {
                 None => String::new(),
             },
             miss = if self.miss_count > 0 {
-                format!("• **{}{}** ", self.miss_count, Emote::Miss.text())
+                format!("• **{}{}** ", self.miss_count, Emote::Miss)
             } else {
                 String::new()
             },

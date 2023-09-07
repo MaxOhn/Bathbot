@@ -1,12 +1,18 @@
-use std::str::FromStr;
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult},
+    str::FromStr,
+};
 
 use rosu_v2::prelude::GameMode;
-use twilight_http::request::channel::reaction::RequestReactionType;
-use twilight_model::{channel::message::ReactionType, id::Id};
+use twilight_model::{
+    channel::message::ReactionType,
+    id::{marker::EmojiMarker, Id},
+};
 
 use crate::core::BotConfig;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+#[repr(u8)]
 pub enum Emote {
     Std,
     Tko,
@@ -27,35 +33,13 @@ pub enum Emote {
 }
 
 impl Emote {
-    pub fn text(self) -> &'static str {
-        BotConfig::get().emotes.get(&self).unwrap().as_ref()
-    }
-
-    #[allow(dead_code)]
-    pub fn request_reaction_type(&self) -> RequestReactionType<'_> {
-        let emote = BotConfig::get().emotes.get(self);
-
-        let (id, name) = emote
-            .unwrap_or_else(|| panic!("No {self:?} emote in config"))
-            .split_emote();
-
-        RequestReactionType::Custom {
-            id: Id::new(id),
-            name: Some(name),
-        }
-    }
-
-    pub fn reaction_type(&self) -> ReactionType {
-        let emote = BotConfig::get().emotes.get(self);
-
-        let (id, name) = emote
-            .unwrap_or_else(|| panic!("No {self:?} emote in config"))
-            .split_emote();
+    pub fn reaction_type(self) -> ReactionType {
+        let CustomEmote { id, name } = BotConfig::get().emote(self);
 
         ReactionType::Custom {
             animated: false,
-            id: Id::new(id),
-            name: Some(name.to_owned()),
+            id: *id,
+            name: Some(name.as_ref().to_owned()),
         }
     }
 }
@@ -68,21 +52,6 @@ impl From<GameMode> for Emote {
             GameMode::Catch => Self::Ctb,
             GameMode::Mania => Self::Mna,
         }
-    }
-}
-
-trait SplitEmote {
-    fn split_emote(&self) -> (u64, &str);
-}
-
-impl SplitEmote for str {
-    fn split_emote(&self) -> (u64, &str) {
-        let mut split = self.split(':');
-        let name = split.nth(1).unwrap();
-        let id = split.next().unwrap();
-        let id = u64::from_str(&id[0..id.len() - 1]).unwrap();
-
-        (id, name)
     }
 }
 
@@ -108,5 +77,28 @@ impl FromStr for Emote {
         };
 
         Ok(emote)
+    }
+}
+
+impl Display for Emote {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let CustomEmote { id, name } = BotConfig::get().emote(*self);
+
+        write!(f, "<:{name}:{id}>")
+    }
+}
+
+#[derive(Debug)]
+pub struct CustomEmote {
+    id: Id<EmojiMarker>,
+    name: Box<str>,
+}
+
+impl CustomEmote {
+    pub fn new(id: u64, name: Box<str>) -> Self {
+        Self {
+            id: Id::new(id),
+            name,
+        }
     }
 }

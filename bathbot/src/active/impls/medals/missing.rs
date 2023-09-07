@@ -6,7 +6,7 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{rosu_v2::user::User, OsekaiMedal};
 use bathbot_util::{
-    constants::OSU_BASE, osu::flag_url, AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
+    constants::OSU_BASE, osu::flag_url, AuthorBuilder, EmbedBuilder, FooterBuilder,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -60,11 +60,19 @@ impl IActiveMessage for MedalsMissingPagination {
                     }
                 }
                 MedalType::Medal(m) => {
+                    let url = match m.url() {
+                        Ok(url) => url,
+                        Err(err) => {
+                            warn!(?err);
+
+                            m.backup_url()
+                        }
+                    };
+
                     let _ = writeln!(
                         description,
-                        "- [{name}](https://osekai.net/medals/?medal={url_name} \"{hover}\")",
+                        "- [{name}]({url} \"{hover}\")",
                         name = m.name,
-                        url_name = m.name.cow_replace(' ', "+"),
                         hover = HoverFormatter::new(self.sort, m),
                     );
                 }
@@ -118,7 +126,7 @@ impl IActiveMessage for MedalsMissingPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)

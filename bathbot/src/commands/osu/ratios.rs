@@ -130,7 +130,7 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
     // Creating the embed
     let embed = embed_data.build();
     let builder = MessageBuilder::new().content(content).embed(embed);
-    orig.create_message(&ctx, &builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
 }

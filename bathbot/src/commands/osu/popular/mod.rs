@@ -66,6 +66,10 @@ pub enum PopularMapsPp {
     Pp1000,
     #[option(name = "1100-1200pp", value = "1100_1200")]
     Pp1100,
+    #[option(name = "1200-1300pp", value = "1200_1300")]
+    Pp1200,
+    #[option(name = "1300-1400pp", value = "1300_1400")]
+    Pp1300,
 }
 
 #[derive(CommandModel, CreateCommand)]

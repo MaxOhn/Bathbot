@@ -34,7 +34,7 @@ use crate::{
     },
     core::Context,
     manager::redis::{osu::UserArgs, RedisData},
-    util::{interaction::InteractionComponent, osu::mode_emote, Authored, ComponentExt, Emote},
+    util::{interaction::InteractionComponent, Authored, ComponentExt, Emote},
 };
 
 #[derive(PaginationBuilder)]
@@ -185,7 +185,7 @@ impl BookmarksPagination {
             map.count_spinners,
         );
 
-        let info_name = format!("{mode} Map info", mode = mode_emote(map.mode));
+        let info_name = format!("{mode} Map info", mode = Emote::from(map.mode));
 
         #[cfg(not(feature = "server"))]
         let url = "https://www.google.com";
@@ -264,7 +264,7 @@ impl BookmarksPagination {
 
     async fn handle_remove(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         component: &InteractionComponent,
     ) -> ComponentResult {
         let owner = match component.user_id() {
@@ -276,7 +276,7 @@ impl BookmarksPagination {
             return ComponentResult::Ignore;
         }
 
-        if let Err(err) = component.defer(ctx).await {
+        if let Err(err) = component.defer(&ctx).await {
             return ComponentResult::Err(Report::new(err).wrap_err("Failed to defer component"));
         }
 
@@ -365,7 +365,7 @@ impl IActiveMessage for BookmarksPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         if component.data.custom_id == "bookmarks_remove" {

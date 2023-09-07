@@ -8,7 +8,7 @@ use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
 use bathbot_psql::model::osu::{ArchivedMapVersion, MapVersion};
 use bathbot_util::{
-    constants::{AVATAR_URL, GENERAL_ISSUE, MAP_THUMB_URL, OSU_API_ISSUE, OSU_BASE},
+    constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
     matcher,
     osu::{MapIdType, ModSelection},
     CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin,
@@ -259,7 +259,7 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
     "badewanne3 2240404 +eznc",
     "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
-#[aliases("c", "score", "scores")]
+#[aliases("c", "score", "scores", "gap")]
 #[group(AllModes)]
 async fn prefix_compare(
     ctx: Arc<Context>,
@@ -275,7 +275,7 @@ async fn prefix_compare(
         .filter(|_| msg.kind == MessageType::Reply);
 
     if let Some(msg) = reply {
-        if let Some(id) = MapIdType::from_msg(msg) {
+        if let Some(id) = ctx.find_map_id_in_msg(msg).await {
             args.map = Some(MapOrScore::Map(id));
         } else if let Some((mode, id)) = matcher::get_osu_score_id(&msg.content) {
             args.map = Some(MapOrScore::Score { id, mode });
@@ -392,16 +392,16 @@ pub(super) async fn score(
                     }
                 };
 
-                match MapIdType::map_from_msgs(&msgs, idx) {
-                    Some(id) => id,
-                    None if idx == 0 => {
+                match ctx.find_map_id_in_msgs(&msgs, idx).await {
+                    Some(MapIdType::Map(id)) => id,
+                    None | Some(MapIdType::Set(_)) if idx == 0 => {
                         let content =
                             "No beatmap specified and none found in recent channel history.\n\
-                        Try specifying a map either by url to the map, or just by map id.";
+                            Try specifying a map either by url to the map, or just by map id.";
 
                         return orig.error(&ctx, content).await;
                     }
-                    None => {
+                    None | Some(MapIdType::Set(_)) => {
                         let content = format!(
                             "No beatmap specified and none found at index {} \
                             of the recent channel history.\nTry decreasing the index or \
@@ -505,7 +505,7 @@ pub(super) async fn score(
     if entries.is_empty() {
         let embed = no_scores_embed(&user, &map, mods);
         let builder = MessageBuilder::new().embed(embed);
-        orig.create_message(&ctx, &builder).await?;
+        orig.create_message(&ctx, builder).await?;
 
         return Ok(());
     }
@@ -958,7 +958,7 @@ fn no_scores_embed(
         .author(user.author_builder())
         .description(description)
         .footer(footer)
-        .thumbnail(format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id()))
+        .thumbnail(map.thumbnail())
         .title(title)
         .url(format!("{OSU_BASE}b/{}", map.map_id()))
 }

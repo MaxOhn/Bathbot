@@ -62,14 +62,13 @@ async fn song(
                 .peek(guild, |config| config.allow_songs.unwrap_or(true))
                 .await;
 
-            (guild.get(), allow)
+            (guild.cast(), allow)
         }
-        None => (orig.user_id()?.get(), true),
+        None => (orig.user_id()?, true),
     };
 
-    let cooldown = ctx.buckets.get(BucketName::Songs).lock().take(id); // same bucket for guilds
-
-    if cooldown > 0 {
+    // same bucket for guilds
+    if let Some(cooldown) = ctx.check_ratelimit(id, BucketName::Songs) {
         let content = format!("Command on cooldown, try again in {cooldown} seconds");
 
         return orig.error_callback(&ctx, content).await;
@@ -98,7 +97,7 @@ async fn song(
             let builder = MessageBuilder::new().content(&content);
 
             response = response
-                .update(&ctx, &builder, None)
+                .update(&ctx, builder, None)
                 .wrap_err("lacking permission to update message")?
                 .await?
                 .model()

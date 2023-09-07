@@ -163,7 +163,7 @@ impl IActiveMessage for ScoresServerPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: &'a Context,
+        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
@@ -245,7 +245,7 @@ impl Display for OrderAppendix<'_> {
                 f,
                 "{miss}{emote}",
                 miss = self.score.statistics.count_miss,
-                emote = Emote::Miss.text()
+                emote = Emote::Miss
             ),
             ScoresOrder::Od => {
                 let attrs = BeatmapAttributesBuilder::default()
@@ -335,7 +335,7 @@ impl GameModeFormatter {
 impl Display for GameModeFormatter {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.mode {
-            Some(mode) => f.write_str(Emote::from(mode).text()),
+            Some(mode) => Display::fmt(&Emote::from(mode), f),
             None => f.write_str("•"),
         }
     }
