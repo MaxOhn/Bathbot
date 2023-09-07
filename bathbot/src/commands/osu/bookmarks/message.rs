@@ -16,7 +16,7 @@ use crate::{
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
-#[msg_command(name = "Bookmark map"), flags(EPHEMERAL)]
+#[msg_command(name = "Bookmark map", flags(EPHEMERAL))]
 async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let msg_opt = command
         .data
