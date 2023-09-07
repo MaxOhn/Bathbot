@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    cmp,
     fmt::{Display, Formatter, Result as FmtResult},
     iter,
     sync::Arc,
@@ -21,7 +22,7 @@ use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{CountryCode, OsuError, Score};
 
-use super::RankPp;
+use super::{RankPp, RankValue};
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
@@ -40,6 +41,12 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         ..
     } = args;
 
+    let Some(rank) = RankValue::parse(rank.as_ref()) else {
+        let content = "Failed to parse rank. Be sure to specify a positive integer.";
+
+        return orig.error(&ctx, content).await;
+    };
+
     let country = match country {
         Some(ref country) => match Countries::name(country).to_code() {
             Some(code) => Some(CountryCode::from(code)),
@@ -56,9 +63,51 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         None => None,
     };
 
-    if rank == 0 {
+    if matches!(rank, RankValue::Raw(0)) {
         return orig.error(&ctx, "Rank can't be zero :clown:").await;
-    } else if rank > 10_000 && country.is_some() {
+    } else if matches!(rank, RankValue::Delta(0)) {
+        return orig
+            .error(&ctx, "Delta must be greater than zero :clown:")
+            .await;
+    }
+
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_fut = ctx.redis().osu_user(user_args);
+
+    let user = match user_fut.await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
+            let content = user_not_found(&ctx, user_id).await;
+
+            return orig.error(&ctx, content).await;
+        }
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+
+            return Err(Report::new(err).wrap_err("Failed to get user"));
+        }
+    };
+
+    let rank = match rank {
+        RankValue::Delta(delta) => {
+            let curr_rank = match user {
+                RedisData::Original(ref user) => user
+                    .statistics
+                    .as_ref()
+                    .and_then(|stats| stats.global_rank)
+                    .unwrap_or(0),
+                RedisData::Archive(ref user) => user
+                    .statistics
+                    .as_ref()
+                    .map_or(0, |stats| stats.global_rank),
+            };
+
+            cmp::max(1, curr_rank.saturating_sub(delta))
+        }
+        RankValue::Raw(rank) => rank,
+    };
+
+    if rank > 10_000 && country.is_some() {
         let content = "Unfortunately I can only provide data for country ranks up to 10,000 :(";
 
         return orig.error(&ctx, content).await;
@@ -72,23 +121,18 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
             ctx.redis()
                 .pp_ranking(mode, page, country.as_ref().map(|c| c.as_str()));
 
-        let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
-        let user_fut = ctx.redis().osu_user(user_args);
+        let rank_holder = match rank_holder_fut.await {
+            Ok(rankings) => {
+                let idx = ((rank + 49) % 50) as usize;
 
-        let (user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
-            Ok((user, rankings)) => {
-                let idx = ((args.rank + 49) % 50) as usize;
-
-                let rank_holder = match rankings {
+                match rankings {
                     RedisData::Original(mut rankings) => {
                         RankingsUser::from(rankings.ranking.swap_remove(idx))
                     }
                     RedisData::Archive(rankings) => {
                         rankings.ranking[idx].deserialize(&mut Infallible).unwrap()
                     }
-                };
-
-                (user, rank_holder)
+                }
             }
             Err(OsuError::NotFound) => {
                 let content = user_not_found(&ctx, user_id).await;
@@ -109,14 +153,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
             rank_holder: Box::new(rank_holder),
         }
     } else {
-        let pp_fut = ctx.approx().pp(rank, mode);
-
-        let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
-        let user_fut = ctx.redis().osu_user(user_args);
-
-        let (pp_res, user_res) = tokio::join!(pp_fut, user_fut);
-
-        let required_pp = match pp_res {
+        let required_pp = match ctx.approx().pp(rank, mode).await {
             Ok(pp) => pp,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -125,23 +162,9 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
             }
         };
 
-        let user = match user_res {
-            Ok(user) => user,
-            Err(OsuError::NotFound) => {
-                let content = user_not_found(&ctx, user_id).await;
-
-                return orig.error(&ctx, content).await;
-            }
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(Report::new(err).wrap_err("Failed to get user"));
-            }
-        };
-
         RankData::Over10k {
             user,
-            rank: args.rank,
+            rank,
             required_pp,
         }
     };
@@ -274,9 +297,9 @@ async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Res
 
 impl<'m> RankPp<'m> {
     fn args(mode: Option<GameModeOption>, mut args: Args<'m>) -> Result<Self, &'static str> {
-        fn parse_rank(input: &str) -> Option<(u32, Option<&'_ str>)> {
-            if let Ok(num) = input.parse() {
-                return Some((num, None));
+        fn parse_rank(input: &str) -> Option<(&str, Option<&str>)> {
+            if input.parse::<u32>().is_ok() {
+                return Some((input, None));
             }
 
             let mut chars = input.chars();
@@ -289,7 +312,7 @@ impl<'m> RankPp<'m> {
             if valid_country && valid_rank {
                 let (country, rank) = input.split_at(2);
 
-                Some((rank.parse().ok()?, Some(country)))
+                Some((rank, Some(country)))
             } else {
                 None
             }
@@ -360,7 +383,7 @@ impl<'m> RankPp<'m> {
             }
         }
 
-        let rank = rank.ok_or(
+        let rank = rank.map(Cow::Borrowed).ok_or(
             "Failed to parse `rank`. Provide it either as positive number \
             or as country acronym followed by a positive number e.g. `be10` \
             as one of the first two arguments.",

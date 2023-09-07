@@ -260,8 +260,8 @@ impl PpValue {
 
     fn value(self) -> f32 {
         match self {
-            PpValue::Delta(value) => value,
-            PpValue::Raw(value) => value,
+            Self::Delta(value) => value,
+            Self::Raw(value) => value,
         }
     }
 }

@@ -28,11 +28,12 @@ pub enum Rank<'a> {
 #[command(name = "pp", desc = "How many pp are missing to reach the given rank?")]
 pub struct RankPp<'a> {
     #[command(
-        min_value = 1,
-        max_value = 4_294_967_295,
-        desc = "Specify the target rank"
+        desc = "Specify the target rank",
+        help = "Specify the target rank.\n\
+        Alternatively, prefix the value with a `+` so that it'll be interpreted as \"delta\" \
+        meaning the current rank + the given value"
     )]
-    rank: u32,
+    rank: Cow<'a, str>,
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
@@ -59,8 +60,13 @@ pub struct RankPp<'a> {
     desc = "How much ranked score is missing to reach the given rank?"
 )]
 pub struct RankScore<'a> {
-    #[command(min_value = 1, desc = "Specify the target rank")]
-    rank: usize,
+    #[command(
+        desc = "Specify the target rank",
+        help = "Specify the target rank.\n\
+        Alternatively, prefix the value with a `+` so that it'll be interpreted as \"delta\" \
+        meaning the current rank + the given value"
+    )]
+    rank: Cow<'a, str>,
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
@@ -72,6 +78,26 @@ pub struct RankScore<'a> {
         Only works on users who have used the `/link` command."
     )]
     discord: Option<Id<UserMarker>>,
+}
+
+#[derive(Copy, Clone)]
+enum RankValue {
+    Delta(u32),
+    Raw(u32),
+}
+
+impl RankValue {
+    fn parse(input: &str) -> Option<Self> {
+        let rank = input.parse().ok()?;
+
+        let this = if input.starts_with('+') {
+            Self::Delta(rank)
+        } else {
+            Self::Raw(rank)
+        };
+
+        Some(this)
+    }
 }
 
 async fn slash_rank(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

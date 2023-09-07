@@ -1,11 +1,11 @@
-use std::{iter, sync::Arc};
+use std::{borrow::Cow, cmp, iter, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 
-use super::RankScore;
+use super::{RankScore, RankValue};
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
@@ -114,8 +114,8 @@ impl<'m> RankScore<'m> {
         let mut rank = None;
 
         for arg in args.take(2) {
-            if let Ok(num) = arg.parse() {
-                rank = Some(num);
+            if arg.parse::<u32>().is_ok() {
+                rank = Some(arg);
             } else if let Some(id) = matcher::get_mention_user(arg) {
                 discord = Some(id);
             } else {
@@ -123,7 +123,7 @@ impl<'m> RankScore<'m> {
             }
         }
 
-        let rank = rank.ok_or(
+        let rank = rank.map(Cow::Borrowed).ok_or(
             "Failed to parse `rank`. Provide it either as positive number \
             or as country acronym followed by a positive number e.g. `be10` \
             as one of the first two arguments.",
@@ -143,32 +143,85 @@ pub(super) async fn score(
     orig: CommandOrigin<'_>,
     args: RankScore<'_>,
 ) -> Result<()> {
-    let rank = args.rank;
+    let Some(rank) = RankValue::parse(args.rank.as_ref()) else {
+        let content = "Failed to parse rank. Be sure to specify a positive integer.";
+
+        return orig.error(&ctx, content).await;
+    };
+
     let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
-    if rank == 0 {
+    if matches!(rank, RankValue::Raw(0)) {
         let content = "Rank number must be between 1 and 10,000";
 
         return orig.error(&ctx, content).await;
-    } else if rank > 10_000 {
+    } else if matches!(rank, RankValue::Delta(0)) {
+        return orig
+            .error(&ctx, "Delta must be greater than zero :clown:")
+            .await;
+    }
+
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+
+    let user = match ctx.redis().osu_user(user_args).await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
+            let content = user_not_found(&ctx, user_id).await;
+
+            return orig.error(&ctx, content).await;
+        }
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+
+            return Err(Report::new(err).wrap_err("Failed to get user"));
+        }
+    };
+
+    let rank = match rank {
+        RankValue::Delta(delta) => {
+            let user_fut = ctx
+                .client()
+                .get_respektive_users(iter::once(user.user_id()), mode);
+
+            let curr_rank = match user_fut.await.map(|mut users| users.next().flatten()) {
+                Ok(Some(user)) => user.rank,
+                Ok(None) => {
+                    let content = format!(
+                        "Failed to get score rank data for user `{}`.\n\
+                        In order for delta input to work, \
+                        the user must be at least top 10k in the score ranking.",
+                        user.username()
+                    );
+
+                    return orig.error(&ctx, content).await;
+                }
+                Err(err) => {
+                    let _ = orig.error(&ctx, "Some issue with respektive's api").await;
+
+                    return Err(err.wrap_err("Failed to get respektive user"));
+                }
+            };
+
+            cmp::max(1, curr_rank.saturating_sub(delta))
+        }
+        RankValue::Raw(rank) => rank,
+    };
+
+    if rank > 10_000 {
         let content = "Unfortunately I can only provide data for ranks up to 10,000 :(";
 
         return orig.error(&ctx, content).await;
     }
 
     // Retrieve the user and the user thats holding the given rank
-    let page = (rank / 50) + (rank % 50 != 0) as usize;
+    let page = (rank as usize / 50) + (rank % 50 != 0) as usize;
     let rank_holder_fut = ctx.osu().score_rankings(mode).page(page as u32);
 
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
-    let user_fut = ctx.redis().osu_user(user_args);
+    let rank_holder = match rank_holder_fut.await {
+        Ok(mut rankings) => {
+            let idx = (rank as usize + 49) % 50;
 
-    let (user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
-        Ok((user, mut rankings)) => {
-            let idx = (rank + 49) % 50;
-            let rank_holder = rankings.ranking.swap_remove(idx);
-
-            (user, rank_holder)
+            rankings.ranking.swap_remove(idx)
         }
         Err(OsuError::NotFound) => {
             let content = user_not_found(&ctx, user_id).await;
@@ -177,7 +230,7 @@ pub(super) async fn score(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
