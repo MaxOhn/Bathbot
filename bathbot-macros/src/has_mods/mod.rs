@@ -13,24 +13,21 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
     let data = match data {
         Data::Struct(s) => s,
         Data::Enum(e) => {
-            let message = "`HasMods` can only be derived for structs";
+            let msg = "`HasMods` can only be derived for structs";
 
-            return Err(Error::new(e.enum_token.span, message));
+            return Err(Error::new(e.enum_token.span, msg));
         }
         Data::Union(u) => {
-            let message = "`HasMods` can only be derived for structs";
+            let msg = "`HasMods` can only be derived for structs";
 
-            return Err(Error::new(u.union_token.span, message));
+            return Err(Error::new(u.union_token.span, msg));
         }
     };
 
-    let fields = match data.fields {
-        Fields::Named(n) => n,
-        _ => {
-            let message = "Deriving `HasMods` requires named fields";
+    let Fields::Named(fields) = data.fields else {
+        let message = "Deriving `HasMods` requires named fields";
 
-            return Err(Error::new(ident.span(), message));
-        }
+        return Err(Error::new_spanned(ident, message));
     };
 
     let valid_mods_field = fields.named.iter().any(|field| {
@@ -62,7 +59,7 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
         let message = "Deriving `HasMods` requires a field `mods` \
             of type `Option<String>` or `Option<Cow<'_, str>>`";
 
-        return Err(Error::new(ident.span(), message));
+        return Err(Error::new_spanned(ident, message));
     }
 
     let result = quote!(crate::commands::osu::ModsResult);

@@ -15,24 +15,21 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
     let data = match data {
         Data::Struct(s) => s,
         Data::Enum(e) => {
-            let message = "`HasName` can only be derived for structs";
+            let msg = "`HasName` can only be derived for structs";
 
-            return Err(Error::new(e.enum_token.span, message));
+            return Err(Error::new(e.enum_token.span, msg));
         }
         Data::Union(u) => {
-            let message = "`HasName` can only be derived for structs";
+            let msg = "`HasName` can only be derived for structs";
 
-            return Err(Error::new(u.union_token.span, message));
+            return Err(Error::new(u.union_token.span, msg));
         }
     };
 
-    let fields = match data.fields {
-        Fields::Named(n) => n,
-        _ => {
-            let message = "Deriving `HasName` requires named fields";
+    let Fields::Named(fields) = data.fields else {
+        let message = "Deriving `HasName` requires named fields";
 
-            return Err(Error::new(ident.span(), message));
-        }
+        return Err(Error::new_spanned(ident, message));
     };
 
     let valid_name_field = fields.named.iter().any(|field| {
@@ -64,7 +61,7 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
         let message = "Deriving `HasName` requires a field `name` \
             of type `Option<String>` or `Option<Cow<'_, str>>`";
 
-        return Err(Error::new(ident.span(), message));
+        return Err(Error::new_spanned(ident, message));
     }
 
     let valid_discord_field = fields.named.iter().any(|field| match field.ident {
@@ -75,7 +72,7 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
     if !valid_discord_field {
         let message = "Deriving `HasName` requires a field `discord` of type `Id<UserMarker>`";
 
-        return Err(Error::new(ident.span(), message));
+        return Err(Error::new_spanned(ident, message));
     }
 
     let path = quote!(crate::commands::osu::);

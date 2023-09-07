@@ -1,13 +1,12 @@
 use proc_macro2::Span;
 use syn::{
+    parenthesized,
     parse::{Parse, ParseStream},
-    parse_quote,
-    punctuated::Punctuated,
-    token::Comma,
-    Attribute, Block, Error, FnArg, Ident, PatType, Result, ReturnType, Token, Visibility,
+    parse_quote, Attribute, Block, Error, FnArg, Ident, PatType, Result, ReturnType, Token,
+    Visibility,
 };
 
-use crate::util::Parenthesised;
+use crate::util::PunctuatedExt;
 
 pub struct CommandFun {
     pub name: Ident,
@@ -32,8 +31,12 @@ impl Parse for CommandFun {
         // name
         let name = input.parse::<Ident>()?;
 
+        // ( ... )
+        let content;
+        parenthesized!(content in input);
+
         // args
-        let Parenthesised::<FnArg>(args) = input.parse()?;
+        let args = Vec::<FnArg>::parse_terminated::<Token![,]>(&content)?;
         let CommandArgs { ctx, cmd } = validate_args(args)?;
 
         // -> ...
@@ -58,7 +61,7 @@ struct CommandArgs {
     cmd: PatType,
 }
 
-fn validate_args(args: Punctuated<FnArg, Comma>) -> Result<CommandArgs> {
+fn validate_args(args: Vec<FnArg>) -> Result<CommandArgs> {
     let mut ctx = None;
     let mut cmd = None;
 

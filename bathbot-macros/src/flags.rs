@@ -2,33 +2,29 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
-    punctuated::Punctuated,
-    token::Comma,
-    Attribute, Ident, Result,
+    Attribute, Ident, Result, Token,
 };
 
+use crate::util::PunctuatedExt;
+
+#[derive(Default)]
 pub struct Flags {
-    list: Punctuated<Ident, Comma>,
+    list: Box<[Ident]>,
 }
 
-impl Flags {
-    pub fn new() -> Self {
-        Self {
-            list: Punctuated::new(),
-        }
-    }
-}
-
+// TODO: remove
 pub fn parse_flags(attrs: &[Attribute]) -> Result<Flags> {
     match attrs.iter().find(|attr| attr.path().is_ident("flags")) {
         Some(attr) => attr.parse_args(),
-        None => Ok(Flags::new()),
+        None => Ok(Flags::default()),
     }
 }
 
 impl Parse for Flags {
     fn parse(input: ParseStream) -> Result<Self> {
-        Punctuated::parse_separated_nonempty(input).map(|list| Self { list })
+        Vec::parse_separated_nonempty::<Token![,]>(input)
+            .map(Vec::into_boxed_slice)
+            .map(|list| Self { list })
     }
 }
 
