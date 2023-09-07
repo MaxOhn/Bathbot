@@ -1,6 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
+    parenthesized,
     parse::{Parse, ParseStream},
     parse_quote,
     spanned::Spanned,
@@ -9,7 +10,7 @@ use syn::{
     Visibility,
 };
 
-use crate::util::Parenthesised;
+use crate::util::PunctuatedExt;
 
 pub struct CommandFun {
     // #[...]
@@ -41,14 +42,15 @@ impl Parse for CommandFun {
         // name
         let name = input.parse::<Ident>()?;
 
-        // arguments
-        let args = {
-            let Parenthesised::<FnArg>(args) = input.parse()?;
+        // ( ... )
+        let content;
+        parenthesized!(content in input);
 
-            args.into_iter()
-                .map(Argument::try_from)
-                .collect::<Result<Vec<_>>>()?
-        };
+        // arguments
+        let args = Vec::<FnArg>::parse_terminated::<Token![,]>(&content)?
+            .into_iter()
+            .map(Argument::try_from)
+            .collect::<Result<Vec<_>>>()?;
 
         // -> Result<()>
         let ret = match input.parse::<ReturnType>()? {

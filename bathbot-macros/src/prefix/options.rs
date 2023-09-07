@@ -1,13 +1,13 @@
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, token::Comma, Attribute, Error, Ident, LitStr, Meta,
-    MetaList, Result as SynResult, Result,
+    spanned::Spanned, Attribute, Error, Ident, LitStr, Meta, MetaList, Result as SynResult, Result,
+    Token,
 };
 
 use crate::{
     bucket::{parse_bucket, Bucket},
     flags::{parse_flags, Flags},
-    util::AsOption,
+    util::{AsOption, PunctuatedExt},
 };
 
 pub struct Options {
@@ -73,7 +73,7 @@ pub fn parse_options(attrs: &[Attribute]) -> SynResult<Options> {
 
 fn parse_all(list: &MetaList) -> Result<Box<[Box<str>]>> {
     let res = list
-        .parse_args_with(Punctuated::<LitStr, Comma>::parse_separated_nonempty)?
+        .parse_args_with(Vec::<LitStr>::parse_separated_nonempty::<Token![,]>)?
         .into_iter()
         .map(|lit| lit.value().into_boxed_str())
         .collect();
