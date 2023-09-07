@@ -21,7 +21,9 @@ use bytes::Bytes;
 use eyre::{Report, Result, WrapErr};
 use http::{header::USER_AGENT, Method, Request, Response};
 use hyper::Body;
+use itoa::Buffer as IntBuffer;
 use rosu_v2::prelude::GameMode;
+use ryu::Buffer as FloatBuffer;
 use serde::{
     de::{DeserializeSeed, Error as DeError, Visitor},
     Deserialize, Deserializer,
@@ -185,7 +187,9 @@ impl Client {
     /// Don't use this; use `RedisManager::medals` instead.
     pub async fn get_osekai_medals(&self) -> Result<Vec<OsekaiMedal>> {
         let url = "https://osekai.net/medals/api/medals.php";
-        let form = Multipart::new().push_text("strSearch", "");
+
+        let mut form = Multipart::new();
+        form.push_text("strSearch", "");
 
         let bytes = self
             .make_multipart_post_request(url, Site::Osekai, form)
@@ -200,7 +204,8 @@ impl Client {
 
     pub async fn get_osekai_beatmaps(&self, medal_name: &str) -> Result<Vec<OsekaiMap>> {
         let url = "https://osekai.net/medals/api/beatmaps.php";
-        let form = Multipart::new().push_text("strSearch", medal_name);
+        let mut form = Multipart::new();
+        form.push_text("strSearch", medal_name);
 
         let bytes = self
             .make_multipart_post_request(url, Site::Osekai, form)
@@ -218,8 +223,9 @@ impl Client {
     pub async fn get_osekai_comments(&self, medal_id: u32) -> Result<Vec<OsekaiComment>> {
         let url = "https://osekai.net/global/api/comment_system.php";
 
-        let form = Multipart::new()
-            .push_text("strMedalID", medal_id)
+        let mut buf = IntBuffer::new();
+        let mut form = Multipart::new();
+        form.push_int("strMedalID", medal_id, &mut buf)
             .push_text("bGetComments", "true");
 
         let bytes = self
@@ -238,7 +244,9 @@ impl Client {
     /// Don't use this; use `RedisManager::osekai_ranking` instead.
     pub async fn get_osekai_ranking<R: OsekaiRanking>(&self) -> Result<Vec<R::Entry>> {
         let url = "https://osekai.net/rankings/api/api.php";
-        let form = Multipart::new().push_text("App", R::FORM);
+
+        let mut form = Multipart::new();
+        form.push_text("App", R::FORM);
 
         let bytes = self
             .make_multipart_post_request(url, Site::Osekai, form)
@@ -407,14 +415,16 @@ impl Client {
         &self,
         params: &OsuStatsPlayersArgs,
     ) -> Result<Vec<OsuStatsPlayer>> {
-        let mut form = Multipart::new()
-            .push_text("rankMin", params.min_rank)
-            .push_text("rankMax", params.max_rank)
-            .push_text("gamemode", params.mode as u8)
-            .push_text("page", params.page);
+        let mut buf = IntBuffer::new();
+        let mut form = Multipart::new();
+
+        form.push_int("rankMin", params.min_rank, &mut buf)
+            .push_int("rankMax", params.max_rank, &mut buf)
+            .push_int("gamemode", params.mode as u8, &mut buf)
+            .push_int("page", params.page, &mut buf);
 
         if let Some(ref country) = params.country {
-            form = form.push_text("country", country);
+            form.push_text("country", country.as_str());
         }
 
         let url = "https://osustats.ppy.sh/api/getScoreRanking";
@@ -435,16 +445,19 @@ impl Client {
 
     /// Be sure whitespaces in the username are **not** replaced
     pub async fn get_global_scores(&self, params: &OsuStatsParams) -> Result<OsuStatsScoresRaw> {
-        let mut form = Multipart::new()
-            .push_text("accMin", params.min_acc)
-            .push_text("accMax", params.max_acc)
-            .push_text("rankMin", params.min_rank)
-            .push_text("rankMax", params.max_rank)
-            .push_text("gamemode", params.mode as u8)
-            .push_text("sortBy", params.order as u8)
-            .push_text("sortOrder", !params.descending as u8)
-            .push_text("page", params.page)
-            .push_text("u1", &params.username);
+        let mut int_buf = IntBuffer::new();
+        let mut float_buf = FloatBuffer::new();
+        let mut form = Multipart::new();
+
+        form.push_float("accMin", params.min_acc, &mut float_buf)
+            .push_float("accMax", params.max_acc, &mut float_buf)
+            .push_int("rankMin", params.min_rank, &mut int_buf)
+            .push_int("rankMax", params.max_rank, &mut int_buf)
+            .push_int("gamemode", params.mode as u8, &mut int_buf)
+            .push_int("sortBy", params.order as u8, &mut int_buf)
+            .push_int("sortOrder", !params.descending as u8, &mut int_buf)
+            .push_int("page", params.page, &mut int_buf)
+            .push_text("u1", params.username.as_str());
 
         if let Some(ref selection) = params.mods {
             let mod_str = match selection {
@@ -454,7 +467,7 @@ impl Client {
                 ModSelection::Exact(mods) => format!("!{mods}"),
             };
 
-            form = form.push_text("mods", mod_str);
+            form.push_text("mods", mod_str);
         }
 
         let url = "https://osustats.ppy.sh/api/getScores";
@@ -476,10 +489,12 @@ impl Client {
         timeframe: OsuStatsBestTimeframe,
         mode: GameMode,
     ) -> Result<OsuStatsBestScores> {
-        let form = Multipart::new()
-            .push_text("gamemode", mode as u8)
-            .push_text("amount", 100)
-            .push_text("duration", timeframe as u8);
+        let mut buf = IntBuffer::new();
+        let mut form = Multipart::new();
+
+        form.push_int("gamemode", mode as u8, &mut buf)
+            .push_int("amount", 100, &mut buf)
+            .push_int("duration", timeframe as u8, &mut buf);
 
         let url = "https://osustats.ppy.sh/api/getBestDayScores";
         let post_fut = self.make_multipart_post_request(url, Site::OsuStats, form);

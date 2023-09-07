@@ -150,16 +150,16 @@ impl Client {
         let url = url.as_ref();
         trace!("POST multipart request to url {url}");
 
-        let content_type = format!("multipart/form-data; boundary={}", form.boundary());
-        let form = form.finish();
+        let content_type = form.content_type();
+        let content = form.build();
 
         let req = Request::builder()
             .method(Method::POST)
             .uri(url)
             .header(USER_AGENT, MY_USER_AGENT)
             .header(CONTENT_TYPE, content_type)
-            .header(CONTENT_LENGTH, form.len())
-            .body(Body::from(form))
+            .header(CONTENT_LENGTH, content.len())
+            .body(Body::from(content))
             .wrap_err("Failed to build POST request")?;
 
         self.ratelimit(site).await;
