@@ -533,7 +533,9 @@ async fn process_scores(
         .filter(|(_, score)| score_filter(score));
 
     for (idx, score) in scores {
-        let Some(map) = maps.get(&score.map_id) else { continue };
+        let Some(map) = maps.get(&score.map_id) else {
+            continue;
+        };
 
         let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods.bits());
 

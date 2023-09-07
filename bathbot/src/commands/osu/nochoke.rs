@@ -396,7 +396,9 @@ async fn process_scores(
     let miss_limit = miss_limit.unwrap_or(u32::MAX);
 
     for (i, score) in scores.into_iter().enumerate() {
-        let Some(mut map) = maps.remove(&score.map_id) else { continue };
+        let Some(mut map) = maps.remove(&score.map_id) else {
+            continue;
+        };
         map = map.convert(score.mode);
 
         let attrs = ctx

@@ -132,7 +132,11 @@ impl ActiveMessages {
         let msg_id = component.message.id;
         let mut guard = ctx.active_msgs.inner.lock(&msg_id).await;
 
-        let Some(FullActiveMessage { active_msg, activity_tx }) = guard.get_mut() else {
+        let Some(FullActiveMessage {
+            active_msg,
+            activity_tx,
+        }) = guard.get_mut()
+        else {
             return error!(
                 name = %component.data.custom_id,
                 ?component,
@@ -210,7 +214,11 @@ impl ActiveMessages {
             None => return warn!("Received modal without message"),
         };
 
-        let Some(FullActiveMessage { active_msg, activity_tx }) = guard.get_mut() else {
+        let Some(FullActiveMessage {
+            active_msg,
+            activity_tx,
+        }) = guard.get_mut()
+        else {
             return error!(name = %modal.data.custom_id, ?modal, "Unknown modal");
         };
 

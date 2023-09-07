@@ -251,7 +251,9 @@ impl Skills {
                 const SPEED_NERF: f64 = 2.4;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let Some((map, attrs)) = maps.remove(&score.map_id) else { continue };
+                    let Some((map, attrs)) = maps.remove(&score.map_id) else {
+                        continue;
+                    };
 
                     let state = OsuScoreState {
                         max_combo: score.max_combo as usize,
@@ -293,7 +295,9 @@ impl Skills {
                 const DIFFICULTY_NERF: f64 = 2.8;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let Some((map, attrs)) = maps.remove(&score.map_id) else { continue };
+                    let Some((map, attrs)) = maps.remove(&score.map_id) else {
+                        continue;
+                    };
 
                     let state = TaikoScoreState {
                         max_combo: score.max_combo as usize,
@@ -302,7 +306,9 @@ impl Skills {
                         n_misses: score.statistics.count_miss as usize,
                     };
 
-                    let AnyPP::Taiko(calc) = map.pp().mode(Mode::Taiko) else { unreachable!() };
+                    let AnyPP::Taiko(calc) = map.pp().mode(Mode::Taiko) else {
+                        unreachable!()
+                    };
 
                     let attrs = calc
                         .attributes(attrs)
@@ -333,7 +339,9 @@ impl Skills {
                 const MOVEMENT_NERF: f64 = 4.7;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let Some((map, attrs)) = maps.remove(&score.map_id) else { continue };
+                    let Some((map, attrs)) = maps.remove(&score.map_id) else {
+                        continue;
+                    };
 
                     let state = CatchScoreState {
                         max_combo: score.max_combo as usize,
@@ -344,7 +352,9 @@ impl Skills {
                         n_misses: score.statistics.count_miss as usize,
                     };
 
-                    let AnyPP::Catch(calc) = map.pp().mode(Mode::Catch) else { unreachable!() };
+                    let AnyPP::Catch(calc) = map.pp().mode(Mode::Catch) else {
+                        unreachable!()
+                    };
 
                     let attrs = calc
                         .attributes(attrs)
@@ -392,7 +402,9 @@ impl Skills {
                 const DIFFICULTY_NERF: f64 = 0.6;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let Some((map, attrs)) = maps.remove(&score.map_id) else { continue };
+                    let Some((map, attrs)) = maps.remove(&score.map_id) else {
+                        continue;
+                    };
 
                     let state = ManiaScoreState {
                         n320: score.statistics.count_geki as usize,
@@ -403,7 +415,9 @@ impl Skills {
                         n_misses: score.statistics.count_miss as usize,
                     };
 
-                    let AnyPP::Mania(calc) = map.pp().mode(Mode::Mania) else { unreachable!() };
+                    let AnyPP::Mania(calc) = map.pp().mode(Mode::Mania) else {
+                        unreachable!()
+                    };
 
                     let attrs = calc
                         .attributes(attrs)

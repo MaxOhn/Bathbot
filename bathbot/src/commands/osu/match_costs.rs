@@ -232,7 +232,9 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
     let show_scores = matches!(avg_scores, Some(ShowHideOption::Show));
 
     // TODO: pagination(?)
-    let Some(embed_data) = MatchCostEmbed::new(&mut osu_match, description, match_result, show_scores) else {
+    let Some(embed_data) =
+        MatchCostEmbed::new(&mut osu_match, description, match_result, show_scores)
+    else {
         return orig.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
     };
 

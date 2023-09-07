@@ -471,13 +471,13 @@ impl<'de> Visitor<'de> for ModeAsSeed<OsuStatsBestScores> {
 
         let Some(OsuStatsBestDates { start, end }) = seq.next_element()? else {
             return Err(DeError::custom(
-                "first entry of sequence must contain start and end date"
+                "first entry of sequence must contain start and end date",
             ));
         };
 
         let Some(scores) = seq.next_element_seed(self.cast::<Vec<OsuStatsBestScore>>())? else {
             return Err(DeError::custom(
-                "second entry of sequence must be list of recentbest scores"
+                "second entry of sequence must be list of recentbest scores",
             ));
         };
 

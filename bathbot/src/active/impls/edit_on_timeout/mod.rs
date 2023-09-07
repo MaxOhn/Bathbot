@@ -307,9 +307,7 @@ async fn handle_miss_analyzer_button(
     score_id: u64,
 ) -> ComponentResult {
     let Some(guild) = component.guild_id.map(Id::get) else {
-        return ComponentResult::Err(
-            eyre!("Missing guild id for miss analyzer button")
-        );
+        return ComponentResult::Err(eyre!("Missing guild id for miss analyzer button"));
     };
 
     let channel = component.channel_id.get();

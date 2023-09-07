@@ -32,7 +32,7 @@ pub struct HelpInteractionCommand {
 
 impl IActiveMessage for HelpInteractionCommand {
     fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        let Some(command) = self.find_command()  else {
+        let Some(command) = self.find_command() else {
             let err = eyre!("Unknown command title={:?}", self.next_title);
 
             return Box::pin(ready(Err(err)));

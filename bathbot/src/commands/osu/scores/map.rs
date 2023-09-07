@@ -42,7 +42,7 @@ pub async fn map_scores(
             query: _,
             per_user: _,
             index,
-            reverse:_,
+            reverse: _,
             grade: _,
         } = args;
 
@@ -56,13 +56,13 @@ pub async fn map_scores(
             Some(ScoresOrder::Stars) => Some(ScoreOrder::Stars),
             None => None,
             Some(
-                ScoresOrder::Ar |
-                ScoresOrder::Bpm |
-                ScoresOrder::Cs |
-                ScoresOrder::Hp |
-                ScoresOrder::Length |
-                ScoresOrder::Od |
-                ScoresOrder::RankedDate
+                ScoresOrder::Ar
+                | ScoresOrder::Bpm
+                | ScoresOrder::Cs
+                | ScoresOrder::Hp
+                | ScoresOrder::Length
+                | ScoresOrder::Od
+                | ScoresOrder::RankedDate,
             ) => {
                 let content = "When using this command in DMs, \
                 the only available sort orders are \

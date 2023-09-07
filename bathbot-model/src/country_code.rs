@@ -377,7 +377,9 @@ impl Display for CountryName {
         f.write_str(&word[first.len_utf8()..])?;
 
         for word in words {
-            let Some(first) = word.chars().next() else { continue };
+            let Some(first) = word.chars().next() else {
+                continue;
+            };
             write!(f, " {}", first.to_uppercase())?;
             f.write_str(&word[first.len_utf8()..])?;
         }

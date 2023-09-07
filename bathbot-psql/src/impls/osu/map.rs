@@ -81,9 +81,7 @@ FROM
             .await
             .wrap_err("failed to fetch optional")?;
 
-        let Some(row) = row_opt else {
-            return Ok(None)
-        };
+        let Some(row) = row_opt else { return Ok(None) };
 
         let map = DbBeatmap {
             map_id: row.map_id,

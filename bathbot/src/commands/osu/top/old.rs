@@ -11,7 +11,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rosu_pp_older::*;
 use rosu_v2::{
-    prelude::{GameMode, OsuError, Score, GameMod},
+    prelude::{GameMod, GameMode, OsuError, Score},
     request::UserId,
 };
 use time::OffsetDateTime;
@@ -739,7 +739,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
             If you want included mods, specify it e.g. as `+hrdt`.\n\
             If you want exact mods, specify it e.g. as `+hdhr!`.\n\
             And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
-        
+
         return orig.error(&ctx, content).await;
     };
 
@@ -866,7 +866,9 @@ async fn process_scores(
     let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
 
     for (score, i) in scores.into_iter().zip(1..) {
-        let Some(mut map) = maps.remove(&score.map_id) else { continue };
+        let Some(mut map) = maps.remove(&score.map_id) else {
+            continue;
+        };
         map = map.convert(score.mode);
 
         async fn use_current_system(
@@ -1029,9 +1031,14 @@ impl CommonArgs<'_> {
                         .iter()
                         .any(|gamemod| entry.score.mods.contains_intermode(gamemod))
                 }),
-                ModSelection::Exact(mods) => {
-                    entries.retain(|entry| entry.score.mods.iter().map(GameMod::intermode).eq(mods.iter()))
-                }
+                ModSelection::Exact(mods) => entries.retain(|entry| {
+                    entry
+                        .score
+                        .mods
+                        .iter()
+                        .map(GameMod::intermode)
+                        .eq(mods.iter())
+                }),
             }
         }
 

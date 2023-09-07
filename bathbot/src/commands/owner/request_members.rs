@@ -15,7 +15,9 @@ pub async fn request_members(
     guild_id: &str,
 ) -> Result<()> {
     let Ok(Some(guild)) = guild_id.parse().map(Id::new_checked) else {
-        command.error_callback(&ctx, "Must provide a valid guild id").await?;
+        command
+            .error_callback(&ctx, "Must provide a valid guild id")
+            .await?;
 
         return Ok(());
     };
