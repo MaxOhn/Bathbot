@@ -45,17 +45,19 @@ pub(super) async fn maps(
 impl PopularMapsPp {
     fn pp(self) -> u32 {
         match self {
-            PopularMapsPp::Pp100 => 100,
-            PopularMapsPp::Pp200 => 200,
-            PopularMapsPp::Pp300 => 300,
-            PopularMapsPp::Pp400 => 400,
-            PopularMapsPp::Pp500 => 500,
-            PopularMapsPp::Pp600 => 600,
-            PopularMapsPp::Pp700 => 700,
-            PopularMapsPp::Pp800 => 800,
-            PopularMapsPp::Pp900 => 900,
-            PopularMapsPp::Pp1000 => 1000,
-            PopularMapsPp::Pp1100 => 1100,
+            Self::Pp100 => 100,
+            Self::Pp200 => 200,
+            Self::Pp300 => 300,
+            Self::Pp400 => 400,
+            Self::Pp500 => 500,
+            Self::Pp600 => 600,
+            Self::Pp700 => 700,
+            Self::Pp800 => 800,
+            Self::Pp900 => 900,
+            Self::Pp1000 => 1000,
+            Self::Pp1100 => 1100,
+            Self::Pp1200 => 1200,
+            Self::Pp1300 => 1300,
         }
     }
 }
