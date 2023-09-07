@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
-use bathbot_util::fields;
 use bathbot_macros::EmbedData;
+use bathbot_util::fields;
 use rosu_v2::{model::GameMode, prelude::Username};
 use twilight_model::channel::message::embed::EmbedField;
 

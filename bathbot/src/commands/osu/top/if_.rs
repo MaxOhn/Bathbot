@@ -302,7 +302,9 @@ impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
         matches &= criteria.acc.contains(self.score.accuracy);
 
         if !criteria.ranked_date.is_empty() {
-            let Some(datetime) = self.map.ranked_date() else { return false };
+            let Some(datetime) = self.map.ranked_date() else {
+                return false;
+            };
             matches &= criteria.ranked_date.contains(datetime.date());
         }
 
@@ -442,7 +444,9 @@ async fn process_scores(
         .expect("mods have been validated before");
 
     for (mut score, i) in scores.into_iter().zip(1..) {
-        let Some(mut map) = maps.remove(&score.map_id) else { continue };
+        let Some(mut map) = maps.remove(&score.map_id) else {
+            continue;
+        };
         map = map.convert(score.mode);
 
         let changed = match &arg_mods {

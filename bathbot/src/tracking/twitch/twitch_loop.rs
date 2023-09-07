@@ -98,7 +98,9 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
 
         // Process each stream by notifying all corresponding channels
         for mut stream in streams {
-            let Some(channels) = ctx.tracked_channels_for(stream.user_id) else { continue };
+            let Some(channels) = ctx.tracked_channels_for(stream.user_id) else {
+                continue;
+            };
 
             // Adjust streams' thumbnail url
             let url_len = stream.thumbnail_url.len();

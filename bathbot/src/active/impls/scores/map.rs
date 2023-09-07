@@ -56,8 +56,8 @@ impl IActiveMessage for ScoresMapPagination {
         let data = &self.scores;
 
         // verified in command that these are available
-        let Some((map_id, map)) = data.maps().next() else { unreachable!() };
-        let Some((mapset_id, mapset)) = data.mapsets().next() else { unreachable!() };
+        let (map_id, map) = data.maps().next().unwrap();
+        let (mapset_id, mapset) = data.mapsets().next().unwrap();
 
         let author_text = format!(
             "{artist} - {title} [{version}]",

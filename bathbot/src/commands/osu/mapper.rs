@@ -381,7 +381,9 @@ async fn process_scores(
     let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
 
     for (i, score) in scores.into_iter().enumerate() {
-        let Some(mut map) = maps.remove(&score.map_id) else { continue };
+        let Some(mut map) = maps.remove(&score.map_id) else {
+            continue;
+        };
         map.convert_mut(score.mode);
 
         let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());

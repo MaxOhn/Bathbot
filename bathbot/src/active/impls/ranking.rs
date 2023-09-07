@@ -216,7 +216,9 @@ impl RankingPagination {
 
             match kind {
                 RankingKind::BgScores { scores, .. } => {
-                    let RankingEntries::Amount(ref mut entries) = self.entries else { unreachable!() };
+                    let RankingEntries::Amount(ref mut entries) = self.entries else {
+                        unreachable!()
+                    };
 
                     // not necessary but less ugly than the iterator
                     #[allow(clippy::needless_range_loop)]
@@ -267,7 +269,9 @@ impl RankingPagination {
                         .await
                         .wrap_err("Failed to get ranking page")?;
 
-                    let RankingEntries::PpU32(ref mut entries) = self.entries else { unreachable!() };
+                    let RankingEntries::PpU32(ref mut entries) = self.entries else {
+                        unreachable!()
+                    };
 
                     match ranking {
                         RedisData::Original(ranking) => {
@@ -314,7 +318,9 @@ impl RankingPagination {
                         .await
                         .wrap_err("failed to get ranking page")?;
 
-                    let RankingEntries::PpU32(ref mut entries) = self.entries else { unreachable!() };
+                    let RankingEntries::PpU32(ref mut entries) = self.entries else {
+                        unreachable!()
+                    };
 
                     match ranking {
                         RedisData::Original(ranking) => {
@@ -362,7 +368,9 @@ impl RankingPagination {
                         .await
                         .wrap_err("Failed to get ranking page")?;
 
-                    let RankingEntries::Amount(ref mut entries) = self.entries else { unreachable!() };
+                    let RankingEntries::Amount(ref mut entries) = self.entries else {
+                        unreachable!()
+                    };
 
                     let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
                         let entry = RankingEntry {

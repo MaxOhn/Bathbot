@@ -276,7 +276,9 @@ impl<'q> Searchable<ScoresCriteria<'q>>
         matches &= criteria.date.contains(score.ended_at.date());
 
         if !criteria.stars.is_empty() {
-            let Some(stars) = score.stars else { return false };
+            let Some(stars) = score.stars else {
+                return false;
+            };
             matches &= criteria.stars.contains(stars);
         }
 
@@ -301,7 +303,9 @@ impl<'q> Searchable<ScoresCriteria<'q>>
             return matches;
         }
 
-        let Some(map) = maps.get(&score.map_id) else { return false };
+        let Some(map) = maps.get(&score.map_id) else {
+            return false;
+        };
 
         let attrs = BeatmapAttributesBuilder::default()
             .ar(map.ar)
@@ -340,10 +344,14 @@ impl<'q> Searchable<ScoresCriteria<'q>>
             return matches;
         }
 
-        let Some(mapset) = mapsets.get(&map.mapset_id) else { return false };
+        let Some(mapset) = mapsets.get(&map.mapset_id) else {
+            return false;
+        };
 
         if !criteria.ranked_date.is_empty() {
-            let Some(datetime) = mapset.ranked_date else { return false };
+            let Some(datetime) = mapset.ranked_date else {
+                return false;
+            };
             matches &= criteria.ranked_date.contains(datetime.date());
         }
 
@@ -387,8 +395,12 @@ fn process_scores(
 
     if let Some(status) = status.map(RankStatus::from) {
         scores.retain(|score, maps, mapsets, _| {
-            let Some(map) = maps.get(&score.map_id) else { return false };
-            let Some(mapset) = mapsets.get(&map.mapset_id) else { return false };
+            let Some(map) = maps.get(&score.map_id) else {
+                return false;
+            };
+            let Some(mapset) = mapsets.get(&map.mapset_id) else {
+                return false;
+            };
 
             mapset.rank_status == status
         })

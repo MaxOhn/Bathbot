@@ -83,11 +83,11 @@ impl EventLocation {
         A: Authored + Send + Sync,
     {
         let Some(guild_id) = orig.guild_id() else {
-            return Self::Private
+            return Self::Private;
         };
 
         let Ok(Some(guild)) = ctx.cache.guild(guild_id).await else {
-            return Self::UncachedGuild
+            return Self::UncachedGuild;
         };
 
         let Ok(Some(channel)) = ctx.cache.channel(Some(guild_id), orig.channel_id()).await else {

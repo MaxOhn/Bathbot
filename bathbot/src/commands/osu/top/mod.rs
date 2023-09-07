@@ -1051,7 +1051,9 @@ impl<'q> Searchable<TopCriteria<'q>> for TopEntry {
         matches &= criteria.acc.contains(self.score.accuracy);
 
         if !criteria.ranked_date.is_empty() {
-            let Some(datetime) = self.map.ranked_date() else { return false };
+            let Some(datetime) = self.map.ranked_date() else {
+                return false;
+            };
             matches &= criteria.ranked_date.contains(datetime.date());
         }
 
@@ -1225,7 +1227,9 @@ async fn process_scores(
     let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
 
     for (i, score) in scores.into_iter().enumerate() {
-        let Some(mut map) = maps.remove(&score.map_id) else { continue };
+        let Some(mut map) = maps.remove(&score.map_id) else {
+            continue;
+        };
         map = map.convert(score.mode);
 
         let attrs = ctx
@@ -1363,12 +1367,12 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
     } else {
         let genitive = if name.ends_with('s') { "" } else { "s" };
         let reverse = if args.reverse { "reversed " } else { "" };
-        let ordinal_suffix = if args.index.is_some_and(|n| n == 2) { 
-            "nd" 
-        } else if args.index.is_some_and(|n| n == 3) { 
-            "rd" 
-        } else { 
-            "th" 
+        let ordinal_suffix = if args.index.is_some_and(|n| n == 2) {
+            "nd"
+        } else if args.index.is_some_and(|n| n == 3) {
+            "rd"
+        } else {
+            "th"
         };
 
         let content = match args.sort_by {
@@ -1391,7 +1395,10 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
                 format!("Oldest score in `{name}`'{genitive} top100:")
             }
             TopScoreOrder::Date if (args.reverse && args.index.is_some_and(|n| n > 1)) => {
-                format!("{index_string}{ordinal_suffix} oldest score in `{name}`'{genitive} top100:", index_string = args.index.unwrap())
+                format!(
+                    "{index_string}{ordinal_suffix} oldest score in `{name}`'{genitive} top100:",
+                    index_string = args.index.unwrap()
+                )
             }
             TopScoreOrder::Date if args.reverse => {
                 format!("Oldest scores in `{name}`'{genitive} top100:")

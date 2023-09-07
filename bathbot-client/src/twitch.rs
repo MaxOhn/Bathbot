@@ -32,14 +32,15 @@ impl Client {
 
         use crate::{multipart::Multipart, MY_USER_AGENT};
 
-        let form = Multipart::new()
-            .push_text("grant_type", "client_credentials")
+        let mut form = Multipart::new();
+
+        form.push_text("grant_type", "client_credentials")
             .push_text("client_id", client_id)
             .push_text("client_secret", token);
 
         let client_id = http::HeaderValue::from_str(client_id)?;
-        let content_type = format!("multipart/form-data; boundary={}", form.boundary());
-        let form = form.finish();
+        let content_type = form.content_type();
+        let content = form.build();
 
         let req = Request::builder()
             .method(Method::POST)
@@ -47,8 +48,8 @@ impl Client {
             .header(USER_AGENT, MY_USER_AGENT)
             .header("Client-ID", client_id.clone())
             .header(CONTENT_TYPE, content_type)
-            .header(CONTENT_LENGTH, form.len())
-            .body(Body::from(form))
+            .header(CONTENT_LENGTH, content.len())
+            .body(Body::from(content))
             .wrap_err("Failed to build POST request")?;
 
         let response = client.request(req).await?;

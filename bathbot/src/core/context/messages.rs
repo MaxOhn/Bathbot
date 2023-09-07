@@ -97,7 +97,9 @@ impl Context {
                 .as_ref()
                 .and_then(|url| url.strip_prefix("https://link.issou.best/"));
 
-            let Some(video_url) = video_url_opt else { continue };
+            let Some(video_url) = video_url_opt else {
+                continue;
+            };
             let Some(ordr) = self.ordr() else { continue };
 
             let render_opt = ordr
@@ -111,7 +113,9 @@ impl Context {
                 .and_then(|mut list| list.renders.pop().filter(|_| list.renders.is_empty()));
 
             let Some(render) = render_opt else { continue };
-            let Ok(versions) = self.osu_map().versions_by_mapset(render.map_id).await else { continue };
+            let Ok(versions) = self.osu_map().versions_by_mapset(render.map_id).await else {
+                continue;
+            };
 
             let version_opt = versions
                 .iter()
