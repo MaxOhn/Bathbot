@@ -689,23 +689,25 @@ pub(super) async fn score(
 #[cfg(feature = "twitch")]
 pub enum RecentTwitchStream {
     Stream {
-        username: Box<str>,
+        login: Box<str>,
     },
     Video {
         username: Box<str>,
+        login: Box<str>,
         vod_url: Box<str>,
     },
 }
 
 #[cfg(feature = "twitch")]
 impl RecentTwitchStream {
-    fn new_stream(username: Box<str>) -> Self {
-        Self::Stream { username }
+    fn new_stream(login: Box<str>) -> Self {
+        Self::Stream { login }
     }
 
-    fn new_vod(username: Box<str>, vod_url: String) -> Self {
+    fn new_vod(username: Box<str>, login: Box<str>, vod_url: String) -> Self {
         Self::Video {
             username,
+            login,
             vod_url: vod_url.into_boxed_str(),
         }
     }
@@ -733,7 +735,7 @@ async fn twitch_stream(
                     let offset = score_started_at - vod_start;
                     bathbot_model::TwitchVideo::append_url_timestamp(&mut url, offset);
 
-                    return Some(RecentTwitchStream::new_vod(vod.username, url));
+                    return Some(RecentTwitchStream::new_vod(vod.username, vod.login, url));
                 }
             }
             Ok(None) => {}
@@ -748,7 +750,7 @@ async fn twitch_stream(
         match ctx.client().get_twitch_stream(user_id).await {
             Ok(Some(stream)) => {
                 if stream.live {
-                    Some(RecentTwitchStream::new_stream(stream.username))
+                    Some(RecentTwitchStream::new_stream(stream.login))
                 } else {
                     let guard = ctx.online_twitch_streams().guard();
                     ctx.online_twitch_streams().set_offline(&stream, &guard);
@@ -792,12 +794,12 @@ async fn twitch_stream(
                             let offset = score_started_at - vod_start;
                             bathbot_model::TwitchVideo::append_url_timestamp(&mut url, offset);
 
-                            Some(RecentTwitchStream::new_vod(vod.username, url))
+                            Some(RecentTwitchStream::new_vod(vod.username, vod.login, url))
                         } else {
-                            Some(RecentTwitchStream::new_stream(stream.username))
+                            Some(RecentTwitchStream::new_stream(stream.login))
                         }
                     }
-                    Ok(None) => Some(RecentTwitchStream::new_stream(stream.username)),
+                    Ok(None) => Some(RecentTwitchStream::new_stream(stream.login)),
                     Err(err) => {
                         warn!(?err, "Failed to get twitch vod");
 

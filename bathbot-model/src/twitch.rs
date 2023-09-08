@@ -60,6 +60,8 @@ pub struct TwitchStream {
     pub title: Box<str>,
     #[serde(deserialize_with = "str_to_u64")]
     pub user_id: u64,
+    #[serde(rename = "user_login")]
+    pub login: Box<str>,
     #[serde(rename = "user_name")]
     pub username: Box<str>,
     #[serde(rename = "type", deserialize_with = "get_live")]
@@ -99,6 +101,8 @@ pub struct TwitchVideo {
     pub url: String,
     #[serde(rename = "user_name")]
     pub username: Box<str>,
+    #[serde(rename = "user_login")]
+    pub login: Box<str>,
 }
 
 impl TwitchVideo {
