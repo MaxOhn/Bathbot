@@ -77,14 +77,14 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     ```\n\
     - The **descriptions** are determined by counting properties in top scores:\n  \
     - `>70 NM`: `Mod-Hating`\n  \
-    - `>65 DT / NC`: `Speedy`\n  \
-    - `>35 HT`: `Slow-Mo`\n  \
+    - `>60 DT / NC`: `Speedy`\n  \
+    - `>30 HT`: `Slow-Mo`\n  \
     - `>15 FL`: `Blindsighted`\n  \
     - `>20 SO`: `Lazy-Spin`\n  \
-    - `>65 HD`: `HD-Abusing` / `Ghost-Fruits` / `Brain-Lag`\n  \
-    - `>65 HR`: `Ant-Clicking` / `Zooming` / `Pea-Catching`\n  \
+    - `>60 HD`: `HD-Abusing` / `Ghost-Fruits` / `Brain-Lag`\n  \
+    - `>60 HR`: `Ant-Clicking` / `Zooming` / `Pea-Catching`\n  \
     - `>15 EZ`: `Patient` / `Training-Wheels` / `3-Life`\n  \
-    - `>40 MR`: `Unmindblockable`\n  \
+    - `>30 MR`: `Unmindblockable`\n  \
     - none of above but `<10 NM`: `Mod-Loving`\n  \
     - none of above: `Versatile`\n  \
     - `>70 Key[X]`: `[X]K`\n  \
@@ -834,14 +834,14 @@ impl Display for ModDescription {
 struct ModDescriptions(Vec<ModDescription>);
 
 impl ModDescriptions {
-    const DT_COUNT: usize = 65;
+    const DT_COUNT: usize = 60;
     const EZ_COUNT: usize = 15;
     const FL_COUNT: usize = 15;
-    const HD_COUNT: usize = 65;
-    const HR_COUNT: usize = 65;
-    const HT_COUNT: usize = 35;
+    const HD_COUNT: usize = 60;
+    const HR_COUNT: usize = 60;
+    const HT_COUNT: usize = 30;
     const KEY_COUNT: usize = 70;
-    const MR_COUNT: usize = 40;
+    const MR_COUNT: usize = 30;
     const NM_COUNT: usize = 70;
     const NO_NM_COUNT: usize = 10;
     const SO_COUNT: usize = 20;
