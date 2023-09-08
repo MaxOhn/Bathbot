@@ -83,6 +83,7 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     - `>70 HR`: `Ant-Clicking` / `Zooming` / `Pea-Catching`\n  \
     - not of above but `<10 NM`: `Mod-Loving`\n  \
     - none of above: `Versatile`\n  \
+    - `>45 MR`: `Unmindblockable`\n  \
     - `>70 Key[X]`: `[X]K`\n  \
     - otherwise: `Multi-Key`\n\
     - The **suffix** is determined by checking how close the skill \
@@ -784,6 +785,7 @@ enum ModDescription {
     Zooming,
     PeaCatching,
     GhostFruit,
+    Unmindblockable,
     Key(usize),
     MultiKey,
 }
@@ -802,6 +804,7 @@ impl Display for ModDescription {
             Self::Zooming => "Zooming",
             Self::PeaCatching => "Pea-Catching",
             Self::GhostFruit => "Ghost-Fruit",
+            Self::Unmindblockable => "Unmindblockable",
             Self::Key(key) => return write!(f, "{key}K"),
             Self::MultiKey => "Multi-Key",
         };
@@ -887,12 +890,14 @@ impl ModDescriptions {
         let mut key_counts = [0_u8; 11];
         let mut doubletime = 0;
         let mut halftime = 0;
+        let mut mirror = 0;
 
         let dtnc = mods!(DT NC);
 
         for score in scores {
             doubletime += score.mods.contains_any(dtnc.clone()) as usize;
             halftime += score.mods.contains_intermode(GameModIntermode::HalfTime) as usize;
+            mirror += score.mods.contains_intermode(GameModIntermode::Mirror) as usize;
 
             let idx = [
                 (GameModIntermode::OneKey, 1),
@@ -921,6 +926,10 @@ impl ModDescriptions {
 
         if halftime > 35 {
             mods.push(ModDescription::SlowMo);
+        }
+
+        if mirror > 45 {
+            mods.push(ModDescription::Unmindblockable);
         }
 
         let (max_idx, max) = key_counts
