@@ -77,10 +77,11 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     ```\n\
     - The **descriptions** are determined by counting properties in top scores:\n  \
     - `>70 NM`: `Mod-Hating`\n  \
-    - `<10 NM`: `Mod-Loving`\n  \
     - `>70 DT / NC`: `Speedy`\n  \
+    - `>35 HT`: `Slow-mo`\n  \
     - `>70 HD`: `HD-Abusing` / `Ghost-Fruits`\n  \
     - `>70 HR`: `Ant-Clicking` / `Zooming` / `Pea-Catching`\n  \
+    - not of above but `<10 NM`: `Mod-Loving`\n  \
     - none of above: `Versatile`\n  \
     - `>70 Key[X]`: `[X]K`\n  \
     - otherwise: `Multi-Key`\n\
@@ -775,6 +776,7 @@ impl Display for TitlePrefix {
 enum ModDescription {
     ModHating,
     Speedy,
+    SlowMo,
     AntClicking,
     HdAbusing,
     ModLoving,
@@ -792,6 +794,7 @@ impl Display for ModDescription {
         let desc = match self {
             Self::ModHating => "Mod-Hating",
             Self::Speedy => "Speedy",
+            Self::SlowMo => "Slow-mo",
             Self::AntClicking => "Ant-Clicking",
             Self::HdAbusing => "HD-Abusing",
             Self::ModLoving => "Mod-Loving",
@@ -819,7 +822,10 @@ impl ModDescriptions {
         let mut nomod = 0;
         let mut hidden = 0;
         let mut doubletime = 0;
+        let mut halftime = 0;
         let mut hardrock = 0;
+
+        let dtnc = mods!(DT NC);
 
         for score in scores {
             if score.mods.is_empty() {
@@ -828,7 +834,8 @@ impl ModDescriptions {
             }
 
             hidden += score.mods.contains_intermode(GameModIntermode::Hidden) as usize;
-            doubletime += score.mods.contains_any(mods!(DT NC)) as usize;
+            doubletime += score.mods.contains_any(dtnc.clone()) as usize;
+            halftime += score.mods.contains_intermode(GameModIntermode::HalfTime) as usize;
             hardrock += score.mods.contains_intermode(GameModIntermode::HardRock) as usize;
         }
 
@@ -840,6 +847,10 @@ impl ModDescriptions {
 
         if doubletime > 70 {
             mods.push(ModDescription::Speedy);
+        }
+
+        if halftime > 35 {
+            mods.push(ModDescription::SlowMo);
         }
 
         if hardrock > 70 {
@@ -875,9 +886,13 @@ impl ModDescriptions {
     fn mania(scores: &[Score]) -> Self {
         let mut key_counts = [0_u8; 11];
         let mut doubletime = 0;
+        let mut halftime = 0;
+
+        let dtnc = mods!(DT NC);
 
         for score in scores {
-            doubletime += score.mods.contains_any(mods!(DT NC)) as usize;
+            doubletime += score.mods.contains_any(dtnc.clone()) as usize;
+            halftime += score.mods.contains_intermode(GameModIntermode::HalfTime) as usize;
 
             let idx = [
                 (GameModIntermode::OneKey, 1),
@@ -902,6 +917,10 @@ impl ModDescriptions {
 
         if doubletime > 70 {
             mods.push(ModDescription::Speedy);
+        }
+
+        if halftime > 35 {
+            mods.push(ModDescription::SlowMo);
         }
 
         let (max_idx, max) = key_counts
