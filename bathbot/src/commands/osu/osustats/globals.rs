@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{borrow::Cow, collections::BTreeMap, fmt::Write, ops::Not, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_model::{
@@ -11,7 +11,7 @@ use bathbot_util::{
     CowUtils,
 };
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, Grade, OsuError, ScoreStatistics, Username};
+use rosu_v2::prelude::{GameModIntermode, GameMode, Grade, OsuError, ScoreStatistics, Username};
 
 use super::OsuStatsScores;
 use crate::{
@@ -234,12 +234,30 @@ pub(super) async fn scores(
         descending = if params.descending { "Desc" } else { "Asc" },
     );
 
-    if let Some(ref selection) = params.mods {
+    if let Some(selection) = params.get_mods() {
         let _ = write!(
             content,
             " • `Mods: {}`",
             match selection {
-                ModSelection::Exact(mods) => mods.to_string(),
+                ModSelection::Exact(mods) => {
+                    if mods.contains(GameModIntermode::Nightcore)
+                        || mods.contains(GameModIntermode::Perfect)
+                    {
+                        let mut mods = mods.to_owned();
+
+                        if mods.contains(GameModIntermode::Nightcore) {
+                            mods.remove(GameModIntermode::DoubleTime);
+                        }
+
+                        if mods.contains(GameModIntermode::Perfect) {
+                            mods.remove(GameModIntermode::SuddenDeath);
+                        }
+
+                        mods.to_string()
+                    } else {
+                        mods.to_string()
+                    }
+                }
                 ModSelection::Exclude(mods) => format!("Exclude {mods}"),
                 ModSelection::Include(mods) => format!("Include {mods}"),
             },
@@ -281,18 +299,23 @@ impl<'m> OsuStatsScores<'m> {
         mode: GameMode,
         mods: Option<ModSelection>,
     ) -> OsuStatsParams {
-        OsuStatsParams {
-            username,
-            mode,
-            page: 1,
-            min_rank: self.min_rank.unwrap_or(Self::MIN_RANK) as usize,
-            max_rank: self.max_rank.unwrap_or(Self::MAX_RANK) as usize,
-            min_acc: self.min_acc.unwrap_or(0.0),
-            max_acc: self.max_acc.unwrap_or(100.0),
-            order: self.sort.unwrap_or_default(),
-            mods,
-            descending: self.reverse.map_or(true, |b| !b),
+        let mut params = OsuStatsParams::new(username);
+
+        params
+            .mode(mode)
+            .page(1)
+            .min_rank(self.min_rank.unwrap_or(Self::MIN_RANK) as usize)
+            .max_rank(self.max_rank.unwrap_or(Self::MAX_RANK) as usize)
+            .min_acc(self.min_acc.unwrap_or(0.0))
+            .max_acc(self.max_acc.unwrap_or(100.0))
+            .order(self.sort.unwrap_or_default())
+            .descending(self.reverse.map_or(true, bool::not));
+
+        if let Some(mods) = mods {
+            params.mods(mods);
         }
+
+        params
     }
 
     fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, Cow<'static, str>> {

@@ -461,7 +461,7 @@ impl Client {
             .push_int("page", params.page, &mut int_buf)
             .push_text("u1", params.username.as_str());
 
-        if let Some(ref selection) = params.mods {
+        if let Some(selection) = params.get_mods() {
             let mod_str = match selection {
                 ModSelection::Include(mods) if mods.is_empty() => "!NM".to_owned(),
                 ModSelection::Include(mods) => format!("+{mods}"),

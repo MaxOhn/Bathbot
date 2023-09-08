@@ -364,8 +364,9 @@ pub struct OsuStatsParams {
     pub min_acc: f32,
     pub max_acc: f32,
     pub order: OsuStatsScoresOrder,
-    pub mods: Option<ModSelection>,
     pub descending: bool,
+    // private to ensure the `.mods(_)` method is used when building
+    mods: Option<ModSelection>,
 }
 
 impl OsuStatsParams {
@@ -384,10 +385,74 @@ impl OsuStatsParams {
         }
     }
 
-    pub fn mode(mut self, mode: GameMode) -> Self {
+    pub fn mode(&mut self, mode: GameMode) -> &mut Self {
         self.mode = mode;
 
         self
+    }
+
+    pub fn page(&mut self, page: usize) -> &mut Self {
+        self.page = page;
+
+        self
+    }
+
+    pub fn min_rank(&mut self, min_rank: usize) -> &mut Self {
+        self.min_rank = min_rank;
+
+        self
+    }
+
+    pub fn max_rank(&mut self, max_rank: usize) -> &mut Self {
+        self.max_rank = max_rank;
+
+        self
+    }
+
+    pub fn min_acc(&mut self, min_acc: f32) -> &mut Self {
+        self.min_acc = min_acc;
+
+        self
+    }
+
+    pub fn max_acc(&mut self, max_acc: f32) -> &mut Self {
+        self.max_acc = max_acc;
+
+        self
+    }
+
+    pub fn order(&mut self, order: OsuStatsScoresOrder) -> &mut Self {
+        self.order = order;
+
+        self
+    }
+
+    pub fn descending(&mut self, descending: bool) -> &mut Self {
+        self.descending = descending;
+
+        self
+    }
+
+    pub fn mods(&mut self, mut mods: ModSelection) -> &mut Self {
+        if let ModSelection::Exact(ref mut mods) = mods {
+            // if NC is set, DT must be set too
+            if mods.contains(GameModIntermode::Nightcore) {
+                mods.insert(GameModIntermode::DoubleTime);
+            }
+
+            // if PF is set, SD must be set too
+            if mods.contains(GameModIntermode::Perfect) {
+                mods.insert(GameModIntermode::SuddenDeath);
+            }
+        }
+
+        self.mods = Some(mods);
+
+        self
+    }
+
+    pub fn get_mods(&self) -> Option<&ModSelection> {
+        self.mods.as_ref()
     }
 }
 
