@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     fmt::{Debug, Display, Formatter, Result as FmtResult},
-    mem,
     sync::Arc,
 };
 
@@ -872,10 +871,10 @@ impl ModDescriptions {
     }
 
     fn mania(scores: &[Score]) -> Self {
-        let mut key_counts = [0.0; 11];
+        let mut key_counts = [0_u8; 11];
         let mut doubletime = 0;
 
-        for (score, i) in scores.iter().zip(0..) {
+        for score in scores {
             doubletime += score.mods.contains_any(mods!(DT NC)) as usize;
 
             let idx = [
@@ -894,7 +893,7 @@ impl ModDescriptions {
             .find_map(|(gamemod, keys)| score.mods.contains_intermode(gamemod).then_some(keys))
             .unwrap_or_else(|| score.map.as_ref().unwrap().cs.round() as usize);
 
-            key_counts[idx] += 0.95_f32.powi(i);
+            key_counts[idx] += 1;
         }
 
         let mut mods = Self::default();
@@ -903,23 +902,13 @@ impl ModDescriptions {
             mods.push(ModDescription::Speedy);
         }
 
-        let (max, second_max, max_idx) = key_counts.into_iter().enumerate().skip(1).fold(
-            (0.0, 0.0, 0),
-            |(mut max, mut second_max, mut max_idx), (i, mut next)| {
-                if next > max {
-                    mem::swap(&mut max, &mut next);
-                    max_idx = i;
-                }
+        let (max_idx, max) = key_counts
+            .into_iter()
+            .enumerate()
+            .max_by_key(|(_, next)| *next)
+            .unwrap_or((0, 0));
 
-                if next > second_max {
-                    mem::swap(&mut second_max, &mut next);
-                }
-
-                (max, second_max, max_idx)
-            },
-        );
-
-        if max * 0.8 > second_max {
+        if max >= 80 {
             mods.push(ModDescription::Key(max_idx));
         } else {
             mods.push(ModDescription::MultiKey);
