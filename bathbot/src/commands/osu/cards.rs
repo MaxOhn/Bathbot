@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     fmt::{Debug, Display, Formatter, Result as FmtResult},
-    mem,
     sync::Arc,
 };
 
@@ -65,9 +64,9 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     and [mania](https://www.desmos.com/calculator/b30p1awwft) come from custom formulas \
     that are based on score accuracy, map OD, object count, and star rating.\n\
     Note that only the user's top100 is considered while calculating card values.\n\
-    Titles consist of three parts: **prefix**, **mod descriptions**, and **suffix**.\n\n\
-    • The **prefix** is determined by checking the highest skill value \
-    for these thresholds:\n\
+    Titles consist of three parts: **prefix**, **descriptions**, and **suffix**.\n\n\
+    - The **prefix** is determined by checking the highest skill value \
+    for thresholds:\n\
     ```\n\
     - <10: Newbie      | - <70: Seasoned\n\
     - <20: Novice      | - <80: Professional\n\
@@ -76,26 +75,33 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     - <50: Advanced    | - <95: Legendary\n\
     - <60: Outstanding | - otherwise: God\n\
     ```\n\
-    • The **mod descriptions** are determined by counting mod occurrences in top scores:\n\
-    ```\n\
-    - >70 NM: Mod-Hating | - >70 DT / NC: Speedy\n\
-    - <10 NM: Mod-Loving | - >70 HD: HD-Abusing / Ghost-Fruits\n\
-    - >70 HR: Ant-Clicking / Zooming / Pea-Catching\n\
-    - otherwise: Versatile\n\
-    ```\n\
-    • The **suffix** is determined by checking how close the skill \
-    values are to each other:\n\
-    __osu!:__\n\
-    - All skills are roughly the same: `All-Rounder`\n\
-    - High accuracy and aim but low speed: `Sniper`\n\
-    - High accuracy and speed but low aim: `Ninja`\n\
-    - High aim and speed but low accuracy: `Gunslinger`\n\
-    - Only high accuracy: `Rhythm Enjoyer`\n\
-    - Only high aim: `Whack-A-Mole`\n\
-    - Only high speed: `Masher`\n\
-    __taiko, catch, and mania:__\n\
-    - All skills are roughly the same: `Gamer`\n\
-    - High accuracy but low strain: `Rhythm Enjoyer`\n\
+    - The **descriptions** are determined by counting properties in top scores:\n  \
+    - `>70 NM`: `Mod-Hating`\n  \
+    - `>60 DT / NC`: `Speedy`\n  \
+    - `>30 HT`: `Slow-Mo`\n  \
+    - `>15 FL`: `Blindsighted`\n  \
+    - `>20 SO`: `Lazy-Spin`\n  \
+    - `>60 HD`: `HD-Abusing` / `Ghost-Fruits` / `Brain-Lag`\n  \
+    - `>60 HR`: `Ant-Clicking` / `Zooming` / `Pea-Catching`\n  \
+    - `>15 EZ`: `Patient` / `Training-Wheels` / `3-Life`\n  \
+    - `>30 MR`: `Unmindblockable`\n  \
+    - none of above but `<10 NM`: `Mod-Loving`\n  \
+    - none of above: `Versatile`\n  \
+    - `>70 Key[X]`: `[X]K`\n  \
+    - otherwise: `Multi-Key`\n\
+    - The **suffix** is determined by checking proximity of skill \
+    values to each other:\n  \
+    - osu!:\n    \
+    - All skills are roughly the same: `All-Rounder`\n    \
+    - High accuracy and aim but low speed: `Sniper`\n    \
+    - High accuracy and speed but low aim: `Ninja`\n    \
+    - High aim and speed but low accuracy: `Gunslinger`\n    \
+    - Only high accuracy: `Rhythm Enjoyer`\n    \
+    - Only high aim: `Whack-A-Mole`\n    \
+    - Only high speed: `Masher`\n  \
+    - taiko, catch, and mania:\n    \
+    - All skills are roughly the same: `Gamer`\n    \
+    - High accuracy but low strain: `Rhythm Enjoyer`\n    \
     - High strain but low accuracy: `Masher` / `Droplet Dodger`"
 )]
 pub struct Card {
@@ -774,13 +780,22 @@ impl Display for TitlePrefix {
 enum ModDescription {
     ModHating,
     Speedy,
+    SlowMo,
     AntClicking,
     HdAbusing,
+    Blindsighted,
+    LazySpin,
+    Patient,
     ModLoving,
     Versatile,
     Zooming,
     PeaCatching,
+    TrainingWheels,
     GhostFruit,
+    Hacking,
+    BrainLag,
+    Unmindblockable,
+    ThreeLife,
     Key(usize),
     MultiKey,
 }
@@ -791,13 +806,22 @@ impl Display for ModDescription {
         let desc = match self {
             Self::ModHating => "Mod-Hating",
             Self::Speedy => "Speedy",
+            Self::SlowMo => "Slow-Mo",
             Self::AntClicking => "Ant-Clicking",
             Self::HdAbusing => "HD-Abusing",
+            Self::Blindsighted => "Blindsighted",
+            Self::LazySpin => "Lazy-Spin",
+            Self::Patient => "Patient",
             Self::ModLoving => "Mod-Loving",
             Self::Versatile => "Versatile",
             Self::Zooming => "Zooming",
             Self::PeaCatching => "Pea-Catching",
+            Self::TrainingWheels => "Training-Wheels",
             Self::GhostFruit => "Ghost-Fruit",
+            Self::Hacking => "Hacking",
+            Self::BrainLag => "Brain-Lag",
+            Self::Unmindblockable => "Unmindblockable",
+            Self::ThreeLife => "3-Life",
             Self::Key(key) => return write!(f, "{key}K"),
             Self::MultiKey => "Multi-Key",
         };
@@ -810,74 +834,34 @@ impl Display for ModDescription {
 struct ModDescriptions(Vec<ModDescription>);
 
 impl ModDescriptions {
-    fn new(mode: GameMode, scores: &[Score]) -> Self {
-        if mode == GameMode::Mania {
-            return Self::mania(scores);
-        }
+    const DT_COUNT: usize = 60;
+    const EZ_COUNT: usize = 15;
+    const FL_COUNT: usize = 15;
+    const HD_COUNT: usize = 60;
+    const HR_COUNT: usize = 60;
+    const HT_COUNT: usize = 30;
+    const KEY_COUNT: usize = 70;
+    const MR_COUNT: usize = 30;
+    const NM_COUNT: usize = 70;
+    const NO_NM_COUNT: usize = 10;
+    const SO_COUNT: usize = 20;
 
+    fn new(mode: GameMode, scores: &[Score]) -> Self {
         let mut nomod = 0;
         let mut hidden = 0;
         let mut doubletime = 0;
+        let mut halftime = 0;
         let mut hardrock = 0;
+        let mut easy = 0;
+        let mut flashlight = 0;
+        let mut mirror = 0;
+        let mut spunout = 0;
+
+        let mut key_counts = [0_u8; 11];
+
+        let dtnc = mods!(DT NC);
 
         for score in scores {
-            if score.mods.is_empty() {
-                nomod += 1;
-                continue;
-            }
-
-            hidden += score.mods.contains_intermode(GameModIntermode::Hidden) as usize;
-            doubletime += score.mods.contains_any(mods!(DT NC)) as usize;
-            hardrock += score.mods.contains_intermode(GameModIntermode::HardRock) as usize;
-        }
-
-        if nomod > 70 {
-            return ModDescription::ModHating.into();
-        }
-
-        let mut mods = Self::default();
-
-        if doubletime > 70 {
-            mods.push(ModDescription::Speedy);
-        }
-
-        if hardrock > 70 {
-            let desc = match mode {
-                GameMode::Osu => ModDescription::AntClicking,
-                GameMode::Taiko => ModDescription::Zooming,
-                GameMode::Catch => ModDescription::PeaCatching,
-                GameMode::Mania => unreachable!(),
-            };
-
-            mods.push(desc);
-        }
-
-        if hidden > 70 {
-            let desc = match mode {
-                GameMode::Osu | GameMode::Taiko => ModDescription::HdAbusing,
-                GameMode::Catch => ModDescription::GhostFruit,
-                GameMode::Mania => unreachable!(),
-            };
-
-            mods.push(desc);
-        }
-
-        if !mods.is_empty() {
-            mods
-        } else if nomod < 10 {
-            ModDescription::ModLoving.into()
-        } else {
-            ModDescription::Versatile.into()
-        }
-    }
-
-    fn mania(scores: &[Score]) -> Self {
-        let mut key_counts = [0.0; 11];
-        let mut doubletime = 0;
-
-        for (score, i) in scores.iter().zip(0..) {
-            doubletime += score.mods.contains_any(mods!(DT NC)) as usize;
-
             let idx = [
                 (GameModIntermode::OneKey, 1),
                 (GameModIntermode::TwoKeys, 2),
@@ -894,38 +878,101 @@ impl ModDescriptions {
             .find_map(|(gamemod, keys)| score.mods.contains_intermode(gamemod).then_some(keys))
             .unwrap_or_else(|| score.map.as_ref().unwrap().cs.round() as usize);
 
-            key_counts[idx] += 0.95_f32.powi(i);
+            key_counts[idx] += 1;
+
+            if score.mods.is_empty() {
+                nomod += 1;
+                continue;
+            }
+
+            hidden += score.mods.contains_intermode(GameModIntermode::Hidden) as usize;
+            doubletime += score.mods.contains_any(dtnc.clone()) as usize;
+            halftime += score.mods.contains_intermode(GameModIntermode::HalfTime) as usize;
+            hardrock += score.mods.contains_intermode(GameModIntermode::HardRock) as usize;
+            easy += score.mods.contains_intermode(GameModIntermode::Easy) as usize;
+            flashlight += score.mods.contains_intermode(GameModIntermode::Flashlight) as usize;
+            spunout += score.mods.contains_intermode(GameModIntermode::SpunOut) as usize;
+            mirror += score.mods.contains_intermode(GameModIntermode::Mirror) as usize;
         }
 
         let mut mods = Self::default();
 
-        if doubletime > 70 {
+        if nomod > Self::NM_COUNT {
+            mods.push(ModDescription::ModHating);
+        }
+
+        if doubletime > Self::DT_COUNT {
             mods.push(ModDescription::Speedy);
         }
 
-        let (max, second_max, max_idx) = key_counts.into_iter().enumerate().skip(1).fold(
-            (0.0, 0.0, 0),
-            |(mut max, mut second_max, mut max_idx), (i, mut next)| {
-                if next > max {
-                    mem::swap(&mut max, &mut next);
-                    max_idx = i;
-                }
-
-                if next > second_max {
-                    mem::swap(&mut second_max, &mut next);
-                }
-
-                (max, second_max, max_idx)
-            },
-        );
-
-        if max * 0.8 > second_max {
-            mods.push(ModDescription::Key(max_idx));
-        } else {
-            mods.push(ModDescription::MultiKey);
+        if halftime > Self::HT_COUNT {
+            mods.push(ModDescription::SlowMo);
         }
 
-        mods
+        if flashlight > Self::FL_COUNT {
+            mods.push(ModDescription::Blindsighted);
+        }
+
+        if spunout > Self::SO_COUNT {
+            mods.push(ModDescription::LazySpin);
+        }
+
+        if hardrock > Self::HR_COUNT {
+            let desc = match mode {
+                GameMode::Osu => ModDescription::AntClicking,
+                GameMode::Taiko => ModDescription::Zooming,
+                GameMode::Catch => ModDescription::PeaCatching,
+                GameMode::Mania => ModDescription::Hacking, // HR is unranked in mania
+            };
+
+            mods.push(desc);
+        }
+
+        if easy > Self::EZ_COUNT {
+            let desc = match mode {
+                GameMode::Osu | GameMode::Taiko => ModDescription::Patient,
+                GameMode::Catch => ModDescription::TrainingWheels,
+                GameMode::Mania => ModDescription::ThreeLife,
+            };
+
+            mods.push(desc);
+        }
+
+        if hidden > Self::HD_COUNT {
+            let desc = match mode {
+                GameMode::Osu | GameMode::Taiko => ModDescription::HdAbusing,
+                GameMode::Catch => ModDescription::GhostFruit,
+                GameMode::Mania => ModDescription::BrainLag,
+            };
+
+            mods.push(desc);
+        }
+
+        if mirror > Self::MR_COUNT {
+            mods.push(ModDescription::Unmindblockable);
+        }
+
+        if mode == GameMode::Mania {
+            let (max_key_idx, max_key) = key_counts
+                .into_iter()
+                .enumerate()
+                .max_by_key(|(_, next)| *next)
+                .unwrap_or((0, 0));
+
+            if max_key as usize > Self::KEY_COUNT {
+                mods.push(ModDescription::Key(max_key_idx));
+            } else {
+                mods.push(ModDescription::MultiKey);
+            }
+        }
+
+        if !mods.is_empty() {
+            mods
+        } else if nomod < Self::NO_NM_COUNT {
+            ModDescription::ModLoving.into()
+        } else {
+            ModDescription::Versatile.into()
+        }
     }
 
     fn push(&mut self, desc: ModDescription) {
