@@ -66,7 +66,7 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     Note that only the user's top100 is considered while calculating card values.\n\
     Titles consist of three parts: **prefix**, **descriptions**, and **suffix**.\n\n\
     - The **prefix** is determined by checking the highest skill value \
-    for these thresholds:\n\
+    for thresholds:\n\
     ```\n\
     - <10: Newbie      | - <70: Seasoned\n\
     - <20: Novice      | - <80: Professional\n\
@@ -78,16 +78,19 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     - The **descriptions** are determined by counting properties in top scores:\n  \
     - `>70 NM`: `Mod-Hating`\n  \
     - `>65 DT / NC`: `Speedy`\n  \
-    - `>35 HT`: `Slow-mo`\n  \
-    - `>65 HD`: `HD-Abusing` / `Ghost-Fruits`\n  \
+    - `>35 HT`: `Slow-Mo`\n  \
+    - `>15 FL`: `Blindsighted`\n  \
+    - `>20 SO`: `Lazy-Spin`\n  \
+    - `>65 HD`: `HD-Abusing` / `Ghost-Fruits` / `Brain-Lag`\n  \
     - `>65 HR`: `Ant-Clicking` / `Zooming` / `Pea-Catching`\n  \
+    - `>15 EZ`: `Patient` / `Training-Wheels` / `3-Life`\n  \
+    - `>40 MR`: `Unmindblockable`\n  \
     - none of above but `<10 NM`: `Mod-Loving`\n  \
     - none of above: `Versatile`\n  \
-    - `>40 MR`: `Unmindblockable`\n  \
-    - `>65 Key[X]`: `[X]K`\n  \
+    - `>70 Key[X]`: `[X]K`\n  \
     - otherwise: `Multi-Key`\n\
-    - The **suffix** is determined by checking how close the skill \
-    values are to each other:\n  \
+    - The **suffix** is determined by checking proximity of skill \
+    values to each other:\n  \
     - osu!:\n    \
     - All skills are roughly the same: `All-Rounder`\n    \
     - High accuracy and aim but low speed: `Sniper`\n    \
@@ -780,12 +783,19 @@ enum ModDescription {
     SlowMo,
     AntClicking,
     HdAbusing,
+    Blindsighted,
+    LazySpin,
+    Patient,
     ModLoving,
     Versatile,
     Zooming,
     PeaCatching,
+    TrainingWheels,
     GhostFruit,
+    Hacking,
+    BrainLag,
     Unmindblockable,
+    ThreeLife,
     Key(usize),
     MultiKey,
 }
@@ -796,15 +806,22 @@ impl Display for ModDescription {
         let desc = match self {
             Self::ModHating => "Mod-Hating",
             Self::Speedy => "Speedy",
-            Self::SlowMo => "Slow-mo",
+            Self::SlowMo => "Slow-Mo",
             Self::AntClicking => "Ant-Clicking",
             Self::HdAbusing => "HD-Abusing",
+            Self::Blindsighted => "Blindsighted",
+            Self::LazySpin => "Lazy-Spin",
+            Self::Patient => "Patient",
             Self::ModLoving => "Mod-Loving",
             Self::Versatile => "Versatile",
             Self::Zooming => "Zooming",
             Self::PeaCatching => "Pea-Catching",
+            Self::TrainingWheels => "Training-Wheels",
             Self::GhostFruit => "Ghost-Fruit",
+            Self::Hacking => "Hacking",
+            Self::BrainLag => "Brain-Lag",
             Self::Unmindblockable => "Unmindblockable",
+            Self::ThreeLife => "3-Life",
             Self::Key(key) => return write!(f, "{key}K"),
             Self::MultiKey => "Multi-Key",
         };
@@ -817,88 +834,34 @@ impl Display for ModDescription {
 struct ModDescriptions(Vec<ModDescription>);
 
 impl ModDescriptions {
-    fn new(mode: GameMode, scores: &[Score]) -> Self {
-        if mode == GameMode::Mania {
-            return Self::mania(scores);
-        }
+    const DT_COUNT: usize = 65;
+    const EZ_COUNT: usize = 15;
+    const FL_COUNT: usize = 15;
+    const HD_COUNT: usize = 65;
+    const HR_COUNT: usize = 65;
+    const HT_COUNT: usize = 35;
+    const KEY_COUNT: usize = 70;
+    const MR_COUNT: usize = 40;
+    const NM_COUNT: usize = 70;
+    const NO_NM_COUNT: usize = 10;
+    const SO_COUNT: usize = 20;
 
+    fn new(mode: GameMode, scores: &[Score]) -> Self {
         let mut nomod = 0;
         let mut hidden = 0;
         let mut doubletime = 0;
         let mut halftime = 0;
         let mut hardrock = 0;
-
-        let dtnc = mods!(DT NC);
-
-        for score in scores {
-            if score.mods.is_empty() {
-                nomod += 1;
-                continue;
-            }
-
-            hidden += score.mods.contains_intermode(GameModIntermode::Hidden) as usize;
-            doubletime += score.mods.contains_any(dtnc.clone()) as usize;
-            halftime += score.mods.contains_intermode(GameModIntermode::HalfTime) as usize;
-            hardrock += score.mods.contains_intermode(GameModIntermode::HardRock) as usize;
-        }
-
-        if nomod > 70 {
-            return ModDescription::ModHating.into();
-        }
-
-        let mut mods = Self::default();
-
-        if doubletime > 65 {
-            mods.push(ModDescription::Speedy);
-        }
-
-        if halftime > 35 {
-            mods.push(ModDescription::SlowMo);
-        }
-
-        if hardrock > 65 {
-            let desc = match mode {
-                GameMode::Osu => ModDescription::AntClicking,
-                GameMode::Taiko => ModDescription::Zooming,
-                GameMode::Catch => ModDescription::PeaCatching,
-                GameMode::Mania => unreachable!(),
-            };
-
-            mods.push(desc);
-        }
-
-        if hidden > 65 {
-            let desc = match mode {
-                GameMode::Osu | GameMode::Taiko => ModDescription::HdAbusing,
-                GameMode::Catch => ModDescription::GhostFruit,
-                GameMode::Mania => unreachable!(),
-            };
-
-            mods.push(desc);
-        }
-
-        if !mods.is_empty() {
-            mods
-        } else if nomod < 10 {
-            ModDescription::ModLoving.into()
-        } else {
-            ModDescription::Versatile.into()
-        }
-    }
-
-    fn mania(scores: &[Score]) -> Self {
-        let mut key_counts = [0_u8; 11];
-        let mut doubletime = 0;
-        let mut halftime = 0;
+        let mut easy = 0;
+        let mut flashlight = 0;
         let mut mirror = 0;
+        let mut spunout = 0;
+
+        let mut key_counts = [0_u8; 11];
 
         let dtnc = mods!(DT NC);
 
         for score in scores {
-            doubletime += score.mods.contains_any(dtnc.clone()) as usize;
-            halftime += score.mods.contains_intermode(GameModIntermode::HalfTime) as usize;
-            mirror += score.mods.contains_intermode(GameModIntermode::Mirror) as usize;
-
             let idx = [
                 (GameModIntermode::OneKey, 1),
                 (GameModIntermode::TwoKeys, 2),
@@ -916,35 +879,100 @@ impl ModDescriptions {
             .unwrap_or_else(|| score.map.as_ref().unwrap().cs.round() as usize);
 
             key_counts[idx] += 1;
+
+            if score.mods.is_empty() {
+                nomod += 1;
+                continue;
+            }
+
+            hidden += score.mods.contains_intermode(GameModIntermode::Hidden) as usize;
+            doubletime += score.mods.contains_any(dtnc.clone()) as usize;
+            halftime += score.mods.contains_intermode(GameModIntermode::HalfTime) as usize;
+            hardrock += score.mods.contains_intermode(GameModIntermode::HardRock) as usize;
+            easy += score.mods.contains_intermode(GameModIntermode::Easy) as usize;
+            flashlight += score.mods.contains_intermode(GameModIntermode::Flashlight) as usize;
+            spunout += score.mods.contains_intermode(GameModIntermode::SpunOut) as usize;
+            mirror += score.mods.contains_intermode(GameModIntermode::Mirror) as usize;
         }
 
         let mut mods = Self::default();
 
-        if doubletime > 65 {
+        if nomod > Self::NM_COUNT {
+            mods.push(ModDescription::ModHating);
+        }
+
+        if doubletime > Self::DT_COUNT {
             mods.push(ModDescription::Speedy);
         }
 
-        if halftime > 35 {
+        if halftime > Self::HT_COUNT {
             mods.push(ModDescription::SlowMo);
         }
 
-        if mirror > 40 {
+        if flashlight > Self::FL_COUNT {
+            mods.push(ModDescription::Blindsighted);
+        }
+
+        if spunout > Self::SO_COUNT {
+            mods.push(ModDescription::LazySpin);
+        }
+
+        if hardrock > Self::HR_COUNT {
+            let desc = match mode {
+                GameMode::Osu => ModDescription::AntClicking,
+                GameMode::Taiko => ModDescription::Zooming,
+                GameMode::Catch => ModDescription::PeaCatching,
+                GameMode::Mania => ModDescription::Hacking, // HR is unranked in mania
+            };
+
+            mods.push(desc);
+        }
+
+        if easy > Self::EZ_COUNT {
+            let desc = match mode {
+                GameMode::Osu | GameMode::Taiko => ModDescription::Patient,
+                GameMode::Catch => ModDescription::TrainingWheels,
+                GameMode::Mania => ModDescription::ThreeLife,
+            };
+
+            mods.push(desc);
+        }
+
+        if hidden > Self::HD_COUNT {
+            let desc = match mode {
+                GameMode::Osu | GameMode::Taiko => ModDescription::HdAbusing,
+                GameMode::Catch => ModDescription::GhostFruit,
+                GameMode::Mania => ModDescription::BrainLag,
+            };
+
+            mods.push(desc);
+        }
+
+        if mirror > Self::MR_COUNT {
             mods.push(ModDescription::Unmindblockable);
         }
 
-        let (max_idx, max) = key_counts
-            .into_iter()
-            .enumerate()
-            .max_by_key(|(_, next)| *next)
-            .unwrap_or((0, 0));
+        if mode == GameMode::Mania {
+            let (max_key_idx, max_key) = key_counts
+                .into_iter()
+                .enumerate()
+                .max_by_key(|(_, next)| *next)
+                .unwrap_or((0, 0));
 
-        if max > 65 {
-            mods.push(ModDescription::Key(max_idx));
-        } else {
-            mods.push(ModDescription::MultiKey);
+            if max_key as usize > Self::KEY_COUNT {
+                mods.push(ModDescription::Key(max_key_idx));
+            } else {
+                mods.push(ModDescription::MultiKey);
+            }
         }
 
-        mods
+        if !mods.is_empty() {
+            mods
+        } else if nomod < Self::NO_NM_COUNT {
+            ModDescription::ModLoving.into()
+        } else {
+            ModDescription::Versatile.into()
+        }
     }
 
     fn push(&mut self, desc: ModDescription) {
