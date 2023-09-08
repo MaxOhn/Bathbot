@@ -100,7 +100,8 @@ impl TopCounts {
             MaybeUninit::uninit(),
         ];
 
-        let mut params = OsuStatsParams::new(user.username()).mode(mode);
+        let mut params = OsuStatsParams::new(user.username());
+        params.mode(mode);
         let mut params_clone = params.clone();
         let mut get_amount = true;
 
@@ -114,12 +115,12 @@ impl TopCounts {
                 continue;
             }
 
-            params.max_rank = next_rank;
+            params.max_rank(next_rank);
             let next_fut = ctx.client().get_global_scores(&params);
 
             let count = match iter.next() {
                 Some((next_next_rank, next_next_count)) => {
-                    params_clone.max_rank = next_next_rank;
+                    params_clone.max_rank(next_next_rank);
 
                     let next_next_fut = ctx.client().get_global_scores(&params_clone);
 
