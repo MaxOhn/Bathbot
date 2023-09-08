@@ -302,10 +302,10 @@ impl RecentScoreEdit {
 
         #[cfg(feature = "twitch")]
         match twitch_stream {
-            Some(RecentTwitchStream::Stream { username }) => {
+            Some(RecentTwitchStream::Stream { login }) => {
                 let _ = write!(
                     description,
-                    " {emote} [Streaming on twitch]({base}{username})",
+                    " {emote} [Streaming on twitch]({base}{login})",
                     emote = crate::util::Emote::Twitch,
                     base = bathbot_util::constants::TWITCH_BASE,
                 );
@@ -392,17 +392,21 @@ impl RecentScoreEdit {
 
         #[cfg(feature = "twitch")]
         match twitch_stream {
-            Some(RecentTwitchStream::Stream { username }) => {
+            Some(RecentTwitchStream::Stream { login }) => {
                 let _ = write!(
                     description,
-                    " {emote} [Streaming on twitch]({base}{username})",
+                    " {emote} [Streaming on twitch]({base}{login})",
                     emote = crate::util::Emote::Twitch,
                     base = bathbot_util::constants::TWITCH_BASE,
                 );
             }
-            Some(RecentTwitchStream::Video { username, vod_url }) => {
+            Some(RecentTwitchStream::Video {
+                username,
+                login,
+                vod_url,
+            }) => {
                 let twitch_channel = format!(
-                    "[**{username}**]({base}{username})",
+                    "[**{username}**]({base}{login})",
                     base = bathbot_util::constants::TWITCH_BASE,
                 );
 
