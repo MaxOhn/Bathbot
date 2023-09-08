@@ -77,14 +77,14 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     ```\n\
     - The **descriptions** are determined by counting properties in top scores:\n  \
     - `>70 NM`: `Mod-Hating`\n  \
-    - `>70 DT / NC`: `Speedy`\n  \
+    - `>65 DT / NC`: `Speedy`\n  \
     - `>35 HT`: `Slow-mo`\n  \
-    - `>70 HD`: `HD-Abusing` / `Ghost-Fruits`\n  \
-    - `>70 HR`: `Ant-Clicking` / `Zooming` / `Pea-Catching`\n  \
-    - not of above but `<10 NM`: `Mod-Loving`\n  \
+    - `>65 HD`: `HD-Abusing` / `Ghost-Fruits`\n  \
+    - `>65 HR`: `Ant-Clicking` / `Zooming` / `Pea-Catching`\n  \
+    - none of above but `<10 NM`: `Mod-Loving`\n  \
     - none of above: `Versatile`\n  \
-    - `>45 MR`: `Unmindblockable`\n  \
-    - `>70 Key[X]`: `[X]K`\n  \
+    - `>40 MR`: `Unmindblockable`\n  \
+    - `>65 Key[X]`: `[X]K`\n  \
     - otherwise: `Multi-Key`\n\
     - The **suffix** is determined by checking how close the skill \
     values are to each other:\n  \
@@ -848,7 +848,7 @@ impl ModDescriptions {
 
         let mut mods = Self::default();
 
-        if doubletime > 70 {
+        if doubletime > 65 {
             mods.push(ModDescription::Speedy);
         }
 
@@ -856,7 +856,7 @@ impl ModDescriptions {
             mods.push(ModDescription::SlowMo);
         }
 
-        if hardrock > 70 {
+        if hardrock > 65 {
             let desc = match mode {
                 GameMode::Osu => ModDescription::AntClicking,
                 GameMode::Taiko => ModDescription::Zooming,
@@ -867,7 +867,7 @@ impl ModDescriptions {
             mods.push(desc);
         }
 
-        if hidden > 70 {
+        if hidden > 65 {
             let desc = match mode {
                 GameMode::Osu | GameMode::Taiko => ModDescription::HdAbusing,
                 GameMode::Catch => ModDescription::GhostFruit,
@@ -920,7 +920,7 @@ impl ModDescriptions {
 
         let mut mods = Self::default();
 
-        if doubletime > 70 {
+        if doubletime > 65 {
             mods.push(ModDescription::Speedy);
         }
 
@@ -928,7 +928,7 @@ impl ModDescriptions {
             mods.push(ModDescription::SlowMo);
         }
 
-        if mirror > 45 {
+        if mirror > 40 {
             mods.push(ModDescription::Unmindblockable);
         }
 
@@ -938,7 +938,7 @@ impl ModDescriptions {
             .max_by_key(|(_, next)| *next)
             .unwrap_or((0, 0));
 
-        if max > 70 {
+        if max > 65 {
             mods.push(ModDescription::Key(max_idx));
         } else {
             mods.push(ModDescription::MultiKey);
