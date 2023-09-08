@@ -33,6 +33,8 @@ use tokio::time::timeout;
 
 use crate::{multipart::Multipart, Client, ClientError, Site, MY_USER_AGENT};
 
+const OSUSTATS_TIMEOUT: Duration = Duration::from_secs(15);
+
 impl Client {
     pub async fn check_skin_url(&self, url: &str) -> Result<Response<Body>, ClientError> {
         trace!("HEAD request of url {url}");
@@ -430,7 +432,7 @@ impl Client {
         let url = "https://osustats.ppy.sh/api/getScoreRanking";
         let post_fut = self.make_multipart_post_request(url, Site::OsuStats, form);
 
-        let bytes = match timeout(Duration::from_secs(4), post_fut).await {
+        let bytes = match timeout(OSUSTATS_TIMEOUT, post_fut).await {
             Ok(Ok(bytes)) => bytes,
             Ok(Err(err)) => return Err(Report::new(err)),
             Err(_) => bail!("Timeout while waiting for osustats players"),
@@ -473,7 +475,7 @@ impl Client {
         let url = "https://osustats.ppy.sh/api/getScores";
         let post_fut = self.make_multipart_post_request(url, Site::OsuStats, form);
 
-        let bytes = match timeout(Duration::from_secs(4), post_fut).await {
+        let bytes = match timeout(OSUSTATS_TIMEOUT, post_fut).await {
             Ok(Ok(bytes)) => bytes,
             Ok(Err(ClientError::BadRequest)) => Bytes::from_static(b"[[],0,true,true]"),
             Ok(Err(err)) => return Err(Report::new(err)),
@@ -499,7 +501,7 @@ impl Client {
         let url = "https://osustats.ppy.sh/api/getBestDayScores";
         let post_fut = self.make_multipart_post_request(url, Site::OsuStats, form);
 
-        let bytes = match timeout(Duration::from_secs(15), post_fut).await {
+        let bytes = match timeout(OSUSTATS_TIMEOUT, post_fut).await {
             Ok(Ok(bytes)) => bytes,
             Ok(Err(err)) => return Err(Report::new(err)),
             Err(_) => bail!("Timeout while waiting for osustats recentbest"),
