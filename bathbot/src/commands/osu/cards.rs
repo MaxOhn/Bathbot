@@ -64,8 +64,8 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     and [mania](https://www.desmos.com/calculator/b30p1awwft) come from custom formulas \
     that are based on score accuracy, map OD, object count, and star rating.\n\
     Note that only the user's top100 is considered while calculating card values.\n\
-    Titles consist of three parts: **prefix**, **mod descriptions**, and **suffix**.\n\n\
-    • The **prefix** is determined by checking the highest skill value \
+    Titles consist of three parts: **prefix**, **descriptions**, and **suffix**.\n\n\
+    - The **prefix** is determined by checking the highest skill value \
     for these thresholds:\n\
     ```\n\
     - <10: Newbie      | - <70: Seasoned\n\
@@ -75,26 +75,28 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     - <50: Advanced    | - <95: Legendary\n\
     - <60: Outstanding | - otherwise: God\n\
     ```\n\
-    • The **mod descriptions** are determined by counting mod occurrences in top scores:\n\
-    ```\n\
-    - >70 NM: Mod-Hating | - >70 DT / NC: Speedy\n\
-    - <10 NM: Mod-Loving | - >70 HD: HD-Abusing / Ghost-Fruits\n\
-    - >70 HR: Ant-Clicking / Zooming / Pea-Catching\n\
-    - otherwise: Versatile\n\
-    ```\n\
-    • The **suffix** is determined by checking how close the skill \
-    values are to each other:\n\
-    __osu!:__\n\
-    - All skills are roughly the same: `All-Rounder`\n\
-    - High accuracy and aim but low speed: `Sniper`\n\
-    - High accuracy and speed but low aim: `Ninja`\n\
-    - High aim and speed but low accuracy: `Gunslinger`\n\
-    - Only high accuracy: `Rhythm Enjoyer`\n\
-    - Only high aim: `Whack-A-Mole`\n\
-    - Only high speed: `Masher`\n\
-    __taiko, catch, and mania:__\n\
-    - All skills are roughly the same: `Gamer`\n\
-    - High accuracy but low strain: `Rhythm Enjoyer`\n\
+    - The **descriptions** are determined by counting properties in top scores:\n  \
+    - `>70 NM`: `Mod-Hating`\n  \
+    - `<10 NM`: `Mod-Loving`\n  \
+    - `>70 DT / NC`: `Speedy`\n  \
+    - `>70 HD`: `HD-Abusing` / `Ghost-Fruits`\n  \
+    - `>70 HR`: `Ant-Clicking` / `Zooming` / `Pea-Catching`\n  \
+    - none of above: `Versatile`\n  \
+    - `>70 Key[X]`: `[X]K`\n  \
+    - otherwise: `Multi-Key`\n\
+    - The **suffix** is determined by checking how close the skill \
+    values are to each other:\n  \
+    - osu!:\n    \
+    - All skills are roughly the same: `All-Rounder`\n    \
+    - High accuracy and aim but low speed: `Sniper`\n    \
+    - High accuracy and speed but low aim: `Ninja`\n    \
+    - High aim and speed but low accuracy: `Gunslinger`\n    \
+    - Only high accuracy: `Rhythm Enjoyer`\n    \
+    - Only high aim: `Whack-A-Mole`\n    \
+    - Only high speed: `Masher`\n  \
+    - taiko, catch, and mania:\n    \
+    - All skills are roughly the same: `Gamer`\n    \
+    - High accuracy but low strain: `Rhythm Enjoyer`\n    \
     - High strain but low accuracy: `Masher` / `Droplet Dodger`"
 )]
 pub struct Card {
@@ -908,7 +910,7 @@ impl ModDescriptions {
             .max_by_key(|(_, next)| *next)
             .unwrap_or((0, 0));
 
-        if max >= 80 {
+        if max > 70 {
             mods.push(ModDescription::Key(max_idx));
         } else {
             mods.push(ModDescription::MultiKey);
