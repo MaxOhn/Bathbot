@@ -540,7 +540,11 @@ mod mod_count {
         fn visit_map<V: MapAccess<'de>>(self, mut map: V) -> Result<Self::Value, V::Error> {
             let mut mod_count = Vec::with_capacity(map.size_hint().unwrap_or(0));
 
-            while let Some((mods, num)) = map.next_entry()? {
+            while let Some((mut mods, num)) = map.next_entry::<Box<str>, _>()? {
+                if mods.as_ref() == "nomod" {
+                    mods = Box::from("NM");
+                }
+
                 mod_count.push((mods, num));
             }
 
