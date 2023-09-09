@@ -347,7 +347,7 @@ impl SnipePlayer {
                 let oldest_first = match oldest_first {
                     Some(ControlFlow::Continue(oldest)) => oldest,
                     Some(ControlFlow::Break(_)) => return Ok(None),
-                    None => return Err(DeError::missing_field("oldest_first")),
+                    None => return Err(DeError::missing_field("oldest_date")),
                 };
 
                 let username = username.ok_or_else(|| DeError::missing_field("name"))?;
