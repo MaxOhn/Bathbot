@@ -275,17 +275,11 @@ impl Client {
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
 
-        if bytes.as_ref() == b"{}" {
-            return Ok(None);
-        }
+        SnipePlayer::deserialize(&bytes).wrap_err_with(|| {
+            let body = String::from_utf8_lossy(&bytes);
 
-        serde_json::from_slice(&bytes)
-            .wrap_err_with(|| {
-                let body = String::from_utf8_lossy(&bytes);
-
-                format!("failed to deserialize snipe player: {body}")
-            })
-            .map(Some)
+            format!("failed to deserialize snipe player: {body}")
+        })
     }
 
     pub async fn get_snipe_country(&self, country: &str) -> Result<Vec<SnipeCountryPlayer>> {
