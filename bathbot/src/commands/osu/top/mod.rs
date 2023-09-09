@@ -1367,12 +1367,12 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
     } else {
         let genitive = if name.ends_with('s') { "" } else { "s" };
         let reverse = if args.reverse { "reversed " } else { "" };
-        let ordinal_suffix = if args.index.is_some_and(|n| n == 2) {
-            "nd"
-        } else if args.index.is_some_and(|n| n == 3) {
-            "rd"
-        } else {
-            "th"
+
+        let ordinal_suffix = match args.index {
+            Some(n) if n % 10 == 1 && n != 11 => "st",
+            Some(n) if n % 10 == 2 && n != 12 => "nd",
+            Some(n) if n % 10 == 3 && n != 13 => "rd",
+            _ => "th",
         };
 
         let content = match args.sort_by {
