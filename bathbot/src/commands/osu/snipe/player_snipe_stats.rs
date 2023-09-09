@@ -126,7 +126,7 @@ pub(super) async fn player_stats(
     let player = match player_fut.await {
         Ok(Some(player)) => player,
         Ok(None) => {
-            let content = format!("`{username}` has never had any national #1s");
+            let content = format!("`{username}` does not have any national #1s");
             let builder = MessageBuilder::new().embed(content);
             orig.create_message(&ctx, builder).await?;
 
