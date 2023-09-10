@@ -621,66 +621,80 @@ fn draw_mode_strains(
 
     let factor = section_len * orig_count / new_count;
 
-    fn timestamp_iter(strains: &[f64], factor: f64) -> impl Iterator<Item = (f64, f64)> + '_ {
-        strains
-            .iter()
-            .enumerate()
-            .map(move |(i, strain)| (i as f64 * factor, *strain))
+    macro_rules! draw_line {
+        ( $label:literal, $strains:expr, $color:ident ) => {{
+            draw_series(backend, chart, &$strains, $label, factor, $color)?;
+            draw_line(legend_area, $label, $color, text_style, &mut legend_x)?;
+        }};
     }
 
-    macro_rules! draw_line {
-        ( $label:literal, $strains:ident.$skill:ident, $color:ident ) => {{
-            backend
-                .borrow_mut()
-                .set_blend_mode(Some(BlendMode::Lighten));
+    fn draw_series(
+        backend: &Rc<RefCell<SkiaBackend<'_>>>,
+        chart: &mut ChartContext<'_, SkiaBackend<'_>, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
+        strains: &[f64],
+        label: &str,
+        factor: f64,
+        color: RGBColor,
+    ) -> Result<()> {
+        backend
+            .borrow_mut()
+            .set_blend_mode(Some(BlendMode::Lighten));
 
-            chart
-                .draw_series(
-                    AreaSeries::new(
-                        timestamp_iter(&$strains.$skill, factor),
-                        0.0,
-                        $color.mix(0.20),
-                    )
-                    .border_style($color.stroke_width(2)),
-                )
-                .wrap_err(concat!("Failed to draw ", stringify!($skill), " series"))?;
+        let timestamp_iter = strains
+            .iter()
+            .enumerate()
+            .map(move |(i, strain)| (i as f64 * factor, *strain));
 
-            backend.borrow_mut().set_blend_mode(None);
+        let series = AreaSeries::new(timestamp_iter, 0.0, color.mix(0.20))
+            .border_style(color.stroke_width(2));
 
-            let rect = Rectangle::new(
-                [
-                    (legend_x, (LEGEND_H as f32 * 0.42) as i32),
-                    (legend_x + 16, (LEGEND_H as f32 * 0.58) as i32),
-                ],
-                $color.filled(),
-            );
+        chart
+            .draw_series(series)
+            .wrap_err_with(|| format!("Failed to draw {label} series"))?;
 
-            legend_area
-                .draw(&rect)
-                .wrap_err("Failed to draw legend rectangle")?;
+        backend.borrow_mut().set_blend_mode(None);
 
-            legend_x += 26;
+        Ok(())
+    }
 
-            let ((min_x, min_y), (max_x, max_y)) = text_style
-                .font
-                .layout_box($label)
-                .wrap_err("Failed to get legend layout box")?;
+    fn draw_line(
+        legend_area: &DrawingArea<SkiaBackend<'_>, Shift>,
+        label: &str,
+        color: RGBColor,
+        text_style: &TextStyle<'_>,
+        legend_x: &mut i32,
+    ) -> Result<()> {
+        let rect = Rectangle::new(
+            [
+                (*legend_x, (LEGEND_H as f32 * 0.42) as i32),
+                (*legend_x + 16, (LEGEND_H as f32 * 0.58) as i32),
+            ],
+            color.filled(),
+        );
 
-            let width = max_x - min_x;
-            let height = max_y - min_y;
+        legend_area
+            .draw(&rect)
+            .wrap_err("Failed to draw legend rectangle")?;
 
-            let text_pos = (legend_x, (LEGEND_H as i32 - 8 - height));
+        *legend_x += 26;
 
-            legend_area
-                .draw_text($label, text_style, text_pos)
-                .wrap_err("Failed to draw legend text")?;
+        let ((min_x, min_y), (max_x, max_y)) = text_style
+            .font
+            .layout_box(label)
+            .wrap_err("Failed to get legend layout box")?;
 
-            // clippy seems to think the macro's scope drops `legend_x` afterwards
-            #[allow(unused)]
-            {
-                legend_x += width + 10;
-            }
-        }};
+        let width = max_x - min_x;
+        let height = max_y - min_y;
+
+        let text_pos = (*legend_x, (LEGEND_H as i32 - 8 - height));
+
+        legend_area
+            .draw_text(label, text_style, text_pos)
+            .wrap_err("Failed to draw legend text")?;
+
+        *legend_x += width + 10;
+
+        Ok(())
     }
 
     match strains {
