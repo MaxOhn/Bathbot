@@ -2,6 +2,7 @@
 members = [
     "bathbot",
     "bathbot-cache",
+    "bathbot-cards",
     "bathbot-client",
     "bathbot-macros",
     "bathbot-model",

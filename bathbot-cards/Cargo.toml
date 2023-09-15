@@ -1,0 +1,11 @@
+[package]
+name = "bathbot-cards"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+rosu-pp = { workspace = true }
+rosu-v2 = { workspace = true }
+skia-safe = { version = "0.58.0" }
+thiserror = { version = "1.0" }

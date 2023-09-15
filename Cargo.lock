@@ -206,6 +206,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bathbot-cards"
+version = "3.5.4"
+dependencies = [
+ "rosu-pp",
+ "rosu-v2",
+ "skia-safe",
+ "thiserror",
+]
+
+[[package]]
 name = "bathbot-client"
 version = "3.5.4"
 dependencies = [
