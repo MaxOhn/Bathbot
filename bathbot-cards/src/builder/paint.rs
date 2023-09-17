@@ -1,6 +1,8 @@
 use std::mem;
 
-use skia_safe::{BlurStyle, Color, MaskFilter, Paint, PaintStyle, Shader, TileMode};
+use skia_safe::{BlurStyle, Color, MaskFilter, Paint, Shader, TileMode};
+
+use crate::error::PaintError;
 
 pub(crate) struct Gradient {
     pub(crate) pos: (f32, f32),
@@ -29,26 +31,24 @@ impl PaintBuilder {
         self
     }
 
-    pub(crate) fn style(&mut self, style: PaintStyle) -> &mut Self {
-        self.paint.set_style(style);
-
-        self
-    }
-
     pub(crate) fn anti_alias(&mut self) -> &mut Self {
         self.paint.set_anti_alias(true);
 
         self
     }
 
-    pub(crate) fn mask_filter(&mut self, style: BlurStyle, sigma: f32) -> Option<&mut Self> {
-        let mask_filter = MaskFilter::blur(style, sigma, None)?;
+    pub(crate) fn mask_filter(
+        &mut self,
+        style: BlurStyle,
+        sigma: f32,
+    ) -> Result<&mut Self, PaintError> {
+        let mask_filter = MaskFilter::blur(style, sigma, None).ok_or(PaintError::MaskFilter)?;
         self.paint.set_mask_filter(Some(mask_filter));
 
-        Some(self)
+        Ok(self)
     }
 
-    pub(crate) fn gradient(start: Gradient, end: Gradient) -> Option<Self> {
+    pub(crate) fn gradient(start: Gradient, end: Gradient) -> Result<Self, PaintError> {
         let Gradient {
             pos: start_pos,
             argb: (a, r, g, b),
@@ -64,10 +64,12 @@ impl PaintBuilder {
         let pos = (start_pos, end_pos);
         let colors: &[Color] = &[start_color, end_color];
 
-        let shader = Shader::linear_gradient(pos, colors, None, TileMode::Mirror, None, None)?;
+        let shader = Shader::linear_gradient(pos, colors, None, TileMode::Mirror, None, None)
+            .ok_or(PaintError::Gradient)?;
+
         let mut paint = Paint::default();
         paint.set_shader(Some(shader));
 
-        Some(Self { paint })
+        Ok(Self { paint })
     }
 }

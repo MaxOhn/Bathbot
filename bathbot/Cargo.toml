@@ -7,6 +7,7 @@ edition.workspace = true
 [dependencies]
 aho-corasick = { version = "0.7" }
 bathbot-cache = { path = "../bathbot-cache" }
+bathbot-cards = { path = "../bathbot-cards" }
 bathbot-client = { path = "../bathbot-client" }
 bathbot-macros = { path = "../bathbot-macros" }
 bathbot-model = { path = "../bathbot-model" }
@@ -22,7 +23,6 @@ eyre = { version = "0.6" }
 flexmap = { git = "https://github.com/MaxOhn/flexmap" }
 flurry = { version = "0.4" }
 futures = { version = "0.3", default-features = false }
-handlebars = { version = "4.0" }
 hashbrown = { version = "0.14" }
 image = { version = "0.24", default-features = false, features = ["gif", "png"] }
 itertools = { version = "0.10" }

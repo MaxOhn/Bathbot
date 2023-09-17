@@ -1,62 +1,83 @@
 use skia_safe::{
     font_style::{Slant, Weight, Width},
-    Font, FontStyle, Typeface,
+    Data, Font, FontStyle, Typeface,
 };
 
+use crate::error::FontError;
+
 pub(crate) struct MissingStyle;
-pub(crate) struct MissingFontFamily;
+pub(crate) struct MissingFontData;
 pub(crate) struct MissingSize;
+
+pub(crate) struct FontData {
+    normal: Vec<u8>,
+    italic: Vec<u8>,
+}
+
+impl FontData {
+    pub(crate) fn new(normal: Vec<u8>, italic: Vec<u8>) -> Self {
+        Self { normal, italic }
+    }
+}
 
 pub(crate) struct FontBuilder<ST, F, SI> {
     style: ST,
-    font_family: F,
+    data: F,
     size: SI,
 }
 
-impl FontBuilder<MissingStyle, MissingFontFamily, MissingSize> {
+impl FontBuilder<MissingStyle, MissingFontData, MissingSize> {
     pub(crate) fn new() -> Self {
         Self {
             style: MissingStyle,
-            font_family: MissingFontFamily,
+            data: MissingFontData,
             size: MissingSize,
         }
     }
 }
 
-impl FontBuilder<FontStyle, &str, f32> {
-    pub(crate) fn build(self) -> Option<Font> {
-        let typeface = Typeface::new(self.font_family, self.style)?;
+impl FontBuilder<FontStyle, &FontData, f32> {
+    pub(crate) fn build(self) -> Result<Font, FontError> {
+        let font_data = match self.style.slant() {
+            Slant::Upright => self.data.normal.as_slice(),
+            Slant::Italic => self.data.italic.as_slice(),
+            Slant::Oblique => unimplemented!(),
+        };
 
-        Some(Font::new(typeface, Some(self.size)))
+        // SAFETY: `self.font_data` outlives `Data`
+        let data = unsafe { Data::new_bytes(font_data) };
+        let typeface = Typeface::from_data(data, None).ok_or(FontError::Typeface)?;
+
+        Ok(Font::new(typeface, Some(self.size)))
     }
 }
 
 impl<ST, F, SI> FontBuilder<ST, F, SI> {
     pub(crate) fn style(
-        mut self,
+        self,
         weight: impl Into<Weight>,
         width: Width,
         slant: Slant,
     ) -> FontBuilder<FontStyle, F, SI> {
         FontBuilder {
-            style: FontStyle::new(weight, width, slant),
-            font_family: self.font_family,
+            style: FontStyle::new(weight.into(), width, slant),
+            data: self.data,
             size: self.size,
         }
     }
 
-    pub(crate) fn family(mut self, family: &str) -> FontBuilder<ST, &str, SI> {
+    pub(crate) fn data(self, data: &FontData) -> FontBuilder<ST, &FontData, SI> {
         FontBuilder {
             style: self.style,
-            font_family: family,
+            data,
             size: self.size,
         }
     }
 
-    pub(crate) fn size(mut self, size: f32) -> FontBuilder<ST, F, f32> {
+    pub(crate) fn size(self, size: f32) -> FontBuilder<ST, F, f32> {
         FontBuilder {
             style: self.style,
-            font_family: self.font_family,
+            data: self.data,
             size,
         }
     }

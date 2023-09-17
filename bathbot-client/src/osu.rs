@@ -524,6 +524,12 @@ impl Client {
             .map_err(Report::new)
     }
 
+    pub async fn get_flag(&self, url: &str) -> Result<Bytes> {
+        self.make_get_request(url, Site::Flags)
+            .await
+            .map_err(Report::new)
+    }
+
     /// Make sure you provide a valid url to a mapset cover
     pub async fn get_mapset_cover(&self, cover: &str) -> Result<Bytes> {
         self.make_get_request(&cover, Site::OsuMapsetCover)

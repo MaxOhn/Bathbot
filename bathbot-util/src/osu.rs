@@ -3,7 +3,6 @@ use std::{
     slice::Iter,
 };
 
-use eyre::Result;
 use rosu_v2::prelude::{
     mods, GameMod, GameModIntermode, GameMode, GameMods, GameModsIntermode, Grade, Score,
     ScoreStatistics,
@@ -102,25 +101,25 @@ impl ModSelection {
 }
 
 pub fn flag_url(country_code: &str) -> String {
-    // format!("{OSU_BASE}/images/flags/{country_code}.png") // from osu itself but
-    // outdated
-    format!("https://osuflags.omkserver.nl/{country_code}-256.png") // kelderman
+    // format!("{OSU_BASE}/images/flags/{country_code}.png") // from osu itself but outdated
+    flag_url_size(country_code, 256)
+}
+
+pub fn flag_url_size(country_code: &str, size: u32) -> String {
+    format!("https://osuflags.omkserver.nl/{country_code}-{size}.png") // kelderman
 }
 
 pub fn flag_url_svg(country_code: &str) -> String {
-    assert_eq!(
-        country_code.len(),
-        2,
-        "country code `{country_code}` is invalid",
-    );
-
     const OFFSET: u32 = 0x1F1A5;
-    let bytes = country_code.as_bytes();
+
+    let [byte0, byte1] = country_code.as_bytes() else {
+        panic!("country code `{country_code}` is invalid");
+    };
 
     let url = format!(
         "{OSU_BASE}assets/images/flags/{:x}-{:x}.svg",
-        bytes[0].to_ascii_uppercase() as u32 + OFFSET,
-        bytes[1].to_ascii_uppercase() as u32 + OFFSET
+        byte0.to_ascii_uppercase() as u32 + OFFSET,
+        byte1.to_ascii_uppercase() as u32 + OFFSET
     );
 
     url

@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::str::from_utf8 as str_from_utf8;
 
 use skia_safe::Path;
 
@@ -10,12 +10,12 @@ pub(crate) struct Svg {
     pub(crate) path: Path,
 }
 
-impl FromStr for Svg {
-    type Err = SvgError;
-
-    fn from_str(svg: &str) -> Result<Self, Self::Err> {
+impl Svg {
+    pub(crate) fn parse(bytes: &[u8]) -> Result<Self, SvgError> {
         const VIEW_BOX_NEEDLE: &str = " viewBox=\"";
         const PATH_NEEDLE: &str = " d=\"";
+
+        let svg = str_from_utf8(bytes)?;
 
         let start =
             svg.find(VIEW_BOX_NEEDLE).ok_or(SvgError::MissingViewBox)? + VIEW_BOX_NEEDLE.len();

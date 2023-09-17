@@ -73,7 +73,7 @@ impl TitleDescriptions {
     const NO_NM_COUNT: usize = 10;
     const SO_COUNT: usize = 20;
 
-    fn new(mode: GameMode, scores: &[Score]) -> Self {
+    pub(crate) fn new(mode: GameMode, scores: &[Score]) -> Self {
         let mut nomod = 0;
         let mut hidden = 0;
         let mut doubletime = 0;
@@ -206,7 +206,7 @@ impl TitleDescriptions {
         self.0.push(desc);
     }
 
-    fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 }

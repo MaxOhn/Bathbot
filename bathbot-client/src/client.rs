@@ -23,7 +23,7 @@ pub struct Client {
     pub(crate) client: InnerClient,
     #[cfg(feature = "twitch")]
     twitch: bathbot_model::TwitchData,
-    ratelimiters: [LeakyBucket; 13],
+    ratelimiters: [LeakyBucket; 14],
     metrics: ClientMetrics,
 }
 
@@ -59,6 +59,7 @@ impl Client {
 
         let ratelimiters = [
             ratelimiter(2),  // DiscordAttachment
+            ratelimiter(10), // Flags
             ratelimiter(2),  // Huismetbenen
             ratelimiter(5),  // MissAnalyzer
             ratelimiter(2),  // Osekai

@@ -1,12 +1,8 @@
-#[macro_use]
-extern crate eyre;
-
 mod builder;
 mod cow;
 mod exp_backoff;
 mod ext;
 mod hasher;
-mod html_to_png;
 mod macros;
 mod matrix;
 mod msg_origin;
@@ -25,7 +21,6 @@ pub use self::{
     exp_backoff::ExponentialBackoff,
     ext::*,
     hasher::{IntHash, IntHasher},
-    html_to_png::HtmlToPng,
     matrix::Matrix,
     msg_origin::MessageOrigin,
     tourney_badges::TourneyBadges,

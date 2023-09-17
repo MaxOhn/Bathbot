@@ -1,100 +1,142 @@
-use std::{collections::HashMap, marker::PhantomData, mem};
+use std::{collections::HashMap, fs, hash::BuildHasher, marker::PhantomData, mem};
 
 use rosu_pp::{Beatmap, DifficultyAttributes};
 use rosu_v2::model::{score::Score, GameMode};
 use skia_safe::{EncodedImageFormat, Surface};
 
-use crate::{builder::card::CardBuilder, error::CardError, skills::Skills};
+use crate::{
+    builder::{
+        card::{CardBuilder, H, W},
+        font::FontData,
+    },
+    error::CardError,
+    skills::{CardTitle, Skills},
+    ASSETS_PATH,
+};
 
 pub struct UsernameNext;
+pub struct LevelNext;
 pub struct RanksNext;
 pub struct MedalsNext;
 pub struct BytesNext;
+pub struct DateNext;
 pub struct ReadyToDraw;
 
 pub(crate) type Maps<S> = HashMap<u32, (Beatmap, DifficultyAttributes), S>;
 
-pub struct Card<'a, Status> {
+pub struct BathbotCard<'a, Status> {
     pub(crate) skills: Skills,
-    pub(crate) user: User<'a>,
+    pub(crate) title: CardTitle,
+    pub(crate) inner: CardInner<'a>,
     _phantom: PhantomData<Status>,
 }
 
 #[derive(Default)]
-pub(crate) struct User<'a> {
-    pub(crate) name: &'a str,
+pub(crate) struct CardInner<'a> {
+    pub(crate) username: &'a str,
     pub(crate) rank_global: u32,
     pub(crate) rank_country: u32,
+    pub(crate) level: f32,
     pub(crate) medals: u32,
     pub(crate) total_medals: u32,
     pub(crate) pfp: &'a [u8],
     pub(crate) flag: &'a [u8],
+    pub(crate) date: &'a str,
 }
 
-impl<'a, Status> Card<'a, Status> {
-    fn cast<NewStatus>(&mut self) -> &mut Card<'a, NewStatus> {
+impl<'a, Status> BathbotCard<'a, Status> {
+    fn cast<NewStatus>(&mut self) -> &mut BathbotCard<'a, NewStatus> {
         // SAFETY: only `_phantom` changes which is a ZST
         unsafe { mem::transmute(self) }
     }
 }
 
-impl<'a> Card<'a, UsernameNext> {
-    pub fn new<S>(mode: GameMode, scores: &[Score], maps: &Maps<S>) -> Result<Self, CardError> {
-        Ok(Self {
-            skills: Skills::calculate(mode, scores, maps)?,
-            user: Default::default(),
-            _phantom: Default::default(),
-        })
+impl<'a> BathbotCard<'a, UsernameNext> {
+    pub fn new<S>(mode: GameMode, scores: &[Score], maps: Maps<S>) -> Self
+    where
+        S: BuildHasher,
+    {
+        let skills = Skills::calculate(mode, scores, maps);
+
+        Self {
+            title: CardTitle::new(&skills, scores),
+            skills,
+            inner: CardInner::default(),
+            _phantom: PhantomData,
+        }
     }
 }
 
-impl<'a> Card<'a, UsernameNext> {
-    pub fn username(&mut self, name: &'a str) -> &mut Card<'a, RanksNext> {
-        self.user.name = name;
+impl<'a> BathbotCard<'a, UsernameNext> {
+    pub fn username(&mut self, name: &'a str) -> &mut BathbotCard<'a, LevelNext> {
+        self.inner.username = name;
 
         self.cast()
     }
 }
 
-impl<'a> Card<'a, RanksNext> {
-    pub fn ranks(&mut self, global_rank: u32, country_rank: u32) -> &mut Card<'a, MedalsNext> {
-        self.user.rank_global = global_rank;
-        self.user.rank_country = country_rank;
+impl<'a> BathbotCard<'a, LevelNext> {
+    pub fn level(&mut self, level: f32) -> &mut BathbotCard<'a, RanksNext> {
+        self.inner.level = level;
 
         self.cast()
     }
 }
 
-impl<'a> Card<'a, MedalsNext> {
-    pub fn medals(&mut self, curr_medals: u32, total_medals: u32) -> &mut Card<'a, BytesNext> {
-        self.user.medals = curr_medals;
-        self.user.total_medals = total_medals;
+impl<'a> BathbotCard<'a, RanksNext> {
+    pub fn ranks(
+        &mut self,
+        global_rank: u32,
+        country_rank: u32,
+    ) -> &mut BathbotCard<'a, MedalsNext> {
+        self.inner.rank_global = global_rank;
+        self.inner.rank_country = country_rank;
 
         self.cast()
     }
 }
 
-impl<'a> Card<'a, BytesNext> {
-    pub fn bytes(&mut self, pfp: &'a [u8], flag: &'a [u8]) -> &mut Card<'a, ReadyToDraw> {
-        self.user.pfp = pfp;
-        self.user.flag = flag;
+impl<'a> BathbotCard<'a, MedalsNext> {
+    pub fn medals(
+        &mut self,
+        curr_medals: u32,
+        total_medals: u32,
+    ) -> &mut BathbotCard<'a, BytesNext> {
+        self.inner.medals = curr_medals;
+        self.inner.total_medals = total_medals;
 
         self.cast()
     }
 }
 
-impl Card<'_, ReadyToDraw> {
+impl<'a> BathbotCard<'a, BytesNext> {
+    pub fn bytes(&mut self, pfp: &'a [u8], flag: &'a [u8]) -> &mut BathbotCard<'a, DateNext> {
+        self.inner.pfp = pfp;
+        self.inner.flag = flag;
+
+        self.cast()
+    }
+}
+
+impl<'a> BathbotCard<'a, DateNext> {
+    pub fn date(&mut self, date: &'a str) -> &mut BathbotCard<'a, ReadyToDraw> {
+        self.inner.date = date;
+
+        self.cast()
+    }
+}
+
+impl BathbotCard<'_, ReadyToDraw> {
     pub fn draw(&self) -> Result<Vec<u8>, CardError> {
-        let size = (CardBuilder::W, CardBuilder::H);
-        let mut surface = Surface::new_raster_n32_premul(size).ok_or(CardError::CreateSurface)?;
+        let fonts = Self::load_fonts()?;
 
-        let title = self.skills.title();
+        let mut surface = Surface::new_raster_n32_premul((W, H)).ok_or(CardError::CreateSurface)?;
 
         CardBuilder::new(surface.canvas())
-            .background(&title)?
-            .header(self.skills.mode(), &self.user, &title)?
-            .info(&self.user, &self.skills)?
-            .footer()?;
+            .draw_background(&self.title)?
+            .draw_header(self.skills.mode(), &self.inner, &self.title, &fonts)?
+            .draw_info(&self.inner, &self.skills, &fonts)?
+            .draw_footer(&self.inner, &fonts)?;
 
         let png_data = surface
             .image_snapshot()
@@ -102,5 +144,15 @@ impl Card<'_, ReadyToDraw> {
             .ok_or(CardError::EncodeAsPng)?;
 
         Ok(png_data.as_bytes().to_vec())
+    }
+
+    fn load_fonts() -> Result<FontData, CardError> {
+        let font_normal_path = format!("{ASSETS_PATH}fonts/Roboto-Regular.ttf");
+        let font_normal = fs::read(font_normal_path).map_err(CardError::LoadFont)?;
+
+        let font_italic_path = format!("{ASSETS_PATH}fonts/Roboto-Italic.ttf");
+        let font_italic = fs::read(font_italic_path).map_err(CardError::LoadFont)?;
+
+        Ok(FontData::new(font_normal, font_italic))
     }
 }

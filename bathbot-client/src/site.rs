@@ -2,6 +2,7 @@
 #[repr(u8)]
 pub enum Site {
     DiscordAttachment,
+    Flags,
     Huismetbenen,
     MissAnalyzer,
     Osekai,
@@ -20,6 +21,7 @@ impl Site {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::DiscordAttachment => "DiscordAttachment",
+            Self::Flags => "Flag",
             Self::Huismetbenen => "Huismetbenen",
             Self::MissAnalyzer => "MissAnalyzer",
             Self::Osekai => "Osekai",

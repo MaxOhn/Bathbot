@@ -1,13 +1,13 @@
-use std::io::Error as IoError;
+use std::{io::Error as IoError, str::Utf8Error};
 
 use thiserror::Error as ThisError;
 
 #[derive(Debug, ThisError)]
 pub enum CardError {
+    #[error("Failed to read font file")]
+    LoadFont(#[from] IoError),
     #[error("Failed to create surface")]
     CreateSurface,
-    #[error("Failed to encode as PNG")]
-    EncodeAsPng,
     #[error("Failed to draw background")]
     Background(#[from] BackgroundError),
     #[error("Failed to draw header")]
@@ -16,6 +16,8 @@ pub enum CardError {
     Info(#[from] InfoError),
     #[error("Failed to draw footer")]
     Footer(#[from] FooterError),
+    #[error("Failed to encode as PNG")]
+    EncodeAsPng,
 }
 
 #[derive(Debug, ThisError)]
@@ -36,15 +38,15 @@ pub enum FontError {
 pub enum BackgroundError {
     #[error("Failed to create image")]
     Image,
-    #[error("IO error")]
-    Io(#[from] IoError),
+    #[error("Failed to read image file")]
+    File(#[source] IoError),
 }
 
 #[derive(Debug, ThisError)]
 pub enum HeaderError {
     #[error("Font error")]
     Font(#[from] FontError),
-    #[error("Failed to create image")]
+    #[error("Failed to create flag image")]
     Flag,
     #[error("Failed to read mode file")]
     ModeFile(#[source] IoError),
@@ -52,36 +54,50 @@ pub enum HeaderError {
     ModePath,
     #[error("Paint error")]
     Paint(#[from] PaintError),
+    #[error("svg error")]
+    Svg(#[from] SvgError),
 }
 
 #[derive(Debug, ThisError)]
 pub enum InfoError {
+    #[error("Failed to create avatar image")]
+    Avatar,
     #[error("Font error")]
     Font(#[from] FontError),
     #[error("Paint error")]
     Paint(#[from] PaintError),
+    #[error("Failed to make skill text blob")]
+    SkillTextBlob,
 }
 
 #[derive(Debug, ThisError)]
 pub enum FooterError {
     #[error("Font error")]
     Font(#[from] FontError),
+    #[error("Failed to create icon image")]
+    Icon,
+    #[error("IO error")]
+    Io(#[from] IoError),
     #[error("Paint error")]
     Paint(#[from] PaintError),
+    #[error("svg error")]
+    Svg(#[from] SvgError),
 }
 
 #[derive(Debug, ThisError)]
 pub enum SvgError {
     #[error("Failed to create path")]
     CreatePath,
-    #[error("Missing svg path")]
+    #[error("Missing path")]
     MissingPath,
-    #[error("Missing svg viewBox")]
+    #[error("Missing viewBox")]
     MissingViewBox,
-    #[error("Missing svg viewBox height")]
+    #[error("Missing viewBox height")]
     MissingViewBoxH,
-    #[error("Missing svg viewBox width")]
+    #[error("Missing viewBox width")]
     MissingViewBoxW,
-    #[error("Failed to parse svg viewBox")]
+    #[error("Failed to parse viewBox")]
     ParseViewBox,
+    #[error("Failed UTF-8 validation")]
+    Utf8(#[from] Utf8Error),
 }
