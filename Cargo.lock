@@ -206,6 +206,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bathbot-cards"
+version = "3.5.4"
+dependencies = [
+ "itoa",
+ "rosu-pp",
+ "rosu-v2",
+ "skia-safe",
+ "thiserror",
+]
+
+[[package]]
 name = "bathbot-client"
 version = "3.5.4"
 dependencies = [
@@ -320,6 +331,7 @@ version = "3.5.4"
 dependencies = [
  "aho-corasick 0.7.20",
  "bathbot-cache",
+ "bathbot-cards",
  "bathbot-client",
  "bathbot-macros",
  "bathbot-model",
@@ -335,7 +347,6 @@ dependencies = [
  "flexmap",
  "flurry",
  "futures",
- "handlebars",
  "hashbrown 0.14.0",
  "image",
  "itertools 0.10.5",
@@ -377,7 +388,6 @@ dependencies = [
 name = "bathbot-util"
 version = "3.5.4"
 dependencies = [
- "eyre",
  "once_cell",
  "regex",
  "rosu-v2",

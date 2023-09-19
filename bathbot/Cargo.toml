@@ -7,6 +7,7 @@ edition.workspace = true
 [dependencies]
 aho-corasick = { version = "0.7" }
 bathbot-cache = { path = "../bathbot-cache" }
+bathbot-cards = { path = "../bathbot-cards" }
 bathbot-client = { path = "../bathbot-client" }
 bathbot-macros = { path = "../bathbot-macros" }
 bathbot-model = { path = "../bathbot-model" }
@@ -22,7 +23,6 @@ eyre = { version = "0.6" }
 flexmap = { git = "https://github.com/MaxOhn/flexmap" }
 flurry = { version = "0.4" }
 futures = { version = "0.3", default-features = false }
-handlebars = { version = "4.0" }
 hashbrown = { version = "0.14" }
 image = { version = "0.24", default-features = false, features = ["gif", "png"] }
 itertools = { version = "0.10" }
@@ -44,8 +44,8 @@ rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = 
 rosu-render = { version = "0.2", default-features = false, features = ["rustls-webpki-roots"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
-skia-safe = { version = "0.58.0" }
 smallvec = { version = "1.0" }
+skia-safe = { version = "0.58.0" }
 thiserror = { version = "1.0" }
 time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time"] }

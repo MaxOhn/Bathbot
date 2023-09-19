@@ -5,7 +5,6 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
-eyre = { version = "0.6" }
 once_cell = { version = "1.0" }
 regex = { version = "1.0" }
 rosu-v2 = { workspace = true }
