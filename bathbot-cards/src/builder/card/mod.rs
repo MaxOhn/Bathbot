@@ -2,12 +2,12 @@ mod footer;
 mod header;
 mod info;
 
-use std::fs;
+use std::{fs, path::PathBuf};
 
 use itoa::Buffer;
 use skia_safe::{Canvas, Data, Image};
 
-use crate::{error::BackgroundError, skills::CardTitle, ASSETS_PATH};
+use crate::{error::BackgroundError, skills::CardTitle};
 
 pub(crate) const H: i32 = 1260;
 pub(crate) const W: i32 = 980;
@@ -28,10 +28,11 @@ impl<'a> CardBuilder<'a> {
     pub(crate) fn draw_background(
         &mut self,
         title: &CardTitle,
+        mut assets: PathBuf,
     ) -> Result<&mut Self, BackgroundError> {
-        let filename = title.prefix.filename();
-        let path = format!("{ASSETS_PATH}backgrounds/{filename}.png");
-        let bytes = fs::read(path).map_err(BackgroundError::File)?;
+        assets.push("backgrounds");
+        assets.push(title.prefix.filename());
+        let bytes = fs::read(assets).map_err(BackgroundError::File)?;
 
         // SAFETY: `bytes` and `Data` share the same lifetime
         let data = unsafe { Data::new_bytes(&bytes) };

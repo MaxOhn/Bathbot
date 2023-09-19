@@ -4,8 +4,12 @@ use thiserror::Error as ThisError;
 
 #[derive(Debug, ThisError)]
 pub enum CardError {
-    #[error("Failed to read font file")]
-    LoadFont(#[from] IoError),
+    #[error("Failed to read font file `{path}`")]
+    LoadFont {
+        #[source]
+        source: IoError,
+        path: Box<str>,
+    },
     #[error("Failed to create surface")]
     CreateSurface,
     #[error("Failed to draw background")]
@@ -56,6 +60,8 @@ pub enum HeaderError {
     Paint(#[from] PaintError),
     #[error("svg error")]
     Svg(#[from] SvgError),
+    #[error("Failed to make title text blob")]
+    TitleTextBlob,
 }
 
 #[derive(Debug, ThisError)]

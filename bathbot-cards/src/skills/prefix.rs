@@ -36,18 +36,18 @@ impl TitlePrefix {
 
     pub(crate) fn filename(&self) -> &'static str {
         match self {
-            Self::Newbie => "newbie",
-            Self::Novice => "novice",
-            Self::Rookie => "rookie",
-            Self::Apprentice => "apprentice",
-            Self::Advanced => "advanced",
-            Self::Outstanding => "outstanding",
-            Self::Seasoned => "seasoned",
-            Self::Professional => "professional",
-            Self::Expert => "expert",
-            Self::Master => "master",
-            Self::Legendary => "legendary",
-            Self::God => "god",
+            Self::Newbie => "newbie.png",
+            Self::Novice => "novice.png",
+            Self::Rookie => "rookie.png",
+            Self::Apprentice => "apprentice.png",
+            Self::Advanced => "advanced.png",
+            Self::Outstanding => "outstanding.png",
+            Self::Seasoned => "seasoned.png",
+            Self::Professional => "professional.png",
+            Self::Expert => "expert.png",
+            Self::Master => "master.png",
+            Self::Legendary => "legendary.png",
+            Self::God => "god.png",
         }
     }
 }

@@ -1,20 +1,21 @@
+use std::cmp;
+
 use skia_safe::{
-    font_style::{Slant, Width},
-    utils::text_utils::Align,
-    BlurStyle, Data, Image, Rect, TextBlobBuilder,
+    font_style::Slant, utils::text_utils::Align, BlurStyle, Data, ISize, Image, Rect,
+    TextBlobBuilder,
 };
 
+use super::{footer::FOOTER_H, header::HEADER_H, CardBuilder, H, W};
 use crate::{
     builder::{
-        font::{FontBuilder, FontData},
+        font::FontBuilder,
         paint::{Gradient, PaintBuilder},
     },
     card::CardInner,
     error::InfoError,
+    font::FontData,
     skills::Skills,
 };
-
-use super::{footer::FOOTER_H, header::HEADER_H, CardBuilder, H, W};
 
 const INFO_PAD: i32 = 53;
 const INFO_UPPER_LEFT_W: i32 = 445;
@@ -26,6 +27,7 @@ const INFO_LOWER_W: i32 = W - 2 * INFO_PAD;
 const INFO_LOWER_H: i32 =
     H - (HEADER_H + 2 * INFO_PAD + INFO_UPPER_H + INFO_LOWER_MARGIN + FOOTER_H);
 const INFO_AVATAR_W: i32 = INFO_UPPER_LEFT_W;
+const INFO_AVATAR_H: i32 = INFO_AVATAR_W;
 const INFO_GLOBAL_RANK_PAD: i32 = 20;
 
 impl CardBuilder<'_> {
@@ -113,13 +115,24 @@ fn draw_pfp(card: &mut CardBuilder<'_>, pfp: &[u8]) -> Result<(), InfoError> {
     let data = unsafe { Data::new_bytes(pfp) };
 
     let img = Image::from_encoded_with_alpha_type(data, None).ok_or(InfoError::Avatar)?;
-    let scale = INFO_AVATAR_W as f32 / 128.0;
-    let x_pos = scale.recip() * INFO_PAD as f32;
-    let y_pos = scale.recip() * (HEADER_H + INFO_PAD) as f32;
+
+    let ISize {
+        width: img_w,
+        height: img_h,
+    } = img.dimensions();
+
+    let max = cmp::max(img_w, img_h);
+    let scale = INFO_AVATAR_W as f32 / max as f32;
+
+    let offset_x = INFO_AVATAR_W as f32 - scale * img_w as f32;
+    let offset_y = INFO_AVATAR_H as f32 - scale * img_h as f32;
+
+    let pos_x = scale.recip() * (INFO_PAD as f32 + offset_x / 2.0);
+    let pos_y = scale.recip() * ((HEADER_H + INFO_PAD) as f32 + offset_y / 2.0);
 
     card.canvas
         .scale((scale, scale))
-        .draw_image(&img, (x_pos, y_pos), None)
+        .draw_image(&img, (pos_x, pos_y), None)
         .scale((scale.recip(), scale.recip()));
 
     Ok(())
@@ -132,23 +145,14 @@ fn draw_global_rank(
 ) -> Result<(), InfoError> {
     let rank = format!("#{rank}");
     let paint = PaintBuilder::rgb(255, 255, 255).build();
-
-    let font = FontBuilder::new()
-        .style(400, Width::NORMAL, Slant::Italic)
-        .data(font_data)
-        .size(32.0)
-        .build()?;
+    let font = FontBuilder::build(400, Slant::Italic, font_data, 32.0)?;
 
     let pos_x = INFO_PAD + INFO_GLOBAL_RANK_PAD;
     let pos_y = HEADER_H + INFO_PAD + INFO_AVATAR_W + INFO_GLOBAL_RANK_PAD + 31;
     card.canvas
         .draw_str("Global", (pos_x as f32, pos_y as f32), &font, &paint);
 
-    let font = FontBuilder::new()
-        .style(900, Width::NORMAL, Slant::Upright)
-        .data(font_data)
-        .size(45.0)
-        .build()?;
+    let font = FontBuilder::build(900, Slant::Upright, font_data, 45.0)?;
 
     let pos_x = INFO_PAD + INFO_GLOBAL_RANK_PAD;
     let pos_y = HEADER_H + INFO_PAD + INFO_AVATAR_W + INFO_GLOBAL_RANK_PAD + 31 + 44;
@@ -165,12 +169,7 @@ fn draw_country_rank(
 ) -> Result<(), InfoError> {
     let rank = format!("#{rank}");
     let paint = PaintBuilder::rgb(255, 255, 255).build();
-
-    let font = FontBuilder::new()
-        .style(300, Width::NORMAL, Slant::Italic)
-        .data(font_data)
-        .size(27.0)
-        .build()?;
+    let font = FontBuilder::build(300, Slant::Italic, font_data, 27.0)?;
 
     let pos_x = INFO_PAD + INFO_UPPER_LEFT_W - INFO_GLOBAL_RANK_PAD;
     let pos_y = HEADER_H + INFO_PAD + INFO_AVATAR_W + INFO_GLOBAL_RANK_PAD + 33;
@@ -183,11 +182,7 @@ fn draw_country_rank(
         Align::Right,
     );
 
-    let font = FontBuilder::new()
-        .style(600, Width::NORMAL, Slant::Upright)
-        .data(font_data)
-        .size(37.0)
-        .build()?;
+    let font = FontBuilder::build(600, Slant::Upright, font_data, 37.0)?;
 
     let pos_x = INFO_PAD + INFO_UPPER_LEFT_W - INFO_GLOBAL_RANK_PAD;
     let pos_y = HEADER_H + INFO_PAD + INFO_AVATAR_W + INFO_GLOBAL_RANK_PAD + 33 + 37;
@@ -250,7 +245,7 @@ fn draw_skills(
     // `init_y`: y-pos of skill's rect
     // `margin`: pixels inbetween two rects' y-pos
     let (init_y, margin) = match drawables.len() {
-        2 => todo!(),
+        2 => (HEADER_H + INFO_PAD + 89, 270),
         3 => (HEADER_H + INFO_PAD + 44, 180),
         _ => unreachable!(),
     };
@@ -259,25 +254,13 @@ fn draw_skills(
 
     let rect_x = INFO_PAD + INFO_UPPER_LEFT_W + INFO_UPPER_MARGIN + 30;
 
-    let name_font = FontBuilder::new()
-        .style(300, Width::NORMAL, Slant::Italic)
-        .data(font_data)
-        .size(42.0)
-        .build()?;
+    let name_font = FontBuilder::build(300, Slant::Italic, font_data, 42.0)?;
     let name_x = INFO_PAD + INFO_UPPER_LEFT_W + INFO_UPPER_MARGIN + 46;
 
-    let trunc_font = FontBuilder::new()
-        .style(900, Width::NORMAL, Slant::Upright)
-        .data(font_data)
-        .size(67.0)
-        .build()?;
+    let trunc_font = FontBuilder::build(900, Slant::Upright, font_data, 67.0)?;
     let trunc_x = INFO_PAD + INFO_UPPER_LEFT_W + INFO_UPPER_MARGIN + 30;
 
-    let fract_font = FontBuilder::new()
-        .style(400, Width::NORMAL, Slant::Upright)
-        .data(font_data)
-        .size(67.0)
-        .build()?;
+    let fract_font = FontBuilder::build(400, Slant::Upright, font_data, 67.0)?;
 
     for (skill, i) in drawables.into_iter().zip(0..) {
         let DrawableSkill { name, value } = skill;
@@ -299,8 +282,7 @@ fn draw_skills(
         // Value
         let mut builder = TextBlobBuilder::new();
         let trunc = format!("{}.", value.trunc() as i32);
-        // TODO: some issue with 0 or 1?
-        let fract = card.int_buf.format((value.fract() * 100.0) as i32);
+        let fract = format!("{:0>2}", (value.fract() * 100.0) as i32);
 
         let trunc_y = init_y + 106 + i * margin;
         let trunc_glyphs = builder.alloc_run(&trunc_font, trunc.len(), (0.0, 0.0), None);
@@ -308,7 +290,7 @@ fn draw_skills(
         let (trunc_w, _) = trunc_font.measure_str(&trunc, Some(&paint));
 
         let fract_glyphs = builder.alloc_run(&fract_font, fract.len(), (trunc_w, 0.0), None);
-        fract_font.str_to_glyphs(fract, fract_glyphs);
+        fract_font.str_to_glyphs(&fract, fract_glyphs);
         let blob = builder.make().ok_or(InfoError::SkillTextBlob)?;
         card.canvas
             .draw_text_blob(blob, (trunc_x as f32, trunc_y as f32), &paint);
@@ -326,13 +308,9 @@ fn draw_level(
     let level_value = card.int_buf.format(level.trunc() as u32);
     let percent = level.fract();
 
-    let font = FontBuilder::new()
-        .style(300, Width::NORMAL, Slant::Italic)
-        .data(font_data)
-        .size(35.0)
-        .build()?;
-
+    let font = FontBuilder::build(300, Slant::Italic, font_data, 35.0)?;
     let paint = PaintBuilder::rgb(255, 255, 255).alpha(168).build();
+
     let pos_x = INFO_PAD + 32;
     let pos_y = HEADER_H + INFO_PAD + INFO_UPPER_H + INFO_LOWER_MARGIN + INFO_LOWER_MARGIN + 46;
     let level_text = "Level";
@@ -340,12 +318,7 @@ fn draw_level(
         .draw_str(level_text, (pos_x as f32, pos_y as f32), &font, &paint);
     let (level_w, _) = font.measure_str(level_text, Some(&paint));
 
-    let font = FontBuilder::new()
-        .style(800, Width::NORMAL, Slant::Italic)
-        .data(font_data)
-        .size(35.0)
-        .build()?;
-
+    let font = FontBuilder::build(800, Slant::Italic, font_data, 35.0)?;
     let paint = PaintBuilder::rgb(255, 255, 255).build();
     let pos_x = (INFO_PAD + 40) as f32 + level_w;
     let pos_y = HEADER_H + INFO_PAD + INFO_UPPER_H + INFO_LOWER_MARGIN + INFO_LOWER_MARGIN + 46;
@@ -433,12 +406,7 @@ fn draw_medals(
     let percent = curr_medals as f32 / total_medals as f32;
 
     // Text left
-    let font = FontBuilder::new()
-        .style(300, Width::NORMAL, Slant::Italic)
-        .data(font_data)
-        .size(35.0)
-        .build()?;
-
+    let font = FontBuilder::build(300, Slant::Italic, font_data, 35.0)?;
     let paint = PaintBuilder::rgb(255, 255, 255).alpha(168).build();
     let pos_x = INFO_PAD + 32;
     let pos_y = HEADER_H + INFO_PAD + INFO_UPPER_H + INFO_LOWER_MARGIN + INFO_LOWER_MARGIN + 87;
@@ -447,12 +415,7 @@ fn draw_medals(
         .draw_str(medal_text, (pos_x as f32, pos_y as f32), &font, &paint);
     let (medal_w, _) = font.measure_str(medal_text, Some(&paint));
 
-    let font = FontBuilder::new()
-        .style(800, Width::NORMAL, Slant::Italic)
-        .data(font_data)
-        .size(35.0)
-        .build()?;
-
+    let font = FontBuilder::build(800, Slant::Italic, font_data, 35.0)?;
     let paint = PaintBuilder::rgb(255, 255, 255).alpha(168).build(); // simulating brightness
     let pos_x = (INFO_PAD + 40) as f32 + medal_w;
     let pos_y = HEADER_H + INFO_PAD + INFO_UPPER_H + INFO_LOWER_MARGIN + INFO_LOWER_MARGIN + 87;
@@ -460,12 +423,7 @@ fn draw_medals(
     card.canvas
         .draw_str(&medal_percent_str, (pos_x, pos_y as f32), &font, &paint);
 
-    let font = FontBuilder::new()
-        .style(800, Width::NORMAL, Slant::Italic)
-        .data(font_data)
-        .size(35.0)
-        .build()?;
-
+    let font = FontBuilder::build(800, Slant::Italic, font_data, 35.0)?;
     let (r, g, b) = MedalClub::from_percent(percent).rgb();
     let paint = PaintBuilder::rgb(r, g, b).alpha(168).build();
     let pos_x = (INFO_PAD + 40) as f32 + medal_w;
@@ -475,12 +433,7 @@ fn draw_medals(
     let (percent_w, _) = font.measure_str(&medal_percent_str, Some(&paint));
 
     // Text right
-    let font = FontBuilder::new()
-        .style(400, Width::NORMAL, Slant::Upright)
-        .data(font_data)
-        .size(30.0)
-        .build()?;
-
+    let font = FontBuilder::build(400, Slant::Upright, font_data, 30.0)?;
     let paint = PaintBuilder::rgb(255, 255, 255).alpha(168).build();
     let pos_x = W - (INFO_PAD + 32);
     let pos_y = HEADER_H + INFO_PAD + INFO_UPPER_H + INFO_LOWER_MARGIN + INFO_LOWER_MARGIN + 86;
@@ -495,12 +448,7 @@ fn draw_medals(
     );
     let (total_medals_w, _) = font.measure_str(total_medals_str, Some(&paint));
 
-    let font = FontBuilder::new()
-        .style(500, Width::NORMAL, Slant::Upright)
-        .data(font_data)
-        .size(30.0)
-        .build()?;
-
+    let font = FontBuilder::build(500, Slant::Upright, font_data, 30.0)?;
     let paint = PaintBuilder::rgb(255, 255, 255).build();
     let pos_x = (W - (INFO_PAD + 32)) as f32 - total_medals_w;
     let pos_y = HEADER_H + INFO_PAD + INFO_UPPER_H + INFO_LOWER_MARGIN + INFO_LOWER_MARGIN + 86;
@@ -516,9 +464,9 @@ fn draw_medals(
 
     let (medals_w, _) = font.measure_str(medals_str, Some(&paint));
 
-    // Bars
+    // Split thin bars
     let rect_w = (W - 2 * INFO_PAD - 98) as f32 - medal_w - percent_w - total_medals_w - medals_w;
-    let rect = Rect::new(0.0, 0.0, rect_w * 0.4, 3.0);
+    let rect = Rect::new(0.0, 0.0, rect_w * 0.41, 3.0);
     let paint = MedalClub::None.paint().build();
     let translate_x = (INFO_PAD + 53) as f32 + medal_w + percent_w;
     let translate_y =
@@ -529,7 +477,7 @@ fn draw_medals(
         .draw_round_rect(rect, 3.0, 3.0, &paint)
         .translate((-translate_x, -translate_y as f32));
 
-    let rect = Rect::new(0.0, 0.0, rect_w * 0.2, 3.0);
+    let rect = Rect::new(0.0, 0.0, rect_w * 0.21, 3.0);
     let paint = MedalClub::C40.paint().build();
     let translate_x = (INFO_PAD + 53) as f32 + medal_w + percent_w + rect_w * 0.4;
     let translate_y =
@@ -540,7 +488,7 @@ fn draw_medals(
         .draw_round_rect(rect, 3.0, 3.0, &paint)
         .translate((-translate_x, -translate_y as f32));
 
-    let rect = Rect::new(0.0, 0.0, rect_w * 0.2, 3.0);
+    let rect = Rect::new(0.0, 0.0, rect_w * 0.21, 3.0);
     let paint = MedalClub::C60.paint().build();
     let translate_x = (INFO_PAD + 53) as f32 + medal_w + percent_w + rect_w * 0.6;
     let translate_y =
@@ -551,7 +499,7 @@ fn draw_medals(
         .draw_round_rect(rect, 3.0, 3.0, &paint)
         .translate((-translate_x, -translate_y as f32));
 
-    let rect = Rect::new(0.0, 0.0, rect_w * 0.1, 3.0);
+    let rect = Rect::new(0.0, 0.0, rect_w * 0.11, 3.0);
     let paint = MedalClub::C80.paint().build();
     let translate_x = (INFO_PAD + 53) as f32 + medal_w + percent_w + rect_w * 0.8;
     let translate_y =
@@ -562,7 +510,7 @@ fn draw_medals(
         .draw_round_rect(rect, 3.0, 3.0, &paint)
         .translate((-translate_x, -translate_y as f32));
 
-    let rect = Rect::new(0.0, 0.0, rect_w * 0.05, 3.0);
+    let rect = Rect::new(0.0, 0.0, rect_w * 0.06, 3.0);
     let paint = MedalClub::C90.paint().build();
     let translate_x = (INFO_PAD + 53) as f32 + medal_w + percent_w + rect_w * 0.9;
     let translate_y =
@@ -584,12 +532,14 @@ fn draw_medals(
         .draw_round_rect(rect, 3.0, 3.0, &paint)
         .translate((-translate_x, -translate_y as f32));
 
-    let rect = Rect::new(0.0, 0.0, rect_w * percent, 20.0);
+    // Shadow
+    let shadow_w = 6.0;
+    let rect = Rect::new(0.0, 0.0, rect_w * percent + 2.0 * shadow_w, 20.0);
     let paint = PaintBuilder::rgb(r, g, b)
         .alpha(128)
-        .mask_filter(BlurStyle::Normal, 6.0)?
+        .mask_filter(BlurStyle::Normal, shadow_w)?
         .build();
-    let translate_x = (INFO_PAD + 53) as f32 + medal_w + percent_w;
+    let translate_x = (INFO_PAD + 53) as f32 + medal_w + percent_w - shadow_w;
     let translate_y =
         HEADER_H + INFO_PAD + INFO_UPPER_H + INFO_LOWER_MARGIN + INFO_LOWER_MARGIN + 65;
 
@@ -598,6 +548,7 @@ fn draw_medals(
         .draw_round_rect(rect, 9.0, 9.0, &paint)
         .translate((-translate_x, -translate_y as f32));
 
+    // Thick bar
     let rect = Rect::new(0.0, 0.0, rect_w * percent, 9.0);
     let paint = PaintBuilder::rgb(r, g, b).build();
     let translate_x = (INFO_PAD + 53) as f32 + medal_w + percent_w;

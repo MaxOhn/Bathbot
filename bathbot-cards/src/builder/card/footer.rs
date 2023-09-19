@@ -1,23 +1,18 @@
-use std::fs;
+use std::{fs, path::PathBuf};
 
-use skia_safe::{
-    font_style::{Slant, Width},
-    utils::text_utils::Align,
-    Data, Image, RRect, Rect, Vector,
-};
+use skia_safe::{font_style::Slant, utils::text_utils::Align, Data, Image, RRect, Rect, Vector};
 
+use super::{CardBuilder, H, W};
 use crate::{
     builder::{
-        font::{FontBuilder, FontData},
+        font::FontBuilder,
         paint::{Gradient, PaintBuilder},
     },
     card::CardInner,
     error::FooterError,
+    font::FontData,
     svg::Svg,
-    ASSETS_PATH,
 };
-
-use super::{CardBuilder, H, W};
 
 pub(crate) const FOOTER_H: i32 = 184;
 pub(crate) const FOOTER_LOGO_W: i32 = 587;
@@ -32,9 +27,9 @@ impl CardBuilder<'_> {
         font_data: &FontData,
     ) -> Result<&mut Self, FooterError> {
         draw_background(self)?;
-        draw_logo(self)?;
-        draw_name(self)?;
-        draw_date(self, &card.date, font_data)?;
+        draw_logo(self, card.assets.clone())?;
+        draw_name(self, card.assets.clone())?;
+        draw_date(self, card.date, font_data)?;
 
         Ok(self)
     }
@@ -71,9 +66,9 @@ fn draw_background(card: &mut CardBuilder<'_>) -> Result<(), FooterError> {
     Ok(())
 }
 
-fn draw_logo(card: &mut CardBuilder<'_>) -> Result<(), FooterError> {
-    let path = format!("{ASSETS_PATH}branding/icon.png");
-    let bytes = fs::read(path)?;
+fn draw_logo(card: &mut CardBuilder<'_>, mut assets: PathBuf) -> Result<(), FooterError> {
+    assets.push("branding/icon.png");
+    let bytes = fs::read(assets)?;
 
     // SAFETY: `bytes` and `data` share the same lifetime
     let data = unsafe { Data::new_bytes(&bytes) };
@@ -90,9 +85,9 @@ fn draw_logo(card: &mut CardBuilder<'_>) -> Result<(), FooterError> {
     Ok(())
 }
 
-fn draw_name(card: &mut CardBuilder<'_>) -> Result<(), FooterError> {
-    let path = format!("{ASSETS_PATH}branding/text.svg");
-    let bytes = fs::read(path)?;
+fn draw_name(card: &mut CardBuilder<'_>, mut assets: PathBuf) -> Result<(), FooterError> {
+    assets.push("branding/text.svg");
+    let bytes = fs::read(assets)?;
     let svg = Svg::parse(&bytes)?;
     let paint = PaintBuilder::rgb(255, 255, 255).anti_alias().build();
     let translate_x = FOOTER_H + FOOTER_TEXT_MARGIN;
@@ -115,12 +110,7 @@ fn draw_date(
     date: &str,
     font_data: &FontData,
 ) -> Result<(), FooterError> {
-    let font = FontBuilder::new()
-        .style(200, Width::NORMAL, Slant::Italic)
-        .data(font_data)
-        .size(45.0)
-        .build()?;
-
+    let font = FontBuilder::build(200, Slant::Italic, font_data, 45.0)?;
     let paint = PaintBuilder::rgb(255, 255, 255).build();
     let pos_x = W - FOOTER_DATE_MARGIN_RIGHT;
     let pos_y = H - FOOTER_H + 63 + 45;

@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::{
     model::osu::{DbScores, DbScoresBuilder},
@@ -271,6 +273,13 @@ impl<'c> ScoreArgs<'c> {
 
         if let Err(err) = store_res {
             warn!(?err, "Failed to store top scores");
+        }
+
+        {
+            let file = std::fs::File::create("../testy/badewanne3_scores.rkyv").unwrap();
+            let mut writer = std::io::BufWriter::new(file);
+            let bytes = rkyv::to_bytes::<_, 1024>(&scores).unwrap();
+            writer.write_all(&bytes).unwrap();
         }
 
         Ok(scores)

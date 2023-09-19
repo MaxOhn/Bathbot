@@ -18,7 +18,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::user_not_found;
 use crate::{
     commands::GameModeOption,
-    core::{commands::CommandOrigin, Context},
+    core::{commands::CommandOrigin, BotConfig, Context},
     embeds::attachment,
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
@@ -188,12 +188,12 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
         .unwrap();
 
     let card_res = BathbotCard::new(mode, &scores, maps)
-        .username(user.username())
-        .level(stats.level().float())
+        .user(user.username(), stats.level().float())
         .ranks(stats.global_rank(), stats.country_rank())
         .medals(medals as u32, total_medals as u32)
         .bytes(&pfp, &flag)
         .date(&today)
+        .assets(BotConfig::get().paths.assets.clone())
         .draw();
 
     let bytes = match card_res {

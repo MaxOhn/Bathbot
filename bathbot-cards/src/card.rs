@@ -1,25 +1,22 @@
-use std::{collections::HashMap, fs, hash::BuildHasher, marker::PhantomData, mem};
+use std::{collections::HashMap, hash::BuildHasher, marker::PhantomData, mem, path::PathBuf};
 
 use rosu_pp::{Beatmap, DifficultyAttributes};
 use rosu_v2::model::{score::Score, GameMode};
 use skia_safe::{EncodedImageFormat, Surface};
 
 use crate::{
-    builder::{
-        card::{CardBuilder, H, W},
-        font::FontData,
-    },
+    builder::card::{CardBuilder, H, W},
     error::CardError,
+    font::FontData,
     skills::{CardTitle, Skills},
-    ASSETS_PATH,
 };
 
-pub struct UsernameNext;
-pub struct LevelNext;
+pub struct UserNext;
 pub struct RanksNext;
 pub struct MedalsNext;
 pub struct BytesNext;
 pub struct DateNext;
+pub struct AssetsPathNext;
 pub struct ReadyToDraw;
 
 pub(crate) type Maps<S> = HashMap<u32, (Beatmap, DifficultyAttributes), S>;
@@ -34,14 +31,15 @@ pub struct BathbotCard<'a, Status> {
 #[derive(Default)]
 pub(crate) struct CardInner<'a> {
     pub(crate) username: &'a str,
+    pub(crate) level: f32,
     pub(crate) rank_global: u32,
     pub(crate) rank_country: u32,
-    pub(crate) level: f32,
     pub(crate) medals: u32,
     pub(crate) total_medals: u32,
     pub(crate) pfp: &'a [u8],
     pub(crate) flag: &'a [u8],
     pub(crate) date: &'a str,
+    pub(crate) assets: PathBuf,
 }
 
 impl<'a, Status> BathbotCard<'a, Status> {
@@ -51,7 +49,7 @@ impl<'a, Status> BathbotCard<'a, Status> {
     }
 }
 
-impl<'a> BathbotCard<'a, UsernameNext> {
+impl<'a> BathbotCard<'a, UserNext> {
     pub fn new<S>(mode: GameMode, scores: &[Score], maps: Maps<S>) -> Self
     where
         S: BuildHasher,
@@ -67,16 +65,9 @@ impl<'a> BathbotCard<'a, UsernameNext> {
     }
 }
 
-impl<'a> BathbotCard<'a, UsernameNext> {
-    pub fn username(&mut self, name: &'a str) -> &mut BathbotCard<'a, LevelNext> {
+impl<'a> BathbotCard<'a, UserNext> {
+    pub fn user(&mut self, name: &'a str, level: f32) -> &mut BathbotCard<'a, RanksNext> {
         self.inner.username = name;
-
-        self.cast()
-    }
-}
-
-impl<'a> BathbotCard<'a, LevelNext> {
-    pub fn level(&mut self, level: f32) -> &mut BathbotCard<'a, RanksNext> {
         self.inner.level = level;
 
         self.cast()
@@ -119,8 +110,16 @@ impl<'a> BathbotCard<'a, BytesNext> {
 }
 
 impl<'a> BathbotCard<'a, DateNext> {
-    pub fn date(&mut self, date: &'a str) -> &mut BathbotCard<'a, ReadyToDraw> {
+    pub fn date(&mut self, date: &'a str) -> &mut BathbotCard<'a, AssetsPathNext> {
         self.inner.date = date;
+
+        self.cast()
+    }
+}
+
+impl<'a> BathbotCard<'a, AssetsPathNext> {
+    pub fn assets(&mut self, path: PathBuf) -> &mut BathbotCard<'a, ReadyToDraw> {
+        self.inner.assets = path;
 
         self.cast()
     }
@@ -128,31 +127,20 @@ impl<'a> BathbotCard<'a, DateNext> {
 
 impl BathbotCard<'_, ReadyToDraw> {
     pub fn draw(&self) -> Result<Vec<u8>, CardError> {
-        let fonts = Self::load_fonts()?;
+        let fonts = FontData::new(self.inner.assets.clone())?;
 
         let mut surface = Surface::new_raster_n32_premul((W, H)).ok_or(CardError::CreateSurface)?;
 
         CardBuilder::new(surface.canvas())
-            .draw_background(&self.title)?
+            .draw_background(&self.title, self.inner.assets.clone())?
             .draw_header(self.skills.mode(), &self.inner, &self.title, &fonts)?
             .draw_info(&self.inner, &self.skills, &fonts)?
             .draw_footer(&self.inner, &fonts)?;
 
-        let png_data = surface
+        surface
             .image_snapshot()
             .encode_to_data(EncodedImageFormat::PNG)
-            .ok_or(CardError::EncodeAsPng)?;
-
-        Ok(png_data.as_bytes().to_vec())
-    }
-
-    fn load_fonts() -> Result<FontData, CardError> {
-        let font_normal_path = format!("{ASSETS_PATH}fonts/Roboto-Regular.ttf");
-        let font_normal = fs::read(font_normal_path).map_err(CardError::LoadFont)?;
-
-        let font_italic_path = format!("{ASSETS_PATH}fonts/Roboto-Italic.ttf");
-        let font_italic = fs::read(font_italic_path).map_err(CardError::LoadFont)?;
-
-        Ok(FontData::new(font_normal, font_italic))
+            .map(|png_data| png_data.as_bytes().to_vec())
+            .ok_or(CardError::EncodeAsPng)
     }
 }
