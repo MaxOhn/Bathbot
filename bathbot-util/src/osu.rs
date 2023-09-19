@@ -101,7 +101,8 @@ impl ModSelection {
 }
 
 pub fn flag_url(country_code: &str) -> String {
-    // format!("{OSU_BASE}/images/flags/{country_code}.png") // from osu itself but outdated
+    // format!("{OSU_BASE}/images/flags/{country_code}.png") // from osu itself but
+    // outdated
     flag_url_size(country_code, 256)
 }
 
