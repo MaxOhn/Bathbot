@@ -21,15 +21,11 @@ use twilight_model::{
 pub use self::{recent_score::RecentScoreEdit, top_score::TopScoreEdit};
 use super::render::CachedRender;
 use crate::{
-    active::{ActiveMessages, ComponentResult},
+    active::{ActiveMessages, BuildPage, ComponentResult, IActiveMessage},
     commands::osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
-    core::buckets::BucketName,
+    core::{buckets::BucketName, Context},
     manager::{OwnedReplayScore, ReplayScore},
     util::{interaction::InteractionComponent, Authored, Emote, MessageExt},
-};
-use crate::{
-    active::{BuildPage, IActiveMessage},
-    core::Context,
 };
 
 mod recent_score;

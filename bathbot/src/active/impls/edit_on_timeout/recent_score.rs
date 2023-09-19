@@ -1,7 +1,6 @@
 use std::fmt::Write;
 
-use bathbot_model::rosu_v2::user::User;
-use bathbot_model::ScoreSlim;
+use bathbot_model::{rosu_v2::user::User, ScoreSlim};
 use bathbot_psql::model::configs::{MinimizedPp, ScoreSize};
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},

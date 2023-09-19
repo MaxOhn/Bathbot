@@ -1,20 +1,25 @@
 use std::sync::Arc;
 
-use bathbot_util::modal::{ModalBuilder, TextInputBuilder};
-use bathbot_util::numbers::last_multiple;
+use bathbot_util::{
+    modal::{ModalBuilder, TextInputBuilder},
+    numbers::last_multiple,
+};
 use eyre::{ContextCompat, Result, WrapErr};
 use futures::{future::BoxFuture, FutureExt};
-use twilight_model::channel::message::component::{ActionRow, Button, ButtonStyle};
-use twilight_model::channel::message::Component;
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::{
+    channel::message::{
+        component::{ActionRow, Button, ButtonStyle},
+        Component,
+    },
+    id::{marker::UserMarker, Id},
+};
 
 use super::ComponentResult;
-use crate::util::{Emote, ModalExt};
 use crate::{
     core::Context,
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        Authored, ComponentExt,
+        Authored, ComponentExt, Emote, ModalExt,
     },
 };
 

@@ -8,7 +8,10 @@ use twilight_interactions::command::{
 use twilight_model::id::{marker::UserMarker, Id};
 
 pub use self::{
-    common::*, most_played::*, profile::*, score::slash_compare as slash_compare_score, score::*,
+    common::*,
+    most_played::*,
+    profile::*,
+    score::{slash_compare as slash_compare_score, *},
 };
 use crate::{
     commands::GameModeOption,

@@ -20,8 +20,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     core::Context,
-    embeds::ClaimNameEmbed,
-    embeds::EmbedData,
+    embeds::{ClaimNameEmbed, EmbedData},
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };

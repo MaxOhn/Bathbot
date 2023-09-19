@@ -8,9 +8,11 @@ use bathbot_model::Effects;
 use bathbot_psql::model::games::MapsetTagsEntries;
 use bathbot_util::{constants::OSU_BASE, IntHasher, MessageBuilder};
 use eyre::Result;
-use tokio::sync::RwLock;
 use tokio::{
-    sync::mpsc::{self, UnboundedSender},
+    sync::{
+        mpsc::{self, UnboundedSender},
+        RwLock,
+    },
     time::{sleep, timeout, Duration},
 };
 use twilight_model::{

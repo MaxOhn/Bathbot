@@ -8,8 +8,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     core::Context,
-    embeds::AttributesEmbed,
-    embeds::EmbedData,
+    embeds::{AttributesEmbed, EmbedData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
