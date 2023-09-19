@@ -68,7 +68,7 @@ fn draw_background(card: &mut CardBuilder<'_>) -> Result<(), FooterError> {
 
 fn draw_logo(card: &mut CardBuilder<'_>, mut assets: PathBuf) -> Result<(), FooterError> {
     assets.push("branding/icon.png");
-    let bytes = fs::read(assets)?;
+    let bytes = fs::read(assets).map_err(FooterError::LogoFile)?;
 
     // SAFETY: `bytes` and `data` share the same lifetime
     let data = unsafe { Data::new_bytes(&bytes) };
@@ -87,8 +87,8 @@ fn draw_logo(card: &mut CardBuilder<'_>, mut assets: PathBuf) -> Result<(), Foot
 
 fn draw_name(card: &mut CardBuilder<'_>, mut assets: PathBuf) -> Result<(), FooterError> {
     assets.push("branding/text.svg");
-    let bytes = fs::read(assets)?;
-    let svg = Svg::parse(&bytes)?;
+    let bytes = fs::read(assets).map_err(FooterError::BrandingFile)?;
+    let svg = Svg::parse(&bytes).map_err(FooterError::BrandingSvg)?;
     let paint = PaintBuilder::rgb(255, 255, 255).anti_alias().build();
     let translate_x = FOOTER_H + FOOTER_TEXT_MARGIN;
     let translate_y = H - FOOTER_H + (FOOTER_H - FOOTER_TEXT_H) / 2 + 1;

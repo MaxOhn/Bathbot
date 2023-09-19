@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::{
     model::osu::{DbScores, DbScoresBuilder},

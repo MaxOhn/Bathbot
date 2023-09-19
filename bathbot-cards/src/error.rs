@@ -54,12 +54,10 @@ pub enum HeaderError {
     Flag,
     #[error("Failed to read mode file")]
     ModeFile(#[source] IoError),
-    #[error("Failed to parse mode path")]
-    ModePath,
+    #[error("Failed to parse mode svg")]
+    ModeSvg(SvgError),
     #[error("Paint error")]
     Paint(#[from] PaintError),
-    #[error("svg error")]
-    Svg(#[from] SvgError),
     #[error("Failed to make title text blob")]
     TitleTextBlob,
 }
@@ -82,12 +80,14 @@ pub enum FooterError {
     Font(#[from] FontError),
     #[error("Failed to create icon image")]
     Icon,
-    #[error("IO error")]
-    Io(#[from] IoError),
+    #[error("Failed to read logo file")]
+    LogoFile(#[source] IoError),
+    #[error("Failed to read branding file")]
+    BrandingFile(#[source] IoError),
     #[error("Paint error")]
     Paint(#[from] PaintError),
-    #[error("svg error")]
-    Svg(#[from] SvgError),
+    #[error("Failed to parse branding svg")]
+    BrandingSvg(#[source] SvgError),
 }
 
 #[derive(Debug, ThisError)]

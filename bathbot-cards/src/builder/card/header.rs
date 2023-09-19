@@ -234,7 +234,7 @@ fn draw_mode_icon(
     assets.push("gamemodes");
     assets.push(filename);
     let bytes = fs::read(assets).map_err(HeaderError::ModeFile)?;
-    let svg = Svg::parse(&bytes)?;
+    let svg = Svg::parse(&bytes).map_err(HeaderError::ModeSvg)?;
 
     let mode_paint = PaintBuilder::rgb(255, 255, 255)
         .alpha(204)
