@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::BuildHasher};
 
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
-use rosu_v2::prelude::{GameMode, Score, ScoreStatistics};
+use rosu_v2::prelude::{GameMode, Grade, Score, ScoreStatistics};
 use sqlx::{pool::PoolConnection, Executor, Postgres};
 
 use crate::{
@@ -29,7 +29,11 @@ macro_rules! select_scores {
                 data.mods_exclude,
                 data.mods_exact,
                 data.map_id,
-                data.grade.map(|grade| grade as i16),
+                data.grade.map_or_else(Vec::new, |grade| match grade {
+                    Grade::S => vec![Grade::S as i16, Grade::SH as i16],
+                    Grade::X => vec![Grade::X as i16, Grade::XH as i16],
+                    other => vec![other as i16],
+                }) as _,
             );
 
             let mut scores = Vec::new();
@@ -114,8 +118,8 @@ r#"WITH scores AS (
     )
     AND (
       -- grade
-      $7 :: INT2 IS NULL 
-      OR grade = $7
+      CARDINALITY($7 :: INT2[]) = 0 
+      OR grade = ANY($7)
     )
 ) 
 SELECT 
@@ -221,8 +225,8 @@ r#"WITH scores AS (
     )
     AND (
       -- grade
-      $7 :: INT2 IS NULL 
-      OR grade = $7
+      CARDINALITY($7 :: INT2[]) = 0 
+      OR grade = ANY($7)
     )
 ) 
 SELECT 
@@ -329,8 +333,8 @@ r#"WITH scores AS (
     )
     AND (
       -- grade
-      $7 :: INT2 IS NULL 
-      OR grade = $7
+      CARDINALITY($7 :: INT2[]) = 0 
+      OR grade = ANY($7)
     )
 ) 
 SELECT 
@@ -440,8 +444,8 @@ r#"WITH scores AS (
     )
     AND (
       -- grade
-      $7 :: INT2 IS NULL 
-      OR grade = $7
+      CARDINALITY($7 :: INT2[]) = 0 
+      OR grade = ANY($7)
     )
 ) 
 SELECT 
@@ -559,8 +563,8 @@ WITH scores AS (
     )
     AND (
       -- grade
-      $7 :: INT2 IS NULL 
-      OR grade = $7
+      CARDINALITY($7 :: INT2[]) = 0 
+      OR grade = ANY($7)
     )
 ) 
 SELECT 
@@ -638,7 +642,11 @@ ORDER BY
             data.mods_exclude,
             data.mods_exact,
             data.map_id,
-            data.grade.map(|grade| grade as i16),
+            data.grade.map_or_else(Vec::new, |grade| match grade {
+                Grade::S => vec![Grade::S as i16, Grade::SH as i16],
+                Grade::X => vec![Grade::X as i16, Grade::XH as i16],
+                other => vec![other as i16],
+            }) as _,
         );
 
         let mut scores = Vec::new();
