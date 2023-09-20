@@ -8,4 +8,5 @@
 /maps
 /*/output.*
 .env
+/.vscode
 /.idea
