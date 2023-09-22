@@ -15,7 +15,7 @@ use rosu_v2::{
 use super::{get_mode, process_scores, separate_content, MapStatus, ServerScores};
 use crate::{
     active::{impls::ScoresServerPagination, ActiveMessages},
-    commands::osu::{user_not_found, HasMods, ModsResult},
+    commands::osu::{user_not_found, HasMods, ModsResult, ScoresOrder},
     core::Context,
     manager::redis::osu::UserArgs,
     util::{
@@ -134,7 +134,13 @@ pub async fn server_scores(
         None => None,
     };
 
-    let sort = args.sort.unwrap_or_default();
+    let sort = match args.sort {
+        Some(sort) => sort,
+        None => match args.status {
+            Some(MapStatus::Loved) => ScoresOrder::Score,
+            _ => Default::default(),
+        },
+    };
 
     let criteria = args.query.as_deref().map(ScoresCriteria::create);
 
