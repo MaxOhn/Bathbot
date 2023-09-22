@@ -8,7 +8,7 @@ use bathbot_util::{
     CowUtils, MessageBuilder,
 };
 use eyre::Result;
-use rosu_v2::prelude::{GameMode, Grade};
+use rosu_v2::prelude::{GameMode, Grade, RankStatus};
 use twilight_interactions::command::AutocompleteValue;
 
 use super::{get_mode, process_scores, separate_content, MapScores, ScoresOrder};
@@ -251,7 +251,16 @@ pub async fn map_scores(
         return Ok(());
     }
 
-    let sort = args.sort.unwrap_or_default();
+    let sort = match args.sort {
+        Some(sort) => sort,
+        None => match scores.mapsets().next() {
+            Some((_, mapset)) => match mapset.rank_status {
+                RankStatus::Ranked | RankStatus::Approved => ScoresOrder::Pp,
+                _ => ScoresOrder::Score,
+            },
+            None => Default::default(),
+        },
+    };
 
     let criteria = args.query.as_deref().map(ScoresCriteria::create);
 

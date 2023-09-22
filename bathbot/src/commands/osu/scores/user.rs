@@ -110,7 +110,13 @@ pub async fn user_scores(
         None => None,
     };
 
-    let sort = args.sort.unwrap_or_default();
+    let sort = match args.sort {
+        Some(sort) => sort,
+        None => match args.status {
+            Some(MapStatus::Loved) => ScoresOrder::Score,
+            _ => Default::default(),
+        },
+    };
 
     let criteria = args.query.as_deref().map(ScoresCriteria::create);
 
