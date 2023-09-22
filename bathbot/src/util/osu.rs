@@ -23,7 +23,9 @@ use rosu_pp::{
     beatmap::BeatmapAttributesBuilder, CatchPP, DifficultyAttributes, GameMode as Mode, OsuPP,
     TaikoPP,
 };
-use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus, Score, ScoreStatistics};
+use rosu_v2::prelude::{
+    GameModIntermode, GameMode, GameMods, Grade, RankStatus, Score, ScoreStatistics,
+};
 use time::OffsetDateTime;
 
 use crate::{
@@ -609,18 +611,45 @@ impl Display for MapInfo<'_> {
             sec_drain = (sec_drain as f32 / clock_rate) as u32;
         }
 
+        let (cs_key, cs_value) = if self.map.mode() == GameMode::Mania {
+            let keys = if (mods & GameModIntermode::OneKey.bits().unwrap()) > 0 {
+                1.0
+            } else if (mods & GameModIntermode::TwoKeys.bits().unwrap()) > 0 {
+                2.0
+            } else if (mods & GameModIntermode::ThreeKeys.bits().unwrap()) > 0 {
+                3.0
+            } else if (mods & GameModIntermode::FourKeys.bits().unwrap()) > 0 {
+                4.0
+            } else if (mods & GameModIntermode::FiveKeys.bits().unwrap()) > 0 {
+                5.0
+            } else if (mods & GameModIntermode::SixKeys.bits().unwrap()) > 0 {
+                6.0
+            } else if (mods & GameModIntermode::SevenKeys.bits().unwrap()) > 0 {
+                7.0
+            } else if (mods & GameModIntermode::EightKeys.bits().unwrap()) > 0 {
+                8.0
+            } else if (mods & GameModIntermode::NineKeys.bits().unwrap()) > 0 {
+                9.0
+            } else {
+                round(attrs.cs as f32)
+            };
+
+            ("Keys", keys)
+        } else {
+            ("CS", round(attrs.cs as f32))
+        };
+
         write!(
             f,
-            "Length: `{}` BPM: `{}` Objects: `{}`\n\
-            CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
-            SecToMinSec::new(sec_drain),
-            round(bpm),
-            self.map.n_objects(),
-            round(attrs.cs as f32),
-            round(attrs.ar as f32),
-            round(attrs.od as f32),
-            round(attrs.hp as f32),
-            round(self.stars),
+            "Length: `{len}` BPM: `{bpm}` Objects: `{objs}`\n\
+            {cs_key}: `{cs_value}` AR: `{ar}` OD: `{od}` HP: `{hp}` Stars: `{stars}`",
+            len = SecToMinSec::new(sec_drain),
+            bpm = round(bpm),
+            objs = self.map.n_objects(),
+            ar = round(attrs.ar as f32),
+            od = round(attrs.od as f32),
+            hp = round(attrs.hp as f32),
+            stars = round(self.stars),
         )
     }
 }
