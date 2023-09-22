@@ -47,9 +47,10 @@ impl FixScoreEmbed {
             // The score can be unchoked
             if let Some(if_fc) = if_fc {
                 let mut description = format!(
-                    "An FC would have improved the score from {} to **{}pp**. ",
-                    round(score.pp),
-                    round(if_fc.pp),
+                    "A {mods} FC would have improved the score from {from} to **{to}pp**. ",
+                    mods = fix_score.score.mods,
+                    from = round(score.pp),
+                    to = round(if_fc.pp),
                 );
 
                 let in_top = top.iter().any(|s| s.pp.unwrap_or(0.0) < if_fc.pp);
@@ -117,14 +118,16 @@ impl FixScoreEmbed {
                 description
             } else {
                 // The score is already an FC
-                format!("Already got a {}pp FC", round(score.pp))
+                format!(
+                    "Already got a {pp}pp {mods} FC",
+                    pp = round(score.pp),
+                    mods = fix_score.score.mods
+                )
             }
+        } else if let Some(mods) = mods {
+            format!("No {mods} score on the map")
         } else {
-            // The user has no score on the map
-            match mods {
-                Some(mods) => format!("No {mods} score on the map"),
-                None => "No score on the map".to_owned(),
-            }
+            "No score on the map".to_owned()
         };
 
         Self {
