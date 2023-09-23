@@ -321,8 +321,9 @@ pub(super) async fn score(
         let holder_name = rank_holder.username.as_str();
 
         format!(
-            "How much ranked score is {username} missing to reach {holder_name}'{genitiv} rank #{rank}?",
-            genitiv = if holder_name.ends_with("s") {""}else { "s"}
+            "How much ranked score is {username} missing to reach \
+            {holder_name}'{genitiv} rank #{rank}?",
+            genitiv = if holder_name.ends_with('s') { "" } else { "s" },
         )
     } else {
         format!("How much ranked score is {username} missing to reach rank #{rank}?")

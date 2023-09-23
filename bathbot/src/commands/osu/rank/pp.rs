@@ -538,26 +538,21 @@ impl RankData {
                 let holder_name = rank_holder.username.as_str();
 
                 format!(
-                    "How many pp is {username} missing to reach {holder_name}'{genitiv} rank #{rank}?",
+                    "How many pp is {username} missing to reach \
+                    {holder_name}'{genitiv} rank #{rank}?",
                     username = user.username().cow_escape_markdown(),
-                    genitiv = if holder_name.ends_with("s") {
-                        ""
-                    } else {
-                        "s"
-                    },
+                    genitiv = if holder_name.ends_with('s') { "" } else { "s" },
                     rank = rank_holder.global_rank,
                 )
             }
             RankData::Over10kExact { user, rank_holder } => {
+                let holder_name = rank_holder.username.cow_escape_markdown();
+
                 format!(
-                    "How many pp is {username} missing to reach {holder}'{genitiv} rank #{rank}?",
+                    "How many pp is {username} missing to reach \
+                    {holder_name}'{genitiv} rank #{rank}?",
                     username = user.username().cow_escape_markdown(),
-                    holder = rank_holder.username,
-                    genitiv = if rank_holder.username.ends_with("s") {
-                        ""
-                    } else {
-                        "s"
-                    },
+                    genitiv = if holder_name.ends_with('s') { "" } else { "s" },
                     rank = WithComma::new(rank_holder.global_rank),
                 )
             }
