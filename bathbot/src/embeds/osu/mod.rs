@@ -10,7 +10,6 @@ mod osustats_counts;
 mod player_snipe_stats;
 mod pp_missing;
 mod profile_compare;
-mod rank_score;
 mod ratio;
 mod sniped;
 mod whatif;
@@ -24,7 +23,7 @@ pub use self::match_live::*;
 pub use self::{
     attributes::*, bws::*, claim_name::*, country_snipe_stats::*, fix_score::*, match_costs::*,
     medal_stats::*, osustats_counts::*, player_snipe_stats::*, pp_missing::*, profile_compare::*,
-    rank_score::*, ratio::*, sniped::*, whatif::*,
+    ratio::*, sniped::*, whatif::*,
 };
 use crate::manager::OsuMap;
 

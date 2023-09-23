@@ -29,7 +29,7 @@ pub enum Rank<'a> {
 pub struct RankPp<'a> {
     #[command(
         desc = "Specify the target rank",
-        help = "Specify the target rank.\n\
+        help = "Specify a target rank or target username.\n\
         Alternatively, prefix the value with a `+` so that it'll be interpreted as \"delta\" \
         meaning the current rank + the given value"
     )]
@@ -62,7 +62,7 @@ pub struct RankPp<'a> {
 pub struct RankScore<'a> {
     #[command(
         desc = "Specify the target rank",
-        help = "Specify the target rank.\n\
+        help = "Specify a target rank or target username.\n\
         Alternatively, prefix the value with a `+` so that it'll be interpreted as \"delta\" \
         meaning the current rank + the given value"
     )]
@@ -81,22 +81,23 @@ pub struct RankScore<'a> {
 }
 
 #[derive(Copy, Clone)]
-enum RankValue {
+enum RankValue<'a> {
     Delta(u32),
     Raw(u32),
+    Name(&'a str),
 }
 
-impl RankValue {
-    fn parse(input: &str) -> Option<Self> {
-        let rank = input.parse().ok()?;
+impl<'a> RankValue<'a> {
+    fn parse(input: &'a str) -> Self {
+        let Ok(rank) = input.parse() else {
+            return Self::Name(input);
+        };
 
-        let this = if input.starts_with('+') {
+        if input.starts_with('+') {
             Self::Delta(rank)
         } else {
             Self::Raw(rank)
-        };
-
-        Some(this)
+        }
     }
 }
 
