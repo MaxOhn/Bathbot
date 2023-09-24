@@ -21,5 +21,5 @@ serde_json = { version = "1.0" }
 thiserror = { version = "1.0" }
 tokio = { version = "1.0", default-features = false, features = ["sync"] }
 tower = { version = "0.4", default-features = false }
-tower-http = { version = "0.3", features = ["fs", "trace"] }
+tower-http = { version = "0.4.4", features = ["fs", "trace"] }
 tracing = { version = "0.1" }
