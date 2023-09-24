@@ -30,7 +30,7 @@ jobs:
         uses: Swatinem/rust-cache@v1
 
       - name: Build
-        run: SQLX_OFFLINE=TRUE cargo build --release --features full,offline
+        run: cargo build --release --features full
 
       - name: Deploy
         uses: appleboy/scp-action@v0.1.4

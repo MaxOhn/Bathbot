@@ -158,7 +158,7 @@ SET
         );
 
         let row = query
-            .fetch_one(&mut tx)
+            .fetch_one(&mut *tx)
             .await
             .wrap_err("failed to fetch one")?;
 
@@ -192,7 +192,7 @@ WHERE
             );
 
             query
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
                 .wrap_err("failed to execute query")?;
         }

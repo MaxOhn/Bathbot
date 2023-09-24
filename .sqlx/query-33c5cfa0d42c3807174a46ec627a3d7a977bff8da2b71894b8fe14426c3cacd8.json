@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  score_size \nFROM \n  user_configs \nWHERE \n  discord_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "score_size",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "33c5cfa0d42c3807174a46ec627a3d7a977bff8da2b71894b8fe14426c3cacd8"
+}

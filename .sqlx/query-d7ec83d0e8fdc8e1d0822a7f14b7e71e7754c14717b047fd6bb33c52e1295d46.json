@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nDELETE FROM \n  osu_map_difficulty_taiko \nWHERE \n  map_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d7ec83d0e8fdc8e1d0822a7f14b7e71e7754c14717b047fd6bb33c52e1295d46"
+}

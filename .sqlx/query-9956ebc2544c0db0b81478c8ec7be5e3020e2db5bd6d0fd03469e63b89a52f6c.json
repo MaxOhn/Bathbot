@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  mapset_id, \n  user_id, \n  artist, \n  title, \n  creator, \n  rank_status, \n  ranked_date, \n  thumbnail, \n  cover \nFROM \n  osu_mapsets \nWHERE \n  mapset_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mapset_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "artist",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "title",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "creator",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "rank_status",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 6,
+        "name": "ranked_date",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "thumbnail",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 8,
+        "name": "cover",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "9956ebc2544c0db0b81478c8ec7be5e3020e2db5bd6d0fd03469e63b89a52f6c"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nDELETE FROM \n  tracked_twitch_streams \nWHERE \n  channel_id = $1 \n  AND user_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ff290f1421104f7ffb98653a0bcd84cdf0b6c1aa3791775c4fbb1d97c65fe60f"
+}

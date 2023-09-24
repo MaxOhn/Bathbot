@@ -1,0 +1,166 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  bookmarks.insert_date, \n  maps.map_id, \n  maps.mapset_id, \n  maps.user_id AS mapper_id, \n  maps.map_version, \n  maps.seconds_drain, \n  maps.seconds_total, \n  maps.count_circles, \n  maps.count_sliders, \n  maps.count_spinners, \n  maps.hp, \n  maps.cs, \n  maps.od, \n  maps.ar, \n  maps.bpm, \n  maps.gamemode, \n  mapsets.artist, \n  mapsets.title, \n  mapsets.creator, \n  mapsets.user_id AS creator_id, \n  mapsets.rank_status, \n  mapsets.ranked_date, \n  mapsets.genre_id, \n  mapsets.language_id, \n  mapsets.cover \nFROM \n  (\n    SELECT \n      map_id, \n      insert_date \n    FROM \n      user_map_bookmarks \n    WHERE \n      user_id = $1\n  ) AS bookmarks \n  JOIN (\n    SELECT \n      map_id, \n      mapset_id, \n      user_id, \n      map_version, \n      seconds_drain, \n      seconds_total, \n      count_circles, \n      count_sliders, \n      count_spinners, \n      hp, \n      cs, \n      od, \n      ar, \n      bpm, \n      gamemode \n    FROM \n      osu_maps\n  ) AS maps ON bookmarks.map_id = maps.map_id \n  JOIN (\n    SELECT \n      mapset_id, \n      artist, \n      title, \n      creator, \n      user_id, \n      rank_status, \n      ranked_date, \n      genre_id, \n      language_id, \n      cover \n    FROM \n      osu_mapsets\n  ) AS mapsets ON maps.mapset_id = mapsets.mapset_id \nORDER BY \n  bookmarks.insert_date DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "insert_date",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "map_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "mapset_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "mapper_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "map_version",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "seconds_drain",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "seconds_total",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "count_circles",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "count_sliders",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "count_spinners",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "hp",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 11,
+        "name": "cs",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 12,
+        "name": "od",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 13,
+        "name": "ar",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 14,
+        "name": "bpm",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 15,
+        "name": "gamemode",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 16,
+        "name": "artist",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 17,
+        "name": "title",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 18,
+        "name": "creator",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 19,
+        "name": "creator_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 20,
+        "name": "rank_status",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 21,
+        "name": "ranked_date",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 22,
+        "name": "genre_id",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 23,
+        "name": "language_id",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 24,
+        "name": "cover",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "02fe3a854468f7bd55076081084d0c89a5f5745b0ee8fe20eba752d6fd5d92e6"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO osu_user_names (user_id, username) \nVALUES \n  ($1, $2) ON CONFLICT (user_id) DO \nUPDATE \nSET \n  username = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eb2d8df67e3fb80c7798600f895597a274302c0574e70723472a2959f64f5731"
+}

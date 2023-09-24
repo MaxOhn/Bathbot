@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nUPDATE \n  user_configs \nSET \n  skin_url = $2 \nWHERE \n  discord_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f6e31bee48c671466ccf9972401fe4b26ed75580e7c4cb870952d2853ecb69fc"
+}

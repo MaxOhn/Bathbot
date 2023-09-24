@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nUPDATE\n  tracked_osu_users\nSET\n  last_update = NOW()\nWHERE\n  user_id = $1\n  AND gamemode = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7505a1274c95cb0ae88228b90165c06231bb61eaea97850adf6287c3cbdf918c"
+}

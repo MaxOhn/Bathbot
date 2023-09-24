@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  skin_url \nFROM \n  user_configs \nWHERE \n  osu_id = $1 \n  AND skin_url IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "skin_url",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "c869e094800f4fcdceb1f3105e472cf1f2af9c230d3acb0ba4c073021c3d7d13"
+}

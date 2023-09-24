@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO osu_mapsets (\n  mapset_id, user_id, artist, title, \n  creator, source, tags, video, storyboard, \n  bpm, rank_status, ranked_date, genre_id, \n  language_id, thumbnail, cover\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16\n  ) ON CONFLICT (mapset_id) DO \nUPDATE \nSET \n  user_id = $2, \n  artist = $3, \n  title = $4, \n  creator = $5, \n  source = $6, \n  tags = $7, \n  video = $8, \n  storyboard = $9, \n  bpm = $10, \n  rank_status = $11, \n  ranked_date = $12, \n  genre_id = $13, \n  language_id = $14, \n  thumbnail = $15, \n  cover = $16, \n  last_update = NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Bool",
+        "Bool",
+        "Float4",
+        "Int2",
+        "Timestamptz",
+        "Int2",
+        "Int2",
+        "Varchar",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5f5d3b5e331806027c5fe6c8b85dccf7af5ae8d2e8f78dc51c37cee0a381460c"
+}

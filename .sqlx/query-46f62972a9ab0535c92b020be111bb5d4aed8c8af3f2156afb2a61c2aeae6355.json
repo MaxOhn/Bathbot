@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  username \nFROM \n  osu_user_names \nWHERE \n  user_id = (\n    SELECT \n      osu_id \n    FROM \n      user_configs \n    WHERE \n      discord_id = $1\n  )",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "username",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "46f62972a9ab0535c92b020be111bb5d4aed8c8af3f2156afb2a61c2aeae6355"
+}

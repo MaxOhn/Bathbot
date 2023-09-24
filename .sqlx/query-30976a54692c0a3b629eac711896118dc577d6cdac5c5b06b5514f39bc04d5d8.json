@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH scores AS (\n  SELECT \n    score_id, \n    user_id, \n    map_id, \n    mods, \n    score, \n    maxcombo, \n    grade, \n    count100, \n    count300, \n    countmiss, \n    ended_at \n  FROM \n    osu_scores \n  WHERE \n    gamemode = 1 \n    AND user_id = ANY($1) \n    AND (\n      -- map id\n      $6 :: INT4 IS NULL \n      OR map_id = $6\n    ) \n    AND (\n      -- country code\n      $2 :: VARCHAR(2) IS NULL \n      OR (\n        SELECT \n          country_code \n        FROM \n          osu_user_stats \n        WHERE \n          user_id = osu_scores.user_id\n      ) = $2\n    ) \n    AND (\n      -- include mods\n      $3 :: INT4 IS NULL \n      OR (\n        $3 != 0 \n        AND $3 :: bit(32) & mods :: bit(32) = $3 :: bit(32)\n      ) \n      OR (\n        $3 = 0 \n        AND mods = 0\n      )\n    ) \n    AND (\n      -- exclude mods\n      $4 :: INT4 IS NULL \n      OR (\n        $4 != 0 \n        AND $4 :: bit(32) & mods :: bit(32) != $4 :: bit(32)\n      ) \n      OR (\n        $4 = 0 \n        AND mods > 0\n      )\n    ) \n    AND (\n      -- exact mods\n      $5 :: INT4 IS NULL \n      OR mods = $5\n    )\n    AND (\n      -- grade\n      CARDINALITY($7 :: INT2[]) = 0 \n      OR grade = ANY($7)\n    )\n) \nSELECT \n  DISTINCT ON (\n    user_id, scores.map_id, scores.mods\n  ) user_id, \n  scores.map_id, \n  scores.mods, \n  score, \n  scores.score_id, \n  maxcombo, \n  grade, \n  count100, \n  count300, \n  countmiss, \n  ended_at, \n  pp :: FLOAT4, \n  stars :: FLOAT4 \nFROM \n  scores \n  LEFT JOIN osu_scores_performance AS pp ON scores.score_id = pp.score_id \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty_taiko\n  ) AS stars ON scores.map_id = stars.map_id \n  AND scores.mods = stars.mods \nORDER BY \n  user_id, \n  scores.map_id, \n  scores.mods, \n  ended_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "map_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "mods",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "score",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "score_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "maxcombo",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "grade",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 7,
+        "name": "count100",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "count300",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "countmiss",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "ended_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "pp",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 12,
+        "name": "stars",
+        "type_info": "Float4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Varchar",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int2Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "30976a54692c0a3b629eac711896118dc577d6cdac5c5b06b5514f39bc04d5d8"
+}

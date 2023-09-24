@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  aim, \n  speed, \n  flashlight, \n  slider_factor, \n  speed_note_count, \n  ar, \n  od, \n  hp, \n  n_circles, \n  n_sliders, \n  n_spinners, \n  stars, \n  max_combo \nFROM \n  osu_map_difficulty \nWHERE \n  map_id = $1 \n  AND mods = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "aim",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 1,
+        "name": "speed",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "flashlight",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 3,
+        "name": "slider_factor",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 4,
+        "name": "speed_note_count",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "ar",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 6,
+        "name": "od",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 7,
+        "name": "hp",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 8,
+        "name": "n_circles",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "n_sliders",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "n_spinners",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 11,
+        "name": "stars",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 12,
+        "name": "max_combo",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0e8fbc5bb4ad1733919064231a804c3e16815a07fa33fd2ab9801cc0de0cc362"
+}

@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  map_id, \n  mapset_id, \n  user_id, \n  map_version, \n  seconds_drain,  \n  hp, \n  cs, \n  od, \n  ar, \n  bpm\nFROM \n  osu_maps \nWHERE \n  map_id = ANY($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "mapset_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "user_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "map_version",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "seconds_drain",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "hp",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 6,
+        "name": "cs",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 7,
+        "name": "od",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 8,
+        "name": "ar",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 9,
+        "name": "bpm",
+        "type_info": "Float4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "4159b03bbb42faa2c53c35cc8c5ae26102f21c826ea040dd9d03a11b5d882a06"
+}

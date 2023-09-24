@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  highscore \nFROM \n  higherlower_scores \nWHERE \n  discord_id = $1 \n  AND game_version = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "highscore",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "611d29835f9095dcf111fb1243775a51f3121fab98b6b6bc0a6f381376ed5fd1"
+}

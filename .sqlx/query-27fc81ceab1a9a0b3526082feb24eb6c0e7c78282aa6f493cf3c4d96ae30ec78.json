@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO map_tags (\n  mapset_id, image_filename, gamemode\n) \nVALUES \n  ($1, $2, $3) ON CONFLICT (mapset_id) DO \nUPDATE \nSET \n  image_filename = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Varchar",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "27fc81ceab1a9a0b3526082feb24eb6c0e7c78282aa6f493cf3c4d96ae30ec78"
+}

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  map_filepath \nFROM \n  osu_map_files \nWHERE \n  map_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_filepath",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4a68c5fcc41e7e8ec22b308bead494ffa1c29e8418da381ddfb340c1f0c49a0e"
+}

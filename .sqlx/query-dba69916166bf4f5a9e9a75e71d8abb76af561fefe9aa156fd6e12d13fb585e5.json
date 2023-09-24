@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nDELETE FROM \n  tracked_osu_users \nWHERE \n  user_id = $1 \n  AND gamemode = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dba69916166bf4f5a9e9a75e71d8abb76af561fefe9aa156fd6e12d13fb585e5"
+}

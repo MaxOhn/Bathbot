@@ -61,12 +61,11 @@ twilight-standby = { workspace = true }
 url = { version = "2.4", default-features = false }
 
 [features]
-default = ["offline"]
+default = []
 full = ["global_slash", "matchlive", "osutracking", "server", "twitch", "twitchtracking"]
 
 global_slash = []
 matchlive = []
-offline = ["bathbot-psql/offline"]
 osutracking = ["priority-queue"]
 server = ["bathbot-server", "twitch"]
 twitch = ["bathbot-client/twitch"]

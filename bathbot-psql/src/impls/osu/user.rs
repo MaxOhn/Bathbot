@@ -815,7 +815,7 @@ SET
         );
 
         query
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await
             .wrap_err("failed to execute osu_user_names query")?;
 
@@ -871,7 +871,7 @@ SET
         );
 
         query
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await
             .wrap_err("failed to execute osu_user_stats query")?;
 
@@ -936,7 +936,7 @@ SET
             );
 
             query
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
                 .wrap_err("failed to execute osu_user_mode_stats query")?;
         }
@@ -962,7 +962,7 @@ WHERE
         );
 
         query
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .wrap_err("Failed to execute osu_user_stats query")?;
 
@@ -976,12 +976,12 @@ WHERE
         );
 
         query
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .wrap_err("Failed to execute osu_user_mode_stats query")?;
 
-        Self::delete_osu_username(&mut conn, user_id).await?;
-        Self::delete_scores_by_user_id(&mut conn, user_id).await?;
+        Self::delete_osu_username(&mut *conn, user_id).await?;
+        Self::delete_scores_by_user_id(&mut *conn, user_id).await?;
 
         Ok(())
     }

@@ -37,7 +37,7 @@ macro_rules! select_scores {
             );
 
             let mut scores = Vec::new();
-            let mut rows = query.fetch(conn);
+            let mut rows = query.fetch(&mut **conn);
 
             while let Some(row_res) = rows.next().await {
                 let row = row_res.wrap_err("Failed to fetch next score")?;
@@ -650,7 +650,7 @@ ORDER BY
         );
 
         let mut scores = Vec::new();
-        let mut rows = query.fetch(conn);
+        let mut rows = query.fetch(&mut **conn);
 
         while let Some(row_res) = rows.next().await {
             let row = row_res.wrap_err("Failed to fetch next score")?;
@@ -757,7 +757,7 @@ WHERE
         let mut maps = HashMap::with_capacity_and_hasher(map_ids.len(), S::default());
 
         {
-            let mut map_rows = map_query.fetch(&mut *conn);
+            let mut map_rows = map_query.fetch(&mut **conn);
 
             while let Some(row_res) = map_rows.next().await {
                 let row = row_res.wrap_err("Failed to fetch next map")?;
@@ -795,7 +795,7 @@ FROM
         let mut mapsets = HashMap::with_hasher(S::default());
 
         {
-            let mut mapset_rows = mapset_query.fetch(&mut *conn);
+            let mut mapset_rows = mapset_query.fetch(&mut **conn);
 
             while let Some(row_res) = mapset_rows.next().await {
                 let row = row_res.wrap_err("Failed to fetch next mapset")?;
@@ -819,7 +819,7 @@ WHERE
         let mut users = HashMap::with_hasher(S::default());
 
         {
-            let mut user_rows = user_query.fetch(conn);
+            let mut user_rows = user_query.fetch(&mut **conn);
 
             while let Some(row_res) = user_rows.next().await {
                 let row = row_res.wrap_err("Failed to fetch next user")?;
@@ -905,7 +905,7 @@ VALUES
             );
 
             query
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
                 .wrap_err("failed to execute score query")?;
 
@@ -920,13 +920,13 @@ VALUES
                 );
 
                 query
-                    .execute(&mut tx)
+                    .execute(&mut *tx)
                     .await
                     .wrap_err("failed to execute pp query")?;
             }
 
             if let Some(mapset) = mapset {
-                Self::update_beatmapset_compact(&mut tx, mapset)
+                Self::update_beatmapset_compact(&mut *tx, mapset)
                     .await
                     .wrap_err("failed to update mapset")?;
             }
@@ -942,7 +942,7 @@ VALUES
 
         for score in scores {
             if let Some(ref mapset) = score.mapset {
-                Self::update_beatmapset_compact(&mut tx, mapset).await?;
+                Self::update_beatmapset_compact(&mut *tx, mapset).await?;
             }
         }
 

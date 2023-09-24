@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \nosu_id \nFROM \nuser_configs \nWHERE \ndiscord_id = ANY($1) \nAND osu_id IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "osu_id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "438355b022cc6f95a4ac84f27dc44234bb6ab378ef568d536f483753c0970efd"
+}

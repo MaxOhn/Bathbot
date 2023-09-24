@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO osu_user_mode_stats (\n  user_id, gamemode, accuracy, pp, country_rank, \n  global_rank, count_ss, count_ssh, \n  count_s, count_sh, count_a, user_level, \n  max_combo, playcount, playtime, ranked_score, \n  replays_watched, total_hits, total_score, \n  scores_first\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16, $17, $18, \n    $19, $20\n  ) ON CONFLICT (user_id, gamemode) DO \nUPDATE \nSET \n  accuracy = $3, \n  pp = $4, \n  country_rank = $5, \n  global_rank = $6, \n  count_ss = $7, \n  count_ssh = $8, \n  count_s = $9, \n  count_sh = $10, \n  count_a = $11, \n  user_level = $12, \n  max_combo = $13, \n  playcount = $14, \n  playtime = $15, \n  ranked_score = $16, \n  replays_watched = $17, \n  total_hits = $18, \n  total_score = $19, \n  scores_first = $20,\n  last_update = NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int2",
+        "Float4",
+        "Float4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Float4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int8",
+        "Int4",
+        "Int8",
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "74ed6117f3b940209a8c16e41f94f6909c24d51bfbddc02746a9ca4400abc374"
+}

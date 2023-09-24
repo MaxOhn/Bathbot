@@ -108,7 +108,7 @@ SET
         );
 
         query
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await
             .wrap_err("failed to execute query")?;
 

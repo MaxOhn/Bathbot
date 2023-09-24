@@ -514,7 +514,7 @@ FROM
 
         // None if both map_id and checksum were the same i.e. no change
         let row_opt = query
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut **tx)
             .await
             .wrap_err("failed to fetch optional")?;
 
@@ -536,7 +536,7 @@ WHERE
             );
 
             query
-                .execute(&mut *tx)
+                .execute(&mut **tx)
                 .await
                 .wrap_err("failed to delete from osu_map_files")?;
 
@@ -576,7 +576,7 @@ WHERE
             };
 
             query
-                .execute(&mut *tx)
+                .execute(&mut **tx)
                 .await
                 .wrap_err("failed to delete from map difficulty")?;
         }

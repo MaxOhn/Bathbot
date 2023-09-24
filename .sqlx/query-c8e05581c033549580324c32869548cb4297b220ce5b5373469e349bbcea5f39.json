@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  guild_id,\n  authorities,\n  prefixes,\n  allow_songs,\n  score_size,\n  retries,\n  osu_track_limit,\n  minimized_pp,\n  list_size, \n  render_button, \n  allow_custom_skins, \n  hide_medal_solution \nFROM \n  guild_configs",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "guild_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "authorities",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 2,
+        "name": "prefixes",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 3,
+        "name": "allow_songs",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "score_size",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 5,
+        "name": "retries",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 6,
+        "name": "osu_track_limit",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 7,
+        "name": "minimized_pp",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 8,
+        "name": "list_size",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 9,
+        "name": "render_button",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 10,
+        "name": "allow_custom_skins",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "hide_medal_solution",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "c8e05581c033549580324c32869548cb4297b220ce5b5373469e349bbcea5f39"
+}

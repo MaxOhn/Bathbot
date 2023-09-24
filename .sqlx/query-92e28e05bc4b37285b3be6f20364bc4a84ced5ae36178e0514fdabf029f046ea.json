@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nDELETE FROM \n  osu_map_files \nWHERE \n  map_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "92e28e05bc4b37285b3be6f20364bc4a84ced5ae36178e0514fdabf029f046ea"
+}

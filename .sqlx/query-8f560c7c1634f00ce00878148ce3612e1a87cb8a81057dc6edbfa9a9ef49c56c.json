@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nDELETE FROM \n  osu_user_stats \nWHERE \n  user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8f560c7c1634f00ce00878148ce3612e1a87cb8a81057dc6edbfa9a9ef49c56c"
+}

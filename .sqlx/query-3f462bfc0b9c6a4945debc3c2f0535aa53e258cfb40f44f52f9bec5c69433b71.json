@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO osu_scores_performance (score_id, pp) \nVALUES \n  ($1, $2) ON CONFLICT (score_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3f462bfc0b9c6a4945debc3c2f0535aa53e258cfb40f44f52f9bec5c69433b71"
+}

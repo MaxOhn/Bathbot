@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  twitch_id \nFROM \n  (\n    SELECT \n      twitch_id, \n      osu_id \n    FROM \n      user_configs \n    WHERE \n      twitch_id IS NOT NULL \n      AND osu_id IS NOT NULL\n  ) AS configs \n  JOIN (\n    SELECT \n      user_id \n    FROM \n      osu_user_names \n    WHERE \n      username ILIKE $1\n  ) AS names ON configs.osu_id = names.user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "twitch_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "369d3652737db22b47d3db2004a25fb210cc4857a56710f9ec5365582ab9cfe2"
+}

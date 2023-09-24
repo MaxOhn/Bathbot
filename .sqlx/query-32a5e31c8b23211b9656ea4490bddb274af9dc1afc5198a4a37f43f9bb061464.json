@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  skin_url \nFROM \n  (\n    SELECT \n      skin_url, \n      osu_id \n    FROM \n      user_configs \n    WHERE \n      skin_url IS NOT NULL \n      AND osu_id IS NOT NULL\n  ) AS configs \n  JOIN (\n    SELECT \n      user_id \n    FROM \n      osu_user_names \n    WHERE \n      username ILIKE $1\n  ) AS names ON configs.osu_id = names.user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "skin_url",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "32a5e31c8b23211b9656ea4490bddb274af9dc1afc5198a4a37f43f9bb061464"
+}

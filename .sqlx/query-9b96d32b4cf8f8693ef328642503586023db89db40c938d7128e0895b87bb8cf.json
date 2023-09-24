@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  mapsets.mapset_id, \n  artist, \n  title, \n  rank_status, \n  ranked_date \nFROM \n  (\n    SELECT \n      mapset_id \n    FROM \n      osu_maps \n    WHERE \n      map_id = ANY($1)\n  ) AS maps \n  JOIN (\n    SELECT \n      * \n    FROM \n      osu_mapsets\n  ) AS mapsets ON maps.mapset_id = mapsets.mapset_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mapset_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "artist",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "rank_status",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 4,
+        "name": "ranked_date",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "9b96d32b4cf8f8693ef328642503586023db89db40c938d7128e0895b87bb8cf"
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  user_id, \n  gamemode, \n  channels, \n  last_update \nFROM \n  tracked_osu_users",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "gamemode",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 2,
+        "name": "channels",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 3,
+        "name": "last_update",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "7ba256172b53c52f098cdc4f5ca4d749d1f8872d95a171bf34b0210827ece85f"
+}

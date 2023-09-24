@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  twitch_id \nFROM \n  user_configs \nWHERE \n  osu_id = $1\n  AND twitch_id IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "twitch_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "26b20d4e1aae8f234e4a5295d5c892ba739303b90c57992685af8a5d565885bf"
+}

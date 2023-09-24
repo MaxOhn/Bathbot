@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO osu_user_stats (\n  user_id, country_code, join_date, \n  comment_count, kudosu_total, kudosu_available, \n  forum_post_count, badges, played_maps, \n  followers, graveyard_mapset_count, \n  loved_mapset_count, mapping_followers, \n  previous_usernames_count, ranked_mapset_count, \n  medals\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16\n  ) ON CONFLICT (user_id) DO \nUPDATE \nSET \n  country_code = $2, \n  comment_count = $4, \n  kudosu_total = $5, \n  kudosu_available = $6, \n  forum_post_count = $7, \n  badges = $8, \n  played_maps = $9, \n  followers = $10, \n  graveyard_mapset_count = $11, \n  loved_mapset_count = $12, \n  mapping_followers = $13, \n  previous_usernames_count = $14, \n  ranked_mapset_count = $15, \n  medals = $16,\n  last_update = NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Varchar",
+        "Timestamptz",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "85a26a8fa694a2393f3fb55229f8dc0386fb1271568ad2ce168bd49d80f6f58b"
+}
