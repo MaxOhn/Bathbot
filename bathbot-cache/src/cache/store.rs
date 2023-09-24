@@ -158,7 +158,7 @@ impl Cache {
 
         let mut conn = self.connection().await?;
 
-        conn.set_multiple(&channels)
+        conn.mset(&channels)
             .await
             .wrap_err("Failed to store channels bytes")?;
 
@@ -270,7 +270,7 @@ impl Cache {
                 (RedisKey::user(user.id), user_bytes.as_slice()),
             ];
 
-            conn.set_multiple(items)
+            conn.mset(items)
                 .await
                 .wrap_err("Failed to store member or user bytes")?;
 
@@ -337,11 +337,11 @@ impl Cache {
 
         let mut conn = self.connection().await?;
 
-        conn.set_multiple(&members)
+        conn.mset(&members)
             .await
             .wrap_err("Failed to store members bytes")?;
 
-        conn.set_multiple(&users)
+        conn.mset(&users)
             .await
             .wrap_err("Failed to store users bytes")?;
 
@@ -458,7 +458,7 @@ impl Cache {
 
         let mut conn = self.connection().await?;
 
-        conn.set_multiple(&roles)
+        conn.mset(&roles)
             .await
             .wrap_err("Failed to store roles bytes")?;
 
