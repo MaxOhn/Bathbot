@@ -45,6 +45,7 @@ pub const RENDERER_NAME: &str = "Bathbot";
     only osu!standard is supported."
 )]
 #[flags(SKIP_DEFER)]
+#[allow(clippy::large_enum_variant)]
 pub enum Render {
     #[command(name = "replay")]
     Replay(RenderReplay),

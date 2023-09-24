@@ -29,6 +29,7 @@ mod tracking_stats;
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "owner", desc = "You won't be able to use this :^)")]
 #[flags(ONLY_OWNER, SKIP_DEFER)]
+#[allow(clippy::large_enum_variant)]
 pub enum Owner {
     #[command(name = "add_bg")]
     AddBg(OwnerAddBg),
