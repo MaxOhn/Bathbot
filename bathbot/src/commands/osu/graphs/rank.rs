@@ -14,7 +14,7 @@ use plotters::{
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
 use rosu_v2::{prelude::OsuError, request::UserId};
-use skia_safe::{EncodedImageFormat, Surface};
+use skia_safe::{surfaces, EncodedImageFormat};
 
 use crate::{
     commands::osu::{
@@ -100,7 +100,7 @@ pub async fn rank_graph(
 
         let (min, max) = (-(max as i32), -(min as i32));
 
-        let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32))
+        let mut surface = surfaces::raster_n32_premul((W as i32, H as i32))
             .wrap_err("Failed to create surface")?;
 
         {
@@ -188,7 +188,7 @@ pub async fn rank_graph(
 
         let png_bytes = surface
             .image_snapshot()
-            .encode_to_data(EncodedImageFormat::PNG)
+            .encode(None, EncodedImageFormat::PNG, None)
             .wrap_err("Failed to encode image")?
             .to_vec();
 

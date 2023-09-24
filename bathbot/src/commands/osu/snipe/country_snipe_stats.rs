@@ -13,7 +13,7 @@ use rosu_v2::{
     prelude::{CountryCode, OsuError},
     request::UserId,
 };
-use skia_safe::{EncodedImageFormat, Surface};
+use skia_safe::{surfaces, EncodedImageFormat};
 use twilight_model::guild::Permissions;
 
 use super::SnipeCountryStats;
@@ -187,8 +187,8 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>> {
         .map(|(_, n)| *n)
         .fold(0, |max, curr| max.max(curr));
 
-    let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32))
-        .wrap_err("Failed to create surface")?;
+    let mut surface =
+        surfaces::raster_n32_premul((W as i32, H as i32)).wrap_err("Failed to create surface")?;
 
     {
         let root = SkiaBackend::new(surface.canvas(), W, H).into_drawing_area();
@@ -275,7 +275,7 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>> {
 
     let png_bytes = surface
         .image_snapshot()
-        .encode_to_data(EncodedImageFormat::PNG)
+        .encode(None, EncodedImageFormat::PNG, None)
         .wrap_err("Failed to encode image")?
         .to_vec();
 

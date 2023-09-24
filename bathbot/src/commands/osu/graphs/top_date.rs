@@ -7,7 +7,7 @@ use plotters::{
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
 use rosu_v2::prelude::Score;
-use skia_safe::{EncodedImageFormat, Surface};
+use skia_safe::{surfaces, EncodedImageFormat};
 
 use super::{H, W};
 use crate::util::Monthly;
@@ -25,8 +25,8 @@ pub async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec
     let first = dates[0];
     let last = dates[dates.len() - 1];
 
-    let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32))
-        .wrap_err("Failed to create surface")?;
+    let mut surface =
+        surfaces::raster_n32_premul((W as i32, H as i32)).wrap_err("Failed to create surface")?;
 
     {
         let root = SkiaBackend::new(surface.canvas(), W, H).into_drawing_area();
@@ -98,7 +98,7 @@ pub async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec
 
     let png_bytes = surface
         .image_snapshot()
-        .encode_to_data(EncodedImageFormat::PNG)
+        .encode(None, EncodedImageFormat::PNG, None)
         .wrap_err("Failed to encode image")?
         .to_vec();
 

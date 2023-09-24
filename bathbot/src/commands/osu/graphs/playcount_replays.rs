@@ -32,7 +32,7 @@ use rosu_v2::{
     prelude::{MonthlyCount, OsuError},
     request::UserId,
 };
-use skia_safe::{EncodedImageFormat, Surface};
+use skia_safe::{surfaces, EncodedImageFormat, Surface};
 use time::{Date, Month, OffsetDateTime};
 
 use super::{BitMapElement, H, W};
@@ -225,8 +225,8 @@ async fn graphs(params: ProfileGraphParams<'_>) -> Result<GraphResult> {
         .await
         .wrap_err("Failed to gather badges")?;
 
-    let mut surface = Surface::new_raster_n32_premul((w as i32, h as i32))
-        .wrap_err("Failed to create surface")?;
+    let mut surface =
+        surfaces::raster_n32_premul((w as i32, h as i32)).wrap_err("Failed to create surface")?;
 
     if params.flags == ProfileGraphFlags::BADGES && badges.is_empty() {
         return Ok(GraphResult::NoBadges);
@@ -236,7 +236,7 @@ async fn graphs(params: ProfileGraphParams<'_>) -> Result<GraphResult> {
 
     let png_bytes = surface
         .image_snapshot()
-        .encode_to_data(EncodedImageFormat::PNG)
+        .encode(None, EncodedImageFormat::PNG, None)
         .wrap_err("Failed to encode image")?
         .to_vec();
 

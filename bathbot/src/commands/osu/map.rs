@@ -19,7 +19,7 @@ use plotters::{
 use plotters_skia::SkiaBackend;
 use rosu_pp::{BeatmapExt, Strains};
 use rosu_v2::prelude::{GameMode, GameModsIntermode, OsuError};
-use skia_safe::{BlendMode, EncodedImageFormat, Surface};
+use skia_safe::{surfaces, BlendMode, EncodedImageFormat};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::{message::MessageType, Message},
@@ -534,8 +534,8 @@ fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<
         bail!("no non-zero strain point");
     }
 
-    let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32))
-        .wrap_err("Failed to create surface")?;
+    let mut surface =
+        surfaces::raster_n32_premul((W as i32, H as i32)).wrap_err("Failed to create surface")?;
 
     {
         let backend = Rc::new(RefCell::new(SkiaBackend::new(surface.canvas(), W, H)));
@@ -594,7 +594,7 @@ fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<
 
     let png_bytes = surface
         .image_snapshot()
-        .encode_to_data(EncodedImageFormat::PNG)
+        .encode(None, EncodedImageFormat::PNG, None)
         .wrap_err("Failed to encode image")?
         .to_vec();
 

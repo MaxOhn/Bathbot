@@ -12,7 +12,7 @@ use plotters::{
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
 use rosu_v2::prelude::Score;
-use skia_safe::{EncodedImageFormat, Surface};
+use skia_safe::{surfaces, EncodedImageFormat};
 use time::{OffsetDateTime, UtcOffset};
 
 use crate::commands::osu::graphs::{H, W};
@@ -50,8 +50,8 @@ pub async fn top_graph_time(
 
     let max_hours = hours.iter().max().map_or(0, |count| *count as u32);
 
-    let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32))
-        .wrap_err("Failed to create surface")?;
+    let mut surface =
+        surfaces::raster_n32_premul((W as i32, H as i32)).wrap_err("Failed to create surface")?;
 
     {
         let root = SkiaBackend::new(surface.canvas(), W, H).into_drawing_area();
@@ -188,7 +188,7 @@ pub async fn top_graph_time(
 
     let png_bytes = surface
         .image_snapshot()
-        .encode_to_data(EncodedImageFormat::PNG)
+        .encode(None, EncodedImageFormat::PNG, None)
         .wrap_err("Failed to encode image")?
         .to_vec();
 

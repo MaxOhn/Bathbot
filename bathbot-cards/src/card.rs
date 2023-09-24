@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::BuildHasher, marker::PhantomData, mem, pat
 
 use rosu_pp::{Beatmap, DifficultyAttributes};
 use rosu_v2::model::{score::Score, GameMode};
-use skia_safe::{EncodedImageFormat, Surface};
+use skia_safe::{surfaces, EncodedImageFormat};
 
 use crate::{
     builder::card::{CardBuilder, H, W},
@@ -128,8 +128,7 @@ impl<'a> BathbotCard<'a, AssetsPathNext> {
 impl BathbotCard<'_, ReadyToDraw> {
     pub fn draw(&self) -> Result<Vec<u8>, CardError> {
         let fonts = FontData::new(self.inner.assets.clone())?;
-
-        let mut surface = Surface::new_raster_n32_premul((W, H)).ok_or(CardError::CreateSurface)?;
+        let mut surface = surfaces::raster_n32_premul((W, H)).ok_or(CardError::CreateSurface)?;
 
         CardBuilder::new(surface.canvas())
             .draw_background(&self.title, self.inner.assets.clone())?
@@ -139,7 +138,7 @@ impl BathbotCard<'_, ReadyToDraw> {
 
         surface
             .image_snapshot()
-            .encode_to_data(EncodedImageFormat::PNG)
+            .encode(None, EncodedImageFormat::PNG, None)
             .map(|png_data| png_data.as_bytes().to_vec())
             .ok_or(CardError::EncodeAsPng)
     }

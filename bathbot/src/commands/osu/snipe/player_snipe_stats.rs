@@ -12,7 +12,7 @@ use rosu_v2::{
     prelude::{GameMode, OsuError},
     request::UserId,
 };
-use skia_safe::{EncodedImageFormat, Surface};
+use skia_safe::{surfaces, EncodedImageFormat};
 use time::Date;
 use twilight_model::guild::Permissions;
 
@@ -193,8 +193,8 @@ pub fn graphs(
     w: u32,
     h: u32,
 ) -> Result<Vec<u8>> {
-    let mut surface = Surface::new_raster_n32_premul((w as i32, h as i32))
-        .wrap_err("Failed to create surface")?;
+    let mut surface =
+        surfaces::raster_n32_premul((w as i32, h as i32)).wrap_err("Failed to create surface")?;
 
     let style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
         color: color.to_rgba(),
@@ -312,7 +312,7 @@ pub fn graphs(
 
     let png_bytes = surface
         .image_snapshot()
-        .encode_to_data(EncodedImageFormat::PNG)
+        .encode(None, EncodedImageFormat::PNG, None)
         .wrap_err("Failed to encode image")?
         .to_vec();
 

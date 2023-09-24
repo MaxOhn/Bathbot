@@ -7,7 +7,7 @@ use plotters::{
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
 use rosu_v2::prelude::Score;
-use skia_safe::{EncodedImageFormat, Surface};
+use skia_safe::{surfaces, EncodedImageFormat};
 
 use super::{H, W};
 
@@ -18,8 +18,8 @@ pub async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8
     let min = scores.last().and_then(|s| s.pp).unwrap_or(0.0);
     let min_adj = (min - 5.0).max(0.0);
 
-    let mut surface = Surface::new_raster_n32_premul((W as i32, H as i32))
-        .wrap_err("Failed to create surface")?;
+    let mut surface =
+        surfaces::raster_n32_premul((W as i32, H as i32)).wrap_err("Failed to create surface")?;
 
     {
         let root = SkiaBackend::new(surface.canvas(), W, H).into_drawing_area();
@@ -87,7 +87,7 @@ pub async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8
 
     let png_bytes = surface
         .image_snapshot()
-        .encode_to_data(EncodedImageFormat::PNG)
+        .encode(None, EncodedImageFormat::PNG, None)
         .wrap_err("Failed to encode image")?
         .to_vec();
 
