@@ -13,7 +13,7 @@ flexmap = { git = "https://github.com/MaxOhn/flexmap" }
 futures = { version = "0.3", default-features = false }
 handlebars = { version = "4.0" }
 hyper = { version = "0.14", default-features = false, features = ["server"] }
-hyper-rustls = { version = "0.23", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
+hyper-rustls = { version = "0.24.1", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
 prometheus = { version = "0.13" }
 rosu-v2 = { workspace = true }
 serde = { version = "1.0", features = ["derive", "rc"] }
