@@ -588,14 +588,16 @@ dependencies = [
 
 [[package]]
 name = "compact_str"
-version = "0.6.1"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5138945395949e7dfba09646dc9e766b548ff48e23deb5246890e6b64ae9e1b9"
+checksum = "f86b9c4c00838774a6d902ef931eff7470720c51d90c2e32cfe15dc304737b3f"
 dependencies = [
  "castaway",
+ "cfg-if",
  "itoa",
  "rkyv",
  "ryu",
+ "static_assertions",
 ]
 
 [[package]]
@@ -2820,6 +2822,12 @@ dependencies = [
  "tokio",
  "tokio-rustls 0.23.4",
 ]
+
+[[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stringprep"

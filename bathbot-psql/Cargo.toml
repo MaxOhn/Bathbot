@@ -7,7 +7,7 @@ edition.workspace = true
 [dependencies]
 arrayvec = { version = "0.7" }
 bathbot-model = { path = "../bathbot-model" }
-compact_str = { version = "0.6", default-features = false, features = ["rkyv"] }
+compact_str = { version = "0.7.1", default-features = false, features = ["rkyv"] }
 eyre = { version = "0.6" }
 futures = { version = "0.3", default-features = false }
 ptr_meta = { version = "~0.1.3" }
