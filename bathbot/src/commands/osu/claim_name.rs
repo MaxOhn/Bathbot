@@ -312,12 +312,11 @@ impl ClaimNameValidator {
 
                 AhoCorasickBuilder::new()
                     .ascii_case_insensitive(true)
-                    .dfa(true)
-                    .build_with_size(needles)
+                    .build(needles)
                     .unwrap()
             })
             .is_match(prefix)
     }
 }
 
-static VALIDATOR: OnceCell<AhoCorasick<u16>> = OnceCell::new();
+static VALIDATOR: OnceCell<AhoCorasick> = OnceCell::new();
