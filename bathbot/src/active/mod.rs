@@ -297,7 +297,7 @@ pub trait IActiveMessage {
 
     /// What happens when the active message receives a component event.
     ///
-    /// Defaults to ginoring the component.
+    /// Defaults to ignoring the component.
     fn handle_component<'a>(
         &'a mut self,
         _ctx: Arc<Context>,
