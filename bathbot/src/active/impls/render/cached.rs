@@ -4,7 +4,7 @@ use bathbot_util::{
     constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
     EmbedBuilder, MessageBuilder,
 };
-use eyre::{Report, Result};
+use eyre::{Report, Result, WrapErr};
 use futures::future::BoxFuture;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
@@ -21,7 +21,7 @@ use twilight_model::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
-    core::Context,
+    core::{buckets::BucketName, Context},
     manager::{OwnedReplayScore, ReplayScore},
     util::{interaction::InteractionComponent, Authored, ComponentExt, MessageExt},
 };
@@ -81,9 +81,20 @@ impl CachedRender {
     ) -> Result<()> {
         let owner = component.user_id()?;
 
-        // Only the msg_owner is allowed to use this
-        if self.msg_owner != owner {
-            return Ok(());
+        if let Some(cooldown) = ctx.check_ratelimit(owner, BucketName::Render) {
+            let content = format!(
+                "Rendering is on cooldown for you <@{owner}>, try again in {cooldown} seconds"
+            );
+
+            let embed = EmbedBuilder::new().description(content).color_red();
+            let builder = MessageBuilder::new().embed(embed);
+
+            return component
+                .message
+                .reply(&ctx, builder, component.permissions)
+                .await
+                .map(|_| ())
+                .wrap_err("Failed to reply for render cooldown error");
         }
 
         let (mut status, (replay_res, settings_res)) = match self.score.take() {

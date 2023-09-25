@@ -147,7 +147,35 @@ impl EditOnTimeout {
                     Err(err) => return ComponentResult::Err(err),
                 };
 
+                let Some(score) = score_opt.take() else {
+                    return ComponentResult::Err(eyre!("Missing replay score"));
+                };
+
+                // Check if the score id has already been rendered
+                match ctx.replay().get_video_url(score_id).await {
+                    Ok(Some(video_url)) => {
+                        let channel_id = component.message.channel_id;
+
+                        // Spawn in new task so that we're sure to callback the component in time
+                        tokio::spawn(async move {
+                            let cached = CachedRender::new(score_id, Some(score), video_url, owner);
+                            let begin_fut = ActiveMessages::builder(cached).begin(ctx, channel_id);
+
+                            if let Err(err) = begin_fut.await {
+                                error!(?err, "Failed to begin cached render message");
+                            }
+                        });
+
+                        return ComponentResult::BuildPage;
+                    }
+                    Ok(None) => {}
+                    Err(err) => warn!(?err),
+                }
+
                 if let Some(cooldown) = ctx.check_ratelimit(owner, BucketName::Render) {
+                    // Put the score back so that the button can still be used
+                    *score_opt = Some(score);
+
                     let content = format!(
                         "Rendering is on cooldown for you <@{owner}>, try again in {cooldown} seconds"
                     );
@@ -168,10 +196,6 @@ impl EditOnTimeout {
                         }
                     };
                 }
-
-                let Some(score) = score_opt.take() else {
-                    return ComponentResult::Err(eyre!("Missing replay score"));
-                };
 
                 let orig = (component.message.id, component.message.channel_id);
                 let permissions = component.permissions;
@@ -334,21 +358,6 @@ async fn handle_render_button(
     owner: Id<UserMarker>,
     guild: Option<Id<GuildMarker>>,
 ) {
-    // Check if the score id has already been rendered
-    match ctx.replay().get_video_url(score_id).await {
-        Ok(Some(video_url)) => {
-            let cached = CachedRender::new(score_id, Some(score), video_url, owner);
-
-            if let Err(err) = ActiveMessages::builder(cached).begin(ctx, orig.1).await {
-                error!(?err, "Failed to begin cached render message");
-            }
-
-            return;
-        }
-        Ok(None) => {}
-        Err(err) => warn!(?err),
-    }
-
     let mut status = RenderStatus::new_preparing_replay();
     let score = ReplayScore::from(score);
 
