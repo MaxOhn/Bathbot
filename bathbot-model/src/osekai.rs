@@ -444,8 +444,8 @@ NOTE: You **must** get the scores back-to-back, and the third one must be a pass
 if you overcombo at any point on the second or third play, fail the third play, \
 or fail to reach the max combo requirement for the second or third score, \
 you must restart the medal from the beginning.\n\
-NOTE: Using difficulty reduction mods such as HT **is** allowed, \
-despite the category the medal is in. (Unsure if NF works or not, needs to be tested).";
+NOTE: Difficulty reduction mods **are** allowed for the first two plays, \
+despite the category the medal is in.";
 
 impl PartialEq for OsekaiMedal {
     #[inline]
