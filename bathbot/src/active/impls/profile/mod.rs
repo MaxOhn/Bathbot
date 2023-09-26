@@ -331,12 +331,20 @@ impl ProfileMenu {
         description.push_str(":**__");
 
         let peak_rank = match highest_rank {
-            Some(peak) => format!(
-                "#{rank} ({year}/{month:0>2})",
-                rank = WithComma::new(peak.rank),
-                year = peak.updated_at.year(),
-                month = peak.updated_at.month() as u8,
-            ),
+            Some(peak) => {
+                let mut peak_datetime = peak.updated_at;
+
+                if let Some(offset) = self.tz {
+                    peak_datetime = peak_datetime.to_offset(offset);
+                }
+
+                format!(
+                    "#{rank} ({year}/{month:0>2})",
+                    rank = WithComma::new(peak.rank),
+                    year = peak_datetime.year(),
+                    month = peak_datetime.month() as u8,
+                )
+            }
             None => "-".to_string(),
         };
 
