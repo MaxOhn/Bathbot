@@ -8,6 +8,7 @@ use bathbot_util::{
     matcher, CowUtils, MessageOrigin,
 };
 use eyre::{Report, Result};
+use rand::{thread_rng, Rng};
 use rosu_v2::{
     prelude::{
         GameMod, GameMode, GameMods, Grade, OsuError,
@@ -327,7 +328,7 @@ impl<'m> RecentScore<'m> {
         Ok(Self {
             mode,
             name,
-            index: num.map(|n| n as usize),
+            index: num.to_string_opt().map(Cow::Owned),
             grade,
             passes,
             discord,
@@ -456,7 +457,22 @@ pub(super) async fn score(
         scores.retain(|score| score.grade == Grade::F);
     }
 
-    let num = index.unwrap_or(1).saturating_sub(1);
+    let num = match index.as_deref() {
+        Some("random" | "?") => match scores.is_empty() {
+            false => thread_rng().gen_range(0..scores.len()),
+            true => 0,
+        },
+        Some(n) => match n.parse::<usize>() {
+            Ok(n) => n.saturating_sub(1),
+            Err(_) => {
+                let content = "Failed to parse index. \
+                Must be an integer between 1 and 100 or `random` / `?`.";
+
+                return orig.error(&ctx, content).await;
+            }
+        },
+        None => 0,
+    };
 
     let retries = config
         .retries
@@ -874,15 +890,13 @@ pub struct Rs<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
-        min_value = 1,
-        max_value = 100,
-        desc = "Choose the recent score's index",
+        desc = "Choose the recent score's index or `random`",
         help = "By default the very last play will be chosen.\n\
         However, if this index is specified, the play at that index will be displayed instead.\n\
         E.g. `index:1` is the default and `index:2` would show the second most recent play.\n\
-        The given index should be between 1 and 100."
+        The given index should be between 1 and 100 or `random`."
     )]
-    index: Option<usize>,
+    index: Option<Cow<'a, str>>,
     #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
     #[command(desc = "Specify whether only passes should be considered")]

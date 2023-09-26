@@ -59,15 +59,13 @@ pub struct RecentScore<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
-        min_value = 1,
-        max_value = 100,
-        desc = "Choose the recent score's index",
+        desc = "Choose the recent score's index or `random`",
         help = "By default the very last play will be chosen.\n\
         However, if this index is specified, the play at that index will be displayed instead.\n\
         E.g. `index:1` is the default and `index:2` would show the second most recent play.\n\
-        The given index should be between 1 and 100."
+        The given index should be between 1 and 100 or `random`."
     )]
-    index: Option<usize>,
+    index: Option<Cow<'a, str>>,
     #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
     #[command(desc = "Specify whether only passes should be considered")]
@@ -104,15 +102,14 @@ pub struct RecentBest {
     )]
     mods: Option<String>,
     #[command(
-        min_value = 1,
-        max_value = 100,
-        desc = "Choose a specific score index",
-        help = "By default the command will show paginated embeds containing five scores per page.\n\
+        desc = "Choose a specific score index or `random`",
+        help = "By default the command will show paginated embeds containing ten scores per page.\n\
         However, if this index is specified, the command will only show the score at the given index.\n\
         E.g. `index:1` will show the top score and \
-        `index:3` will show the score with the third highest pp amount."
+        `index:3` will show the score with the third highest pp amount.\n\
+        With `random` or `?` it'll choose a random index."
     )]
-    index: Option<u32>,
+    index: Option<String>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -175,7 +172,7 @@ impl<'a> TryFrom<RecentBest> for TopArgs<'a> {
             sort_by: TopScoreOrder::Date,
             reverse: args.reverse.unwrap_or(false),
             perfect_combo: args.perfect_combo,
-            index: args.index.map(|n| n as usize),
+            index: args.index,
             query: args.query,
             farm: args.farm,
             size: args.size,
@@ -202,14 +199,13 @@ pub struct RecentLeaderboard<'a> {
     )]
     mods: Option<Cow<'a, str>>,
     #[command(
-        min_value = 1,
-        max_value = 100,
-        desc = "Choose the recent score's index",
+        desc = "Choose the recent score's index or `random`",
         help = "By default the leaderboard of the very last score will be displayed.\n\
         However, if this index is specified, the leaderboard of the score at that index will be displayed instead.\n\
-        E.g. `index:1` is the default and `index:2` for the second most recent play."
+        E.g. `index:1` is the default and `index:2` for the second most recent play.\n\
+        With `random` or `?` it'll choose a random index."
     )]
-    index: Option<usize>,
+    index: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -286,15 +282,13 @@ pub struct RecentFix {
     #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
-        min_value = 1,
-        max_value = 100,
-        desc = "Choose the recent score's index",
+        desc = "Choose the recent score's index or `random`",
         help = "By default the very last play will be chosen.\n\
         However, if this index is specified, the play at that index will be fixed instead.\n\
         E.g. `index:1` is the default and `index:2` would fix the second most recent play.\n\
-        The given index should be between 1 and 100."
+        The given index should be between 1 and 100 or `random`."
     )]
-    index: Option<usize>,
+    index: Option<String>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -349,15 +343,14 @@ pub struct Rb {
     )]
     mods: Option<String>,
     #[command(
-        min_value = 1,
-        max_value = 100,
-        desc = "Choose a specific score index",
+        desc = "Choose a specific score index or `random`",
         help = "By default the command will show paginated embeds containing five scores per page.\n\
         However, if this index is specified, the command will only show the score at the given index.\n\
         E.g. `index:1` will show the top score and \
-        `index:3` will show the score with the third highest pp amount."
+        `index:3` will show the score with the third highest pp amount.\n\
+        With `random` or `?` it'll choose a random index."
     )]
-    index: Option<u32>,
+    index: Option<String>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \

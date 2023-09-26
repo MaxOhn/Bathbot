@@ -13,11 +13,11 @@ type ItemFn<'m> = fn(&'m str) -> IResult<&'m str, &'m str, ItemError<'m>>;
 
 pub struct Args<'m> {
     iter: ParserIterator<&'m str, ItemError<'m>, ItemFn<'m>>,
-    pub num: Option<u64>,
+    pub num: ArgsNum,
 }
 
 impl<'m> Args<'m> {
-    pub fn new(content: &'m str, num: Option<u64>) -> Self {
+    pub fn new(content: &'m str, num: ArgsNum) -> Self {
         Self {
             iter: iterator(content, Self::next_item),
             num,
@@ -71,5 +71,22 @@ impl<'m> Iterator for Args<'m> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         (&mut self.iter).next()
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum ArgsNum {
+    Value(u32),
+    Random,
+    None,
+}
+
+impl ArgsNum {
+    pub fn to_string_opt(self) -> Option<String> {
+        match self {
+            ArgsNum::Value(n) => Some(n.to_string()),
+            ArgsNum::Random => Some("?".to_string()),
+            ArgsNum::None => None,
+        }
     }
 }
