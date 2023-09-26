@@ -11,7 +11,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
 use super::GameModeOption;
 use crate::{
-    core::commands::prefix::Args,
+    core::commands::prefix::{Args, ArgsNum},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
@@ -161,7 +161,11 @@ impl TrackArgs {
     async fn args(mode: Option<GameMode>, args: Args<'_>) -> Result<Self, Cow<'static, str>> {
         let mut name = None;
         let mut more_names = Vec::new();
-        let mut limit = args.num.map(|n| n.min(100) as u8);
+
+        let mut limit = match args.num {
+            ArgsNum::Value(n) => Some(n.min(100) as u8),
+            ArgsNum::Random | ArgsNum::None => None,
+        };
 
         for arg in args.map(CowUtils::cow_to_ascii_lowercase) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {

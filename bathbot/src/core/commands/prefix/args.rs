@@ -82,7 +82,7 @@ pub enum ArgsNum {
 }
 
 impl ArgsNum {
-    pub fn to_string_opt(&self) -> Option<String> {
+    pub fn to_string_opt(self) -> Option<String> {
         match self {
             ArgsNum::Value(n) => Some(n.to_string()),
             ArgsNum::Random => Some("?".to_string()),
