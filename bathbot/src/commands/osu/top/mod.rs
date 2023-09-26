@@ -885,10 +885,10 @@ pub(super) async fn top(
     let index = match args.index.as_deref() {
         Some("random" | "?") => (post_len > 0).then_some(thread_rng().gen_range(1..=post_len)),
         Some(n) => match n.parse::<usize>() {
-            Ok(n) if n >= post_len => {
+            Ok(n) if n > post_len => {
                 let mut content = format!("`{username}` only has {post_len} top scores");
 
-                if pre_len < post_len {
+                if pre_len > post_len {
                     let _ = write!(content, " with the specified properties");
                 }
 
