@@ -6,6 +6,7 @@ use bathbot_util::{
     MessageBuilder,
 };
 use eyre::{Report, Result};
+use rand::{thread_rng, Rng};
 use rosu_v2::prelude::{GameMode, OsuError};
 
 use super::RecentFix;
@@ -63,7 +64,23 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
         }
     };
 
-    let num = args.index.unwrap_or(1).saturating_sub(1);
+    let num = match args.index.as_deref() {
+        Some("random" | "?") => match scores.is_empty() {
+            false => thread_rng().gen_range(0..scores.len()),
+            true => 0,
+        },
+        Some(n) => match n.parse::<usize>() {
+            Ok(n) => n.saturating_sub(1),
+            Err(_) => {
+                let content = "Failed to parse index. \
+                Must be an integer between 1 and 100 or `random` / `?`.";
+
+                return orig.error(&ctx, content).await;
+            }
+        },
+        None => 0,
+    };
+
     let scores_len = scores.len();
 
     let (score, map, top) = match scores.into_iter().nth(num) {

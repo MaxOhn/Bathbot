@@ -8,6 +8,7 @@ use bathbot_util::{
     matcher, IntHasher, MessageBuilder,
 };
 use eyre::{Report, Result};
+use rand::{thread_rng, Rng};
 use rkyv::{
     with::{DeserializeWith, Map},
     Infallible,
@@ -39,7 +40,7 @@ use crate::{
 #[group(AllModes)]
 async fn prefix_medalrecent(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let mut args_ = MedalRecent {
-        index: args.num.map(|n| n as usize),
+        index: args.num.to_string_opt().map(String::into),
         ..Default::default()
     };
 
@@ -114,7 +115,26 @@ pub(super) async fn recent(
     }
 
     user_medals.sort_unstable_by_key(|medal| Reverse(medal.achieved_at));
-    let index = args.index.unwrap_or(1).saturating_sub(1);
+
+    let index = match args.index.as_deref() {
+        Some("random" | "?") => match user_medals.is_empty() {
+            false => thread_rng().gen_range(0..user_medals.len()),
+            true => 0,
+        },
+        Some(n) => match n.parse::<usize>() {
+            Ok(n) => n.saturating_sub(1),
+            Err(_) => {
+                let content = format!(
+                    "Failed to parse index. \
+                    Must be an integer between 1 and {} or `random` / `?`.",
+                    user_medals.len()
+                );
+
+                return orig.error(&ctx, content).await;
+            }
+        },
+        None => 0,
+    };
 
     let (medal_id, achieved_at) = match user_medals.get(index) {
         Some(MedalCompact {

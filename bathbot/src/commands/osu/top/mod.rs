@@ -18,6 +18,7 @@ use bathbot_util::{
     CowUtils, IntHasher,
 };
 use eyre::{Report, Result};
+use rand::{thread_rng, Rng};
 use rkyv::{Deserialize, Infallible};
 use rosu_pp::{beatmap::BeatmapAttributesBuilder, GameMode as GameModePp};
 use rosu_v2::{
@@ -82,8 +83,8 @@ pub struct Top {
         - `-nm!`: Scores can not be nomod so there must be any other mod"
     )]
     mods: Option<String>,
-    #[command(min_value = 1, max_value = 100, desc = "Choose a specific score index")]
-    index: Option<u32>,
+    #[command(desc = "Choose a specific score index or `random`")]
+    index: Option<String>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -522,7 +523,7 @@ pub struct TopArgs<'a> {
     pub sort_by: TopScoreOrder,
     pub reverse: bool,
     pub perfect_combo: Option<bool>,
-    pub index: Option<usize>,
+    pub index: Option<String>,
     pub query: Option<String>,
     pub farm: Option<FarmFilter>,
     pub size: Option<ListSize>,
@@ -692,7 +693,7 @@ impl<'m> TopArgs<'m> {
             sort_by: sort_by.unwrap_or_default().into(),
             reverse: reverse.unwrap_or(false),
             perfect_combo: None,
-            index: num.map(|n| n as usize),
+            index: num.to_string_opt(),
             query: None,
             farm: None,
             size: None,
@@ -727,7 +728,7 @@ impl TryFrom<Top> for TopArgs<'static> {
             sort_by: args.sort.unwrap_or_default(),
             reverse: args.reverse.unwrap_or(false),
             perfect_combo: args.perfect_combo,
-            index: args.index.map(|n| n as usize),
+            index: args.index,
             query: args.query,
             farm: args.farm,
             size: args.size,
@@ -744,12 +745,6 @@ pub(super) async fn top(
     orig: CommandOrigin<'_>,
     args: TopArgs<'_>,
 ) -> Result<()> {
-    if args.index.is_some_and(|n| n > 100) {
-        let content = "Can't have more than 100 top scores.";
-
-        return orig.error(&ctx, content).await;
-    }
-
     let msg_owner = orig.user_id()?;
 
     let mut config = match ctx.user_config().with_osu_id(msg_owner).await {
@@ -871,6 +866,8 @@ pub(super) async fn top(
         None => HashMap::default(),
     };
 
+    let pre_len = scores.len();
+
     // Filter scores according to mods, combo, acc, and grade
     let entries = match process_scores(&ctx, scores, &args, &farm).await {
         Ok(entries) => entries,
@@ -881,16 +878,32 @@ pub(super) async fn top(
         }
     };
 
+    let post_len = entries.len();
+
     let username = user.username();
 
-    if args.index.is_some_and(|n| n > entries.len()) {
-        let content = format!(
-            "`{username}` only has {} top scores with the specified properties",
-            entries.len(),
-        );
+    let index = match args.index.as_deref() {
+        Some("random" | "?") => (post_len > 0).then_some(thread_rng().gen_range(1..=post_len)),
+        Some(n) => match n.parse::<usize>() {
+            Ok(n) if n >= post_len => {
+                let mut content = format!("`{username}` only has {post_len} top scores");
 
-        return orig.error(&ctx, content).await;
-    }
+                if pre_len < post_len {
+                    let _ = write!(content, " with the specified properties");
+                }
+
+                return orig.error(&ctx, content).await;
+            }
+            Ok(n) => Some(n),
+            Err(_) => {
+                let content = "Failed to parse index. \
+                Must be an integer between 1 and 100 or `random` / `?`.";
+
+                return orig.error(&ctx, content).await;
+            }
+        },
+        None => None,
+    };
 
     let GuildValues {
         minimized_pp: guild_minimized_pp,
@@ -906,8 +919,7 @@ pub(super) async fn top(
         None => GuildValues::default(),
     };
 
-    let single_idx = args
-        .index
+    let single_idx = index
         .map(|num| num.saturating_sub(1))
         .or_else(|| (entries.len() == 1).then_some(0));
 
@@ -919,7 +931,7 @@ pub(super) async fn top(
             .or(guild_minimized_pp)
             .unwrap_or_default();
 
-        let content = write_content(username, &args, 1);
+        let content = write_content(username, &args, 1, index);
         let entry = &entries[idx];
 
         // Prepare retrieval of the map's global top 50 and the user's top 100
@@ -996,7 +1008,7 @@ pub(super) async fn top(
             .begin(ctx, orig)
             .await
     } else {
-        let content = write_content(username, &args, entries.len());
+        let content = write_content(username, &args, entries.len(), index);
 
         let list_size = args
             .size
@@ -1351,7 +1363,12 @@ fn mode_long(mode: GameMode) -> &'static str {
 
 type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), IntHasher>;
 
-fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String> {
+fn write_content(
+    name: &str,
+    args: &TopArgs<'_>,
+    amount: usize,
+    index: Option<usize>,
+) -> Option<String> {
     let condition = args.min_acc.is_some()
         || args.max_acc.is_some()
         || args.min_combo.is_some()
@@ -1368,7 +1385,7 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
         let genitive = if name.ends_with('s') { "" } else { "s" };
         let reverse = if args.reverse { "reversed " } else { "" };
 
-        let ordinal_suffix = match args.index {
+        let ordinal_suffix = match index {
             Some(n) if n % 10 == 1 && n != 11 => "st",
             Some(n) if n % 10 == 2 && n != 12 => "nd",
             Some(n) if n % 10 == 3 && n != 13 => "rd",
@@ -1391,23 +1408,23 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
             TopScoreOrder::Combo => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}combo:")
             }
-            TopScoreOrder::Date if (args.reverse && args.index.is_some_and(|n| n <= 1)) => {
+            TopScoreOrder::Date if (args.reverse && index.is_some_and(|n| n <= 1)) => {
                 format!("Oldest score in `{name}`'{genitive} top100:")
             }
-            TopScoreOrder::Date if (args.reverse && args.index.is_some_and(|n| n > 1)) => {
+            TopScoreOrder::Date if (args.reverse && index.is_some_and(|n| n > 1)) => {
                 format!(
                     "{index_string}{ordinal_suffix} oldest score in `{name}`'{genitive} top100:",
-                    index_string = args.index.unwrap()
+                    index_string = index.unwrap()
                 )
             }
             TopScoreOrder::Date if args.reverse => {
                 format!("Oldest scores in `{name}`'{genitive} top100:")
             }
-            TopScoreOrder::Date if args.index.is_some_and(|n| n <= 1) => {
+            TopScoreOrder::Date if index.is_some_and(|n| n <= 1) => {
                 format!("Most recent score in `{name}`'{genitive} top100:")
             }
-            TopScoreOrder::Date if args.index.is_some_and(|n| n > 1) => {
-                format!("{index_string}{ordinal_suffix} most recent score in `{name}`'{genitive} top100:", index_string = args.index.unwrap())
+            TopScoreOrder::Date if index.is_some_and(|n| n > 1) => {
+                format!("{index_string}{ordinal_suffix} most recent score in `{name}`'{genitive} top100:", index_string = index.unwrap())
             }
             TopScoreOrder::Date => {
                 format!("Most recent scores in `{name}`'{genitive} top100:")

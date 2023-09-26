@@ -8,7 +8,10 @@ use futures::Future;
 use once_cell::sync::OnceCell;
 use radix_trie::{Trie, TrieCommon};
 
-pub use self::{args::Args, command::PrefixCommand};
+pub use self::{
+    args::{Args, ArgsNum},
+    command::PrefixCommand,
+};
 #[cfg(feature = "osutracking")]
 use crate::commands::tracking::*;
 #[cfg(feature = "twitch")]

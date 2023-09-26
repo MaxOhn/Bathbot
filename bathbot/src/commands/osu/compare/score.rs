@@ -34,7 +34,10 @@ use super::{CompareScoreAutocomplete, ScoreOrder};
 use crate::{
     active::{impls::CompareScoresPagination, ActiveMessages},
     commands::osu::{require_link, HasMods, ModsResult},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{
+        prefix::{Args, ArgsNum},
+        CommandOrigin,
+    },
     manager::{
         redis::{
             osu::{UserArgs, UserArgsSlim},
@@ -201,7 +204,10 @@ impl<'m> CompareScoreArgs<'m> {
             sort: None,
             mods,
             discord,
-            index: index.map(|i| i as u32),
+            index: match index {
+                ArgsNum::Value(n) => Some(n),
+                ArgsNum::Random | ArgsNum::None => None,
+            },
         }
     }
 }

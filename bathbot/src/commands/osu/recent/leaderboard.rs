@@ -7,6 +7,7 @@ use bathbot_util::{
     osu::ModSelection,
 };
 use eyre::{Report, Result};
+use rand::{thread_rng, Rng};
 use rosu_v2::{
     prelude::{BeatmapUserScore, GameMode, GameModsIntermode, OsuError, Score, Username},
     request::UserId,
@@ -134,7 +135,7 @@ impl<'m> RecentLeaderboard<'m> {
             mode,
             name,
             mods,
-            index: num.map(|n| n as usize),
+            index: num.to_string_opt().map(String::into),
             discord,
         }
     }
@@ -158,13 +159,24 @@ pub(super) async fn leaderboard(
         }
     };
 
-    let limit = args.index.map_or(1, |n| n + (n == 0) as usize);
+    let limit = match args.index.as_deref() {
+        Some("random" | "?") => thread_rng().gen_range(1..=100),
+        Some(n) => match n.parse::<usize>() {
+            Ok(n) if n > 100 => {
+                let content = "Recent history goes only 100 scores back.";
 
-    if limit > 100 {
-        let content = "Recent history goes only 100 scores back.";
+                return orig.error(&ctx, content).await;
+            }
+            Ok(n) => n,
+            Err(_) => {
+                let content = "Failed to parse index. \
+                Must be an integer between 1 and 100 or `random` / `?`.";
 
-        return orig.error(&ctx, content).await;
-    }
+                return orig.error(&ctx, content).await;
+            }
+        },
+        None => 1,
+    };
 
     let owner = orig.user_id()?;
 

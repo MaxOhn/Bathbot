@@ -16,7 +16,10 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     commands::ShowHideOption,
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{
+        prefix::{Args, ArgsNum},
+        CommandOrigin,
+    },
     embeds::{EmbedData, MatchCostEmbed},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
@@ -79,10 +82,10 @@ impl<'m> MatchCost<'m> {
             }
         };
 
-        let warmups = args
-            .num
-            .or_else(|| args.next().and_then(|num| num.parse().ok()))
-            .map(|n| n as usize);
+        let warmups = match args.num {
+            ArgsNum::Value(n) => Some(n as usize),
+            ArgsNum::Random | ArgsNum::None => args.next().and_then(|arg| arg.parse().ok()),
+        };
 
         Ok(Self {
             match_url,

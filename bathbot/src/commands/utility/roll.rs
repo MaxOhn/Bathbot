@@ -3,28 +3,36 @@ use std::sync::Arc;
 use bathbot_macros::{command, SlashCommand};
 use bathbot_util::MessageBuilder;
 use eyre::Result;
-use rand::Rng;
+use rand::{random, thread_rng, Rng};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::guild::Permissions;
 
 use crate::{
-    core::{commands::CommandOrigin, Context},
+    core::{
+        commands::{prefix::ArgsNum, CommandOrigin},
+        Context,
+    },
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
-const DEFAULT_LIMIT: u64 = 100;
+const DEFAULT_LIMIT: u32 = 100;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "roll", desc = "Roll a random number")]
 #[flags(SKIP_DEFER)]
 pub struct Roll {
-    #[command(min_value = 1, desc = "Specify an upper limit, defaults to 100")]
-    limit: Option<i64>,
+    #[command(desc = "Specify an upper limit or `random`, defaults to 100")]
+    limit: Option<String>,
 }
 
 async fn slash_roll(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Roll::from_interaction(command.input_data())?;
-    let limit = args.limit.map_or(DEFAULT_LIMIT, |l| l as u64);
+
+    let limit = match args.limit.as_deref() {
+        Some("random" | "?") => None,
+        Some(n) => Some(n.parse().unwrap_or(DEFAULT_LIMIT)),
+        None => Some(DEFAULT_LIMIT),
+    };
 
     roll(ctx, (&mut command).into(), limit).await
 }
@@ -45,19 +53,20 @@ async fn prefix_roll(
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let limit = match args.num {
-        Some(n) => n,
-        None => match args.next().map(|arg| arg.parse()) {
-            Some(Ok(n)) => n,
-            None | Some(Err(_)) => DEFAULT_LIMIT,
+        ArgsNum::Value(n) => Some(n),
+        ArgsNum::Random => None,
+        ArgsNum::None => match args.next().map(str::parse) {
+            Some(Ok(n)) => Some(n),
+            None | Some(Err(_)) => Some(DEFAULT_LIMIT),
         },
     };
 
     roll(ctx, CommandOrigin::from_msg(msg, permissions), limit).await
 }
 
-async fn roll(ctx: Arc<Context>, orig: CommandOrigin<'_>, limit: u64) -> Result<()> {
-    let num = rand::thread_rng().gen_range(1..(limit + 1).max(2));
+async fn roll(ctx: Arc<Context>, orig: CommandOrigin<'_>, limit: Option<u32>) -> Result<()> {
     let author_id = orig.user_id()?;
+    let num = limit.map_or_else(random, |limit| thread_rng().gen_range(1..=limit.max(2)));
 
     let description = format!(
         "<@{author_id}> rolls {num} point{} :game_die:",

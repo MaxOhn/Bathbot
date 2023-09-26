@@ -2,11 +2,11 @@ use bathbot_util::CowUtils;
 use nom::{
     branch::alt,
     character::complete as ch,
-    combinator::{eof, map_opt, opt, recognize},
+    combinator::{eof, map, map_opt, opt, recognize},
     sequence::{pair, terminated},
 };
 
-use crate::core::commands::prefix::{Args, PrefixCommand, PrefixCommands};
+use crate::core::commands::prefix::{Args, ArgsNum, PrefixCommand, PrefixCommands};
 
 pub struct Invoke<'i> {
     pub cmd: &'static PrefixCommand,
@@ -18,16 +18,24 @@ impl<'i> Invoke<'i> {
         let mut parse = terminated::<_, _, _, (), _, _>(
             // either
             alt((
-                // [alphabetic][numeric?]
+                // [alphabetic][numeric/?]
                 pair(
                     map_opt(ch::alpha1, |name: &str| {
                         PrefixCommands::get().command(name.cow_to_ascii_lowercase().as_ref())
                     }),
-                    opt(ch::u64),
+                    map(
+                        opt(alt((
+                            map(ch::u32, ArgsNum::Value),
+                            map(ch::char('?'), |_| ArgsNum::Random),
+                        ))),
+                        |opt| opt.unwrap_or(ArgsNum::None),
+                    ),
                 ),
                 // [numeric]
                 map_opt(ch::digit1, |name| {
-                    PrefixCommands::get().command(name).map(|cmd| (cmd, None))
+                    PrefixCommands::get()
+                        .command(name)
+                        .map(|cmd| (cmd, ArgsNum::None))
                 }),
             )),
             // either followed by space or eof
