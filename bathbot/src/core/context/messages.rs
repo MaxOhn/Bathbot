@@ -92,6 +92,17 @@ impl Context {
         }
 
         for embed in embeds {
+            // check the description for youtube video's & co
+            if let Some(map_id) = embed
+                .description
+                .as_deref()
+                .filter(|_| embed.kind == "video")
+                .and_then(matcher::get_osu_map_id)
+            {
+                return Some(MapIdType::Map(map_id));
+            }
+
+            // if it's an ordr url, try to request the map id for it
             let video_url_opt = embed
                 .url
                 .as_ref()
@@ -100,6 +111,7 @@ impl Context {
             let Some(video_url) = video_url_opt else {
                 continue;
             };
+
             let Some(ordr) = self.ordr() else { continue };
 
             let render_opt = ordr
