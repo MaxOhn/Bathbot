@@ -676,7 +676,7 @@ impl Display for OrderAppendix<'_> {
 
                 write!(f, "`{}:{:0>2}`", secs / 60, secs % 60)
             }
-            TopScoreOrder::Hp => write!(f, "`Hp {}`", round(self.entry.hp() as f32)),
+            TopScoreOrder::Hp => write!(f, "`HP {}`", round(self.entry.hp() as f32)),
             TopScoreOrder::Od => write!(f, "`OD {}`", round(self.entry.od() as f32)),
             TopScoreOrder::RankedDate => match self.ranked_date {
                 Some(date) => write!(f, "<t:{}:d>", date.unix_timestamp()),
