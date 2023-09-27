@@ -662,11 +662,13 @@ impl Display for OrderAppendix<'_> {
 
                 write!(f, "`{}`", WithComma::new(count))
             }
+            TopScoreOrder::Ar => write!(f, "`AR {}`", round(self.entry.ar() as f32)),
             TopScoreOrder::Bpm => {
                 let clock_rate = self.entry.score.mods.clock_rate().unwrap_or(1.0);
 
                 write!(f, "`{}bpm`", round(self.entry.map.bpm() * clock_rate))
             }
+            TopScoreOrder::Cs => write!(f, "`CS {}`", round(self.entry.cs() as f32)),
             TopScoreOrder::Length => {
                 let clock_rate = self.entry.score.mods.clock_rate().unwrap_or(1.0);
 
@@ -674,6 +676,8 @@ impl Display for OrderAppendix<'_> {
 
                 write!(f, "`{}:{:0>2}`", secs / 60, secs % 60)
             }
+            TopScoreOrder::Hp => write!(f, "`Hp {}`", round(self.entry.hp() as f32)),
+            TopScoreOrder::Od => write!(f, "`OD {}`", round(self.entry.od() as f32)),
             TopScoreOrder::RankedDate => match self.ranked_date {
                 Some(date) => write!(f, "<t:{}:d>", date.unix_timestamp()),
                 None => Ok(()),
@@ -689,7 +693,13 @@ impl Display for OrderAppendix<'_> {
                     write!(f, "`{}`", WithComma::new(score))
                 }
             }
-            _ => HowLongAgoDynamic::new(&self.entry.score.ended_at).fmt(f),
+            TopScoreOrder::Acc
+            | TopScoreOrder::Combo
+            | TopScoreOrder::Date
+            | TopScoreOrder::Misses
+            | TopScoreOrder::Pp
+            | TopScoreOrder::Score
+            | TopScoreOrder::Stars => HowLongAgoDynamic::new(&self.entry.score.ended_at).fmt(f),
         }
     }
 }

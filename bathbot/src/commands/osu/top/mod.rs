@@ -1,11 +1,4 @@
-use std::{
-    borrow::Cow,
-    cmp::{Ordering, Reverse},
-    collections::HashMap,
-    fmt::Write,
-    mem,
-    sync::Arc,
-};
+use std::{borrow::Cow, cmp::Reverse, collections::HashMap, fmt::Write, mem, sync::Arc};
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::{OsuTrackerMapsetEntry, ScoreSlim};
@@ -20,7 +13,10 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
 use rkyv::{Deserialize, Infallible};
-use rosu_pp::{beatmap::BeatmapAttributesBuilder, GameMode as GameModePp};
+use rosu_pp::{
+    beatmap::{BeatmapAttributes, BeatmapAttributesBuilder},
+    GameMode as GameModePp,
+};
 use rosu_v2::{
     prelude::{
         GameModIntermode, GameMode, Grade, OsuError,
@@ -128,12 +124,18 @@ pub struct Top {
 pub enum TopScoreOrder {
     #[option(name = "Accuracy", value = "acc")]
     Acc,
+    #[option(name = "Approach Rate", value = "ar")]
+    Ar,
     #[option(name = "BPM", value = "bpm")]
     Bpm,
     #[option(name = "Combo", value = "combo")]
     Combo,
+    #[option(name = "Circle Size", value = "cs")]
+    Cs,
     #[option(name = "Date", value = "date")]
     Date,
+    #[option(name = "Drain Rate", value = "hp")]
+    Hp,
     #[option(name = "Common farm", value = "farm")]
     Farm,
     #[option(name = "Length", value = "len")]
@@ -142,6 +144,8 @@ pub enum TopScoreOrder {
     RankedDate,
     #[option(name = "Misses", value = "miss")]
     Misses,
+    #[option(name = "Overall Difficulty", value = "od")]
+    Od,
     #[default]
     #[option(name = "PP", value = "pp")]
     Pp,
@@ -1050,6 +1054,39 @@ pub struct TopEntry {
     pub replay: Option<bool>,
 }
 
+impl TopEntry {
+    fn map_attrs(&self) -> BeatmapAttributes {
+        let mode = match self.score.mode {
+            GameMode::Osu => GameModePp::Osu,
+            GameMode::Taiko => GameModePp::Taiko,
+            GameMode::Catch => GameModePp::Catch,
+            GameMode::Mania => GameModePp::Mania,
+        };
+
+        BeatmapAttributesBuilder::new(&self.map.pp_map)
+            .mods(self.score.mods.bits())
+            .mode(mode)
+            .converted(self.map.is_convert)
+            .build()
+    }
+
+    pub fn ar(&self) -> f64 {
+        self.map_attrs().ar
+    }
+
+    pub fn cs(&self) -> f64 {
+        self.map_attrs().cs
+    }
+
+    pub fn hp(&self) -> f64 {
+        self.map_attrs().hp
+    }
+
+    pub fn od(&self) -> f64 {
+        self.map_attrs().od
+    }
+}
+
 impl<'q> Searchable<TopCriteria<'q>> for TopEntry {
     fn matches(&self, criteria: &FilterCriteria<TopCriteria<'q>>) -> bool {
         let mut matches = true;
@@ -1283,19 +1320,16 @@ async fn process_scores(
     }
 
     match args.sort_by {
-        TopScoreOrder::Acc => entries.sort_by(|a, b| {
-            b.score
-                .accuracy
-                .partial_cmp(&a.score.accuracy)
-                .unwrap_or(Ordering::Equal)
-        }),
+        TopScoreOrder::Acc => entries.sort_by(|a, b| b.score.accuracy.total_cmp(&a.score.accuracy)),
+        TopScoreOrder::Ar => entries.sort_by(|a, b| b.ar().total_cmp(&a.ar())),
         TopScoreOrder::Bpm => entries.sort_by(|a, b| {
             let a_bpm = a.map.bpm() * a.score.mods.clock_rate().unwrap_or(1.0);
             let b_bpm = b.map.bpm() * b.score.mods.clock_rate().unwrap_or(1.0);
 
-            b_bpm.partial_cmp(&a_bpm).unwrap_or(Ordering::Equal)
+            b_bpm.total_cmp(&a_bpm)
         }),
         TopScoreOrder::Combo => entries.sort_by_key(|entry| Reverse(entry.score.max_combo)),
+        TopScoreOrder::Cs => entries.sort_by(|a, b| b.cs().total_cmp(&a.cs())),
         TopScoreOrder::Date => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
         TopScoreOrder::Farm => entries.sort_by(|a, b| {
             let mapset_a = a.map.mapset_id();
@@ -1306,12 +1340,13 @@ async fn process_scores(
 
             count_b.cmp(&count_a)
         }),
+        TopScoreOrder::Hp => entries.sort_by(|a, b| b.hp().total_cmp(&a.hp())),
         TopScoreOrder::Length => {
             entries.sort_by(|a, b| {
                 let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
                 let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
 
-                b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
+                b_len.total_cmp(&a_len)
             });
         }
         TopScoreOrder::Misses => entries.sort_by(|a, b| {
@@ -1327,22 +1362,15 @@ async fn process_scores(
                     let ratio_b = b.score.statistics.count_miss as f32 / hits_b as f32;
 
                     ratio_b
-                        .partial_cmp(&ratio_a)
-                        .unwrap_or(Ordering::Equal)
+                        .total_cmp(&ratio_a)
                         .then_with(|| hits_b.cmp(&hits_a))
                 })
         }),
-        TopScoreOrder::Pp => entries.sort_by(|a, b| {
-            b.score
-                .pp
-                .partial_cmp(&a.score.pp)
-                .unwrap_or(Ordering::Equal)
-        }),
+        TopScoreOrder::Od => entries.sort_by(|a, b| b.od().total_cmp(&a.od())),
+        TopScoreOrder::Pp => entries.sort_by(|a, b| b.score.pp.total_cmp(&a.score.pp)),
         TopScoreOrder::RankedDate => entries.sort_by_key(|entry| Reverse(entry.map.ranked_date())),
         TopScoreOrder::Score => entries.sort_by_key(|entry| Reverse(entry.score.score)),
-        TopScoreOrder::Stars => {
-            entries.sort_by(|a, b| b.stars.partial_cmp(&a.stars).unwrap_or(Ordering::Equal))
-        }
+        TopScoreOrder::Stars => entries.sort_by(|a, b| b.stars.total_cmp(&a.stars)),
     }
 
     if args.reverse {
@@ -1402,11 +1430,17 @@ fn write_content(
             TopScoreOrder::Acc => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:")
             }
+            TopScoreOrder::Ar => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}AR:")
+            }
             TopScoreOrder::Bpm => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}BPM:")
             }
             TopScoreOrder::Combo => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}combo:")
+            }
+            TopScoreOrder::Cs => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}CS:")
             }
             TopScoreOrder::Date if (args.reverse && index.is_some_and(|n| n <= 1)) => {
                 format!("Oldest score in `{name}`'{genitive} top100:")
@@ -1429,11 +1463,17 @@ fn write_content(
             TopScoreOrder::Date => {
                 format!("Most recent scores in `{name}`'{genitive} top100:")
             }
+            TopScoreOrder::Hp => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}HP:")
+            }
             TopScoreOrder::Length => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}length:")
             }
             TopScoreOrder::Misses => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}miss count:")
+            }
+            TopScoreOrder::Od => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}OD:")
             }
             TopScoreOrder::Pp if !args.reverse => return None,
             TopScoreOrder::Pp => {
@@ -1460,11 +1500,15 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
     match args.sort_by {
         TopScoreOrder::Farm => content.push_str("`Order: Farm"),
         TopScoreOrder::Acc => content.push_str("`Order: Accuracy"),
+        TopScoreOrder::Ar => content.push_str("`Order: AR"),
         TopScoreOrder::Bpm => content.push_str("`Order: BPM"),
         TopScoreOrder::Combo => content.push_str("`Order: Combo"),
+        TopScoreOrder::Cs => content.push_str("`Order: CS"),
         TopScoreOrder::Date => content.push_str("`Order: Date"),
+        TopScoreOrder::Hp => content.push_str("`Order: HP"),
         TopScoreOrder::Length => content.push_str("`Order: Length"),
         TopScoreOrder::Misses => content.push_str("`Order: Miss count"),
+        TopScoreOrder::Od => content.push_str("`Order: OD"),
         TopScoreOrder::Pp => content.push_str("`Order: Pp"),
         TopScoreOrder::RankedDate => content.push_str("`Order: Ranked date"),
         TopScoreOrder::Score => content.push_str("`Order: Score"),
