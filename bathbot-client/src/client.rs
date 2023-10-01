@@ -60,6 +60,7 @@ impl Client {
         let ratelimiters = [
             ratelimiter(2),  // DiscordAttachment
             ratelimiter(10), // Flags
+            ratelimiter(5),  // Github
             ratelimiter(2),  // Huismetbenen
             ratelimiter(5),  // MissAnalyzer
             ratelimiter(2),  // Osekai

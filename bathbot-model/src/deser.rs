@@ -134,7 +134,6 @@ pub(super) mod adjust_acc {
 }
 
 pub(super) mod naive_datetime {
-
     use bathbot_util::datetime::NAIVE_DATETIME_FORMAT;
 
     use super::*;
@@ -149,7 +148,7 @@ pub(super) mod naive_datetime {
         type Value = OffsetDateTime;
 
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("a datetime string")
+            f.write_str("a naive datetime string")
         }
 
         #[inline]
@@ -176,7 +175,7 @@ pub(super) mod option_naive_datetime {
         type Value = Option<OffsetDateTime>;
 
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("an optional datetime string")
+            f.write_str("an optional naive datetime string")
         }
 
         #[inline]
@@ -192,6 +191,34 @@ pub(super) mod option_naive_datetime {
         #[inline]
         fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
             Ok(None)
+        }
+    }
+}
+
+pub(super) mod datetime_z {
+    use bathbot_util::datetime::DATETIME_Z_FORMAT;
+
+    use super::*;
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
+        d.deserialize_str(DateTimeVisitor)
+    }
+
+    pub(super) struct DateTimeVisitor;
+
+    impl<'de> Visitor<'de> for DateTimeVisitor {
+        type Value = OffsetDateTime;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("an RFC3339 datetime string ending on `Z`")
+        }
+
+        #[inline]
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            PrimitiveDateTime::parse(v, DATETIME_Z_FORMAT)
+                .map(PrimitiveDateTime::assume_utc)
+                .map_err(Error::custom)
         }
     }
 }
