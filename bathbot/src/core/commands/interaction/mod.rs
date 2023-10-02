@@ -55,6 +55,7 @@ impl InteractionCommands {
                 BOOKMARK_MAP_MSG,
                 Bws => BWS_SLASH,
                 Card => CARD_SLASH,
+                Changelog => CHANGELOG_SLASH,
                 ClaimName => CLAIMNAME_SLASH,
                 Commands => COMMANDS_SLASH,
                 Compare => COMPARE_SLASH,

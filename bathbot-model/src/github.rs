@@ -9,16 +9,16 @@ use serde::{
 };
 use time::OffsetDateTime;
 
-use crate::deser::datetime_z;
+use crate::deser::datetime_rfc3339;
 
-pub struct GraphQLQuery<T>(pub T);
+pub struct GraphQLResponse<T>(pub T);
 
-impl<'de, T: Deserialize<'de>> Deserialize<'de> for GraphQLQuery<T> {
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for GraphQLResponse<T> {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         struct QueryVisitor<T>(PhantomData<T>);
 
         impl<'de, T: Deserialize<'de>> Visitor<'de> for QueryVisitor<T> {
-            type Value = GraphQLQuery<T>;
+            type Value = GraphQLResponse<T>;
 
             fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
                 f.write_str("an object with a data field")
@@ -81,7 +81,7 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for GraphQLQuery<T> {
                 }
 
                 data.ok_or_else(|| DeError::missing_field("data"))
-                    .map(GraphQLQuery)
+                    .map(GraphQLResponse)
             }
         }
 
@@ -152,6 +152,44 @@ impl<'de> Deserialize<'de> for PullRequestsAndTags {
     }
 }
 
+pub struct OnlyPullRequests(pub PullRequests);
+
+impl<'de> Deserialize<'de> for OnlyPullRequests {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct GraphQLDataVisitor;
+
+        impl<'de> Visitor<'de> for GraphQLDataVisitor {
+            type Value = OnlyPullRequests;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+                f.write_str("an object with a pullRequests field")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut pull_requests = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        "pullRequests" => pull_requests = Some(map.next_value()?),
+                        _ => {
+                            return Err(DeError::invalid_value(
+                                Unexpected::Str(key),
+                                &"pullRequests",
+                            ))
+                        }
+                    }
+                }
+
+                pull_requests
+                    .ok_or_else(|| DeError::missing_field("pullRequests"))
+                    .map(OnlyPullRequests)
+            }
+        }
+
+        d.deserialize_map(GraphQLDataVisitor)
+    }
+}
+
 pub struct PullRequests {
     pub inner: Vec<PullRequest>,
     pub next_cursor: Box<str>,
@@ -161,18 +199,59 @@ impl<'de> Deserialize<'de> for PullRequests {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         struct NextCursor(Box<str>);
 
-        struct NodesVisitor<'s, T> {
+        struct PullRequestsVisitor<'s, T> {
             seq: &'s mut Vec<T>,
         }
 
-        impl<'de, 's, T: Deserialize<'de>> Visitor<'de> for NodesVisitor<'s, T> {
+        impl<'de, 's, T: Deserialize<'de>> Visitor<'de> for PullRequestsVisitor<'s, T> {
             type Value = NextCursor;
 
             fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-                f.write_str("an object with a nodes and nextCursor fields")
+                f.write_str("an object with a nodes and pageInfo fields")
             }
 
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                struct PageInfo(Box<str>);
+
+                impl<'de> Deserialize<'de> for PageInfo {
+                    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                        struct PageInfoVisitor;
+
+                        impl<'de> Visitor<'de> for PageInfoVisitor {
+                            type Value = PageInfo;
+
+                            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+                                f.write_str("an object with a nextCursor field")
+                            }
+
+                            fn visit_map<A: MapAccess<'de>>(
+                                self,
+                                mut map: A,
+                            ) -> Result<Self::Value, A::Error> {
+                                let mut next_cursor = None;
+
+                                while let Some(key) = map.next_key()? {
+                                    match key {
+                                        "nextCursor" => next_cursor = Some(map.next_value()?),
+                                        _ => {
+                                            return Err(DeError::invalid_value(
+                                                Unexpected::Str(key),
+                                                &"nextCursor",
+                                            ))
+                                        }
+                                    }
+                                }
+
+                                next_cursor
+                                    .ok_or_else(|| DeError::missing_field("nextCursor"))
+                                    .map(PageInfo)
+                            }
+                        }
+
+                        d.deserialize_map(PageInfoVisitor)
+                    }
+                }
+
                 let mut got_nodes = false;
                 let mut next_cursor = None;
 
@@ -182,13 +261,20 @@ impl<'de> Deserialize<'de> for PullRequests {
                             map.next_value_seed(NodesSeqVisitor { seq: self.seq })?;
                             got_nodes = true;
                         }
-                        "nextCursor" => next_cursor = Some(map.next_value()?),
-                        _ => return Err(DeError::invalid_value(Unexpected::Str(key), &"nodes")),
+                        "pageInfo" => {
+                            let PageInfo(info) = map.next_value()?;
+                            next_cursor = Some(info);
+                        }
+                        _ => {
+                            return Err(DeError::invalid_value(
+                                Unexpected::Str(key),
+                                &"nodes or pageInfo",
+                            ))
+                        }
                     }
                 }
 
-                let next_cursor =
-                    next_cursor.ok_or_else(|| DeError::missing_field("nextCursor"))?;
+                let next_cursor = next_cursor.ok_or_else(|| DeError::missing_field("pageInfo"))?;
 
                 if got_nodes {
                     Ok(NextCursor(next_cursor))
@@ -199,7 +285,7 @@ impl<'de> Deserialize<'de> for PullRequests {
         }
 
         let mut inner = Vec::with_capacity(100);
-        let visitor = NodesVisitor { seq: &mut inner };
+        let visitor = PullRequestsVisitor { seq: &mut inner };
         let NextCursor(next_cursor) = d.deserialize_map(visitor)?;
 
         Ok(Self { inner, next_cursor })
@@ -232,47 +318,6 @@ impl<'de> Deserialize<'de> for PullRequest {
             }
 
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                struct Author(Box<str>);
-
-                impl<'de> Deserialize<'de> for Author {
-                    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-                        struct AuthorVisitor;
-
-                        impl<'de> Visitor<'de> for AuthorVisitor {
-                            type Value = Author;
-
-                            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-                                f.write_str("an object with a login field")
-                            }
-
-                            fn visit_map<A: MapAccess<'de>>(
-                                self,
-                                mut map: A,
-                            ) -> Result<Self::Value, A::Error> {
-                                let mut login = None;
-
-                                while let Some(key) = map.next_key()? {
-                                    match key {
-                                        "login" => login = Some(map.next_value()?),
-                                        _ => {
-                                            return Err(DeError::invalid_value(
-                                                Unexpected::Str(key),
-                                                &"login",
-                                            ))
-                                        }
-                                    }
-                                }
-
-                                login
-                                    .ok_or_else(|| DeError::missing_field("login"))
-                                    .map(Author)
-                            }
-                        }
-
-                        d.deserialize_map(AuthorVisitor)
-                    }
-                }
-
                 struct ReferencedIssues(Vec<ReferencedIssue>);
 
                 impl<'de> Deserialize<'de> for ReferencedIssues {
@@ -294,17 +339,17 @@ impl<'de> Deserialize<'de> for PullRequest {
                 while let Some(key) = map.next_key()? {
                     match key {
                         "author" => {
-                            let Author(login) = map.next_value()?;
+                            let AuthorLogin(login) = map.next_value()?;
                             author = Some(login);
                         }
                         "id" => id = Some(map.next_value()?),
-                        "referencedIssues" => {
-                            let ReferencedIssues(vec) = map.next_value()?;
-                            referenced_issues = Some(vec);
-                        }
                         "mergedAt" => {
                             let Datetime(datetime) = map.next_value()?;
                             merged_at = Some(datetime);
+                        }
+                        "referencedIssues" => {
+                            let ReferencedIssues(vec) = map.next_value()?;
+                            referenced_issues = Some(vec);
                         }
                         "title" => title = Some(map.next_value()?),
                         _ => {
@@ -316,7 +361,7 @@ impl<'de> Deserialize<'de> for PullRequest {
                     }
                 }
 
-                let author = author.ok_or_else(|| DeError::missing_field("author"))?;
+                let author_name = author.ok_or_else(|| DeError::missing_field("author"))?;
                 let id = id.ok_or_else(|| DeError::missing_field("id"))?;
                 let merged_at = merged_at.ok_or_else(|| DeError::missing_field("mergedAt"))?;
                 let referenced_issues =
@@ -324,7 +369,7 @@ impl<'de> Deserialize<'de> for PullRequest {
                 let title = title.ok_or_else(|| DeError::missing_field("title"))?;
 
                 Ok(PullRequest {
-                    author_name: author,
+                    author_name,
                     id,
                     merged_at,
                     referenced_issues,
@@ -337,15 +382,49 @@ impl<'de> Deserialize<'de> for PullRequest {
     }
 }
 
+struct AuthorLogin(Box<str>);
+
+impl<'de> Deserialize<'de> for AuthorLogin {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct AuthorVisitor;
+
+        impl<'de> Visitor<'de> for AuthorVisitor {
+            type Value = AuthorLogin;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+                f.write_str("an object with a login field")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut login = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        "login" => login = Some(map.next_value()?),
+                        _ => return Err(DeError::invalid_value(Unexpected::Str(key), &"login")),
+                    }
+                }
+
+                login
+                    .ok_or_else(|| DeError::missing_field("login"))
+                    .map(AuthorLogin)
+            }
+        }
+
+        d.deserialize_map(AuthorVisitor)
+    }
+}
+
 struct Datetime(OffsetDateTime);
 
 impl<'de> Deserialize<'de> for Datetime {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        datetime_z::deserialize(d).map(Self)
+        datetime_rfc3339::deserialize(d).map(Self)
     }
 }
 
 pub struct ReferencedIssue {
+    pub author_name: Box<str>,
     pub body: Box<str>,
     pub id: u64,
 }
@@ -368,23 +447,36 @@ impl<'de> Deserialize<'de> for ReferencedIssue {
             }
 
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut author = None;
                 let mut body = None;
                 let mut id = None;
 
                 while let Some(key) = map.next_key()? {
                     match key {
+                        "author" => {
+                            let AuthorLogin(login) = map.next_value()?;
+                            author = Some(login);
+                        }
                         "body" => body = Some(map.next_value()?),
                         "id" => id = Some(map.next_value()?),
                         _ => {
-                            return Err(DeError::invalid_value(Unexpected::Str(key), &"body or id"))
+                            return Err(DeError::invalid_value(
+                                Unexpected::Str(key),
+                                &"author, body, or id",
+                            ))
                         }
                     }
                 }
 
+                let author_name = author.ok_or_else(|| DeError::missing_field("author"))?;
                 let body = body.ok_or_else(|| DeError::missing_field("body"))?;
                 let id = id.ok_or_else(|| DeError::missing_field("id"))?;
 
-                Ok(ReferencedIssue { body, id })
+                Ok(ReferencedIssue {
+                    author_name,
+                    body,
+                    id,
+                })
             }
         }
 
@@ -405,7 +497,7 @@ impl<'de> Deserialize<'de> for Tag {
             type Value = Tag;
 
             fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-                f.write_str("an object with name and target fields")
+                f.write_str("an object with name and commit fields")
             }
 
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
@@ -472,7 +564,7 @@ impl<'de> Deserialize<'de> for Tag {
                 }
 
                 let name = name.ok_or_else(|| DeError::missing_field("name"))?;
-                let date = date.ok_or_else(|| DeError::missing_field("target"))?;
+                let date = date.ok_or_else(|| DeError::missing_field("commit"))?;
 
                 Ok(Tag { name, date })
             }

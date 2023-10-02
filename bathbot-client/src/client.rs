@@ -2,7 +2,10 @@ use std::time::Instant;
 
 use bytes::Bytes;
 use eyre::{Result, WrapErr};
-use http::{header::CONTENT_LENGTH, Response};
+use http::{
+    header::{AUTHORIZATION, CONTENT_LENGTH},
+    Response,
+};
 use hyper::{
     client::{connect::dns::GaiResolver, Client as HyperClient, HttpConnector},
     header::{CONTENT_TYPE, USER_AGENT},
@@ -23,7 +26,8 @@ pub struct Client {
     pub(crate) client: InnerClient,
     #[cfg(feature = "twitch")]
     twitch: bathbot_model::TwitchData,
-    ratelimiters: [LeakyBucket; 14],
+    github_auth: Box<str>,
+    ratelimiters: [LeakyBucket; 15],
     metrics: ClientMetrics,
 }
 
@@ -31,6 +35,7 @@ impl Client {
     /// `twitch_login` consists of `(twitch client id, twitch token)`
     pub async fn new(
         #[cfg(feature = "twitch")] (twitch_client_id, twitch_token): (&str, &str),
+        github_token: &str,
         metrics: &Registry,
     ) -> Result<Self> {
         let metrics = ClientMetrics::new(metrics).wrap_err("failed to create client metrics")?;
@@ -56,6 +61,8 @@ impl Client {
                 .refill_amount(1)
                 .build()
         };
+
+        let github_auth = format!("Bearer {github_token}").into_boxed_str();
 
         let ratelimiters = [
             ratelimiter(2),  // DiscordAttachment
@@ -85,6 +92,7 @@ impl Client {
             ratelimiters,
             #[cfg(feature = "twitch")]
             twitch,
+            github_auth,
             metrics,
         })
     }
@@ -191,12 +199,18 @@ impl Client {
         let url = url.as_ref();
         trace!("POST json request to url {url}");
 
-        let req = Request::builder()
+        let mut req = Request::builder()
             .method(Method::POST)
             .uri(url)
             .header(USER_AGENT, MY_USER_AGENT)
             .header(CONTENT_TYPE, "application/json")
-            .header(CONTENT_LENGTH, json.len())
+            .header(CONTENT_LENGTH, json.len());
+
+        if site == Site::Github {
+            req = req.header(AUTHORIZATION, self.github_auth.as_ref());
+        }
+
+        let req = req
             .body(Body::from(json))
             .wrap_err("Failed to build POST json request")?;
 

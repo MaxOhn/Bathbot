@@ -223,6 +223,32 @@ pub(super) mod datetime_z {
     }
 }
 
+pub(super) mod datetime_rfc3339 {
+    use time::format_description::well_known::Rfc3339;
+
+    use super::*;
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
+        d.deserialize_str(DateTimeVisitor)
+    }
+
+    struct DateTimeVisitor;
+
+    impl<'de> Visitor<'de> for DateTimeVisitor {
+        type Value = OffsetDateTime;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("an RFC3339 datetime string ending on `Z`")
+        }
+
+        #[inline]
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            OffsetDateTime::parse(v, &Rfc3339).map_err(Error::custom)
+        }
+    }
+}
+
 pub(super) mod date {
     use bathbot_util::datetime::DATE_FORMAT;
 
