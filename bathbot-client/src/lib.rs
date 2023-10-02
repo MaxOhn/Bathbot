@@ -7,6 +7,7 @@ extern crate tracing;
 mod client;
 mod discord;
 mod error;
+mod github;
 mod metrics;
 mod miss_analyzer;
 mod multipart;

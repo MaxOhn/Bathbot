@@ -4,6 +4,8 @@ use http::HeaderValue;
 use serde::{de::Error, Deserialize, Deserializer};
 use time::{Duration, OffsetDateTime};
 
+use crate::deser::datetime_z;
+
 fn str_to_u64<'de, D: Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
     <&str as Deserialize>::deserialize(d)?
         .parse()
@@ -66,7 +68,7 @@ pub struct TwitchStream {
     pub username: Box<str>,
     #[serde(rename = "type", deserialize_with = "get_live")]
     pub live: bool,
-    #[serde(with = "datetime")]
+    #[serde(with = "datetime_z")]
     pub started_at: OffsetDateTime,
 }
 
@@ -87,14 +89,14 @@ pub struct TwitchDataList<T> {
 
 #[derive(Debug, Deserialize)]
 pub struct TwitchVideo {
-    #[serde(with = "datetime")]
+    #[serde(with = "datetime_z")]
     pub created_at: OffsetDateTime,
     /// Video duration in seconds
     #[serde(deserialize_with = "duration_to_u32")]
     pub duration: u32,
     #[serde(deserialize_with = "str_to_u64")]
     pub id: u64,
-    #[serde(with = "datetime")]
+    #[serde(with = "datetime_z")]
     pub published_at: OffsetDateTime,
     pub title: Box<str>,
     // Gets modified inside the struct so required to keep as `String`
@@ -162,44 +164,4 @@ fn duration_to_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
     seconds += secs;
 
     Ok(seconds)
-}
-
-pub(super) mod datetime {
-    use std::fmt;
-
-    use bathbot_util::datetime::{DATE_FORMAT, TIME_FORMAT};
-    use serde::{
-        de::{Error, Visitor},
-        Deserializer,
-    };
-    use time::{format_description::FormatItem, OffsetDateTime, PrimitiveDateTime};
-
-    pub const DATETIMEZ_FORMAT: &[FormatItem<'_>] = &[
-        FormatItem::Compound(DATE_FORMAT),
-        FormatItem::Literal(b"T"),
-        FormatItem::Compound(TIME_FORMAT),
-        FormatItem::Literal(b"Z"),
-    ];
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
-        d.deserialize_str(DateTimeVisitor)
-    }
-
-    pub(super) struct DateTimeVisitor;
-
-    impl<'de> Visitor<'de> for DateTimeVisitor {
-        type Value = OffsetDateTime;
-
-        #[inline]
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("an `OffsetDateTime`")
-        }
-
-        #[inline]
-        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            PrimitiveDateTime::parse(v, DATETIMEZ_FORMAT)
-                .map(PrimitiveDateTime::assume_utc)
-                .map_err(Error::custom)
-        }
-    }
 }

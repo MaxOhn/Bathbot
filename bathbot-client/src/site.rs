@@ -3,6 +3,7 @@
 pub enum Site {
     DiscordAttachment,
     Flags,
+    Github,
     Huismetbenen,
     MissAnalyzer,
     Osekai,
@@ -22,6 +23,7 @@ impl Site {
         match self {
             Self::DiscordAttachment => "DiscordAttachment",
             Self::Flags => "Flag",
+            Self::Github => "Github",
             Self::Huismetbenen => "Huismetbenen",
             Self::MissAnalyzer => "MissAnalyzer",
             Self::Osekai => "Osekai",

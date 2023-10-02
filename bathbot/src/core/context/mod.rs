@@ -154,6 +154,7 @@ impl Context {
         let client_fut = BathbotClient::new(
             #[cfg(feature = "twitch")]
             (&config.tokens.twitch_client_id, &config.tokens.twitch_token),
+            &config.tokens.github_token,
             &registry,
         );
 

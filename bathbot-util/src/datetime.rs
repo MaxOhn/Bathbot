@@ -148,6 +148,11 @@ pub const DATETIME_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Compound(TIME_FORMAT),
 ];
 
+pub const DATETIME_Z_FORMAT: &[FormatItem<'_>] = &[
+    FormatItem::Compound(DATETIME_FORMAT),
+    FormatItem::Literal(b"Z"),
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
