@@ -1,6 +1,7 @@
 pub use self::{
     bookmarks::BookmarkManager,
     games::GameManager,
+    github::GithubManager,
     guild_config::GuildConfigManager,
     huismetbenen_country::HuismetbenenCountryManager,
     osu_map::{MapError, MapManager, OsuMap, OsuMapSlim},
@@ -18,6 +19,7 @@ pub mod redis;
 
 mod bookmarks;
 mod games;
+mod github;
 mod guild_config;
 mod huismetbenen_country;
 mod osu_map;

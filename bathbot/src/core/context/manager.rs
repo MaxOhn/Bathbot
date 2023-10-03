@@ -3,9 +3,9 @@ use rosu_v2::prelude::GameMode;
 
 use super::Context;
 use crate::manager::{
-    redis::RedisManager, ApproxManager, BookmarkManager, GameManager, GuildConfigManager,
-    HuismetbenenCountryManager, MapManager, OsuMap, OsuTrackingManager, OsuUserManager, PpManager,
-    ReplayManager, ScoresManager, TwitchManager, UserConfigManager,
+    redis::RedisManager, ApproxManager, BookmarkManager, GameManager, GithubManager,
+    GuildConfigManager, HuismetbenenCountryManager, MapManager, OsuMap, OsuTrackingManager,
+    OsuUserManager, PpManager, ReplayManager, ScoresManager, TwitchManager, UserConfigManager,
 };
 
 impl Context {
@@ -73,5 +73,9 @@ impl Context {
 
     pub fn replay(&self) -> ReplayManager<'_> {
         ReplayManager::new(&self.clients.psql, &self.clients.custom, &self.cache)
+    }
+
+    pub fn github(&self) -> GithubManager<'_> {
+        GithubManager::new(self)
     }
 }

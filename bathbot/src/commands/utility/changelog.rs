@@ -28,7 +28,7 @@ async fn slash_changelog(ctx: Arc<Context>, mut command: InteractionCommand) -> 
                 mut next_cursor,
             },
         tags,
-    } = match ctx.client().github_pull_requests_and_tags().await {
+    } = match ctx.github().tags_and_prs().await {
         Ok(res) => res,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
@@ -109,10 +109,12 @@ impl ChangelogTagPages {
                 Some(idx) => break idx,
                 None => {
                     let mut next_prs = ctx
-                        .client()
-                        .github_pull_requests(next_cursor)
+                        .github()
+                        .next_prs(next_cursor)
                         .await
-                        .wrap_err("Failed to get next pull requests")?;
+                        .wrap_err("Failed to get next pull requests")?
+                        .into_original();
+
                     *next_cursor = next_prs.next_cursor;
                     pull_requests.append(&mut next_prs.inner);
                 }

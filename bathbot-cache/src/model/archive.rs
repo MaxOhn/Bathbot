@@ -31,13 +31,12 @@ impl<T: Archive> Deref for CachedArchive<T> {
     }
 }
 
-impl<T> CachedArchive<T>
-where
-    T: Archive,
-    Archived<T>: Deserialize<T, Infallible>,
-{
-    pub fn deserialize(&self) -> T {
-        <Archived<T> as Deserialize<T, _>>::deserialize(self, &mut Infallible).unwrap()
+impl<T: Archive> CachedArchive<T> {
+    pub fn deserialize<O>(&self) -> O
+    where
+        Archived<T>: Deserialize<O, Infallible>,
+    {
+        <Archived<T> as Deserialize<O, _>>::deserialize(self, &mut Infallible).unwrap()
     }
 }
 

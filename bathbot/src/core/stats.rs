@@ -76,6 +76,10 @@ pub struct CacheStats {
     pub users: IntGauge,
 }
 
+pub struct ClientStats {
+    pub github_prs: IntCounter,
+}
+
 pub struct BotStats {
     pub start_time: OffsetDateTime,
     pub event_counts: EventStats,
@@ -83,6 +87,7 @@ pub struct BotStats {
     pub command_counts: CommandCounters,
     pub cache_counts: CacheStats,
     pub osu_metrics: OsuCounters,
+    pub client_counts: ClientStats,
 }
 
 macro_rules! metric_vec {
@@ -112,6 +117,7 @@ impl BotStats {
             metric_vec!(counter: "autocompletes", "Executed command autocompletes", "name");
         let modals = metric_vec!(counter: "modals", "Executed modals", "name");
         let cache_counter = metric_vec!(gauge: "cache", "Cache counts", "cached_type");
+        let client_counts = metric_vec!(counter: "client", "Client requests", "request");
 
         let registry = Registry::new_custom(Some(String::from("bathbot")), None).unwrap();
         registry.register(Box::new(event_counter.clone())).unwrap();
@@ -125,6 +131,7 @@ impl BotStats {
         registry.register(Box::new(modals.clone())).unwrap();
         registry.register(Box::new(cache_counter.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
+        registry.register(Box::new(client_counts.clone())).unwrap();
 
         let stats = Self {
             start_time: OffsetDateTime::now_utc(),
@@ -195,6 +202,9 @@ impl BotStats {
                 cs_diffs_cached: osu_metrics.with_label_values(&["Cached cs difficulties"]),
                 rosu: osu_metrics,
             },
+            client_counts: ClientStats {
+                github_prs: client_counts.with_label_values(&["github"]),
+            },
         };
 
         (stats, registry)
@@ -261,6 +271,10 @@ impl BotStats {
 
     pub fn inc_cached_cs_diffs(&self) {
         self.osu_metrics.cs_diffs_cached.inc();
+    }
+
+    pub fn inc_cached_github_prs(&self) {
+        self.client_counts.github_prs.inc();
     }
 
     pub fn process(&self, event: &Event, change: Option<CacheChange>) {

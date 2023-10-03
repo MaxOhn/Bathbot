@@ -8,15 +8,15 @@ pub enum RedisData<O, A = O> {
 }
 
 impl<O, A> RedisData<O, A> {
-    pub(super) fn new(original: O) -> Self {
+    pub fn new(original: O) -> Self {
         Self::Original(original)
     }
 }
 
-impl<O> RedisData<O>
+impl<O, A> RedisData<O, A>
 where
-    O: Archive,
-    Archived<O>: Deserialize<O, Infallible>,
+    A: Archive,
+    Archived<A>: Deserialize<O, Infallible>,
 {
     pub fn into_original(self) -> O {
         match self {

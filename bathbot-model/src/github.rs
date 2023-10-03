@@ -3,13 +3,14 @@ use std::{
     marker::PhantomData,
 };
 
+use rkyv::Archive;
 use serde::{
     de::{DeserializeSeed, Error as DeError, MapAccess, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
 };
 use time::OffsetDateTime;
 
-use crate::deser::datetime_rfc3339;
+use crate::{deser::datetime_rfc3339, rkyv_util::time::DateTimeRkyv};
 
 pub struct GraphQLResponse<T>(pub T);
 
@@ -190,6 +191,7 @@ impl<'de> Deserialize<'de> for OnlyPullRequests {
     }
 }
 
+#[derive(Archive, rkyv::Deserialize, rkyv::Serialize)]
 pub struct PullRequests {
     pub inner: Vec<PullRequest>,
     pub next_cursor: Box<str>,
@@ -291,10 +293,11 @@ impl<'de> Deserialize<'de> for PullRequests {
         Ok(Self { inner, next_cursor })
     }
 }
-
+#[derive(Archive, rkyv::Deserialize, rkyv::Serialize)]
 pub struct PullRequest {
     pub author_name: Box<str>,
     pub id: u64,
+    #[with(DateTimeRkyv)]
     pub merged_at: OffsetDateTime,
     pub referenced_issues: Vec<ReferencedIssue>,
     pub title: Box<str>,
@@ -423,6 +426,7 @@ impl<'de> Deserialize<'de> for Datetime {
     }
 }
 
+#[derive(Archive, rkyv::Deserialize, rkyv::Serialize)]
 pub struct ReferencedIssue {
     pub author_name: Box<str>,
     pub body: Box<str>,
