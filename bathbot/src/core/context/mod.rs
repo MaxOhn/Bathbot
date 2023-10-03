@@ -250,6 +250,8 @@ impl Context {
     }
 
     pub async fn reshard(&self, shards: &mut Vec<Shard>) -> Result<()> {
+        info!("Resharding...");
+
         *shards = discord_gateway(BotConfig::get(), &self.http, HashMap::default())
             .await
             .wrap_err("Failed to create new shards for resharding")?;
@@ -260,6 +262,8 @@ impl Context {
             .iter()
             .map(|shard| (shard.id().number(), shard.sender()))
             .collect();
+
+        info!("Finished resharding");
 
         Ok(())
     }
