@@ -8,6 +8,7 @@ use bathbot_model::twilight_model::{channel::Channel, guild::Guild};
 use bathbot_util::constants::MISS_ANALYZER_ID;
 use eyre::Result;
 use futures::StreamExt;
+use tokio::sync::mpsc::Receiver;
 use twilight_gateway::{error::ReceiveMessageErrorType, stream::ShardEventStream, Event, Shard};
 use twilight_model::{gateway::CloseCode, user::User};
 
@@ -115,45 +116,53 @@ impl Display for EventLocation {
     }
 }
 
-pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>) {
+pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>, mut reshard_rx: Receiver<()>) {
     // restarts event loop in case the bot was instructed to reshard
     'reshard_loop: loop {
         let mut stream = ShardEventStream::new(shards.iter_mut());
 
         // actual event loop
         'event_loop: loop {
-            let err = match stream.next().await {
-                Some((shard, Ok(event))) => {
-                    ctx.standby.process(&event);
-                    let change = ctx.cache.update(&event).await;
-                    ctx.stats.process(&event, change);
-                    let ctx = Arc::clone(&ctx);
-                    let shard_id = shard.id().number();
+            let err = tokio::select!(
+                 res = stream.next()  => match res {
+                    Some((shard, Ok(event))) => {
+                        ctx.standby.process(&event);
+                        let change = ctx.cache.update(&event).await;
+                        ctx.stats.process(&event, change);
+                        let ctx = Arc::clone(&ctx);
+                        let shard_id = shard.id().number();
 
-                    tokio::spawn(async move {
-                        if let Err(err) = handle_event(ctx, event, shard_id).await {
-                            error!(?err, "Failed to handle event");
-                        }
-                    });
+                        tokio::spawn(async move {
+                            if let Err(err) = handle_event(ctx, event, shard_id).await {
+                                error!(?err, "Failed to handle event");
+                            }
+                        });
 
-                    continue 'event_loop;
-                }
-                Some((_, Err(err))) => err,
-                None => return,
-            };
-
-            // cannot be handled inside the previous `match` due to NLL
-            // https://github.com/rust-lang/rust/issues/43234
-            let is_fatal = err.is_fatal();
-
-            let must_reshard = matches!(
-                err.kind(),
-                ReceiveMessageErrorType::FatallyClosed {
-                    close_code: CloseCode::ShardingRequired
-                }
+                        continue 'event_loop;
+                    }
+                    Some((_, Err(err))) => Some(err),
+                    None => return,
+                },
+                _ = reshard_rx.recv() => None,
             );
 
-            error!(%err, "Event error");
+            let mut is_fatal = false;
+            let mut must_reshard = true;
+
+            if let Some(err) = err {
+                error!(%err, "Event error");
+
+                // cannot be handled inside the previous `match` due to NLL
+                // https://github.com/rust-lang/rust/issues/43234
+                is_fatal = err.is_fatal();
+
+                must_reshard = matches!(
+                    err.kind(),
+                    ReceiveMessageErrorType::FatallyClosed {
+                        close_code: CloseCode::ShardingRequired
+                    }
+                );
+            }
 
             if must_reshard {
                 drop(stream);

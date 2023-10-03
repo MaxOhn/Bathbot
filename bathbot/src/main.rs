@@ -27,8 +27,9 @@ use tokio::{
 };
 use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
 
-use crate::core::{
-    commands::interaction::InteractionCommands, event_loop, logging, BotConfig, Context,
+use crate::{
+    commands::owner::RESHARD_TX,
+    core::{commands::interaction::InteractionCommands, event_loop, logging, BotConfig, Context},
 };
 
 fn main() {
@@ -175,10 +176,16 @@ async fn async_main() -> Result<()> {
         }
     });
 
+    let (reshard_tx, reshard_rx) = mpsc::channel(1);
+
+    RESHARD_TX
+        .set(reshard_tx)
+        .expect("RESHARD_TX has already been set");
+
     let event_ctx = Arc::clone(&ctx);
 
     tokio::select! {
-        _ = event_loop(event_ctx, &mut shards) => error!("Event loop ended"),
+        _ = event_loop(event_ctx, &mut shards, reshard_rx) => error!("Event loop ended"),
         res = signal::ctrl_c() => match res {
             Ok(_) => info!("Received Ctrl+C"),
             Err(err) => error!(?err, "Failed to await Ctrl+C"),

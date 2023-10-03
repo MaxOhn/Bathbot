@@ -5,6 +5,7 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::Attachment;
 
+pub use self::reshard::RESHARD_TX;
 use self::{add_bg::*, cache::*, request_members::*};
 #[cfg(feature = "osutracking")]
 use self::{tracking_interval::*, tracking_stats::*};
@@ -12,6 +13,7 @@ use super::GameModeOption;
 #[cfg(feature = "osutracking")]
 use crate::tracking::default_tracking_interval;
 use crate::{
+    commands::owner::reshard::reshard,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
@@ -19,6 +21,7 @@ use crate::{
 mod add_bg;
 mod cache;
 mod request_members;
+mod reshard;
 
 #[cfg(feature = "osutracking")]
 mod tracking_interval;
@@ -36,7 +39,9 @@ pub enum Owner {
     #[command(name = "cache")]
     Cache(OwnerCache),
     #[command(name = "requestmembers")]
-    RequestMembers(RequestMembers),
+    RequestMembers(OwnerRequestMembers),
+    #[command(name = "reshard")]
+    Reshard(OwnerReshard),
     #[cfg(feature = "osutracking")]
     #[command(name = "tracking")]
     Tracking(OwnerTracking),
@@ -60,10 +65,14 @@ pub struct OwnerCache;
     name = "requestmembers",
     desc = "Manually queue a member request for a guild"
 )]
-pub struct RequestMembers {
+pub struct OwnerRequestMembers {
     #[command(desc = "The guild id of which members should be requested")]
     guild_id: String, // u64 might be larger than what discord accepts as valid integer
 }
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "reshard", desc = "Reshard the gateway")]
+pub struct OwnerReshard;
 
 #[cfg(feature = "osutracking")]
 #[derive(CommandModel, CreateCommand)]
@@ -100,6 +109,7 @@ async fn slash_owner(ctx: Arc<Context>, mut command: InteractionCommand) -> Resu
         Owner::AddBg(bg) => addbg(ctx, command, bg).await,
         Owner::Cache(_) => cache(ctx, command).await,
         Owner::RequestMembers(args) => request_members(ctx, command, &args.guild_id).await,
+        Owner::Reshard(_) => reshard(ctx, command).await,
         #[cfg(feature = "osutracking")]
         Owner::Tracking(OwnerTracking::Interval(interval)) => {
             let secs = interval
