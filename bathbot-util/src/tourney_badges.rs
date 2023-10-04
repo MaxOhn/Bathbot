@@ -45,6 +45,7 @@ impl TourneyBadges {
             || badge.starts_with("moderation")
             || badge.starts_with("monthly")
             || badge.starts_with("nominat")
+            || (badge.starts_with("osu!") && badge.contains("completionist"))
             || badge.starts_with("outstanding")
             || badge.starts_with("pending")
             || badge.starts_with("spotlight"))
@@ -71,6 +72,8 @@ mod tests {
     fn false_positives() {
         let badges = [
             "Elite Mapper 2011",                                               // /u/106
+            "osu! completionist",                                              // /u/2927048
+            "osu!taiko completionist",                                         // /u/4841352
             "Pending Cup #3 Mapping Contest Winner",                           // /u/3076909
             "Mappers' Guild first level contributor",                          // /u/3181083
             "Centurion Mapper (100+ Beatmaps Ranked)",                         // /u/896613
