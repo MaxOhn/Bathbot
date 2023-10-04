@@ -72,11 +72,11 @@ mod tests {
     fn false_positives() {
         let badges = [
             "Elite Mapper 2011",                                               // /u/106
-            "osu! completionist",                                              // /u/2927048
-            "osu!taiko completionist",                                         // /u/4841352
             "Pending Cup #3 Mapping Contest Winner",                           // /u/3076909
             "Mappers' Guild first level contributor",                          // /u/3181083
             "Centurion Mapper (100+ Beatmaps Ranked)",                         // /u/896613
+            "osu! completionist (awarded 2023-03-12)",                         // /u/2927048
+            "osu!taiko completionist (awarded 2019-11-03)",                    // /u/4841352
             "Nominated 200+ beatmaps as a Beatmap Nominator",                  // /u/3181083
             "Outstanding contribution to the Mentorship Project",              // /u/4945926
             "New Beginnings Art Contest Finalist (#1, 2203 votes)",            // /u/13103233
