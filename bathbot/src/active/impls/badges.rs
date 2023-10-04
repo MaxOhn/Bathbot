@@ -83,13 +83,21 @@ impl BadgesPagination {
         let mut owners_str = String::with_capacity(50 * owners.len().min(10));
 
         for owner in owners.iter().take(10) {
-            let _ = writeln!(
-                owners_str,
-                ":flag_{code}: [{name}]({OSU_BASE}u/{user_id})",
-                code = owner.country_code.to_ascii_lowercase(),
-                name = owner.username.cow_escape_markdown(),
-                user_id = owner.user_id
-            );
+            let _ = if owner.username.is_empty() {
+                writeln!(
+                    owners_str,
+                    ":pirate_flag: [<unknown user>]({OSU_BASE}u/{user_id})",
+                    user_id = owner.user_id
+                )
+            } else {
+                writeln!(
+                    owners_str,
+                    ":flag_{code}: [{name}]({OSU_BASE}u/{user_id})",
+                    code = owner.country_code.to_ascii_lowercase(),
+                    name = owner.username.cow_escape_markdown(),
+                    user_id = owner.user_id
+                )
+            };
         }
 
         if owners.len() > 10 {
