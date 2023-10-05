@@ -187,13 +187,15 @@ impl ProfileCompareEmbed {
                     result1
                         .score_rank_data
                         .as_ref()
-                        .map_or(u32::MAX, |user| user.rank),
+                        .and_then(|user| user.rank)
+                        .map_or(u32::MAX, |rank| rank.get()),
                 ),
                 Reverse(
                     result2
                         .score_rank_data
                         .as_ref()
-                        .map_or(u32::MAX, |user| user.rank),
+                        .and_then(|user| user.rank)
+                        .map_or(u32::MAX, |rank| rank.get()),
                 ),
                 max_left,
                 max_right,
@@ -541,10 +543,14 @@ impl CompareStrings {
             } else {
                 format!("#{}", WithComma::new(global_rank)).into_boxed_str()
             },
-            score_rank: result.score_rank_data.as_ref().map_or_else(
-                || Box::from("-"),
-                |user| format!("#{}", WithComma::new(user.rank)).into_boxed_str(),
-            ),
+            score_rank: result
+                .score_rank_data
+                .as_ref()
+                .and_then(|user| user.rank)
+                .map_or_else(
+                    || Box::from("-"),
+                    |rank| format!("#{}", WithComma::new(rank.get())).into_boxed_str(),
+                ),
             score_rank_peak: result.score_rank_data.as_ref().map_or_else(
                 || Box::from("-"),
                 |user| {

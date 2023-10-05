@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp, fmt::Write, iter, sync::Arc};
+use std::{borrow::Cow, cmp, fmt::Write, iter, num::NonZeroU32, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_model::{rosu_v2::user::User, RespektiveUser};
@@ -193,8 +193,11 @@ pub(super) async fn score(
                 .client()
                 .get_respektive_users(iter::once(user.user_id()), mode);
 
-            let curr_rank = match user_fut.await.map(|mut users| users.next().flatten()) {
-                Ok(Some(user)) => user.rank,
+            let curr_rank = match user_fut
+                .await
+                .map(|mut users| users.next().flatten().and_then(|user| user.rank))
+            {
+                Ok(Some(rank)) => rank.get(),
                 Ok(None) => {
                     let content = format!(
                         "Failed to get score rank data for user `{}`.\n\
@@ -261,7 +264,7 @@ pub(super) async fn score(
 
             reach_name = true;
 
-            user.rank
+            user.rank.map_or(0, NonZeroU32::get)
         }
     };
 
@@ -389,8 +392,8 @@ fn author(user: &RedisData<User>, respektive_user: Option<&RespektiveUser>) -> A
         score = WithComma::new(ranked_score),
     );
 
-    if let Some(rank) = rank {
-        let _ = write!(text, " (#{})", WithComma::new(rank));
+    if let Some(rank) = rank.flatten() {
+        let _ = write!(text, " (#{})", WithComma::new(rank.get()));
     }
 
     let (country_code, user_id, mode) = match user {
