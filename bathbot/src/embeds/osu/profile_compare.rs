@@ -201,7 +201,7 @@ impl ProfileCompareEmbed {
 
             write_line(
                 &mut d,
-                "Peak score rank",
+                "Peak sc rank",
                 left.score_rank_peak,
                 right.score_rank_peak,
                 Reverse(result1.score_rank_data.as_ref().map_or(u32::MAX, |user| {
