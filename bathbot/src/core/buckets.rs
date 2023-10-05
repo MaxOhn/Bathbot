@@ -79,11 +79,7 @@ impl Bucket {
 
     pub fn take(&mut self, user_id: u64) -> i64 {
         let time = OffsetDateTime::now_utc().unix_timestamp();
-
-        let user = self
-            .users
-            .entry(user_id)
-            .or_insert_with(MemberRatelimit::default);
+        let user = self.users.entry(user_id).or_default();
 
         if let Some((timespan, limit)) = self.ratelimit.limit {
             if user.tickets + 1 > limit {
