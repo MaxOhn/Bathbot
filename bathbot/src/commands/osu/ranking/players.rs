@@ -153,7 +153,11 @@ pub(super) async fn score(
     let author_idx_fut = async {
         match osu_id.map(iter::once) {
             Some(user_id) => match ctx.client().get_respektive_users(user_id, mode).await {
-                Ok(mut iter) => iter.next().flatten().map(|user| user.rank as usize - 1),
+                Ok(mut iter) => iter
+                    .next()
+                    .flatten()
+                    .and_then(|user| user.rank)
+                    .map(|rank| rank.get() as usize - 1),
                 Err(err) => {
                     warn!(?err, "Failed to get respektive user");
 

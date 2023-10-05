@@ -145,9 +145,9 @@ impl Availability<ScoreRank> {
         let user_fut = ctx.client().get_respektive_users(iter::once(user_id), mode);
 
         match user_fut.await {
-            Ok(mut iter) => match iter.next().flatten() {
-                Some(user) => {
-                    let ScoreRank(rank) = self.insert(ScoreRank(user.rank));
+            Ok(mut iter) => match iter.next().flatten().and_then(|user| user.rank) {
+                Some(rank) => {
+                    let ScoreRank(rank) = self.insert(ScoreRank(rank.get()));
 
                     Some(*rank)
                 }

@@ -193,8 +193,11 @@ pub(super) async fn score(
                 .client()
                 .get_respektive_users(iter::once(user.user_id()), mode);
 
-            let curr_rank = match user_fut.await.map(|mut users| users.next().flatten()) {
-                Ok(Some(user)) => user.rank,
+            let curr_rank = match user_fut
+                .await
+                .map(|mut users| users.next().flatten().and_then(|user| user.rank))
+            {
+                Ok(Some(rank)) => rank.get(),
                 Ok(None) => {
                     let content = format!(
                         "Failed to get score rank data for user `{}`.\n\
@@ -240,8 +243,8 @@ pub(super) async fn score(
 
             let user_fut = ctx.client().get_respektive_users(iter::once(user_id), mode);
 
-            let user_opt = match user_fut.await {
-                Ok(mut users) => users.next(),
+            let rank_opt = match user_fut.await {
+                Ok(mut users) => users.next().flatten().and_then(|user| user.rank),
                 Err(err) => {
                     let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
@@ -249,7 +252,7 @@ pub(super) async fn score(
                 }
             };
 
-            let Some(user) = user_opt.flatten() else {
+            let Some(rank) = rank_opt else {
                 let content = format!(
                     "Failed to get score rank data for user `{name}`.\n\
                     In order for a target name to work, \
@@ -261,7 +264,7 @@ pub(super) async fn score(
 
             reach_name = true;
 
-            user.rank
+            rank.get()
         }
     };
 
@@ -378,19 +381,16 @@ struct RankHolder {
 }
 
 fn author(user: &RedisData<User>, respektive_user: Option<&RespektiveUser>) -> AuthorBuilder {
-    let (ranked_score, rank) = match respektive_user {
-        Some(user) => (user.ranked_score, Some(user.rank)),
-        None => (user.stats().ranked_score(), None),
-    };
+    let rank = respektive_user.and_then(|user| user.rank);
 
     let mut text = format!(
         "{username}: {score}",
         username = user.username(),
-        score = WithComma::new(ranked_score),
+        score = WithComma::new(user.stats().ranked_score()),
     );
 
     if let Some(rank) = rank {
-        let _ = write!(text, " (#{})", WithComma::new(rank));
+        let _ = write!(text, " (#{})", WithComma::new(rank.get()));
     }
 
     let (country_code, user_id, mode) = match user {

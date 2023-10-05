@@ -105,7 +105,9 @@ impl Client {
                 format!("Failed to deserialize respektive rank: {body}")
             })?;
 
-        Ok(users.pop().filter(|user| user.rank > 0))
+        Ok(users
+            .pop()
+            .filter(|user| user.rank.is_some() || user.rank_highest.is_some()))
     }
 
     pub async fn get_osutracker_country_details(
