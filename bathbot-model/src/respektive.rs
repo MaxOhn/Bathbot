@@ -16,8 +16,6 @@ pub struct RespektiveUser {
     #[serde(deserialize_with = "zero_as_none")]
     pub rank: Option<NonZeroU32>,
     pub user_id: u32,
-    #[serde(rename = "score")]
-    pub ranked_score: u64,
     pub rank_highest: Option<RespektiveUserRankHighest>,
 }
 

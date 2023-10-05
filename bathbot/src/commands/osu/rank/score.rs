@@ -381,15 +381,12 @@ struct RankHolder {
 }
 
 fn author(user: &RedisData<User>, respektive_user: Option<&RespektiveUser>) -> AuthorBuilder {
-    let (ranked_score, rank) = match respektive_user {
-        Some(user) => (user.ranked_score, user.rank),
-        None => (user.stats().ranked_score(), None),
-    };
+    let rank = respektive_user.and_then(|user| user.rank);
 
     let mut text = format!(
         "{username}: {score}",
         username = user.username(),
-        score = WithComma::new(ranked_score),
+        score = WithComma::new(user.stats().ranked_score()),
     );
 
     if let Some(rank) = rank {
