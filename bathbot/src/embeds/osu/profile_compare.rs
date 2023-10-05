@@ -1,6 +1,7 @@
 use std::{
     cmp::Reverse,
     fmt::{Display, Write},
+    num::NonZeroU32,
 };
 
 use bathbot_macros::EmbedData;
@@ -188,14 +189,14 @@ impl ProfileCompareEmbed {
                         .score_rank_data
                         .as_ref()
                         .and_then(|user| user.rank)
-                        .map_or(u32::MAX, |rank| rank.get()),
+                        .map_or(u32::MAX, NonZeroU32::get),
                 ),
                 Reverse(
                     result2
                         .score_rank_data
                         .as_ref()
                         .and_then(|user| user.rank)
-                        .map_or(u32::MAX, |rank| rank.get()),
+                        .map_or(u32::MAX, NonZeroU32::get),
                 ),
                 max_left,
                 max_right,
@@ -208,12 +209,10 @@ impl ProfileCompareEmbed {
                 right.score_rank_peak,
                 Reverse(result1.score_rank_data.as_ref().map_or(u32::MAX, |user| {
                     user.rank_highest
-                        .as_ref()
                         .map_or(u32::MAX, |rank_highest| rank_highest.rank)
                 })),
                 Reverse(result2.score_rank_data.as_ref().map_or(u32::MAX, |user| {
                     user.rank_highest
-                        .as_ref()
                         .map_or(u32::MAX, |rank_highest| rank_highest.rank)
                 })),
                 max_left,
@@ -554,7 +553,7 @@ impl CompareStrings {
             score_rank_peak: result.score_rank_data.as_ref().map_or_else(
                 || Box::from("-"),
                 |user| {
-                    user.rank_highest.as_ref().map_or_else(
+                    user.rank_highest.map_or_else(
                         || Box::from("-"),
                         |rank_highest| {
                             format!("#{}", WithComma::new(rank_highest.rank)).into_boxed_str()

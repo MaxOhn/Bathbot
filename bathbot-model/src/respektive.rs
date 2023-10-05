@@ -5,7 +5,7 @@ use time::OffsetDateTime;
 
 use crate::deser::datetime_rfc3339;
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Copy, Deserialize, Debug)]
 pub struct RespektiveUserRankHighest {
     pub rank: u32,
     #[serde(with = "datetime_rfc3339")]

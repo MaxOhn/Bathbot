@@ -1,4 +1,4 @@
-use std::{borrow::Cow, iter, mem, num::NonZeroU32, sync::Arc};
+use std::{borrow::Cow, iter, mem, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_model::{
@@ -156,7 +156,8 @@ pub(super) async fn score(
                 Ok(mut iter) => iter
                     .next()
                     .flatten()
-                    .map(|user| user.rank.map_or(0, NonZeroU32::get) as usize - 1),
+                    .and_then(|user| user.rank)
+                    .map(|rank| rank.get() as usize - 1),
                 Err(err) => {
                     warn!(?err, "Failed to get respektive user");
 
