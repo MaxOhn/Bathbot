@@ -535,13 +535,13 @@ impl CompareStrings {
             pp_per_month_num,
             pc_per_month: format!("{pc_per_month_num:.2}").into_boxed_str(),
             pc_per_month_num,
-            count_ss: (grade_counts.ssh + grade_counts.ss)
+            count_ss: WithComma::new(grade_counts.ssh + grade_counts.ss)
                 .to_string()
                 .into_boxed_str(),
-            count_s: (grade_counts.sh + grade_counts.s)
+            count_s: WithComma::new(grade_counts.sh + grade_counts.s)
                 .to_string()
                 .into_boxed_str(),
-            count_a: (grade_counts.a).to_string().into_boxed_str(),
+            count_a: WithComma::new(grade_counts.a).to_string().into_boxed_str(),
             avg_pp: format!("{:.2}pp", result.pp.avg()).into_boxed_str(),
             pp_spread: format!("{:.2}pp", result.pp.max() - result.pp.min()).into_boxed_str(),
             pc_peak: WithComma::new(data.monthly_playcounts_peak)
