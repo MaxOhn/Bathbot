@@ -31,7 +31,7 @@ use twilight_model::{
 };
 
 use self::{
-    availability::{Availability, MapperNames, ScoreRank, SkinUrl},
+    availability::{Availability, MapperNames, ScoreData, SkinUrl},
     top100_mappers::Top100Mappers,
     top100_mods::Top100Mods,
     top100_stats::Top100Stats,
@@ -55,7 +55,7 @@ pub struct ProfileMenu {
     tz: Option<UtcOffset>,
     skin_url: Availability<SkinUrl>,
     scores: Availability<Box<[Score]>>,
-    score_rank: Availability<ScoreRank>,
+    score_rank: Availability<ScoreData>,
     top100stats: Option<Top100Stats>,
     mapper_names: Availability<MapperNames>,
     kind: ProfileKind,
@@ -274,12 +274,44 @@ impl ProfileMenu {
             None => "-".to_string(),
         };
 
+        let scores_fut = self.scores.get(&ctx, self.user.user_id(), self.user.mode());
+
+        let top_score_pp = match scores_fut.await {
+            Some([_score @ Score { pp: Some(pp), .. }, ..]) => format!("{pp:.2}pp"),
+            Some(_) | None => "-".to_string(),
+        };
+
         let user_id = self.user.user_id();
         let mode = self.user.mode();
 
-        let score_rank = match self.score_rank.get(&ctx, user_id, mode).await {
-            Some(rank) => format!("#{}", WithComma::new(rank)),
-            None => "-".to_string(),
+        let (score_rank, peak_score_rank) = match self.score_rank.get(&ctx, user_id, mode).await {
+            Some(data) => {
+                let rank = data.rank.map_or_else(
+                    || "-".to_string(),
+                    |rank| format!("#{}", WithComma::new(rank.get())),
+                );
+
+                let peak = data.highest_rank.map_or_else(
+                    || "-".to_string(),
+                    |peak| {
+                        let mut peak_datetime = peak.updated_at;
+
+                        if let Some(offset) = self.tz {
+                            peak_datetime = peak_datetime.to_offset(offset);
+                        }
+
+                        format!(
+                            "#{rank} ({year}/{month:0>2})",
+                            rank = WithComma::new(peak.rank),
+                            year = peak_datetime.year(),
+                            month = peak_datetime.month() as u8,
+                        )
+                    },
+                );
+
+                (rank, peak)
+            }
+            None => ("-".to_string(), "-".to_string()),
         };
 
         let stats = self.user.stats().to_owned();
@@ -362,6 +394,14 @@ impl ProfileMenu {
             stats.grade_counts.a,
         );
 
+        let combined_grades_value = format!(
+            "{}{} {}{}",
+            grade_emote(Grade::X),
+            stats.grade_counts.ssh + stats.grade_counts.ss,
+            grade_emote(Grade::S),
+            stats.grade_counts.sh + stats.grade_counts.s,
+        );
+
         let playcount_value = format!(
             "{} / {} hrs",
             WithComma::new(stats.playcount),
@@ -379,19 +419,22 @@ impl ProfileMenu {
         };
 
         let fields = fields![
+            "Peak rank", peak_rank, true;
+            "Top score PP", top_score_pp, true;
+            "Level", format!("{:.2}", stats.level.float()), true;
+            "Total score", WithComma::new(stats.total_score).to_string(), true;
+            "Total hits", WithComma::new(stats.total_hits).to_string(), true;
+            "Bonus PP", bonus_pp, true;
             "Ranked score", WithComma::new(stats.ranked_score).to_string(), true;
+            "Peak score rank", peak_score_rank, true;
+            "Score rank", score_rank, true;
+            "Hits per play", WithComma::new(hits_per_play).to_string(), true;
             "Max combo", WithComma::new(stats.max_combo).to_string(), true;
             "Accuracy", format!("[{acc:.2}%]({origin} \"{acc}\")", acc = stats.accuracy, origin = self.origin), true;
-            "Total score", WithComma::new(stats.total_score).to_string(), true;
-            "Score rank", score_rank, true;
-            "Level", format!("{:.2}", stats.level.float()), true;
-            "Peak rank", peak_rank, true;
-            "Bonus PP", bonus_pp, true;
-            "Followers", WithComma::new(follower_count).to_string(), true;
-            "Hits per play", WithComma::new(hits_per_play).to_string(), true;
-            "Total hits", WithComma::new(stats.total_hits).to_string(), true;
-            "Medals", medals.to_string(), true;
             "Recommended", format!("{}★", round(recommended_stars)), true;
+            "Followers", WithComma::new(follower_count).to_string(), true;
+            "Medals", medals.to_string(), true;
+            "Combined grades", combined_grades_value, true;
             "First places", scores_first_count.to_string(), true;
             "Badges", badges.to_string(), true;
             "Grades", grades_value, false;

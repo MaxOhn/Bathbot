@@ -1,5 +1,6 @@
-use std::{collections::HashMap, hint, iter};
+use std::{collections::HashMap, hint, iter, num::NonZeroU32};
 
+use bathbot_model::RespektiveUserRankHighest;
 use bathbot_util::IntHasher;
 use rosu_v2::prelude::{GameMode, Score, Username};
 
@@ -132,31 +133,43 @@ impl Availability<SkinUrl> {
     }
 }
 
-pub(super) struct ScoreRank(pub u32);
+#[derive(Copy, Clone)]
+pub(super) struct ScoreData {
+    pub rank: Option<NonZeroU32>,
+    pub highest_rank: Option<RespektiveUserRankHighest>,
+}
 
-impl Availability<ScoreRank> {
-    pub(super) async fn get(&mut self, ctx: &Context, user_id: u32, mode: GameMode) -> Option<u32> {
+impl Availability<ScoreData> {
+    pub(super) async fn get(
+        &mut self,
+        ctx: &Context,
+        user_id: u32,
+        mode: GameMode,
+    ) -> Option<ScoreData> {
         match self {
-            Availability::Received(ScoreRank(rank)) => return Some(*rank),
+            Availability::Received(data) => return Some(*data),
             Availability::Errored => return None,
             Availability::NotRequested => {}
         }
 
         let user_fut = ctx.client().get_respektive_users(iter::once(user_id), mode);
 
-        match user_fut.await {
-            Ok(mut iter) => match iter.next().flatten().and_then(|user| user.rank) {
-                Some(rank) => {
-                    let ScoreRank(rank) = self.insert(ScoreRank(rank.get()));
+        match user_fut.await.map(|mut iter| iter.next().flatten()) {
+            Ok(Some(user)) => {
+                let data = ScoreData {
+                    rank: user.rank,
+                    highest_rank: user.rank_highest,
+                };
 
-                    Some(*rank)
-                }
-                None => {
-                    *self = Availability::Errored;
+                self.insert(data);
 
-                    None
-                }
-            },
+                Some(data)
+            }
+            Ok(None) => {
+                *self = Availability::Errored;
+
+                None
+            }
             Err(err) => {
                 warn!(?err, "Failed to get respektive user");
                 *self = Availability::Errored;
