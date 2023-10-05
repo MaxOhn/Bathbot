@@ -1,6 +1,7 @@
 use std::{borrow::Cow, io::Cursor, sync::Arc};
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_model::RespektiveUser;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -200,10 +201,10 @@ pub(super) async fn profile(
         }
     };
 
-    let (score_rank1, score_rank2) = match score_ranks_res {
+    let (score_rank_data1, score_rank_data2) = match score_ranks_res {
         Ok(mut iter) => {
-            let rank1 = iter.next().flatten().map(|user| user.rank);
-            let rank2 = iter.next().flatten().map(|user| user.rank);
+            let rank1 = iter.next().flatten();
+            let rank2 = iter.next().flatten();
 
             (rank1, rank2)
         }
@@ -214,8 +215,8 @@ pub(super) async fn profile(
         }
     };
 
-    let profile_result1 = CompareResult::calc(mode, &scores1, user1.stats(), score_rank1);
-    let profile_result2 = CompareResult::calc(mode, &scores2, user2.stats(), score_rank2);
+    let profile_result1 = CompareResult::calc(mode, &scores1, user1.stats(), score_rank_data1);
+    let profile_result2 = CompareResult::calc(mode, &scores2, user2.stats(), score_rank_data2);
 
     // Creating the embed
     let embed_data =
@@ -334,7 +335,7 @@ pub struct CompareResult {
     pub map_len: MinMaxAvg<u32>,
     pub bonus_pp: f32,
     pub top1pp: f32,
-    pub score_rank: Option<u32>,
+    pub score_rank_data: Option<RespektiveUser>,
     pub hits: u32,
     pub misses: u32,
 }
@@ -344,7 +345,7 @@ impl CompareResult {
         mode: GameMode,
         scores: &[Score],
         stats: impl UserStats,
-        score_rank: Option<u32>,
+        score_rank_data: Option<RespektiveUser>,
     ) -> Self {
         let mut pp = MinMaxAvg::new();
         let mut map_len = MinMaxAvg::new();
@@ -382,7 +383,7 @@ impl CompareResult {
             map_len: map_len.into(),
             bonus_pp: bonus_pp.calculate(stats),
             top1pp: scores.first().and_then(|score| score.pp).unwrap_or(0.0),
-            score_rank,
+            score_rank_data,
             hits,
             misses,
         }

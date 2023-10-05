@@ -172,14 +172,48 @@ impl ProfileCompareEmbed {
             max_right,
         );
 
-        if result1.score_rank.or(result2.score_rank).is_some() {
+        if result1
+            .score_rank_data
+            .as_ref()
+            .or(result2.score_rank_data.as_ref())
+            .is_some()
+        {
             write_line(
                 &mut d,
                 "Score rank",
                 left.score_rank,
                 right.score_rank,
-                Reverse(result1.score_rank.unwrap_or(u32::MAX)),
-                Reverse(result2.score_rank.unwrap_or(u32::MAX)),
+                Reverse(
+                    result1
+                        .score_rank_data
+                        .as_ref()
+                        .map_or(u32::MAX, |user| user.rank),
+                ),
+                Reverse(
+                    result2
+                        .score_rank_data
+                        .as_ref()
+                        .map_or(u32::MAX, |user| user.rank),
+                ),
+                max_left,
+                max_right,
+            );
+
+            write_line(
+                &mut d,
+                "Peak score rank",
+                left.score_rank_peak,
+                right.score_rank_peak,
+                Reverse(result1.score_rank_data.as_ref().map_or(u32::MAX, |user| {
+                    user.rank_highest
+                        .as_ref()
+                        .map_or(u32::MAX, |rank_highest| rank_highest.rank)
+                })),
+                Reverse(result2.score_rank_data.as_ref().map_or(u32::MAX, |user| {
+                    user.rank_highest
+                        .as_ref()
+                        .map_or(u32::MAX, |rank_highest| rank_highest.rank)
+                })),
                 max_left,
                 max_right,
             );
@@ -451,6 +485,7 @@ struct CompareStrings {
     pp: Box<str>,
     rank: Box<str>,
     score_rank: Box<str>,
+    score_rank_peak: Box<str>,
     ranked_score: Box<str>,
     total_score: Box<str>,
     total_hits: Box<str>,
@@ -506,9 +541,20 @@ impl CompareStrings {
             } else {
                 format!("#{}", WithComma::new(global_rank)).into_boxed_str()
             },
-            score_rank: result.score_rank.map_or_else(
+            score_rank: result.score_rank_data.as_ref().map_or_else(
                 || Box::from("-"),
-                |rank| format!("#{}", WithComma::new(rank)).into_boxed_str(),
+                |user| format!("#{}", WithComma::new(user.rank)).into_boxed_str(),
+            ),
+            score_rank_peak: result.score_rank_data.as_ref().map_or_else(
+                || Box::from("-"),
+                |user| {
+                    user.rank_highest.as_ref().map_or_else(
+                        || Box::from("-"),
+                        |rank_highest| {
+                            format!("#{}", WithComma::new(rank_highest.rank)).into_boxed_str()
+                        },
+                    )
+                },
             ),
             ranked_score: WithComma::new(stats.ranked_score())
                 .to_string()
@@ -568,6 +614,7 @@ impl CompareStrings {
             pp,
             rank,
             score_rank,
+            score_rank_peak,
             ranked_score: _,
             total_score,
             total_hits,
@@ -600,6 +647,7 @@ impl CompareStrings {
         self.ranked_score
             .len()
             .max(score_rank.len())
+            .max(score_rank_peak.len())
             .max(total_score.len())
             .max(total_hits.len())
             .max(play_count.len())
