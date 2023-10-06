@@ -36,6 +36,7 @@ pub struct SlashCommand {
     pub create: fn() -> ApplicationCommandData,
     pub exec: fn(Arc<Context>, InteractionCommand) -> CommandResult,
     pub flags: CommandFlags,
+    pub name: &'static str,
 }
 
 pub struct MessageCommand {

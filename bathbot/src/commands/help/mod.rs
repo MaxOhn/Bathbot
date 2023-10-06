@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 pub use self::{
-    interaction::{slash_help, Help, HELP_SLASH},
+    interaction::{slash_help, Help},
     message::HELP_PREFIX,
 };
 
