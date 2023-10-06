@@ -201,7 +201,7 @@ impl SnipePlayer {
                             type Value = Option<SnipePlayerOldest>;
 
                             fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-                                f.write_str("an SnipePlayerOldest")
+                                f.write_str("a SnipePlayerOldest")
                             }
 
                             fn visit_map<A: MapAccess<'de>>(
@@ -854,13 +854,13 @@ mod oldest_datetime {
         }
 
         fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
-            const NULL: &str = "Fri Jan 01 9999 00:00:00 GMT+0100 (Midden-Europese standaardtijd)";
+            const NULL_PREFIX: &str = "Fri Jan 01 9999";
 
             if v.len() < 19 {
                 return Err(DeError::custom(format!(
                     "string too short for a datetime: `{v}`"
                 )));
-            } else if v == NULL {
+            } else if v.starts_with(NULL_PREFIX) {
                 return Ok(None);
             }
 
