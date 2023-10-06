@@ -36,6 +36,7 @@ pub fn impl_cmd(attrs: CommandAttrs, fun: CommandFun) -> Result<TokenStream> {
     let path = quote!(crate::core::commands::interaction::MessageCommand);
 
     let tokens = quote! {
+        #[linkme::distributed_slice(crate::core::commands::interaction::__MSG_COMMANDS)]
         pub static #static_name: #path = #path {
             create: #create,
             exec: #exec,

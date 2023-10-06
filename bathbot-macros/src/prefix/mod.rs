@@ -72,6 +72,7 @@ pub fn fun(mut fun: CommandFun) -> Result<TokenStream2> {
     let path = quote!(crate::core::commands::prefix::PrefixCommand);
 
     let tokens = quote! {
+        #[linkme::distributed_slice(crate::core::commands::prefix::__PREFIX_COMMANDS)]
         pub static #static_name: #path = #path {
             names: &[#name_str, #(#aliases),*],
             desc: #desc,
