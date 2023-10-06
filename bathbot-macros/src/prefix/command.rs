@@ -4,10 +4,8 @@ use syn::{
     parenthesized,
     parse::{Parse, ParseStream},
     parse_quote,
-    spanned::Spanned,
     token::{Mut, Underscore},
-    Attribute, Block, Error, FnArg, Ident, Pat, PatType, Result, ReturnType, Stmt, Token, Type,
-    Visibility,
+    Attribute, Block, Error, Ident, Result, ReturnType, Token, Type, Visibility,
 };
 
 use crate::util::PunctuatedExt;
@@ -24,7 +22,7 @@ pub struct CommandFun {
     // -> ...
     pub ret: Box<Type>,
     // { ... }
-    pub body: Vec<Stmt>,
+    pub body: Block,
 }
 
 impl Parse for CommandFun {
@@ -43,34 +41,30 @@ impl Parse for CommandFun {
         let name = input.parse::<Ident>()?;
 
         // ( ... )
-        let content;
-        parenthesized!(content in input);
+        let args = {
+            let content;
+            parenthesized!(content in input);
 
-        // arguments
-        let args = Vec::<FnArg>::parse_terminated::<Token![,]>(&content)?
-            .into_iter()
-            .map(Argument::try_from)
-            .collect::<Result<Vec<_>>>()?;
+            // arguments
+            Vec::parse_terminated::<Token![,]>(&content)?
+        };
 
         // -> Result<()>
         let ret = match input.parse::<ReturnType>()? {
             ReturnType::Type(_, t) if t == parse_quote! { Result<()> } => t,
             ReturnType::Type(_, t) => {
-                return Err(Error::new(t.span(), "expected return type `Result<()>`"))
+                return Err(Error::new_spanned(t, "expected return type `Result<()>`"))
             }
-            _ => return Err(Error::new(name.span(), "expected return type `Result<()>`")),
+            _ => {
+                return Err(Error::new_spanned(
+                    name,
+                    "expected return type `Result<()>`",
+                ))
+            }
         };
 
         // { ... }
-        let block = input.parse::<Block>()?;
-
-        if block.stmts.is_empty() {
-            let message = "block must return `Result<()>`";
-
-            return Err(Error::new(block.span(), message));
-        }
-
-        let body = block.stmts;
+        let body = input.parse()?;
 
         Ok(Self {
             attrs,
@@ -86,18 +80,16 @@ impl Parse for CommandFun {
 impl ToTokens for CommandFun {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
+            attrs: _,
             vis,
             name,
             args,
             ret,
             body,
-            ..
         } = self;
 
         tokens.extend(quote! {
-            #vis async fn #name<'fut>(#(#args),*) -> #ret {
-                #(#body)*
-            }
+            #vis async fn #name<'fut>(#(#args),*) -> #ret #body
         });
     }
 }
@@ -105,6 +97,16 @@ impl ToTokens for CommandFun {
 pub enum ArgumentName {
     Ident(Ident),
     Wild(Underscore),
+}
+
+impl Parse for ArgumentName {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(Token![_]) {
+            input.parse().map(Self::Wild)
+        } else {
+            input.parse().map(Self::Ident)
+        }
+    }
 }
 
 impl ToTokens for ArgumentName {
@@ -122,6 +124,21 @@ pub struct Argument {
     pub ty: Box<Type>,
 }
 
+impl Parse for Argument {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mutability = input.peek(Token![mut]).then(|| input.parse()).transpose()?;
+        let name = input.parse()?;
+        input.parse::<Token![:]>()?;
+        let ty = input.parse()?;
+
+        Ok(Self {
+            mutability,
+            name,
+            ty,
+        })
+    }
+}
+
 impl ToTokens for Argument {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
@@ -131,38 +148,5 @@ impl ToTokens for Argument {
         } = self;
 
         tokens.extend(quote!(#mutability #name: #ty));
-    }
-}
-
-impl TryFrom<FnArg> for Argument {
-    type Error = Error;
-
-    fn try_from(arg: FnArg) -> Result<Self> {
-        match arg {
-            FnArg::Receiver(_) => Err(Error::new_spanned(
-                arg,
-                "expected arguments of the form `identifier: type`",
-            )),
-            FnArg::Typed(typed) => {
-                let PatType { pat, ty, .. } = typed;
-
-                match *pat {
-                    Pat::Ident(id) => Ok(Argument {
-                        mutability: id.mutability,
-                        name: ArgumentName::Ident(id.ident),
-                        ty,
-                    }),
-                    Pat::Wild(wild) => Ok(Argument {
-                        mutability: None,
-                        name: ArgumentName::Wild(wild.underscore_token),
-                        ty,
-                    }),
-                    _ => Err(Error::new_spanned(
-                        pat,
-                        "expected either _ or identifier before `:`",
-                    )),
-                }
-            }
-        }
     }
 }

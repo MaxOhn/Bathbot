@@ -1,9 +1,9 @@
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{format_ident, quote, ToTokens};
+use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     token::Token as TokenTrait,
-    Ident, Lit, Result,
+    Result,
 };
 
 /// Revamping utility from [`Punctuated`] for the purpose of storing items
@@ -101,37 +101,6 @@ impl<T> PunctuatedExt<T> for Vec<T> {
         }
 
         Ok(vec)
-    }
-}
-
-pub trait LitExt {
-    fn to_string(&self) -> String;
-    fn to_ident(&self) -> Ident;
-}
-
-impl LitExt for Lit {
-    fn to_string(&self) -> String {
-        match self {
-            Lit::Str(s) => s.value(),
-            Lit::ByteStr(s) => unsafe { String::from_utf8_unchecked(s.value()) },
-            Lit::Char(c) => c.value().to_string(),
-            Lit::Byte(b) => (b.value() as char).to_string(),
-            _ => panic!("values must be a (byte)string or a char"),
-        }
-    }
-
-    fn to_ident(&self) -> Ident {
-        Ident::new(&self.to_string(), self.span())
-    }
-}
-
-pub trait IdentExt: Sized {
-    fn to_uppercase(&self) -> Self;
-}
-
-impl IdentExt for Ident {
-    fn to_uppercase(&self) -> Self {
-        format_ident!("{}", self.to_string().to_uppercase(), span = self.span())
     }
 }
 

@@ -26,11 +26,7 @@ impl Parse for CommandAttrs {
         for meta in metas {
             match meta {
                 Meta::NameValue(meta) => {
-                    let Some(name) = meta.path.get_ident() else {
-                        continue;
-                    };
-
-                    if name == "name" {
+                    if meta.path.is_ident("name") {
                         let Expr::Lit(ExprLit {
                             lit: Lit::Str(lit), ..
                         }) = meta.value
@@ -39,7 +35,7 @@ impl Parse for CommandAttrs {
                         };
 
                         attr_name = Some(lit);
-                    } else if name == "dm_permission" {
+                    } else if meta.path.is_ident("dm_permission") {
                         let Expr::Lit(ExprLit {
                             lit: Lit::Bool(lit),
                             ..
@@ -51,20 +47,16 @@ impl Parse for CommandAttrs {
                         dm_permission = Some(lit);
                     } else {
                         return Err(Error::new_spanned(
-                            name,
+                            meta.value,
                             "expected `name` or `dm_permission`",
                         ));
                     }
                 }
                 Meta::List(meta) => {
-                    let Some(name) = meta.path.get_ident() else {
-                        continue;
-                    };
-
-                    if name == "flags" {
+                    if meta.path.is_ident("flags") {
                         flags = Some(meta.parse_args()?);
                     } else {
-                        return Err(Error::new_spanned(name, "expected `flags`"));
+                        return Err(Error::new_spanned(meta.path, "expected `flags`"));
                     }
                 }
                 Meta::Path(_) => {}

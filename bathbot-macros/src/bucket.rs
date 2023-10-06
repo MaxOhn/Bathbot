@@ -2,20 +2,8 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
-    Attribute, Ident, Result,
+    Ident, Result,
 };
-
-use crate::util::AsOption;
-
-// TODO: remove
-pub fn parse_bucket(attrs: &[Attribute]) -> Result<AsOption<Bucket>> {
-    attrs
-        .iter()
-        .find(|attr| attr.path().is_ident("bucket"))
-        .map(|a| a.parse_args())
-        .transpose()
-        .map(|b| AsOption(b.map(|bucket| Bucket { bucket })))
-}
 
 pub struct Bucket {
     bucket: Ident,

@@ -63,7 +63,9 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
             "thumbnail" => thumbnail = quote!(.thumbnail(self.thumbnail)),
             "url" => url = quote!(.url(self.url)),
             _ => {
-                let message = "Invalid field name for `EmbedData`, must be `author`, `color`, `description`, `fields`, `footer`, `image`, `timestamp`, `title`, `thumbnail`, or `url`";
+                let message = "Invalid field name for `EmbedData`, must be `author`, `color`, \
+                `description`, `fields`, `footer`, `image`, `timestamp`, `title`, `thumbnail`, or \
+                `url`";
 
                 return Err(Error::new(ident.span(), message));
             }

@@ -1,16 +1,13 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
-use syn::{parse_quote, spanned::Spanned, Error, FnArg, Result};
+use syn::{parse_quote, Error, Result};
 
+use self::attrs::CommandAttrs;
 pub use self::command::CommandFun;
-use self::{
-    command::Argument,
-    options::{parse_options, Options},
-};
 
+mod attrs;
 mod command;
-mod options;
 
 pub fn attr(tokens: TokenStream) -> Result<()> {
     if !tokens.is_empty() {
@@ -38,7 +35,7 @@ pub fn fun(mut fun: CommandFun) -> Result<TokenStream2> {
     let static_name = format_ident!("{}_PREFIX", name_str.to_uppercase());
     let exec = format_ident!("{name_str}__");
 
-    let Options {
+    let CommandAttrs {
         aliases,
         desc,
         help,
@@ -47,7 +44,7 @@ pub fn fun(mut fun: CommandFun) -> Result<TokenStream2> {
         bucket,
         flags,
         group,
-    } = parse_options(&fun.attrs)?;
+    } = CommandAttrs::parse_attrs(&fun.attrs)?;
 
     let desc = match desc {
         Some(desc) => desc,
@@ -106,14 +103,14 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
     match iter.next() {
         Some(arg) if arg.ty == parse_quote! { Arc<Context> } => {}
         Some(arg) => {
-            return Err(Error::new(
-                arg.ty.span(),
+            return Err(Error::new_spanned(
+                &arg.ty,
                 "expected first argument to be of type `Arc<Context>`",
             ));
         }
         None => {
-            return Err(Error::new(
-                fun.name.span(),
+            return Err(Error::new_spanned(
+                &fun.name,
                 "expected first argument to be of type `Arc<Context>`",
             ));
         }
@@ -124,14 +121,14 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
             arg.ty = parse_quote! { &'fut twilight_model::channel::Message };
         }
         Some(arg) => {
-            return Err(Error::new(
-                arg.ty.span(),
+            return Err(Error::new_spanned(
+                &arg.ty,
                 "expected second argument to be of type `&Message`",
             ));
         }
         None => {
-            return Err(Error::new(
-                fun.name.span(),
+            return Err(Error::new_spanned(
+                &fun.name,
                 "expected second argument to be of type `&Message`",
             ));
         }
@@ -139,30 +136,28 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
 
     let (args, permissions, swap) = match (iter.next(), iter.next()) {
         (None, None) => {
-            let args: FnArg = parse_quote!(_: crate::core::commands::prefix::Args<'fut>);
-            let args = Argument::try_from(args)?;
-            let permissions: FnArg =
+            let args = parse_quote!(_: crate::core::commands::prefix::Args<'fut>);
+            let permissions  =
                 parse_quote!(_: Option<::twilight_model::guild::Permissions>);
-            let permissions = Argument::try_from(permissions)?;
 
             (Some(args), Some(permissions), false)
         }
         (Some(arg), None) if arg.ty == parse_quote! { Args<'_> } => {
             arg.ty = parse_quote! { crate::core::commands::prefix::Args<'fut> };
 
-            let permissions: FnArg =
+            let permissions  =
                 parse_quote!(_: Option<::twilight_model::guild::Permissions>);
 
-            (None, Some(Argument::try_from(permissions)?), false)
+            (None, Some(permissions), false)
         }
         (Some(arg), None) if arg.ty == parse_quote! { Option<Permissions> } => {
-            let args: FnArg = parse_quote!(_: crate::core::commands::prefix::Args<'fut>);
+            let args = parse_quote!(_: crate::core::commands::prefix::Args<'fut>);
 
-            (Some(Argument::try_from(args)?), None, true)
+            (Some(args), None, true)
         }
         (Some(arg), None) => {
-            return Err(Error::new(
-                arg.ty.span(),
+            return Err(Error::new_spanned(
+                &arg.ty,
                 "expected third argument to be of type `Args<'_>` or `Option<Permissions>`",
             ))
         }
@@ -177,8 +172,8 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
             (None, None, true)
         },
         (Some(arg), Some(_)) => {
-            return Err(Error::new(
-                arg.ty.span(),
+            return Err(Error::new_spanned(
+                &arg.ty,
                 "expected third and fourth arguments to be of type `Args<'_>` and `Option<Permissions>`",
             ))
         }
@@ -186,8 +181,8 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
     };
 
     if iter.count() > 0 {
-        return Err(Error::new(
-            fun.name.span(),
+        return Err(Error::new_spanned(
+            &fun.name,
             "expected at most four arguments",
         ));
     }

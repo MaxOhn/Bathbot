@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
-    Attribute, Ident, Result, Token,
+    Ident, Result, Token,
 };
 
 use crate::util::PunctuatedExt;
@@ -10,14 +10,6 @@ use crate::util::PunctuatedExt;
 #[derive(Default)]
 pub struct Flags {
     list: Box<[Ident]>,
-}
-
-// TODO: remove
-pub fn parse_flags(attrs: &[Attribute]) -> Result<Flags> {
-    match attrs.iter().find(|attr| attr.path().is_ident("flags")) {
-        Some(attr) => attr.parse_args(),
-        None => Ok(Flags::default()),
-    }
 }
 
 impl Parse for Flags {
