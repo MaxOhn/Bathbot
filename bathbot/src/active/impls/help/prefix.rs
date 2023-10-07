@@ -248,21 +248,22 @@ impl HelpPrefixMenu {
         );
 
         let description = format!(
-            ":fire: **Slash commands now supported!** Type `/` to check them out :fire:\n\n\
+            ":fire: **Slash commands are supported!** Type `/` to check them out :fire:\n\n\
             {prefix_desc}\n\
             __**General**__\n\
             - To find out more about a command like what arguments you can give or which shorter aliases \
-            it has,  use __**`{first_prefix}help [command]`**__, e.g. `{first_prefix}help simulate`.
+            it has,  use __**`{first_prefix}help [command]`**__, e.g. `{first_prefix}help simulate`. \n\
             - If you want to specify an argument, e.g. a username, that contains \
             spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
             - If you've used the `/link` command to connect to an osu! account, \
             you can omit the username for any command that needs one.\n\
             - If you have questions, complains, or suggestions for the bot, feel free to join its \
             [discord server]({BATHBOT_WORKSHOP}) and let Badewanne3 know.\n\
-            [This roadmap]({BATHBOT_ROADMAP}) shows already suggested features and known bugs.\n\
+            [This roadmap]({BATHBOT_ROADMAP}) shows already suggested features and known bugs.\n\n\
             __**Mods for osu!**__
             Many commands allow you to specify mods. You can do so with `+mods` \
-            for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\n\
+            for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. \n\
+            For example:\n\
             `+hdhr`: scores that include at least HD and HR\n\
             `+hd!`: only HD scores\n\
             `-nm!`: scores that are not NoMod\n\
