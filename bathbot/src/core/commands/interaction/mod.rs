@@ -46,6 +46,10 @@ impl InteractionCommands {
         self.0.get(command).copied()
     }
 
+    pub fn get_command(command: &str) -> Option<InteractionCommandKind> {
+        Self::get().command(command)
+    }
+
     pub fn collect(&self) -> Vec<Command> {
         self.0
             .values()
