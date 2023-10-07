@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::SlashCommand;
-use bathbot_model::{PullRequest, PullRequests, PullRequestsAndTags, ReferencedIssue};
+use bathbot_model::{PullRequests, PullRequestsAndTags, ReferencedIssue, Tag};
 use bathbot_util::constants::{FIELD_VALUE_SIZE, GENERAL_ISSUE};
 use eyre::{ContextCompat, Result, WrapErr};
 use time::OffsetDateTime;
@@ -21,14 +21,7 @@ use crate::{
 pub struct Changelog;
 
 async fn slash_changelog(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let PullRequestsAndTags {
-        pull_requests:
-            PullRequests {
-                inner: mut pull_requests,
-                mut next_cursor,
-            },
-        tags,
-    } = match ctx.github().tags_and_prs().await {
+    let mut data = match ctx.github().tags_and_prs().await {
         Ok(res) => res,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
@@ -37,41 +30,48 @@ async fn slash_changelog(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         }
     };
 
-    if tags.len() != 26 {
+    if data.tags.len() != 25 {
         let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-        bail!("Expected 26 tags, got {}", tags.len());
+        bail!("Expected 25 tags, got {}", data.tags.len());
     }
 
-    let pages_fut = ChangelogTagPages::new(
-        &ctx,
-        &mut pull_requests,
-        tags[0].date,
-        tags[1].date,
-        &mut next_cursor,
-    );
-
-    let pages = match pages_fut.await {
-        Ok(res) => res,
-        Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err.wrap_err("Failed to build pages"));
-        }
+    let upcoming = Tag {
+        name: Box::from("Upcoming"),
+        date: OffsetDateTime::now_utc(),
     };
 
-    let pagination = ChangelogPagination::new(
-        tags,
-        vec![pages],
-        pull_requests,
-        next_cursor,
-        command.user_id()?,
-    );
+    data.tags.insert(0, upcoming);
+
+    let upcoming_pages = create_pages(&ctx, &command, &mut data, 0, 1).await?;
+    let first_tag_pages = create_pages(&ctx, &command, &mut data, 1, 2).await?;
+    let pages = vec![upcoming_pages, first_tag_pages];
+
+    let pagination = ChangelogPagination::new(pages, data, command.user_id()?);
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
         .begin(ctx, &mut command)
         .await
+}
+
+async fn create_pages(
+    ctx: &Context,
+    command: &InteractionCommand,
+    data: &mut PullRequestsAndTags,
+    tag_start: usize,
+    tag_end: usize,
+) -> Result<ChangelogTagPages> {
+    let pages_fut = ChangelogTagPages::new(ctx, data, tag_start, tag_end);
+
+    match pages_fut.await {
+        Ok(res) => Ok(res),
+        Err(err) => {
+            let _ = command.error(ctx, GENERAL_ISSUE).await;
+
+            Err(err.wrap_err("Failed to build pages"))
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -90,14 +90,22 @@ pub struct ChangelogTagPages {
 impl ChangelogTagPages {
     pub async fn new(
         ctx: &Context,
-        pull_requests: &mut Vec<PullRequest>,
-        start_date: OffsetDateTime,
-        end_date: OffsetDateTime,
-        next_cursor: &mut Box<str>,
+        data: &mut PullRequestsAndTags,
+        tag_start: usize,
+        tag_end: usize,
     ) -> Result<Self> {
+        let PullRequestsAndTags {
+            pull_requests:
+                PullRequests {
+                    inner: pull_requests,
+                    next_cursor,
+                },
+            tags,
+        } = data;
+
         let start_idx = pull_requests
             .iter()
-            .position(|pr| pr.merged_at < start_date)
+            .position(|pr| pr.merged_at < tags[tag_start].date)
             .wrap_err("Found no PR before the start date")?;
 
         if start_idx > 0 {
@@ -105,7 +113,10 @@ impl ChangelogTagPages {
         }
 
         let end_idx = loop {
-            match pull_requests.iter().position(|pr| pr.merged_at < end_date) {
+            match pull_requests
+                .iter()
+                .position(|pr| pr.merged_at < tags[tag_end].date)
+            {
                 Some(idx) => break idx,
                 None => {
                     let mut next_prs = ctx

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bathbot_model::{PullRequest, Tag};
+use bathbot_model::{PullRequestsAndTags, Tag};
 use bathbot_util::{
     datetime::DATE_FORMAT, numbers::last_multiple, AuthorBuilder, EmbedBuilder, FooterBuilder,
 };
@@ -23,10 +23,8 @@ use crate::{
 };
 
 pub struct ChangelogPagination {
-    tags: Vec<Tag>,
     tag_pages: Vec<ChangelogTagPages>,
-    pull_requests: Vec<PullRequest>,
-    next_cursor: Box<str>,
+    data: PullRequestsAndTags,
     msg_owner: Id<UserMarker>,
     pages: ChangelogPages,
 }
@@ -37,7 +35,7 @@ impl IActiveMessage for ChangelogPagination {
     }
 
     fn build_components(&self) -> Vec<Component> {
-        self.pages.components(&self.tags)
+        self.pages.components(&self.data.tags)
     }
 
     fn handle_component<'a>(
@@ -51,18 +49,14 @@ impl IActiveMessage for ChangelogPagination {
 
 impl ChangelogPagination {
     pub fn new(
-        tags: Vec<Tag>,
         tag_pages: Vec<ChangelogTagPages>,
-        pull_requests: Vec<PullRequest>,
-        next_cursor: Box<str>,
+        data: PullRequestsAndTags,
         msg_owner: Id<UserMarker>,
     ) -> Self {
         Self {
-            pages: ChangelogPages::new(tags.len()),
-            tags,
+            pages: ChangelogPages::new(data.tags.len()),
             tag_pages,
-            pull_requests,
-            next_cursor,
+            data,
             msg_owner,
         }
     }
@@ -82,15 +76,11 @@ impl ChangelogPagination {
                 break pages;
             }
 
-            let start_date = self.tags[self.tag_pages.len()].date;
-            let end_date = self.tags[self.tag_pages.len() + 1].date;
-
             let page_fut = ChangelogTagPages::new(
                 &ctx,
-                &mut self.pull_requests,
-                start_date,
-                end_date,
-                &mut self.next_cursor,
+                &mut self.data,
+                self.tag_pages.len(),
+                self.tag_pages.len() + 1,
             );
 
             let pages = page_fut.await.wrap_err("Failed to build tag pages")?;
@@ -146,7 +136,7 @@ impl ChangelogPagination {
         let last_page = self.pages.last_page();
         let footer = FooterBuilder::new(format!("Page {curr_page}/{last_page}",));
 
-        let tag = &self.tags[self.pages.tag_idx];
+        let tag = &self.data.tags[self.pages.tag_idx];
         let title = format!("{} ({})", tag.name, tag.date.format(DATE_FORMAT).unwrap());
 
         let mut embed = EmbedBuilder::new()
@@ -194,6 +184,7 @@ impl ChangelogPagination {
                 };
 
                 let Some(idx) = self
+                    .data
                     .tags
                     .iter()
                     .position(|tag| tag.name.as_ref() == name.as_str())
@@ -236,7 +227,7 @@ impl ChangelogPages {
         Self {
             index: 0,
             last_index: last_multiple(Self::PER_PAGE, amount),
-            tag_idx: 0,
+            tag_idx: 1, // initially skip the spoofed "upcoming" tag
         }
     }
 

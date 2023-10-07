@@ -13,7 +13,7 @@ query {
   repository(owner: "MaxOhn", name: "Bathbot") {
     tags: refs(
       refPrefix: "refs/tags/"
-      first: 26
+      first: 25
       orderBy: {field: TAG_COMMIT_DATE, direction: DESC}
     ) {
       nodes {
