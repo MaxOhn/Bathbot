@@ -18,7 +18,10 @@ use twilight_model::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     core::{
-        commands::prefix::{PrefixCommandGroup, PrefixCommands},
+        commands::{
+            interaction::InteractionCommands,
+            prefix::{PrefixCommandGroup, PrefixCommands},
+        },
         Context,
     },
     util::{interaction::InteractionComponent, Emote},
@@ -247,6 +250,11 @@ impl HelpPrefixMenu {
             |p| format!("Server prefix: {p}\nDM prefix: `{DEFAULT_PREFIX}` or none at all"),
         );
 
+        let link = InteractionCommands::get_command("link").map_or_else(
+            || "`/link`".to_owned(),
+            |cmd| cmd.mention("link").to_string(),
+        );
+
         let description = format!(
             ":fire: **Slash commands are supported!** Type `/` to check them out :fire:\n\n\
             {prefix_desc}\n\
@@ -255,7 +263,7 @@ impl HelpPrefixMenu {
             it has,  use __**`{first_prefix}help [command]`**__, e.g. `{first_prefix}help simulate`. \n\
             - If you want to specify an argument, e.g. a username, that contains \
             spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
-            - If you've used the `/link` command to connect to an osu! account, \
+            - If you've used the {link} command to connect to an osu! account, \
             you can omit the username for any command that needs one.\n\
             - If you have questions, complains, or suggestions for the bot, feel free to join its \
             [discord server]({BATHBOT_WORKSHOP}) and let Badewanne3 know.\n\

@@ -46,6 +46,10 @@ impl InteractionCommands {
         self.0.get(command).copied()
     }
 
+    pub fn get_command(command: &str) -> Option<InteractionCommandKind> {
+        Self::get().command(command)
+    }
+
     pub fn collect(&self) -> Vec<Command> {
         self.0
             .values()
@@ -61,5 +65,27 @@ impl InteractionCommands {
         self.0
             .get_raw_descendant(prefix)
             .map(|sub| sub.keys().copied())
+    }
+
+    pub fn set_ids(commands: &[Command]) {
+        let this = Self::get();
+
+        for cmd in commands {
+            let Some(id) = cmd.id else { continue };
+            let name = &cmd.name;
+
+            let cmd = this
+                .command(name)
+                .unwrap_or_else(|| panic!("unknown command `{name}`"));
+
+            match cmd {
+                InteractionCommandKind::Chat(cmd) => {
+                    cmd.id.set(id).expect("command id has already been set");
+                }
+                InteractionCommandKind::Message(cmd) => {
+                    cmd.id.set(id).expect("command id has already been set");
+                }
+            }
+        }
     }
 }

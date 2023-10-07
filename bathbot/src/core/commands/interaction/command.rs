@@ -1,7 +1,13 @@
-use std::sync::Arc;
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult},
+    sync::{Arc, OnceLock},
+};
 
 use twilight_interactions::command::ApplicationCommandData;
-use twilight_model::application::command::Command;
+use twilight_model::{
+    application::command::Command,
+    id::{marker::CommandMarker, Id},
+};
 
 use super::CommandResult;
 use crate::{
@@ -29,6 +35,20 @@ impl InteractionCommandKind {
             InteractionCommandKind::Message(cmd) => cmd.flags,
         }
     }
+
+    pub fn id(&self) -> Id<CommandMarker> {
+        match self {
+            InteractionCommandKind::Chat(cmd) => *cmd.id.get().expect("missing command id"),
+            InteractionCommandKind::Message(cmd) => *cmd.id.get().expect("missing command id"),
+        }
+    }
+
+    pub fn mention<'n>(&self, name: &'n str) -> CommandMention<'n> {
+        CommandMention {
+            id: self.id(),
+            name,
+        }
+    }
 }
 
 pub struct SlashCommand {
@@ -37,6 +57,7 @@ pub struct SlashCommand {
     pub exec: fn(Arc<Context>, InteractionCommand) -> CommandResult,
     pub flags: CommandFlags,
     pub name: &'static str,
+    pub id: OnceLock<Id<CommandMarker>>,
 }
 
 pub struct MessageCommand {
@@ -44,4 +65,17 @@ pub struct MessageCommand {
     pub exec: fn(Arc<Context>, InteractionCommand) -> CommandResult,
     pub flags: CommandFlags,
     pub name: &'static str,
+    pub id: OnceLock<Id<CommandMarker>>,
+}
+
+pub struct CommandMention<'n> {
+    id: Id<CommandMarker>,
+    name: &'n str,
+}
+
+impl Display for CommandMention<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let Self { id, name } = self;
+        write!(f, "</{name}:{id}>")
+    }
 }

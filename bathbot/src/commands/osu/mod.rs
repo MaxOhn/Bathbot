@@ -80,7 +80,10 @@ pub use self::{
     recent::*, render::*, scores::*, serverleaderboard::*, simulate::*, snipe::*, top::*,
     whatif::*,
 };
-use crate::{core::commands::CommandOrigin, Context};
+use crate::{
+    core::commands::{interaction::InteractionCommands, CommandOrigin},
+    Context,
+};
 
 mod attributes;
 mod avatar;
@@ -149,11 +152,17 @@ pub enum UserIdFutureResult {
 }
 
 pub async fn require_link(ctx: &Context, orig: &CommandOrigin<'_>) -> Result<()> {
-    let content = "Either specify an osu! username or link yourself to an osu! profile via `/link`";
+    let link = InteractionCommands::get_command("link").map_or_else(
+        || "`/link`".to_owned(),
+        |cmd| cmd.mention("link").to_string(),
+    );
+
+    let content =
+        format!("Either specify an osu! username or link yourself to an osu! profile via {link}");
 
     orig.error(ctx, content)
         .await
-        .wrap_err("failed to send require-link message")
+        .wrap_err("Failed to send require-link message")
 }
 
 pub async fn user_not_found(ctx: &Context, user_id: UserId) -> String {
