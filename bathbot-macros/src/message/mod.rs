@@ -42,6 +42,7 @@ pub fn impl_cmd(attrs: CommandAttrs, fun: CommandFun) -> Result<TokenStream> {
             exec: #exec,
             flags: #flags,
             name: #attr_name,
+            id: std::sync::OnceLock::new(),
         };
 
         fn #create() -> ::twilight_model::application::command::Command {

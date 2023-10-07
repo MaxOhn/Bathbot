@@ -33,6 +33,7 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
             exec: #exec,
             flags: #flags,
             name: #name_lit,
+            id: std::sync::OnceLock::new(),
         };
 
         fn #exec(

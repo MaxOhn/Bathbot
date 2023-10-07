@@ -76,32 +76,40 @@ async fn async_main() -> Result<()> {
 
     #[cfg(feature = "global_slash")]
     {
-        interaction_client
+        let cmds = interaction_client
             .set_global_commands(&slash_commands)
             .await
-            .context("Failed to set global commands")?;
+            .wrap_err("Failed to set global commands")?
+            .models()
+            .await
+            .wrap_err("Failed to deserialize commands")?;
+
+        InteractionCommands::set_ids(&cmds);
 
         let guild_command_fut =
             interaction_client.set_guild_commands(BotConfig::get().dev_guild, &[]);
 
         if let Err(err) = guild_command_fut.await {
-            let wrap = "Failed to remove guild commands";
-            warn!("{:?}", Report::new(err).wrap_err(wrap));
+            warn!(err = ?Report::new(err), "Failed to remove guild commands");
         }
     }
 
     #[cfg(not(feature = "global_slash"))]
     {
-        interaction_client
+        let cmds = interaction_client
             .set_guild_commands(BotConfig::get().dev_guild, &slash_commands)
             .await
-            .context("Failed to set guild commands")?;
+            .wrap_err("Failed to set guild commands")?
+            .models()
+            .await
+            .wrap_err("Failed to deserialize commands")?;
+
+        InteractionCommands::set_ids(&cmds);
 
         let global_command_fut = interaction_client.set_global_commands(&[]);
 
         if let Err(err) = global_command_fut.await {
-            let wrap = "Failed to remove global commands";
-            warn!("{:?}", Report::new(err).wrap_err(wrap));
+            warn!(err = ?Report::new(err), "Failed to remove global commands");
         }
     }
 

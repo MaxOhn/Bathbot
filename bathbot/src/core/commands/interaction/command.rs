@@ -1,7 +1,10 @@
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use twilight_interactions::command::ApplicationCommandData;
-use twilight_model::application::command::Command;
+use twilight_model::{
+    application::command::Command,
+    id::{marker::CommandMarker, Id},
+};
 
 use super::CommandResult;
 use crate::{
@@ -29,6 +32,14 @@ impl InteractionCommandKind {
             InteractionCommandKind::Message(cmd) => cmd.flags,
         }
     }
+
+    #[allow(unused)]
+    pub fn id(&self) -> Id<CommandMarker> {
+        match self {
+            InteractionCommandKind::Chat(cmd) => *cmd.id.get().expect("missing command id"),
+            InteractionCommandKind::Message(cmd) => *cmd.id.get().expect("missing command id"),
+        }
+    }
 }
 
 pub struct SlashCommand {
@@ -37,6 +48,7 @@ pub struct SlashCommand {
     pub exec: fn(Arc<Context>, InteractionCommand) -> CommandResult,
     pub flags: CommandFlags,
     pub name: &'static str,
+    pub id: OnceLock<Id<CommandMarker>>,
 }
 
 pub struct MessageCommand {
@@ -44,4 +56,5 @@ pub struct MessageCommand {
     pub exec: fn(Arc<Context>, InteractionCommand) -> CommandResult,
     pub flags: CommandFlags,
     pub name: &'static str,
+    pub id: OnceLock<Id<CommandMarker>>,
 }
