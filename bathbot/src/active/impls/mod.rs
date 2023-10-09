@@ -32,6 +32,7 @@ pub use self::{
     scores::{ScoresMapPagination, ScoresServerPagination, ScoresUserPagination},
     simulate::{SimulateAttributes, SimulateComponents, SimulateData, TopOldVersion},
     skins::SkinsPagination,
+    slash_commands::SlashCommandsPagination,
     snipe::{SnipeCountryListPagination, SnipeDifferencePagination, SnipePlayerListPagination},
     top::TopPagination,
     top_if::TopIfPagination,
@@ -64,6 +65,7 @@ mod render;
 mod scores;
 mod simulate;
 mod skins;
+mod slash_commands;
 mod snipe;
 mod top;
 mod top_if;
