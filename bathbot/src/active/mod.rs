@@ -4,7 +4,7 @@ use bathbot_util::{modal::ModalBuilder, EmbedBuilder, IntHasher, MessageBuilder}
 use enum_dispatch::enum_dispatch;
 use eyre::{Report, Result, WrapErr};
 use flexmap::tokio::TokioMutexMap;
-use futures::{future, future::BoxFuture};
+use futures::future::BoxFuture;
 use tokio::sync::watch::Sender;
 use twilight_model::{
     channel::message::Component,
@@ -29,8 +29,8 @@ use self::{
         PopularMapsPagination, PopularMapsetsPagination, PopularModsPagination, ProfileMenu,
         RankingCountriesPagination, RankingPagination, RecentListPagination, RenderSettingsActive,
         ScoresMapPagination, ScoresServerPagination, ScoresUserPagination, SettingsImport,
-        SimulateComponents, SkinsPagination, SnipeCountryListPagination, SnipeDifferencePagination,
-        SnipePlayerListPagination, TopIfPagination, TopPagination,
+        SimulateComponents, SkinsPagination, SlashCommandsPagination, SnipeCountryListPagination,
+        SnipeDifferencePagination, SnipePlayerListPagination, TopIfPagination, TopPagination,
     },
 };
 use crate::{
@@ -92,6 +92,7 @@ pub enum ActiveMessage {
     SettingsImport,
     SimulateComponents,
     SkinsPagination,
+    SlashCommandsPagination,
     SnipeCountryListPagination,
     SnipeDifferencePagination,
     SnipePlayerListPagination,
@@ -306,7 +307,7 @@ pub trait IActiveMessage {
     ) -> BoxFuture<'a, ComponentResult> {
         warn!(name = %component.data.custom_id, ?component, "Unknown component");
 
-        Box::pin(future::ready(ComponentResult::Ignore))
+        Box::pin(ready(ComponentResult::Ignore))
     }
 
     /// What happens when the active message receives a modal event.
@@ -319,7 +320,7 @@ pub trait IActiveMessage {
     ) -> BoxFuture<'a, Result<()>> {
         warn!(name = %modal.data.custom_id, ?modal, "Unknown modal");
 
-        Box::pin(future::ready(Ok(())))
+        Box::pin(ready(Ok(())))
     }
 
     /// What happens when the message is no longer active.
@@ -344,7 +345,7 @@ pub trait IActiveMessage {
 
                 Box::pin(fut)
             }
-            None => Box::pin(future::ready(Err(eyre!(
+            None => Box::pin(ready(Err(eyre!(
                 "Lacking permission to update message on timeout"
             )))),
         }
@@ -378,7 +379,7 @@ impl BuildPage {
     /// Wrap the [`BuildPage`] in a [`Future`](core::future::Future) that
     /// returns `Result<BuildPage>`
     pub fn boxed<'a>(self) -> BoxFuture<'a, Result<Self>> {
-        Box::pin(future::ready(Ok(self)))
+        Box::pin(ready(Ok(self)))
     }
 
     pub fn content(mut self, content: impl Into<Box<str>>) -> Self {

@@ -4,7 +4,7 @@ use time::OffsetDateTime;
 use twilight_gateway::Event;
 use twilight_model::application::{
     command::CommandType,
-    interaction::{InteractionData, InteractionType},
+    interaction::{application_command::CommandOptionValue, InteractionData, InteractionType},
 };
 
 pub struct EventStats {
@@ -106,8 +106,11 @@ impl BotStats {
         let msg_counter = metric_vec!(counter: "messages", "Received messages", "sender_type");
         let prefix_commands =
             metric_vec!(counter: "prefix_commands", "Executed prefix commands", "name");
-        let slash_commands =
-            metric_vec!(counter: "slash_commands", "Executed slash commands", "name");
+        let slash_commands = IntCounterVec::new(
+            Opts::new("slash_commands", "Executed slash commands"),
+            &["name", "group", "sub"],
+        )
+        .unwrap();
         let message_commands =
             metric_vec!(counter: "message_commands", "Executed message commands", "name");
         let user_commands = metric_vec!(counter: "user_commands", "Executed user commands", "name");
@@ -309,11 +312,30 @@ impl BotStats {
                                 .inc()
                         } else {
                             match data.kind {
-                                CommandType::ChatInput => self
-                                    .command_counts
-                                    .slash_commands
-                                    .with_label_values(&[&data.name])
-                                    .inc(),
+                                CommandType::ChatInput => {
+                                    let (group, sub) = match data.options.first() {
+                                        Some(option) => match option.value {
+                                            CommandOptionValue::SubCommand(_) => {
+                                                ("", option.name.as_str())
+                                            }
+                                            CommandOptionValue::SubCommandGroup(ref vec) => {
+                                                match vec.first() {
+                                                    Some(sub) => {
+                                                        (option.name.as_str(), sub.name.as_str())
+                                                    }
+                                                    None => (option.name.as_str(), ""),
+                                                }
+                                            }
+                                            _ => ("", ""),
+                                        },
+                                        None => ("", ""),
+                                    };
+
+                                    self.command_counts
+                                        .slash_commands
+                                        .with_label_values(&[&data.name, group, sub])
+                                        .inc()
+                                }
                                 CommandType::User => self
                                     .command_counts
                                     .user_commands
