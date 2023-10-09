@@ -14,6 +14,7 @@ use bathbot_util::{
     IntHasher,
 };
 use eyre::{Report, Result};
+use rand::{thread_rng, Rng};
 use rosu_v2::{
     prelude::{
         GameMode, Grade, OsuError,
@@ -80,6 +81,8 @@ pub struct Pinned {
         - `-nm!`: Scores can not be nomod so there must be any other mod"
     )]
     mods: Option<String>,
+    #[command(desc = "Choose a specific score index or `random`")]
+    index: Option<String>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -219,6 +222,8 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         }
     };
 
+    let pre_len = pinned.len();
+
     let entries =
         match process_scores(&ctx, pinned, &args, mods.as_ref(), &top100, size_single).await {
             Ok(entries) => entries,
@@ -229,9 +234,38 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
             }
         };
 
+    let post_len = entries.len();
     let username = user.username();
 
-    if let [entry] = &entries[..] {
+    let index = match args.index.as_deref() {
+        Some("random" | "?") => (post_len > 0).then_some(thread_rng().gen_range(1..=post_len)),
+        Some(n) => match n.parse::<usize>() {
+            Ok(n) if n > post_len => {
+                let mut content = format!("`{username}` only has {post_len} pinned scores");
+
+                if pre_len > post_len {
+                    let _ = write!(content, " with the specified properties");
+                }
+
+                return orig.error(&ctx, content).await;
+            }
+            Ok(n) => Some(n),
+            Err(_) => {
+                let content = "Failed to parse index. \
+                Must be an integer between 1 and 100 or `random` / `?`.";
+
+                return orig.error(&ctx, content).await;
+            }
+        },
+        None => None,
+    };
+
+    let single_idx = index
+        .map(|num| num.saturating_sub(1))
+        .or_else(|| (entries.len() == 1).then_some(0));
+
+    if let Some(idx) = single_idx {
+        let entry = &entries[idx];
         let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
 
         let minimized_pp = config
