@@ -11,10 +11,12 @@ use crate::{
     core::{commands::interaction::InteractionCommands, Context},
 };
 
+type Counts = Box<[(Box<str>, u32)]>;
+
 #[derive(PaginationBuilder)]
 pub struct SlashCommandsPagination {
     #[pagination(per_page = 10)]
-    counts: Box<[(Box<str>, u32)]>,
+    counts: Counts,
     pages: Pages,
 }
 
@@ -86,7 +88,7 @@ impl IActiveMessage for SlashCommandsPagination {
             let _ = writeln!(
                 description,
                 "- `{count}` {mention} {cmd_desc}",
-                mention = cmd_kind.mention(&full_name),
+                mention = cmd_kind.mention(full_name),
             );
         }
 
