@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nWITH stats AS (\n  SELECT \n    global_rank, \n    pp, \n    last_update \n  FROM \n    osu_user_mode_stats \n  WHERE \n    gamemode = $1 \n    AND global_rank > 0 \n    AND NOW() - last_update < interval '2 days'\n) \nSELECT \n  * \nFROM \n  (\n    (\n      SELECT \n        global_rank, \n        pp, \n        last_update, \n        0 :: INT2 AS pos \n      FROM \n        stats \n      WHERE \n        pp >= $2 \n      ORDER BY \n        pp ASC \n      LIMIT \n        5\n    ) \n    UNION ALL \n      (\n        SELECT \n          global_rank, \n          pp, \n          last_update, \n          1 :: INT2 AS pos \n        FROM \n          stats \n        WHERE \n          pp <= $2 \n        ORDER BY \n          pp DESC \n        LIMIT \n          5\n      )\n  ) AS neighbors",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "global_rank",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "pp",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 2,
+        "name": "last_update",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "pos",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int2",
+        "Float4"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "0e0db1c5f4acec83f98eeeff3b05529c44947fc2789388902b46055e8436b1a6"
+}
