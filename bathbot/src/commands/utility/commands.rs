@@ -12,7 +12,7 @@ use crate::{
         ActiveMessages,
     },
     core::commands::CommandOrigin,
-    util::interaction::InteractionCommand,
+    util::{interaction::InteractionCommand, Authored},
     Context,
 };
 
@@ -22,6 +22,8 @@ use crate::{
 pub struct Commands;
 
 pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+    let owner = command.user_id()?;
+
     let mut cmd_counts: Box<[_]> = ctx.stats.command_counts.slash_commands.collect()[0]
         .get_metric()
         .iter()
@@ -79,6 +81,8 @@ pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) 
 
     let pagination = SlashCommandsPagination::builder()
         .counts(cmd_counts)
+        .start_time(ctx.stats.start_time)
+        .msg_owner(owner)
         .build();
 
     ActiveMessages::builder(pagination)
