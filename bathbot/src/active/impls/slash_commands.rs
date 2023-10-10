@@ -1,14 +1,23 @@
 use std::{fmt::Write, sync::Arc};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_util::EmbedBuilder;
+use bathbot_util::{datetime::HowLongAgoText, EmbedBuilder, FooterBuilder};
 use eyre::Result;
 use futures::future::BoxFuture;
-use twilight_model::application::command::CommandOptionType;
+use time::OffsetDateTime;
+use twilight_model::{
+    application::command::CommandOptionType,
+    channel::message::Component,
+    id::{marker::UserMarker, Id},
+};
 
 use crate::{
-    active::{pagination::Pages, BuildPage, IActiveMessage},
+    active::{
+        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
+        BuildPage, ComponentResult, IActiveMessage,
+    },
     core::{commands::interaction::InteractionCommands, Context},
+    util::interaction::{InteractionComponent, InteractionModal},
 };
 
 type Counts = Box<[(Box<str>, u32)]>;
@@ -17,6 +26,8 @@ type Counts = Box<[(Box<str>, u32)]>;
 pub struct SlashCommandsPagination {
     #[pagination(per_page = 10)]
     counts: Counts,
+    start_time: OffsetDateTime,
+    msg_owner: Id<UserMarker>,
     pages: Pages,
 }
 
@@ -28,7 +39,7 @@ impl IActiveMessage for SlashCommandsPagination {
         let mut description = String::with_capacity(1024);
         let cmds = InteractionCommands::get();
 
-        for (full_name, count) in counts {
+        for ((full_name, count), idx) in counts.iter().zip(idx + 1..) {
             let mut cmd_iter = full_name.split(' ');
 
             let Some(cmd_kind) = cmd_iter.next().and_then(|name| cmds.command(name)) else {
@@ -87,15 +98,43 @@ impl IActiveMessage for SlashCommandsPagination {
 
             let _ = writeln!(
                 description,
-                "- `{count}` {mention} {cmd_desc}",
+                "{idx}. `{count}` {mention} {cmd_desc}",
                 mention = cmd_kind.mention(full_name),
             );
         }
 
+        let footer = format!(
+            "Page {}/{} • Started counting {}",
+            self.pages.curr_page(),
+            self.pages.last_page(),
+            HowLongAgoText::new(&self.start_time)
+        );
+
         let embed = EmbedBuilder::new()
             .description(description)
-            .title("Popular slash commands");
+            .footer(FooterBuilder::new(footer))
+            .title("Most popular slash commands:");
 
         BuildPage::new(embed, false).boxed()
+    }
+
+    fn build_components(&self) -> Vec<Component> {
+        self.pages.components()
+    }
+
+    fn handle_component<'a>(
+        &'a mut self,
+        ctx: Arc<Context>,
+        component: &'a mut InteractionComponent,
+    ) -> BoxFuture<'a, ComponentResult> {
+        handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
+    }
+
+    fn handle_modal<'a>(
+        &'a mut self,
+        ctx: &'a Context,
+        modal: &'a mut InteractionModal,
+    ) -> BoxFuture<'a, Result<()>> {
+        handle_pagination_modal(ctx, modal, self.msg_owner, false, &mut self.pages)
     }
 }
