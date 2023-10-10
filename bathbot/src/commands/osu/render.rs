@@ -234,19 +234,9 @@ async fn render_score(
     mut command: InteractionCommand,
     score: RenderScore,
 ) -> Result<()> {
-    let owner = command.user_id()?;
-
-    if let Some(cooldown) = ctx.check_ratelimit(owner, BucketName::Render) {
-        trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
-
-        let content = format!("Command on cooldown, try again in {cooldown} seconds");
-        command.error_callback(&ctx, content).await?;
-
-        return Ok(());
-    }
-
     command.defer(&ctx, false).await?;
 
+    let owner = command.user_id()?;
     let RenderScore { score_id } = score;
 
     // Check if the score id has already been rendered
@@ -261,6 +251,15 @@ async fn render_score(
         }
         Ok(None) => {}
         Err(err) => warn!(?err),
+    }
+
+    if let Some(cooldown) = ctx.check_ratelimit(owner, BucketName::Render) {
+        trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
+
+        let content = format!("Command on cooldown, try again in {cooldown} seconds");
+        command.error(&ctx, content).await?;
+
+        return Ok(());
     }
 
     let mut status = RenderStatus::new_requesting_score();
