@@ -1,5 +1,8 @@
+use std::fmt::{Debug, Formatter, Result as FmtResult};
+
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
+use time::OffsetDateTime;
 
 use crate::database::Database;
 
@@ -28,48 +31,32 @@ FROM
       SELECT 
         global_rank, 
         pp, 
-        0::INT2 AS pos 
+        last_update, 
+        0 :: INT2 AS pos 
       FROM 
-        (
-          SELECT 
-            * 
-          FROM 
-            stats 
-          WHERE 
-            pp >= $2 
-          ORDER BY 
-            pp ASC 
-          LIMIT 
-            5
-        ) AS innerTable 
+        stats 
+      WHERE 
+        pp >= $2 
       ORDER BY 
-        last_update DESC 
+        pp ASC 
       LIMIT 
-        1
+        5
     ) 
     UNION ALL 
       (
         SELECT 
           global_rank, 
           pp, 
-          1::INT2 AS pos 
+          last_update, 
+          1 :: INT2 AS pos 
         FROM 
-          (
-            SELECT 
-              * 
-            FROM 
-              stats 
-            WHERE 
-              pp <= $2 
-            ORDER BY 
-              pp DESC 
-            LIMIT 
-              5
-          ) AS innerTable 
+          stats 
+        WHERE 
+          pp <= $2 
         ORDER BY 
-          last_update DESC 
+          pp DESC 
         LIMIT 
-          1
+          5
       )
   ) AS neighbors"#,
             mode as i16,
@@ -79,8 +66,10 @@ FROM
         let entries = query
             .fetch_all(self)
             .await
-            .map(Entries::from)
+            .map(Entries::new)
             .wrap_err("Failed to fetch all entries")?;
+
+        debug!(?entries, pp, "Approximating rank");
 
         if let (Some(higher_pp), Some(lower_rank)) = (entries.higher_pp(), entries.lower_rank()) {
             // found a DB entry above and below the given pp
@@ -148,48 +137,32 @@ FROM
       SELECT 
         global_rank, 
         pp, 
-        0::INT2 AS pos 
+        last_update, 
+        0 :: INT2 AS pos 
       FROM 
-        (
-          SELECT 
-            * 
-          FROM 
-            stats 
-          WHERE 
-            global_rank <= $2 
-          ORDER BY 
-            pp ASC 
-          LIMIT 
-            5
-        ) AS innerTable 
+        stats 
+      WHERE 
+        global_rank <= $2 
       ORDER BY 
-        last_update DESC 
+        pp ASC 
       LIMIT 
-        1
+        5
     ) 
     UNION ALL 
       (
         SELECT 
           global_rank, 
           pp, 
-          1::INT2 AS pos 
+          last_update, 
+          1 :: INT2 AS pos 
         FROM 
-          (
-            SELECT 
-              * 
-            FROM 
-              stats 
-            WHERE 
-              global_rank >= $2 
-            ORDER BY 
-              pp DESC 
-            LIMIT 
-              5
-          ) AS innerTable 
+          stats 
+        WHERE 
+          global_rank >= $2 
         ORDER BY 
-          last_update DESC 
+          pp DESC 
         LIMIT 
-          1
+          5
       )
   ) AS neighbors"#,
             mode as i16,
@@ -199,8 +172,10 @@ FROM
         let entries = query
             .fetch_all(self)
             .await
-            .map(Entries::from)
+            .map(Entries::new)
             .wrap_err("Failed to fetch all entries")?;
+
+        debug!(?entries, rank, "Approximating pp");
 
         if let (Some(higher_pp), Some(lower_rank)) = (entries.higher_pp(), entries.lower_rank()) {
             // found a DB entry above and below the given rank
@@ -248,6 +223,7 @@ FROM
 struct DbEntry {
     global_rank: Option<i32>,
     pp: Option<f32>,
+    last_update: Option<OffsetDateTime>,
     pos: Option<i16>,
 }
 
@@ -260,6 +236,32 @@ impl DbEntry {
 struct Entry {
     pp: f32,
     rank: u32,
+    last_update: OffsetDateTime,
+}
+
+impl Debug for Entry {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        struct LastUpdate(OffsetDateTime);
+
+        impl Debug for LastUpdate {
+            fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+                let date = self.0.date();
+                let time = self.0.time();
+
+                let hour = time.hour();
+                let minute = time.minute();
+                let second = time.second();
+
+                write!(f, "{date} {hour:0>2}:{minute:0>2}:{second:0>2}")
+            }
+        }
+
+        f.debug_struct("Entry")
+            .field("pp", &self.pp)
+            .field("rank", &self.rank)
+            .field("last_update", &LastUpdate(self.last_update))
+            .finish()
+    }
 }
 
 impl From<DbEntry> for Entry {
@@ -268,6 +270,7 @@ impl From<DbEntry> for Entry {
         Self {
             pp: entry.pp.unwrap_or(0.0),
             rank: entry.global_rank.map_or(0, |rank| rank as u32),
+            last_update: entry.last_update.unwrap_or_else(OffsetDateTime::now_utc),
         }
     }
 }
@@ -277,46 +280,67 @@ struct Entries {
     lower: Option<Entry>,
 }
 
-impl Entries {
-    fn higher_rank(&self) -> u32 {
-        self.higher.as_ref().map_or(1, |entry| entry.rank)
-    }
+impl Debug for Entries {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        struct MaybeEntry<'a>(Option<&'a Entry>);
 
-    fn lower_rank(&self) -> Option<u32> {
-        self.lower.as_ref().map(|entry| entry.rank)
+        impl Debug for MaybeEntry<'_> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+                match self.0 {
+                    Some(entry) => Debug::fmt(entry, f),
+                    None => f.write_str("None"),
+                }
+            }
+        }
+
+        f.debug_struct("Entries")
+            .field("higher", &MaybeEntry(self.higher.as_ref()))
+            .field("lower", &MaybeEntry(self.lower.as_ref()))
+            .finish()
+    }
+}
+
+impl Entries {
+    fn new(entries: Vec<DbEntry>) -> Self {
+        let mut higher = Vec::with_capacity(5);
+        let mut lower = Vec::with_capacity(5);
+
+        for entry in entries {
+            match entry.pos {
+                Some(DbEntry::HIGHER) => higher.push(Entry::from(entry)),
+                Some(DbEntry::LOWER) => lower.push(Entry::from(entry)),
+                _ => unreachable!("invalid pos"),
+            }
+        }
+
+        let higher = higher.into_iter().max_by_key(|entry| entry.last_update);
+
+        let min_rank = lower.iter().map(|entry| entry.rank).min();
+
+        let lower = match min_rank {
+            Some(rank @ 1..=50) => lower
+                .into_iter()
+                .filter(|entry| entry.rank == rank)
+                .max_by_key(|entry| entry.last_update),
+            _ => lower.into_iter().max_by_key(|entry| entry.last_update),
+        };
+
+        Self { higher, lower }
     }
 
     fn higher_pp(&self) -> Option<f32> {
         self.higher.as_ref().map(|entry| entry.pp)
     }
 
+    fn higher_rank(&self) -> u32 {
+        self.higher.as_ref().map_or(1, |entry| entry.rank)
+    }
+
     fn lower_pp(&self) -> f32 {
         self.lower.as_ref().map_or(0.0, |entry| entry.pp)
     }
-}
 
-impl From<Vec<DbEntry>> for Entries {
-    #[inline]
-    fn from(entries: Vec<DbEntry>) -> Self {
-        let mut higher = None;
-        let mut lower = None;
-
-        for entry in entries {
-            match entry.pos {
-                Some(DbEntry::HIGHER) => {
-                    let entry = Entry::from(entry);
-                    debug!(pp = entry.pp, rank = entry.rank, "higher");
-                    higher = Some(entry);
-                }
-                Some(DbEntry::LOWER) => {
-                    let entry = Entry::from(entry);
-                    debug!(pp = entry.pp, rank = entry.rank, "lower");
-                    lower = Some(entry);
-                }
-                _ => unreachable!("invalid pos"),
-            }
-        }
-
-        Self { higher, lower }
+    fn lower_rank(&self) -> Option<u32> {
+        self.lower.as_ref().map(|entry| entry.rank)
     }
 }
