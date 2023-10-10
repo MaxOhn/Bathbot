@@ -35,7 +35,7 @@ use crate::{
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "topold",
-    desc = "How the current top plays would look like on a previous pp system",
+    desc = "How current top plays would look like in old pp systems",
     help = "Check a user's **current** top plays if their pp would be based on a previous pp system"
 )]
 pub enum TopOld<'a> {
@@ -61,7 +61,7 @@ pub enum TopOldScoreOrder {
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
 #[command(
     name = "osu",
-    desc = "How the current osu!standard top plays would look like on a previous pp system",
+    desc = "How current osu!std top plays would look like in old pp systems",
     help = "The osu!standard pp history looks roughly like this:\n\
     - 2012: ppv1 (can't be implemented)\n\
     - 2014: [ppv2 introduction](https://osu.ppy.sh/home/news/2014-01-26-new-performance-ranking)\n\
@@ -175,7 +175,7 @@ impl TryFrom<i32> for TopOldOsuVersion {
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
 #[command(
     name = "taiko",
-    desc = "How the current osu!taiko top plays would look like on a previous pp system",
+    desc = "How current osu!taiko top plays would look like in old pp systems",
     help = "The osu!taiko pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating)\n\
@@ -252,7 +252,7 @@ impl TryFrom<i32> for TopOldTaikoVersion {
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
 #[command(
     name = "ctb",
-    desc = "How the current osu!ctb top plays would look like on a previous pp system",
+    desc = "How current osu!ctb top plays would look like in old pp systems",
     help = "The osu!ctb pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)"
@@ -322,7 +322,7 @@ impl TryFrom<i32> for TopOldCatchVersion {
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
 #[command(
     name = "mania",
-    desc = "How the current osu!mania top plays would look like on a previous pp system",
+    desc = "How current osu!mania top plays would look like in old pp systems",
     help = "The osu!mania pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2018: [ppv2](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
