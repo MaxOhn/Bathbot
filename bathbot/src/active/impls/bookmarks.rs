@@ -1,6 +1,8 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
+    convert::identity,
     fmt::Write,
+    future::ready,
     mem,
     sync::Arc,
     time::Duration,
@@ -45,6 +47,7 @@ pub struct BookmarksPagination {
     cached_entries: CachedBookmarkEntries,
     defer_next: bool,
     filtered_maps: Option<bool>,
+    confirm_remove: Option<bool>,
     msg_owner: Id<UserMarker>,
     content: String,
     pages: Pages,
@@ -325,13 +328,24 @@ impl IActiveMessage for BookmarksPagination {
             url: None,
         };
 
-        let jump_custom = Button {
-            custom_id: Some("bookmarks_remove".to_owned()),
-            disabled: false,
-            emoji: None,
-            label: Some("Remove".to_owned()),
-            style: ButtonStyle::Danger,
-            url: None,
+        let remove = if self.confirm_remove.is_some_and(identity) {
+            Button {
+                custom_id: Some("bookmarks_confirm_remove".to_owned()),
+                disabled: false,
+                emoji: None,
+                label: Some("Confirm remove".to_owned()),
+                style: ButtonStyle::Danger,
+                url: None,
+            }
+        } else {
+            Button {
+                custom_id: Some("bookmarks_remove".to_owned()),
+                disabled: false,
+                emoji: None,
+                label: Some("Remove".to_owned()),
+                style: ButtonStyle::Danger,
+                url: None,
+            }
         };
 
         let single_step = Button {
@@ -355,7 +369,7 @@ impl IActiveMessage for BookmarksPagination {
         let components = vec![
             Component::Button(jump_start),
             Component::Button(single_step_back),
-            Component::Button(jump_custom),
+            Component::Button(remove),
             Component::Button(single_step),
             Component::Button(jump_end),
         ];
@@ -368,10 +382,20 @@ impl IActiveMessage for BookmarksPagination {
         ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        if component.data.custom_id == "bookmarks_remove" {
-            Box::pin(self.handle_remove(ctx, component))
-        } else {
-            handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
+        self.confirm_remove = Some(false);
+
+        match component.data.custom_id.as_str() {
+            "bookmarks_remove" => {
+                self.confirm_remove = Some(true);
+
+                Box::pin(ready(ComponentResult::BuildPage))
+            }
+            "bookmarks_confirm_remove" => Box::pin(self.handle_remove(ctx, component)),
+            _ => {
+                self.defer_next = true;
+
+                handle_pagination_component(ctx, component, self.msg_owner, true, &mut self.pages)
+            }
         }
     }
 
