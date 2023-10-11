@@ -26,7 +26,10 @@ use twilight_model::{
         component::{ActionRow, Button, ButtonStyle},
         Component,
     },
-    id::{marker::UserMarker, Id},
+    id::{
+        marker::{ChannelMarker, MessageMarker, UserMarker},
+        Id,
+    },
 };
 
 use crate::{
@@ -401,6 +404,17 @@ impl IActiveMessage for BookmarksPagination {
 
     fn until_timeout(&self) -> Option<Duration> {
         (!self.bookmarks.is_empty()).then_some(Duration::from_secs(60))
+    }
+
+    fn on_timeout<'a>(
+        &'a mut self,
+        _: &'a Context,
+        _: Id<MessageMarker>,
+        _: Id<ChannelMarker>,
+    ) -> BoxFuture<'a, Result<()>> {
+        // The embed is ephemeral so the components cannot be removed via msg, hence we
+        // don't care about the timeout and just keep the components
+        Box::pin(ready(Ok(())))
     }
 }
 
