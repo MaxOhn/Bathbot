@@ -96,6 +96,7 @@ pub async fn slash_bookmarks(ctx: Arc<Context>, mut command: InteractionCommand)
         .cached_entries(HashMap::default())
         .filtered_maps(Some(filtered))
         .defer_next(false)
+        .token(command.token.clone())
         .content(content)
         .msg_owner(owner)
         .build();

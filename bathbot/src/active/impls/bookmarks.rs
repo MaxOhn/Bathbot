@@ -51,6 +51,7 @@ pub struct BookmarksPagination {
     defer_next: bool,
     filtered_maps: Option<bool>,
     confirm_remove: Option<bool>,
+    token: String,
     msg_owner: Id<UserMarker>,
     content: String,
     pages: Pages,
@@ -408,13 +409,21 @@ impl IActiveMessage for BookmarksPagination {
 
     fn on_timeout<'a>(
         &'a mut self,
-        _: &'a Context,
+        ctx: &'a Context,
         _: Id<MessageMarker>,
         _: Id<ChannelMarker>,
     ) -> BoxFuture<'a, Result<()>> {
-        // The embed is ephemeral so the components cannot be removed via msg, hence we
-        // don't care about the timeout and just keep the components
-        Box::pin(ready(Ok(())))
+        let fut = async move {
+            ctx.interaction()
+                .update_response(&self.token)
+                .components(Some(&[]))
+                .expect("invalid components")
+                .await
+                .map(|_| ())
+                .wrap_err("Failed to update on bookmark timeout")
+        };
+
+        Box::pin(fut)
     }
 }
 
