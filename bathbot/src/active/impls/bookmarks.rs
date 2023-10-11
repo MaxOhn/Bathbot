@@ -58,7 +58,6 @@ impl BookmarksPagination {
         ctx: &Context,
         entries: &'a mut CachedBookmarkEntries,
         map: &MapBookmark,
-        defer: &mut bool,
     ) -> Result<&'a CachedBookmarkEntry> {
         let entry = match entries.entry(map.map_id) {
             Entry::Occupied(entry) => return Ok(entry.into_mut()),
@@ -69,13 +68,12 @@ impl BookmarksPagination {
         let creator_fut = creator_name(ctx, map);
         let (map_res, gd_creator) = tokio::join!(map_fut, creator_fut);
         let pp_map = map_res.wrap_err("Failed to get pp map")?;
-        *defer = true;
 
         Ok(entry.insert(CachedBookmarkEntry { pp_map, gd_creator }))
     }
 
     async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
-        let mut defer = mem::replace(&mut self.defer_next, false);
+        let defer = mem::replace(&mut self.defer_next, false);
 
         if self.bookmarks.is_empty() {
             let mut description = if self.filtered_maps.unwrap_or(false) {
@@ -102,7 +100,7 @@ impl BookmarksPagination {
         let map = &self.bookmarks[self.pages.index()];
 
         let CachedBookmarkEntry { pp_map, gd_creator } =
-            Self::cached_entry(&ctx, &mut self.cached_entries, map, &mut defer).await?;
+            Self::cached_entry(&ctx, &mut self.cached_entries, map).await?;
 
         let mut attributes = pp_map.stars().calculate();
         let stars = attributes.stars();
@@ -394,7 +392,9 @@ impl IActiveMessage for BookmarksPagination {
             }
             "bookmarks_confirm_remove" => Box::pin(self.handle_remove(ctx, component)),
             _ => {
-                handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
+                self.defer_next = true;
+
+                handle_pagination_component(ctx, component, self.msg_owner, true, &mut self.pages)
             }
         }
     }
