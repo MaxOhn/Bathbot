@@ -157,7 +157,9 @@ impl InteractionCommandExt for InteractionCommand {
                 permissions.contains(Permissions::ATTACH_FILES)
             })
         }) {
-            req = req.attachments(slice::from_ref(attachment)).unwrap();
+            req = req
+                .attachments(slice::from_ref(attachment))
+                .expect("invalid attachments");
         }
 
         req.into_future()

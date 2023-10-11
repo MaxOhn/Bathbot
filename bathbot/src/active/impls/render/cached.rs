@@ -122,10 +122,7 @@ impl CachedRender {
                     Err(err) => {
                         let embed = EmbedBuilder::new().color_red().description(OSU_API_ISSUE);
                         let builder = MessageBuilder::new().embed(embed);
-
-                        if let Some(update_fut) = component.update(&ctx, builder) {
-                            let _ = update_fut.await;
-                        }
+                        let _ = component.update(&ctx, builder).await;
 
                         return Err(Report::new(err).wrap_err("Failed to get score"));
                     }
@@ -135,20 +132,14 @@ impl CachedRender {
                     let content = "Failed to prepare the replay";
                     let embed = EmbedBuilder::new().color_red().description(content);
                     let builder = MessageBuilder::new().embed(embed);
-
-                    if let Some(update_fut) = component.update(&ctx, builder) {
-                        update_fut.await?;
-                    }
+                    component.update(&ctx, builder).await?;
 
                     return Ok(());
                 };
 
                 // Just a status update, no need to propagate an error
                 status.set(RenderStatusInner::PreparingReplay);
-
-                if let Some(update_fut) = component.update(&ctx, status.as_message()) {
-                    let _ = update_fut.await;
-                }
+                let _ = component.update(&ctx, status.as_message()).await;
 
                 let replay_manager = ctx.replay();
                 let replay_fut = replay_manager.get_replay(score.score_id, &replay_score);
@@ -166,23 +157,14 @@ impl CachedRender {
                     .description("Looks like the replay for that score is not available");
 
                 let builder = MessageBuilder::new().embed(embed);
+                component.update(&ctx, builder).await?;
 
-                match component.update(&ctx, builder) {
-                    Some(update_fut) => {
-                        update_fut.await?;
-
-                        return Ok(());
-                    }
-                    None => bail!("Lacking permission to update cached render component"),
-                }
+                return Ok(());
             }
             Err(err) => {
                 let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
                 let builder = MessageBuilder::new().embed(embed);
-
-                if let Some(update_fut) = component.update(&ctx, builder) {
-                    let _ = update_fut.await;
-                }
+                let _ = component.update(&ctx, builder).await;
 
                 return Err(err.wrap_err("Failed to get replay"));
             }
@@ -193,10 +175,7 @@ impl CachedRender {
             Err(err) => {
                 let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
                 let builder = MessageBuilder::new().embed(embed);
-
-                if let Some(update_fut) = component.update(&ctx, builder) {
-                    let _ = update_fut.await;
-                }
+                let _ = component.update(&ctx, builder).await;
 
                 return Err(err);
             }
@@ -204,10 +183,7 @@ impl CachedRender {
 
         // Just a status update, no need to propagate an error
         status.set(RenderStatusInner::CommissioningRender);
-
-        if let Some(update_fut) = component.update(&ctx, status.as_message()) {
-            let _ = update_fut.await;
-        }
+        let _ = component.update(&ctx, status.as_message()).await;
 
         let allow_custom_skins = match component.guild_id {
             Some(guild_id) => {
@@ -232,10 +208,7 @@ impl CachedRender {
             Err(err) => {
                 let embed = EmbedBuilder::new().color_red().description(ORDR_ISSUE);
                 let builder = MessageBuilder::new().embed(embed);
-
-                if let Some(update_fut) = component.update(&ctx, builder) {
-                    let _ = update_fut.await;
-                }
+                let _ = component.update(&ctx, builder).await;
 
                 return Err(Report::new(err).wrap_err("Failed to commission render"));
             }
