@@ -1,4 +1,4 @@
-use std::future::IntoFuture;
+use std::{future::IntoFuture, slice};
 
 use bathbot_util::MessageBuilder;
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
@@ -8,7 +8,6 @@ use twilight_model::{
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
-use super::MessageExt;
 use crate::{core::Context, util::interaction::InteractionModal};
 
 pub trait ModalExt {
@@ -21,10 +20,7 @@ pub trait ModalExt {
     /// After having already ackowledged the modal either via
     /// [`ModalExt::callback`] or [`ModalExt::defer`],
     /// use this to update the message.
-    ///
-    /// Note: Can only be used if `ModalSubmitInteraction::message` is `Some`.
-    fn update(&self, ctx: &Context, builder: MessageBuilder<'_>)
-        -> Option<ResponseFuture<Message>>;
+    fn update(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<Message>;
 }
 
 impl ModalExt for InteractionModal {
@@ -69,14 +65,36 @@ impl ModalExt for InteractionModal {
     }
 
     #[inline]
-    fn update(
-        &self,
-        ctx: &Context,
-        builder: MessageBuilder<'_>,
-    ) -> Option<ResponseFuture<Message>> {
-        self.message
-            .as_ref()
-            .expect("no message in modal")
-            .update(ctx, builder, self.permissions)
+    fn update(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<Message> {
+        let client = ctx.interaction();
+
+        let mut req = client.update_response(&self.token);
+
+        if let Some(ref content) = builder.content {
+            req = req
+                .content(Some(content.as_ref()))
+                .expect("invalid content");
+        }
+
+        let embed = builder.embed.build();
+        req = req.embeds(embed.as_option_slice()).expect("invalid embed");
+
+        if let Some(ref components) = builder.components {
+            req = req
+                .components(Some(components))
+                .expect("invalid components");
+        }
+
+        if let Some(attachment) = builder.attachment.as_ref().filter(|_| {
+            self.permissions.map_or(true, |permissions| {
+                permissions.contains(Permissions::ATTACH_FILES)
+            })
+        }) {
+            req = req
+                .attachments(slice::from_ref(attachment))
+                .expect("invalid attachments");
+        }
+
+        req.into_future()
     }
 }
