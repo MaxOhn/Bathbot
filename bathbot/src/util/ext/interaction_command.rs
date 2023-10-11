@@ -37,7 +37,12 @@ pub trait InteractionCommandExt {
     /// Update a command to some content in a red embed.
     ///
     /// Be sure the command was deferred beforehand.
-    fn error(&self, ctx: &Context, content: impl Into<String>) -> ResponseFuture<Message>;
+    fn error(&self, ctx: &Context, content: impl Into<String>) -> ResponseFuture<Message> {
+        let embed = EmbedBuilder::new().description(content).color_red();
+        let builder = MessageBuilder::new().embed(embed);
+
+        self.update(ctx, builder)
+    }
 
     /// Respond to a command with some content in a red embed.
     ///
@@ -46,7 +51,12 @@ pub trait InteractionCommandExt {
         &self,
         ctx: &Context,
         content: impl Into<String>,
-    ) -> ResponseFuture<EmptyBody>;
+    ) -> ResponseFuture<EmptyBody> {
+        let embed = EmbedBuilder::new().description(content).color_red();
+        let builder = MessageBuilder::new().embed(embed);
+
+        self.callback(ctx, builder, false)
+    }
 
     /// Callback to an autocomplete action.
     fn autocomplete(
@@ -147,44 +157,12 @@ impl InteractionCommandExt for InteractionCommand {
                 permissions.contains(Permissions::ATTACH_FILES)
             })
         }) {
-            req = req.attachments(slice::from_ref(attachment)).unwrap();
+            req = req
+                .attachments(slice::from_ref(attachment))
+                .expect("invalid attachments");
         }
 
         req.into_future()
-    }
-
-    #[inline]
-    fn error(&self, ctx: &Context, content: impl Into<String>) -> ResponseFuture<Message> {
-        let embed = EmbedBuilder::new().description(content).color_red().build();
-
-        ctx.interaction()
-            .update_response(&self.token)
-            .embeds(Some(&[embed]))
-            .expect("invalid embed")
-            .into_future()
-    }
-
-    #[inline]
-    fn error_callback(
-        &self,
-        ctx: &Context,
-        content: impl Into<String>,
-    ) -> ResponseFuture<EmptyBody> {
-        let embed = EmbedBuilder::new().description(content).color_red().build();
-
-        let data = InteractionResponseData {
-            embeds: Some(vec![embed]),
-            ..Default::default()
-        };
-
-        let response = InteractionResponse {
-            kind: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(data),
-        };
-
-        ctx.interaction()
-            .create_response(self.id, &self.token, &response)
-            .into_future()
     }
 
     #[inline]

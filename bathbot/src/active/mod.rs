@@ -161,16 +161,12 @@ impl ActiveMessages {
                     }
 
                     if build.defer {
-                        if let Some(fut) = component.update(&ctx, builder) {
-                            if let Err(err) = fut.await {
-                                return error!(
-                                    name = %component.data.custom_id,
-                                    ?err,
-                                    "Failed to update component",
-                                );
-                            }
-                        } else {
-                            return warn!("Lacking permission to update message through component");
+                        if let Err(err) = component.update(&ctx, builder).await {
+                            return error!(
+                                name = %component.data.custom_id,
+                                ?err,
+                                "Failed to update component",
+                            );
                         }
                     } else if let Err(err) = component.callback(&ctx, builder).await {
                         return error!(
@@ -239,16 +235,12 @@ impl ActiveMessages {
                 }
 
                 if build.defer {
-                    if let Some(fut) = modal.update(&ctx, builder) {
-                        if let Err(err) = fut.await {
-                            return error!(
-                                name = %modal.data.custom_id,
-                                ?err,
-                                "Failed to update modal",
-                            );
-                        }
-                    } else {
-                        return warn!("Lacking permission to update message through modal");
+                    if let Err(err) = modal.update(&ctx, builder).await {
+                        return error!(
+                            name = %modal.data.custom_id,
+                            ?err,
+                            "Failed to update modal",
+                        );
                     }
                 } else if let Err(err) = modal.callback(&ctx, builder).await {
                     return error!(
