@@ -17,7 +17,10 @@ use super::RecentLeaderboard;
 use crate::{
     active::{impls::LeaderboardPagination, ActiveMessages},
     commands::{
-        osu::{require_link, user_not_found, HasMods, LeaderboardUserScore, ModsResult},
+        osu::{
+            require_link, user_not_found, HasMods, LeaderboardScore, LeaderboardUserScore,
+            ModsResult,
+        },
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
@@ -135,6 +138,7 @@ impl<'m> RecentLeaderboard<'m> {
             mode,
             name,
             mods,
+            sort: None,
             index: num.to_string_opt().map(String::into),
             discord,
         }
@@ -286,9 +290,21 @@ pub(super) async fn leaderboard(
         }
     };
 
-    // Retrieve the map's leaderboard
-    let mut scores = match scores_res {
-        Ok(scores) => scores,
+    let mut scores: Vec<_> = match scores_res {
+        Ok(scores) => scores
+            .into_iter()
+            .enumerate()
+            .map(|(i, mut score)| {
+                let user = score.user.take();
+
+                LeaderboardScore::new(
+                    score.user_id,
+                    user.map_or_else(|| "<unknown user>".into(), |user| user.username),
+                    score,
+                    i + 1,
+                )
+            })
+            .collect(),
         Err(err) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
 
@@ -299,17 +315,7 @@ pub(super) async fn leaderboard(
     let mut user_score = match user_score_res {
         Ok(Some((score, user_id, username))) => Some(LeaderboardUserScore {
             discord_id: owner,
-            user_id,
-            username,
-            pos: score.pos,
-            grade: score.score.grade,
-            accuracy: score.score.accuracy,
-            statistics: score.score.statistics,
-            mods: score.score.mods,
-            pp: score.score.pp,
-            combo: score.score.max_combo,
-            score: score.score.score,
-            ended_at: score.score.ended_at,
+            score: LeaderboardScore::new(user_id, username, score.score, score.pos),
         }),
         Ok(None) => None,
         Err(err) => {
@@ -329,7 +335,7 @@ pub(super) async fn leaderboard(
             scores.retain(|score| !score.mods.is_empty());
 
             if let Some(ref score) = user_score {
-                if score.mods.is_empty() {
+                if score.score.mods.is_empty() {
                     user_score.take();
                 }
             }
@@ -337,7 +343,7 @@ pub(super) async fn leaderboard(
             scores.retain(|score| !score.mods.contains_any(mods.iter()));
 
             if let Some(ref score) = user_score {
-                if score.mods.contains_any(mods.iter()) {
+                if score.score.mods.contains_any(mods.iter()) {
                     user_score.take();
                 }
             }
@@ -346,12 +352,7 @@ pub(super) async fn leaderboard(
 
     let amount = scores.len();
 
-    // Accumulate all necessary data
-    let first_place_icon = scores
-        .first()
-        .map(|_| format!("{AVATAR_URL}{}", user.user_id()));
-
-    let content = if mods.is_some() {
+    let mut content = if mods.is_some() {
         format!("I found {amount} scores with the specified mods on the map's leaderboard")
     } else {
         format!("I found {amount} scores on the map's leaderboard")
@@ -362,6 +363,14 @@ pub(super) async fn leaderboard(
     let max_pp = attrs.pp() as f32;
     let max_combo = attrs.max_combo() as u32;
     attr_map.insert(mods_bits, (attrs.into(), max_pp));
+
+    let order = args.sort.unwrap_or_default();
+    order.sort(&ctx, &mut scores, &map, &mut attr_map).await;
+    order.push_content(&mut content);
+
+    let first_place_icon = scores
+        .first()
+        .map(|_| format!("{AVATAR_URL}{}", user.user_id()));
 
     let pagination = LeaderboardPagination::builder()
         .map(map)

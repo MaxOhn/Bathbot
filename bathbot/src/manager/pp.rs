@@ -9,6 +9,7 @@ use rosu_pp::{
 use rosu_v2::prelude::{GameMode, Grade, Score};
 
 use super::OsuMap;
+use crate::commands::osu::LeaderboardScore;
 
 #[derive(Clone)]
 pub struct PpManager<'d, 'm> {
@@ -239,6 +240,25 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
             },
             mods: score.mods.bits(),
             mode: None,
+            partial: score.grade == Grade::F,
+        }
+    }
+}
+
+impl<'s> From<&'s LeaderboardScore> for ScoreData {
+    fn from(score: &'s LeaderboardScore) -> Self {
+        Self {
+            state: ScoreState {
+                max_combo: score.combo as usize,
+                n_geki: score.statistics.count_geki as usize,
+                n_katu: score.statistics.count_katu as usize,
+                n300: score.statistics.count_300 as usize,
+                n100: score.statistics.count_100 as usize,
+                n50: score.statistics.count_50 as usize,
+                n_misses: score.statistics.count_miss as usize,
+            },
+            mods: score.mods.bits(),
+            mode: Some(score.mode),
             partial: score.grade == Grade::F,
         }
     }

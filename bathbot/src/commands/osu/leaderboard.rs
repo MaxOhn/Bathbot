@@ -1,4 +1,9 @@
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use std::{
+    borrow::Cow,
+    cmp::Reverse,
+    collections::{hash_map::Entry, HashMap},
+    sync::Arc,
+};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_model::rosu_v2::user::User;
@@ -6,14 +11,16 @@ use bathbot_util::{
     constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
     matcher,
     osu::{MapIdType, ModSelection},
+    IntHasher,
 };
 use eyre::{Report, Result};
+use rosu_pp::{BeatmapExt, DifficultyAttributes, ScoreState};
 use rosu_v2::prelude::{
-    BeatmapUserScore, GameMode, GameMods, GameModsIntermode, Grade, OsuError, ScoreStatistics,
-    Username,
+    BeatmapUserScore, GameMode, GameMods, GameModsIntermode, Grade, OsuError, Score,
+    ScoreStatistics, Username,
 };
 use time::OffsetDateTime;
-use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     channel::{message::MessageType, Message},
     guild::Permissions,
@@ -26,7 +33,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::{
         redis::{osu::UserArgs, RedisData},
-        MapError,
+        MapError, OsuMap, PpManager,
     },
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
@@ -48,12 +55,82 @@ pub struct Leaderboard<'a> {
         e.g. `hdhr` or `+hdhr!`, and filter out all scores that don't match those mods."
     )]
     mods: Option<Cow<'a, str>>,
+    #[command(
+        desc = "Choose how the scores should be ordered",
+        help = "Choose how the scores should be ordered, defaults to `score`.\n\
+        Note that the scores will still be the top pp scores, they'll just be re-ordered."
+    )]
+    sort: Option<LeaderboardSort>,
+}
+
+#[derive(Copy, Clone, Default, CommandOption, CreateOption, Eq, PartialEq)]
+pub enum LeaderboardSort {
+    #[option(name = "Accuracy", value = "acc")]
+    Accuracy,
+    #[option(name = "Combo", value = "combo")]
+    Combo,
+    #[option(name = "Date", value = "date")]
+    Date,
+    #[option(name = "Misses", value = "misses")]
+    Misses,
+    #[option(name = "PP", value = "pp")]
+    Pp,
+    #[default]
+    #[option(name = "Score", value = "score")]
+    Score,
+}
+
+pub type AttrMap = HashMap<u32, (DifficultyAttributes, f32), IntHasher>;
+
+impl LeaderboardSort {
+    pub async fn sort(
+        self,
+        ctx: &Context,
+        scores: &mut [LeaderboardScore],
+        map: &OsuMap,
+        attr_map: &mut AttrMap,
+    ) {
+        match self {
+            Self::Accuracy => scores.sort_by(|a, b| b.accuracy.total_cmp(&a.accuracy)),
+            Self::Combo => scores.sort_by_key(|score| Reverse(score.combo)),
+            Self::Date => scores.sort_by_key(|score| score.ended_at),
+            Self::Misses => scores.sort_by_key(|score| score.statistics.count_miss),
+            Self::Pp => {
+                let mut pps = HashMap::with_capacity_and_hasher(scores.len(), IntHasher);
+
+                for score in scores.iter() {
+                    let (pp, _) = score.pp(ctx, map, attr_map).await;
+                    pps.insert(score.pos, pp);
+                }
+
+                scores.sort_by(|a, b| {
+                    let a_pp = pps.get(&a.pos).copied().unwrap_or(0.0);
+                    let b_pp = pps.get(&b.pos).copied().unwrap_or(0.0);
+
+                    b_pp.total_cmp(&a_pp)
+                })
+            }
+            Self::Score => scores.sort_by_key(|score| Reverse(score.score)),
+        }
+    }
+
+    pub fn push_content(self, content: &mut String) {
+        match self {
+            Self::Accuracy => content.push_str(" (`Order: Accuracy`)"),
+            Self::Combo => content.push_str(" (`Order: Combo`)"),
+            Self::Date => content.push_str(" (`Order: Date`)"),
+            Self::Misses => content.push_str(" (`Order: Misses`)"),
+            Self::Pp => content.push_str(" (`Order: PP`)"),
+            Self::Score => content.push_str(" (`Order: Score`)"),
+        }
+    }
 }
 
 #[derive(HasMods)]
 struct LeaderboardArgs<'a> {
     map: Option<MapIdType>,
     mods: Option<Cow<'a, str>>,
+    sort: LeaderboardSort,
 }
 
 impl<'m> LeaderboardArgs<'m> {
@@ -94,7 +171,9 @@ impl<'m> LeaderboardArgs<'m> {
             }
         }
 
-        Ok(Self { map, mods })
+        let sort = LeaderboardSort::default();
+
+        Ok(Self { map, mods, sort })
     }
 }
 
@@ -121,6 +200,7 @@ impl<'a> TryFrom<Leaderboard<'a>> for LeaderboardArgs<'a> {
         Ok(Self {
             map,
             mods: args.mods,
+            sort: args.sort.unwrap_or_default(),
         })
     }
 }
@@ -239,8 +319,21 @@ async fn leaderboard(
 
     let (scores_res, user_res, attrs) = tokio::join!(scores_fut, user_fut, attrs_fut);
 
-    let mut scores = match scores_res {
-        Ok(scores) => scores,
+    let mut scores: Vec<_> = match scores_res {
+        Ok(scores) => scores
+            .into_iter()
+            .enumerate()
+            .map(|(i, mut score)| {
+                let user = score.user.take();
+
+                LeaderboardScore::new(
+                    score.user_id,
+                    user.map_or_else(|| "<unknown user>".into(), |user| user.username),
+                    score,
+                    i + 1,
+                )
+            })
+            .collect(),
         Err(err) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
 
@@ -256,17 +349,12 @@ async fn leaderboard(
         })
         .map(|(user, score)| LeaderboardUserScore {
             discord_id: owner,
-            user_id: user.user_id(),
-            username: user.username().into(),
-            pos: score.pos,
-            grade: score.score.grade,
-            accuracy: score.score.accuracy,
-            statistics: score.score.statistics,
-            mods: score.score.mods,
-            pp: score.score.pp,
-            combo: score.score.max_combo,
-            score: score.score.score,
-            ended_at: score.score.ended_at,
+            score: LeaderboardScore::new(
+                user.user_id(),
+                user.username().into(),
+                score.score,
+                score.pos,
+            ),
         });
 
     let amount = scores.len();
@@ -276,7 +364,7 @@ async fn leaderboard(
             scores.retain(|score| !score.mods.is_empty());
 
             if let Some(ref score) = user_score {
-                if score.mods.is_empty() {
+                if score.score.mods.is_empty() {
                     user_score.take();
                 }
             }
@@ -284,27 +372,29 @@ async fn leaderboard(
             scores.retain(|score| !score.mods.contains_any(mods.iter()));
 
             if let Some(ref score) = user_score {
-                if score.mods.contains_any(mods.iter()) {
+                if score.score.mods.contains_any(mods.iter()) {
                     user_score.take();
                 }
             }
         }
     }
 
-    let content = if mods.is_some() {
+    let mut content = if mods.is_some() {
         format!("I found {amount} scores with the specified mods on the map's leaderboard")
     } else {
         format!("I found {amount} scores on the map's leaderboard")
     };
-
-    // Accumulate all necessary data
-    let first_place_icon = scores.first().map(|s| format!("{AVATAR_URL}{}", s.user_id));
 
     let mut attr_map = HashMap::default();
     let stars = attrs.stars() as f32;
     let max_pp = attrs.pp() as f32;
     let max_combo = attrs.max_combo() as u32;
     attr_map.insert(mods_bits, (attrs.into(), max_pp));
+
+    args.sort.sort(&ctx, &mut scores, &map, &mut attr_map).await;
+    args.sort.push_content(&mut content);
+
+    let first_place_icon = scores.first().map(|s| format!("{AVATAR_URL}{}", s.user_id));
 
     let pagination = LeaderboardPagination::builder()
         .map(map)
@@ -407,17 +497,82 @@ async fn get_user_score(
     }
 }
 
-pub struct LeaderboardUserScore {
-    pub discord_id: Id<UserMarker>,
+pub struct LeaderboardScore {
     pub user_id: u32,
     pub username: Username,
     pub pos: usize,
     pub grade: Grade,
     pub accuracy: f32,
     pub statistics: ScoreStatistics,
+    pub mode: GameMode,
     pub mods: GameMods,
-    pub pp: Option<f32>,
     pub combo: u32,
     pub score: u32,
     pub ended_at: OffsetDateTime,
+}
+
+impl LeaderboardScore {
+    pub fn new(user_id: u32, username: Username, score: Score, pos: usize) -> Self {
+        Self {
+            user_id,
+            username,
+            pos,
+            grade: score.grade,
+            accuracy: score.accuracy,
+            statistics: score.statistics,
+            mode: score.mode,
+            mods: score.mods,
+            combo: score.max_combo,
+            score: score.score,
+            ended_at: score.ended_at,
+        }
+    }
+}
+
+impl LeaderboardScore {
+    pub async fn pp(&self, ctx: &Context, map: &OsuMap, attr_map: &mut AttrMap) -> (f32, f32) {
+        let mods = self.mods.bits();
+
+        match attr_map.entry(mods) {
+            Entry::Occupied(entry) => {
+                let (attrs, max_pp) = entry.get();
+
+                let state = ScoreState {
+                    max_combo: self.combo as usize,
+                    n_geki: self.statistics.count_geki as usize,
+                    n_katu: self.statistics.count_katu as usize,
+                    n300: self.statistics.count_300 as usize,
+                    n100: self.statistics.count_100 as usize,
+                    n50: self.statistics.count_50 as usize,
+                    n_misses: self.statistics.count_miss as usize,
+                };
+
+                let pp = map
+                    .pp_map
+                    .pp()
+                    .attributes(attrs.to_owned())
+                    .mode(PpManager::mode_conversion(self.mode))
+                    .mods(mods)
+                    .state(state)
+                    .calculate()
+                    .pp() as f32;
+
+                (pp, *max_pp)
+            }
+            Entry::Vacant(entry) => {
+                let mut calc = ctx.pp(map).mode(self.mode).mods(mods);
+                let attrs = calc.performance().await;
+                let max_pp = attrs.pp() as f32;
+                let pp = calc.score(self).performance().await.pp() as f32;
+                entry.insert((attrs.into(), max_pp));
+
+                (pp, max_pp)
+            }
+        }
+    }
+}
+
+pub struct LeaderboardUserScore {
+    pub discord_id: Id<UserMarker>,
+    pub score: LeaderboardScore,
 }

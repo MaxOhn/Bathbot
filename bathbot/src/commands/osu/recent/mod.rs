@@ -11,7 +11,10 @@ use self::fix::*;
 pub use self::{leaderboard::*, list::*, score::*};
 use super::{FarmFilter, HasMods, ModsResult, ScoreOrder, TopArgs, TopScoreOrder};
 use crate::{
-    commands::{osu::top, GameModeOption, GradeOption},
+    commands::{
+        osu::{top, LeaderboardSort},
+        GameModeOption, GradeOption,
+    },
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
@@ -198,6 +201,12 @@ pub struct RecentLeaderboard<'a> {
         e.g. `hdhr` or `+hdhr!`, and filter out all scores that don't match those mods."
     )]
     mods: Option<Cow<'a, str>>,
+    #[command(
+        desc = "Choose how the scores should be ordered",
+        help = "Choose how the scores should be ordered, defaults to `score`.\n\
+        Note that the scores will still be the top pp scores, they'll just be re-ordered."
+    )]
+    sort: Option<LeaderboardSort>,
     #[command(
         desc = "Choose the recent score's index or `random`",
         help = "By default the leaderboard of the very last score will be displayed.\n\
