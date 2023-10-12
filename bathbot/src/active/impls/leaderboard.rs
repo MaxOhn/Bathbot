@@ -1,5 +1,4 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
     fmt::{Display, Formatter, Result as FmtResult, Write},
     sync::Arc,
 };
@@ -9,12 +8,11 @@ use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
     datetime::HowLongAgoDynamic,
     numbers::WithComma,
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
-use rosu_pp::{BeatmapExt, DifficultyAttributes, ScoreState};
-use rosu_v2::prelude::{GameMode, Grade, Score, UserCompact};
+use rosu_v2::prelude::GameMode;
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -25,10 +23,10 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    commands::osu::LeaderboardUserScore,
+    commands::osu::{AttrMap, LeaderboardScore, LeaderboardUserScore},
     core::Context,
     embeds::PpFormatter,
-    manager::{OsuMap, PpManager},
+    manager::OsuMap,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::grade_emote,
@@ -36,13 +34,11 @@ use crate::{
     },
 };
 
-type AttrMap = HashMap<u32, (DifficultyAttributes, f32), IntHasher>;
-
 #[derive(PaginationBuilder)]
 pub struct LeaderboardPagination {
     map: OsuMap,
     #[pagination(per_page = 10)]
-    scores: Box<[Score]>,
+    scores: Box<[LeaderboardScore]>,
     stars: f32,
     max_combo: u32,
     attr_map: AttrMap,
@@ -99,21 +95,14 @@ impl LeaderboardPagination {
             stars = self.stars,
         );
 
-        let author_name = self
-            .author_data
-            .as_ref()
-            .map(|score| score.username.as_str());
+        let author_name = self.author_data.as_ref().map(|score| score.score.user_id);
 
         let mut description = String::with_capacity(1024);
 
-        for (score, i) in self.scores[start_idx..end_idx].iter().zip(start_idx + 1..) {
-            let found_author = score
-                .user
-                .as_ref()
-                .is_some_and(|user| Some(user.username.as_str()) == author_name);
+        for score in self.scores[start_idx..end_idx].iter() {
+            let found_author = Some(score.user_id) == author_name;
 
             let fmt_fut = ScoreFormatter::new(
-                i,
                 score,
                 found_author,
                 &ctx,
@@ -128,84 +117,12 @@ impl LeaderboardPagination {
         if let Some(score) = self
             .author_data
             .as_ref()
-            .filter(|score| !(start_idx + 1..end_idx + 1).contains(&score.pos))
+            .filter(|score| !(start_idx + 1..=end_idx).contains(&score.score.pos))
         {
-            let score_ = Score {
-                accuracy: score.accuracy,
-                ended_at: score.ended_at,
-                passed: score.grade != Grade::F,
-                grade: score.grade,
-                map_id: self.map.map_id(),
-                max_combo: score.combo,
-                map: None,
-                mapset: None,
-                mode: self.map.mode(), // TODO: fix when mode selection available
-                mods: score.mods.clone(),
-                perfect: false,
-                pp: score.pp,
-                rank_country: None,
-                rank_global: None,
-                replay: None,
-                score: score.score,
-                score_id: None,
-                statistics: score.statistics.clone(),
-                user: Some(UserCompact {
-                    avatar_url: Default::default(),
-                    country_code: Default::default(),
-                    default_group: Default::default(),
-                    is_active: Default::default(),
-                    is_bot: Default::default(),
-                    is_deleted: Default::default(),
-                    is_online: Default::default(),
-                    is_supporter: Default::default(),
-                    last_visit: Default::default(),
-                    pm_friends_only: Default::default(),
-                    profile_color: Default::default(),
-                    user_id: Default::default(),
-                    username: score.username.clone(),
-                    account_history: Default::default(),
-                    badges: Default::default(),
-                    beatmap_playcounts_count: Default::default(),
-                    country: Default::default(),
-                    cover: Default::default(),
-                    favourite_mapset_count: Default::default(),
-                    follower_count: Default::default(),
-                    graveyard_mapset_count: Default::default(),
-                    groups: Default::default(),
-                    guest_mapset_count: Default::default(),
-                    highest_rank: Default::default(),
-                    is_admin: Default::default(),
-                    is_bng: Default::default(),
-                    is_full_bn: Default::default(),
-                    is_gmt: Default::default(),
-                    is_limited_bn: Default::default(),
-                    is_moderator: Default::default(),
-                    is_nat: Default::default(),
-                    is_silenced: Default::default(),
-                    loved_mapset_count: Default::default(),
-                    medals: Default::default(),
-                    monthly_playcounts: Default::default(),
-                    page: Default::default(),
-                    previous_usernames: Default::default(),
-                    rank_history: Default::default(),
-                    ranked_mapset_count: Default::default(),
-                    replays_watched_counts: Default::default(),
-                    scores_best_count: Default::default(),
-                    scores_first_count: Default::default(),
-                    scores_recent_count: Default::default(),
-                    statistics: Default::default(),
-                    support_level: Default::default(),
-                    pending_mapset_count: Default::default(),
-                }),
-                user_id: score.user_id,
-                weight: None,
-            };
-
             let _ = writeln!(description, "\n__**<@{}>'s score:**__", score.discord_id);
 
             let fmt_fut = ScoreFormatter::new(
-                score.pos,
-                &score_,
+                &score.score,
                 false,
                 &ctx,
                 &mut self.attr_map,
@@ -249,13 +166,13 @@ impl LeaderboardPagination {
 }
 
 struct ComboFormatter<'a> {
-    score: &'a Score,
+    score: &'a LeaderboardScore,
     max_combo: u32,
     mode: GameMode,
 }
 
 impl<'a> ComboFormatter<'a> {
-    fn new(score: &'a Score, max_combo: u32, mode: GameMode) -> Self {
+    fn new(score: &'a LeaderboardScore, max_combo: u32, mode: GameMode) -> Self {
         Self {
             score,
             max_combo,
@@ -267,7 +184,7 @@ impl<'a> ComboFormatter<'a> {
 impl<'a> Display for ComboFormatter<'a> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "**{}x**", self.score.max_combo)?;
+        write!(f, "**{}x**", self.score.combo)?;
 
         if self.mode == GameMode::Mania {
             let mut ratio = self.score.statistics.count_geki as f32;
@@ -297,8 +214,7 @@ impl Display for MissFormat {
 }
 
 struct ScoreFormatter<'a> {
-    i: usize,
-    score: &'a Score,
+    score: &'a LeaderboardScore,
     pp: PpFormatter,
     combo: ComboFormatter<'a>,
     found_author: bool,
@@ -306,57 +222,18 @@ struct ScoreFormatter<'a> {
 
 impl<'a> ScoreFormatter<'a> {
     async fn new(
-        i: usize,
-        score: &'a Score,
+        score: &'a LeaderboardScore,
         found_author: bool,
         ctx: &Context,
         attr_map: &mut AttrMap,
         map: &OsuMap,
         max_combo: u32,
     ) -> ScoreFormatter<'a> {
-        let mods = score.mods.bits();
-
-        let pp = match attr_map.entry(mods) {
-            Entry::Occupied(entry) => {
-                let (attrs, max_pp) = entry.get();
-
-                let state = ScoreState {
-                    max_combo: score.max_combo as usize,
-                    n_geki: score.statistics.count_geki as usize,
-                    n_katu: score.statistics.count_katu as usize,
-                    n300: score.statistics.count_300 as usize,
-                    n100: score.statistics.count_100 as usize,
-                    n50: score.statistics.count_50 as usize,
-                    n_misses: score.statistics.count_miss as usize,
-                };
-
-                let pp = map
-                    .pp_map
-                    .pp()
-                    .attributes(attrs.to_owned())
-                    .mode(PpManager::mode_conversion(score.mode))
-                    .mods(mods)
-                    .state(state)
-                    .calculate()
-                    .pp() as f32;
-
-                PpFormatter::new(Some(pp), Some(*max_pp))
-            }
-            Entry::Vacant(entry) => {
-                let mut calc = ctx.pp(map).mode(score.mode).mods(mods);
-                let attrs = calc.performance().await;
-                let max_pp = attrs.pp() as f32;
-                let pp = calc.score(score).performance().await.pp() as f32;
-                entry.insert((attrs.into(), max_pp));
-
-                PpFormatter::new(Some(pp), Some(max_pp))
-            }
-        };
-
+        let (pp, max_pp) = score.pp(ctx, map, attr_map).await;
+        let pp = PpFormatter::new(Some(pp), Some(max_pp));
         let combo = ComboFormatter::new(score, max_combo, map.mode());
 
         Self {
-            i,
             score,
             pp,
             combo,
@@ -371,9 +248,9 @@ impl Display for ScoreFormatter<'_> {
             f,
             "**#{i}** {underline}**[{username}]({OSU_BASE}users/{user_id})**{underline}: {score} [ {combo} ] **+{mods}**\n\
             {grade} {pp} • {acc:.2}% • {miss}{ago}",
-            i = self.i,
+            i = self.score.pos,
             underline = if self.found_author { "__" } else { "" },
-            username = self.score.user.as_ref().map_or("<unknown user>", |user| user.username.as_str()),
+            username = self.score.username,
             user_id = self.score.user_id,
             grade = grade_emote(self.score.grade),
             score = WithComma::new(self.score.score),
