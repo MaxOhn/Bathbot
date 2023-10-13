@@ -19,7 +19,7 @@ impl AttachedSimulateMap {
     pub async fn new(
         ctx: &Context,
         orig: &CommandOrigin<'_>,
-        attachment: Attachment,
+        attachment: Box<Attachment>,
         mode: Option<GameMode>,
     ) -> Result<Option<Self>> {
         if !attachment.filename.ends_with(".osu") {

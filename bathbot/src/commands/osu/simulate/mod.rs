@@ -388,10 +388,10 @@ async fn prepare_map(
                 Did you give me a mapset id instead of a map id?"
             );
 
-            return orig.error(&ctx, content).await.map(|_| None);
+            return orig.error(ctx, content).await.map(|_| None);
         }
         Err(MapError::Report(err)) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -402,7 +402,7 @@ async fn prepare_map(
 
 enum SimulateMapArg {
     Id(MapIdType),
-    Attachment(Attachment),
+    Attachment(Box<Attachment>),
 }
 
 #[derive(Default)]
@@ -500,7 +500,7 @@ impl SimulateArgs {
         let mode = simulate.mode.map(GameMode::from);
 
         let map = match simulate.file {
-            Some(attachment) => Some(SimulateMapArg::Attachment(attachment)),
+            Some(attachment) => Some(SimulateMapArg::Attachment(Box::new(attachment))),
             None => match simulate.map {
                 Some(map) => matcher::get_osu_map_id(&map)
                     .map(MapIdType::Map)

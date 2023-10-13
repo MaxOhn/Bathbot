@@ -14,7 +14,7 @@ use futures::future::BoxFuture;
 use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap, GameMode as Mode};
 use rosu_v2::{
     mods,
-    prelude::{GameModIntermode, GameMode, GameModsIntermode, Grade},
+    prelude::{GameMode, GameModsIntermode, Grade},
 };
 use twilight_model::{
     channel::message::{embed::EmbedField, Component},
