@@ -53,7 +53,7 @@ impl TrackNotificationEmbed {
         let title = if score.mode == GameMode::Mania {
             format!(
                 "{} {} - {} [{}] [{stars:.2}★]",
-                KeyFormatter::new(&score.mods, map),
+                KeyFormatter::new(&score.mods, map.cs()),
                 map.artist().cow_escape_markdown(),
                 map.title().cow_escape_markdown(),
                 map.version().cow_escape_markdown(),
@@ -69,7 +69,13 @@ impl TrackNotificationEmbed {
 
         let name = format!(
             "{}\t{score}\t({acc}%)",
-            grade_completion_mods(&score.mods, score.grade, score.total_hits(), map),
+            grade_completion_mods(
+                &score.mods,
+                score.grade,
+                score.total_hits(),
+                map.mode(),
+                map.n_objects() as u32
+            ),
             score = WithComma::new(score.score),
             acc = round(score.accuracy)
         );

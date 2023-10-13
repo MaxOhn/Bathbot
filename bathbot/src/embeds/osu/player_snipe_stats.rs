@@ -87,7 +87,8 @@ impl PlayerSnipeStatsEmbed {
                     &oldest_score.mods,
                     oldest_score.grade,
                     oldest_score.total_hits(),
-                    oldest_map
+                    oldest_map.mode(),
+                    oldest_map.n_objects() as u32,
                 ),
                 score = WithComma::new(oldest_score.score),
                 acc = round(oldest_score.accuracy),

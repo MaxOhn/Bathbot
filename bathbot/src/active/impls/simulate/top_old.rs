@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use rosu_pp::{
     catch::CatchScoreState, mania::ManiaScoreState, osu::OsuScoreState, taiko::TaikoScoreState,
+    Beatmap,
 };
 use twilight_model::channel::message::{
     component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
@@ -9,9 +10,8 @@ use twilight_model::channel::message::{
 };
 
 use super::{data::SimulateData, state::ScoreState};
-use crate::{
-    commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
-    manager::OsuMap,
+use crate::commands::osu::{
+    TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -312,7 +312,7 @@ impl TopOldVersion {
 
     pub(super) fn generate_hitresults(
         self,
-        map: &OsuMap,
+        map: &Beatmap,
         data: &SimulateData,
     ) -> Option<ScoreState> {
         match self {
@@ -323,8 +323,8 @@ impl TopOldVersion {
         }
     }
 
-    fn generate_hitresults_osu(map: &OsuMap, data: &SimulateData) -> ScoreState {
-        let n_objects = map.pp_map.hit_objects.len();
+    fn generate_hitresults_osu(map: &Beatmap, data: &SimulateData) -> ScoreState {
+        let n_objects = map.hit_objects.len();
 
         let mut n300 = data.n300.unwrap_or(0) as usize;
         let mut n100 = data.n100.unwrap_or(0) as usize;
@@ -486,8 +486,8 @@ impl TopOldVersion {
     }
 
     // TODO: improve this
-    fn generate_hitresults_catch(map: &OsuMap, data: &SimulateData) -> Option<ScoreState> {
-        let attrs = rosu_pp::CatchStars::new(&map.pp_map).calculate();
+    fn generate_hitresults_catch(map: &Beatmap, data: &SimulateData) -> Option<ScoreState> {
+        let attrs = rosu_pp::CatchStars::new(map).calculate();
         let max_combo = data.max_combo as usize;
 
         let mut n_fruits = data.n300.unwrap_or(0) as usize;
@@ -523,8 +523,8 @@ impl TopOldVersion {
         Some(ScoreState::Catch(state))
     }
 
-    fn generate_hitresults_mania(map: &OsuMap, data: &SimulateData) -> ScoreState {
-        let n_objects = map.pp_map.hit_objects.len();
+    fn generate_hitresults_mania(map: &Beatmap, data: &SimulateData) -> ScoreState {
+        let n_objects = map.hit_objects.len();
 
         let mut n320 = data.n_geki.unwrap_or(0) as usize;
         let mut n300 = data.n300.unwrap_or(0) as usize;

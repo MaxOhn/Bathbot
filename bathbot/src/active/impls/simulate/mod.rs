@@ -2,6 +2,7 @@ use std::{borrow::Cow, fmt::Write, sync::Arc};
 
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
+    datetime::SecToMinSec,
     fields,
     modal::{ModalBuilder, TextInputBuilder},
     numbers::{round, WithComma},
@@ -10,9 +11,10 @@ use bathbot_util::{
 };
 use eyre::{ContextCompat, Report, Result};
 use futures::future::BoxFuture;
+use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap, GameMode as Mode};
 use rosu_v2::{
     mods,
-    prelude::{GameModsIntermode, Grade},
+    prelude::{GameMode, GameModsIntermode, Grade},
 };
 use twilight_model::{
     channel::message::{embed::EmbedField, Component},
@@ -25,6 +27,7 @@ use crate::{
         impls::simulate::data::{ComboOrRatio, SimulateValues, StateOrScore},
         BuildPage, ComponentResult, IActiveMessage,
     },
+    commands::osu::parsed_map::AttachedSimulateMap,
     core::Context,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::OsuMap,
@@ -41,52 +44,80 @@ mod state;
 mod top_old;
 
 pub struct SimulateComponents {
-    map: OsuMap,
+    map: SimulateMap,
     data: SimulateData,
     msg_owner: Id<UserMarker>,
 }
 
 impl IActiveMessage for SimulateComponents {
     fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        if let Some(ar) = self.data.attrs.ar {
-            self.map.pp_map.ar = ar;
+        {
+            let pp_map = self.map.pp_map_mut();
+
+            if let Some(ar) = self.data.attrs.ar {
+                pp_map.ar = ar;
+            }
+
+            if let Some(cs) = self.data.attrs.cs {
+                pp_map.cs = cs;
+            }
+
+            if let Some(hp) = self.data.attrs.hp {
+                pp_map.hp = hp;
+            }
+
+            if let Some(od) = self.data.attrs.od {
+                pp_map.od = od;
+            }
         }
 
-        if let Some(cs) = self.data.attrs.cs {
-            self.map.pp_map.cs = cs;
-        }
-
-        if let Some(hp) = self.data.attrs.hp {
-            self.map.pp_map.hp = hp;
-        }
-
-        if let Some(od) = self.data.attrs.od {
-            self.map.pp_map.od = od;
-        }
-
-        let mut title = format!(
-            "{} - {} [{}]",
-            self.map.artist().cow_escape_markdown(),
-            self.map.title().cow_escape_markdown(),
-            self.map.version().cow_escape_markdown(),
-        );
+        let mut title = match self.map {
+            SimulateMap::Full(ref map) => {
+                format!(
+                    "{} - {} [{}]",
+                    map.artist().cow_escape_markdown(),
+                    map.title().cow_escape_markdown(),
+                    map.version().cow_escape_markdown(),
+                )
+            }
+            SimulateMap::Attached(ref map) => map.filename.as_ref().to_owned(),
+        };
 
         if matches!(self.data.version, TopOldVersion::Mania(_)) {
-            let _ = write!(title, " {}", KeyFormatter::new(&mods!(Mania), &self.map));
+            let _ = write!(
+                title,
+                " {}",
+                KeyFormatter::new(&mods!(Mania), self.map.pp_map().cs)
+            );
         }
 
-        let footer_text = format!(
-            "{:?} mapset of {} • {}",
-            self.map.status(),
-            self.map.creator(),
-            self.data.version,
-        );
+        let footer_text = match self.map {
+            SimulateMap::Full(ref map) => {
+                format!(
+                    "{:?} mapset of {} • {version}",
+                    map.status(),
+                    map.creator(),
+                    version = self.data.version
+                )
+            }
+            SimulateMap::Attached(_) => self.data.version.to_string(),
+        };
 
-        let footer = FooterBuilder::new(footer_text)
-            .icon_url(format!("{AVATAR_URL}{}", self.map.creator_id()));
+        let mut footer = FooterBuilder::new(footer_text);
 
-        let image = self.map.cover().to_owned();
-        let url = format!("{OSU_BASE}b/{}", self.map.map_id());
+        if let SimulateMap::Full(ref map) = self.map {
+            footer = footer.icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
+        }
+
+        let image = match self.map {
+            SimulateMap::Full(ref map) => Some(map.cover().to_owned()),
+            SimulateMap::Attached(_) => None,
+        };
+
+        let url = match self.map {
+            SimulateMap::Full(ref map) => Some(format!("{OSU_BASE}b/{}", map.map_id())),
+            SimulateMap::Attached(_) => None,
+        };
 
         let SimulateValues {
             stars,
@@ -103,8 +134,6 @@ impl IActiveMessage for SimulateComponents {
             .as_ref()
             .map(Cow::Borrowed)
             .unwrap_or_default();
-
-        let mut map_info = MapInfo::new(&self.map, stars);
 
         let mut grade = if mods.contains_any(mods!(HD FL)) {
             Grade::XH
@@ -166,7 +195,8 @@ impl IActiveMessage for SimulateComponents {
             ComboOrRatio::Neither => (None, None),
         };
 
-        let grade = grade_completion_mods(&mods, grade, self.map.n_objects() as u32, &self.map);
+        let n_objects = self.map.n_objects();
+        let grade = grade_completion_mods(&mods, grade, n_objects, self.map.mode(), n_objects);
         let mut fields = fields!["Grade", grade.into_owned(), true;];
 
         if let Some(acc) = acc {
@@ -188,7 +218,6 @@ impl IActiveMessage for SimulateComponents {
         fields![fields { "PP", PpFormatter::new(Some(pp), Some(max_pp)).to_string(), true; }];
 
         if let Some(clock_rate) = clock_rate {
-            map_info.clock_rate(clock_rate);
             fields![fields { "Clock rate", format!("{clock_rate:.2}"), true }];
         }
 
@@ -196,15 +225,21 @@ impl IActiveMessage for SimulateComponents {
             fields.push(hits);
         }
 
-        map_info.mods(mods.bits());
-        fields![fields { "Map Info", map_info.to_string(), false; }];
+        let map_info = self.map.map_info(clock_rate, stars, mods.bits());
+        fields![fields { "Map Info", map_info, false; }];
 
-        let embed = EmbedBuilder::new()
+        let mut embed = EmbedBuilder::new()
             .fields(fields)
             .footer(footer)
-            .image(image)
-            .title(title)
-            .url(url);
+            .title(title);
+
+        if let Some(image) = image {
+            embed = embed.image(image);
+        }
+
+        if let Some(url) = url {
+            embed = embed.url(url);
+        }
 
         let content = "Simulated score:";
 
@@ -362,7 +397,7 @@ impl IActiveMessage for SimulateComponents {
 }
 
 impl SimulateComponents {
-    pub fn new(map: OsuMap, data: SimulateData, msg_owner: Id<UserMarker>) -> Self {
+    pub fn new(map: SimulateMap, data: SimulateData, msg_owner: Id<UserMarker>) -> Self {
         Self {
             map,
             data,
@@ -564,4 +599,112 @@ fn parse_attr(modal: &InteractionModal, component_id: &str) -> Option<f32> {
             })
         })
         .flatten()
+}
+
+pub enum SimulateMap {
+    Full(OsuMap),
+    Attached(AttachedSimulateMap),
+}
+
+impl SimulateMap {
+    pub fn is_convert(&self) -> bool {
+        match self {
+            Self::Full(map) => map.is_convert,
+            Self::Attached(map) => map.is_convert,
+        }
+    }
+
+    pub fn mode(&self) -> GameMode {
+        match self.pp_map().mode {
+            Mode::Osu => GameMode::Osu,
+            Mode::Taiko => GameMode::Taiko,
+            Mode::Catch => GameMode::Catch,
+            Mode::Mania => GameMode::Mania,
+        }
+    }
+
+    pub fn pp_map(&self) -> &Beatmap {
+        match self {
+            Self::Full(map) => &map.pp_map,
+            Self::Attached(map) => &map.pp_map,
+        }
+    }
+
+    pub fn pp_map_mut(&mut self) -> &mut Beatmap {
+        match self {
+            Self::Full(map) => &mut map.pp_map,
+            Self::Attached(map) => &mut map.pp_map,
+        }
+    }
+
+    pub fn n_objects(&self) -> u32 {
+        let map = self.pp_map();
+
+        map.n_circles + map.n_sliders + map.n_spinners
+    }
+
+    pub fn bpm(&self) -> f32 {
+        match self {
+            Self::Full(map) => map.bpm(),
+            Self::Attached(map) => map.pp_map.bpm() as f32,
+        }
+    }
+
+    pub fn map_info(&self, clock_rate: Option<f32>, stars: f32, mods: u32) -> String {
+        match self {
+            Self::Full(map) => {
+                let mut map_info = MapInfo::new(map, stars);
+
+                if let Some(clock_rate) = clock_rate {
+                    map_info.clock_rate(clock_rate);
+                }
+
+                map_info.mods(mods).to_string()
+            }
+            Self::Attached(map) => {
+                let map = &map.pp_map;
+
+                let mut builder = BeatmapAttributesBuilder::new(map);
+
+                if let Some(clock_rate) = clock_rate {
+                    builder.clock_rate(clock_rate as f64);
+                }
+
+                let attrs = builder.mode(map.mode).mods(mods).build();
+
+                let clock_rate = attrs.clock_rate;
+
+                let start_time = map.hit_objects.first().map_or(0.0, |h| h.start_time);
+                let end_time = map.hit_objects.last().map_or(0.0, |h| h.end_time());
+                let mut sec_drain = ((end_time - start_time) / 1000.0) as u32;
+
+                let mut bpm = map.bpm() as f32;
+
+                if (clock_rate - 1.0).abs() > f64::EPSILON {
+                    let clock_rate = clock_rate as f32;
+
+                    bpm *= clock_rate;
+                    sec_drain = (sec_drain as f32 / clock_rate) as u32;
+                }
+
+                let (cs_key, cs_value) = if map.mode == Mode::Mania {
+                    ("Keys", MapInfo::keys(mods, attrs.cs as f32))
+                } else {
+                    ("CS", round(attrs.cs as f32))
+                };
+
+                format!(
+                    "Length: `{len}` BPM: `{bpm}` Objects: `{objs}`\n\
+                    {cs_key}: `{cs_value}` AR: `{ar}` OD: `{od}` HP: `{hp}` Stars: `{stars}`",
+                    len = SecToMinSec::new(sec_drain),
+                    bpm = round(bpm),
+                    objs = self.n_objects(),
+                    ar = round(attrs.ar as f32),
+                    od = round(attrs.od as f32),
+                    hp = round(attrs.hp as f32),
+                    stars = round(stars),
+                )
+            }
+        }
+    }
 }

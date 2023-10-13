@@ -62,7 +62,7 @@ impl TopScoreEdit {
 
             let title = format!(
                 "{} {} - {} [{}]",
-                KeyFormatter::new(&score.mods, map),
+                KeyFormatter::new(&score.mods, map.cs()),
                 map.artist().cow_escape_markdown(),
                 map.title().cow_escape_markdown(),
                 map.version().cow_escape_markdown(),
@@ -232,8 +232,13 @@ impl TopScoreEdit {
     ) -> EmbedBuilder {
         let name = format!(
             "{grade_completion_mods}\t{score}\t({acc}%)\t{ago}",
-            grade_completion_mods =
-                grade_completion_mods(&score.mods, score.grade, score.total_hits(), map),
+            grade_completion_mods = grade_completion_mods(
+                &score.mods,
+                score.grade,
+                score.total_hits(),
+                map.mode(),
+                map.n_objects() as u32
+            ),
             score = WithComma::new(score.score),
             acc = round(score.accuracy),
             ago = HowLongAgoDynamic::new(&score.ended_at),
@@ -299,8 +304,14 @@ impl TopScoreEdit {
         let acc = format!("{}%", round(score.accuracy));
         let pp = PpFormatter::new(Some(score.pp), Some(max_pp)).to_string();
 
-        let grade_completion_mods =
-            grade_completion_mods(&score.mods, score.grade, score.total_hits(), map).into_owned();
+        let grade_completion_mods = grade_completion_mods(
+            &score.mods,
+            score.grade,
+            score.total_hits(),
+            map.mode(),
+            map.n_objects() as u32,
+        )
+        .into_owned();
 
         let mut fields = fields![
             "Grade", grade_completion_mods, true;
