@@ -5,8 +5,8 @@ use rosu_v2::{
 
 use super::{attrs::SimulateAttributes, state::ScoreState, top_old::TopOldVersion};
 use crate::{
+    active::impls::SimulateMap,
     commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
-    manager::OsuMap,
 };
 
 pub struct SimulateData {
@@ -34,8 +34,8 @@ impl SimulateData {
         self.acc = acc.map(|acc| acc.clamp(0.0, 100.0));
     }
 
-    pub(super) fn simulate(&mut self, map: &OsuMap) -> SimulateValues {
-        let mods = self.mods.as_ref().map_or(0, |mods| mods.bits());
+    pub(super) fn simulate(&mut self, map: &SimulateMap) -> SimulateValues {
+        let mods = self.mods.as_ref().map_or(0, GameMods::bits);
 
         if let Some(new_bpm) = self.bpm.filter(|_| self.clock_rate.is_none()) {
             let old_bpm = map.bpm();
@@ -49,7 +49,7 @@ impl SimulateData {
                     $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
                 }
             ) => {{
-                let mut calc = $( $calc:: )* new(&map.pp_map).mods(mods);
+                let mut calc = $( $calc:: )* new(map.pp_map()).mods(mods);
 
                 $(
                     if let Some(value) = self.$this_field {
@@ -62,7 +62,7 @@ impl SimulateData {
                 let pp = attrs.pp;
                 let stars = attrs.difficulty.stars;
 
-                let max_pp = $( $calc:: )* new(&map.pp_map)
+                let max_pp = $( $calc:: )* new(map.pp_map())
                     .attributes(attrs)
                     .mods(mods)
                     .calculate()
@@ -252,7 +252,7 @@ impl SimulateData {
             },
         };
 
-        let state = self.version.generate_hitresults(map, self);
+        let state = self.version.generate_hitresults(map.pp_map(), self);
 
         let combo_ratio = match state {
             Some(ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_)) => {

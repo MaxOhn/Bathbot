@@ -25,7 +25,6 @@ pub use self::{
     medal_stats::*, osustats_counts::*, player_snipe_stats::*, pp_missing::*, profile_compare::*,
     ratio::*, sniped::*, whatif::*,
 };
-use crate::manager::OsuMap;
 
 pub struct ModsFormatter<'m> {
     mods: &'m GameMods,
@@ -104,10 +103,10 @@ pub struct KeyFormatter<'m> {
 }
 
 impl<'m> KeyFormatter<'m> {
-    pub fn new(mods: &'m GameMods, map: &OsuMap) -> Self {
+    pub fn new(mods: &'m GameMods, cs: f32) -> Self {
         Self {
             mods,
-            cs: map.cs() as u32,
+            cs: cs as u32,
         }
     }
 }

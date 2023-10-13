@@ -38,30 +38,35 @@ pub fn grade_emote(grade: Grade) -> &'static str {
     BotConfig::get().grade(grade)
 }
 
+// TODO: make struct that implements Display
 pub fn grade_completion_mods(
     mods: &GameMods,
     grade: Grade,
     score_hits: u32,
-    map: &OsuMap,
+    mode: GameMode,
+    n_objects: u32,
 ) -> Cow<'static, str> {
-    let mode = map.mode();
     let grade_str = BotConfig::get().grade(grade);
 
     match (
         mods.is_empty(),
         grade == Grade::F && mode != GameMode::Catch,
     ) {
-        (true, true) => format!("{grade_str}@{}%", completion(score_hits, map)).into(),
-        (false, true) => format!("{grade_str}@{}% +{mods}", completion(score_hits, map)).into(),
+        (true, true) => format!("{grade_str}@{}%", completion(score_hits, n_objects)).into(),
+        (false, true) => {
+            format!("{grade_str}@{}% +{mods}", completion(score_hits, n_objects)).into()
+        }
         (true, false) => grade_str.into(),
         (false, false) => format!("{grade_str} +{mods}").into(),
     }
 }
 
-fn completion(score_hits: u32, map: &OsuMap) -> u32 {
-    let total_hits = map.n_objects() as u32;
-
-    100 * score_hits / total_hits
+fn completion(score_hits: u32, n_objects: u32) -> u32 {
+    if n_objects != 0 {
+        100 * score_hits / n_objects
+    } else {
+        100
+    }
 }
 
 pub struct TopCounts {
@@ -579,6 +584,30 @@ impl<'map> MapInfo<'map> {
 
         self
     }
+
+    pub fn keys(mods: u32, cs: f32) -> f32 {
+        if (mods & GameModIntermode::OneKey.bits().unwrap()) > 0 {
+            1.0
+        } else if (mods & GameModIntermode::TwoKeys.bits().unwrap()) > 0 {
+            2.0
+        } else if (mods & GameModIntermode::ThreeKeys.bits().unwrap()) > 0 {
+            3.0
+        } else if (mods & GameModIntermode::FourKeys.bits().unwrap()) > 0 {
+            4.0
+        } else if (mods & GameModIntermode::FiveKeys.bits().unwrap()) > 0 {
+            5.0
+        } else if (mods & GameModIntermode::SixKeys.bits().unwrap()) > 0 {
+            6.0
+        } else if (mods & GameModIntermode::SevenKeys.bits().unwrap()) > 0 {
+            7.0
+        } else if (mods & GameModIntermode::EightKeys.bits().unwrap()) > 0 {
+            8.0
+        } else if (mods & GameModIntermode::NineKeys.bits().unwrap()) > 0 {
+            9.0
+        } else {
+            round(cs)
+        }
+    }
 }
 
 impl Display for MapInfo<'_> {
@@ -612,29 +641,7 @@ impl Display for MapInfo<'_> {
         }
 
         let (cs_key, cs_value) = if self.map.mode() == GameMode::Mania {
-            let keys = if (mods & GameModIntermode::OneKey.bits().unwrap()) > 0 {
-                1.0
-            } else if (mods & GameModIntermode::TwoKeys.bits().unwrap()) > 0 {
-                2.0
-            } else if (mods & GameModIntermode::ThreeKeys.bits().unwrap()) > 0 {
-                3.0
-            } else if (mods & GameModIntermode::FourKeys.bits().unwrap()) > 0 {
-                4.0
-            } else if (mods & GameModIntermode::FiveKeys.bits().unwrap()) > 0 {
-                5.0
-            } else if (mods & GameModIntermode::SixKeys.bits().unwrap()) > 0 {
-                6.0
-            } else if (mods & GameModIntermode::SevenKeys.bits().unwrap()) > 0 {
-                7.0
-            } else if (mods & GameModIntermode::EightKeys.bits().unwrap()) > 0 {
-                8.0
-            } else if (mods & GameModIntermode::NineKeys.bits().unwrap()) > 0 {
-                9.0
-            } else {
-                round(attrs.cs as f32)
-            };
-
-            ("Keys", keys)
+            ("Keys", Self::keys(mods, attrs.cs as f32))
         } else {
             ("CS", round(attrs.cs as f32))
         };

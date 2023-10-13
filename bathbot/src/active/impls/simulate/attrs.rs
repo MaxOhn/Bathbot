@@ -1,4 +1,4 @@
-use crate::manager::OsuMap;
+use rosu_pp::Beatmap;
 
 #[derive(Copy, Clone, Default)]
 pub struct SimulateAttributes {
@@ -8,14 +8,14 @@ pub struct SimulateAttributes {
     pub od: Option<f32>,
 }
 
-impl From<&OsuMap> for SimulateAttributes {
+impl From<&Beatmap> for SimulateAttributes {
     #[inline]
-    fn from(map: &OsuMap) -> Self {
+    fn from(map: &Beatmap) -> Self {
         Self {
-            ar: Some(map.ar()),
-            cs: Some(map.cs()),
-            hp: Some(map.hp()),
-            od: Some(map.od()),
+            ar: Some(map.ar),
+            cs: Some(map.cs),
+            hp: Some(map.hp),
+            od: Some(map.od),
         }
     }
 }

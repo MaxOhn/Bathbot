@@ -30,7 +30,7 @@ pub use self::{
     recent_list::RecentListPagination,
     render::{CachedRender, RenderSettingsActive, SettingsImport},
     scores::{ScoresMapPagination, ScoresServerPagination, ScoresUserPagination},
-    simulate::{SimulateAttributes, SimulateComponents, SimulateData, TopOldVersion},
+    simulate::{SimulateAttributes, SimulateComponents, SimulateData, SimulateMap, TopOldVersion},
     skins::SkinsPagination,
     slash_commands::SlashCommandsPagination,
     snipe::{SnipeCountryListPagination, SnipeDifferencePagination, SnipePlayerListPagination},

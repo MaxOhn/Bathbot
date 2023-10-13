@@ -1,4 +1,5 @@
 pub mod args;
+pub mod parsed_map;
 
 use std::{borrow::Cow, sync::Arc};
 
@@ -8,7 +9,7 @@ use eyre::Result;
 use rosu_v2::prelude::{GameMode, GameModsIntermode};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    channel::{message::MessageType, Message},
+    channel::{message::MessageType, Attachment, Message},
     guild::Permissions,
 };
 
@@ -19,10 +20,10 @@ use super::{
 };
 use crate::{
     active::{
-        impls::{SimulateAttributes, SimulateComponents, SimulateData, TopOldVersion},
+        impls::{SimulateAttributes, SimulateComponents, SimulateData, SimulateMap, TopOldVersion},
         ActiveMessages,
     },
-    commands::GameModeOption,
+    commands::{osu::parsed_map::AttachedSimulateMap, GameModeOption},
     core::{
         commands::{prefix::Args, CommandOrigin},
         Context,
@@ -73,6 +74,8 @@ pub struct Simulate<'m> {
     hp: Option<f32>,
     #[command(desc = "Overwrite the map's overall difficulty")]
     od: Option<f32>,
+    #[command(desc = "Specify a .osu file")]
+    file: Option<Attachment>,
 }
 
 pub async fn slash_simulate(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
@@ -85,62 +88,16 @@ pub async fn slash_simulate(ctx: Arc<Context>, mut command: InteractionCommand) 
     }
 }
 
-async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs) -> Result<()> {
-    let map_id = match args.map {
-        Some(MapIdType::Map(id)) => id,
-        Some(MapIdType::Set(_)) => {
-            let content = "Looks like you gave me a mapset id, I need a map id though";
+async fn simulate(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    mut args: SimulateArgs,
+) -> Result<()> {
+    let map = args.map.take();
+    let mode = args.mode;
 
-            return orig.error(&ctx, content).await;
-        }
-        None if orig.can_read_history() => {
-            let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
-                Ok(msgs) => msgs,
-                Err(err) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                    return Err(err.wrap_err("failed to retrieve channel history"));
-                }
-            };
-
-            match ctx.find_map_id_in_msgs(&msgs, 0).await {
-                Some(MapIdType::Map(id)) => id,
-                None | Some(MapIdType::Set(_)) => {
-                    let content = "No beatmap specified and none found in recent channel history. \
-                    Try specifying a map either by url to the map, or just by map id.";
-
-                    return orig.error(&ctx, content).await;
-                }
-            }
-        }
-        None => {
-            let content =
-                "No beatmap specified and lacking permission to search the channel history for maps.\n\
-                Try specifying a map either by url to the map, or just by map id, \
-                or give me the \"Read Message History\" permission.";
-
-            return orig.error(&ctx, content).await;
-        }
-    };
-
-    let map = match ctx.osu_map().map(map_id, None).await {
-        Ok(map) => match args.mode {
-            Some(mode) => map.convert(mode),
-            None => map,
-        },
-        Err(MapError::NotFound) => {
-            let content = format!(
-                "Could not find beatmap with id `{map_id}`. \
-                Did you give me a mapset id instead of a map id?"
-            );
-
-            return orig.error(&ctx, content).await;
-        }
-        Err(MapError::Report(err)) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err);
-        }
+    let Some(map) = prepare_map(&ctx, &orig, map, mode).await? else {
+        return Ok(());
     };
 
     let mode = map.mode();
@@ -152,7 +109,10 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         GameMode::Mania => TopOldVersion::Mania(TopOldManiaVersion::October22Now),
     };
 
-    let max_combo = ctx.pp(&map).difficulty().await.max_combo() as u32;
+    let max_combo = match map {
+        SimulateMap::Full(ref map) => ctx.pp(map).difficulty().await.max_combo() as u32,
+        SimulateMap::Attached(ref map) => map.max_combo,
+    };
 
     let mods = match args.mods.map(|mods| mods.with_mode(mode)) {
         Some(mods @ Some(_)) => mods,
@@ -182,10 +142,10 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
             hp: args.hp,
             od: args.od,
         },
-        original_attrs: SimulateAttributes::from(&map),
+        original_attrs: SimulateAttributes::from(map.pp_map()),
         score: None,
         version,
-        is_convert: Some(map.is_convert),
+        is_convert: Some(map.is_convert()),
         max_combo,
     };
 
@@ -369,9 +329,85 @@ async fn prefix_simulatemania(
     }
 }
 
+async fn prepare_map(
+    ctx: &Context,
+    orig: &CommandOrigin<'_>,
+    map: Option<SimulateMapArg>,
+    mode: Option<GameMode>,
+) -> Result<Option<SimulateMap>> {
+    let map_id = match map {
+        Some(SimulateMapArg::Id(MapIdType::Map(id))) => id,
+        Some(SimulateMapArg::Id(MapIdType::Set(_))) => {
+            let content = "Looks like you gave me a mapset id, I need a map id though";
+
+            return orig.error(ctx, content).await.map(|_| None);
+        }
+        Some(SimulateMapArg::Attachment(attachment)) => {
+            return AttachedSimulateMap::new(ctx, orig, attachment, mode)
+                .await
+                .map(|opt| opt.map(SimulateMap::Attached))
+        }
+        None if orig.can_read_history() => {
+            let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
+                Ok(msgs) => msgs,
+                Err(err) => {
+                    let _ = orig.error(ctx, GENERAL_ISSUE).await;
+
+                    return Err(err.wrap_err("Failed to retrieve channel history"));
+                }
+            };
+
+            match ctx.find_map_id_in_msgs(&msgs, 0).await {
+                Some(MapIdType::Map(id)) => id,
+                None | Some(MapIdType::Set(_)) => {
+                    let content = "No beatmap specified and none found in recent channel history. \
+                    Try specifying a map either by url to the map, or just by map id.";
+
+                    return orig.error(ctx, content).await.map(|_| None);
+                }
+            }
+        }
+        None => {
+            let content =
+                "No beatmap specified and lacking permission to search the channel history for maps.\n\
+                Try specifying a map either by url to the map, or just by map id, \
+                or give me the \"Read Message History\" permission.";
+
+            return orig.error(ctx, content).await.map(|_| None);
+        }
+    };
+
+    let map = match ctx.osu_map().map(map_id, None).await {
+        Ok(map) => match mode {
+            Some(mode) => map.convert(mode),
+            None => map,
+        },
+        Err(MapError::NotFound) => {
+            let content = format!(
+                "Could not find beatmap with id `{map_id}`. \
+                Did you give me a mapset id instead of a map id?"
+            );
+
+            return orig.error(&ctx, content).await.map(|_| None);
+        }
+        Err(MapError::Report(err)) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    Ok(Some(SimulateMap::Full(map)))
+}
+
+enum SimulateMapArg {
+    Id(MapIdType),
+    Attachment(Attachment),
+}
+
 #[derive(Default)]
 struct SimulateArgs {
-    map: Option<MapIdType>,
+    map: Option<SimulateMapArg>,
     mode: Option<GameMode>,
     mods: Option<GameModsIntermode>,
     combo: Option<u32>,
@@ -406,7 +442,7 @@ impl SimulateArgs {
 
         if let Some(reply) = reply {
             if let Some(id) = ctx.find_map_id_in_msg(reply).await {
-                map = Some(id);
+                map = Some(SimulateMapArg::Id(id));
             }
         }
 
@@ -422,7 +458,7 @@ impl SimulateArgs {
                 .or_else(|| matcher::get_osu_mapset_id(arg).map(MapIdType::Set));
 
             if let Some(id) = id_opt {
-                simulate.map = Some(id);
+                simulate.map = Some(SimulateMapArg::Id(id));
 
                 continue;
             }
@@ -463,15 +499,20 @@ impl SimulateArgs {
 
         let mode = simulate.mode.map(GameMode::from);
 
-        let map = match simulate.map {
-            Some(map) => matcher::get_osu_map_id(&map)
-                .map(MapIdType::Map)
-                .or_else(|| matcher::get_osu_mapset_id(&map).map(MapIdType::Set))
-                .ok_or(
-                    "Failed to parse map url. Be sure you specify a valid map id or url to a map.",
-                )
-                .map(Some)?,
-            None => None,
+        let map = match simulate.file {
+            Some(attachment) => Some(SimulateMapArg::Attachment(attachment)),
+            None => match simulate.map {
+                Some(map) => matcher::get_osu_map_id(&map)
+                    .map(MapIdType::Map)
+                    .or_else(|| matcher::get_osu_mapset_id(&map).map(MapIdType::Set))
+                    .ok_or(
+                        "Failed to parse map url. \
+                        Be sure you specify a valid map id or url to a map.",
+                    )
+                    .map(SimulateMapArg::Id)
+                    .map(Some)?,
+                None => None,
+            },
         };
 
         Ok(Self {
