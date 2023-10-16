@@ -35,6 +35,9 @@ impl BWSEmbed {
             .map(|badges| (badges, WithComma::new(badges).to_string().len()))
             .collect();
 
+        let yellow = "\u{001b}[1;33m";
+        let reset = "\u{001b}[0m";
+
         let description = match rank {
             Some(rank_arg) => {
                 let mut min = rank_arg;
@@ -81,7 +84,7 @@ impl BWSEmbed {
                     .collect();
 
                 let mut content = String::with_capacity(256);
-                content.push_str("```\n");
+                content.push_str("```ansi\n");
 
                 let _ = writeln!(
                     content,
@@ -90,7 +93,6 @@ impl BWSEmbed {
                     badges[0].0,
                     badges[1].0,
                     badges[2].0,
-                    rank_len = rank_len,
                     len1 = max[0],
                     len2 = max[1],
                     len3 = max[2],
@@ -98,12 +100,8 @@ impl BWSEmbed {
 
                 let _ = writeln!(
                     content,
-                    "-{:->rank_len$}-+-{:-^len1$}-+-{:-^len2$}-+-{:-^len3$}-",
-                    "-",
-                    "-",
-                    "-",
-                    "-",
-                    rank_len = rank_len,
+                    "-{0:->rank_len$}-+-{0:-^len1$}-+-{0:-^len2$}-+-{0:-^len3$}-",
+                    '-',
                     len1 = max[0],
                     len2 = max[1],
                     len3 = max[2],
@@ -112,15 +110,15 @@ impl BWSEmbed {
                 for (rank, bwss) in bwss {
                     let _ = writeln!(
                         content,
-                        " {:>rank_len$} | {:^len1$} | {:^len2$} | {:^len3$}",
+                        " {ansi_start}{:>rank_len$}{reset} | {:^len1$} | {:^len2$} | {:^len3$}",
                         format!("#{rank}"),
                         bwss[0],
                         bwss[1],
                         bwss[2],
-                        rank_len = rank_len,
                         len1 = max[0],
                         len2 = max[1],
                         len3 = max[2],
+                        ansi_start = if rank == global_rank { yellow } else { reset },
                     );
                 }
 
@@ -136,33 +134,23 @@ impl BWSEmbed {
                 let len2 = bws2.len().max(2).max(badges[1].1);
                 let len3 = bws3.len().max(2).max(badges[2].1);
                 let mut content = String::with_capacity(128);
-                content.push_str("```\n");
+                content.push_str("```ansi\n");
 
                 let _ = writeln!(
                     content,
                     "Badges | {:^len1$} | {:^len2$} | {:^len3$}",
-                    badges[0].0,
-                    badges[1].0,
-                    badges[2].0,
-                    len1 = len1,
-                    len2 = len2,
-                    len3 = len3,
+                    badges[0].0, badges[1].0, badges[2].0,
                 );
 
                 let _ = writeln!(
                     content,
-                    "-------+-{:-^len1$}-+-{:-^len2$}-+-{:-^len3$}-",
-                    "-",
-                    "-",
-                    "-",
-                    len1 = len1,
-                    len2 = len2,
-                    len3 = len3,
+                    "-------+-{0:-^len1$}-+-{0:-^len2$}-+-{0:-^len3$}-",
+                    '-'
                 );
 
                 let _ = writeln!(
                     content,
-                    "   BWS | {bws1:^len1$} | {bws2:^len2$} | {bws3:^len3$}\n```"
+                    "   BWS | {yellow}{bws1:^len1$}{reset} | {bws2:^len2$} | {bws3:^len3$}\n```"
                 );
 
                 content
