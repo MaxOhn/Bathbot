@@ -21,6 +21,7 @@ impl Database {
         &self,
         discord_ids: &[i64],
         column: UserStatsColumn,
+        country_code: Option<&str>,
     ) -> Result<UserStatsEntries> {
         let query = format!(
             r#"
@@ -46,6 +47,9 @@ FROM
       {column} 
     FROM 
       osu_user_stats
+    WHERE 
+      $2 :: VARCHAR(2) is NULL 
+      OR country_code = $2
   ) AS stats ON names.user_id = stats.user_id"#,
             column = column.column(),
         );
@@ -66,6 +70,7 @@ FROM
             | UserStatsColumn::Namechanges => {
                 let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -90,6 +95,7 @@ FROM
             UserStatsColumn::JoinDate => {
                 let mut entries: Vec<DbUserStatsEntry<OffsetDateTime>> = sqlx::query_as(&query)
                     .bind(discord_ids)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -110,6 +116,7 @@ FROM
         discord_ids: &[i64],
         mode: GameMode,
         column: UserModeStatsColumn,
+        country_code: Option<&str>,
     ) -> Result<UserStatsEntries> {
         fn default_query(column: &str) -> String {
             format!(
@@ -144,6 +151,9 @@ FROM
       country_code 
     FROM 
       osu_user_stats
+    WHERE 
+      $3 :: VARCHAR(2) is NULL 
+      OR country_code = $3
   ) AS country ON names.user_id = country.user_id"#
             )
         }
@@ -155,6 +165,7 @@ FROM
                 let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -203,11 +214,15 @@ FROM
       country_code 
     FROM 
       osu_user_stats
+    WHERE 
+      $3 :: VARCHAR(2) is NULL 
+      OR country_code = $3
   ) AS country ON names.user_id = country.user_id"#;
 
                 let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -233,6 +248,7 @@ FROM
                 let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -287,11 +303,15 @@ FROM
       country_code 
     FROM 
       osu_user_stats
+    WHERE 
+      $3 :: VARCHAR(2) is NULL 
+      OR country_code = $3
   ) AS country ON names.user_id = country.user_id"#;
 
                 let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -349,11 +369,15 @@ FROM
       country_code 
     FROM 
       osu_user_stats
+    WHERE 
+      $3 :: VARCHAR(2) is NULL 
+      OR country_code = $3
   ) AS country ON names.user_id = country.user_id"#;
 
                 let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -384,6 +408,7 @@ FROM
                 let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -405,6 +430,7 @@ FROM
                 let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -432,6 +458,7 @@ FROM
                 let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("Failed to fetch all")?;
@@ -480,11 +507,15 @@ JOIN (
     join_date 
   FROM 
     osu_user_stats
+  WHERE 
+    $3 :: VARCHAR(2) is NULL 
+    OR country_code = $3
 ) AS country ON names.user_id = country.user_id"#;
 
                 let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("Failed to fetch all")?;
@@ -506,6 +537,7 @@ JOIN (
                 let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -540,6 +572,7 @@ JOIN (
                 let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -569,6 +602,7 @@ JOIN (
                 let mut entries: Vec<DbUserStatsEntry<i64>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("failed to fetch all")?;
@@ -633,11 +667,15 @@ FROM
       country_code 
     FROM 
       osu_user_stats
+    WHERE 
+      $3 :: VARCHAR(2) is NULL 
+      OR country_code = $3
   ) AS country ON configs.osu_id = country.user_id"#;
 
                 let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("Failed to fetch all")?;
@@ -720,11 +758,15 @@ FROM
       country_code 
     FROM 
       osu_user_stats
+    WHERE 
+      $3 :: VARCHAR(2) is NULL 
+      OR country_code = $3
   ) AS country ON names.user_id = country.user_id"#;
 
                 let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(query)
                     .bind(discord_ids)
                     .bind(mode as i16)
+                    .bind(country_code)
                     .fetch_all(self)
                     .await
                     .wrap_err("Failed to fetch all")?;
