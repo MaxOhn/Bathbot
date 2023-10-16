@@ -135,7 +135,7 @@ async fn country_code<'a>(
 
             command.error(ctx, content).await?;
 
-            return Ok(None);
+            Ok(None)
         }
     }
 }
