@@ -13,7 +13,7 @@ use twilight_gateway::{error::ReceiveMessageErrorType, stream::ShardEventStream,
 use twilight_model::{gateway::CloseCode, user::User};
 
 use self::{interaction::handle_interaction, message::handle_message};
-use super::{buckets::BucketName, Context};
+use super::{buckets::BucketName, BotMetrics, Context};
 use crate::util::Authored;
 
 mod interaction;
@@ -128,7 +128,7 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>, mut reshard_
                     Some((shard, Ok(event))) => {
                         ctx.standby.process(&event);
                         let change = ctx.cache.update(&event).await;
-                        ctx.stats.process(&event, change);
+                        BotMetrics::event(&event, change);
                         let ctx = Arc::clone(&ctx);
                         let shard_id = shard.id().number();
 

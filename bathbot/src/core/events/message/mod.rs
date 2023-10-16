@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use bathbot_psql::model::configs::{GuildConfig, Prefix, DEFAULT_PREFIX};
 use eyre::Result;
@@ -14,7 +14,7 @@ use crate::{
     core::{
         buckets::BucketName,
         commands::checks::{check_authority, check_channel_permissions},
-        Context,
+        BotMetrics, Context,
     },
     util::ChannelExt,
 };
@@ -22,6 +22,8 @@ use crate::{
 mod parse;
 
 pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
+    let start = Instant::now();
+
     // Ignore bots and webhooks
     if msg.author.bot || msg.webhook_id.is_some() {
         return;
@@ -57,13 +59,18 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
 
     let name = invoke.cmd.name();
     EventKind::PrefixCommand.log(&ctx, &msg, name).await;
-    ctx.stats.increment_message_command(name);
 
     match process_command(ctx, invoke, &msg).await {
         Ok(ProcessResult::Success) => info!(%name, "Processed command"),
         Ok(reason) => info!(?reason, "Command `{name}` was not processed"),
-        Err(err) => error!(name, ?err, "Failed to process prefix command"),
+        Err(err) => {
+            BotMetrics::inc_command_error("prefix", name);
+            error!(name, ?err, "Failed to process prefix command");
+        }
     }
+
+    let elapsed = start.elapsed();
+    BotMetrics::observe_command("prefix", name, elapsed);
 }
 
 async fn process_command<'m>(

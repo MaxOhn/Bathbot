@@ -1,36 +1,32 @@
-use eyre::{Result, WrapErr};
-use prometheus::{histogram_opts, opts, HistogramVec, IntCounterVec, Registry, DEFAULT_BUCKETS};
+use std::time::Duration;
 
-pub struct ClientMetrics {
-    pub request_count: IntCounterVec,
-    pub response_time: HistogramVec,
-}
+use metrics::{counter, describe_counter, describe_histogram, histogram};
+
+use crate::site::Site;
+
+const CLIENT_RESPONSE_TIME: &str = "client_response_time";
+const CLIENT_INTERNAL_ERRORS: &str = "client_internal_errors";
+
+pub(crate) struct ClientMetrics;
 
 impl ClientMetrics {
-    pub fn new(metrics: &Registry) -> Result<Self> {
-        let opts = opts!("client_requests_total", "Requests total");
-        let request_count = IntCounterVec::new(opts, &["site", "status"])
-            .wrap_err("failed to create request count")?;
-
-        let opts = histogram_opts!(
-            "client_response_time_seconds",
-            "Response times",
-            DEFAULT_BUCKETS.to_vec()
+    pub(crate) fn init() {
+        describe_histogram!(
+            CLIENT_RESPONSE_TIME,
+            "Response time for client requests in seconds"
         );
-        let response_time =
-            HistogramVec::new(opts, &["site"]).wrap_err("failed to create response time")?;
 
-        metrics
-            .register(Box::new(request_count.clone()))
-            .wrap_err("failed to register request count")?;
+        describe_counter!(
+            CLIENT_INTERNAL_ERRORS,
+            "Number of times an internal error occurred"
+        );
+    }
 
-        metrics
-            .register(Box::new(response_time.clone()))
-            .wrap_err("failed to register response time")?;
+    pub(crate) fn observe(site: Site, latency: Duration) {
+        histogram!(CLIENT_RESPONSE_TIME, latency, "site" => site.as_str());
+    }
 
-        Ok(Self {
-            request_count,
-            response_time,
-        })
+    pub(crate) fn internal_error(site: Site) {
+        counter!(CLIENT_INTERNAL_ERRORS, 1, "site" => site.as_str());
     }
 }

@@ -11,7 +11,7 @@ use rosu_v2::{
 };
 
 use super::{RedisData, RedisManager, RedisResult};
-use crate::core::Context;
+use crate::core::{BotMetrics, Context};
 
 /// Retrieve an osu user through redis or the osu!api as backup
 pub enum UserArgs {
@@ -148,7 +148,7 @@ impl<'c> RedisManager<'c> {
 
         let mut conn = match self.ctx.cache.fetch(&key).await {
             Ok(Ok(user)) => {
-                self.ctx.stats.inc_cached_user();
+                BotMetrics::inc_redis_hit("osu! user");
 
                 return Ok(RedisData::Archive(user));
             }

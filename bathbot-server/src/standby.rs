@@ -10,7 +10,7 @@ use bathbot_model::TwitchUser;
 use bathbot_util::IntHasher;
 use flexmap::std::StdMutexMap;
 use futures::future::FutureExt;
-use rosu_v2::prelude::User;
+use rosu_v2::prelude::UserExtended;
 use tokio::{
     sync::oneshot::{self, Receiver, Sender},
     time::{self, Timeout},
@@ -26,7 +26,7 @@ pub enum AuthenticationStandbyError {
 pub struct AuthenticationStandby {
     // u8 is sufficient for 256 concurrent authorization awaitings within two minutes
     current_state: AtomicU8,
-    osu: StdMutexMap<u8, Sender<User>, IntHasher>,
+    osu: StdMutexMap<u8, Sender<UserExtended>, IntHasher>,
     twitch: StdMutexMap<u8, Sender<TwitchUser>, IntHasher>,
 }
 
@@ -78,7 +78,7 @@ impl AuthenticationStandby {
         self.current_state.fetch_add(1, Ordering::SeqCst)
     }
 
-    pub(super) fn process_osu(&self, user: User, id: u8) {
+    pub(super) fn process_osu(&self, user: UserExtended, id: u8) {
         if let Some(tx) = self.osu.lock(&id).remove() {
             let _ = tx.send(user);
         }
@@ -93,11 +93,11 @@ impl AuthenticationStandby {
 
 pub struct WaitForOsuAuth {
     pub state: u8,
-    fut: Pin<Box<Timeout<Receiver<User>>>>,
+    fut: Pin<Box<Timeout<Receiver<UserExtended>>>>,
 }
 
 impl Future for WaitForOsuAuth {
-    type Output = Result<User, AuthenticationStandbyError>;
+    type Output = Result<UserExtended, AuthenticationStandbyError>;
 
     #[inline]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

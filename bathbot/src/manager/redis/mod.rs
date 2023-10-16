@@ -12,7 +12,11 @@ use rkyv::{with::With, Serialize};
 use rosu_v2::prelude::{GameMode, OsuError, Rankings as RosuRankings};
 
 pub use self::data::RedisData;
-use crate::{commands::osu::MapOrScore, core::Context, util::interaction::InteractionCommand};
+use crate::{
+    commands::osu::MapOrScore,
+    core::{BotMetrics, Context},
+    util::interaction::InteractionCommand,
+};
 
 pub mod osu;
 
@@ -36,7 +40,7 @@ impl<'c> RedisManager<'c> {
 
         let mut conn = match self.ctx.cache.fetch(KEY).await {
             Ok(Ok(badges)) => {
-                self.ctx.stats.inc_cached_badges();
+                BotMetrics::inc_redis_hit("Osekai badges");
 
                 return Ok(RedisData::Archive(badges));
             }
@@ -65,7 +69,7 @@ impl<'c> RedisManager<'c> {
 
         let mut conn = match self.ctx.cache.fetch(KEY).await {
             Ok(Ok(medals)) => {
-                self.ctx.stats.inc_cached_medals();
+                BotMetrics::inc_redis_hit("Osekai medals");
 
                 return Ok(RedisData::Archive(medals));
             }
@@ -100,7 +104,7 @@ impl<'c> RedisManager<'c> {
 
         let mut conn = match self.ctx.cache.fetch(&key).await {
             Ok(Ok(ranking)) => {
-                self.ctx.stats.inc_cached_osekai_ranking();
+                BotMetrics::inc_redis_hit("Osekai ranking");
 
                 return Ok(RedisData::Archive(ranking));
             }
@@ -129,7 +133,7 @@ impl<'c> RedisManager<'c> {
 
         let mut conn = match self.ctx.cache.fetch(&key).await {
             Ok(Ok(group)) => {
-                self.ctx.stats.inc_cached_osutracker_pp_group();
+                BotMetrics::inc_redis_hit("OsuTracker pp group");
 
                 return Ok(RedisData::Archive(group));
             }
@@ -158,7 +162,7 @@ impl<'c> RedisManager<'c> {
 
         let mut conn = match self.ctx.cache.fetch(KEY).await {
             Ok(Ok(stats)) => {
-                self.ctx.stats.inc_cached_osutracker_stats();
+                BotMetrics::inc_redis_hit("OsuTracker stats");
 
                 return Ok(RedisData::Archive(stats));
             }
@@ -187,7 +191,7 @@ impl<'c> RedisManager<'c> {
 
         let mut conn = match self.ctx.cache.fetch(KEY).await {
             Ok(Ok(counts)) => {
-                self.ctx.stats.inc_cached_osutracker_counts();
+                BotMetrics::inc_redis_hit("OsuTracker counts");
 
                 return Ok(RedisData::Archive(counts));
             }
@@ -225,7 +229,7 @@ impl<'c> RedisManager<'c> {
 
         let mut conn = match self.ctx.cache.fetch(&key).await {
             Ok(Ok(ranking)) => {
-                self.ctx.stats.inc_cached_pp_ranking();
+                BotMetrics::inc_redis_hit("PP ranking");
 
                 return Ok(RedisData::Archive(ranking));
             }
@@ -266,7 +270,7 @@ impl<'c> RedisManager<'c> {
 
         let mut conn = match self.ctx.cache.fetch(&key).await {
             Ok(Ok(scores)) => {
-                self.ctx.stats.inc_cached_osustats_best();
+                BotMetrics::inc_redis_hit("osu!stats best");
 
                 return Ok(RedisData::Archive(scores));
             }
@@ -295,7 +299,7 @@ impl<'c> RedisManager<'c> {
 
         let mut conn = match self.ctx.cache.fetch(key).await {
             Ok(Ok(countries)) => {
-                self.ctx.stats.inc_cached_snipe_countries();
+                BotMetrics::inc_redis_hit("Snipe countries");
 
                 return Ok(RedisData::Archive(countries));
             }
@@ -339,7 +343,7 @@ impl<'c> RedisManager<'c> {
 
         let mut conn = match self.ctx.cache.fetch(&key).await {
             Ok(Ok(diffs)) => {
-                self.ctx.stats.inc_cached_cs_diffs();
+                BotMetrics::inc_redis_hit("Beatmap difficulties");
 
                 return Ok(RedisData::Archive(diffs));
             }

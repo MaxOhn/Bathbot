@@ -1,5 +1,5 @@
 use bathbot_model::OsuStatsMap;
-use rosu_v2::prelude::{Beatmap, GameMode, RankStatus};
+use rosu_v2::prelude::{BeatmapExtended, GameMode, RankStatus};
 
 pub trait BeatmapExt: Send + Sync {
     fn max_combo(&self) -> Option<u32>;
@@ -12,7 +12,7 @@ pub trait BeatmapExt: Send + Sync {
     fn ar(&self) -> f32;
 }
 
-impl BeatmapExt for Beatmap {
+impl BeatmapExt for BeatmapExtended {
     fn max_combo(&self) -> Option<u32> {
         self.max_combo
     }

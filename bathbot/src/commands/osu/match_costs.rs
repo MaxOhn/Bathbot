@@ -10,7 +10,7 @@ use bathbot_macros::{command, SlashCommand};
 use bathbot_util::{constants::OSU_API_ISSUE, matcher, IntHasher, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{
-    GameModIntermode, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, UserCompact,
+    GameModIntermode, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, User,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
@@ -337,7 +337,7 @@ const MOD_BONUS: f32 = 0.02;
 pub fn process_match(
     games: &[MatchGame],
     finished: bool,
-    users: &HashMap<u32, UserCompact>,
+    users: &HashMap<u32, User>,
 ) -> MatchResult {
     let mut teams = HashMap::with_hasher(IntHasher);
     let mut point_costs = HashMap::with_hasher(IntHasher);

@@ -7,7 +7,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use futures::future::BoxFuture;
-use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchResult, GameMode, Genre, Language};
+use rosu_v2::prelude::{BeatmapsetExtended, BeatmapsetSearchResult, GameMode, Genre, Language};
 use twilight_model::{
     channel::message::{
         component::{ActionRow, Button, ButtonStyle},
@@ -24,7 +24,7 @@ use crate::{
 };
 
 pub struct MapSearchPagination {
-    maps: BTreeMap<usize, Beatmapset>,
+    maps: BTreeMap<usize, BeatmapsetExtended>,
     search_result: BeatmapsetSearchResult,
     args: Search,
     msg_owner: Id<UserMarker>,
@@ -51,7 +51,7 @@ impl IActiveMessage for MapSearchPagination {
 
 impl MapSearchPagination {
     pub fn new(
-        maps: BTreeMap<usize, Beatmapset>,
+        maps: BTreeMap<usize, BeatmapsetExtended>,
         search_result: BeatmapsetSearchResult,
         args: Search,
         msg_owner: Id<UserMarker>,

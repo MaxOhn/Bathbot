@@ -1,7 +1,8 @@
 use ::rosu_v2::model::user::{
     Badge as RosuBadge, GradeCounts as RosuGradeCounts, MedalCompact as RosuMedalCompact,
-    MonthlyCount as RosuMonthlyCount, User as RosuUser, UserHighestRank as RosuUserHighestRank,
-    UserKudosu as RosuUserKudosu, UserLevel as RosuUserLevel, UserStatistics as RosuUserStatistics,
+    MonthlyCount as RosuMonthlyCount, UserExtended as RosuUser,
+    UserHighestRank as RosuUserHighestRank, UserKudosu as RosuUserKudosu,
+    UserLevel as RosuUserLevel, UserStatistics as RosuUserStatistics,
 };
 use bathbot_util::osu::UserStats;
 use rkyv::{

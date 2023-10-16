@@ -8,14 +8,16 @@ use bathbot_cache::Cache;
 use bathbot_client::Client as BathbotClient;
 use bathbot_model::twilight_model::id::IdRkyv;
 use bathbot_psql::{model::configs::GuildConfig, Database};
-use bathbot_util::IntHasher;
+use bathbot_util::{IntHasher, MetricsReader};
 use eyre::{Result, WrapErr};
 use flexmap::tokio::TokioRwLockMap;
 use flurry::{HashMap as FlurryMap, HashSet as FlurrySet};
 use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
+use metrics_util::layers::FanoutBuilder;
 use rkyv::with::With;
 use rosu_v2::Osu;
+use time::OffsetDateTime;
 use tokio::sync::mpsc::UnboundedSender;
 use twilight_gateway::{
     stream, CloseFrame, Config, ConfigBuilder, EventTypeFlags, Intents, MessageSender, Session,
@@ -37,15 +39,10 @@ use twilight_standby::Standby;
 
 use super::{
     buckets::{BucketName, Buckets},
-    BotStats,
+    BotConfig, BotMetrics,
 };
-#[cfg(feature = "osutracking")]
-use crate::manager::OsuTrackingManager;
-#[cfg(feature = "twitch")]
-use crate::tracking::OnlineTwitchStreams;
 use crate::{
     active::{impls::BackgroundGame, ActiveMessages},
-    core::BotConfig,
     tracking::Ordr,
 };
 
@@ -71,7 +68,8 @@ pub struct Context {
     pub member_requests: MemberRequests,
     pub active_msgs: ActiveMessages,
     pub standby: Standby,
-    pub stats: Arc<BotStats>,
+    pub start_time: OffsetDateTime,
+    pub metrics: MetricsReader,
     data: ContextData,
     clients: Clients,
 }
@@ -112,11 +110,30 @@ impl Context {
     }
 
     #[cfg(feature = "twitch")]
-    pub fn online_twitch_streams(&self) -> &OnlineTwitchStreams {
+    pub fn online_twitch_streams(&self) -> &crate::tracking::OnlineTwitchStreams {
         &self.data.online_twitch_streams
     }
 
     pub async fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Result<ContextTuple> {
+        let (_prometheus, reader) = {
+            let prometheus = metrics_exporter_prometheus::PrometheusBuilder::new().build_recorder();
+            let prometheus_handle = prometheus.handle();
+
+            let reader = MetricsReader::new();
+
+            let fanout = FanoutBuilder::default()
+                .add_recorder(prometheus)
+                .add_recorder(reader.clone())
+                .build();
+
+            metrics::set_boxed_recorder(Box::new(fanout))
+                .wrap_err("Failed to install metrics recorder")?;
+
+            (prometheus_handle, reader)
+        };
+
+        let start_time = OffsetDateTime::now_utc();
+
         let config = BotConfig::get();
 
         // Connect to psql database
@@ -145,17 +162,12 @@ impl Context {
 
         let resume_data = cache.defrost().await.wrap_err("Failed to defrost cache")?;
 
-        let (stats, registry) = BotStats::new(osu.metrics());
-
-        if !resume_data.is_empty() {
-            stats.populate(&cache).await;
-        }
+        BotMetrics::init(&cache);
 
         let client_fut = BathbotClient::new(
             #[cfg(feature = "twitch")]
             (&config.tokens.twitch_client_id, &config.tokens.twitch_token),
             &config.tokens.github_token,
-            &registry,
         );
 
         let custom_client = client_fut
@@ -191,13 +203,12 @@ impl Context {
         let shard_senders = RwLock::new(shard_senders);
 
         #[cfg(feature = "server")]
-        let (auth_standby, server_tx) = bathbot_server(config, registry, &stats)
+        let (auth_standby, server_tx) = bathbot_server(config, _prometheus, reader.clone())
             .await
             .wrap_err("Failed to create server")?;
 
         let ctx = Self {
             cache,
-            stats: Arc::new(stats),
             http,
             clients,
             shard_senders,
@@ -208,6 +219,8 @@ impl Context {
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
             active_msgs: ActiveMessages::new(),
+            start_time,
+            metrics: reader,
         };
 
         Ok((
@@ -319,7 +332,7 @@ struct ContextData {
     guild_shards: GuildShards,                // necessary to request members for a guild
     miss_analyzer_guilds: MissAnalyzerGuilds, // read-heavy
     #[cfg(feature = "twitch")]
-    online_twitch_streams: OnlineTwitchStreams,
+    online_twitch_streams: crate::tracking::OnlineTwitchStreams,
 }
 
 impl ContextData {
@@ -350,12 +363,14 @@ impl ContextData {
             #[cfg(feature = "matchlive")]
             matchlive: crate::matchlive::MatchLiveChannels::new(),
             #[cfg(feature = "osutracking")]
-            osu_tracking: crate::tracking::OsuTracking::new(OsuTrackingManager::new(psql))
-                .await
-                .wrap_err("Failed to create osu tracking")?,
+            osu_tracking: crate::tracking::OsuTracking::new(
+                crate::manager::OsuTrackingManager::new(psql),
+            )
+            .await
+            .wrap_err("Failed to create osu tracking")?,
             miss_analyzer_guilds,
             #[cfg(feature = "twitch")]
-            online_twitch_streams: OnlineTwitchStreams::default(),
+            online_twitch_streams: crate::tracking::OnlineTwitchStreams::default(),
         })
     }
 
@@ -504,16 +519,16 @@ async fn discord_gateway(
 #[cfg(feature = "server")]
 async fn bathbot_server(
     config: &BotConfig,
-    registry: prometheus::Registry,
-    stats: &BotStats,
+    prometheus: metrics_exporter_prometheus::PrometheusHandle,
+    metrics_reader: MetricsReader,
 ) -> Result<(
     Arc<bathbot_server::AuthenticationStandby>,
     tokio::sync::oneshot::Sender<()>,
 )> {
     let builder = bathbot_server::AppStateBuilder {
         website_path: config.paths.website.clone(),
-        metrics: registry,
-        guild_counter: stats.cache_counts.guilds.clone(),
+        prometheus,
+        metrics_reader,
         osu_client_id: config.tokens.osu_client_id,
         osu_client_secret: config.tokens.osu_client_secret.to_string(),
         twitch_client_id: config.tokens.twitch_client_id.to_string(),

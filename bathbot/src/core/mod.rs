@@ -2,13 +2,13 @@ pub use self::{
     config::BotConfig,
     context::Context,
     events::{event_loop, EventKind},
-    stats::BotStats,
+    metrics::BotMetrics,
 };
 
 mod config;
 mod context;
 mod events;
-mod stats;
+mod metrics;
 
 pub mod buckets;
 pub mod commands;

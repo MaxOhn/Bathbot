@@ -16,8 +16,8 @@ use bathbot_util::{
     CowUtils, EmbedBuilder, FooterBuilder,
 };
 use rosu_v2::prelude::{
-    GameMode, Grade, MatchEvent, MatchGame, MatchScore, OsuMatch, ScoringType, TeamType,
-    UserCompact, Username,
+    GameMode, Grade, MatchEvent, MatchGame, MatchScore, OsuMatch, ScoringType, TeamType, User,
+    Username,
 };
 use smallvec::SmallVec;
 use twilight_model::channel::message::embed::Embed;
@@ -665,7 +665,7 @@ enum TeamValues {
 fn prepare_scores(
     mode: GameMode,
     scores: &[MatchScore],
-    users: &HashMap<u32, UserCompact>,
+    users: &HashMap<u32, User>,
     scoring: ScoringType,
 ) -> (Scores, ColumnSizes, Option<(u64, u64)>) {
     let mut embed_scores = Scores::with_capacity(users.len());

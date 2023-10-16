@@ -6,7 +6,7 @@ use rosu_pp::{
     catch::CatchDifficultyAttributes, mania::ManiaDifficultyAttributes,
     osu::OsuDifficultyAttributes, taiko::TaikoDifficultyAttributes, DifficultyAttributes,
 };
-use rosu_v2::prelude::{Beatmap, GameMode};
+use rosu_v2::prelude::{BeatmapExtended, GameMode};
 use sqlx::{Postgres, Transaction};
 
 use crate::{
@@ -447,7 +447,7 @@ SET
 
     pub(super) async fn upsert_beatmap(
         tx: &mut Transaction<'_, Postgres>,
-        map: &Beatmap,
+        map: &BeatmapExtended,
     ) -> Result<()> {
         let checksum = match map.checksum {
             Some(ref checksum) => checksum,

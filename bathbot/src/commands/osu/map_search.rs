@@ -4,8 +4,8 @@ use bathbot_macros::{command, SlashCommand};
 use bathbot_util::constants::OSU_API_ISSUE;
 use eyre::{Report, Result};
 use rosu_v2::prelude::{
-    Beatmapset, BeatmapsetSearchResult, BeatmapsetSearchSort, Genre, Language, Osu, OsuResult,
-    RankStatus,
+    BeatmapsetExtended, BeatmapsetSearchResult, BeatmapsetSearchSort, Genre, Language, Osu,
+    OsuResult, RankStatus,
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
@@ -632,7 +632,8 @@ async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> Res
         }
     };
 
-    let maps: BTreeMap<usize, Beatmapset> = search_result.mapsets.drain(..).enumerate().collect();
+    let maps: BTreeMap<usize, BeatmapsetExtended> =
+        search_result.mapsets.drain(..).enumerate().collect();
 
     let pagination = MapSearchPagination::new(maps, search_result, args, orig.user_id()?);
 

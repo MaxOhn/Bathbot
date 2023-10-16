@@ -8,7 +8,7 @@ use bathbot_psql::{
 use bathbot_util::{ExponentialBackoff, IntHasher};
 use eyre::{ContextCompat, Report, WrapErr};
 use rosu_pp::{Beatmap, DifficultyAttributes, GameMode as Mode, ParseError};
-use rosu_v2::prelude::{Beatmapset, GameMode, OsuError, RankStatus};
+use rosu_v2::prelude::{BeatmapsetExtended, GameMode, OsuError, RankStatus};
 use thiserror::Error;
 use time::OffsetDateTime;
 use tokio::{fs, time::sleep};
@@ -265,14 +265,15 @@ impl<'d> MapManager<'d> {
             .wrap_err("Failed to get map checksum")
     }
 
-    pub async fn store(self, mapset: &Beatmapset) -> eyre::Result<()> {
+    pub async fn store(self, mapset: &BeatmapsetExtended) -> eyre::Result<()> {
         self.psql
             .upsert_beatmapset(mapset)
             .await
             .wrap_err("Failed to store mapset")
     }
 
-    /// Request a [`Beatmapset`] from a map id and turn it into a [`OsuMapSlim`]
+    /// Request a [`BeatmapsetExtended`] from a map id and turn it into a
+    /// [`OsuMapSlim`]
     async fn retrieve_map(&self, map_id: u32) -> Result<OsuMapSlim> {
         match self.ctx.osu().beatmapset_from_map_id(map_id).await {
             Ok(mapset) => {
@@ -289,8 +290,8 @@ impl<'d> MapManager<'d> {
         }
     }
 
-    /// Request a [`Beatmapset`] from a mapset id
-    async fn retrieve_mapset(&self, mapset_id: u32) -> Result<Beatmapset> {
+    /// Request a [`BeatmapsetExtended`] from a mapset id
+    async fn retrieve_mapset(&self, mapset_id: u32) -> Result<BeatmapsetExtended> {
         match self.ctx.osu().beatmapset(mapset_id).await {
             Ok(mapset) => {
                 if let Err(err) = self.store(&mapset).await {
@@ -438,7 +439,7 @@ impl OsuMapSlim {
         Self { map, mapset }
     }
 
-    fn try_from_mapset(mut mapset: Beatmapset, map_id: u32) -> Result<Self> {
+    fn try_from_mapset(mut mapset: BeatmapsetExtended, map_id: u32) -> Result<Self> {
         let map = mapset
             .maps
             .take()

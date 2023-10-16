@@ -1,15 +1,17 @@
-use std::{mem, sync::Arc};
+use std::{mem, sync::Arc, time::Instant};
 
 use crate::{
     commands::{
         help::slash_help,
         osu::{slash_badges, slash_cs, slash_medal},
     },
-    core::{events::EventKind, Context},
+    core::{events::EventKind, BotMetrics, Context},
     util::interaction::InteractionCommand,
 };
 
 pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionCommand) {
+    let start = Instant::now();
+
     let name = mem::take(&mut command.data.name);
     EventKind::Autocomplete.log(&ctx, &command, &name).await;
 
@@ -22,6 +24,10 @@ pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionComm
     };
 
     if let Err(err) = res {
+        BotMetrics::inc_command_error("autocomplete", name.clone());
         error!(name, ?err, "Failed to process autocomplete");
     }
+
+    let elapsed = start.elapsed();
+    BotMetrics::observe_command("autocomplete", name, elapsed);
 }

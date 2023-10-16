@@ -1,5 +1,5 @@
 use eyre::{Result, WrapErr};
-use rosu_v2::prelude::{Beatmapset, BeatmapsetCompact};
+use rosu_v2::prelude::{Beatmapset, BeatmapsetExtended};
 use sqlx::{Executor, Postgres};
 
 use crate::{
@@ -55,7 +55,7 @@ WHERE
             .wrap_err("failed to fetch optional")
     }
 
-    pub async fn upsert_beatmapset(&self, mapset: &Beatmapset) -> Result<()> {
+    pub async fn upsert_beatmapset(&self, mapset: &BeatmapsetExtended) -> Result<()> {
         let mut tx = self.begin().await.wrap_err("failed to begin transaction")?;
 
         let query = sqlx::query!(
@@ -127,7 +127,7 @@ SET
 
     pub(super) async fn update_beatmapset_compact<'c, E>(
         executor: E,
-        mapset: &BeatmapsetCompact,
+        mapset: &Beatmapset,
     ) -> Result<()>
     where
         E: Executor<'c, Database = Postgres>,

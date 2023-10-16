@@ -9,9 +9,7 @@ use bathbot_util::{
 use eyre::{Result, WrapErr};
 use image::{GenericImageView, ImageBuffer};
 use rand::Rng;
-use rosu_v2::prelude::{
-    CountryCode, GameMode, GameMods, Grade, Score, UserCompact as UserCompactRosu, Username,
-};
+use rosu_v2::prelude::{CountryCode, GameMode, GameMods, Grade, Score, User as UserRosu, Username};
 use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
@@ -286,9 +284,9 @@ struct UserCompact {
     username: Username,
 }
 
-impl From<UserCompactRosu> for UserCompact {
+impl From<UserRosu> for UserCompact {
     #[inline]
-    fn from(user: UserCompactRosu) -> Self {
+    fn from(user: UserRosu) -> Self {
         Self {
             avatar_url: user.avatar_url.into_boxed_str(),
             country_code: user.country_code,

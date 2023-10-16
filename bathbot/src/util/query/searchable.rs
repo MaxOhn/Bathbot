@@ -4,7 +4,9 @@ use bathbot_model::{OsuTrackerCountryScore, ScoreSlim};
 use bathbot_psql::model::osu::{DbBeatmap, DbBeatmapset};
 use bathbot_util::CowUtils;
 use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap as Map, GameMode as Mode, Mods};
-use rosu_v2::prelude::{Beatmap, Beatmapset, GameModIntermode, GameMode, GameMods, Score};
+use rosu_v2::prelude::{
+    BeatmapExtended, BeatmapsetExtended, GameModIntermode, GameMode, GameMods, Score,
+};
 
 use super::{FilterCriteria, RegularCriteria as RC};
 use crate::{commands::osu::TopIfEntry, manager::OsuMap};
@@ -13,7 +15,7 @@ pub trait Searchable<F> {
     fn matches(&self, criteria: &FilterCriteria<F>) -> bool;
 }
 
-impl Searchable<RC<'_>> for Beatmap {
+impl Searchable<RC<'_>> for BeatmapExtended {
     fn matches(&self, criteria: &FilterCriteria<RC<'_>>) -> bool {
         let mut matches = true;
 
@@ -58,7 +60,7 @@ impl Searchable<RC<'_>> for DbBeatmap {
     }
 }
 
-impl Searchable<RC<'_>> for Beatmapset {
+impl Searchable<RC<'_>> for BeatmapsetExtended {
     fn matches(&self, criteria: &FilterCriteria<RC<'_>>) -> bool {
         let mut matches = true;
 

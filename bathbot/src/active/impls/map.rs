@@ -11,7 +11,9 @@ use bathbot_util::{
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
 use rosu_pp::{AnyPP, BeatmapExt};
-use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameModsIntermode, Username};
+use rosu_v2::prelude::{
+    BeatmapExtended, BeatmapsetExtended, GameMode, GameModsIntermode, Username,
+};
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -34,9 +36,9 @@ use crate::{
 
 #[derive(PaginationBuilder)]
 pub struct MapPagination {
-    mapset: Beatmapset,
+    mapset: BeatmapsetExtended,
     #[pagination(per_page = 1)]
-    maps: Box<[Beatmap]>,
+    maps: Box<[BeatmapExtended]>,
     mods: GameModsIntermode,
     attrs: CustomAttrs,
     origin: MessageOrigin,
@@ -312,8 +314,8 @@ impl MapPagination {
 
 async fn creator_name<'m>(
     ctx: &Context,
-    map: &Beatmap,
-    mapset: &'m Beatmapset,
+    map: &BeatmapExtended,
+    mapset: &'m BeatmapsetExtended,
 ) -> Option<Username> {
     if map.creator_id == mapset.creator_id {
         return None;
