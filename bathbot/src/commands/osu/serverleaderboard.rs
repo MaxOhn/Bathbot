@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::SlashCommand;
-use bathbot_model::{RankingKind, UserModeStatsColumn, UserStatsColumn, UserStatsKind};
+use bathbot_model::{Countries, RankingKind, UserModeStatsColumn, UserStatsColumn, UserStatsKind};
 use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
@@ -43,6 +43,18 @@ pub enum ServerLeaderboard {
     Mania(ServerLeaderboardMania),
 }
 
+impl ServerLeaderboard {
+    fn country(&self) -> Option<&str> {
+        match self {
+            Self::AllModes(args) => args.country.as_deref(),
+            Self::Osu(args) => args.country.as_deref(),
+            Self::Taiko(args) => args.country.as_deref(),
+            Self::Catch(args) => args.country.as_deref(),
+            Self::Mania(args) => args.country.as_deref(),
+        }
+    }
+}
+
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "all_modes",
@@ -57,6 +69,8 @@ pub struct ServerLeaderboardAllModes {
         - `Played maps`: Only maps with leaderboards count i.e. ranked, loved, or approved maps"
     )]
     kind: UserStatsColumn,
+    #[command(desc = "Specify a country (code)")]
+    country: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -67,6 +81,8 @@ pub struct ServerLeaderboardAllModes {
 pub struct ServerLeaderboardOsu {
     #[command(desc = "Specify what kind of leaderboard to show")]
     kind: UserModeStatsColumn,
+    #[command(desc = "Specify a country (code)")]
+    country: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -77,6 +93,8 @@ pub struct ServerLeaderboardOsu {
 pub struct ServerLeaderboardTaiko {
     #[command(desc = "Specify what kind of leaderboard to show")]
     kind: UserModeStatsColumn,
+    #[command(desc = "Specify a country (code)")]
+    country: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -87,6 +105,8 @@ pub struct ServerLeaderboardTaiko {
 pub struct ServerLeaderboardCatch {
     #[command(desc = "Specify what kind of leaderboard to show")]
     kind: UserModeStatsColumn,
+    #[command(desc = "Specify a country (code)")]
+    country: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -97,6 +117,27 @@ pub struct ServerLeaderboardCatch {
 pub struct ServerLeaderboardMania {
     #[command(desc = "Specify what kind of leaderboard to show")]
     kind: UserModeStatsColumn,
+    #[command(desc = "Specify a country (code)")]
+    country: Option<String>,
+}
+
+async fn country_code<'a>(
+    ctx: &Context,
+    command: &InteractionCommand,
+    country: &'a str,
+) -> Result<Option<Cow<'a, str>>> {
+    match Countries::name(country).to_code() {
+        Some(code) => Ok(Some(code.into())),
+        None if country.len() == 2 => Ok(Some(country.to_ascii_uppercase().into())),
+        None => {
+            let content =
+                format!("Looks like `{country}` is neither a country name nor a country code");
+
+            command.error(ctx, content).await?;
+
+            return Ok(None);
+        }
+    }
 }
 
 async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
@@ -124,9 +165,19 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
 
     let author_name_fut = ctx.user_config().osu_name(owner);
 
-    let ((author_name_res, entries_res), kind) = match args {
+    let ((author_name_res, entries_res), kind) = match &args {
         ServerLeaderboard::AllModes(args) => {
-            let entries_fut = ctx.osu_user().stats(&members, args.kind);
+            let country_code = match args.country.as_deref() {
+                Some(country) => match country_code(&ctx, &command, country).await? {
+                    code @ Some(_) => code,
+                    None => return Ok(()),
+                },
+                None => None,
+            };
+
+            let entries_fut = ctx
+                .osu_user()
+                .stats(&members, args.kind, country_code.as_deref());
 
             let kind = RankingKind::UserStats {
                 guild_icon,
@@ -136,9 +187,20 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
             (tokio::join!(author_name_fut, entries_fut), kind)
         }
         ServerLeaderboard::Osu(args) => {
-            let entries_fut = ctx
-                .osu_user()
-                .stats_mode(&members, GameMode::Osu, args.kind);
+            let country_code = match args.country.as_deref() {
+                Some(country) => match country_code(&ctx, &command, country).await? {
+                    code @ Some(_) => code,
+                    None => return Ok(()),
+                },
+                None => None,
+            };
+
+            let entries_fut = ctx.osu_user().stats_mode(
+                &members,
+                GameMode::Osu,
+                args.kind,
+                country_code.as_deref(),
+            );
 
             let kind = RankingKind::UserStats {
                 guild_icon,
@@ -151,9 +213,20 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
             (tokio::join!(author_name_fut, entries_fut), kind)
         }
         ServerLeaderboard::Taiko(args) => {
-            let entries_fut = ctx
-                .osu_user()
-                .stats_mode(&members, GameMode::Taiko, args.kind);
+            let country_code = match args.country.as_deref() {
+                Some(country) => match country_code(&ctx, &command, country).await? {
+                    code @ Some(_) => code,
+                    None => return Ok(()),
+                },
+                None => None,
+            };
+
+            let entries_fut = ctx.osu_user().stats_mode(
+                &members,
+                GameMode::Taiko,
+                args.kind,
+                country_code.as_deref(),
+            );
 
             let kind = RankingKind::UserStats {
                 guild_icon,
@@ -166,9 +239,20 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
             (tokio::join!(author_name_fut, entries_fut), kind)
         }
         ServerLeaderboard::Catch(args) => {
-            let entries_fut = ctx
-                .osu_user()
-                .stats_mode(&members, GameMode::Catch, args.kind);
+            let country_code = match args.country.as_deref() {
+                Some(country) => match country_code(&ctx, &command, country).await? {
+                    code @ Some(_) => code,
+                    None => return Ok(()),
+                },
+                None => None,
+            };
+
+            let entries_fut = ctx.osu_user().stats_mode(
+                &members,
+                GameMode::Catch,
+                args.kind,
+                country_code.as_deref(),
+            );
 
             let kind = RankingKind::UserStats {
                 guild_icon,
@@ -181,9 +265,20 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
             (tokio::join!(author_name_fut, entries_fut), kind)
         }
         ServerLeaderboard::Mania(args) => {
-            let entries_fut = ctx
-                .osu_user()
-                .stats_mode(&members, GameMode::Mania, args.kind);
+            let country_code = match args.country.as_deref() {
+                Some(country) => match country_code(&ctx, &command, country).await? {
+                    code @ Some(_) => code,
+                    None => return Ok(()),
+                },
+                None => None,
+            };
+
+            let entries_fut = ctx.osu_user().stats_mode(
+                &members,
+                GameMode::Mania,
+                args.kind,
+                country_code.as_deref(),
+            );
 
             let kind = RankingKind::UserStats {
                 guild_icon,
@@ -216,12 +311,17 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
     };
 
     if entries.is_empty() {
-        let content = "No user data found for members of this server :(\n\
+        let content = if args.country().is_some() {
+            "No user data found for members of this server from that country"
+        } else {
+            // TODO: mention commands
+            "No user data found for members of this server :(\n\
             There could be three reasons:\n\
             - Members of this server are not linked through the `/link` command\n\
             - Their osu! user stats have not been cached yet. \
             Try using any command that retrieves an osu! user, e.g. `/profile`, in order to cache them.\n\
-            - Members of this server are not stored as such. Maybe let bade know :eyes:";
+            - Members of this server are not stored as such. Maybe let bade know :eyes:"
+        };
 
         command.error(&ctx, content).await?;
 

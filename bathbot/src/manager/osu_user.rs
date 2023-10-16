@@ -58,9 +58,10 @@ impl<'d> OsuUserManager<'d> {
         self,
         discord_ids: &[i64],
         column: UserStatsColumn,
+        country_code: Option<&str>,
     ) -> Result<RankingEntries> {
         self.psql
-            .select_osu_user_stats(discord_ids, column)
+            .select_osu_user_stats(discord_ids, column, country_code)
             .await
             .map(RankingEntries::from)
             .wrap_err("Failed to get user stats")
@@ -71,9 +72,10 @@ impl<'d> OsuUserManager<'d> {
         discord_ids: &[i64],
         mode: GameMode,
         column: UserModeStatsColumn,
+        country_code: Option<&str>,
     ) -> Result<RankingEntries> {
         self.psql
-            .select_osu_user_mode_stats(discord_ids, mode, column)
+            .select_osu_user_mode_stats(discord_ids, mode, column, country_code)
             .await
             .map(RankingEntries::from)
             .wrap_err("Failed to get user mode stats")
