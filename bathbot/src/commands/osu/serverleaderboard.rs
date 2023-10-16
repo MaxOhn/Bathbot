@@ -9,6 +9,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     active::{impls::RankingPagination, ActiveMessages},
+    core::commands::interaction::InteractionCommands,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
@@ -312,15 +313,27 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
 
     if entries.is_empty() {
         let content = if args.country().is_some() {
-            "No user data found for members of this server from that country"
+            "No user data found for members of this server from that country".to_owned()
         } else {
-            // TODO: mention commands
-            "No user data found for members of this server :(\n\
-            There could be three reasons:\n\
-            - Members of this server are not linked through the `/link` command\n\
-            - Their osu! user stats have not been cached yet. \
-            Try using any command that retrieves an osu! user, e.g. `/profile`, in order to cache them.\n\
-            - Members of this server are not stored as such. Maybe let bade know :eyes:"
+            let link = InteractionCommands::get_command("link").map_or_else(
+                || "`/link`".to_owned(),
+                |cmd| cmd.mention("link").to_string(),
+            );
+
+            let profile = InteractionCommands::get_command("profile").map_or_else(
+                || "`/profile`".to_owned(),
+                |cmd| cmd.mention("profile").to_string(),
+            );
+
+            format!(
+                "No user data found for members of this server :(\n\
+                There could be three reasons:\n\
+                - Members of this server are not linked through the {link} command\n\
+                - Their osu! user stats have not been cached yet. \
+                Try using any command that retrieves an osu! user, e.g. {profile}, \
+                in order to cache them.\n\
+                - Members of this server are not stored as such. Maybe let bade know :eyes:"
+            )
         };
 
         command.error(&ctx, content).await?;
