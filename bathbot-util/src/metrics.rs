@@ -53,6 +53,12 @@ pub struct MetricsReader {
     inner: Arc<Inner>,
 }
 
+impl Default for MetricsReader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsReader {
     pub fn new() -> Self {
         Self {

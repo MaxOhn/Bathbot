@@ -238,7 +238,7 @@ impl ActiveMessages {
             }
         }
 
-        handle_component_inner(&ctx, active_msg, &activity_tx, &mut component).await;
+        handle_component_inner(&ctx, active_msg, activity_tx, &mut component).await;
 
         let elapsed = start.elapsed();
         BotMetrics::observe_command("component", component.data.custom_id, elapsed);
@@ -320,7 +320,7 @@ impl ActiveMessages {
             }
         }
 
-        handle_modal_inner(&ctx, active_msg, &activity_tx, &mut modal).await;
+        handle_modal_inner(&ctx, active_msg, activity_tx, &mut modal).await;
 
         let elapsed = start.elapsed();
         BotMetrics::observe_command("modal", modal.data.custom_id, elapsed);
