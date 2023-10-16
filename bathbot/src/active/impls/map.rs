@@ -169,7 +169,7 @@ impl MapPagination {
         let mut pp_values = String::with_capacity(128);
         let mut lens = Vec::with_capacity(ACCS.len());
 
-        pp_values.push_str("```\nAcc ");
+        pp_values.push_str("```ansi\nAcc ");
 
         for (pp, &acc) in pps.iter().zip(&ACCS) {
             let acc = acc.to_string() + "%";
@@ -186,8 +186,11 @@ impl MapPagination {
 
         pp_values.push_str("\n PP ");
 
+        let bold = "\u{001b}[1m";
+        let reset = "\u{001b}[0m";
+
         for (pp, len) in pps.iter().zip(&lens) {
-            let _ = write!(pp_values, "|{pp:^len$}");
+            let _ = write!(pp_values, "|{bold}{pp:^len$}{reset}");
         }
 
         pp_values.push_str("\n```");
