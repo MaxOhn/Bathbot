@@ -14,7 +14,8 @@ futures = { version = "0.3", default-features = false }
 handlebars = { version = "4.0" }
 hyper = { version = "0.14", default-features = false, features = ["server"] }
 hyper-rustls = { version = "0.24.1", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
-prometheus = { version = "0.13" }
+metrics = { version = "0.21.1" }
+metrics-exporter-prometheus = { version = "0.12.1", default-features = false }
 rosu-v2 = { workspace = true }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = { version = "1.0" }

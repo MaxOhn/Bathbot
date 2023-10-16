@@ -4,7 +4,7 @@ use bathbot_model::{RankingEntries, UserModeStatsColumn, UserStatsColumn};
 use bathbot_psql::Database;
 use bathbot_util::{CowUtils, IntHasher};
 use eyre::{Result, WrapErr};
-use rosu_v2::prelude::{GameMode, User, Username};
+use rosu_v2::prelude::{GameMode, UserExtended, Username};
 
 #[derive(Copy, Clone)]
 pub struct OsuUserManager<'d> {
@@ -86,7 +86,7 @@ impl<'d> OsuUserManager<'d> {
             .wrap_err("Failed to upsert osu username")
     }
 
-    pub async fn store_user(self, user: &User, mode: GameMode) -> Result<()> {
+    pub async fn store_user(self, user: &UserExtended, mode: GameMode) -> Result<()> {
         self.psql
             .upsert_osu_user(user, mode)
             .await

@@ -27,7 +27,7 @@ pub async fn cache(ctx: Arc<Context>, command: InteractionCommand) -> Result<()>
     let embed = EmbedBuilder::new()
         .description(description)
         .footer(FooterBuilder::new("Boot time"))
-        .timestamp(ctx.stats.start_time);
+        .timestamp(ctx.start_time);
 
     let builder = MessageBuilder::new().embed(embed);
     command.callback(&ctx, builder, false).await?;

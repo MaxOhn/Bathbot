@@ -10,8 +10,8 @@ use bathbot_util::{
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_v2::prelude::{
-    BeatmapCompact, GameMode, GameModsIntermode, Grade, MatchEvent, MatchGame, MatchScore,
-    OsuMatch, Team, Username,
+    Beatmap, GameMode, GameModsIntermode, Grade, MatchEvent, MatchGame, MatchScore, OsuMatch, Team,
+    Username,
 };
 use twilight_model::{
     channel::message::Component,
@@ -518,7 +518,7 @@ impl UniqueMap {
     }
 }
 
-fn map_name(map: &BeatmapCompact) -> Box<str> {
+fn map_name(map: &Beatmap) -> Box<str> {
     let mut name = String::new();
 
     if let Some(ref mapset) = map.mapset {

@@ -9,7 +9,7 @@ use bathbot_util::{
     CowUtils, EmbedBuilder, MessageBuilder,
 };
 use eyre::{ContextCompat, Result};
-use prometheus::core::Collector;
+use metrics::Key;
 use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateCommand};
 use twilight_model::{
     application::command::{Command, CommandOptionChoice, CommandOptionChoiceValue},
@@ -130,7 +130,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         value: WithComma::new(stats.guilds + stats.unavailable_guilds).to_string(),
     };
 
-    let boot_time = ctx.stats.start_time;
+    let boot_time = ctx.start_time;
 
     let boot_up = EmbedField {
         inline: true,
@@ -144,11 +144,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         value: format!("The source code can be found over at [github]({BATHBOT_GITHUB})"),
     };
 
-    let commands_used: usize = ctx.stats.command_counts.prefix_commands.collect()[0]
-        .get_metric()
-        .iter()
-        .map(|metrics| metrics.get_counter().get_value() as usize)
-        .sum();
+    let commands_used = ctx.metrics.sum_counters(&Key::from_static_name("commands"));
 
     let commands_used = EmbedField {
         inline: true,
@@ -156,11 +152,8 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         value: WithComma::new(commands_used).to_string(),
     };
 
-    let osu_requests: usize = ctx.stats.osu_metrics.rosu.collect()[0]
-        .get_metric()
-        .iter()
-        .map(|metric| metric.get_counter().get_value() as usize)
-        .sum();
+    let key = Key::from_static_name("osu_response_time");
+    let osu_requests = ctx.metrics.sum_histograms(&key);
 
     let osu_requests = EmbedField {
         inline: true,

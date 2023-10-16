@@ -5,6 +5,7 @@ mod ext;
 mod hasher;
 mod macros;
 mod matrix;
+mod metrics;
 mod msg_origin;
 mod tourney_badges;
 
@@ -22,6 +23,7 @@ pub use self::{
     ext::*,
     hasher::{IntHash, IntHasher},
     matrix::Matrix,
+    metrics::MetricsReader,
     msg_origin::MessageOrigin,
     tourney_badges::TourneyBadges,
 };

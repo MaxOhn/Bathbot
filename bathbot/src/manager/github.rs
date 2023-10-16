@@ -2,7 +2,10 @@ use bathbot_cache::Cache;
 use bathbot_model::{PullRequests, PullRequestsAndTags};
 use eyre::{Result, WrapErr};
 
-use crate::{core::Context, manager::redis::RedisData};
+use crate::{
+    core::{BotMetrics, Context},
+    manager::redis::RedisData,
+};
 
 pub struct GithubManager<'a> {
     ctx: &'a Context,
@@ -29,7 +32,7 @@ impl GithubManager<'_> {
 
         let mut conn = match self.ctx.cache.fetch(&key).await {
             Ok(Ok(prs)) => {
-                self.ctx.stats.inc_cached_github_prs();
+                BotMetrics::inc_redis_hit("github prs");
 
                 return Ok(RedisData::Archive(prs));
             }

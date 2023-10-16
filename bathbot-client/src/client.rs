@@ -13,12 +13,9 @@ use hyper::{
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use leaky_bucket_lite::LeakyBucket;
-use prometheus::Registry;
 use tokio::time::Duration;
 
 use crate::{metrics::ClientMetrics, multipart::Multipart, ClientError, Site, MY_USER_AGENT};
-
-const INTERNAL_ERROR: &str = "500";
 
 pub(crate) type InnerClient = HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>;
 
@@ -28,7 +25,6 @@ pub struct Client {
     twitch: bathbot_model::TwitchData,
     github_auth: Box<str>,
     ratelimiters: [LeakyBucket; 15],
-    metrics: ClientMetrics,
 }
 
 impl Client {
@@ -36,9 +32,8 @@ impl Client {
     pub async fn new(
         #[cfg(feature = "twitch")] (twitch_client_id, twitch_token): (&str, &str),
         github_token: &str,
-        metrics: &Registry,
     ) -> Result<Self> {
-        let metrics = ClientMetrics::new(metrics).wrap_err("failed to create client metrics")?;
+        ClientMetrics::init();
 
         let connector = HttpsConnectorBuilder::new()
             .with_webpki_roots()
@@ -87,13 +82,14 @@ impl Client {
             ratelimiter(5), // Twitch
         ];
 
+        ClientMetrics::init();
+
         Ok(Self {
             client,
             ratelimiters,
             #[cfg(feature = "twitch")]
             twitch,
             github_auth,
-            metrics,
         })
     }
 
@@ -141,12 +137,9 @@ impl Client {
             .wrap_err("failed to receive GET response")?;
 
         let bytes_res = Self::error_for_status(response, url).await;
-        let latency = start.elapsed().as_secs_f64();
 
-        self.metrics
-            .response_time
-            .with_label_values(&[site.as_str()])
-            .observe(latency);
+        let latency = start.elapsed();
+        ClientMetrics::observe(site, latency);
 
         bytes_res
     }
@@ -180,12 +173,9 @@ impl Client {
             .wrap_err("Failed to receive POST multipart response")?;
 
         let bytes_res = Self::error_for_status(response, url).await;
-        let latency = start.elapsed().as_secs_f64();
 
-        self.metrics
-            .response_time
-            .with_label_values(&[site.as_str()])
-            .observe(latency);
+        let latency = start.elapsed();
+        ClientMetrics::observe(site, latency);
 
         bytes_res
     }
@@ -222,12 +212,9 @@ impl Client {
             .wrap_err("Failed to receive POST response")?;
 
         let bytes_res = Self::error_for_status(response, url).await;
-        let latency = start.elapsed().as_secs_f64();
 
-        self.metrics
-            .response_time
-            .with_label_values(&[site.as_str()])
-            .observe(latency);
+        let latency = start.elapsed();
+        ClientMetrics::observe(site, latency);
 
         bytes_res
     }
@@ -261,16 +248,9 @@ impl Client {
         let response_fut = self.client.request(req);
 
         match response_fut.await {
-            Ok(res) => {
-                let status = res.status().as_u16().to_string();
-                let labels = [site.as_str(), status.as_str()];
-                self.metrics.request_count.with_label_values(&labels).inc();
-
-                Ok((res, start))
-            }
+            Ok(res) => Ok((res, start)),
             Err(err) => {
-                let labels = [site.as_str(), INTERNAL_ERROR];
-                self.metrics.request_count.with_label_values(&labels).inc();
+                ClientMetrics::internal_error(site);
 
                 Err(err)
             }

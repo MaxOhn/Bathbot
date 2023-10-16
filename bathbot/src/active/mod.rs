@@ -1,4 +1,8 @@
-use std::{future::ready, sync::Arc, time::Duration};
+use std::{
+    future::ready,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use bathbot_util::{modal::ModalBuilder, EmbedBuilder, IntHasher, MessageBuilder};
 use enum_dispatch::enum_dispatch;
@@ -34,7 +38,7 @@ use self::{
     },
 };
 use crate::{
-    core::{Context, EventKind},
+    core::{BotMetrics, Context, EventKind},
     util::{
         interaction::{InteractionComponent, InteractionModal},
         ComponentExt, MessageExt, ModalExt,
@@ -127,6 +131,8 @@ impl ActiveMessages {
     }
 
     pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionComponent) {
+        let start = Instant::now();
+
         EventKind::Component
             .log(&ctx, &component, &component.data.custom_id)
             .await;
@@ -146,63 +152,101 @@ impl ActiveMessages {
             );
         };
 
-        match active_msg
-            .handle_component(Arc::clone(&ctx), &mut component)
-            .await
-        {
-            ComponentResult::BuildPage => match active_msg.build_page(Arc::clone(&ctx)).await {
-                Ok(build) => {
-                    let mut builder = MessageBuilder::new()
-                        .embed(build.embed)
-                        .components(active_msg.build_components());
+        async fn handle_component_inner(
+            ctx: &Arc<Context>,
+            active_msg: &mut ActiveMessage,
+            activity_tx: &Sender<()>,
+            component: &mut InteractionComponent,
+        ) {
+            match active_msg
+                .handle_component(Arc::clone(ctx), component)
+                .await
+            {
+                ComponentResult::BuildPage => match active_msg.build_page(Arc::clone(ctx)).await {
+                    Ok(build) => {
+                        let mut builder = MessageBuilder::new()
+                            .embed(build.embed)
+                            .components(active_msg.build_components());
 
-                    if let Some(ref content) = build.content {
-                        builder = builder.content(content.as_ref());
-                    }
+                        if let Some(ref content) = build.content {
+                            builder = builder.content(content.as_ref());
+                        }
 
-                    if build.defer {
-                        if let Err(err) = component.update(&ctx, builder).await {
+                        if build.defer {
+                            if let Err(err) = component.update(ctx, builder).await {
+                                BotMetrics::inc_command_error(
+                                    "component",
+                                    component.data.custom_id.clone(),
+                                );
+
+                                return error!(
+                                    name = %component.data.custom_id,
+                                    ?err,
+                                    "Failed to update component",
+                                );
+                            }
+                        } else if let Err(err) = component.callback(ctx, builder).await {
+                            BotMetrics::inc_command_error(
+                                "component",
+                                component.data.custom_id.clone(),
+                            );
+
                             return error!(
                                 name = %component.data.custom_id,
                                 ?err,
-                                "Failed to update component",
+                                "Failed to callback component",
                             );
                         }
-                    } else if let Err(err) = component.callback(&ctx, builder).await {
-                        return error!(
+
+                        let _ = activity_tx.send(());
+                    }
+                    Err(err) => {
+                        BotMetrics::inc_command_error(
+                            "component",
+                            component.data.custom_id.clone(),
+                        );
+
+                        error!(
                             name = %component.data.custom_id,
                             ?err,
-                            "Failed to callback component",
+                            "Failed to build page for component",
+                        )
+                    }
+                },
+                ComponentResult::CreateModal(modal) => {
+                    if let Err(err) = component.modal(ctx, modal).await {
+                        BotMetrics::inc_command_error(
+                            "component",
+                            component.data.custom_id.clone(),
                         );
+
+                        return error!(?err, "Failed to create modal");
                     }
 
                     let _ = activity_tx.send(());
                 }
-                Err(err) => error!(
-                    name = %component.data.custom_id,
-                    ?err,
-                    "Failed to build page for component",
-                ),
-            },
-            ComponentResult::CreateModal(modal) => {
-                if let Err(err) = component.modal(&ctx, modal).await {
-                    return error!(?err, "Failed to create modal");
-                }
+                ComponentResult::Err(err) => {
+                    BotMetrics::inc_command_error("component", component.data.custom_id.clone());
 
-                let _ = activity_tx.send(());
+                    error!(
+                        name = %component.data.custom_id,
+                        ?err,
+                        "Failed to process component",
+                    )
+                }
+                ComponentResult::Ignore => {}
             }
-            ComponentResult::Err(err) => {
-                error!(
-                    name = %component.data.custom_id,
-                    ?err,
-                    "Failed to process component",
-                )
-            }
-            ComponentResult::Ignore => {}
         }
+
+        handle_component_inner(&ctx, active_msg, &activity_tx, &mut component).await;
+
+        let elapsed = start.elapsed();
+        BotMetrics::observe_command("component", component.data.custom_id, elapsed);
     }
 
     pub async fn handle_modal(ctx: Arc<Context>, mut modal: InteractionModal) {
+        let start = Instant::now();
+
         EventKind::Modal
             .log(&ctx, &modal, &modal.data.custom_id)
             .await;
@@ -220,44 +264,66 @@ impl ActiveMessages {
             return error!(name = %modal.data.custom_id, ?modal, "Unknown modal");
         };
 
-        if let Err(err) = active_msg.handle_modal(&ctx, &mut modal).await {
-            return error!(name = %modal.data.custom_id, ?err, "Failed to process modal");
-        }
+        async fn handle_modal_inner(
+            ctx: &Arc<Context>,
+            active_msg: &mut ActiveMessage,
+            activity_tx: &Sender<()>,
+            modal: &mut InteractionModal,
+        ) {
+            if let Err(err) = active_msg.handle_modal(ctx, modal).await {
+                BotMetrics::inc_command_error("modal", modal.data.custom_id.clone());
 
-        match active_msg.build_page(Arc::clone(&ctx)).await {
-            Ok(build) => {
-                let mut builder = MessageBuilder::new()
-                    .embed(build.embed)
-                    .components(active_msg.build_components());
+                return error!(name = %modal.data.custom_id, ?err, "Failed to process modal");
+            }
 
-                if let Some(ref content) = build.content {
-                    builder = builder.content(content.as_ref());
-                }
+            match active_msg.build_page(Arc::clone(ctx)).await {
+                Ok(build) => {
+                    let mut builder = MessageBuilder::new()
+                        .embed(build.embed)
+                        .components(active_msg.build_components());
 
-                if build.defer {
-                    if let Err(err) = modal.update(&ctx, builder).await {
+                    if let Some(ref content) = build.content {
+                        builder = builder.content(content.as_ref());
+                    }
+
+                    if build.defer {
+                        if let Err(err) = modal.update(ctx, builder).await {
+                            BotMetrics::inc_command_error("modal", modal.data.custom_id.clone());
+
+                            return error!(
+                                name = %modal.data.custom_id,
+                                ?err,
+                                "Failed to update modal",
+                            );
+                        }
+                    } else if let Err(err) = modal.callback(ctx, builder).await {
+                        BotMetrics::inc_command_error("modal", modal.data.custom_id.clone());
+
                         return error!(
                             name = %modal.data.custom_id,
                             ?err,
-                            "Failed to update modal",
+                            "Failed to callback modal",
                         );
                     }
-                } else if let Err(err) = modal.callback(&ctx, builder).await {
-                    return error!(
+
+                    let _ = activity_tx.send(());
+                }
+                Err(err) => {
+                    BotMetrics::inc_command_error("modal", modal.data.custom_id.clone());
+
+                    error!(
                         name = %modal.data.custom_id,
                         ?err,
-                        "Failed to callback modal",
-                    );
+                        "Failed to build page for modal",
+                    )
                 }
-
-                let _ = activity_tx.send(());
             }
-            Err(err) => error!(
-                name = %modal.data.custom_id,
-                ?err,
-                "Failed to build page for modal",
-            ),
         }
+
+        handle_modal_inner(&ctx, active_msg, &activity_tx, &mut modal).await;
+
+        let elapsed = start.elapsed();
+        BotMetrics::observe_command("modal", modal.data.custom_id, elapsed);
     }
 
     pub async fn clear(&self) {

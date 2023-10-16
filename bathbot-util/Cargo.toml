@@ -5,7 +5,9 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
-once_cell = { version = "1.0" }
+metrics = { version = "0.21.1" }
+metrics-util = { version = "0.15.1" }
+once_cell = { version = "1.0" } # TODO: remove
 regex = { version = "1.0" }
 rosu-v2 = { workspace = true }
 time = { version = "0.3", features = ["parsing"] }

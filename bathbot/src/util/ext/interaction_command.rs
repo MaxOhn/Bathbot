@@ -4,7 +4,10 @@ use bathbot_util::{EmbedBuilder, MessageBuilder};
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_interactions::command::CommandInputData;
 use twilight_model::{
-    application::command::CommandOptionChoice,
+    application::{
+        command::{CommandOptionChoice, CommandType},
+        interaction::application_command::CommandOptionValue,
+    },
     channel::{message::MessageFlags, Message},
     guild::Permissions,
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
@@ -15,6 +18,12 @@ use crate::{core::Context, util::interaction::InteractionCommand};
 pub trait InteractionCommandExt {
     /// Extract input data containing options and resolved values
     fn input_data(&mut self) -> CommandInputData<'static>;
+
+    /// Returns the command's subcommand group and subcommand.
+    ///
+    /// If either is not present, their name will be an empty string.
+    /// If the method was not called on a slash commands, `None` is returned.
+    fn group_sub(&self) -> Option<(Cow<'static, str>, Cow<'static, str>)>;
 
     /// Ackowledge the command and respond immediatly.
     fn callback(
@@ -73,6 +82,34 @@ impl InteractionCommandExt for InteractionCommand {
             options: mem::take(&mut self.data.options),
             resolved: self.data.resolved.take().map(Cow::Owned),
         }
+    }
+
+    #[inline]
+    fn group_sub(&self) -> Option<(Cow<'static, str>, Cow<'static, str>)> {
+        if self.data.kind != CommandType::ChatInput {
+            return None;
+        }
+
+        let Some(option) = self.data.options.first() else {
+            return Some(Default::default());
+        };
+
+        let group_sub = match option.value {
+            CommandOptionValue::SubCommand(_) => (Default::default(), option.name.clone().into()),
+            CommandOptionValue::SubCommandGroup(ref vec) => {
+                let group = option.name.clone().into();
+
+                let sub = match vec.first() {
+                    Some(sub) => sub.name.clone().into(),
+                    None => Default::default(),
+                };
+
+                (group, sub)
+            }
+            _ => Default::default(),
+        };
+
+        Some(group_sub)
     }
 
     #[inline]

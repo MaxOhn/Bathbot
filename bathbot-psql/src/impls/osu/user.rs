@@ -3,7 +3,7 @@ use std::{cmp::Ordering, collections::HashMap, hash::BuildHasher, mem};
 use bathbot_model::{UserModeStatsColumn, UserStatsColumn, UserStatsEntries, UserStatsEntry};
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
-use rosu_v2::prelude::{GameMode, User, Username};
+use rosu_v2::prelude::{GameMode, UserExtended, Username};
 use time::OffsetDateTime;
 
 use crate::{
@@ -799,7 +799,7 @@ WHERE
         Ok(names)
     }
 
-    pub async fn upsert_osu_user(&self, user: &User, mode: GameMode) -> Result<()> {
+    pub async fn upsert_osu_user(&self, user: &UserExtended, mode: GameMode) -> Result<()> {
         let mut tx = self.begin().await.wrap_err("failed to begin transaction")?;
 
         let query = sqlx::query!(

@@ -1,4 +1,4 @@
-use std::{mem, sync::Arc};
+use std::{mem, sync::Arc, time::Instant};
 
 use eyre::Result;
 
@@ -9,12 +9,14 @@ use crate::{
             interaction::{InteractionCommandKind, InteractionCommands, SlashCommand},
         },
         events::{EventKind, ProcessResult},
-        BotConfig, Context,
+        BotConfig, BotMetrics, Context,
     },
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
 pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) {
+    let start = Instant::now();
+
     let name = mem::take(&mut command.data.name);
     EventKind::InteractionCommand
         .log(&ctx, &command, &name)
@@ -24,10 +26,26 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) 
         return error!(name, "Unknown interaction command");
     };
 
+    let group_sub = command.group_sub();
+
     match process_command(ctx, command, cmd).await {
         Ok(ProcessResult::Success) => info!(%name, "Processed interaction command"),
         Ok(reason) => info!(?reason, "Interaction command `{name}` was not processed"),
-        Err(err) => error!(name, ?err, "Failed to process interaction command"),
+        Err(err) => {
+            match group_sub.clone() {
+                Some((group, sub)) => BotMetrics::inc_slash_command_error(name.clone(), group, sub),
+                None => BotMetrics::inc_command_error("message", name.clone()),
+            }
+
+            error!(name, ?err, "Failed to process interaction command");
+        }
+    }
+
+    let elapsed = start.elapsed();
+
+    match group_sub {
+        Some((group, sub)) => BotMetrics::observe_slash_command(name, group, sub, elapsed),
+        None => BotMetrics::observe_command("message", name, elapsed),
     }
 }
 
