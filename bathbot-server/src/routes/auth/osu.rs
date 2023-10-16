@@ -48,13 +48,13 @@ async fn auth(
         return Err(AuthError::EmptyStandby);
     }
 
-    let mut redirect = state.redirect_base.clone();
+    let mut redirect = state.redirect_base.to_string();
     redirect.push_str("/auth/osu");
 
     let osu = Osu::builder()
         .client_id(state.osu_client_id)
-        .client_secret(&state.osu_client_secret)
-        .with_authorization(params.code, &redirect)
+        .client_secret(&*state.osu_client_secret)
+        .with_authorization(params.code, &*redirect)
         .build()
         .await
         .map_err(AuthError::OsuAuthClient)?;

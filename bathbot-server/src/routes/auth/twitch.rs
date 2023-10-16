@@ -76,7 +76,7 @@ pub async fn auth(
 
     let req_builder = Request::get(TWITCH_USERS_ENDPOINT)
         .header(AUTHORIZATION, format!("Bearer {token}"))
-        .header("Client-ID", &state.twitch_client_id);
+        .header("Client-ID", &*state.twitch_client_id);
 
     let user_req = req_builder.body(Body::empty())?;
 

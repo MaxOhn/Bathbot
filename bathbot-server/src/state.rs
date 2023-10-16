@@ -19,10 +19,10 @@ pub struct AppState {
     pub prometheus: PrometheusHandle,
     pub metrics_reader: MetricsReader,
     pub osu_client_id: u64,
-    pub osu_client_secret: String, // TODO: box strings?
-    pub twitch_client_id: String,
-    pub twitch_token: String,
-    pub redirect_base: String,
+    pub osu_client_secret: Box<str>,
+    pub twitch_client_id: Box<str>,
+    pub twitch_token: Box<str>,
+    pub redirect_base: Box<str>,
     pub standby: Arc<AuthenticationStandby>,
 }
 
@@ -77,10 +77,10 @@ impl AppStateBuilder {
             prometheus,
             metrics_reader,
             osu_client_id,
-            osu_client_secret,
-            twitch_client_id,
-            twitch_token,
-            redirect_base,
+            osu_client_secret: osu_client_secret.into_boxed_str(),
+            twitch_client_id: twitch_client_id.into_boxed_str(),
+            twitch_token: twitch_token.into_boxed_str(),
+            redirect_base: redirect_base.into_boxed_str(),
             standby,
         };
 
