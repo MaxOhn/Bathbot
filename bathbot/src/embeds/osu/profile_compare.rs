@@ -1,5 +1,5 @@
 use std::{
-    cmp::Reverse,
+    cmp::{Ordering, Reverse},
     fmt::{Display, Write},
     num::NonZeroU32,
 };
@@ -473,18 +473,22 @@ fn write_line<T: PartialOrd, V: Display>(
     max_right: usize,
 ) {
     let green = "\u{001b}[0;32m";
+    let yellow = "\u{001b}[0;33m";
     let red = "\u{001b}[0;31m";
     let reset = "\u{001b}[0m";
+
+    let (ansi_left, winner_left, ansi_right, winner_right) = match cmp_left.partial_cmp(&cmp_right)
+    {
+        Some(Ordering::Less) => (red, ' ', green, '>'),
+        Some(Ordering::Greater) => (green, '<', red, ' '),
+        Some(Ordering::Equal) | None => (yellow, ' ', yellow, ' '),
+    };
 
     let _ = writeln!(
         content,
         "{ansi_left}{left:>max_left$}{reset} {winner_left}\
         | {title:^12} |\
         {winner_right} {ansi_right}{right:<max_right$}{reset}",
-        winner_left = if cmp_left > cmp_right { '<' } else { ' ' },
-        winner_right = if cmp_left < cmp_right { '>' } else { ' ' },
-        ansi_left = if cmp_left > cmp_right { green } else { red },
-        ansi_right = if cmp_left < cmp_right { green } else { red },
     );
 }
 
