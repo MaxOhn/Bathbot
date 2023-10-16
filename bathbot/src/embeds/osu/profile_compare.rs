@@ -1,5 +1,5 @@
 use std::{
-    cmp::Reverse,
+    cmp::{Ordering, Reverse},
     fmt::{Display, Write},
     num::NonZeroU32,
 };
@@ -41,7 +41,7 @@ impl ProfileCompareEmbed {
         let right = CompareStrings::new(&data2, &result2);
         let max_right = right.max().max(data2.username.chars().count());
         let mut d = String::with_capacity(512);
-        d.push_str("```\n");
+        d.push_str("```ansi\n");
 
         let _ = writeln!(
             d,
@@ -179,42 +179,48 @@ impl ProfileCompareEmbed {
             .or(result2.score_rank_data.as_ref())
             .is_some()
         {
+            let cmp_left = result1
+                .score_rank_data
+                .as_ref()
+                .and_then(|user| user.rank)
+                .map_or(u32::MAX, NonZeroU32::get);
+
+            let cmp_right = result2
+                .score_rank_data
+                .as_ref()
+                .and_then(|user| user.rank)
+                .map_or(u32::MAX, NonZeroU32::get);
+
             write_line(
                 &mut d,
                 "Score rank",
                 left.score_rank,
                 right.score_rank,
-                Reverse(
-                    result1
-                        .score_rank_data
-                        .as_ref()
-                        .and_then(|user| user.rank)
-                        .map_or(u32::MAX, NonZeroU32::get),
-                ),
-                Reverse(
-                    result2
-                        .score_rank_data
-                        .as_ref()
-                        .and_then(|user| user.rank)
-                        .map_or(u32::MAX, NonZeroU32::get),
-                ),
+                Reverse(cmp_left),
+                Reverse(cmp_right),
                 max_left,
                 max_right,
             );
+
+            let cmp_left = result1
+                .score_rank_data
+                .as_ref()
+                .and_then(|user| user.rank_highest.as_ref())
+                .map_or(u32::MAX, |rank_highest| rank_highest.rank);
+
+            let cmp_right = result2
+                .score_rank_data
+                .as_ref()
+                .and_then(|user| user.rank_highest.as_ref())
+                .map_or(u32::MAX, |rank_highest| rank_highest.rank);
 
             write_line(
                 &mut d,
                 "Peak sc rank",
                 left.score_rank_peak,
                 right.score_rank_peak,
-                Reverse(result1.score_rank_data.as_ref().map_or(u32::MAX, |user| {
-                    user.rank_highest
-                        .map_or(u32::MAX, |rank_highest| rank_highest.rank)
-                })),
-                Reverse(result2.score_rank_data.as_ref().map_or(u32::MAX, |user| {
-                    user.rank_highest
-                        .map_or(u32::MAX, |rank_highest| rank_highest.rank)
-                })),
+                Reverse(cmp_left),
+                Reverse(cmp_right),
                 max_left,
                 max_right,
             );
@@ -466,19 +472,23 @@ fn write_line<T: PartialOrd, V: Display>(
     max_left: usize,
     max_right: usize,
 ) {
+    let green = "\u{001b}[0;32m";
+    let yellow = "\u{001b}[0;33m";
+    let red = "\u{001b}[0;31m";
+    let reset = "\u{001b}[0m";
+
+    let (ansi_left, winner_left, ansi_right, winner_right) = match cmp_left.partial_cmp(&cmp_right)
+    {
+        Some(Ordering::Less) => (red, ' ', green, '>'),
+        Some(Ordering::Greater) => (green, '<', red, ' '),
+        Some(Ordering::Equal) | None => (yellow, ' ', yellow, ' '),
+    };
+
     let _ = writeln!(
         content,
-        "{:>max_left$} {winner_indicator} {:<max_right$}",
-        left,
-        right,
-        max_left = max_left,
-        max_right = max_right,
-        winner_indicator = format_args!(
-            "{winner_left}| {:^12} |{winner_right}",
-            title,
-            winner_left = if cmp_left > cmp_right { '<' } else { ' ' },
-            winner_right = if cmp_left < cmp_right { '>' } else { ' ' },
-        )
+        "{ansi_left}{left:>max_left$}{reset} {winner_left}\
+        | {title:^12} |\
+        {winner_right} {ansi_right}{right:<max_right$}{reset}",
     );
 }
 
@@ -620,7 +630,7 @@ impl CompareStrings {
             rank,
             score_rank,
             score_rank_peak,
-            ranked_score: _,
+            ranked_score: _, // always less than total_score
             total_score,
             total_hits,
             play_count,
@@ -649,9 +659,8 @@ impl CompareStrings {
             replays_seen,
         } = self;
 
-        self.ranked_score
+        score_rank
             .len()
-            .max(score_rank.len())
             .max(score_rank_peak.len())
             .max(total_score.len())
             .max(total_hits.len())
