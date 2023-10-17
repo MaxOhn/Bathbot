@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use http::StatusCode;
 use metrics::{counter, describe_counter, describe_histogram, histogram};
 
 use crate::site::Site;
@@ -22,8 +23,13 @@ impl ClientMetrics {
         );
     }
 
-    pub(crate) fn observe(site: Site, latency: Duration) {
-        histogram!(CLIENT_RESPONSE_TIME, latency, "site" => site.as_str());
+    pub(crate) fn observe(site: Site, status: StatusCode, latency: Duration) {
+        histogram!(
+            CLIENT_RESPONSE_TIME,
+            latency,
+            "site" => site.as_str(),
+            "status" => status.as_str().to_owned()
+        );
     }
 
     pub(crate) fn internal_error(site: Site) {

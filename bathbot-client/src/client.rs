@@ -82,8 +82,6 @@ impl Client {
             ratelimiter(5), // Twitch
         ];
 
-        ClientMetrics::init();
-
         Ok(Self {
             client,
             ratelimiters,
@@ -136,10 +134,11 @@ impl Client {
             .await
             .wrap_err("failed to receive GET response")?;
 
+        let status = response.status();
         let bytes_res = Self::error_for_status(response, url).await;
 
         let latency = start.elapsed();
-        ClientMetrics::observe(site, latency);
+        ClientMetrics::observe(site, status, latency);
 
         bytes_res
     }
@@ -172,10 +171,11 @@ impl Client {
             .await
             .wrap_err("Failed to receive POST multipart response")?;
 
+        let status = response.status();
         let bytes_res = Self::error_for_status(response, url).await;
 
         let latency = start.elapsed();
-        ClientMetrics::observe(site, latency);
+        ClientMetrics::observe(site, status, latency);
 
         bytes_res
     }
@@ -211,10 +211,11 @@ impl Client {
             .await
             .wrap_err("Failed to receive POST response")?;
 
+        let status = response.status();
         let bytes_res = Self::error_for_status(response, url).await;
 
         let latency = start.elapsed();
-        ClientMetrics::observe(site, latency);
+        ClientMetrics::observe(site, status, latency);
 
         bytes_res
     }
