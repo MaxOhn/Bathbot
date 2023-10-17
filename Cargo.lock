@@ -392,7 +392,6 @@ version = "3.6.1"
 dependencies = [
  "metrics",
  "metrics-util",
- "once_cell",
  "regex",
  "rosu-v2",
  "time",

@@ -1,6 +1,5 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::OnceLock};
 
-use once_cell::sync::OnceCell;
 use rosu_v2::prelude::{GameMode, GameModsIntermode, UserId as OsuUserId};
 use twilight_model::id::{
     marker::{RoleMarker, UserMarker},
@@ -152,26 +151,26 @@ pub fn highlight_funny_numeral(content: &str) -> Cow<'_, str> {
 
 pub struct Regex {
     regex: &'static str,
-    cell: OnceCell<regex::Regex>,
+    once: OnceLock<regex::Regex>,
 }
 
 impl Regex {
     const fn new(regex: &'static str) -> Self {
         Self {
             regex,
-            cell: OnceCell::new(),
+            once: OnceLock::new(),
         }
     }
 
     pub fn get(&self) -> &regex::Regex {
-        self.cell
+        self.once
             .get_or_init(|| regex::Regex::new(self.regex).unwrap())
     }
 }
 
 macro_rules! define_regex {
-    ($($name:ident: $pat:literal;)*) => {
-        $( static $name: Regex = Regex::new($pat); )*
+    ( $( $vis:vis $name:ident: $pat:literal; )* ) => {
+        $( $vis static $name: Regex = Regex::new($pat); )*
     }
 }
 
@@ -199,7 +198,6 @@ define_regex! {
     OSU_SCORE_URL_MATCHER: r"https://osu.ppy.sh/scores/(osu|taiko|mania|fruits)/(\d+)";
 
     APPROVED_SKIN_SITE: r"^https://(?:(?:www\.)?(?:drive\.google\.com|dropbox\.com|mega\.nz|mediafire\.com|(?:gist\.)?github\.com)/.*$|skins\.osuck\.net/skins/\d+.*|link.issou.best/skin/\d+$)";
-}
 
-pub static QUERY_SYNTAX_REGEX: Regex =
-    Regex::new(r#"\b(?P<key>\w+)(?P<op>(:|=|(>|<)(:|=)?))(?P<value>(".*")|(\S*))"#);
+    pub QUERY_SYNTAX_REGEX: r#"\b(?P<key>\w+)(?P<op>(:|=|(>|<)(:|=)?))(?P<value>(".*")|(\S*))"#;
+}
