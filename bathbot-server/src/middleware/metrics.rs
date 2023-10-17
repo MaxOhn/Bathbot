@@ -15,9 +15,15 @@ pub async fn track_metrics<B>(req: Request<B>, next: Next<B>) -> Response {
     let start = Instant::now();
     let response = next.run(req).await;
     let latency = start.elapsed();
-    let status = response.status().as_u16().to_string();
+    let status = response.status().as_str().to_string();
 
-    histogram!("server_response_time", latency, "method" => method, "path" => path, "status" => status);
+    histogram!(
+        "server_response_time",
+        latency,
+        "method" => method,
+        "path" => path,
+        "status" => status
+    );
 
     response
 }
