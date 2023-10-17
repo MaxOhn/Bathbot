@@ -14,7 +14,7 @@ use flexmap::tokio::TokioRwLockMap;
 use flurry::{HashMap as FlurryMap, HashSet as FlurrySet};
 use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
-use metrics_util::layers::FanoutBuilder;
+use metrics_util::layers::{FanoutBuilder, Layer, PrefixLayer};
 use rkyv::with::With;
 use rosu_v2::Osu;
 use time::OffsetDateTime;
@@ -133,7 +133,9 @@ impl Context {
                 .add_recorder(reader.clone())
                 .build();
 
-            metrics::set_boxed_recorder(Box::new(fanout))
+            let prefix = PrefixLayer::new("bathbot").layer(fanout);
+
+            metrics::set_boxed_recorder(Box::new(prefix))
                 .wrap_err("Failed to install metrics recorder")?;
 
             (prometheus_handle, reader)
