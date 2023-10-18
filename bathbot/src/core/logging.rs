@@ -47,11 +47,22 @@ pub fn init() -> WorkerGuard {
     let default_panic_hook = std::panic::take_hook();
 
     std::panic::set_hook(Box::new(move |panic_info| {
-        tracing_panic::panic_hook(panic_info);
+        // First log the panic
+        let payload = panic_info.payload();
 
-        // Using tracing_panic alone doesn't log panics from dependencies for some
-        // reason. Adding the default panic hook makes it work and also provides
-        // some redundancy.
+        let payload = if let Some(s) = payload.downcast_ref::<&str>() {
+            Some(&**s)
+        } else if let Some(s) = payload.downcast_ref::<String>() {
+            Some(s.as_str())
+        } else {
+            None
+        };
+
+        let location = panic_info.location().map(|l| l.to_string());
+
+        error!(payload, location, "A panic occurred");
+
+        // Then call the default panic handler
         default_panic_hook(panic_info);
     }));
 
