@@ -55,6 +55,7 @@ tokio = { version = "1.20", default-features = false, features = ["fs", "io-util
 tokio-stream = { version = "0.1", default-features = false }
 tracing = { version = "0.1" }
 tracing-appender = { version = "0.2" }
+tracing-panic = { version = "0.1.1" }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "smallvec", "std", "time", "tracing-log"] }
 twilight-gateway = { workspace = true }
 twilight-http = { workspace = true }

@@ -44,6 +44,17 @@ pub fn init() -> WorkerGuard {
         .with(file_layer)
         .init();
 
+    let default_panic_hook = std::panic::take_hook();
+
+    std::panic::set_hook(Box::new(move |panic_info| {
+        tracing_panic::panic_hook(panic_info);
+
+        // Using tracing_panic alone doesn't log panics from dependencies for some
+        // reason. Adding the default panic hook makes it work and also provides
+        // some redundancy.
+        default_panic_hook(panic_info);
+    }));
+
     guard
 }
 
