@@ -129,13 +129,14 @@ where
         self.timer.format_time(&mut writer)?;
         let metadata = event.metadata();
 
-        write!(
-            writer,
-            " {:>5} [{}:{}] ",
-            metadata.level(),
-            metadata.file().unwrap_or_else(|| metadata.target()),
-            metadata.line().unwrap_or(0),
-        )?;
+        write!(writer, " {:>5} ", metadata.level())?;
+
+        match (metadata.file(), metadata.line()) {
+            (Some(file), Some(line)) => write!(writer, "[{file}:{line}] ")?,
+            (Some(file), None) => write!(writer, "[{file}:?] ")?,
+            (None, Some(line)) => write!(writer, "[?:{line}] ")?,
+            (None, None) => {}
+        }
 
         ctx.field_format().format_fields(writer.by_ref(), event)?;
 
