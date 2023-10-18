@@ -26,7 +26,7 @@ pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) 
 
     let owner = command.user_id()?;
 
-    let key = Key::from_static_parts("commands_process_time", slice::from_ref(&LABEL));
+    let key = Key::from_static_parts("bathbot.commands_process_time", slice::from_ref(&LABEL));
 
     let mut full_name = String::new();
 
@@ -89,7 +89,7 @@ async fn prefix_commands(ctx: Arc<Context>, msg: &Message) -> Result<()> {
 
     let orig = CommandOrigin::from(msg);
 
-    let key = Key::from_static_parts("commands_process_time", slice::from_ref(&LABEL));
+    let key = Key::from_static_parts("bathbot.commands_process_time", slice::from_ref(&LABEL));
 
     let mut cmds = ctx.metrics.collect_histograms(&key, |key, count| {
         let name: Box<str> = key

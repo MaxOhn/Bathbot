@@ -144,7 +144,9 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         value: format!("The source code can be found over at [github]({BATHBOT_GITHUB})"),
     };
 
-    let commands_used = ctx.metrics.sum_counters(&Key::from_static_name("commands"));
+    let commands_used = ctx
+        .metrics
+        .sum_counters(&Key::from_static_name("bathbot.commands_process_time"));
 
     let commands_used = EmbedField {
         inline: true,
@@ -152,7 +154,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         value: WithComma::new(commands_used).to_string(),
     };
 
-    let key = Key::from_static_name("osu_response_time");
+    let key = Key::from_static_name("bathbot.osu_response_time");
     let osu_requests = ctx.metrics.sum_histograms(&key);
 
     let osu_requests = EmbedField {
