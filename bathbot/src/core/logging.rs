@@ -52,10 +52,8 @@ pub fn init() -> WorkerGuard {
 
         let payload = if let Some(s) = payload.downcast_ref::<&str>() {
             Some(&**s)
-        } else if let Some(s) = payload.downcast_ref::<String>() {
-            Some(s.as_str())
         } else {
-            None
+            payload.downcast_ref::<String>().map(String::as_str)
         };
 
         let location = panic_info.location().map(|l| l.to_string());
