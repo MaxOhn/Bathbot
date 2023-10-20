@@ -323,4 +323,29 @@ mod tests {
             "31,925.53".to_owned()
         );
     }
+
+    #[test]
+    fn test_abbreviated_score() {
+        assert_eq!(
+            AbbreviatedScore::new(1_372_111_816_859_u64).to_string(),
+            "1.37T".to_owned()
+        );
+
+        assert_eq!(
+            AbbreviatedScore::new(893_135_435_096_u64).to_string(),
+            "893.14B".to_owned()
+        );
+
+        assert_eq!(
+            AbbreviatedScore::new(136_976_283_u64).to_string(),
+            "136.98M".to_owned()
+        );
+
+        assert_eq!(
+            AbbreviatedScore::new(193_064_u64).to_string(),
+            "193.06K".to_owned()
+        );
+
+        assert_eq!(AbbreviatedScore::new(727_u64).to_string(), "727".to_owned());
+    }
 }
