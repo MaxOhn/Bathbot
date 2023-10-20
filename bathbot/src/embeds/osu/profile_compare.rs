@@ -11,7 +11,7 @@ use bathbot_model::{
 };
 use bathbot_util::{
     datetime::{SecToMinSec, DATE_FORMAT},
-    numbers::WithComma,
+    numbers::{AbbreviatedScore, WithComma},
 };
 use rkyv::{with::DeserializeWith, Infallible};
 use rosu_v2::prelude::GameMode;
@@ -571,10 +571,10 @@ impl CompareStrings {
                     )
                 },
             ),
-            ranked_score: WithComma::new(stats.ranked_score())
+            ranked_score: AbbreviatedScore::new(stats.ranked_score())
                 .to_string()
                 .into_boxed_str(),
-            total_score: WithComma::new(stats.total_score())
+            total_score: AbbreviatedScore::new(stats.total_score())
                 .to_string()
                 .into_boxed_str(),
             total_hits: WithComma::new(stats.total_hits())
