@@ -1,6 +1,6 @@
 use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::{
-    model::osu::{DbScores, DbScoresBuilder},
+    model::osu::{DbScores, DbScoresBuilder, DbTopScores},
     Database,
 };
 use bathbot_util::{osu::ModSelection, IntHasher};
@@ -120,6 +120,18 @@ impl<'c> ScoresManager<'c> {
         }
 
         Ok(scores)
+    }
+
+    pub async fn db_top_scores(
+        self,
+        mode: GameMode,
+        user_ids: Option<&[i32]>,
+        country_code: Option<&str>,
+    ) -> Result<DbTopScores<IntHasher>> {
+        self.psql
+            .select_top100_scores(mode, country_code, user_ids)
+            .await
+            .wrap_err("Failed to fetch top scores")
     }
 
     pub fn top(self) -> ScoreArgs<'c> {

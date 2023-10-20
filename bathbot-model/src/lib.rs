@@ -7,6 +7,7 @@ mod huismetbenen;
 mod osekai;
 mod osu_stats;
 mod osu_tracker;
+mod osu_world;
 mod ranking_entries;
 mod respektive;
 mod score_slim;
@@ -21,6 +22,6 @@ pub mod rkyv_util;
 
 pub use self::{
     country_code::*, deser::ModeAsSeed, either::Either, games::*, github::*, huismetbenen::*,
-    osekai::*, osu_stats::*, osu_tracker::*, ranking_entries::*, respektive::*, score_slim::*,
-    twitch::*, user_stats::*,
+    osekai::*, osu_stats::*, osu_tracker::*, osu_world::*, ranking_entries::*, respektive::*,
+    score_slim::*, twitch::*, user_stats::*,
 };

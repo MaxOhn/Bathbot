@@ -9,7 +9,8 @@ use crate::{
     database::Database,
     model::osu::{
         DbScore, DbScoreAny, DbScoreBeatmapRaw, DbScoreBeatmapsetRaw, DbScoreCatch, DbScoreMania,
-        DbScoreOsu, DbScoreTaiko, DbScoreUserRaw, DbScores, DbScoresBuilder,
+        DbScoreOsu, DbScoreTaiko, DbScoreUserRaw, DbScores, DbScoresBuilder, DbTopScore,
+        DbTopScoreRaw, DbTopScores,
     },
 };
 
@@ -832,6 +833,182 @@ WHERE
             maps,
             mapsets,
             users,
+        })
+    }
+
+    pub async fn select_top100_scores<S>(
+        &self,
+        mode: GameMode,
+        country_code: Option<&str>,
+        user_ids: Option<&[i32]>,
+    ) -> Result<DbTopScores<S>>
+    where
+        S: BuildHasher + Default,
+    {
+        let query = sqlx::query_as!(
+            DbTopScoreRaw,
+            r#"
+SELECT 
+  username, 
+  user_id AS "user_id!: _", 
+  map_id AS "map_id!: _", 
+  mods AS "mods!: _", 
+  score AS "score!: _", 
+  score_id AS "score_id!: _", 
+  maxcombo AS "maxcombo!: _", 
+  grade AS "grade!: _", 
+  count50 AS "count50!: _", 
+  count100 AS "count100!: _", 
+  count300 AS "count300!: _", 
+  countgeki AS "countgeki!: _", 
+  countkatu AS "countkatu!: _", 
+  countmiss AS "countmiss!: _", 
+  ended_at AS "ended_at!: _", 
+  pp :: FLOAT4 AS "pp!: _", 
+  stars :: FLOAT4 
+FROM 
+  (
+    SELECT 
+      DISTINCT ON (user_id, map_id) limited_user_scores.*, 
+      osu_user_names.username 
+    FROM 
+      (
+        SELECT 
+          * 
+        FROM 
+          user_scores 
+        WHERE 
+          gamemode = $1 
+          AND (
+            $2 :: INT4[] IS NULL 
+            OR user_id = ANY($2)
+          ) 
+          AND (
+            $3 :: VARCHAR(2) IS NULL 
+            OR country_code = $3
+          ) 
+        ORDER BY 
+          pp DESC 
+        LIMIT 
+          1000
+      ) as limited_user_scores 
+      JOIN osu_user_names USING (user_id) 
+    ORDER BY 
+      user_id, 
+      map_id, 
+      pp DESC
+  ) AS scores 
+  LEFT JOIN (
+    SELECT 
+      map_id, 
+      mods, 
+      stars 
+    FROM 
+      osu_map_difficulty
+  ) AS stars USING (map_id, mods) 
+ORDER BY 
+  pp DESC 
+LIMIT 
+  100"#,
+            mode as i16,
+            user_ids,
+            country_code,
+        );
+
+        let mut conn = self
+            .acquire()
+            .await
+            .wrap_err("Failed to acquire connection")?;
+
+        let mut scores = Vec::new();
+
+        {
+            let mut score_rows = query.fetch(&mut *conn);
+            let mut pos = 1;
+
+            while let Some(row_res) = score_rows.next().await {
+                let row = row_res.wrap_err("Failed to fetch next score")?;
+                scores.push(DbTopScore::new(row, pos));
+                pos += 1;
+            }
+        }
+
+        let map_ids: Vec<_> = scores.iter().map(|score| score.map_id as i32).collect();
+
+        let map_query = sqlx::query_as!(
+            DbScoreBeatmapRaw,
+            r#"
+SELECT 
+  map_id, 
+  mapset_id, 
+  user_id, 
+  map_version, 
+  seconds_drain,  
+  hp, 
+  cs, 
+  od, 
+  ar, 
+  bpm
+FROM 
+  osu_maps 
+WHERE 
+  map_id = ANY($1)"#,
+            map_ids.as_slice()
+        );
+
+        let mut maps = HashMap::with_capacity_and_hasher(map_ids.len(), S::default());
+
+        {
+            let mut map_rows = map_query.fetch(&mut *conn);
+
+            while let Some(row_res) = map_rows.next().await {
+                let row = row_res.wrap_err("Failed to fetch next map")?;
+                maps.insert(row.map_id as u32, row.into());
+            }
+        }
+
+        let mapset_query = sqlx::query_as!(
+            DbScoreBeatmapsetRaw,
+            r#"
+SELECT 
+  mapsets.mapset_id, 
+  artist, 
+  title, 
+  rank_status, 
+  ranked_date 
+FROM 
+  (
+    SELECT 
+      mapset_id 
+    FROM 
+      osu_maps 
+    WHERE 
+      map_id = ANY($1)
+  ) AS maps 
+  JOIN (
+    SELECT 
+      * 
+    FROM 
+      osu_mapsets
+  ) AS mapsets ON maps.mapset_id = mapsets.mapset_id"#,
+            map_ids.as_slice()
+        );
+
+        let mut mapsets = HashMap::with_hasher(S::default());
+
+        {
+            let mut mapset_rows = mapset_query.fetch(&mut *conn);
+
+            while let Some(row_res) = mapset_rows.next().await {
+                let row = row_res.wrap_err("Failed to fetch next mapset")?;
+                mapsets.insert(row.mapset_id as u32, row.into());
+            }
+        }
+
+        Ok(DbTopScores {
+            scores,
+            maps,
+            mapsets,
         })
     }
 

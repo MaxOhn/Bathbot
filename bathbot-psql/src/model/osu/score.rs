@@ -480,3 +480,116 @@ impl From<(DbScoreMania, GameMode)> for DbScore {
         }
     }
 }
+
+pub struct DbTopScores<S> {
+    pub(crate) scores: Vec<DbTopScore>,
+    pub(crate) maps: Maps<S>,
+    pub(crate) mapsets: Mapsets<S>,
+}
+
+impl<S> DbTopScores<S> {
+    pub fn len(&self) -> usize {
+        self.scores.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.scores.is_empty()
+    }
+
+    pub fn scores(&self) -> &[DbTopScore] {
+        &self.scores
+    }
+
+    pub fn scores_mut(&mut self) -> &mut [DbTopScore] {
+        &mut self.scores
+    }
+
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&DbTopScore, &Maps<S>, &Mapsets<S>) -> bool,
+    {
+        self.scores
+            .retain(|score| f(score, &self.maps, &self.mapsets));
+    }
+
+    pub fn maps(&self) -> Iter<'_, u32, DbScoreBeatmap> {
+        self.maps.iter()
+    }
+
+    pub fn mapsets(&self) -> Iter<'_, u32, DbScoreBeatmapset> {
+        self.mapsets.iter()
+    }
+}
+
+impl<S: BuildHasher> DbTopScores<S> {
+    pub fn map(&self, map_id: u32) -> Option<&DbScoreBeatmap> {
+        self.maps.get(&map_id)
+    }
+
+    pub fn mapset(&self, mapset_id: u32) -> Option<&DbScoreBeatmapset> {
+        self.mapsets.get(&mapset_id)
+    }
+}
+
+pub(crate) struct DbTopScoreRaw {
+    pub score_id: i64,
+    pub username: String,
+    pub user_id: i32,
+    pub map_id: i32,
+    pub mods: i32,
+    pub score: i32,
+    pub maxcombo: i32,
+    pub grade: i16,
+    pub count50: i32,
+    pub count100: i32,
+    pub count300: i32,
+    pub countmiss: i32,
+    pub countgeki: i32,
+    pub countkatu: i32,
+    pub ended_at: OffsetDateTime,
+    pub pp: f32,
+    pub stars: Option<f32>,
+}
+
+pub struct DbTopScore {
+    pub pos: usize,
+    pub score_id: u64,
+    pub username: String,
+    pub user_id: u32,
+    pub map_id: u32,
+    pub mods: u32,
+    pub score: u32,
+    pub max_combo: u32,
+    pub grade: Grade,
+    pub statistics: ScoreStatistics,
+    pub ended_at: OffsetDateTime,
+    pub pp: f32,
+    pub stars: Option<f32>,
+}
+
+impl DbTopScore {
+    pub(crate) fn new(raw: DbTopScoreRaw, pos: usize) -> Self {
+        Self {
+            pos,
+            score_id: raw.score_id as u64,
+            username: raw.username,
+            user_id: raw.user_id as u32,
+            map_id: raw.map_id as u32,
+            mods: raw.mods as u32,
+            score: raw.score as u32,
+            max_combo: raw.maxcombo as u32,
+            grade: parse_grade(raw.grade),
+            statistics: ScoreStatistics {
+                count_geki: raw.countgeki as u32,
+                count_300: raw.count300 as u32,
+                count_katu: raw.countkatu as u32,
+                count_100: raw.count100 as u32,
+                count_50: raw.count50 as u32,
+                count_miss: raw.countmiss as u32,
+            },
+            ended_at: raw.ended_at,
+            pp: raw.pp,
+            stars: raw.stars,
+        }
+    }
+}

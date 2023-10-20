@@ -27,6 +27,7 @@ use twilight_model::{
 
 use crate::{
     active::{
+        impls::scores::{MapFormatter, PpFormatter, StarsFormatter},
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
@@ -271,38 +272,6 @@ impl Display for OrderAppendix<'_> {
     }
 }
 
-struct MapFormatter<'s> {
-    map: Option<&'s DbScoreBeatmap>,
-    mapset: Option<&'s DbScoreBeatmapset>,
-}
-
-impl<'s> MapFormatter<'s> {
-    fn new(map: Option<&'s DbScoreBeatmap>, mapset: Option<&'s DbScoreBeatmapset>) -> Self {
-        Self { map, mapset }
-    }
-}
-
-impl Display for MapFormatter<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match (self.map, self.mapset) {
-            (Some(map), Some(mapset)) => write!(
-                f,
-                "{artist} - {title} [{version}]",
-                artist = mapset.artist.cow_escape_markdown(),
-                title = mapset.title.cow_escape_markdown(),
-                version = map.version.cow_escape_markdown()
-            ),
-            (Some(map), None) => write!(
-                f,
-                "<unknown mapset> [{version}]",
-                version = map.version.cow_escape_markdown()
-            ),
-            (None, None) => f.write_str("<unknown map>"),
-            (None, Some(_)) => unreachable!(),
-        }
-    }
-}
-
 struct UserFormatter<'s> {
     user: Option<&'s DbScoreUser>,
 }
@@ -337,43 +306,6 @@ impl Display for GameModeFormatter {
         match self.mode {
             Some(mode) => Display::fmt(&Emote::from(mode), f),
             None => f.write_str("•"),
-        }
-    }
-}
-
-struct StarsFormatter {
-    stars: Option<f32>,
-}
-
-impl StarsFormatter {
-    fn new(stars: Option<f32>) -> Self {
-        Self { stars }
-    }
-}
-
-impl Display for StarsFormatter {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.stars
-            .map(round)
-            .map_or(Ok(()), |stars| write!(f, " [{stars}★]"))
-    }
-}
-
-struct PpFormatter {
-    pp: Option<f32>,
-}
-
-impl PpFormatter {
-    fn new(pp: Option<f32>) -> Self {
-        Self { pp }
-    }
-}
-
-impl Display for PpFormatter {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self.pp.map(round) {
-            Some(pp) => Display::fmt(&pp, f),
-            None => f.write_str("-"),
         }
     }
 }

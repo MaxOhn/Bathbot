@@ -1,0 +1,1 @@
+DROP MATERIALIZED VIEW user_scores;

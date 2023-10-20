@@ -6,6 +6,8 @@ use sqlx::{
     Describe, Either, Error as SqlxError, Execute, Executor, PgPool, Postgres, Transaction,
 };
 
+use crate::refresh::refresh_materialized_views;
+
 #[derive(Debug)]
 pub struct Database {
     pool: PgPool,
@@ -14,6 +16,8 @@ pub struct Database {
 impl Database {
     pub fn new(uri: &str) -> Result<Self> {
         let pool = PgPoolOptions::new().connect_lazy(uri)?;
+
+        tokio::spawn(refresh_materialized_views(pool.clone()));
 
         Ok(Self { pool })
     }

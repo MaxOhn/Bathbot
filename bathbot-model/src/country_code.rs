@@ -346,7 +346,7 @@ impl<'a> Code<'a> {
         UtcOffset::from_whole_seconds(offset).unwrap()
     }
 
-    fn uppercase(self) -> Cow<'a, str> {
+    pub fn uppercase(self) -> Cow<'a, str> {
         let Self(country_code) = self;
 
         country_code.cow_to_ascii_uppercase()
