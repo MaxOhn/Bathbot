@@ -267,6 +267,33 @@ impl From<MinMaxAvg<f32>> for MinMaxAvg<u32> {
     }
 }
 
+pub struct AbbreviatedScore {
+    score: u64,
+}
+
+impl AbbreviatedScore {
+    pub fn new(score: u64) -> Self {
+        Self { score }
+    }
+}
+
+impl Display for AbbreviatedScore {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        let score = self.score as f64;
+        if score >= 1_000_000_000_000.0 {
+            write!(f, "{:.2}T", score / 1_000_000_000_000.0)
+        } else if score >= 1_000_000_000.0 {
+            write!(f, "{:.2}B", score / 1_000_000_000.0)
+        } else if score >= 1_000_000.0 {
+            write!(f, "{:.2}M", score / 1_000_000.0)
+        } else if score >= 1_000.0 {
+            write!(f, "{:.2}K", score / 1_000.0)
+        } else {
+            write!(f, "{}", self.score)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
