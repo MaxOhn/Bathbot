@@ -267,6 +267,31 @@ impl From<MinMaxAvg<f32>> for MinMaxAvg<u32> {
     }
 }
 
+pub struct AbbreviatedScore {
+    score: u64,
+}
+
+impl AbbreviatedScore {
+    pub fn new(score: u64) -> Self {
+        Self { score }
+    }
+}
+
+impl Display for AbbreviatedScore {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        let score = self.score as f64;
+        if score >= 1_000_000_000_000.0 {
+            write!(f, "{:.2}tn", score / 1_000_000_000_000.0)
+        } else if score >= 1_000_000_000.0 {
+            write!(f, "{:.2}bn", score / 1_000_000_000.0)
+        } else if score >= 1_000_000.0 {
+            write!(f, "{:.2}m", score / 1_000_000.0)
+        } else {
+            Display::fmt(&WithComma::new(self.score), f)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -295,5 +320,25 @@ mod tests {
             WithComma::new(31_925.53_f32).to_string(),
             "31,925.53".to_owned()
         );
+    }
+
+    #[test]
+    fn test_abbreviated_score() {
+        assert_eq!(
+            AbbreviatedScore::new(1_372_111_816_859_u64).to_string(),
+            "1.37tn".to_owned()
+        );
+
+        assert_eq!(
+            AbbreviatedScore::new(893_135_435_096_u64).to_string(),
+            "893.14bn".to_owned()
+        );
+
+        assert_eq!(
+            AbbreviatedScore::new(136_976_283_u64).to_string(),
+            "136.98m".to_owned()
+        );
+
+        assert_eq!(AbbreviatedScore::new(727_u64).to_string(), "727".to_owned());
     }
 }
