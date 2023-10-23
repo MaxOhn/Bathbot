@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
-use bathbot_model::{OsuTrackerCountryScore, ScoreSlim};
+use bathbot_model::ScoreSlim;
 use bathbot_psql::model::osu::{DbBeatmap, DbBeatmapset};
 use bathbot_util::CowUtils;
-use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap as Map, GameMode as Mode, Mods};
+use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap as Map, GameMode as Mode};
 use rosu_v2::prelude::{
     BeatmapExtended, BeatmapsetExtended, GameModIntermode, GameMode, GameMods, Score,
 };
@@ -195,29 +195,6 @@ impl Searchable<RC<'_>> for Score {
             matches &= criteria
                 .search_terms()
                 .all(|term| terms.iter().any(|searchable| searchable.contains(term)));
-        }
-
-        matches
-    }
-}
-
-impl Searchable<RC<'_>> for OsuTrackerCountryScore {
-    fn matches(&self, criteria: &FilterCriteria<RC<'_>>) -> bool {
-        let mut matches = true;
-
-        let creator = self.mapper.cow_to_ascii_lowercase();
-
-        let len = self.seconds_total as f32 / self.mods.bits().clock_rate() as f32;
-        matches &= criteria.length.contains(len);
-
-        matches &= criteria.creator.matches(creator.as_ref());
-
-        if matches && criteria.has_search_terms() {
-            let name = self.name.cow_to_ascii_lowercase();
-
-            matches &= criteria
-                .search_terms()
-                .all(|term| name.contains(term) || creator.contains(term));
         }
 
         matches

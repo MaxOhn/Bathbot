@@ -4,7 +4,6 @@ pub use self::{
     bookmarks::BookmarksPagination,
     changelog::ChangelogPagination,
     compare::{CompareMostPlayedPagination, CompareScoresPagination, CompareTopPagination},
-    country_top::CountryTopPagination,
     edit_on_timeout::{EditOnTimeout, RecentScoreEdit, TopScoreEdit},
     help::{HelpInteractionCommand, HelpPrefixMenu},
     higherlower::HigherLowerGame,
@@ -28,6 +27,7 @@ pub use self::{
     ranking::RankingPagination,
     ranking_countries::RankingCountriesPagination,
     recent_list::RecentListPagination,
+    region_top::RegionTopPagination,
     render::{CachedRender, RenderSettingsActive, SettingsImport},
     scores::{ScoresMapPagination, ScoresServerPagination, ScoresUserPagination},
     simulate::{SimulateAttributes, SimulateComponents, SimulateData, SimulateMap, TopOldVersion},
@@ -43,7 +43,6 @@ mod bg_game;
 mod bookmarks;
 mod changelog;
 mod compare;
-mod country_top;
 mod edit_on_timeout;
 mod help;
 mod higherlower;
@@ -61,6 +60,7 @@ mod profile;
 mod ranking;
 mod ranking_countries;
 mod recent_list;
+mod region_top;
 mod render;
 mod scores;
 mod simulate;

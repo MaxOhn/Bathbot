@@ -1,0 +1,120 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  username, \n  user_id AS \"user_id!: _\", \n  map_id AS \"map_id!: _\", \n  mods AS \"mods!: _\", \n  score AS \"score!: _\", \n  score_id AS \"score_id!: _\", \n  maxcombo AS \"maxcombo!: _\", \n  grade AS \"grade!: _\", \n  count50 AS \"count50!: _\", \n  count100 AS \"count100!: _\", \n  count300 AS \"count300!: _\", \n  countgeki AS \"countgeki!: _\", \n  countkatu AS \"countkatu!: _\", \n  countmiss AS \"countmiss!: _\", \n  ended_at AS \"ended_at!: _\", \n  pp :: FLOAT4 AS \"pp!: _\", \n  stars :: FLOAT4 \nFROM \n  (\n    SELECT \n      DISTINCT ON (user_id, map_id) limited_user_scores.*, \n      osu_user_names.username \n    FROM \n      (\n        SELECT \n          * \n        FROM \n          user_scores \n        WHERE \n          gamemode = $1 \n          AND (\n            $2 :: INT4[] IS NULL \n            OR user_id = ANY($2)\n          ) \n          AND (\n            $3 :: VARCHAR(2) IS NULL \n            OR country_code = $3\n          ) \n        ORDER BY \n          pp DESC \n        LIMIT \n          1000\n      ) as limited_user_scores \n      JOIN osu_user_names USING (user_id) \n    ORDER BY \n      user_id, \n      map_id, \n      pp DESC\n  ) AS scores \n  LEFT JOIN (\n    SELECT \n      map_id, \n      mods, \n      stars \n    FROM \n      osu_map_difficulty\n  ) AS stars USING (map_id, mods) \nORDER BY \n  pp DESC \nLIMIT \n  100",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "username",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id!: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "map_id!: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "mods!: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "score!: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "score_id!: _",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "maxcombo!: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "grade!: _",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 8,
+        "name": "count50!: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "count100!: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "count300!: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 11,
+        "name": "countgeki!: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
+        "name": "countkatu!: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 13,
+        "name": "countmiss!: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 14,
+        "name": "ended_at!: _",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 15,
+        "name": "pp!: _",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 16,
+        "name": "stars",
+        "type_info": "Float4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int2",
+        "Int4Array",
+        "Varchar"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "4b0ce490ebef7dd488546b1deffbfd5a67f4ead5f3117f643152aec3054dbc61"
+}

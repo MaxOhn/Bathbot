@@ -5,12 +5,12 @@ use std::{
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bathbot_model::{
-    ModeAsSeed, OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments, OsekaiMap,
-    OsekaiMaps, OsekaiMedal, OsekaiRanking, OsekaiRankingEntries, OsuStatsBestScores,
+    CountryRegions, ModeAsSeed, OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments,
+    OsekaiMap, OsekaiMaps, OsekaiMedal, OsekaiRanking, OsekaiRankingEntries, OsuStatsBestScores,
     OsuStatsBestTimeframe, OsuStatsParams, OsuStatsPlayer, OsuStatsPlayersArgs, OsuStatsScoresRaw,
-    OsuTrackerCountryDetails, OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats,
-    RespektiveUser, RespektiveUsers, SnipeCountries, SnipeCountryPlayer, SnipeCountryStatistics,
-    SnipePlayer, SnipeRecent, SnipeScore, SnipeScoreParams,
+    OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats, OsuWorldUserIds, RespektiveUser,
+    RespektiveUsers, SnipeCountries, SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer,
+    SnipeRecent, SnipeScore, SnipeScoreParams,
 };
 use bathbot_util::{
     constants::{HUISMETBENEN, OSU_BASE},
@@ -108,24 +108,6 @@ impl Client {
         Ok(users
             .pop()
             .filter(|user| user.rank.is_some() || user.rank_highest.is_some()))
-    }
-
-    pub async fn get_osutracker_country_details(
-        &self,
-        country_code: Option<&str>,
-    ) -> Result<OsuTrackerCountryDetails> {
-        let url = format!(
-            "https://osutracker.com/api/countries/{code}/details",
-            code = country_code.unwrap_or("Global"),
-        );
-
-        let bytes = self.make_get_request(url, Site::OsuTracker).await?;
-
-        serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
-
-            format!("failed to deserialize osutracker country details: {body}")
-        })
     }
 
     /// Don't use this; use `RedisManager::osutracker_stats` instead.
@@ -584,5 +566,30 @@ impl Client {
         })?;
 
         Ok(decoded)
+    }
+
+    /// Don't use this; use `RedisManager::country_regions` instead.
+    pub async fn get_country_regions(&self) -> Result<CountryRegions> {
+        let url = "https://osuworld.octo.moe/locales/en/regions.json";
+        let bytes = self.make_get_request(url, Site::OsuWorld).await?;
+
+        serde_json::from_slice(&bytes).wrap_err_with(|| {
+            let body = String::from_utf8_lossy(&bytes);
+
+            format!("Failed to deserialize country regions: {body}")
+        })
+    }
+
+    pub async fn get_region_user_ids(&self, region: &str) -> Result<Vec<i32>> {
+        let url = format!("https://osuworld.octo.moe/api/bathbot/users/{region}");
+        let bytes = self.make_get_request(url, Site::OsuWorld).await?;
+
+        serde_json::from_slice(&bytes)
+            .wrap_err_with(|| {
+                let body = String::from_utf8_lossy(&bytes);
+
+                format!("Failed to deserialize region user ids: {body}")
+            })
+            .map(|OsuWorldUserIds(user_ids)| user_ids)
     }
 }

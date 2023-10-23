@@ -4,14 +4,14 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::rosu_v2::user::User;
-use bathbot_psql::model::osu::{DbScore, DbScoreBeatmap, DbScoreBeatmapset, DbScores};
+use bathbot_model::Countries;
+use bathbot_psql::model::osu::{DbScoreBeatmap, DbScoreBeatmapset, DbTopScore, DbTopScores};
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::SecToMinSec,
     numbers::{round, WithComma},
     osu::flag_url,
-    AuthorBuilder, EmbedBuilder, FooterBuilder, IntHasher,
+    CowUtils, EmbedBuilder, FooterBuilder, IntHasher,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -25,13 +25,12 @@ use twilight_model::{
 
 use crate::{
     active::{
-        impls::scores::{MapFormatter, PpFormatter, StarsFormatter},
+        impls::scores::{MapFormatter, StarsFormatter},
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    commands::osu::ScoresOrder,
+    commands::osu::{RegionTopKind, ScoresOrder},
     core::{BotConfig, Context},
-    manager::redis::RedisData,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         Emote,
@@ -39,92 +38,101 @@ use crate::{
 };
 
 #[derive(PaginationBuilder)]
-pub struct ScoresUserPagination {
+pub struct RegionTopPagination {
     #[pagination(per_page = 10)]
-    scores: DbScores<IntHasher>,
-    user: RedisData<User>,
-    mode: Option<GameMode>,
+    scores: DbTopScores<IntHasher>,
+    mode: GameMode,
     sort: ScoresOrder,
-    content: Box<str>,
+    kind: RegionTopKind,
     msg_owner: Id<UserMarker>,
+    content: Box<str>,
     pages: Pages,
 }
 
-impl IActiveMessage for ScoresUserPagination {
+impl IActiveMessage for RegionTopPagination {
     fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        let author = if self.mode.is_some() {
-            self.user.author_builder()
-        } else {
-            let icon = match self.user {
-                RedisData::Original(ref user) => flag_url(&user.country_code),
-                RedisData::Archive(ref user) => flag_url(&user.country_code),
-            };
-
-            let url = format!("{OSU_BASE}users/{}", self.user.user_id());
-
-            AuthorBuilder::new(self.user.username())
-                .url(url)
-                .icon_url(icon)
-        };
-
-        let pages = &self.pages;
         let data = &self.scores;
 
-        let mut footer_text = format!("Page {}/{}", pages.curr_page(), pages.last_page());
+        let idx = self.pages.index();
+        let scores = &data.scores()[idx..data.len().min(idx + self.pages.per_page())];
 
-        if let Some(mode) = self.mode {
-            footer_text.push_str(" • Mode: ");
+        let page = self.pages.curr_page();
+        let pages = self.pages.last_page();
 
-            let mode = match mode {
-                GameMode::Osu => "osu!",
-                GameMode::Taiko => "Taiko",
-                GameMode::Catch => "Catch",
-                GameMode::Mania => "Mania",
-            };
+        let mut footer_text = format!("Page {page}/{pages} • Mode: {}", mode_str(self.mode));
 
-            footer_text.push_str(mode);
+        if let RegionTopKind::Region { .. } = self.kind {
+            footer_text += " • Region data provided by https://osuworld.octo.moe";
         }
 
         let footer = FooterBuilder::new(footer_text);
 
-        let idx = pages.index();
-        let scores = &data.scores()[idx..data.len().min(idx + pages.per_page())];
+        let (title, thumbnail) = match &self.kind {
+            RegionTopKind::Global => ("Global top 100 scores:".to_owned(), None),
+            RegionTopKind::Country { country_code } => {
+                let title = match Countries::code(country_code).to_name() {
+                    Some(name) => {
+                        let genitiv = if name.ends_with('s') { "" } else { "s" };
+
+                        format!("{name}'{genitiv} top 100 scores:")
+                    }
+                    None => {
+                        let genitiv = if country_code.ends_with('S') { "" } else { "s" };
+
+                        format!("{country_code}'{genitiv} top 100 scores:")
+                    }
+                };
+
+                (title, Some(flag_url(country_code)))
+            }
+            RegionTopKind::Region {
+                country_code,
+                region_name,
+            } => {
+                let title = format!("{region_name} ({country_code}) top 100 scores:");
+
+                (title, Some(flag_url(country_code)))
+            }
+        };
 
         let config = BotConfig::get();
         let mut description = String::with_capacity(scores.len() * 160);
 
-        for (score, i) in scores.iter().zip(idx + 1..) {
+        if scores.is_empty() {
+            description.push_str("No scores found");
+        }
+
+        for score in scores {
             let map = data.map(score.map_id);
             let mapset = map.and_then(|map| data.mapset(map.mapset_id));
 
-            let mode = if self.mode.is_some() {
-                None
-            } else {
-                Some(score.mode)
-            };
-
             let _ = writeln!(
                 description,
-                "**#{i} [{map}]({OSU_BASE}b/{map_id})**{stars}\n\
-                {grade} **{pp}pp** • {acc}% [ **{combo}x** ] \
-                {mode}**+{mods}** {appendix}",
+                "**#{pos} [{map}]({OSU_BASE}b/{map_id}) +{mods}**\n\
+                by __[{user}]({OSU_BASE}u/{user_id})__ {grade} **{pp}pp**\
+                {stars} • {acc}% • {appendix}",
+                pos = score.pos,
                 map = MapFormatter::new(map, mapset),
                 map_id = score.map_id,
-                stars = StarsFormatter::new(score.stars),
-                grade = config.grade(score.grade),
-                pp = PpFormatter::new(score.pp),
-                acc = round(score.statistics.accuracy(score.mode)),
-                combo = score.max_combo,
-                mode = GameModeFormatter::new(mode),
                 mods = GameModsIntermode::from_bits(score.mods),
+                user = score.username.cow_escape_markdown(),
+                user_id = score.user_id,
+                grade = config.grade(score.grade),
+                pp = round(score.pp),
+                stars = StarsFormatter::new(score.stars),
+                acc = round(score.statistics.accuracy(self.mode)),
                 appendix = OrderAppendix::new(self.sort, score, map, mapset),
             );
         }
 
-        let embed = EmbedBuilder::new()
-            .author(author)
+        let mut embed = EmbedBuilder::new()
             .description(description)
-            .footer(footer);
+            .footer(footer)
+            .title(title);
+
+        if let Some(thumbnail) = thumbnail {
+            embed = embed.thumbnail(thumbnail);
+        }
 
         BuildPage::new(embed, false)
             .content(self.content.clone())
@@ -154,7 +162,7 @@ impl IActiveMessage for ScoresUserPagination {
 
 struct OrderAppendix<'s> {
     sort: ScoresOrder,
-    score: &'s DbScore,
+    score: &'s DbTopScore,
     map: Option<&'s DbScoreBeatmap>,
     mapset: Option<&'s DbScoreBeatmapset>,
 }
@@ -162,7 +170,7 @@ struct OrderAppendix<'s> {
 impl<'s> OrderAppendix<'s> {
     fn new(
         sort: ScoresOrder,
-        score: &'s DbScore,
+        score: &'s DbTopScore,
         map: Option<&'s DbScoreBeatmap>,
         mapset: Option<&'s DbScoreBeatmapset>,
     ) -> Self {
@@ -192,6 +200,7 @@ impl Display for OrderAppendix<'_> {
 
                 write!(f, "`{}BPM`", round(bpm))
             }
+            ScoresOrder::Combo => write!(f, "`{}x`", self.score.max_combo),
             ScoresOrder::Cs => {
                 let attrs = BeatmapAttributesBuilder::default()
                     .mods(self.score.mods)
@@ -237,32 +246,18 @@ impl Display for OrderAppendix<'_> {
                 write!(f, "<t:{}:R>", ranked_date.unix_timestamp())
             }
             ScoresOrder::Score => write!(f, "`{}`", WithComma::new(self.score.score)),
-            ScoresOrder::Acc
-            | ScoresOrder::Combo
-            | ScoresOrder::Date
-            | ScoresOrder::Pp
-            | ScoresOrder::Stars => {
+            ScoresOrder::Acc | ScoresOrder::Date | ScoresOrder::Pp | ScoresOrder::Stars => {
                 write!(f, "<t:{}:R>", self.score.ended_at.unix_timestamp())
             }
         }
     }
 }
 
-struct GameModeFormatter {
-    mode: Option<GameMode>,
-}
-
-impl GameModeFormatter {
-    fn new(mode: Option<GameMode>) -> Self {
-        Self { mode }
-    }
-}
-
-impl Display for GameModeFormatter {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self.mode {
-            Some(mode) => write!(f, "{} ", Emote::from(mode)),
-            None => Ok(()),
-        }
+fn mode_str(mode: GameMode) -> &'static str {
+    match mode {
+        GameMode::Osu => "osu!",
+        GameMode::Taiko => "Taiko",
+        GameMode::Catch => "Catch",
+        GameMode::Mania => "Mania",
     }
 }

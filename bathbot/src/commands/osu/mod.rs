@@ -73,12 +73,9 @@ pub use self::link::*;
 #[cfg(feature = "matchlive")]
 pub use self::match_live::*;
 pub use self::{
-    attributes::*, avatar::*, badges::*, bookmarks::*, bws::*, cards::*, claim_name::*, compare::*,
-    country_top::*, fix::*, graphs::*, leaderboard::*, map::*, map_search::*, mapper::*,
-    match_compare::*, match_costs::*, medals::*, most_played::*, nochoke::*, osekai::*,
-    osustats::*, pinned::*, popular::*, pp::*, profile::*, rank::*, ranking::*, ratios::*,
-    recent::*, render::*, scores::*, serverleaderboard::*, simulate::*, snipe::*, top::*,
-    whatif::*,
+    badges::*, claim_name::*, compare::*, fix::*, graphs::*, leaderboard::*, map::*, map_search::*,
+    match_compare::*, match_costs::*, medals::*, nochoke::*, osustats::*, popular::*, profile::*,
+    recent::*, region_top::*, render::*, scores::*, simulate::*, snipe::*, top::*, whatif::*,
 };
 use crate::{
     core::commands::{interaction::InteractionCommands, CommandOrigin},
@@ -93,7 +90,6 @@ mod bws;
 mod cards;
 mod claim_name;
 mod compare;
-mod country_top;
 mod fix;
 mod graphs;
 mod leaderboard;
@@ -117,6 +113,7 @@ mod rank;
 mod ranking;
 mod ratios;
 mod recent;
+mod region_top;
 mod render;
 mod scores;
 mod serverleaderboard;
