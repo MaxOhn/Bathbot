@@ -1,8 +1,8 @@
 use std::cmp;
 
 use skia_safe::{
-    font_style::Slant, utils::text_utils::Align, BlurStyle, Data, ISize, Image, Rect,
-    TextBlobBuilder,
+    font_style::Slant, utils::text_utils::Align, BlurStyle, ClipOp, Data, ISize, Image, RRect,
+    Rect, TextBlobBuilder,
 };
 
 use super::{footer::FOOTER_H, header::HEADER_H, CardBuilder, H, W};
@@ -130,10 +130,21 @@ fn draw_pfp(card: &mut CardBuilder<'_>, pfp: &[u8]) -> Result<(), InfoError> {
     let pos_x = scale.recip() * (INFO_PAD as f32 + offset_x / 2.0);
     let pos_y = scale.recip() * ((HEADER_H + INFO_PAD) as f32 + offset_y / 2.0);
 
+    let rect = Rect::new(
+        INFO_PAD as f32,
+        (HEADER_H + INFO_PAD) as f32,
+        (INFO_PAD + INFO_AVATAR_W) as f32,
+        (HEADER_H + INFO_PAD + INFO_AVATAR_H) as f32,
+    );
+    let rrect = RRect::new_rect_xy(rect, 16.0, 16.0);
+
+    card.canvas.save();
+
     card.canvas
+        .clip_rrect(rrect, Some(ClipOp::Intersect), Some(true))
         .scale((scale, scale))
         .draw_image(&img, (pos_x, pos_y), None)
-        .scale((scale.recip(), scale.recip()));
+        .restore();
 
     Ok(())
 }
