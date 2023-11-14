@@ -2481,7 +2481,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp"
 version = "0.9.5"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#1afb31e597ab0d4c6de127840ff81bda48ffaa05"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#7fc32479406db12f61af98eae63683ce867a6ca9"
 dependencies = [
  "tokio",
 ]
@@ -2489,7 +2489,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp-older"
 version = "0.2.0"
-source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#c56257010d7e4c350dab2004aec09d81a90191ee"
+source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#3f3b24e6ca4c24acf2cfa3414a45f20f15f73b30"
 dependencies = [
  "rosu-pp",
 ]

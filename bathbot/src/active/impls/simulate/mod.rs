@@ -11,7 +11,7 @@ use bathbot_util::{
 };
 use eyre::{ContextCompat, Report, Result};
 use futures::future::BoxFuture;
-use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap, GameMode as Mode};
+use rosu_pp::{beatmap::BeatmapAttributesBuilder, parse::HitObjectKind, Beatmap, GameMode as Mode};
 use rosu_v2::{
     mods,
     prelude::{GameMode, GameModsIntermode, Grade},
@@ -675,7 +675,15 @@ impl SimulateMap {
                 let clock_rate = attrs.clock_rate;
 
                 let start_time = map.hit_objects.first().map_or(0.0, |h| h.start_time);
-                let end_time = map.hit_objects.last().map_or(0.0, |h| h.end_time());
+                let end_time = map.hit_objects.last().map_or(0.0, |h| match &h.kind {
+                    HitObjectKind::Circle => h.start_time,
+                    // slider end time is not reasonably accessible at this point so this will have
+                    // to suffice
+                    HitObjectKind::Slider { .. } => h.start_time,
+                    HitObjectKind::Spinner { end_time } => *end_time,
+                    HitObjectKind::Hold { end_time } => *end_time,
+                });
+
                 let mut sec_drain = ((end_time - start_time) / 1000.0) as u32;
 
                 let mut bpm = map.bpm() as f32;
