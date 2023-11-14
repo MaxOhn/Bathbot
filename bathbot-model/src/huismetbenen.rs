@@ -416,7 +416,6 @@ pub struct SnipePlayerOldest {
 #[derive(Debug)]
 pub struct SnipeRecent {
     pub uid: u32,
-    pub score_id: u64,
     pub map_id: u32,
     pub user_id: u32,
     pub country: CountryCode,
@@ -449,8 +448,6 @@ impl<'de> Deserialize<'de> for SnipeRecent {
         #[derive(Deserialize)]
         pub struct SnipeRecentInner<'mods> {
             uid: u32,
-            #[serde(rename = "osu_score_id")]
-            score_id: u64,
             map_id: u32,
             #[serde(rename = "player_id")]
             user_id: u32,
@@ -498,7 +495,6 @@ impl<'de> Deserialize<'de> for SnipeRecent {
 
         Ok(SnipeRecent {
             uid: inner.uid,
-            score_id: inner.score_id,
             map_id: inner.map_id,
             user_id: inner.user_id,
             country: inner.country,
@@ -559,7 +555,6 @@ impl<'de> Visitor<'de> for SnipeModsVisitor {
 
 pub struct SnipeScore {
     pub uid: u32,
-    pub score_id: u64,
     pub user_id: u32,
     pub username: Username,
     pub country: CountryCode,
@@ -588,8 +583,6 @@ impl<'de> Deserialize<'de> for SnipeScore {
         #[derive(Deserialize)]
         struct SnipeScoreInner<'mods> {
             uid: u32,
-            #[serde(rename = "osu_score_id")]
-            score_id: u64,
             #[serde(rename = "player_id")]
             user_id: u32,
             username: Username,
@@ -631,7 +624,6 @@ impl<'de> Deserialize<'de> for SnipeScore {
 
         Ok(SnipeScore {
             uid: inner.uid,
-            score_id: inner.score_id,
             user_id: inner.user_id,
             username: inner.username,
             country: inner.country,
