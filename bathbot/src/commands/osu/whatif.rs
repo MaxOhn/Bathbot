@@ -241,6 +241,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         WhatIfData::NonTop100
     } else {
         let mut pps = scores.extract_pp();
+        let max_pp = pps.first().copied().unwrap_or(0.0);
         approx_more_pp(&mut pps, 50);
         let actual = pps.accum_weighted();
         let total = user.stats().pp();
@@ -255,7 +256,6 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         pps.sort_unstable_by(|a, b| b.total_cmp(a));
 
         let new_pp = pps.accum_weighted();
-        let max_pp = pps.first().copied().unwrap_or(0.0);
 
         let rank = match ctx.approx().rank(new_pp + bonus_pp, mode).await {
             Ok(rank) => Some(rank),
