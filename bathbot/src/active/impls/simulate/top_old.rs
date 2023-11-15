@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use rosu_pp::{
     catch::CatchScoreState, mania::ManiaScoreState, osu::OsuScoreState, taiko::TaikoScoreState,
-    Beatmap,
+    AnyPP, Beatmap,
 };
 use twilight_model::channel::message::{
     component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
@@ -310,405 +310,70 @@ impl TopOldVersion {
         }
     }
 
-    pub(super) fn generate_hitresults(
-        self,
-        map: &Beatmap,
-        data: &SimulateData,
-    ) -> Option<ScoreState> {
+    pub(super) fn generate_hitresults(self, map: &Beatmap, data: &SimulateData) -> ScoreState {
+        let mut calc = AnyPP::new(map);
+
+        if let Some(acc) = data.acc {
+            calc = calc.accuracy(acc as f64);
+        }
+
+        if let Some(n_geki) = data.n_geki {
+            calc = calc.n_geki(n_geki as usize);
+        }
+
+        if let Some(n_katu) = data.n_katu {
+            calc = calc.n_katu(n_katu as usize);
+        }
+
+        if let Some(n300) = data.n300 {
+            calc = calc.n300(n300 as usize);
+        }
+
+        if let Some(n100) = data.n100 {
+            calc = calc.n100(n100 as usize);
+        }
+
+        if let Some(n50) = data.n50 {
+            calc = calc.n50(n50 as usize);
+        }
+
+        if let Some(n_miss) = data.n_miss {
+            calc = calc.n_misses(n_miss as usize);
+        }
+
+        let state = calc.generate_state();
+
         match self {
-            Self::Osu(_) => Some(Self::generate_hitresults_osu(map, data)),
-            Self::Taiko(_) => Self::generate_hitresults_taiko(data),
-            Self::Catch(_) => Self::generate_hitresults_catch(map, data),
-            Self::Mania(_) => Some(Self::generate_hitresults_mania(map, data)),
+            Self::Osu(_) => ScoreState::Osu(OsuScoreState {
+                max_combo: state.max_combo,
+                n300: state.n300,
+                n100: state.n100,
+                n50: state.n50,
+                n_misses: state.n_misses,
+            }),
+            Self::Taiko(_) => ScoreState::Taiko(TaikoScoreState {
+                max_combo: state.max_combo,
+                n300: state.n300,
+                n100: state.n100,
+                n_misses: state.n_misses,
+            }),
+            Self::Catch(_) => ScoreState::Catch(CatchScoreState {
+                max_combo: state.max_combo,
+                n_fruits: state.n300,
+                n_droplets: state.n100,
+                n_tiny_droplets: state.n50,
+                n_tiny_droplet_misses: state.n_katu,
+                n_misses: state.n_misses,
+            }),
+            Self::Mania(_) => ScoreState::Mania(ManiaScoreState {
+                n320: state.n_geki,
+                n300: state.n300,
+                n200: state.n_katu,
+                n100: state.n100,
+                n50: state.n50,
+                n_misses: state.n_misses,
+            }),
         }
-    }
-
-    fn generate_hitresults_osu(map: &Beatmap, data: &SimulateData) -> ScoreState {
-        let n_objects = map.hit_objects.len();
-
-        let mut n300 = data.n300.unwrap_or(0) as usize;
-        let mut n100 = data.n100.unwrap_or(0) as usize;
-        let mut n50 = data.n50.unwrap_or(0) as usize;
-        let n_misses = data.n_miss.unwrap_or(0) as usize;
-
-        if let Some(acc) = data.acc {
-            let acc = acc / 100.0;
-            let target_total = (acc * (n_objects * 6) as f32).round() as usize;
-
-            match (data.n300, data.n100, data.n50) {
-                (Some(_), Some(_), Some(_)) => {
-                    n300 += n_objects.saturating_sub(n300 + n100 + n50 + n_misses);
-                }
-                (Some(_), Some(_), None) => n50 = n_objects.saturating_sub(n300 + n100 + n_misses),
-                (Some(_), None, Some(_)) => n100 = n_objects.saturating_sub(n300 + n50 + n_misses),
-                (None, Some(_), Some(_)) => n300 = n_objects.saturating_sub(n100 + n50 + n_misses),
-                (Some(_), None, None) => {
-                    let delta = (target_total - n_objects.saturating_sub(n_misses))
-                        .saturating_sub(n300 * 5);
-
-                    n100 = delta % 5;
-                    n50 = n_objects.saturating_sub(n300 + n100 + n_misses);
-
-                    let curr_total = 6 * n300 + 2 * n100 + n50;
-
-                    if curr_total < target_total {
-                        let n = (target_total - curr_total).min(n50);
-                        n50 -= n;
-                        n100 += n;
-                    } else {
-                        let n = (curr_total - target_total).min(n100);
-                        n100 -= n;
-                        n50 += n;
-                    }
-                }
-                (None, Some(_), None) => {
-                    let delta =
-                        (target_total - n_objects.saturating_sub(n_misses)).saturating_sub(n100);
-
-                    n300 = delta / 5;
-
-                    if n300 + n100 + n_misses > n_objects {
-                        n300 -= (n300 + n100 + n_misses) - n_objects;
-                    }
-
-                    n50 = n_objects - n300 - n100 - n_misses;
-                }
-                (None, None, Some(_)) => {
-                    let delta = target_total - n_objects.saturating_sub(n_misses);
-
-                    n300 = delta / 5;
-                    n100 = delta % 5;
-
-                    if n300 + n100 + n50 + n_misses > n_objects {
-                        let too_many = n300 + n100 + n50 + n_misses - n_objects;
-
-                        if too_many > n100 {
-                            n300 -= too_many - n100;
-                            n100 = 0;
-                        } else {
-                            n100 -= too_many;
-                        }
-                    }
-
-                    n100 += n_objects.saturating_sub(n300 + n100 + n50 + n_misses);
-
-                    let curr_total = 6 * n300 + 2 * n100 + n50;
-
-                    if curr_total < target_total {
-                        let n = n100.min((target_total - curr_total) / 4);
-                        n100 -= n;
-                        n300 += n;
-                    } else {
-                        let n = n300.min((curr_total - target_total) / 4);
-                        n300 -= n;
-                        n100 += n;
-                    }
-                }
-                (None, None, None) => {
-                    let delta = target_total - n_objects.saturating_sub(n_misses);
-
-                    n300 = delta / 5;
-                    n100 = delta % 5;
-                    n50 = n_objects.saturating_sub(n300 + n100 + n_misses);
-
-                    // Shift n50 to n100 by sacrificing n300
-                    let n = n300.min(n50 / 4);
-                    n300 -= n;
-                    n100 += 5 * n;
-                    n50 -= 4 * n;
-                }
-            }
-        } else {
-            let remaining = n_objects.saturating_sub(n300 + n100 + n50 + n_misses);
-
-            if data.n300.is_none() {
-                n300 = remaining;
-            } else if data.n100.is_none() {
-                n100 = remaining;
-            } else if data.n50.is_none() {
-                n50 = remaining;
-            } else {
-                n300 += remaining;
-            }
-        }
-
-        let state = OsuScoreState {
-            n300,
-            n100,
-            n50,
-            n_misses,
-            max_combo: 0,
-        };
-
-        ScoreState::Osu(state)
-    }
-
-    fn generate_hitresults_taiko(data: &SimulateData) -> Option<ScoreState> {
-        let total_result_count = data.max_combo as usize;
-
-        let mut n300 = data.n300.unwrap_or(0) as usize;
-        let mut n100 = data.n100.unwrap_or(0) as usize;
-        let n_misses = data.n_miss.unwrap_or(0) as usize;
-
-        if let Some(acc) = data.acc {
-            let acc = acc / 100.0;
-
-            match (data.n300, data.n100) {
-                (Some(_), Some(_)) => {
-                    n300 += total_result_count.saturating_sub(n300 + n100 + n_misses)
-                }
-                (Some(_), None) => n100 += total_result_count.saturating_sub(n300 + n_misses),
-                (None, Some(_)) => n300 += total_result_count.saturating_sub(n100 + n_misses),
-                (None, None) => {
-                    let target_total = (acc * (total_result_count * 2) as f32).round() as usize;
-                    n300 = target_total - (total_result_count.saturating_sub(n_misses));
-                    n100 = total_result_count.saturating_sub(n300 + n_misses);
-                }
-            }
-        } else {
-            let remaining = total_result_count.saturating_sub(n300 + n100 + n_misses);
-
-            match (data.n300, data.n100) {
-                (Some(_), None) => n100 = remaining,
-                (Some(_), Some(_)) => n300 += remaining,
-                (None, _) => n300 = remaining,
-            }
-        }
-
-        let state = TaikoScoreState {
-            n300,
-            n100,
-            n_misses,
-            max_combo: 0,
-        };
-
-        Some(ScoreState::Taiko(state))
-    }
-
-    // TODO: improve this
-    fn generate_hitresults_catch(map: &Beatmap, data: &SimulateData) -> Option<ScoreState> {
-        let attrs = rosu_pp::CatchStars::new(map).calculate();
-        let max_combo = data.max_combo as usize;
-
-        let mut n_fruits = data.n300.unwrap_or(0) as usize;
-        let mut n_droplets = data.n100.unwrap_or(0) as usize;
-        let mut n_tiny_droplets = data.n50.unwrap_or(0) as usize;
-        let n_tiny_droplet_misses = data.n_katu.unwrap_or(0) as usize;
-        let n_misses = data.n_miss.unwrap_or(0) as usize;
-
-        let missing = max_combo
-            .saturating_sub(n_fruits)
-            .saturating_sub(n_droplets)
-            .saturating_sub(n_misses);
-
-        let missing_fruits = missing.saturating_sub(attrs.n_droplets.saturating_sub(n_droplets));
-
-        n_fruits += missing_fruits;
-        n_droplets += missing.saturating_sub(missing_fruits);
-
-        n_tiny_droplets += attrs
-            .n_tiny_droplets
-            .saturating_sub(n_tiny_droplets)
-            .saturating_sub(n_tiny_droplet_misses);
-
-        let state = CatchScoreState {
-            n_fruits,
-            n_droplets,
-            n_tiny_droplets,
-            n_tiny_droplet_misses,
-            n_misses,
-            max_combo: 0,
-        };
-
-        Some(ScoreState::Catch(state))
-    }
-
-    fn generate_hitresults_mania(map: &Beatmap, data: &SimulateData) -> ScoreState {
-        let n_objects = map.hit_objects.len();
-
-        let mut n320 = data.n_geki.unwrap_or(0) as usize;
-        let mut n300 = data.n300.unwrap_or(0) as usize;
-        let mut n200 = data.n_katu.unwrap_or(0) as usize;
-        let mut n100 = data.n100.unwrap_or(0) as usize;
-        let mut n50 = data.n50.unwrap_or(0) as usize;
-        let n_misses = data.n_miss.unwrap_or(0) as usize;
-
-        if let Some(acc) = data.acc {
-            let acc = acc / 100.0;
-            let target_total = (acc * (n_objects * 6) as f32).round() as usize;
-
-            match (data.n_geki, data.n300, data.n_katu, data.n100, data.n50) {
-                (Some(_), Some(_), Some(_), Some(_), Some(_)) => {
-                    let remaining =
-                        n_objects.saturating_sub(n320 + n300 + n200 + n100 + n50 + n_misses);
-                    n320 += remaining;
-                }
-                (Some(_), None, Some(_), Some(_), Some(_)) => {
-                    n300 = n_objects.saturating_sub(n320 + n200 + n100 + n50 + n_misses)
-                }
-                (None, Some(_), Some(_), Some(_), Some(_)) => {
-                    n320 = n_objects.saturating_sub(n300 + n200 + n100 + n50 + n_misses)
-                }
-                (Some(_), _, Some(_), Some(_), None) | (_, Some(_), Some(_), Some(_), None) => {
-                    n50 = n_objects.saturating_sub(n320 + n300 + n200 + n100 + n_misses);
-                }
-                (Some(_), _, _, None, None) | (_, Some(_), _, None, None) => {
-                    let n3x0 = n320 + n300;
-                    let delta = (target_total - n_objects.saturating_sub(n_misses))
-                        .saturating_sub(n3x0 * 5 + n200 * 3);
-
-                    n100 = delta % 5;
-                    n50 = n_objects.saturating_sub(n3x0 + n200 + n100 + n_misses);
-
-                    let curr_total = 6 * n3x0 + 4 * n200 + 2 * n100 + n50;
-
-                    if curr_total < target_total {
-                        let n = (target_total - curr_total).min(n50);
-                        n50 -= n;
-                        n100 += n;
-                    } else {
-                        let n = (curr_total - target_total).min(n100);
-                        n100 -= n;
-                        n50 += n;
-                    }
-                }
-                (Some(_), _, None, Some(_), None) | (_, Some(_), None, Some(_), None) => {
-                    let n3x0 = n320 + n300;
-                    let delta = (target_total - n_objects.saturating_sub(n_misses))
-                        .saturating_sub(n3x0 * 5 + n100);
-
-                    n200 = delta / 3;
-                    n50 = n_objects.saturating_sub(n3x0 + n200 + n100 + n_misses);
-                }
-                (Some(_), _, None, None, Some(_)) | (_, Some(_), None, None, Some(_)) => {
-                    n100 = n_objects.saturating_sub(n320 + n300 + n50 + n_misses);
-                }
-                (Some(_), _, None, Some(_), Some(_)) | (_, Some(_), None, Some(_), Some(_)) => {
-                    n200 = n_objects.saturating_sub(n320 + n300 + n100 + n50 + n_misses);
-                }
-                (Some(_), _, Some(_), None, Some(_)) | (_, Some(_), Some(_), None, Some(_)) => {
-                    n100 = n_objects.saturating_sub(n320 + n300 + n200 + n50 + n_misses);
-                }
-                (None, None, Some(_), Some(_), Some(_)) => {
-                    n320 = n_objects.saturating_sub(n200 + n100 + n50 + n_misses);
-                }
-                (None, None, None, Some(_), Some(_)) => {
-                    let delta =
-                        (target_total - n_objects.saturating_sub(n_misses)).saturating_sub(n100);
-
-                    n320 = delta / 5;
-                    n200 = n_objects.saturating_sub(n320 + n100 + n50 + n_misses);
-
-                    let curr_total = 6 * (n320 + n300) + 4 * n200 + 2 * n100 + n50;
-
-                    if curr_total < target_total {
-                        let n = n200.min((target_total - curr_total) / 2);
-                        n200 -= n;
-                        n320 += n;
-                    } else {
-                        let n = (n320 + n300).min((curr_total - target_total) / 2);
-                        n200 += n;
-                        n320 -= n;
-                    }
-                }
-                (None, None, Some(_), None, None) => {
-                    let delta = (target_total - n_objects.saturating_sub(n_misses))
-                        .saturating_sub(n200 * 3);
-                    n320 = delta / 5;
-
-                    n100 = delta % 5;
-                    n50 = n_objects.saturating_sub(n320 + n200 + n100 + n_misses);
-
-                    let curr_total = 6 * (n320 + n300) + 4 * n200 * 2 * n100 + n50;
-
-                    if curr_total < target_total {
-                        let n = (target_total - curr_total).min(n50);
-                        n50 -= n;
-                        n100 += n;
-                    } else {
-                        let n = (curr_total - target_total).min(n100);
-                        n100 -= n;
-                        n50 += n;
-                    }
-
-                    // Shift n50 to n100
-                    let n = n320.min(n50 / 4);
-
-                    n320 -= n;
-                    n100 += 5 * n;
-                    n50 -= 4 * n;
-                }
-                (None, None, _, Some(_), None) => {
-                    let delta = (target_total - n_objects.saturating_sub(n_misses))
-                        .saturating_sub(n200 * 3 + n100);
-
-                    n320 = delta / 5;
-
-                    n50 = n_objects.saturating_sub(n320 + n300 + n200 + n100 + n_misses);
-                }
-                (None, None, _, None, Some(_)) => {
-                    let delta =
-                        target_total - n_objects.saturating_sub(n_misses).saturating_sub(n200 * 3);
-
-                    n320 = delta / 5;
-
-                    n100 = delta % 5;
-                    n100 += n_objects.saturating_sub(n320 + n300 + n200 + n100 + n50 + n_misses);
-
-                    let curr_total = 6 * (n320 + n300) + 4 * n200 + 2 * n100 + n50;
-
-                    if curr_total < target_total {
-                        let n = n100.min((target_total - curr_total) / 4);
-                        n100 -= n;
-                        n320 += n;
-                    } else {
-                        let n = (n320 + n300).min((curr_total - target_total) / 4);
-                        n100 += n;
-                        n320 -= n;
-                    }
-                }
-                (None, None, None, None, None) => {
-                    let delta = target_total - n_objects.saturating_sub(n_misses);
-
-                    n320 = delta / 5;
-                    n100 = delta % 5;
-                    n50 = n_objects.saturating_sub(n320 + n300 + n100 + n_misses);
-
-                    // Shift n50 to n100
-                    let n = n320.min(n50 / 4);
-                    n320 -= n;
-                    n100 += 5 * n;
-                    n50 -= 4 * n;
-                }
-            }
-        } else {
-            let remaining = n_objects.saturating_sub(n320 + n300 + n200 + n100 + n50 + n_misses);
-
-            if data.n_geki.is_none() {
-                n320 = remaining;
-            } else if data.n300.is_none() {
-                n300 = remaining;
-            } else if data.n_katu.is_none() {
-                n200 = remaining;
-            } else if data.n100.is_none() {
-                n100 = remaining;
-            } else if data.n50.is_none() {
-                n50 = remaining;
-            } else {
-                n320 += remaining;
-            }
-        }
-
-        let state = ManiaScoreState {
-            n320,
-            n300,
-            n200,
-            n100,
-            n50,
-            n_misses,
-        };
-
-        ScoreState::Mania(state)
     }
 }
 

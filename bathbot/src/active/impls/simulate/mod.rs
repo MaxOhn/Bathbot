@@ -170,7 +170,6 @@ impl IActiveMessage for SimulateComponents {
 
                 (None, Some(acc), Some(hits))
             }
-            StateOrScore::Neither => (None, None, None),
         };
 
         let (combo, ratio) = match combo_ratio {

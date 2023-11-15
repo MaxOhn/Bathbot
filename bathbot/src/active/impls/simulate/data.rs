@@ -255,13 +255,13 @@ impl SimulateData {
         let state = self.version.generate_hitresults(map.pp_map(), self);
 
         let combo_ratio = match state {
-            Some(ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_)) => {
+            ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_) => {
                 ComboOrRatio::Combo {
                     score: self.combo.unwrap_or(self.max_combo),
                     max: self.max_combo,
                 }
             }
-            Some(ScoreState::Mania(ref state))
+            ScoreState::Mania(ref state)
                 if matches!(
                     self.version,
                     TopOldVersion::Mania(TopOldManiaVersion::October22Now)
@@ -272,7 +272,7 @@ impl SimulateData {
                     _ => ComboOrRatio::Ratio(state.n320 as f32 / state.n300 as f32),
                 }
             }
-            Some(ScoreState::Mania(_)) | None => ComboOrRatio::Neither,
+            ScoreState::Mania(_) => ComboOrRatio::Neither,
         };
 
         let clock_rate = self
@@ -294,34 +294,21 @@ impl SimulateData {
             });
 
         let score_state = match state {
-            Some(state @ (ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_))) => {
+            state @ (ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_)) => {
                 StateOrScore::State(state)
             }
-            Some(state @ ScoreState::Mania(_))
+            state @ ScoreState::Mania(_)
                 if self.version == TopOldVersion::Mania(TopOldManiaVersion::October22Now) =>
             {
                 StateOrScore::State(state)
             }
-            Some(ScoreState::Mania(_)) => match self.score {
+            ScoreState::Mania(_) => match self.score {
                 Some(score) => StateOrScore::Score(score),
                 None => {
                     let mult = self.mods.as_ref().map(score_multiplier).unwrap_or(1.0);
 
                     StateOrScore::Score((1_000_000.0 * mult) as u32)
                 }
-            },
-            None => match self.version {
-                TopOldVersion::Mania(
-                    TopOldManiaVersion::March14May18 | TopOldManiaVersion::May18October22,
-                ) => match self.score {
-                    Some(score) => StateOrScore::Score(score),
-                    None => {
-                        let mult = self.mods.as_ref().map(score_multiplier).unwrap_or(1.0);
-
-                        StateOrScore::Score((1_000_000.0 * mult) as u32)
-                    }
-                },
-                _ => StateOrScore::Neither,
             },
         };
 
@@ -382,7 +369,6 @@ pub(super) struct SimulateValues {
 pub(super) enum StateOrScore {
     Score(u32),
     State(ScoreState),
-    Neither,
 }
 
 pub(super) enum ComboOrRatio {
