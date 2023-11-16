@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering, fmt::Write, sync::Arc};
+use std::{borrow::Cow, fmt::Write, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
@@ -12,7 +12,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rosu_pp::{beatmap::BeatmapAttributesBuilder, GameMode as GameModePp};
 use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, GameModsIntermode, OsuError, Score};
-use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
@@ -59,12 +59,28 @@ pub struct TopIf<'a> {
     )]
     query: Option<String>,
     #[command(
+        desc = "Choose how the scores should be ordered",
+        help = "Choose how the scores should be ordered, defaults to `pp`."
+    )]
+    sort: Option<TopIfScoreOrder>,
+    #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
     discord: Option<Id<UserMarker>>,
+}
+
+#[derive(Copy, Clone, Default, CommandOption, CreateOption, Eq, PartialEq)]
+pub enum TopIfScoreOrder {
+    #[default]
+    #[option(name = "PP", value = "pp")]
+    Pp,
+    #[option(name = "PP delta", value = "pp_delta")]
+    PpDelta,
+    #[option(name = "Stars", value = "stars")]
+    Stars,
 }
 
 async fn slash_topif(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
@@ -99,6 +115,7 @@ impl<'m> TopIf<'m> {
             mode,
             name,
             query: None,
+            sort: None,
             discord,
         })
     }
@@ -218,9 +235,10 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
         .fold(0.0, |sum, weight| sum + weight.pp);
 
     let bonus_pp = user.stats().pp() - actual_pp;
-    let content = get_content(user.username(), mode, &mods, args.query.as_deref());
+    let sort = args.sort.unwrap_or_default();
+    let content = get_content(user.username(), mode, &mods, args.query.as_deref(), sort);
 
-    let mut entries = match process_scores(&ctx, scores, mods, mode).await {
+    let mut entries = match process_scores(&ctx, scores, mods, mode, sort).await {
         Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -228,14 +246,6 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
             return Err(err.wrap_err("failed to modify scores"));
         }
     };
-
-    // Sort by adjusted pp
-    entries.sort_unstable_by(|a, b| {
-        b.score
-            .pp
-            .partial_cmp(&a.score.pp)
-            .unwrap_or(Ordering::Equal)
-    });
 
     // Calculate adjusted pp
     let adjusted_pp: f32 = entries.iter().zip(0..).fold(0.0, |sum, (entry, i)| {
@@ -287,6 +297,12 @@ pub struct TopIfEntry {
     pub stars: f32,
     pub max_pp: f32,
     pub max_combo: u32,
+}
+
+impl TopIfEntry {
+    pub fn pp_delta(&self) -> f32 {
+        (self.score.pp - self.old_pp).abs()
+    }
 }
 
 impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
@@ -406,6 +422,7 @@ async fn process_scores(
     scores: Vec<Score>,
     mut arg_mods: ModSelection,
     mode: GameMode,
+    sort: TopIfScoreOrder,
 ) -> Result<Vec<TopIfEntry>> {
     let mut entries = Vec::with_capacity(scores.len());
 
@@ -528,10 +545,30 @@ async fn process_scores(
         entries.push(entry);
     }
 
+    match sort {
+        TopIfScoreOrder::Pp => entries.sort_unstable_by(|a, b| b.score.pp.total_cmp(&a.score.pp)),
+        TopIfScoreOrder::PpDelta => entries.sort_unstable_by(|a, b| {
+            b.pp_delta()
+                .total_cmp(&a.pp_delta())
+                .then_with(|| b.score.pp.total_cmp(&a.score.pp))
+        }),
+        TopIfScoreOrder::Stars => entries.sort_unstable_by(|a, b| {
+            b.stars
+                .total_cmp(&a.stars)
+                .then_with(|| b.score.pp.total_cmp(&a.score.pp))
+        }),
+    }
+
     Ok(entries)
 }
 
-fn get_content(name: &str, mode: GameMode, mods: &ModSelection, query: Option<&str>) -> String {
+fn get_content(
+    name: &str,
+    mode: GameMode,
+    mods: &ModSelection,
+    query: Option<&str>,
+    sort: TopIfScoreOrder,
+) -> String {
     let mut content = match mods {
         ModSelection::Exact(mods) => format!(
             "`{name}`{plural} {mode}top100 with only `{mods}` scores",
@@ -582,7 +619,17 @@ fn get_content(name: &str, mode: GameMode, mods: &ModSelection, query: Option<&s
         TopCriteria::create(query).display(&mut content);
     }
 
-    content.push(':');
+    content.push_str(" • `Order: ");
+
+    let sort_str = match sort {
+        TopIfScoreOrder::Pp => "New PP",
+        TopIfScoreOrder::PpDelta => "PP delta",
+        TopIfScoreOrder::Stars => "New stars",
+    };
+
+    content.push_str(sort_str);
+
+    content.push('`');
 
     content
 }
