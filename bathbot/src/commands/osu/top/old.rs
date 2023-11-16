@@ -54,6 +54,8 @@ pub enum TopOldScoreOrder {
     #[default]
     #[option(name = "PP", value = "pp")]
     Pp,
+    #[option(name = "PP delta", value = "pp_delta")]
+    PpDelta,
     #[option(name = "Stars", value = "stars")]
     Stars,
 }
@@ -828,7 +830,20 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         criteria.display(&mut content);
     }
 
-    content.push(':');
+    if let Some(sort) = common.sort {
+        content.push_str(" (`Order: ");
+
+        let sort_str = match sort {
+            TopOldScoreOrder::Pp => "Old PP",
+            TopOldScoreOrder::PpDelta => "PP delta",
+            TopOldScoreOrder::Stars => "Old stars",
+        };
+
+        content.push_str(sort_str);
+        content.push_str("`)");
+    } else {
+        content.push(':');
+    }
 
     let pagination = TopIfPagination::builder()
         .user(user)
@@ -1044,6 +1059,9 @@ impl CommonArgs<'_> {
 
         match self.sort.unwrap_or_default() {
             TopOldScoreOrder::Pp => {} // already sorted
+            TopOldScoreOrder::PpDelta => {
+                entries.sort_by(|a, b| b.pp_delta().total_cmp(&a.pp_delta()))
+            }
             TopOldScoreOrder::Stars => entries.sort_unstable_by(|a, b| b.stars.total_cmp(&a.stars)),
         }
 

@@ -289,6 +289,12 @@ pub struct TopIfEntry {
     pub max_combo: u32,
 }
 
+impl TopIfEntry {
+    pub fn pp_delta(&self) -> f32 {
+        (self.score.pp - self.old_pp).abs()
+    }
+}
+
 impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
     fn matches(&self, criteria: &FilterCriteria<TopCriteria<'q>>) -> bool {
         let mut matches = true;
