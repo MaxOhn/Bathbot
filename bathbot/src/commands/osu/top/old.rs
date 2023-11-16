@@ -21,7 +21,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::TopIfEntry;
 use crate::{
     active::{impls::TopIfPagination, ActiveMessages},
-    commands::osu::{require_link, user_not_found, HasMods, ModsResult},
+    commands::osu::{require_link, user_not_found, HasMods, ModsResult, TopIfScoreOrder},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     util::{
@@ -47,17 +47,6 @@ pub enum TopOld<'a> {
     Catch(TopOldCatch<'a>),
     #[command(name = "mania")]
     Mania(TopOldMania<'a>),
-}
-
-#[derive(Copy, Clone, Default, CommandOption, CreateOption, Eq, PartialEq)]
-pub enum TopOldScoreOrder {
-    #[default]
-    #[option(name = "PP", value = "pp")]
-    Pp,
-    #[option(name = "PP delta", value = "pp_delta")]
-    PpDelta,
-    #[option(name = "Stars", value = "stars")]
-    Stars,
 }
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
@@ -101,7 +90,7 @@ pub struct TopOldOsu<'a> {
         desc = "Choose how the scores should be ordered",
         help = "Choose how the scores should be ordered, defaults to `pp`."
     )]
-    sort: Option<TopOldScoreOrder>,
+    sort: Option<TopIfScoreOrder>,
     #[command(
         desc = "Filter mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
         help = "Filter out all scores that don't match the specified mods.\n\
@@ -207,7 +196,7 @@ pub struct TopOldTaiko<'a> {
         desc = "Choose how the scores should be ordered",
         help = "Choose how the scores should be ordered, defaults to `pp`."
     )]
-    sort: Option<TopOldScoreOrder>,
+    sort: Option<TopIfScoreOrder>,
     #[command(
         desc = "Filter mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
         help = "Filter out all scores that don't match the specified mods.\n\
@@ -283,7 +272,7 @@ pub struct TopOldCatch<'a> {
         desc = "Choose how the scores should be ordered",
         help = "Choose how the scores should be ordered, defaults to `pp`."
     )]
-    sort: Option<TopOldScoreOrder>,
+    sort: Option<TopIfScoreOrder>,
     #[command(
         desc = "Filter mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
         help = "Filter out all scores that don't match the specified mods.\n\
@@ -354,7 +343,7 @@ pub struct TopOldMania<'a> {
         desc = "Choose how the scores should be ordered",
         help = "Choose how the scores should be ordered, defaults to `pp`."
     )]
-    sort: Option<TopOldScoreOrder>,
+    sort: Option<TopIfScoreOrder>,
     #[command(
         desc = "Filter mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
         help = "Filter out all scores that don't match the specified mods.\n\
@@ -834,9 +823,9 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         content.push_str(" (`Order: ");
 
         let sort_str = match sort {
-            TopOldScoreOrder::Pp => "Old PP",
-            TopOldScoreOrder::PpDelta => "PP delta",
-            TopOldScoreOrder::Stars => "Old stars",
+            TopIfScoreOrder::Pp => "Old PP",
+            TopIfScoreOrder::PpDelta => "PP delta",
+            TopIfScoreOrder::Stars => "Old stars",
         };
 
         content.push_str(sort_str);
@@ -1017,7 +1006,7 @@ fn mode_str(mode: GameMode) -> &'static str {
 
 struct CommonArgs<'a> {
     mode: GameMode,
-    sort: Option<TopOldScoreOrder>,
+    sort: Option<TopIfScoreOrder>,
     mods: Option<ModSelection>,
     query: Option<FilterCriteria<TopCriteria<'a>>>,
     reverse: Option<bool>,
@@ -1058,11 +1047,11 @@ impl CommonArgs<'_> {
         }
 
         match self.sort.unwrap_or_default() {
-            TopOldScoreOrder::Pp => {} // already sorted
-            TopOldScoreOrder::PpDelta => {
+            TopIfScoreOrder::Pp => {} // already sorted
+            TopIfScoreOrder::PpDelta => {
                 entries.sort_by(|a, b| b.pp_delta().total_cmp(&a.pp_delta()))
             }
-            TopOldScoreOrder::Stars => entries.sort_unstable_by(|a, b| b.stars.total_cmp(&a.stars)),
+            TopIfScoreOrder::Stars => entries.sort_unstable_by(|a, b| b.stars.total_cmp(&a.stars)),
         }
 
         if self.reverse.unwrap_or(false) {
