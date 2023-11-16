@@ -140,7 +140,7 @@ impl TopPagination {
                 map,
                 max_pp: _,
                 max_combo: _,
-                stars: _,
+                stars,
                 replay: _,
             } = entry;
 
@@ -148,12 +148,12 @@ impl TopPagination {
 
             let _ = writeln!(
                 description,
-                "**#{idx} [{map}]({OSU_BASE}b/{map_id}) +{mods}**\n\
-                {grade} **{pp}pp** ({acc}%) `{score}` {{{n320}/{n300}/.../{miss}}} {appendix}",
+                "**#{idx} [{map}]({OSU_BASE}b/{map_id})** [{stars}★]\n\
+                {grade} **{pp}pp** ({acc}%) `{score}` {{{n320}/{n300}/../{miss}}} **+{mods}** {appendix}",
                 idx = *original_idx + 1,
                 map = MapFormat::new(map),
                 map_id = map.map_id(),
-                mods = score.mods,
+                stars = round(*stars),
                 grade = grade_emote(score.grade),
                 pp = round(score.pp),
                 acc = round(score.accuracy),
@@ -161,6 +161,7 @@ impl TopPagination {
                 n320 = stats.count_geki,
                 n300 = stats.count_300,
                 miss = stats.count_miss,
+                mods = score.mods,
                 appendix =
                     OrderAppendix::new(self.sort_by, entry, map.ranked_date(), &self.farm, true),
             );
