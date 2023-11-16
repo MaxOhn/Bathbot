@@ -329,7 +329,7 @@ impl<'de> Deserialize<'de> for MedalGroup {
 }
 
 impl OsekaiMedal {
-    const BASE_URL: &str = "https://osekai.net/medals?";
+    const BASE_URL: &'static str = "https://osekai.net/medals?";
 
     /// Returns a properly encoded medal url to osekai.
     pub fn url(&self) -> Result<String> {

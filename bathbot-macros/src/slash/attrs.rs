@@ -24,9 +24,7 @@ impl CommandAttrs {
                 attr.parse_nested_meta(|meta| {
                     if meta.path.is_ident("name") {
                         name_lit = Some(meta.value()?.parse()?);
-                    } else if meta.path.is_ident("desc") {
-                        let _: LitStr = meta.value()?.parse()?;
-                    } else if meta.path.is_ident("help") {
+                    } else if meta.path.is_ident("desc") | meta.path.is_ident("help") {
                         let _: LitStr = meta.value()?.parse()?;
                     } else if meta.path.is_ident("dm_permission") {
                         let _: LitBool = meta.value()?.parse()?;

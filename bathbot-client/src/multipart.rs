@@ -10,8 +10,8 @@ pub struct Multipart {
 }
 
 impl Multipart {
-    pub(super) const BOUNDARY_TERMINATOR: &[u8; 2] = b"--";
-    pub(super) const NEWLINE: &[u8; 2] = b"\r\n";
+    pub(super) const BOUNDARY_TERMINATOR: &'static [u8; 2] = b"--";
+    pub(super) const NEWLINE: &'static [u8; 2] = b"\r\n";
 
     pub fn new() -> Self {
         let mut boundary = [0; BOUNDARY_LEN];
