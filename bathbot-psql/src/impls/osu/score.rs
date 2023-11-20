@@ -848,6 +848,42 @@ WHERE
         let query = sqlx::query_as!(
             DbTopScoreRaw,
             r#"
+WITH osu_stars AS (
+  SELECT 
+    map_id, 
+    mods, 
+    stars, 
+    0 :: INT2 AS gamemode 
+  FROM 
+    osu_map_difficulty
+), 
+taiko_stars AS (
+  SELECT 
+    map_id, 
+    mods, 
+    stars, 
+    1 :: INT2 AS gamemode 
+  FROM 
+    osu_map_difficulty_taiko
+), 
+catch_stars AS (
+  SELECT 
+    map_id, 
+    mods, 
+    stars, 
+    2 :: INT2 AS gamemode 
+  FROM 
+    osu_map_difficulty_catch
+), 
+mania_stars AS (
+  SELECT 
+    map_id, 
+    mods, 
+    stars, 
+    3 :: INT2 AS gamemode 
+  FROM 
+    osu_map_difficulty_mania
+) 
 SELECT 
   username, 
   user_id AS "user_id!: _", 
@@ -904,7 +940,29 @@ FROM
       mods, 
       stars 
     FROM 
-      osu_map_difficulty
+      (
+        SELECT 
+          * 
+        FROM 
+          osu_stars 
+        UNION ALL 
+        SELECT 
+          * 
+        FROM 
+          taiko_stars 
+        UNION ALL 
+        SELECT 
+          * 
+        FROM 
+          catch_stars 
+        UNION ALL 
+        SELECT 
+          * 
+        FROM 
+          mania_stars
+      ) AS stars_union 
+    WHERE 
+      gamemode = $1
   ) AS stars USING (map_id, mods) 
 ORDER BY 
   pp DESC 
