@@ -40,10 +40,10 @@ pub struct MatchCost<'a> {
     match_url: Cow<'a, str>,
     #[command(
         min_value = 0,
-        desc = "Specify the amount of warmups to ignore (defaults to 2)",
+        desc = "Specify the amount of warmups to ignore (defaults to 0)",
         help = "Since warmup maps commonly want to be skipped for performance calculations, \
         this option allows you to specify how many maps should be ignored in the beginning.\n\
-        If no value is specified, it defaults to 2."
+        If no value is specified, it defaults to 0."
     )]
     warmups: Option<usize>,
     #[command(
@@ -102,7 +102,7 @@ impl<'m> MatchCost<'m> {
 #[help(
     "Calculate a performance rating for each player \
      in the given multiplayer match.\nThe optional second \
-     argument is the amount of played warmups, defaults to 2.\n\
+     argument is the amount of played warmups, defaults to 0.\n\
      Here's the current [formula](https://i.imgur.com/7KFwcUS.png).\n\
      Keep in mind that all bots use different formulas so comparing \
      with values from other bots makes no sense."
@@ -152,7 +152,7 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
 
     debug!("Match cost warmups: {warmups:?}");
 
-    let warmups = warmups.unwrap_or(2);
+    let warmups = warmups.unwrap_or(0);
     let ez_mult = ez_mult.unwrap_or(1.0);
     let skip_last = skip_last.unwrap_or(0);
 
