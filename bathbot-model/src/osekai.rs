@@ -205,7 +205,6 @@ pub struct OsekaiComment {
 #[serde(rename_all = "PascalCase")]
 pub struct OsekaiMedal {
     #[serde(rename = "MedalID")]
-    #[serde(with = "deser::u32_string")]
     pub medal_id: u32,
     pub name: Box<str>,
     #[serde(rename = "Link")]
@@ -220,11 +219,9 @@ pub struct OsekaiMedal {
     #[serde(deserialize_with = "medal_mods")]
     pub mods: Option<Box<str>>,
     #[serde(rename = "ModeOrder")]
-    #[serde(with = "deser::u32_string")]
     pub mode_order: u32,
-    #[serde(with = "deser::u32_string")]
     pub ordering: u32,
-    #[serde(rename = "Rarity", with = "deser::f32_string")]
+    #[serde(rename = "Rarity")]
     pub rarity: f32,
 }
 
