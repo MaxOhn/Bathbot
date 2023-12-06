@@ -4,19 +4,22 @@ use eyre::Report;
 use sqlx::PgPool;
 
 pub(crate) async fn refresh_materialized_views(pool: PgPool) {
-    const HOUR: Duration = Duration::from_secs(3600);
+    const DAY: Duration = Duration::from_secs(24 * 3600);
 
-    let mut interval = tokio::time::interval(HOUR);
+    let mut interval = tokio::time::interval(DAY);
 
     loop {
         interval.tick().await;
 
         info!("Refreshing materialized views...");
 
-        let mut conn = match pool.acquire().await {
+        let mut conn = match pool.acquire().await.map_err(Report::new) {
             Ok(conn) => conn,
             Err(err) => {
-                warn!(err = ?Report::new(err), "Failed to acquire connection to refresh materialized views");
+                warn!(
+                    ?err,
+                    "Failed to acquire connection to refresh materialized views"
+                );
 
                 continue;
             }
