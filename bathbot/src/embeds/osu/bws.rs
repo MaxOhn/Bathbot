@@ -15,6 +15,12 @@ pub struct BWSEmbed {
     author: AuthorBuilder,
 }
 
+struct BadgeEntry {
+    count: usize,
+    /// Length of `count` when stringified
+    len: usize,
+}
+
 impl BWSEmbed {
     pub fn new(
         user: &RedisData<User>,
@@ -32,7 +38,10 @@ impl BWSEmbed {
             .step_by(dist_badges / step_dist)
             .take(step_dist)
             .chain(iter::once(badges_max))
-            .map(|badges| (badges, WithComma::new(badges).to_string().len()))
+            .map(|count| BadgeEntry {
+                count,
+                len: WithComma::new(count).to_string().len(),
+            })
             .collect();
 
         let yellow = "\u{001b}[1;33m";
@@ -62,9 +71,7 @@ impl BWSEmbed {
                         .map(|rank| {
                             let bwss: Vec<_> = badges
                                 .iter()
-                                .map(move |(badges, _)| {
-                                    WithComma::new(bws(rank, *badges)).to_string()
-                                })
+                                .map(|entry| WithComma::new(bws(rank, entry.count)).to_string())
                                 .collect();
 
                             (rank, bwss)
@@ -79,7 +86,7 @@ impl BWSEmbed {
                             .map(|bwss| bwss.get(n).unwrap().len())
                             .fold(0, |max, next| max.max(next))
                             .max(2)
-                            .max(badges[n].1)
+                            .max(badges[n].len)
                     })
                     .collect();
 
@@ -90,9 +97,9 @@ impl BWSEmbed {
                     content,
                     " {:>rank_len$} | {:^len1$} | {:^len2$} | {:^len3$}",
                     "Badges>",
-                    badges[0].0,
-                    badges[1].0,
-                    badges[2].0,
+                    badges[0].count,
+                    badges[1].count,
+                    badges[2].count,
                     len1 = max[0],
                     len2 = max[1],
                     len3 = max[2],
@@ -110,7 +117,7 @@ impl BWSEmbed {
                 for (rank, bwss) in bwss {
                     let _ = writeln!(
                         content,
-                        " {ansi_start}{:>rank_len$}{reset} | {:^len1$} | {:^len2$} | {:^len3$}",
+                        " {:>rank_len$} | {ansi_left}{:^len1$}{reset} | {:^len2$} | {ansi_right}{:^len3$}{reset}",
                         format!("#{rank}"),
                         bwss[0],
                         bwss[1],
@@ -118,7 +125,8 @@ impl BWSEmbed {
                         len1 = max[0],
                         len2 = max[1],
                         len3 = max[2],
-                        ansi_start = if rank == global_rank { yellow } else { reset },
+                        ansi_left = if rank == global_rank && badges_curr == badges[0].count { yellow } else { reset },
+                        ansi_right = if rank == global_rank && badges_curr == badges[2].count { yellow } else { reset },
                     );
                 }
 
@@ -127,19 +135,19 @@ impl BWSEmbed {
                 content
             }
             None => {
-                let bws1 = WithComma::new(bws(global_rank, badges[0].0)).to_string();
-                let bws2 = WithComma::new(bws(global_rank, badges[1].0)).to_string();
-                let bws3 = WithComma::new(bws(global_rank, badges[2].0)).to_string();
-                let len1 = bws1.len().max(2).max(badges[0].1);
-                let len2 = bws2.len().max(2).max(badges[1].1);
-                let len3 = bws3.len().max(2).max(badges[2].1);
+                let bws1 = WithComma::new(bws(global_rank, badges[0].count)).to_string();
+                let bws2 = WithComma::new(bws(global_rank, badges[1].count)).to_string();
+                let bws3 = WithComma::new(bws(global_rank, badges[2].count)).to_string();
+                let len1 = bws1.len().max(2).max(badges[0].len);
+                let len2 = bws2.len().max(2).max(badges[1].len);
+                let len3 = bws3.len().max(2).max(badges[2].len);
                 let mut content = String::with_capacity(128);
                 content.push_str("```ansi\n");
 
                 let _ = writeln!(
                     content,
                     "Badges | {:^len1$} | {:^len2$} | {:^len3$}",
-                    badges[0].0, badges[1].0, badges[2].0,
+                    badges[0].count, badges[1].count, badges[2].count,
                 );
 
                 let _ = writeln!(
@@ -150,7 +158,9 @@ impl BWSEmbed {
 
                 let _ = writeln!(
                     content,
-                    "   BWS | {yellow}{bws1:^len1$}{reset} | {bws2:^len2$} | {bws3:^len3$}\n```"
+                    "   BWS | {ansi_left}{bws1:^len1$}{reset} | {bws2:^len2$} | {ansi_right}{bws3:^len3$}{reset}\n```",
+                    ansi_left = if badges_curr == badges[0].count { yellow } else { reset },
+                    ansi_right = if badges_curr == badges[2].count { yellow } else { reset },
                 );
 
                 content
