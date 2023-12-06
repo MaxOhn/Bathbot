@@ -150,8 +150,6 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
         }
     };
 
-    debug!("Match cost warmups: {warmups:?}");
-
     let warmups = warmups.unwrap_or(0);
     let ez_mult = ez_mult.unwrap_or(1.0);
     let skip_last = skip_last.unwrap_or(0);
