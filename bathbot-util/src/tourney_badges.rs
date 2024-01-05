@@ -48,7 +48,8 @@ impl TourneyBadges {
             || (badge.starts_with("osu!") && badge.contains("completionist"))
             || badge.starts_with("outstanding")
             || badge.starts_with("pending")
-            || badge.starts_with("spotlight"))
+            || badge.starts_with("spotlight")
+            || badge.contains("playlist"))
     }
 }
 
