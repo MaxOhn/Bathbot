@@ -649,7 +649,30 @@ async fn process_scores(
                 let a_len = a_map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
                 let b_len = b_map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
 
-                b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
+                // let a_completion = a.score.statistics.
+                let a_completion = a.score.statistics.total_hits(a.score.mode) as f32 / a_map.n_objects() as f32;
+                let b_completion = b.score.statistics.total_hits(b.score.mode) as f32 / b_map.n_objects() as f32;
+
+                let a_grade = a.score.grade;
+                let b_grade = b.score.grade;
+
+                if b_len.partial_cmp(&a_len) == Some(Ordering::Equal) && a_grade.eq_letter(b_grade) {
+                    b_completion.partial_cmp(&a_completion).unwrap()
+                } else if a_grade.eq_letter(b_grade) {
+                    b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
+                }
+                else {
+                    if a_map.map_id() == b_map.map_id() {
+                        match (a_grade, b_grade) {
+                            (_, Grade::F) => Ordering::Less,
+                            (Grade::F, _) => Ordering::Greater,
+                            _ => b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal),
+                        }
+                    }
+                    else {
+                        b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
+                    }
+                }
             });
         }
         Some(ScoreOrder::Misses) => entries.sort_by(|a, b| {
