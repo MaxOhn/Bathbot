@@ -305,6 +305,10 @@ impl BookmarksPagination {
 
         ComponentResult::BuildPage
     }
+
+    pub fn set_index(&mut self, index: usize) {
+        self.pages.set_index(index);
+    }
 }
 
 impl IActiveMessage for BookmarksPagination {
