@@ -654,15 +654,14 @@ async fn process_scores(
                 let b_completion =
                     b.score.statistics.total_hits(b.score.mode) as f32 / b_map.n_objects() as f32;
 
-                let a_is_fail = a.score.grade == Grade::F;
-                let b_is_fail = b.score.grade == Grade::F;
-
                 b_len.partial_cmp(&a_len)
                     .unwrap_or(Ordering::Equal)
                     .then_with(|| {
                         if a_map.map_id() != b_map.map_id() {
                             Ordering::Equal
                         } else {
+                            let a_is_fail = a.score.grade == Grade::F;
+                            let b_is_fail = b.score.grade == Grade::F;
                             match (a_is_fail, b_is_fail) {
                                 (true, true) => b_completion
                                     .partial_cmp(&a_completion)
