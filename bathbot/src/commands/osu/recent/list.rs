@@ -655,22 +655,24 @@ async fn process_scores(
                 let a_grade = a.score.grade;
                 let b_grade = b.score.grade;
 
-                if b_len.partial_cmp(&a_len) == Some(Ordering::Equal) && a_grade.eq_letter(b_grade) {
-                    b_completion.partial_cmp(&a_completion).unwrap()
-                } else if a_grade.eq_letter(b_grade) {
-                    b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
-                }
-                else {
-                    if a_map.map_id() == b_map.map_id() {
-                        match (a_grade, b_grade) {
-                            (_, Grade::F) => Ordering::Less,
-                            (Grade::F, _) => Ordering::Greater,
-                            _ => b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal),
-                        }
+                let a_is_fail = a_grade.eq_letter(Grade::F);
+                let b_is_fail = b_grade.eq_letter(Grade::F);
+
+                if b_len.partial_cmp(&a_len) == Some(Ordering::Equal) {
+                    if a_map.map_id() != b_map.map_id() {
+                        Ordering::Equal
                     }
                     else {
-                        b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
+                        match (a_is_fail, b_is_fail) {
+                            (true, true) => b_completion.partial_cmp(&a_completion).unwrap_or(Ordering::Equal),
+                            (true, false) => Ordering::Greater,
+                            (false, true) => Ordering::Less,
+                            (false, false) => Ordering::Equal,
+                        }
                     }
+                }
+                else {
+                    b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
                 }
             });
         }
