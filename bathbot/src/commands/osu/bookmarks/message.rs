@@ -103,11 +103,27 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
 
     let user_id = command.user_id()?;
 
-    if let Err(err) = ctx.bookmarks().add(user_id, map_id).await {
-        let _ = command.error(&ctx, GENERAL_ISSUE).await;
+    let bookmark_ex = match ctx.bookmarks().get(user_id).await {
+        Ok(marks) => marks,
+        Err(err) => {
+            let _ = command.error(&ctx, GENERAL_ISSUE).await?;
 
-        return Err(err);
-    }
+            return Err(err);
+        }
+    };
+
+    let idx = match bookmark_ex.iter().position(|x| x.map_id == map_id) {
+        Some(index) => index,
+        None => {
+            if let Err(err) = ctx.bookmarks().add(user_id, map_id).await {
+                let _ = command.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            } else {
+                0
+            }
+        }
+    };
 
     debug!(user = %user_id, map = map_id, "Added bookmarked map");
 
@@ -128,7 +144,7 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
 
     let origin = MessageOrigin::new(command.guild_id(), command.channel_id());
 
-    let pagination = BookmarksPagination::builder()
+    let mut pagination = BookmarksPagination::builder()
         .bookmarks(bookmarks)
         .origin(origin)
         .cached_entries(HashMap::default())
@@ -137,6 +153,8 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
         .content(content)
         .msg_owner(user_id)
         .build();
+
+    pagination.set_index(idx);
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
