@@ -68,10 +68,6 @@ use rosu_v2::request::UserId;
 use twilight_interactions::command::{CommandOption, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
-#[cfg(feature = "server")]
-pub use self::link::*;
-#[cfg(feature = "matchlive")]
-pub use self::match_live::*;
 pub use self::{
     badges::*, claim_name::*, compare::*, fix::*, graphs::*, leaderboard::*, map::*, map_search::*,
     match_compare::*, match_costs::*, medals::*, nochoke::*, osustats::*, popular::*, profile::*,

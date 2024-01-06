@@ -1,4 +1,4 @@
-pub use self::ordr::{Ordr, OrdrReceivers, RenderId};
+pub use self::ordr::{Ordr, OrdrReceivers};
 #[cfg(feature = "osutracking")]
 pub use self::osu::{
     osu_loop::{osu_tracking_loop, process_osu_tracking},

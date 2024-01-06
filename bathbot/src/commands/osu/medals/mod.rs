@@ -8,14 +8,7 @@ use twilight_interactions::command::{
 };
 use twilight_model::id::{marker::UserMarker, Id};
 
-pub use self::{
-    common::*,
-    list::*,
-    medal::{handle_autocomplete as handle_medal_autocomplete, *},
-    missing::*,
-    recent::*,
-    stats::*,
-};
+pub use self::{common::*, list::*, medal::*, missing::*, recent::*, stats::*};
 use crate::{
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,

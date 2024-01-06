@@ -9,7 +9,5 @@ mod roll;
 mod server_config;
 mod skin;
 
-pub use self::{
-    authorities::*, changelog::*, commands::*, config::*, invite::*, ping::*, prefix::*, roll::*,
-    server_config::*, skin::*,
-};
+#[allow(unused_imports)]
+pub use self::{authorities::*, changelog::*, config::*, skin::*};

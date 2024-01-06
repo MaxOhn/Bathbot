@@ -1,9 +1,6 @@
 use std::{collections::BTreeMap, fmt::Write};
 
-pub use self::{
-    interaction::{slash_help, Help},
-    message::HELP_PREFIX,
-};
+pub use self::interaction::slash_help;
 
 mod interaction;
 mod message;
