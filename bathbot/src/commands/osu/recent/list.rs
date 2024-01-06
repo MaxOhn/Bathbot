@@ -649,7 +649,6 @@ async fn process_scores(
                 let a_len = a_map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
                 let b_len = b_map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
 
-
                 b_len.partial_cmp(&a_len)
                     .unwrap_or(Ordering::Equal)
                     .then_with(|| {
