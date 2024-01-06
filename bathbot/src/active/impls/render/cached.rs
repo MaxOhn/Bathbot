@@ -276,7 +276,7 @@ impl IActiveMessage for CachedRender {
             custom_id: Some("render_anyway".to_owned()),
             disabled: false,
             emoji: None,
-            label: Some("Render anways".to_owned()),
+            label: Some("Render anyways".to_owned()),
             style: ButtonStyle::Danger,
             url: None,
         };
