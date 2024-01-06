@@ -103,8 +103,8 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
 
     let user_id = command.user_id()?;
 
-    let bookmark_ex = match ctx.bookmarks().get(user_id).await {
-        Ok(marks) => marks,
+    let bookmarks = match ctx.bookmarks().get(user_id).await {
+        Ok(bookmarks) => bookmarks,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await?;
 
@@ -112,7 +112,7 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
         }
     };
 
-    let idx = match bookmark_ex.iter().position(|x| x.map_id == map_id) {
+    let idx = match bookmarks.iter().position(|x| x.map_id == map_id) {
         Some(index) => index,
         None => {
             if let Err(err) = ctx.bookmarks().add(user_id, map_id).await {
