@@ -48,7 +48,8 @@ impl TourneyBadges {
             || (badge.starts_with("osu!") && badge.contains("completionist"))
             || badge.starts_with("outstanding")
             || badge.starts_with("pending")
-            || badge.starts_with("spotlight"))
+            || badge.starts_with("spotlight")
+            || badge.contains("playlist"))
     }
 }
 
@@ -88,6 +89,7 @@ mod tests {
             the user/beatmap category Hitsounding", // /u/2155578
             "Aspire V Community Pick Grand Award: \
             Innovative Storyboarding (osu!) Runner Up and Song Title Runner Up", // /u/2330619
+            "Featured Artist Playlist Leader: osu! (June 2022)",                // /u/12736534
         ];
 
         assert_eq!(TourneyBadges::count(badges), 0);
