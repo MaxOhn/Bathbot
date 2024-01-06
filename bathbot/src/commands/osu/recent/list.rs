@@ -657,22 +657,39 @@ async fn process_scores(
                 let a_is_fail = a.score.grade == Grade::F;
                 let b_is_fail = b.score.grade == Grade::F;
 
-                if b_len.partial_cmp(&a_len) == Some(Ordering::Equal) {
-                    if a_map.map_id() != b_map.map_id() {
-                        Ordering::Equal
-                    } else {
-                        match (a_is_fail, b_is_fail) {
-                            (true, true) => b_completion
-                                .partial_cmp(&a_completion)
-                                .unwrap_or(Ordering::Equal),
-                            (true, false) => Ordering::Greater,
-                            (false, true) => Ordering::Less,
-                            (false, false) => Ordering::Equal,
+                b_len.partial_cmp(&a_len)
+                    .unwrap_or(Ordering::Equal)
+                    .then_with(|| {
+                        if a_map.map_id() != b_map.map_id() {
+                            Ordering::Equal
+                        } else {
+                            match (a_is_fail, b_is_fail) {
+                                (true, true) => b_completion
+                                    .partial_cmp(&a_completion)
+                                    .unwrap_or(Ordering::Equal),
+                                (true, false) => Ordering::Greater,
+                                (false, true) => Ordering::Less,
+                                (false, false) => Ordering::Equal,
+                            }
                         }
-                    }
-                } else {
-                    b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
-                }
+                    })
+
+                // if b_len.partial_cmp(&a_len) == Some(Ordering::Equal) {
+                //     if a_map.map_id() != b_map.map_id() {
+                //         Ordering::Equal
+                //     } else {
+                //         match (a_is_fail, b_is_fail) {
+                //             (true, true) => b_completion
+                //                 .partial_cmp(&a_completion)
+                //                 .unwrap_or(Ordering::Equal),
+                //             (true, false) => Ordering::Greater,
+                //             (false, true) => Ordering::Less,
+                //             (false, false) => Ordering::Equal,
+                //         }
+                //     }
+                // } else {
+                //     b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
+                // }
             });
         }
         Some(ScoreOrder::Misses) => entries.sort_by(|a, b| {
