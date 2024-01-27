@@ -3,7 +3,7 @@ use std::fmt::Write;
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
 use bathbot_psql::model::configs::{MinimizedPp, ScoreSize};
 use bathbot_util::{
-    constants::{AVATAR_URL, OSU_BASE},
+    constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
     fields,
     numbers::{round, WithComma},
@@ -18,7 +18,10 @@ use crate::{
     core::Context,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap, OwnedReplayScore},
-    util::osu::{grade_completion_mods, IfFc, MapInfo},
+    util::{
+        osu::{grade_completion_mods, IfFc, MapInfo},
+        Emote,
+    },
 };
 
 pub struct TopScoreEdit {
@@ -82,8 +85,7 @@ impl TopScoreEdit {
             (combo, title)
         };
 
-        let footer = FooterBuilder::new(map.footer_text())
-            .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
+        let footer = FooterBuilder::new(map.footer_text()).icon_url(Emote::from(score.mode).url());
 
         let description = if personal_idx.is_some() || global_idx.is_some() {
             let mut description = String::with_capacity(25);

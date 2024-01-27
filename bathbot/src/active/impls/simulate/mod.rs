@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Write, sync::Arc};
 
 use bathbot_util::{
-    constants::{AVATAR_URL, OSU_BASE},
+    constants::OSU_BASE,
     datetime::SecToMinSec,
     fields,
     modal::{ModalBuilder, TextInputBuilder},
@@ -34,7 +34,7 @@ use crate::{
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::{grade_completion_mods, MapInfo},
-        Authored, ComponentExt, ModalExt,
+        Authored, ComponentExt, Emote, ModalExt,
     },
 };
 
@@ -106,7 +106,7 @@ impl IActiveMessage for SimulateComponents {
         let mut footer = FooterBuilder::new(footer_text);
 
         if let SimulateMap::Full(ref map) = self.map {
-            footer = footer.icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
+            footer = footer.icon_url(Emote::from(map.mode()).url());
         }
 
         let image = match self.map {
