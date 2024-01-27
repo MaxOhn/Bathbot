@@ -5,10 +5,8 @@ use std::{
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
-    constants::{AVATAR_URL, OSU_BASE},
-    datetime::HowLongAgoDynamic,
-    numbers::WithComma,
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
+    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::WithComma, AuthorBuilder, CowUtils,
+    EmbedBuilder, FooterBuilder,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -149,10 +147,7 @@ impl LeaderboardPagination {
             creator = self.map.creator(),
         );
 
-        let footer_icon = format!(
-            "{AVATAR_URL}{creator_id}",
-            creator_id = self.map.creator_id()
-        );
+        let footer_icon = Emote::from(self.map.mode()).url();
         let footer = FooterBuilder::new(footer_text).icon_url(footer_icon);
 
         let embed = EmbedBuilder::new()

@@ -8,7 +8,7 @@ use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
 use bathbot_psql::model::osu::{ArchivedMapVersion, MapVersion};
 use bathbot_util::{
-    constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
     matcher,
     osu::{MapIdType, ModSelection},
     CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin,
@@ -45,7 +45,9 @@ use crate::{
         },
         MapError, OsuMap,
     },
-    util::{interaction::InteractionCommand, osu::IfFc, CheckPermissions, InteractionCommandExt},
+    util::{
+        interaction::InteractionCommand, osu::IfFc, CheckPermissions, Emote, InteractionCommandExt,
+    },
     Context,
 };
 
@@ -944,8 +946,9 @@ fn no_scores_embed(
     map: &OsuMap,
     mods: Option<ModSelection>,
 ) -> EmbedBuilder {
-    let footer = FooterBuilder::new(format!("{:?} map by {}", map.status(), map.creator()))
-        .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
+    let footer_text = format!("{:?} map by {}", map.status(), map.creator());
+    let footer_icon = Emote::from(map.mode()).url();
+    let footer = FooterBuilder::new(footer_text).icon_url(footer_icon);
 
     let title = format!(
         "{} - {} [{}]",

@@ -3,7 +3,7 @@ use std::fmt::Write;
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
 use bathbot_psql::model::configs::{MinimizedPp, ScoreSize};
 use bathbot_util::{
-    constants::{AVATAR_URL, OSU_BASE},
+    constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
     fields,
     matcher::highlight_funny_numeral,
@@ -21,7 +21,10 @@ use crate::{
     core::Context,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap, OwnedReplayScore},
-    util::osu::{grade_completion_mods, IfFc, MapInfo, PersonalBestIndex},
+    util::{
+        osu::{grade_completion_mods, IfFc, MapInfo, PersonalBestIndex},
+        Emote,
+    },
 };
 
 pub struct RecentScoreEdit {
@@ -310,7 +313,7 @@ impl RecentScoreEdit {
                 let _ = write!(
                     description,
                     " {emote} [Streaming on twitch]({base}{login})",
-                    emote = crate::util::Emote::Twitch,
+                    emote = Emote::Twitch,
                     base = bathbot_util::constants::TWITCH_BASE,
                 );
             }
@@ -318,7 +321,7 @@ impl RecentScoreEdit {
                 let _ = write!(
                     description,
                     " {emote} [Liveplay on twitch]({vod_url})",
-                    emote = crate::util::Emote::Twitch,
+                    emote = Emote::Twitch,
                 );
             }
             None => {}
@@ -406,7 +409,7 @@ impl RecentScoreEdit {
                 let _ = write!(
                     description,
                     " {emote} [Streaming on twitch]({base}{login})",
-                    emote = crate::util::Emote::Twitch,
+                    emote = Emote::Twitch,
                     base = bathbot_util::constants::TWITCH_BASE,
                 );
             }
@@ -430,8 +433,7 @@ impl RecentScoreEdit {
             None => {}
         }
 
-        let footer = FooterBuilder::new(map.footer_text())
-            .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
+        let footer = FooterBuilder::new(map.footer_text()).icon_url(Emote::from(score.mode).url());
 
         EmbedBuilder::new()
             .author(author)

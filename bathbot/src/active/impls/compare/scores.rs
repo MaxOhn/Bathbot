@@ -6,7 +6,7 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
 use bathbot_util::{
-    constants::{AVATAR_URL, OSU_BASE},
+    constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
     numbers::{round, WithComma},
     CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin, ScoreExt,
@@ -184,10 +184,7 @@ impl IActiveMessage for CompareScoresPagination {
             creator = self.map.creator(),
         );
 
-        let footer_icon = format!(
-            "{AVATAR_URL}{creator_id}",
-            creator_id = self.map.creator_id()
-        );
+        let footer_icon = Emote::from(self.map.mode()).url();
         let footer = FooterBuilder::new(footer_text).icon_url(footer_icon);
 
         let mut title_text = String::with_capacity(32);

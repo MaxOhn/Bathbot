@@ -42,6 +42,12 @@ impl Emote {
             name: Some(name.as_ref().to_owned()),
         }
     }
+
+    pub fn url(self) -> String {
+        let id = BotConfig::get().emote(self).id;
+
+        format!("https://cdn.discordapp.com/emojis/{id}.png")
+    }
 }
 
 impl From<GameMode> for Emote {

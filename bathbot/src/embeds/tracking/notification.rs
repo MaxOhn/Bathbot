@@ -4,7 +4,7 @@ use bathbot_util::{
     constants::OSU_BASE,
     fields,
     numbers::{round, WithComma},
-    AuthorBuilder, CowUtils,
+    AuthorBuilder, CowUtils, FooterBuilder,
 };
 use osu::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};
 use rosu_v2::prelude::{GameMode, Score};
@@ -23,6 +23,7 @@ pub struct TrackNotificationEmbed {
     author: AuthorBuilder,
     description: String,
     fields: Vec<EmbedField>,
+    footer: FooterBuilder,
     timestamp: OffsetDateTime,
     title: String,
     thumbnail: String,
@@ -37,7 +38,7 @@ impl TrackNotificationEmbed {
         idx: u8,
         ctx: &Context,
     ) -> Self {
-        let description = format!("{} __**Personal Best #{idx}**__", Emote::from(score.mode));
+        let description = format!("__**Personal Best #{idx}**__");
 
         let attrs = ctx
             .pp(map)
@@ -97,10 +98,13 @@ impl TrackNotificationEmbed {
             hitresults = HitResultFormatter::new(score.mode, score.statistics.clone()),
         );
 
+        let footer = FooterBuilder::new(map.footer_text()).icon_url(Emote::from(score.mode).url());
+
         Self {
             author: user.author_builder(),
             description,
             fields: fields![name, value, false],
+            footer,
             thumbnail: map.thumbnail().to_owned(),
             timestamp: score.ended_at,
             title,

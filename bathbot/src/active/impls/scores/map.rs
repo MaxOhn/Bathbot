@@ -79,22 +79,12 @@ impl IActiveMessage for ScoresMapPagination {
             .url(format!("{OSU_BASE}b/{map_id}"))
             .icon_url(icon_url);
 
-        let mut footer_text = format!("Page {}/{}", pages.curr_page(), pages.last_page());
+        let footer_text = format!("Page {}/{}", pages.curr_page(), pages.last_page());
+        let mut footer = FooterBuilder::new(footer_text);
 
         if let Some(mode) = self.mode {
-            footer_text.push_str(" • Mode: ");
-
-            let mode = match mode {
-                GameMode::Osu => "osu!",
-                GameMode::Taiko => "Taiko",
-                GameMode::Catch => "Catch",
-                GameMode::Mania => "Mania",
-            };
-
-            footer_text.push_str(mode);
-        }
-
-        let footer = FooterBuilder::new(footer_text);
+            footer = footer.icon_url(Emote::from(mode).url());
+        };
 
         let idx = pages.index();
         let scores = &data.scores()[idx..data.len().min(idx + pages.per_page())];
