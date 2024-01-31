@@ -4,7 +4,7 @@ use bathbot_model::rosu_v2::ranking::ArchivedRankingsUser;
 use bathbot_util::{
     constants::OSU_BASE,
     numbers::{round, WithComma},
-    EmbedBuilder,
+    EmbedBuilder, ModsFormatter,
 };
 use eyre::{Result, WrapErr};
 use image::{GenericImageView, ImageBuffer};
@@ -15,7 +15,6 @@ use twilight_model::channel::message::embed::EmbedField;
 use crate::{
     active::impls::higherlower::state::{mapset_cover, HigherLowerState, H, W},
     core::Context,
-    embeds::ModsFormatter,
     manager::{redis::RedisData, OsuMapSlim},
     util::{osu::grade_emote, Emote},
 };
@@ -193,7 +192,7 @@ impl ScorePp {
 
     pub(super) fn play_string(&self, pp_visible: bool) -> String {
         format!(
-            "**{map} {mods}**\n{grade} {score} • **{acc}%** • **{combo}x**{max_combo} {miss}• **{pp}pp**",
+            "**{map} +{mods}**\n{grade} {score} • **{acc}%** • **{combo}x**{max_combo} {miss}• **{pp}pp**",
             map = self.map_string,
             mods = ModsFormatter::new(&self.mods),
             grade = grade_emote(self.grade),

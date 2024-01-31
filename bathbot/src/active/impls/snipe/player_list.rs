@@ -12,7 +12,7 @@ use bathbot_util::{
     datetime::HowLongAgoDynamic,
     numbers::{round, WithComma},
     osu::calculate_grade,
-    CowUtils, EmbedBuilder, FooterBuilder, IntHasher,
+    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
@@ -28,7 +28,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     core::Context,
-    embeds::{HitResultFormatter, ModsFormatter, PpFormatter},
+    embeds::{HitResultFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
@@ -164,7 +164,7 @@ impl SnipePlayerListPagination {
 
             let _ = write!(
                 description,
-                "**#{idx} [{title} [{version}]]({OSU_BASE}b/{map_id}) {mods}** [{stars:.2}★]\n\
+                "**#{idx} [{title} [{version}]]({OSU_BASE}b/{map_id}) +{mods}** [{stars:.2}★]\n\
                 {grade} {pp} • {acc}% • {score}\n\
                 [ {combo} ] • {hits}",
                 idx = idx + 1,

@@ -9,7 +9,7 @@ use bathbot_util::{
     constants::OSU_BASE,
     datetime::{HowLongAgoDynamic, DATE_FORMAT},
     numbers::{round, WithComma},
-    AuthorBuilder, EmbedBuilder, FooterBuilder,
+    AuthorBuilder, EmbedBuilder, FooterBuilder, ModsFormatter,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -100,7 +100,7 @@ impl IActiveMessage for OsuStatsBestPagination {
                 title = score.map.title,
                 version = score.map.version,
                 map_id = score.map.map_id,
-                mods = score.mods,
+                mods = ModsFormatter::new(&score.mods),
                 user = score.user.username,
                 user_id = score.user.user_id,
                 grade = config.grade(score.grade),

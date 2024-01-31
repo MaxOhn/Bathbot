@@ -6,7 +6,7 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::WithComma, AuthorBuilder, CowUtils,
-    EmbedBuilder, FooterBuilder,
+    EmbedBuilder, FooterBuilder, ModsFormatter,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -250,7 +250,7 @@ impl Display for ScoreFormatter<'_> {
             grade = grade_emote(self.score.grade),
             score = WithComma::new(self.score.score),
             combo = self.combo,
-            mods = self.score.mods,
+            mods = ModsFormatter::new(&self.score.mods),
             pp = self.pp,
             acc = self.score.accuracy,
             miss = MissFormat(self.score.statistics.count_miss),

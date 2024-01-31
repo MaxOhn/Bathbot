@@ -6,7 +6,7 @@ use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
     numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder,
+    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -23,7 +23,7 @@ use crate::{
     },
     commands::osu::TopIfEntry,
     core::Context,
-    embeds::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter},
+    embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
     manager::redis::RedisData,
     util::{
         interaction::{InteractionComponent, InteractionModal},
@@ -66,7 +66,7 @@ impl IActiveMessage for TopIfPagination {
 
             let _ = writeln!(
                 description,
-                "**#{original_idx} [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
+                "**#{original_idx} [{title} [{version}]]({OSU_BASE}b/{id}) +{mods}** [{stars:.2}★]\n\
                 {grade} {old_pp:.2} → {pp} • {acc}% • {score}\n\
                 [ {combo} ] • {hits} • {ago}",
                 title = map.title().cow_escape_markdown(),

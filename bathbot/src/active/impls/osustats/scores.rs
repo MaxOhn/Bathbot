@@ -6,7 +6,7 @@ use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
     numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder,
+    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -26,7 +26,7 @@ use crate::{
     },
     commands::osu::OsuStatsEntry,
     core::Context,
-    embeds::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter},
+    embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
     manager::redis::RedisData,
     util::{
         interaction::{InteractionComponent, InteractionModal},
@@ -185,7 +185,7 @@ impl OsuStatsScoresPagination {
 
             let _ = writeln!(
                 description,
-                "**#{rank} [{title} [{version}]]({OSU_BASE}b/{map_id}) {mods}** [{stars:.2}★]\n\
+                "**#{rank} [{title} [{version}]]({OSU_BASE}b/{map_id}) +{mods}** [{stars:.2}★]\n\
                 {grade} {pp} • {acc}% • {score}\n\
                 [ {combo} ] • {hits} • {ago}",
                 title = map.title().cow_escape_markdown(),

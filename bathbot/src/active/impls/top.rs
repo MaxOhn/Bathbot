@@ -11,7 +11,7 @@ use bathbot_util::{
     datetime::HowLongAgoDynamic,
     fields,
     numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder, IntHasher,
+    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -29,7 +29,7 @@ use crate::{
     },
     commands::osu::{TopEntry, TopScoreOrder},
     core::Context,
-    embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, ModsFormatter, PpFormatter},
+    embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
@@ -122,7 +122,7 @@ impl TopPagination {
                 acc = round(score.accuracy),
                 combo = score.max_combo,
                 miss = MissFormat(score.statistics.count_miss),
-                mods = score.mods,
+                mods = ModsFormatter::new(&score.mods),
                 appendix = OrderAppendix::new(self.sort_by, entry, map.ranked_date(), &self.farm, true),
             );
         }
@@ -161,7 +161,7 @@ impl TopPagination {
                 n320 = stats.count_geki,
                 n300 = stats.count_300,
                 miss = stats.count_miss,
-                mods = score.mods,
+                mods = ModsFormatter::new(&score.mods),
                 appendix =
                     OrderAppendix::new(self.sort_by, entry, map.ranked_date(), &self.farm, true),
             );
@@ -190,7 +190,7 @@ impl TopPagination {
 
             let _ = writeln!(
                 description,
-                "**#{idx} [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
+                "**#{idx} [{title} [{version}]]({OSU_BASE}b/{id}) +{mods}** [{stars:.2}★]\n\
                 {grade} {pp} • {acc}% • {score}\n[ {combo} ] • {hits} • {appendix}",
                 idx = *original_idx + 1,
                 title = map.title().cow_escape_markdown(),
