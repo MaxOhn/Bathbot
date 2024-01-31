@@ -6,7 +6,7 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
-    constants::OSU_BASE, numbers::WithComma, CowUtils, EmbedBuilder, FooterBuilder,
+    constants::OSU_BASE, numbers::WithComma, CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -22,7 +22,6 @@ use crate::{
     },
     commands::osu::NochokeEntry,
     core::Context,
-    embeds::ModsFormatter,
     manager::redis::RedisData,
     util::{
         interaction::{InteractionComponent, InteractionModal},
@@ -74,7 +73,7 @@ impl IActiveMessage for NoChokePagination {
 
             let _ = writeln!(
                 description,
-                "**#{idx} [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
+                "**#{idx} [{title} [{version}]]({OSU_BASE}b/{id}) +{mods}** [{stars:.2}★]\n\
                 {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP • {old_acc:.2} → **{new_acc:.2}%**\n\
                 [ {old_combo} → **{new_combo}x**/{max_combo}x ]{misses}",
                 idx = original_idx + 1,

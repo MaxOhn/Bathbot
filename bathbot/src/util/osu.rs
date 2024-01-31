@@ -12,7 +12,7 @@ use bathbot_model::{rosu_v2::user::User, OsuStatsParams, ScoreSlim};
 use bathbot_util::{
     datetime::SecToMinSec,
     numbers::{round, WithComma},
-    MessageOrigin, ScoreExt,
+    MessageOrigin, ModsFormatter, ScoreExt,
 };
 use eyre::{Result, WrapErr};
 use futures::{stream::FuturesOrdered, StreamExt};
@@ -64,17 +64,20 @@ pub fn grade_completion_mods_raw(
     n_objects: u32,
 ) -> Cow<'static, str> {
     let grade_str = BotConfig::get().grade(grade);
+    let mods_fmt = ModsFormatter::new(mods);
 
     match (
         mods.is_empty(),
         grade == Grade::F && mode != GameMode::Catch,
     ) {
         (true, true) => format!("{grade_str}@{}%", completion(score_hits, n_objects)).into(),
-        (false, true) => {
-            format!("{grade_str}@{}% +{mods}", completion(score_hits, n_objects)).into()
-        }
+        (false, true) => format!(
+            "{grade_str}@{}% +{mods_fmt}",
+            completion(score_hits, n_objects)
+        )
+        .into(),
         (true, false) => grade_str.into(),
-        (false, false) => format!("{grade_str} +{mods}").into(),
+        (false, false) => format!("{grade_str} +{mods_fmt}").into(),
     }
 }
 

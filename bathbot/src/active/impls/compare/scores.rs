@@ -9,7 +9,7 @@ use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
     numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin, ScoreExt,
+    CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin, ModsFormatter, ScoreExt,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -127,7 +127,7 @@ impl IActiveMessage for CompareScoresPagination {
                     "{grade} **+{mods}** [{stars:.2}★] • {score} • {acc}%\n\
                     {pp_format}**{pp:.2}**{pp_format}/{max_pp:.2}PP • {combo}",
                     grade = BotConfig::get().grade(entry.score.grade),
-                    mods = entry.score.mods,
+                    mods = ModsFormatter::new(&entry.score.mods),
                     stars = entry.stars,
                     score = WithComma::new(entry.score.score),
                     acc = round(entry.score.accuracy),
@@ -274,7 +274,7 @@ fn write_compact_entry(
         "{grade} **+{mods}** [{stars:.2}★] {pp_format}{pp:.2}pp{pp_format} \
         ({acc}%) {combo}x • {miss} {timestamp}",
         grade = config.grade(entry.score.grade),
-        mods = entry.score.mods,
+        mods = ModsFormatter::new(&entry.score.mods),
         stars = entry.stars,
         pp_format = if args.pp_idx == Some(i) { "**" } else { "~~" },
         pp = entry.score.pp,
