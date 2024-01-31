@@ -84,9 +84,7 @@ impl PlayerSnipeStatsEmbed {
                 map = player.oldest_first.map.cow_escape_markdown(),
                 id = oldest_map.map_id(),
                 grade = grade_completion_mods(
-                    &oldest_score.mods,
-                    oldest_score.grade,
-                    oldest_score.total_hits(),
+                    oldest_score,
                     oldest_map.mode(),
                     oldest_map.n_objects() as u32,
                 ),

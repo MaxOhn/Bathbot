@@ -450,11 +450,13 @@ pub(super) async fn score(
     };
 
     if let Some(grade) = grade {
-        scores.retain(|score| score.grade.eq_letter(grade));
-    } else if let Some(true) = passes {
-        scores.retain(|score| score.grade != Grade::F);
-    } else if let Some(false) = passes {
-        scores.retain(|score| score.grade == Grade::F);
+        if let Grade::F = grade {
+            scores.retain(|score| !score.passed);
+        } else {
+            scores.retain(|score| score.grade.eq_letter(grade));
+        }
+    } else if let Some(passed) = passes {
+        scores.retain(|score| passed == score.passed);
     }
 
     let num = match index.as_deref() {
@@ -564,7 +566,7 @@ pub(super) async fn score(
     };
 
     let user_id = user.user_id();
-    let grade = score.grade;
+    let grade = if score.passed { score.grade } else { Grade::F };
     let status = map.status();
     let map_id = score.map_id;
     let score_id = score.legacy_score_id;
@@ -845,7 +847,9 @@ fn score_started_at(
     let mut map_len = map.seconds_drain() as f64;
 
     // Adjust map length with passed objects in case of fail
-    if score.grade == Grade::F {
+    if score.passed {
+        map_len += map.pp_map.total_break_time() / 1000.0;
+    } else {
         let passed = score.total_hits();
 
         if map.mode() == GameMode::Catch {
@@ -862,8 +866,6 @@ fn score_started_at(
 
             map_len += 2.0;
         }
-    } else {
-        map_len += map.pp_map.total_break_time() / 1000.0;
     }
 
     map_len /= rosu_pp::Mods::clock_rate(score.mods.bits());

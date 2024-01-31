@@ -255,13 +255,8 @@ impl RecentScoreEdit {
     ) -> EmbedBuilder {
         let name = format!(
             "{grade_completion_mods}\t{score}\t({acc}%)\t{ago}",
-            grade_completion_mods = grade_completion_mods(
-                &score.mods,
-                score.grade,
-                score.total_hits(),
-                map.mode(),
-                map.n_objects() as u32
-            ),
+            grade_completion_mods =
+                grade_completion_mods(score, map.mode(), map.n_objects() as u32),
             score = WithComma::new(score.score),
             acc = round(score.accuracy),
             ago = HowLongAgoDynamic::new(&score.ended_at),
@@ -361,14 +356,8 @@ impl RecentScoreEdit {
         let pp = PpFormatter::new(pp, max_pp).to_string();
         let pp = highlight_funny_numeral(&pp).into_owned();
 
-        let grade_completion_mods = grade_completion_mods(
-            &score.mods,
-            score.grade,
-            score.total_hits(),
-            map.mode(),
-            map.n_objects() as u32,
-        )
-        .into_owned();
+        let grade_completion_mods =
+            grade_completion_mods(score, map.mode(), map.n_objects() as u32).into_owned();
 
         let mut fields = fields![
             "Grade", grade_completion_mods, true;

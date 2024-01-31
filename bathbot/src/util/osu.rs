@@ -23,8 +23,9 @@ use rosu_pp::{
     beatmap::BeatmapAttributesBuilder, CatchPP, DifficultyAttributes, GameMode as Mode, OsuPP,
     TaikoPP,
 };
-use rosu_v2::prelude::{
-    GameModIntermode, GameMode, GameMods, Grade, LegacyScoreStatistics, RankStatus, Score,
+use rosu_v2::{
+    model::mods::GameMods,
+    prelude::{GameModIntermode, GameMode, Grade, LegacyScoreStatistics, RankStatus, Score},
 };
 use time::OffsetDateTime;
 
@@ -39,7 +40,23 @@ pub fn grade_emote(grade: Grade) -> &'static str {
 }
 
 // TODO: make struct that implements Display
-pub fn grade_completion_mods(
+pub fn grade_completion_mods<S: ScoreExt>(
+    score: &S,
+    mode: GameMode,
+    n_objects: u32,
+) -> Cow<'static, str> {
+    let mods = score.mods();
+    let grade = score.grade();
+    let score_hits = score.total_hits(mode as u8);
+
+    grade_completion_mods_raw(mods, grade, score_hits, mode, n_objects)
+}
+
+/// Careful about the grade!
+///
+/// The osu!api no longer uses `Grade::F` but this method expects `Grade::F`
+/// for fails.
+pub fn grade_completion_mods_raw(
     mods: &GameMods,
     grade: Grade,
     score_hits: u32,
