@@ -16,7 +16,7 @@ use bathbot_util::{
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
-use rosu_v2::prelude::{GameMode, ScoreStatistics};
+use rosu_v2::{model::score::LegacyScoreStatistics, prelude::GameMode};
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -151,7 +151,7 @@ impl SnipePlayerListPagination {
             let mods = score.mods.as_ref().map(Cow::Borrowed).unwrap_or_default();
             let max_pp = ctx.pp(map).mods(mods.bits()).performance().await.pp() as f32;
 
-            let stats = ScoreStatistics {
+            let stats = LegacyScoreStatistics {
                 count_geki: 0,
                 count_300: score.count_300.unwrap_or(0),
                 count_katu: 0,

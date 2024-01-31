@@ -9,7 +9,10 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_pp::{BeatmapExt, DifficultyAttributes, GameMode as Mode};
-use rosu_v2::prelude::{GameMode, GameMods, Grade, OsuError, Score, ScoreStatistics};
+use rosu_v2::{
+    model::score::LegacyScoreStatistics,
+    prelude::{GameMode, GameMods, Grade, OsuError, Score},
+};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -343,7 +346,7 @@ impl NochokeEntry {
         }
     }
 
-    pub fn unchoked_statistics(&self) -> &ScoreStatistics {
+    pub fn unchoked_statistics(&self) -> &LegacyScoreStatistics {
         self.unchoked
             .as_ref()
             .map_or(&self.original_score.statistics, |unchoked| {
@@ -363,7 +366,7 @@ impl NochokeEntry {
 pub struct Unchoked {
     pub grade: Grade,
     pub pp: f32,
-    pub statistics: ScoreStatistics,
+    pub statistics: LegacyScoreStatistics,
 }
 
 impl Unchoked {
@@ -453,7 +456,7 @@ async fn perfect_score(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Unchok
 
     let stats = match attrs {
         DifficultyAttributes::Osu(_) if score.statistics.count_300 != total_hits => {
-            ScoreStatistics {
+            LegacyScoreStatistics {
                 count_geki: 0,
                 count_300: total_hits,
                 count_katu: 0,
@@ -462,16 +465,18 @@ async fn perfect_score(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Unchok
                 count_miss: 0,
             }
         }
-        DifficultyAttributes::Taiko(_) if score.statistics.count_miss > 0 => ScoreStatistics {
-            count_geki: 0,
-            count_300: map.n_circles() as u32,
-            count_katu: 0,
-            count_100: 0,
-            count_50: 0,
-            count_miss: 0,
-        },
+        DifficultyAttributes::Taiko(_) if score.statistics.count_miss > 0 => {
+            LegacyScoreStatistics {
+                count_geki: 0,
+                count_300: map.n_circles() as u32,
+                count_katu: 0,
+                count_100: 0,
+                count_50: 0,
+                count_miss: 0,
+            }
+        }
         DifficultyAttributes::Catch(attrs) if (100.0 - score.accuracy).abs() > f32::EPSILON => {
-            ScoreStatistics {
+            LegacyScoreStatistics {
                 count_geki: 0,
                 count_300: attrs.n_fruits as u32,
                 count_katu: 0,
@@ -481,7 +486,7 @@ async fn perfect_score(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Unchok
             }
         }
         DifficultyAttributes::Mania(_) if score.statistics.count_geki != total_hits => {
-            ScoreStatistics {
+            LegacyScoreStatistics {
                 count_geki: total_hits,
                 count_300: 0,
                 count_katu: 0,

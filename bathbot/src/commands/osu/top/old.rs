@@ -627,14 +627,15 @@ macro_rules! pp_std {
 
         let max_pp = max_pp_res.pp as f32;
         let stars = max_pp_res.difficulty.stars as f32;
+        let stats = $score.statistics.as_legacy(GameMode::Osu);
 
         let attrs = $version::OsuPP::new($rosu_map)
             .mods($mods)
             .attributes(max_pp_res)
-            .n300($score.statistics.count_300 as usize)
-            .n100($score.statistics.count_100 as usize)
-            .n50($score.statistics.count_50 as usize)
-            .misses($score.statistics.count_miss as usize)
+            .n300(stats.count_300 as usize)
+            .n100(stats.count_100 as usize)
+            .n50(stats.count_50 as usize)
+            .misses(stats.count_miss as usize)
             .combo($score.max_combo as usize)
             .calculate();
 
@@ -651,15 +652,16 @@ macro_rules! pp_ctb {
 
         let max_pp = max_pp_res.pp as f32;
         let stars = max_pp_res.difficulty.stars as f32;
+        let stats = $score.statistics.as_legacy(GameMode::Catch);
 
         let attrs = $version::FruitsPP::new($rosu_map)
             .mods($mods)
             .attributes(max_pp_res)
-            .fruits($score.statistics.count_300 as usize)
-            .droplets($score.statistics.count_100 as usize)
-            .tiny_droplets($score.statistics.count_50 as usize)
-            .tiny_droplet_misses($score.statistics.count_katu as usize)
-            .misses($score.statistics.count_miss as usize)
+            .fruits(stats.count_300 as usize)
+            .droplets(stats.count_100 as usize)
+            .tiny_droplets(stats.count_50 as usize)
+            .tiny_droplet_misses(stats.count_katu as usize)
+            .misses(stats.count_miss as usize)
             .combo($score.max_combo as usize)
             .calculate();
 
@@ -676,13 +678,14 @@ macro_rules! pp_tko {
 
         let max_pp = max_pp_res.pp as f32;
         let stars = max_pp_res.difficulty.stars as f32;
+        let stats = $score.statistics.as_legacy(GameMode::Taiko);
 
         let attrs = $version::TaikoPP::new($rosu_map)
             .mods($mods)
             .attributes(max_pp_res)
-            .n300($score.statistics.count_300 as usize)
-            .n100($score.statistics.count_100 as usize)
-            .misses($score.statistics.count_miss as usize)
+            .n300(stats.count_300 as usize)
+            .n100(stats.count_100 as usize)
+            .misses(stats.count_miss as usize)
             .combo($score.max_combo as usize)
             .calculate();
 

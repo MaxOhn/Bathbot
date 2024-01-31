@@ -293,7 +293,7 @@ impl ScoreExt for OsuStatsScore {
     #[inline] fn count_katu(&self) -> u32 { self.count_katu }
     #[inline] fn max_combo(&self) -> u32 { self.max_combo }
     #[inline] fn mods(&self) -> &GameMods { &self.mods }
-    #[inline] fn grade(&self, _: GameMode) -> Grade { self.grade }
+    #[inline] fn grade(&self) -> Grade { self.grade }
     #[inline] fn score(&self) -> u32 { self.score }
     #[inline] fn pp(&self) -> Option<f32> { self.pp }
     #[inline] fn accuracy(&self) -> f32 { self.accuracy }

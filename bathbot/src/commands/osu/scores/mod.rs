@@ -410,7 +410,7 @@ fn process_scores(
         ScoresOrder::Acc => scores.scores_mut().sort_unstable_by(|a, b| {
             b.statistics
                 .accuracy(b.mode)
-                .total_cmp(&a.statistics.accuracy(a.mode))
+                .total_cmp(&a.statistics.accuracy(b.mode))
         }),
         ScoresOrder::Ar => {
             scores.retain(|score, maps, _, _| maps.get(&score.map_id).is_some());

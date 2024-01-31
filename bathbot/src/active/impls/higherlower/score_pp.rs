@@ -270,7 +270,7 @@ impl ScorePp {
             max_combo,
             score: score.score,
             acc: round(score.accuracy),
-            miss_count: score.statistics.count_miss,
+            miss_count: score.statistics.miss,
             grade: score.grade,
         }
     }

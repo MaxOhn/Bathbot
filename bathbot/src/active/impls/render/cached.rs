@@ -142,7 +142,7 @@ impl CachedRender {
                 let _ = component.update(&ctx, status.as_message()).await;
 
                 let replay_manager = ctx.replay();
-                let replay_fut = replay_manager.get_replay(score.score_id, &replay_score);
+                let replay_fut = replay_manager.get_replay(score.legacy_score_id, &replay_score);
                 let settings_fut = replay_manager.get_settings(owner);
 
                 (status, tokio::join!(replay_fut, settings_fut))

@@ -56,10 +56,10 @@ impl Skills {
 
                     let state = OsuScoreState {
                         max_combo: score.max_combo as usize,
-                        n300: score.statistics.count_300 as usize,
-                        n100: score.statistics.count_100 as usize,
-                        n50: score.statistics.count_50 as usize,
-                        n_misses: score.statistics.count_miss as usize,
+                        n300: score.statistics.great as usize,
+                        n100: score.statistics.ok as usize,
+                        n50: score.statistics.meh as usize,
+                        n_misses: score.statistics.miss as usize,
                     };
 
                     let attrs = OsuPP::new(&map)
@@ -100,9 +100,9 @@ impl Skills {
 
                     let state = TaikoScoreState {
                         max_combo: score.max_combo as usize,
-                        n300: score.statistics.count_300 as usize,
-                        n100: score.statistics.count_100 as usize,
-                        n_misses: score.statistics.count_miss as usize,
+                        n300: score.statistics.great as usize,
+                        n100: score.statistics.ok as usize,
+                        n_misses: score.statistics.miss as usize,
                     };
 
                     let AnyPP::Taiko(calc) = map.pp().mode(Mode::Taiko) else {
@@ -144,11 +144,11 @@ impl Skills {
 
                     let state = CatchScoreState {
                         max_combo: score.max_combo as usize,
-                        n_fruits: score.statistics.count_300 as usize,
-                        n_droplets: score.statistics.count_100 as usize,
-                        n_tiny_droplets: score.statistics.count_50 as usize,
-                        n_tiny_droplet_misses: score.statistics.count_katu as usize,
-                        n_misses: score.statistics.count_miss as usize,
+                        n_fruits: score.statistics.great as usize,
+                        n_droplets: score.statistics.large_tick_hit as usize,
+                        n_tiny_droplets: score.statistics.small_tick_hit as usize,
+                        n_tiny_droplet_misses: score.statistics.small_tick_miss as usize,
+                        n_misses: score.statistics.miss as usize,
                     };
 
                     let AnyPP::Catch(calc) = map.pp().mode(Mode::Catch) else {
@@ -206,12 +206,12 @@ impl Skills {
                     };
 
                     let state = ManiaScoreState {
-                        n320: score.statistics.count_geki as usize,
-                        n300: score.statistics.count_300 as usize,
-                        n200: score.statistics.count_katu as usize,
-                        n100: score.statistics.count_100 as usize,
-                        n50: score.statistics.count_50 as usize,
-                        n_misses: score.statistics.count_miss as usize,
+                        n320: score.statistics.perfect as usize,
+                        n300: score.statistics.great as usize,
+                        n200: score.statistics.good as usize,
+                        n100: score.statistics.ok as usize,
+                        n50: score.statistics.meh as usize,
+                        n_misses: score.statistics.miss as usize,
                     };
 
                     let AnyPP::Mania(calc) = map.pp().mode(Mode::Mania) else {

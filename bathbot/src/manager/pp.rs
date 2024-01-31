@@ -6,7 +6,10 @@ use eyre::Result;
 use rosu_pp::{
     Beatmap, BeatmapExt, DifficultyAttributes, GameMode as Mode, PerformanceAttributes, ScoreState,
 };
-use rosu_v2::prelude::{GameMode, Grade, Score};
+use rosu_v2::{
+    model::score::LegacyScoreStatistics,
+    prelude::{GameMode, Grade, Score},
+};
 
 use super::OsuMap;
 use crate::commands::osu::LeaderboardScore;
@@ -188,15 +191,17 @@ pub struct ScoreData {
 impl<'s> From<&'s Score> for ScoreData {
     #[inline]
     fn from(score: &'s Score) -> Self {
+        let stats = score.statistics.as_legacy(score.mode);
+
         Self {
             state: ScoreState {
                 max_combo: score.max_combo as usize,
-                n_geki: score.statistics.count_geki as usize,
-                n_katu: score.statistics.count_katu as usize,
-                n300: score.statistics.count_300 as usize,
-                n100: score.statistics.count_100 as usize,
-                n50: score.statistics.count_50 as usize,
-                n_misses: score.statistics.count_miss as usize,
+                n_geki: stats.count_geki as usize,
+                n_katu: stats.count_katu as usize,
+                n300: stats.count_300 as usize,
+                n100: stats.count_100 as usize,
+                n50: stats.count_50 as usize,
+                n_misses: stats.count_miss as usize,
             },
             mods: score.mods.bits(),
             mode: Some(score.mode),
@@ -208,15 +213,17 @@ impl<'s> From<&'s Score> for ScoreData {
 impl<'s> From<&'s ScoreSlim> for ScoreData {
     #[inline]
     fn from(score: &'s ScoreSlim) -> Self {
+        let stats = LegacyScoreStatistics::from(score.statistics.clone());
+
         Self {
             state: ScoreState {
                 max_combo: score.max_combo as usize,
-                n_geki: score.statistics.count_geki as usize,
-                n_katu: score.statistics.count_katu as usize,
-                n300: score.statistics.count_300 as usize,
-                n100: score.statistics.count_100 as usize,
-                n50: score.statistics.count_50 as usize,
-                n_misses: score.statistics.count_miss as usize,
+                n_geki: stats.count_geki as usize,
+                n_katu: stats.count_katu as usize,
+                n300: stats.count_300 as usize,
+                n100: stats.count_100 as usize,
+                n50: stats.count_50 as usize,
+                n_misses: stats.count_miss as usize,
             },
             mods: score.mods.bits(),
             mode: Some(score.mode),
@@ -247,15 +254,17 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
 
 impl<'s> From<&'s LeaderboardScore> for ScoreData {
     fn from(score: &'s LeaderboardScore) -> Self {
+        let stats = LegacyScoreStatistics::from(score.statistics.clone());
+
         Self {
             state: ScoreState {
                 max_combo: score.combo as usize,
-                n_geki: score.statistics.count_geki as usize,
-                n_katu: score.statistics.count_katu as usize,
-                n300: score.statistics.count_300 as usize,
-                n100: score.statistics.count_100 as usize,
-                n50: score.statistics.count_50 as usize,
-                n_misses: score.statistics.count_miss as usize,
+                n_geki: stats.count_geki as usize,
+                n_katu: stats.count_katu as usize,
+                n300: stats.count_300 as usize,
+                n100: stats.count_100 as usize,
+                n50: stats.count_50 as usize,
+                n_misses: stats.count_miss as usize,
             },
             mods: score.mods.bits(),
             mode: Some(score.mode),

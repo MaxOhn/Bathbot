@@ -1,4 +1,5 @@
 use bathbot_model::ScoreSlim;
+use bathbot_util::ScoreExt;
 use rosu_pp::ScoreState;
 use rosu_v2::prelude::Score;
 
@@ -28,21 +29,21 @@ pub trait ScoreHasState {
 #[rustfmt::skip]
 impl ScoreHasState for Score {
     fn max_combo(&self) -> u32 { self.max_combo }
-    fn n_miss(&self) -> u32 { self.statistics.count_miss }
-    fn n_geki(&self) -> u32 { self.statistics.count_geki }
-    fn n300(&self) -> u32 { self.statistics.count_300 }
-    fn n_katu(&self) -> u32 { self.statistics.count_katu }
-    fn n100(&self) -> u32 { self.statistics.count_100 }
-    fn n50(&self) -> u32 { self.statistics.count_50 }
+    fn n_miss(&self) -> u32 { <Self as ScoreExt>::count_miss(self) }
+    fn n_geki(&self) -> u32 { <Self as ScoreExt>::count_geki(self) }
+    fn n300(&self) -> u32 { <Self as ScoreExt>::count_300(self) }
+    fn n_katu(&self) -> u32 { <Self as ScoreExt>::count_katu(self) }
+    fn n100(&self) -> u32 { <Self as ScoreExt>::count_100(self) }
+    fn n50(&self) -> u32 { <Self as ScoreExt>::count_50(self) }
 }
 
 #[rustfmt::skip]
 impl ScoreHasState for ScoreSlim {
     fn max_combo(&self) -> u32 { self.max_combo }
-    fn n_miss(&self) -> u32 { self.statistics.count_miss }
-    fn n_geki(&self) -> u32 { self.statistics.count_geki }
-    fn n300(&self) -> u32 { self.statistics.count_300 }
-    fn n_katu(&self) -> u32 { self.statistics.count_katu }
-    fn n100(&self) -> u32 { self.statistics.count_100 }
-    fn n50(&self) -> u32 { self.statistics.count_50 }
+    fn n_miss(&self) -> u32 { <Self as ScoreExt>::count_miss(self) }
+    fn n_geki(&self) -> u32 { <Self as ScoreExt>::count_geki(self) }
+    fn n300(&self) -> u32 { <Self as ScoreExt>::count_300(self) }
+    fn n_katu(&self) -> u32 { <Self as ScoreExt>::count_katu(self) }
+    fn n100(&self) -> u32 { <Self as ScoreExt>::count_100(self) }
+    fn n50(&self) -> u32 { <Self as ScoreExt>::count_50(self) }
 }

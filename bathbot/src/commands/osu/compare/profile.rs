@@ -373,8 +373,8 @@ impl CompareResult {
 
             map_len.add(seconds_drain);
 
-            hits += score.total_hits() - score.statistics.count_miss;
-            misses += score.statistics.count_miss;
+            hits += score.total_hits() - score.statistics.miss;
+            misses += score.statistics.miss;
         }
 
         Self {

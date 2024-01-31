@@ -11,7 +11,10 @@ use bathbot_util::{
     CowUtils,
 };
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameModIntermode, GameMode, Grade, OsuError, ScoreStatistics, Username};
+use rosu_v2::{
+    model::score::LegacyScoreStatistics,
+    prelude::{GameModIntermode, GameMode, Grade, OsuError, Username},
+};
 
 use super::OsuStatsScores;
 use crate::{
@@ -508,7 +511,7 @@ async fn process_scores(
             pp,
             score: score.score,
             score_id: None,
-            statistics: ScoreStatistics {
+            statistics: LegacyScoreStatistics {
                 count_geki: score.count_geki,
                 count_300: score.count300,
                 count_katu: score.count_katu,

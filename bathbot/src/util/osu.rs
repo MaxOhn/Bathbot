@@ -24,7 +24,7 @@ use rosu_pp::{
     TaikoPP,
 };
 use rosu_v2::prelude::{
-    GameModIntermode, GameMode, GameMods, Grade, RankStatus, Score, ScoreStatistics,
+    GameModIntermode, GameMode, GameMods, Grade, LegacyScoreStatistics, RankStatus, Score,
 };
 use time::OffsetDateTime;
 
@@ -352,7 +352,7 @@ impl<'a> IntoIterator for &'a TopCounts {
 #[derive(Clone)]
 pub struct IfFc {
     mode: GameMode,
-    pub statistics: ScoreStatistics,
+    pub statistics: LegacyScoreStatistics,
     pub pp: f32,
 }
 
@@ -367,7 +367,7 @@ impl IfFc {
         }
 
         let mods = score.mods.bits();
-        let statistics = &score.statistics;
+        let statistics = LegacyScoreStatistics::from(score.statistics.clone());
 
         let (pp, statistics, mode) = match attrs {
             DifficultyAttributes::Osu(attrs) => {
@@ -396,7 +396,7 @@ impl IfFc {
                     .n50(n50)
                     .calculate();
 
-                let statistics = ScoreStatistics {
+                let statistics = LegacyScoreStatistics {
                     count_300: n300 as u32,
                     count_100: n100 as u32,
                     count_50: n50 as u32,
@@ -430,7 +430,7 @@ impl IfFc {
                     .accuracy(acc as f64)
                     .calculate();
 
-                let statistics = ScoreStatistics {
+                let statistics = LegacyScoreStatistics {
                     count_300: n300 as u32,
                     count_100: n100 as u32,
                     count_geki: statistics.count_geki,
@@ -469,7 +469,7 @@ impl IfFc {
                     .tiny_droplet_misses(n_tiny_droplet_misses)
                     .calculate();
 
-                let statistics = ScoreStatistics {
+                let statistics = LegacyScoreStatistics {
                     count_300: n_fruits as u32,
                     count_100: n_droplets as u32,
                     count_50: n_tiny_droplets as u32,

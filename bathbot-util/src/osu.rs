@@ -3,9 +3,10 @@ use std::{
     slice::Iter,
 };
 
-use rosu_v2::prelude::{
-    mods, GameMod, GameModIntermode, GameMode, GameMods, GameModsIntermode, Grade, Score,
-    ScoreStatistics,
+use rosu_v2::{
+    model::{mods::GameMods, score::LegacyScoreStatistics, Grade},
+    mods,
+    prelude::{GameMod, GameModIntermode, GameMode, GameModsIntermode, Score},
 };
 
 use crate::{constants::OSU_BASE, numbers::round};
@@ -384,7 +385,7 @@ pub enum AttributeKind {
     Od,
 }
 
-pub fn calculate_grade(mode: GameMode, mods: &GameMods, stats: &ScoreStatistics) -> Grade {
+pub fn calculate_grade(mode: GameMode, mods: &GameMods, stats: &LegacyScoreStatistics) -> Grade {
     match mode {
         GameMode::Osu => osu_grade(mods, stats),
         GameMode::Taiko => taiko_grade(mods, stats),
@@ -393,7 +394,7 @@ pub fn calculate_grade(mode: GameMode, mods: &GameMods, stats: &ScoreStatistics)
     }
 }
 
-fn osu_grade(mods: &GameMods, stats: &ScoreStatistics) -> Grade {
+fn osu_grade(mods: &GameMods, stats: &LegacyScoreStatistics) -> Grade {
     let passed_objects = stats.total_hits(GameMode::Osu);
 
     if stats.count_300 == passed_objects {
@@ -424,7 +425,7 @@ fn osu_grade(mods: &GameMods, stats: &ScoreStatistics) -> Grade {
     }
 }
 
-fn taiko_grade(mods: &GameMods, stats: &ScoreStatistics) -> Grade {
+fn taiko_grade(mods: &GameMods, stats: &LegacyScoreStatistics) -> Grade {
     let passed_objects = stats.total_hits(GameMode::Taiko);
     let count_300 = stats.count_300;
 
@@ -456,7 +457,7 @@ fn taiko_grade(mods: &GameMods, stats: &ScoreStatistics) -> Grade {
     }
 }
 
-fn catch_grade(mods: &GameMods, stats: &ScoreStatistics) -> Grade {
+fn catch_grade(mods: &GameMods, stats: &LegacyScoreStatistics) -> Grade {
     let acc = stats.accuracy(GameMode::Catch);
 
     if (100.0 - acc).abs() <= std::f32::EPSILON {
@@ -482,7 +483,7 @@ fn catch_grade(mods: &GameMods, stats: &ScoreStatistics) -> Grade {
     }
 }
 
-fn mania_grade(mods: &GameMods, stats: &ScoreStatistics) -> Grade {
+fn mania_grade(mods: &GameMods, stats: &LegacyScoreStatistics) -> Grade {
     let passed_objects = stats.total_hits(GameMode::Mania);
 
     if stats.count_geki == passed_objects {

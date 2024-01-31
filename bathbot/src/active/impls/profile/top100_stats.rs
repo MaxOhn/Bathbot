@@ -68,7 +68,7 @@ impl Top100Stats {
         for score in scores {
             this.acc.add(score.accuracy);
             this.combo.add(score.max_combo);
-            this.misses.add(score.statistics.count_miss);
+            this.misses.add(score.statistics.miss);
 
             let map = score
                 .map

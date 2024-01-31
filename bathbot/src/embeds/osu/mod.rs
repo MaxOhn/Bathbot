@@ -16,7 +16,7 @@ mod whatif;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, ScoreStatistics};
+use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, LegacyScoreStatistics};
 
 #[cfg(feature = "matchlive")]
 pub use self::match_live::*;
@@ -139,11 +139,11 @@ impl Display for KeyFormatter<'_> {
 #[derive(Clone)]
 pub struct HitResultFormatter {
     mode: GameMode,
-    stats: ScoreStatistics,
+    stats: LegacyScoreStatistics,
 }
 
 impl HitResultFormatter {
-    pub fn new(mode: GameMode, stats: ScoreStatistics) -> Self {
+    pub fn new(mode: GameMode, stats: LegacyScoreStatistics) -> Self {
         Self { mode, stats }
     }
 }

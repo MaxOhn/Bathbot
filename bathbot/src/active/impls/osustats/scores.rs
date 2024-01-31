@@ -10,7 +10,10 @@ use bathbot_util::{
 };
 use eyre::Result;
 use futures::future::BoxFuture;
-use rosu_v2::prelude::{GameMode, Grade, ScoreStatistics};
+use rosu_v2::{
+    model::score::LegacyScoreStatistics,
+    prelude::{GameMode, Grade},
+};
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -127,7 +130,7 @@ impl OsuStatsScoresPagination {
                     pp,
                     score: score.score,
                     score_id: None,
-                    statistics: ScoreStatistics {
+                    statistics: LegacyScoreStatistics {
                         count_geki: score.count_geki,
                         count_300: score.count300,
                         count_katu: score.count_katu,

@@ -660,7 +660,7 @@ async fn process_scores(
             None => calc.score(&score).performance().await.pp() as f32,
         };
 
-        let has_replay = score.replay.unwrap_or(false);
+        let has_replay = score.replay;
         let score = ScoreSlim::new(score, pp);
         let if_fc = IfFc::new(ctx, &score, &map).await;
 
@@ -799,7 +799,7 @@ async fn compare_from_score(
         None => calc.score(&score).performance().await.pp() as f32,
     };
 
-    let has_replay = score.replay.unwrap_or(false);
+    let has_replay = score.replay;
     let score = ScoreSlim::new(score, pp);
     let if_fc = IfFc::new(&ctx, &score, &map).await;
 
