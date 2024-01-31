@@ -202,7 +202,7 @@ impl<'s> From<&'s Score> for ScoreData {
             },
             mods: score.mods.bits(),
             mode: Some(score.mode),
-            partial: score.grade == Grade::F,
+            partial: !score.passed,
         }
     }
 }

@@ -519,7 +519,7 @@ impl LeaderboardScore {
             user_id,
             username,
             pos,
-            grade: score.grade,
+            grade: if score.passed { score.grade } else { Grade::F },
             accuracy: score.accuracy,
             statistics: score.statistics.as_legacy(score.mode),
             mode: score.mode,

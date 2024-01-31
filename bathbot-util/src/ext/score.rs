@@ -97,7 +97,16 @@ impl ScoreExt for Score {
 
     #[inline] fn max_combo(&self) -> u32 { self.max_combo }
     #[inline] fn mods(&self) -> &GameMods { &self.mods }
-    #[inline] fn grade(&self) -> Grade { self.grade }
+
+    #[inline]
+    fn grade(&self) -> Grade {
+        if self.passed {
+            self.grade
+        } else {
+            Grade::F
+        }
+    }
+
     #[inline] fn score(&self) -> u32 { self.score }
     #[inline] fn pp(&self) -> Option<f32> { self.pp }
     #[inline] fn accuracy(&self) -> f32 { self.accuracy }

@@ -491,11 +491,13 @@ async fn process_scores(
         }
 
         let grade_res = if let Some(grade) = grade {
-            score.grade.eq_letter(grade)
-        } else if let Some(true) = passes {
-            score.grade != Grade::F
-        } else if let Some(false) = passes {
-            score.grade == Grade::F
+            if let Grade::F = grade {
+                !score.passed
+            } else {
+                score.grade.eq_letter(grade)
+            }
+        } else if let Some(passed) = passes {
+            *passed == score.passed
         } else {
             true
         };

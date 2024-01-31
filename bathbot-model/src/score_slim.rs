@@ -24,7 +24,7 @@ impl ScoreSlim {
         Self {
             accuracy: score.accuracy,
             ended_at: score.ended_at,
-            grade: score.grade,
+            grade: if score.passed { score.grade } else { Grade::F },
             max_combo: score.max_combo,
             mode: score.mode,
             mods: score.mods,

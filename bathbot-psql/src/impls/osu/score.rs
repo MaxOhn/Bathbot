@@ -1089,11 +1089,12 @@ FROM
                 build_id: _,
                 ended_at,
                 has_replay: _,
+                is_perfect_combo,
                 legacy_perfect,
                 legacy_score_id: _,
                 legacy_score: _,
                 max_combo,
-                passed: _,
+                passed,
                 pp,
                 mode,
                 started_at: _,
@@ -1109,8 +1110,10 @@ FROM
 
             let Some(score_id) = best_id else { continue };
 
-            // TODO: remove from database
-            let perfect = legacy_perfect.unwrap_or_default();
+            // TODO: remove from database?
+            let perfect = legacy_perfect.unwrap_or(*is_perfect_combo);
+
+            let grade = if *passed { *grade } else { Grade::F };
 
             let LegacyScoreStatistics {
                 count_geki,
@@ -1141,7 +1144,7 @@ VALUES
                 mods.bits() as i32,
                 *score as i64,
                 *max_combo as i32,
-                *grade as i16,
+                grade as i16,
                 count_50 as i32,
                 count_100 as i32,
                 count_300 as i32,
