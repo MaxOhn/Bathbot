@@ -474,7 +474,7 @@ impl RegionTopArgs {
             }
             ScoresOrder::Misses => scores
                 .scores_mut()
-                .sort_unstable_by_key(|score| Reverse(score.statistics.count_miss)),
+                .sort_unstable_by_key(|score| Reverse(score.statistics.miss)),
             ScoresOrder::Od => {
                 scores.retain(|score, maps, _| maps.get(&score.map_id).is_some());
 
@@ -765,7 +765,7 @@ impl<'q> Searchable<ScoresCriteria<'q>>
         let mut matches = true;
 
         matches &= criteria.combo.contains(score.max_combo);
-        matches &= criteria.miss.contains(score.statistics.count_miss);
+        matches &= criteria.miss.contains(score.statistics.miss);
         matches &= criteria.score.contains(score.score);
         matches &= criteria.date.contains(score.ended_at.date());
 

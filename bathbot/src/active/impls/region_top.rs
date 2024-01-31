@@ -226,7 +226,7 @@ impl Display for OrderAppendix<'_> {
             ScoresOrder::Misses => write!(
                 f,
                 "{miss}{emote}",
-                miss = self.score.statistics.count_miss,
+                miss = self.score.statistics.miss,
                 emote = Emote::Miss
             ),
             ScoresOrder::Od => {

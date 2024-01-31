@@ -15,9 +15,11 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_pp::{BeatmapExt, DifficultyAttributes, ScoreState};
-use rosu_v2::prelude::{
-    BeatmapUserScore, GameMode, GameMods, GameModsIntermode, Grade, OsuError, Score,
-    ScoreStatistics, Username,
+use rosu_v2::{
+    model::score::LegacyScoreStatistics,
+    prelude::{
+        BeatmapUserScore, GameMode, GameMods, GameModsIntermode, Grade, OsuError, Score, Username,
+    },
 };
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -503,7 +505,7 @@ pub struct LeaderboardScore {
     pub pos: usize,
     pub grade: Grade,
     pub accuracy: f32,
-    pub statistics: ScoreStatistics,
+    pub statistics: LegacyScoreStatistics,
     pub mode: GameMode,
     pub mods: GameMods,
     pub combo: u32,
@@ -519,7 +521,7 @@ impl LeaderboardScore {
             pos,
             grade: score.grade,
             accuracy: score.accuracy,
-            statistics: score.statistics,
+            statistics: score.statistics.as_legacy(score.mode),
             mode: score.mode,
             mods: score.mods,
             combo: score.max_combo,

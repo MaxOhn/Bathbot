@@ -94,7 +94,10 @@ impl PlayerSnipeStatsEmbed {
                 acc = round(oldest_score.accuracy),
                 combo = ComboFormatter::new(oldest_score.max_combo, Some(max_combo)),
                 pp = PpFormatter::new(Some(pp), Some(max_pp)),
-                hits = HitResultFormatter::new(GameMode::Osu, oldest_score.statistics.clone()),
+                hits = HitResultFormatter::new(
+                    GameMode::Osu,
+                    oldest_score.statistics.as_legacy(GameMode::Osu)
+                ),
                 ago = HowLongAgoDynamic::new(&oldest_score.ended_at)
             );
 

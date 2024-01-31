@@ -3,7 +3,10 @@ use std::{collections::BTreeMap, fmt::Write};
 use bathbot_macros::EmbedData;
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::AuthorBuilder;
-use rosu_v2::prelude::{Grade, Score};
+use rosu_v2::{
+    model::GameMode,
+    prelude::{Grade, Score},
+};
 
 use crate::manager::redis::RedisData;
 
@@ -92,16 +95,18 @@ struct RatioCategory {
 
 impl RatioCategory {
     fn add_score(&mut self, s: &Score) {
+        let stats = s.statistics.as_legacy(GameMode::Mania);
+
         self.scores += 1;
-        self.count_geki += s.statistics.count_geki;
-        self.count_300 += s.statistics.count_300;
-        self.count_miss += s.statistics.count_miss;
-        self.count_objects += s.statistics.count_geki
-            + s.statistics.count_300
-            + s.statistics.count_katu
-            + s.statistics.count_100
-            + s.statistics.count_50
-            + s.statistics.count_miss;
+        self.count_geki += stats.count_geki;
+        self.count_300 += stats.count_300;
+        self.count_miss += stats.count_miss;
+        self.count_objects += stats.count_geki
+            + stats.count_300
+            + stats.count_katu
+            + stats.count_100
+            + stats.count_50
+            + stats.count_miss;
     }
 
     fn ratio(&self) -> f32 {

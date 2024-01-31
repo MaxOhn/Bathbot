@@ -1,5 +1,8 @@
 use bathbot_util::{ScoreExt, ScoreHasEndedAt, ScoreHasMode};
-use rosu_v2::prelude::{GameMode, GameMods, Grade, Score, ScoreStatistics};
+use rosu_v2::{
+    model::score::LegacyScoreStatistics,
+    prelude::{GameMode, GameMods, Grade, Score},
+};
 use time::OffsetDateTime;
 
 #[derive(Clone)]
@@ -13,7 +16,7 @@ pub struct ScoreSlim {
     pub pp: f32,
     pub score: u32,
     pub score_id: Option<u64>,
-    pub statistics: ScoreStatistics,
+    pub statistics: LegacyScoreStatistics,
 }
 
 impl ScoreSlim {
@@ -27,8 +30,8 @@ impl ScoreSlim {
             mods: score.mods,
             pp,
             score: score.score,
-            score_id: score.score_id,
-            statistics: score.statistics,
+            score_id: score.legacy_score_id,
+            statistics: score.statistics.as_legacy(score.mode),
         }
     }
 
@@ -54,7 +57,7 @@ impl ScoreExt for ScoreSlim {
     #[inline] fn count_katu(&self) -> u32 { self.statistics.count_katu }
     #[inline] fn max_combo(&self) -> u32 { self.max_combo }
     #[inline] fn mods(&self) -> &GameMods { &self.mods }
-    #[inline] fn grade(&self, _: GameMode) -> Grade { self.grade }
+    #[inline] fn grade(&self) -> Grade { self.grade }
     #[inline] fn score(&self) -> u32 { self.score }
     #[inline] fn pp(&self) -> Option<f32> { Some(self.pp) }
     #[inline] fn accuracy(&self) -> f32 { self.accuracy }

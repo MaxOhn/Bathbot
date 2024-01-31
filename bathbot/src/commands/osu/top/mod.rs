@@ -972,7 +972,7 @@ pub(super) async fn top(
         };
 
         with_render &= mode == GameMode::Osu
-            && entry.replay == Some(true)
+            && entry.replay
             && orig.has_permission_to(Permissions::SEND_MESSAGES)
             && ctx.ordr().is_some();
 
@@ -1051,7 +1051,7 @@ pub struct TopEntry {
     pub max_pp: f32,
     pub stars: f32,
     pub max_combo: u32,
-    pub replay: Option<bool>,
+    pub replay: bool,
 }
 
 impl TopEntry {

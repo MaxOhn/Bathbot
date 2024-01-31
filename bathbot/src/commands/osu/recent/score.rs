@@ -567,7 +567,7 @@ pub(super) async fn score(
     let grade = score.grade;
     let status = map.status();
     let map_id = score.map_id;
-    let score_id = score.score_id;
+    let score_id = score.legacy_score_id;
 
     let mut with_miss_analyzer = orig
         .guild_id()
@@ -603,7 +603,7 @@ pub(super) async fn score(
     let score_id_opt = score_id.zip(orig.guild_id());
     with_miss_analyzer &= mode == GameMode::Osu;
     with_render &= mode == GameMode::Osu
-        && score.replay == Some(true)
+        && score.replay
         && orig.has_permission_to(Permissions::SEND_MESSAGES)
         && ctx.ordr().is_some();
 

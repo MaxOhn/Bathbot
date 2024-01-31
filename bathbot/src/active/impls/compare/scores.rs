@@ -114,8 +114,7 @@ impl IActiveMessage for CompareScoresPagination {
 
                 let mut pinned = args.pinned.iter();
 
-                if pinned.any(|s| s.score_id == entry.score.score_id && s.mods == entry.score.mods)
-                {
+                if pinned.any(|s| s.legacy_score_id == entry.score.score_id) {
                     args.description.push_str(" 📌");
                 }
 
@@ -287,7 +286,7 @@ fn write_compact_entry(
 
     let mut pinned = args.pinned.iter();
 
-    if pinned.any(|s| s.score_id == entry.score.score_id && s.mods == entry.score.mods) {
+    if pinned.any(|s| s.legacy_score_id == entry.score.score_id) {
         args.description.push_str(" 📌");
     }
 

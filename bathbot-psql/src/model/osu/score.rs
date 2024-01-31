@@ -4,7 +4,10 @@ use std::{
 };
 
 use eyre::Result;
-use rosu_v2::prelude::{GameMode, Grade, RankStatus, ScoreStatistics};
+use rosu_v2::{
+    model::score::LegacyScoreStatistics,
+    prelude::{GameMode, Grade, RankStatus, ScoreStatistics},
+};
 use time::OffsetDateTime;
 
 use crate::{
@@ -163,7 +166,7 @@ pub struct DbScore {
     pub score: u32,
     pub score_id: u64,
     pub stars: Option<f32>,
-    pub statistics: ScoreStatistics,
+    pub statistics: LegacyScoreStatistics,
     pub user_id: u32,
 }
 
@@ -364,13 +367,13 @@ impl From<DbScoreAny> for DbScore {
                 GameMode::Catch => score.stars_catch,
                 GameMode::Mania => score.stars_mania,
             },
-            statistics: ScoreStatistics {
-                count_geki: score.countgeki as u32,
-                count_300: score.count300 as u32,
-                count_katu: score.countkatu as u32,
+            statistics: LegacyScoreStatistics {
                 count_100: score.count100 as u32,
                 count_50: score.count50 as u32,
+                count_katu: score.countkatu as u32,
                 count_miss: score.countmiss as u32,
+                count_300: score.count300 as u32,
+                count_geki: score.countgeki as u32,
             },
             user_id: score.user_id as u32,
         }
@@ -390,13 +393,12 @@ impl From<(DbScoreOsu, GameMode)> for DbScore {
             score: score.score as u32,
             score_id: score.score_id as u64,
             stars: score.stars,
-            statistics: ScoreStatistics {
-                count_geki: 0,
-                count_300: score.count300 as u32,
-                count_katu: 0,
+            statistics: LegacyScoreStatistics {
                 count_100: score.count100 as u32,
                 count_50: score.count50 as u32,
                 count_miss: score.countmiss as u32,
+                count_300: score.count300 as u32,
+                ..Default::default()
             },
             user_id: score.user_id as u32,
         }
@@ -416,13 +418,11 @@ impl From<(DbScoreTaiko, GameMode)> for DbScore {
             score: score.score as u32,
             score_id: score.score_id as u64,
             stars: score.stars,
-            statistics: ScoreStatistics {
-                count_geki: 0,
-                count_300: score.count300 as u32,
-                count_katu: 0,
+            statistics: LegacyScoreStatistics {
                 count_100: score.count100 as u32,
-                count_50: 0,
                 count_miss: score.countmiss as u32,
+                count_300: score.count300 as u32,
+                ..Default::default()
             },
             user_id: score.user_id as u32,
         }
@@ -442,13 +442,13 @@ impl From<(DbScoreCatch, GameMode)> for DbScore {
             score: score.score as u32,
             score_id: score.score_id as u64,
             stars: score.stars,
-            statistics: ScoreStatistics {
-                count_geki: 0,
+            statistics: LegacyScoreStatistics {
+                count_miss: score.countmiss as u32,
                 count_300: score.count300 as u32,
-                count_katu: score.countkatu as u32,
                 count_100: score.count100 as u32,
                 count_50: score.count50 as u32,
-                count_miss: score.countmiss as u32,
+                count_katu: score.countkatu as u32,
+                ..Default::default()
             },
             user_id: score.user_id as u32,
         }
@@ -468,13 +468,13 @@ impl From<(DbScoreMania, GameMode)> for DbScore {
             score: score.score as u32,
             score_id: score.score_id as u64,
             stars: score.stars,
-            statistics: ScoreStatistics {
-                count_geki: score.countgeki as u32,
-                count_300: score.count300 as u32,
-                count_katu: score.countkatu as u32,
+            statistics: LegacyScoreStatistics {
                 count_100: score.count100 as u32,
                 count_50: score.count50 as u32,
+                count_katu: score.countkatu as u32,
                 count_miss: score.countmiss as u32,
+                count_300: score.count300 as u32,
+                count_geki: score.countgeki as u32,
             },
             user_id: score.user_id as u32,
         }
@@ -568,7 +568,40 @@ pub struct DbTopScore {
 }
 
 impl DbTopScore {
-    pub(crate) fn new(raw: DbTopScoreRaw, pos: usize) -> Self {
+    pub(crate) fn new(raw: DbTopScoreRaw, pos: usize, mode: GameMode) -> Self {
+        let statistics = match mode {
+            GameMode::Osu => ScoreStatistics {
+                ok: raw.count100 as u32,
+                meh: raw.count50 as u32,
+                miss: raw.countmiss as u32,
+                great: raw.count300 as u32,
+                ..Default::default()
+            },
+            GameMode::Taiko => ScoreStatistics {
+                ok: raw.count100 as u32,
+                miss: raw.countmiss as u32,
+                great: raw.count300 as u32,
+                ..Default::default()
+            },
+            GameMode::Catch => ScoreStatistics {
+                miss: raw.countmiss as u32,
+                great: raw.count300 as u32,
+                large_tick_hit: raw.count100 as u32,
+                small_tick_hit: raw.count50 as u32,
+                small_tick_miss: raw.countkatu as u32,
+                ..Default::default()
+            },
+            GameMode::Mania => ScoreStatistics {
+                ok: raw.count100 as u32,
+                meh: raw.count50 as u32,
+                good: raw.countkatu as u32,
+                miss: raw.countmiss as u32,
+                great: raw.count300 as u32,
+                perfect: raw.countgeki as u32,
+                ..Default::default()
+            },
+        };
+
         Self {
             pos,
             score_id: raw.score_id as u64,
@@ -579,14 +612,7 @@ impl DbTopScore {
             score: raw.score as u32,
             max_combo: raw.maxcombo as u32,
             grade: parse_grade(raw.grade),
-            statistics: ScoreStatistics {
-                count_geki: raw.countgeki as u32,
-                count_300: raw.count300 as u32,
-                count_katu: raw.countkatu as u32,
-                count_100: raw.count100 as u32,
-                count_50: raw.count50 as u32,
-                count_miss: raw.countmiss as u32,
-            },
+            statistics,
             ended_at: raw.ended_at,
             pp: raw.pp,
             stars: raw.stars,

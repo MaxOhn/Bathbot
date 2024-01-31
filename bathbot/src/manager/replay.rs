@@ -1,11 +1,18 @@
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::{
+    borrow::Cow,
+    fmt::{Display, Formatter, Result as FmtResult},
+};
 
 use bathbot_cache::Cache as BathbotCache;
 use bathbot_client::Client as BathbotClient;
+use bathbot_model::Either;
 use bathbot_psql::{model::render::DbRenderOptions, Database};
 use eyre::{Result, WrapErr};
 use rosu_render::model::{RenderOptions, RenderResolution, RenderSkinOption, Skin, SkinInfo};
-use rosu_v2::prelude::{GameMode, Score, ScoreStatistics};
+use rosu_v2::{
+    model::score::LegacyScoreStatistics,
+    prelude::{GameMode, Score, ScoreStatistics},
+};
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -460,10 +467,10 @@ impl<'s> ReplayScore<'s> {
         }
     }
 
-    fn statistics(&self) -> &ScoreStatistics {
+    fn statistics(&self) -> Either<&LegacyScoreStatistics, &ScoreStatistics> {
         match &self.inner {
-            ReplayScoreInner::Owned(score) => &score.statistics,
-            ReplayScoreInner::Borrowed(score) => &score.statistics,
+            ReplayScoreInner::Owned(score) => Either::Left(&score.statistics),
+            ReplayScoreInner::Borrowed(score) => Either::Right(&score.statistics),
         }
     }
 
@@ -484,7 +491,7 @@ impl<'s> ReplayScore<'s> {
     fn perfect(&self) -> bool {
         match &self.inner {
             ReplayScoreInner::Owned(score) => score.perfect,
-            ReplayScoreInner::Borrowed(score) => score.perfect,
+            ReplayScoreInner::Borrowed(score) => score.legacy_perfect == Some(true),
         }
     }
 
@@ -501,7 +508,7 @@ pub struct OwnedReplayScore {
     ended_at: OffsetDateTime,
     map_checksum: Box<str>,
     username: Box<str>,
-    statistics: ScoreStatistics,
+    statistics: LegacyScoreStatistics,
     score: u32,
     max_combo: u16,
     perfect: bool,
@@ -540,10 +547,10 @@ impl OwnedReplayScore {
                 .map(|user| user.username.as_str())
                 .unwrap_or_default()
                 .into(),
-            statistics: score.statistics.clone(),
+            statistics: score.statistics.as_legacy(score.mode),
             score: score.score,
             max_combo: score.max_combo as u16,
-            perfect: score.perfect,
+            perfect: score.legacy_perfect == Some(true),
             mods: score.mods.bits(),
         })
     }
@@ -567,7 +574,11 @@ fn complete_replay(score: &ReplayScore<'_>, score_id: u64, raw_replay: &[u8]) ->
     let replay_md5 = String::new();
     bytes_written += encode_string(&mut replay, &replay_md5);
 
-    let stats = score.statistics();
+    let stats = match score.statistics() {
+        Either::Left(stats) => Cow::Borrowed(stats),
+        Either::Right(stats) => Cow::Owned(stats.as_legacy(score.mode())),
+    };
+
     bytes_written += encode_short(&mut replay, stats.count_300 as u16);
     bytes_written += encode_short(&mut replay, stats.count_100 as u16);
     bytes_written += encode_short(&mut replay, stats.count_50 as u16);

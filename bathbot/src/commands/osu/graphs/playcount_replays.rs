@@ -187,13 +187,9 @@ async fn gather_badges(
         RedisData::Archive(user) => Either::Right(user.badges.as_slice()),
     };
 
-    let skip = match badges {
-        Either::Left(badges) if badges.is_empty() => true,
-        Either::Right(badges) if badges.is_empty() => true,
-        _ => false,
-    };
+    let is_empty = matches!(badges, Either::Left([]) | Either::Right([]));
 
-    if skip || !flags.badges() {
+    if is_empty || !flags.badges() {
         return Ok(Vec::new());
     }
 

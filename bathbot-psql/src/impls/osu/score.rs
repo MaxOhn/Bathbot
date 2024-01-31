@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::BuildHasher};
 
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
-use rosu_v2::prelude::{GameMode, Grade, Score, ScoreStatistics};
+use rosu_v2::prelude::{GameMode, Grade, LegacyScoreStatistics, Score};
 use sqlx::{pool::PoolConnection, Executor, Postgres};
 
 use crate::{
@@ -986,7 +986,7 @@ LIMIT
 
             while let Some(row_res) = score_rows.next().await {
                 let row = row_res.wrap_err("Failed to fetch next score")?;
-                scores.push(DbTopScore::new(row, pos));
+                scores.push(DbTopScore::new(row, pos, mode));
                 pos += 1;
             }
         }
@@ -1075,38 +1075,51 @@ FROM
 
         for score in scores {
             let Score {
-                accuracy: _,
-                ended_at,
-                grade,
+                ranked: _,
+                maximum_statistics: _,
+                mods,
+                statistics,
                 map_id,
+                best_id,
+                id: _,
+                grade,
+                kind: _,
+                user_id,
+                accuracy: _,
+                build_id: _,
+                ended_at,
+                has_replay: _,
+                legacy_perfect,
+                legacy_score_id: _,
+                legacy_score: _,
                 max_combo,
+                passed: _,
+                pp,
+                mode,
+                started_at: _,
+                score,
+                replay: _,
+                current_user_attributes: _,
                 map: _, // updated through checksum-missmatch
                 mapset,
-                mode,
-                mods,
-                passed: _,
-                perfect,
-                pp,
-                rank_country: _,
                 rank_global: _,
-                replay: _,
-                score,
-                score_id,
-                statistics:
-                    ScoreStatistics {
-                        count_geki,
-                        count_300,
-                        count_katu,
-                        count_100,
-                        count_50,
-                        count_miss,
-                    },
                 user: _,
-                user_id,
                 weight: _,
             } = score;
 
-            let Some(score_id) = score_id else { continue };
+            let Some(score_id) = best_id else { continue };
+
+            // TODO: remove from database
+            let perfect = legacy_perfect.unwrap_or_default();
+
+            let LegacyScoreStatistics {
+                count_geki,
+                count_katu,
+                count_300,
+                count_100,
+                count_50,
+                count_miss,
+            } = statistics.as_legacy(*mode);
 
             let query = sqlx::query!(
                 r#"
@@ -1129,12 +1142,12 @@ VALUES
                 *score as i64,
                 *max_combo as i32,
                 *grade as i16,
-                *count_50 as i32,
-                *count_100 as i32,
-                *count_300 as i32,
-                *count_miss as i32,
-                *count_geki as i32,
-                *count_katu as i32,
+                count_50 as i32,
+                count_100 as i32,
+                count_300 as i32,
+                count_miss as i32,
+                count_geki as i32,
+                count_katu as i32,
                 perfect,
                 ended_at,
             );

@@ -2526,7 +2526,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.8.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#310c22d806962559a1dab073c6c6d336abea9c36"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=lazer#7e0aa15c9044214e8d2e6d555e61f86094177f12"
 dependencies = [
  "bytes",
  "futures",
