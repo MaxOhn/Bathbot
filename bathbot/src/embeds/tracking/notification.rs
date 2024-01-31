@@ -85,17 +85,18 @@ impl TrackNotificationEmbed {
             "{pp} [ {combo} ] {hitresults}",
             pp = PpFormatter::new(score.pp, Some(max_pp)),
             combo = if score.mode == GameMode::Mania {
-                let mut ratio = score.statistics.count_geki as f32;
+                let mut ratio = score.statistics.perfect as f32;
 
-                if score.statistics.count_300 > 0 {
-                    ratio /= score.statistics.count_300 as f32
+                if score.statistics.great > 0 {
+                    ratio /= score.statistics.great as f32
                 }
 
                 format!("**{}x** / {}", &score.max_combo, round(ratio))
             } else {
                 ComboFormatter::new(score.max_combo, Some(max_combo)).to_string()
             },
-            hitresults = HitResultFormatter::new(score.mode, score.statistics.clone()),
+            hitresults =
+                HitResultFormatter::new(score.mode, score.statistics.as_legacy(score.mode)),
         );
 
         let footer = FooterBuilder::new(map.footer_text()).icon_url(Emote::from(score.mode).url());
