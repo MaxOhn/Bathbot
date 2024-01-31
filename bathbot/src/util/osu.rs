@@ -367,26 +367,25 @@ impl IfFc {
         }
 
         let mods = score.mods.bits();
-        let statistics = LegacyScoreStatistics::from(score.statistics.clone());
+        let stats = &score.statistics;
 
         let (pp, statistics, mode) = match attrs {
             DifficultyAttributes::Osu(attrs) => {
                 let total_objects = map.n_objects();
-                let passed_objects = (statistics.count_300
-                    + statistics.count_100
-                    + statistics.count_50
-                    + statistics.count_miss) as usize;
+                let passed_objects =
+                    (stats.count_300 + stats.count_100 + stats.count_50 + stats.count_miss)
+                        as usize;
 
                 let mut n300 =
-                    statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
+                    stats.count_300 as usize + total_objects.saturating_sub(passed_objects);
 
-                let count_hits = total_objects - statistics.count_miss as usize;
+                let count_hits = total_objects - stats.count_miss as usize;
                 let ratio = 1.0 - (n300 as f32 / count_hits as f32);
-                let new100s = (ratio * statistics.count_miss as f32).ceil() as u32;
+                let new100s = (ratio * stats.count_miss as f32).ceil() as u32;
 
-                n300 += statistics.count_miss.saturating_sub(new100s) as usize;
-                let n100 = (statistics.count_100 + new100s) as usize;
-                let n50 = statistics.count_50 as usize;
+                n300 += stats.count_miss.saturating_sub(new100s) as usize;
+                let n100 = (stats.count_100 + new100s) as usize;
+                let n50 = stats.count_50 as usize;
 
                 let attrs = OsuPP::new(&map.pp_map)
                     .attributes(attrs.to_owned())
@@ -400,8 +399,8 @@ impl IfFc {
                     count_300: n300 as u32,
                     count_100: n100 as u32,
                     count_50: n50 as u32,
-                    count_geki: statistics.count_geki,
-                    count_katu: statistics.count_katu,
+                    count_geki: stats.count_geki,
+                    count_katu: stats.count_katu,
                     count_miss: 0,
                 };
 
@@ -410,17 +409,17 @@ impl IfFc {
             DifficultyAttributes::Taiko(attrs) => {
                 let total_objects = map.n_circles();
                 let passed_objects =
-                    (statistics.count_300 + statistics.count_100 + statistics.count_miss) as usize;
+                    (stats.count_300 + stats.count_100 + stats.count_miss) as usize;
 
                 let mut n300 =
-                    statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
+                    stats.count_300 as usize + total_objects.saturating_sub(passed_objects);
 
-                let count_hits = total_objects - statistics.count_miss as usize;
+                let count_hits = total_objects - stats.count_miss as usize;
                 let ratio = 1.0 - (n300 as f32 / count_hits as f32);
-                let new100s = (ratio * statistics.count_miss as f32).ceil() as u32;
+                let new100s = (ratio * stats.count_miss as f32).ceil() as u32;
 
-                n300 += statistics.count_miss.saturating_sub(new100s) as usize;
-                let n100 = (statistics.count_100 + new100s) as usize;
+                n300 += stats.count_miss.saturating_sub(new100s) as usize;
+                let n100 = (stats.count_100 + new100s) as usize;
 
                 let acc = 100.0 * (2 * n300 + n100) as f32 / (2 * total_objects) as f32;
 
@@ -433,9 +432,9 @@ impl IfFc {
                 let statistics = LegacyScoreStatistics {
                     count_300: n300 as u32,
                     count_100: n100 as u32,
-                    count_geki: statistics.count_geki,
-                    count_katu: statistics.count_katu,
-                    count_50: statistics.count_50,
+                    count_geki: stats.count_geki,
+                    count_katu: stats.count_katu,
+                    count_50: stats.count_50,
                     count_miss: 0,
                 };
 
@@ -444,20 +443,17 @@ impl IfFc {
             DifficultyAttributes::Catch(attrs) => {
                 let total_objects = attrs.max_combo();
                 let passed_objects =
-                    (statistics.count_300 + statistics.count_100 + statistics.count_miss) as usize;
+                    (stats.count_300 + stats.count_100 + stats.count_miss) as usize;
 
                 let missing = total_objects - passed_objects;
-                let missing_fruits = missing.saturating_sub(
-                    attrs
-                        .n_droplets
-                        .saturating_sub(statistics.count_100 as usize),
-                );
+                let missing_fruits = missing
+                    .saturating_sub(attrs.n_droplets.saturating_sub(stats.count_100 as usize));
 
                 let missing_droplets = missing - missing_fruits;
 
-                let n_fruits = statistics.count_300 as usize + missing_fruits;
-                let n_droplets = statistics.count_100 as usize + missing_droplets;
-                let n_tiny_droplet_misses = statistics.count_katu as usize;
+                let n_fruits = stats.count_300 as usize + missing_fruits;
+                let n_droplets = stats.count_100 as usize + missing_droplets;
+                let n_tiny_droplet_misses = stats.count_katu as usize;
                 let n_tiny_droplets = attrs.n_tiny_droplets.saturating_sub(n_tiny_droplet_misses);
 
                 let attrs = CatchPP::new(&map.pp_map)
@@ -473,8 +469,8 @@ impl IfFc {
                     count_300: n_fruits as u32,
                     count_100: n_droplets as u32,
                     count_50: n_tiny_droplets as u32,
-                    count_geki: statistics.count_geki,
-                    count_katu: statistics.count_katu,
+                    count_geki: stats.count_geki,
+                    count_katu: stats.count_katu,
                     count_miss: 0,
                 };
 
