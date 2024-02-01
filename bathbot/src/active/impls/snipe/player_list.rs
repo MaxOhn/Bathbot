@@ -149,7 +149,7 @@ impl SnipePlayerListPagination {
         for (idx, score) in entries {
             let map = self.maps.get(&score.map.map_id).expect("missing map");
             let mods = score.mods.as_ref().map(Cow::Borrowed).unwrap_or_default();
-            let max_pp = ctx.pp(map).mods(mods.bits()).performance().await.pp() as f32;
+            let max_pp = ctx.pp(map).mods(mods.as_ref()).performance().await.pp() as f32;
 
             let stats = LegacyScoreStatistics {
                 count_geki: 0,

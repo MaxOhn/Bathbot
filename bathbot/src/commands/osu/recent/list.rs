@@ -26,7 +26,7 @@ use crate::{
         GameModeOption, GradeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::UserArgs, OsuMap},
+    manager::{redis::osu::UserArgs, Mods, OsuMap},
     util::{
         query::{IFilterCriteria, RegularCriteria, Searchable},
         ChannelExt,
@@ -526,7 +526,7 @@ async fn process_scores(
         maps.values_mut().for_each(|map| map.convert_mut(mode));
     }
 
-    let mut attrs_map: HashMap<(u32, u32), DifficultyAttributes> =
+    let mut attrs_map: HashMap<(u32, Mods), DifficultyAttributes> =
         HashMap::with_capacity(maps.len());
 
     let scores = scores
@@ -539,9 +539,10 @@ async fn process_scores(
             continue;
         };
 
-        let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods.bits());
+        let mods = Mods::from(&score.mods);
+        let mut calc = ctx.pp(map).mode(score.mode).mods(mods);
 
-        let attrs = match attrs_map.entry((score.map_id, score.mods.bits())) {
+        let attrs = match attrs_map.entry((score.map_id, mods)) {
             Entry::Occupied(e) => {
                 calc.attributes(e.get().to_owned());
 

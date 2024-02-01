@@ -521,7 +521,7 @@ async fn process_scores(
             score.grade = score.grade(Some(score.accuracy));
         }
 
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
         let attrs = calc.performance().await;
 
         let old_pp = score.pp.expect("missing pp");

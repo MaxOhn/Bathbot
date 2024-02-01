@@ -485,7 +485,7 @@ async fn process_scores(
         let map_opt = maps.remove(&score.map.map_id);
         let Some(map) = map_opt else { continue };
 
-        let mut calc = ctx.pp(&map).mode(mode).mods(score.mods.bits());
+        let mut calc = ctx.pp(&map).mode(mode).mods(&score.mods);
         let attrs = calc.performance().await;
 
         let pp = match score.pp {

@@ -64,7 +64,7 @@ impl PlayerSnipeStatsEmbed {
                 "Average stars:", format!("{:.2}★", player.avg_stars), true;
             }];
 
-            let mut calc = ctx.pp(oldest_map).mods(oldest_score.mods.bits());
+            let mut calc = ctx.pp(oldest_map).mods(&oldest_score.mods);
 
             let attrs = calc.performance().await;
             let stars = attrs.stars() as f32;

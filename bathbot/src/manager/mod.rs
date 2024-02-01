@@ -8,7 +8,7 @@ pub use self::{
     osu_scores::ScoresManager,
     osu_tracking::OsuTrackingManager,
     osu_user::OsuUserManager,
-    pp::PpManager,
+    pp::{Mods, PpManager},
     rank_pp_approx::ApproxManager,
     replay::{OwnedReplayScore, ReplayManager, ReplayScore, ReplaySettings},
     twitch::TwitchManager,

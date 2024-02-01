@@ -407,7 +407,7 @@ async fn process_scores(
         let attrs = ctx
             .pp(&map)
             .mode(score.mode)
-            .mods(score.mods.bits())
+            .mods(&score.mods)
             .performance()
             .await;
 
@@ -451,7 +451,7 @@ async fn process_scores(
 
 async fn perfect_score(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Unchoked {
     let total_hits = score.total_hits();
-    let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods.bits());
+    let mut calc = ctx.pp(map).mode(score.mode).mods(&score.mods);
     let attrs = calc.difficulty().await;
 
     let stats = match attrs {

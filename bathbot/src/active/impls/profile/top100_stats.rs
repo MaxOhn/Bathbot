@@ -76,7 +76,7 @@ impl Top100Stats {
                 .and_then(|map| maps.get(&map.map_id))
                 .expect("missing map");
 
-            let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods.bits());
+            let mut calc = ctx.pp(map).mode(score.mode).mods(&score.mods);
 
             let stars = calc.difficulty().await.stars();
             this.stars.add(stars);
