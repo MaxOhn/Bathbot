@@ -486,7 +486,7 @@ struct ButtonData {
 
 impl ButtonData {
     fn with_miss_analyzer(&self) -> bool {
-        self.with_miss_analyzer_button
+        self.score_id.is_some() && self.with_miss_analyzer_button
     }
 
     fn take_miss_analyzer(&mut self) -> Option<u64> {
@@ -496,7 +496,7 @@ impl ButtonData {
     }
 
     fn with_render(&self) -> bool {
-        self.replay_score.is_some()
+        self.score_id.is_some() && self.replay_score.is_some()
     }
 
     fn borrow_mut_render(&mut self) -> (Option<u64>, &mut Option<OwnedReplayScore>) {
