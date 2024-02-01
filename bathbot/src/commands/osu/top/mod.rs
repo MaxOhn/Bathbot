@@ -1288,7 +1288,7 @@ async fn process_scores(
             .performance()
             .await;
 
-        let pp = score.pp.expect("missing pp");
+        let pp = score.pp.unwrap_or(0.0);
 
         let max_pp = if score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania {
             pp
