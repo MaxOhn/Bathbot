@@ -418,7 +418,7 @@ async fn process_scores(
         };
         map.convert_mut(score.mode);
 
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
         let attrs = calc.difficulty().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo() as u32;

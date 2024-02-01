@@ -645,7 +645,7 @@ async fn process_scores(
     }
 
     for score in scores {
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
         let attrs = calc.performance().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo() as u32;
@@ -786,7 +786,7 @@ async fn compare_from_score(
 
     let mode = score.mode;
 
-    let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());
+    let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
     let attrs = calc.performance().await;
 
     let max_pp = score

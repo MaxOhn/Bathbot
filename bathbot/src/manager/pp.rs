@@ -1,4 +1,7 @@
-use std::{borrow::Cow, mem};
+use std::{
+    borrow::Cow,
+    hash::{Hash, Hasher},
+};
 
 use bathbot_model::{OsuStatsScore, ScoreSlim};
 use bathbot_psql::Database;
@@ -6,7 +9,10 @@ use eyre::Result;
 use rosu_pp::{
     Beatmap, BeatmapExt, DifficultyAttributes, GameMode as Mode, PerformanceAttributes, ScoreState,
 };
-use rosu_v2::prelude::{GameMode, Grade, Score};
+use rosu_v2::{
+    model::mods::GameMods,
+    prelude::{GameMode, Grade, Score},
+};
 
 use super::OsuMap;
 use crate::commands::osu::LeaderboardScore;
@@ -19,7 +25,7 @@ pub struct PpManager<'d, 'm> {
     is_convert: bool,
     attrs: Option<DifficultyAttributes>,
     mode: GameMode,
-    mods: u32,
+    mods: Mods,
     state: Option<ScoreState>,
     partial: bool,
 }
@@ -43,7 +49,7 @@ impl<'d, 'm> PpManager<'d, 'm> {
             is_convert,
             attrs: None,
             mode,
-            mods: 0,
+            mods: Mods::default(),
             state: None,
             partial: false,
         }
@@ -72,14 +78,18 @@ impl<'d, 'm> PpManager<'d, 'm> {
         self
     }
 
-    pub fn mods(mut self, mods: u32) -> Self {
-        if self.mods != mods {
-            self.attrs = None;
+    pub fn mods(self, mods: impl Into<Mods>) -> Self {
+        fn inner<'d, 'm>(mut this: PpManager<'d, 'm>, mods: Mods) -> PpManager<'d, 'm> {
+            if this.mods != mods {
+                this.attrs = None;
+            }
+
+            this.mods = mods;
+
+            this
         }
 
-        self.mods = mods;
-
-        self
+        inner(self, mods.into())
     }
 
     pub fn score(mut self, score: impl Into<ScoreData>) -> Self {
@@ -101,8 +111,12 @@ impl<'d, 'm> PpManager<'d, 'm> {
     }
 
     async fn lookup_attrs(&self) -> Result<Option<DifficultyAttributes>> {
+        if self.mods.clock_rate.is_some() {
+            return Ok(None);
+        }
+
         self.psql
-            .select_map_difficulty_attrs(self.map_id, self.mode, self.mods)
+            .select_map_difficulty_attrs(self.map_id, self.mode, self.mods.bits)
             .await
     }
 
@@ -125,8 +139,12 @@ impl<'d, 'm> PpManager<'d, 'm> {
             .map
             .stars()
             .mode(mode)
-            .mods(self.mods)
+            .mods(self.mods.bits)
             .is_convert(self.is_convert);
+
+        if let Some(clock_rate) = self.mods.clock_rate {
+            calc = calc.clock_rate(f64::from(clock_rate));
+        }
 
         if let Some(state) = self.state.as_ref().filter(|_| self.partial) {
             calc = calc.passed_objects(state.total_hits(mode));
@@ -134,10 +152,10 @@ impl<'d, 'm> PpManager<'d, 'm> {
 
         let attrs = calc.calculate();
 
-        if !self.partial {
+        if !self.partial && self.mods.clock_rate.is_some() {
             let upsert_fut = self
                 .psql
-                .upsert_map_difficulty(self.map_id, self.mods, &attrs);
+                .upsert_map_difficulty(self.map_id, self.mods.bits, &attrs);
 
             if let Err(err) = upsert_fut.await {
                 warn!(?err, "Failed to upsert difficulty attrs");
@@ -157,8 +175,12 @@ impl<'d, 'm> PpManager<'d, 'm> {
             .pp()
             .attributes(attrs)
             .mode(mode)
-            .mods(self.mods)
+            .mods(self.mods.bits)
             .is_convert(self.is_convert);
+
+        if let Some(clock_rate) = self.mods.clock_rate {
+            calc = calc.clock_rate(f64::from(clock_rate));
+        }
 
         if let Some(state) = self.state.take() {
             if self.partial {
@@ -173,14 +195,13 @@ impl<'d, 'm> PpManager<'d, 'm> {
 
     /// Convert from `rosu_v2` mode to `rosu_pp` mode
     pub fn mode_conversion(mode: GameMode) -> Mode {
-        // SAFETY: both enums assign the same values for each variant
-        unsafe { mem::transmute(mode) }
+        Mode::from(mode as u8)
     }
 }
 
 pub struct ScoreData {
     state: ScoreState,
-    mods: u32,
+    mods: Mods,
     mode: Option<GameMode>,
     partial: bool,
 }
@@ -200,7 +221,7 @@ impl<'s> From<&'s Score> for ScoreData {
                 n50: stats.count_50 as usize,
                 n_misses: stats.count_miss as usize,
             },
-            mods: score.mods.bits(),
+            mods: Mods::from(&score.mods),
             mode: Some(score.mode),
             partial: !score.passed,
         }
@@ -220,7 +241,7 @@ impl<'s> From<&'s ScoreSlim> for ScoreData {
                 n50: score.statistics.count_50 as usize,
                 n_misses: score.statistics.count_miss as usize,
             },
-            mods: score.mods.bits(),
+            mods: Mods::from(&score.mods),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
         }
@@ -240,7 +261,7 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
                 n50: score.count50 as usize,
                 n_misses: score.count_miss as usize,
             },
-            mods: score.mods.bits(),
+            mods: Mods::from(&score.mods),
             mode: None,
             partial: score.grade == Grade::F,
         }
@@ -259,9 +280,43 @@ impl<'s> From<&'s LeaderboardScore> for ScoreData {
                 n50: score.statistics.count_50 as usize,
                 n_misses: score.statistics.count_miss as usize,
             },
-            mods: score.mods.bits(),
+            mods: Mods::from(&score.mods),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
         }
+    }
+}
+
+#[derive(Copy, Clone, Default, PartialEq)]
+pub struct Mods {
+    pub bits: u32,
+    pub clock_rate: Option<f32>,
+}
+
+impl From<u32> for Mods {
+    fn from(bits: u32) -> Self {
+        Self {
+            bits,
+            clock_rate: None,
+        }
+    }
+}
+
+impl From<&GameMods> for Mods {
+    fn from(mods: &GameMods) -> Self {
+        Self {
+            bits: mods.bits(),
+            clock_rate: mods.clock_rate(),
+        }
+    }
+}
+
+// Little iffy due to the contained f32 but required to be usable as HashMap key
+impl Eq for Mods {}
+
+impl Hash for Mods {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.bits.hash(state);
+        self.clock_rate.map(f32::to_bits).hash(state);
     }
 }

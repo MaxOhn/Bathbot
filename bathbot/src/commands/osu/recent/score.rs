@@ -935,7 +935,7 @@ pub struct RecentEntry {
 
 impl RecentEntry {
     async fn new(ctx: &Context, score: Score, map: OsuMap) -> Self {
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods.bits());
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
         let attrs = calc.performance().await;
 
         let max_pp = score

@@ -146,7 +146,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
 
             let attrs = ctx
                 .pp_parsed(&map, score.map_id, false, mode)
-                .mods(score.mods.bits())
+                .mods(&score.mods)
                 .difficulty()
                 .await
                 .to_owned();

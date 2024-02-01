@@ -379,7 +379,7 @@ pub struct IfFc {
 impl IfFc {
     pub async fn new(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Option<Self> {
         let mode = score.mode;
-        let mut calc = ctx.pp(map).mods(score.mods.bits()).mode(score.mode);
+        let mut calc = ctx.pp(map).mods(&score.mods).mode(score.mode);
         let attrs = calc.difficulty().await;
 
         if score.is_fc(mode, attrs.max_combo() as u32) {

@@ -92,9 +92,7 @@ impl ScorePp {
         let play = plays.swap_remove(play as usize);
 
         let map_fut = ctx.osu_map().map_slim(play.map_id);
-        let attrs_fut = ctx
-            .osu_map()
-            .difficulty(play.map_id, play.mode, play.mods.bits());
+        let attrs_fut = ctx.osu_map().difficulty(play.map_id, play.mode, &play.mods);
 
         let (map_res, attrs_res) = tokio::join!(map_fut, attrs_fut);
 

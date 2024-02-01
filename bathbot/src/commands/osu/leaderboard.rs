@@ -35,7 +35,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::{
         redis::{osu::UserArgs, RedisData},
-        MapError, OsuMap, PpManager,
+        MapError, Mods, OsuMap, PpManager,
     },
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
@@ -82,7 +82,7 @@ pub enum LeaderboardSort {
     Score,
 }
 
-pub type AttrMap = HashMap<u32, (DifficultyAttributes, f32), IntHasher>;
+pub type AttrMap = HashMap<Mods, (DifficultyAttributes, f32)>;
 
 impl LeaderboardSort {
     pub async fn sort(
@@ -387,11 +387,12 @@ async fn leaderboard(
         format!("I found {amount} scores on the map's leaderboard")
     };
 
-    let mut attr_map = HashMap::default();
     let stars = attrs.stars() as f32;
-    let max_pp = attrs.pp() as f32;
     let max_combo = attrs.max_combo() as u32;
-    attr_map.insert(mods_bits, (attrs.into(), max_pp));
+
+    // Not storing `attrs` here in case mods (potentially with clock rate) were
+    // specified
+    let mut attr_map = HashMap::default();
 
     args.sort.sort(&ctx, &mut scores, &map, &mut attr_map).await;
     args.sort.push_content(&mut content);
@@ -533,7 +534,7 @@ impl LeaderboardScore {
 
 impl LeaderboardScore {
     pub async fn pp(&self, ctx: &Context, map: &OsuMap, attr_map: &mut AttrMap) -> (f32, f32) {
-        let mods = self.mods.bits();
+        let mods = Mods::from(&self.mods);
 
         match attr_map.entry(mods) {
             Entry::Occupied(entry) => {
@@ -549,15 +550,19 @@ impl LeaderboardScore {
                     n_misses: self.statistics.count_miss as usize,
                 };
 
-                let pp = map
+                let mut pp_calc = map
                     .pp_map
                     .pp()
                     .attributes(attrs.to_owned())
                     .mode(PpManager::mode_conversion(self.mode))
-                    .mods(mods)
-                    .state(state)
-                    .calculate()
-                    .pp() as f32;
+                    .mods(mods.bits)
+                    .state(state);
+
+                if let Some(clock_rate) = mods.clock_rate {
+                    pp_calc = pp_calc.clock_rate(f64::from(clock_rate));
+                }
+
+                let pp = pp_calc.calculate().pp() as f32;
 
                 (pp, *max_pp)
             }

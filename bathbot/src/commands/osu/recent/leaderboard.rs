@@ -358,11 +358,12 @@ pub(super) async fn leaderboard(
         format!("I found {amount} scores on the map's leaderboard")
     };
 
-    let mut attr_map = HashMap::default();
     let stars = attrs.stars() as f32;
-    let max_pp = attrs.pp() as f32;
     let max_combo = attrs.max_combo() as u32;
-    attr_map.insert(mods_bits, (attrs.into(), max_pp));
+
+    // Not storing `attrs` here in case mods (potentially with clock rate) were
+    // specified
+    let mut attr_map = HashMap::default();
 
     let order = args.sort.unwrap_or_default();
     order.sort(&ctx, &mut scores, &map, &mut attr_map).await;

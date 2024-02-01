@@ -13,7 +13,7 @@ use thiserror::Error;
 use time::OffsetDateTime;
 use tokio::{fs, time::sleep};
 
-use super::PpManager;
+use super::{pp::Mods, PpManager};
 use crate::{
     core::{BotConfig, Context},
     util::query::{FilterCriteria, RegularCriteria, Searchable},
@@ -79,23 +79,36 @@ impl<'d> MapManager<'d> {
         self,
         map_id: u32,
         mode: GameMode,
-        mods: u32,
+        mods: impl Into<Mods>,
     ) -> Result<DifficultyAttributes> {
-        let attrs_fut = self.psql.select_map_difficulty_attrs(map_id, mode, mods);
+        async fn inner(
+            this: MapManager<'_>,
+            map_id: u32,
+            mode: GameMode,
+            mods: Mods,
+        ) -> Result<DifficultyAttributes> {
+            if mods.clock_rate.is_none() {
+                let attrs_fut = this
+                    .psql
+                    .select_map_difficulty_attrs(map_id, mode, mods.bits);
 
-        if let Some(attrs) = attrs_fut.await.wrap_err("Failed to get attributes")? {
-            return Ok(attrs);
+                if let Some(attrs) = attrs_fut.await.wrap_err("Failed to get attributes")? {
+                    return Ok(attrs);
+                }
+            }
+
+            let map = this.pp_map(map_id).await.wrap_err("Failed to get pp map")?;
+
+            let attrs = PpManager::from_parsed(&map, map_id, mode, false, this.psql)
+                .mods(mods)
+                .difficulty()
+                .await
+                .to_owned();
+
+            Ok(attrs)
         }
 
-        let map = self.pp_map(map_id).await.wrap_err("Failed to get pp map")?;
-
-        let attrs = PpManager::from_parsed(&map, map_id, mode, false, self.psql)
-            .mods(mods)
-            .difficulty()
-            .await
-            .to_owned();
-
-        Ok(attrs)
+        inner(self, map_id, mode, mods.into()).await
     }
 
     pub async fn map_slim(self, map_id: u32) -> Result<OsuMapSlim> {
