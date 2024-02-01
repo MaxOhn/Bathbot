@@ -57,6 +57,7 @@ use crate::{
     - `>30 MR`: `Unmindblockable`\n  \
     - none of above but `<10 NM`: `Mod-Loving`\n  \
     - none of above: `Versatile`\n  \
+    - `<50 CL`: `New-Skool`\n  \
     - `>70 Key[X]`: `[X]K`\n  \
     - otherwise: `Multi-Key`\n\
     - The **suffix** is determined by checking proximity of skill \

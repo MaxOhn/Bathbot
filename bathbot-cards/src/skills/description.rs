@@ -24,6 +24,7 @@ enum TitleDescription {
     BrainLag,
     Unmindblockable,
     ThreeLife,
+    NewSkool,
     Key(usize),
     MultiKey,
 }
@@ -49,6 +50,7 @@ impl Display for TitleDescription {
             Self::BrainLag => "Brain-Lag",
             Self::Unmindblockable => "Unmindblockable",
             Self::ThreeLife => "3-Life",
+            Self::NewSkool => "New-Skool",
             Self::Key(key) => return write!(f, "{key}K"),
             Self::MultiKey => "Multi-Key",
         };
@@ -61,6 +63,7 @@ impl Display for TitleDescription {
 pub(crate) struct TitleDescriptions(Vec<TitleDescription>);
 
 impl TitleDescriptions {
+    const CL_COUNT: usize = 50;
     const DT_COUNT: usize = 60;
     const EZ_COUNT: usize = 15;
     const FL_COUNT: usize = 15;
@@ -83,6 +86,7 @@ impl TitleDescriptions {
         let mut flashlight = 0;
         let mut mirror = 0;
         let mut spunout = 0;
+        let mut classic = 0;
 
         let mut key_counts = [0_u8; 11];
 
@@ -107,7 +111,14 @@ impl TitleDescriptions {
 
             key_counts[idx] += 1;
 
-            if score.mods.is_empty() {
+            if score.mods.contains_intermode(GameModIntermode::Classic) {
+                classic += 1;
+
+                if score.mods.len() == 1 {
+                    nomod += 1;
+                    continue;
+                }
+            } else if score.mods.is_empty() {
                 nomod += 1;
                 continue;
             }
@@ -126,6 +137,10 @@ impl TitleDescriptions {
 
         if nomod > Self::NM_COUNT {
             mods.push(TitleDescription::ModHating);
+        }
+
+        if classic <= Self::CL_COUNT {
+            mods.push(TitleDescription::NewSkool);
         }
 
         if doubletime > Self::DT_COUNT {
@@ -193,12 +208,14 @@ impl TitleDescriptions {
             }
         }
 
-        if !mods.is_empty() {
-            mods
-        } else if nomod < Self::NO_NM_COUNT {
-            TitleDescription::ModLoving.into()
+        if let [] | [TitleDescription::NewSkool] = mods.as_slice() {
+            if nomod < Self::NO_NM_COUNT {
+                TitleDescription::ModLoving.into()
+            } else {
+                TitleDescription::Versatile.into()
+            }
         } else {
-            TitleDescription::Versatile.into()
+            mods
         }
     }
 
@@ -208,6 +225,10 @@ impl TitleDescriptions {
 
     pub(crate) fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    fn as_slice(&self) -> &[TitleDescription] {
+        self.0.as_slice()
     }
 }
 
