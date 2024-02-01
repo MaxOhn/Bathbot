@@ -1076,6 +1076,7 @@ FROM
         for score in scores {
             let Score {
                 ranked: _,
+                preserve: _,
                 maximum_statistics: _,
                 mods,
                 statistics,
