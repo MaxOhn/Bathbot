@@ -205,9 +205,13 @@ async fn async_main() -> Result<()> {
         error!("Failed to send shutdown message to server");
     }
 
-    ctx.shutdown(&mut shards).await;
-
-    info!("Shutting down");
+    tokio::select! {
+        _ = ctx.shutdown(&mut shards) => info!("Shutting down"),
+        res = signal::ctrl_c() => match res {
+            Ok(_) => info!("Forcing shutdown"),
+            Err(err) => error!(?err, "Failed to await second Ctrl+C"),
+        }
+    }
 
     Ok(())
 }
