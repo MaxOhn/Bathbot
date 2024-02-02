@@ -287,14 +287,16 @@ impl<'s> From<&'s LeaderboardScore> for ScoreData {
     }
 }
 
+/// Mods with an optional custom clock rate.
 #[derive(Copy, Clone, Default, PartialEq)]
 pub struct Mods {
     pub bits: u32,
     pub clock_rate: Option<f32>,
 }
 
-impl From<u32> for Mods {
-    fn from(bits: u32) -> Self {
+impl Mods {
+    /// Create new [`Mods`] without a custom clock rate.
+    pub fn new(bits: u32) -> Self {
         Self {
             bits,
             clock_rate: None,

@@ -30,7 +30,7 @@ use crate::{
     commands::osu::parsed_map::AttachedSimulateMap,
     core::Context,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
-    manager::OsuMap,
+    manager::{Mods, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::{grade_completion_mods_raw, MapInfo},
@@ -224,7 +224,7 @@ impl IActiveMessage for SimulateComponents {
             fields.push(hits);
         }
 
-        let map_info = self.map.map_info(clock_rate, stars, mods.bits());
+        let map_info = self.map.map_info(stars, Mods::from(mods.as_ref()));
         fields![fields { "Map Info", map_info, false; }];
 
         let mut embed = EmbedBuilder::new()
@@ -649,14 +649,10 @@ impl SimulateMap {
         }
     }
 
-    pub fn map_info(&self, clock_rate: Option<f32>, stars: f32, mods: u32) -> String {
+    pub fn map_info(&self, stars: f32, mods: Mods) -> String {
         match self {
             Self::Full(map) => {
                 let mut map_info = MapInfo::new(map, stars);
-
-                if let Some(clock_rate) = clock_rate {
-                    map_info.clock_rate(clock_rate);
-                }
 
                 map_info.mods(mods).to_string()
             }
@@ -665,11 +661,11 @@ impl SimulateMap {
 
                 let mut builder = BeatmapAttributesBuilder::new(map);
 
-                if let Some(clock_rate) = clock_rate {
-                    builder.clock_rate(clock_rate as f64);
+                if let Some(clock_rate) = mods.clock_rate {
+                    builder.clock_rate(f64::from(clock_rate));
                 }
 
-                let attrs = builder.mode(map.mode).mods(mods).build();
+                let attrs = builder.mode(map.mode).mods(mods.bits).build();
 
                 let clock_rate = attrs.clock_rate;
 
@@ -695,7 +691,7 @@ impl SimulateMap {
                 }
 
                 let (cs_key, cs_value) = if map.mode == Mode::Mania {
-                    ("Keys", MapInfo::keys(mods, attrs.cs as f32))
+                    ("Keys", MapInfo::keys(mods.bits, attrs.cs as f32))
                 } else {
                     ("CS", round(attrs.cs as f32))
                 };

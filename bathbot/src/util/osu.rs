@@ -32,7 +32,7 @@ use time::OffsetDateTime;
 use crate::{
     core::{BotConfig, Context},
     embeds::HitResultFormatter,
-    manager::{redis::RedisData, OsuMap},
+    manager::{redis::RedisData, Mods, OsuMap},
 };
 
 pub fn grade_emote(grade: Grade) -> &'static str {
@@ -575,8 +575,7 @@ pub async fn get_combined_thumbnail<'s>(
 pub struct MapInfo<'map> {
     map: &'map OsuMap,
     stars: f32,
-    mods: Option<u32>,
-    clock_rate: Option<f32>,
+    mods: Mods,
 }
 
 impl<'map> MapInfo<'map> {
@@ -584,19 +583,12 @@ impl<'map> MapInfo<'map> {
         Self {
             map,
             stars,
-            mods: None,
-            clock_rate: None,
+            mods: Mods::default(),
         }
     }
 
-    pub fn mods(&mut self, mods: u32) -> &mut Self {
-        self.mods = Some(mods);
-
-        self
-    }
-
-    pub fn clock_rate(&mut self, clock_rate: f32) -> &mut Self {
-        self.clock_rate = Some(clock_rate);
+    pub fn mods(&mut self, mods: impl Into<Mods>) -> &mut Self {
+        self.mods = mods.into();
 
         self
     }
@@ -635,12 +627,12 @@ impl Display for MapInfo<'_> {
             GameMode::Mania => Mode::Mania,
         };
 
-        let mods = self.mods.unwrap_or(0);
+        let mods = self.mods.bits;
 
         let mut builder = BeatmapAttributesBuilder::new(&self.map.pp_map);
 
-        if let Some(clock_rate) = self.clock_rate {
-            builder.clock_rate(clock_rate as f64);
+        if let Some(clock_rate) = self.mods.clock_rate {
+            builder.clock_rate(f64::from(clock_rate));
         }
 
         let attrs = builder.mode(mode).mods(mods).build();
