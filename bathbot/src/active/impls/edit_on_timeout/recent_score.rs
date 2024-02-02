@@ -389,7 +389,7 @@ impl RecentScoreEdit {
             }];
         }
 
-        let map_info = MapInfo::new(map, stars).mods(score.mods.bits()).to_string();
+        let map_info = MapInfo::new(map, stars).mods(&score.mods).to_string();
         fields![fields { "Map Info".to_owned(), map_info, false }];
 
         #[cfg(feature = "twitch")]

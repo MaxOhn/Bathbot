@@ -310,7 +310,7 @@ async fn leaderboard(
 
     let mods_bits = specify_mods.as_ref().map_or(0, GameModsIntermode::bits);
 
-    let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods_bits);
+    let mut calc = ctx.pp(&map).mode(map.mode()).mods(Mods::new(mods_bits));
     let attrs_fut = calc.performance();
 
     let scores_fut =

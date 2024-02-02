@@ -24,7 +24,7 @@ use crate::{
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::osu::UserArgs,
+    manager::{redis::osu::UserArgs, Mods},
     Context,
 };
 
@@ -327,7 +327,7 @@ pub(super) async fn leaderboard(
 
     let mods_bits = specify_mods.as_ref().map_or(0, GameModsIntermode::bits);
 
-    let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods_bits);
+    let mut calc = ctx.pp(&map).mode(map.mode()).mods(Mods::new(mods_bits));
     let attrs = calc.performance().await;
 
     if let Some(ModSelection::Exclude(ref mods)) = mods {

@@ -331,7 +331,7 @@ impl TopScoreEdit {
             }];
         }
 
-        let map_info = MapInfo::new(map, stars).mods(score.mods.bits()).to_string();
+        let map_info = MapInfo::new(map, stars).mods(&score.mods).to_string();
         fields![fields { "Map Info", map_info, false }];
 
         EmbedBuilder::new()
