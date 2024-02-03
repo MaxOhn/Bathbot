@@ -52,7 +52,18 @@ impl PpMissingEmbed {
                     let mut pps = scores.extract_pp();
                     approx_more_pp(&mut pps, 50);
 
-                    pp_missing(stats_pp, goal_pp, pps.as_slice())
+                    let (mut required, mut idx) = pp_missing(stats_pp, goal_pp, pps.as_slice());
+
+                    // Instead of using the approximation too literally, max
+                    // out on the 100th top score.
+                    let top100 = pps[99];
+
+                    if top100 > required {
+                        required = top100;
+                        idx = 99;
+                    }
+
+                    (required, idx)
                 } else {
                     pp_missing(stats_pp, goal_pp, scores)
                 };
@@ -85,7 +96,18 @@ impl PpMissingEmbed {
                 let (required, idx) = if scores.len() == 100 {
                     approx_more_pp(&mut pps, 50);
 
-                    pp_missing(stats_pp, goal_pp, pps.as_slice())
+                    let (mut required, mut idx) = pp_missing(stats_pp, goal_pp, pps.as_slice());
+
+                    // Instead of using the approximation too literally, max
+                    // out on the 100th top score.
+                    let top100 = pps[99];
+
+                    if top100 > required {
+                        required = top100;
+                        idx = 99;
+                    }
+
+                    (required, idx)
                 } else {
                     pp_missing(stats_pp, goal_pp, scores)
                 };
@@ -93,11 +115,10 @@ impl PpMissingEmbed {
                 if required < each {
                     format!(
                         "To reach {pp}pp with one additional score, {user} needs to perform \
-                        a **{required}pp** score which would be the top {approx}#{idx}",
+                        a **{required}pp** score which would be the top #{idx}",
                         pp = WithComma::new(goal_pp),
                         user = username.cow_escape_markdown(),
                         required = WithComma::new(required),
-                        approx = if idx >= 100 { "~" } else { "" },
                         idx = idx + 1,
                     )
                 } else {
