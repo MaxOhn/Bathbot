@@ -777,17 +777,28 @@ impl RankData {
                     let mut pps = scores.extract_pp();
                     approx_more_pp(&mut pps, 50);
 
-                    pp_missing(user_pp, rank_holder_pp, pps.as_slice())
+                    let (mut required, mut idx) =
+                        pp_missing(user_pp, rank_holder_pp, pps.as_slice());
+
+                    // Instead of using the approximation too literally, max
+                    // out on the 100th top score.
+                    let top100 = pps[99];
+
+                    if top100 > required {
+                        required = top100;
+                        idx = 99;
+                    }
+
+                    (required, idx)
                 } else {
                     pp_missing(user_pp, rank_holder_pp, scores)
                 };
 
                 format!(
                     "{prefix}, so {username} is missing **{missing}** raw pp, achievable \
-                    with a single score worth **{pp}pp** which would be the top {approx}#{idx}.",
+                    with a single score worth **{pp}pp** which would be the top #{idx}.",
                     missing = WithComma::new(rank_holder_pp - user_pp),
                     pp = WithComma::new(required),
-                    approx = if idx >= 100 { "~" } else { "" },
                     idx = idx + 1,
                 )
             }
@@ -949,7 +960,18 @@ impl RankData {
                     let mut pps = scores.extract_pp();
                     approx_more_pp(&mut pps, 50);
 
-                    pp_missing(user_pp, required_pp, pps.as_slice())
+                    let (mut required, mut idx) = pp_missing(user_pp, required_pp, pps.as_slice());
+
+                    // Instead of using the approximation too literally, max
+                    // out on the 100th top score.
+                    let top100 = pps[99];
+
+                    if top100 > required {
+                        required = top100;
+                        idx = 99;
+                    }
+
+                    (required, idx)
                 } else {
                     pp_missing(user_pp, required_pp, scores)
                 };
@@ -957,12 +979,11 @@ impl RankData {
                 format!(
                     "{prefix} #{rank} currently requires {maybe_approx}**{required_pp}pp**, so \
                     {username} is missing **{missing}** raw pp, achievable with a \
-                    single score worth **{pp}pp** which would be the top {approx}#{idx}.",
+                    single score worth **{pp}pp** which would be the top #{idx}.",
                     rank = WithComma::new(rank),
                     required_pp = WithComma::new(required_pp),
                     missing = WithComma::new(required_pp - user_pp),
                     pp = WithComma::new(required),
-                    approx = if idx >= 100 { "~" } else { "" },
                     idx = idx + 1,
                 )
             }
