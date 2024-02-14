@@ -591,7 +591,7 @@ impl CompareStrings {
             avg_map_len: SecToMinSec::new(result.map_len.avg())
                 .to_string()
                 .into_boxed_str(),
-            accuracy: format!("{:.2}%", stats.accuracy()).into_boxed_str(),
+            accuracy: format!("{:.4}%", stats.accuracy()).into_boxed_str(),
             pp_per_month: format!("{pp_per_month_num:.2}pp").into_boxed_str(),
             pp_per_month_num,
             pc_per_month: format!("{pc_per_month_num:.2}").into_boxed_str(),
