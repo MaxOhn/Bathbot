@@ -569,7 +569,7 @@ pub(super) async fn score(
     let grade = if score.passed { score.grade } else { Grade::F };
     let status = map.status();
     let map_id = score.map_id;
-    let score_id = score.legacy_score_id;
+    let score_id = score.id;
 
     let mut with_miss_analyzer = orig
         .guild_id()
@@ -602,7 +602,7 @@ pub(super) async fn score(
         }
     };
 
-    let score_id_opt = score_id.zip(orig.guild_id());
+    let guild_id_opt = orig.guild_id();
     with_miss_analyzer &= mode == GameMode::Osu;
     with_render &= mode == GameMode::Osu
         && score.replay
@@ -610,7 +610,7 @@ pub(super) async fn score(
         && ctx.ordr().is_some();
 
     let miss_analyzer_fut = async {
-        if let Some((score_id, guild_id)) = score_id_opt.filter(|_| with_miss_analyzer) {
+        if let Some(guild_id) = guild_id_opt.filter(|_| with_miss_analyzer) {
             debug!(score_id, "Sending score id to miss analyzer");
 
             ctx.client()

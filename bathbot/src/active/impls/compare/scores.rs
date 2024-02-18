@@ -114,7 +114,7 @@ impl IActiveMessage for CompareScoresPagination {
 
                 let mut pinned = args.pinned.iter();
 
-                if pinned.any(|s| s.legacy_score_id == entry.score.score_id) {
+                if pinned.any(|s| s.id == entry.score.score_id) {
                     args.description.push_str(" 📌");
                 }
 
@@ -151,11 +151,12 @@ impl IActiveMessage for CompareScoresPagination {
                     timestamp = HowLongAgoDynamic::new(&entry.score.ended_at)
                 );
 
-                if let Some(score_id) = entry.score.score_id.filter(|_| entry.has_replay) {
+                if entry.has_replay {
                     let _ = write!(
                         args.description,
                         " • [Replay]({OSU_BASE}scores/{mode}/{score_id}/download)",
-                        mode = entry.score.mode
+                        mode = entry.score.mode,
+                        score_id = entry.score.score_id,
                     );
                 }
 
@@ -286,7 +287,7 @@ fn write_compact_entry(
 
     let mut pinned = args.pinned.iter();
 
-    if pinned.any(|s| s.legacy_score_id == entry.score.score_id) {
+    if pinned.any(|s| s.id == entry.score.score_id) {
         args.description.push_str(" 📌");
     }
 

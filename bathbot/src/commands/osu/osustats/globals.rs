@@ -510,7 +510,7 @@ async fn process_scores(
             mods: score.mods,
             pp,
             score: score.score,
-            score_id: None,
+            score_id: 0,
             statistics: LegacyScoreStatistics {
                 count_geki: score.count_geki,
                 count_300: score.count300,

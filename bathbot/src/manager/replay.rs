@@ -36,13 +36,9 @@ impl<'d> ReplayManager<'d> {
 
     pub async fn get_replay(
         self,
-        score_id: Option<u64>,
+        score_id: u64,
         score: &ReplayScore<'_>,
     ) -> Result<Option<Box<[u8]>>> {
-        let Some(score_id) = score_id else {
-            return Ok(None);
-        };
-
         match self.psql.select_osu_replay(score_id).await {
             Ok(Some(replay)) => return Ok(Some(replay)),
             Ok(None) => {}

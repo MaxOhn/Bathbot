@@ -1081,8 +1081,8 @@ FROM
                 mods,
                 statistics,
                 map_id,
-                best_id,
-                id: _,
+                best_id: _,
+                id: score_id,
                 grade,
                 kind: _,
                 user_id,
@@ -1108,8 +1108,6 @@ FROM
                 user: _,
                 weight: _,
             } = score;
-
-            let Some(score_id) = best_id else { continue };
 
             // TODO: remove from database?
             let perfect = legacy_perfect.unwrap_or(*is_perfect_combo);
