@@ -8,7 +8,7 @@ use bathbot_util::{
     osu::calculate_grade,
 };
 use eyre::{Report, Result};
-use rosu_pp::{BeatmapExt, DifficultyAttributes, GameMode as Mode};
+use rosu_pp::any::DifficultyAttributes;
 use rosu_v2::{
     model::score::LegacyScoreStatistics,
     prelude::{GameMode, GameMods, Grade, OsuError, Score},
@@ -478,10 +478,10 @@ async fn perfect_score(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Unchok
         DifficultyAttributes::Catch(attrs) if (100.0 - score.accuracy).abs() > f32::EPSILON => {
             LegacyScoreStatistics {
                 count_geki: 0,
-                count_300: attrs.n_fruits as u32,
+                count_300: attrs.n_fruits,
                 count_katu: 0,
-                count_100: attrs.n_droplets as u32,
-                count_50: attrs.n_tiny_droplets as u32,
+                count_100: attrs.n_droplets,
+                count_50: attrs.n_tiny_droplets,
                 count_miss: 0,
             }
         }
@@ -500,25 +500,16 @@ async fn perfect_score(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Unchok
 
     let grade = calculate_grade(score.mode, &score.mods, &stats);
 
-    let mode = match score.mode {
-        GameMode::Osu => Mode::Osu,
-        GameMode::Taiko => Mode::Taiko,
-        GameMode::Catch => Mode::Catch,
-        GameMode::Mania => Mode::Mania,
-    };
-
-    let pp = map
-        .pp_map
-        .pp()
-        .attributes(attrs.to_owned())
+    let pp = attrs
+        .to_owned()
+        .performance()
         .mods(score.mods.bits())
-        .mode(mode)
-        .n_geki(stats.count_geki as usize)
-        .n300(stats.count_300 as usize)
-        .n_katu(stats.count_katu as usize)
-        .n100(stats.count_100 as usize)
-        .n50(stats.count_50 as usize)
-        .n_misses(0)
+        .n_geki(stats.count_geki)
+        .n300(stats.count_300)
+        .n_katu(stats.count_katu)
+        .n100(stats.count_100)
+        .n50(stats.count_50)
+        .misses(0)
         .calculate()
         .pp() as f32;
 

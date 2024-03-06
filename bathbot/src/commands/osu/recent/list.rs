@@ -15,7 +15,7 @@ use bathbot_util::{
     CowUtils, IntHasher,
 };
 use eyre::{Report, Result};
-use rosu_pp::DifficultyAttributes;
+use rosu_pp::any::DifficultyAttributes;
 use rosu_v2::prelude::{GameMode, Grade, OsuError, Score};
 
 use super::{RecentList, RecentListUnique};

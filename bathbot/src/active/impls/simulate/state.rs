@@ -16,11 +16,11 @@ impl ScoreState {
             Self::Osu(state) => {
                 let stats = LegacyScoreStatistics {
                     count_geki: 0,
-                    count_300: state.n300 as u32,
+                    count_300: state.n300,
                     count_katu: 0,
-                    count_100: state.n100 as u32,
-                    count_50: state.n50 as u32,
-                    count_miss: state.n_misses as u32,
+                    count_100: state.n100,
+                    count_50: state.n50,
+                    count_miss: state.misses,
                 };
 
                 (GameMode::Osu, stats)
@@ -28,11 +28,11 @@ impl ScoreState {
             Self::Taiko(state) => {
                 let stats = LegacyScoreStatistics {
                     count_geki: 0,
-                    count_300: state.n300 as u32,
+                    count_300: state.n300,
                     count_katu: 0,
-                    count_100: state.n100 as u32,
+                    count_100: state.n100,
                     count_50: 0,
-                    count_miss: state.n_misses as u32,
+                    count_miss: state.misses,
                 };
 
                 (GameMode::Taiko, stats)
@@ -40,23 +40,23 @@ impl ScoreState {
             Self::Catch(state) => {
                 let stats = LegacyScoreStatistics {
                     count_geki: 0,
-                    count_300: state.n_fruits as u32,
-                    count_katu: state.n_tiny_droplet_misses as u32,
-                    count_100: state.n_droplets as u32,
-                    count_50: state.n_tiny_droplets as u32,
-                    count_miss: state.n_misses as u32,
+                    count_300: state.fruits,
+                    count_katu: state.tiny_droplet_misses,
+                    count_100: state.droplets,
+                    count_50: state.tiny_droplets,
+                    count_miss: state.misses,
                 };
 
                 (GameMode::Catch, stats)
             }
             Self::Mania(state) => {
                 let stats = LegacyScoreStatistics {
-                    count_geki: state.n320 as u32,
-                    count_300: state.n300 as u32,
-                    count_katu: state.n200 as u32,
-                    count_100: state.n100 as u32,
-                    count_50: state.n50 as u32,
-                    count_miss: state.n_misses as u32,
+                    count_geki: state.n320,
+                    count_300: state.n300,
+                    count_katu: state.n200,
+                    count_100: state.n100,
+                    count_50: state.n50,
+                    count_miss: state.misses,
                 };
 
                 (GameMode::Mania, stats)

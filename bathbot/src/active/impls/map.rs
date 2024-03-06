@@ -10,7 +10,7 @@ use bathbot_util::{
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
-use rosu_pp::{AnyPP, BeatmapExt};
+use rosu_pp::Difficulty;
 use rosu_v2::prelude::{
     BeatmapExtended, BeatmapsetExtended, GameMode, GameModsIntermode, Username,
 };
@@ -140,17 +140,17 @@ impl MapPagination {
             rosu_map.od = od_ as f32;
         }
 
-        let map_attributes = rosu_map.attributes().mods(mod_bits).build();
+        let map_attrs = rosu_map.attributes().mods(mod_bits).build();
 
-        let mut attributes = rosu_map.stars().mods(mod_bits).calculate();
-        let stars = attributes.stars();
+        let mut attrs = Difficulty::new().mods(mod_bits).calculate(&rosu_map);
+        let stars = attrs.stars();
         const ACCS: [f32; 4] = [95.0, 97.0, 99.0, 100.0];
         let mut pps = Vec::with_capacity(ACCS.len());
 
         for &acc in ACCS.iter() {
-            let pp_result = AnyPP::new(&rosu_map)
+            let pp_result = attrs
+                .performance()
                 .mods(mod_bits)
-                .attributes(attributes)
                 .accuracy(acc as f64)
                 .calculate();
 
@@ -163,7 +163,7 @@ impl MapPagination {
             };
 
             pps.push(pp_str);
-            attributes = pp_result.into();
+            attrs = pp_result.into();
         }
 
         let mut pp_values = String::with_capacity(128);
@@ -216,10 +216,10 @@ impl MapPagination {
             "BPM: `{}` Objects: `{}`\nCS: `{}` AR: `{}` OD: `{}` HP: `{}` Spinners: `{}`",
             round(bpm),
             map.count_circles + map.count_sliders + map.count_spinners,
-            round(map_attributes.cs as f32),
-            round(map_attributes.ar as f32),
-            round(map_attributes.od as f32),
-            round(map_attributes.hp as f32),
+            round(map_attrs.cs as f32),
+            round(map_attrs.ar as f32),
+            round(map_attrs.od as f32),
+            round(map_attrs.hp as f32),
             map.count_spinners,
         );
 

@@ -54,7 +54,7 @@ impl TrackNotificationEmbed {
         let title = if score.mode == GameMode::Mania {
             format!(
                 "{} {} - {} [{}] [{stars:.2}★]",
-                KeyFormatter::new(&score.mods, map.cs()),
+                KeyFormatter::new(&score.mods, map.attributes().build().cs as f32),
                 map.artist().cow_escape_markdown(),
                 map.title().cow_escape_markdown(),
                 map.version().cow_escape_markdown(),

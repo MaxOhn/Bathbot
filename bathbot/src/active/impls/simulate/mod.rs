@@ -11,7 +11,13 @@ use bathbot_util::{
 };
 use eyre::{ContextCompat, Report, Result};
 use futures::future::BoxFuture;
-use rosu_pp::{beatmap::BeatmapAttributesBuilder, parse::HitObjectKind, Beatmap, GameMode as Mode};
+use rosu_pp::{
+    model::{
+        hit_object::{HitObjectKind, HoldNote, Spinner},
+        mode::GameMode as Mode,
+    },
+    Beatmap,
+};
 use rosu_v2::{
     mods,
     prelude::{GameMode, GameModsIntermode, Grade},
@@ -606,13 +612,6 @@ pub enum SimulateMap {
 }
 
 impl SimulateMap {
-    pub fn is_convert(&self) -> bool {
-        match self {
-            Self::Full(map) => map.is_convert,
-            Self::Attached(map) => map.is_convert,
-        }
-    }
-
     pub fn mode(&self) -> GameMode {
         match self.pp_map().mode {
             Mode::Osu => GameMode::Osu,
@@ -637,9 +636,7 @@ impl SimulateMap {
     }
 
     pub fn n_objects(&self) -> u32 {
-        let map = self.pp_map();
-
-        map.n_circles + map.n_sliders + map.n_spinners
+        self.pp_map().hit_objects.len() as u32
     }
 
     pub fn bpm(&self) -> f32 {
@@ -659,24 +656,24 @@ impl SimulateMap {
             Self::Attached(map) => {
                 let map = &map.pp_map;
 
-                let mut builder = BeatmapAttributesBuilder::new(map);
+                let mut builder = map.attributes();
 
                 if let Some(clock_rate) = mods.clock_rate {
-                    builder.clock_rate(f64::from(clock_rate));
+                    builder = builder.clock_rate(f64::from(clock_rate));
                 }
 
-                let attrs = builder.mode(map.mode).mods(mods.bits).build();
+                let attrs = builder.mods(mods.bits).build();
 
                 let clock_rate = attrs.clock_rate;
 
                 let start_time = map.hit_objects.first().map_or(0.0, |h| h.start_time);
                 let end_time = map.hit_objects.last().map_or(0.0, |h| match &h.kind {
                     HitObjectKind::Circle => h.start_time,
-                    // slider end time is not reasonably accessible at this point so this will have
-                    // to suffice
-                    HitObjectKind::Slider { .. } => h.start_time,
-                    HitObjectKind::Spinner { end_time } => *end_time,
-                    HitObjectKind::Hold { end_time } => *end_time,
+                    // slider end time is not reasonably accessible at this
+                    // point so this will have to suffice
+                    HitObjectKind::Slider(_) => h.start_time,
+                    HitObjectKind::Spinner(Spinner { duration })
+                    | HitObjectKind::Hold(HoldNote { duration }) => h.start_time + duration,
                 });
 
                 let mut sec_drain = ((end_time - start_time) / 1000.0) as u32;

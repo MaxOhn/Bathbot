@@ -17,7 +17,7 @@ use plotters::{
     prelude::*,
 };
 use plotters_skia::SkiaBackend;
-use rosu_pp::{BeatmapExt, Strains};
+use rosu_pp::{any::Strains, Difficulty};
 use rosu_v2::prelude::{GameMode, GameModsIntermode, OsuError};
 use skia_safe::{surfaces, BlendMode, EncodedImageFormat};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -427,7 +427,9 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
 }
 
 struct GraphStrains {
+    /// Smoothed strain values
     strains: Strains,
+    /// The initial amount of strains
     strains_count: usize,
 }
 
@@ -444,9 +446,15 @@ async fn strain_values(
         .await
         .wrap_err("failed to get pp map")?;
 
-    let mut strains = map.strains(mods.bits());
+    let mut strains = Difficulty::new().mods(mods.bits()).strains(&map);
     let section_len = strains.section_len();
-    let strains_count = strains.len();
+
+    let strains_count = match strains {
+        Strains::Osu(ref strains) => strains.aim.len(),
+        Strains::Taiko(ref strains) => strains.color.len(),
+        Strains::Catch(ref strains) => strains.movement.len(),
+        Strains::Mania(ref strains) => strains.strains.len(),
+    };
 
     let create_curve = |strains: Vec<f64>| {
         Linear::builder()
@@ -576,7 +584,7 @@ fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<
             .x_label_style(text_style.clone())
             .axis_style(WHITE)
             .x_label_formatter(&|timestamp| {
-                if timestamp.abs() <= f64::EPSILON {
+                if timestamp.abs() < f64::EPSILON {
                     return String::new();
                 }
 
@@ -614,7 +622,14 @@ fn draw_mode_strains(
     } = strains;
 
     let orig_count = strains_count as f64;
-    let new_count = strains.len() as f64;
+
+    let new_count = match strains {
+        Strains::Osu(ref strains) => strains.aim.len(),
+        Strains::Taiko(ref strains) => strains.color.len(),
+        Strains::Catch(ref strains) => strains.movement.len(),
+        Strains::Mania(ref strains) => strains.strains.len(),
+    } as f64;
+
     let section_len = strains.section_len();
 
     let mut legend_x: i32 = 8;

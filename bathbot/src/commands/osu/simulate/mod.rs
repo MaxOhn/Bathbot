@@ -145,7 +145,6 @@ async fn simulate(
         original_attrs: SimulateAttributes::from(map.pp_map()),
         score: None,
         version,
-        is_convert: Some(map.is_convert()),
         max_combo,
     };
 

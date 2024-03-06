@@ -10,7 +10,6 @@ use bathbot_util::{
     CowUtils,
 };
 use eyre::{Report, Result};
-use rosu_pp::{beatmap::BeatmapAttributesBuilder, GameMode as GameModePp};
 use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, GameModsIntermode, OsuError, Score};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -324,6 +323,13 @@ impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
             matches &= criteria.ranked_date.contains(datetime.date());
         }
 
+        let attrs = self.map.attributes().mods(self.score.mods.bits()).build();
+
+        matches &= criteria.ar.contains(attrs.ar as f32);
+        matches &= criteria.cs.contains(attrs.cs as f32);
+        matches &= criteria.hp.contains(attrs.hp as f32);
+        matches &= criteria.od.contains(attrs.od as f32);
+
         let keys = [
             (GameModIntermode::OneKey, 1.0),
             (GameModIntermode::TwoKeys, 2.0),
@@ -338,16 +344,12 @@ impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
         ]
         .into_iter()
         .find_map(|(gamemod, keys)| self.score.mods.contains_intermode(gamemod).then_some(keys))
-        .unwrap_or(self.map.cs());
+        .unwrap_or(attrs.cs as f32);
 
         matches &= self.map.mode() != GameMode::Mania || criteria.keys.contains(keys);
 
         if !matches
-            || (criteria.ar.is_empty()
-                && criteria.cs.is_empty()
-                && criteria.hp.is_empty()
-                && criteria.od.is_empty()
-                && criteria.length.is_empty()
+            || (criteria.length.is_empty()
                 && criteria.bpm.is_empty()
                 && criteria.artist.is_empty()
                 && criteria.creator.is_empty()
@@ -357,26 +359,6 @@ impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
         {
             return matches;
         }
-
-        let attrs = BeatmapAttributesBuilder::default()
-            .ar(self.map.ar())
-            .cs(self.map.cs())
-            .hp(self.map.hp())
-            .od(self.map.od())
-            .mods(self.score.mods.bits())
-            .mode(match self.score.mode {
-                GameMode::Osu => GameModePp::Osu,
-                GameMode::Taiko => GameModePp::Taiko,
-                GameMode::Catch => GameModePp::Catch,
-                GameMode::Mania => GameModePp::Mania,
-            })
-            .converted(self.score.mode != self.map.mode())
-            .build();
-
-        matches &= criteria.ar.contains(attrs.ar as f32);
-        matches &= criteria.cs.contains(attrs.cs as f32);
-        matches &= criteria.hp.contains(attrs.hp as f32);
-        matches &= criteria.od.contains(attrs.od as f32);
 
         let clock_rate = attrs.clock_rate as f32;
         matches &= criteria

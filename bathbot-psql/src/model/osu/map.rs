@@ -65,33 +65,37 @@ attr_struct!(DbOsuDifficultyAttributes => OsuDifficultyAttributes {
     ar: f64,
     od: f64,
     hp: f64,
-    n_circles: i32 as usize,
-    n_sliders: i32 as usize,
-    n_spinners: i32 as usize,
+    n_circles: i32 as u32,
+    n_sliders: i32 as u32,
+    n_spinners: i32 as u32,
     stars: f64,
-    max_combo: i32 as usize,
+    max_combo: i32 as u32,
 });
 
 attr_struct!(DbTaikoDifficultyAttributes => TaikoDifficultyAttributes {
     stamina: f64,
     rhythm: f64,
-    colour: f64,
+    color: f64,
     peak: f64,
     hit_window: f64,
     stars: f64,
-    max_combo: i32 as usize,
+    max_combo: i32 as u32,
+    is_convert: bool,
 });
 
 attr_struct!(DbCatchDifficultyAttributes => CatchDifficultyAttributes {
     stars: f64,
     ar: f64,
-    n_fruits: i32 as usize,
-    n_droplets: i32 as usize,
-    n_tiny_droplets: i32 as usize,
+    n_fruits: i32 as u32,
+    n_droplets: i32 as u32,
+    n_tiny_droplets: i32 as u32,
+    is_convert: bool,
 });
 
 attr_struct!(DbManiaDifficultyAttributes => ManiaDifficultyAttributes {
     stars: f64,
     hit_window: f64,
-    max_combo: i32 as usize,
+    n_objects: i32 as u32,
+    max_combo: i32 as u32,
+    is_convert: bool,
 });

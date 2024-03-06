@@ -14,7 +14,7 @@ use bathbot_util::{
     IntHasher,
 };
 use eyre::{Report, Result};
-use rosu_pp::{BeatmapExt, DifficultyAttributes, ScoreState};
+use rosu_pp::any::{DifficultyAttributes, ScoreState};
 use rosu_v2::{
     model::score::LegacyScoreStatistics,
     prelude::{
@@ -35,7 +35,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::{
         redis::{osu::UserArgs, RedisData},
-        MapError, Mods, OsuMap, PpManager,
+        MapError, Mods, OsuMap,
     },
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
@@ -388,7 +388,7 @@ async fn leaderboard(
     };
 
     let stars = attrs.stars() as f32;
-    let max_combo = attrs.max_combo() as u32;
+    let max_combo = attrs.max_combo();
 
     // Not storing `attrs` here in case mods (potentially with clock rate) were
     // specified
@@ -541,22 +541,16 @@ impl LeaderboardScore {
                 let (attrs, max_pp) = entry.get();
 
                 let state = ScoreState {
-                    max_combo: self.combo as usize,
-                    n_geki: self.statistics.count_geki as usize,
-                    n_katu: self.statistics.count_katu as usize,
-                    n300: self.statistics.count_300 as usize,
-                    n100: self.statistics.count_100 as usize,
-                    n50: self.statistics.count_50 as usize,
-                    n_misses: self.statistics.count_miss as usize,
+                    max_combo: self.combo,
+                    n_geki: self.statistics.count_geki,
+                    n_katu: self.statistics.count_katu,
+                    n300: self.statistics.count_300,
+                    n100: self.statistics.count_100,
+                    n50: self.statistics.count_50,
+                    misses: self.statistics.count_miss,
                 };
 
-                let mut pp_calc = map
-                    .pp_map
-                    .pp()
-                    .attributes(attrs.to_owned())
-                    .mode(PpManager::mode_conversion(self.mode))
-                    .mods(mods.bits)
-                    .state(state);
+                let mut pp_calc = attrs.to_owned().performance().mods(mods.bits).state(state);
 
                 if let Some(clock_rate) = mods.clock_rate {
                     pp_calc = pp_calc.clock_rate(f64::from(clock_rate));

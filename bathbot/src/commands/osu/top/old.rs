@@ -632,11 +632,11 @@ macro_rules! pp_std {
         let attrs = $version::OsuPP::new($rosu_map)
             .mods($mods)
             .attributes(max_pp_res)
-            .n300(stats.count_300 as usize)
-            .n100(stats.count_100 as usize)
-            .n50(stats.count_50 as usize)
-            .misses(stats.count_miss as usize)
-            .combo($score.max_combo as usize)
+            .n300(stats.count_300)
+            .n100(stats.count_100)
+            .n50(stats.count_50)
+            .misses(stats.count_miss)
+            .combo($score.max_combo)
             .calculate();
 
         let pp = attrs.pp as f32;
@@ -657,12 +657,12 @@ macro_rules! pp_ctb {
         let attrs = $version::FruitsPP::new($rosu_map)
             .mods($mods)
             .attributes(max_pp_res)
-            .fruits(stats.count_300 as usize)
-            .droplets(stats.count_100 as usize)
-            .tiny_droplets(stats.count_50 as usize)
-            .tiny_droplet_misses(stats.count_katu as usize)
-            .misses(stats.count_miss as usize)
-            .combo($score.max_combo as usize)
+            .fruits(stats.count_300)
+            .droplets(stats.count_100)
+            .tiny_droplets(stats.count_50)
+            .tiny_droplet_misses(stats.count_katu)
+            .misses(stats.count_miss)
+            .combo($score.max_combo)
             .calculate();
 
         let pp = attrs.pp as f32;
@@ -683,10 +683,10 @@ macro_rules! pp_tko {
         let attrs = $version::TaikoPP::new($rosu_map)
             .mods($mods)
             .attributes(max_pp_res)
-            .n300(stats.count_300 as usize)
-            .n100(stats.count_100 as usize)
-            .misses(stats.count_miss as usize)
-            .combo($score.max_combo as usize)
+            .n300(stats.count_300)
+            .n100(stats.count_100)
+            .misses(stats.count_miss)
+            .combo($score.max_combo)
             .calculate();
 
         let pp = attrs.pp as f32;

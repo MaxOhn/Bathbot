@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use bathbot_model::ScoreSlim;
 use bathbot_psql::model::osu::{DbBeatmap, DbBeatmapset};
 use bathbot_util::CowUtils;
-use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap as Map, GameMode as Mode};
+use rosu_pp::{model::beatmap::BeatmapAttributesBuilder, Beatmap as Map};
 use rosu_v2::prelude::{
     BeatmapExtended, BeatmapsetExtended, GameModIntermode, GameMode, GameMods, Score,
 };
@@ -145,21 +145,13 @@ impl Searchable<RC<'_>> for Score {
         let mut version = Cow::default();
 
         if let Some(ref map) = self.map {
-            let mode = match map.mode {
-                GameMode::Osu => Mode::Osu,
-                GameMode::Taiko => Mode::Taiko,
-                GameMode::Catch => Mode::Catch,
-                GameMode::Mania => Mode::Mania,
-            };
-
             let attrs = BeatmapAttributesBuilder::default()
-                .mode(mode)
-                .ar(map.ar)
-                .cs(map.cs)
-                .hp(map.hp)
-                .od(map.od)
+                .ar(map.ar, false)
+                .cs(map.cs, false)
+                .hp(map.hp, false)
+                .od(map.od, false)
                 .mods(self.mods.bits())
-                .converted(map.convert)
+                .mode((map.mode as u8).into(), map.convert)
                 .build();
 
             let clock_rate = attrs.clock_rate as f32;
@@ -223,20 +215,7 @@ impl Searchable<RC<'_>> for (&'_ ScoreSlim, &'_ OsuMap) {
 
         let mut matches = true;
 
-        let mode = match score.mode {
-            GameMode::Osu => Mode::Osu,
-            GameMode::Taiko => Mode::Taiko,
-            GameMode::Catch => Mode::Catch,
-            GameMode::Mania => Mode::Mania,
-        };
-
-        let attrs = map
-            .pp_map
-            .attributes()
-            .mode(mode)
-            .mods(score.mods.bits())
-            .converted(score.mode != map.mode())
-            .build();
+        let attrs = map.attributes().mods(score.mods.bits()).build();
 
         let clock_rate = attrs.clock_rate as f32;
         let len = map.seconds_drain() as f32 / clock_rate;
@@ -248,8 +227,8 @@ impl Searchable<RC<'_>> for (&'_ ScoreSlim, &'_ OsuMap) {
         matches &= criteria.length.contains(len);
         matches &= criteria.bpm.contains(map.bpm() * clock_rate);
 
-        let keys = keys(&score.mods, map.cs());
-        matches &= score.mode != GameMode::Mania || criteria.keys.contains(keys);
+        matches &= score.mode != GameMode::Mania
+            || criteria.keys.contains(keys(&score.mods, attrs.cs as f32));
 
         if matches && criteria.has_search_terms() {
             let artist = map.artist().cow_to_ascii_lowercase();

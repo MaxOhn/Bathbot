@@ -94,7 +94,7 @@ impl SnipeDifferencePagination {
                             .wrap_err("Failed to get pp map")?;
 
                         let stars = ctx
-                            .pp_parsed(&map, score.map_id, false, GameMode::Osu)
+                            .pp_parsed(&map, score.map_id, GameMode::Osu)
                             .difficulty()
                             .await
                             .stars();

@@ -868,7 +868,9 @@ fn score_started_at(
         }
     }
 
-    map_len /= rosu_pp::Mods::clock_rate(score.mods.bits());
+    if let Some(clock_rate) = score.mods.clock_rate() {
+        map_len /= f64::from(clock_rate);
+    }
 
     score.ended_at - std::time::Duration::from_secs(map_len as u64 + 3)
 }

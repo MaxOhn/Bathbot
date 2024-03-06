@@ -99,7 +99,7 @@ impl ScorePp {
         let map = map_res.wrap_err("Failed to get beatmap")?;
 
         let max_combo = match attrs_res {
-            Ok(attrs) => Some(attrs.max_combo() as u32),
+            Ok(attrs) => Some(attrs.max_combo()),
             Err(err) => {
                 warn!(?err, "Failed to get difficulty attributes");
 

@@ -9,7 +9,7 @@ use bathbot_util::{constants::GENERAL_ISSUE, osu::ModSelection, CowUtils, IntHas
 use compact_str::CompactString;
 use eyre::Result;
 use rkyv::collections::ArchivedHashMap;
-use rosu_pp::beatmap::{BeatmapAttributesBuilder, GameMode as GameModePp};
+use rosu_pp::model::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::{GameMode, GameModsIntermode};
 use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateCommand};
 use twilight_model::application::command::{CommandOptionChoice, CommandOptionChoiceValue};
@@ -354,13 +354,13 @@ impl RegionTopArgs {
 
                 scores.scores_mut().sort_unstable_by(|a, b| {
                     let a_ar = BeatmapAttributesBuilder::default()
-                        .ar(ars[&a.map_id])
+                        .ar(ars[&a.map_id], false)
                         .mods(a.mods)
                         .build()
                         .ar;
 
                     let b_ar = BeatmapAttributesBuilder::default()
-                        .ar(ars[&b.map_id])
+                        .ar(ars[&b.map_id], false)
                         .mods(b.mods)
                         .build()
                         .ar;
@@ -406,13 +406,13 @@ impl RegionTopArgs {
 
                 scores.scores_mut().sort_unstable_by(|a, b| {
                     let a_cs = BeatmapAttributesBuilder::default()
-                        .cs(css[&a.map_id])
+                        .cs(css[&a.map_id], false)
                         .mods(a.mods)
                         .build()
                         .cs;
 
                     let b_cs = BeatmapAttributesBuilder::default()
-                        .cs(css[&b.map_id])
+                        .cs(css[&b.map_id], false)
                         .mods(b.mods)
                         .build()
                         .cs;
@@ -433,13 +433,13 @@ impl RegionTopArgs {
 
                 scores.scores_mut().sort_unstable_by(|a, b| {
                     let a_ar = BeatmapAttributesBuilder::default()
-                        .hp(hps[&a.map_id])
+                        .hp(hps[&a.map_id], false)
                         .mods(a.mods)
                         .build()
                         .hp;
 
                     let b_hp = BeatmapAttributesBuilder::default()
-                        .hp(hps[&b.map_id])
+                        .hp(hps[&b.map_id], false)
                         .mods(b.mods)
                         .build()
                         .hp;
@@ -485,13 +485,13 @@ impl RegionTopArgs {
 
                 scores.scores_mut().sort_unstable_by(|a, b| {
                     let a_od = BeatmapAttributesBuilder::default()
-                        .od(ods[&a.map_id])
+                        .od(ods[&a.map_id], false)
                         .mods(a.mods)
                         .build()
                         .od;
 
                     let b_od = BeatmapAttributesBuilder::default()
-                        .od(ods[&b.map_id])
+                        .od(ods[&b.map_id], false)
                         .mods(b.mods)
                         .build()
                         .od;
@@ -801,17 +801,12 @@ impl<'q> Searchable<ScoresCriteria<'q>>
         };
 
         let attrs = BeatmapAttributesBuilder::default()
-            .ar(map.ar)
-            .cs(map.cs)
-            .hp(map.hp)
-            .od(map.od)
+            .ar(map.ar, false)
+            .cs(map.cs, false)
+            .hp(map.hp, false)
+            .od(map.od, false)
             .mods(score.mods)
-            .mode(match mode {
-                GameMode::Osu => GameModePp::Osu,
-                GameMode::Taiko => GameModePp::Taiko,
-                GameMode::Catch => GameModePp::Catch,
-                GameMode::Mania => GameModePp::Mania,
-            })
+            .mode((mode as u8).into(), false)
             // TODO: maybe add gamemode to DbBeatmap so we can check for converts
             .build();
 

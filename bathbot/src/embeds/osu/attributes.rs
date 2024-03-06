@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
 use bathbot_util::{numbers::round, osu::AttributeKind};
-use rosu_pp::beatmap::BeatmapAttributesBuilder;
+use rosu_pp::model::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::GameModsIntermode;
 use twilight_model::channel::message::embed::EmbedField;
 
@@ -19,19 +19,17 @@ impl AttributesEmbed {
         mods: GameModsIntermode,
         clock_rate: Option<f32>,
     ) -> Self {
-        let mut builder = BeatmapAttributesBuilder::default();
+        let mut builder = BeatmapAttributesBuilder::default().mods(mods.bits());
 
-        match kind {
-            AttributeKind::Ar => builder.ar(value),
-            AttributeKind::Cs => builder.cs(value),
-            AttributeKind::Hp => builder.hp(value),
-            AttributeKind::Od => builder.od(value),
+        builder = match kind {
+            AttributeKind::Ar => builder.ar(value, false),
+            AttributeKind::Cs => builder.cs(value, false),
+            AttributeKind::Hp => builder.hp(value, false),
+            AttributeKind::Od => builder.od(value, false),
         };
 
-        builder.mods(mods.bits());
-
         if let Some(clock_rate) = clock_rate {
-            builder.clock_rate(clock_rate as f64);
+            builder = builder.clock_rate(clock_rate as f64);
         }
 
         let title = format!(

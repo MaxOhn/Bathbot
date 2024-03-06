@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::BuildHasher, marker::PhantomData, mem, path::PathBuf};
 
-use rosu_pp::{Beatmap, DifficultyAttributes};
+use rosu_pp::any::DifficultyAttributes;
 use rosu_v2::model::{score::Score, GameMode};
 use skia_safe::{surfaces, EncodedImageFormat};
 
@@ -19,7 +19,12 @@ pub struct DateNext;
 pub struct AssetsPathNext;
 pub struct ReadyToDraw;
 
-pub(crate) type Maps<S> = HashMap<u32, (Beatmap, DifficultyAttributes), S>;
+pub(crate) type Maps<S> = HashMap<u32, RequiredAttributes, S>;
+
+pub struct RequiredAttributes {
+    pub difficulty: DifficultyAttributes,
+    pub od: f32,
+}
 
 pub struct BathbotCard<'a, Status> {
     pub(crate) skills: Skills,

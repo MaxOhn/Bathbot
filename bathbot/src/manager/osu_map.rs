@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, fmt::Debug, ops::Deref, path::PathBuf};
+use std::{collections::HashMap, fmt::Debug, io::Error as IoError, ops::Deref, path::PathBuf};
 
 use bathbot_client::ClientError;
 use bathbot_psql::{
@@ -7,7 +7,7 @@ use bathbot_psql::{
 };
 use bathbot_util::{ExponentialBackoff, IntHasher};
 use eyre::{ContextCompat, Report, WrapErr};
-use rosu_pp::{Beatmap, DifficultyAttributes, GameMode as Mode, ParseError};
+use rosu_pp::{any::DifficultyAttributes, model::beatmap::BeatmapAttributesBuilder, Beatmap};
 use rosu_v2::prelude::{BeatmapsetExtended, GameMode, OsuError, RankStatus};
 use thiserror::Error;
 use time::OffsetDateTime;
@@ -99,7 +99,8 @@ impl<'d> MapManager<'d> {
 
             let map = this.pp_map(map_id).await.wrap_err("Failed to get pp map")?;
 
-            let attrs = PpManager::from_parsed(&map, map_id, mode, false, this.psql)
+            let attrs = PpManager::from_parsed(&map, map_id, this.psql)
+                .mode(mode)
                 .mods(mods)
                 .difficulty()
                 .await
@@ -331,7 +332,7 @@ impl<'d> MapManager<'d> {
             DbMapFilename::Present(filename) => {
                 map_path.push(filename.as_ref());
 
-                let res = match Beatmap::from_path(&*map_path).await {
+                let res = match Beatmap::from_path(&*map_path) {
                     Ok(map) => Ok((map, None)),
                     Err(err) => {
                         if let Err(err) = fs::remove_file(&*map_path).await {
@@ -389,15 +390,16 @@ impl<'d> MapManager<'d> {
 
         #[derive(Debug)]
         enum BackoffReason {
+            NoContent,
             Ratelimited,
-            ParseFail(ParseError),
+            DecodeFail(IoError),
         }
 
         for (duration, i) in backoff.take(ATTEMPTS).zip(2..) {
             let bytes_fut = self.ctx.client().get_map_file(map_id);
 
             let reason = match bytes_fut.await {
-                Ok(bytes) => match Beatmap::parse(bytes.as_ref()).await {
+                Ok(bytes) if !bytes.is_empty() => match Beatmap::from_bytes(&bytes) {
                     Ok(map) => {
                         let mut map_path = BotConfig::get().paths.maps.clone();
                         let filename = format!("{map_id}.osu");
@@ -417,8 +419,9 @@ impl<'d> MapManager<'d> {
 
                         return Ok(map);
                     }
-                    Err(err) => BackoffReason::ParseFail(err),
+                    Err(err) => BackoffReason::DecodeFail(err),
                 },
+                Ok(_) => BackoffReason::NoContent,
                 Err(ClientError::Ratelimited) => BackoffReason::Ratelimited,
                 Err(err) => {
                     let err = Report::new(err).wrap_err("Failed to request map file");
@@ -526,8 +529,8 @@ impl OsuMapSlim {
         self.map.count_circles as usize
     }
 
-    pub fn n_objects(&self) -> usize {
-        (self.map.count_circles + self.map.count_sliders + self.map.count_spinners) as usize
+    pub fn n_objects(&self) -> u32 {
+        (self.map.count_circles + self.map.count_sliders + self.map.count_spinners) as u32
     }
 
     pub fn status(&self) -> RankStatus {
@@ -566,53 +569,23 @@ impl Searchable<RegularCriteria<'_>> for OsuMapSlim {
 pub struct OsuMap {
     map: OsuMapSlim,
     pub pp_map: Beatmap,
-    pub is_convert: bool,
 }
 
 impl OsuMap {
     fn new(map: OsuMapSlim, pp_map: Beatmap) -> Self {
-        Self {
-            map,
-            pp_map,
-            is_convert: false,
-        }
+        Self { map, pp_map }
     }
 
     pub fn mode(&self) -> GameMode {
-        GameMode::from(self.pp_map.mode as u8)
+        (self.pp_map.mode as u8).into()
     }
 
-    pub fn ar(&self) -> f32 {
-        self.pp_map.ar
-    }
-
-    pub fn cs(&self) -> f32 {
-        self.pp_map.cs
-    }
-
-    pub fn hp(&self) -> f32 {
-        self.pp_map.hp
-    }
-
-    pub fn od(&self) -> f32 {
-        self.pp_map.od
+    pub fn attributes(&self) -> BeatmapAttributesBuilder {
+        self.pp_map.attributes()
     }
 
     pub fn convert_mut(&mut self, mode: GameMode) {
-        let mode = match mode {
-            GameMode::Osu => Mode::Osu,
-            GameMode::Taiko => Mode::Taiko,
-            GameMode::Catch => Mode::Catch,
-            GameMode::Mania => Mode::Mania,
-        };
-
-        if let Cow::Owned(map) = self.pp_map.convert_mode(mode) {
-            self.pp_map = map;
-            self.is_convert = true;
-        } else if mode == Mode::Catch && self.pp_map.mode != Mode::Catch {
-            self.pp_map.mode = mode;
-            self.is_convert = true;
-        }
+        self.pp_map.convert_in_place((mode as u8).into());
     }
 
     pub fn convert(mut self, mode: GameMode) -> Self {

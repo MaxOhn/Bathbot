@@ -14,7 +14,7 @@ use bathbot_util::{
 };
 use eyre::Result;
 use futures::future::BoxFuture;
-use rosu_pp::beatmap::BeatmapAttributesBuilder;
+use rosu_pp::model::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::{GameMode, GameModsIntermode};
 use time::OffsetDateTime;
 use twilight_model::{
@@ -208,7 +208,7 @@ impl Display for OrderAppendix<'_> {
             ScoresOrder::Ar => {
                 let attrs = BeatmapAttributesBuilder::default()
                     .mods(self.score.mods)
-                    .ar(self.map.map_or(0.0, |map| map.ar))
+                    .ar(self.map.map_or(0.0, |map| map.ar), false)
                     .build();
 
                 write!(f, "`AR{}`", round(attrs.ar as f32))
@@ -223,7 +223,7 @@ impl Display for OrderAppendix<'_> {
             ScoresOrder::Cs => {
                 let attrs = BeatmapAttributesBuilder::default()
                     .mods(self.score.mods)
-                    .cs(self.map.map_or(0.0, |map| map.cs))
+                    .cs(self.map.map_or(0.0, |map| map.cs), false)
                     .build();
 
                 write!(f, "`CS{}`", round(attrs.cs as f32))
@@ -231,7 +231,7 @@ impl Display for OrderAppendix<'_> {
             ScoresOrder::Hp => {
                 let attrs = BeatmapAttributesBuilder::default()
                     .mods(self.score.mods)
-                    .hp(self.map.map_or(0.0, |map| map.hp))
+                    .hp(self.map.map_or(0.0, |map| map.hp), false)
                     .build();
 
                 write!(f, "`HP{}`", round(attrs.hp as f32))
@@ -251,7 +251,7 @@ impl Display for OrderAppendix<'_> {
             ScoresOrder::Od => {
                 let attrs = BeatmapAttributesBuilder::default()
                     .mods(self.score.mods)
-                    .od(self.map.map_or(0.0, |map| map.od))
+                    .od(self.map.map_or(0.0, |map| map.od), false)
                     .build();
 
                 write!(f, "`OD{}`", round(attrs.od as f32))
