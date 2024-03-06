@@ -1,6 +1,6 @@
 use bathbot_model::ScoreSlim;
 use bathbot_util::ScoreExt;
-use rosu_pp::ScoreState;
+use rosu_pp::any::ScoreState;
 use rosu_v2::prelude::Score;
 
 pub trait ScoreHasState {
@@ -15,13 +15,13 @@ pub trait ScoreHasState {
     #[inline]
     fn state(&self) -> ScoreState {
         ScoreState {
-            max_combo: self.max_combo() as usize,
-            n_misses: self.n_miss() as usize,
-            n_geki: self.n_geki() as usize,
-            n300: self.n300() as usize,
-            n_katu: self.n_katu() as usize,
-            n100: self.n100() as usize,
-            n50: self.n50() as usize,
+            max_combo: self.max_combo(),
+            misses: self.n_miss(),
+            n_geki: self.n_geki(),
+            n300: self.n300(),
+            n_katu: self.n_katu(),
+            n100: self.n100(),
+            n50: self.n50(),
         }
     }
 }

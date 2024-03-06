@@ -8,7 +8,7 @@ use bathbot_macros::{HasMods, HasName, SlashCommand};
 use bathbot_psql::model::osu::{DbScore, DbScoreBeatmap, DbScoreBeatmapset, DbScores};
 use bathbot_util::{CowUtils, IntHasher};
 use eyre::Result;
-use rosu_pp::{beatmap::BeatmapAttributesBuilder, GameMode as GameModePp};
+use rosu_pp::model::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::{GameMode, GameModsIntermode, RankStatus};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -308,17 +308,12 @@ impl<'q> Searchable<ScoresCriteria<'q>>
         };
 
         let attrs = BeatmapAttributesBuilder::default()
-            .ar(map.ar)
-            .cs(map.cs)
-            .hp(map.hp)
-            .od(map.od)
+            .ar(map.ar, false)
+            .cs(map.cs, false)
+            .hp(map.hp, false)
+            .od(map.od, false)
             .mods(score.mods)
-            .mode(match score.mode {
-                GameMode::Osu => GameModePp::Osu,
-                GameMode::Taiko => GameModePp::Taiko,
-                GameMode::Catch => GameModePp::Catch,
-                GameMode::Mania => GameModePp::Mania,
-            })
+            .mode((score.mode as u8).into(), false)
             // TODO: maybe add gamemode to DbBeatmap so we can check for converts
             .build();
 
@@ -422,13 +417,13 @@ fn process_scores(
 
             scores.scores_mut().sort_unstable_by(|a, b| {
                 let a_ar = BeatmapAttributesBuilder::default()
-                    .ar(ars[&a.map_id])
+                    .ar(ars[&a.map_id], false)
                     .mods(a.mods)
                     .build()
                     .ar;
 
                 let b_ar = BeatmapAttributesBuilder::default()
-                    .ar(ars[&b.map_id])
+                    .ar(ars[&b.map_id], false)
                     .mods(b.mods)
                     .build()
                     .ar;
@@ -474,13 +469,13 @@ fn process_scores(
 
             scores.scores_mut().sort_unstable_by(|a, b| {
                 let a_cs = BeatmapAttributesBuilder::default()
-                    .cs(css[&a.map_id])
+                    .cs(css[&a.map_id], false)
                     .mods(a.mods)
                     .build()
                     .cs;
 
                 let b_cs = BeatmapAttributesBuilder::default()
-                    .cs(css[&b.map_id])
+                    .cs(css[&b.map_id], false)
                     .mods(b.mods)
                     .build()
                     .cs;
@@ -501,13 +496,13 @@ fn process_scores(
 
             scores.scores_mut().sort_unstable_by(|a, b| {
                 let a_ar = BeatmapAttributesBuilder::default()
-                    .hp(hps[&a.map_id])
+                    .hp(hps[&a.map_id], false)
                     .mods(a.mods)
                     .build()
                     .hp;
 
                 let b_hp = BeatmapAttributesBuilder::default()
-                    .hp(hps[&b.map_id])
+                    .hp(hps[&b.map_id], false)
                     .mods(b.mods)
                     .build()
                     .hp;
@@ -553,13 +548,13 @@ fn process_scores(
 
             scores.scores_mut().sort_unstable_by(|a, b| {
                 let a_od = BeatmapAttributesBuilder::default()
-                    .od(ods[&a.map_id])
+                    .od(ods[&a.map_id], false)
                     .mods(a.mods)
                     .build()
                     .od;
 
                 let b_od = BeatmapAttributesBuilder::default()
-                    .od(ods[&b.map_id])
+                    .od(ods[&b.map_id], false)
                     .mods(b.mods)
                     .build()
                     .od;

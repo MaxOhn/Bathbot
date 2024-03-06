@@ -648,7 +648,7 @@ async fn process_scores(
         let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
         let attrs = calc.performance().await;
         let stars = attrs.stars() as f32;
-        let max_combo = attrs.max_combo() as u32;
+        let max_combo = attrs.max_combo();
 
         let max_pp = score
             .pp
@@ -807,7 +807,7 @@ async fn compare_from_score(
         score,
         stars: attrs.stars() as f32,
         max_pp,
-        max_combo: attrs.max_combo() as u32,
+        max_combo: attrs.max_combo(),
         has_replay,
         if_fc,
     }];

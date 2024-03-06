@@ -81,7 +81,11 @@ impl LeaderboardPagination {
         let mut author_text = String::with_capacity(32);
 
         if self.map.mode() == GameMode::Mania {
-            let _ = write!(author_text, "[{}K] ", self.map.cs() as u32);
+            let _ = write!(
+                author_text,
+                "[{}K] ",
+                self.map.attributes().build().cs as u32
+            );
         }
 
         let _ = write!(

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use bathbot_cards::BathbotCard;
+use bathbot_cards::{BathbotCard, RequiredAttributes};
 use bathbot_macros::{HasName, SlashCommand};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
@@ -145,14 +145,19 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
                 .await
                 .wrap_err("failed to get pp map")?;
 
-            let attrs = ctx
-                .pp_parsed(&map, score.map_id, false, mode)
+            let difficulty = ctx
+                .pp_parsed(&map, score.map_id, mode)
                 .mods(&score.mods)
                 .difficulty()
                 .await
                 .to_owned();
 
-            Ok::<_, Report>((score.map_id, (map, attrs)))
+            let attrs = RequiredAttributes {
+                difficulty,
+                od: map.od,
+            };
+
+            Ok::<_, Report>((score.map_id, attrs))
         })
         .collect::<FuturesUnordered<_>>()
         .try_collect()

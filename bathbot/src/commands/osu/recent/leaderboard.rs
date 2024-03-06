@@ -359,7 +359,7 @@ pub(super) async fn leaderboard(
     };
 
     let stars = attrs.stars() as f32;
-    let max_combo = attrs.max_combo() as u32;
+    let max_combo = attrs.max_combo();
 
     // Not storing `attrs` here in case mods (potentially with clock rate) were
     // specified

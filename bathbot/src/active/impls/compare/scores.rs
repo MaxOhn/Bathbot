@@ -198,7 +198,11 @@ impl IActiveMessage for CompareScoresPagination {
         );
 
         if self.map.mode() == GameMode::Mania {
-            let _ = write!(title_text, "[{}K] ", self.map.cs() as u32);
+            let _ = write!(
+                title_text,
+                "[{}K] ",
+                self.map.attributes().build().cs as u32
+            );
         }
 
         let url = format!("{OSU_BASE}b/{}", self.map.map_id());

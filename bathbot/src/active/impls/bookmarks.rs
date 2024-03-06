@@ -19,7 +19,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result, WrapErr};
 use futures::future::BoxFuture;
-use rosu_pp::{AnyPP, Beatmap, BeatmapExt};
+use rosu_pp::{Beatmap, Difficulty, Performance};
 use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::{
     channel::message::{
@@ -106,16 +106,15 @@ impl BookmarksPagination {
         let CachedBookmarkEntry { pp_map, gd_creator } =
             Self::cached_entry(&ctx, &mut self.cached_entries, map).await?;
 
-        let mut attributes = pp_map.stars().calculate();
-        let stars = attributes.stars();
-        let max_combo = attributes.max_combo();
+        let attrs = Difficulty::new().calculate(pp_map);
+        let stars = attrs.stars();
+        let max_combo = attrs.max_combo();
 
         const ACCS: [f32; 4] = [95.0, 97.0, 99.0, 100.0];
         let mut pps = Vec::with_capacity(ACCS.len());
 
         for &acc in ACCS.iter() {
-            let pp_result = AnyPP::new(pp_map)
-                .attributes(attributes)
+            let pp_result = Performance::from(attrs.clone())
                 .accuracy(acc as f64)
                 .calculate();
 
@@ -128,7 +127,6 @@ impl BookmarksPagination {
             };
 
             pps.push(pp_str);
-            attributes = pp_result.into();
         }
 
         let mut pp_values = String::with_capacity(128);

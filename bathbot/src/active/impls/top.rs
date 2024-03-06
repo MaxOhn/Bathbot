@@ -244,8 +244,7 @@ impl TopPagination {
 
         let if_fc = IfFc::new(&ctx, score, map).await;
         let hits = HitResultFormatter::new(score.mode, score.statistics.clone());
-        let grade_completion_mods =
-            grade_completion_mods(score, map.mode(), map.n_objects() as u32);
+        let grade_completion_mods = grade_completion_mods(score, map.mode(), map.n_objects());
 
         let (combo, title) = if score.mode == GameMode::Mania {
             let mut ratio = score.statistics.count_geki as f32;
@@ -258,7 +257,7 @@ impl TopPagination {
 
             let title = format!(
                 "{} {} - {} [{}] [{}★]",
-                KeyFormatter::new(&score.mods, map.cs()),
+                KeyFormatter::new(&score.mods, map.attributes().build().cs as f32),
                 map.artist().cow_escape_markdown(),
                 map.title().cow_escape_markdown(),
                 map.version().cow_escape_markdown(),

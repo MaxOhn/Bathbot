@@ -5,4 +5,4 @@ mod font;
 mod skills;
 mod svg;
 
-pub use self::card::BathbotCard;
+pub use self::card::{BathbotCard, RequiredAttributes};

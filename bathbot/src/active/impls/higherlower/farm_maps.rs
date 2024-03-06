@@ -206,6 +206,8 @@ impl FarmMap {
         let mut calc = ctx.pp(&map);
         let attrs = calc.difficulty().await;
 
+        let map_attrs = map.attributes().build();
+
         Ok(Self {
             map_string: format!(
                 "{artist} - {title} [{version}]",
@@ -218,12 +220,12 @@ impl FarmMap {
             mapset_id: map.mapset_id(),
             stars: attrs.stars() as f32,
             seconds_drain: map.seconds_drain(),
-            combo: attrs.max_combo() as u32,
+            combo: attrs.max_combo(),
             ranked: map.ranked_date().unwrap_or_else(OffsetDateTime::now_utc),
-            cs: map.cs(),
-            ar: map.ar(),
-            od: map.od(),
-            hp: map.hp(),
+            cs: map_attrs.cs as f32,
+            ar: map_attrs.ar as f32,
+            od: map_attrs.od as f32,
+            hp: map_attrs.hp as f32,
             farm,
         })
     }

@@ -25,7 +25,6 @@ pub struct SimulateData {
     pub version: TopOldVersion,
     pub attrs: SimulateAttributes,
     pub original_attrs: SimulateAttributes,
-    pub is_convert: Option<bool>,
     pub max_combo: u32,
 }
 
@@ -45,11 +44,40 @@ impl SimulateData {
 
         macro_rules! simulate {
             (
-                $( $calc:ident )::+ {
+                rosu_pp_older $( :: $calc:ident )+ {
                     $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
                 }
+            ) => {
+                simulate! {
+                    rosu_pp_older $( :: $calc)* {
+                        $( $calc_method: $this_field $( as $ty )? ,)*
+                    };
+                    map: map.pp_map();
+                }
+            };
+            (
+                rosu_pp $( :: $calc:ident )+ {
+                    $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
+                }
+            ) => {
+                simulate! {
+                    rosu_pp $( :: $calc)* {
+                        $( $calc_method: $this_field $( as $ty )? ,)*
+                    };
+                    map: map.pp_map().unchecked_as_converted();
+                    arg: as_owned();
+                }
+            };
+            (
+                $( $calc:ident )::+ {
+                    $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
+                };
+                map: $map:expr;
+                $( arg: $arg:ident(); )?
             ) => {{
-                let mut calc = $( $calc:: )* new(map.pp_map()).mods(mods);
+                let map = $map;
+                let arg = simulate!(@MAP map $( .$arg() )?);
+                let mut calc = $( $calc:: )* new(arg).mods(mods);
 
                 $(
                     if let Some(value) = self.$this_field {
@@ -62,166 +90,168 @@ impl SimulateData {
                 let pp = attrs.pp;
                 let stars = attrs.difficulty.stars;
 
-                let max_pp = $( $calc:: )* new(map.pp_map())
+                let max_pp = $( $calc:: )* new(map)
                     .attributes(attrs)
                     .mods(mods)
                     .calculate()
                     .pp;
 
                 (stars, pp, max_pp)
-            }}
+            }};
+            (@MAP $map:ident $( .$fn:ident() )? ) => {
+                $map $( .$fn() )?
+            };
         }
 
         let (stars, pp, max_pp) = match self.version {
             TopOldVersion::Osu(TopOldOsuVersion::May14July14) => simulate! {
                 rosu_pp_older::osu_2014_may::OsuPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n50: n50 as usize,
-                    misses: n_miss as usize,
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
                     accuracy: acc,
                 }
             },
             TopOldVersion::Osu(TopOldOsuVersion::July14February15) => simulate! {
                 rosu_pp_older::osu_2014_july::OsuPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n50: n50 as usize,
-                    misses: n_miss as usize,
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
                     accuracy: acc,
                 }
             },
             TopOldVersion::Osu(TopOldOsuVersion::February15April15) => simulate! {
                 rosu_pp_older::osu_2015_february::OsuPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n50: n50 as usize,
-                    misses: n_miss as usize,
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
                     accuracy: acc,
                 }
             },
             TopOldVersion::Osu(TopOldOsuVersion::April15May18) => simulate! {
                 rosu_pp_older::osu_2015_april::OsuPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n50: n50 as usize,
-                    misses: n_miss as usize,
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
                     accuracy: acc,
                 }
             },
             TopOldVersion::Osu(TopOldOsuVersion::May18February19) => simulate! {
                 rosu_pp_older::osu_2018::OsuPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n50: n50 as usize,
-                    misses: n_miss as usize,
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
                     accuracy: acc,
                 }
             },
             TopOldVersion::Osu(TopOldOsuVersion::February19January21) => simulate! {
                 rosu_pp_older::osu_2019::OsuPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n50: n50 as usize,
-                    misses: n_miss as usize,
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
                     accuracy: acc,
                 }
             },
             TopOldVersion::Osu(TopOldOsuVersion::January21July21) => simulate! {
                 rosu_pp_older::osu_2021_january::OsuPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n50: n50 as usize,
-                    misses: n_miss as usize,
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
                     accuracy: acc,
                 }
             },
             TopOldVersion::Osu(TopOldOsuVersion::July21November21) => simulate! {
                 rosu_pp_older::osu_2021_july::OsuPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n50: n50 as usize,
-                    misses: n_miss as usize,
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
                     accuracy: acc,
                 }
             },
             TopOldVersion::Osu(TopOldOsuVersion::November21September22) => simulate! {
                 rosu_pp_older::osu_2021_november::OsuPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n50: n50 as usize,
-                    misses: n_miss as usize,
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
                     accuracy: acc as f64,
                 }
             },
             TopOldVersion::Osu(TopOldOsuVersion::September22Now) => simulate! {
-                rosu_pp::OsuPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n50: n50 as usize,
-                    n_misses: n_miss as usize,
+                rosu_pp::osu::OsuPerformance {
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 }
             },
             TopOldVersion::Taiko(TopOldTaikoVersion::March14September20) => simulate! {
                 rosu_pp_older::taiko_ppv1::TaikoPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    misses: n_miss as usize,
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    misses: n_miss,
                     accuracy: acc,
                 }
             },
             TopOldVersion::Taiko(TopOldTaikoVersion::September20September22) => simulate! {
                 rosu_pp_older::taiko_2020::TaikoPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    misses: n_miss as usize,
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    misses: n_miss,
                     accuracy: acc as f64,
                 }
             },
             TopOldVersion::Taiko(TopOldTaikoVersion::September22Now) => simulate! {
-                rosu_pp::TaikoPP {
-                    combo: combo as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n_misses: n_miss as usize,
-                    is_convert: is_convert,
+                rosu_pp::taiko::TaikoPerformance {
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    misses: n_miss,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 }
             },
             TopOldVersion::Catch(TopOldCatchVersion::March14May20) => simulate! {
                 rosu_pp_older::fruits_ppv1::FruitsPP {
-                    combo: combo as usize,
-                    fruits: n300 as usize,
-                    droplets: n100 as usize,
-                    tiny_droplets: n50 as usize,
-                    misses: n_miss as usize,
-                    tiny_droplet_misses: n_katu as usize,
+                    combo: combo,
+                    fruits: n300,
+                    droplets: n100,
+                    tiny_droplets: n50,
+                    misses: n_miss,
+                    tiny_droplet_misses: n_katu,
                     accuracy: acc,
                 }
             },
             TopOldVersion::Catch(TopOldCatchVersion::May20Now) => simulate! {
-                rosu_pp::CatchPP {
-                    combo: combo as usize,
-                    fruits: n300 as usize,
-                    droplets: n100 as usize,
-                    tiny_droplets: n50 as usize,
-                    misses: n_miss as usize,
-                    tiny_droplet_misses: n_katu as usize,
+                rosu_pp::catch::CatchPerformance {
+                    combo: combo,
+                    fruits: n300,
+                    droplets: n100,
+                    tiny_droplets: n50,
+                    misses: n_miss,
+                    tiny_droplet_misses: n_katu,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 }
@@ -238,14 +268,13 @@ impl SimulateData {
                 }
             },
             TopOldVersion::Mania(TopOldManiaVersion::October22Now) => simulate! {
-                rosu_pp::ManiaPP {
-                    n320: n_geki as usize,
-                    n200: n_katu as usize,
-                    n300: n300 as usize,
-                    n100: n100 as usize,
-                    n50: n50 as usize,
-                    n_misses: n_miss as usize,
-                    is_convert: is_convert,
+                rosu_pp::mania::ManiaPerformance {
+                    n320: n_geki,
+                    n200: n_katu,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 }

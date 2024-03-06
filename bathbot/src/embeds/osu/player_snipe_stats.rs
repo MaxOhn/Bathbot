@@ -69,7 +69,7 @@ impl PlayerSnipeStatsEmbed {
             let attrs = calc.performance().await;
             let stars = attrs.stars() as f32;
             let max_pp = attrs.pp() as f32;
-            let max_combo = attrs.max_combo() as u32;
+            let max_combo = attrs.max_combo();
 
             let pp = match oldest_score.pp {
                 Some(pp) => pp,
@@ -83,11 +83,8 @@ impl PlayerSnipeStatsEmbed {
                 [{pp}]\t {hits}\t{ago}",
                 map = player.oldest_first.map.cow_escape_markdown(),
                 id = oldest_map.map_id(),
-                grade = grade_completion_mods(
-                    oldest_score,
-                    oldest_map.mode(),
-                    oldest_map.n_objects() as u32,
-                ),
+                grade =
+                    grade_completion_mods(oldest_score, oldest_map.mode(), oldest_map.n_objects(),),
                 score = WithComma::new(oldest_score.score),
                 acc = round(oldest_score.accuracy),
                 combo = ComboFormatter::new(oldest_score.max_combo, Some(max_combo)),

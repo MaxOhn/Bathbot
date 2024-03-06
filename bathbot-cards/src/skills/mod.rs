@@ -6,11 +6,10 @@ mod title;
 use std::hash::BuildHasher;
 
 use rosu_pp::{
-    catch::{CatchPerformanceAttributes, CatchScoreState},
-    mania::ManiaScoreState,
-    osu::{OsuPP, OsuScoreState},
-    taiko::TaikoScoreState,
-    AnyPP, BeatmapExt, GameMode as Mode,
+    catch::{CatchPerformance, CatchPerformanceAttributes, CatchScoreState},
+    mania::{ManiaPerformance, ManiaScoreState},
+    osu::{OsuPerformance, OsuScoreState},
+    taiko::{TaikoPerformance, TaikoScoreState},
 };
 use rosu_v2::model::{score::Score, GameMode};
 
@@ -50,23 +49,29 @@ impl Skills {
                 const SPEED_NERF: f64 = 2.4;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let Some((map, attrs)) = maps.remove(&score.map_id) else {
+                    let Some(attrs) = maps.remove(&score.map_id) else {
                         continue;
                     };
 
                     let state = OsuScoreState {
-                        max_combo: score.max_combo as usize,
-                        n300: score.statistics.great as usize,
-                        n100: score.statistics.ok as usize,
-                        n50: score.statistics.meh as usize,
-                        n_misses: score.statistics.miss as usize,
+                        max_combo: score.max_combo,
+                        n300: score.statistics.great,
+                        n100: score.statistics.ok,
+                        n50: score.statistics.meh,
+                        misses: score.statistics.miss,
                     };
 
-                    let attrs = OsuPP::new(&map)
-                        .attributes(attrs)
-                        .mods(score.mods.bits())
-                        .state(state)
-                        .calculate();
+                    let Some(mut calc) = OsuPerformance::try_from_attributes(attrs.difficulty)
+                    else {
+                        unreachable!()
+                    };
+
+                    // Account for Daycore mod which has no bits
+                    if let Some(clock_rate) = score.mods.clock_rate() {
+                        calc = calc.clock_rate(f64::from(clock_rate));
+                    }
+
+                    let attrs = calc.mods(score.mods.bits()).state(state).calculate();
 
                     let acc_val = attrs.pp_acc / ACC_NERF;
                     let aim_val = attrs.pp_aim / AIM_NERF;
@@ -94,26 +99,28 @@ impl Skills {
                 const DIFFICULTY_NERF: f64 = 2.8;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let Some((map, attrs)) = maps.remove(&score.map_id) else {
+                    let Some(attrs) = maps.remove(&score.map_id) else {
                         continue;
                     };
 
                     let state = TaikoScoreState {
-                        max_combo: score.max_combo as usize,
-                        n300: score.statistics.great as usize,
-                        n100: score.statistics.ok as usize,
-                        n_misses: score.statistics.miss as usize,
+                        max_combo: score.max_combo,
+                        n300: score.statistics.great,
+                        n100: score.statistics.ok,
+                        misses: score.statistics.miss,
                     };
 
-                    let AnyPP::Taiko(calc) = map.pp().mode(Mode::Taiko) else {
+                    let Some(mut calc) = TaikoPerformance::try_from_attributes(attrs.difficulty)
+                    else {
                         unreachable!()
                     };
 
-                    let attrs = calc
-                        .attributes(attrs)
-                        .mods(score.mods.bits())
-                        .state(state)
-                        .calculate();
+                    // Account for Daycore mod which has no bits
+                    if let Some(clock_rate) = score.mods.clock_rate() {
+                        calc = calc.clock_rate(f64::from(clock_rate));
+                    }
+
+                    let attrs = calc.mods(score.mods.bits()).state(state).calculate();
 
                     let acc_val = attrs.pp_acc / ACC_NERF;
                     let difficulty_val = attrs.pp_difficulty / DIFFICULTY_NERF;
@@ -138,33 +145,35 @@ impl Skills {
                 const MOVEMENT_NERF: f64 = 4.7;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let Some((map, attrs)) = maps.remove(&score.map_id) else {
+                    let Some(attrs) = maps.remove(&score.map_id) else {
                         continue;
                     };
 
                     let state = CatchScoreState {
-                        max_combo: score.max_combo as usize,
-                        n_fruits: score.statistics.great as usize,
-                        n_droplets: score.statistics.large_tick_hit as usize,
-                        n_tiny_droplets: score.statistics.small_tick_hit as usize,
-                        n_tiny_droplet_misses: score.statistics.small_tick_miss as usize,
-                        n_misses: score.statistics.miss as usize,
+                        max_combo: score.max_combo,
+                        fruits: score.statistics.great,
+                        droplets: score.statistics.large_tick_hit,
+                        tiny_droplets: score.statistics.small_tick_hit,
+                        tiny_droplet_misses: score.statistics.small_tick_miss,
+                        misses: score.statistics.miss,
                     };
 
-                    let AnyPP::Catch(calc) = map.pp().mode(Mode::Catch) else {
-                        unreachable!()
+                    let Some(mut calc) = CatchPerformance::try_from_attributes(attrs.difficulty)
+                    else {
+                        unreachable!();
                     };
 
-                    let attrs = calc
-                        .attributes(attrs)
-                        .mods(score.mods.bits())
-                        .state(state)
-                        .calculate();
+                    // Account for Daycore mod which has no bits
+                    if let Some(clock_rate) = score.mods.clock_rate() {
+                        calc = calc.clock_rate(f64::from(clock_rate));
+                    }
+
+                    let od = attrs.od as f64;
+                    let attrs = calc.mods(score.mods.bits()).state(state).calculate();
 
                     let CatchPerformanceAttributes { difficulty, pp } = attrs;
 
                     let acc_ = score.accuracy as f64;
-                    let od = map.od as f64;
 
                     let n_objects = (difficulty.n_fruits
                         + difficulty.n_droplets
@@ -201,28 +210,30 @@ impl Skills {
                 const DIFFICULTY_NERF: f64 = 0.6;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let Some((map, attrs)) = maps.remove(&score.map_id) else {
+                    let Some(attrs) = maps.remove(&score.map_id) else {
                         continue;
                     };
 
                     let state = ManiaScoreState {
-                        n320: score.statistics.perfect as usize,
-                        n300: score.statistics.great as usize,
-                        n200: score.statistics.good as usize,
-                        n100: score.statistics.ok as usize,
-                        n50: score.statistics.meh as usize,
-                        n_misses: score.statistics.miss as usize,
+                        n320: score.statistics.perfect,
+                        n300: score.statistics.great,
+                        n200: score.statistics.good,
+                        n100: score.statistics.ok,
+                        n50: score.statistics.meh,
+                        misses: score.statistics.miss,
                     };
 
-                    let AnyPP::Mania(calc) = map.pp().mode(Mode::Mania) else {
+                    let Some(mut calc) = ManiaPerformance::try_from_attributes(attrs.difficulty)
+                    else {
                         unreachable!()
                     };
 
-                    let attrs = calc
-                        .attributes(attrs)
-                        .mods(score.mods.bits())
-                        .state(state)
-                        .calculate();
+                    // Account for Daycore mod which has no bits
+                    if let Some(clock_rate) = score.mods.clock_rate() {
+                        calc = calc.clock_rate(f64::from(clock_rate));
+                    }
+
+                    let attrs = calc.mods(score.mods.bits()).state(state).calculate();
 
                     let acc_ = score.accuracy as f64;
                     let od = score.map.as_ref().unwrap().od as f64;

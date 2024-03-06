@@ -20,8 +20,8 @@ use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat,
 };
 use rosu_pp::{
-    beatmap::BeatmapAttributesBuilder, CatchPP, DifficultyAttributes, GameMode as Mode, OsuPP,
-    TaikoPP,
+    any::DifficultyAttributes, catch::CatchPerformance, osu::OsuPerformance,
+    taiko::TaikoPerformance,
 };
 use rosu_v2::{
     model::mods::GameMods,
@@ -382,7 +382,7 @@ impl IfFc {
         let mut calc = ctx.pp(map).mods(&score.mods).mode(score.mode);
         let attrs = calc.difficulty().await;
 
-        if score.is_fc(mode, attrs.max_combo() as u32) {
+        if score.is_fc(mode, attrs.max_combo()) {
             return None;
         }
 
@@ -393,22 +393,19 @@ impl IfFc {
             DifficultyAttributes::Osu(attrs) => {
                 let total_objects = map.n_objects();
                 let passed_objects =
-                    (stats.count_300 + stats.count_100 + stats.count_50 + stats.count_miss)
-                        as usize;
+                    stats.count_300 + stats.count_100 + stats.count_50 + stats.count_miss;
 
-                let mut n300 =
-                    stats.count_300 as usize + total_objects.saturating_sub(passed_objects);
+                let mut n300 = stats.count_300 + total_objects.saturating_sub(passed_objects);
 
-                let count_hits = total_objects - stats.count_miss as usize;
+                let count_hits = total_objects - stats.count_miss;
                 let ratio = 1.0 - (n300 as f32 / count_hits as f32);
                 let new100s = (ratio * stats.count_miss as f32).ceil() as u32;
 
-                n300 += stats.count_miss.saturating_sub(new100s) as usize;
-                let n100 = (stats.count_100 + new100s) as usize;
-                let n50 = stats.count_50 as usize;
+                n300 += stats.count_miss.saturating_sub(new100s);
+                let n100 = stats.count_100 + new100s;
+                let n50 = stats.count_50;
 
-                let attrs = OsuPP::new(&map.pp_map)
-                    .attributes(attrs.to_owned())
+                let attrs = OsuPerformance::from(attrs.to_owned())
                     .mods(mods)
                     .n300(n300)
                     .n100(n100)
@@ -416,9 +413,9 @@ impl IfFc {
                     .calculate();
 
                 let statistics = LegacyScoreStatistics {
-                    count_300: n300 as u32,
-                    count_100: n100 as u32,
-                    count_50: n50 as u32,
+                    count_300: n300,
+                    count_100: n100,
+                    count_50: n50,
                     count_geki: stats.count_geki,
                     count_katu: stats.count_katu,
                     count_miss: 0,
@@ -443,8 +440,7 @@ impl IfFc {
 
                 let acc = 100.0 * (2 * n300 + n100) as f32 / (2 * total_objects) as f32;
 
-                let attrs = TaikoPP::new(&map.pp_map)
-                    .attributes(attrs.to_owned())
+                let attrs = TaikoPerformance::from(attrs.to_owned())
                     .mods(mods)
                     .accuracy(acc as f64)
                     .calculate();
@@ -462,22 +458,20 @@ impl IfFc {
             }
             DifficultyAttributes::Catch(attrs) => {
                 let total_objects = attrs.max_combo();
-                let passed_objects =
-                    (stats.count_300 + stats.count_100 + stats.count_miss) as usize;
+                let passed_objects = stats.count_300 + stats.count_100 + stats.count_miss;
 
                 let missing = total_objects - passed_objects;
-                let missing_fruits = missing
-                    .saturating_sub(attrs.n_droplets.saturating_sub(stats.count_100 as usize));
+                let missing_fruits =
+                    missing.saturating_sub(attrs.n_droplets.saturating_sub(stats.count_100));
 
                 let missing_droplets = missing - missing_fruits;
 
-                let n_fruits = stats.count_300 as usize + missing_fruits;
-                let n_droplets = stats.count_100 as usize + missing_droplets;
-                let n_tiny_droplet_misses = stats.count_katu as usize;
+                let n_fruits = stats.count_300 + missing_fruits;
+                let n_droplets = stats.count_100 + missing_droplets;
+                let n_tiny_droplet_misses = stats.count_katu;
                 let n_tiny_droplets = attrs.n_tiny_droplets.saturating_sub(n_tiny_droplet_misses);
 
-                let attrs = CatchPP::new(&map.pp_map)
-                    .attributes(attrs.to_owned())
+                let attrs = CatchPerformance::from(attrs.to_owned())
                     .mods(mods)
                     .fruits(n_fruits)
                     .droplets(n_droplets)
@@ -486,9 +480,9 @@ impl IfFc {
                     .calculate();
 
                 let statistics = LegacyScoreStatistics {
-                    count_300: n_fruits as u32,
-                    count_100: n_droplets as u32,
-                    count_50: n_tiny_droplets as u32,
+                    count_300: n_fruits,
+                    count_100: n_droplets,
+                    count_50: n_tiny_droplets,
                     count_geki: stats.count_geki,
                     count_katu: stats.count_katu,
                     count_miss: 0,
@@ -620,22 +614,15 @@ impl<'map> MapInfo<'map> {
 
 impl Display for MapInfo<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let mode = match self.map.mode() {
-            GameMode::Osu => Mode::Osu,
-            GameMode::Taiko => Mode::Taiko,
-            GameMode::Catch => Mode::Catch,
-            GameMode::Mania => Mode::Mania,
-        };
-
         let mods = self.mods.bits;
 
-        let mut builder = BeatmapAttributesBuilder::new(&self.map.pp_map);
+        let mut builder = self.map.attributes();
 
         if let Some(clock_rate) = self.mods.clock_rate {
-            builder.clock_rate(f64::from(clock_rate));
+            builder = builder.clock_rate(f64::from(clock_rate));
         }
 
-        let attrs = builder.mode(mode).mods(mods).build();
+        let attrs = builder.mods(mods).build();
 
         let clock_rate = attrs.clock_rate;
         let mut sec_drain = self.map.seconds_drain();

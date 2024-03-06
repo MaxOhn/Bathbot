@@ -15,7 +15,7 @@ use bathbot_util::{
     CowUtils, IntHasher,
 };
 use eyre::{Report, Result};
-use rosu_pp::DifficultyAttributes;
+use rosu_pp::any::DifficultyAttributes;
 use rosu_v2::prelude::{GameMode, Grade, OsuError, Score};
 
 use super::{RecentList, RecentListUnique};
@@ -557,7 +557,7 @@ async fn process_scores(
         };
 
         let stars = attrs.stars() as f32;
-        let max_combo = attrs.max_combo() as u32;
+        let max_combo = attrs.max_combo();
 
         let max_pp = match score
             .pp

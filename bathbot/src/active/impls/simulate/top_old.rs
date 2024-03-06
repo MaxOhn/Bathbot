@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use rosu_pp::{
     catch::CatchScoreState, mania::ManiaScoreState, osu::OsuScoreState, taiko::TaikoScoreState,
-    AnyPP, Beatmap,
+    Beatmap, Performance,
 };
 use twilight_model::channel::message::{
     component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
@@ -311,34 +311,34 @@ impl TopOldVersion {
     }
 
     pub(super) fn generate_hitresults(self, map: &Beatmap, data: &SimulateData) -> ScoreState {
-        let mut calc = AnyPP::new(map);
+        let mut calc = Performance::new(map);
 
         if let Some(acc) = data.acc {
             calc = calc.accuracy(acc as f64);
         }
 
         if let Some(n_geki) = data.n_geki {
-            calc = calc.n_geki(n_geki as usize);
+            calc = calc.n_geki(n_geki);
         }
 
         if let Some(n_katu) = data.n_katu {
-            calc = calc.n_katu(n_katu as usize);
+            calc = calc.n_katu(n_katu);
         }
 
         if let Some(n300) = data.n300 {
-            calc = calc.n300(n300 as usize);
+            calc = calc.n300(n300);
         }
 
         if let Some(n100) = data.n100 {
-            calc = calc.n100(n100 as usize);
+            calc = calc.n100(n100);
         }
 
         if let Some(n50) = data.n50 {
-            calc = calc.n50(n50 as usize);
+            calc = calc.n50(n50);
         }
 
         if let Some(n_miss) = data.n_miss {
-            calc = calc.n_misses(n_miss as usize);
+            calc = calc.misses(n_miss);
         }
 
         let state = calc.generate_state();
@@ -349,21 +349,21 @@ impl TopOldVersion {
                 n300: state.n300,
                 n100: state.n100,
                 n50: state.n50,
-                n_misses: state.n_misses,
+                misses: state.misses,
             }),
             Self::Taiko(_) => ScoreState::Taiko(TaikoScoreState {
                 max_combo: state.max_combo,
                 n300: state.n300,
                 n100: state.n100,
-                n_misses: state.n_misses,
+                misses: state.misses,
             }),
             Self::Catch(_) => ScoreState::Catch(CatchScoreState {
                 max_combo: state.max_combo,
-                n_fruits: state.n300,
-                n_droplets: state.n100,
-                n_tiny_droplets: state.n50,
-                n_tiny_droplet_misses: state.n_katu,
-                n_misses: state.n_misses,
+                fruits: state.n300,
+                droplets: state.n100,
+                tiny_droplets: state.n50,
+                tiny_droplet_misses: state.n_katu,
+                misses: state.misses,
             }),
             Self::Mania(_) => ScoreState::Mania(ManiaScoreState {
                 n320: state.n_geki,
@@ -371,7 +371,7 @@ impl TopOldVersion {
                 n200: state.n_katu,
                 n100: state.n100,
                 n50: state.n50,
-                n_misses: state.n_misses,
+                misses: state.misses,
             }),
         }
     }

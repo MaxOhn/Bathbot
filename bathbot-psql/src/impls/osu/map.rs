@@ -3,8 +3,8 @@ use std::{collections::HashMap, hash::BuildHasher};
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
 use rosu_pp::{
-    catch::CatchDifficultyAttributes, mania::ManiaDifficultyAttributes,
-    osu::OsuDifficultyAttributes, taiko::TaikoDifficultyAttributes, DifficultyAttributes,
+    any::DifficultyAttributes, catch::CatchDifficultyAttributes, mania::ManiaDifficultyAttributes,
+    osu::OsuDifficultyAttributes, taiko::TaikoDifficultyAttributes,
 };
 use rosu_v2::prelude::{BeatmapExtended, GameMode};
 use sqlx::{Postgres, Transaction};
@@ -271,11 +271,12 @@ WHERE
 SELECT 
   stamina, 
   rhythm, 
-  colour, 
+  color, 
   peak, 
   hit_window, 
   stars, 
-  max_combo 
+  max_combo, 
+  is_convert 
 FROM 
   osu_map_difficulty_taiko 
 WHERE 
@@ -297,7 +298,8 @@ SELECT
   ar, 
   n_fruits, 
   n_droplets, 
-  n_tiny_droplets 
+  n_tiny_droplets, 
+  is_convert 
 FROM 
   osu_map_difficulty_catch 
 WHERE 
@@ -317,7 +319,9 @@ WHERE
 SELECT 
   stars, 
   hit_window, 
-  max_combo 
+  n_objects, 
+  max_combo, 
+  is_convert 
 FROM 
   osu_map_difficulty_mania 
 WHERE 
@@ -652,37 +656,40 @@ SET
             DifficultyAttributes::Taiko(TaikoDifficultyAttributes {
                 stamina,
                 rhythm,
-                colour,
+                color,
                 peak,
                 hit_window,
                 stars,
                 max_combo,
+                is_convert,
             }) => sqlx::query!(
                 r#"
 INSERT INTO osu_map_difficulty_taiko (
-  map_id, mods, stamina, rhythm, colour, 
-  peak, hit_window, stars, max_combo
+  map_id, mods, stamina, rhythm, color, 
+  peak, hit_window, stars, max_combo, is_convert
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (map_id, mods) DO 
+  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (map_id, mods) DO 
 UPDATE 
 SET 
   stamina = $3, 
   rhythm = $4, 
-  colour = $5, 
+  color = $5, 
   peak = $6, 
   hit_window = $7, 
   stars = $8, 
-  max_combo = $9"#,
+  max_combo = $9, 
+  is_convert = $10"#,
                 map_id as i32,
                 mods as i32,
                 stamina,
                 rhythm,
-                colour,
+                color,
                 peak,
                 hit_window,
                 stars,
-                *max_combo as i32
+                *max_combo as i32,
+                is_convert,
             ),
             DifficultyAttributes::Catch(CatchDifficultyAttributes {
                 stars,
@@ -690,50 +697,60 @@ SET
                 n_fruits,
                 n_droplets,
                 n_tiny_droplets,
+                is_convert,
             }) => sqlx::query!(
                 r#"
 INSERT INTO osu_map_difficulty_catch (
   map_id, mods, stars, ar, n_fruits, n_droplets, 
-  n_tiny_droplets
+  n_tiny_droplets, is_convert
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (map_id, mods) DO 
+  ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (map_id, mods) DO 
 UPDATE 
 SET 
   stars = $3, 
   ar = $4, 
   n_fruits = $5, 
   n_droplets = $6, 
-  n_tiny_droplets = $7"#,
+  n_tiny_droplets = $7, 
+  is_convert = $8"#,
                 map_id as i32,
                 mods as i32,
                 stars,
                 ar,
                 *n_fruits as i32,
                 *n_droplets as i32,
-                *n_tiny_droplets as i32
+                *n_tiny_droplets as i32,
+                is_convert,
             ),
             DifficultyAttributes::Mania(ManiaDifficultyAttributes {
                 stars,
                 hit_window,
+                n_objects,
                 max_combo,
+                is_convert,
             }) => sqlx::query!(
                 r#"
 INSERT INTO osu_map_difficulty_mania (
-  map_id, mods, stars, hit_window, max_combo
+  map_id, mods, stars, hit_window, n_objects, 
+  max_combo, is_convert
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5) ON CONFLICT (map_id, mods) DO 
+  ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (map_id, mods) DO 
 UPDATE 
 SET 
   stars = $3, 
   hit_window = $4, 
-  max_combo = $5"#,
+  n_objects = $5, 
+  max_combo = $6, 
+  is_convert = $7"#,
                 map_id as i32,
                 mods as i32,
                 stars,
                 hit_window,
+                *n_objects as i32,
                 *max_combo as i32,
+                is_convert,
             ),
         };
 

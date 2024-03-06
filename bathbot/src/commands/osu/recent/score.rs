@@ -868,7 +868,9 @@ fn score_started_at(
         }
     }
 
-    map_len /= rosu_pp::Mods::clock_rate(score.mods.bits());
+    if let Some(clock_rate) = score.mods.clock_rate() {
+        map_len /= f64::from(clock_rate);
+    }
 
     score.ended_at - std::time::Duration::from_secs(map_len as u64 + 3)
 }
@@ -953,7 +955,7 @@ impl RecentEntry {
             map,
             stars: attrs.stars() as f32,
             max_pp,
-            max_combo: attrs.max_combo() as u32,
+            max_combo: attrs.max_combo(),
         }
     }
 }
