@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT \n  stamina, \n  rhythm, \n  colour, \n  peak, \n  hit_window, \n  stars, \n  max_combo \nFROM \n  osu_map_difficulty_taiko \nWHERE \n  map_id = $1 \n  AND mods = $2",
+  "query": "\nSELECT \n  stamina, \n  rhythm, \n  color, \n  peak, \n  hit_window, \n  stars, \n  max_combo, \n  is_convert \nFROM \n  osu_map_difficulty_taiko \nWHERE \n  map_id = $1 \n  AND mods = $2",
   "describe": {
     "columns": [
       {
@@ -15,7 +15,7 @@
       },
       {
         "ordinal": 2,
-        "name": "colour",
+        "name": "color",
         "type_info": "Float8"
       },
       {
@@ -37,6 +37,11 @@
         "ordinal": 6,
         "name": "max_combo",
         "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "is_convert",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -52,8 +57,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "2c326a3c30b2f8149ae6472f194e09b005339b17c3ac580f79536f1b9f2d8312"
+  "hash": "44dde60b02dbe73c71fb6bef76773db969b9fbd7a1c09f88e431f406dd352640"
 }

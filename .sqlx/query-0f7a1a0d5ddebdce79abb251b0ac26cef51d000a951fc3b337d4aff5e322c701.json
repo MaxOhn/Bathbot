@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT \n  stars, \n  ar, \n  n_fruits, \n  n_droplets, \n  n_tiny_droplets \nFROM \n  osu_map_difficulty_catch \nWHERE \n  map_id = $1 \n  AND mods = $2",
+  "query": "\nSELECT \n  stars, \n  ar, \n  n_fruits, \n  n_droplets, \n  n_tiny_droplets, \n  is_convert \nFROM \n  osu_map_difficulty_catch \nWHERE \n  map_id = $1 \n  AND mods = $2",
   "describe": {
     "columns": [
       {
@@ -27,6 +27,11 @@
         "ordinal": 4,
         "name": "n_tiny_droplets",
         "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_convert",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -40,8 +45,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "3908f87ffa05a9481f31675f1a26da370c5cb2892330f65f2a90bbdd547b39b1"
+  "hash": "0f7a1a0d5ddebdce79abb251b0ac26cef51d000a951fc3b337d4aff5e322c701"
 }
