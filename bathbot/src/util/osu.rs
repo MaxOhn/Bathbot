@@ -382,7 +382,7 @@ impl IfFc {
         let mut calc = ctx.pp(map).mods(&score.mods).mode(score.mode);
         let attrs = calc.difficulty().await;
 
-        if score.is_fc(mode, attrs.max_combo() as u32) {
+        if score.is_fc(mode, attrs.max_combo()) {
             return None;
         }
 

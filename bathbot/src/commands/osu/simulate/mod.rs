@@ -110,7 +110,7 @@ async fn simulate(
     };
 
     let max_combo = match map {
-        SimulateMap::Full(ref map) => ctx.pp(map).difficulty().await.max_combo() as u32,
+        SimulateMap::Full(ref map) => ctx.pp(map).difficulty().await.max_combo(),
         SimulateMap::Attached(ref map) => map.max_combo,
     };
 

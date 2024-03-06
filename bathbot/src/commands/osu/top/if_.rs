@@ -521,7 +521,7 @@ async fn process_scores(
             map,
             stars: attrs.stars() as f32,
             max_pp: attrs.pp() as f32,
-            max_combo: attrs.max_combo() as u32,
+            max_combo: attrs.max_combo(),
         };
 
         entries.push(entry);

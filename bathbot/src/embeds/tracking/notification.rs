@@ -49,7 +49,7 @@ impl TrackNotificationEmbed {
 
         let stars = attrs.stars();
         let max_pp = attrs.pp() as f32;
-        let max_combo = attrs.max_combo() as u32;
+        let max_combo = attrs.max_combo();
 
         let title = if score.mode == GameMode::Mania {
             format!(

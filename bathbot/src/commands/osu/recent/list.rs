@@ -557,7 +557,7 @@ async fn process_scores(
         };
 
         let stars = attrs.stars() as f32;
-        let max_combo = attrs.max_combo() as u32;
+        let max_combo = attrs.max_combo();
 
         let max_pp = match score
             .pp

@@ -955,7 +955,7 @@ impl RecentEntry {
             map,
             stars: attrs.stars() as f32,
             max_pp,
-            max_combo: attrs.max_combo() as u32,
+            max_combo: attrs.max_combo(),
         }
     }
 }

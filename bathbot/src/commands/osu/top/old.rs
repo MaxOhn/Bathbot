@@ -666,7 +666,7 @@ macro_rules! pp_ctb {
             .calculate();
 
         let pp = attrs.pp as f32;
-        let max_combo = attrs.max_combo() as u32;
+        let max_combo = attrs.max_combo();
 
         (pp, max_pp, stars, max_combo)
     }};
@@ -690,7 +690,7 @@ macro_rules! pp_tko {
             .calculate();
 
         let pp = attrs.pp as f32;
-        let max_combo = attrs.max_combo() as u32;
+        let max_combo = attrs.max_combo();
 
         (pp, max_pp, stars, max_combo)
     }};
@@ -893,7 +893,7 @@ async fn process_scores(
             let pp = score.pp.expect("missing pp");
             let max_pp = attrs.pp() as f32;
             let stars = attrs.stars() as f32;
-            let max_combo = attrs.max_combo() as u32;
+            let max_combo = attrs.max_combo();
 
             (pp, max_pp, stars, max_combo)
         }
@@ -948,7 +948,7 @@ async fn process_scores(
                         .calculate();
 
                     let pp = attrs.pp as f32;
-                    let max_combo = ctx.pp(&map).difficulty().await.max_combo() as u32;
+                    let max_combo = ctx.pp(&map).difficulty().await.max_combo();
 
                     (pp, max_pp, stars, max_combo)
                 }
@@ -965,7 +965,7 @@ async fn process_scores(
                         .calculate();
 
                     let pp = attrs.pp as f32;
-                    let max_combo = ctx.pp(&map).difficulty().await.max_combo() as u32;
+                    let max_combo = ctx.pp(&map).difficulty().await.max_combo();
 
                     (pp, max_pp, stars, max_combo)
                 }

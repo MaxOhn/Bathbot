@@ -220,7 +220,7 @@ impl FarmMap {
             mapset_id: map.mapset_id(),
             stars: attrs.stars() as f32,
             seconds_drain: map.seconds_drain(),
-            combo: attrs.max_combo() as u32,
+            combo: attrs.max_combo(),
             ranked: map.ranked_date().unwrap_or_else(OffsetDateTime::now_utc),
             cs: map_attrs.cs as f32,
             ar: map_attrs.ar as f32,
