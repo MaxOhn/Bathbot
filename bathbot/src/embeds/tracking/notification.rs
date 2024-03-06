@@ -70,7 +70,7 @@ impl TrackNotificationEmbed {
 
         let name = format!(
             "{}\t{score}\t({acc}%)",
-            grade_completion_mods(score, map.mode(), map.n_objects() as u32),
+            grade_completion_mods(score, map.mode(), map.n_objects()),
             score = WithComma::new(score.score),
             acc = round(score.accuracy)
         );
