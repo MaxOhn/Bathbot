@@ -230,7 +230,13 @@ impl IActiveMessage for SimulateComponents {
             fields.push(hits);
         }
 
-        let map_info = self.map.map_info(stars, Mods::from(mods.as_ref()));
+        let mut mods = Mods::from(mods.as_ref());
+
+        if let Some(clock_rate) = self.data.clock_rate {
+            mods.clock_rate = Some(clock_rate);
+        }
+
+        let map_info = self.map.map_info(stars, mods);
         fields![fields { "Map Info", map_info, false; }];
 
         let mut embed = EmbedBuilder::new()

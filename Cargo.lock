@@ -2490,7 +2490,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp"
 version = "1.0.0"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=rewrite#c7f2e9a993e6d3302ef848d79158e39033c650fa"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=rewrite#b81fc5c0d5f94ed936303115fccb1d0fbac347ee"
 dependencies = [
  "rosu-map",
  "thiserror",
