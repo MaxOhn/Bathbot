@@ -7,7 +7,7 @@ use bathbot_util::{
     AuthorBuilder, CowUtils, FooterBuilder,
 };
 use osu::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};
-use rosu_v2::prelude::{GameMode, Score};
+use rosu_v2::prelude::{GameMode, Grade, Score};
 use time::OffsetDateTime;
 use twilight_model::channel::message::embed::EmbedField;
 
@@ -48,8 +48,12 @@ impl TrackNotificationEmbed {
             .await;
 
         let stars = attrs.stars();
-        let max_pp = attrs.pp() as f32;
         let max_combo = attrs.max_combo();
+
+        let max_pp = score
+            .pp
+            .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
+            .unwrap_or(attrs.pp() as f32);
 
         let title = if score.mode == GameMode::Mania {
             format!(
