@@ -120,16 +120,17 @@ impl SettingsImport {
         let settings = match skin {
             RenderSkinOption::Official { ref name } => {
                 match ordr.skin_list().search(name.as_ref()).await {
-                    Ok(mut skin_list) => match skin_list.skins.pop() {
-                        Some(skin) => ReplaySettings::new_with_official_skin(options, skin),
-                        None => {
-                            self.import_result = ImportResult::ParseError(
-                                ParseError::InvalidValue(Setting::DefaultSkin),
-                            );
+                    Ok(skin_list) if skin_list.skins.is_empty() => {
+                        self.import_result =
+                            ImportResult::ParseError(ParseError::InvalidValue(Setting::Skin));
 
-                            return Ok(());
-                        }
-                    },
+                        return Ok(());
+                    }
+                    Ok(mut skin_list) => {
+                        let skin = skin_list.skins.swap_remove(0);
+
+                        ReplaySettings::new_with_official_skin(options, skin)
+                    }
                     Err(err) => {
                         self.import_result = ImportResult::Err(
                             Report::new(err).wrap_err("Failed to request official skin"),
@@ -172,7 +173,7 @@ impl SettingsImport {
 impl IActiveMessage for SettingsImport {
     fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         const TITLE: &str = "Copy Yuna's settings, click the button, and paste them in";
-        const IMAGE_URL: &str = "https://media.discordapp.net/attachments/579428622964621324/1120820561443029154/image.png";
+        const IMAGE_URL: &str = "https://cdn.discordapp.com/attachments/579428622964621324/1215304506036986007/image.png?ex=65fc4385&is=65e9ce85&hm=cd271413f8d7b5f5913a7454adb9e55bc18cf763b0d395c7065fb783bb31e8f7&";
 
         let skipped_defer = self.import_result.skip_defer();
 
@@ -322,7 +323,7 @@ enum ParseError {
 
 #[derive(Copy, Clone)]
 enum Setting {
-    DefaultSkin,
+    Skin,
     MusicVolume,
     HitsoundsVolume,
     UseSkinCursor,
@@ -345,7 +346,7 @@ enum Setting {
 impl Setting {
     fn as_str(self) -> &'static str {
         match self {
-            Self::DefaultSkin => "Default skin",
+            Self::Skin => "Skin",
             Self::MusicVolume => "Music volume",
             Self::HitsoundsVolume => "Hitsounds volume",
             Self::UseSkinCursor => "Use skin cursor",
@@ -384,8 +385,8 @@ fn parse(input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), ParseErro
 
 fn parse_yuna(mut input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), ParseError> {
     let start = input
-        .find("Default skin:")
-        .ok_or(ParseError::Missing(Setting::DefaultSkin))?;
+        .find("Skin:")
+        .ok_or(ParseError::Missing(Setting::Skin))?;
 
     input = &input[start..];
 
@@ -400,7 +401,7 @@ fn parse_yuna(mut input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), 
             .ok_or(ParseError::Missing(setting))
     };
 
-    let skin = get_line(Setting::DefaultSkin)?;
+    let skin = get_line(Setting::Skin)?;
     let music_volume = get_line(Setting::MusicVolume)?;
     let hitsounds_volume = get_line(Setting::HitsoundsVolume)?;
     let use_skin_cursor = get_line(Setting::UseSkinCursor)?;
@@ -425,8 +426,8 @@ fn parse_yuna(mut input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), 
 
     fn parse_bool(input: &str) -> Option<bool> {
         match input {
-            ":white_check_mark:" => Some(true),
-            ":x:" => Some(false),
+            ":white_check_mark:" | "true" => Some(true),
+            ":x:" | "false" => Some(false),
             _ => None,
         }
     }
