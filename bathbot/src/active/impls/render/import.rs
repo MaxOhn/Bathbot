@@ -171,7 +171,7 @@ impl SettingsImport {
 impl IActiveMessage for SettingsImport {
     fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
         const TITLE: &str = "Copy Yuna's settings, click the button, and paste them in";
-        const IMAGE_URL: &str = "https://media.discordapp.net/attachments/579428622964621324/1120820561443029154/image.png";
+        const IMAGE_URL: &str = "https://cdn.discordapp.com/attachments/579428622964621324/1215304506036986007/image.png?ex=65fc4385&is=65e9ce85&hm=cd271413f8d7b5f5913a7454adb9e55bc18cf763b0d395c7065fb783bb31e8f7&";
 
         let skipped_defer = self.import_result.skip_defer();
 
