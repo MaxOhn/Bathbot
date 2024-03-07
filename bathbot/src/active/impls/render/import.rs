@@ -123,9 +123,8 @@ impl SettingsImport {
                     Ok(mut skin_list) => match skin_list.skins.pop() {
                         Some(skin) => ReplaySettings::new_with_official_skin(options, skin),
                         None => {
-                            self.import_result = ImportResult::ParseError(
-                                ParseError::InvalidValue(Setting::DefaultSkin),
-                            );
+                            self.import_result =
+                                ImportResult::ParseError(ParseError::InvalidValue(Setting::Skin));
 
                             return Ok(());
                         }
@@ -322,7 +321,7 @@ enum ParseError {
 
 #[derive(Copy, Clone)]
 enum Setting {
-    DefaultSkin,
+    Skin,
     MusicVolume,
     HitsoundsVolume,
     UseSkinCursor,
@@ -345,7 +344,7 @@ enum Setting {
 impl Setting {
     fn as_str(self) -> &'static str {
         match self {
-            Self::DefaultSkin => "Default skin",
+            Self::Skin => "Skin",
             Self::MusicVolume => "Music volume",
             Self::HitsoundsVolume => "Hitsounds volume",
             Self::UseSkinCursor => "Use skin cursor",
@@ -384,8 +383,8 @@ fn parse(input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), ParseErro
 
 fn parse_yuna(mut input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), ParseError> {
     let start = input
-        .find("Default skin:")
-        .ok_or(ParseError::Missing(Setting::DefaultSkin))?;
+        .find("Skin:")
+        .ok_or(ParseError::Missing(Setting::Skin))?;
 
     input = &input[start..];
 
@@ -400,7 +399,7 @@ fn parse_yuna(mut input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), 
             .ok_or(ParseError::Missing(setting))
     };
 
-    let skin = get_line(Setting::DefaultSkin)?;
+    let skin = get_line(Setting::Skin)?;
     let music_volume = get_line(Setting::MusicVolume)?;
     let hitsounds_volume = get_line(Setting::HitsoundsVolume)?;
     let use_skin_cursor = get_line(Setting::UseSkinCursor)?;
@@ -425,8 +424,8 @@ fn parse_yuna(mut input: &str) -> Result<(RenderOptions, RenderSkinOption<'_>), 
 
     fn parse_bool(input: &str) -> Option<bool> {
         match input {
-            ":white_check_mark:" => Some(true),
-            ":x:" => Some(false),
+            ":white_check_mark:" | "true" => Some(true),
+            ":x:" | "false" => Some(false),
             _ => None,
         }
     }
