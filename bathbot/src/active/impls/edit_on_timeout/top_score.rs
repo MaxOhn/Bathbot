@@ -37,7 +37,7 @@ impl TopScoreEdit {
         personal_idx: Option<usize>,
         global_idx: Option<usize>,
         minimized_pp: MinimizedPp,
-        score_id: u64,
+        score_id: Option<u64>,
         replay_score: Option<OwnedReplayScore>,
         size: ScoreSize,
         content: Option<String>,

@@ -137,12 +137,21 @@ impl CachedRender {
                     return Ok(());
                 };
 
+                let Some(score_id) = score.legacy_score_id else {
+                    let content = "Scores on osu!lazer currently cannot be rendered :(";
+                    let embed = EmbedBuilder::new().color_red().description(content);
+                    let builder = MessageBuilder::new().embed(embed);
+                    component.update(&ctx, builder).await?;
+
+                    return Ok(());
+                };
+
                 // Just a status update, no need to propagate an error
                 status.set(RenderStatusInner::PreparingReplay);
                 let _ = component.update(&ctx, status.as_message()).await;
 
                 let replay_manager = ctx.replay();
-                let replay_fut = replay_manager.get_replay(score.id, &replay_score);
+                let replay_fut = replay_manager.get_replay(score_id, &replay_score);
                 let settings_fut = replay_manager.get_settings(owner);
 
                 (status, tokio::join!(replay_fut, settings_fut))

@@ -287,12 +287,19 @@ async fn render_score(
         return Ok(());
     };
 
+    let Some(score_id) = score.legacy_score_id else {
+        let content = "Scores on osu!lazer currently cannot be rendered :(";
+        command.error(&ctx, content).await?;
+
+        return Ok(());
+    };
+
     // Just a status update, no need to propagate an error
     status.set(RenderStatusInner::PreparingReplay);
     let _ = command.update(&ctx, status.as_message()).await;
 
     let replay_manager = ctx.replay();
-    let replay_fut = replay_manager.get_replay(score.id, &replay_score);
+    let replay_fut = replay_manager.get_replay(score_id, &replay_score);
     let settings_fut = replay_manager.get_settings(owner);
 
     let (replay_res, settings_res) = tokio::join!(replay_fut, settings_fut);
