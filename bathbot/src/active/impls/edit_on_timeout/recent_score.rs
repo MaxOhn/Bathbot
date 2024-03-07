@@ -41,7 +41,7 @@ impl RecentScoreEdit {
         map_score: Option<&BeatmapUserScore>,
         #[cfg(feature = "twitch")] twitch_stream: Option<RecentTwitchStream>,
         minimized_pp: MinimizedPp,
-        score_id: u64,
+        score_id: Option<u64>,
         with_miss_analyzer_button: bool,
         replay_score: Option<OwnedReplayScore>,
         origin: &MessageOrigin,

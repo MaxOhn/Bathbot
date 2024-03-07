@@ -350,7 +350,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
             personal_idx,
             global_idx,
             minimized_pp,
-            entry.score.score_id,
+            entry.score.legacy_id,
             replay_score,
             score_size,
             content,

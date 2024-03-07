@@ -998,7 +998,7 @@ pub(super) async fn top(
             personal_idx,
             global_idx,
             minimized_pp,
-            entry.score.score_id,
+            entry.score.legacy_id,
             replay_score,
             score_size,
             content,

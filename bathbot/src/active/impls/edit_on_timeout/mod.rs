@@ -136,7 +136,11 @@ impl EditOnTimeout {
                 handle_miss_analyzer_button(&ctx, component, score_id).await
             }
             "render" => {
-                let (score_id, score_opt) = button_data.borrow_mut_render();
+                let (Some(score_id), score_opt) = button_data.borrow_mut_render() else {
+                    return ComponentResult::Err(eyre!(
+                        "Unexpected render component for recent score"
+                    ));
+                };
 
                 let owner = match component.user_id() {
                     Ok(user_id) => user_id,
@@ -475,25 +479,26 @@ async fn handle_render_button(
 }
 
 struct ButtonData {
-    score_id: u64,
+    score_id: Option<u64>,
     with_miss_analyzer_button: bool,
     replay_score: Option<OwnedReplayScore>,
 }
 
 impl ButtonData {
     fn with_miss_analyzer(&self) -> bool {
-        self.with_miss_analyzer_button
+        self.score_id.is_some() && self.with_miss_analyzer_button
     }
 
     fn take_miss_analyzer(&mut self) -> Option<u64> {
-        mem::replace(&mut self.with_miss_analyzer_button, false).then_some(self.score_id)
+        self.score_id
+            .filter(|_| mem::replace(&mut self.with_miss_analyzer_button, false))
     }
 
     fn with_render(&self) -> bool {
-        self.replay_score.is_some()
+        self.score_id.is_some() && self.replay_score.is_some()
     }
 
-    fn borrow_mut_render(&mut self) -> (u64, &mut Option<OwnedReplayScore>) {
+    fn borrow_mut_render(&mut self) -> (Option<u64>, &mut Option<OwnedReplayScore>) {
         (self.score_id, &mut self.replay_score)
     }
 }

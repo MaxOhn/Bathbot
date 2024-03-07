@@ -130,6 +130,7 @@ impl OsuStatsScoresPagination {
                     pp,
                     score: score.score,
                     score_id: 0,
+                    legacy_id: None,
                     statistics: LegacyScoreStatistics {
                         count_geki: score.count_geki,
                         count_300: score.count300,

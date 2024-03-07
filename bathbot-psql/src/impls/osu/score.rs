@@ -1092,7 +1092,7 @@ FROM
                 has_replay: _,
                 is_perfect_combo,
                 legacy_perfect,
-                legacy_score_id: _,
+                legacy_score_id,
                 legacy_score: _,
                 max_combo,
                 passed,
@@ -1113,6 +1113,7 @@ FROM
             let perfect = legacy_perfect.unwrap_or(*is_perfect_combo);
 
             let grade = if *passed { *grade } else { Grade::F };
+            let score_id = legacy_score_id.unwrap_or(*score_id);
 
             let LegacyScoreStatistics {
                 count_geki,
@@ -1136,7 +1137,7 @@ VALUES
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
     $11, $12, $13, $14, $15, $16
   ) ON CONFLICT (score_id) DO NOTHING"#,
-                *score_id as i64,
+                score_id as i64,
                 *user_id as i32,
                 *map_id as i32,
                 *mode as i16,
@@ -1165,7 +1166,7 @@ VALUES
 INSERT INTO osu_scores_performance (score_id, pp) 
 VALUES 
   ($1, $2) ON CONFLICT (score_id) DO NOTHING"#,
-                    *score_id as i64,
+                    score_id as i64,
                     *pp as f64,
                 );
 

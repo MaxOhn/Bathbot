@@ -154,8 +154,7 @@ impl IActiveMessage for CompareScoresPagination {
                 if entry.has_replay {
                     let _ = write!(
                         args.description,
-                        " • [Replay]({OSU_BASE}scores/{mode}/{score_id}/download)",
-                        mode = entry.score.mode,
+                        " • [Replay]({OSU_BASE}scores/{score_id}/download)",
                         score_id = entry.score.score_id,
                     );
                 }
