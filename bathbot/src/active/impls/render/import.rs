@@ -120,15 +120,17 @@ impl SettingsImport {
         let settings = match skin {
             RenderSkinOption::Official { ref name } => {
                 match ordr.skin_list().search(name.as_ref()).await {
-                    Ok(mut skin_list) => match skin_list.skins.pop() {
-                        Some(skin) => ReplaySettings::new_with_official_skin(options, skin),
-                        None => {
-                            self.import_result =
-                                ImportResult::ParseError(ParseError::InvalidValue(Setting::Skin));
+                    Ok(skin_list) if skin_list.skins.is_empty() => {
+                        self.import_result =
+                            ImportResult::ParseError(ParseError::InvalidValue(Setting::Skin));
 
-                            return Ok(());
-                        }
-                    },
+                        return Ok(());
+                    }
+                    Ok(mut skin_list) => {
+                        let skin = skin_list.skins.swap_remove(0);
+
+                        ReplaySettings::new_with_official_skin(options, skin)
+                    }
                     Err(err) => {
                         self.import_result = ImportResult::Err(
                             Report::new(err).wrap_err("Failed to request official skin"),
