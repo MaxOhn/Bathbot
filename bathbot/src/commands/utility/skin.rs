@@ -166,6 +166,7 @@ pub struct SetSkin {
         desc = "Specify a download link for your skin",
         help = "Specify a download link for your skin.\n\
         Must be a URL to a direct-download of an .osk file or of one of these approved sites:\n\
+        - `https://osu.ppy.sh/community/forums/topics/`\n\
         - `https://drive.google.com`\n\
         - `https://www.dropbox.com`\n\
         - `https://mega.nz`\n\
@@ -267,6 +268,7 @@ impl SkinValidation {
 
                 let content = "Looks like an invalid skin url.\n\
                     Must be a URL to a direct-download of an .osk file or one of these approved sites:\n\
+                    - `https://osu.ppy.sh/community/forums/topics/`\n\
                     - `https://drive.google.com`\n\
                     - `https://www.dropbox.com`\n\
                     - `https://mega.nz`\n\
