@@ -307,7 +307,7 @@ impl Countries {
             "uruguay", "UY", -3;
             "uzbekistan", "UZ", 5;
             "vanuatu", "VU", 11;
-            "venezuela ", "VE", -4;
+            "venezuela", "VE", -4;
             "vietnam", "VN", 7;
             "virgin islands (british)", "VG", -4;
             "virgin islands (u.s.)", "VI", -4;
