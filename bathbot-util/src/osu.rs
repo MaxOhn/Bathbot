@@ -291,8 +291,8 @@ impl Default for BonusPP {
 }
 
 impl BonusPP {
-    const LIMIT: i32 = 25_397;
-    const MAX: f32 = 416.67;
+    const LIMIT: i32 = 1_000;
+    const MAX: f32 = 413.89;
 
     pub fn new() -> Self {
         Self::default()
@@ -325,7 +325,7 @@ impl BonusPP {
             if grade_counts_sum >= BonusPP::LIMIT {
                 return BonusPP::MAX;
             } else if stats_pp.abs() < f32::EPSILON {
-                return round(BonusPP::MAX * (1.0 - 0.9994_f32.powi(grade_counts_sum)));
+                return round(BonusPP::MAX * (1.0 - 0.995_f32.powi(grade_counts_sum.min(1_000))));
             } else if bonus_pp.len < 100 {
                 return round(stats_pp - pp);
             }
