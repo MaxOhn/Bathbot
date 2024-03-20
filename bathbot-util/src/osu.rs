@@ -291,8 +291,10 @@ impl Default for BonusPP {
 }
 
 impl BonusPP {
-    const LIMIT: i32 = 25_397;
-    const MAX: f32 = 416.67;
+    // The actual scores count is being limited to 1,000 in the SQL query resulting
+    // in a maximum slightly below 416.67 <https://github.com/ppy/osu-queue-score-statistics/blob/219183cdf1870fd8ce81f2a80b1fe6a4dad48688/osu.Server.Queues.ScoreStatisticsProcessor/Processors/UserTotalPerformanceProcessor.cs#L73>
+    const LIMIT: i32 = 1_000;
+    const MAX: f32 = 413.89;
 
     pub fn new() -> Self {
         Self::default()
@@ -325,7 +327,7 @@ impl BonusPP {
             if grade_counts_sum >= BonusPP::LIMIT {
                 return BonusPP::MAX;
             } else if stats_pp.abs() < f32::EPSILON {
-                return round(BonusPP::MAX * (1.0 - 0.9994_f32.powi(grade_counts_sum)));
+                return round((417.0 - 1.0 / 3.0) * (1.0 - 0.995_f32.powi(grade_counts_sum)));
             } else if bonus_pp.len < 100 {
                 return round(stats_pp - pp);
             }
