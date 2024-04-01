@@ -42,6 +42,7 @@ impl SimulateData {
             self.clock_rate = Some(new_bpm / old_bpm);
         }
 
+        // not the cleanest macro...
         macro_rules! simulate {
             (
                 rosu_pp_older $( :: $calc:ident )+ {
@@ -53,6 +54,8 @@ impl SimulateData {
                         $( $calc_method: $this_field $( as $ty )? ,)*
                     };
                     map: map.pp_map();
+                    max_new: map;
+                    max_post: attributes;
                 }
             };
             (
@@ -66,6 +69,7 @@ impl SimulateData {
                     };
                     map: map.pp_map().unchecked_as_converted();
                     arg: as_owned();
+                    max_new: attrs;
                 }
             };
             (
@@ -74,6 +78,8 @@ impl SimulateData {
                 };
                 map: $map:expr;
                 $( arg: $arg:ident(); )?
+                max_new: $max_new:tt;
+                $( max_post: $max_post:ident; )?
             ) => {{
                 let map = $map;
                 let arg = simulate!(@MAP map $( .$arg() )?);
@@ -90,8 +96,14 @@ impl SimulateData {
                 let pp = attrs.pp;
                 let stars = attrs.difficulty.stars;
 
-                let max_pp = $( $calc:: )* new(map)
-                    .attributes(attrs)
+                #[allow(unused_macro_rules)]
+                macro_rules! max_new {
+                    (attrs) => { attrs };
+                    (map) => { map };
+                }
+
+                let max_pp = $( $calc:: )* new(max_new!($max_new))
+                    $( . $max_post (attrs) )?
                     .mods(mods)
                     .calculate()
                     .pp;

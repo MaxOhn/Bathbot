@@ -61,8 +61,7 @@ impl Skills {
                         misses: score.statistics.miss,
                     };
 
-                    let Some(mut calc) = OsuPerformance::try_from_attributes(attrs.difficulty)
-                    else {
+                    let Some(mut calc) = OsuPerformance::try_new(attrs.difficulty) else {
                         unreachable!()
                     };
 
@@ -110,8 +109,7 @@ impl Skills {
                         misses: score.statistics.miss,
                     };
 
-                    let Some(mut calc) = TaikoPerformance::try_from_attributes(attrs.difficulty)
-                    else {
+                    let Some(mut calc) = TaikoPerformance::try_new(attrs.difficulty) else {
                         unreachable!()
                     };
 
@@ -158,8 +156,7 @@ impl Skills {
                         misses: score.statistics.miss,
                     };
 
-                    let Some(mut calc) = CatchPerformance::try_from_attributes(attrs.difficulty)
-                    else {
+                    let Some(mut calc) = CatchPerformance::try_new(attrs.difficulty) else {
                         unreachable!();
                     };
 
@@ -223,8 +220,7 @@ impl Skills {
                         misses: score.statistics.miss,
                     };
 
-                    let Some(mut calc) = ManiaPerformance::try_from_attributes(attrs.difficulty)
-                    else {
+                    let Some(mut calc) = ManiaPerformance::try_new(attrs.difficulty) else {
                         unreachable!()
                     };
 
