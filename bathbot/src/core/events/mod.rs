@@ -24,7 +24,10 @@ enum ProcessResult {
     Success,
     NoDM,
     NoSendPermission,
-    Ratelimited(BucketName),
+    Ratelimited(
+        // false positive; used when logging
+        #[allow(unused)] BucketName,
+    ),
     NoOwner,
     NoAuthority,
 }

@@ -392,7 +392,10 @@ impl<'d> MapManager<'d> {
         enum BackoffReason {
             NoContent,
             Ratelimited,
-            DecodeFail(IoError),
+            DecodeFail(
+                // false positive; used when logging
+                #[allow(unused)] IoError,
+            ),
         }
 
         for (duration, i) in backoff.take(ATTEMPTS).zip(2..) {

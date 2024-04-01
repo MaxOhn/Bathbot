@@ -19,7 +19,10 @@ impl Borrow<u64> for TwitchUserId {
     }
 }
 
-pub struct TwitchStreamId(u64);
+pub struct TwitchStreamId(
+    // false positive; used when logging
+    #[allow(unused)] u64,
+);
 
 impl From<u64> for TwitchStreamId {
     fn from(stream_id: u64) -> Self {
