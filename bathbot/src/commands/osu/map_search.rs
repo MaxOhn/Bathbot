@@ -201,7 +201,7 @@ impl From<SearchOrder> for BeatmapsetSearchSort {
             SearchOrder::Artist => Self::Artist,
             SearchOrder::Favourites => Self::Favourites,
             SearchOrder::Playcount => Self::Playcount,
-            SearchOrder::RankedDate => Self::RankedDate,
+            SearchOrder::RankedDate => Self::ApprovedDate,
             SearchOrder::Rating => Self::Rating,
             SearchOrder::Relevance => Self::Relevance,
             SearchOrder::Stars => Self::Stars,
@@ -554,13 +554,13 @@ impl Search {
         }
 
         search_fut = match self.status {
-            Some(SearchStatus::Any) => search_fut.any_status(),
+            Some(SearchStatus::Any) => search_fut.status(None),
             Some(SearchStatus::Leaderboard) | None => search_fut,
-            Some(SearchStatus::Ranked) => search_fut.status(RankStatus::Ranked),
-            Some(SearchStatus::Loved) => search_fut.status(RankStatus::Loved),
-            Some(SearchStatus::Qualified) => search_fut.status(RankStatus::Qualified),
-            Some(SearchStatus::Pending) => search_fut.status(RankStatus::Pending),
-            Some(SearchStatus::Graveyard) => search_fut.status(RankStatus::Graveyard),
+            Some(SearchStatus::Ranked) => search_fut.status(Some(RankStatus::Ranked)),
+            Some(SearchStatus::Loved) => search_fut.status(Some(RankStatus::Loved)),
+            Some(SearchStatus::Qualified) => search_fut.status(Some(RankStatus::Qualified)),
+            Some(SearchStatus::Pending) => search_fut.status(Some(RankStatus::Pending)),
+            Some(SearchStatus::Graveyard) => search_fut.status(Some(RankStatus::Graveyard)),
         };
 
         if let Some(genre) = self.genre {
