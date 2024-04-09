@@ -269,9 +269,9 @@ async fn leaderboard(
     let owner = orig.user_id()?;
 
     let map_id_fut = get_map_id(&ctx, &orig, args.map);
-    let osu_id_fut = ctx.user_config().osu_id(owner);
+    let config_fut = ctx.user_config().with_osu_id(owner);
 
-    let (map_id_res, osu_id_res) = tokio::join!(map_id_fut, osu_id_fut);
+    let (map_id_res, config_res) = tokio::join!(map_id_fut, config_fut);
 
     let map_id = match map_id_res {
         Ok(map_id) => map_id,
@@ -282,6 +282,8 @@ async fn leaderboard(
             return Err(err);
         }
     };
+
+    let config = config_res?;
 
     // Retrieving the beatmap
     let map = match ctx.osu_map().map(map_id, None).await {
@@ -301,6 +303,18 @@ async fn leaderboard(
         }
     };
 
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
+        },
+    };
+
     let specify_mods = match mods {
         Some(ModSelection::Include(ref mods) | ModSelection::Exact(ref mods)) => {
             Some(mods.to_owned())
@@ -313,11 +327,22 @@ async fn leaderboard(
     let mut calc = ctx.pp(&map).mode(map.mode()).mods(Mods::new(mods_bits));
     let attrs_fut = calc.performance();
 
-    let scores_fut =
-        ctx.osu_scores()
-            .map_leaderboard(map_id, map.mode(), specify_mods.clone(), 100);
+    let scores_fut = ctx.osu_scores().map_leaderboard(
+        map_id,
+        map.mode(),
+        specify_mods.clone(),
+        100,
+        legacy_scores,
+    );
 
-    let user_fut = get_user_score(&ctx, osu_id_res, map_id, map.mode(), specify_mods.clone());
+    let user_fut = get_user_score(
+        &ctx,
+        config.osu,
+        map_id,
+        map.mode(),
+        specify_mods.clone(),
+        legacy_scores,
+    );
 
     let (scores_res, user_res, attrs) = tokio::join!(scores_fut, user_fut, attrs_fut);
 
@@ -466,20 +491,12 @@ async fn get_map_id(
 
 async fn get_user_score(
     ctx: &Context,
-    osu_id_res: Result<Option<u32>>,
+    osu_id: Option<u32>,
     map_id: u32,
     mode: GameMode,
     mods: Option<GameModsIntermode>,
+    legacy_scores: bool,
 ) -> Result<Option<(RedisData<User>, BeatmapUserScore)>> {
-    let osu_id = match osu_id_res {
-        Ok(osu_id) => osu_id,
-        Err(err) => {
-            warn!(?err, "Failed to get user config");
-
-            return Ok(None);
-        }
-    };
-
     let Some(user_id) = osu_id else {
         return Ok(None);
     };
@@ -487,7 +504,13 @@ async fn get_user_score(
     let user_args = UserArgs::user_id(user_id).mode(mode);
     let user_fut = ctx.redis().osu_user(user_args);
 
-    let mut score_fut = ctx.osu().beatmap_user_score(map_id, user_id).mode(mode);
+    // TODO: use ctx.osu_scores()
+    let mut score_fut = ctx
+        .osu()
+        .beatmap_user_score(map_id, user_id)
+        .mode(mode)
+        .legacy_only(legacy_scores)
+        .legacy_scores(legacy_scores);
 
     if let Some(mods) = mods {
         score_fut = score_fut.mods(mods);

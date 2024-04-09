@@ -31,6 +31,7 @@ impl Availability<Box<[Score]>> {
         ctx: &Context,
         user_id: u32,
         mode: GameMode,
+        legacy_scores: bool,
     ) -> Option<&[Score]> {
         match self {
             Self::Received(ref scores) => return Some(scores),
@@ -40,7 +41,7 @@ impl Availability<Box<[Score]>> {
 
         let user_args = UserArgsSlim::user_id(user_id).mode(mode);
 
-        match ctx.osu_scores().top().exec(user_args).await {
+        match ctx.osu_scores().top(legacy_scores).exec(user_args).await {
             Ok(scores) => Some(self.insert(scores.into_boxed_slice())),
             Err(err) => {
                 warn!(?err, "Failed to get top scores");

@@ -31,7 +31,8 @@ SELECT
   list_size, 
   render_button, 
   allow_custom_skins, 
-  hide_medal_solution 
+  hide_medal_solution, 
+  legacy_scores 
 FROM 
   guild_configs"#
         );
@@ -65,6 +66,7 @@ FROM
             render_button,
             allow_custom_skins,
             hide_medal_solution,
+            legacy_scores,
         } = config;
 
         let authorities =
@@ -79,12 +81,13 @@ INSERT INTO guild_configs (
   guild_id, authorities, prefixes, allow_songs, 
   score_size, retries, osu_track_limit, 
   minimized_pp, list_size, render_button, 
-  allow_custom_skins, hide_medal_solution
+  allow_custom_skins, hide_medal_solution, 
+  legacy_scores
 ) 
 VALUES 
   (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
-    $11, $12
+    $11, $12, $13
   ) ON CONFLICT (guild_id) DO 
 UPDATE 
 SET 
@@ -98,7 +101,8 @@ SET
   list_size = $9, 
   render_button = $10, 
   allow_custom_skins = $11, 
-  hide_medal_solution = $12"#,
+  hide_medal_solution = $12, 
+  legacy_scores = $13"#,
             guild_id.get() as i64,
             &authorities as &[u8],
             &prefixes as &[u8],
@@ -111,6 +115,7 @@ SET
             *render_button,
             *allow_custom_skins,
             hide_medal_solution.map(i16::from),
+            *legacy_scores,
         );
 
         query

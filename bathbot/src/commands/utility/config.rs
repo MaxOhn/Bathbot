@@ -101,6 +101,12 @@ pub struct Config {
         In servers, this requires that the render button is not disabled in `/serverconfigs`."
     )]
     render_button: Option<ShowHideOption>,
+    #[command(
+        desc = "Whether scores should be requested as lazer or stable scores",
+        help = "Whether scores should be requested as lazer or stable scores.\n\
+        They have a different score and grade calculation and only lazer adds the new mods."
+    )]
+    score_data: Option<ScoreData>,
 }
 
 // FIXME: Some attribute command does not register the #[cfg(feature = "")]
@@ -161,6 +167,12 @@ pub struct Config {
         In servers, this requires that the render button is not disabled in `/serverconfigs`."
     )]
     render_button: Option<ShowHideOption>,
+    #[command(
+        desc = "Whether scores should be requested as lazer or stable scores",
+        help = "Whether scores should be requested as lazer or stable scores.\n\
+        They have a different score and grade calculation and only lazer adds the new mods."
+    )]
+    score_data: Option<ScoreData>,
 }
 
 #[derive(CommandOption, CreateOption)]
@@ -197,6 +209,14 @@ impl From<ConfigGameMode> for Option<GameMode> {
     }
 }
 
+#[derive(CommandOption, CreateOption)]
+enum ScoreData {
+    #[option(name = "Lazer", value = "lazer")]
+    Lazer,
+    #[option(name = "Stable", value = "stable")]
+    Stable,
+}
+
 async fn slash_config(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Config::from_interaction(command.input_data())?;
 
@@ -217,6 +237,7 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
         timezone,
         mut skin_url,
         render_button,
+        score_data,
     } = config;
 
     if let Some(ref skin_url) = skin_url {
@@ -268,6 +289,10 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
 
     if let Some(render_button) = render_button {
         config.render_button = Some(matches!(render_button, ShowHideOption::Show));
+    }
+
+    if let Some(score_data) = score_data {
+        config.legacy_scores = Some(matches!(score_data, ScoreData::Stable));
     }
 
     #[cfg(feature = "server")]
@@ -604,6 +629,7 @@ async fn convert_config(
         twitch_id,
         timezone,
         render_button,
+        legacy_scores,
     } = config;
 
     UserConfig {
@@ -616,6 +642,7 @@ async fn convert_config(
         twitch_id,
         timezone,
         render_button,
+        legacy_scores,
     }
 }
 

@@ -7,11 +7,14 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{
+    prelude::{GameMode, OsuError},
+    request::UserId,
+};
 
 use super::RecentFix;
 use crate::{
-    commands::osu::{user_not_found, FixEntry, FixScore},
+    commands::osu::{require_link, user_not_found, FixEntry, FixScore},
     core::{commands::CommandOrigin, Context},
     embeds::{EmbedData, FixScoreEmbed},
     manager::redis::osu::{UserArgs, UserArgsSlim},
@@ -19,18 +22,41 @@ use crate::{
 };
 
 pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> {
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+    let owner = orig.user_id()?;
+    let config = ctx.user_config().with_osu_id(owner).await?;
 
-    if mode == GameMode::Mania {
-        return orig.error(&ctx, "Can't fix mania scores \\:(").await;
-    }
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match config.osu {
+            Some(user_id) => UserId::Id(user_id),
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
+
+    let mode = match args.mode.map(GameMode::from).or(config.mode) {
+        None => GameMode::Osu,
+        Some(GameMode::Mania) => return orig.error(&ctx, "Can't fix mania scores \\:(").await,
+        Some(mode) => mode,
+    };
+
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
+        },
+    };
 
     // Retrieve the user and their recent scores
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
 
     let scores_fut = ctx
         .osu_scores()
-        .recent()
+        .recent(legacy_scores)
         .limit(100)
         .include_fails(true)
         .exec_with_user(user_args);
@@ -89,7 +115,11 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
             let map_fut = ctx.osu_map().map(score.map_id, checksum);
 
             let user_args = UserArgsSlim::user_id(user.user_id()).mode(score.mode);
-            let best_fut = ctx.osu_scores().top().limit(100).exec(user_args);
+            let best_fut = ctx
+                .osu_scores()
+                .top(legacy_scores)
+                .limit(100)
+                .exec(user_args);
 
             match tokio::join!(map_fut, best_fut) {
                 (Ok(map), Ok(best)) => (score, map, best),

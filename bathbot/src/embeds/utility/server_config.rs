@@ -68,9 +68,9 @@ impl ServerConfigEmbed {
 
         let fields = vec![
             create_field(
-                "Render button",
-                config.render_button.unwrap_or(true),
-                &[(false, "hide"), (true, "let user decide")],
+                "Minimized PP*",
+                config.minimized_pp.unwrap_or_default(),
+                &[(MinimizedPp::MaxPp, "max pp"), (MinimizedPp::IfFc, "if FC")],
             ),
             create_field(
                 "Song commands",
@@ -83,15 +83,6 @@ impl ServerConfigEmbed {
                 &[(true, "allow"), (false, "deny")],
             ),
             create_field(
-                "Score embeds*",
-                config.score_size.unwrap_or_default(),
-                &[
-                    (ScoreSize::AlwaysMinimized, "always minimized"),
-                    (ScoreSize::AlwaysMaximized, "always maximized"),
-                    (ScoreSize::InitialMaximized, "initial maximized"),
-                ],
-            ),
-            create_field(
                 "List embeds*",
                 config.list_size.unwrap_or_default(),
                 &[
@@ -101,28 +92,48 @@ impl ServerConfigEmbed {
                 ],
             ),
             create_field(
-                "Medal solutions",
-                config.hide_medal_solution.unwrap_or(HideSolutions::ShowAll),
+                "Score embeds*",
+                config.score_size.unwrap_or_default(),
                 &[
-                    (HideSolutions::ShowAll, "show"),
-                    (HideSolutions::HideHushHush, "hide hush-hush"),
-                    (HideSolutions::HideAll, "hide all"),
+                    (ScoreSize::AlwaysMinimized, "always minimized"),
+                    (ScoreSize::AlwaysMaximized, "always maximized"),
+                    (ScoreSize::InitialMaximized, "initial maximized"),
                 ],
             ),
+            EmbedField {
+                inline: false,
+                ..create_field(
+                    "Medal solutions",
+                    config.hide_medal_solution.unwrap_or(HideSolutions::ShowAll),
+                    &[
+                        (HideSolutions::ShowAll, "show"),
+                        (HideSolutions::HideHushHush, "hide hush-hush"),
+                        (HideSolutions::HideAll, "hide all"),
+                    ],
+                )
+            },
             create_field(
-                "Minimized PP*",
-                config.minimized_pp.unwrap_or_default(),
-                &[(MinimizedPp::MaxPp, "max pp"), (MinimizedPp::IfFc, "if FC")],
+                "Score data*",
+                config.legacy_scores.unwrap_or(false),
+                &[(false, "lazer"), (true, "stable")],
             ),
             create_field(
-                "Retries*",
-                config.retries.unwrap_or(Retries::ConsiderMods),
-                &[
-                    (Retries::Hide, "hide"),
-                    (Retries::ConsiderMods, "reset on different mods"),
-                    (Retries::IgnoreMods, "ignore mods"),
-                ],
+                "Render button",
+                config.render_button.unwrap_or(true),
+                &[(false, "hide"), (true, "let user decide")],
             ),
+            EmbedField {
+                inline: false,
+                ..create_field(
+                    "Retries*",
+                    config.retries.unwrap_or(Retries::ConsiderMods),
+                    &[
+                        (Retries::Hide, "hide"),
+                        (Retries::ConsiderMods, "reset on different mods"),
+                        (Retries::IgnoreMods, "ignore mods"),
+                    ],
+                )
+            },
         ];
 
         Self {

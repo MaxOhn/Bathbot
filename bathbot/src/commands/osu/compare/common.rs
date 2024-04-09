@@ -349,7 +349,11 @@ async fn get_user_and_scores(
 ) -> OsuResult<(RedisData<User>, Vec<Score>)> {
     let args = UserArgs::rosu_id(ctx, user_id).await.mode(mode);
 
-    ctx.osu_scores().top().limit(100).exec_with_user(args).await
+    ctx.osu_scores()
+        .top(false)
+        .limit(100)
+        .exec_with_user(args)
+        .await
 }
 
 #[derive(PartialEq)]

@@ -362,6 +362,7 @@ pub(super) async fn score(
         retries: guild_retries,
         score_size: guild_score_size,
         render_button: guild_render_button,
+        legacy_scores: guild_legacy_scores,
     } = guild_values;
 
     let mode = args
@@ -397,9 +398,14 @@ pub(super) async fn score(
         _ => false,
     };
 
+    let legacy_scores = config
+        .legacy_scores
+        .or(guild_legacy_scores)
+        .unwrap_or(false);
+
     let scores_fut = ctx
         .osu_scores()
-        .recent()
+        .recent(legacy_scores)
         .limit(100)
         .include_fails(include_fails)
         .exec_with_user(user_args);
@@ -584,6 +590,7 @@ pub(super) async fn score(
     // Prepare retrieval of the the user's top 50 and score position on the map
     let map_score_fut = async {
         if grade != Grade::F && matches!(status, Ranked | Loved | Qualified | Approved) {
+            // TODO: use ctx.osu_scores()
             let fut = ctx.osu().beatmap_user_score(map_id, user_id).mode(mode);
 
             Some(fut.await)
@@ -596,7 +603,13 @@ pub(super) async fn score(
         if grade != Grade::F {
             let user_args = UserArgsSlim::user_id(user_id).mode(mode);
 
-            Some(ctx.osu_scores().top().limit(100).exec(user_args).await)
+            Some(
+                ctx.osu_scores()
+                    .top(legacy_scores)
+                    .limit(100)
+                    .exec(user_args)
+                    .await,
+            )
         } else {
             None
         }
@@ -968,6 +981,7 @@ struct GuildValues {
     retries: Option<Retries>,
     score_size: Option<ScoreSize>,
     render_button: Option<bool>,
+    legacy_scores: Option<bool>,
 }
 
 impl From<&GuildConfig> for GuildValues {
@@ -977,6 +991,7 @@ impl From<&GuildConfig> for GuildValues {
             retries: config.retries,
             score_size: config.score_size,
             render_button: config.render_button,
+            legacy_scores: config.legacy_scores,
         }
     }
 }

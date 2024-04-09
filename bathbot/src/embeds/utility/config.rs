@@ -60,20 +60,6 @@ impl ConfigEmbed {
         );
 
         let mut fields = vec![
-            EmbedField {
-                inline: false,
-                name: "Accounts".to_owned(),
-                value: account_value,
-            },
-            create_field(
-                "Retries",
-                config.retries.unwrap_or(Retries::ConsiderMods),
-                &[
-                    (Retries::Hide, "hide"),
-                    (Retries::ConsiderMods, "reset on different mods"),
-                    (Retries::IgnoreMods, "ignore mods"),
-                ],
-            ),
             create_field(
                 "Minimized PP",
                 config.minimized_pp.unwrap_or_default(),
@@ -84,6 +70,38 @@ impl ConfigEmbed {
                 config.render_button,
                 &[(Some(true), "show"), (Some(false), "hide")],
             ),
+            create_field(
+                "Score data",
+                config.legacy_scores.unwrap_or(false),
+                &[(false, "lazer"), (true, "stable")],
+            ),
+            EmbedField {
+                inline: true,
+                name: "Accounts".to_owned(),
+                value: account_value,
+            },
+            create_field(
+                "Mode",
+                config.mode,
+                &[
+                    (Some(GameMode::Osu), "osu"),
+                    (Some(GameMode::Taiko), "taiko"),
+                    (Some(GameMode::Catch), "catch"),
+                    (Some(GameMode::Mania), "mania"),
+                ],
+            ),
+            EmbedField {
+                inline: false,
+                ..create_field(
+                    "Retries",
+                    config.retries.unwrap_or(Retries::ConsiderMods),
+                    &[
+                        (Retries::Hide, "hide"),
+                        (Retries::ConsiderMods, "reset on different mods"),
+                        (Retries::IgnoreMods, "ignore mods"),
+                    ],
+                )
+            },
             create_field(
                 "Score embeds",
                 config.score_size.unwrap_or_default(),
@@ -100,16 +118,6 @@ impl ConfigEmbed {
                     (ListSize::Condensed, "condensed"),
                     (ListSize::Detailed, "detailed"),
                     (ListSize::Single, "single"),
-                ],
-            ),
-            create_field(
-                "Mode",
-                config.mode,
-                &[
-                    (Some(GameMode::Osu), "osu"),
-                    (Some(GameMode::Taiko), "taiko"),
-                    (Some(GameMode::Catch), "catch"),
-                    (Some(GameMode::Mania), "mania"),
                 ],
             ),
         ];

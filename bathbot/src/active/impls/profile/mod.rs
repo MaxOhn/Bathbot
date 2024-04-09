@@ -53,6 +53,7 @@ pub struct ProfileMenu {
     user: RedisData<User>,
     discord_id: Option<Id<UserMarker>>,
     tz: Option<UtcOffset>,
+    legacy_scores: bool,
     skin_url: Availability<SkinUrl>,
     scores: Availability<Box<[Score]>>,
     score_rank: Availability<ScoreData>,
@@ -186,6 +187,7 @@ impl ProfileMenu {
         user: RedisData<User>,
         discord_id: Option<Id<UserMarker>>,
         tz: Option<UtcOffset>,
+        legacy_scores: bool,
         kind: ProfileKind,
         origin: MessageOrigin,
         msg_owner: Id<UserMarker>,
@@ -194,6 +196,7 @@ impl ProfileMenu {
             user,
             discord_id,
             tz,
+            legacy_scores,
             kind,
             msg_owner,
             skin_url: Availability::NotRequested,
@@ -274,7 +277,12 @@ impl ProfileMenu {
             None => "-".to_string(),
         };
 
-        let scores_fut = self.scores.get(&ctx, self.user.user_id(), self.user.mode());
+        let scores_fut = self.scores.get(
+            &ctx,
+            self.user.user_id(),
+            self.user.mode(),
+            self.legacy_scores,
+        );
 
         let top_score_pp = match scores_fut.await {
             Some([_score @ Score { pp: Some(pp), .. }, ..]) => format!("{pp:.2}pp"),
@@ -917,7 +925,10 @@ impl ProfileMenu {
     async fn bonus_pp(&mut self, ctx: &Context) -> Option<f32> {
         let user_id = self.user.user_id();
         let mode = self.user.mode();
-        let scores = self.scores.get(ctx, user_id, mode).await?;
+        let scores = self
+            .scores
+            .get(ctx, user_id, mode, self.legacy_scores)
+            .await?;
 
         let mut bonus_pp = BonusPP::new();
 
@@ -933,7 +944,10 @@ impl ProfileMenu {
     async fn own_maps_in_top100(&mut self, ctx: &Context) -> Option<usize> {
         let user_id = self.user.user_id();
         let mode = self.user.mode();
-        let scores = self.scores.get(ctx, user_id, mode).await?;
+        let scores = self
+            .scores
+            .get(ctx, user_id, mode, self.legacy_scores)
+            .await?;
 
         let count = scores.iter().fold(0, |count, score| {
             let self_mapped = score

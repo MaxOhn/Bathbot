@@ -16,6 +16,7 @@ pub struct DbGuildConfig {
     pub render_button: Option<bool>,
     pub allow_custom_skins: Option<bool>,
     pub hide_medal_solution: Option<i16>,
+    pub legacy_scores: Option<bool>,
 }
 
 #[derive(Clone, Default)]
@@ -31,6 +32,7 @@ pub struct GuildConfig {
     pub render_button: Option<bool>,
     pub allow_custom_skins: Option<bool>,
     pub hide_medal_solution: Option<HideSolutions>,
+    pub legacy_scores: Option<bool>,
 }
 
 impl From<DbGuildConfig> for GuildConfig {
@@ -49,6 +51,7 @@ impl From<DbGuildConfig> for GuildConfig {
             render_button,
             allow_custom_skins,
             hide_medal_solution,
+            legacy_scores,
         } = config;
 
         // SAFETY: The bytes originate from the DB which only provides valid archived
@@ -70,6 +73,7 @@ impl From<DbGuildConfig> for GuildConfig {
             hide_medal_solution: hide_medal_solution
                 .map(HideSolutions::try_from)
                 .and_then(Result::ok),
+            legacy_scores,
         }
     }
 }

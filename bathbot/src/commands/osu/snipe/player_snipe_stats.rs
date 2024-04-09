@@ -148,6 +148,7 @@ pub(super) async fn player_stats(
         }
     };
 
+    // TODO: use ctx.osu_scores()
     let score_fut = ctx
         .osu()
         .beatmap_user_score(player.oldest_first.map_id, player.user_id)

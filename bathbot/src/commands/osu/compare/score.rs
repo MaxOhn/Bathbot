@@ -330,6 +330,7 @@ pub(super) async fn score(
     args: CompareScoreArgs<'_>,
 ) -> Result<()> {
     let owner = orig.user_id()?;
+    let config = ctx.user_config().with_osu_id(owner).await?;
 
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
@@ -346,16 +347,21 @@ pub(super) async fn score(
 
     let user_id = match user_id!(ctx, orig, args) {
         Some(user_id) => user_id,
-        None => match ctx.user_config().with_osu_id(owner).await {
-            Ok(config) => match config.osu {
-                Some(user_id) => UserId::Id(user_id),
-                None => return require_link(&ctx, &orig).await,
-            },
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+        None => match config.osu {
+            Some(user_id) => UserId::Id(user_id),
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
 
-                return Err(err.wrap_err("Failed to get user config"));
-            }
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
         },
     };
 
@@ -378,7 +384,7 @@ pub(super) async fn score(
                 return orig.error(&ctx, content).await;
             }
             Some(MapOrScore::Score { id, mode }) => {
-                return compare_from_score(ctx, orig, id, mode).await
+                return compare_from_score(ctx, orig, id, mode, legacy_scores).await
             }
             None if orig.can_read_history() => {
                 let idx = match index {
@@ -456,14 +462,21 @@ pub(super) async fn score(
     let (user_res, score_res) = match user_args {
         UserArgs::Args(args) => {
             let user_fut = ctx.redis().osu_user_from_args(args);
-            let score_fut = ctx.osu_scores().user_on_map(map_id).exec(args);
+            let score_fut = ctx
+                .osu_scores()
+                .user_on_map(map_id, legacy_scores)
+                .exec(args);
 
             tokio::join!(user_fut, score_fut)
         }
         UserArgs::User { user, mode } => {
             let args = UserArgsSlim::user_id(user.user_id).mode(mode);
             let user = RedisData::Original(*user);
-            let score_res = ctx.osu_scores().user_on_map(map_id).exec(args).await;
+            let score_res = ctx
+                .osu_scores()
+                .user_on_map(map_id, legacy_scores)
+                .exec(args)
+                .await;
 
             (Ok(user), score_res)
         }
@@ -518,19 +531,19 @@ pub(super) async fn score(
         return Ok(());
     }
 
-    let pinned_fut = ctx
-        .osu()
-        .user_scores(user.user_id())
-        .pinned()
-        .mode(mode)
-        .limit(100);
+    let user_args = UserArgsSlim::user_id(user.user_id()).mode(mode);
+    let scores_manager = ctx.osu_scores();
+    let pinned_fut = scores_manager
+        .pinned(legacy_scores)
+        .limit(100)
+        .exec(user_args);
 
     let global_fut = async {
         if matches!(
             map.status(),
             RankStatus::Ranked | RankStatus::Loved | RankStatus::Approved
         ) {
-            let fut = ctx.osu().beatmap_scores(map_id).mode(mode);
+            let fut = scores_manager.map_leaderboard(map_id, mode, None, 50, legacy_scores);
 
             Some(fut.await)
         } else {
@@ -543,12 +556,8 @@ pub(super) async fn score(
             map.status(),
             RankStatus::Ranked | RankStatus::Approved | RankStatus::Loved | RankStatus::Qualified
         ) {
-            let fut = ctx
-                .osu()
-                .user_scores(user.user_id())
-                .mode(mode)
-                .best()
-                .limit(100);
+            let user_args = UserArgsSlim::user_id(user.user_id()).mode(mode);
+            let fut = scores_manager.top(legacy_scores).limit(100).exec(user_args);
 
             Some(fut.await)
         } else {
@@ -728,14 +737,15 @@ async fn compare_from_score(
     orig: CommandOrigin<'_>,
     score_id: u64,
     mode: GameMode,
+    legacy_scores: bool,
 ) -> Result<()> {
     let mut score = match ctx.osu().score(score_id, mode).await {
         Ok(score) => score,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get score");
+            let err = Report::new(err).wrap_err("failed to get score");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
@@ -745,12 +755,12 @@ async fn compare_from_score(
     let user_args = UserArgs::user_id(score.user_id).mode(mode);
     let user_fut = ctx.redis().osu_user(user_args);
 
-    let pinned_fut = ctx
-        .osu()
-        .user_scores(score.user_id)
-        .pinned()
+    let user_args = UserArgsSlim::user_id(score.user_id).mode(mode);
+    let scores_manager = ctx.osu_scores();
+    let pinned_fut = scores_manager
+        .pinned(legacy_scores)
         .limit(100)
-        .mode(mode);
+        .exec(user_args);
 
     let (user_res, map_res, pinned_res) = tokio::join!(user_fut, map_fut, pinned_fut);
 
@@ -815,7 +825,9 @@ async fn compare_from_score(
     let status = map.status();
 
     let global_idx = if matches!(status, Ranked | Loved | Approved) {
-        match ctx.osu().beatmap_scores(map.map_id()).mode(mode).await {
+        let fut = scores_manager.map_leaderboard(map.map_id(), mode, None, 50, legacy_scores);
+
+        match fut.await {
             Ok(scores) => global_idx(&entries, &scores, user_id),
             Err(err) => {
                 warn!(?err, "Failed to get global scores");
@@ -828,7 +840,8 @@ async fn compare_from_score(
     };
 
     let best = if status == Ranked {
-        let fut = ctx.osu().user_scores(user_id).best().limit(100).mode(mode);
+        let user_args = UserArgsSlim::user_id(user_id).mode(mode);
+        let fut = scores_manager.top(legacy_scores).limit(100).exec(user_args);
 
         match fut.await {
             Ok(scores) => scores,

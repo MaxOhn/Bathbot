@@ -196,16 +196,14 @@ async fn prefix_fix(
 }
 
 async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> Result<()> {
+    let owner = orig.user_id()?;
+    let config = ctx.user_config().with_osu_id(owner).await?;
+
     let user_id = match user_id!(ctx, orig, args) {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(orig.user_id()?).await {
-            Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err);
-            }
+        None => match config.osu {
+            Some(user_id) => UserId::Id(user_id),
+            None => return require_link(&ctx, &orig).await,
         },
     };
 
@@ -220,6 +218,18 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
         }
     };
 
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
+        },
+    };
+
     let mods = match mods {
         None | Some(ModSelection::Exclude(_)) => None,
         Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => Some(mods),
@@ -227,10 +237,10 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
 
     let data_result = match args.id {
         Some(MapOrScore::Score { id, mode }) => {
-            request_by_score(&ctx, &orig, id, mode, user_id).await
+            request_by_score(&ctx, &orig, id, mode, user_id, legacy_scores).await
         }
         Some(MapOrScore::Map(MapIdType::Map(id))) => {
-            request_by_map(&ctx, &orig, id, user_id, mods.as_ref()).await
+            request_by_map(&ctx, &orig, id, user_id, mods.as_ref(), legacy_scores).await
         }
         Some(MapOrScore::Map(MapIdType::Set(_))) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
@@ -249,7 +259,7 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
 
             match ctx.find_map_id_in_msgs(&msgs, 0).await {
                 Some(MapIdType::Map(id)) => {
-                    request_by_map(&ctx, &orig, id, user_id, mods.as_ref()).await
+                    request_by_map(&ctx, &orig, id, user_id, mods.as_ref(), legacy_scores).await
                 }
                 None | Some(MapIdType::Set(_)) => {
                     let content = "No beatmap specified and none found in recent channel history. \
@@ -310,6 +320,7 @@ async fn request_by_map(
     map_id: u32,
     user_id: UserId,
     mods: Option<&GameModsIntermode>,
+    legacy_scores: bool,
 ) -> ScoreResult {
     let map = match ctx.osu_map().map(map_id, None).await {
         Ok(map) => map,
@@ -334,13 +345,20 @@ async fn request_by_map(
     let (user_res, scores_res) = match UserArgs::rosu_id(ctx, &user_id).await.mode(map.mode()) {
         UserArgs::Args(args) => {
             let user_fut = ctx.redis().osu_user_from_args(args);
-            let scores_fut = ctx.osu_scores().user_on_map(map_id).exec(args);
+            let scores_fut = ctx
+                .osu_scores()
+                .user_on_map(map_id, legacy_scores)
+                .exec(args);
 
             tokio::join!(user_fut, scores_fut)
         }
         UserArgs::User { user, .. } => {
             let args = UserArgsSlim::user_id(user.user_id).mode(map.mode());
-            let scores_res = ctx.osu_scores().user_on_map(map_id).exec(args).await;
+            let scores_res = ctx
+                .osu_scores()
+                .user_on_map(map_id, legacy_scores)
+                .exec(args)
+                .await;
 
             (Ok(RedisData::Original(*user)), scores_res)
         }
@@ -390,7 +408,11 @@ async fn request_by_map(
         Some(score) => {
             let user_args = UserArgsSlim::user_id(user.user_id()).mode(score.mode);
 
-            let top_fut = ctx.osu_scores().top().limit(100).exec(user_args);
+            let top_fut = ctx
+                .osu_scores()
+                .top(legacy_scores)
+                .limit(100)
+                .exec(user_args);
 
             let pp_fut = async {
                 match score.pp {
@@ -431,6 +453,7 @@ async fn request_by_score(
     score_id: u64,
     mode: GameMode,
     user_id: UserId,
+    legacy_scores: bool,
 ) -> ScoreResult {
     let score_fut = ctx.osu().score(score_id, mode);
     let user_args = UserArgs::rosu_id(ctx, &user_id).await.mode(mode);
@@ -467,7 +490,11 @@ async fn request_by_score(
 
     let map_fut = ctx.osu_map().map(map_id, map.checksum.as_deref());
     let user_args = UserArgsSlim::user_id(score.user_id).mode(score.mode);
-    let best_fut = ctx.osu_scores().top().limit(100).exec(user_args);
+    let best_fut = ctx
+        .osu_scores()
+        .top(legacy_scores)
+        .limit(100)
+        .exec(user_args);
 
     let (map, top) = match tokio::join!(map_fut, best_fut) {
         (Ok(map), Ok(best)) => (map, best),

@@ -17,7 +17,10 @@ impl Top100Mods {
         let user_id = menu.user.user_id();
         let mode = menu.user.mode();
 
-        menu.scores.get(ctx, user_id, mode).await.map(Self::new)
+        menu.scores
+            .get(ctx, user_id, mode, menu.legacy_scores)
+            .await
+            .map(Self::new)
     }
 
     fn new(scores: &[Score]) -> Self {

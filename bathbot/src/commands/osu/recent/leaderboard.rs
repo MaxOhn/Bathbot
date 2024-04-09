@@ -207,12 +207,24 @@ pub(super) async fn leaderboard(
         return require_link(&ctx, &orig).await;
     };
 
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
+        },
+    };
+
     // Retrieve the recent scores
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
 
     let scores_fut = ctx
         .osu_scores()
-        .recent()
+        .recent(legacy_scores)
         .limit(limit)
         .include_fails(true)
         .exec_with_user(user_args);
@@ -272,11 +284,19 @@ pub(super) async fn leaderboard(
         }
     };
 
-    let scores_fut = ctx
-        .osu_scores()
-        .map_leaderboard(map_id, mode, specify_mods.clone(), 100);
+    let scores_fut =
+        ctx.osu_scores()
+            .map_leaderboard(map_id, mode, specify_mods.clone(), 100, legacy_scores);
     let map_fut = ctx.osu_map().map(map_id, checksum.as_deref());
-    let user_score_fut = get_user_score(&ctx, map_id, config.osu, mode, specify_mods.clone());
+
+    let user_score_fut = get_user_score(
+        &ctx,
+        map_id,
+        config.osu,
+        mode,
+        specify_mods.clone(),
+        legacy_scores,
+    );
 
     let (scores_res, map_res, user_score_res) = tokio::join!(scores_fut, map_fut, user_score_fut);
 
@@ -397,13 +417,21 @@ async fn get_user_score(
     user_id: Option<u32>,
     mode: GameMode,
     mods: Option<GameModsIntermode>,
+    legacy_scores: bool,
 ) -> Result<Option<(BeatmapUserScore, u32, Username)>> {
     let Some(user_id) = user_id else {
         return Ok(None);
     };
 
     let name_fut = ctx.osu_user().name(user_id);
-    let mut score_fut = ctx.osu().beatmap_user_score(map_id, user_id).mode(mode);
+
+    // TODO: use ctx.osu_scores()
+    let mut score_fut = ctx
+        .osu()
+        .beatmap_user_score(map_id, user_id)
+        .mode(mode)
+        .legacy_only(legacy_scores)
+        .legacy_scores(legacy_scores);
 
     if let Some(mods) = mods {
         score_fut = score_fut.mods(mods);
