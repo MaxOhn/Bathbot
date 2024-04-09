@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO user_configs (\n  discord_id, osu_id, gamemode, twitch_id, \n  score_size, retries, minimized_pp, \n  list_size, timezone_seconds, render_button, \n  legacy_scores\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (discord_id) DO \nUPDATE \nSET \n  osu_id = $2, \n  gamemode = $3, \n  twitch_id = $4, \n  score_size = $5, \n  retries = $6, \n  minimized_pp = $7, \n  list_size = $8, \n  timezone_seconds = $9, \n  render_button = $10, \n  legacy_scores = $11",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4",
+        "Int2",
+        "Int8",
+        "Int2",
+        "Int2",
+        "Int2",
+        "Int2",
+        "Int4",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9dddf771a4c5617592a80f19546b055641ea622fa8f3449f408f0b140baa7283"
+}

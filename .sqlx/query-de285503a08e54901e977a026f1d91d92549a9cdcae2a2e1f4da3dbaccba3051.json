@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT \n  guild_id,\n  authorities,\n  prefixes,\n  allow_songs,\n  score_size,\n  retries,\n  osu_track_limit,\n  minimized_pp,\n  list_size, \n  render_button, \n  allow_custom_skins, \n  hide_medal_solution \nFROM \n  guild_configs",
+  "query": "\nSELECT \n  guild_id,\n  authorities,\n  prefixes,\n  allow_songs,\n  score_size,\n  retries,\n  osu_track_limit,\n  minimized_pp,\n  list_size, \n  render_button, \n  allow_custom_skins, \n  hide_medal_solution, \n  legacy_scores \nFROM \n  guild_configs",
   "describe": {
     "columns": [
       {
@@ -62,6 +62,11 @@
         "ordinal": 11,
         "name": "hide_medal_solution",
         "type_info": "Int2"
+      },
+      {
+        "ordinal": 12,
+        "name": "legacy_scores",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -79,8 +84,9 @@
       true,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "c8e05581c033549580324c32869548cb4297b220ce5b5373469e349bbcea5f39"
+  "hash": "de285503a08e54901e977a026f1d91d92549a9cdcae2a2e1f4da3dbaccba3051"
 }
