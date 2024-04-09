@@ -12,6 +12,7 @@ mod metrics;
 mod miss_analyzer;
 mod multipart;
 mod osu;
+mod osutrack;
 mod site;
 mod twitch;
 
