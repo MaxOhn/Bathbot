@@ -51,6 +51,8 @@ impl UserArgs {
 
                 tokio::spawn(async move {
                     ctx.osu_user().store(&user_clone, mode).await;
+                    ctx.notify_osutrack_of_user_activity(user_clone.user_id, mode)
+                        .await;
                 });
 
                 Self::User {
@@ -65,6 +67,8 @@ impl UserArgs {
 
                         tokio::spawn(async move {
                             ctx.osu_user().store(&user_clone, mode).await;
+                            ctx.notify_osutrack_of_user_activity(user_clone.user_id, mode)
+                                .await;
                         });
 
                         Self::User {
@@ -180,7 +184,6 @@ impl RedisManager {
 
         user.mode = mode;
         let user_clone = user.clone();
-
         let user = User::from(user);
 
         if let Some(ref mut conn) = conn {
@@ -194,6 +197,9 @@ impl RedisManager {
 
         tokio::spawn(async move {
             self.ctx.osu_user().store(&user_clone, mode).await;
+            self.ctx
+                .notify_osutrack_of_user_activity(user_clone.user_id, mode)
+                .await;
         });
 
         Ok(RedisData::new(user))

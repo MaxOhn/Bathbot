@@ -1,9 +1,11 @@
-use eyre::{Result, WrapErr};
+use std::time::Instant;
+
+use eyre::{Report, Result, WrapErr};
 use http::{header::USER_AGENT, Method, Request};
 use hyper::Body;
 use rosu_v2::model::GameMode;
 
-use crate::{Client, ClientError, MY_USER_AGENT};
+use crate::{metrics::ClientMetrics, site::Site, Client, ClientError, MY_USER_AGENT};
 
 impl Client {
     pub async fn notify_osutrack_user_activity(
@@ -25,11 +27,13 @@ impl Client {
             .body(Body::empty())
             .wrap_err("Failed to build POST request")?;
 
-        let response = self
-            .client
-            .request(req)
-            .await
-            .wrap_err("Failed to receive POST response")?;
+        let start = Instant::now();
+
+        let response = self.client.request(req).await.map_err(|err| {
+            ClientMetrics::internal_error(Site::OsuTrack);
+
+            Report::new(err).wrap_err("Failed to receive POST response")
+        })?;
 
         let status = response.status();
 
@@ -44,6 +48,9 @@ impl Client {
                 return Err(err.into());
             }
         };
+
+        let latency = start.elapsed();
+        ClientMetrics::observe(Site::OsuTrack, status, latency);
 
         Ok(())
     }

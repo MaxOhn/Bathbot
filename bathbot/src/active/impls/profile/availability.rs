@@ -86,6 +86,7 @@ impl Availability<MapperNames> {
                             continue;
                         }
 
+                        // TODO: use ctx.osu().users(iter)
                         let user = match ctx.osu().user(*id).mode(mode).await {
                             Ok(user) => user,
                             Err(err) => {

@@ -24,11 +24,10 @@ pub struct Client {
     #[cfg(feature = "twitch")]
     twitch: bathbot_model::TwitchData,
     github_auth: Box<str>,
-    ratelimiters: [LeakyBucket; 16],
+    ratelimiters: [LeakyBucket; 17],
 }
 
 impl Client {
-    /// `twitch_login` consists of `(twitch client id, twitch token)`
     pub async fn new(
         #[cfg(feature = "twitch")] (twitch_client_id, twitch_token): (&str, &str),
         github_token: &str,
@@ -76,11 +75,12 @@ impl Client {
                 .refill_interval(Duration::from_secs(7))
                 .refill_amount(1)
                 .build(),
-            ratelimiter(2), // OsuStats
-            ratelimiter(2), // OsuTracker
-            ratelimiter(2), // OsuWorld
-            ratelimiter(1), // Respektive
-            ratelimiter(5), // Twitch
+            ratelimiter(2),  // OsuStats
+            ratelimiter(10), // OsuTrack
+            ratelimiter(2),  // OsuTracker
+            ratelimiter(2),  // OsuWorld
+            ratelimiter(1),  // Respektive
+            ratelimiter(5),  // Twitch
         ];
 
         Ok(Self {
