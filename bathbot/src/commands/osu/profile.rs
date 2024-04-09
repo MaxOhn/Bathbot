@@ -190,6 +190,18 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
     let kind = args.embed.unwrap_or_default();
     let guild = orig.guild_id();
 
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match guild {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
+        },
+    };
+
     let (user_id, no_user_specified) = match user_id!(ctx, orig, args) {
         Some(user_id) => (user_id, false),
         None => match config.osu {
@@ -236,7 +248,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
     let tz = no_user_specified.then_some(config.timezone).flatten();
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
-    let pagination = ProfileMenu::new(user, discord_id, tz, kind, origin, owner);
+    let pagination = ProfileMenu::new(user, discord_id, tz, legacy_scores, kind, origin, owner);
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)

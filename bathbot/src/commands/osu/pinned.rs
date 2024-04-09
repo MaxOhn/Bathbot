@@ -141,6 +141,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         score_size: guild_score_size,
         list_size: guild_list_size,
         render_button: guild_render_button,
+        legacy_scores: guild_legacy_scores,
     } = match orig.guild_id() {
         Some(guild_id) => {
             ctx.guild_config()
@@ -185,15 +186,27 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         }
     };
 
+    let legacy_scores = config
+        .legacy_scores
+        .or(guild_legacy_scores)
+        .unwrap_or(false);
+
     let missing_user = user_opt.is_none();
 
     let scores_manager = ctx.osu_scores();
     let redis = ctx.redis();
-    let pinned_fut = scores_manager.pinned().limit(100).exec(user_args);
+    let pinned_fut = scores_manager
+        .pinned(legacy_scores)
+        .limit(100)
+        .exec(user_args);
 
     let top100_fut = async {
         if matches!(list_size, ListSize::Single) {
-            scores_manager.top().limit(100).exec(user_args).await
+            scores_manager
+                .top(legacy_scores)
+                .limit(100)
+                .exec(user_args)
+                .await
         } else {
             Ok(Vec::new())
         }
@@ -308,13 +321,18 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         let (personal_idx, global_idx) = match entry.map.status() {
             Ranked | Loved | Qualified | Approved => {
                 let user_args = UserArgsSlim::user_id(user_id).mode(entry.score.mode);
-                let best_fut = ctx.osu_scores().top().limit(100).exec(user_args);
+                let best_fut = ctx
+                    .osu_scores()
+                    .top(legacy_scores)
+                    .limit(100)
+                    .exec(user_args);
 
                 let global_fut = ctx.osu_scores().map_leaderboard(
                     entry.map.map_id(),
                     entry.score.mode,
                     None,
                     50,
+                    legacy_scores,
                 );
                 let (best_res, global_res) = tokio::join!(best_fut, global_fut);
 
@@ -610,6 +628,7 @@ struct GuildValues {
     score_size: Option<ScoreSize>,
     list_size: Option<ListSize>,
     render_button: Option<bool>,
+    legacy_scores: Option<bool>,
 }
 
 impl From<&GuildConfig> for GuildValues {
@@ -619,6 +638,7 @@ impl From<&GuildConfig> for GuildValues {
             score_size: config.score_size,
             list_size: config.list_size,
             render_button: config.render_button,
+            legacy_scores: config.legacy_scores,
         }
     }
 }

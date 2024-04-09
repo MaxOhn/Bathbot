@@ -22,7 +22,10 @@ use super::{RankPp, RankValue};
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::{
+        osu::{UserArgs, UserArgsSlim},
+        RedisData,
+    },
     util::ChannelExt,
     Context,
 };
@@ -214,12 +217,14 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
     let scores = if rank_data.with_scores() {
         let user = rank_data.user();
 
+        let user_args = UserArgsSlim::user_id(user.user_id()).mode(mode);
         let scores_fut = ctx
-            .osu()
-            .user_scores(user.user_id())
+            .osu_scores()
+            // legacy data shouldn't matter so no need to retrieve it via
+            // user/guild configs
+            .top(true)
             .limit(100)
-            .best()
-            .mode(mode);
+            .exec(user_args);
 
         match scores_fut.await {
             Ok(scores) => (!scores.is_empty()).then_some(scores),

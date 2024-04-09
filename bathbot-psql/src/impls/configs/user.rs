@@ -29,7 +29,8 @@ SELECT
   retries, 
   twitch_id, 
   timezone_seconds, 
-  render_button 
+  render_button, 
+  legacy_scores 
 FROM 
   user_configs 
 WHERE 
@@ -67,7 +68,8 @@ SELECT
   retries, 
   twitch_id, 
   timezone_seconds, 
-  render_button 
+  render_button, 
+  legacy_scores 
 FROM 
   user_configs 
 WHERE 
@@ -95,6 +97,7 @@ WHERE
                     .map(UtcOffset::from_whole_seconds)
                     .map(Result::unwrap),
                 render_button: row.render_button,
+                legacy_scores: row.legacy_scores,
             });
 
         Ok(config_opt)
@@ -318,6 +321,7 @@ FROM
             twitch_id,
             timezone,
             render_button,
+            legacy_scores,
         } = config;
 
         let query = sqlx::query!(
@@ -325,10 +329,11 @@ FROM
 INSERT INTO user_configs (
   discord_id, osu_id, gamemode, twitch_id, 
   score_size, retries, minimized_pp, 
-  list_size, timezone_seconds, render_button
+  list_size, timezone_seconds, render_button, 
+  legacy_scores
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (discord_id) DO 
+  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (discord_id) DO 
 UPDATE 
 SET 
   osu_id = $2, 
@@ -339,7 +344,8 @@ SET
   minimized_pp = $7, 
   list_size = $8, 
   timezone_seconds = $9, 
-  render_button = $10"#,
+  render_button = $10, 
+  legacy_scores = $11"#,
             user_id.get() as i64,
             osu.map(|id| id as i32),
             mode.map(|mode| mode as i16) as Option<i16>,
@@ -350,6 +356,7 @@ SET
             list_size.map(i16::from),
             timezone.map(UtcOffset::whole_seconds),
             *render_button,
+            *legacy_scores,
         );
 
         query

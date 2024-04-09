@@ -16,13 +16,16 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_pp::any::DifficultyAttributes;
-use rosu_v2::prelude::{GameMode, Grade, OsuError, Score};
+use rosu_v2::{
+    prelude::{GameMode, Grade, OsuError, Score},
+    request::UserId,
+};
 
 use super::{RecentList, RecentListUnique};
 use crate::{
     active::{impls::RecentListPagination, ActiveMessages},
     commands::{
-        osu::{user_not_found, HasMods, ModsResult, ScoreOrder},
+        osu::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder},
         GameModeOption, GradeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
@@ -335,7 +338,33 @@ pub(super) async fn list(
         }
     };
 
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+    let owner = orig.user_id()?;
+    let config = ctx.user_config().with_osu_id(owner).await?;
+
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match config.osu {
+            Some(user_id) => UserId::Id(user_id),
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
+
+    let mode = match args.mode.map(GameMode::from).or(config.mode) {
+        None => GameMode::Osu,
+        Some(mode) => mode,
+    };
+
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
+        },
+    };
 
     let RecentList {
         query,
@@ -358,7 +387,7 @@ pub(super) async fn list(
 
     let scores_fut = ctx
         .osu_scores()
-        .recent()
+        .recent(legacy_scores)
         .limit(100)
         .include_fails(include_fails)
         .exec_with_user(user_args);
@@ -409,7 +438,7 @@ pub(super) async fn list(
         .entries(entries.into_boxed_slice())
         .maps(maps)
         .content(content.into_boxed_str())
-        .msg_owner(orig.user_id()?)
+        .msg_owner(owner)
         .build();
 
     ActiveMessages::builder(pagination)

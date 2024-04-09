@@ -10,13 +10,19 @@ use bathbot_util::{
     CowUtils,
 };
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, GameModsIntermode, OsuError, Score};
+use rosu_v2::{
+    prelude::{GameModIntermode, GameMode, GameMods, GameModsIntermode, OsuError, Score},
+    request::UserId,
+};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     active::{impls::TopIfPagination, ActiveMessages},
-    commands::{osu::user_not_found, GameModeOption},
+    commands::{
+        osu::{require_link, user_not_found},
+        GameModeOption,
+    },
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     util::{
@@ -198,19 +204,45 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
         None => return orig.error(&ctx, TopIf::ERR_PARSE_MODS).await,
     };
 
-    let (user_id, mut mode) = user_id_mode!(ctx, orig, args);
+    let owner = orig.user_id()?;
+    let config = ctx.user_config().with_osu_id(owner).await?;
 
-    if mode == GameMode::Mania {
-        mode = GameMode::Osu;
-    }
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match config.osu {
+            Some(user_id) => UserId::Id(user_id),
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
+
+    let mode = match args.mode.map(GameMode::from).or(config.mode) {
+        None | Some(GameMode::Mania) => GameMode::Osu,
+        Some(mode) => mode,
+    };
 
     if let Err(content) = mods.clone().validate(mode) {
         return orig.error(&ctx, content).await;
     }
 
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
+        },
+    };
+
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
-    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
+    let scores_fut = ctx
+        .osu_scores()
+        .top(legacy_scores)
+        .limit(100)
+        .exec_with_user(user_args);
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),

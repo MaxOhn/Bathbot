@@ -101,13 +101,16 @@ impl<'c> ScoresManager<'c> {
         mode: GameMode,
         mods: Option<GameModsIntermode>,
         limit: u32,
+        legacy_scores: bool,
     ) -> Result<Vec<Score>> {
         let mut req = self
             .ctx
             .osu()
             .beatmap_scores(map_id)
             .limit(limit)
-            .mode(mode);
+            .mode(mode)
+            .legacy_only(legacy_scores)
+            .legacy_scores(legacy_scores);
 
         if let Some(mods) = mods {
             req = req.mods(mods);
@@ -134,34 +137,38 @@ impl<'c> ScoresManager<'c> {
             .wrap_err("Failed to fetch top scores")
     }
 
-    pub fn top(self) -> ScoreArgs<'c> {
+    pub fn top(self, legacy_scores: bool) -> ScoreArgs<'c> {
         ScoreArgs {
             manager: self,
             kind: ScoreKind::Top { limit: 100 },
+            legacy_scores,
         }
     }
 
-    pub fn recent(self) -> ScoreArgs<'c> {
+    pub fn recent(self, legacy_scores: bool) -> ScoreArgs<'c> {
         ScoreArgs {
             manager: self,
             kind: ScoreKind::Recent {
                 limit: 100,
                 include_fails: true,
             },
+            legacy_scores,
         }
     }
 
-    pub fn pinned(self) -> ScoreArgs<'c> {
+    pub fn pinned(self, legacy_scores: bool) -> ScoreArgs<'c> {
         ScoreArgs {
             manager: self,
             kind: ScoreKind::Pinned { limit: 100 },
+            legacy_scores,
         }
     }
 
-    pub fn user_on_map(self, map_id: u32) -> ScoreArgs<'c> {
+    pub fn user_on_map(self, map_id: u32, legacy_scores: bool) -> ScoreArgs<'c> {
         ScoreArgs {
             manager: self,
             kind: ScoreKind::UserMap { map_id },
+            legacy_scores,
         }
     }
 
@@ -177,6 +184,7 @@ impl<'c> ScoresManager<'c> {
 pub struct ScoreArgs<'c> {
     manager: ScoresManager<'c>,
     kind: ScoreKind,
+    legacy_scores: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -223,6 +231,8 @@ impl<'c> ScoreArgs<'c> {
                     .best()
                     .limit(limit)
                     .mode(mode)
+                    .legacy_only(self.legacy_scores)
+                    .legacy_scores(self.legacy_scores)
                     .await
             }
             ScoreKind::Recent {
@@ -235,6 +245,8 @@ impl<'c> ScoreArgs<'c> {
                     .limit(limit)
                     .mode(mode)
                     .include_fails(include_fails)
+                    .legacy_only(self.legacy_scores)
+                    .legacy_scores(self.legacy_scores)
                     .await
             }
             ScoreKind::Pinned { limit } => {
@@ -243,12 +255,16 @@ impl<'c> ScoreArgs<'c> {
                     .pinned()
                     .limit(limit)
                     .mode(mode)
+                    .legacy_only(self.legacy_scores)
+                    .legacy_scores(self.legacy_scores)
                     .await
             }
             ScoreKind::UserMap { map_id } => {
                 ctx.osu()
                     .beatmap_user_scores(map_id, user_id)
                     .mode(mode)
+                    .legacy_only(self.legacy_scores)
+                    .legacy_scores(self.legacy_scores)
                     .await
             }
         };

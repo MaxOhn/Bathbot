@@ -27,7 +27,10 @@ impl Top100Stats {
 
         let user_id = menu.user.user_id();
         let mode = menu.user.mode();
-        let scores = menu.scores.get(ctx, user_id, mode).await?;
+        let scores = menu
+            .scores
+            .get(ctx, user_id, mode, menu.legacy_scores)
+            .await?;
 
         match Self::new(ctx, scores).await {
             Ok(stats) => Some(menu.top100stats.insert(stats)),

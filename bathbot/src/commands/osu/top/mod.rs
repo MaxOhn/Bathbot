@@ -803,9 +803,25 @@ pub(super) async fn top(
         },
     };
 
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
+        },
+    };
+
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
-    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
+    let scores_fut = ctx
+        .osu_scores()
+        .top(legacy_scores)
+        .limit(100)
+        .exec_with_user(user_args);
 
     let farm_fut = async {
         if args.farm.is_some() || matches!(args.sort_by, TopScoreOrder::Farm) {
@@ -940,7 +956,13 @@ pub(super) async fn top(
             Ranked | Loved | Qualified | Approved => {
                 match ctx
                     .osu_scores()
-                    .map_leaderboard(entry.map.map_id(), entry.score.mode, None, 50)
+                    .map_leaderboard(
+                        entry.map.map_id(),
+                        entry.score.mode,
+                        None,
+                        50,
+                        legacy_scores,
+                    )
                     .await
                 {
                     Ok(scores) => {

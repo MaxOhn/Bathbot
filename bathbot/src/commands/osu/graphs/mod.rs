@@ -324,9 +324,29 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 .map(UtcOffset::from)
                 .or_else(|| no_user_specified.then_some(config.timezone).flatten());
 
-            top_graph(&ctx, &orig, user_id, user_args, args.order, tz)
-                .await
-                .wrap_err("failed to create top graph")?
+            let legacy_scores = match config.legacy_scores {
+                Some(legacy_scores) => legacy_scores,
+                None => match orig.guild_id() {
+                    Some(guild_id) => ctx
+                        .guild_config()
+                        .peek(guild_id, |config| config.legacy_scores)
+                        .await
+                        .unwrap_or(false),
+                    None => false,
+                },
+            };
+
+            top_graph(
+                &ctx,
+                &orig,
+                user_id,
+                user_args,
+                args.order,
+                tz,
+                legacy_scores,
+            )
+            .await
+            .wrap_err("failed to create top graph")?
         }
     };
 
@@ -358,8 +378,13 @@ async fn top_graph(
     user_args: UserArgs,
     order: GraphTopOrder,
     tz: Option<UtcOffset>,
+    legacy_scores: bool,
 ) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
-    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
+    let scores_fut = ctx
+        .osu_scores()
+        .top(legacy_scores)
+        .limit(100)
+        .exec_with_user(user_args);
 
     let (user, mut scores) = match scores_fut.await {
         Ok(tuple) => tuple,

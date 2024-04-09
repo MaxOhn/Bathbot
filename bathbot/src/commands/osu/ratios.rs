@@ -1,10 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher, MessageBuilder,
-};
+use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError},
@@ -84,16 +81,26 @@ async fn slash_ratios(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
 }
 
 async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) -> Result<()> {
+    let owner = orig.user_id()?;
+    let config = ctx.user_config().with_osu_id(owner).await?;
+
     let user_id = match user_id!(ctx, orig, args) {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(orig.user_id()?).await {
-            Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+        None => match config.osu {
+            Some(user_id) => UserId::Id(user_id),
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
 
-                return Err(err);
-            }
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
         },
     };
 
@@ -102,7 +109,11 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
         .await
         .mode(GameMode::Mania);
 
-    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
+    let scores_fut = ctx
+        .osu_scores()
+        .top(legacy_scores)
+        .limit(100)
+        .exec_with_user(user_args);
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),

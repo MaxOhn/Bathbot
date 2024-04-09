@@ -234,13 +234,29 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         },
     };
 
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
+        },
+    };
+
     let mapper = args.mapper.cow_to_ascii_lowercase();
     let mapper_args = UserArgs::username(&ctx, mapper.as_ref()).await.mode(mode);
     let mapper_fut = ctx.redis().osu_user(mapper_args);
 
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
-    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
+    let scores_fut = ctx
+        .osu_scores()
+        .top(legacy_scores)
+        .limit(100)
+        .exec_with_user(user_args);
 
     let (mapper, user, scores) = match tokio::join!(mapper_fut, scores_fut) {
         (Ok(mapper), Ok((user, scores))) => (mapper, user, scores),

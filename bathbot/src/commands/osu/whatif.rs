@@ -204,7 +204,11 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
 
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
-    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
+    let scores_fut = ctx
+        .osu_scores()
+        .top(false)
+        .limit(100)
+        .exec_with_user(user_args);
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),

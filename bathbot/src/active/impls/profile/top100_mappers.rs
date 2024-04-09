@@ -16,7 +16,10 @@ impl Top100Mappers {
         let mut entries: Vec<_> = {
             let user_id = menu.user.user_id();
             let mode = menu.user.mode();
-            let scores = menu.scores.get(ctx, user_id, mode).await?;
+            let scores = menu
+                .scores
+                .get(ctx, user_id, mode, menu.legacy_scores)
+                .await?;
             let mut entries = HashMap::with_capacity_and_hasher(32, IntHasher);
 
             for score in scores {

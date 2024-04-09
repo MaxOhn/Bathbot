@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT \n  score_size, \n  list_size, \n  minimized_pp, \n  gamemode, \n  osu_id, \n  retries, \n  twitch_id, \n  timezone_seconds, \n  render_button \nFROM \n  user_configs \nWHERE \n  discord_id = $1",
+  "query": "\nSELECT \n  score_size, \n  list_size, \n  minimized_pp, \n  gamemode, \n  (\n    SELECT \n      username \n    FROM \n      osu_user_names \n    WHERE \n      user_id = osu_id\n  ), \n  retries, \n  twitch_id, \n  timezone_seconds, \n  render_button, \n  legacy_scores \nFROM \n  user_configs \nWHERE \n  discord_id = $1",
   "describe": {
     "columns": [
       {
@@ -25,8 +25,8 @@
       },
       {
         "ordinal": 4,
-        "name": "osu_id",
-        "type_info": "Int4"
+        "name": "username",
+        "type_info": "Varchar"
       },
       {
         "ordinal": 5,
@@ -47,6 +47,11 @@
         "ordinal": 8,
         "name": "render_button",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "legacy_scores",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -59,6 +64,7 @@
       true,
       true,
       true,
+      null,
       true,
       true,
       true,
@@ -66,5 +72,5 @@
       true
     ]
   },
-  "hash": "a5fcdc6f45975f4311202133205b419f54af32f000bd3b140f08974a95a74317"
+  "hash": "d2f2b5e11221589c06a54e46bda7f5810cc7589721abe42413b00f597cb2c5c9"
 }
