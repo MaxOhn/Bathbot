@@ -15,7 +15,10 @@ use rosu_v2::prelude::{OsuError, UserId, Username};
 use super::{RankScore, RankValue};
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,
     Context,

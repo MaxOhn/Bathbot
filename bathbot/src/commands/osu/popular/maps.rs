@@ -8,7 +8,7 @@ use rkyv::{Deserialize, Infallible};
 use super::PopularMapsPp;
 use crate::{
     active::{impls::PopularMapsPagination, ActiveMessages},
-    core::Context,
+    core::{Context, ContextExt},
     manager::redis::RedisData,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };

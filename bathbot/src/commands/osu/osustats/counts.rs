@@ -13,7 +13,10 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::OsuStatsCount;
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     embeds::{EmbedData, OsuStatsCountsEmbed},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, osu::TopCounts, InteractionCommandExt},

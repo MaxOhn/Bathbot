@@ -23,7 +23,7 @@ use super::render::CachedRender;
 use crate::{
     active::{ActiveMessages, BuildPage, ComponentResult, IActiveMessage},
     commands::osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
-    core::{buckets::BucketName, Context},
+    core::{buckets::BucketName, Context, ContextExt},
     manager::{OwnedReplayScore, ReplayScore},
     util::{interaction::InteractionComponent, Authored, Emote, MessageExt},
 };
@@ -467,7 +467,7 @@ async fn handle_render_button(
     };
 
     let ongoing_fut = OngoingRender::new(
-        Arc::clone(&ctx),
+        ctx.cloned(),
         render.render_id,
         (msg, permissions),
         status,

@@ -20,7 +20,7 @@ use crate::{
         osu::{HasMods, ModsResult, ScoresOrder},
         GameModeOption,
     },
-    core::Context,
+    core::{Context, ContextExt},
     manager::redis::RedisData,
     util::{
         interaction::InteractionCommand,
@@ -102,7 +102,7 @@ pub async fn slash_regiontop(ctx: Arc<Context>, mut command: InteractionCommand)
     let region_opt = match region {
         AutocompleteValue::None => None,
         AutocompleteValue::Focused(ref region) => {
-            return handle_autocomplete(&ctx, &command, country.as_deref(), region).await
+            return handle_autocomplete(ctx.cloned(), &command, country.as_deref(), region).await
         }
         AutocompleteValue::Completed(ref mut region) => Some(mem::take(region)),
     };
@@ -618,14 +618,14 @@ pub enum RegionTopKind {
 }
 
 async fn handle_autocomplete(
-    ctx: &Context,
+    ctx: Arc<Context>,
     command: &InteractionCommand,
     country: Option<&str>,
     region: &str,
 ) -> Result<()> {
     let Some(country) = country else {
         let choices = single_choice("Must specify country first");
-        command.autocomplete(ctx, choices).await?;
+        command.autocomplete(&ctx, choices).await?;
 
         return Ok(());
     };
@@ -637,7 +637,7 @@ async fn handle_autocomplete(
 
     let Some(country_code) = country_code else {
         let choices = single_choice("Invalid country");
-        command.autocomplete(ctx, choices).await?;
+        command.autocomplete(&ctx, choices).await?;
 
         return Ok(());
     };
@@ -648,7 +648,7 @@ async fn handle_autocomplete(
         RedisData::Original(country_regions) => {
             let Some(regions) = country_regions.get(country_code.as_ref()) else {
                 let choices = single_choice("No regions for specified country");
-                command.autocomplete(ctx, choices).await?;
+                command.autocomplete(&ctx, choices).await?;
 
                 return Ok(());
             };
@@ -658,7 +658,7 @@ async fn handle_autocomplete(
         RedisData::Archive(country_regions) => {
             let Some(regions) = country_regions.get(country_code.as_ref()) else {
                 let choices = single_choice("No regions for specified country");
-                command.autocomplete(ctx, choices).await?;
+                command.autocomplete(&ctx, choices).await?;
 
                 return Ok(());
             };
@@ -668,7 +668,7 @@ async fn handle_autocomplete(
     };
 
     choices.sort_unstable_by(|a, b| a.name.cmp(&b.name));
-    command.autocomplete(ctx, choices).await?;
+    command.autocomplete(&ctx, choices).await?;
 
     Ok(())
 }

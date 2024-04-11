@@ -16,6 +16,7 @@ use twilight_http::{
 use twilight_model::id::Id;
 
 use crate::{
+    core::ContextExt,
     embeds::{EmbedData, TrackNotificationEmbed},
     manager::{
         redis::{osu::UserArgs, RedisData},
@@ -42,7 +43,7 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
                     // * Note: If scores are empty, (user_id, mode) will not be reset into the
                     //   tracking queue
                     if !scores.is_empty() {
-                        process_osu_tracking(&ctx, &scores, None).await
+                        process_osu_tracking(ctx.cloned(), &scores, None).await
                     }
                 }
                 Err(OsuError::NotFound) => {
@@ -75,7 +76,11 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
     }
 }
 
-pub async fn process_osu_tracking(ctx: &Context, scores: &[Score], user: Option<&RedisData<User>>) {
+pub async fn process_osu_tracking(
+    ctx: Arc<Context>,
+    scores: &[Score],
+    user: Option<&RedisData<User>>,
+) {
     // Make sure scores is not empty
     let (key, new_last) = match scores.iter().max_by_key(|s| s.ended_at) {
         Some(score) => {
@@ -120,7 +125,7 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &[Score], user: Option<
     let mut user = TrackUser::new(key, user);
 
     // Process scores
-    match score_loop(ctx, &mut user, max, last, scores, &channels).await {
+    match score_loop(ctx.cloned(), &mut user, max, last, scores, &channels).await {
         Ok(_) => {}
         Err(OsuError::NotFound) => {
             if let Err(err) = ctx
@@ -139,7 +144,7 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &[Score], user: Option<
 }
 
 async fn score_loop(
-    ctx: &Context,
+    ctx: Arc<Context>,
     user: &mut TrackUser<'_>,
     max: u8,
     last: OffsetDateTime,
@@ -163,7 +168,7 @@ async fn score_loop(
             }
         };
 
-        let embed = user.embed(ctx, score, &map, idx).await?.build();
+        let embed = user.embed(ctx.cloned(), score, &map, idx).await?.build();
 
         // Send the embed to each tracking channel
         for (&channel, &limit) in channels.iter() {
@@ -231,20 +236,20 @@ impl<'u> TrackUser<'u> {
 
     async fn embed(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         score: &Score,
         map: &OsuMap,
         idx: u8,
     ) -> OsuResult<EmbedBuilder> {
         let data = if let Some(user) = self.user.as_deref() {
-            TrackNotificationEmbed::new(user, score, map, idx, ctx).await
+            TrackNotificationEmbed::new(user, score, map, idx, &ctx).await
         } else {
             let TrackedOsuUserKey { user_id, mode } = self.key;
             let args = UserArgs::user_id(user_id).mode(mode);
             let user = ctx.redis().osu_user(args).await?;
             let user = self.user.get_or_insert(Cow::Owned(user));
 
-            TrackNotificationEmbed::new(user.as_ref(), score, map, idx, ctx).await
+            TrackNotificationEmbed::new(user.as_ref(), score, map, idx, &ctx).await
         };
 
         Ok(data.build())

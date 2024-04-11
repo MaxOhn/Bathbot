@@ -36,7 +36,10 @@ use crate::{
         ActiveMessages,
     },
     commands::{GameModeOption, GradeOption},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::{
         redis::{osu::UserArgs, RedisData},
         OsuMap, OwnedReplayScore,
@@ -886,7 +889,7 @@ pub(super) async fn top(
     let pre_len = scores.len();
 
     // Filter scores according to mods, combo, acc, and grade
-    let entries = match process_scores(&ctx, scores, &args, &farm).await {
+    let entries = match process_scores(ctx.cloned(), scores, &args, &farm).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -1192,7 +1195,7 @@ impl<'q> Searchable<TopCriteria<'q>> for TopEntry {
 }
 
 async fn process_scores(
-    ctx: &Context,
+    ctx: Arc<Context>,
     scores: Vec<Score>,
     args: &TopArgs<'_>,
     farm: &Farm,

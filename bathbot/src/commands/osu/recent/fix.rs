@@ -15,7 +15,7 @@ use rosu_v2::{
 use super::RecentFix;
 use crate::{
     commands::osu::{require_link, user_not_found, FixEntry, FixScore},
-    core::{commands::CommandOrigin, Context},
+    core::{commands::CommandOrigin, Context, ContextExt},
     embeds::{EmbedData, FixScoreEmbed},
     manager::redis::osu::{UserArgs, UserArgsSlim},
     util::osu::IfFc,

@@ -15,7 +15,10 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::user_not_found;
 use crate::{
     commands::GameModeOption,
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     embeds::{EmbedData, WhatIfEmbed},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},

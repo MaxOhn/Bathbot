@@ -15,7 +15,7 @@ use super::{MedalMissing, MedalMissingOrder};
 use crate::{
     active::{impls::MedalsMissingPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };

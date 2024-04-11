@@ -21,7 +21,7 @@ use twilight_model::{
 };
 
 use super::game::{game_loop, Game, LoopResult};
-use crate::{commands::fun::GameDifficulty, util::ChannelExt, Context};
+use crate::{commands::fun::GameDifficulty, core::ContextExt, util::ChannelExt, Context};
 
 const GAME_LEN: Duration = Duration::from_secs(180);
 
@@ -49,8 +49,14 @@ impl BackgroundGame {
         let mut scores = HashMap::with_hasher(IntHasher);
 
         // Initialize game
-        let (game, mut img) =
-            Game::new(&ctx, &entries, &mut previous_ids, effects, difficulty).await;
+        let (game, mut img) = Game::new(
+            ctx.cloned(),
+            &entries,
+            &mut previous_ids,
+            effects,
+            difficulty,
+        )
+        .await;
         let game = Arc::new(RwLock::new(game));
         let game_clone = Arc::clone(&game);
 
@@ -122,8 +128,14 @@ impl BackgroundGame {
                 }
 
                 // Initialize next game
-                let (game, img_) =
-                    Game::new(&ctx, &entries, &mut previous_ids, effects, difficulty).await;
+                let (game, img_) = Game::new(
+                    ctx.cloned(),
+                    &entries,
+                    &mut previous_ids,
+                    effects,
+                    difficulty,
+                )
+                .await;
                 img = img_;
                 *game_clone.write().await = game;
             }

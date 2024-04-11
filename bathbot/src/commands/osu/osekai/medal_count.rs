@@ -7,6 +7,7 @@ use eyre::Result;
 use super::OsekaiMedalCount;
 use crate::{
     active::{impls::MedalCountPagination, ActiveMessages},
+    core::ContextExt,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };

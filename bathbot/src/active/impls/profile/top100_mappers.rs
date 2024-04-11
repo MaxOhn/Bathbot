@@ -1,24 +1,24 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use bathbot_util::IntHasher;
 use rosu_v2::prelude::Username;
 
 use super::{availability::MapperNames, ProfileMenu};
-use crate::core::Context;
+use crate::core::{Context, ContextExt};
 
 pub(super) struct Top100Mappers;
 
 impl Top100Mappers {
-    pub(super) async fn prepare<'s>(
-        ctx: &Context,
-        menu: &'s mut ProfileMenu,
-    ) -> Option<Vec<MapperEntry<'s>>> {
+    pub(super) async fn prepare(
+        ctx: Arc<Context>,
+        menu: &mut ProfileMenu,
+    ) -> Option<Vec<MapperEntry<'_>>> {
         let mut entries: Vec<_> = {
             let user_id = menu.user.user_id();
             let mode = menu.user.mode();
             let scores = menu
                 .scores
-                .get(ctx, user_id, mode, menu.legacy_scores)
+                .get(ctx.cloned(), user_id, mode, menu.legacy_scores)
                 .await?;
             let mut entries = HashMap::with_capacity_and_hasher(32, IntHasher);
 
@@ -44,7 +44,7 @@ impl Top100Mappers {
         entries.truncate(10);
 
         let mode = menu.user.mode();
-        let MapperNames(mapper_names) = menu.mapper_names.get(ctx, mode, &entries).await?;
+        let MapperNames(mapper_names) = menu.mapper_names.get(&ctx, mode, &entries).await?;
 
         let mappers = entries
             .into_iter()

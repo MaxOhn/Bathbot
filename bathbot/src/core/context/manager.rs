@@ -3,9 +3,8 @@ use rosu_v2::prelude::GameMode;
 
 use super::Context;
 use crate::manager::{
-    redis::RedisManager, ApproxManager, BookmarkManager, GameManager, GithubManager,
-    GuildConfigManager, HuismetbenenCountryManager, MapManager, OsuMap, OsuTrackingManager,
-    OsuUserManager, PpManager, ReplayManager, ScoresManager, TwitchManager, UserConfigManager,
+    ApproxManager, BookmarkManager, GameManager, GithubManager, GuildConfigManager, OsuMap,
+    OsuTrackingManager, OsuUserManager, PpManager, ReplayManager, TwitchManager, UserConfigManager,
 };
 
 impl Context {
@@ -17,28 +16,12 @@ impl Context {
         UserConfigManager::new(&self.clients.psql)
     }
 
-    pub fn redis(&self) -> RedisManager<'_> {
-        RedisManager::new(self)
-    }
-
-    pub fn osu_map(&self) -> MapManager<'_> {
-        MapManager::new(&self.clients.psql, self)
-    }
-
     pub fn osu_user(&self) -> OsuUserManager<'_> {
         OsuUserManager::new(&self.clients.psql)
     }
 
-    pub fn osu_scores(&self) -> ScoresManager<'_> {
-        ScoresManager::new(self, &self.clients.psql)
-    }
-
     pub fn osu_tracking(&self) -> OsuTrackingManager<'_> {
         OsuTrackingManager::new(&self.clients.psql)
-    }
-
-    pub fn huismetbenen(&self) -> HuismetbenenCountryManager<'_> {
-        HuismetbenenCountryManager::new(self)
     }
 
     pub fn pp<'d, 'm>(&'d self, map: &'m OsuMap) -> PpManager<'d, 'm> {

@@ -13,7 +13,7 @@ use super::{SnipePlayerGain, SnipePlayerLoss};
 use crate::{
     active::{impls::SnipeDifferencePagination, ActiveMessages},
     commands::osu::require_link,
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };

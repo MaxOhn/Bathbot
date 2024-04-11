@@ -20,7 +20,10 @@ use super::{SnipePlayerList, SnipePlayerListOrder};
 use crate::{
     active::{impls::SnipePlayerListPagination, ActiveMessages},
     commands::osu::{require_link, HasMods, ModsResult},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,
     Context,

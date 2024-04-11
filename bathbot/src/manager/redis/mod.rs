@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Write};
+use std::{borrow::Cow, fmt::Write, sync::Arc};
 
 use bathbot_cache::{Cache, CacheSerializer};
 use bathbot_model::{
@@ -15,7 +15,7 @@ use rosu_v2::prelude::{GameMode, OsuError, Rankings as RosuRankings};
 pub use self::data::RedisData;
 use crate::{
     commands::osu::MapOrScore,
-    core::{BotMetrics, Context},
+    core::{BotMetrics, Context, ContextExt},
     util::interaction::InteractionCommand,
 };
 
@@ -25,13 +25,13 @@ mod data;
 
 type RedisResult<T, A = T, E = Report> = Result<RedisData<T, A>, E>;
 
-#[derive(Copy, Clone)]
-pub struct RedisManager<'c> {
-    ctx: &'c Context,
+#[derive(Clone)]
+pub struct RedisManager {
+    ctx: Arc<Context>,
 }
 
-impl<'c> RedisManager<'c> {
-    pub fn new(ctx: &'c Context) -> Self {
+impl RedisManager {
+    pub fn new(ctx: Arc<Context>) -> Self {
         Self { ctx }
     }
 

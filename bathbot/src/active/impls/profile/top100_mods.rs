@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::HashMap};
+use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use bathbot_util::IntHasher;
 use rosu_v2::prelude::{GameMod, GameModIntermode, GameModsIntermode, Score};
@@ -13,7 +13,7 @@ pub(super) struct Top100Mods {
 }
 
 impl Top100Mods {
-    pub(super) async fn prepare(ctx: &Context, menu: &mut ProfileMenu) -> Option<Self> {
+    pub(super) async fn prepare(ctx: Arc<Context>, menu: &mut ProfileMenu) -> Option<Self> {
         let user_id = menu.user.user_id();
         let mode = menu.user.mode();
 

@@ -17,7 +17,7 @@ use super::{CompareMostPlayed, AT_LEAST_ONE};
 use crate::{
     active::{impls::CompareMostPlayedPagination, ActiveMessages},
     commands::osu::{user_not_found, UserExtraction},
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };
@@ -110,8 +110,8 @@ pub(super) async fn mostplayed(
         },
     };
 
-    let fut1 = get_user_and_scores(&ctx, &user_id1);
-    let fut2 = get_user_and_scores(&ctx, &user_id2);
+    let fut1 = get_user_and_scores(ctx.cloned(), &user_id1);
+    let fut2 = get_user_and_scores(ctx.cloned(), &user_id2);
 
     let (user1, maps1, user2, maps2) = match tokio::join!(fut1, fut2) {
         (Ok((user1, maps1)), Ok((user2, maps2))) => (user1, maps1, user2, maps2),
@@ -190,10 +190,10 @@ pub(super) async fn mostplayed(
 }
 
 async fn get_user_and_scores(
-    ctx: &Context,
+    ctx: Arc<Context>,
     user_id: &UserId,
 ) -> OsuResult<(RedisData<User>, Vec<MostPlayedMap>)> {
-    match UserArgs::rosu_id(ctx, user_id).await {
+    match UserArgs::rosu_id(&ctx, user_id).await {
         UserArgs::Args(args) => {
             let score_fut = ctx.osu().user_most_played(args.user_id).limit(100);
             let user_fut = ctx.redis().osu_user_from_args(args);

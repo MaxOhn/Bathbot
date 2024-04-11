@@ -12,7 +12,7 @@ use super::BadgesUser;
 use crate::{
     active::{impls::BadgesPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
-    core::{commands::CommandOrigin, Context},
+    core::{commands::CommandOrigin, Context, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     util::osu::get_combined_thumbnail,
 };

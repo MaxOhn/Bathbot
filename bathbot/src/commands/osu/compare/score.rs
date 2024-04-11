@@ -34,9 +34,12 @@ use super::{CompareScoreAutocomplete, ScoreOrder};
 use crate::{
     active::{impls::CompareScoresPagination, ActiveMessages},
     commands::osu::{require_link, HasMods, ModsResult},
-    core::commands::{
-        prefix::{Args, ArgsNum},
-        CommandOrigin,
+    core::{
+        commands::{
+            prefix::{Args, ArgsNum},
+            CommandOrigin,
+        },
+        ContextExt,
     },
     manager::{
         redis::{
@@ -311,7 +314,7 @@ pub async fn slash_compare(
     args: CompareScoreAutocomplete<'_>,
 ) -> Result<()> {
     if let AutocompleteValue::Focused(diff) = args.difficulty {
-        return handle_autocomplete(&ctx, command, Some(diff), &args.map, args.index).await;
+        return handle_autocomplete(ctx, command, Some(diff), &args.map, args.index).await;
     }
 
     match CompareScoreArgs::try_from(args) {
@@ -507,7 +510,7 @@ pub(super) async fn score(
     };
 
     let process_fut = process_scores(
-        &ctx,
+        ctx.cloned(),
         map_id,
         scores,
         mods.as_ref(),
@@ -534,16 +537,19 @@ pub(super) async fn score(
     let user_args = UserArgsSlim::user_id(user.user_id()).mode(mode);
     let scores_manager = ctx.osu_scores();
     let pinned_fut = scores_manager
+        .clone()
         .pinned(legacy_scores)
         .limit(100)
         .exec(user_args);
+
+    let scores_manager_clone = scores_manager.clone();
 
     let global_fut = async {
         if matches!(
             map.status(),
             RankStatus::Ranked | RankStatus::Loved | RankStatus::Approved
         ) {
-            let fut = scores_manager.map_leaderboard(map_id, mode, None, 50, legacy_scores);
+            let fut = scores_manager_clone.map_leaderboard(map_id, mode, None, 50, legacy_scores);
 
             Some(fut.await)
         } else {
@@ -640,7 +646,7 @@ pub struct CompareEntry {
 }
 
 async fn process_scores(
-    ctx: &Context,
+    ctx: Arc<Context>,
     map_id: u32,
     mut scores: Vec<Score>,
     mods: Option<&ModSelection>,
@@ -671,7 +677,7 @@ async fn process_scores(
 
         let has_replay = score.replay;
         let score = ScoreSlim::new(score, pp);
-        let if_fc = IfFc::new(ctx, &score, &map).await;
+        let if_fc = IfFc::new(&ctx, &score, &map).await;
 
         let entry = CompareEntry {
             score,
@@ -758,6 +764,7 @@ async fn compare_from_score(
     let user_args = UserArgsSlim::user_id(score.user_id).mode(mode);
     let scores_manager = ctx.osu_scores();
     let pinned_fut = scores_manager
+        .clone()
         .pinned(legacy_scores)
         .limit(100)
         .exec(user_args);
@@ -824,8 +831,10 @@ async fn compare_from_score(
 
     let status = map.status();
 
+    let scores_manager_clone = scores_manager.clone();
+
     let global_idx = if matches!(status, Ranked | Loved | Approved) {
-        let fut = scores_manager.map_leaderboard(map.map_id(), mode, None, 50, legacy_scores);
+        let fut = scores_manager_clone.map_leaderboard(map.map_id(), mode, None, 50, legacy_scores);
 
         match fut.await {
             Ok(scores) => global_idx(&entries, &scores, user_id),
@@ -876,7 +885,7 @@ async fn compare_from_score(
 }
 
 async fn handle_autocomplete(
-    ctx: &Context,
+    ctx: Arc<Context>,
     command: &InteractionCommand,
     difficulty: Option<String>,
     map: &Option<Cow<'_, str>>,
@@ -928,7 +937,7 @@ async fn handle_autocomplete(
             .collect(),
     };
 
-    command.autocomplete(ctx, choices).await?;
+    command.autocomplete(&ctx, choices).await?;
 
     Ok(())
 }

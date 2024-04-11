@@ -29,7 +29,10 @@ use twilight_model::{
 use super::{BitMapElement, HasMods, ModsResult};
 use crate::{
     active::{impls::MapPagination, ActiveMessages},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
@@ -376,7 +379,8 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
         Ok::<_, Report>(cover.thumbnail_exact(W, H))
     };
 
-    let (strain_values_res, img_res) = tokio::join!(strain_values(&ctx, map_id, &mods), bg_fut);
+    let (strain_values_res, img_res) =
+        tokio::join!(strain_values(ctx.cloned(), map_id, &mods), bg_fut);
 
     let img_opt = match img_res {
         Ok(img) => Some(img),
@@ -436,7 +440,7 @@ struct GraphStrains {
 const NEW_STRAIN_COUNT: usize = 200;
 
 async fn strain_values(
-    ctx: &Context,
+    ctx: Arc<Context>,
     map_id: u32,
     mods: &GameModsIntermode,
 ) -> Result<GraphStrains> {

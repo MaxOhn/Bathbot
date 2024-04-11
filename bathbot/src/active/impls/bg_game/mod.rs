@@ -21,7 +21,7 @@ pub use self::game_wrapper::BackgroundGame;
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::fun::GameDifficulty,
-    core::Context,
+    core::{Context, ContextExt},
     util::{interaction::InteractionComponent, Authored, ComponentExt},
 };
 
@@ -404,7 +404,7 @@ impl BackgroundGameSetup {
             );
 
             let game_fut = BackgroundGame::new(
-                Arc::clone(&ctx),
+                ctx.cloned(),
                 channel,
                 entries,
                 self.effects,

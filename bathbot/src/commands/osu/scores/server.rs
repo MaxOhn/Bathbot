@@ -16,7 +16,7 @@ use super::{get_mode, process_scores, separate_content, MapStatus, ServerScores}
 use crate::{
     active::{impls::ScoresServerPagination, ActiveMessages},
     commands::osu::{user_not_found, HasMods, ModsResult, ScoresOrder},
-    core::Context,
+    core::{Context, ContextExt},
     manager::redis::osu::UserArgs,
     util::{
         interaction::InteractionCommand,

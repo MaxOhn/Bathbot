@@ -18,7 +18,7 @@ use super::{MedalList, MedalListOrder};
 use crate::{
     active::{impls::MedalsListPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };

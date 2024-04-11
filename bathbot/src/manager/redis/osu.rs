@@ -137,7 +137,7 @@ impl TryFrom<UserArgs> for UserArgsSlim {
 
 const EXPIRE: usize = 600;
 
-impl<'c> RedisManager<'c> {
+impl RedisManager {
     fn osu_user_key(user_id: u32, mode: GameMode) -> String {
         format!("osu_user_{user_id}_{}", mode as u8)
     }

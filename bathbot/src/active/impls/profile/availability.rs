@@ -1,10 +1,13 @@
-use std::{collections::HashMap, hint, iter, num::NonZeroU32};
+use std::{collections::HashMap, hint, iter, num::NonZeroU32, sync::Arc};
 
 use bathbot_model::RespektiveUserRankHighest;
 use bathbot_util::IntHasher;
 use rosu_v2::prelude::{GameMode, Score, Username};
 
-use crate::{core::Context, manager::redis::osu::UserArgsSlim};
+use crate::{
+    core::{Context, ContextExt},
+    manager::redis::osu::UserArgsSlim,
+};
 
 #[derive(Copy, Clone)]
 pub(super) enum Availability<T> {
@@ -28,7 +31,7 @@ impl<T> Availability<T> {
 impl Availability<Box<[Score]>> {
     pub(super) async fn get(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         user_id: u32,
         mode: GameMode,
         legacy_scores: bool,

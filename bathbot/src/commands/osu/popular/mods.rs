@@ -6,7 +6,7 @@ use rkyv::{Deserialize, Infallible};
 
 use crate::{
     active::{impls::PopularModsPagination, ActiveMessages},
-    core::Context,
+    core::{Context, ContextExt},
     manager::redis::RedisData,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };

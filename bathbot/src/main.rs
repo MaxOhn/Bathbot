@@ -29,7 +29,10 @@ use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
 
 use crate::{
     commands::owner::RESHARD_TX,
-    core::{commands::interaction::InteractionCommands, event_loop, logging, BotConfig, Context},
+    core::{
+        commands::interaction::InteractionCommands, event_loop, logging, BotConfig, Context,
+        ContextExt,
+    },
 };
 
 fn main() {
@@ -116,26 +119,26 @@ async fn async_main() -> Result<()> {
     #[cfg(feature = "twitchtracking")]
     {
         // Spawn twitch worker
-        let twitch_ctx = Arc::clone(&ctx);
+        let twitch_ctx = ctx.cloned();
         tokio::spawn(tracking::twitch_tracking_loop(twitch_ctx));
     }
 
     #[cfg(feature = "osutracking")]
     {
         // Spawn osu tracking worker
-        let osu_tracking_ctx = Arc::clone(&ctx);
+        let osu_tracking_ctx = ctx.cloned();
         tokio::spawn(tracking::osu_tracking_loop(osu_tracking_ctx));
     }
 
     #[cfg(feature = "matchlive")]
     {
         // Spawn osu match ticker worker
-        let match_live_ctx = Arc::clone(&ctx);
+        let match_live_ctx = ctx.cloned();
         tokio::spawn(Context::match_live_loop(match_live_ctx));
     }
 
     // Request members
-    let member_ctx = Arc::clone(&ctx);
+    let member_ctx = ctx.cloned();
 
     tokio::spawn(async move {
         let mut interval = time::interval(Duration::from_millis(600));
@@ -190,7 +193,7 @@ async fn async_main() -> Result<()> {
         .set(reshard_tx)
         .expect("RESHARD_TX has already been set");
 
-    let event_ctx = Arc::clone(&ctx);
+    let event_ctx = ctx.cloned();
 
     tokio::select! {
         _ = event_loop(event_ctx, &mut shards, reshard_rx) => error!("Event loop ended"),

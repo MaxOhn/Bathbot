@@ -23,7 +23,10 @@ use crate::{
         },
         GameModeOption,
     },
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::{redis::osu::UserArgs, Mods},
     Context,
 };

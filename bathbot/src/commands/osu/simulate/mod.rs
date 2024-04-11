@@ -26,7 +26,7 @@ use crate::{
     commands::{osu::parsed_map::AttachedSimulateMap, GameModeOption},
     core::{
         commands::{prefix::Args, CommandOrigin},
-        Context,
+        Context, ContextExt,
     },
     manager::MapError,
     util::{interaction::InteractionCommand, CheckPermissions, InteractionCommandExt},
@@ -96,7 +96,7 @@ async fn simulate(
     let map = args.map.take();
     let mode = args.mode;
 
-    let Some(map) = prepare_map(&ctx, &orig, map, mode).await? else {
+    let Some(map) = prepare_map(ctx.cloned(), &orig, map, mode).await? else {
         return Ok(());
     };
 
@@ -329,7 +329,7 @@ async fn prefix_simulatemania(
 }
 
 async fn prepare_map(
-    ctx: &Context,
+    ctx: Arc<Context>,
     orig: &CommandOrigin<'_>,
     map: Option<SimulateMapArg>,
     mode: Option<GameMode>,
@@ -339,10 +339,10 @@ async fn prepare_map(
         Some(SimulateMapArg::Id(MapIdType::Set(_))) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
 
-            return orig.error(ctx, content).await.map(|_| None);
+            return orig.error(&ctx, content).await.map(|_| None);
         }
         Some(SimulateMapArg::Attachment(attachment)) => {
-            return AttachedSimulateMap::new(ctx, orig, attachment, mode)
+            return AttachedSimulateMap::new(&ctx, orig, attachment, mode)
                 .await
                 .map(|opt| opt.map(SimulateMap::Attached))
         }
@@ -350,7 +350,7 @@ async fn prepare_map(
             let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
                 Err(err) => {
-                    let _ = orig.error(ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                     return Err(err.wrap_err("Failed to retrieve channel history"));
                 }
@@ -362,7 +362,7 @@ async fn prepare_map(
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
 
-                    return orig.error(ctx, content).await.map(|_| None);
+                    return orig.error(&ctx, content).await.map(|_| None);
                 }
             }
         }
@@ -372,7 +372,7 @@ async fn prepare_map(
                 Try specifying a map either by url to the map, or just by map id, \
                 or give me the \"Read Message History\" permission.";
 
-            return orig.error(ctx, content).await.map(|_| None);
+            return orig.error(&ctx, content).await.map(|_| None);
         }
     };
 
@@ -387,10 +387,10 @@ async fn prepare_map(
                 Did you give me a mapset id instead of a map id?"
             );
 
-            return orig.error(ctx, content).await.map(|_| None);
+            return orig.error(&ctx, content).await.map(|_| None);
         }
         Err(MapError::Report(err)) => {
-            let _ = orig.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }

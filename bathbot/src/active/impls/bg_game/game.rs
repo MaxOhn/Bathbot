@@ -1,4 +1,7 @@
-use std::{collections::VecDeque, sync::RwLock};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, RwLock},
+};
 
 use bathbot_model::Effects;
 use bathbot_psql::model::games::MapsetTagsEntries;
@@ -18,7 +21,12 @@ use twilight_model::id::{
 use twilight_standby::future::WaitForMessageStream;
 
 use super::{hints::Hints, img_reveal::ImageReveal, mapset::GameMapset, util};
-use crate::{commands::fun::GameDifficulty, core::BotConfig, util::ChannelExt, Context};
+use crate::{
+    commands::fun::GameDifficulty,
+    core::{BotConfig, ContextExt},
+    util::ChannelExt,
+    Context,
+};
 
 pub struct Game {
     pub mapset: GameMapset,
@@ -29,14 +37,14 @@ pub struct Game {
 
 impl Game {
     pub async fn new(
-        ctx: &Context,
+        ctx: Arc<Context>,
         entries: &MapsetTagsEntries,
         previous_ids: &mut VecDeque<i32>,
         effects: Effects,
         difficulty: GameDifficulty,
     ) -> (Self, Vec<u8>) {
         loop {
-            match Game::new_(ctx, entries, previous_ids, effects, difficulty).await {
+            match Game::new_(ctx.cloned(), entries, previous_ids, effects, difficulty).await {
                 Ok(game) => {
                     let sub_image_result = { game.reveal.read().unwrap().sub_image() };
 
@@ -59,7 +67,7 @@ impl Game {
     }
 
     async fn new_(
-        ctx: &Context,
+        ctx: Arc<Context>,
         entries: &MapsetTagsEntries,
         previous_ids: &mut VecDeque<i32>,
         effects: Effects,

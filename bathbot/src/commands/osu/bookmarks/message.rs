@@ -12,7 +12,7 @@ use twilight_model::channel::Message;
 
 use crate::{
     active::{impls::BookmarksPagination, ActiveMessages},
-    core::Context,
+    core::{Context, ContextExt},
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 

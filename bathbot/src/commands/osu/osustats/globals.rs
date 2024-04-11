@@ -23,7 +23,10 @@ use crate::{
         osu::{user_not_found, HasMods, ModsResult},
         GameModeOption,
     },
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::{redis::osu::UserArgs, OsuMap},
     util::ChannelExt,
     Context,
@@ -216,7 +219,7 @@ pub(super) async fn scores(
         }
     };
 
-    let entries = match process_scores(&ctx, scores, mode).await {
+    let entries = match process_scores(ctx.cloned(), scores, mode).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -468,7 +471,7 @@ pub struct OsuStatsEntry {
 }
 
 async fn process_scores(
-    ctx: &Context,
+    ctx: Arc<Context>,
     scores: Vec<OsuStatsScore>,
     mode: GameMode,
 ) -> Result<BTreeMap<usize, OsuStatsEntry>> {

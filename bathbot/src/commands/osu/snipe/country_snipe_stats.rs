@@ -19,7 +19,7 @@ use twilight_model::guild::Permissions;
 use super::SnipeCountryStats;
 use crate::{
     commands::osu::user_not_found,
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     embeds::{CountrySnipeStatsEmbed, EmbedData},
     manager::redis::{osu::UserArgs, RedisData},
     Context,

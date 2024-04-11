@@ -26,7 +26,7 @@ use twilight_model::{
 use self::state::{ButtonState, HigherLowerState};
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
-    core::Context,
+    core::{Context, ContextExt},
     util::{interaction::InteractionComponent, Authored, ComponentExt, Emote, MessageExt},
 };
 
@@ -111,11 +111,11 @@ impl IActiveMessage for HigherLowerGame {
 
 impl HigherLowerGame {
     pub async fn new_score_pp(
-        ctx: &Context,
+        ctx: Arc<Context>,
         mode: GameMode,
         msg_owner: Id<UserMarker>,
     ) -> Result<Self> {
-        let game_fut = HigherLowerState::start_score_pp(ctx, mode);
+        let game_fut = HigherLowerState::start_score_pp(ctx.cloned(), mode);
         let highscore_fut = ctx
             .games()
             .higherlower_highscore(msg_owner, HlVersion::ScorePp);
@@ -133,7 +133,7 @@ impl HigherLowerGame {
         })
     }
 
-    pub async fn new_farm_maps(ctx: &Context, msg_owner: Id<UserMarker>) -> Result<Self> {
+    pub async fn new_farm_maps(ctx: Arc<Context>, msg_owner: Id<UserMarker>) -> Result<Self> {
         let entries_fut = ctx.redis().osutracker_counts();
         let highscore_fut = ctx
             .games()
@@ -377,7 +377,7 @@ impl HigherLowerGame {
             warn!(?err, "Failed to callback try again button");
         }
 
-        let (state, rx) = match self.state.restart(&ctx).await {
+        let (state, rx) = match self.state.restart(ctx).await {
             Ok(tuple) => tuple,
             Err(err) => return ComponentResult::Err(err),
         };

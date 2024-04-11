@@ -30,7 +30,10 @@ use crate::{
         osu::{require_link, user_not_found},
         GameModeOption, GradeOption,
     },
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::{
         redis::osu::{UserArgs, UserArgsSlim},
         OsuMap, OwnedReplayScore,

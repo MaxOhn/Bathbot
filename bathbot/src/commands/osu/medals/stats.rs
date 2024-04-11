@@ -25,7 +25,7 @@ use twilight_model::guild::Permissions;
 use super::MedalStats;
 use crate::{
     commands::osu::{require_link, user_not_found},
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, MedalStatsEmbed, StatsMedal},
     manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,

@@ -11,7 +11,7 @@ use rosu_v2::{
 use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, TrackListEmbed},
     manager::redis::osu::UserArgs,
     Context,
@@ -36,7 +36,7 @@ pub async fn tracklist(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()>
     let channel_id = orig.channel_id();
     let tracked = ctx.tracking().list(channel_id).await;
 
-    let mut users = match get_users(&ctx, orig.channel_id(), tracked).await {
+    let mut users = match get_users(ctx.cloned(), orig.channel_id(), tracked).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
@@ -69,7 +69,7 @@ pub async fn tracklist(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()>
 }
 
 async fn get_users(
-    ctx: &Context,
+    ctx: Arc<Context>,
     channel: Id<ChannelMarker>,
     tracked: Vec<(TrackedOsuUserKey, u8)>,
 ) -> OsuResult<Vec<TracklistUserEntry>> {

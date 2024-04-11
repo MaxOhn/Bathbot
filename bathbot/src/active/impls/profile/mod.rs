@@ -39,7 +39,7 @@ use self::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::osu::ProfileKind,
-    core::Context,
+    core::{Context, ContextExt},
     manager::redis::RedisData,
     util::{interaction::InteractionComponent, osu::grade_emote, Authored, ComponentExt, Emote},
 };
@@ -272,13 +272,13 @@ impl ProfileMenu {
     }
 
     async fn user_stats(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
-        let bonus_pp = match self.bonus_pp(&ctx).await {
+        let bonus_pp = match self.bonus_pp(ctx.cloned()).await {
             Some(pp) => format!("{pp:.2}pp"),
             None => "-".to_string(),
         };
 
         let scores_fut = self.scores.get(
-            &ctx,
+            ctx.cloned(),
             self.user.user_id(),
             self.user.mode(),
             self.legacy_scores,
@@ -476,7 +476,7 @@ impl ProfileMenu {
 
         description.push_str(":**__\n");
 
-        if let Some(stats) = Top100Stats::prepare(&ctx, self).await {
+        if let Some(stats) = Top100Stats::prepare(ctx, self).await {
             description.push_str("```\n");
 
             let Top100Stats {
@@ -653,7 +653,7 @@ impl ProfileMenu {
 
         description.push_str(":**__\n");
 
-        let fields = if let Some(stats) = Top100Mods::prepare(&ctx, self).await {
+        let fields = if let Some(stats) = Top100Mods::prepare(ctx, self).await {
             fn mod_value<M, V, F, const N: usize>(
                 map: &[(M, V)],
                 to_string: F,
@@ -758,7 +758,7 @@ impl ProfileMenu {
 
         description.push_str(":**__\n");
 
-        if let Some(mappers) = Top100Mappers::prepare(&ctx, self).await {
+        if let Some(mappers) = Top100Mappers::prepare(ctx, self).await {
             description.push_str("```\n");
 
             let mut names_len = 0;
@@ -815,7 +815,7 @@ impl ProfileMenu {
     }
 
     async fn mapper_stats(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
-        let own_maps_in_top100 = self.own_maps_in_top100(&ctx).await;
+        let own_maps_in_top100 = self.own_maps_in_top100(ctx).await;
 
         let (
             mode,
@@ -922,7 +922,7 @@ impl ProfileMenu {
         Ok(BuildPage::new(embed, true))
     }
 
-    async fn bonus_pp(&mut self, ctx: &Context) -> Option<f32> {
+    async fn bonus_pp(&mut self, ctx: Arc<Context>) -> Option<f32> {
         let user_id = self.user.user_id();
         let mode = self.user.mode();
         let scores = self
@@ -941,7 +941,7 @@ impl ProfileMenu {
         Some(bonus_pp.calculate(self.user.stats()))
     }
 
-    async fn own_maps_in_top100(&mut self, ctx: &Context) -> Option<usize> {
+    async fn own_maps_in_top100(&mut self, ctx: Arc<Context>) -> Option<usize> {
         let user_id = self.user.user_id();
         let mode = self.user.mode();
         let scores = self

@@ -14,7 +14,7 @@ use twilight_model::{gateway::CloseCode, user::User};
 
 use self::{interaction::handle_interaction, message::handle_message};
 use super::{buckets::BucketName, BotMetrics, Context};
-use crate::util::Authored;
+use crate::{core::ContextExt, util::Authored};
 
 mod interaction;
 mod message;
@@ -132,7 +132,7 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>, mut reshard_
                         ctx.standby.process(&event);
                         let change = ctx.cache.update(&event).await;
                         BotMetrics::event(&event, change);
-                        let ctx = Arc::clone(&ctx);
+                        let ctx = ctx.cloned();
                         let shard_id = shard.id().number();
 
                         tokio::spawn(async move {

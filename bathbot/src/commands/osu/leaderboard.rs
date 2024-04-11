@@ -32,7 +32,10 @@ use twilight_model::{
 use super::{HasMods, ModsResult};
 use crate::{
     active::{impls::LeaderboardPagination, ActiveMessages},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::{
         redis::{osu::UserArgs, RedisData},
         MapError, Mods, OsuMap,
@@ -336,7 +339,7 @@ async fn leaderboard(
     );
 
     let user_fut = get_user_score(
-        &ctx,
+        ctx.cloned(),
         config.osu,
         map_id,
         map.mode(),
@@ -490,7 +493,7 @@ async fn get_map_id(
 }
 
 async fn get_user_score(
-    ctx: &Context,
+    ctx: Arc<Context>,
     osu_id: Option<u32>,
     map_id: u32,
     mode: GameMode,

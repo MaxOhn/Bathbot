@@ -25,7 +25,7 @@ use super::{MedalCommon, MedalCommonFilter, MedalCommonOrder};
 use crate::{
     active::{impls::MedalsCommonPagination, ActiveMessages},
     commands::osu::UserExtraction,
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     util::osu::get_combined_thumbnail,
     Context,

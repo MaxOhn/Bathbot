@@ -23,7 +23,7 @@ use super::{MedalEmbed, MedalRecent};
 use crate::{
     active::{impls::MedalsRecentPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };

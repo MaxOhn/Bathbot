@@ -1,4 +1,4 @@
-use std::{iter, mem};
+use std::{iter, mem, sync::Arc};
 
 use bathbot_model::{
     rosu_v2::user::{MonthlyCount as MonthlyCountRkyv, User},
@@ -38,36 +38,36 @@ use time::{Date, Month, OffsetDateTime};
 use super::{BitMapElement, H, W};
 use crate::{
     commands::osu::user_not_found,
-    core::{commands::CommandOrigin, Context},
+    core::{commands::CommandOrigin, Context, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,
 };
 
 pub async fn playcount_replays_graph(
-    ctx: &Context,
+    ctx: Arc<Context>,
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     flags: ProfileGraphFlags,
 ) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
-    let user_args = UserArgs::rosu_id(ctx, &user_id).await;
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
 
     let mut user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(ctx, user_id).await;
-            orig.error(ctx, content).await?;
+            let content = user_not_found(&ctx, user_id).await;
+            orig.error(&ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user");
 
             return Err(err);
         }
     };
 
-    let params = ProfileGraphParams::new(ctx, &mut user)
+    let params = ProfileGraphParams::new(&ctx, &mut user)
         .width(W)
         .height(H)
         .flags(flags);
@@ -81,19 +81,19 @@ pub async fn playcount_replays_graph(
             );
 
             let builder = MessageBuilder::new().embed(content);
-            orig.create_message(ctx, builder).await?;
+            orig.create_message(&ctx, builder).await?;
 
             return Ok(None);
         }
         Ok(GraphResult::NoBadges) => {
             let content = format!("`{}` does not have any badges", user.username());
             let builder = MessageBuilder::new().embed(content);
-            orig.create_message(ctx, builder).await?;
+            orig.create_message(&ctx, builder).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
             warn!(?err, "Failed to create profile graph");
 
             return Ok(None);

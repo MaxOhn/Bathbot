@@ -17,7 +17,7 @@ use crate::{
     active::{impls::HelpPrefixMenu, ActiveMessageOriginError, ActiveMessages},
     core::{
         commands::prefix::{PrefixCommand, PrefixCommands},
-        Context,
+        Context, ContextExt,
     },
     util::ChannelExt,
 };
@@ -224,7 +224,7 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message, permissions: Option<Permissio
     }
 
     let help_menu = HelpPrefixMenu::new(msg.guild_id);
-    let active_fut = ActiveMessages::builder(help_menu).begin_with_err(Arc::clone(&ctx), channel);
+    let active_fut = ActiveMessages::builder(help_menu).begin_with_err(ctx.cloned(), channel);
 
     match active_fut.await {
         Ok(_) => Ok(()),

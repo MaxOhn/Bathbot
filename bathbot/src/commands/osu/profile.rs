@@ -17,7 +17,10 @@ use super::{require_link, user_not_found};
 use crate::{
     active::{impls::ProfileMenu, ActiveMessages},
     commands::GameModeOption,
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,

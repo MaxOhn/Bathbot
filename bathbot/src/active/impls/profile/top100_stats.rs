@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use bathbot_util::numbers::MinMaxAvg;
 use eyre::Result;
 use rosu_v2::prelude::Score;
 
 use super::ProfileMenu;
-use crate::core::Context;
+use crate::core::{Context, ContextExt};
 
 pub(super) struct Top100Stats {
     pub acc: MinMaxAvg<f32>,
@@ -20,7 +22,7 @@ pub(super) struct Top100Stats {
 }
 
 impl Top100Stats {
-    pub(super) async fn prepare<'s>(ctx: &Context, menu: &'s mut ProfileMenu) -> Option<&'s Self> {
+    pub(super) async fn prepare(ctx: Arc<Context>, menu: &mut ProfileMenu) -> Option<&Self> {
         if let Some(ref stats) = menu.top100stats {
             return Some(stats);
         }
@@ -29,7 +31,7 @@ impl Top100Stats {
         let mode = menu.user.mode();
         let scores = menu
             .scores
-            .get(ctx, user_id, mode, menu.legacy_scores)
+            .get(ctx.cloned(), user_id, mode, menu.legacy_scores)
             .await?;
 
         match Self::new(ctx, scores).await {
@@ -42,7 +44,7 @@ impl Top100Stats {
         }
     }
 
-    async fn new(ctx: &Context, scores: &[Score]) -> Result<Self> {
+    async fn new(ctx: Arc<Context>, scores: &[Score]) -> Result<Self> {
         let maps_id_checksum = scores
             .iter()
             .map(|score| {

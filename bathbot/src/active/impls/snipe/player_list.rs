@@ -27,7 +27,7 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    core::Context,
+    core::{Context, ContextExt},
     embeds::{HitResultFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap},
     util::{

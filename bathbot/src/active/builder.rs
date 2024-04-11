@@ -15,7 +15,7 @@ use super::{
     origin::{ActiveMessageOrigin, ActiveMessageOriginError},
     ActiveMessage, BuildPage, FullActiveMessage, IActiveMessage,
 };
-use crate::core::Context;
+use crate::core::{Context, ContextExt};
 
 pub struct ActiveMessagesBuilder {
     inner: ActiveMessage,
@@ -61,7 +61,7 @@ impl ActiveMessagesBuilder {
             content,
             defer: _,
         } = active_msg
-            .build_page(Arc::clone(&ctx))
+            .build_page(ctx.cloned())
             .await
             .wrap_err("Failed to build page")?;
 
@@ -95,7 +95,7 @@ impl ActiveMessagesBuilder {
         let (activity_tx, activity_rx) = watch::channel(());
 
         if let Some(until_timeout) = active_msg.until_timeout() {
-            Self::spawn_timeout(Arc::clone(&ctx), activity_rx, msg, channel, until_timeout);
+            Self::spawn_timeout(ctx.cloned(), activity_rx, msg, channel, until_timeout);
 
             let full = FullActiveMessage {
                 active_msg,

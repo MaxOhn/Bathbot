@@ -23,7 +23,10 @@ use crate::{
         osu::{require_link, user_not_found},
         GameModeOption,
     },
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::{redis::osu::UserArgs, OsuMap},
     util::{
         interaction::InteractionCommand,
@@ -269,7 +272,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     let sort = args.sort.unwrap_or_default();
     let content = get_content(user.username(), mode, &mods, args.query.as_deref(), sort);
 
-    let mut entries = match process_scores(&ctx, scores, mods, mode, sort).await {
+    let mut entries = match process_scores(ctx.cloned(), scores, mods, mode, sort).await {
         Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -432,7 +435,7 @@ impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
 }
 
 async fn process_scores(
-    ctx: &Context,
+    ctx: Arc<Context>,
     scores: Vec<Score>,
     mut arg_mods: ModSelection,
     mode: GameMode,

@@ -19,7 +19,7 @@ use twilight_model::guild::Permissions;
 use super::SnipePlayerStats;
 use crate::{
     commands::osu::require_link,
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
     manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,

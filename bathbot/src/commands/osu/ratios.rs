@@ -12,7 +12,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{require_link, user_not_found};
 use crate::{
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, RatioEmbed},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, InteractionCommandExt},

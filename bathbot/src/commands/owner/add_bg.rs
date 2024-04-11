@@ -14,7 +14,7 @@ use tokio::{
 
 use super::OwnerAddBg;
 use crate::{
-    core::BotConfig,
+    core::{BotConfig, ContextExt},
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
@@ -91,7 +91,7 @@ pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddB
     };
 
     // Check if valid mapset id
-    let content = match prepare_mapset(&ctx, mapset_id, &image.filename, mode).await {
+    let content = match prepare_mapset(ctx.cloned(), mapset_id, &image.filename, mode).await {
         Ok(ArtistTitle { artist, title }) => format!(
             "Background for [{artist} - {title}]({OSU_BASE}s/{mapset_id}) successfully added ({mode})",
         ),
@@ -109,7 +109,7 @@ pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddB
 }
 
 async fn prepare_mapset(
-    ctx: &Context,
+    ctx: Arc<Context>,
     mapset_id: u32,
     filename: &str,
     mode: GameMode,

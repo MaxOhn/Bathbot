@@ -29,7 +29,10 @@ use twilight_model::{
 use super::{CompareProfile, AT_LEAST_ONE};
 use crate::{
     commands::{osu::UserExtraction, GameModeOption},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     embeds::{EmbedData, ProfileCompareEmbed},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, InteractionCommandExt},
@@ -147,7 +150,7 @@ pub(super) async fn profile(
     let user_args2 = UserArgs::rosu_id(&ctx, &user_id2).await.mode(mode);
     let score_args = ctx.osu_scores().top(false).limit(100);
 
-    let fut1 = score_args.exec_with_user(user_args1);
+    let fut1 = score_args.clone().exec_with_user(user_args1);
     let fut2 = score_args.exec_with_user(user_args2);
 
     let (user1, user2, scores1, scores2) = match tokio::try_join!(fut1, fut2) {

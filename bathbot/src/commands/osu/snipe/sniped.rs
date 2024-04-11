@@ -30,7 +30,7 @@ use twilight_model::guild::Permissions;
 use super::SnipePlayerSniped;
 use crate::{
     commands::osu::require_link,
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, SnipedEmbed},
     manager::redis::{osu::UserArgs, RedisData},
     Context,

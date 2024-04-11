@@ -1,6 +1,7 @@
 use std::{
     f32::consts::SQRT_2,
     fmt::{Display, Formatter, Result as FmtResult},
+    sync::Arc,
 };
 
 use bathbot_model::OsuTrackerIdCount;
@@ -11,7 +12,10 @@ use rand::{prelude::SliceRandom, Rng};
 use time::OffsetDateTime;
 
 use super::state::{mapset_cover, HigherLowerState, H, W};
-use crate::{core::Context, manager::redis::RedisData};
+use crate::{
+    core::{Context, ContextExt},
+    manager::redis::RedisData,
+};
 
 pub type FarmEntries = RedisData<Vec<OsuTrackerIdCount>>;
 
@@ -57,7 +61,7 @@ fn weight(prev: u32, curr: u32, max: f32, score: u32) -> f32 {
 
 impl FarmMap {
     pub(super) async fn random(
-        ctx: &Context,
+        ctx: Arc<Context>,
         entries: &FarmEntries,
         prev: Option<&Self>,
         curr_score: u32,
@@ -197,7 +201,7 @@ impl FarmMap {
         EmbedBuilder::new().description(description)
     }
 
-    async fn new(ctx: &Context, map_id: u32, farm: u32) -> Result<Self> {
+    async fn new(ctx: Arc<Context>, map_id: u32, farm: u32) -> Result<Self> {
         let map = match ctx.osu_map().map(map_id, None).await {
             Ok(map) => map,
             Err(err) => return Err(Report::new(err).wrap_err("Failed to get beatmap")),

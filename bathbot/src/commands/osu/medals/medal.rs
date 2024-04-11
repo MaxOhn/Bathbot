@@ -26,7 +26,7 @@ use twilight_model::{
 
 use super::{MedalAchieved, MedalInfo_};
 use crate::{
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     manager::redis::RedisData,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
@@ -77,10 +77,10 @@ pub(super) async fn info(
 
     let name = match (name, &orig) {
         (AutocompleteValue::None, CommandOrigin::Interaction { command }) => {
-            return handle_autocomplete(&ctx, command, String::new()).await
+            return handle_autocomplete(ctx, command, String::new()).await
         }
         (AutocompleteValue::Focused(name), CommandOrigin::Interaction { command }) => {
-            return handle_autocomplete(&ctx, command, name).await
+            return handle_autocomplete(ctx, command, name).await
         }
         (AutocompleteValue::Completed(name), _) => name,
         _ => unreachable!(),
@@ -200,12 +200,12 @@ async fn no_medal(
 }
 
 pub async fn handle_autocomplete(
-    ctx: &Context,
+    ctx: Arc<Context>,
     command: &InteractionCommand,
     name: String,
 ) -> Result<()> {
     let name = if name.is_empty() {
-        command.autocomplete(ctx, Vec::new()).await?;
+        command.autocomplete(&ctx, Vec::new()).await?;
 
         return Ok(());
     } else {
@@ -247,7 +247,7 @@ pub async fn handle_autocomplete(
         }
     }
 
-    command.autocomplete(ctx, choices).await?;
+    command.autocomplete(&ctx, choices).await?;
 
     Ok(())
 }
