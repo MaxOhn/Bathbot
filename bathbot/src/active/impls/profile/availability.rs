@@ -95,9 +95,7 @@ impl Availability<MapperNames> {
                             }
                         };
 
-                        if let Err(err) = ctx.osu_user().store_user(&user, mode).await {
-                            warn!(?err, "Failed to upsert user");
-                        }
+                        ctx.osu_user().store(&user, mode).await;
 
                         names.insert(user.user_id, user.username);
                     }

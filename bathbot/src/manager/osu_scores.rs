@@ -116,9 +116,7 @@ impl ScoresManager {
 
         let scores = req.await.wrap_err("Failed to get map leaderboard")?;
 
-        if let Err(err) = self.store(&scores).await {
-            warn!(?err, "Failed to store leaderboard scores");
-        }
+        self.store(&scores).await;
 
         Ok(scores)
     }
@@ -171,12 +169,10 @@ impl ScoresManager {
         }
     }
 
-    async fn store(self, scores: &[Score]) -> Result<()> {
-        self.ctx
-            .psql()
-            .insert_scores(scores)
-            .await
-            .wrap_err("Failed to store scores")
+    async fn store(self, scores: &[Score]) {
+        if let Err(err) = self.ctx.psql().insert_scores(scores).await {
+            warn!(?err, "Failed to store scores");
+        }
     }
 }
 
@@ -309,11 +305,7 @@ impl ScoreArgs {
             }
         };
 
-        let (store_res, _) = tokio::join!(store_fut, tracking_fut);
-
-        if let Err(err) = store_res {
-            warn!(?err, "Failed to store top scores");
-        }
+        tokio::join!(store_fut, tracking_fut);
 
         Ok(scores)
     }

@@ -78,11 +78,7 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
         }
     };
 
-    if let Err(err) = ctx.osu_map().store(&mapset).await {
-        let _ = command.error(&ctx, GENERAL_ISSUE).await;
-
-        return Err(err);
-    }
+    ctx.osu_map().store(&mapset).await;
 
     let map_opt = mapset
         .maps

@@ -223,11 +223,7 @@ impl MapManager {
         }
 
         match self.ctx.osu().beatmapset_from_map_id(map_id).await {
-            Ok(mapset) => {
-                if let Err(err) = self.store(&mapset).await {
-                    warn!("{err:?}");
-                }
-            }
+            Ok(mapset) => self.store(&mapset).await,
             Err(OsuError::NotFound) => return Err(MapError::NotFound),
             Err(err) => {
                 return Err(MapError::Report(
@@ -257,11 +253,7 @@ impl MapManager {
         }
 
         match self.ctx.osu().beatmapset(mapset_id).await {
-            Ok(mapset) => {
-                if let Err(err) = self.store(&mapset).await {
-                    warn!("{err:?}");
-                }
-            }
+            Ok(mapset) => self.store(&mapset).await,
             Err(OsuError::NotFound) => return Err(MapError::NotFound),
             Err(err) => {
                 return Err(MapError::Report(
@@ -286,12 +278,10 @@ impl MapManager {
             .wrap_err("Failed to get map checksum")
     }
 
-    pub async fn store(&self, mapset: &BeatmapsetExtended) -> eyre::Result<()> {
-        self.ctx
-            .psql()
-            .upsert_beatmapset(mapset)
-            .await
-            .wrap_err("Failed to store mapset")
+    pub async fn store(&self, mapset: &BeatmapsetExtended) {
+        if let Err(err) = self.ctx.psql().upsert_beatmapset(mapset).await {
+            warn!(?err, "Failed to store mapset");
+        }
     }
 
     /// Request a [`BeatmapsetExtended`] from a map id and turn it into a
@@ -299,9 +289,7 @@ impl MapManager {
     async fn retrieve_map(&self, map_id: u32) -> Result<OsuMapSlim> {
         match self.ctx.osu().beatmapset_from_map_id(map_id).await {
             Ok(mapset) => {
-                if let Err(err) = self.store(&mapset).await {
-                    warn!("{err:?}");
-                }
+                self.store(&mapset).await;
 
                 OsuMapSlim::try_from_mapset(mapset, map_id)
             }
@@ -316,9 +304,7 @@ impl MapManager {
     async fn retrieve_mapset(&self, mapset_id: u32) -> Result<BeatmapsetExtended> {
         match self.ctx.osu().beatmapset(mapset_id).await {
             Ok(mapset) => {
-                if let Err(err) = self.store(&mapset).await {
-                    warn!("{err:?}");
-                }
+                self.store(&mapset).await;
 
                 Ok(mapset)
             }

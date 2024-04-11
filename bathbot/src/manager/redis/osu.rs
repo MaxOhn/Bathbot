@@ -47,9 +47,7 @@ impl UserArgs {
 
         match (ctx.osu().user(name).mode(mode).await, alt_name) {
             (Ok(user), _) => {
-                if let Err(err) = ctx.osu_user().store_user(&user, mode).await {
-                    warn!("{err:?}");
-                }
+                ctx.osu_user().store(&user, mode).await;
 
                 Self::User {
                     user: Box::new(user.into()),
@@ -59,9 +57,7 @@ impl UserArgs {
             (Err(OsuError::NotFound), Some(alt_name)) => {
                 match ctx.osu().user(alt_name).mode(mode).await {
                     Ok(user) => {
-                        if let Err(err) = ctx.osu_user().store_user(&user, mode).await {
-                            warn!("{err:?}");
-                        }
+                        ctx.osu_user().store(&user, mode).await;
 
                         Self::User {
                             user: Box::new(user.into()),
@@ -176,9 +172,7 @@ impl RedisManager {
 
         user.mode = mode;
 
-        if let Err(err) = self.ctx.osu_user().store_user(&user, mode).await {
-            warn!("{err:?}");
-        }
+        self.ctx.osu_user().store(&user, mode).await;
 
         let user = User::from(user);
 
