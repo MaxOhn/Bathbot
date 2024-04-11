@@ -98,7 +98,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
 
     let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
     let scores_fut = ctx
         .osu_scores()
         .top(true)

@@ -116,7 +116,8 @@ impl ScoresManager {
 
         let scores = req.await.wrap_err("Failed to get map leaderboard")?;
 
-        self.store(&scores).await;
+        let scores_clone = Box::from(scores.as_slice());
+        tokio::spawn(async move { self.store(&scores_clone).await });
 
         Ok(scores)
     }
@@ -293,19 +294,20 @@ impl ScoreArgs {
             Err(err) => return Err(err),
         };
 
-        // Store scores in database
-        let _ctx = self.manager.ctx.cloned();
-        let store_fut = self.manager.store(&scores);
+        let scores_clone = Box::from(scores.as_slice());
 
-        // Pass scores to tracking check
-        let tracking_fut = async {
+        tokio::spawn(async move {
+            let _ctx = self.manager.ctx.cloned();
+
+            // Store scores in database
+            self.manager.store(&scores_clone).await;
+
+            // Pass scores to tracking check
             #[cfg(feature = "osutracking")]
             if let ScoreKind::Top { .. } = self.kind {
-                crate::tracking::process_osu_tracking(_ctx, &scores, None).await
+                crate::tracking::process_osu_tracking(_ctx, &scores_clone, None).await
             }
-        };
-
-        tokio::join!(store_fut, tracking_fut);
+        });
 
         Ok(scores)
     }

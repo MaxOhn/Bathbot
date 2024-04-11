@@ -159,7 +159,7 @@ pub(super) async fn count(
     args: OsuStatsCount<'_>,
 ) -> Result<()> {
     let (user_id, mode) = user_id_mode!(ctx, orig, args);
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,

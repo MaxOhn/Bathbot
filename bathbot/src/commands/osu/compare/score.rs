@@ -460,7 +460,7 @@ pub(super) async fn score(
     };
 
     let mode = map.mode();
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let (user_res, score_res) = match user_args {
         UserArgs::Args(args) => {

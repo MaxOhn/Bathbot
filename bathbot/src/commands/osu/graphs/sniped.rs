@@ -21,7 +21,7 @@ pub async fn sniped_graph(
     orig: &CommandOrigin<'_>,
     user_id: UserId,
 ) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,

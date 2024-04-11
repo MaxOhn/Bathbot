@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
 use bathbot_cache::Cache;
 use bathbot_model::rosu_v2::user::{StatsWrapper, User};
@@ -25,7 +25,7 @@ impl UserArgs {
         Self::Args(UserArgsSlim::user_id(user_id))
     }
 
-    pub async fn rosu_id(ctx: &Context, user_id: &UserId) -> Self {
+    pub async fn rosu_id(ctx: Arc<Context>, user_id: &UserId) -> Self {
         match user_id {
             UserId::Id(user_id) => Self::user_id(*user_id),
             UserId::Name(name) => Self::username(ctx, name).await,
@@ -33,7 +33,7 @@ impl UserArgs {
     }
 
     // TODO: require mode already
-    pub async fn username(ctx: &Context, name: impl AsRef<str>) -> Self {
+    pub async fn username(ctx: Arc<Context>, name: impl AsRef<str>) -> Self {
         let name = name.as_ref();
         let alt_name = Self::alt_name(name);
 
@@ -47,7 +47,11 @@ impl UserArgs {
 
         match (ctx.osu().user(name).mode(mode).await, alt_name) {
             (Ok(user), _) => {
-                ctx.osu_user().store(&user, mode).await;
+                let user_clone = user.clone();
+
+                tokio::spawn(async move {
+                    ctx.osu_user().store(&user_clone, mode).await;
+                });
 
                 Self::User {
                     user: Box::new(user.into()),
@@ -57,7 +61,11 @@ impl UserArgs {
             (Err(OsuError::NotFound), Some(alt_name)) => {
                 match ctx.osu().user(alt_name).mode(mode).await {
                     Ok(user) => {
-                        ctx.osu_user().store(&user, mode).await;
+                        let user_clone = user.clone();
+
+                        tokio::spawn(async move {
+                            ctx.osu_user().store(&user_clone, mode).await;
+                        });
 
                         Self::User {
                             user: Box::new(user.into()),
@@ -171,8 +179,7 @@ impl RedisManager {
         };
 
         user.mode = mode;
-
-        self.ctx.osu_user().store(&user, mode).await;
+        let user_clone = user.clone();
 
         let user = User::from(user);
 
@@ -182,6 +189,12 @@ impl RedisManager {
                 warn!(?err, "Failed to store user");
             }
         }
+
+        drop(conn);
+
+        tokio::spawn(async move {
+            self.ctx.osu_user().store(&user_clone, mode).await;
+        });
 
         Ok(RedisData::new(user))
     }

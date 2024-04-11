@@ -130,10 +130,10 @@ pub(super) async fn common(
     let MedalCommon { sort, filter, .. } = args;
 
     // Retrieve all users and their scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id1).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id1).await;
     let user_fut1 = ctx.redis().osu_user(user_args);
 
-    let user_args = UserArgs::rosu_id(&ctx, &user_id2).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id2).await;
     let user_fut2 = ctx.redis().osu_user(user_args);
 
     let medals_fut = ctx.redis().medals();

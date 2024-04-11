@@ -78,7 +78,9 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
         }
     };
 
-    ctx.osu_map().store(&mapset).await;
+    let mapset_clone = mapset.clone();
+    let ctx_clone = ctx.cloned();
+    tokio::spawn(async move { ctx_clone.osu_map().store(&mapset_clone).await });
 
     let map_opt = mapset
         .maps

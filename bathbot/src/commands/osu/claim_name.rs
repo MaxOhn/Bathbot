@@ -77,7 +77,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         return Ok(());
     }
 
-    let user_id = match UserArgs::username(&ctx, &name).await {
+    let user_id = match UserArgs::username(ctx.cloned(), &name).await {
         UserArgs::Args(args) => args.user_id,
         UserArgs::User { user, .. } => user.user_id,
         UserArgs::Err(OsuError::NotFound) => {

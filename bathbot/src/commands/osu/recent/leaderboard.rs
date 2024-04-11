@@ -223,7 +223,7 @@ pub(super) async fn leaderboard(
     };
 
     // Retrieve the recent scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let scores_fut = ctx
         .osu_scores()

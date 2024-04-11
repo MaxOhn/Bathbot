@@ -193,7 +193,7 @@ async fn get_user_and_scores(
     ctx: Arc<Context>,
     user_id: &UserId,
 ) -> OsuResult<(RedisData<User>, Vec<MostPlayedMap>)> {
-    match UserArgs::rosu_id(&ctx, user_id).await {
+    match UserArgs::rosu_id(ctx.cloned(), user_id).await {
         UserArgs::Args(args) => {
             let score_fut = ctx.osu().user_most_played(args.user_id).limit(100);
             let user_fut = ctx.redis().osu_user_from_args(args);

@@ -206,7 +206,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
     }
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
     let scores_fut = ctx
         .osu_scores()
         .top(false)

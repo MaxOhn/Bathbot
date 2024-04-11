@@ -49,7 +49,7 @@ pub async fn playcount_replays_graph(
     user_id: UserId,
     flags: ProfileGraphFlags,
 ) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
 
     let mut user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,

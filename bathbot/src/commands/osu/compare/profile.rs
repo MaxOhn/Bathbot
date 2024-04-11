@@ -146,8 +146,8 @@ pub(super) async fn profile(
     };
 
     // Retrieve all users and their scores
-    let user_args1 = UserArgs::rosu_id(&ctx, &user_id1).await.mode(mode);
-    let user_args2 = UserArgs::rosu_id(&ctx, &user_id2).await.mode(mode);
+    let user_args1 = UserArgs::rosu_id(ctx.cloned(), &user_id1).await.mode(mode);
+    let user_args2 = UserArgs::rosu_id(ctx.cloned(), &user_id2).await.mode(mode);
     let score_args = ctx.osu_scores().top(false).limit(100);
 
     let fut1 = score_args.clone().exec_with_user(user_args1);

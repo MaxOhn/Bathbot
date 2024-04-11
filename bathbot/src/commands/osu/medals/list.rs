@@ -50,7 +50,7 @@ pub(super) async fn list(
         ..
     } = args;
 
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
     let user_fut = ctx.redis().osu_user(user_args);
     let medals_fut = ctx.redis().medals();
     let ranking_fut = ctx.redis().osekai_ranking::<Rarity>();

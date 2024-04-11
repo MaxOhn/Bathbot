@@ -116,7 +116,7 @@ pub async fn server_scores(
     };
 
     let creator_id = match args.mapper {
-        Some(ref mapper) => match UserArgs::username(&ctx, mapper).await {
+        Some(ref mapper) => match UserArgs::username(ctx.cloned(), mapper).await {
             UserArgs::Args(args) => Some(args.user_id),
             UserArgs::User { user, .. } => Some(user.user_id),
             UserArgs::Err(OsuError::NotFound) => {

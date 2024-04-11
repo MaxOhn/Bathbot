@@ -249,7 +249,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
         }
         Graph::Rank(args) => {
             let (user_id, mode) = user_id_mode!(ctx, orig, args);
-            let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+            let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
             rank_graph(ctx.cloned(), &orig, user_id, user_args)
                 .await
@@ -317,7 +317,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 },
             };
 
-            let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+            let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
             let tz = args
                 .timezone

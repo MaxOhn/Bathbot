@@ -37,7 +37,7 @@ pub(super) async fn user(
         },
     };
 
-    let user_args_fut = UserArgs::rosu_id(&ctx, &user_id);
+    let user_args_fut = UserArgs::rosu_id(ctx.cloned(), &user_id);
     let badges_fut = ctx.redis().badges();
 
     let (user_args_res, badges_res) = tokio::join!(user_args_fut, badges_fut);

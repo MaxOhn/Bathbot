@@ -61,7 +61,7 @@ pub(super) struct MapperNames(pub HashMap<u32, Username, IntHasher>);
 impl Availability<MapperNames> {
     pub(super) async fn get(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         mode: GameMode,
         entries: &[(u32, (u8, f32))],
     ) -> Option<&MapperNames> {
@@ -95,9 +95,15 @@ impl Availability<MapperNames> {
                             }
                         };
 
-                        ctx.osu_user().store(&user, mode).await;
+                        let user_id = user.user_id;
+                        let username = user.username.clone();
 
-                        names.insert(user.user_id, user.username);
+                        let ctx = ctx.cloned();
+                        tokio::spawn(async move {
+                            ctx.osu_user().store(&user, mode).await;
+                        });
+
+                        names.insert(user_id, username);
                     }
                 }
 

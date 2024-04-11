@@ -84,7 +84,7 @@ async fn mostplayed(
     };
 
     // Retrieve the user and their most played maps
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,

@@ -350,7 +350,7 @@ async fn get_user_and_scores(
     user_id: &UserId,
     mode: GameMode,
 ) -> OsuResult<(RedisData<User>, Vec<Score>)> {
-    let args = UserArgs::rosu_id(&ctx, user_id).await.mode(mode);
+    let args = UserArgs::rosu_id(ctx.cloned(), user_id).await.mode(mode);
 
     ctx.osu_scores()
         .top(false)

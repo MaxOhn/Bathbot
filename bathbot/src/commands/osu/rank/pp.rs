@@ -69,7 +69,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
             .await;
     }
 
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
     let user_fut = ctx.redis().osu_user(user_args);
 
     let user = match user_fut.await {
@@ -94,7 +94,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         RankValue::Raw(rank) => RankOrHolder::Rank(rank),
         RankValue::Name(name) => {
             let user_id = UserId::from(name);
-            let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+            let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
             match ctx.redis().osu_user(user_args).await {
                 Ok(target_user) => {

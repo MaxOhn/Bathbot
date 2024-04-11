@@ -361,7 +361,10 @@ async fn request_by_map(
         }
     };
 
-    let (user_res, scores_res) = match UserArgs::rosu_id(&ctx, &user_id).await.mode(map.mode()) {
+    let (user_res, scores_res) = match UserArgs::rosu_id(ctx.cloned(), &user_id)
+        .await
+        .mode(map.mode())
+    {
         UserArgs::Args(args) => {
             let user_fut = ctx.redis().osu_user_from_args(args);
             let scores_fut = ctx
@@ -475,7 +478,7 @@ async fn request_by_score(
     legacy_scores: bool,
 ) -> ScoreResult {
     let score_fut = ctx.osu().score(score_id, mode);
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
     let user_fut = ctx.redis().osu_user(user_args);
 
     let (user, score) = match tokio::join!(user_fut, score_fut) {

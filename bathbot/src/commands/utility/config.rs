@@ -16,6 +16,8 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{SkinValidation, ValidationStatus};
+#[allow(unused)]
+use crate::core::ContextExt;
 use crate::{
     commands::{ShowHideOption, TimezoneOption},
     embeds::{ConfigEmbed, EmbedData},
@@ -309,9 +311,11 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
     let res = {
         match (osu, twitch) {
             (Some(ConfigLink::Link), Some(ConfigLink::Link)) => {
-                handle_both_links(&ctx, &command, &mut config).await
+                handle_both_links(ctx.cloned(), &command, &mut config).await
             }
-            (Some(ConfigLink::Link), _) => handle_osu_link(&ctx, &command, &mut config).await,
+            (Some(ConfigLink::Link), _) => {
+                handle_osu_link(ctx.cloned(), &command, &mut config).await
+            }
             (_, Some(ConfigLink::Link)) => handle_twitch_link(&ctx, &command, &mut config).await,
             (..) => handle_no_links(&ctx, &command, &mut config).await,
         }
@@ -389,7 +393,7 @@ fn twitch_content(state: u8) -> String {
 
 #[cfg(feature = "server")]
 async fn handle_both_links(
-    ctx: &Context,
+    ctx: Arc<Context>,
     command: &InteractionCommand,
     config: &mut UserConfig<OsuUserId>,
 ) -> HandleResult {
@@ -406,12 +410,15 @@ async fn handle_both_links(
     let builder = MessageBuilder::new().embed(embed);
     let fut = async { tokio::try_join!(osu_fut, twitch_fut) };
 
-    let twitch_name = match handle_ephemeral(ctx, command, builder, fut).await {
+    let twitch_name = match handle_ephemeral(&ctx, command, builder, fut).await {
         Some(Ok((osu, twitch))) => {
-            ctx.osu_user().store(&osu, osu.mode).await;
-
             config.osu = Some(osu.user_id);
             config.twitch_id = Some(twitch.user_id);
+
+            let ctx = ctx.cloned();
+            tokio::spawn(async move {
+                ctx.osu_user().store(&osu, osu.mode).await;
+            });
 
             Some(twitch.display_name)
         }
@@ -425,7 +432,7 @@ async fn handle_both_links(
     };
 
     if let Err(err) = ctx.user_config().store(author.id, config).await {
-        let _ = command.error(ctx, GENERAL_ISSUE).await;
+        let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
         return HandleResult::Err(err);
     }
@@ -473,7 +480,7 @@ async fn handle_twitch_link(
 
 #[cfg(feature = "server")]
 async fn handle_osu_link(
-    ctx: &Context,
+    ctx: Arc<Context>,
     command: &InteractionCommand,
     config: &mut UserConfig<OsuUserId>,
 ) -> HandleResult {
@@ -485,11 +492,16 @@ async fn handle_osu_link(
 
     let builder = MessageBuilder::new().embed(embed);
 
-    config.osu = match handle_ephemeral(ctx, command, builder, fut).await {
+    config.osu = match handle_ephemeral(&ctx, command, builder, fut).await {
         Some(Ok(user)) => {
-            ctx.osu_user().store(&user, user.mode).await;
+            let user_id = user.user_id;
 
-            Some(user.user_id)
+            let ctx = ctx.cloned();
+            tokio::spawn(async move {
+                ctx.osu_user().store(&user, user.mode).await;
+            });
+
+            Some(user_id)
         }
         Some(Err(err)) => return HandleResult::Err(err),
         None => return HandleResult::Done,
@@ -511,7 +523,7 @@ async fn handle_osu_link(
             }
             Err(err) => {
                 let _ = command
-                    .error(ctx, bathbot_util::constants::TWITCH_API_ISSUE)
+                    .error(&ctx, bathbot_util::constants::TWITCH_API_ISSUE)
                     .await;
 
                 return HandleResult::Err(err.wrap_err("failed to get twitch user by id"));
@@ -520,7 +532,7 @@ async fn handle_osu_link(
     }
 
     if let Err(err) = ctx.user_config().store(author.id, config).await {
-        let _ = command.error(ctx, GENERAL_ISSUE).await;
+        let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
         return HandleResult::Err(err);
     }

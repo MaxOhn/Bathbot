@@ -92,7 +92,7 @@ pub async fn user_scores(
     };
 
     let creator_id = match args.mapper {
-        Some(ref mapper) => match UserArgs::username(&ctx, mapper).await {
+        Some(ref mapper) => match UserArgs::username(ctx.cloned(), mapper).await {
             UserArgs::Args(args) => Some(args.user_id),
             UserArgs::User { user, .. } => Some(user.user_id),
             UserArgs::Err(OsuError::NotFound) => {
@@ -159,7 +159,7 @@ async fn get_user(
     user_id: &UserId,
     mode: Option<GameMode>,
 ) -> Result<RedisData<User>, OsuError> {
-    let mut args = UserArgs::rosu_id(&ctx, user_id).await;
+    let mut args = UserArgs::rosu_id(ctx.cloned(), user_id).await;
 
     if let Some(mode) = mode {
         args = args.mode(mode);

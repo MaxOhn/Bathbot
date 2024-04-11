@@ -321,7 +321,9 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
         }
     };
 
-    ctx.osu_map().store(&mapset).await;
+    let mapset_clone = mapset.clone();
+    let ctx_clone = ctx.cloned();
+    tokio::spawn(async move { ctx_clone.osu_map().store(&mapset_clone).await });
 
     let Some(mut maps) = mapset.maps.take().filter(|maps| !maps.is_empty()) else {
         return orig.error(&ctx, "The mapset has no maps").await;
