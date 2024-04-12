@@ -4,8 +4,6 @@ use http::HeaderValue;
 use serde::{de::Error, Deserialize, Deserializer};
 use time::{Duration, OffsetDateTime};
 
-use crate::deser::datetime_z;
-
 fn str_to_u64<'de, D: Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
     <&str as Deserialize>::deserialize(d)?
         .parse()
@@ -68,7 +66,7 @@ pub struct TwitchStream {
     pub username: Box<str>,
     #[serde(rename = "type", deserialize_with = "get_live")]
     pub live: bool,
-    #[serde(with = "datetime_z")]
+    #[serde(with = "super::deser::datetime_rfc3339")]
     pub started_at: OffsetDateTime,
 }
 
@@ -89,14 +87,14 @@ pub struct TwitchDataList<T> {
 
 #[derive(Debug, Deserialize)]
 pub struct TwitchVideo {
-    #[serde(with = "datetime_z")]
+    #[serde(with = "super::deser::datetime_rfc3339")]
     pub created_at: OffsetDateTime,
     /// Video duration in seconds
     #[serde(deserialize_with = "duration_to_u32")]
     pub duration: u32,
     #[serde(deserialize_with = "str_to_u64")]
     pub id: u64,
-    #[serde(with = "datetime_z")]
+    #[serde(with = "super::deser::datetime_rfc3339")]
     pub published_at: OffsetDateTime,
     pub title: Box<str>,
     // Gets modified inside the struct so required to keep as `String`

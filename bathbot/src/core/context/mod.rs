@@ -38,6 +38,7 @@ use twilight_model::{
 use twilight_standby::Standby;
 
 pub use self::ext::ContextExt;
+use self::osutrack::OsuTrackUserNotifTimestamps;
 use super::{
     buckets::{BucketName, Buckets},
     BotConfig, BotMetrics,
@@ -52,6 +53,7 @@ mod games;
 mod manager;
 mod matchlive;
 mod messages;
+mod osutrack;
 mod shutdown;
 mod twitch;
 
@@ -346,6 +348,7 @@ struct ContextData {
     tracked_streams: TrackedStreams,          // read-heavy
     guild_shards: GuildShards,                // necessary to request members for a guild
     miss_analyzer_guilds: MissAnalyzerGuilds, // read-heavy
+    osutrack_user_notif_timestamps: OsuTrackUserNotifTimestamps,
     #[cfg(feature = "twitch")]
     online_twitch_streams: crate::tracking::OnlineTwitchStreams,
 }
@@ -384,6 +387,7 @@ impl ContextData {
             .await
             .wrap_err("Failed to create osu tracking")?,
             miss_analyzer_guilds,
+            osutrack_user_notif_timestamps: OsuTrackUserNotifTimestamps::default(),
             #[cfg(feature = "twitch")]
             online_twitch_streams: crate::tracking::OnlineTwitchStreams::default(),
         })

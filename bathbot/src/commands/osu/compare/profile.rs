@@ -1,7 +1,7 @@
 use std::{borrow::Cow, io::Cursor, sync::Arc};
 
 use bathbot_macros::{command, SlashCommand};
-use bathbot_model::RespektiveUser;
+use bathbot_model::{RankAccPeaks, RespektiveUser};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -192,7 +192,11 @@ pub(super) async fn profile(
         .client()
         .get_respektive_users([user1.user_id(), user2.user_id()], mode);
 
-    let (thumbnail_res, score_ranks_res) = tokio::join!(thumbnail_fut, score_ranks_fut);
+    let osutrack_fut1 = ctx.client().osu_user_rank_acc_peak(user1.user_id(), mode);
+    let osutrack_fut2 = ctx.client().osu_user_rank_acc_peak(user2.user_id(), mode);
+
+    let (thumbnail_res, score_ranks_res, osutrack_res1, osutrack_res2) =
+        tokio::join!(thumbnail_fut, score_ranks_fut, osutrack_fut1, osutrack_fut2);
 
     // Create the thumbnail
     let thumbnail = match thumbnail_res {
@@ -218,8 +222,48 @@ pub(super) async fn profile(
         }
     };
 
-    let profile_result1 = CompareResult::calc(mode, &scores1, user1.stats(), score_rank_data1);
-    let profile_result2 = CompareResult::calc(mode, &scores2, user2.stats(), score_rank_data2);
+    let osutrack_peaks1 = match osutrack_res1 {
+        Ok(peaks) => peaks,
+        Err(err) => {
+            warn!(
+                user_id = user1.user_id(),
+                ?mode,
+                ?err,
+                "Failed to get osutrack peaks"
+            );
+
+            None
+        }
+    };
+
+    let osutrack_peaks2 = match osutrack_res2 {
+        Ok(peaks) => peaks,
+        Err(err) => {
+            warn!(
+                user_id = user2.user_id(),
+                ?mode,
+                ?err,
+                "Failed to get osutrack peaks"
+            );
+
+            None
+        }
+    };
+
+    let profile_result1 = CompareResult::calc(
+        mode,
+        &scores1,
+        user1.stats(),
+        score_rank_data1,
+        osutrack_peaks1,
+    );
+    let profile_result2 = CompareResult::calc(
+        mode,
+        &scores2,
+        user2.stats(),
+        score_rank_data2,
+        osutrack_peaks2,
+    );
 
     // Creating the embed
     let embed_data =
@@ -339,6 +383,7 @@ pub struct CompareResult {
     pub bonus_pp: f32,
     pub top1pp: f32,
     pub score_rank_data: Option<RespektiveUser>,
+    pub osutrack_peaks: Option<RankAccPeaks>,
     pub hits: u32,
     pub misses: u32,
 }
@@ -349,6 +394,7 @@ impl CompareResult {
         scores: &[Score],
         stats: impl UserStats,
         score_rank_data: Option<RespektiveUser>,
+        osutrack_peaks: Option<RankAccPeaks>,
     ) -> Self {
         let mut pp = MinMaxAvg::new();
         let mut map_len = MinMaxAvg::new();
@@ -387,6 +433,7 @@ impl CompareResult {
             bonus_pp: bonus_pp.calculate(stats),
             top1pp: scores.first().and_then(|score| score.pp).unwrap_or(0.0),
             score_rank_data,
+            osutrack_peaks,
             hits,
             misses,
         }
