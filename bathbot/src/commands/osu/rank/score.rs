@@ -15,7 +15,10 @@ use rosu_v2::prelude::{OsuError, UserId, Username};
 use super::{RankScore, RankValue};
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,
     Context,
@@ -168,7 +171,7 @@ pub(super) async fn score(
             .await;
     }
 
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
@@ -219,7 +222,7 @@ pub(super) async fn score(
         }
         RankValue::Raw(rank) => rank,
         RankValue::Name(name) => {
-            let user_id = match UserArgs::username(&ctx, name).await {
+            let user_id = match UserArgs::username(ctx.cloned(), name).await {
                 UserArgs::Args(args) => args.user_id,
                 UserArgs::User { user, .. } => {
                     rank_holder = Some(RankHolder {

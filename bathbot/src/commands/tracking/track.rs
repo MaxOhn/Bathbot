@@ -8,7 +8,7 @@ use time::OffsetDateTime;
 
 use super::TrackArgs;
 use crate::{
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, TrackEmbed},
     util::ChannelExt,
     Context,
@@ -53,7 +53,7 @@ pub(super) async fn track(
 
     let mode = mode.unwrap_or(GameMode::Osu);
 
-    let users = match super::get_names(&ctx, &more_names, mode).await {
+    let users = match super::get_names(ctx.cloned(), &more_names, mode).await {
         Ok(map) => map,
         Err((OsuError::NotFound, name)) => {
             let content = format!("User `{name}` was not found");

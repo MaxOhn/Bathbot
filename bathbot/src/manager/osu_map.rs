@@ -1,10 +1,9 @@
-use std::{collections::HashMap, fmt::Debug, io::Error as IoError, ops::Deref, path::PathBuf};
+use std::{
+    collections::HashMap, fmt::Debug, io::Error as IoError, ops::Deref, path::PathBuf, sync::Arc,
+};
 
 use bathbot_client::ClientError;
-use bathbot_psql::{
-    model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapFilename, MapVersion},
-    Database,
-};
+use bathbot_psql::model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapFilename, MapVersion};
 use bathbot_util::{ExponentialBackoff, IntHasher};
 use eyre::{ContextCompat, Report, WrapErr};
 use rosu_pp::{any::DifficultyAttributes, model::beatmap::BeatmapAttributesBuilder, Beatmap};
@@ -21,20 +20,19 @@ use crate::{
 
 type Result<T> = eyre::Result<T, MapError>;
 
-#[derive(Copy, Clone)]
-pub struct MapManager<'d> {
-    psql: &'d Database,
-    ctx: &'d Context,
+#[derive(Clone)]
+pub struct MapManager {
+    ctx: Arc<Context>,
 }
 
-impl<'d> MapManager<'d> {
-    pub fn new(psql: &'d Database, ctx: &'d Context) -> Self {
-        Self { psql, ctx }
+impl MapManager {
+    pub fn new(ctx: Arc<Context>) -> Self {
+        Self { ctx }
     }
 
     pub async fn map(self, map_id: u32, checksum: Option<&str>) -> Result<OsuMap> {
         // Check if map is already stored
-        let map_fut = self.psql.select_osu_map_full(map_id, checksum);
+        let map_fut = self.ctx.psql().select_osu_map_full(map_id, checksum);
         let mut map_path = BotConfig::get().paths.maps.clone();
 
         if let Some((map, mapset, filename)) = map_fut.await.wrap_err("Failed to get map")? {
@@ -49,7 +47,7 @@ impl<'d> MapManager<'d> {
             }
         } else {
             // Otherwise retrieve mapset and store
-            let map_fut = self.retrieve_map(map_id);
+            let map_fut = self.clone().retrieve_map(map_id);
             let prepare_fut = self.prepare_map(map_id, DbMapFilename::Missing, &mut map_path);
             let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
 
@@ -59,7 +57,8 @@ impl<'d> MapManager<'d> {
 
     pub async fn pp_map(self, map_id: u32) -> Result<Beatmap> {
         let filename = self
-            .psql
+            .ctx
+            .psql()
             .select_beatmap_file(map_id)
             .await
             .wrap_err("Failed to get filename")?
@@ -82,14 +81,15 @@ impl<'d> MapManager<'d> {
         mods: impl Into<Mods>,
     ) -> Result<DifficultyAttributes> {
         async fn inner(
-            this: MapManager<'_>,
+            this: MapManager,
             map_id: u32,
             mode: GameMode,
             mods: Mods,
         ) -> Result<DifficultyAttributes> {
             if mods.clock_rate.is_none() {
                 let attrs_fut = this
-                    .psql
+                    .ctx
+                    .psql()
                     .select_map_difficulty_attrs(map_id, mode, mods.bits);
 
                 if let Some(attrs) = attrs_fut.await.wrap_err("Failed to get attributes")? {
@@ -97,9 +97,13 @@ impl<'d> MapManager<'d> {
                 }
             }
 
-            let map = this.pp_map(map_id).await.wrap_err("Failed to get pp map")?;
+            let map = this
+                .clone()
+                .pp_map(map_id)
+                .await
+                .wrap_err("Failed to get pp map")?;
 
-            let attrs = PpManager::from_parsed(&map, map_id, this.psql)
+            let attrs = PpManager::from_parsed(&map, map_id, this.ctx.psql())
                 .mode(mode)
                 .mods(mods)
                 .difficulty()
@@ -114,7 +118,7 @@ impl<'d> MapManager<'d> {
 
     pub async fn map_slim(self, map_id: u32) -> Result<OsuMapSlim> {
         // Check if map is already stored
-        let map_fut = self.psql.select_osu_map_full(map_id, None);
+        let map_fut = self.ctx.psql().select_osu_map_full(map_id, None);
 
         if let Some((map, mapset, _)) = map_fut.await.wrap_err("Failed to get map")? {
             Ok(OsuMapSlim::new(map, mapset))
@@ -129,7 +133,8 @@ impl<'d> MapManager<'d> {
         maps_id_checksum: &HashMap<i32, Option<&str>, IntHasher>,
     ) -> Result<HashMap<u32, OsuMap, IntHasher>> {
         let mut db_maps = self
-            .psql
+            .ctx
+            .psql()
             .select_osu_maps_full(maps_id_checksum)
             .await
             .wrap_err("Failed to get maps")?;
@@ -145,15 +150,20 @@ impl<'d> MapManager<'d> {
         // to cause thread-limitation issues when collected into a FuturesUnordered.
         for (map_id, map_opt) in iter {
             let map = if let Some((map, mapset, filename)) = map_opt {
-                let (pp_map, map_opt) = self.prepare_map(map_id, filename, &mut map_path).await?;
+                let (pp_map, map_opt) = self
+                    .clone()
+                    .prepare_map(map_id, filename, &mut map_path)
+                    .await?;
 
                 match map_opt {
                     Some(map) => OsuMap::new(map, pp_map),
                     None => OsuMap::new(OsuMapSlim::new(map, mapset), pp_map),
                 }
             } else {
-                let map_fut = self.retrieve_map(map_id);
-                let prepare_fut = self.prepare_map(map_id, DbMapFilename::Missing, &mut map_path);
+                let map_fut = self.clone().retrieve_map(map_id);
+                let prepare_fut =
+                    self.clone()
+                        .prepare_map(map_id, DbMapFilename::Missing, &mut map_path);
                 let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
 
                 OsuMap::new(map, pp_map)
@@ -167,7 +177,8 @@ impl<'d> MapManager<'d> {
 
     pub async fn artist_title(self, mapset_id: u32) -> Result<ArtistTitle> {
         let artist_title_opt = self
-            .psql
+            .ctx
+            .psql()
             .select_mapset_artist_title(mapset_id)
             .await
             .wrap_err("Failed to get artist title")?;
@@ -185,7 +196,7 @@ impl<'d> MapManager<'d> {
     }
 
     pub async fn mapset(self, mapset_id: u32) -> Result<DbBeatmapset> {
-        let mapset_fut = self.psql.select_mapset(mapset_id);
+        let mapset_fut = self.ctx.psql().select_mapset(mapset_id);
 
         if let Some(mapset) = mapset_fut.await.wrap_err("Failed to get mapset")? {
             Ok(mapset)
@@ -208,9 +219,25 @@ impl<'d> MapManager<'d> {
         }
     }
 
+    fn mapset_to_map_versions(mapset: &BeatmapsetExtended) -> Vec<MapVersion> {
+        mapset
+            .maps
+            .as_ref()
+            .map(|maps| {
+                maps.iter()
+                    .map(|map| MapVersion {
+                        map_id: map.map_id as i32,
+                        version: map.version.clone(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     pub async fn versions_by_map(self, map_id: u32) -> Result<Vec<MapVersion>> {
         let versions = self
-            .psql
+            .ctx
+            .psql()
             .select_map_versions_by_map_id(map_id)
             .await
             .wrap_err("Failed to get versions by map")?;
@@ -219,30 +246,27 @@ impl<'d> MapManager<'d> {
             return Ok(versions);
         }
 
-        match self.ctx.osu().beatmapset_from_map_id(map_id).await {
-            Ok(mapset) => {
-                if let Err(err) = self.store(&mapset).await {
-                    warn!("{err:?}");
-                }
-            }
+        let mapset = match self.ctx.osu().beatmapset_from_map_id(map_id).await {
+            Ok(mapset) => mapset,
             Err(OsuError::NotFound) => return Err(MapError::NotFound),
             Err(err) => {
                 return Err(MapError::Report(
                     Report::new(err).wrap_err("Failed to retrieve mapset"),
                 ))
             }
-        }
+        };
 
-        self.psql
-            .select_map_versions_by_map_id(map_id)
-            .await
-            .wrap_err("Failed to get versions by map")
-            .map_err(MapError::Report)
+        let versions = Self::mapset_to_map_versions(&mapset);
+
+        tokio::spawn(async move { self.store(&mapset).await });
+
+        Ok(versions)
     }
 
     pub async fn versions_by_mapset(self, mapset_id: u32) -> Result<Vec<MapVersion>> {
         let versions = self
-            .psql
+            .ctx
+            .psql()
             .select_map_versions_by_mapset_id(mapset_id)
             .await
             .wrap_err("Failed to get versions by mapset")?;
@@ -251,49 +275,44 @@ impl<'d> MapManager<'d> {
             return Ok(versions);
         }
 
-        match self.ctx.osu().beatmapset(mapset_id).await {
-            Ok(mapset) => {
-                if let Err(err) = self.store(&mapset).await {
-                    warn!("{err:?}");
-                }
-            }
+        let mapset = match self.ctx.osu().beatmapset(mapset_id).await {
+            Ok(mapset) => mapset,
             Err(OsuError::NotFound) => return Err(MapError::NotFound),
             Err(err) => {
                 return Err(MapError::Report(
                     Report::new(err).wrap_err("Failed to retrieve mapset"),
                 ))
             }
-        }
+        };
 
-        self.psql
-            .select_map_versions_by_mapset_id(mapset_id)
-            .await
-            .wrap_err("Failed to get versions by mapset")
-            .map_err(MapError::Report)
+        let versions = Self::mapset_to_map_versions(&mapset);
+
+        tokio::spawn(async move { self.store(&mapset).await });
+
+        Ok(versions)
     }
 
     pub async fn checksum(self, map_id: u32) -> eyre::Result<Option<Box<str>>> {
-        self.psql
+        self.ctx
+            .psql()
             .select_beatmap_checksum(map_id)
             .await
             .wrap_err("Failed to get map checksum")
     }
 
-    pub async fn store(self, mapset: &BeatmapsetExtended) -> eyre::Result<()> {
-        self.psql
-            .upsert_beatmapset(mapset)
-            .await
-            .wrap_err("Failed to store mapset")
+    pub async fn store(&self, mapset: &BeatmapsetExtended) {
+        if let Err(err) = self.ctx.psql().upsert_beatmapset(mapset).await {
+            warn!(?err, "Failed to store mapset");
+        }
     }
 
     /// Request a [`BeatmapsetExtended`] from a map id and turn it into a
     /// [`OsuMapSlim`]
-    async fn retrieve_map(&self, map_id: u32) -> Result<OsuMapSlim> {
+    async fn retrieve_map(self, map_id: u32) -> Result<OsuMapSlim> {
         match self.ctx.osu().beatmapset_from_map_id(map_id).await {
             Ok(mapset) => {
-                if let Err(err) = self.store(&mapset).await {
-                    warn!("{err:?}");
-                }
+                let mapset_clone = mapset.clone();
+                tokio::spawn(async move { self.store(&mapset_clone).await });
 
                 OsuMapSlim::try_from_mapset(mapset, map_id)
             }
@@ -305,12 +324,11 @@ impl<'d> MapManager<'d> {
     }
 
     /// Request a [`BeatmapsetExtended`] from a mapset id
-    async fn retrieve_mapset(&self, mapset_id: u32) -> Result<BeatmapsetExtended> {
+    async fn retrieve_mapset(self, mapset_id: u32) -> Result<BeatmapsetExtended> {
         match self.ctx.osu().beatmapset(mapset_id).await {
             Ok(mapset) => {
-                if let Err(err) = self.store(&mapset).await {
-                    warn!("{err:?}");
-                }
+                let mapset_clone = mapset.clone();
+                tokio::spawn(async move { self.store(&mapset_clone).await });
 
                 Ok(mapset)
             }
@@ -323,7 +341,7 @@ impl<'d> MapManager<'d> {
 
     /// Make sure the map's current file is available
     async fn prepare_map(
-        &self,
+        self,
         map_id: u32,
         filename: DbMapFilename,
         map_path: &mut PathBuf,
@@ -353,7 +371,7 @@ impl<'d> MapManager<'d> {
                 info!("Checksum mismatch for map {map_id}, re-downloading...");
 
                 let map_fut = self.download_map_file(map_id);
-                let map_slim_fut = self.retrieve_map(map_id);
+                let map_slim_fut = self.clone().retrieve_map(map_id);
 
                 let (map_res, map_slim_res) = tokio::join!(map_fut, map_slim_fut);
 
@@ -409,7 +427,7 @@ impl<'d> MapManager<'d> {
                         map_path.push(&filename);
 
                         let write_fut = fs::write(&map_path, &bytes);
-                        let db_fut = self.psql.insert_beatmap_file(map_id, &filename);
+                        let db_fut = self.ctx.psql().insert_beatmap_file(map_id, &filename);
 
                         let (write_res, db_res) = tokio::join!(write_fut, db_fut);
                         write_res.wrap_err("Failed writing to file")?;

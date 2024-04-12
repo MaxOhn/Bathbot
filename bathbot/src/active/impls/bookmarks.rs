@@ -37,7 +37,7 @@ use crate::{
         pagination::{handle_pagination_component, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    core::Context,
+    core::{Context, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionComponent, Authored, ComponentExt, Emote},
 };
@@ -59,7 +59,7 @@ pub struct BookmarksPagination {
 
 impl BookmarksPagination {
     async fn cached_entry<'a>(
-        ctx: &Context,
+        ctx: Arc<Context>,
         entries: &'a mut CachedBookmarkEntries,
         map: &MapBookmark,
     ) -> Result<&'a CachedBookmarkEntry> {
@@ -68,8 +68,9 @@ impl BookmarksPagination {
             Entry::Vacant(entry) => entry,
         };
 
-        let map_fut = ctx.osu_map().pp_map(map.map_id);
-        let creator_fut = creator_name(ctx, map);
+        let map_manager = ctx.osu_map();
+        let map_fut = map_manager.pp_map(map.map_id);
+        let creator_fut = creator_name(ctx.cloned(), map);
         let (map_res, gd_creator) = tokio::join!(map_fut, creator_fut);
         let pp_map = map_res.wrap_err("Failed to get pp map")?;
 
@@ -104,7 +105,7 @@ impl BookmarksPagination {
         let map = &self.bookmarks[self.pages.index()];
 
         let CachedBookmarkEntry { pp_map, gd_creator } =
-            Self::cached_entry(&ctx, &mut self.cached_entries, map).await?;
+            Self::cached_entry(ctx, &mut self.cached_entries, map).await?;
 
         let attrs = Difficulty::new().calculate(pp_map);
         let stars = attrs.stars();
@@ -432,7 +433,7 @@ impl IActiveMessage for BookmarksPagination {
     }
 }
 
-async fn creator_name<'m>(ctx: &Context, map: &MapBookmark) -> Option<Username> {
+async fn creator_name(ctx: Arc<Context>, map: &MapBookmark) -> Option<Username> {
     if map.mapper_id == map.creator_id {
         return None;
     }

@@ -17,6 +17,7 @@ use crate::{
         ActiveMessages,
     },
     commands::GameModeOption,
+    core::ContextExt,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
@@ -78,9 +79,9 @@ async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -
                 None => ctx.user_config().mode(user).await?.unwrap_or(GameMode::Osu),
             };
 
-            HigherLowerGame::new_score_pp(&ctx, mode, user).await
+            HigherLowerGame::new_score_pp(ctx.cloned(), mode, user).await
         }
-        HigherLower::FarmMaps(_) => HigherLowerGame::new_farm_maps(&ctx, user).await,
+        HigherLower::FarmMaps(_) => HigherLowerGame::new_farm_maps(ctx.cloned(), user).await,
         HigherLower::Leaderboard(ref args) => {
             return higherlower_leaderboard(ctx, command, args.version).await
         }

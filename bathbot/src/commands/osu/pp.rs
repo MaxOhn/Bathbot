@@ -10,7 +10,10 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::user_not_found;
 use crate::{
     commands::GameModeOption,
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     embeds::{EmbedData, PpMissingEmbed},
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
@@ -187,7 +190,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
     }
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
     let scores_fut = ctx
         .osu_scores()
         .top(false)

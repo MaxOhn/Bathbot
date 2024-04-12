@@ -27,7 +27,10 @@ use crate::{
         osu::{user_not_found, UserExtraction},
         GameModeOption,
     },
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
     Context,
@@ -210,8 +213,8 @@ pub(super) async fn top(
         },
     };
 
-    let fut1 = get_user_and_scores(&ctx, &user_id1, mode);
-    let fut2 = get_user_and_scores(&ctx, &user_id2, mode);
+    let fut1 = get_user_and_scores(ctx.cloned(), &user_id1, mode);
+    let fut2 = get_user_and_scores(ctx.cloned(), &user_id2, mode);
 
     let (user1, scores1, user2, scores2) = match tokio::join!(fut1, fut2) {
         (Ok((user1, scores1)), Ok((user2, scores2))) => (user1, scores1, user2, scores2),
@@ -343,11 +346,11 @@ pub(super) async fn top(
 }
 
 async fn get_user_and_scores(
-    ctx: &Context,
+    ctx: Arc<Context>,
     user_id: &UserId,
     mode: GameMode,
 ) -> OsuResult<(RedisData<User>, Vec<Score>)> {
-    let args = UserArgs::rosu_id(ctx, user_id).await.mode(mode);
+    let args = UserArgs::rosu_id(ctx.cloned(), user_id).await.mode(mode);
 
     ctx.osu_scores()
         .top(false)

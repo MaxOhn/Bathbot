@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
 use bathbot_model::rosu_v2::ranking::ArchivedRankingsUser;
 use bathbot_util::{
@@ -14,7 +14,7 @@ use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
     active::impls::higherlower::state::{mapset_cover, HigherLowerState, H, W},
-    core::Context,
+    core::{Context, ContextExt},
     manager::{redis::RedisData, OsuMapSlim},
     util::{osu::grade_emote, Emote},
 };
@@ -40,7 +40,7 @@ pub(super) struct ScorePp {
 
 impl ScorePp {
     pub(super) async fn random(
-        ctx: &Context,
+        ctx: Arc<Context>,
         mode: GameMode,
         prev: Option<&Self>,
         curr_score: u32,

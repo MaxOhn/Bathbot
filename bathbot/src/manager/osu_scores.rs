@@ -1,8 +1,7 @@
+use std::sync::Arc;
+
 use bathbot_model::rosu_v2::user::User;
-use bathbot_psql::{
-    model::osu::{DbScores, DbScoresBuilder, DbTopScores},
-    Database,
-};
+use bathbot_psql::model::osu::{DbScores, DbScoresBuilder, DbTopScores};
 use bathbot_util::{osu::ModSelection, IntHasher};
 use eyre::{Result, WrapErr};
 use rosu_v2::{
@@ -14,17 +13,16 @@ use super::redis::{
     osu::{UserArgs, UserArgsSlim},
     RedisData,
 };
-use crate::core::Context;
+use crate::core::{Context, ContextExt};
 
-#[derive(Copy, Clone)]
-pub struct ScoresManager<'c> {
-    ctx: &'c Context,
-    psql: &'c Database,
+#[derive(Clone)]
+pub struct ScoresManager {
+    ctx: Arc<Context>,
 }
 
-impl<'c> ScoresManager<'c> {
-    pub fn new(ctx: &'c Context, psql: &'c Database) -> Self {
-        Self { ctx, psql }
+impl ScoresManager {
+    pub fn new(ctx: Arc<Context>) -> Self {
+        Self { ctx }
     }
 
     fn scores_builder<'a>(
@@ -74,7 +72,7 @@ impl<'c> ScoresManager<'c> {
         grade: Option<Grade>,
     ) -> Result<DbScores<IntHasher>> {
         Self::scores_builder(mode, mods, country_code, map_id, grade)
-            .build_discord(self.psql, users)
+            .build_discord(self.ctx.psql(), users)
             .await
             .wrap_err("Failed to select scores")
     }
@@ -90,7 +88,7 @@ impl<'c> ScoresManager<'c> {
         grade: Option<Grade>,
     ) -> Result<DbScores<IntHasher>> {
         Self::scores_builder(mode, mods, country_code, map_id, grade)
-            .build_osu(self.psql, users)
+            .build_osu(self.ctx.psql(), users)
             .await
             .wrap_err("Failed to select scores")
     }
@@ -118,9 +116,8 @@ impl<'c> ScoresManager<'c> {
 
         let scores = req.await.wrap_err("Failed to get map leaderboard")?;
 
-        if let Err(err) = self.store(&scores).await {
-            warn!(?err, "Failed to store leaderboard scores");
-        }
+        let scores_clone = Box::from(scores.as_slice());
+        tokio::spawn(async move { self.store(&scores_clone).await });
 
         Ok(scores)
     }
@@ -131,13 +128,14 @@ impl<'c> ScoresManager<'c> {
         user_ids: Option<&[i32]>,
         country_code: Option<&str>,
     ) -> Result<DbTopScores<IntHasher>> {
-        self.psql
+        self.ctx
+            .psql()
             .select_top100_scores(mode, country_code, user_ids)
             .await
             .wrap_err("Failed to fetch top scores")
     }
 
-    pub fn top(self, legacy_scores: bool) -> ScoreArgs<'c> {
+    pub fn top(self, legacy_scores: bool) -> ScoreArgs {
         ScoreArgs {
             manager: self,
             kind: ScoreKind::Top { limit: 100 },
@@ -145,7 +143,7 @@ impl<'c> ScoresManager<'c> {
         }
     }
 
-    pub fn recent(self, legacy_scores: bool) -> ScoreArgs<'c> {
+    pub fn recent(self, legacy_scores: bool) -> ScoreArgs {
         ScoreArgs {
             manager: self,
             kind: ScoreKind::Recent {
@@ -156,7 +154,7 @@ impl<'c> ScoresManager<'c> {
         }
     }
 
-    pub fn pinned(self, legacy_scores: bool) -> ScoreArgs<'c> {
+    pub fn pinned(self, legacy_scores: bool) -> ScoreArgs {
         ScoreArgs {
             manager: self,
             kind: ScoreKind::Pinned { limit: 100 },
@@ -164,7 +162,7 @@ impl<'c> ScoresManager<'c> {
         }
     }
 
-    pub fn user_on_map(self, map_id: u32, legacy_scores: bool) -> ScoreArgs<'c> {
+    pub fn user_on_map(self, map_id: u32, legacy_scores: bool) -> ScoreArgs {
         ScoreArgs {
             manager: self,
             kind: ScoreKind::UserMap { map_id },
@@ -172,17 +170,16 @@ impl<'c> ScoresManager<'c> {
         }
     }
 
-    async fn store(self, scores: &[Score]) -> Result<()> {
-        self.psql
-            .insert_scores(scores)
-            .await
-            .wrap_err("Failed to store scores")
+    async fn store(self, scores: &[Score]) {
+        if let Err(err) = self.ctx.psql().insert_scores(scores).await {
+            warn!(?err, "Failed to store scores");
+        }
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct ScoreArgs<'c> {
-    manager: ScoresManager<'c>,
+#[derive(Clone)]
+pub struct ScoreArgs {
+    manager: ScoresManager,
     kind: ScoreKind,
     legacy_scores: bool,
 }
@@ -195,7 +192,7 @@ enum ScoreKind {
     UserMap { map_id: u32 },
 }
 
-impl<'c> ScoreArgs<'c> {
+impl ScoreArgs {
     pub fn limit(mut self, limit: usize) -> Self {
         match &mut self.kind {
             ScoreKind::Top { limit: limit_ } => *limit_ = limit,
@@ -221,12 +218,13 @@ impl<'c> ScoreArgs<'c> {
 
     pub async fn exec(self, user_args: UserArgsSlim) -> OsuResult<Vec<Score>> {
         let UserArgsSlim { user_id, mode } = user_args;
-        let ctx = self.manager.ctx;
 
         // Retrieve score(s)
         let scores_res = match self.kind {
             ScoreKind::Top { limit } => {
-                ctx.osu()
+                self.manager
+                    .ctx
+                    .osu()
                     .user_scores(user_id)
                     .best()
                     .limit(limit)
@@ -239,7 +237,9 @@ impl<'c> ScoreArgs<'c> {
                 limit,
                 include_fails,
             } => {
-                ctx.osu()
+                self.manager
+                    .ctx
+                    .osu()
                     .user_scores(user_id)
                     .recent()
                     .limit(limit)
@@ -250,7 +250,9 @@ impl<'c> ScoreArgs<'c> {
                     .await
             }
             ScoreKind::Pinned { limit } => {
-                ctx.osu()
+                self.manager
+                    .ctx
+                    .osu()
                     .user_scores(user_id)
                     .pinned()
                     .limit(limit)
@@ -260,7 +262,9 @@ impl<'c> ScoreArgs<'c> {
                     .await
             }
             ScoreKind::UserMap { map_id } => {
-                ctx.osu()
+                self.manager
+                    .ctx
+                    .osu()
                     .beatmap_user_scores(map_id, user_id)
                     .mode(mode)
                     .legacy_only(self.legacy_scores)
@@ -275,7 +279,13 @@ impl<'c> ScoreArgs<'c> {
             Err(OsuError::NotFound) => {
                 // Remove stats of unknown/restricted users so they don't appear in the
                 // leaderboard
-                if let Err(err) = ctx.osu_user().remove_stats_and_scores(user_id).await {
+                if let Err(err) = self
+                    .manager
+                    .ctx
+                    .osu_user()
+                    .remove_stats_and_scores(user_id)
+                    .await
+                {
                     warn!(?err, "Failed to remove stats of unknown user");
                 }
 
@@ -284,22 +294,20 @@ impl<'c> ScoreArgs<'c> {
             Err(err) => return Err(err),
         };
 
-        // Store scores in database
-        let store_fut = self.manager.store(&scores);
+        let scores_clone = Box::from(scores.as_slice());
 
-        // Pass scores to tracking check
-        let tracking_fut = async {
+        tokio::spawn(async move {
+            let _ctx = self.manager.ctx.cloned();
+
+            // Store scores in database
+            self.manager.store(&scores_clone).await;
+
+            // Pass scores to tracking check
             #[cfg(feature = "osutracking")]
             if let ScoreKind::Top { .. } = self.kind {
-                crate::tracking::process_osu_tracking(ctx, &scores, None).await
+                crate::tracking::process_osu_tracking(_ctx, &scores_clone, None).await
             }
-        };
-
-        let (store_res, _) = tokio::join!(store_fut, tracking_fut);
-
-        if let Err(err) = store_res {
-            warn!(?err, "Failed to store top scores");
-        }
+        });
 
         Ok(scores)
     }

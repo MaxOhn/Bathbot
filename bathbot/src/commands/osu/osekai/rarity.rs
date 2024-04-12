@@ -6,6 +6,7 @@ use eyre::Result;
 
 use crate::{
     active::{impls::MedalRarityPagination, ActiveMessages},
+    core::ContextExt,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };

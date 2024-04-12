@@ -19,7 +19,7 @@ use twilight_model::guild::Permissions;
 use super::SnipePlayerStats;
 use crate::{
     commands::osu::require_link,
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
     manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,
@@ -78,7 +78,7 @@ pub(super) async fn player_stats(
         },
     };
 
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,

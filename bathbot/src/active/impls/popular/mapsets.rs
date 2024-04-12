@@ -20,7 +20,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::MapsetEntry,
-    core::Context,
+    core::{Context, ContextExt},
     util::interaction::{InteractionComponent, InteractionModal},
 };
 

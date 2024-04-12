@@ -25,7 +25,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::CustomAttrs,
-    core::Context,
+    core::{Context, ContextExt},
     embeds::attachment,
     manager::redis::{osu::UserArgs, RedisData},
     util::{
@@ -116,8 +116,9 @@ impl MapPagination {
         let mut info_value = String::with_capacity(128);
         let mut fields = Vec::with_capacity(3);
 
-        let map_fut = ctx.osu_map().pp_map(map.map_id);
-        let creator_fut = creator_name(&ctx, map, &self.mapset);
+        let map_manager = ctx.osu_map();
+        let map_fut = map_manager.pp_map(map.map_id);
+        let creator_fut = creator_name(ctx.cloned(), map, &self.mapset);
         let (map_res, gd_creator) = tokio::join!(map_fut, creator_fut);
 
         let mut rosu_map = map_res.wrap_err("Failed to get pp map")?;
@@ -315,10 +316,10 @@ impl MapPagination {
     }
 }
 
-async fn creator_name<'m>(
-    ctx: &Context,
+async fn creator_name(
+    ctx: Arc<Context>,
     map: &BeatmapExtended,
-    mapset: &'m BeatmapsetExtended,
+    mapset: &BeatmapsetExtended,
 ) -> Option<Username> {
     if map.creator_id == mapset.creator_id {
         return None;

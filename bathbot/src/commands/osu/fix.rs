@@ -21,7 +21,10 @@ use twilight_model::{
 
 use super::{require_link, user_not_found, HasMods, ModsResult};
 use crate::{
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     embeds::{EmbedData, FixScoreEmbed},
     manager::{
         redis::{
@@ -237,10 +240,18 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
 
     let data_result = match args.id {
         Some(MapOrScore::Score { id, mode }) => {
-            request_by_score(&ctx, &orig, id, mode, user_id, legacy_scores).await
+            request_by_score(ctx.cloned(), &orig, id, mode, user_id, legacy_scores).await
         }
         Some(MapOrScore::Map(MapIdType::Map(id))) => {
-            request_by_map(&ctx, &orig, id, user_id, mods.as_ref(), legacy_scores).await
+            request_by_map(
+                ctx.cloned(),
+                &orig,
+                id,
+                user_id,
+                mods.as_ref(),
+                legacy_scores,
+            )
+            .await
         }
         Some(MapOrScore::Map(MapIdType::Set(_))) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
@@ -259,7 +270,15 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
 
             match ctx.find_map_id_in_msgs(&msgs, 0).await {
                 Some(MapIdType::Map(id)) => {
-                    request_by_map(&ctx, &orig, id, user_id, mods.as_ref(), legacy_scores).await
+                    request_by_map(
+                        ctx.cloned(),
+                        &orig,
+                        id,
+                        user_id,
+                        mods.as_ref(),
+                        legacy_scores,
+                    )
+                    .await
                 }
                 None | Some(MapIdType::Set(_)) => {
                     let content = "No beatmap specified and none found in recent channel history. \
@@ -315,7 +334,7 @@ pub struct FixScore {
 // Retrieve user's score on the map, the user itself, and the map including
 // mapset
 async fn request_by_map(
-    ctx: &Context,
+    ctx: Arc<Context>,
     orig: &CommandOrigin<'_>,
     map_id: u32,
     user_id: UserId,
@@ -330,19 +349,22 @@ async fn request_by_map(
                 Did you give me a mapset id instead of a map id?"
             );
 
-            return match orig.error(ctx, content).await {
+            return match orig.error(&ctx, content).await {
                 Ok(_) => ScoreResult::Done,
                 Err(err) => ScoreResult::Error(err),
             };
         }
         Err(MapError::Report(err)) => {
-            let _ = orig.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return ScoreResult::Error(err);
         }
     };
 
-    let (user_res, scores_res) = match UserArgs::rosu_id(ctx, &user_id).await.mode(map.mode()) {
+    let (user_res, scores_res) = match UserArgs::rosu_id(ctx.cloned(), &user_id)
+        .await
+        .mode(map.mode())
+    {
         UserArgs::Args(args) => {
             let user_fut = ctx.redis().osu_user_from_args(args);
             let scores_fut = ctx
@@ -368,15 +390,15 @@ async fn request_by_map(
     let user = match user_res {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(ctx, user_id).await;
+            let content = user_not_found(&ctx, user_id).await;
 
-            return match orig.error(ctx, content).await {
+            return match orig.error(&ctx, content).await {
                 Ok(_) => ScoreResult::Done,
                 Err(err) => ScoreResult::Error(err),
             };
         }
         Err(err) => {
-            let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
             let wrap = "Failed to get user";
 
             return ScoreResult::Error(Report::new(err).wrap_err(wrap));
@@ -397,7 +419,7 @@ async fn request_by_map(
             }),
         },
         Err(err) => {
-            let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
             let wrap = "Failed to get scores";
 
             return ScoreResult::Error(Report::new(err).wrap_err(wrap));
@@ -426,7 +448,7 @@ async fn request_by_map(
             let top = match top_res {
                 Ok(scores) => scores,
                 Err(err) => {
-                    let _ = orig.error(ctx, OSU_API_ISSUE).await;
+                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
                     let wrap = "failed to get top scores";
 
                     return ScoreResult::Error(Report::new(err).wrap_err(wrap));
@@ -437,7 +459,7 @@ async fn request_by_map(
 
             // Not being done concurrently with the previous two because
             // then the map retrieval might happen twice
-            let if_fc = IfFc::new(ctx, &score, &map).await;
+            let if_fc = IfFc::new(&ctx, &score, &map).await;
 
             Some(FixScore { score, top, if_fc })
         }
@@ -448,7 +470,7 @@ async fn request_by_map(
 }
 
 async fn request_by_score(
-    ctx: &Context,
+    ctx: Arc<Context>,
     orig: &CommandOrigin<'_>,
     score_id: u64,
     mode: GameMode,
@@ -456,15 +478,15 @@ async fn request_by_score(
     legacy_scores: bool,
 ) -> ScoreResult {
     let score_fut = ctx.osu().score(score_id, mode);
-    let user_args = UserArgs::rosu_id(ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
     let user_fut = ctx.redis().osu_user(user_args);
 
     let (user, score) = match tokio::join!(user_fut, score_fut) {
         (Ok(user), Ok(score)) => (user, score),
         (Err(OsuError::NotFound), _) => {
-            let content = user_not_found(ctx, user_id).await;
+            let content = user_not_found(&ctx, user_id).await;
 
-            return match orig.error(ctx, content).await {
+            return match orig.error(&ctx, content).await {
                 Ok(_) => ScoreResult::Done,
                 Err(err) => ScoreResult::Error(err),
             };
@@ -472,13 +494,13 @@ async fn request_by_score(
         (_, Err(OsuError::NotFound)) => {
             let content = format!("A score with id {score_id} does not exists");
 
-            return match orig.error(ctx, content).await {
+            return match orig.error(&ctx, content).await {
                 Ok(_) => ScoreResult::Done,
                 Err(err) => ScoreResult::Error(err),
             };
         }
         (Err(err), _) | (_, Err(err)) => {
-            let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user or scores");
 
             return ScoreResult::Error(err);
@@ -501,18 +523,18 @@ async fn request_by_score(
         (Err(MapError::NotFound), _) => {
             let content = format!("There is no map with id {map_id}");
 
-            return match orig.error(ctx, content).await {
+            return match orig.error(&ctx, content).await {
                 Ok(_) => ScoreResult::Done,
                 Err(err) => ScoreResult::Error(err),
             };
         }
         (Err(MapError::Report(err)), _) => {
-            let _ = orig.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return ScoreResult::Error(err);
         }
         (_, Err(err)) => {
-            let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get top scores");
 
             return ScoreResult::Error(err);
@@ -525,7 +547,7 @@ async fn request_by_score(
     };
 
     let score = ScoreSlim::new(score, pp);
-    let if_fc = IfFc::new(ctx, &score, &map).await;
+    let if_fc = IfFc::new(&ctx, &score, &map).await;
 
     let data = FixEntry {
         user,

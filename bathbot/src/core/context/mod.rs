@@ -37,6 +37,7 @@ use twilight_model::{
 };
 use twilight_standby::Standby;
 
+pub use self::ext::ContextExt;
 use super::{
     buckets::{BucketName, Buckets},
     BotConfig, BotMetrics,
@@ -46,6 +47,7 @@ use crate::{
     tracking::Ordr,
 };
 
+mod ext;
 mod games;
 mod manager;
 mod matchlive;
@@ -90,6 +92,10 @@ impl Context {
 
     pub fn ordr(&self) -> Option<&Ordr> {
         self.clients.ordr.as_deref()
+    }
+
+    pub fn psql(&self) -> &Database {
+        &self.clients.psql
     }
 
     #[cfg(feature = "osutracking")]

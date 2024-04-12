@@ -12,7 +12,7 @@ use twilight_model::channel::Message;
 
 use crate::{
     active::{impls::BookmarksPagination, ActiveMessages},
-    core::Context,
+    core::{Context, ContextExt},
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
@@ -78,11 +78,9 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
         }
     };
 
-    if let Err(err) = ctx.osu_map().store(&mapset).await {
-        let _ = command.error(&ctx, GENERAL_ISSUE).await;
-
-        return Err(err);
-    }
+    let mapset_clone = mapset.clone();
+    let ctx_clone = ctx.cloned();
+    tokio::spawn(async move { ctx_clone.osu_map().store(&mapset_clone).await });
 
     let map_opt = mapset
         .maps

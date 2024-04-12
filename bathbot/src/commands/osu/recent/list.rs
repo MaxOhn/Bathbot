@@ -28,7 +28,10 @@ use crate::{
         osu::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder},
         GameModeOption, GradeOption,
     },
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::{redis::osu::UserArgs, Mods, OsuMap},
     util::{
         query::{IFilterCriteria, RegularCriteria, Searchable},
@@ -376,7 +379,7 @@ pub(super) async fn list(
     let grade = grade.map(Grade::from);
 
     // Retrieve the user and their recent scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let include_fails = match (grade, passes) {
         (Some(Grade::F), Some(true)) => return orig.error(&ctx, ":clown:").await,
@@ -422,14 +425,15 @@ pub(super) async fn list(
         }
     };
 
-    let (entries, maps) = match process_scores(&ctx, scores, &args, mode, mods.as_ref()).await {
-        Ok(entries) => entries,
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+    let (entries, maps) =
+        match process_scores(ctx.cloned(), scores, &args, mode, mods.as_ref()).await {
+            Ok(entries) => entries,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("Failed to process scores"));
-        }
-    };
+                return Err(err.wrap_err("Failed to process scores"));
+            }
+        };
 
     let content = message_content(grade, mods.as_ref(), query.as_deref()).unwrap_or_default();
 
@@ -495,7 +499,7 @@ pub struct RecentListEntry {
 }
 
 async fn process_scores(
-    ctx: &Context,
+    ctx: Arc<Context>,
     scores: Vec<Score>,
     args: &RecentList<'_>,
     mode: GameMode,

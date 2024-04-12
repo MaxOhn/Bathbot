@@ -25,7 +25,7 @@ use super::{MedalCommon, MedalCommonFilter, MedalCommonOrder};
 use crate::{
     active::{impls::MedalsCommonPagination, ActiveMessages},
     commands::osu::UserExtraction,
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     util::osu::get_combined_thumbnail,
     Context,
@@ -130,10 +130,10 @@ pub(super) async fn common(
     let MedalCommon { sort, filter, .. } = args;
 
     // Retrieve all users and their scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id1).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id1).await;
     let user_fut1 = ctx.redis().osu_user(user_args);
 
-    let user_args = UserArgs::rosu_id(&ctx, &user_id2).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id2).await;
     let user_fut2 = ctx.redis().osu_user(user_args);
 
     let medals_fut = ctx.redis().medals();

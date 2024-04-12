@@ -7,7 +7,7 @@ use rosu_v2::prelude::GameMode;
 use super::{OsuStatsBest, OsuStatsBestSort};
 use crate::{
     active::{impls::OsuStatsBestPagination, ActiveMessages},
-    core::{commands::CommandOrigin, Context},
+    core::{commands::CommandOrigin, Context, ContextExt},
 };
 
 pub(super) async fn recentbest(

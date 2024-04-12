@@ -1,10 +1,13 @@
-use std::{collections::HashMap, hint, iter, num::NonZeroU32};
+use std::{collections::HashMap, hint, iter, num::NonZeroU32, sync::Arc};
 
 use bathbot_model::RespektiveUserRankHighest;
 use bathbot_util::IntHasher;
 use rosu_v2::prelude::{GameMode, Score, Username};
 
-use crate::{core::Context, manager::redis::osu::UserArgsSlim};
+use crate::{
+    core::{Context, ContextExt},
+    manager::redis::osu::UserArgsSlim,
+};
 
 #[derive(Copy, Clone)]
 pub(super) enum Availability<T> {
@@ -28,7 +31,7 @@ impl<T> Availability<T> {
 impl Availability<Box<[Score]>> {
     pub(super) async fn get(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         user_id: u32,
         mode: GameMode,
         legacy_scores: bool,
@@ -58,7 +61,7 @@ pub(super) struct MapperNames(pub HashMap<u32, Username, IntHasher>);
 impl Availability<MapperNames> {
     pub(super) async fn get(
         &mut self,
-        ctx: &Context,
+        ctx: Arc<Context>,
         mode: GameMode,
         entries: &[(u32, (u8, f32))],
     ) -> Option<&MapperNames> {
@@ -92,11 +95,15 @@ impl Availability<MapperNames> {
                             }
                         };
 
-                        if let Err(err) = ctx.osu_user().store_user(&user, mode).await {
-                            warn!(?err, "Failed to upsert user");
-                        }
+                        let user_id = user.user_id;
+                        let username = user.username.clone();
 
-                        names.insert(user.user_id, user.username);
+                        let ctx = ctx.cloned();
+                        tokio::spawn(async move {
+                            ctx.osu_user().store(&user, mode).await;
+                        });
+
+                        names.insert(user_id, username);
                     }
                 }
 

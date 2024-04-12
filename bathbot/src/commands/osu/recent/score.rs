@@ -30,7 +30,10 @@ use crate::{
         osu::{require_link, user_not_found},
         GameModeOption, GradeOption,
     },
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::{
         redis::osu::{UserArgs, UserArgsSlim},
         OsuMap, OwnedReplayScore,
@@ -389,7 +392,7 @@ pub(super) async fn score(
     let grade = grade.map(Grade::from);
 
     // Retrieve the user and their recent scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let include_fails = match (grade, passes) {
         (Some(Grade::F), Some(true)) => return orig.error(&ctx, ":clown:").await,

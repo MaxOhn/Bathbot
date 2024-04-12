@@ -13,7 +13,7 @@ use super::{SnipePlayerGain, SnipePlayerLoss};
 use crate::{
     active::{impls::SnipeDifferencePagination, ActiveMessages},
     commands::osu::require_link,
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };
@@ -125,7 +125,7 @@ async fn sniped_diff(
     };
 
     // Request the user
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,

@@ -16,7 +16,10 @@ use super::{SnipeCountryList, SnipeCountryListOrder};
 use crate::{
     active::{impls::SnipeCountryListPagination, ActiveMessages},
     commands::osu::user_not_found,
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,
     Context,

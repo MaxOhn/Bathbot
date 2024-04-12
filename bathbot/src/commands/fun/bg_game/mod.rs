@@ -23,6 +23,7 @@ use crate::{
         ActiveMessages,
     },
     commands::ThreadChannel,
+    core::ContextExt,
     util::{interaction::InteractionCommand, Authored, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -325,13 +326,8 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
                 command.callback(&ctx, builder, false).await?;
             }
 
-            let game_fut = BackgroundGame::new(
-                Arc::clone(&ctx),
-                channel,
-                entries,
-                Effects::empty(),
-                difficulty,
-            );
+            let game_fut =
+                BackgroundGame::new(ctx.cloned(), channel, entries, Effects::empty(), difficulty);
 
             ctx.bg_games().own(channel).await.insert(game_fut.await);
 

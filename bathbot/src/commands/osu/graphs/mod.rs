@@ -32,7 +32,7 @@ use self::{
 use super::{require_link, user_not_found};
 use crate::{
     commands::{GameModeOption, ShowHideOption, TimezoneOption},
-    core::{commands::CommandOrigin, Context},
+    core::{commands::CommandOrigin, Context, ContextExt},
     embeds::attachment,
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
@@ -207,7 +207,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 },
             };
 
-            medals_graph(&ctx, &orig, user_id)
+            medals_graph(ctx.cloned(), &orig, user_id)
                 .await
                 .wrap_err("failed to create medals graph")?
         }
@@ -243,15 +243,15 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 return orig.error(&ctx, ":clown:").await;
             }
 
-            playcount_replays_graph(&ctx, &orig, user_id, flags)
+            playcount_replays_graph(ctx.cloned(), &orig, user_id, flags)
                 .await
                 .wrap_err("failed to create profile graph")?
         }
         Graph::Rank(args) => {
             let (user_id, mode) = user_id_mode!(ctx, orig, args);
-            let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+            let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
-            rank_graph(&ctx, &orig, user_id, user_args)
+            rank_graph(ctx.cloned(), &orig, user_id, user_args)
                 .await
                 .wrap_err("failed to create rank graph")?
         }
@@ -269,7 +269,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 },
             };
 
-            sniped_graph(&ctx, &orig, user_id)
+            sniped_graph(ctx.cloned(), &orig, user_id)
                 .await
                 .wrap_err("failed to create snipe graph")?
         }
@@ -287,7 +287,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 },
             };
 
-            snipe_count_graph(&ctx, &orig, user_id)
+            snipe_count_graph(ctx.cloned(), &orig, user_id)
                 .await
                 .wrap_err("failed to create snipe count graph")?
         }
@@ -317,7 +317,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 },
             };
 
-            let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+            let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
             let tz = args
                 .timezone
@@ -337,7 +337,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
             };
 
             top_graph(
-                &ctx,
+                ctx.cloned(),
                 &orig,
                 user_id,
                 user_args,
@@ -350,9 +350,8 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
         }
     };
 
-    let (user, graph) = match tuple_option {
-        Some(tuple) => tuple,
-        None => return Ok(()),
+    let Some((user, graph)) = tuple_option else {
+        return Ok(());
     };
 
     let embed = EmbedBuilder::new()
@@ -372,7 +371,7 @@ const W: u32 = 1350;
 const H: u32 = 711;
 
 async fn top_graph(
-    ctx: &Context,
+    ctx: Arc<Context>,
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     user_args: UserArgs,
@@ -389,13 +388,13 @@ async fn top_graph(
     let (user, mut scores) = match scores_fut.await {
         Ok(tuple) => tuple,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(ctx, user_id).await;
-            orig.error(ctx, content).await?;
+            let content = user_not_found(&ctx, user_id).await;
+            orig.error(&ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user or scores");
 
             return Err(err);
@@ -404,7 +403,7 @@ async fn top_graph(
 
     if scores.is_empty() {
         let content = "User's top scores are empty";
-        orig.error(ctx, content).await?;
+        orig.error(&ctx, content).await?;
 
         return Ok(None);
     }
@@ -454,7 +453,7 @@ async fn top_graph(
     let bytes = match graph_result {
         Ok(graph) => graph,
         Err(err) => {
-            let _ = orig.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
             warn!("{err:?}");
 
             return Ok(None);

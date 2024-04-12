@@ -26,7 +26,7 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    core::Context,
+    core::{Context, ContextExt},
     manager::redis::RedisData,
     util::interaction::{InteractionComponent, InteractionModal},
 };
@@ -91,11 +91,11 @@ impl RankingPagination {
         let mut page = ((idx - idx % 50) + 50) / 50;
         page += self.entries.contains_key(idx) as usize;
 
-        self.assure_present_users(&ctx, page).await?;
+        self.assure_present_users(ctx.cloned(), page).await?;
 
         // Handle edge cases like idx=140;total=151 where two pages have to be requested
         // at once
-        self.assure_present_users(&ctx, page + 1).await?;
+        self.assure_present_users(ctx.cloned(), page + 1).await?;
 
         let idx = self.pages.index();
 
@@ -204,7 +204,7 @@ impl RankingPagination {
         }
     }
 
-    async fn assure_present_users(&mut self, ctx: &Context, page: usize) -> Result<()> {
+    async fn assure_present_users(&mut self, ctx: Arc<Context>, page: usize) -> Result<()> {
         let pages = &self.pages;
         let range = pages.index()..pages.index() + pages.per_page();
         let count = self.entries.entry_count(range);

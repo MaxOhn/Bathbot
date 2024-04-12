@@ -11,7 +11,10 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
 use super::GameModeOption;
 use crate::{
-    core::commands::prefix::{Args, ArgsNum},
+    core::{
+        commands::prefix::{Args, ArgsNum},
+        ContextExt,
+    },
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
@@ -118,11 +121,11 @@ async fn slash_track(ctx: Arc<Context>, mut command: InteractionCommand) -> Resu
     }
 }
 
-async fn get_names<'n>(
-    ctx: &Context,
-    names: &'n [String],
+async fn get_names(
+    ctx: Arc<Context>,
+    names: &[String],
     mode: GameMode,
-) -> Result<HashMap<Username, u32>, (OsuError, Cow<'n, str>)> {
+) -> Result<HashMap<Username, u32>, (OsuError, Cow<'_, str>)> {
     let mut entries = match ctx.osu_user().ids(names).await {
         Ok(names) => names,
         Err(err) => {
@@ -137,7 +140,9 @@ async fn get_names<'n>(
             let name = name.cow_to_ascii_lowercase();
 
             if entries.keys().all(|n| name != n.cow_to_ascii_lowercase()) {
-                let args = UserArgs::username(ctx, name.as_ref()).await.mode(mode);
+                let args = UserArgs::username(ctx.cloned(), name.as_ref())
+                    .await
+                    .mode(mode);
 
                 match ctx.redis().osu_user(args).await {
                     Ok(user) => entries.insert(user.username().into(), user.user_id()),

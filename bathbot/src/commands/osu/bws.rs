@@ -12,7 +12,10 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{require_link, user_not_found};
 use crate::{
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     embeds::{BWSEmbed, EmbedData},
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
@@ -157,7 +160,7 @@ async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> Resul
 
     let Bws { rank, badges, .. } = args;
 
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,

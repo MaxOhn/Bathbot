@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
@@ -10,27 +12,27 @@ use time::{Duration, OffsetDateTime};
 use super::{H, W};
 use crate::{
     commands::osu::{sniped, user_not_found},
-    core::{commands::CommandOrigin, Context},
+    core::{commands::CommandOrigin, Context, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
 };
 
 pub async fn sniped_graph(
-    ctx: &Context,
+    ctx: Arc<Context>,
     orig: &CommandOrigin<'_>,
     user_id: UserId,
 ) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
-    let user_args = UserArgs::rosu_id(ctx, &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(ctx, user_id).await;
-            orig.error(ctx, content).await?;
+            let content = user_not_found(&ctx, user_id).await;
+            orig.error(&ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user");
 
             return Err(err);
@@ -70,14 +72,14 @@ pub async fn sniped_graph(
                 (sniper, snipee)
             }
             Err(err) => {
-                let _ = orig.error(ctx, HUISMETBENEN_ISSUE).await;
+                let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
 
                 return Err(err.wrap_err("failed to get sniper or snipee"));
             }
         }
     } else {
         let content = format!("`{username}`'s country {country_code} is not supported :(");
-        orig.error(ctx, content).await?;
+        orig.error(&ctx, content).await?;
 
         return Ok(None);
     };
@@ -89,12 +91,12 @@ pub async fn sniped_graph(
                 "`{username}` was neither sniped nor sniped other people in the last 8 weeks"
             );
             let builder = MessageBuilder::new().embed(content);
-            orig.create_message(ctx, builder).await?;
+            orig.create_message(&ctx, builder).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
             warn!(?err, "Failed to create sniped graph");
 
             return Ok(None);

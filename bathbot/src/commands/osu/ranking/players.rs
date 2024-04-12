@@ -12,7 +12,7 @@ use super::{RankingPp, RankingScore};
 use crate::{
     active::{impls::RankingPagination, ActiveMessages},
     commands::GameModeOption,
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,
     Context,
@@ -82,7 +82,7 @@ pub(super) async fn pp(
             })
     };
 
-    let author_idx_fut = pp_author_idx(&ctx, author_id, mode, country.as_ref());
+    let author_idx_fut = pp_author_idx(ctx.cloned(), author_id, mode, country.as_ref());
 
     let (ranking_res, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
     let kind = OsuRankingKind::Performance;
@@ -91,7 +91,7 @@ pub(super) async fn pp(
 }
 
 async fn pp_author_idx(
-    ctx: &Context,
+    ctx: Arc<Context>,
     author_id: Option<u32>,
     mode: GameMode,
     country: Option<&CountryCode>,

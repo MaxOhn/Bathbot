@@ -22,7 +22,10 @@ use super::TopIfEntry;
 use crate::{
     active::{impls::TopIfPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found, HasMods, ModsResult, TopIfScoreOrder},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::{redis::osu::UserArgs, OsuMap},
     util::{
         interaction::InteractionCommand,
@@ -762,7 +765,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
     let scores_fut = ctx
         .osu_scores()
         .top(legacy_scores)
@@ -794,7 +797,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
     let pre_pp = user.stats().pp();
     let bonus_pp = pre_pp - actual_pp;
 
-    let mut entries = match process_scores(&ctx, scores, &args).await {
+    let mut entries = match process_scores(ctx.cloned(), scores, &args).await {
         Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -866,7 +869,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
 }
 
 async fn process_scores(
-    ctx: &Context,
+    ctx: Arc<Context>,
     scores: Vec<Score>,
     args: &TopOld<'_>,
 ) -> Result<Vec<TopIfEntry>> {
@@ -930,7 +933,7 @@ async fn process_scores(
                 TopOldOsuVersion::November21September22 => {
                     pp_std!(osu_2021_november, rosu_map, score, mods)
                 }
-                TopOldOsuVersion::September22Now => use_current_system(ctx, &score, &map).await,
+                TopOldOsuVersion::September22Now => use_current_system(&ctx, &score, &map).await,
             },
             TopOld::Taiko(t) => match t.version {
                 TopOldTaikoVersion::March14September20 => {
@@ -939,11 +942,11 @@ async fn process_scores(
                 TopOldTaikoVersion::September20September22 => {
                     pp_tko!(taiko_2020, rosu_map, score, mods)
                 }
-                TopOldTaikoVersion::September22Now => use_current_system(ctx, &score, &map).await,
+                TopOldTaikoVersion::September22Now => use_current_system(&ctx, &score, &map).await,
             },
             TopOld::Catch(c) => match c.version {
                 TopOldCatchVersion::March14May20 => pp_ctb!(fruits_ppv1, rosu_map, score, mods),
-                TopOldCatchVersion::May20Now => use_current_system(ctx, &score, &map).await,
+                TopOldCatchVersion::May20Now => use_current_system(&ctx, &score, &map).await,
             },
             TopOld::Mania(m) => match m.version {
                 TopOldManiaVersion::March14May18 => {
@@ -981,7 +984,7 @@ async fn process_scores(
 
                     (pp, max_pp, stars, max_combo)
                 }
-                TopOldManiaVersion::October22Now => use_current_system(ctx, &score, &map).await,
+                TopOldManiaVersion::October22Now => use_current_system(&ctx, &score, &map).await,
             },
         };
 

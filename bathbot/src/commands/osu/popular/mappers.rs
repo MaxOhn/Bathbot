@@ -7,7 +7,7 @@ use rkyv::{DeserializeUnsized, Infallible};
 
 use crate::{
     active::{impls::PopularMappersPagination, ActiveMessages},
-    core::Context,
+    core::{Context, ContextExt},
     manager::redis::RedisData,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };

@@ -18,7 +18,7 @@ use crate::{
         compare::{slash_compare_score, ScoreOrder},
         CompareScoreAutocomplete, HasMods, ModsResult,
     },
-    core::Context,
+    core::{Context, ContextExt},
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, IFilterCriteria, ScoresCriteria},

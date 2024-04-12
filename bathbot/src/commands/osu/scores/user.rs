@@ -15,7 +15,7 @@ use super::{process_scores, separate_content, MapStatus, ScoresOrder, UserScores
 use crate::{
     active::{impls::ScoresUserPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found, HasMods, ModsResult},
-    core::{commands::CommandOrigin, Context},
+    core::{commands::CommandOrigin, Context, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     util::{
         interaction::InteractionCommand,
@@ -58,7 +58,7 @@ pub async fn user_scores(
         }
     };
 
-    let user_fut = get_user(&ctx, &user_id, mode);
+    let user_fut = get_user(ctx.cloned(), &user_id, mode);
 
     let user = match user_fut.await {
         Ok(user) => user,
@@ -92,7 +92,7 @@ pub async fn user_scores(
     };
 
     let creator_id = match args.mapper {
-        Some(ref mapper) => match UserArgs::username(&ctx, mapper).await {
+        Some(ref mapper) => match UserArgs::username(ctx.cloned(), mapper).await {
             UserArgs::Args(args) => Some(args.user_id),
             UserArgs::User { user, .. } => Some(user.user_id),
             UserArgs::Err(OsuError::NotFound) => {
@@ -155,11 +155,11 @@ pub async fn user_scores(
 }
 
 async fn get_user(
-    ctx: &Context,
+    ctx: Arc<Context>,
     user_id: &UserId,
     mode: Option<GameMode>,
 ) -> Result<RedisData<User>, OsuError> {
-    let mut args = UserArgs::rosu_id(ctx, user_id).await;
+    let mut args = UserArgs::rosu_id(ctx.cloned(), user_id).await;
 
     if let Some(mode) = mode {
         args = args.mode(mode);

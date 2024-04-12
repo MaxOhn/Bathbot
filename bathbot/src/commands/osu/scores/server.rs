@@ -16,7 +16,7 @@ use super::{get_mode, process_scores, separate_content, MapStatus, ServerScores}
 use crate::{
     active::{impls::ScoresServerPagination, ActiveMessages},
     commands::osu::{user_not_found, HasMods, ModsResult, ScoresOrder},
-    core::Context,
+    core::{Context, ContextExt},
     manager::redis::osu::UserArgs,
     util::{
         interaction::InteractionCommand,
@@ -116,7 +116,7 @@ pub async fn server_scores(
     };
 
     let creator_id = match args.mapper {
-        Some(ref mapper) => match UserArgs::username(&ctx, mapper).await {
+        Some(ref mapper) => match UserArgs::username(ctx.cloned(), mapper).await {
             UserArgs::Args(args) => Some(args.user_id),
             UserArgs::User { user, .. } => Some(user.user_id),
             UserArgs::Err(OsuError::NotFound) => {

@@ -12,7 +12,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{require_link, user_not_found};
 use crate::{
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, RatioEmbed},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, InteractionCommandExt},
@@ -105,7 +105,7 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id)
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id)
         .await
         .mode(GameMode::Mania);
 

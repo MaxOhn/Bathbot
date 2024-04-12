@@ -20,7 +20,10 @@ use super::{SnipePlayerList, SnipePlayerListOrder};
 use crate::{
     active::{impls::SnipePlayerListPagination, ActiveMessages},
     commands::osu::{require_link, HasMods, ModsResult},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,
     Context,
@@ -92,7 +95,7 @@ pub(super) async fn player_list(
         },
     };
 
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,

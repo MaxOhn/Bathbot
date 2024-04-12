@@ -12,7 +12,7 @@ use time::OffsetDateTime;
 
 use crate::{
     active::{impls::PopularMapsetsPagination, ActiveMessages},
-    core::Context,
+    core::{Context, ContextExt},
     manager::redis::RedisData,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };

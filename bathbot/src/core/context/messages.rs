@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
@@ -125,7 +126,7 @@ impl Context {
                 .and_then(|mut list| list.renders.pop().filter(|_| list.renders.is_empty()));
 
             let Some(render) = render_opt else { continue };
-            let Ok(versions) = self.osu_map().versions_by_mapset(render.map_id).await else {
+            let Ok(versions) = versions_by_mapset(self, render.map_id).await else {
                 continue;
             };
 
@@ -140,4 +141,38 @@ impl Context {
 
         None
     }
+}
+
+/// Same as [`MapManager::versions_by_mapset`] but if the mapset had to be
+/// retrieved it won't be stored in the DB
+///
+/// [`MapManager::versions_by_mapset`]: crate::manager::MapManager::versions_by_mapset
+async fn versions_by_mapset(ctx: &Context, mapset_id: u32) -> Result<Vec<MapVersion>> {
+    let versions = ctx
+        .psql()
+        .select_map_versions_by_mapset_id(mapset_id)
+        .await
+        .wrap_err("Failed to get versions by mapset")?;
+
+    if !versions.is_empty() {
+        return Ok(versions);
+    }
+
+    let mapset = ctx
+        .osu()
+        .beatmapset(mapset_id)
+        .await
+        .wrap_err("Failed to retrieve mapset")?;
+
+    let maps = mapset
+        .maps
+        .unwrap_or_default()
+        .into_iter()
+        .map(|map| MapVersion {
+            map_id: map.map_id as i32,
+            version: map.version,
+        })
+        .collect();
+
+    Ok(maps)
 }

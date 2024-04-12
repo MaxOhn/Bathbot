@@ -25,7 +25,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::Difference,
-    core::Context,
+    core::{Context, ContextExt},
     embeds::ModsFormatter,
     manager::redis::RedisData,
     util::interaction::{InteractionComponent, InteractionModal},

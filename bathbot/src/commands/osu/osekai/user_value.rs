@@ -10,6 +10,7 @@ use rosu_v2::prelude::Username;
 
 use crate::{
     active::{impls::RankingPagination, ActiveMessages},
+    core::ContextExt,
     manager::redis::RedisData,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,

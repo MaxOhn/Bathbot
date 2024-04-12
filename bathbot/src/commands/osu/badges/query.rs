@@ -14,7 +14,7 @@ use twilight_model::application::command::{CommandOptionChoice, CommandOptionCho
 use super::BadgesQuery_;
 use crate::{
     active::{impls::BadgesPagination, ActiveMessages},
-    core::Context,
+    core::{Context, ContextExt},
     manager::redis::RedisData,
     util::{
         interaction::InteractionCommand, osu::get_combined_thumbnail, Authored,
@@ -30,8 +30,8 @@ pub(super) async fn query(
     let BadgesQuery_ { name, sort } = args;
 
     let name = match name {
-        AutocompleteValue::None => return handle_autocomplete(&ctx, &command, String::new()).await,
-        AutocompleteValue::Focused(name) => return handle_autocomplete(&ctx, &command, name).await,
+        AutocompleteValue::None => return handle_autocomplete(ctx, &command, String::new()).await,
+        AutocompleteValue::Focused(name) => return handle_autocomplete(ctx, &command, name).await,
         AutocompleteValue::Completed(name) => name,
     };
 
@@ -115,7 +115,7 @@ pub(super) async fn query(
             }
         }
     } else {
-        return no_badge_found(&ctx, &command, name).await;
+        return no_badge_found(ctx, &command, name).await;
     };
 
     let urls: Vec<_> = owners
@@ -154,11 +154,11 @@ pub(super) async fn query(
         .await
 }
 
-async fn no_badge_found(ctx: &Context, command: &InteractionCommand, name: &str) -> Result<()> {
+async fn no_badge_found(ctx: Arc<Context>, command: &InteractionCommand, name: &str) -> Result<()> {
     let badges = match ctx.redis().badges().await {
         Ok(badges) => badges,
         Err(err) => {
-            let _ = command.error(ctx, OSEKAI_ISSUE).await;
+            let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached badges"));
         }
@@ -208,18 +208,18 @@ async fn no_badge_found(ctx: &Context, command: &InteractionCommand, name: &str)
         content.push('?');
     }
 
-    command.error(ctx, content).await?;
+    command.error(&ctx, content).await?;
 
     Ok(())
 }
 
 pub async fn handle_autocomplete(
-    ctx: &Context,
+    ctx: Arc<Context>,
     command: &InteractionCommand,
     name: String,
 ) -> Result<()> {
     let name = if name.is_empty() {
-        command.autocomplete(ctx, Vec::new()).await?;
+        command.autocomplete(&ctx, Vec::new()).await?;
 
         return Ok(());
     } else {
@@ -281,7 +281,7 @@ pub async fn handle_autocomplete(
         }
     }
 
-    command.autocomplete(ctx, choices).await?;
+    command.autocomplete(&ctx, choices).await?;
 
     Ok(())
 }

@@ -25,7 +25,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::OsuStatsEntry,
-    core::Context,
+    core::{Context, ContextExt},
     embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
     manager::redis::RedisData,
     util::{

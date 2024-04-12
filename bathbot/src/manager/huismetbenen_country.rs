@@ -1,22 +1,25 @@
+use std::sync::Arc;
+
 use bathbot_util::CowUtils;
 
-use super::redis::RedisData;
+use super::redis::{RedisData, RedisManager};
 use crate::core::Context;
 
-#[derive(Copy, Clone)]
-pub struct HuismetbenenCountryManager<'c> {
-    ctx: &'c Context,
+#[derive(Clone)]
+pub struct HuismetbenenCountryManager {
+    ctx: Arc<Context>,
 }
 
-impl<'c> HuismetbenenCountryManager<'c> {
-    pub fn new(ctx: &'c Context) -> Self {
+impl HuismetbenenCountryManager {
+    pub fn new(ctx: Arc<Context>) -> Self {
         Self { ctx }
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub async fn is_supported(self, country_code: &str) -> bool {
         let country_code = country_code.cow_to_ascii_uppercase();
 
-        match self.ctx.redis().snipe_countries().await {
+        match RedisManager::new(self.ctx).snipe_countries().await {
             Ok(RedisData::Original(countries)) => countries.contains(country_code.as_ref()),
             Ok(RedisData::Archive(countries)) => countries.contains(country_code.as_ref()),
             Err(err) => {

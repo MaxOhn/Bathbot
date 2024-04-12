@@ -88,11 +88,10 @@ impl<'d> OsuUserManager<'d> {
             .wrap_err("Failed to upsert osu username")
     }
 
-    pub async fn store_user(self, user: &UserExtended, mode: GameMode) -> Result<()> {
-        self.psql
-            .upsert_osu_user(user, mode)
-            .await
-            .wrap_err("Failed to upsert osu user")
+    pub async fn store(self, user: &UserExtended, mode: GameMode) {
+        if let Err(err) = self.psql.upsert_osu_user(user, mode).await {
+            warn!(?err, "Failed to upsert osu user");
+        }
     }
 
     pub async fn remove_stats_and_scores(self, user_id: u32) -> Result<()> {

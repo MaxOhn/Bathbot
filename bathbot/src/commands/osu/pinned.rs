@@ -36,7 +36,7 @@ use crate::{
         ActiveMessages,
     },
     commands::GameModeOption,
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     manager::{
         redis::{
             osu::{UserArgs, UserArgsSlim},
@@ -167,7 +167,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         },
     };
 
-    let (user_args, user_opt) = match UserArgs::rosu_id(&ctx, &user_id).await.mode(mode) {
+    let (user_args, user_opt) = match UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode) {
         UserArgs::Args(args) => (args, None),
         UserArgs::User { user, mode } => (
             UserArgsSlim::user_id(user.user_id).mode(mode),
@@ -196,6 +196,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
     let scores_manager = ctx.osu_scores();
     let redis = ctx.redis();
     let pinned_fut = scores_manager
+        .clone()
         .pinned(legacy_scores)
         .limit(100)
         .exec(user_args);
@@ -237,15 +238,23 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
     let pre_len = pinned.len();
 
-    let entries =
-        match process_scores(&ctx, pinned, &args, mods.as_ref(), &top100, size_single).await {
-            Ok(entries) => entries,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+    let entries = match process_scores(
+        ctx.cloned(),
+        pinned,
+        &args,
+        mods.as_ref(),
+        &top100,
+        size_single,
+    )
+    .await
+    {
+        Ok(entries) => entries,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("Failed to process scores"));
-            }
-        };
+            return Err(err.wrap_err("Failed to process scores"));
+        }
+    };
 
     let post_len = entries.len();
     let username = user.username();
@@ -407,7 +416,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 }
 
 async fn process_scores(
-    ctx: &Context,
+    ctx: Arc<Context>,
     pinned: Vec<Score>,
     args: &Pinned,
     mods: Option<&ModSelection>,

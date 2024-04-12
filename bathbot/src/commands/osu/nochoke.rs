@@ -20,7 +20,10 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::{require_link, user_not_found};
 use crate::{
     active::{impls::NoChokePagination, ActiveMessages},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::{redis::osu::UserArgs, OsuMap},
     util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
@@ -231,7 +234,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
     } = args;
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
     let scores_fut = ctx
         .osu_scores()
         .top(legacy_scores)
@@ -255,7 +258,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
 
     let version = version.unwrap_or_default();
 
-    let mut entries = match process_scores(&ctx, scores, miss_limit, version).await {
+    let mut entries = match process_scores(ctx.cloned(), scores, miss_limit, version).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -409,7 +412,7 @@ impl Unchoked {
 }
 
 async fn process_scores(
-    ctx: &Context,
+    ctx: Arc<Context>,
     scores: Vec<Score>,
     miss_limit: Option<u32>,
     version: NochokeVersion,
@@ -453,11 +456,11 @@ async fn process_scores(
         let unchoked = match version {
             NochokeVersion::Unchoke if too_many_misses => None,
             // Skip unchoking because it has too many misses or because its a convert
-            NochokeVersion::Unchoke => IfFc::new(ctx, &score, &map)
+            NochokeVersion::Unchoke => IfFc::new(&ctx, &score, &map)
                 .await
                 .map(|if_fc| Unchoked::new(if_fc, &score.mods, score.mode)),
             NochokeVersion::Perfect if too_many_misses => None,
-            NochokeVersion::Perfect => Some(perfect_score(ctx, &score, &map).await),
+            NochokeVersion::Perfect => Some(perfect_score(&ctx, &score, &map).await),
         };
 
         let entry = NochokeEntry {

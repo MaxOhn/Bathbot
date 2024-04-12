@@ -8,7 +8,7 @@ use rosu_v2::prelude::{GameMode, OsuError, Username};
 
 use super::TrackArgs;
 use crate::{
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, UntrackEmbed},
     util::ChannelExt,
     Context,
@@ -56,20 +56,21 @@ pub(super) async fn untrack(
         return orig.error(&ctx, content).await;
     }
 
-    let users = match super::get_names(&ctx, &more_names, mode.unwrap_or(GameMode::Osu)).await {
-        Ok(map) => map,
-        Err((OsuError::NotFound, name)) => {
-            let content = format!("User `{name}` was not found");
+    let users =
+        match super::get_names(ctx.cloned(), &more_names, mode.unwrap_or(GameMode::Osu)).await {
+            Ok(map) => map,
+            Err((OsuError::NotFound, name)) => {
+                let content = format!("User `{name}` was not found");
 
-            return orig.error(&ctx, content).await;
-        }
-        Err((err, _)) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get names");
+                return orig.error(&ctx, content).await;
+            }
+            Err((err, _)) => {
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let err = Report::new(err).wrap_err("failed to get names");
 
-            return Err(err);
-        }
-    };
+                return Err(err);
+            }
+        };
 
     let channel = orig.channel_id();
     let mut success = HashSet::with_capacity(users.len());

@@ -25,7 +25,7 @@ use twilight_model::guild::Permissions;
 use super::MedalStats;
 use crate::{
     commands::osu::{require_link, user_not_found},
-    core::commands::CommandOrigin,
+    core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, MedalStatsEmbed, StatsMedal},
     manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,
@@ -79,7 +79,7 @@ pub(super) async fn stats(
         },
     };
 
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
     let user_fut = ctx.redis().osu_user(user_args);
     let medals_fut = ctx.redis().medals();
 

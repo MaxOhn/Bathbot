@@ -13,7 +13,7 @@ use super::{
     HlGuess,
 };
 use crate::{
-    core::{BotConfig, Context},
+    core::{BotConfig, Context, ContextExt},
     util::ChannelExt,
 };
 
@@ -49,17 +49,17 @@ pub(super) enum HigherLowerState {
 
 impl HigherLowerState {
     pub(super) async fn start_score_pp(
-        ctx: &Context,
+        ctx: Arc<Context>,
         mode: GameMode,
     ) -> Result<(Self, Receiver<String>)> {
         let (previous, mut next) = tokio::try_join!(
-            ScorePp::random(ctx, mode, None, 0),
-            ScorePp::random(ctx, mode, None, 0)
+            ScorePp::random(ctx.cloned(), mode, None, 0),
+            ScorePp::random(ctx.cloned(), mode, None, 0)
         )
         .wrap_err("Failed to create score pp entry")?;
 
         while next == previous {
-            next = ScorePp::random(ctx, mode, None, 0)
+            next = ScorePp::random(ctx.cloned(), mode, None, 0)
                 .await
                 .wrap_err("Failed to create score pp entry")?;
         }
@@ -74,7 +74,7 @@ impl HigherLowerState {
         let mapset_id1 = previous.mapset_id;
         let mapset_id2 = next.mapset_id;
 
-        let url = match ScorePp::image(ctx, pfp1, pfp2, mapset_id1, mapset_id2).await {
+        let url = match ScorePp::image(&ctx, pfp1, pfp2, mapset_id1, mapset_id2).await {
             Ok(url) => url,
             Err(err) => {
                 warn!(?err, "Failed to create image");
@@ -95,14 +95,14 @@ impl HigherLowerState {
     }
 
     pub(super) async fn start_farm_maps(
-        ctx: &Context,
+        ctx: Arc<Context>,
         entries: FarmEntries,
     ) -> Result<(Self, Receiver<String>)> {
-        let previous = FarmMap::random(ctx, &entries, None, 0)
+        let previous = FarmMap::random(ctx.cloned(), &entries, None, 0)
             .await
             .wrap_err("Failed to create farm map entry")?;
 
-        let next = FarmMap::random(ctx, &entries, Some(&previous), 0)
+        let next = FarmMap::random(ctx.cloned(), &entries, Some(&previous), 0)
             .await
             .wrap_err("Failed to create farm map entry")?;
 
@@ -110,7 +110,7 @@ impl HigherLowerState {
 
         let (tx, rx) = oneshot::channel();
 
-        let url = match FarmMap::image(ctx, previous.mapset_id, next.mapset_id).await {
+        let url = match FarmMap::image(&ctx, previous.mapset_id, next.mapset_id).await {
             Ok(url) => url,
             Err(err) => {
                 warn!(?err, "Failed to create image");
@@ -130,7 +130,7 @@ impl HigherLowerState {
         Ok((inner, rx))
     }
 
-    pub(super) async fn restart(&mut self, ctx: &Context) -> Result<(Self, Receiver<String>)> {
+    pub(super) async fn restart(&mut self, ctx: Arc<Context>) -> Result<(Self, Receiver<String>)> {
         match self {
             Self::ScorePp { mode, .. } => Self::start_score_pp(ctx, *mode).await,
             Self::FarmMaps { entries, .. } => Self::start_farm_maps(ctx, entries.to_owned()).await,
@@ -151,12 +151,12 @@ impl HigherLowerState {
                 let mode = *mode;
                 mem::swap(previous, next);
 
-                *next = ScorePp::random(&ctx, mode, Some(&*previous), curr_score)
+                *next = ScorePp::random(ctx.cloned(), mode, Some(&*previous), curr_score)
                     .await
                     .wrap_err("Failed to create score pp entry")?;
 
                 while previous == next {
-                    *next = ScorePp::random(&ctx, mode, Some(&*previous), curr_score)
+                    *next = ScorePp::random(ctx.cloned(), mode, Some(&*previous), curr_score)
                         .await
                         .wrap_err("Failed to create score pp entry")?;
                 }
@@ -196,7 +196,7 @@ impl HigherLowerState {
                 next,
             } => {
                 mem::swap(previous, next);
-                *next = FarmMap::random(&ctx, entries, Some(&*previous), curr_score)
+                *next = FarmMap::random(ctx.cloned(), entries, Some(&*previous), curr_score)
                     .await
                     .wrap_err("Failed to create farm map entry")?;
 

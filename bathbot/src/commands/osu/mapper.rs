@@ -24,7 +24,10 @@ use super::{require_link, user_not_found, ScoreOrder, TopEntry};
 use crate::{
     active::{impls::TopPagination, ActiveMessages},
     commands::GameModeOption,
-    core::commands::{prefix::Args, CommandOrigin},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        ContextExt,
+    },
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
@@ -247,11 +250,13 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
     };
 
     let mapper = args.mapper.cow_to_ascii_lowercase();
-    let mapper_args = UserArgs::username(&ctx, mapper.as_ref()).await.mode(mode);
+    let mapper_args = UserArgs::username(ctx.cloned(), mapper.as_ref())
+        .await
+        .mode(mode);
     let mapper_fut = ctx.redis().osu_user(mapper_args);
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
     let scores_fut = ctx
         .osu_scores()
         .top(legacy_scores)
@@ -285,7 +290,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
 
     let username = user.username();
 
-    let entries = match process_scores(&ctx, scores, mapper_id, args.sort).await {
+    let entries = match process_scores(ctx.cloned(), scores, mapper_id, args.sort).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -380,7 +385,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
 }
 
 async fn process_scores(
-    ctx: &Context,
+    ctx: Arc<Context>,
     scores: Vec<Score>,
     mapper_id: u32,
     sort: Option<ScoreOrder>,
