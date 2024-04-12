@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hint, iter, num::NonZeroU32, sync::Arc};
 
-use bathbot_model::RespektiveUserRankHighest;
+use bathbot_model::{RankAccPeaks, RespektiveUserRankHighest};
 use bathbot_util::IntHasher;
 use rosu_v2::prelude::{GameMode, Score, Username};
 
@@ -181,6 +181,42 @@ impl Availability<ScoreData> {
             }
             Err(err) => {
                 warn!(?err, "Failed to get respektive user");
+                *self = Availability::Errored;
+
+                None
+            }
+        }
+    }
+}
+
+impl Availability<RankAccPeaks> {
+    pub(super) async fn get(
+        &mut self,
+        ctx: &Context,
+        user_id: u32,
+        mode: GameMode,
+    ) -> Option<RankAccPeaks> {
+        match self {
+            Availability::Received(ref peaks) => return Some(peaks.to_owned()),
+            Availability::Errored => return None,
+            Availability::NotRequested => {}
+        }
+
+        let peaks_fut = ctx.client().osu_user_rank_acc_peak(user_id, mode);
+
+        match peaks_fut.await {
+            Ok(Some(peaks)) => {
+                self.insert(peaks.clone());
+
+                Some(peaks)
+            }
+            Ok(None) => {
+                *self = Availability::Errored;
+
+                None
+            }
+            Err(err) => {
+                warn!(?err, "Failed to get osutrack peaks");
                 *self = Availability::Errored;
 
                 None

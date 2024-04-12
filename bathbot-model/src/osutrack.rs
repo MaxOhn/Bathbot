@@ -15,13 +15,32 @@ pub struct RankAccPeaks {
 
 impl RankAccPeaks {
     pub fn deserialize(bytes: &[u8]) -> Result<Option<Self>, serde_json::Error> {
+        let MaybeRankAccPeaks(peaks) = serde_json::from_slice(bytes)?;
+
+        Ok(peaks)
+    }
+}
+
+struct MaybeRankAccPeaks(Option<RankAccPeaks>);
+
+impl<'de> de::Deserialize<'de> for MaybeRankAccPeaks {
+    fn deserialize<D: de::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         struct RankAccPeaksVisitor;
 
         impl<'de> de::Visitor<'de> for RankAccPeaksVisitor {
-            type Value = Option<RankAccPeaks>;
+            type Value = MaybeRankAccPeaks;
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 f.write_str("a RankAccPeaks object")
+            }
+
+            fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                let peaks = match seq.next_element::<Self::Value>()? {
+                    Some(peaks) => peaks,
+                    None => MaybeRankAccPeaks(None),
+                };
+
+                Ok(peaks)
             }
 
             fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
@@ -33,14 +52,14 @@ impl RankAccPeaks {
                 while let Some(key) = map.next_key()? {
                     match key {
                         "best_global_rank" => rank = map.next_value()?,
-                        "best_global_rank_timestamp" => rank_timestamp = map.next_value()?,
+                        "best_rank_timestamp" => rank_timestamp = map.next_value()?,
                         "best_accuracy" => acc = map.next_value()?,
-                        "best_accuracy_timestamp" => acc_timestamp = map.next_value()?,
+                        "best_acc_timestamp" => acc_timestamp = map.next_value()?,
                         _ => {
                             return Err(de::Error::invalid_value(
                                 de::Unexpected::Str(key),
-                                &"best_global_rank, best_global_rank_timestamp, \
-                                best_accuracy, best_accuracy_timestamp",
+                                &"best_global_rank, best_rank_timestamp, \
+                                best_accuracy, best_acc_timestamp",
                             ))
                         }
                     }
@@ -53,20 +72,18 @@ impl RankAccPeaks {
                     Some(Datetime(acc_timestamp)),
                 ) = (rank, rank_timestamp, acc, acc_timestamp)
                 else {
-                    return Ok(None);
+                    return Ok(MaybeRankAccPeaks(None));
                 };
 
-                Ok(Some(RankAccPeaks {
+                Ok(MaybeRankAccPeaks(Some(RankAccPeaks {
                     rank,
                     rank_timestamp,
                     acc,
                     acc_timestamp,
-                }))
+                })))
             }
         }
 
-        let mut d = serde_json::Deserializer::from_slice(bytes);
-
-        <_ as de::Deserializer<'_>>::deserialize_map(&mut d, RankAccPeaksVisitor)
+        d.deserialize_any(RankAccPeaksVisitor)
     }
 }

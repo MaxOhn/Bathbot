@@ -6,6 +6,7 @@ use std::{
 use bathbot_model::{
     rkyv_util::time::DateTimeRkyv,
     rosu_v2::user::{User, UserHighestRank},
+    RankAccPeaks,
 };
 use bathbot_util::{
     datetime::{HowLongAgoText, SecToMinSec, NAIVE_DATETIME_FORMAT},
@@ -20,7 +21,10 @@ use rkyv::{
     with::{DeserializeWith, Map},
     Infallible,
 };
-use rosu_v2::prelude::{GameModIntermode, GameMode, GameModsIntermode, Grade, Score};
+use rosu_v2::prelude::{
+    GameModIntermode, GameMode, GameModsIntermode, Grade, Score,
+    UserHighestRank as RosuUserHighestRank,
+};
 use time::UtcOffset;
 use twilight_model::{
     channel::message::{
@@ -57,6 +61,7 @@ pub struct ProfileMenu {
     skin_url: Availability<SkinUrl>,
     scores: Availability<Box<[Score]>>,
     score_rank: Availability<ScoreData>,
+    osutrack_peaks: Availability<RankAccPeaks>,
     top100stats: Option<Top100Stats>,
     mapper_names: Availability<MapperNames>,
     kind: ProfileKind,
@@ -202,6 +207,7 @@ impl ProfileMenu {
             skin_url: Availability::NotRequested,
             scores: Availability::NotRequested,
             score_rank: Availability::NotRequested,
+            osutrack_peaks: Availability::NotRequested,
             mapper_names: Availability::NotRequested,
             origin,
             top100stats: None,
@@ -272,10 +278,8 @@ impl ProfileMenu {
     }
 
     async fn user_stats(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
-        let bonus_pp = match self.bonus_pp(ctx.cloned()).await {
-            Some(pp) => format!("{pp:.2}pp"),
-            None => "-".to_string(),
-        };
+        let user_id = self.user.user_id();
+        let mode = self.user.mode();
 
         let scores_fut = self.scores.get(
             ctx.cloned(),
@@ -283,16 +287,35 @@ impl ProfileMenu {
             self.user.mode(),
             self.legacy_scores,
         );
+        let score_rank_fut = self.score_rank.get(&ctx, user_id, mode);
+        let peaks_fut = self.osutrack_peaks.get(&ctx, user_id, mode);
 
-        let top_score_pp = match scores_fut.await {
+        let (scores_opt, score_rank_opt, peaks_opt) =
+            tokio::join!(scores_fut, score_rank_fut, peaks_fut);
+
+        let top_score_pp = match scores_opt {
             Some([_score @ Score { pp: Some(pp), .. }, ..]) => format!("{pp:.2}pp"),
             Some(_) | None => "-".to_string(),
         };
 
-        let user_id = self.user.user_id();
-        let mode = self.user.mode();
+        let bonus_pp = match scores_opt {
+            Some(scores) => {
+                let mut bonus_pp = BonusPP::new();
 
-        let (score_rank, peak_score_rank) = match self.score_rank.get(&ctx, user_id, mode).await {
+                for (i, score) in scores.iter().enumerate() {
+                    if let Some(weight) = score.weight {
+                        bonus_pp.update(weight.pp, i);
+                    }
+                }
+
+                let pp = bonus_pp.calculate(self.user.stats());
+
+                format!("{pp:.2}pp")
+            }
+            None => "-".to_string(),
+        };
+
+        let (score_rank, peak_score_rank) = match score_rank_opt {
             Some(data) => {
                 let rank = data.rank.map_or_else(
                     || "-".to_string(),
@@ -309,9 +332,9 @@ impl ProfileMenu {
                         }
 
                         format!(
-                            "#{rank} ({year}/{month:0>2})",
+                            "#{rank} ('{year:0>2}/{month:0>2})",
                             rank = WithComma::new(peak.rank),
-                            year = peak_datetime.year(),
+                            year = peak_datetime.year() % 100,
                             month = peak_datetime.month() as u8,
                         )
                     },
@@ -324,7 +347,8 @@ impl ProfileMenu {
 
         let stats = self.user.stats().to_owned();
 
-        let (highest_rank, medals, follower_count, badges, scores_first_count) = match self.user {
+        let (mut highest_rank, medals, follower_count, badges, scores_first_count) = match self.user
+        {
             RedisData::Original(ref user) => {
                 let medals = user.medals.len();
                 let follower_count = user.follower_count;
@@ -370,6 +394,28 @@ impl ProfileMenu {
 
         description.push_str(":**__");
 
+        match (&mut highest_rank, &peaks_opt) {
+            (Some(highest_rank), Some(peaks)) => {
+                if peaks.rank < highest_rank.rank && peaks.rank > 0 {
+                    debug!(
+                        osu = ?(highest_rank.rank, highest_rank.updated_at.date()),
+                        osutrack = ?(peaks.rank, peaks.rank_timestamp.date()),
+                        "osutrack peak was better"
+                    );
+
+                    highest_rank.rank = peaks.rank;
+                    highest_rank.updated_at = peaks.rank_timestamp;
+                }
+            }
+            (None, Some(peaks)) => {
+                highest_rank = Some(RosuUserHighestRank {
+                    rank: peaks.rank,
+                    updated_at: peaks.rank_timestamp,
+                })
+            }
+            (_, None) => {}
+        }
+
         let peak_rank = match highest_rank {
             Some(peak) => {
                 let mut peak_datetime = peak.updated_at;
@@ -379,12 +425,23 @@ impl ProfileMenu {
                 }
 
                 format!(
-                    "#{rank} ({year}/{month:0>2})",
+                    "#{rank} ('{year:0>2}/{month:0>2})",
                     rank = WithComma::new(peak.rank),
-                    year = peak_datetime.year(),
+                    year = peak_datetime.year() % 100,
                     month = peak_datetime.month() as u8,
                 )
             }
+            None => "-".to_string(),
+        };
+
+        let peak_acc = match peaks_opt {
+            Some(ref peaks) => format!(
+                "[{acc:.2}%]({origin} \"{acc}%\n\nProvided by ameobea.me/osutrack\") ('{year:0>2}/{month:0>2})",
+                acc = peaks.acc,
+                origin = self.origin,
+                year = peaks.acc_timestamp.year() % 100,
+                month = peaks.acc_timestamp.month() as u8,
+            ),
             None => "-".to_string(),
         };
 
@@ -437,10 +494,10 @@ impl ProfileMenu {
             "Peak score rank", peak_score_rank, true;
             "Score rank", score_rank, true;
             "Hits per play", WithComma::new(hits_per_play).to_string(), true;
-            "Max combo", WithComma::new(stats.max_combo).to_string(), true;
-            "Accuracy", format!("[{acc:.2}%]({origin} \"{acc}\")", acc = stats.accuracy, origin = self.origin), true;
+            "Peak accuracy", peak_acc, true;
+            "Accuracy", format!("[{acc:.2}%]({origin} \"{acc}%\")", acc = stats.accuracy, origin = self.origin), true;
             "Recommended", format!("{}★", round(recommended_stars)), true;
-            "Followers", WithComma::new(follower_count).to_string(), true;
+            "Max combo", WithComma::new(stats.max_combo).to_string(), true;
             "Medals", medals.to_string(), true;
             "Combined grades", combined_grades_value, true;
             "First places", scores_first_count.to_string(), true;
@@ -448,6 +505,7 @@ impl ProfileMenu {
             "Grades", grades_value, false;
             "Play count / time", playcount_value, true;
             "Replays watched", WithComma::new(stats.replays_watched).to_string(), true;
+            "Followers", WithComma::new(follower_count).to_string(), true;
         ];
 
         let embed = EmbedBuilder::new()
@@ -920,25 +978,6 @@ impl ProfileMenu {
             .thumbnail(self.user.avatar_url());
 
         Ok(BuildPage::new(embed, true))
-    }
-
-    async fn bonus_pp(&mut self, ctx: Arc<Context>) -> Option<f32> {
-        let user_id = self.user.user_id();
-        let mode = self.user.mode();
-        let scores = self
-            .scores
-            .get(ctx, user_id, mode, self.legacy_scores)
-            .await?;
-
-        let mut bonus_pp = BonusPP::new();
-
-        for (i, score) in scores.iter().enumerate() {
-            if let Some(weight) = score.weight {
-                bonus_pp.update(weight.pp, i);
-            }
-        }
-
-        Some(bonus_pp.calculate(self.user.stats()))
     }
 
     async fn own_maps_in_top100(&mut self, ctx: Arc<Context>) -> Option<usize> {
