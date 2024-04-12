@@ -1,4 +1,5 @@
 use std::{
+    cmp,
     cmp::{Ordering, Reverse},
     fmt::{Display, Write},
     num::NonZeroU32,
@@ -8,6 +9,7 @@ use bathbot_macros::EmbedData;
 use bathbot_model::{
     rkyv_util::time::DateTimeRkyv,
     rosu_v2::user::{StatsWrapper, User},
+    RankAccPeaks,
 };
 use bathbot_util::{
     datetime::{SecToMinSec, DATE_FORMAT},
@@ -33,8 +35,8 @@ impl ProfileCompareEmbed {
         result1: CompareResult,
         result2: CompareResult,
     ) -> Self {
-        let data1 = UserData::new(user1);
-        let data2 = UserData::new(user2);
+        let data1 = UserData::new(user1, result1.osutrack_peaks.as_ref());
+        let data2 = UserData::new(user2, result2.osutrack_peaks.as_ref());
 
         let left = CompareStrings::new(&data1, &result1);
         let max_left = left.max().max(data1.username.chars().count());
@@ -702,14 +704,19 @@ struct UserData<'u> {
 }
 
 impl<'u> UserData<'u> {
-    fn new(user: &'u RedisData<User>) -> Self {
+    fn new(user: &'u RedisData<User>, osutrack_peaks: Option<&RankAccPeaks>) -> Self {
+        let osutrack_peak = osutrack_peaks.map(|peaks| peaks.rank).unwrap_or(u32::MAX);
+
         match user {
             RedisData::Original(user) => Self {
                 stats: StatsWrapper::Left(user.statistics.as_ref().expect("missing statistics")),
                 username: user.username.as_str(),
                 join_date: user.join_date,
                 follower_count: user.follower_count,
-                highest_rank: user.highest_rank.as_ref().map(|peak| peak.rank),
+                highest_rank: user
+                    .highest_rank
+                    .as_ref()
+                    .map(|peak| cmp::min(peak.rank, osutrack_peak)),
                 monthly_playcounts_peak: user
                     .monthly_playcounts
                     .iter()
@@ -725,7 +732,10 @@ impl<'u> UserData<'u> {
                 join_date: DateTimeRkyv::deserialize_with(&user.join_date, &mut Infallible)
                     .unwrap(),
                 follower_count: user.follower_count,
-                highest_rank: user.highest_rank.as_ref().map(|peak| peak.rank),
+                highest_rank: user
+                    .highest_rank
+                    .as_ref()
+                    .map(|peak| cmp::min(peak.rank, osutrack_peak)),
                 monthly_playcounts_peak: user
                     .monthly_playcounts
                     .iter()
