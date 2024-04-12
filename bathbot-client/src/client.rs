@@ -75,12 +75,12 @@ impl Client {
                 .refill_interval(Duration::from_secs(7))
                 .refill_amount(1)
                 .build(),
-            ratelimiter(2),  // OsuStats
-            ratelimiter(10), // OsuTrack
-            ratelimiter(2),  // OsuTracker
-            ratelimiter(2),  // OsuWorld
-            ratelimiter(1),  // Respektive
-            ratelimiter(5),  // Twitch
+            ratelimiter(2), // OsuStats
+            ratelimiter(2), // OsuTrack
+            ratelimiter(2), // OsuTracker
+            ratelimiter(2), // OsuWorld
+            ratelimiter(1), // Respektive
+            ratelimiter(5), // Twitch
         ];
 
         Ok(Self {
