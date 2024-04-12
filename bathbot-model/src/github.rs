@@ -10,7 +10,7 @@ use serde::{
 };
 use time::OffsetDateTime;
 
-use crate::{deser::datetime_rfc3339, rkyv_util::time::DateTimeRkyv};
+use crate::{deser::Datetime, rkyv_util::time::DateTimeRkyv};
 
 pub struct GraphQLResponse<T>(pub T);
 
@@ -415,14 +415,6 @@ impl<'de> Deserialize<'de> for AuthorLogin {
         }
 
         d.deserialize_map(AuthorVisitor)
-    }
-}
-
-struct Datetime(OffsetDateTime);
-
-impl<'de> Deserialize<'de> for Datetime {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        datetime_rfc3339::deserialize(d).map(Self)
     }
 }
 

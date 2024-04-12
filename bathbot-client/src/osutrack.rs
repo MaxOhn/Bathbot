@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use bathbot_model::RankAccPeaks;
 use eyre::{Report, Result, WrapErr};
 use http::{header::USER_AGENT, Method, Request};
 use hyper::Body;
@@ -8,6 +9,26 @@ use rosu_v2::model::GameMode;
 use crate::{metrics::ClientMetrics, site::Site, Client, ClientError, MY_USER_AGENT};
 
 impl Client {
+    pub async fn osu_user_rank_acc_peak(
+        &self,
+        user_id: u32,
+        mode: GameMode,
+    ) -> Result<Option<RankAccPeaks>, ClientError> {
+        let url = format!(
+            "https://osutrack-api.ameo.dev/peak?user={user_id}&mode={mode}",
+            mode = mode as u8
+        );
+
+        let bytes = self.make_get_request(url, Site::OsuTrack).await?;
+
+        RankAccPeaks::deserialize(&bytes).map_err(|err| {
+            let body = String::from_utf8_lossy(&bytes);
+            let wrap = format!("Failed to deserialize rank acc peaks: {body}");
+
+            ClientError::Report(Report::new(err).wrap_err(wrap))
+        })
+    }
+
     pub async fn notify_osutrack_user_activity(
         &self,
         user_id: u32,
@@ -18,7 +39,7 @@ impl Client {
             mode = mode as u8
         );
 
-        trace!("POST simple request to url {url}");
+        trace!("POST request to url {url}");
 
         let req = Request::builder()
             .method(Method::POST)

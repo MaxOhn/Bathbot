@@ -195,31 +195,11 @@ pub(super) mod option_naive_datetime {
     }
 }
 
-pub(super) mod datetime_z {
-    use bathbot_util::datetime::DATETIME_Z_FORMAT;
+pub(super) struct Datetime(pub OffsetDateTime);
 
-    use super::*;
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
-        d.deserialize_str(DateTimeVisitor)
-    }
-
-    pub(super) struct DateTimeVisitor;
-
-    impl<'de> Visitor<'de> for DateTimeVisitor {
-        type Value = OffsetDateTime;
-
-        #[inline]
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("an RFC3339 datetime string ending on `Z`")
-        }
-
-        #[inline]
-        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            PrimitiveDateTime::parse(v, DATETIME_Z_FORMAT)
-                .map(PrimitiveDateTime::assume_utc)
-                .map_err(Error::custom)
-        }
+impl<'de> Deserialize<'de> for Datetime {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        datetime_rfc3339::deserialize(d).map(Self)
     }
 }
 
