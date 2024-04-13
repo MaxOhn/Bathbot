@@ -1,5 +1,3 @@
-#![deny(clippy::all, nonstandard_style, rust_2018_idioms, unused, warnings)]
-
 #[macro_use]
 extern crate tracing;
 
