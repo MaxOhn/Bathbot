@@ -8,11 +8,17 @@ mod client;
 mod discord;
 mod error;
 mod github;
+mod huismetbenen;
 mod metrics;
 mod miss_analyzer;
 mod multipart;
+mod osekai;
 mod osu;
+mod osustats;
 mod osutrack;
+mod osutracker;
+mod osuworld;
+mod respektive;
 mod site;
 mod twitch;
 
