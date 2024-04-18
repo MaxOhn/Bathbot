@@ -175,8 +175,8 @@ impl Client {
                     .filter_map(|weeks| {
                         let until = now - Duration::weeks(weeks);
                         let mut total = 0;
-                        let mut unique = HashSet::with_hasher(IntHasher::default());
-                        let mut players = HashMap::with_hasher(IntHasher::default());
+                        let mut unique = HashSet::with_hasher(IntHasher);
+                        let mut players = HashMap::with_hasher(IntHasher);
 
                         if sniper {
                             for score in scores.iter() {

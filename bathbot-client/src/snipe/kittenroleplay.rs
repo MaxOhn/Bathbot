@@ -119,7 +119,7 @@ pub async fn get_national_firsts(
         user = params.user_id,
         sort = params.order.as_kittenroleplay_str(),
         order = if params.descending { "DESC" } else { "ASC" },
-        offset = (params.page as u32 - 1) * 50,
+        offset = (params.page - 1) * 50,
     );
 
     if let Some(limit) = params.limit {
