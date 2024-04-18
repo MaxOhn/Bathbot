@@ -8,17 +8,13 @@ use bathbot_util::{
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
-use rosu_v2::{
-    prelude::{GameMode, OsuError},
-    request::UserId,
-};
+use rosu_v2::{prelude::OsuError, request::UserId};
 use skia_safe::{surfaces, EncodedImageFormat};
 use time::Date;
 use twilight_model::guild::Permissions;
 
 use super::{SnipeGameMode, SnipePlayerStats};
 use crate::{
-    commands::osu::require_link,
     core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
     manager::redis::{osu::UserArgs, RedisData},
@@ -113,20 +109,7 @@ pub(super) async fn player_stats(
     orig: CommandOrigin<'_>,
     args: SnipePlayerStats<'_>,
 ) -> Result<()> {
-    let user_id = match user_id!(ctx, orig, args) {
-        Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(orig.user_id()?).await {
-            Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err);
-            }
-        },
-    };
-
-    let mode = GameMode::from(args.mode.unwrap_or_default());
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
     let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let user = match ctx.redis().osu_user(user_args).await {

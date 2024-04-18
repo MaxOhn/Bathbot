@@ -85,8 +85,20 @@ pub(super) async fn country_stats(
     orig: CommandOrigin<'_>,
     args: SnipeCountryStats<'_>,
 ) -> Result<()> {
-    let author_id = orig.user_id()?;
-    let mode = GameMode::from(args.mode.unwrap_or_default());
+    let config = match ctx.user_config().with_osu_id(orig.user_id()?).await {
+        Ok(config) => config,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err.wrap_err("Failed to get user config"));
+        }
+    };
+
+    let mode = args
+        .mode
+        .map(GameMode::from)
+        .or(config.mode)
+        .unwrap_or(GameMode::Osu);
 
     let country_code = match args.country {
         Some(ref country) => match Countries::name(country).to_code() {
@@ -99,8 +111,8 @@ pub(super) async fn country_stats(
                 return orig.error(&ctx, content).await;
             }
         },
-        None => match ctx.user_config().osu_id(author_id).await {
-            Ok(Some(user_id)) => {
+        None => match config.osu {
+            Some(user_id) => {
                 let user_args = UserArgs::user_id(user_id).mode(mode);
 
                 let user = match ctx.redis().osu_user(user_args).await {
@@ -112,7 +124,7 @@ pub(super) async fn country_stats(
                     }
                     Err(err) => {
                         let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                        let err = Report::new(err).wrap_err("failed to get user");
+                        let err = Report::new(err).wrap_err("Failed to get user");
 
                         return Err(err);
                     }
@@ -123,15 +135,10 @@ pub(super) async fn country_stats(
                     RedisData::Archive(user) => user.country_code.as_str().into(),
                 }
             }
-            Ok(None) => {
+            None => {
                 let content = "Since you're not linked, you must specify a country (code)";
 
                 return orig.error(&ctx, content).await;
-            }
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err.wrap_err("failed to get username"));
             }
         },
     };

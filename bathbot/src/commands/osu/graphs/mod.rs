@@ -260,40 +260,14 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 .wrap_err("failed to create rank graph")?
         }
         Graph::Sniped(args) => {
-            let user_id = match user_id!(ctx, orig, args) {
-                Some(user_id) => user_id,
-                None => match ctx.user_config().osu_id(orig.user_id()?).await {
-                    Ok(Some(user_id)) => UserId::Id(user_id),
-                    Ok(None) => return require_link(&ctx, &orig).await,
-                    Err(err) => {
-                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(err);
-                    }
-                },
-            };
-
-            let mode = GameMode::from(args.mode.unwrap_or_default());
+            let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
             sniped_graph(ctx.cloned(), &orig, user_id, mode)
                 .await
                 .wrap_err("failed to create snipe graph")?
         }
         Graph::SnipeCount(args) => {
-            let user_id = match user_id!(ctx, orig, args) {
-                Some(user_id) => user_id,
-                None => match ctx.user_config().osu_id(orig.user_id()?).await {
-                    Ok(Some(user_id)) => UserId::Id(user_id),
-                    Ok(None) => return require_link(&ctx, &orig).await,
-                    Err(err) => {
-                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(err);
-                    }
-                },
-            };
-
-            let mode = GameMode::from(args.mode.unwrap_or_default());
+            let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
             snipe_count_graph(ctx.cloned(), &orig, user_id, mode)
                 .await

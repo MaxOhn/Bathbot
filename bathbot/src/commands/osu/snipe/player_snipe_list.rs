@@ -19,7 +19,7 @@ use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use super::{SnipeGameMode, SnipePlayerList, SnipePlayerListOrder};
 use crate::{
     active::{impls::SnipePlayerListPagination, ActiveMessages},
-    commands::osu::{require_link, HasMods, ModsResult},
+    commands::osu::{HasMods, ModsResult},
     core::{
         commands::{prefix::Args, CommandOrigin},
         ContextExt,
@@ -115,20 +115,7 @@ pub(super) async fn player_list(
 
     let owner = orig.user_id()?;
 
-    let user_id = match user_id!(ctx, orig, args) {
-        Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(owner).await {
-            Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err);
-            }
-        },
-    };
-
-    let mode = GameMode::from(args.mode.unwrap_or_default());
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
     let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let user = match ctx.redis().osu_user(user_args).await {

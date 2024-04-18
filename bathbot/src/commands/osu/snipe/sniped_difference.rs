@@ -12,7 +12,6 @@ use time::{Duration, OffsetDateTime};
 use super::{SnipeGameMode, SnipePlayerGain, SnipePlayerLoss};
 use crate::{
     active::{impls::SnipeDifferencePagination, ActiveMessages},
-    commands::osu::require_link,
     core::{commands::CommandOrigin, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
@@ -177,9 +176,9 @@ pub(super) async fn player_gain(
     orig: CommandOrigin<'_>,
     args: SnipePlayerGain<'_>,
 ) -> Result<()> {
-    let user_id = user_id!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
-    sniped_diff(ctx, orig, Difference::Gain, user_id, args.mode).await
+    sniped_diff(ctx, orig, Difference::Gain, user_id, mode).await
 }
 
 pub(super) async fn player_loss(
@@ -187,34 +186,19 @@ pub(super) async fn player_loss(
     orig: CommandOrigin<'_>,
     args: SnipePlayerLoss<'_>,
 ) -> Result<()> {
-    let user_id = user_id!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
-    sniped_diff(ctx, orig, Difference::Loss, user_id, args.mode).await
+    sniped_diff(ctx, orig, Difference::Loss, user_id, mode).await
 }
 
 async fn sniped_diff(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     diff: Difference,
-    user_id: Option<UserId>,
-    mode: Option<SnipeGameMode>,
+    user_id: UserId,
+    mode: GameMode,
 ) -> Result<()> {
     let owner = orig.user_id()?;
-
-    let user_id = match user_id {
-        Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(owner).await {
-            Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err);
-            }
-        },
-    };
-
-    let mode = GameMode::from(mode.unwrap_or_default());
 
     // Request the user
     let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);

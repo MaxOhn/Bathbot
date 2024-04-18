@@ -103,33 +103,40 @@ pub(super) async fn country_list(
         sort,
     } = args;
 
-    let mode = GameMode::from(mode.unwrap_or_default());
+    let (osu_user, mode) = match ctx.user_config().with_osu_id(author_id).await {
+        Ok(config) => {
+            let mode = match mode {
+                Some(SnipeGameMode::Osu) => GameMode::Osu,
+                Some(SnipeGameMode::Mania) => GameMode::Mania,
+                None => config.mode.unwrap_or(GameMode::Osu),
+            };
 
-    // Retrieve author's osu user to check if they're in the list
-    let osu_user = match ctx.user_config().osu_id(author_id).await {
-        Ok(Some(user_id)) => {
-            let user_args = UserArgs::user_id(user_id).mode(mode);
+            match config.osu {
+                Some(user_id) => {
+                    let user_args = UserArgs::user_id(user_id).mode(mode);
 
-            match ctx.redis().osu_user(user_args).await {
-                Ok(user) => Some(user),
-                Err(OsuError::NotFound) => {
-                    let content = user_not_found(&ctx, UserId::Id(user_id)).await;
+                    match ctx.redis().osu_user(user_args).await {
+                        Ok(user) => (Some(user), mode),
+                        Err(OsuError::NotFound) => {
+                            let content = user_not_found(&ctx, UserId::Id(user_id)).await;
 
-                    return orig.error(&ctx, content).await;
+                            return orig.error(&ctx, content).await;
+                        }
+                        Err(err) => {
+                            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                            let err = Report::new(err).wrap_err("failed to get user");
+
+                            return Err(err);
+                        }
+                    }
                 }
-                Err(err) => {
-                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                    let err = Report::new(err).wrap_err("failed to get user");
-
-                    return Err(err);
-                }
+                None => (None, mode),
             }
         }
-        Ok(None) => None,
         Err(err) => {
             warn!("{err:?}");
 
-            None
+            (None, GameMode::Osu)
         }
     };
 
