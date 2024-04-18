@@ -1,17 +1,16 @@
 use std::{
-    collections::HashMap,
     fmt::{Display, Formatter, Result as FmtResult, Write},
     sync::Arc,
 };
 
-use bathbot_model::{rosu_v2::user::User, OsuTrackerMapsetEntry};
+use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::configs::{ListSize, MinimizedPp};
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
     datetime::HowLongAgoDynamic,
     fields,
     numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
+    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -38,14 +37,11 @@ use crate::{
     },
 };
 
-type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), IntHasher>;
-
 pub struct TopPagination {
     user: RedisData<User>,
     mode: GameMode,
     entries: Box<[TopEntry]>,
     sort_by: TopScoreOrder,
-    farm: Farm,
     list_size: ListSize,
     minimized_pp: MinimizedPp, // only relevant for `ListSize::Single`
     content: Box<str>,
@@ -60,7 +56,6 @@ impl TopPagination {
             mode: None,
             entries: None,
             sort_by: None,
-            farm: None,
             list_size: None,
             minimized_pp: None,
             content: None,
@@ -123,7 +118,7 @@ impl TopPagination {
                 combo = score.max_combo,
                 miss = MissFormat(score.statistics.count_miss),
                 mods = ModsFormatter::new(&score.mods),
-                appendix = OrderAppendix::new(self.sort_by, entry, map.ranked_date(), &self.farm, true),
+                appendix = OrderAppendix::new(self.sort_by, entry, map.ranked_date(),  true),
             );
         }
 
@@ -163,7 +158,7 @@ impl TopPagination {
                 miss = stats.count_miss,
                 mods = ModsFormatter::new(&score.mods),
                 appendix =
-                    OrderAppendix::new(self.sort_by, entry, map.ranked_date(), &self.farm, true),
+                    OrderAppendix::new(self.sort_by, entry, map.ranked_date(), true),
             );
         }
 
@@ -203,8 +198,7 @@ impl TopPagination {
                 score = WithComma::new(score.score),
                 combo = ComboFormatter::new(score.max_combo, Some(*max_combo)),
                 hits = HitResultFormatter::new(score.mode, score.statistics.clone()),
-                appendix =
-                    OrderAppendix::new(self.sort_by, entry, map.ranked_date(), &self.farm, false),
+                appendix = OrderAppendix::new(self.sort_by, entry, map.ranked_date(), false),
             );
         }
 
@@ -366,7 +360,6 @@ pub struct TopPaginationBuilder {
     mode: Option<GameMode>,
     entries: Option<Box<[TopEntry]>>,
     sort_by: Option<TopScoreOrder>,
-    farm: Option<Farm>,
     list_size: Option<ListSize>,
     minimized_pp: Option<MinimizedPp>,
     content: Option<Box<str>>,
@@ -379,7 +372,6 @@ impl TopPaginationBuilder {
         let mode = self.mode.expect("missing mode");
         let entries = self.entries.take().expect("missing entries");
         let sort_by = self.sort_by.expect("missing sort_by");
-        let farm = self.farm.take().expect("missing farm");
         let list_size = self.list_size.expect("missing list_size");
         let minimized_pp = self.minimized_pp.expect("missing minimized_pp");
         let content = self.content.take().expect("missing content");
@@ -396,7 +388,6 @@ impl TopPaginationBuilder {
             mode,
             entries,
             sort_by,
-            farm,
             list_size,
             minimized_pp,
             content,
@@ -425,12 +416,6 @@ impl TopPaginationBuilder {
 
     pub fn sort_by(&mut self, sort_by: TopScoreOrder) -> &mut Self {
         self.sort_by = Some(sort_by);
-
-        self
-    }
-
-    pub fn farm(&mut self, farm: Farm) -> &mut Self {
-        self.farm = Some(farm);
 
         self
     }
@@ -627,7 +612,6 @@ pub struct OrderAppendix<'a> {
     sort_by: TopScoreOrder,
     entry: &'a TopEntry,
     ranked_date: Option<OffsetDateTime>,
-    farm: &'a Farm,
     condensed: bool,
 }
 
@@ -636,14 +620,12 @@ impl<'a> OrderAppendix<'a> {
         sort_by: TopScoreOrder,
         entry: &'a TopEntry,
         ranked_date: Option<OffsetDateTime>,
-        farm: &'a Farm,
         condensed: bool,
     ) -> Self {
         Self {
             sort_by,
             entry,
             ranked_date,
-            farm,
             condensed,
         }
     }
@@ -652,16 +634,6 @@ impl<'a> OrderAppendix<'a> {
 impl Display for OrderAppendix<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.sort_by {
-            TopScoreOrder::Farm => {
-                let mapset_id = self.entry.map.mapset_id();
-
-                let count = self
-                    .farm
-                    .get(&mapset_id)
-                    .map_or(0, |(entry, _)| entry.count);
-
-                write!(f, "`{}`", WithComma::new(count))
-            }
             TopScoreOrder::Ar => write!(f, "`AR {}`", round(self.entry.ar() as f32)),
             TopScoreOrder::Bpm => {
                 let clock_rate = self.entry.score.mods.clock_rate().unwrap_or(1.0);

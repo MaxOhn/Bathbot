@@ -22,8 +22,6 @@ pub struct HlGameScore {
 pub enum HlVersion {
     #[option(name = "Score PP", value = "score_pp")]
     ScorePp = 0,
-    #[option(name = "Farm", value = "farm")]
-    FarmMaps = 1,
 }
 
 bitflags::bitflags! {

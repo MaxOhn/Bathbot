@@ -27,8 +27,6 @@ use crate::{
 pub enum HigherLower {
     #[command(name = "pp")]
     ScorePp(HigherLowerScorePp),
-    #[command(name = "farm")]
-    FarmMaps(HigherLowerFarmMaps),
     #[command(name = "leaderboard")]
     Leaderboard(HigherLowerLeaderboard),
 }
@@ -49,24 +47,10 @@ pub struct HigherLowerScorePp {
 
 #[derive(CommandModel, CreateCommand)]
 #[command(
-    name = "farm",
-    desc = "Is the amount of times the map appears in top scores higher or lower?",
-    help = "Is the amount of times the map appears in top scores higher or lower?\n\
-    All counts are provided by [osutracker](https://osutracker.com) which only includes a portion \
-    of the actual data but it should be representative, at least for >300pp scores.\n\
-    The maps are chosen randomly based on [this weight function](https://www.desmos.com/calculator/u4jt9t4jnj)."
-)]
-pub struct HigherLowerFarmMaps;
-
-#[derive(CommandModel, CreateCommand)]
-#[command(
     name = "leaderboard",
     desc = "Get the server leaderboard for higherlower highscores"
 )]
-pub struct HigherLowerLeaderboard {
-    #[command(desc = "Specify the version to get the highscores of")]
-    version: HlVersion,
-}
+pub struct HigherLowerLeaderboard;
 
 async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = HigherLower::from_interaction(command.input_data())?;
@@ -81,9 +65,8 @@ async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -
 
             HigherLowerGame::new_score_pp(ctx.cloned(), mode, user).await
         }
-        HigherLower::FarmMaps(_) => HigherLowerGame::new_farm_maps(ctx.cloned(), user).await,
-        HigherLower::Leaderboard(ref args) => {
-            return higherlower_leaderboard(ctx, command, args.version).await
+        HigherLower::Leaderboard(_) => {
+            return higherlower_leaderboard(ctx, command, HlVersion::ScorePp).await
         }
     };
 

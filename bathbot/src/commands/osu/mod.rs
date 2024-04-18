@@ -70,8 +70,8 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 pub use self::{
     badges::*, claim_name::*, compare::*, fix::*, graphs::*, leaderboard::*, map::*, map_search::*,
-    match_compare::*, match_costs::*, medals::*, nochoke::*, osustats::*, popular::*, profile::*,
-    recent::*, region_top::*, render::*, scores::*, simulate::*, snipe::*, top::*, whatif::*,
+    match_compare::*, match_costs::*, medals::*, nochoke::*, osustats::*, profile::*, recent::*,
+    region_top::*, render::*, scores::*, simulate::*, snipe::*, top::*, whatif::*,
 };
 use crate::{
     core::commands::{interaction::InteractionCommands, CommandOrigin},
@@ -102,7 +102,6 @@ mod nochoke;
 mod osekai;
 mod osustats;
 mod pinned;
-mod popular;
 mod pp;
 mod profile;
 mod rank;

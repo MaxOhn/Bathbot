@@ -1,6 +1,5 @@
 use std::{
     cmp::{Ordering, Reverse},
-    collections::HashMap,
     fmt::Write,
     sync::Arc,
 };
@@ -11,7 +10,6 @@ use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     osu::ModSelection,
-    IntHasher,
 };
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
@@ -401,7 +399,6 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
             .mode(mode)
             .entries(entries.into_boxed_slice())
             .sort_by(sort_by)
-            .farm(HashMap::with_hasher(IntHasher))
             .list_size(list_size)
             .minimized_pp(minimized_pp)
             .content(content.unwrap_or_default().into_boxed_str())

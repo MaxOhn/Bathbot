@@ -195,30 +195,6 @@ impl MapManager {
         })
     }
 
-    pub async fn mapset(self, mapset_id: u32) -> Result<DbBeatmapset> {
-        let mapset_fut = self.ctx.psql().select_mapset(mapset_id);
-
-        if let Some(mapset) = mapset_fut.await.wrap_err("Failed to get mapset")? {
-            Ok(mapset)
-        } else {
-            let mapset = self.retrieve_mapset(mapset_id).await?;
-
-            let mapset = DbBeatmapset {
-                mapset_id: mapset.mapset_id as i32,
-                user_id: mapset.creator_id as i32,
-                artist: mapset.artist,
-                title: mapset.title,
-                creator: mapset.creator_name.into_string(),
-                rank_status: mapset.status as i16,
-                ranked_date: mapset.ranked_date,
-                thumbnail: mapset.covers.list,
-                cover: mapset.covers.cover,
-            };
-
-            Ok(mapset)
-        }
-    }
-
     fn mapset_to_map_versions(mapset: &BeatmapsetExtended) -> Vec<MapVersion> {
         mapset
             .maps

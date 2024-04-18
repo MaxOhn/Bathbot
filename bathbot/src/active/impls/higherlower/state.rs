@@ -7,11 +7,7 @@ use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::{self, Receiver};
 
-use super::{
-    farm_maps::{FarmEntries, FarmMap},
-    score_pp::ScorePp,
-    HlGuess,
-};
+use super::{score_pp::ScorePp, HlGuess};
 use crate::{
     core::{BotConfig, Context, ContextExt},
     util::ChannelExt,
@@ -39,11 +35,6 @@ pub(super) enum HigherLowerState {
         mode: GameMode,
         previous: ScorePp,
         next: ScorePp,
-    },
-    FarmMaps {
-        entries: FarmEntries,
-        previous: FarmMap,
-        next: FarmMap,
     },
 }
 
@@ -94,46 +85,9 @@ impl HigherLowerState {
         Ok((inner, rx))
     }
 
-    pub(super) async fn start_farm_maps(
-        ctx: Arc<Context>,
-        entries: FarmEntries,
-    ) -> Result<(Self, Receiver<String>)> {
-        let previous = FarmMap::random(ctx.cloned(), &entries, None, 0)
-            .await
-            .wrap_err("Failed to create farm map entry")?;
-
-        let next = FarmMap::random(ctx.cloned(), &entries, Some(&previous), 0)
-            .await
-            .wrap_err("Failed to create farm map entry")?;
-
-        FarmMap::log(&previous, &next);
-
-        let (tx, rx) = oneshot::channel();
-
-        let url = match FarmMap::image(&ctx, previous.mapset_id, next.mapset_id).await {
-            Ok(url) => url,
-            Err(err) => {
-                warn!(?err, "Failed to create image");
-
-                String::new()
-            }
-        };
-
-        let _ = tx.send(url);
-
-        let inner = Self::FarmMaps {
-            entries,
-            previous,
-            next,
-        };
-
-        Ok((inner, rx))
-    }
-
     pub(super) async fn restart(&mut self, ctx: Arc<Context>) -> Result<(Self, Receiver<String>)> {
         match self {
             Self::ScorePp { mode, .. } => Self::start_score_pp(ctx, *mode).await,
-            Self::FarmMaps { entries, .. } => Self::start_farm_maps(ctx, entries.to_owned()).await,
         }
     }
 
@@ -177,39 +131,6 @@ impl HigherLowerState {
                 tokio::spawn(async move {
                     let url = match ScorePp::image(&ctx, &pfp1, &pfp2, mapset_id1, mapset_id2).await
                     {
-                        Ok(url) => url,
-                        Err(err) => {
-                            warn!(?err, "Failed to create image");
-
-                            String::new()
-                        }
-                    };
-
-                    let _ = tx.send(url);
-                });
-
-                rx
-            }
-            Self::FarmMaps {
-                entries,
-                previous,
-                next,
-            } => {
-                mem::swap(previous, next);
-                *next = FarmMap::random(ctx.cloned(), entries, Some(&*previous), curr_score)
-                    .await
-                    .wrap_err("Failed to create farm map entry")?;
-
-                FarmMap::log(&*previous, &*next);
-
-                let mapset1 = previous.mapset_id;
-                let mapset2 = next.mapset_id;
-
-                let (tx, rx) = oneshot::channel();
-
-                // Create the image in the background so it's available when needed later
-                tokio::spawn(async move {
-                    let url = match FarmMap::image(&ctx, mapset1, mapset2).await {
                         Ok(url) => url,
                         Err(err) => {
                             warn!(?err, "Failed to create image");
@@ -275,15 +196,6 @@ impl HigherLowerState {
 
                 ScorePp::to_embed(previous, next, revealed)
             }
-            HigherLowerState::FarmMaps {
-                entries: _,
-                previous,
-                next,
-            } => {
-                title.push_str("Farm maps");
-
-                FarmMap::to_embed(previous, next, revealed)
-            }
         };
 
         builder.title(title)
@@ -295,17 +207,12 @@ impl HigherLowerState {
                 HlGuess::Higher => next.pp >= previous.pp,
                 HlGuess::Lower => next.pp <= previous.pp,
             },
-            Self::FarmMaps { previous, next, .. } => match guess {
-                HlGuess::Higher => next.farm >= previous.farm,
-                HlGuess::Lower => next.farm <= previous.farm,
-            },
         }
     }
 
     pub(super) fn version(&self) -> HlVersion {
         match self {
             Self::ScorePp { .. } => HlVersion::ScorePp,
-            Self::FarmMaps { .. } => HlVersion::FarmMaps,
         }
     }
 }

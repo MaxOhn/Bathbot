@@ -1,18 +1,17 @@
-use std::{borrow::Cow, cmp::Reverse, collections::HashMap, fmt::Write, mem, sync::Arc};
+use std::{borrow::Cow, cmp::Reverse, fmt::Write, mem, sync::Arc};
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
-use bathbot_model::{OsuTrackerMapsetEntry, ScoreSlim};
+use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     numbers::round,
     osu::ModSelection,
-    CowUtils, IntHasher,
+    CowUtils,
 };
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
-use rkyv::{Deserialize, Infallible};
 use rosu_pp::model::beatmap::BeatmapAttributes;
 use rosu_v2::{
     prelude::{
@@ -40,10 +39,7 @@ use crate::{
         commands::{prefix::Args, CommandOrigin},
         ContextExt,
     },
-    manager::{
-        redis::{osu::UserArgs, RedisData},
-        OsuMap, OwnedReplayScore,
-    },
+    manager::{redis::osu::UserArgs, OsuMap, OwnedReplayScore},
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
@@ -100,15 +96,6 @@ pub struct Top {
     query: Option<String>,
     #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    #[command(
-        desc = "Specify if you want to filter out farm maps",
-        help = "Specify if you want to filter out farm maps.\n\
-        A map counts as farmy if its mapset appears in the top 727 \
-        sets based on how often the set is in people's top100 scores.\n\
-        The list of mapsets can be checked with `/popular mapsets` or \
-        on [here](https://osutracker.com/stats)"
-    )]
-    farm: Option<FarmFilter>,
     #[command(desc = "Filter out all scores that don't have a perfect combo")]
     perfect_combo: Option<bool>,
     #[command(
@@ -136,8 +123,6 @@ pub enum TopScoreOrder {
     Date,
     #[option(name = "Drain Rate", value = "hp")]
     Hp,
-    #[option(name = "Common farm", value = "farm")]
-    Farm,
     #[option(name = "Length", value = "len")]
     Length,
     #[option(name = "Map ranked date", value = "ranked_date")]
@@ -171,14 +156,6 @@ impl From<ScoreOrder> for TopScoreOrder {
             ScoreOrder::Stars => Self::Stars,
         }
     }
-}
-
-#[derive(CommandOption, CreateOption)]
-pub enum FarmFilter {
-    #[option(name = "No farm", value = "no_farm")]
-    NoFarm,
-    #[option(name = "Only farm", value = "only_farm")]
-    OnlyFarm,
 }
 
 #[command]
@@ -529,7 +506,6 @@ pub struct TopArgs<'a> {
     pub perfect_combo: Option<bool>,
     pub index: Option<String>,
     pub query: Option<String>,
-    pub farm: Option<FarmFilter>,
     pub size: Option<ListSize>,
     pub has_dash_r: bool,
     pub has_dash_p_or_i: bool,
@@ -699,7 +675,6 @@ impl<'m> TopArgs<'m> {
             perfect_combo: None,
             index: num.to_string_opt(),
             query: None,
-            farm: None,
             size: None,
             has_dash_r: has_dash_r.unwrap_or(false),
             has_dash_p_or_i: has_dash_p_or_i.unwrap_or(false),
@@ -734,15 +709,12 @@ impl TryFrom<Top> for TopArgs<'static> {
             perfect_combo: args.perfect_combo,
             index: args.index,
             query: args.query,
-            farm: args.farm,
             size: args.size,
             has_dash_r: false,
             has_dash_p_or_i: false,
         })
     }
 }
-
-const FARM_CUTOFF: usize = 727;
 
 pub(super) async fn top(
     ctx: Arc<Context>,
@@ -826,42 +798,7 @@ pub(super) async fn top(
         .limit(100)
         .exec_with_user(user_args);
 
-    let farm_fut = async {
-        if args.farm.is_some() || matches!(args.sort_by, TopScoreOrder::Farm) {
-            let stats = match ctx.redis().osutracker_stats().await {
-                Ok(stats) => stats,
-                Err(err) => return Some(Err(err)),
-            };
-
-            let farm = match stats {
-                RedisData::Original(stats) => stats
-                    .mapset_count
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, entry): (_, OsuTrackerMapsetEntry)| {
-                        (entry.mapset_id, (entry, i < FARM_CUTOFF))
-                    })
-                    .collect::<Farm>(),
-                RedisData::Archive(stats) => stats
-                    .mapset_count
-                    .iter()
-                    .map(|entry| entry.deserialize(&mut Infallible).unwrap())
-                    .enumerate()
-                    .map(|(i, entry): (_, OsuTrackerMapsetEntry)| {
-                        (entry.mapset_id, (entry, i < FARM_CUTOFF))
-                    })
-                    .collect::<Farm>(),
-            };
-
-            Some(Ok(farm))
-        } else {
-            None
-        }
-    };
-
-    let (user_score_res, farm_res) = tokio::join!(scores_fut, farm_fut);
-
-    let (user, scores) = match user_score_res {
+    let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = user_not_found(&ctx, user_id).await;
@@ -876,20 +813,10 @@ pub(super) async fn top(
         }
     };
 
-    let farm = match farm_res {
-        Some(Ok(mapsets)) => mapsets,
-        Some(Err(err)) => {
-            let _ = orig.error(&ctx, OSUTRACKER_ISSUE).await;
-
-            return Err(err.wrap_err("failed to get farm"));
-        }
-        None => HashMap::default(),
-    };
-
     let pre_len = scores.len();
 
     // Filter scores according to mods, combo, acc, and grade
-    let entries = match process_scores(ctx.cloned(), scores, &args, &farm).await {
+    let entries = match process_scores(ctx.cloned(), scores, &args).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -1052,7 +979,6 @@ pub(super) async fn top(
             .mode(mode)
             .entries(entries.into_boxed_slice())
             .sort_by(args.sort_by)
-            .farm(farm)
             .list_size(list_size)
             .minimized_pp(minimized_pp)
             .content(content.unwrap_or_default().into_boxed_str())
@@ -1198,7 +1124,6 @@ async fn process_scores(
     ctx: Arc<Context>,
     scores: Vec<Score>,
     args: &TopArgs<'_>,
-    farm: &Farm,
 ) -> Result<Vec<TopEntry>> {
     let mut entries = Vec::with_capacity(scores.len());
 
@@ -1235,29 +1160,6 @@ async fn process_scores(
         .filter(|score| match args.mods {
             None => true,
             Some(ref selection) => selection.filter_score(score),
-        })
-        .filter(|score| match args.farm {
-            None => true,
-            Some(FarmFilter::OnlyFarm) => {
-                let mapset_id = score
-                    .map
-                    .as_ref()
-                    .map(|map| map.mapset_id)
-                    .or_else(|| score.mapset.as_ref().map(|mapset| mapset.mapset_id))
-                    .expect("neither map nor mapset available");
-
-                farm.get(&mapset_id).map_or(false, |(_, farm)| *farm)
-            }
-            Some(FarmFilter::NoFarm) => {
-                let mapset_id = score
-                    .map
-                    .as_ref()
-                    .map(|map| map.mapset_id)
-                    .or_else(|| score.mapset.as_ref().map(|mapset| mapset.mapset_id))
-                    .expect("neither map nor mapset available");
-
-                farm.get(&mapset_id).map_or(true, |(_, farm)| !*farm)
-            }
         })
         .map(|score| {
             (
@@ -1325,15 +1227,6 @@ async fn process_scores(
         TopScoreOrder::Combo => entries.sort_by_key(|entry| Reverse(entry.score.max_combo)),
         TopScoreOrder::Cs => entries.sort_by(|a, b| b.cs().total_cmp(&a.cs())),
         TopScoreOrder::Date => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
-        TopScoreOrder::Farm => entries.sort_by(|a, b| {
-            let mapset_a = a.map.mapset_id();
-            let mapset_b = b.map.mapset_id();
-
-            let count_a = farm.get(&mapset_a).map_or(0, |(entry, _)| entry.count);
-            let count_b = farm.get(&mapset_b).map_or(0, |(entry, _)| entry.count);
-
-            count_b.cmp(&count_a)
-        }),
         TopScoreOrder::Hp => entries.sort_by(|a, b| b.hp().total_cmp(&a.hp())),
         TopScoreOrder::Length => {
             entries.sort_by(|a, b| {
@@ -1383,8 +1276,6 @@ fn mode_long(mode: GameMode) -> &'static str {
     }
 }
 
-type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), IntHasher>;
-
 fn write_content(
     name: &str,
     args: &TopArgs<'_>,
@@ -1398,8 +1289,7 @@ fn write_content(
         || args.grade.is_some()
         || args.mods.is_some()
         || args.perfect_combo.is_some()
-        || args.query.is_some()
-        || args.farm.is_some();
+        || args.query.is_some();
 
     if condition {
         Some(content_with_condition(args, amount))
@@ -1415,12 +1305,6 @@ fn write_content(
         };
 
         let content = match args.sort_by {
-            TopScoreOrder::Farm if args.reverse => {
-                format!("`{name}`'{genitive} top100 sorted by least popular farm:")
-            }
-            TopScoreOrder::Farm => {
-                format!("`{name}`'{genitive} top100 sorted by most popular farm:")
-            }
             TopScoreOrder::Acc => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:")
             }
@@ -1492,7 +1376,6 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
     let mut content = String::with_capacity(64);
 
     match args.sort_by {
-        TopScoreOrder::Farm => content.push_str("`Order: Farm"),
         TopScoreOrder::Acc => content.push_str("`Order: Accuracy"),
         TopScoreOrder::Ar => content.push_str("`Order: AR"),
         TopScoreOrder::Bpm => content.push_str("`Order: BPM"),
@@ -1561,12 +1444,6 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
 
     if let Some(query) = args.query.as_deref() {
         TopCriteria::create(query).display(&mut content);
-    }
-
-    match args.farm {
-        Some(FarmFilter::OnlyFarm) => content.push_str(" • `Only farm`"),
-        Some(FarmFilter::NoFarm) => content.push_str(" • `Without farm`"),
-        None => {}
     }
 
     let plural = if amount == 1 { "" } else { "s" };

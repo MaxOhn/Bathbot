@@ -9,7 +9,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use self::fix::*;
 pub use self::{leaderboard::*, list::*, score::*};
-use super::{FarmFilter, HasMods, ModsResult, ScoreOrder, TopArgs, TopScoreOrder};
+use super::{HasMods, ModsResult, ScoreOrder, TopArgs, TopScoreOrder};
 use crate::{
     commands::{
         osu::{top, LeaderboardSort},
@@ -132,15 +132,6 @@ pub struct RecentBest {
     query: Option<String>,
     #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    #[command(
-        desc = "Specify if you want to filter out farm maps",
-        help = "Specify if you want to filter out farm maps.\n\
-        A map counts as farmy if its mapset appears in the top 727 \
-        sets based on how often the set is in people's top100 scores.\n\
-        The list of mapsets can be checked with `/popular mapsets` or \
-        on [here](https://osutracker.com/stats)"
-    )]
-    farm: Option<FarmFilter>,
     #[command(desc = "Filter out all scores that don't have a perfect combo")]
     perfect_combo: Option<bool>,
     #[command(
@@ -177,7 +168,6 @@ impl<'a> TryFrom<RecentBest> for TopArgs<'a> {
             perfect_combo: args.perfect_combo,
             index: args.index,
             query: args.query,
-            farm: args.farm,
             size: args.size,
             has_dash_r: false,
             has_dash_p_or_i: false,
@@ -379,15 +369,6 @@ pub struct Rb {
     query: Option<String>,
     #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    #[command(
-        desc = "Specify if you want to filter out farm maps",
-        help = "Specify if you want to filter out farm maps.\n\
-        A map counts as farmy if its mapset appears in the top 727 \
-        sets based on how often the set is in people's top100 scores.\n\
-        The list of mapsets can be checked with `/popular mapsets` or \
-        on [here](https://osutracker.com/stats)"
-    )]
-    farm: Option<FarmFilter>,
     #[command(desc = "Filter out all scores that don't have a perfect combo")]
     perfect_combo: Option<bool>,
     #[command(
@@ -411,7 +392,6 @@ impl From<Rb> for RecentBest {
             reverse: args.reverse,
             query: args.query,
             grade: args.grade,
-            farm: args.farm,
             perfect_combo: args.perfect_combo,
             size: args.size,
         }
