@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
 use bathbot_macros::EmbedData;
-use bathbot_model::{rosu_v2::user::User, SnipeRecent};
+use bathbot_model::{rosu_v2::user::User, SnipedWeek};
 use bathbot_util::{fields, AuthorBuilder};
 use twilight_model::channel::message::embed::EmbedField;
 
@@ -18,7 +16,7 @@ pub struct SnipedEmbed {
 }
 
 impl SnipedEmbed {
-    pub fn new(user: &RedisData<User>, sniper: Vec<SnipeRecent>, snipee: Vec<SnipeRecent>) -> Self {
+    pub fn new(user: &RedisData<User>, sniper: Vec<SnipedWeek>, snipee: Vec<SnipedWeek>) -> Self {
         let thumbnail = user.avatar_url().to_owned();
         let author = user.author_builder();
         let title = "National snipe scores of the last 8 weeks";
@@ -40,56 +38,42 @@ impl SnipedEmbed {
         let mut fields = Vec::with_capacity(2);
 
         if !sniper.is_empty() {
-            let mut victims = HashMap::new();
-
-            for score in sniper.iter() {
-                if let Some(name) = score.sniped.as_deref() {
-                    *victims.entry(name).or_insert(0) += 1;
-                }
-            }
-
-            let (most_name, most_count) = victims.iter().max_by_key(|(_, count)| *count).unwrap();
+            let last_week = &sniper[0];
+            let most_player = &last_week.players[0];
             let name = format!("Sniped by {username}:");
 
             let value = format!(
-                "Total count: {}\n\
-                Different victims: {}\n\
+                "Total count: {total}\n\
+                Different victims: {unique}\n\
                 Targeted the most: {most_name} ({most_count})",
-                sniper.len(),
-                victims.len(),
+                total = sniper[0].total,
+                unique = sniper[0].unique,
+                most_name = most_player.username,
+                // The count values were accumulated for the graph so we need
+                // to de-accumulate again
+                most_count =
+                    most_player.count - last_week.players.get(1).map_or(0, |player| player.count),
             );
 
             fields![fields { name, value, false }];
         }
 
         if !snipee.is_empty() {
-            let mut snipers = HashMap::new();
-            let mut most_count = 0;
-            let mut most_name = None;
-
-            for score in snipee.iter() {
-                let entry = snipers.entry(score.sniper_id).or_insert(0);
-                *entry += 1;
-
-                if *entry > most_count {
-                    most_count = *entry;
-
-                    if let Some(sniper) = score.sniper.as_deref() {
-                        most_name = Some(sniper);
-                    }
-                }
-            }
-
-            // should technically always be `Some` but huismetbenen is bugged
-            let most_name = most_name.unwrap_or("<unknown user>");
+            let last_week = &snipee[0];
+            let most_player = &last_week.players[0];
             let name = format!("Sniped {username}");
 
             let value = format!(
-                "Total count: {}\n\
-                Different snipers: {}\n\
+                "Total count: {total}\n\
+                Different snipers: {unique}\n\
                 Targeted the most: {most_name} ({most_count})",
-                snipee.len(),
-                snipers.len(),
+                total = snipee[0].total,
+                unique = snipee[0].unique,
+                most_name = most_player.username,
+                // The count values were accumulated for the graph so we need
+                // to de-accumulate again
+                most_count =
+                    most_player.count - last_week.players.get(1).map_or(0, |player| player.count),
             );
 
             fields![fields { name, value, false }];

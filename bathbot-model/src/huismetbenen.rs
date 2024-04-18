@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     collections::BTreeMap,
-    fmt::{Display, Formatter, Result as FmtResult},
+    fmt::{Formatter, Result as FmtResult},
     ops::ControlFlow,
 };
 
@@ -9,7 +9,7 @@ use bathbot_util::{osu::ModSelection, CowUtils};
 use rkyv::{
     boxed::ArchivedBox, Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
 };
-use rosu_v2::prelude::{CountryCode, GameMode, GameMods, GameModsIntermode, RankStatus, Username};
+use rosu_v2::prelude::{CountryCode, GameMode, GameMods, GameModsIntermode, Username};
 use serde::{
     de::{
         value::StrDeserializer, Deserializer, Error as DeError, IgnoredAny, MapAccess, SeqAccess,
@@ -28,23 +28,27 @@ use time::{
 use twilight_interactions::command::{CommandOption, CreateOption};
 
 use super::deser;
+use crate::KittenRoleplayCountries;
 
-#[derive(Debug)]
 pub struct SnipeScoreParams {
     pub user_id: u32,
     pub country: CountryCode,
-    pub page: u8,
+    pub mode: GameMode,
+    pub page: u32,
+    pub limit: Option<u8>,
     pub order: SnipePlayerListOrder,
     pub mods: Option<ModSelection>,
     pub descending: bool,
 }
 
 impl SnipeScoreParams {
-    pub fn new(user_id: u32, country_code: impl AsRef<str>) -> Self {
+    pub fn new(user_id: u32, country_code: &str, mode: GameMode) -> Self {
         Self {
             user_id,
-            country: country_code.as_ref().to_ascii_lowercase().into(),
+            country: country_code.to_ascii_lowercase().into(),
+            mode,
             page: 1,
+            limit: None,
             order: SnipePlayerListOrder::Pp,
             mods: None,
             descending: true,
@@ -69,12 +73,51 @@ impl SnipeScoreParams {
         self
     }
 
-    pub fn page(&mut self, page: u8) {
+    pub fn limit(mut self, limit: u8) -> Self {
+        self.limit = Some(limit);
+
+        self
+    }
+
+    pub fn page(&mut self, page: u32) {
         self.page = page;
     }
 }
 
-#[derive(Copy, Clone, CommandOption, CreateOption, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Default, Eq, PartialEq)]
+pub enum SnipeCountryListOrder {
+    #[default]
+    #[option(name = "Count", value = "count")]
+    Count,
+    #[option(name = "Average PP", value = "avg_pp")]
+    AvgPp,
+    #[option(name = "Average Stars", value = "avg_stars")]
+    AvgStars,
+    #[option(name = "Weighted PP", value = "weighted_pp")]
+    WeightedPp,
+}
+
+impl SnipeCountryListOrder {
+    pub fn as_huismetbenen_str(self) -> &'static str {
+        match self {
+            Self::Count => "count",
+            Self::AvgPp => "pp/average",
+            Self::AvgStars => "sr/average",
+            Self::WeightedPp => "pp/weighted",
+        }
+    }
+
+    pub fn as_kittenroleplay_str(self) -> &'static str {
+        match self {
+            Self::Count => "count",
+            Self::AvgPp => "average_pp",
+            Self::AvgStars => "average_stars",
+            Self::WeightedPp => "weighted_pp",
+        }
+    }
+}
+
+#[derive(Copy, Clone, CommandOption, CreateOption, Debug, Default, Eq, PartialEq)]
 pub enum SnipePlayerListOrder {
     #[option(name = "Accuracy", value = "acc")]
     Acc = 0,
@@ -82,39 +125,41 @@ pub enum SnipePlayerListOrder {
     Date = 5,
     #[option(name = "Misses", value = "misses")]
     Misses = 3,
+    #[default]
     #[option(name = "PP", value = "pp")]
     Pp = 4,
     #[option(name = "Stars", value = "stars")]
     Stars = 6,
 }
 
-impl Default for SnipePlayerListOrder {
-    #[inline]
-    fn default() -> Self {
-        Self::Pp
-    }
-}
-
-impl Display for SnipePlayerListOrder {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let name = match self {
+impl SnipePlayerListOrder {
+    pub fn as_huismetbenen_str(self) -> &'static str {
+        match self {
             Self::Acc => "accuracy",
+            Self::Date => "date_set",
             Self::Misses => "count_miss",
             Self::Pp => "pp",
-            Self::Date => "date_set",
             Self::Stars => "sr",
-        };
+        }
+    }
 
-        f.write_str(name)
+    pub fn as_kittenroleplay_str(self) -> &'static str {
+        match self {
+            Self::Acc => "accuracy",
+            Self::Date => "created_at",
+            Self::Misses => "count_miss",
+            Self::Pp => "pp",
+            Self::Stars => "stars",
+        }
     }
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SnipeCountryStatistics {
     #[serde(rename = "totalBeatmaps")]
-    pub total_maps: usize,
+    pub total_maps: u32,
     #[serde(rename = "unplayedBeatmaps")]
-    pub unplayed_maps: usize,
+    pub unplayed_maps: u32,
     #[serde(rename = "topGain")]
     pub top_gain: Option<SnipeTopNationalDifference>,
     #[serde(rename = "topLoss")]
@@ -124,7 +169,7 @@ pub struct SnipeCountryStatistics {
 #[derive(Debug, Deserialize)]
 pub struct SnipeTopNationalDifference {
     #[serde(rename = "most_recent_top_national")]
-    pub top_national: Option<usize>,
+    pub top_national: Option<u32>,
     #[serde(rename = "name")]
     pub username: Username,
     #[serde(rename = "total_top_national_difference")]
@@ -397,7 +442,7 @@ pub struct SnipeCountryPlayer {
     pub username: Username,
     pub user_id: u32,
     #[serde(rename = "average_pp")]
-    pub avg_pp: f32,
+    pub avg_pp: Option<f32>,
     #[serde(rename = "average_sr")]
     pub avg_sr: f32,
     #[serde(rename = "weighted_pp")]
@@ -415,31 +460,20 @@ pub struct SnipePlayerOldest {
 
 #[derive(Debug)]
 pub struct SnipeRecent {
-    pub uid: u32,
     pub map_id: u32,
     pub user_id: u32,
-    pub country: CountryCode,
     pub pp: Option<f32>,
     pub stars: Option<f32>,
     pub accuracy: f32,
-    pub count_300: Option<u32>,
-    pub count_100: Option<u32>,
-    pub count_50: Option<u32>,
-    pub count_miss: Option<u32>,
     pub date: Option<OffsetDateTime>,
     pub mods: Option<GameMods>,
     pub max_combo: Option<u32>,
-    pub ar: f32,
-    pub cs: f32,
-    pub od: f32,
-    pub hp: f32,
-    pub bpm: f32,
     pub artist: Box<str>,
     pub title: Box<str>,
     pub version: Box<str>,
-    pub sniper: Option<Box<str>>,
+    pub sniper: Option<Username>,
     pub sniper_id: u32,
-    pub sniped: Option<Box<str>>,
+    pub sniped: Option<Username>,
     pub sniped_id: Option<u32>,
 }
 
@@ -447,39 +481,28 @@ impl<'de> Deserialize<'de> for SnipeRecent {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         pub struct SnipeRecentInner<'mods> {
-            uid: u32,
             map_id: u32,
             #[serde(rename = "player_id")]
             user_id: u32,
-            country: CountryCode,
             pp: Option<f32>,
             #[serde(rename = "sr")]
             stars: Option<f32>,
             #[serde(with = "deser::adjust_acc")]
             accuracy: f32,
-            count_300: Option<u32>,
-            count_100: Option<u32>,
-            count_50: Option<u32>,
-            count_miss: Option<u32>,
             #[serde(rename = "date_set", with = "deser::option_naive_datetime")]
             date: Option<OffsetDateTime>,
             #[serde(borrow)]
             mods: Option<&'mods RawValue>,
             max_combo: Option<u32>,
-            ar: f32,
-            cs: f32,
-            od: f32,
-            hp: f32,
-            bpm: f32,
             artist: Box<str>,
             title: Box<str>,
             #[serde(rename = "diff_name")]
             version: Box<str>,
             #[serde(default, rename = "sniper_name")]
-            sniper: Option<Box<str>>,
+            sniper: Option<Username>,
             sniper_id: u32,
             #[serde(default, rename = "sniped_name")]
-            sniped: Option<Box<str>>,
+            sniped: Option<Username>,
             sniped_id: Option<u32>,
         }
 
@@ -494,25 +517,14 @@ impl<'de> Deserialize<'de> for SnipeRecent {
         };
 
         Ok(SnipeRecent {
-            uid: inner.uid,
             map_id: inner.map_id,
             user_id: inner.user_id,
-            country: inner.country,
             pp: inner.pp,
             stars: inner.stars,
             accuracy: inner.accuracy,
-            count_300: inner.count_300,
-            count_100: inner.count_100,
-            count_50: inner.count_50,
-            count_miss: inner.count_miss,
             date: inner.date,
             mods,
             max_combo: inner.max_combo,
-            ar: inner.ar,
-            cs: inner.cs,
-            od: inner.od,
-            hp: inner.hp,
-            bpm: inner.bpm,
             artist: inner.artist,
             title: inner.title,
             version: inner.version,
@@ -554,65 +566,43 @@ impl<'de> Visitor<'de> for SnipeModsVisitor {
 }
 
 pub struct SnipeScore {
-    pub uid: u32,
-    pub user_id: u32,
-    pub username: Username,
-    pub country: CountryCode,
     pub score: u32,
     pub pp: Option<f32>,
     pub stars: f32,
     pub accuracy: f32,
-    pub count_300: Option<u32>,
-    pub count_100: Option<u32>,
-    pub count_50: Option<u32>,
     pub count_miss: Option<u32>,
     pub date_set: Option<OffsetDateTime>,
     pub mods: Option<GameMods>,
     pub max_combo: Option<u32>,
-    pub ar: f32,
-    pub hp: f32,
-    pub cs: f32,
-    pub od: f32,
-    pub bpm: f32,
-    pub is_global: bool,
-    pub map: SnipeBeatmap,
+    pub map_id: u32,
 }
 
 impl<'de> Deserialize<'de> for SnipeScore {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
+        struct SnipeBeatmap {
+            map_id: u32,
+        }
+
+        #[derive(Deserialize)]
         struct SnipeScoreInner<'mods> {
-            uid: u32,
-            #[serde(rename = "player_id")]
-            user_id: u32,
-            username: Username,
-            country: CountryCode,
             score: u32,
             pp: Option<f32>,
             #[serde(rename = "sr")]
             stars: f32,
             #[serde(with = "deser::adjust_acc")]
             accuracy: f32,
-            count_300: Option<u32>,
-            count_100: Option<u32>,
-            count_50: Option<u32>,
             count_miss: Option<u32>,
             #[serde(with = "deser::option_naive_datetime")]
             date_set: Option<OffsetDateTime>,
             #[serde(borrow)]
             mods: Option<&'mods RawValue>,
             max_combo: Option<u32>,
-            ar: f32,
-            hp: f32,
-            cs: f32,
-            od: f32,
-            bpm: f32,
-            is_global: bool,
             #[serde(rename = "beatmap")]
             map: SnipeBeatmap,
         }
 
-        let inner = <SnipeScoreInner as Deserialize>::deserialize(d)?;
+        let inner = <SnipeScoreInner<'_> as Deserialize>::deserialize(d)?;
 
         let mods = match inner.mods {
             Some(raw) => StrDeserializer::<D::Error>::new(raw.get().trim_matches('"'))
@@ -623,59 +613,41 @@ impl<'de> Deserialize<'de> for SnipeScore {
         };
 
         Ok(SnipeScore {
-            uid: inner.uid,
-            user_id: inner.user_id,
-            username: inner.username,
-            country: inner.country,
             score: inner.score,
             pp: inner.pp,
             stars: inner.stars,
             accuracy: inner.accuracy,
-            count_300: inner.count_300,
-            count_100: inner.count_100,
-            count_50: inner.count_50,
             count_miss: inner.count_miss,
             date_set: inner.date_set,
             mods,
             max_combo: inner.max_combo,
-            ar: inner.ar,
-            hp: inner.hp,
-            cs: inner.cs,
-            od: inner.od,
-            bpm: inner.bpm,
-            is_global: inner.is_global,
-            map: inner.map,
+            map_id: inner.map.map_id,
         })
     }
 }
 
-#[derive(Deserialize)]
-pub struct SnipeBeatmap {
-    pub map_id: u32,
-    #[serde(rename = "set_id")]
-    pub mapset_id: u32,
-    pub artist: Box<str>,
-    pub title: Box<str>,
-    #[serde(rename = "diff_name")]
-    pub version: Box<str>,
-    #[serde(rename = "count_normal")]
-    pub count_circles: u32,
-    #[serde(rename = "count_slider")]
-    pub count_sliders: u32,
-    #[serde(rename = "count_spinner")]
-    pub count_spinners: u32,
-    pub ranked_status: RankStatus,
-    pub ar: f32,
-    pub cs: f32,
-    pub od: f32,
-    pub hp: f32,
-    pub bpm: f32,
-    pub max_combo: u32,
-}
-
-#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Archive, RkyvDeserialize, RkyvSerialize)]
 pub struct SnipeCountries {
     country_codes: Box<[Box<str>]>,
+}
+
+impl SnipeCountries {
+    pub fn sort(&mut self) {
+        self.country_codes.sort_unstable();
+    }
+}
+
+impl From<KittenRoleplayCountries> for SnipeCountries {
+    fn from(countries: KittenRoleplayCountries) -> Self {
+        let country_codes = countries
+            .full
+            .into_iter()
+            .chain(countries.partial)
+            .map(|country| country.code.into_boxed_str())
+            .collect();
+
+        Self { country_codes }
+    }
 }
 
 impl SnipeCountries {
@@ -870,4 +842,47 @@ mod oldest_datetime {
             Ok(Some(primitive.assume_offset(offset)))
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SnipedWeek {
+    #[serde(rename = "after", with = "deser::datetime_rfc2822")]
+    pub from: OffsetDateTime,
+    #[serde(rename = "before", with = "deser::datetime_rfc2822")]
+    pub until: OffsetDateTime,
+    #[serde(rename = "top", deserialize_with = "deser_sniped_players")]
+    pub players: Vec<SnipedPlayer>,
+    pub total: u32,
+    pub unique: u32,
+}
+
+#[derive(Debug, Deserialize, PartialEq, Eq)]
+pub struct SnipedPlayer {
+    pub username: Username,
+    pub count: u32,
+}
+
+// Custom deserialization to specify a capacity of 10
+fn deser_sniped_players<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<SnipedPlayer>, D::Error> {
+    struct SnipedPlayersVisitor;
+
+    impl<'de> Visitor<'de> for SnipedPlayersVisitor {
+        type Value = Vec<SnipedPlayer>;
+
+        fn expecting(&self, f: &mut Formatter) -> FmtResult {
+            f.write_str("a sequence of SnipedPlayer")
+        }
+
+        fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+            let mut players = Vec::with_capacity(10);
+
+            while let Some(player) = seq.next_element()? {
+                players.push(player);
+            }
+
+            Ok(players)
+        }
+    }
+
+    d.deserialize_seq(SnipedPlayersVisitor)
 }

@@ -294,11 +294,11 @@ impl RedisManager {
         Ok(RedisData::new(scores))
     }
 
-    pub async fn snipe_countries(self) -> RedisResult<SnipeCountries> {
+    pub async fn snipe_countries(self, mode: GameMode) -> RedisResult<SnipeCountries> {
         const EXPIRE: usize = 43_200; // 12 hours
-        let key = "snipe_countries";
+        let key = format!("snipe_countries_{mode}");
 
-        let mut conn = match self.ctx.cache.fetch(key).await {
+        let mut conn = match self.ctx.cache.fetch(&key).await {
             Ok(Ok(countries)) => {
                 BotMetrics::inc_redis_hit("Snipe countries");
 
@@ -312,10 +312,10 @@ impl RedisManager {
             }
         };
 
-        let countries = self.ctx.client().get_snipe_countries().await?;
+        let countries = self.ctx.client().get_snipe_countries(mode).await?;
 
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 712>(conn, key, &countries, EXPIRE).await {
+            if let Err(err) = Cache::store::<_, _, 712>(conn, &key, &countries, EXPIRE).await {
                 warn!(?err, "Failed to store snipe countries");
             }
         }

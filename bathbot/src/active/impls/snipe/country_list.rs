@@ -1,9 +1,15 @@
-use std::{fmt::Write, sync::Arc};
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult, Write},
+    sync::Arc,
+};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{CountryName, SnipeCountryPlayer};
+use bathbot_model::{CountryName, SnipeCountryListOrder, SnipeCountryPlayer};
 use bathbot_util::{
-    constants::OSU_BASE, numbers::WithComma, osu::flag_url, CowUtils, EmbedBuilder, FooterBuilder,
+    constants::OSU_BASE,
+    numbers::{round, WithComma},
+    osu::flag_url,
+    CowUtils, EmbedBuilder, FooterBuilder,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -18,7 +24,6 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    commands::osu::SnipeCountryListOrder,
     core::Context,
     util::interaction::{InteractionComponent, InteractionModal},
 };
@@ -44,8 +49,8 @@ impl IActiveMessage for SnipeCountryListPagination {
 
         let order_text = match self.order {
             SnipeCountryListOrder::Count => "#1 count",
-            SnipeCountryListOrder::Pp => "average pp of #1s",
-            SnipeCountryListOrder::Stars => "average stars of #1s",
+            SnipeCountryListOrder::AvgPp => "average pp of #1s",
+            SnipeCountryListOrder::AvgStars => "average stars of #1s",
             SnipeCountryListOrder::WeightedPp => "weighted pp from #1s",
         };
 
@@ -72,7 +77,7 @@ impl IActiveMessage for SnipeCountryListPagination {
             let _ = writeln!(
                 description,
                 "**#{idx} [{name}]({OSU_BASE}users/{id})**: {w}Weighted pp: {weighted}{w}\n\
-                {c}Count: {count}{c} • {p}Avg pp: {pp}{p} • {s}Avg stars: {stars:.2}★{s}",
+                {c}Count: {count}{c} {avg_pp}• {s}Avg stars: {stars:.2}★{s}",
                 name = player.username.cow_escape_markdown(),
                 id = player.user_id,
                 c = if self.order == SnipeCountryListOrder::Count {
@@ -80,12 +85,7 @@ impl IActiveMessage for SnipeCountryListPagination {
                 } else {
                     ""
                 },
-                p = if self.order == SnipeCountryListOrder::Pp {
-                    "__"
-                } else {
-                    ""
-                },
-                s = if self.order == SnipeCountryListOrder::Stars {
+                s = if self.order == SnipeCountryListOrder::AvgStars {
                     "__"
                 } else {
                     ""
@@ -96,7 +96,10 @@ impl IActiveMessage for SnipeCountryListPagination {
                     ""
                 },
                 count = WithComma::new(player.count_first),
-                pp = WithComma::new(player.avg_pp),
+                avg_pp = AveragePpFormatter {
+                    pp: player.avg_pp,
+                    underline: self.order == SnipeCountryListOrder::AvgPp,
+                },
                 stars = player.avg_sr,
                 weighted = WithComma::new(player.pp),
             );
@@ -139,5 +142,25 @@ impl IActiveMessage for SnipeCountryListPagination {
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
         handle_pagination_modal(ctx, modal, self.msg_owner, false, &mut self.pages)
+    }
+}
+
+struct AveragePpFormatter {
+    pp: Option<f32>,
+    underline: bool,
+}
+
+impl Display for AveragePpFormatter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let Some(pp) = self.pp else {
+            return Ok(());
+        };
+
+        write!(
+            f,
+            "• {underline}Avg pp: {pp}{underline} ",
+            pp = WithComma::new(round(pp)),
+            underline = if self.underline { "__" } else { "" }
+        )
     }
 }

@@ -1,8 +1,9 @@
 use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
-use bathbot_model::SnipePlayerListOrder;
+use bathbot_model::{SnipeCountryListOrder, SnipePlayerListOrder};
 use eyre::Result;
+use rosu_v2::model::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -26,9 +27,10 @@ pub mod sniped;
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "snipe",
-    desc = "National #1 related data provided by huismetbenen",
-    help = "National #1 related stats. \
-    All data is provided by [huismetbenen](https://snipe.huismetbenen.nl).\n\
+    desc = "National #1 related data",
+    help = "National #1 related stats. Data is provided by:\n\
+    - osu!standard: [huismetbenen](https://snipe.huismetbenen.nl)\n\
+    - osu!mania: [kittenroleplay](https://snipes.kittenroleplay.com)\n\
     Note that the data usually __updates once per week__."
 )]
 pub enum Snipe<'a> {
@@ -47,6 +49,24 @@ pub enum SnipeCountry<'a> {
     Stats(SnipeCountryStats<'a>),
 }
 
+#[derive(Copy, Clone, CommandOption, CreateOption, Default)]
+pub enum SnipeGameMode {
+    #[default]
+    #[option(name = "osu", value = "osu")]
+    Osu,
+    #[option(name = "mania", value = "mania")]
+    Mania,
+}
+
+impl From<SnipeGameMode> for GameMode {
+    fn from(mode: SnipeGameMode) -> Self {
+        match mode {
+            SnipeGameMode::Osu => Self::Osu,
+            SnipeGameMode::Mania => Self::Mania,
+        }
+    }
+}
+
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "list",
@@ -54,6 +74,8 @@ pub enum SnipeCountry<'a> {
     help = "List all players of a country with a specific order based around #1 stats"
 )]
 pub struct SnipeCountryList<'a> {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a country (code)")]
     country: Option<Cow<'a, str>>,
     #[command(
@@ -66,27 +88,11 @@ pub struct SnipeCountryList<'a> {
     sort: Option<SnipeCountryListOrder>,
 }
 
-#[derive(Copy, Clone, CommandOption, CreateOption, Eq, PartialEq)]
-pub enum SnipeCountryListOrder {
-    #[option(name = "Count", value = "count")]
-    Count,
-    #[option(name = "PP", value = "pp")]
-    Pp,
-    #[option(name = "Stars", value = "stars")]
-    Stars,
-    #[option(name = "Weighted PP", value = "weighted_pp")]
-    WeightedPp,
-}
-
-impl Default for SnipeCountryListOrder {
-    fn default() -> Self {
-        Self::Count
-    }
-}
-
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "stats", desc = "#1-count related stats for a country")]
 pub struct SnipeCountryStats<'a> {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a country (code)")]
     country: Option<Cow<'a, str>>,
 }
@@ -113,6 +119,8 @@ pub enum SnipePlayer<'a> {
     help = "Display all national #1 scores that a user acquired within the last week"
 )]
 pub struct SnipePlayerGain<'a> {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
@@ -127,6 +135,8 @@ pub struct SnipePlayerGain<'a> {
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
 #[command(name = "list", desc = "List all national #1 scores of a player")]
 pub struct SnipePlayerList<'a> {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
@@ -155,6 +165,8 @@ pub struct SnipePlayerList<'a> {
     help = "Display all national #1 scores that a user lost within the last week"
 )]
 pub struct SnipePlayerLoss<'a> {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
@@ -169,6 +181,8 @@ pub struct SnipePlayerLoss<'a> {
 #[derive(CommandModel, CreateCommand, Default, HasName)]
 #[command(name = "stats", desc = "Stats about a user's national #1 scores")]
 pub struct SnipePlayerStats<'a> {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(
@@ -187,6 +201,8 @@ pub struct SnipePlayerStats<'a> {
     help = "Display who sniped and was sniped the most by a user in last 8 weeks"
 )]
 pub struct SnipePlayerSniped<'a> {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
     #[command(

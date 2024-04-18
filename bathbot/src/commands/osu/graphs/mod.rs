@@ -29,7 +29,7 @@ use self::{
     top_index::top_graph_index,
     top_time::top_graph_time,
 };
-use super::{require_link, user_not_found};
+use super::{require_link, user_not_found, SnipeGameMode};
 use crate::{
     commands::{GameModeOption, ShowHideOption, TimezoneOption},
     core::{commands::CommandOrigin, Context, ContextExt},
@@ -120,6 +120,8 @@ pub struct GraphRank {
 #[derive(CommandModel, CreateCommand, HasName)]
 #[command(name = "sniped", desc = "Display sniped users of the past 8 weeks")]
 pub struct GraphSniped {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
@@ -137,6 +139,8 @@ pub struct GraphSniped {
     desc = "Display how a user's national #1 count progressed"
 )]
 pub struct GraphSnipeCount {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
@@ -269,7 +273,9 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 },
             };
 
-            sniped_graph(ctx.cloned(), &orig, user_id)
+            let mode = GameMode::from(args.mode.unwrap_or_default());
+
+            sniped_graph(ctx.cloned(), &orig, user_id, mode)
                 .await
                 .wrap_err("failed to create snipe graph")?
         }
@@ -287,7 +293,9 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 },
             };
 
-            snipe_count_graph(ctx.cloned(), &orig, user_id)
+            let mode = GameMode::from(args.mode.unwrap_or_default());
+
+            snipe_count_graph(ctx.cloned(), &orig, user_id, mode)
                 .await
                 .wrap_err("failed to create snipe count graph")?
         }

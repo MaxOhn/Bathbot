@@ -8,15 +8,15 @@ use std::{
 use bathbot_macros::command;
 use bathbot_model::SnipeScoreParams;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     osu::ModSelection,
     CowUtils,
 };
 use eyre::{Report, Result};
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
-use super::{SnipePlayerList, SnipePlayerListOrder};
+use super::{SnipeGameMode, SnipePlayerList, SnipePlayerListOrder};
 use crate::{
     active::{impls::SnipePlayerListPagination, ActiveMessages},
     commands::osu::{require_link, HasMods, ModsResult},
@@ -34,22 +34,55 @@ use crate::{
 #[help(
     "List all national #1 scores of a player.\n\
     To specify an order, you must provide `sort=...` with any of these values:\n\
-    - `acc`: Sort by accuracy\n \
-    - `stars`: Sort by the map's stars\n \
-    - `misses`: Sort by amount of misses\n \
-    - `scoredate`: Sort by the date when the score was set\n \
+    - `acc`: Sort by accuracy\n\
+    - `stars`: Sort by the map's stars\n\
+    - `misses`: Sort by amount of misses\n\
+    - `scoredate`: Sort by the date when the score was set\n\
     By default the scores will be sorted by pp.\n\
     To reverse the resulting list you can specify `reverse=true`\n\
     Mods can also be specified.\n\
-    All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
-    website [huismetbenen](https://snipe.huismetbenen.nl/)."
+    Data for osu!standard originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
+    [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[username] [+mods] [sort=acc/stars/misses/scoredate] [reverse=true/false]")]
 #[examples("badewanne3 +dt sort=acc reverse=true", "+hdhr sort=scoredate")]
 #[alias("psl")]
 #[group(Osu)]
 async fn prefix_playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
-    match SnipePlayerList::args(args) {
+    match SnipePlayerList::args(args, GameMode::Osu) {
+        Ok(args) => player_list(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("List all national #1 mania scores of a player")]
+#[help(
+    "List all national #1 mania scores of a player.\n\
+    To specify an order, you must provide `sort=...` with any of these values:\n\
+    - `acc`: Sort by accuracy\n\
+    - `stars`: Sort by the map's stars\n\
+    - `misses`: Sort by amount of misses\n\
+    - `scoredate`: Sort by the date when the score was set\n\
+    By default the scores will be sorted by pp.\n\
+    To reverse the resulting list you can specify `reverse=true`\n\
+    Data for osu!mania originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[username] [sort=acc/stars/misses/scoredate] [reverse=true/false]")]
+#[examples("badewanne3 sort=acc reverse=true", "sort=scoredate")]
+#[alias("pslm")]
+#[group(Mania)]
+async fn prefix_playersnipelistmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> Result<()> {
+    match SnipePlayerList::args(args, GameMode::Mania) {
         Ok(args) => player_list(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -95,7 +128,8 @@ pub(super) async fn player_list(
         },
     };
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
+    let mode = GameMode::from(args.mode.unwrap_or_default());
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
@@ -132,7 +166,7 @@ pub(super) async fn player_list(
         }
     };
 
-    let country = if ctx.huismetbenen().is_supported(country_code).await {
+    let country = if ctx.huismetbenen().is_supported(country_code, mode).await {
         country_code.to_owned()
     } else {
         let content = format!("`{username}`'s country {country_code} is not supported :(");
@@ -140,13 +174,13 @@ pub(super) async fn player_list(
         return orig.error(&ctx, content).await;
     };
 
-    let params = SnipeScoreParams::new(user_id, country)
+    let params = SnipeScoreParams::new(user_id, &country, mode)
         .order(args.sort.unwrap_or_default())
         .descending(args.reverse.map_or(true, |b| !b))
         .mods(mods);
 
     let scores_fut = ctx.client().get_national_firsts(&params);
-    let count_fut = ctx.client().get_national_firsts_count(&params);
+    let count_fut = ctx.client().get_national_firsts_count(&params, mode);
 
     let (scores, count) = match tokio::try_join!(scores_fut, count_fut) {
         Ok((scores, count)) => {
@@ -155,7 +189,7 @@ pub(super) async fn player_list(
             (scores, count)
         }
         Err(err) => {
-            let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to get scores or counts"));
         }
@@ -165,7 +199,7 @@ pub(super) async fn player_list(
     let map_ids = scores
         .values()
         .take(5)
-        .map(|score| (score.map.map_id as i32, None))
+        .map(|score| (score.map_id as i32, None))
         .collect();
 
     let maps = match ctx.osu_map().maps(&map_ids).await {
@@ -205,7 +239,13 @@ pub(super) async fn player_list(
 }
 
 impl<'m> SnipePlayerList<'m> {
-    fn args(args: Args<'m>) -> Result<Self, Cow<'static, str>> {
+    fn args(args: Args<'m>, mode: GameMode) -> Result<Self, Cow<'static, str>> {
+        let mode = match mode {
+            GameMode::Osu => Some(SnipeGameMode::Osu),
+            GameMode::Mania => Some(SnipeGameMode::Mania),
+            GameMode::Taiko | GameMode::Catch => None,
+        };
+
         let mut name = None;
         let mut discord = None;
         let mut sort = None;
@@ -261,6 +301,7 @@ impl<'m> SnipePlayerList<'m> {
         }
 
         Ok(Self {
+            mode,
             name,
             mods,
             sort,

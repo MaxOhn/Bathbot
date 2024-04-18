@@ -8,7 +8,6 @@ mod client;
 mod discord;
 mod error;
 mod github;
-mod huismetbenen;
 mod metrics;
 mod miss_analyzer;
 mod multipart;
@@ -20,6 +19,7 @@ mod osutracker;
 mod osuworld;
 mod respektive;
 mod site;
+mod snipe;
 mod twitch;
 
 use self::site::Site;

@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, MessageBuilder,
 };
 use eyre::{ContextCompat, Report, Result, WrapErr};
@@ -16,7 +16,7 @@ use skia_safe::{surfaces, EncodedImageFormat};
 use time::Date;
 use twilight_model::guild::Permissions;
 
-use super::SnipePlayerStats;
+use super::{SnipeGameMode, SnipePlayerStats};
 use crate::{
     commands::osu::require_link,
     core::{commands::CommandOrigin, ContextExt},
@@ -30,8 +30,8 @@ use crate::{
 #[desc("Stats about a user's #1 scores in their country leaderboards")]
 #[help(
     "Stats about a user's #1 scores in their country leaderboards.\n\
-    All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
-    website [huismetbenen](https://snipe.huismetbenen.nl/)."
+    Data for osu!standard originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
+    [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
@@ -43,18 +43,66 @@ async fn prefix_playersnipestats(
     mut args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
+    let mode = Some(SnipeGameMode::Osu);
+
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => SnipePlayerStats {
+                mode,
                 name: None,
                 discord: Some(id),
             },
             None => SnipePlayerStats {
+                mode,
                 name: Some(arg.into()),
                 discord: None,
             },
         },
-        None => SnipePlayerStats::default(),
+        None => SnipePlayerStats {
+            mode,
+            ..Default::default()
+        },
+    };
+
+    player_stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+}
+
+#[command]
+#[desc("Stats about a user's #1 mania scores in their country leaderboards")]
+#[help(
+    "Stats about a user's #1 mania scores in their country leaderboards.\n\
+    Data for osu!mania originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("pssm")]
+#[group(Mania)]
+async fn prefix_playersnipestatsmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let mode = Some(SnipeGameMode::Mania);
+
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => SnipePlayerStats {
+                mode,
+                name: None,
+                discord: Some(id),
+            },
+            None => SnipePlayerStats {
+                mode,
+                name: Some(arg.into()),
+                discord: None,
+            },
+        },
+        None => SnipePlayerStats {
+            mode,
+            ..Default::default()
+        },
     };
 
     player_stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
@@ -78,7 +126,8 @@ pub(super) async fn player_stats(
         },
     };
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
+    let mode = GameMode::from(args.mode.unwrap_or_default());
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
@@ -115,8 +164,8 @@ pub(super) async fn player_stats(
         }
     };
 
-    let player_fut = if ctx.huismetbenen().is_supported(country_code).await {
-        ctx.client().get_snipe_player(country_code, user_id)
+    let player_fut = if ctx.huismetbenen().is_supported(country_code, mode).await {
+        ctx.client().get_snipe_player(country_code, user_id, mode)
     } else {
         let content = format!("`{username}`'s country {country_code} is not supported :(");
 
@@ -133,7 +182,7 @@ pub(super) async fn player_stats(
             return Ok(());
         }
         Err(err) => {
-            let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -152,7 +201,7 @@ pub(super) async fn player_stats(
     let score_fut = ctx
         .osu()
         .beatmap_user_score(player.oldest_first.map_id, player.user_id)
-        .mode(GameMode::Osu);
+        .mode(mode);
 
     let map_fut = ctx.osu_map().map(player.oldest_first.map_id, None);
 

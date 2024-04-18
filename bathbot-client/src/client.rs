@@ -24,7 +24,7 @@ pub struct Client {
     #[cfg(feature = "twitch")]
     twitch: bathbot_model::TwitchData,
     github_auth: Box<str>,
-    ratelimiters: [LeakyBucket; 17],
+    ratelimiters: [LeakyBucket; 18],
 }
 
 impl Client {
@@ -63,6 +63,7 @@ impl Client {
             ratelimiter(10), // Flags
             ratelimiter(5),  // Github
             ratelimiter(2),  // Huismetbenen
+            ratelimiter(5),  // KittenRoleplay
             ratelimiter(5),  // MissAnalyzer
             ratelimiter(2),  // Osekai
             ratelimiter(10), // OsuAvatar

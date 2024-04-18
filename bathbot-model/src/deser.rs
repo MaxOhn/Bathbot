@@ -229,6 +229,32 @@ pub(super) mod datetime_rfc3339 {
     }
 }
 
+pub(super) mod datetime_rfc2822 {
+    use time::format_description::well_known::Rfc2822;
+
+    use super::*;
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
+        d.deserialize_str(DateTimeVisitor)
+    }
+
+    struct DateTimeVisitor;
+
+    impl<'de> Visitor<'de> for DateTimeVisitor {
+        type Value = OffsetDateTime;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("an RFC2822 datetime string")
+        }
+
+        #[inline]
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            OffsetDateTime::parse(v, &Rfc2822).map_err(Error::custom)
+        }
+    }
+}
+
 pub(super) mod date {
     use bathbot_util::datetime::DATE_FORMAT;
 

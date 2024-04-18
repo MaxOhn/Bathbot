@@ -1,22 +1,23 @@
 use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
 
 use bathbot_macros::command;
-use bathbot_model::{Countries, SnipeCountryPlayer};
+use bathbot_model::{Countries, SnipeCountryListOrder, SnipeCountryPlayer};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
 };
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
 use rosu_v2::{
+    model::GameMode,
     prelude::{CountryCode, OsuError},
     request::UserId,
 };
 use skia_safe::{surfaces, EncodedImageFormat};
 use twilight_model::guild::Permissions;
 
-use super::SnipeCountryStats;
+use super::{SnipeCountryStats, SnipeGameMode};
 use crate::{
     commands::osu::user_not_found,
     core::{commands::CommandOrigin, ContextExt},
@@ -29,13 +30,13 @@ use crate::{
 #[desc("Snipe / #1 count related stats for a country")]
 #[help(
     "Some snipe / #1 count related stats for a country.\n\
-    As argument, provide either `global`, or a country acronym, e.g. `be`.\n\
+    As argument, provide an optional country acronym, e.g. `be`.\n\
     If no country is specified, I will take the country of the linked user.\n\
-    All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
-    website [huismetbenen](https://snipe.huismetbenen.nl/)."
+    Data for osu!standard originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
+    [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[country acronym]")]
-#[examples("fr", "global")]
+#[examples("fr")]
 #[alias("css")]
 #[group(Osu)]
 async fn prefix_countrysnipestats(
@@ -45,6 +46,34 @@ async fn prefix_countrysnipestats(
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = SnipeCountryStats {
+        mode: Some(SnipeGameMode::Osu),
+        country: args.next().map(Cow::from),
+    };
+
+    country_stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+}
+
+#[command]
+#[desc("Snipe / #1 count related mania stats for a country")]
+#[help(
+    "Some snipe / #1 count related mania stats for a country.\n\
+    As argument, provide an optional country acronym, e.g. `be`.\n\
+    If no country is specified, I will take the country of the linked user.\n\
+    Data for osu!mania originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[country acronym]")]
+#[examples("fr")]
+#[alias("cssm")]
+#[group(Mania)]
+async fn prefix_countrysnipestatsmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let args = SnipeCountryStats {
+        mode: Some(SnipeGameMode::Mania),
         country: args.next().map(Cow::from),
     };
 
@@ -57,6 +86,7 @@ pub(super) async fn country_stats(
     args: SnipeCountryStats<'_>,
 ) -> Result<()> {
     let author_id = orig.user_id()?;
+    let mode = GameMode::from(args.mode.unwrap_or_default());
 
     let country_code = match args.country {
         Some(ref country) => match Countries::name(country).to_code() {
@@ -71,7 +101,7 @@ pub(super) async fn country_stats(
         },
         None => match ctx.user_config().osu_id(author_id).await {
             Ok(Some(user_id)) => {
-                let user_args = UserArgs::user_id(user_id);
+                let user_args = UserArgs::user_id(user_id).mode(mode);
 
                 let user = match ctx.redis().osu_user(user_args).await {
                     Ok(user) => user,
@@ -107,7 +137,11 @@ pub(super) async fn country_stats(
     };
 
     // Check if huisemetbenen supports the country
-    if !ctx.huismetbenen().is_supported(country_code.as_str()).await {
+    if !ctx
+        .huismetbenen()
+        .is_supported(country_code.as_str(), mode)
+        .await
+    {
         let content = format!("The country code `{country_code}` is not supported :(",);
 
         return orig.error(&ctx, content).await;
@@ -115,14 +149,15 @@ pub(super) async fn country_stats(
 
     let client = &ctx.client();
 
+    let players_fut =
+        client.get_snipe_country(&country_code, SnipeCountryListOrder::WeightedPp, mode);
+    let stats_fut = client.get_country_statistics(&country_code, mode);
+
     let (players, statistics) = {
-        match tokio::try_join!(
-            client.get_snipe_country(&country_code),
-            client.get_country_statistics(&country_code),
-        ) {
+        match tokio::try_join!(players_fut, stats_fut,) {
             Ok((players, statistics)) => (players, statistics),
             Err(err) => {
-                let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("failed to get country data"));
             }
