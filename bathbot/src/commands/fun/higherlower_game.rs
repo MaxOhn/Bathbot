@@ -50,10 +50,7 @@ pub struct HigherLowerScorePp {
     name = "leaderboard",
     desc = "Get the server leaderboard for higherlower highscores"
 )]
-pub struct HigherLowerLeaderboard {
-    #[command(desc = "Specify the version to get the highscores of")]
-    version: HlVersion,
-}
+pub struct HigherLowerLeaderboard;
 
 async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = HigherLower::from_interaction(command.input_data())?;
@@ -68,8 +65,8 @@ async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -
 
             HigherLowerGame::new_score_pp(ctx.cloned(), mode, user).await
         }
-        HigherLower::Leaderboard(ref args) => {
-            return higherlower_leaderboard(ctx, command, args.version).await
+        HigherLower::Leaderboard(_) => {
+            return higherlower_leaderboard(ctx, command, HlVersion::ScorePp).await
         }
     };
 
