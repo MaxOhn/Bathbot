@@ -307,14 +307,14 @@ pub type ContextTuple = (Context, Vec<Shard>, tokio::sync::oneshot::Sender<()>);
 
 pub struct MemberRequests {
     pub tx: UnboundedSender<(Id<GuildMarker>, u64)>,
-    pub todo_guilds: Mutex<HashSet<Id<GuildMarker>, IntHasher>>,
+    pub pending_guilds: Mutex<HashSet<Id<GuildMarker>, IntHasher>>,
 }
 
 impl MemberRequests {
     fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Self {
         Self {
             tx,
-            todo_guilds: Mutex::new(HashSet::default()),
+            pending_guilds: Mutex::new(HashSet::default()),
         }
     }
 }

@@ -148,7 +148,7 @@ async fn async_main() -> Result<()> {
         while let Some((guild_id, shard_id)) = member_rx.recv().await {
             let removed_opt = member_ctx
                 .member_requests
-                .todo_guilds
+                .pending_guilds
                 .lock()
                 .unwrap()
                 .remove(&guild_id);

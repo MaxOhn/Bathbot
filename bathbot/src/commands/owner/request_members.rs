@@ -30,7 +30,7 @@ pub async fn request_members(
     };
 
     ctx.member_requests
-        .todo_guilds
+        .pending_guilds
         .lock()
         .unwrap()
         .insert(guild);

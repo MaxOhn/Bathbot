@@ -209,7 +209,11 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
         }
         Event::GuildCreate(e) => {
             ctx.guild_shards().pin().insert(e.id, shard_id);
-            ctx.member_requests.todo_guilds.lock().unwrap().insert(e.id);
+            ctx.member_requests
+                .pending_guilds
+                .lock()
+                .unwrap()
+                .insert(e.id);
 
             if let Err(err) = ctx.member_requests.tx.send((e.id, shard_id)) {
                 warn!(?err, "Failed to forward member request");
