@@ -19,10 +19,6 @@ pub use self::{
     nochoke::NoChokePagination,
     osekai::{MedalCountPagination, MedalRarityPagination},
     osustats::{OsuStatsBestPagination, OsuStatsPlayersPagination, OsuStatsScoresPagination},
-    popular::{
-        PopularMappersPagination, PopularMapsPagination, PopularMapsetsPagination,
-        PopularModsPagination,
-    },
     profile::ProfileMenu,
     ranking::RankingPagination,
     ranking_countries::RankingCountriesPagination,
@@ -55,7 +51,6 @@ mod most_played;
 mod nochoke;
 mod osekai;
 mod osustats;
-mod popular;
 mod profile;
 mod ranking;
 mod ranking_countries;

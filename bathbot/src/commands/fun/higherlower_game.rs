@@ -27,8 +27,6 @@ use crate::{
 pub enum HigherLower {
     #[command(name = "pp")]
     ScorePp(HigherLowerScorePp),
-    #[command(name = "farm")]
-    FarmMaps(HigherLowerFarmMaps),
     #[command(name = "leaderboard")]
     Leaderboard(HigherLowerLeaderboard),
 }
@@ -81,7 +79,6 @@ async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -
 
             HigherLowerGame::new_score_pp(ctx.cloned(), mode, user).await
         }
-        HigherLower::FarmMaps(_) => HigherLowerGame::new_farm_maps(ctx.cloned(), user).await,
         HigherLower::Leaderboard(ref args) => {
             return higherlower_leaderboard(ctx, command, args.version).await
         }

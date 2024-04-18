@@ -30,7 +30,6 @@ use crate::{
     util::{interaction::InteractionComponent, Authored, ComponentExt, Emote, MessageExt},
 };
 
-mod farm_maps;
 mod score_pp;
 mod state;
 
@@ -121,30 +120,6 @@ impl HigherLowerGame {
             .higherlower_highscore(msg_owner, HlVersion::ScorePp);
 
         let ((state, rx), highscore) = tokio::try_join!(game_fut, highscore_fut)?;
-
-        Ok(Self {
-            state,
-            revealed: false,
-            img_url_rx: Some(rx),
-            current_score: 0,
-            highscore,
-            buttons: ButtonState::HigherLower,
-            msg_owner,
-        })
-    }
-
-    pub async fn new_farm_maps(ctx: Arc<Context>, msg_owner: Id<UserMarker>) -> Result<Self> {
-        let entries_fut = ctx.redis().osutracker_counts();
-        let highscore_fut = ctx
-            .games()
-            .higherlower_highscore(msg_owner, HlVersion::FarmMaps);
-
-        let (entries_res, highscore_res) = tokio::join!(entries_fut, highscore_fut);
-        let highscore = highscore_res.wrap_err("Failed to get highscore from database")?;
-
-        let (state, rx) = HigherLowerState::start_farm_maps(ctx, entries_res?)
-            .await
-            .wrap_err("Failed to create farm maps game state")?;
 
         Ok(Self {
             state,

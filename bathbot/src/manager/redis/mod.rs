@@ -3,8 +3,7 @@ use std::{borrow::Cow, fmt::Write, sync::Arc};
 use bathbot_cache::{Cache, CacheSerializer};
 use bathbot_model::{
     rosu_v2::ranking::Rankings, CountryRegions, OsekaiBadge, OsekaiMedal, OsekaiRanking,
-    OsuStatsBestScores, OsuStatsBestTimeframe, OsuTrackerIdCount, OsuTrackerPpGroup,
-    OsuTrackerStats, SnipeCountries,
+    OsuStatsBestScores, OsuStatsBestTimeframe, SnipeCountries,
 };
 use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
@@ -126,93 +125,6 @@ impl RedisManager {
         }
 
         Ok(RedisData::new(ranking))
-    }
-
-    pub async fn osutracker_pp_group(self, pp: u32) -> RedisResult<OsuTrackerPpGroup> {
-        const EXPIRE: usize = 86_400;
-        let key = format!("osutracker_pp_group_{pp}");
-
-        let mut conn = match self.ctx.cache.fetch(&key).await {
-            Ok(Ok(group)) => {
-                BotMetrics::inc_redis_hit("OsuTracker pp group");
-
-                return Ok(RedisData::Archive(group));
-            }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
-        let group = self.ctx.client().get_osutracker_pp_group(pp).await?;
-
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 1_024>(conn, &key, &group, EXPIRE).await {
-                warn!(?err, "Failed to store osutracker pp group");
-            }
-        }
-
-        Ok(RedisData::new(group))
-    }
-
-    pub async fn osutracker_stats(self) -> RedisResult<OsuTrackerStats> {
-        const EXPIRE: usize = 86_400;
-        const KEY: &str = "osutracker_stats";
-
-        let mut conn = match self.ctx.cache.fetch(KEY).await {
-            Ok(Ok(stats)) => {
-                BotMetrics::inc_redis_hit("OsuTracker stats");
-
-                return Ok(RedisData::Archive(stats));
-            }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
-        let stats = self.ctx.client().get_osutracker_stats().await?;
-
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 32_768>(conn, KEY, &stats, EXPIRE).await {
-                warn!(?err, "Failed to store osutracker stats");
-            }
-        }
-
-        Ok(RedisData::new(stats))
-    }
-
-    pub async fn osutracker_counts(self) -> RedisResult<Vec<OsuTrackerIdCount>> {
-        const EXPIRE: usize = 86_400;
-        const KEY: &str = "osutracker_id_counts";
-
-        let mut conn = match self.ctx.cache.fetch(KEY).await {
-            Ok(Ok(counts)) => {
-                BotMetrics::inc_redis_hit("OsuTracker counts");
-
-                return Ok(RedisData::Archive(counts));
-            }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
-        let counts = self.ctx.client().get_osutracker_counts().await?;
-
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 1>(conn, KEY, &counts, EXPIRE).await {
-                warn!(?err, "Failed to store osutracker counts");
-            }
-        }
-
-        Ok(RedisData::new(counts))
     }
 
     pub async fn pp_ranking(

@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     cmp::{Ordering, Reverse},
-    collections::HashMap,
     sync::Arc,
 };
 
@@ -337,7 +336,6 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
     };
 
     let sort_by = args.sort.unwrap_or(ScoreOrder::Pp).into();
-    let farm = HashMap::default();
 
     let list_size = match args.size.or(config.list_size) {
         Some(size) => size,
@@ -371,7 +369,6 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         .mode(mode)
         .entries(entries.into_boxed_slice())
         .sort_by(sort_by)
-        .farm(farm)
         .list_size(list_size)
         .minimized_pp(minimized_pp)
         .content(content.into_boxed_str())
