@@ -1,18 +1,19 @@
-use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::command;
-use bathbot_model::{Countries, SnipeCountryPlayer as SCP};
+use bathbot_model::{Countries, SnipeCountryListOrder};
 use bathbot_util::{
-    constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     CowUtils,
 };
 use eyre::{Report, Result};
 use rosu_v2::{
+    model::GameMode,
     prelude::{CountryCode, OsuError},
     request::UserId,
 };
 
-use super::{SnipeCountryList, SnipeCountryListOrder};
+use super::{SnipeCountryList, SnipeGameMode};
 use crate::{
     active::{impls::SnipeCountryListPagination, ActiveMessages},
     commands::osu::user_not_found,
@@ -29,24 +30,57 @@ use crate::{
 #[desc("Sort the country's #1 leaderboard")]
 #[help(
     "Sort the country's #1 leaderboard.\n\
-    To specify a country, you must provide its acronym e.g. `be` \
-    or alternatively you can provide `global`.\n\
+    To specify a country, you must provide its acronym e.g. `be`.\n\
     To specify an order, you must provide `sort=...` with any of these values:\n\
-     - `count` to sort by #1 count\n \
-     - `pp` to sort by average pp of #1 scores\n \
-     - `stars` to sort by average star rating of #1 scores\n \
+     - `count` to sort by #1 count\n\
+     - `pp` to sort by average pp of #1 scores\n\
+     - `stars` to sort by average star rating of #1 scores\n\
      - `weighted` to sort by pp gained only from #1 scores\n\
     If no ordering is specified, it defaults to `count`.\n\
     If no country is specified either, I will take the country of the linked user.\n\
-    All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
-    website [huismetbenen](https://snipe.huismetbenen.nl/)."
+    Data for osu!standard originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
+    [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[country acronym] [sort=count/pp/stars/weighted]")]
-#[example("global sort=stars", "fr sort=weighted", "sort=pp")]
+#[example("sort=stars", "fr sort=weighted", "sort=pp")]
 #[aliases("csl", "countrysnipeleaderboard", "cslb")]
 #[group(Osu)]
 async fn prefix_countrysnipelist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
-    match SnipeCountryList::args(args) {
+    match SnipeCountryList::args(args, GameMode::Osu) {
+        Ok(args) => country_list(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Sort the country's mania #1 leaderboard")]
+#[help(
+    "Sort the country's mania #1 leaderboard.\n\
+    To specify a country, you must provide its acronym e.g. `be`.\n\
+    To specify an order, you must provide `sort=...` with any of these values:\n\
+     - `count` to sort by #1 count\n\
+     - `pp` to sort by average pp of #1 scores\n\
+     - `stars` to sort by average star rating of #1 scores\n\
+     - `weighted` to sort by pp gained only from #1 scores\n\
+    If no ordering is specified, it defaults to `count`.\n\
+    If no country is specified either, I will take the country of the linked user.\n\
+    Data for osu!mania originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[country acronym] [sort=count/pp/stars/weighted]")]
+#[example("sort=stars", "fr sort=weighted", "sort=pp")]
+#[aliases("cslm", "countrysnipeleaderboardmania", "cslbm")]
+#[group(Mania)]
+async fn prefix_countrysnipelistmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> Result<()> {
+    match SnipeCountryList::args(args, GameMode::Mania) {
         Ok(args) => country_list(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -63,35 +97,48 @@ pub(super) async fn country_list(
 ) -> Result<()> {
     let author_id = orig.user_id()?;
 
-    // Retrieve author's osu user to check if they're in the list
-    let osu_user = match ctx.user_config().osu_id(author_id).await {
-        Ok(Some(user_id)) => {
-            let user_args = UserArgs::user_id(user_id);
+    let SnipeCountryList {
+        mode,
+        country,
+        sort,
+    } = args;
 
-            match ctx.redis().osu_user(user_args).await {
-                Ok(user) => Some(user),
-                Err(OsuError::NotFound) => {
-                    let content = user_not_found(&ctx, UserId::Id(user_id)).await;
+    let (osu_user, mode) = match ctx.user_config().with_osu_id(author_id).await {
+        Ok(config) => {
+            let mode = match mode {
+                Some(SnipeGameMode::Osu) => GameMode::Osu,
+                Some(SnipeGameMode::Mania) => GameMode::Mania,
+                None => config.mode.unwrap_or(GameMode::Osu),
+            };
 
-                    return orig.error(&ctx, content).await;
+            match config.osu {
+                Some(user_id) => {
+                    let user_args = UserArgs::user_id(user_id).mode(mode);
+
+                    match ctx.redis().osu_user(user_args).await {
+                        Ok(user) => (Some(user), mode),
+                        Err(OsuError::NotFound) => {
+                            let content = user_not_found(&ctx, UserId::Id(user_id)).await;
+
+                            return orig.error(&ctx, content).await;
+                        }
+                        Err(err) => {
+                            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                            let err = Report::new(err).wrap_err("failed to get user");
+
+                            return Err(err);
+                        }
+                    }
                 }
-                Err(err) => {
-                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                    let err = Report::new(err).wrap_err("failed to get user");
-
-                    return Err(err);
-                }
+                None => (None, mode),
             }
         }
-        Ok(None) => None,
         Err(err) => {
             warn!("{err:?}");
 
-            None
+            (None, GameMode::Osu)
         }
     };
-
-    let SnipeCountryList { country, sort } = args;
 
     let country_code = match country {
         Some(ref country) => match Countries::name(country).to_code() {
@@ -116,39 +163,31 @@ pub(super) async fn country_list(
     };
 
     // Check if huisemetbenen supports the country
-    if !ctx.huismetbenen().is_supported(country_code.as_str()).await {
+    if !ctx
+        .huismetbenen()
+        .is_supported(country_code.as_str(), mode)
+        .await
+    {
         let content = format!("The country code `{country_code}` is not supported :(",);
 
         return orig.error(&ctx, content).await;
     }
 
+    let sort = sort.unwrap_or_default();
+
     // Request players
-    let mut players = match ctx.client().get_snipe_country(&country_code).await {
+    let players = match ctx
+        .client()
+        .get_snipe_country(&country_code, sort, mode)
+        .await
+    {
         Ok(players) => players,
         Err(err) => {
-            let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to get snipe country"));
         }
     };
-
-    // Sort players
-    let sort = sort.unwrap_or_default();
-
-    let sorter = match sort {
-        SnipeCountryListOrder::Count => |p1: &SCP, p2: &SCP| p2.count_first.cmp(&p1.count_first),
-        SnipeCountryListOrder::Pp => {
-            |p1: &SCP, p2: &SCP| p2.avg_pp.partial_cmp(&p1.avg_pp).unwrap_or(Equal)
-        }
-        SnipeCountryListOrder::Stars => {
-            |p1: &SCP, p2: &SCP| p2.avg_sr.partial_cmp(&p1.avg_sr).unwrap_or(Equal)
-        }
-        SnipeCountryListOrder::WeightedPp => {
-            |p1: &SCP, p2: &SCP| p2.pp.partial_cmp(&p1.pp).unwrap_or(Equal)
-        }
-    };
-
-    players.sort_unstable_by(sorter);
 
     // Try to find author in list
     let author_idx = osu_user.as_ref().and_then(|user| {
@@ -185,7 +224,13 @@ pub(super) async fn country_list(
 }
 
 impl<'m> SnipeCountryList<'m> {
-    fn args(args: Args<'m>) -> Result<Self, Cow<'static, str>> {
+    fn args(args: Args<'m>, mode: GameMode) -> Result<Self, Cow<'static, str>> {
+        let mode = match mode {
+            GameMode::Osu => Some(SnipeGameMode::Osu),
+            GameMode::Mania => Some(SnipeGameMode::Mania),
+            GameMode::Taiko | GameMode::Catch => None,
+        };
+
         let mut country = None;
         let mut sort = None;
 
@@ -198,8 +243,8 @@ impl<'m> SnipeCountryList<'m> {
                     "sort" => {
                         sort = match value {
                             "count" => Some(SnipeCountryListOrder::Count),
-                            "pp" => Some(SnipeCountryListOrder::Pp),
-                            "stars" => Some(SnipeCountryListOrder::Stars),
+                            "pp" => Some(SnipeCountryListOrder::AvgPp),
+                            "stars" => Some(SnipeCountryListOrder::AvgStars),
                             "weighted" | "weightedpp" => Some(SnipeCountryListOrder::WeightedPp),
                             _ => {
                                 let content = "Failed to parse `sort`. \
@@ -221,6 +266,10 @@ impl<'m> SnipeCountryList<'m> {
             }
         }
 
-        Ok(Self { country, sort })
+        Ok(Self {
+            mode,
+            country,
+            sort,
+        })
     }
 }

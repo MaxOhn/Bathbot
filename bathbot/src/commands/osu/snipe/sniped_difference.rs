@@ -2,17 +2,16 @@ use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher, MessageBuilder,
 };
 use eyre::{Report, Result};
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::{Duration, OffsetDateTime};
 
-use super::{SnipePlayerGain, SnipePlayerLoss};
+use super::{SnipeGameMode, SnipePlayerGain, SnipePlayerLoss};
 use crate::{
     active::{impls::SnipeDifferencePagination, ActiveMessages},
-    commands::osu::require_link,
     core::{commands::CommandOrigin, ContextExt},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
@@ -22,21 +21,62 @@ use crate::{
 #[desc("Display a user's recently acquired national #1 scores")]
 #[help(
     "Display a user's national #1 scores that they acquired within the last week.\n\
-    All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
-    website [huismetbenen](https://snipe.huismetbenen.nl/)."
+    Data for osu!standard originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
+    [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("sg", "snipegain", "snipesgain")]
 #[group(Osu)]
 async fn prefix_snipedgain(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+    let mode = Some(SnipeGameMode::Osu);
+
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => SnipePlayerGain {
+                mode,
                 name: None,
                 discord: Some(id),
             },
             None => SnipePlayerGain {
+                mode,
+                name: Some(arg.into()),
+                discord: None,
+            },
+        },
+        None => SnipePlayerGain::default(),
+    };
+
+    player_gain(ctx, msg.into(), args).await
+}
+
+#[command]
+#[desc("Display a user's recently acquired national #1 mania scores")]
+#[help(
+    "Display a user's national #1 mania scores that they acquired within the last week.\n\
+    Data for osu!mania originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[aliases("sgm", "snipegainmania", "snipesgainmania")]
+#[group(Mania)]
+async fn prefix_snipedgainmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+) -> Result<()> {
+    let mode = Some(SnipeGameMode::Mania);
+
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => SnipePlayerGain {
+                mode,
+                name: None,
+                discord: Some(id),
+            },
+            None => SnipePlayerGain {
+                mode,
                 name: Some(arg.into()),
                 discord: None,
             },
@@ -51,8 +91,8 @@ async fn prefix_snipedgain(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
 #[desc("Display a user's recently lost national #1 scores")]
 #[help(
     "Display a user's national #1 scores that they lost within the last week.\n\
-    All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
-    website [huismetbenen](https://snipe.huismetbenen.nl/)."
+    Data for osu!standard originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
+    [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
@@ -66,13 +106,61 @@ async fn prefix_snipedgain(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
 )]
 #[group(Osu)]
 async fn prefix_snipedloss(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+    let mode = Some(SnipeGameMode::Osu);
+
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => SnipePlayerLoss {
+                mode,
                 name: None,
                 discord: Some(id),
             },
             None => SnipePlayerLoss {
+                mode,
+                name: Some(arg.into()),
+                discord: None,
+            },
+        },
+        None => SnipePlayerLoss::default(),
+    };
+
+    player_loss(ctx, msg.into(), args).await
+}
+
+#[command]
+#[desc("Display a user's recently lost national #1 mania scores")]
+#[help(
+    "Display a user's national #1 mania scores that they lost within the last week.\n\
+    Data for osu!mania originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[aliases(
+    "slm",
+    "snipelossmania",
+    "snipeslossmania",
+    "snipedlostmania",
+    "snipelostmania",
+    "snipeslostmania"
+)]
+#[group(Mania)]
+async fn prefix_snipedlossmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+) -> Result<()> {
+    let mode = Some(SnipeGameMode::Mania);
+
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => SnipePlayerLoss {
+                mode,
+                name: None,
+                discord: Some(id),
+            },
+            None => SnipePlayerLoss {
+                mode,
                 name: Some(arg.into()),
                 discord: None,
             },
@@ -88,9 +176,9 @@ pub(super) async fn player_gain(
     orig: CommandOrigin<'_>,
     args: SnipePlayerGain<'_>,
 ) -> Result<()> {
-    let user_id = user_id!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
-    sniped_diff(ctx, orig, Difference::Gain, user_id).await
+    sniped_diff(ctx, orig, Difference::Gain, user_id, mode).await
 }
 
 pub(super) async fn player_loss(
@@ -98,34 +186,22 @@ pub(super) async fn player_loss(
     orig: CommandOrigin<'_>,
     args: SnipePlayerLoss<'_>,
 ) -> Result<()> {
-    let user_id = user_id!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
-    sniped_diff(ctx, orig, Difference::Loss, user_id).await
+    sniped_diff(ctx, orig, Difference::Loss, user_id, mode).await
 }
 
 async fn sniped_diff(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     diff: Difference,
-    user_id: Option<UserId>,
+    user_id: UserId,
+    mode: GameMode,
 ) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let user_id = match user_id {
-        Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(owner).await {
-            Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err);
-            }
-        },
-    };
-
     // Request the user
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
@@ -139,9 +215,9 @@ async fn sniped_diff(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("Failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
@@ -162,7 +238,7 @@ async fn sniped_diff(
         }
     };
 
-    if !ctx.huismetbenen().is_supported(country_code).await {
+    if !ctx.huismetbenen().is_supported(country_code, mode).await {
         let content = format!("`{username}`'s country {country_code} is not supported :(");
 
         return orig.error(&ctx, content).await;
@@ -174,14 +250,14 @@ async fn sniped_diff(
 
     // Request the scores
     let scores_fut = match diff {
-        Difference::Gain => client.get_national_snipes(user_id, true, week_ago, now),
-        Difference::Loss => client.get_national_snipes(user_id, false, week_ago, now),
+        Difference::Gain => client.get_national_snipes(user_id, true, week_ago, mode),
+        Difference::Loss => client.get_national_snipes(user_id, false, week_ago, mode),
     };
 
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to get snipes"));
         }

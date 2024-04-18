@@ -1,22 +1,17 @@
-use std::{
-    cmp::Reverse,
-    collections::{hash_map::Entry, HashMap},
-    sync::Arc,
-};
+use std::{ops, sync::Arc};
 
 use bathbot_macros::command;
-use bathbot_model::SnipeRecent;
+use bathbot_model::SnipedWeek;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     datetime::DATE_FORMAT,
-    matcher, IntHasher, MessageBuilder,
+    matcher, MessageBuilder,
 };
 use eyre::{ContextCompat, Report, Result, WrapErr};
-use itertools::Itertools;
 use plotters::{
     coord::{
-        ranged1d::SegmentedCoord,
-        types::{RangedCoordusize, RangedSlice},
+        ranged1d::{DefaultFormatting, KeyPointHint, SegmentedCoord},
+        types::RangedCoordu32,
         Shift,
     },
     prelude::*,
@@ -24,12 +19,11 @@ use plotters::{
 use plotters_skia::SkiaBackend;
 use rosu_v2::{prelude::OsuError, request::UserId};
 use skia_safe::{surfaces, EncodedImageFormat};
-use time::{Date, Duration, OffsetDateTime};
+use time::Date;
 use twilight_model::guild::Permissions;
 
-use super::SnipePlayerSniped;
+use super::{SnipeGameMode, SnipePlayerSniped};
 use crate::{
-    commands::osu::require_link,
     core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, SnipedEmbed},
     manager::redis::{osu::UserArgs, RedisData},
@@ -40,8 +34,8 @@ use crate::{
 #[desc("Sniped users of the last 8 weeks")]
 #[help(
     "Sniped users of the last 8 weeks.\n\
-    All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
-    website [huismetbenen](https://snipe.huismetbenen.nl/)."
+    Data for osu!standard originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
+    [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
@@ -53,13 +47,55 @@ async fn prefix_sniped(
     mut args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
+    let mode = Some(SnipeGameMode::Osu);
+
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => SnipePlayerSniped {
+                mode,
                 name: None,
                 discord: Some(id),
             },
             None => SnipePlayerSniped {
+                mode,
+                name: Some(arg.into()),
+                discord: None,
+            },
+        },
+        None => SnipePlayerSniped::default(),
+    };
+
+    player_sniped(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+}
+
+#[command]
+#[desc("Sniped mania users of the last 8 weeks")]
+#[help(
+    "Sniped mania users of the last 8 weeks.\n\
+    Data for osu!mania originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("snipedm", "snipesmania")]
+#[group(Mania)]
+async fn prefix_snipedmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let mode = Some(SnipeGameMode::Mania);
+
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => SnipePlayerSniped {
+                mode,
+                name: None,
+                discord: Some(id),
+            },
+            None => SnipePlayerSniped {
+                mode,
                 name: Some(arg.into()),
                 discord: None,
             },
@@ -75,20 +111,8 @@ pub(super) async fn player_sniped(
     orig: CommandOrigin<'_>,
     args: SnipePlayerSniped<'_>,
 ) -> Result<()> {
-    let user_id = match user_id!(ctx, orig, args) {
-        Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(orig.user_id()?).await {
-            Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err);
-            }
-        },
-    };
-
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
@@ -109,7 +133,6 @@ pub(super) async fn player_sniped(
     };
 
     let client = &ctx.client();
-    let now = OffsetDateTime::now_utc();
 
     let (user_id, username, country_code) = match &user {
         RedisData::Original(user) => (
@@ -124,20 +147,16 @@ pub(super) async fn player_sniped(
         ),
     };
 
-    let (sniper, snipee) = if ctx.huismetbenen().is_supported(country_code).await {
-        let sniper_fut = client.get_national_snipes(user_id, true, now - Duration::weeks(8), now);
-        let snipee_fut = client.get_national_snipes(user_id, false, now - Duration::weeks(8), now);
+    let (mut sniper, mut snipee) = if ctx.huismetbenen().is_supported(country_code, mode).await {
+        let sniper_fut = client.get_sniped_players(user_id, true, mode);
+        let snipee_fut = client.get_sniped_players(user_id, false, mode);
 
         match tokio::try_join!(sniper_fut, snipee_fut) {
-            Ok((mut sniper, snipee)) => {
-                sniper.retain(|score| score.sniped.is_some());
-
-                (sniper, snipee)
-            }
+            Ok(tuple) => tuple,
             Err(err) => {
-                let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get sniper or snipee"));
+                return Err(err.wrap_err("Failed to get sniper or snipee"));
             }
         }
     } else {
@@ -146,7 +165,7 @@ pub(super) async fn player_sniped(
         return orig.error(&ctx, content).await;
     };
 
-    let graph = match graphs(username, &sniper, &snipee, W, H) {
+    let graph = match graphs(username, &mut sniper, &mut snipee, W, H) {
         Ok(graph_option) => graph_option,
         Err(err) => {
             warn!(?err, "Failed to create graph");
@@ -170,16 +189,27 @@ pub(super) async fn player_sniped(
 const W: u32 = 1350;
 const H: u32 = 350;
 
+fn accumulate_counts(weeks: &mut [SnipedWeek]) {
+    for week in weeks {
+        for i in (1..week.players.len()).rev() {
+            week.players[i - 1].count += week.players[i].count;
+        }
+    }
+}
+
 pub fn graphs(
     name: &str,
-    sniper: &[SnipeRecent],
-    snipee: &[SnipeRecent],
+    sniper: &mut [SnipedWeek],
+    snipee: &mut [SnipedWeek],
     w: u32,
     h: u32,
 ) -> Result<Option<Vec<u8>>> {
     if sniper.is_empty() && snipee.is_empty() {
         return Ok(None);
     }
+
+    accumulate_counts(sniper);
+    accumulate_counts(snipee);
 
     let mut surface =
         surfaces::raster_n32_premul((w as i32, h as i32)).wrap_err("Failed to create surface")?;
@@ -212,41 +242,26 @@ pub fn graphs(
     Ok(Some(png_bytes))
 }
 
-type ContextType<'a> = Cartesian2d<SegmentedCoord<RangedSlice<'a, Date>>, RangedCoordusize>;
-type PrepareResult<'a> = (Vec<Date>, Vec<(u32, (Option<&'a str>, Vec<usize>))>);
+type ContextType<'a> = Cartesian2d<SegmentedCoord<SnipedWeeksCoord<'a>>, RangedCoordu32>;
 
 fn draw_sniper<DB: DrawingBackend>(
     root: &DrawingArea<DB, Shift>,
     name: &str,
-    sniper: &[SnipeRecent],
+    sniper: &[SnipedWeek],
 ) -> Result<()> {
-    let (dates, sniper) = prepare_sniper(sniper);
-
-    let max = sniper
-        .iter()
-        .map(|(_, (_, v))| v.last().copied())
-        .max()
-        .flatten()
-        .unwrap_or(0);
+    let max = sniper[0].players[0].count;
 
     let mut chart = ChartBuilder::on(root)
         .x_label_area_size(30)
         .y_label_area_size(35)
         .margin_right(5)
         .caption(format!("Sniped by {name}"), ("sans-serif", 25, &WHITE))
-        .build_cartesian_2d((&dates[..]).into_segmented(), 0..max + 1)
+        .build_cartesian_2d(SnipedWeeksCoord::new(sniper).into_segmented(), 0..max + 1)
         .map_err(|e| Report::msg(e.to_string()))
         .wrap_err("Failed to build chart")?;
 
     draw_mesh(&mut chart)?;
-
-    for (i, (_, (name, values))) in sniper.into_iter().enumerate() {
-        let name = name.unwrap_or("<unknown user>");
-
-        draw_histogram_block(i, name, &values, &dates, &mut chart)
-            .wrap_err("Failed to draw histogram block")?;
-    }
-
+    draw_histogram_blocks(sniper, &mut chart).wrap_err("Failed to draw histogram blocks")?;
     draw_legend(&mut chart)?;
 
     Ok(())
@@ -255,35 +270,21 @@ fn draw_sniper<DB: DrawingBackend>(
 fn draw_snipee<DB: DrawingBackend>(
     root: &DrawingArea<DB, Shift>,
     name: &str,
-    snipee: &[SnipeRecent],
+    snipee: &[SnipedWeek],
 ) -> Result<()> {
-    let (dates, snipee) = prepare_snipee(snipee);
-
-    let max = snipee
-        .iter()
-        .map(|(_, (_, v))| v.last().copied())
-        .max()
-        .flatten()
-        .unwrap_or(0);
+    let max = snipee[0].players[0].count;
 
     let mut chart = ChartBuilder::on(root)
         .x_label_area_size(30)
         .y_label_area_size(35)
         .margin_right(5)
         .caption(format!("Sniped {name}"), ("sans-serif", 25, &WHITE))
-        .build_cartesian_2d((&dates[..]).into_segmented(), 0..max + 1)
+        .build_cartesian_2d(SnipedWeeksCoord::new(snipee).into_segmented(), 0..max + 1)
         .map_err(|e| Report::msg(e.to_string()))
         .wrap_err("Failed to build chart")?;
 
     draw_mesh(&mut chart)?;
-
-    for (i, (_, (name, values))) in snipee.into_iter().enumerate() {
-        let name = name.unwrap_or("<unknown user>");
-
-        draw_histogram_block(i, name, &values, &dates, &mut chart)
-            .wrap_err("Failed to draw histogram block")?;
-    }
-
+    draw_histogram_blocks(snipee, &mut chart).wrap_err("Failed to draw histogram blocks")?;
     draw_legend(&mut chart)?;
 
     Ok(())
@@ -293,7 +294,7 @@ fn draw_mesh<DB: DrawingBackend>(chart: &mut ChartContext<'_, DB, ContextType<'_
     chart
         .configure_mesh()
         .disable_x_mesh()
-        .x_label_formatter(&|date: &SegmentValue<&Date>| match date {
+        .x_label_formatter(&|date| match date {
             SegmentValue::CenterOf(date) | SegmentValue::Exact(date) => {
                 date.format(DATE_FORMAT).unwrap()
             }
@@ -308,44 +309,46 @@ fn draw_mesh<DB: DrawingBackend>(chart: &mut ChartContext<'_, DB, ContextType<'_
         .wrap_err("Failed to draw mesh")
 }
 
-fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
-    i: usize,
-    name: &str,
-    values: &[usize],
-    dates: &'a [Date],
+fn draw_histogram_blocks<'a, DB: DrawingBackend + 'a>(
+    weeks: &'a [SnipedWeek],
     chart: &mut ChartContext<'a, DB, ContextType<'a>>,
 ) -> Result<()> {
-    // Draw block
-    let data = values
-        .iter()
-        .enumerate()
-        .map(|(i, count)| (&dates[i], *count));
+    for (i, player) in weeks[0].players.iter().enumerate() {
+        let count_iter = || {
+            weeks.iter().rev().filter_map(|week| {
+                let player = week
+                    .players
+                    .iter()
+                    .find(|p| p.username == player.username)?;
 
-    let color = HSLColor(i as f64 * 0.1, 0.5, 0.5);
+                Some((week.until.date(), player.count))
+            })
+        };
 
-    let series = Histogram::vertical(chart)
-        .data(data)
-        .style(color.mix(0.75).filled());
+        // Draw block
+        let color = HSLColor(i as f64 * 0.1, 0.5, 0.5);
 
-    chart
-        .draw_series(series)
-        .map_err(|e| Report::msg(e.to_string()))
-        .wrap_err("Failed to draw block")?
-        .label(name)
-        .legend(move |(x, y)| Circle::new((x, y), 4, color.filled()));
+        let series = Histogram::vertical(chart)
+            .data(count_iter())
+            .style(color.mix(0.75).filled());
 
-    // Draw border
-    let data = values
-        .iter()
-        .enumerate()
-        .map(|(i, count)| (&dates[i], *count));
+        chart
+            .draw_series(series)
+            .map_err(|e| Report::msg(e.to_string()))
+            .wrap_err("Failed to draw block")?
+            .label(player.username.as_str())
+            .legend(move |(x, y)| Circle::new((x, y), 4, color.filled()));
 
-    let color = HSLColor(i as f64 * 0.1, 0.5, 0.3);
-    let series = Histogram::vertical(chart).data(data).style(color);
-    chart
-        .draw_series(series)
-        .map_err(|e| Report::msg(e.to_string()))
-        .wrap_err("Failed to draw border")?;
+        // Draw border
+        let color = HSLColor(i as f64 * 0.1, 0.5, 0.3);
+
+        let series = Histogram::vertical(chart).data(count_iter()).style(color);
+
+        chart
+            .draw_series(series)
+            .map_err(|e| Report::msg(e.to_string()))
+            .wrap_err("Failed to draw border")?;
+    }
 
     Ok(())
 }
@@ -365,146 +368,84 @@ fn draw_legend<'a, DB: DrawingBackend + 'a>(
         .wrap_err("Failed to draw legend")
 }
 
-fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
-    let mut total =
-        HashMap::<u32, (Option<&str>, usize), IntHasher>::with_hasher(Default::default());
-
-    for score in scores {
-        match total.entry(score.sniper_id) {
-            Entry::Occupied(e) => e.into_mut().1 += 1,
-            Entry::Vacant(e) => {
-                e.insert((score.sniper.as_deref(), 1));
-            }
-        }
-    }
-
-    let mut final_order: Vec<_> = total.into_iter().collect();
-    final_order.sort_unstable_by_key(|(_, (_, count))| Reverse(*count));
-    final_order.truncate(10);
-
-    let users: HashMap<_, _, IntHasher> = final_order
-        .into_iter()
-        .map(|(id, (name, _))| (id, (name, Vec::new())))
-        .collect();
-
-    let categorized: Vec<_> = scores
-        .iter()
-        .rev()
-        .filter(|score| users.contains_key(&score.sniper_id))
-        .filter_map(|score| score.date.map(|date| (score.sniper_id, date)))
-        .scan(
-            OffsetDateTime::now_utc() - Duration::weeks(7),
-            |state, (sniper, date)| {
-                if date > *state {
-                    while date > *state {
-                        *state += Duration::weeks(1);
-                    }
-                }
-
-                Some((sniper, *state))
-            },
-        )
-        .collect();
-
-    finish_preparing(users, categorized)
+// Custom coordinate system so that dates can be given through ownership
+// instead of by reference
+#[derive(Copy, Clone)]
+struct SnipedWeeksCoord<'a> {
+    weeks: &'a [SnipedWeek],
 }
 
-fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
-    let mut total = HashMap::<_, (Option<&str>, usize), IntHasher>::with_hasher(Default::default());
-
-    let sniped_iter = scores.iter().filter_map(|score| {
-        score
-            .sniped_id
-            .map(|user_id| (user_id, score.sniped.as_deref()))
-    });
-
-    for (user_id, name) in sniped_iter {
-        match total.entry(user_id) {
-            Entry::Occupied(e) => e.into_mut().1 += 1,
-            Entry::Vacant(e) => {
-                e.insert((name, 1));
-            }
-        }
+impl<'a> SnipedWeeksCoord<'a> {
+    fn new(weeks: &'a [SnipedWeek]) -> Self {
+        Self { weeks }
     }
-
-    let mut final_order: Vec<_> = total.into_iter().collect();
-    final_order.sort_unstable_by_key(|(_, (_, count))| Reverse(*count));
-    final_order.truncate(10);
-
-    let users: HashMap<_, _, IntHasher> = final_order
-        .into_iter()
-        .map(|(id, (name, _))| (id, (name, Vec::new())))
-        .collect();
-
-    let categorized: Vec<_> = scores
-        .iter()
-        .rev()
-        .filter_map(|score| score.sniped_id.zip(score.date))
-        .filter(|(user_id, _)| users.contains_key(user_id))
-        .scan(
-            OffsetDateTime::now_utc() - Duration::weeks(7),
-            |state, (sniped, date)| {
-                if date > *state {
-                    while date > *state {
-                        *state += Duration::weeks(1);
-                    }
-                }
-
-                Some((sniped, *state))
-            },
-        )
-        .collect();
-
-    finish_preparing(users, categorized)
 }
 
-fn finish_preparing(
-    mut users_total: HashMap<u32, (Option<&str>, Vec<usize>), IntHasher>,
-    categorized: Vec<(u32, OffsetDateTime)>,
-) -> PrepareResult<'_> {
-    // List of dates, and list of date-separated maps
-    // containing counts for each user id
-    let (dates, counts): (Vec<_>, Vec<_>) = categorized
-        .into_iter()
-        .group_by(|(_, date)| *date)
-        .into_iter()
-        .map(|(date, group)| {
-            let mut counts = HashMap::with_hasher(IntHasher);
+impl<'a> Ranged for SnipedWeeksCoord<'a> {
+    type FormatOption = DefaultFormatting;
+    type ValueType = Date;
 
-            for (user_id, _) in group {
-                *counts.entry(user_id).or_insert(0) += 1;
+    fn map(&self, date: &Self::ValueType, (start, end): (i32, i32)) -> i32 {
+        match self
+            .weeks
+            .iter()
+            .rev()
+            .position(|week| week.until.date() == *date)
+        {
+            Some(pos) => {
+                let pixel_span = end - start;
+                let value_span = self.weeks.len() - 1;
+
+                (f64::from(start)
+                    + f64::from(pixel_span)
+                        * (f64::from(pos as u32) / f64::from(value_span as u32)))
+                .round() as i32
             }
-
-            (date.date(), counts)
-        })
-        .unzip();
-
-    // Combining counts per name across all dates
-    for counts in counts {
-        for (user_id, (_, values)) in users_total.iter_mut() {
-            values.push(counts.get(user_id).copied().unwrap_or(0));
+            None => start,
         }
     }
 
-    // For each user, the count can only increase
-    for (_, values) in users_total.values_mut() {
-        for i in 1..values.len() {
-            values[i] += values[i - 1];
-        }
+    fn key_points<Hint: KeyPointHint>(&self, hint: Hint) -> Vec<Self::ValueType> {
+        let max_points = hint.max_num_points();
+        let intervals = (self.weeks.len() - 1) as f64;
+        let step = (intervals / max_points as f64 + 1.0) as usize;
+
+        self.weeks
+            .iter()
+            .rev()
+            .step_by(step)
+            .map(|week| week.until.date())
+            .collect()
     }
 
-    let mut total: Vec<_> = users_total.into_iter().collect();
-    total.sort_unstable_by_key(|(_, (_, values))| Reverse(values.last().copied()));
+    fn range(&self) -> ops::Range<Self::ValueType> {
+        match self.weeks {
+            [last, .., first] => first.until.date()..last.until.date(),
+            [single] => {
+                let date = single.until.date();
 
-    for (i, j) in (1..total.len()).zip(0..total.len() - 1).rev() {
-        for k in 0..dates.len() {
-            let (_, (_, total_i)) = &total[i];
-            let add = total_i[k];
-
-            let (_, (_, total_j)) = &mut total[j];
-            total_j[k] += add;
+                date..date
+            }
+            [] => panic!("empty weeks"),
         }
     }
+}
 
-    (dates, total)
+impl<'a> DiscreteRanged for SnipedWeeksCoord<'a> {
+    fn size(&self) -> usize {
+        self.weeks.len()
+    }
+
+    fn index_of(&self, date: &Date) -> Option<usize> {
+        self.weeks
+            .iter()
+            .rev()
+            .position(|week| &week.until.date() == date)
+    }
+
+    fn from_index(&self, idx: usize) -> Option<Date> {
+        self.weeks
+            .get(self.weeks.len() - (idx + 1))
+            .map(|week| week.until.date())
+    }
 }

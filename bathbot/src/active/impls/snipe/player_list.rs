@@ -11,12 +11,10 @@ use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
     numbers::{round, WithComma},
-    osu::calculate_grade,
     CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
-use rosu_v2::{model::score::LegacyScoreStatistics, prelude::GameMode};
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -28,11 +26,11 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     core::{Context, ContextExt},
-    embeds::{HitResultFormatter, PpFormatter},
+    embeds::PpFormatter,
     manager::{redis::RedisData, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::grade_emote,
+        Emote,
     },
 };
 
@@ -86,7 +84,7 @@ impl SnipePlayerListPagination {
 
         if count < pages.per_page() && count < self.total - pages.index() {
             let huismetbenen_page = pages.index() / 50 + 1;
-            self.params.page(huismetbenen_page as u8);
+            self.params.page(huismetbenen_page as u32);
 
             // Get scores
             let scores = ctx
@@ -109,10 +107,10 @@ impl SnipePlayerListPagination {
             .scores
             .range(pages.index()..pages.index() + pages.per_page())
             .filter_map(|(_, score)| {
-                if self.maps.contains_key(&score.map.map_id) {
+                if self.maps.contains_key(&score.map_id) {
                     None
                 } else {
-                    Some((score.map.map_id as i32, None))
+                    Some((score.map_id as i32, None))
                 }
             })
             .collect();
@@ -147,38 +145,30 @@ impl SnipePlayerListPagination {
         let mut description = String::with_capacity(1024);
 
         for (idx, score) in entries {
-            let map = self.maps.get(&score.map.map_id).expect("missing map");
+            let map = self.maps.get(&score.map_id).expect("missing map");
             let mods = score.mods.as_ref().map(Cow::Borrowed).unwrap_or_default();
-            let max_pp = ctx.pp(map).mods(mods.as_ref()).performance().await.pp() as f32;
 
-            let stats = LegacyScoreStatistics {
-                count_geki: 0,
-                count_300: score.count_300.unwrap_or(0),
-                count_katu: 0,
-                count_100: score.count_100.unwrap_or(0),
-                count_50: score.count_50.unwrap_or(0),
-                count_miss: score.count_miss.unwrap_or(0),
-            };
-
-            let grade = calculate_grade(GameMode::Osu, mods.as_ref(), &stats);
+            let max_attrs = ctx.pp(map).mods(mods.as_ref()).performance().await;
+            let max_pp = max_attrs.pp() as f32;
+            let max_combo = max_attrs.max_combo();
+            let count_miss = score.count_miss.unwrap_or(0);
 
             let _ = write!(
                 description,
-                "**#{idx} [{title} [{version}]]({OSU_BASE}b/{map_id}) +{mods}** [{stars:.2}★]\n\
-                {grade} {pp} • {acc}% • {score}\n\
-                [ {combo} ] • {hits}",
+                "**#{idx} [{title} [{version}]]({OSU_BASE}b/{map_id}) +{mods}**\n\
+                {pp} • {acc}% • [{stars:.2}★]{miss}\n\
+                [ {combo} ] • {score}",
                 idx = idx + 1,
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
-                map_id = score.map.map_id,
+                map_id = score.map_id,
                 mods = ModsFormatter::new(&mods),
-                stars = score.stars,
-                grade = grade_emote(grade),
                 pp = PpFormatter::new(score.pp, Some(max_pp)),
+                stars = score.stars,
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),
-                combo = ComboFormatter::new(score.max_combo, score.map.max_combo),
-                hits = HitResultFormatter::new(GameMode::Osu, stats),
+                combo = ComboFormatter::new(score.max_combo, max_combo),
+                miss = MissFormat(count_miss),
             );
 
             if let Some(ref date) = score.date_set {
@@ -225,5 +215,17 @@ impl Display for ComboFormatter {
         }
 
         write!(f, "{}x", self.max_combo)
+    }
+}
+
+struct MissFormat(u32);
+
+impl Display for MissFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.0 == 0 {
+            return Ok(());
+        }
+
+        write!(f, " • {miss}{emote}", miss = self.0, emote = Emote::Miss)
     }
 }

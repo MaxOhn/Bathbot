@@ -2,12 +2,11 @@ use std::sync::Arc;
 
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
 };
 use eyre::{Report, Result};
-use rosu_v2::{prelude::OsuError, request::UserId};
-use time::{Duration, OffsetDateTime};
+use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
 use super::{H, W};
 use crate::{
@@ -20,8 +19,9 @@ pub async fn sniped_graph(
     ctx: Arc<Context>,
     orig: &CommandOrigin<'_>,
     user_id: UserId,
+    mode: GameMode,
 ) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
+    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
@@ -56,23 +56,14 @@ pub async fn sniped_graph(
         }
     };
 
-    let (sniper, snipee) = if ctx.huismetbenen().is_supported(country_code).await {
-        let now = OffsetDateTime::now_utc();
-        let sniper_fut =
-            ctx.client()
-                .get_national_snipes(user_id, true, now - Duration::weeks(8), now);
-        let snipee_fut =
-            ctx.client()
-                .get_national_snipes(user_id, false, now - Duration::weeks(8), now);
+    let (mut sniper, mut snipee) = if ctx.huismetbenen().is_supported(country_code, mode).await {
+        let sniper_fut = ctx.client().get_sniped_players(user_id, true, mode);
+        let snipee_fut = ctx.client().get_sniped_players(user_id, false, mode);
 
         match tokio::try_join!(sniper_fut, snipee_fut) {
-            Ok((mut sniper, snipee)) => {
-                sniper.retain(|score| score.sniped.is_some());
-
-                (sniper, snipee)
-            }
+            Ok(tuple) => tuple,
             Err(err) => {
-                let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("failed to get sniper or snipee"));
             }
@@ -84,7 +75,7 @@ pub async fn sniped_graph(
         return Ok(None);
     };
 
-    let bytes = match sniped::graphs(username, &sniper, &snipee, W, H) {
+    let bytes = match sniped::graphs(username, &mut sniper, &mut snipee, W, H) {
         Ok(Some(graph)) => graph,
         Ok(None) => {
             let content = format!(
