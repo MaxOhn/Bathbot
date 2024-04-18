@@ -253,7 +253,6 @@ impl RankingKind {
             Self::HlScores { version, .. } => {
                 let text = match version {
                     HlVersion::ScorePp => "Server leaderboard for Higherlower (Score PP)",
-                    HlVersion::FarmMaps => "Server leaderboard for Higherlower (Farm)",
                 };
 
                 EmbedHeader::Author(AuthorBuilder::new(text))

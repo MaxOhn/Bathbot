@@ -96,15 +96,6 @@ pub struct Top {
     query: Option<String>,
     #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    #[command(
-        desc = "Specify if you want to filter out farm maps",
-        help = "Specify if you want to filter out farm maps.\n\
-        A map counts as farmy if its mapset appears in the top 727 \
-        sets based on how often the set is in people's top100 scores.\n\
-        The list of mapsets can be checked with `/popular mapsets` or \
-        on [here](https://osutracker.com/stats)"
-    )]
-    farm: Option<FarmFilter>,
     #[command(desc = "Filter out all scores that don't have a perfect combo")]
     perfect_combo: Option<bool>,
     #[command(
@@ -165,14 +156,6 @@ impl From<ScoreOrder> for TopScoreOrder {
             ScoreOrder::Stars => Self::Stars,
         }
     }
-}
-
-#[derive(CommandOption, CreateOption)]
-pub enum FarmFilter {
-    #[option(name = "No farm", value = "no_farm")]
-    NoFarm,
-    #[option(name = "Only farm", value = "only_farm")]
-    OnlyFarm,
 }
 
 #[command]
@@ -523,7 +506,6 @@ pub struct TopArgs<'a> {
     pub perfect_combo: Option<bool>,
     pub index: Option<String>,
     pub query: Option<String>,
-    pub farm: Option<FarmFilter>,
     pub size: Option<ListSize>,
     pub has_dash_r: bool,
     pub has_dash_p_or_i: bool,
@@ -693,7 +675,6 @@ impl<'m> TopArgs<'m> {
             perfect_combo: None,
             index: num.to_string_opt(),
             query: None,
-            farm: None,
             size: None,
             has_dash_r: has_dash_r.unwrap_or(false),
             has_dash_p_or_i: has_dash_p_or_i.unwrap_or(false),
@@ -728,7 +709,6 @@ impl TryFrom<Top> for TopArgs<'static> {
             perfect_combo: args.perfect_combo,
             index: args.index,
             query: args.query,
-            farm: args.farm,
             size: args.size,
             has_dash_r: false,
             has_dash_p_or_i: false,
@@ -1309,8 +1289,7 @@ fn write_content(
         || args.grade.is_some()
         || args.mods.is_some()
         || args.perfect_combo.is_some()
-        || args.query.is_some()
-        || args.farm.is_some();
+        || args.query.is_some();
 
     if condition {
         Some(content_with_condition(args, amount))
@@ -1465,12 +1444,6 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
 
     if let Some(query) = args.query.as_deref() {
         TopCriteria::create(query).display(&mut content);
-    }
-
-    match args.farm {
-        Some(FarmFilter::OnlyFarm) => content.push_str(" • `Only farm`"),
-        Some(FarmFilter::NoFarm) => content.push_str(" • `Without farm`"),
-        None => {}
     }
 
     let plural = if amount == 1 { "" } else { "s" };

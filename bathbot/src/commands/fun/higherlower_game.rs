@@ -47,17 +47,6 @@ pub struct HigherLowerScorePp {
 
 #[derive(CommandModel, CreateCommand)]
 #[command(
-    name = "farm",
-    desc = "Is the amount of times the map appears in top scores higher or lower?",
-    help = "Is the amount of times the map appears in top scores higher or lower?\n\
-    All counts are provided by [osutracker](https://osutracker.com) which only includes a portion \
-    of the actual data but it should be representative, at least for >300pp scores.\n\
-    The maps are chosen randomly based on [this weight function](https://www.desmos.com/calculator/u4jt9t4jnj)."
-)]
-pub struct HigherLowerFarmMaps;
-
-#[derive(CommandModel, CreateCommand)]
-#[command(
     name = "leaderboard",
     desc = "Get the server leaderboard for higherlower highscores"
 )]
