@@ -274,6 +274,7 @@ impl Client {
             GameMode::Mania => {
                 let mut weeks = kittenroleplay::get_sniped_players(self, user_id, sniper).await?;
 
+                weeks.retain(|week| !week.players.is_empty());
                 weeks.reverse();
                 weeks.dedup_by(|a, b| a.players == b.players);
                 weeks.reverse();
