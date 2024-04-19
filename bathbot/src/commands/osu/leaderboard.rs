@@ -507,17 +507,9 @@ async fn get_user_score(
     let user_args = UserArgs::user_id(user_id).mode(mode);
     let user_fut = ctx.redis().osu_user(user_args);
 
-    // TODO: use ctx.osu_scores()
-    let mut score_fut = ctx
-        .osu()
-        .beatmap_user_score(map_id, user_id)
-        .mode(mode)
-        .legacy_only(legacy_scores)
-        .legacy_scores(legacy_scores);
-
-    if let Some(mods) = mods {
-        score_fut = score_fut.mods(mods);
-    }
+    let score_fut = ctx
+        .osu_scores()
+        .user_on_map_single(user_id, map_id, mode, mods, legacy_scores);
 
     match tokio::try_join!(user_fut, score_fut) {
         Ok(tuple) => Ok(Some(tuple)),

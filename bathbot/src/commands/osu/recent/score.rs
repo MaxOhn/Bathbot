@@ -593,8 +593,9 @@ pub(super) async fn score(
     // Prepare retrieval of the the user's top 50 and score position on the map
     let map_score_fut = async {
         if grade != Grade::F && matches!(status, Ranked | Loved | Qualified | Approved) {
-            // TODO: use ctx.osu_scores()
-            let fut = ctx.osu().beatmap_user_score(map_id, user_id).mode(mode);
+            let fut =
+                ctx.osu_scores()
+                    .user_on_map_single(user_id, map_id, mode, None, legacy_scores);
 
             Some(fut.await)
         } else {

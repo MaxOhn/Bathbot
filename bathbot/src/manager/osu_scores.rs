@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use std::{slice, sync::Arc};
 
 use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::osu::{DbScores, DbScoresBuilder, DbTopScores};
 use bathbot_util::{osu::ModSelection, IntHasher};
 use eyre::{Result, WrapErr};
 use rosu_v2::{
+    model::score::BeatmapUserScore,
     prelude::{GameMode, GameModsIntermode, Grade, OsuError, Score},
     OsuResult,
 };
@@ -120,6 +121,34 @@ impl ScoresManager {
         tokio::spawn(async move { self.store(&scores_clone).await });
 
         Ok(scores)
+    }
+
+    pub async fn user_on_map_single(
+        self,
+        user_id: u32,
+        map_id: u32,
+        mode: GameMode,
+        mods: Option<GameModsIntermode>,
+        legacy_scores: bool,
+    ) -> Result<BeatmapUserScore, OsuError> {
+        let mut req = self
+            .ctx
+            .osu()
+            .beatmap_user_score(map_id, user_id)
+            .mode(mode)
+            .legacy_only(legacy_scores)
+            .legacy_scores(legacy_scores);
+
+        if let Some(mods) = mods {
+            req = req.mods(mods);
+        }
+
+        let score = req.await?;
+
+        let score_inner = score.score.clone();
+        tokio::spawn(async move { self.store(slice::from_ref(&score_inner)).await });
+
+        Ok(score)
     }
 
     pub async fn db_top_scores(

@@ -8,13 +8,14 @@ use bathbot_util::{
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use skia_safe::{surfaces, EncodedImageFormat};
 use time::Date;
 use twilight_model::guild::Permissions;
 
 use super::{SnipeGameMode, SnipePlayerStats};
 use crate::{
+    commands::osu::require_link,
     core::{commands::CommandOrigin, ContextExt},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
     manager::redis::{osu::UserArgs, RedisData},
@@ -101,7 +102,35 @@ pub(super) async fn player_stats(
     orig: CommandOrigin<'_>,
     args: SnipePlayerStats<'_>,
 ) -> Result<()> {
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+    let owner = orig.user_id()?;
+    let config = ctx.user_config().with_osu_id(owner).await?;
+
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match config.osu {
+            Some(user_id) => UserId::Id(user_id),
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
+
+    let mode = args
+        .mode
+        .map(GameMode::from)
+        .or(config.mode)
+        .unwrap_or(GameMode::Osu);
+
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
+        },
+    };
+
     let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
 
     let user = match ctx.redis().osu_user(user_args).await {
@@ -172,11 +201,13 @@ pub(super) async fn player_stats(
         }
     };
 
-    // TODO: use ctx.osu_scores()
-    let score_fut = ctx
-        .osu()
-        .beatmap_user_score(player.oldest_first.map_id, player.user_id)
-        .mode(mode);
+    let score_fut = ctx.osu_scores().user_on_map_single(
+        user_id,
+        player.oldest_first.map_id,
+        mode,
+        None,
+        legacy_scores,
+    );
 
     let map_fut = ctx.osu_map().map(player.oldest_first.map_id, None);
 

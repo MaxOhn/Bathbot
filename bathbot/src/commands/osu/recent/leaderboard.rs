@@ -293,7 +293,7 @@ pub(super) async fn leaderboard(
     let map_fut = ctx.osu_map().map(map_id, checksum.as_deref());
 
     let user_score_fut = get_user_score(
-        &ctx,
+        ctx.cloned(),
         map_id,
         config.osu,
         mode,
@@ -415,7 +415,7 @@ pub(super) async fn leaderboard(
 }
 
 async fn get_user_score(
-    ctx: &Context,
+    ctx: Arc<Context>,
     map_id: u32,
     user_id: Option<u32>,
     mode: GameMode,
@@ -428,17 +428,9 @@ async fn get_user_score(
 
     let name_fut = ctx.osu_user().name(user_id);
 
-    // TODO: use ctx.osu_scores()
-    let mut score_fut = ctx
-        .osu()
-        .beatmap_user_score(map_id, user_id)
-        .mode(mode)
-        .legacy_only(legacy_scores)
-        .legacy_scores(legacy_scores);
-
-    if let Some(mods) = mods {
-        score_fut = score_fut.mods(mods);
-    }
+    let score_fut = ctx
+        .osu_scores()
+        .user_on_map_single(user_id, map_id, mode, mods, legacy_scores);
 
     let (score_res, name_res) = tokio::join!(score_fut, name_fut);
 
