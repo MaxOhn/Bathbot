@@ -47,22 +47,21 @@ async fn prefix_sniped(
     mut args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    let mode = Some(SnipeGameMode::Osu);
+    let mode = None;
+    let mut name = None;
+    let mut discord = None;
 
-    let args = match args.next() {
-        Some(arg) => match matcher::get_mention_user(arg) {
-            Some(id) => SnipePlayerSniped {
-                mode,
-                name: None,
-                discord: Some(id),
-            },
-            None => SnipePlayerSniped {
-                mode,
-                name: Some(arg.into()),
-                discord: None,
-            },
-        },
-        None => SnipePlayerSniped::default(),
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerSniped {
+        mode,
+        name,
+        discord,
     };
 
     player_sniped(ctx, CommandOrigin::from_msg(msg, permissions), args).await
@@ -86,21 +85,20 @@ async fn prefix_snipedmania(
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let mode = Some(SnipeGameMode::Mania);
+    let mut name = None;
+    let mut discord = None;
 
-    let args = match args.next() {
-        Some(arg) => match matcher::get_mention_user(arg) {
-            Some(id) => SnipePlayerSniped {
-                mode,
-                name: None,
-                discord: Some(id),
-            },
-            None => SnipePlayerSniped {
-                mode,
-                name: Some(arg.into()),
-                discord: None,
-            },
-        },
-        None => SnipePlayerSniped::default(),
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerSniped {
+        mode,
+        name,
+        discord,
     };
 
     player_sniped(ctx, CommandOrigin::from_msg(msg, permissions), args).await

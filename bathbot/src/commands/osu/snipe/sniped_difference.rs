@@ -29,22 +29,21 @@ use crate::{
 #[aliases("sg", "snipegain", "snipesgain")]
 #[group(Osu)]
 async fn prefix_snipedgain(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
-    let mode = Some(SnipeGameMode::Osu);
+    let mode = None;
+    let mut name = None;
+    let mut discord = None;
 
-    let args = match args.next() {
-        Some(arg) => match matcher::get_mention_user(arg) {
-            Some(id) => SnipePlayerGain {
-                mode,
-                name: None,
-                discord: Some(id),
-            },
-            None => SnipePlayerGain {
-                mode,
-                name: Some(arg.into()),
-                discord: None,
-            },
-        },
-        None => SnipePlayerGain::default(),
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerGain {
+        mode,
+        name,
+        discord,
     };
 
     player_gain(ctx, msg.into(), args).await
@@ -67,21 +66,20 @@ async fn prefix_snipedgainmania(
     mut args: Args<'_>,
 ) -> Result<()> {
     let mode = Some(SnipeGameMode::Mania);
+    let mut name = None;
+    let mut discord = None;
 
-    let args = match args.next() {
-        Some(arg) => match matcher::get_mention_user(arg) {
-            Some(id) => SnipePlayerGain {
-                mode,
-                name: None,
-                discord: Some(id),
-            },
-            None => SnipePlayerGain {
-                mode,
-                name: Some(arg.into()),
-                discord: None,
-            },
-        },
-        None => SnipePlayerGain::default(),
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerGain {
+        mode,
+        name,
+        discord,
     };
 
     player_gain(ctx, msg.into(), args).await
@@ -106,22 +104,21 @@ async fn prefix_snipedgainmania(
 )]
 #[group(Osu)]
 async fn prefix_snipedloss(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
-    let mode = Some(SnipeGameMode::Osu);
+    let mode = None;
+    let mut name = None;
+    let mut discord = None;
 
-    let args = match args.next() {
-        Some(arg) => match matcher::get_mention_user(arg) {
-            Some(id) => SnipePlayerLoss {
-                mode,
-                name: None,
-                discord: Some(id),
-            },
-            None => SnipePlayerLoss {
-                mode,
-                name: Some(arg.into()),
-                discord: None,
-            },
-        },
-        None => SnipePlayerLoss::default(),
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerLoss {
+        mode,
+        name,
+        discord,
     };
 
     player_loss(ctx, msg.into(), args).await
@@ -151,21 +148,20 @@ async fn prefix_snipedlossmania(
     mut args: Args<'_>,
 ) -> Result<()> {
     let mode = Some(SnipeGameMode::Mania);
+    let mut name = None;
+    let mut discord = None;
 
-    let args = match args.next() {
-        Some(arg) => match matcher::get_mention_user(arg) {
-            Some(id) => SnipePlayerLoss {
-                mode,
-                name: None,
-                discord: Some(id),
-            },
-            None => SnipePlayerLoss {
-                mode,
-                name: Some(arg.into()),
-                discord: None,
-            },
-        },
-        None => SnipePlayerLoss::default(),
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerLoss {
+        mode,
+        name,
+        discord,
     };
 
     player_loss(ctx, msg.into(), args).await

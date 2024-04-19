@@ -39,25 +39,21 @@ async fn prefix_playersnipestats(
     mut args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    let mode = Some(SnipeGameMode::Osu);
+    let mode = None;
+    let mut name = None;
+    let mut discord = None;
 
-    let args = match args.next() {
-        Some(arg) => match matcher::get_mention_user(arg) {
-            Some(id) => SnipePlayerStats {
-                mode,
-                name: None,
-                discord: Some(id),
-            },
-            None => SnipePlayerStats {
-                mode,
-                name: Some(arg.into()),
-                discord: None,
-            },
-        },
-        None => SnipePlayerStats {
-            mode,
-            ..Default::default()
-        },
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerStats {
+        mode,
+        name,
+        discord,
     };
 
     player_stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
@@ -81,24 +77,20 @@ async fn prefix_playersnipestatsmania(
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let mode = Some(SnipeGameMode::Mania);
+    let mut name = None;
+    let mut discord = None;
 
-    let args = match args.next() {
-        Some(arg) => match matcher::get_mention_user(arg) {
-            Some(id) => SnipePlayerStats {
-                mode,
-                name: None,
-                discord: Some(id),
-            },
-            None => SnipePlayerStats {
-                mode,
-                name: Some(arg.into()),
-                discord: None,
-            },
-        },
-        None => SnipePlayerStats {
-            mode,
-            ..Default::default()
-        },
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerStats {
+        mode,
+        name,
+        discord,
     };
 
     player_stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
