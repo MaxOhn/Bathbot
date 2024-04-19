@@ -231,8 +231,14 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
         }
     };
 
+    let user_id = user.user_id();
+    let peaks_fut = ctx.client().osu_user_rank_acc_peak(user_id, mode);
+    let user_id_fut = ctx.user_config().discord_from_osu_id(user_id);
+
+    let (peaks_res, user_id_res) = tokio::join!(peaks_fut, user_id_fut);
+
     // Try to get the discord user id that is linked to the osu!user
-    let discord_id = match ctx.user_config().discord_from_osu_id(user.user_id()).await {
+    let discord_id = match user_id_res {
         Ok(user) => match (guild, user) {
             (Some(guild), Some(user)) => ctx
                 .cache
@@ -248,10 +254,28 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
         }
     };
 
+    let peaks = match peaks_res {
+        Ok(peaks) => peaks,
+        Err(err) => {
+            warn!(?err, "Failed to get osutrack peaks");
+
+            None
+        }
+    };
+
     let tz = no_user_specified.then_some(config.timezone).flatten();
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
-    let pagination = ProfileMenu::new(user, discord_id, tz, legacy_scores, kind, origin, owner);
+    let pagination = ProfileMenu::new(
+        user,
+        discord_id,
+        tz,
+        peaks,
+        legacy_scores,
+        kind,
+        origin,
+        owner,
+    );
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
