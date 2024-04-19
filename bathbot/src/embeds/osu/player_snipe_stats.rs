@@ -143,10 +143,14 @@ impl PlayerSnipeStatsEmbed {
             }
         };
 
-        let url = format!(
-            "https://snipe.huismetbenen.nl/player/{code}/osu/{user_id}",
-            code = country_code.to_lowercase(),
-        );
+        let url = match oldest_score.mode {
+            GameMode::Osu => format!(
+                "https://snipe.huismetbenen.nl/player/{code}/osu/{user_id}",
+                code = country_code.to_lowercase(),
+            ),
+            GameMode::Mania => format!("https://snipes.kittenroleplay.com/player/{user_id}/mania"),
+            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+        };
 
         Self {
             url,
