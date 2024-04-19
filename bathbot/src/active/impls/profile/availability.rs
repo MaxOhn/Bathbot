@@ -62,7 +62,6 @@ impl Availability<MapperNames> {
     pub(super) async fn get(
         &mut self,
         ctx: Arc<Context>,
-        mode: GameMode,
         entries: &[(u32, (u8, f32))],
     ) -> Option<&MapperNames> {
         match self {
@@ -81,30 +80,14 @@ impl Availability<MapperNames> {
                 };
 
                 if names.len() != ids.len() {
-                    for (id, _) in entries.iter() {
-                        if names.contains_key(id) {
-                            continue;
-                        }
+                    let id_iter = entries
+                        .iter()
+                        .filter_map(|(id, _)| (!names.contains_key(id)).then_some(*id));
 
-                        // TODO: use ctx.osu().users(iter)
-                        let user = match ctx.osu().user(*id).mode(mode).await {
-                            Ok(user) => user,
-                            Err(err) => {
-                                warn!(?err, "Failed to get user");
-
-                                continue;
-                            }
-                        };
-
-                        let user_id = user.user_id;
-                        let username = user.username.clone();
-
-                        let ctx = ctx.cloned();
-                        tokio::spawn(async move {
-                            ctx.osu_user().store(&user, mode).await;
-                        });
-
-                        names.insert(user_id, username);
+                    match ctx.osu().users(id_iter).await {
+                        Ok(users) => names
+                            .extend(users.into_iter().map(|user| (user.user_id, user.username))),
+                        Err(err) => warn!(?err, "Failed to get mapper names"),
                     }
                 }
 

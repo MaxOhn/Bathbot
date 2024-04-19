@@ -43,8 +43,7 @@ impl Top100Mappers {
 
         entries.truncate(10);
 
-        let mode = menu.user.mode();
-        let MapperNames(mapper_names) = menu.mapper_names.get(ctx, mode, &entries).await?;
+        let MapperNames(mapper_names) = menu.mapper_names.get(ctx, &entries).await?;
 
         let mappers = entries
             .into_iter()
