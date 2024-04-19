@@ -61,7 +61,7 @@ pub struct ProfileMenu {
     skin_url: Availability<SkinUrl>,
     scores: Availability<Box<[Score]>>,
     score_rank: Availability<ScoreData>,
-    osutrack_peaks: Availability<RankAccPeaks>,
+    osutrack_peaks: Option<RankAccPeaks>,
     top100stats: Option<Top100Stats>,
     mapper_names: Availability<MapperNames>,
     kind: ProfileKind,
@@ -192,6 +192,7 @@ impl ProfileMenu {
         user: RedisData<User>,
         discord_id: Option<Id<UserMarker>>,
         tz: Option<UtcOffset>,
+        osutrack_peaks: Option<RankAccPeaks>,
         legacy_scores: bool,
         kind: ProfileKind,
         origin: MessageOrigin,
@@ -201,13 +202,13 @@ impl ProfileMenu {
             user,
             discord_id,
             tz,
+            osutrack_peaks,
             legacy_scores,
             kind,
             msg_owner,
             skin_url: Availability::NotRequested,
             scores: Availability::NotRequested,
             score_rank: Availability::NotRequested,
-            osutrack_peaks: Availability::NotRequested,
             mapper_names: Availability::NotRequested,
             origin,
             top100stats: None,
@@ -216,9 +217,8 @@ impl ProfileMenu {
 
     async fn compact(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
         let user_id = self.user.user_id();
-        let skin_url = self.skin_url.get(&ctx, user_id).await;
 
-        let (mode, medals, highest_rank) = match self.user {
+        let (mode, medals, mut highest_rank) = match self.user {
             RedisData::Original(ref user) => {
                 let mode = user.mode;
                 let medals = user.medals.len();
@@ -237,6 +237,8 @@ impl ProfileMenu {
             }
         };
 
+        self.consider_osutrack_peaks(&mut highest_rank);
+        let skin_url = self.skin_url.get(&ctx, user_id).await;
         let stats = self.user.stats();
 
         let mut description = format!(
@@ -288,10 +290,8 @@ impl ProfileMenu {
             self.legacy_scores,
         );
         let score_rank_fut = self.score_rank.get(&ctx, user_id, mode);
-        let peaks_fut = self.osutrack_peaks.get(&ctx, user_id, mode);
 
-        let (scores_opt, score_rank_opt, peaks_opt) =
-            tokio::join!(scores_fut, score_rank_fut, peaks_fut);
+        let (scores_opt, score_rank_opt) = tokio::join!(scores_fut, score_rank_fut);
 
         let top_score_pp = match scores_opt {
             Some([_score @ Score { pp: Some(pp), .. }, ..]) => format!("{pp:.2}pp"),
@@ -394,27 +394,7 @@ impl ProfileMenu {
 
         description.push_str(":**__");
 
-        match (&mut highest_rank, &peaks_opt) {
-            (Some(highest_rank), Some(peaks)) => {
-                if peaks.rank < highest_rank.rank && peaks.rank > 0 {
-                    debug!(
-                        osu = ?(highest_rank.rank, highest_rank.updated_at.date()),
-                        osutrack = ?(peaks.rank, peaks.rank_timestamp.date()),
-                        "osutrack peak was better"
-                    );
-
-                    highest_rank.rank = peaks.rank;
-                    highest_rank.updated_at = peaks.rank_timestamp;
-                }
-            }
-            (None, Some(peaks)) => {
-                highest_rank = Some(RosuUserHighestRank {
-                    rank: peaks.rank,
-                    updated_at: peaks.rank_timestamp,
-                })
-            }
-            (_, None) => {}
-        }
+        self.consider_osutrack_peaks(&mut highest_rank);
 
         let peak_rank = match highest_rank {
             Some(peak) => {
@@ -434,8 +414,8 @@ impl ProfileMenu {
             None => "-".to_string(),
         };
 
-        let peak_acc = match peaks_opt {
-            Some(ref peaks) => format!(
+        let peak_acc = match self.osutrack_peaks.as_ref() {
+            Some(peaks) => format!(
                 "[{acc:.2}%]({origin} \"{acc}%\n\nProvided by ameobea.me/osutrack\") ('{year:0>2}/{month:0>2})",
                 acc = peaks.acc,
                 origin = self.origin,
@@ -998,6 +978,33 @@ impl ProfileMenu {
         });
 
         Some(count)
+    }
+
+    fn consider_osutrack_peaks(&self, highest_rank: &mut Option<RosuUserHighestRank>) {
+        let Some(ref peaks) = self.osutrack_peaks else {
+            return;
+        };
+
+        match highest_rank {
+            Some(highest_rank) => {
+                if peaks.rank < highest_rank.rank && peaks.rank > 0 {
+                    debug!(
+                        osu = ?(highest_rank.rank, highest_rank.updated_at.date()),
+                        osutrack = ?(peaks.rank, peaks.rank_timestamp.date()),
+                        "osutrack peak was better"
+                    );
+
+                    highest_rank.rank = peaks.rank;
+                    highest_rank.updated_at = peaks.rank_timestamp;
+                }
+            }
+            None => {
+                *highest_rank = Some(RosuUserHighestRank {
+                    rank: peaks.rank,
+                    updated_at: peaks.rank_timestamp,
+                })
+            }
+        }
     }
 
     fn footer(&self) -> FooterBuilder {
