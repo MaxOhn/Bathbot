@@ -23,7 +23,8 @@ impl SnipedEmbed {
         let username = user.username();
 
         if sniper.is_empty() && snipee.is_empty() {
-            let description = format!("`{username}` was neither sniped nor sniped other people");
+            let description =
+                format!("`{username}` neither sniped others nor was sniped by others");
 
             return Self {
                 author,

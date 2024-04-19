@@ -79,7 +79,7 @@ pub async fn sniped_graph(
         Ok(Some(graph)) => graph,
         Ok(None) => {
             let content = format!(
-                "`{username}` was neither sniped nor sniped other people in the last 8 weeks"
+                "`{username}` neither sniped others nor was sniped by others in the last 8 weeks"
             );
             let builder = MessageBuilder::new().embed(content);
             orig.create_message(&ctx, builder).await?;
