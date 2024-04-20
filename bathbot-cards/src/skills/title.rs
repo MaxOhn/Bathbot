@@ -11,7 +11,7 @@ pub(crate) struct CardTitle {
 }
 
 impl CardTitle {
-    pub(crate) fn new(skills: &Skills, scores: &[Score]) -> Self {
+    pub(crate) fn new(skills: &Skills, scores: &[Score], legacy_scores: bool) -> Self {
         let (max, suffix) = match skills {
             Skills::Osu { acc, aim, speed } => {
                 let max = acc.max(*aim).max(*speed);
@@ -36,7 +36,7 @@ impl CardTitle {
         };
 
         let prefix = TitlePrefix::new(max);
-        let description = TitleDescriptions::new(skills.mode(), scores);
+        let description = TitleDescriptions::new(skills.mode(), scores, legacy_scores);
 
         Self {
             prefix,

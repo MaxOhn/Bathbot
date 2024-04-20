@@ -10,12 +10,12 @@ use bathbot_util::{
 };
 use eyre::{Report, Result, WrapErr};
 use futures::{stream::FuturesUnordered, TryStreamExt};
-use rosu_v2::prelude::OsuError;
+use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
-use super::user_not_found;
+use super::{require_link, user_not_found};
 use crate::{
     commands::GameModeOption,
     core::{commands::CommandOrigin, BotConfig, Context, ContextExt},
@@ -96,12 +96,39 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
         command: &mut command,
     };
 
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+    let owner = orig.user_id()?;
+    let config = ctx.user_config().with_osu_id(owner).await?;
+
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match config.osu {
+            Some(user_id) => UserId::Id(user_id),
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
+
+    let mode = args
+        .mode
+        .map(GameMode::from)
+        .or(config.mode)
+        .unwrap_or(GameMode::Osu);
+
+    let legacy_scores = match config.legacy_scores {
+        Some(legacy_scores) => legacy_scores,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.legacy_scores)
+                .await
+                .unwrap_or(false),
+            None => false,
+        },
+    };
 
     let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
     let scores_fut = ctx
         .osu_scores()
-        .top(true)
+        .top(legacy_scores)
         .limit(100)
         .exec_with_user(user_args);
     let medals_fut = ctx.redis().medals();
@@ -197,7 +224,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
         .format(DATE_FORMAT)
         .unwrap();
 
-    let card_res = BathbotCard::new(mode, &scores, maps)
+    let card_res = BathbotCard::new(mode, &scores, maps, legacy_scores)
         .user(user.username(), stats.level().float())
         .ranks(stats.global_rank(), stats.country_rank())
         .medals(medals as u32, total_medals as u32)
