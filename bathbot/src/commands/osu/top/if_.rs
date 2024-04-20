@@ -509,9 +509,12 @@ async fn process_scores(
                     || mods.contains(GameModIntermode::Nightcore)
                 {
                     changed |= score.mods.remove_intermode(GameModIntermode::HalfTime);
+                    changed |= score.mods.remove_intermode(GameModIntermode::Daycore);
                 }
 
-                if mods.contains(GameModIntermode::HalfTime) {
+                if mods.contains(GameModIntermode::HalfTime)
+                    || mods.contains(GameModIntermode::Daycore)
+                {
                     changed |= score.mods.remove_intermode(GameModIntermode::DoubleTime);
                     changed |= score.mods.remove_intermode(GameModIntermode::Nightcore);
                 }
@@ -527,6 +530,14 @@ async fn process_scores(
                 changed |= !mods
                     .iter()
                     .all(|gamemod| score.mods.contains_intermode(gamemod));
+
+                for m in converted_mods.iter() {
+                    for &acronym in m.incompatible_mods().into_iter() {
+                        if let Some(m) = GameModIntermode::from_acronym(acronym) {
+                            score.mods.remove_intermode(m);
+                        }
+                    }
+                }
 
                 score.mods.extend(converted_mods.iter().cloned());
 
