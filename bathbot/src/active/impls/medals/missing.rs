@@ -6,7 +6,7 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{rosu_v2::user::User, OsekaiMedal};
 use bathbot_util::{
-    constants::OSU_BASE, osu::flag_url, AuthorBuilder, EmbedBuilder, FooterBuilder,
+    constants::OSU_BASE, osu::flag_url, AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -68,6 +68,8 @@ impl IActiveMessage for MedalsMissingPagination {
                             m.backup_url()
                         }
                     };
+
+                    let url = url.cow_replace("%25", "%");
 
                     let _ = writeln!(
                         description,
