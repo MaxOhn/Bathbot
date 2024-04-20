@@ -130,6 +130,12 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         return orig.error(&ctx, content).await;
     }
 
+    async fn insufficient_ranking_entries(ctx: &Context, orig: CommandOrigin<'_>) -> Result<()> {
+        return orig
+            .error(&ctx, "Not enough ranking entries available")
+            .await;
+    }
+
     let rank_data = match rank_or_holder {
         RankOrHolder::Rank(rank) if rank <= 10_000 => {
             // Retrieve the user and the user thats holding the given rank
@@ -157,6 +163,10 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
 
             let rank_holder = match rankings {
                 RedisData::Original(mut rankings) => {
+                    if rankings.ranking.len() <= idx {
+                        return insufficient_ranking_entries(&ctx, orig).await;
+                    }
+
                     let holder = rankings.ranking.swap_remove(idx);
 
                     RankHolder {
@@ -172,6 +182,10 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
                     }
                 }
                 RedisData::Archive(rankings) => {
+                    if rankings.ranking.len() <= idx {
+                        return insufficient_ranking_entries(&ctx, orig).await;
+                    }
+
                     let holder = &rankings.ranking[idx];
 
                     RankHolder {
@@ -354,32 +368,62 @@ async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Res
 
 impl<'m> RankPp<'m> {
     fn args(mode: Option<GameModeOption>, mut args: Args<'m>) -> Result<Self, &'static str> {
-        fn parse_rank(input: &str) -> Option<(&str, Option<&str>)> {
-            if input.parse::<u32>().is_ok() {
-                return Some((input, None));
-            }
-
-            let mut chars = input.chars();
-
-            let valid_country = chars.by_ref().take(2).all(|c| c.is_ascii_alphabetic());
-
-            let valid_rank = chars.next().is_some_and(|c| c.is_ascii_digit())
-                && chars.all(|c| c.is_ascii_digit());
-
-            if valid_country && valid_rank {
-                let (country, rank) = input.split_at(2);
-
-                Some((rank, Some(country)))
-            } else {
-                None
-            }
+        enum Prefixed<'a> {
+            Rank {
+                value: &'a str,
+                country_code: Option<Cow<'a, str>>,
+                prefixed: bool,
+            },
+            Name(&'a str),
+            None,
         }
 
-        fn strip_prefix(input: &str) -> Option<&str> {
-            input
-                .strip_prefix("rank=")
-                .or_else(|| input.strip_prefix("reach="))
-                .or_else(|| input.strip_prefix("r="))
+        impl<'a> Prefixed<'a> {
+            fn parse(arg: &'a str) -> Prefixed<'a> {
+                let Some((key, value)) = arg.split_once('=') else {
+                    return Self::parse_rank(arg, false).unwrap_or(Self::None);
+                };
+
+                match key {
+                    "rank" | "reach" | "r" => Self::parse_rank(value, true).unwrap_or(Self::Rank {
+                        value,
+                        country_code: None,
+                        prefixed: true,
+                    }),
+                    "user" | "u" | "name" | "n" => Self::Name(value),
+                    _ => Self::None,
+                }
+            }
+
+            fn parse_rank(arg: &'a str, prefixed: bool) -> Option<Prefixed<'a>> {
+                if arg.parse::<u32>().is_ok() {
+                    return Some(Self::Rank {
+                        value: arg,
+                        country_code: None,
+                        prefixed,
+                    });
+                }
+
+                let mut chars = arg.chars();
+
+                let valid_country = chars.by_ref().take(2).all(|c| c.is_ascii_alphabetic());
+
+                // at least one digit and all following must be digits too
+                let valid_rank = chars.next().is_some_and(|c| c.is_ascii_digit())
+                    && chars.all(|c| c.is_ascii_digit());
+
+                if valid_country && valid_rank {
+                    let (country, rank) = arg.split_at(2);
+
+                    Some(Self::Rank {
+                        value: rank,
+                        country_code: Some(Cow::Borrowed(country)),
+                        prefixed,
+                    })
+                } else {
+                    None
+                }
+            }
         }
 
         let mut name = None;
@@ -389,66 +433,124 @@ impl<'m> RankPp<'m> {
 
         if let Some(first) = args.next() {
             if let Some(second) = args.next() {
-                if let Some(first) = strip_prefix(first) {
-                    if let Some((rank_, country_)) = parse_rank(first) {
-                        rank = Some(rank_);
-                        country = country_.map(Cow::Borrowed);
-                    } else {
-                        rank = Some(first);
+                match (Prefixed::parse(first), Prefixed::parse(second)) {
+                    (
+                        Prefixed::Rank {
+                            value,
+                            country_code,
+                            prefixed: true,
+                        },
+                        Prefixed::Rank { .. },
+                    )
+                    | (
+                        Prefixed::Rank {
+                            value,
+                            country_code,
+                            prefixed: false,
+                        },
+                        Prefixed::Rank {
+                            prefixed: false, ..
+                        },
+                    )
+                    | (
+                        Prefixed::Rank {
+                            value,
+                            country_code,
+                            prefixed: _,
+                        },
+                        Prefixed::None,
+                    ) => {
+                        rank = Some(value);
+                        country = country_code;
+                        name = Some(Cow::Borrowed(second));
                     }
-
-                    if let Some(id) = matcher::get_mention_user(second) {
-                        discord = Some(id);
-                    } else {
-                        name = Some(second.into());
+                    (
+                        Prefixed::Rank {
+                            prefixed: false, ..
+                        },
+                        Prefixed::Rank {
+                            value,
+                            country_code,
+                            prefixed: true,
+                        },
+                    ) => {
+                        rank = Some(value);
+                        country = country_code;
+                        name = Some(Cow::Borrowed(first));
                     }
-                } else if let Some(second) = strip_prefix(second) {
-                    if let Some((rank_, country_)) = parse_rank(second) {
-                        rank = Some(rank_);
-                        country = country_.map(Cow::Borrowed);
-                    } else {
+                    (
+                        Prefixed::Rank {
+                            value,
+                            country_code,
+                            prefixed: _,
+                        },
+                        Prefixed::Name(name_value),
+                    ) => {
+                        rank = Some(value);
+                        country = country_code;
+                        name = Some(Cow::Borrowed(name_value));
+                    }
+                    (
+                        Prefixed::None,
+                        Prefixed::Rank {
+                            value,
+                            country_code,
+                            prefixed: _,
+                        },
+                    ) => {
+                        rank = Some(value);
+                        country = country_code;
+                        name = Some(Cow::Borrowed(first));
+                    }
+                    (
+                        Prefixed::Name(name_value),
+                        Prefixed::Rank {
+                            value,
+                            country_code,
+                            prefixed: _,
+                        },
+                    ) => {
+                        rank = Some(value);
+                        country = country_code;
+                        name = Some(Cow::Borrowed(name_value));
+                    }
+                    (Prefixed::Name(rank_value), Prefixed::Name(name_value)) => {
+                        rank = Some(rank_value);
+                        name = Some(Cow::Borrowed(name_value));
+                    }
+                    (Prefixed::Name(value), Prefixed::None) => {
                         rank = Some(second);
+                        name = Some(Cow::Borrowed(value));
                     }
-
-                    if let Some(id) = matcher::get_mention_user(first) {
-                        discord = Some(id);
-                    } else {
-                        name = Some(first.into());
+                    (Prefixed::None, Prefixed::Name(value)) => {
+                        rank = Some(first);
+                        name = Some(Cow::Borrowed(value));
                     }
-                } else if let Some((rank_, country_)) = parse_rank(first) {
-                    rank = Some(rank_);
-                    country = country_.map(Cow::Borrowed);
-
-                    if let Some(id) = matcher::get_mention_user(second) {
-                        discord = Some(id);
-                    } else {
-                        name = Some(second.into());
+                    (Prefixed::None, Prefixed::None) => {
+                        rank = Some(first);
+                        name = Some(Cow::Borrowed(second));
                     }
-                } else if let Some((rank_, country_)) = parse_rank(second) {
-                    rank = Some(rank_);
-                    country = country_.map(Cow::Borrowed);
-
-                    if let Some(id) = matcher::get_mention_user(first) {
-                        discord = Some(id);
-                    } else {
-                        name = Some(first.into());
-                    }
-                } else {
-                    rank = Some(first);
-                    name = Some(second.into());
                 }
-            } else if let Some(first) = strip_prefix(first) {
-                if let Some((rank_, country_)) = parse_rank(first) {
-                    rank = Some(rank_);
-                    country = country_.map(Cow::Borrowed);
-                } else {
-                    rank = Some(first);
-                }
-            } else if let Some((rank_, country_)) = parse_rank(first) {
-                rank = Some(rank_);
-                country = country_.map(Cow::Borrowed);
             } else {
-                rank = Some(first);
+                match Prefixed::parse(first) {
+                    Prefixed::Rank {
+                        value,
+                        country_code,
+                        prefixed: _,
+                    } => {
+                        rank = Some(value);
+                        country = country_code;
+                    }
+                    Prefixed::Name(name_value) => name = Some(Cow::Borrowed(name_value)),
+                    Prefixed::None => name = Some(Cow::Borrowed(first)),
+                }
+            }
+        }
+
+        if let Some(ref name_value) = name {
+            if let Some(id) = matcher::get_mention_user(name_value) {
+                discord = Some(id);
+                name = None;
             }
         }
 
@@ -1040,5 +1142,281 @@ impl RankOrHolder {
             RankOrHolder::Rank(rank) => *rank,
             RankOrHolder::Holder(holder) => holder.global_rank,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::commands::prefix::ArgsNum;
+
+    #[test]
+    fn only_rank() {
+        let args = Args::new("123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert!(args.name.is_none());
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn only_prefixed_rank() {
+        let args = Args::new("rank=123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert!(args.name.is_none());
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn only_country_rank() {
+        let args = Args::new("be123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert!(args.name.is_none());
+        assert_eq!(args.country.as_deref(), Some("be"));
+    }
+
+    #[test]
+    fn only_prefixed_country_rank() {
+        let args = Args::new("rank=be123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert!(args.name.is_none());
+        assert_eq!(args.country.as_deref(), Some("be"));
+    }
+
+    #[test]
+    fn two_names() {
+        let args = Args::new("peppy smoogi", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "peppy");
+        assert_eq!(args.name.as_deref(), Some("smoogi"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn two_names_first_prefixed() {
+        let args = Args::new("user=cd36 peppy", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "peppy");
+        assert_eq!(args.name.as_deref(), Some("cd36"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn two_names_second_prefixed() {
+        let args = Args::new("peppy user=cd36", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "peppy");
+        assert_eq!(args.name.as_deref(), Some("cd36"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn two_names_both_prefixed() {
+        let args = Args::new("user=peppy user=cd36", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "peppy");
+        assert_eq!(args.name.as_deref(), Some("cd36"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn rank_name() {
+        let args = Args::new("123 peppy", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("peppy"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn country_rank_name() {
+        let args = Args::new("cd36 peppy", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "36");
+        assert_eq!(args.name.as_deref(), Some("peppy"));
+        assert_eq!(args.country.as_deref(), Some("cd"));
+    }
+
+    #[test]
+    fn prefixed_rank_name() {
+        let args = Args::new("rank=123 peppy", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("peppy"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn prefixed_country_rank_name() {
+        let args = Args::new("rank=cd36 peppy", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "36");
+        assert_eq!(args.name.as_deref(), Some("peppy"));
+        assert_eq!(args.country.as_deref(), Some("cd"));
+    }
+
+    #[test]
+    fn rank_prefixed_name() {
+        let args = Args::new("123 user=cd36", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("cd36"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn country_rank_prefixed_name() {
+        let args = Args::new("cd36 user=peppy", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "36");
+        assert_eq!(args.name.as_deref(), Some("peppy"));
+        assert_eq!(args.country.as_deref(), Some("cd"));
+    }
+
+    #[test]
+    fn prefixed_rank_prefixed_name() {
+        let args = Args::new("rank=123 user=peppy", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("peppy"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn prefixed_country_rank_prefixed_name() {
+        let args = Args::new("rank=cd36 user=peppy", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "36");
+        assert_eq!(args.name.as_deref(), Some("peppy"));
+        assert_eq!(args.country.as_deref(), Some("cd"));
+    }
+
+    #[test]
+    fn name_rank() {
+        let args = Args::new("peppy 123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("peppy"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn name_country_rank() {
+        let args = Args::new("peppy be123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("peppy"));
+        assert_eq!(args.country.as_deref(), Some("be"));
+    }
+
+    #[test]
+    fn name_prefixed_rank() {
+        let args = Args::new("peppy rank=123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("peppy"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn name_prefixed_country_rank() {
+        let args = Args::new("peppy rank=be123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("peppy"));
+        assert_eq!(args.country.as_deref(), Some("be"));
+    }
+
+    #[test]
+    fn prefixed_name_rank() {
+        let args = Args::new("user=cd36 123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("cd36"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn prefixed_name_country_rank() {
+        let args = Args::new("user=cd36 be123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("cd36"));
+        assert_eq!(args.country.as_deref(), Some("be"));
+    }
+
+    #[test]
+    fn prefixed_name_prefixed_rank() {
+        let args = Args::new("user=cd36 rank=123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("cd36"));
+        assert!(args.country.is_none());
+    }
+
+    #[test]
+    fn prefixed_name_prefixed_country_rank() {
+        let args = Args::new("user=cd36 rank=be123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("cd36"));
+        assert_eq!(args.country.as_deref(), Some("be"));
+    }
+
+    #[test]
+    fn two_ranks() {
+        let args = Args::new("cd36 be123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "36");
+        assert_eq!(args.name.as_deref(), Some("be123"));
+        assert_eq!(args.country.as_deref(), Some("cd"));
+    }
+
+    #[test]
+    fn two_ranks_first_prefixed() {
+        let args = Args::new("rank=cd36 be123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "36");
+        assert_eq!(args.name.as_deref(), Some("be123"));
+        assert_eq!(args.country.as_deref(), Some("cd"));
+    }
+
+    #[test]
+    fn two_ranks_second_prefixed() {
+        let args = Args::new("cd36 rank=be123", ArgsNum::None);
+        let args = RankPp::args(None, args).unwrap();
+
+        assert_eq!(args.rank, "123");
+        assert_eq!(args.name.as_deref(), Some("cd36"));
+        assert_eq!(args.country.as_deref(), Some("be"));
     }
 }
