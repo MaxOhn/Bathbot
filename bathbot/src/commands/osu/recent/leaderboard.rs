@@ -348,9 +348,15 @@ pub(super) async fn leaderboard(
         }
     };
 
-    let mods_bits = specify_mods.as_ref().map_or(0, GameModsIntermode::bits);
+    let mods_ = match specify_mods {
+        Some(mods) => Mods {
+            bits: mods.bits(),
+            clock_rate: Some(mods.legacy_clock_rate()),
+        },
+        None => Mods::default(),
+    };
 
-    let mut calc = ctx.pp(&map).mode(map.mode()).mods(Mods::new(mods_bits));
+    let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods_);
     let attrs = calc.performance().await;
 
     if let Some(ModSelection::Exclude(ref mods)) = mods {

@@ -534,6 +534,7 @@ async fn perfect_score(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Unchok
         .to_owned()
         .performance()
         .mods(score.mods.bits())
+        .clock_rate(score.mods.clock_rate().unwrap_or(1.0) as f64)
         .n_geki(stats.count_geki)
         .n300(stats.count_300)
         .n_katu(stats.count_katu)

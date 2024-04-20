@@ -141,9 +141,17 @@ impl MapPagination {
             rosu_map.od = od_ as f32;
         }
 
-        let map_attrs = rosu_map.attributes().mods(mod_bits).build();
+        let map_attrs = rosu_map
+            .attributes()
+            .mods(mod_bits)
+            .clock_rate(clock_rate as f64)
+            .build();
 
-        let mut attrs = Difficulty::new().mods(mod_bits).calculate(&rosu_map);
+        let mut attrs = Difficulty::new()
+            .mods(mod_bits)
+            .clock_rate(clock_rate as f64)
+            .calculate(&rosu_map);
+
         let stars = attrs.stars();
         const ACCS: [f32; 4] = [95.0, 97.0, 99.0, 100.0];
         let mut pps = Vec::with_capacity(ACCS.len());
@@ -153,6 +161,7 @@ impl MapPagination {
                 .performance()
                 .mods(mod_bits)
                 .accuracy(acc as f64)
+                .clock_rate(clock_rate as f64)
                 .calculate();
 
             let pp = pp_result.pp();
