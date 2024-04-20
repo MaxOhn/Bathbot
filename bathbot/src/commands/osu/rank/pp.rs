@@ -130,6 +130,12 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         return orig.error(&ctx, content).await;
     }
 
+    async fn insufficient_ranking_entries(ctx: &Context, orig: CommandOrigin<'_>) -> Result<()> {
+        return orig
+            .error(&ctx, "Not enough ranking entries available")
+            .await;
+    }
+
     let rank_data = match rank_or_holder {
         RankOrHolder::Rank(rank) if rank <= 10_000 => {
             // Retrieve the user and the user thats holding the given rank
@@ -157,6 +163,10 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
 
             let rank_holder = match rankings {
                 RedisData::Original(mut rankings) => {
+                    if rankings.ranking.len() <= idx {
+                        return insufficient_ranking_entries(&ctx, orig).await;
+                    }
+
                     let holder = rankings.ranking.swap_remove(idx);
 
                     RankHolder {
@@ -172,6 +182,10 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
                     }
                 }
                 RedisData::Archive(rankings) => {
+                    if rankings.ranking.len() <= idx {
+                        return insufficient_ranking_entries(&ctx, orig).await;
+                    }
+
                     let holder = &rankings.ranking[idx];
 
                     RankHolder {
