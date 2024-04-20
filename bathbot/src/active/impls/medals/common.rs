@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_util::{EmbedBuilder, FooterBuilder};
+use bathbot_util::{CowUtils, EmbedBuilder, FooterBuilder};
 use eyre::Result;
 use futures::future::BoxFuture;
 use twilight_model::{
@@ -50,6 +50,8 @@ impl IActiveMessage for MedalsCommonPagination {
                     entry.medal.backup_url()
                 }
             };
+
+            let url = url.cow_replace("%25", "%");
 
             let _ = writeln!(
                 description,
