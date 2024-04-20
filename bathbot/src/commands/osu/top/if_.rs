@@ -272,14 +272,15 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     let sort = args.sort.unwrap_or_default();
     let content = get_content(user.username(), mode, &mods, args.query.as_deref(), sort);
 
-    let mut entries = match process_scores(ctx.cloned(), scores, mods, mode, sort).await {
-        Ok(scores) => scores,
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+    let mut entries =
+        match process_scores(ctx.cloned(), scores, mods, mode, sort, legacy_scores).await {
+            Ok(scores) => scores,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to modify scores"));
-        }
-    };
+                return Err(err.wrap_err("failed to modify scores"));
+            }
+        };
 
     // Calculate adjusted pp
     let adjusted_pp: f32 = entries.iter().zip(0..).fold(0.0, |sum, (entry, i)| {
@@ -440,6 +441,7 @@ async fn process_scores(
     mut arg_mods: ModSelection,
     mode: GameMode,
     sort: TopIfScoreOrder,
+    legacy_scores: bool,
 ) -> Result<Vec<TopIfEntry>> {
     let mut entries = Vec::with_capacity(scores.len());
 
@@ -524,7 +526,11 @@ async fn process_scores(
         };
 
         if changed {
-            score.grade = score.grade(Some(score.accuracy));
+            score.grade = if legacy_scores {
+                score.legacy_grade(Some(score.accuracy))
+            } else {
+                score.grade(Some(score.accuracy))
+            };
         }
 
         let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
