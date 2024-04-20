@@ -76,7 +76,7 @@ impl TitleDescriptions {
     const NO_NM_COUNT: usize = 10;
     const SO_COUNT: usize = 20;
 
-    pub(crate) fn new(mode: GameMode, scores: &[Score]) -> Self {
+    pub(crate) fn new(mode: GameMode, scores: &[Score], legacy_scores: bool) -> Self {
         let mut nomod = 0;
         let mut hidden = 0;
         let mut doubletime = 0;
@@ -139,7 +139,7 @@ impl TitleDescriptions {
             mods.push(TitleDescription::ModHating);
         }
 
-        if classic <= Self::CL_COUNT {
+        if classic <= Self::CL_COUNT && !legacy_scores {
             mods.push(TitleDescription::NewSkool);
         }
 

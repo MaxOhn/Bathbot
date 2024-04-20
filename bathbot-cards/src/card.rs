@@ -55,14 +55,14 @@ impl<'a, Status> BathbotCard<'a, Status> {
 }
 
 impl<'a> BathbotCard<'a, UserNext> {
-    pub fn new<S>(mode: GameMode, scores: &[Score], maps: Maps<S>) -> Self
+    pub fn new<S>(mode: GameMode, scores: &[Score], maps: Maps<S>, legacy_scores: bool) -> Self
     where
         S: BuildHasher,
     {
         let skills = Skills::calculate(mode, scores, maps);
 
         Self {
-            title: CardTitle::new(&skills, scores),
+            title: CardTitle::new(&skills, scores, legacy_scores),
             skills,
             inner: CardInner::default(),
             _phantom: PhantomData,
