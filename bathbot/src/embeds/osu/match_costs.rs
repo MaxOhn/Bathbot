@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     fmt::{Display, Formatter, Result as FmtResult, Write},
-    mem,
 };
 
 use bathbot_macros::EmbedData;
@@ -12,7 +11,7 @@ use bathbot_util::{
 };
 use rosu_v2::model::matches::OsuMatch;
 
-use crate::commands::osu::{MatchResult, PlayerResult};
+use crate::commands::osu::{MatchResult, UserMatchCostEntry};
 
 #[derive(EmbedData)]
 pub struct MatchCostEmbed {
@@ -25,9 +24,9 @@ pub struct MatchCostEmbed {
 
 impl MatchCostEmbed {
     pub fn new(
-        osu_match: &mut OsuMatch,
+        osu_match: &OsuMatch,
         description: Option<String>,
-        match_result: Option<MatchResult>,
+        match_result: Option<MatchResult<'_>>,
         show_scores: bool,
     ) -> Option<Self> {
         let mut thumbnail = String::new();
@@ -40,7 +39,6 @@ impl MatchCostEmbed {
 
             match match_result {
                 Some(MatchResult::TeamVS {
-                    match_scores,
                     blue,
                     red,
                     mvp_avatar_url,
@@ -55,14 +53,14 @@ impl MatchCostEmbed {
                         } else {
                             "Current"
                         },
-                        blue_score = match_scores.blue(),
-                        red_score = match_scores.red(),
-                        blue_stars = if match_scores.blue() > match_scores.red() {
+                        blue_score = blue.win_count,
+                        red_score = red.win_count,
+                        blue_stars = if blue.win_count > red.win_count {
                             "**"
                         } else {
                             ""
                         },
-                        red_stars = if match_scores.blue() < match_scores.red() {
+                        red_stars = if blue.win_count < red.win_count {
                             "**"
                         } else {
                             ""
@@ -71,17 +69,17 @@ impl MatchCostEmbed {
 
                     // Blue team
                     let _ = writeln!(description, ":blue_circle: **Blue Team** :blue_circle:");
-                    let mut avg_scores = AverageScores::new(show_scores, &blue);
-                    let idx_len = index_len(&blue);
+                    let mut avg_scores = AverageScores::new(show_scores, &blue.players);
+                    let idx_len = index_len(&blue.players);
 
-                    for (res, i) in blue.into_iter().zip(1..) {
-                        let PlayerResult {
+                    for (entry, i) in blue.players.iter().zip(1..) {
+                        let UserMatchCostEntry {
                             user_id,
                             match_cost,
                             avg_score,
-                        } = res;
+                        } = entry;
 
-                        let name = match osu_match.users.get(&user_id) {
+                        let name = match osu_match.users.get(user_id) {
                             Some(user) => user.username.cow_escape_markdown(),
                             None => Cow::Borrowed("<unknown user>"),
                         };
@@ -90,10 +88,13 @@ impl MatchCostEmbed {
                             let mut idx = 0;
 
                             while idx < medals.len() {
-                                let red_cost =
-                                    red.get(idx).map(|res| res.match_cost).unwrap_or(0.0);
+                                let red_cost = red
+                                    .players
+                                    .get(idx)
+                                    .map(|res| res.match_cost)
+                                    .unwrap_or(0.0);
 
-                                if match_cost > red_cost {
+                                if *match_cost > red_cost {
                                     break;
                                 }
 
@@ -107,7 +108,7 @@ impl MatchCostEmbed {
                             }
                         };
 
-                        let avg_score = avg_scores.get(avg_score);
+                        let avg_score = avg_scores.get(*avg_score);
 
                         let _ = writeln!(
                             description,
@@ -117,17 +118,17 @@ impl MatchCostEmbed {
 
                     // Red team
                     let _ = writeln!(description, "\n:red_circle: **Red Team** :red_circle:");
-                    let mut avg_scores = AverageScores::new(show_scores, &red);
-                    let idx_len = index_len(&red);
+                    let mut avg_scores = AverageScores::new(show_scores, &red.players);
+                    let idx_len = index_len(&red.players);
 
-                    for (res, i) in red.into_iter().zip(1..) {
-                        let PlayerResult {
+                    for (entry, i) in red.players.iter().zip(1..) {
+                        let UserMatchCostEntry {
                             user_id,
                             match_cost,
                             avg_score,
-                        } = res;
+                        } = entry;
 
-                        let name = match osu_match.users.get(&user_id) {
+                        let name = match osu_match.users.get(user_id) {
                             Some(user) => user.username.cow_escape_markdown(),
                             None => Cow::Borrowed("<unknown user>"),
                         };
@@ -138,7 +139,7 @@ impl MatchCostEmbed {
                             ""
                         };
 
-                        let avg_score = avg_scores.get(avg_score);
+                        let avg_score = avg_scores.get(*avg_score);
 
                         let _ = writeln!(
                             description,
@@ -146,7 +147,7 @@ impl MatchCostEmbed {
                         );
                     }
 
-                    thumbnail = mvp_avatar_url;
+                    thumbnail = mvp_avatar_url.to_owned();
                 }
                 Some(MatchResult::HeadToHead {
                     players,
@@ -155,19 +156,19 @@ impl MatchCostEmbed {
                     let mut avg_scores = AverageScores::new(show_scores, &players);
                     let idx_len = index_len(&players);
 
-                    for (res, i) in players.into_iter().zip(1..) {
-                        let PlayerResult {
+                    for (entry, i) in players.iter().zip(1..) {
+                        let UserMatchCostEntry {
                             user_id,
                             match_cost,
                             avg_score,
-                        } = res;
+                        } = entry;
 
-                        let name = match osu_match.users.get(&user_id) {
+                        let name = match osu_match.users.get(user_id) {
                             Some(user) => user.username.cow_escape_markdown(),
                             None => Cow::Borrowed("<unknown user>"),
                         };
 
-                        let avg_score = avg_scores.get(avg_score);
+                        let avg_score = avg_scores.get(*avg_score);
 
                         let _ = writeln!(
                             description,
@@ -176,7 +177,7 @@ impl MatchCostEmbed {
                         );
                     }
 
-                    thumbnail = mvp_avatar_url;
+                    thumbnail = mvp_avatar_url.to_owned();
                 }
                 None => unreachable!(),
             }
@@ -189,10 +190,7 @@ impl MatchCostEmbed {
         };
 
         let match_id = osu_match.match_id;
-
-        let mut title = mem::take(&mut osu_match.name)
-            .cow_escape_markdown()
-            .into_owned();
+        let mut title = osu_match.name.clone().cow_escape_markdown().into_owned();
 
         title.retain(|c| c != '(' && c != ')');
         let footer = FooterBuilder::new("Note: Formula is subject to change; values are volatile");
@@ -207,13 +205,13 @@ impl MatchCostEmbed {
     }
 }
 
-fn index_len(slice: &[PlayerResult]) -> usize {
-    if slice.len() < 10 {
+fn index_len(entries: &[UserMatchCostEntry]) -> usize {
+    if entries.len() < 10 {
         1
-    } else if slice.len() < 100 {
+    } else if entries.len() < 100 {
         2
     } else {
-        slice.len().to_string().len()
+        entries.len().to_string().len()
     }
 }
 
@@ -223,7 +221,7 @@ struct AverageScores {
 }
 
 impl AverageScores {
-    fn new(show: bool, results: &[PlayerResult]) -> Self {
+    fn new(show: bool, entries: &[UserMatchCostEntry]) -> Self {
         if !show {
             return Self {
                 len: 0,
@@ -234,7 +232,7 @@ impl AverageScores {
         let mut max = 0;
         let mut buf = String::new();
 
-        for res in results {
+        for res in entries {
             buf.clear();
             let _ = write!(buf, "{}", WithComma::new(res.avg_score));
             max = max.max(buf.len());
