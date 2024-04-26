@@ -1077,6 +1077,7 @@ FROM
             let Score {
                 ranked: _,
                 preserve: _,
+                processed: _,
                 maximum_statistics: _,
                 mods,
                 statistics,
