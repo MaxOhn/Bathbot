@@ -306,8 +306,8 @@ impl RenderSettingsActive {
         macro_rules! parse_input {
             (bool: $field:ident) => {
                 options.$field = match input.cow_to_ascii_lowercase().as_ref() {
-                    "true" | "t" | "1" | "yes" | "y" => true,
-                    "false" | "f" | "0" | "no" | "n" => false,
+                    "true" | "t" | "1" | "yes" | "y" | "on" => true,
+                    "false" | "f" | "0" | "no" | "n" | "off" => false,
                     _ => bail!(
                         "Invalid render settings input `{input}` for `{field}`",
                         field = stringify!($field)
