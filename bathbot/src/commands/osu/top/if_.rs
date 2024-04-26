@@ -512,7 +512,7 @@ async fn process_scores(
                     .all(|gamemod| score.mods.contains_intermode(gamemod));
 
                 for m in converted_mods.iter() {
-                    for &acronym in m.incompatible_mods().into_iter() {
+                    for &acronym in m.incompatible_mods().iter() {
                         if let Some(m) = GameModIntermode::from_acronym(acronym) {
                             changed |= score.mods.remove_intermode(m);
                         }

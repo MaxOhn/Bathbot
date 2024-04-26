@@ -131,9 +131,8 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
     }
 
     async fn insufficient_ranking_entries(ctx: &Context, orig: CommandOrigin<'_>) -> Result<()> {
-        return orig
-            .error(&ctx, "Not enough ranking entries available")
-            .await;
+        orig.error(ctx, "Not enough ranking entries available")
+            .await
     }
 
     let rank_data = match rank_or_holder {

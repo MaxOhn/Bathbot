@@ -188,6 +188,7 @@ impl IActiveMessage for ProfileMenu {
 }
 
 impl ProfileMenu {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         user: RedisData<User>,
         discord_id: Option<Id<UserMarker>>,
