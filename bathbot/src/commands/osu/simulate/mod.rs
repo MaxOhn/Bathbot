@@ -168,7 +168,7 @@ async fn simulate(
     - Clock rate: `clockrate=[number]` or `[number]*` or `rate=[number]`\n\
     - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
-    - n100: `n100=[interger]` or `[integer]x100`\n\
+    - n100: `n100=[integer]` or `[integer]x100`\n\
     - n50: `n50=[integer]` or `[integer]x50`\n\
     - misses: `miss=[integer]` or `[integer]m`\n\
     - gekis (n320): `gekis=[integer]` or `[integer]xgeki`\n\
@@ -212,7 +212,7 @@ async fn prefix_simulate(
     - Clock rate: `clockrate=[number]` or `[number]*` or `rate=[number]`\n\
     - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
-    - n100: `n100=[interger]` or `[integer]x100`\n\
+    - n100: `n100=[integer]` or `[integer]x100`\n\
     - misses: `miss=[integer]` or `[integer]m`\n\
     - mods: `mods=[mod acronym]` or `+[mod acronym]`\n\
     - ar: `ar=[number]` or `ar[number]`\n\
@@ -253,7 +253,7 @@ async fn prefix_simulatetaiko(
     - Clock rate: `clockrate=[number]` or `[number]*` or `rate=[number]`\n\
     - Bpm: `bpm=[number]` (only if clock rate is not specified)\n\
     - fruits: `n300=[integer]` or `[integer]x300`\n\
-    - droplets: `n100=[interger]` or `[integer]x100`\n\
+    - droplets: `n100=[integer]` or `[integer]x100`\n\
     - tiny droplets: `n50=[integer]` or `[integer]x50`\n\
     - misses: `miss=[integer]` or `[integer]m`\n\
     - tiny droplet misses: `katus=[integer]` or `[integer]xkatu`\n\
@@ -298,7 +298,7 @@ async fn prefix_simulatectb(
     - n320: `n320=[integer]` or `[integer]x320`\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
     - n200: `n200=[integer]` or `[integer]x200`\n\
-    - n100: `n100=[interger]` or `[integer]x100`\n\
+    - n100: `n100=[integer]` or `[integer]x100`\n\
     - n50: `n50=[integer]` or `[integer]x50`\n\
     - misses: `miss=[integer]` or `[integer]m`\n\
     - mods: `mods=[mod acronym]` or `+[mod acronym]`\n\
