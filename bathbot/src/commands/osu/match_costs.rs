@@ -32,10 +32,7 @@ use crate::{
     name = "matchcost",
     desc = "Display performance ratings for a multiplayer match",
     help = "Calculate a performance rating for each player in the given multiplayer match.\n\
-    Here's the current [formula](https://i.imgur.com/7KFwcUS.png).\n\
-    Additionally, scores with the EZ mod are multiplied by 1.7 beforehand.\n\n\
-    Keep in mind that all bots use different formulas \
-    so comparing with values from other bots makes no sense."
+    Current formula: <https://i.imgur.com/zuii7Oj.png> ([desmos](https://www.desmos.com/calculator/mm4tins990))"
 )]
 pub struct MatchCost<'a> {
     #[command(desc = "Specify a match url or match id")]
@@ -111,9 +108,7 @@ impl<'m> MatchCost<'m> {
     "Calculate a performance rating for each player \
      in the given multiplayer match.\nThe optional second \
      argument is the amount of played warmups, defaults to 0.\n\
-     Here's the current [formula](https://i.imgur.com/7KFwcUS.png).\n\
-     Keep in mind that all bots use different formulas so comparing \
-     with values from other bots makes no sense."
+     Current formula: <https://i.imgur.com/zuii7Oj.png> ([desmos](https://www.desmos.com/calculator/mm4tins990))"
 )]
 #[usage("[match url / match id] [amount of warmups]")]
 #[examples("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
