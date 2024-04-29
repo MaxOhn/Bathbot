@@ -75,6 +75,10 @@ impl MatchCostEmbed {
                     for (entry, i) in blue.players.iter().zip(1..) {
                         let UserMatchCostEntry {
                             user_id,
+                            point_cost,
+                            participation_bonus_factor,
+                            mods_bonus_factor,
+                            tiebreaker_bonus,
                             match_cost,
                             avg_score,
                         } = entry;
@@ -124,6 +128,10 @@ impl MatchCostEmbed {
                     for (entry, i) in red.players.iter().zip(1..) {
                         let UserMatchCostEntry {
                             user_id,
+                            point_cost,
+                            participation_bonus_factor,
+                            mods_bonus_factor,
+                            tiebreaker_bonus,
                             match_cost,
                             avg_score,
                         } = entry;
@@ -159,6 +167,10 @@ impl MatchCostEmbed {
                     for (entry, i) in players.iter().zip(1..) {
                         let UserMatchCostEntry {
                             user_id,
+                            point_cost,
+                            participation_bonus_factor,
+                            mods_bonus_factor,
+                            tiebreaker_bonus,
                             match_cost,
                             avg_score,
                         } = entry;

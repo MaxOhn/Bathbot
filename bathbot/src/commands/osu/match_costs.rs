@@ -300,21 +300,24 @@ pub async fn retrieve_previous(osu_match: &mut OsuMatch, osu: &Osu) -> OsuResult
     Ok(())
 }
 
-// flat additive bonus for each participated game
-const FLAT_PARTICIPATION_BONUS: f32 = 0.5;
+// flat additive point cost bonus for each player
+const FLAT_BONUS: f32 = 0.5;
 
-// exponent base, the higher - the higher is the difference between players who
-// played a lot and players who played fewer maps
-const BASE_PARTICIPATION_BONUS: f32 = 1.4;
+// exponent base; maximum participation bonus for playing each game
+const BASE_PARTICIPATION_BONUS: f32 = 1.5;
 
-// exponent, low: logarithmically ~ high: linear
+// exponent; curve to reach the maximum participation bonus
+// <0.85: fast up then slow down; >0.85: slow up then speed up
 const EXP_PARTICIPATION_BONUS: f32 = 0.6;
 
-// instead of considering tb score once, consider it this many times
-const TIEBREAKER_BONUS: f32 = 2.0;
-
-// global user multiplier per combination (if at least 3)
+// multiplier bonus per combination (if at least 3)
 const MOD_BONUS: f32 = 0.02;
+
+// performing average on the tiebreaker will reward this flat amount
+const TIEBREAKER_FACTOR: f32 = 0.25;
+
+// any tiebreaker point cost >=2 gets the same bonus
+const MAX_TIEBREAKER_BONUS: f32 = 0.5;
 
 pub fn process_match<'a>(
     games: &[MatchGame],
@@ -343,19 +346,16 @@ pub fn process_match<'a>(
         teams_win_count.add_win(teams_score.winner());
     }
 
-    if let Some(game) = games
+    let tiebreaker_game = games
         .last()
-        .filter(|_| finished && games.len() > 4 && teams_win_count.diff() == 1)
-    {
-        users_point_costs.apply_tiebreaker_bonus(game);
-    }
+        .filter(|_| finished && games.len() > 4 && teams_win_count.diff() == 1);
 
-    let match_costs = users_point_costs.match_costs(games.len(), &users_mods);
+    let match_costs = users_point_costs.match_costs(games.len(), &users_mods, tiebreaker_game);
 
     let mvp_avatar_url = match_costs
         .iter()
         .reduce(|(mvp_user_id, mvp_entry), (user_id, entry)| {
-            if entry.match_cost > mvp_entry.match_cost {
+            if entry.match_cost() > mvp_entry.match_cost() {
                 (user_id, entry)
             } else {
                 (mvp_user_id, mvp_entry)
@@ -375,7 +375,11 @@ pub fn process_match<'a>(
 
             let entry = UserMatchCostEntry {
                 user_id,
-                match_cost: entry.match_cost,
+                point_cost: entry.point_cost,
+                participation_bonus_factor: entry.participation_bonus_factor,
+                mods_bonus_factor: entry.mods_bonus_factor,
+                tiebreaker_bonus: entry.tiebreaker_bonus,
+                match_cost: entry.match_cost(),
                 avg_score: entry.avg_score,
             };
 
@@ -399,7 +403,11 @@ pub fn process_match<'a>(
             .iter()
             .map(|(user_id, entry)| UserMatchCostEntry {
                 user_id: *user_id,
-                match_cost: entry.match_cost,
+                point_cost: entry.point_cost,
+                participation_bonus_factor: entry.participation_bonus_factor,
+                mods_bonus_factor: entry.mods_bonus_factor,
+                tiebreaker_bonus: entry.tiebreaker_bonus,
+                match_cost: entry.match_cost(),
                 avg_score: entry.avg_score,
             })
             .collect();
@@ -428,7 +436,7 @@ impl UsersMods {
     }
 
     fn get_count(&self, user_id: u32) -> Option<usize> {
-        self.entries.get(&user_id).map(|mods| mods.len())
+        self.entries.get(&user_id).map(HashSet::len)
     }
 }
 
@@ -440,30 +448,19 @@ struct UsersPointCosts {
 
 impl UsersPointCosts {
     fn update(&mut self, user_id: u32, score: u32, score_avg: f32) {
-        let point_cost = score as f32 / score_avg;
+        let point_cost = PointCost {
+            score,
+            point_cost: score as f32 / score_avg,
+        };
 
-        self.entries
-            .entry(user_id)
-            .or_default()
-            .push(PointCost { score, point_cost });
-    }
-
-    fn apply_tiebreaker_bonus(&mut self, game: &MatchGame) {
-        let tiebreaker_point_costs = self
-            .entries
-            .iter_mut()
-            .filter(|(&user_id, _)| game.scores.iter().any(|score| score.user_id == user_id))
-            .filter_map(|(_, costs)| costs.last_mut());
-
-        for entry in tiebreaker_point_costs {
-            entry.point_cost *= TIEBREAKER_BONUS;
-        }
+        self.entries.entry(user_id).or_default().push(point_cost);
     }
 
     fn match_costs(
         &self,
         games_count: usize,
         users_mods: &UsersMods,
+        tiebreaker_game: Option<&MatchGame>,
     ) -> HashMap<u32, MatchCostEntry, IntHasher> {
         let mut match_costs = HashMap::with_capacity_and_hasher(self.entries.len(), IntHasher);
 
@@ -477,8 +474,18 @@ impl UsersPointCosts {
 
             let scores_len = entries.len() as f32;
             let avg_score = (score_sum as f32 / scores_len) as u32;
+            let point_cost = point_cost_sum / scores_len + FLAT_BONUS;
 
-            let mut match_cost = (point_cost_sum / scores_len) + FLAT_PARTICIPATION_BONUS;
+            let mut tiebreaker_bonus = 0.0;
+
+            if let Some(game) = tiebreaker_game {
+                if game.scores.iter().any(|score| score.user_id == *user_id) {
+                    if let Some(entry) = entries.last() {
+                        tiebreaker_bonus =
+                            MAX_TIEBREAKER_BONUS.min(TIEBREAKER_FACTOR * entry.point_cost);
+                    }
+                }
+            }
 
             let exp = if games_count <= 1 {
                 0.0
@@ -486,14 +493,22 @@ impl UsersPointCosts {
                 (scores_len - 1.0) / (games_count - 1) as f32
             };
 
-            match_cost *= BASE_PARTICIPATION_BONUS.powf(exp.powf(EXP_PARTICIPATION_BONUS));
+            let participation_bonus_factor =
+                BASE_PARTICIPATION_BONUS.powf(exp.powf(EXP_PARTICIPATION_BONUS));
 
-            if let Some(count) = users_mods.get_count(*user_id).filter(|&count| count > 2) {
-                match_cost *= 1.0 + (MOD_BONUS * (count - 2) as f32);
+            let mods_used = users_mods.get_count(*user_id).unwrap_or(0) as u32;
+
+            let mut mods_bonus_factor = 1.0;
+
+            if mods_used > 2 {
+                mods_bonus_factor += MOD_BONUS * (mods_used - 2) as f32;
             }
 
             let entry = MatchCostEntry {
-                match_cost,
+                point_cost,
+                participation_bonus_factor,
+                mods_bonus_factor,
+                tiebreaker_bonus,
                 avg_score,
             };
 
@@ -573,12 +588,26 @@ impl TeamsWinCount {
 }
 
 struct MatchCostEntry {
-    match_cost: f32,
+    point_cost: f32,
+    participation_bonus_factor: f32,
+    mods_bonus_factor: f32,
+    tiebreaker_bonus: f32,
     avg_score: u32,
+}
+
+impl MatchCostEntry {
+    fn match_cost(&self) -> f32 {
+        (self.point_cost * self.participation_bonus_factor * self.mods_bonus_factor)
+            + self.tiebreaker_bonus
+    }
 }
 
 pub struct UserMatchCostEntry {
     pub user_id: u32,
+    pub point_cost: f32,
+    pub participation_bonus_factor: f32,
+    pub mods_bonus_factor: f32,
+    pub tiebreaker_bonus: f32,
     pub match_cost: f32,
     pub avg_score: u32,
 }
