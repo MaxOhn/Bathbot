@@ -7,7 +7,7 @@ use std::{
 };
 
 use bathbot_macros::{command, SlashCommand};
-use bathbot_util::{constants::OSU_API_ISSUE, matcher, IntHasher, MessageBuilder};
+use bathbot_util::{constants::OSU_API_ISSUE, matcher, IntHasher};
 use eyre::{Report, Result};
 use rosu_v2::{
     model::mods::GameModsIntermode,
@@ -15,15 +15,14 @@ use rosu_v2::{
         GameModIntermode, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, User,
     },
 };
-use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
-    commands::ShowHideOption,
+    active::{impls::MatchCostPagination, ActiveMessages},
     core::commands::{
         prefix::{Args, ArgsNum},
         CommandOrigin,
     },
-    embeds::{EmbedData, MatchCostEmbed},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -66,11 +65,17 @@ pub struct MatchCost<'a> {
         If no value is specified, it defaults to 0."
     )]
     skip_last: Option<usize>,
-    #[command(
-        rename = "average_scores",
-        desc = "Whether the average scores should be shown"
-    )]
-    avg_scores: Option<ShowHideOption>,
+    #[command(desc = "How the data should be displayed")]
+    display: Option<MatchCostDisplay>,
+}
+
+#[derive(Copy, Clone, CommandOption, CreateOption, Default)]
+pub enum MatchCostDisplay {
+    #[default]
+    #[option(name = "Compact", value = "compact")]
+    Compact,
+    #[option(name = "Full", value = "full")]
+    Full,
 }
 
 impl<'m> MatchCost<'m> {
@@ -95,7 +100,7 @@ impl<'m> MatchCost<'m> {
             warmups,
             skip_last: None,
             ez_mult: None,
-            avg_scores: None,
+            display: None,
         })
     }
 }
@@ -131,15 +136,15 @@ async fn slash_matchcost(ctx: Arc<Context>, mut command: InteractionCommand) -> 
     matchcosts(ctx, (&mut command).into(), args).await
 }
 
-const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(";
-
 async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<'_>) -> Result<()> {
+    let owner = orig.user_id()?;
+
     let MatchCost {
         match_url,
         warmups,
         skip_last,
         ez_mult,
-        avg_scores,
+        display,
     } = args;
 
     let Some(match_id) = matcher::get_osu_match_id(&match_url) else {
@@ -208,30 +213,17 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
         }
     };
 
-    // Process match
-    let (description, match_result) = if games.is_empty() {
+    let match_result = if games.is_empty() {
         let mut description = format!("No games played yet beyond the {warmups} warmup");
 
         if warmups != 1 {
             description.push('s');
         }
 
-        (Some(description), None)
+        MatchResult::NoGames { description }
     } else {
-        let result = process_match(&games, osu_match.end_time.is_some(), &osu_match.users);
-
-        (None, Some(result))
+        process_match(&games, osu_match.end_time.is_some(), &osu_match.users)
     };
-
-    let show_scores = matches!(avg_scores, Some(ShowHideOption::Show));
-
-    // TODO: pagination
-    let Some(embed_data) = MatchCostEmbed::new(&osu_match, description, match_result, show_scores)
-    else {
-        return orig.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
-    };
-
-    let embed = embed_data.build();
 
     let mut content = String::new();
 
@@ -257,16 +249,18 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
         content.push(':');
     }
 
-    // Creating the embed
-    let mut builder = MessageBuilder::new().embed(embed);
+    let pagination = MatchCostPagination::builder()
+        .osu_match(osu_match)
+        .content(content.into_boxed_str())
+        .display(display.unwrap_or_default())
+        .msg_owner(owner)
+        .result(match_result)
+        .build();
 
-    if !content.is_empty() {
-        builder = builder.content(content);
-    }
-
-    orig.create_message(&ctx, builder).await?;
-
-    Ok(())
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
+        .await
 }
 
 pub async fn retrieve_previous(osu_match: &mut OsuMatch, osu: &Osu) -> OsuResult<()> {
@@ -319,11 +313,11 @@ const TIEBREAKER_FACTOR: f32 = 0.25;
 // any tiebreaker performance cost >=2 gets the same bonus
 const MAX_TIEBREAKER_BONUS: f32 = 0.5;
 
-pub fn process_match<'a>(
+pub fn process_match(
     games: &[MatchGame],
     finished: bool,
-    users: &'a HashMap<u32, User>,
-) -> MatchResult<'a> {
+    users: &HashMap<u32, User>,
+) -> MatchResult {
     let mut users_mods = UsersMods::default();
     let mut users_performance_costs = UsersPerformanceCosts::default();
     let mut users_team = UsersTeam::default();
@@ -363,7 +357,7 @@ pub fn process_match<'a>(
             }
         })
         .and_then(|(user_id, _)| users.get(user_id))
-        .map_or("", |user| user.avatar_url.as_str());
+        .map_or_else(Box::default, |user| Box::from(user.avatar_url.as_str()));
 
     if games[0].team_type == TeamType::TeamVS {
         let mut blue = TeamResult::new(teams_win_count.get(Team::Blue));
@@ -639,14 +633,17 @@ impl TeamResult {
     }
 }
 
-pub enum MatchResult<'a> {
+pub enum MatchResult {
     TeamVS {
         blue: TeamResult,
         red: TeamResult,
-        mvp_avatar_url: &'a str,
+        mvp_avatar_url: Box<str>,
     },
     HeadToHead {
         players: Vec<UserMatchCostEntry>,
-        mvp_avatar_url: &'a str,
+        mvp_avatar_url: Box<str>,
+    },
+    NoGames {
+        description: String,
     },
 }

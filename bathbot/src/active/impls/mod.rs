@@ -11,6 +11,7 @@ pub use self::{
     map::MapPagination,
     map_search::MapSearchPagination,
     match_compare::MatchComparePagination,
+    match_costs::MatchCostPagination,
     medals::{
         MedalsCommonPagination, MedalsListPagination, MedalsMissingPagination,
         MedalsRecentPagination,
@@ -46,6 +47,7 @@ mod leaderboard;
 mod map;
 mod map_search;
 mod match_compare;
+mod match_costs;
 mod medals;
 mod most_played;
 mod nochoke;
