@@ -7,20 +7,22 @@ use std::{
 };
 
 use bathbot_macros::{command, SlashCommand};
-use bathbot_util::{constants::OSU_API_ISSUE, matcher, IntHasher, MessageBuilder};
+use bathbot_util::{constants::OSU_API_ISSUE, matcher, IntHasher};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{
-    GameModIntermode, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, User,
+use rosu_v2::{
+    model::mods::GameModsIntermode,
+    prelude::{
+        GameModIntermode, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, User,
+    },
 };
-use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
-    commands::ShowHideOption,
+    active::{impls::MatchCostPagination, ActiveMessages},
     core::commands::{
         prefix::{Args, ArgsNum},
         CommandOrigin,
     },
-    embeds::{EmbedData, MatchCostEmbed},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -30,10 +32,7 @@ use crate::{
     name = "matchcost",
     desc = "Display performance ratings for a multiplayer match",
     help = "Calculate a performance rating for each player in the given multiplayer match.\n\
-    Here's the current [formula](https://i.imgur.com/7KFwcUS.png).\n\
-    Additionally, scores with the EZ mod are multiplied by 1.7 beforehand.\n\n\
-    Keep in mind that all bots use different formulas \
-    so comparing with values from other bots makes no sense."
+    Current formula: <https://i.imgur.com/zuii7Oj.png> ([desmos](https://www.desmos.com/calculator/mm4tins990))"
 )]
 pub struct MatchCost<'a> {
     #[command(desc = "Specify a match url or match id")]
@@ -63,11 +62,17 @@ pub struct MatchCost<'a> {
         If no value is specified, it defaults to 0."
     )]
     skip_last: Option<usize>,
-    #[command(
-        rename = "average_scores",
-        desc = "Whether the average scores should be shown"
-    )]
-    avg_scores: Option<ShowHideOption>,
+    #[command(desc = "How the data should be displayed")]
+    display: Option<MatchCostDisplay>,
+}
+
+#[derive(Copy, Clone, CommandOption, CreateOption, Default)]
+pub enum MatchCostDisplay {
+    #[default]
+    #[option(name = "Compact", value = "compact")]
+    Compact,
+    #[option(name = "Full", value = "full")]
+    Full,
 }
 
 impl<'m> MatchCost<'m> {
@@ -92,7 +97,7 @@ impl<'m> MatchCost<'m> {
             warmups,
             skip_last: None,
             ez_mult: None,
-            avg_scores: None,
+            display: None,
         })
     }
 }
@@ -103,9 +108,7 @@ impl<'m> MatchCost<'m> {
     "Calculate a performance rating for each player \
      in the given multiplayer match.\nThe optional second \
      argument is the amount of played warmups, defaults to 0.\n\
-     Here's the current [formula](https://i.imgur.com/7KFwcUS.png).\n\
-     Keep in mind that all bots use different formulas so comparing \
-     with values from other bots makes no sense."
+     Current formula: <https://i.imgur.com/zuii7Oj.png> ([desmos](https://www.desmos.com/calculator/mm4tins990))"
 )]
 #[usage("[match url / match id] [amount of warmups]")]
 #[examples("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
@@ -128,26 +131,22 @@ async fn slash_matchcost(ctx: Arc<Context>, mut command: InteractionCommand) -> 
     matchcosts(ctx, (&mut command).into(), args).await
 }
 
-const USER_LIMIT: usize = 50;
-const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(";
-
 async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<'_>) -> Result<()> {
+    let owner = orig.user_id()?;
+
     let MatchCost {
         match_url,
         warmups,
         skip_last,
         ez_mult,
-        avg_scores,
+        display,
     } = args;
 
-    let match_id = match matcher::get_osu_match_id(&match_url) {
-        Some(id) => id,
-        None => {
-            let content = "Failed to parse match url.\n\
-                Be sure it's a valid mp url or a match id.";
+    let Some(match_id) = matcher::get_osu_match_id(&match_url) else {
+        let content = "Failed to parse match url.\n\
+            Be sure it's a valid mp url or a match id.";
 
-            return orig.error(&ctx, content).await;
-        }
+        return orig.error(&ctx, content).await;
     };
 
     let warmups = warmups.unwrap_or(0);
@@ -155,14 +154,19 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
     let skip_last = skip_last.unwrap_or(0);
 
     // Retrieve the match
-    let (mut osu_match, games) = match ctx.osu().osu_match(match_id).await {
+    let (osu_match, games) = match ctx.osu().osu_match(match_id).await {
         Ok(mut osu_match) => {
             retrieve_previous(&mut osu_match, ctx.osu()).await?;
 
             let games_iter = osu_match
                 .drain_games()
                 .filter(|game| game.end_time.is_some())
-                .skip(warmups);
+                .skip(warmups)
+                .map(|mut game| {
+                    game.scores.retain(|score| score.score > 0);
+
+                    game
+                });
 
             let mut games: Vec<_> = if ez_mult != 1.0 {
                 games_iter
@@ -198,50 +202,23 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get match");
+            let err = Report::new(err).wrap_err("Failed to get match");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    // Count different users
-    let users: HashSet<_> = games
-        .iter()
-        .flat_map(|game| game.scores.iter())
-        .filter(|s| s.score > 0)
-        .map(|s| s.user_id)
-        .collect();
-
-    // Prematurely abort if its too many players to display in a message
-    if users.len() > USER_LIMIT {
-        return orig.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
-    }
-
-    // Process match
-    let (description, match_result) = if games.is_empty() {
+    let match_result = if games.is_empty() {
         let mut description = format!("No games played yet beyond the {warmups} warmup");
 
         if warmups != 1 {
             description.push('s');
         }
 
-        (Some(description), None)
+        MatchResult::NoGames { description }
     } else {
-        let result = process_match(&games, osu_match.end_time.is_some(), &osu_match.users);
-
-        (None, Some(result))
+        process_match(&games, osu_match.end_time.is_some(), &osu_match.users)
     };
-
-    let show_scores = matches!(avg_scores, Some(ShowHideOption::Show));
-
-    // TODO: pagination(?)
-    let Some(embed_data) =
-        MatchCostEmbed::new(&mut osu_match, description, match_result, show_scores)
-    else {
-        return orig.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
-    };
-
-    let embed = embed_data.build();
 
     let mut content = String::new();
 
@@ -267,16 +244,18 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
         content.push(':');
     }
 
-    // Creating the embed
-    let mut builder = MessageBuilder::new().embed(embed);
+    let pagination = MatchCostPagination::builder()
+        .osu_match(osu_match)
+        .content(content.into_boxed_str())
+        .display(display.unwrap_or_default())
+        .msg_owner(owner)
+        .result(match_result)
+        .build();
 
-    if !content.is_empty() {
-        builder = builder.content(content);
-    }
-
-    orig.create_message(&ctx, builder).await?;
-
-    Ok(())
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(ctx, orig)
+        .await
 }
 
 pub async fn retrieve_previous(osu_match: &mut OsuMatch, osu: &Osu) -> OsuResult<()> {
@@ -310,255 +289,356 @@ pub async fn retrieve_previous(osu_match: &mut OsuMatch, osu: &Osu) -> OsuResult
     Ok(())
 }
 
-macro_rules! sort {
-    ($slice:expr) => {
-        $slice.sort_unstable_by(|a, b| b.match_cost.total_cmp(&a.match_cost));
-    };
-}
+// flat additive performance cost bonus for each player
+const FLAT_BONUS: f32 = 0.5;
 
-// flat additive bonus for each participated game
-const FLAT_PARTICIPATION_BONUS: f32 = 0.5;
+// exponent base; maximum participation bonus for playing each game
+const BASE_PARTICIPATION_BONUS: f32 = 1.5;
 
-// exponent base, the higher - the higher is the difference
-// between players who played a lot and players who played fewer
-const BASE_PARTICIPATION_BONUS: f32 = 1.4;
-
-// exponent, low: logithmically ~ high: linear
+// exponent; curve to reach the maximum participation bonus
+// <0.85: fast up then slow down; >0.85: slow up then speed up
 const EXP_PARTICIPATION_BONUS: f32 = 0.6;
 
-// instead of considering tb score once, consider it this many times
-const TIEBREAKER_BONUS: f32 = 2.0;
-
-// global multiplier per combination (if at least 3)
+// multiplier bonus per combination (if at least 3)
 const MOD_BONUS: f32 = 0.02;
+
+// performing average on the tiebreaker will reward this flat amount
+const TIEBREAKER_FACTOR: f32 = 0.25;
+
+// any tiebreaker performance cost >=2 gets the same bonus
+const MAX_TIEBREAKER_BONUS: f32 = 0.5;
 
 pub fn process_match(
     games: &[MatchGame],
     finished: bool,
     users: &HashMap<u32, User>,
 ) -> MatchResult {
-    let mut teams = HashMap::with_hasher(IntHasher);
-    let mut point_costs = HashMap::with_hasher(IntHasher);
-    let mut mods = HashMap::with_hasher(IntHasher);
-    let team_vs = games[0].team_type == TeamType::TeamVS;
-    let mut match_scores = MatchScores(0, 0);
+    let mut users_mods = UsersMods::default();
+    let mut users_performance_costs = UsersPerformanceCosts::default();
+    let mut users_team = UsersTeam::default();
+    let mut teams_win_count = TeamsWinCount::default();
 
-    // Calculate point scores for each score in each game
     for game in games.iter() {
-        let score_sum: f32 = game.scores.iter().map(|s| s.score as f32).sum();
+        let score_sum = game.scores.iter().fold(0, |sum, score| sum + score.score);
+        let score_count = game.scores.len();
+        let score_avg = score_sum as f32 / score_count as f32;
 
-        let avg = score_sum / game.scores.iter().filter(|s| s.score > 0).count() as f32;
-        let mut team_scores = HashMap::with_capacity(team_vs as usize + 1);
+        let mut teams_score = TeamsScore::default();
 
-        for score in game.scores.iter().filter(|s| s.score > 0) {
-            mods.entry(score.user_id)
-                .or_insert_with(HashSet::new)
-                .insert(score.mods.clone() - GameModIntermode::NoFail);
-
-            let mut point_cost = score.score as f32 / avg;
-
-            point_cost += FLAT_PARTICIPATION_BONUS;
-
-            point_costs
-                .entry(score.user_id)
-                .or_insert_with(Vec::new)
-                .push(PlayerScore {
-                    point_cost,
-                    score: score.score,
-                });
-
-            teams.entry(score.user_id).or_insert(score.team);
-
-            team_scores
-                .entry(score.team)
-                .and_modify(|e| *e += score.score)
-                .or_insert(score.score);
+        for score in game.scores.iter() {
+            users_mods.update(score.user_id, score.mods.clone());
+            users_performance_costs.update(score.user_id, score.score, score_avg);
+            users_team.update(score.user_id, score.team);
+            teams_score.update(score.team, score.score);
         }
 
-        let (winner_team, _) = team_scores
-            .into_iter()
-            .max_by_key(|(_, score)| *score)
-            .unwrap_or((Team::None, 0));
-
-        match_scores.incr(winner_team);
+        teams_win_count.add_win(teams_score.winner());
     }
 
-    // Tiebreaker bonus
-    if let Some(game) = games
+    let tiebreaker_game = games
         .last()
-        .filter(|_| finished && games.len() > 4 && match_scores.difference() == 1)
-    {
-        point_costs
-            .iter_mut()
-            .filter(|(&user_id, _)| game.scores.iter().any(|score| score.user_id == user_id))
-            .filter_map(|(_, costs)| costs.last_mut())
-            .for_each(|value| {
-                value.point_cost -= FLAT_PARTICIPATION_BONUS;
-                value.point_cost *= TIEBREAKER_BONUS;
-                value.point_cost += FLAT_PARTICIPATION_BONUS;
-            });
+        .filter(|_| finished && games.len() > 4 && teams_win_count.diff() == 1);
+
+    let match_costs =
+        users_performance_costs.match_costs(games.len(), &users_mods, tiebreaker_game);
+
+    let mvp_avatar_url = match_costs
+        .iter()
+        .reduce(|(mvp_user_id, mvp_entry), (user_id, entry)| {
+            if entry.match_cost() > mvp_entry.match_cost() {
+                (user_id, entry)
+            } else {
+                (mvp_user_id, mvp_entry)
+            }
+        })
+        .and_then(|(user_id, _)| users.get(user_id))
+        .map_or_else(Box::default, |user| Box::from(user.avatar_url.as_str()));
+
+    if games[0].team_type == TeamType::TeamVS {
+        let mut blue = TeamResult::new(teams_win_count.get(Team::Blue));
+        let mut red = TeamResult::new(teams_win_count.get(Team::Red));
+
+        for (&user_id, entry) in match_costs.iter() {
+            let Some(team @ (Team::Blue | Team::Red)) = users_team.get(user_id) else {
+                continue;
+            };
+
+            let entry = UserMatchCostEntry {
+                user_id,
+                performance_cost: entry.performance_cost,
+                participation_bonus_factor: entry.participation_bonus_factor,
+                mods_bonus_factor: entry.mods_bonus_factor,
+                tiebreaker_bonus: entry.tiebreaker_bonus,
+                match_cost: entry.match_cost(),
+                avg_score: entry.avg_score,
+            };
+
+            match team {
+                Team::Blue => blue.players.push(entry),
+                Team::Red => red.players.push(entry),
+                Team::None => unreachable!(),
+            }
+        }
+
+        UserMatchCostEntry::sort(&mut blue.players);
+        UserMatchCostEntry::sort(&mut red.players);
+
+        MatchResult::TeamVS {
+            blue,
+            red,
+            mvp_avatar_url,
+        }
+    } else {
+        let mut players: Vec<_> = match_costs
+            .iter()
+            .map(|(user_id, entry)| UserMatchCostEntry {
+                user_id: *user_id,
+                performance_cost: entry.performance_cost,
+                participation_bonus_factor: entry.participation_bonus_factor,
+                mods_bonus_factor: entry.mods_bonus_factor,
+                tiebreaker_bonus: entry.tiebreaker_bonus,
+                match_cost: entry.match_cost(),
+                avg_score: entry.avg_score,
+            })
+            .collect();
+
+        UserMatchCostEntry::sort(&mut players);
+
+        MatchResult::HeadToHead {
+            players,
+            mvp_avatar_url,
+        }
+    }
+}
+
+/// Keeps track of all mod combinations a user has played
+#[derive(Default)]
+struct UsersMods {
+    entries: HashMap<u32, HashSet<GameModsIntermode>, IntHasher>,
+}
+
+impl UsersMods {
+    fn update(&mut self, user_id: u32, mods: GameModsIntermode) {
+        self.entries
+            .entry(user_id)
+            .or_default()
+            .insert(mods - GameModIntermode::NoFail);
     }
 
-    // Mod combinations bonus
-    let mods_count = mods
-        .into_iter()
-        .filter(|(_, mods)| mods.len() > 2)
-        .map(|(id, mods)| (id, mods.len() - 2));
-
-    for (user_id, count) in mods_count {
-        let mult = 1.0 + count as f32 * MOD_BONUS;
-
-        point_costs.entry(user_id).and_modify(|point_costs| {
-            point_costs
-                .iter_mut()
-                .for_each(|value| value.point_cost *= mult);
-        });
+    fn get_count(&self, user_id: u32) -> Option<usize> {
+        self.entries.get(&user_id).map(HashSet::len)
     }
+}
 
-    // Calculate match costs by combining point costs
-    let mut data = HashMap::with_capacity(team_vs as usize + 1);
-    let mut highest_cost = 0.0;
-    let mut mvp_avatar_url = None;
+/// For each user, store the performance cost of all their scores
+#[derive(Default)]
+struct UsersPerformanceCosts {
+    entries: HashMap<u32, Vec<PerformanceCost>, IntHasher>,
+}
 
-    for (user_id, point_costs) in point_costs {
-        let (point_cost_sum, score_sum) =
-            point_costs
-                .iter()
-                .fold((0.0, 0), |(point_cost_sum, score_sum), next| {
-                    (point_cost_sum + next.point_cost, score_sum + next.score)
-                });
-
-        let costs_len = point_costs.len() as f32;
-        let mut match_cost = point_cost_sum / costs_len;
-        let avg_score = (score_sum as f32 / costs_len) as u32;
-
-        let exp = match games.len() {
-            1 => 0.0,
-            len => (costs_len - 1.0) / (len as f32 - 1.0),
+impl UsersPerformanceCosts {
+    fn update(&mut self, user_id: u32, score: u32, score_avg: f32) {
+        let performance_cost = PerformanceCost {
+            score,
+            performance_cost: score as f32 / score_avg,
         };
 
-        match_cost *= BASE_PARTICIPATION_BONUS.powf(exp.powf(EXP_PARTICIPATION_BONUS));
+        self.entries
+            .entry(user_id)
+            .or_default()
+            .push(performance_cost);
+    }
 
-        data.entry(*teams.get(&user_id).unwrap())
-            .or_insert_with(Vec::new)
-            .push(PlayerResult {
-                user_id,
-                match_cost,
-                avg_score,
-            });
+    fn match_costs(
+        &self,
+        games_count: usize,
+        users_mods: &UsersMods,
+        tiebreaker_game: Option<&MatchGame>,
+    ) -> HashMap<u32, MatchCostEntry, IntHasher> {
+        let mut match_costs = HashMap::with_capacity_and_hasher(self.entries.len(), IntHasher);
 
-        if match_cost > highest_cost {
-            highest_cost = match_cost;
+        for (user_id, entries) in self.entries.iter() {
+            let (performance_cost_sum, score_sum) =
+                entries
+                    .iter()
+                    .fold((0.0, 0), |(performance_cost_sum, score_sum), entry| {
+                        (
+                            performance_cost_sum + entry.performance_cost,
+                            score_sum + entry.score,
+                        )
+                    });
 
-            if let Some(user) = users.get(&user_id) {
-                mvp_avatar_url.replace(user.avatar_url.as_str());
+            let scores_len = entries.len() as f32;
+            let avg_score = (score_sum as f32 / scores_len) as u32;
+            let performance_cost = performance_cost_sum / scores_len + FLAT_BONUS;
+
+            let mut tiebreaker_bonus = 0.0;
+
+            if let Some(game) = tiebreaker_game {
+                if game.scores.iter().any(|score| score.user_id == *user_id) {
+                    if let Some(entry) = entries.last() {
+                        tiebreaker_bonus =
+                            MAX_TIEBREAKER_BONUS.min(TIEBREAKER_FACTOR * entry.performance_cost);
+                    }
+                }
             }
+
+            let exp = if games_count <= 1 {
+                0.0
+            } else {
+                (scores_len - 1.0) / (games_count - 1) as f32
+            };
+
+            let participation_bonus_factor =
+                BASE_PARTICIPATION_BONUS.powf(exp.powf(EXP_PARTICIPATION_BONUS));
+
+            let mods_used = users_mods.get_count(*user_id).unwrap_or(0) as u32;
+
+            let mut mods_bonus_factor = 1.0;
+
+            if mods_used > 2 {
+                mods_bonus_factor += MOD_BONUS * (mods_used - 2) as f32;
+            }
+
+            let entry = MatchCostEntry {
+                performance_cost,
+                participation_bonus_factor,
+                mods_bonus_factor,
+                tiebreaker_bonus,
+                avg_score,
+            };
+
+            match_costs.insert(*user_id, entry);
+        }
+
+        match_costs
+    }
+}
+
+struct PerformanceCost {
+    score: u32,
+    performance_cost: f32,
+}
+
+/// Store each user's team.
+///
+/// If a user has played in multiple teams, only the first one is stored.
+#[derive(Default)]
+struct UsersTeam {
+    entries: HashMap<u32, Team, IntHasher>,
+}
+
+impl UsersTeam {
+    fn update(&mut self, user_id: u32, team: Team) {
+        self.entries.entry(user_id).or_insert(team);
+    }
+
+    fn get(&self, user_id: u32) -> Option<Team> {
+        self.entries.get(&user_id).copied()
+    }
+}
+
+/// The score sum of all users in a team.
+#[derive(Default)]
+struct TeamsScore {
+    entries: HashMap<Team, u32, IntHasher>,
+}
+
+impl TeamsScore {
+    fn update(&mut self, team: Team, score: u32) {
+        *self.entries.entry(team).or_default() += score;
+    }
+
+    fn winner(&self) -> Team {
+        self.entries
+            .iter()
+            .max_by_key(|(_, score)| **score)
+            .map_or(Team::None, |(team, _)| *team)
+    }
+}
+
+/// The amount of games that a team won because it had more total score.
+#[derive(Default)]
+struct TeamsWinCount {
+    entries: HashMap<Team, u32, IntHasher>,
+}
+
+impl TeamsWinCount {
+    fn add_win(&mut self, team: Team) {
+        *self.entries.entry(team).or_default() += 1;
+    }
+
+    fn diff(&self) -> u32 {
+        if let (Some(blue), Some(red)) =
+            (self.entries.get(&Team::Blue), self.entries.get(&Team::Red))
+        {
+            blue.abs_diff(*red)
+        } else {
+            0
         }
     }
 
-    let mvp_avatar_url = mvp_avatar_url.map_or_else(String::new, |url| url.to_owned());
-
-    if team_vs {
-        let blue = match data.remove(&Team::Blue) {
-            Some(mut team) => {
-                sort!(team);
-
-                team
-            }
-            None => Vec::new(),
-        };
-
-        let red = match data.remove(&Team::Red) {
-            Some(mut team) => {
-                sort!(team);
-
-                team
-            }
-            None => Vec::new(),
-        };
-
-        MatchResult::team(mvp_avatar_url, match_scores, blue, red)
-    } else {
-        let mut players = data.remove(&Team::None).unwrap_or_default();
-        sort!(players);
-
-        MatchResult::solo(mvp_avatar_url, players)
+    fn get(&self, team: Team) -> u32 {
+        self.entries.get(&team).copied().unwrap_or(0)
     }
 }
 
-struct PlayerScore {
-    point_cost: f32,
-    score: u32,
+struct MatchCostEntry {
+    performance_cost: f32,
+    participation_bonus_factor: f32,
+    mods_bonus_factor: f32,
+    tiebreaker_bonus: f32,
+    avg_score: u32,
 }
 
-pub struct PlayerResult {
+impl MatchCostEntry {
+    fn match_cost(&self) -> f32 {
+        (self.performance_cost * self.participation_bonus_factor * self.mods_bonus_factor)
+            + self.tiebreaker_bonus
+    }
+}
+
+pub struct UserMatchCostEntry {
     pub user_id: u32,
+    pub performance_cost: f32,
+    pub participation_bonus_factor: f32,
+    pub mods_bonus_factor: f32,
+    pub tiebreaker_bonus: f32,
     pub match_cost: f32,
     pub avg_score: u32,
 }
 
-type TeamResult = Vec<PlayerResult>;
+impl UserMatchCostEntry {
+    fn sort(entries: &mut [Self]) {
+        entries.sort_unstable_by(|a, b| b.match_cost.total_cmp(&a.match_cost));
+    }
+}
+
+pub struct TeamResult {
+    pub players: Vec<UserMatchCostEntry>,
+    pub win_count: u32,
+}
+
+impl TeamResult {
+    pub fn new(win_count: u32) -> Self {
+        Self {
+            players: Vec::new(),
+            win_count,
+        }
+    }
+}
 
 pub enum MatchResult {
     TeamVS {
         blue: TeamResult,
         red: TeamResult,
-        mvp_avatar_url: String,
-        match_scores: MatchScores,
+        mvp_avatar_url: Box<str>,
     },
     HeadToHead {
-        players: TeamResult,
-        mvp_avatar_url: String,
+        players: Vec<UserMatchCostEntry>,
+        mvp_avatar_url: Box<str>,
     },
-}
-
-impl MatchResult {
-    fn team(
-        mvp_avatar_url: String,
-        match_scores: MatchScores,
-        blue: TeamResult,
-        red: TeamResult,
-    ) -> Self {
-        Self::TeamVS {
-            mvp_avatar_url,
-            match_scores,
-            blue,
-            red,
-        }
-    }
-
-    fn solo(mvp_avatar_url: String, players: TeamResult) -> Self {
-        Self::HeadToHead {
-            mvp_avatar_url,
-            players,
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct MatchScores(u8, u8);
-
-impl MatchScores {
-    fn incr(&mut self, team: Team) {
-        match team {
-            Team::Blue => self.0 = self.0.saturating_add(1),
-            Team::Red => self.1 = self.1.saturating_add(1),
-            Team::None => {}
-        }
-    }
-
-    pub fn blue(self) -> u8 {
-        self.0
-    }
-
-    pub fn red(self) -> u8 {
-        self.1
-    }
-
-    fn difference(&self) -> u8 {
-        let min = self.0.min(self.1);
-        let max = self.0.max(self.1);
-
-        max - min
-    }
+    NoGames {
+        description: String,
+    },
 }

@@ -3,7 +3,6 @@ mod bws;
 mod claim_name;
 mod country_snipe_stats;
 mod fix_score;
-mod match_costs;
 mod match_live;
 mod medal_stats;
 mod osustats_counts;
@@ -21,9 +20,9 @@ use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, LegacyScoreStatisti
 #[cfg(feature = "matchlive")]
 pub use self::match_live::*;
 pub use self::{
-    attributes::*, bws::*, claim_name::*, country_snipe_stats::*, fix_score::*, match_costs::*,
-    medal_stats::*, osustats_counts::*, player_snipe_stats::*, pp_missing::*, profile_compare::*,
-    ratio::*, sniped::*, whatif::*,
+    attributes::*, bws::*, claim_name::*, country_snipe_stats::*, fix_score::*, medal_stats::*,
+    osustats_counts::*, player_snipe_stats::*, pp_missing::*, profile_compare::*, ratio::*,
+    sniped::*, whatif::*,
 };
 
 pub struct ModsFormatter<'m> {
