@@ -183,7 +183,7 @@ pub async fn get_mod_counts(client: &Client, user_id: u32) -> Result<Vec<KittenR
     })
 }
 
-pub async fn get_player_history(
+pub async fn get_snipe_player_history(
     client: &Client,
     user_id: u32,
 ) -> Result<Vec<KittenRoleplayPlayerHistoryEntry>> {

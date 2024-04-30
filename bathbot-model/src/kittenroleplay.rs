@@ -2,7 +2,7 @@ use rosu_v2::model::user::{CountryCode, Username};
 use serde::Deserialize;
 use time::OffsetDateTime;
 
-use crate::{SnipeCountryStatistics, SnipeTopNationalDifference};
+use crate::SnipeCountryStatistics;
 
 #[derive(Deserialize)]
 pub struct KittenRoleplayCountries {
@@ -76,18 +76,14 @@ pub struct KittenRoleplayCountryStatistics {
 impl From<KittenRoleplayCountryStatistics> for SnipeCountryStatistics {
     fn from(stats: KittenRoleplayCountryStatistics) -> Self {
         Self {
-            total_maps: stats.total_maps,
+            total_maps: Some(stats.total_maps),
             unplayed_maps: stats.total_maps - stats.played_maps,
-            top_gain: Some(SnipeTopNationalDifference {
-                top_national: None,
-                username: stats.most_gains_username,
-                difference: stats.most_gains_count,
-            }),
-            top_loss: Some(SnipeTopNationalDifference {
-                top_national: None,
-                username: stats.most_losses_username,
-                difference: stats.most_losses_count,
-            }),
+            most_gains_count: stats.most_gains_count,
+            most_gains_user_id: stats.most_gains_user_id,
+            most_gains_username: stats.most_gains_username,
+            most_losses_count: stats.most_losses_count,
+            most_losses_user_id: stats.most_losses_user_id,
+            most_losses_username: stats.most_losses_username,
         }
     }
 }

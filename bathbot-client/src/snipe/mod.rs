@@ -1,18 +1,17 @@
 use std::{
     cmp::Reverse,
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     fmt::Write,
 };
 
 use bathbot_model::{
     SnipeCountries, SnipeCountryListOrder, SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer,
-    SnipePlayerListOrder, SnipePlayerOldest, SnipeRecent, SnipeScore, SnipeScoreParams,
-    SnipedPlayer, SnipedWeek,
+    SnipePlayerListOrder, SnipeRecent, SnipeScore, SnipeScoreParams, SnipedPlayer, SnipedWeek,
 };
 use bathbot_util::IntHasher;
 use eyre::Result;
 use rosu_v2::model::{mods::GameModsIntermode, user::Username, GameMode};
-use time::{Duration, OffsetDateTime};
+use time::{Date, Duration, OffsetDateTime};
 
 use crate::Client;
 
@@ -31,7 +30,6 @@ impl Client {
             GameMode::Mania => {
                 let stats_fut = kittenroleplay::get_snipe_player(self, user_id);
                 let mod_counts_fut = kittenroleplay::get_mod_counts(self, user_id);
-                let player_history_fut = kittenroleplay::get_player_history(self, user_id);
                 let player_stars_fut = kittenroleplay::get_player_stars(self, user_id);
 
                 let params = SnipeScoreParams::new(user_id, country, GameMode::Mania)
@@ -41,10 +39,9 @@ impl Client {
 
                 let oldest_score_fut = kittenroleplay::get_national_firsts(self, &params);
 
-                let (stats, mod_counts, player_history, player_stars, mut oldest_score) = tokio::try_join!(
+                let (stats, mod_counts, player_stars, mut oldest_score) = tokio::try_join!(
                     stats_fut,
                     mod_counts_fut,
-                    player_history_fut,
                     player_stars_fut,
                     oldest_score_fut,
                 )?;
@@ -67,30 +64,13 @@ impl Client {
                     })
                     .collect();
 
-                let count_first_history = player_history
-                    .into_iter()
-                    .map(|entry| (entry.date.date(), entry.count))
-                    .collect();
-
                 let count_sr_spread = player_stars
                     .into_iter()
-                    .map(|count| (count.stars as i8, Some(count.count)))
+                    .map(|count| (count.stars as i8, count.count))
                     .collect();
 
                 let Some(oldest_score) = oldest_score.pop() else {
                     return Ok(None);
-                };
-
-                let oldest_first = SnipePlayerOldest {
-                    map_id: oldest_score.map_id,
-                    map: format!(
-                        "{artist} - {title} [{version}]",
-                        artist = oldest_score.artist,
-                        title = oldest_score.title,
-                        version = oldest_score.version
-                    )
-                    .into_boxed_str(),
-                    date: oldest_score.created_at,
                 };
 
                 let player = SnipePlayer {
@@ -104,14 +84,33 @@ impl Client {
                     count_loved: stats.count_loved,
                     count_ranked: stats.count_ranked,
                     difference: stats.count_delta,
-                    count_mods: Some(count_mods),
-                    count_first_history,
+                    count_mods,
                     count_sr_spread,
-                    oldest_first,
+                    oldest_map_id: Some(oldest_score.map_id),
                 };
 
                 Ok(Some(player))
             }
+            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+        }
+    }
+
+    pub async fn get_snipe_player_history(
+        &self,
+        country: &str,
+        user_id: u32,
+        mode: GameMode,
+    ) -> Result<BTreeMap<Date, u32>> {
+        match mode {
+            GameMode::Osu => huismetbenen::get_snipe_player_history(self, country, user_id).await,
+            GameMode::Mania => kittenroleplay::get_snipe_player_history(self, user_id)
+                .await
+                .map(|history| {
+                    history
+                        .into_iter()
+                        .map(|entry| (entry.date.date(), entry.count))
+                        .collect()
+                }),
             GameMode::Taiko | GameMode::Catch => unimplemented!(),
         }
     }

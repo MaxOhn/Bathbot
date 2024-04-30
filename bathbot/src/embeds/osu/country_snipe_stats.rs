@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use bathbot_macros::EmbedData;
 use bathbot_model::{CountryName, SnipeCountryStatistics};
 use bathbot_util::{
@@ -21,33 +23,24 @@ pub struct CountrySnipeStatsEmbed {
 }
 
 impl CountrySnipeStatsEmbed {
-    pub fn new(
-        country: Option<(CountryName, CountryCode)>,
-        statistics: SnipeCountryStatistics,
-    ) -> Self {
+    pub fn new(country: Option<(CountryName, CountryCode)>, stats: SnipeCountryStatistics) -> Self {
         let mut fields = Vec::with_capacity(2);
 
-        if let Some(top_gain) = statistics.top_gain {
-            let value = format!(
-                "{} ({:+})",
-                top_gain.username.cow_escape_markdown(),
-                top_gain.difference
-            );
+        let value = format!(
+            "{} ({:+})",
+            stats.most_gains_username.cow_escape_markdown(),
+            stats.most_gains_count
+        );
 
-            fields![fields { "Most gained", value, true }];
-        }
+        fields![fields { "Most gained", value, true }];
 
-        if let Some(top_loss) = statistics.top_loss {
-            let value = format!(
-                "{} ({:+})",
-                top_loss.username.cow_escape_markdown(),
-                top_loss.difference
-            );
+        let value = format!(
+            "{} ({:+})",
+            stats.most_losses_username.cow_escape_markdown(),
+            stats.most_losses_count
+        );
 
-            fields![fields { "Most losses", value, true }];
-        }
-
-        let percent = round(100.0 * statistics.unplayed_maps as f32 / statistics.total_maps as f32);
+        fields![fields { "Most losses", value, true }];
 
         let (title, thumbnail) = match country {
             Some((country, code)) => {
@@ -63,11 +56,21 @@ impl CountrySnipeStatsEmbed {
             None => ("Global #1 statistics".to_owned(), String::new()),
         };
 
-        let footer = FooterBuilder::new(format!(
-            "Unplayed maps: {}/{} ({percent}%)",
-            WithComma::new(statistics.unplayed_maps),
-            WithComma::new(statistics.total_maps),
-        ));
+        let mut footer_text = format!(
+            "Unplayed maps: {unplayed}",
+            unplayed = WithComma::new(stats.unplayed_maps),
+        );
+
+        if let Some(total_maps) = stats.total_maps {
+            let _ = write!(
+                footer_text,
+                "/{total} ({percent}%)",
+                total = WithComma::new(total_maps),
+                percent = round(100.0 * stats.unplayed_maps as f32 / total_maps as f32)
+            );
+        }
+
+        let footer = FooterBuilder::new(footer_text);
 
         Self {
             fields,

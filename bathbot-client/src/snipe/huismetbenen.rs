@@ -1,8 +1,8 @@
-use std::fmt::Write;
+use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_model::{
     SnipeCountries, SnipeCountryListOrder, SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer,
-    SnipeRecent, SnipeScore, SnipeScoreParams,
+    SnipePlayerHistory, SnipeRecent, SnipeScore, SnipeScoreParams,
 };
 use bathbot_util::{
     constants::HUISMETBENEN,
@@ -10,7 +10,7 @@ use bathbot_util::{
     osu::ModSelection,
 };
 use eyre::{Result, WrapErr};
-use time::{format_description::FormatItem, OffsetDateTime};
+use time::{format_description::FormatItem, Date, OffsetDateTime};
 
 use crate::{site::Site, Client};
 
@@ -26,10 +26,26 @@ pub async fn get_snipe_player(
 
     let bytes = client.make_get_request(url, Site::Huismetbenen).await?;
 
-    SnipePlayer::deserialize(&bytes).wrap_err_with(|| {
+    serde_json::from_slice(&bytes).wrap_err_with(|| {
         let body = String::from_utf8_lossy(&bytes);
 
         format!("Failed to deserialize huismetbenen player statistics: {body}")
+    })
+}
+
+pub async fn get_snipe_player_history(
+    client: &Client,
+    country: &str,
+    user_id: u32,
+) -> Result<BTreeMap<Date, u32>> {
+    let url = format!("https://api.huismetbenen.nl/player/{country}/{user_id}/history");
+
+    let bytes = client.make_get_request(url, Site::Huismetbenen).await?;
+
+    SnipePlayerHistory::deserialize(&bytes).wrap_err_with(|| {
+        let body = String::from_utf8_lossy(&bytes);
+
+        format!("Failed to deserialize huismetbenen player history: {body}")
     })
 }
 
