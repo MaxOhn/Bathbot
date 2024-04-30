@@ -56,12 +56,15 @@ pub async fn snipe_count_graph(
         }
     };
 
-    let player = if ctx.huismetbenen().is_supported(country_code, mode).await {
+    let (player, history) = if ctx.huismetbenen().is_supported(country_code, mode).await {
         let player_fut = ctx.client().get_snipe_player(country_code, user_id, mode);
+        let history_fut = ctx
+            .client()
+            .get_snipe_player_history(country_code, user_id, mode);
 
-        match player_fut.await {
-            Ok(Some(player)) => player,
-            Ok(None) => {
+        match tokio::try_join!(player_fut, history_fut) {
+            Ok((Some(player), history)) => (player, history),
+            Ok((None, _)) => {
                 let content = format!("`{username}` has never had any national #1s");
                 let builder = MessageBuilder::new().embed(content);
                 orig.create_message(&ctx, builder).await?;
@@ -82,8 +85,7 @@ pub async fn snipe_count_graph(
         return Ok(None);
     };
 
-    let graph_result =
-        player_snipe_stats::graphs(&player.count_first_history, &player.count_sr_spread, W, H);
+    let graph_result = player_snipe_stats::graphs(&history, &player.count_sr_spread, W, H);
 
     let bytes = match graph_result {
         Ok(graph) => graph,

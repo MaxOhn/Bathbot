@@ -2,7 +2,6 @@ use std::{
     borrow::Cow,
     collections::BTreeMap,
     fmt::{Formatter, Result as FmtResult},
-    ops::ControlFlow,
 };
 
 use bathbot_util::{osu::ModSelection, CowUtils};
@@ -12,18 +11,18 @@ use rkyv::{
 use rosu_v2::prelude::{CountryCode, GameMode, GameMods, GameModsIntermode, Username};
 use serde::{
     de::{
-        value::StrDeserializer, Deserializer, Error as DeError, IgnoredAny, MapAccess, SeqAccess,
-        Unexpected, Visitor,
+        value::StrDeserializer, Deserializer, Error as DeError, MapAccess, SeqAccess, Unexpected,
+        Visitor,
     },
     Deserialize,
 };
-use serde_json::{value::RawValue, Deserializer as JsonDeserializer, Error as JsonError};
+use serde_json::value::RawValue;
 use time::{
     format_description::{
         modifier::{Day, Month, Padding, Year},
         Component, FormatItem,
     },
-    Date, OffsetDateTime, PrimitiveDateTime,
+    Date, OffsetDateTime,
 };
 use twilight_interactions::command::{CommandOption, CreateOption};
 
@@ -178,261 +177,39 @@ pub struct SnipeTopNationalDifference {
 
 pub type ModsCount = Vec<(Box<str>, u32)>;
 
-// We'll implement Deserialize manually because a certain value for a field
-// should imply that this whole type is null.
-// Specifically, `oldest_first::date` has a weird default value if a user
-// has had national #1s but does not currently.
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct SnipePlayer {
     pub username: Username,
     pub user_id: u32,
+    #[serde(rename = "average_pp")]
     pub avg_pp: f32,
+    #[serde(rename = "average_acc", with = "deser::adjust_acc")]
     pub avg_acc: f32,
+    #[serde(rename = "average_sr")]
     pub avg_stars: f32,
+    #[serde(rename = "average_score")]
     pub avg_score: f32,
+    #[serde(rename = "count_total")]
     pub count_first: u32,
     pub count_loved: u32,
     pub count_ranked: u32,
+    #[serde(rename = "recent_history_difference")]
     pub difference: i32,
-    pub count_mods: Option<ModsCount>,
-    pub count_first_history: BTreeMap<Date, u32>,
-    pub count_sr_spread: BTreeMap<i8, Option<u32>>,
-    pub oldest_first: SnipePlayerOldest,
+    #[serde(rename = "mods_count", with = "mods_count")]
+    pub count_mods: ModsCount,
+    #[serde(rename = "sr_spread", with = "sr_spread")]
+    pub count_sr_spread: BTreeMap<i8, u32>,
+    #[serde(rename = "oldest_date_map_id")]
+    pub oldest_map_id: Option<u32>,
 }
 
-impl SnipePlayer {
-    pub fn deserialize(bytes: &[u8]) -> Result<Option<Self>, JsonError> {
-        struct SnipePlayerVisitor;
+pub struct SnipePlayerHistory;
 
-        impl<'de> Visitor<'de> for SnipePlayerVisitor {
-            type Value = Option<SnipePlayer>;
+impl SnipePlayerHistory {
+    pub fn deserialize(bytes: &[u8]) -> Result<BTreeMap<Date, u32>, serde_json::Error> {
+        let mut d = serde_json::Deserializer::from_slice(bytes);
 
-            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-                f.write_str("a SnipePlayer")
-            }
-
-            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                struct AvgAcc(f32);
-
-                impl<'de> Deserialize<'de> for AvgAcc {
-                    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-                        deser::adjust_acc::deserialize(d).map(Self)
-                    }
-                }
-
-                struct CountMods(Option<ModsCount>);
-
-                impl<'de> Deserialize<'de> for CountMods {
-                    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-                        mod_count::deserialize(d).map(Self)
-                    }
-                }
-
-                struct CountFirstHistory(BTreeMap<Date, u32>);
-
-                impl<'de> Deserialize<'de> for CountFirstHistory {
-                    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-                        history::deserialize(d).map(Self)
-                    }
-                }
-
-                struct OldestFirst(Option<SnipePlayerOldest>);
-
-                impl<'de> Deserialize<'de> for OldestFirst {
-                    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-                        struct OldestFirstVisitor;
-
-                        impl<'de> Visitor<'de> for OldestFirstVisitor {
-                            type Value = Option<SnipePlayerOldest>;
-
-                            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-                                f.write_str("a SnipePlayerOldest")
-                            }
-
-                            fn visit_map<A: MapAccess<'de>>(
-                                self,
-                                mut map: A,
-                            ) -> Result<Self::Value, A::Error> {
-                                struct MapId(u32);
-
-                                impl<'de> Deserialize<'de> for MapId {
-                                    fn deserialize<D: Deserializer<'de>>(
-                                        d: D,
-                                    ) -> Result<Self, D::Error>
-                                    {
-                                        deser::negative_u32::deserialize(d).map(Self)
-                                    }
-                                }
-
-                                struct Date(Option<OffsetDateTime>);
-
-                                impl<'de> Deserialize<'de> for Date {
-                                    fn deserialize<D: Deserializer<'de>>(
-                                        d: D,
-                                    ) -> Result<Self, D::Error>
-                                    {
-                                        oldest_datetime::deserialize(d).map(Self)
-                                    }
-                                }
-
-                                let mut map_id: Option<u32> = None;
-                                let mut map_: Option<Box<str>> = None;
-                                let mut date: Option<ControlFlow<(), OffsetDateTime>> = None;
-
-                                while let Some(key) = map.next_key()? {
-                                    match key {
-                                        "map_id" => {
-                                            let MapId(id) = map.next_value()?;
-                                            map_id = Some(id);
-                                        }
-                                        "map" => map_ = Some(map.next_value()?),
-                                        "date" => {
-                                            let Date(opt) = map.next_value()?;
-
-                                            date = Some(opt.map_or(
-                                                ControlFlow::Break(()),
-                                                ControlFlow::Continue,
-                                            ));
-                                        }
-                                        _ => {
-                                            let _: IgnoredAny = map.next_value()?;
-                                        }
-                                    }
-                                }
-
-                                let date = match date {
-                                    Some(ControlFlow::Continue(date)) => date,
-                                    Some(ControlFlow::Break(_)) => return Ok(None),
-                                    None => return Err(DeError::missing_field("date")),
-                                };
-
-                                let map_id =
-                                    map_id.ok_or_else(|| DeError::missing_field("map_id"))?;
-                                let map = map_.ok_or_else(|| DeError::missing_field("map"))?;
-
-                                let oldest = SnipePlayerOldest { map_id, map, date };
-
-                                Ok(Some(oldest))
-                            }
-                        }
-
-                        d.deserialize_map(OldestFirstVisitor).map(Self)
-                    }
-                }
-
-                let mut username: Option<Username> = None;
-                let mut user_id: Option<u32> = None;
-                let mut avg_pp: Option<f32> = None;
-                let mut avg_acc: Option<f32> = None;
-                let mut avg_stars: Option<f32> = None;
-                let mut avg_score: Option<f32> = None;
-                let mut count_first: Option<u32> = None;
-                let mut count_loved: Option<u32> = None;
-                let mut count_ranked: Option<u32> = None;
-                let mut difference: Option<i32> = None;
-                let mut count_mods: Option<ModsCount> = None;
-                let mut count_first_history: Option<BTreeMap<Date, u32>> = None;
-                let mut count_sr_spread: Option<BTreeMap<i8, Option<u32>>> = None;
-                let mut oldest_first: Option<ControlFlow<(), SnipePlayerOldest>> = None;
-
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        "name" => username = Some(map.next_value()?),
-                        "user_id" => user_id = Some(map.next_value()?),
-                        "average_pp" => avg_pp = Some(map.next_value()?),
-                        "average_accuracy" => {
-                            let AvgAcc(acc) = map.next_value()?;
-                            avg_acc = Some(acc);
-                        }
-                        "average_sr" => avg_stars = Some(map.next_value()?),
-                        "average_score" => avg_score = Some(map.next_value()?),
-                        "count" => count_first = Some(map.next_value()?),
-                        "count_loved" => count_loved = Some(map.next_value()?),
-                        "count_ranked" => count_ranked = Some(map.next_value()?),
-                        "total_top_national_difference" => difference = Some(map.next_value()?),
-                        "mods_count" => {
-                            let CountMods(counts) = map.next_value()?;
-                            count_mods = counts;
-                        }
-                        "history_total_top_national" => {
-                            let CountFirstHistory(history) = map.next_value()?;
-                            count_first_history = Some(history);
-                        }
-                        "sr_spread" => count_sr_spread = Some(map.next_value()?),
-                        "oldest_date" => {
-                            let OldestFirst(opt) = map.next_value()?;
-
-                            oldest_first =
-                                Some(opt.map_or(ControlFlow::Break(()), ControlFlow::Continue));
-                        }
-                        _ => {
-                            let _: IgnoredAny = map.next_value()?;
-                        }
-                    }
-                }
-
-                if username.is_none()
-                    && user_id.is_none()
-                    && avg_pp.is_none()
-                    && avg_acc.is_none()
-                    && avg_stars.is_none()
-                    && avg_score.is_none()
-                    && count_first.is_none()
-                    && count_loved.is_none()
-                    && count_ranked.is_none()
-                    && difference.is_none()
-                    && count_mods.is_none()
-                    && count_first_history.is_none()
-                    && count_sr_spread.is_none()
-                    && oldest_first.is_none()
-                {
-                    return Ok(None);
-                }
-
-                let oldest_first = match oldest_first {
-                    Some(ControlFlow::Continue(oldest)) => oldest,
-                    Some(ControlFlow::Break(_)) => return Ok(None),
-                    None => return Err(DeError::missing_field("oldest_date")),
-                };
-
-                let username = username.ok_or_else(|| DeError::missing_field("name"))?;
-                let user_id = user_id.ok_or_else(|| DeError::missing_field("user_id"))?;
-                let avg_pp = avg_pp.ok_or_else(|| DeError::missing_field("average_pp"))?;
-                let avg_acc = avg_acc.ok_or_else(|| DeError::missing_field("average_accuracy"))?;
-                let avg_stars = avg_stars.ok_or_else(|| DeError::missing_field("average_sr"))?;
-                let avg_score = avg_score.ok_or_else(|| DeError::missing_field("average_score"))?;
-                let count_first = count_first.ok_or_else(|| DeError::missing_field("count"))?;
-                let count_loved =
-                    count_loved.ok_or_else(|| DeError::missing_field("count_loved"))?;
-                let count_ranked =
-                    count_ranked.ok_or_else(|| DeError::missing_field("count_ranked"))?;
-                let difference = difference.unwrap_or_default();
-                let count_first_history = count_first_history.unwrap_or_default();
-                let count_sr_spread =
-                    count_sr_spread.ok_or_else(|| DeError::missing_field("sr_spread"))?;
-
-                let snipe_player = SnipePlayer {
-                    username,
-                    user_id,
-                    avg_pp,
-                    avg_acc,
-                    avg_stars,
-                    avg_score,
-                    count_first,
-                    count_loved,
-                    count_ranked,
-                    difference,
-                    count_mods,
-                    count_first_history,
-                    count_sr_spread,
-                    oldest_first,
-                };
-
-                Ok(Some(snipe_player))
-            }
-        }
-
-        JsonDeserializer::from_slice(bytes).deserialize_map(SnipePlayerVisitor)
+        history::deserialize(&mut d)
     }
 }
 
@@ -449,13 +226,6 @@ pub struct SnipeCountryPlayer {
     pub pp: f32,
     #[serde(rename = "count")]
     pub count_first: u32,
-}
-
-#[derive(Debug)]
-pub struct SnipePlayerOldest {
-    pub map_id: u32,
-    pub map: Box<str>,
-    pub date: OffsetDateTime,
 }
 
 #[derive(Debug)]
@@ -712,11 +482,11 @@ impl<'de> Deserialize<'de> for SnipeCountries {
     }
 }
 
-mod mod_count {
+mod mods_count {
     use super::*;
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<ModsCount>, D::Error> {
-        d.deserialize_map(SnipePlayerModVisitor).map(Some)
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<ModsCount, D::Error> {
+        d.deserialize_map(SnipePlayerModVisitor)
     }
 
     struct SnipePlayerModVisitor;
@@ -724,7 +494,6 @@ mod mod_count {
     impl<'de> Visitor<'de> for SnipePlayerModVisitor {
         type Value = ModsCount;
 
-        #[inline]
         fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
             f.write_str("a map")
         }
@@ -741,6 +510,38 @@ mod mod_count {
             }
 
             Ok(mod_count)
+        }
+    }
+}
+
+mod sr_spread {
+    use super::*;
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<BTreeMap<i8, u32>, D::Error> {
+        d.deserialize_map(StarRatingSpreadVisitor)
+    }
+
+    struct StarRatingSpreadVisitor;
+
+    impl<'de> Visitor<'de> for StarRatingSpreadVisitor {
+        type Value = BTreeMap<i8, u32>;
+
+        fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+            f.write_str("a map")
+        }
+
+        fn visit_map<V: MapAccess<'de>>(self, mut map: V) -> Result<Self::Value, V::Error> {
+            let mut sr_spread = BTreeMap::new();
+
+            while let Some((sr, num)) = map.next_entry::<&str, Option<u32>>()? {
+                let sr = sr
+                    .parse()
+                    .map_err(|_| DeError::invalid_value(Unexpected::Str(sr), &"an integer"))?;
+
+                sr_spread.insert(sr, num.unwrap_or(0));
+            }
+
+            Ok(sr_spread)
         }
     }
 }
@@ -767,7 +568,7 @@ mod history {
     ];
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<BTreeMap<Date, u32>, D::Error> {
-        d.deserialize_map(SnipePlayerHistoryVisitor)
+        d.deserialize_seq(SnipePlayerHistoryVisitor)
     }
 
     struct SnipePlayerHistoryVisitor;
@@ -776,70 +577,30 @@ mod history {
         type Value = BTreeMap<Date, u32>;
 
         fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-            f.write_str("a map")
+            f.write_str("a sequence")
         }
 
-        fn visit_map<V: MapAccess<'de>>(self, mut map: V) -> Result<Self::Value, V::Error> {
+        fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+            #[derive(Deserialize)]
+            struct Entry<'a> {
+                history_date: &'a str,
+                count_total: u32,
+            }
+
             let mut history = BTreeMap::new();
 
-            while let Some(key) = map.next_key()? {
-                let date = Date::parse(key, DATE_FORMAT).map_err(|_| {
-                    DeError::invalid_value(Unexpected::Str(key), &"a date of the form `%F`")
+            while let Some(entry) = seq.next_element::<Entry>()? {
+                let date = Date::parse(entry.history_date, DATE_FORMAT).map_err(|_| {
+                    DeError::invalid_value(
+                        Unexpected::Str(entry.history_date),
+                        &"a date of the form `%F`",
+                    )
                 })?;
 
-                history.insert(date, map.next_value()?);
+                history.insert(date, entry.count_total);
             }
 
             Ok(history)
-        }
-    }
-}
-
-// Tries to deserialize various datetime formats
-mod oldest_datetime {
-    use bathbot_util::datetime::{NAIVE_DATETIME_FORMAT, OFFSET_FORMAT};
-    use time::UtcOffset;
-
-    use super::*;
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(
-        d: D,
-    ) -> Result<Option<OffsetDateTime>, D::Error> {
-        d.deserialize_str(DateTimeVisitor)
-    }
-
-    pub(super) struct DateTimeVisitor;
-
-    impl<'de> Visitor<'de> for DateTimeVisitor {
-        type Value = Option<OffsetDateTime>;
-
-        fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-            f.write_str("a datetime string")
-        }
-
-        fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
-            const NULL_PREFIX: &str = "Fri Jan 01 9999";
-
-            if v.len() < 19 {
-                return Err(DeError::custom(format!(
-                    "string too short for a datetime: `{v}`"
-                )));
-            } else if v.starts_with(NULL_PREFIX) {
-                return Ok(None);
-            }
-
-            let (prefix, suffix) = v.split_at(19);
-
-            let primitive =
-                PrimitiveDateTime::parse(prefix, NAIVE_DATETIME_FORMAT).map_err(DeError::custom)?;
-
-            let offset = if suffix.is_empty() || suffix == "Z" {
-                UtcOffset::UTC
-            } else {
-                UtcOffset::parse(suffix, OFFSET_FORMAT).map_err(DeError::custom)?
-            };
-
-            Ok(Some(primitive.assume_offset(offset)))
         }
     }
 }

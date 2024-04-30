@@ -36,8 +36,7 @@ impl PlayerSnipeStatsEmbed {
     pub async fn new(
         user: &RedisData<User>,
         player: SnipePlayer,
-        oldest_score: &Score,
-        oldest_map: &OsuMap,
+        oldest: Option<&(Score, OsuMap)>,
         ctx: &Context,
     ) -> Self {
         let footer_text = format!(
@@ -64,41 +63,48 @@ impl PlayerSnipeStatsEmbed {
                 "Average stars:", format!("{:.2}★", player.avg_stars), true;
             }];
 
-            let mut calc = ctx.pp(oldest_map).mods(&oldest_score.mods);
+            if let Some((oldest_score, oldest_map)) = oldest {
+                let mut calc = ctx.pp(oldest_map).mods(&oldest_score.mods);
 
-            let attrs = calc.performance().await;
-            let stars = attrs.stars() as f32;
-            let max_pp = attrs.pp() as f32;
-            let max_combo = attrs.max_combo();
+                let attrs = calc.performance().await;
+                let stars = attrs.stars() as f32;
+                let max_pp = attrs.pp() as f32;
+                let max_combo = attrs.max_combo();
 
-            let pp = match oldest_score.pp {
-                Some(pp) => pp,
-                None => calc.score(oldest_score).performance().await.pp() as f32,
-            };
+                let pp = match oldest_score.pp {
+                    Some(pp) => pp,
+                    None => calc.score(oldest_score).performance().await.pp() as f32,
+                };
 
-            // TODO: update formatting
-            let value = format!(
-                "**[{map}]({OSU_BASE}b/{id})**\t\
-                {grade}\t[{stars:.2}★]\t{score}\t({acc}%)\t[{combo}]\t\
-                [{pp}]\t {hits}\t{ago}",
-                map = player.oldest_first.map.cow_escape_markdown(),
-                id = oldest_map.map_id(),
-                grade =
-                    grade_completion_mods(oldest_score, oldest_map.mode(), oldest_map.n_objects(),),
-                score = WithComma::new(oldest_score.score),
-                acc = round(oldest_score.accuracy),
-                combo = ComboFormatter::new(oldest_score.max_combo, Some(max_combo)),
-                pp = PpFormatter::new(Some(pp), Some(max_pp)),
-                hits = HitResultFormatter::new(
-                    GameMode::Osu,
-                    oldest_score.statistics.as_legacy(GameMode::Osu)
-                ),
-                ago = HowLongAgoDynamic::new(&oldest_score.ended_at)
-            );
+                // TODO: update formatting
+                let value = format!(
+                    "**[{artist} - {title} [{version}]]({OSU_BASE}b/{id})**\t\
+                    {grade}\t[{stars:.2}★]\t{score}\t({acc}%)\t[{combo}]\t\
+                    [{pp}]\t {hits}\t{ago}",
+                    artist = oldest_map.artist().cow_escape_markdown(),
+                    title = oldest_map.title().cow_escape_markdown(),
+                    version = oldest_map.version().cow_escape_markdown(),
+                    id = oldest_map.map_id(),
+                    grade = grade_completion_mods(
+                        oldest_score,
+                        oldest_map.mode(),
+                        oldest_map.n_objects(),
+                    ),
+                    score = WithComma::new(oldest_score.score),
+                    acc = round(oldest_score.accuracy),
+                    combo = ComboFormatter::new(oldest_score.max_combo, Some(max_combo)),
+                    pp = PpFormatter::new(Some(pp), Some(max_pp)),
+                    hits = HitResultFormatter::new(
+                        GameMode::Osu,
+                        oldest_score.statistics.as_legacy(GameMode::Osu)
+                    ),
+                    ago = HowLongAgoDynamic::new(&oldest_score.ended_at)
+                );
 
-            fields![fields { "Oldest national #1:", value, false }];
+                fields![fields { "Oldest national #1:", value, false }];
+            }
 
-            let mut count_mods = player.count_mods.unwrap();
+            let mut count_mods = player.count_mods;
             let mut value = String::with_capacity(count_mods.len() * 7);
             count_mods.sort_unstable_by(|(_, c1), (_, c2)| c2.cmp(c1));
             let mut iter = count_mods.into_iter();
@@ -143,7 +149,7 @@ impl PlayerSnipeStatsEmbed {
             }
         };
 
-        let url = match oldest_score.mode {
+        let url = match oldest.map_or(GameMode::Osu, |(score, _)| score.mode) {
             GameMode::Osu => format!(
                 "https://snipe.huismetbenen.nl/player/{code}/osu/{user_id}",
                 code = country_code.to_lowercase(),

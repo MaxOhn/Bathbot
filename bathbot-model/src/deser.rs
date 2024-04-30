@@ -117,14 +117,6 @@ pub(super) mod u32_string {
     }
 }
 
-pub(super) mod negative_u32 {
-    use super::*;
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
-        Ok(<i32 as Deserialize>::deserialize(d)?.max(0) as u32)
-    }
-}
-
 pub(super) mod adjust_acc {
     use super::*;
 

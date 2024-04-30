@@ -176,9 +176,13 @@ pub(super) async fn player_stats(
         return orig.error(&ctx, content).await;
     };
 
-    let player = match player_fut.await {
-        Ok(Some(player)) => player,
-        Ok(None) => {
+    let history_fut = ctx
+        .client()
+        .get_snipe_player_history(country_code, user_id, mode);
+
+    let (player, history) = match tokio::try_join!(player_fut, history_fut) {
+        Ok((Some(player), history)) => (player, history),
+        Ok((None, _)) => {
             let content = format!("`{username}` does not have any national #1s");
             let builder = MessageBuilder::new().embed(content);
             orig.create_message(&ctx, builder).await?;
@@ -192,7 +196,7 @@ pub(super) async fn player_stats(
         }
     };
 
-    let graph = match graphs(&player.count_first_history, &player.count_sr_spread, W, H) {
+    let graph = match graphs(&history, &player.count_sr_spread, W, H) {
         Ok(graph) => Some(graph),
         Err(err) => {
             warn!(?err, "Failed to create graph");
@@ -201,31 +205,31 @@ pub(super) async fn player_stats(
         }
     };
 
-    let score_fut = ctx.osu_scores().user_on_map_single(
-        user_id,
-        player.oldest_first.map_id,
-        mode,
-        None,
-        legacy_scores,
-    );
+    let oldest = if let Some(map_id) = player.oldest_map_id {
+        let score_fut =
+            ctx.osu_scores()
+                .user_on_map_single(user_id, map_id, mode, None, legacy_scores);
 
-    let map_fut = ctx.osu_map().map(player.oldest_first.map_id, None);
+        let map_fut = ctx.osu_map().map(map_id, None);
 
-    let (oldest_score, oldest_map) = match tokio::join!(score_fut, map_fut) {
-        (Ok(score), Ok(map)) => (score.score, map),
-        (Err(err), _) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+        match tokio::join!(score_fut, map_fut) {
+            (Ok(score), Ok(map)) => Some((score.score, map)),
+            (Err(err), _) => {
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(Report::new(err).wrap_err("Failed to get oldest score"));
+                return Err(Report::new(err).wrap_err("Failed to get oldest score"));
+            }
+            (_, Err(err)) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(Report::new(err).wrap_err("Failed to get map of oldest score"));
+            }
         }
-        (_, Err(err)) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(Report::new(err).wrap_err("Failed to get map of oldest score"));
-        }
+    } else {
+        None
     };
 
-    let embed = PlayerSnipeStatsEmbed::new(&user, player, &oldest_score, &oldest_map, &ctx)
+    let embed = PlayerSnipeStatsEmbed::new(&user, player, oldest.as_ref(), &ctx)
         .await
         .build();
 
@@ -245,7 +249,7 @@ const H: u32 = 350;
 
 pub fn graphs(
     history: &BTreeMap<Date, u32>,
-    stars: &BTreeMap<i8, Option<u32>>,
+    stars: &BTreeMap<i8, u32>,
     w: u32,
     h: u32,
 ) -> Result<Vec<u8>> {
@@ -322,11 +326,16 @@ pub fn graphs(
         let max = stars
             .iter()
             .filter(|(sr, _)| **sr >= 0)
-            .map(|(_, n)| n.unwrap_or(0))
-            .fold(0, |max, curr| max.max(curr));
+            .map(|(_, n)| n)
+            .fold(0, |max, &curr| max.max(curr));
 
-        let first = *stars.keys().find(|sr| **sr >= 0).unwrap() as u32;
-        let last = *stars.keys().filter(|sr| **sr >= 0).last().unwrap() as u32;
+        let first = stars.keys().copied().find(|sr| *sr >= 0).unwrap_or(0) as u32;
+        let last = stars
+            .keys()
+            .copied()
+            .filter(|sr| *sr >= 0)
+            .last()
+            .unwrap_or(0) as u32;
 
         let mut chart = ChartBuilder::on(&star_canvas)
             .x_label_area_size(30)
@@ -354,7 +363,7 @@ pub fn graphs(
         let iter = stars
             .iter()
             .filter(|(sr, _)| **sr >= 0)
-            .map(|(stars, n)| (*stars as u32, n.unwrap_or(0)));
+            .map(|(stars, n)| (*stars as u32, *n));
 
         let series = Histogram::vertical(&chart)
             .style(area_style)
