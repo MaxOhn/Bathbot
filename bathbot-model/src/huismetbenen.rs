@@ -155,14 +155,21 @@ impl SnipePlayerListOrder {
 
 #[derive(Debug, Deserialize)]
 pub struct SnipeCountryStatistics {
-    #[serde(rename = "totalBeatmaps")]
-    pub total_maps: u32,
-    #[serde(rename = "unplayedBeatmaps")]
+    pub total_maps: Option<u32>, // not available anymore with huismetbenen
+    #[serde(rename = "unplayed_count")]
     pub unplayed_maps: u32,
-    #[serde(rename = "topGain")]
-    pub top_gain: Option<SnipeTopNationalDifference>,
-    #[serde(rename = "topLoss")]
-    pub top_loss: Option<SnipeTopNationalDifference>,
+    #[serde(rename = "most_gained_count")]
+    pub most_gains_count: i32,
+    #[serde(rename = "most_gained_player_id")]
+    pub most_gains_user_id: u32,
+    #[serde(rename = "most_gained_player_name")]
+    pub most_gains_username: Username,
+    #[serde(rename = "most_lost_count")]
+    pub most_losses_count: i32,
+    #[serde(rename = "most_lost_player_id")]
+    pub most_losses_user_id: u32,
+    #[serde(rename = "most_lost_player_name")]
+    pub most_losses_username: Username,
 }
 
 #[derive(Debug, Deserialize)]
@@ -215,7 +222,6 @@ impl SnipePlayerHistory {
 
 #[derive(Debug, Deserialize)]
 pub struct SnipeCountryPlayer {
-    #[serde(rename = "name")]
     pub username: Username,
     pub user_id: u32,
     #[serde(rename = "average_pp")]
@@ -224,7 +230,7 @@ pub struct SnipeCountryPlayer {
     pub avg_sr: f32,
     #[serde(rename = "weighted_pp")]
     pub pp: f32,
-    #[serde(rename = "count")]
+    #[serde(rename = "count_total")]
     pub count_first: u32,
 }
 
