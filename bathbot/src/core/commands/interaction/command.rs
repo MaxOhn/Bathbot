@@ -4,12 +4,9 @@ use std::{
 };
 
 use twilight_interactions::command::ApplicationCommandData;
-use twilight_model::{
-    application::command::Command,
-    id::{marker::CommandMarker, Id},
-};
+use twilight_model::id::{marker::CommandMarker, Id};
 
-use super::CommandResult;
+use super::{twilight_command::Command, CommandResult};
 use crate::{
     core::{buckets::BucketName, commands::flags::CommandFlags, Context},
     util::interaction::InteractionCommand,

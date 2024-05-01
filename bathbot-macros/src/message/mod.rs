@@ -45,8 +45,8 @@ pub fn impl_cmd(attrs: CommandAttrs, fun: CommandFun) -> Result<TokenStream> {
             id: std::sync::OnceLock::new(),
         };
 
-        fn #create() -> ::twilight_model::application::command::Command {
-            ::twilight_model::application::command::Command {
+        fn #create() -> crate::core::commands::interaction::twilight_command::Command {
+            crate::core::commands::interaction::twilight_command::Command {
                 application_id: None,
                 default_member_permissions: None,
                 description: String::new(),
@@ -60,6 +60,8 @@ pub fn impl_cmd(attrs: CommandAttrs, fun: CommandFun) -> Result<TokenStream> {
                 nsfw: None,
                 options: Vec::new(),
                 version: ::twilight_model::id::Id::new(1),
+                integration_types: Vec::new(),
+                contexts: Vec::new(),
             }
         }
 

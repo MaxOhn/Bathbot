@@ -54,6 +54,7 @@ mod manager;
 mod matchlive;
 mod messages;
 mod osutrack;
+mod set_commands;
 mod shutdown;
 mod twitch;
 
