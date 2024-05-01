@@ -76,20 +76,20 @@ async fn async_main() -> Result<()> {
 
     #[cfg(feature = "global_slash")]
     {
-        let cmds = ctx.set_global_commands(&slash_commands).await?;
+        let cmds = ctx.set_global_commands(slash_commands).await?;
         InteractionCommands::set_ids(&cmds);
 
-        if let Err(err) = ctx.set_guild_commands(&[]).await {
+        if let Err(err) = ctx.set_guild_commands(Vec::new()).await {
             warn!(?err, "Failed to remove guild commands");
         }
     }
 
     #[cfg(not(feature = "global_slash"))]
     {
-        let cmds = ctx.set_guild_commands(&slash_commands).await?;
+        let cmds = ctx.set_guild_commands(slash_commands).await?;
         InteractionCommands::set_ids(&cmds);
 
-        if let Err(err) = ctx.set_global_commands(&[]).await {
+        if let Err(err) = ctx.set_global_commands(Vec::new()).await {
             warn!(?err, "Failed to remove global commands");
         }
     }

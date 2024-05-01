@@ -84,10 +84,6 @@ impl Context {
         self.http.interaction(self.data.application_id)
     }
 
-    pub fn application_id(&self) -> Id<ApplicationMarker> {
-        self.data.application_id
-    }
-
     pub fn osu(&self) -> &Osu {
         &self.clients.osu
     }

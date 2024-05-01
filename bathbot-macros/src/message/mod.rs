@@ -60,6 +60,8 @@ pub fn impl_cmd(attrs: CommandAttrs, fun: CommandFun) -> Result<TokenStream> {
                 nsfw: None,
                 options: Vec::new(),
                 version: ::twilight_model::id::Id::new(1),
+                integration_types: Vec::new(),
+                contexts: Vec::new(),
             }
         }
 

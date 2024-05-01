@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{de, ser, Deserialize, Serialize};
 use twilight_interactions::command::ApplicationCommandData;
 use twilight_model::{
     application::command::{CommandOption, CommandType},
@@ -37,6 +37,10 @@ pub struct Command {
     #[serde(default)]
     pub options: Vec<CommandOption>,
     pub version: Id<CommandVersionMarker>,
+    #[serde(default)]
+    pub integration_types: Vec<IntegrationType>,
+    #[serde(default)]
+    pub contexts: Vec<InteractionContextType>,
 }
 
 impl From<ApplicationCommandData> for Command {
@@ -55,6 +59,73 @@ impl From<ApplicationCommandData> for Command {
             options: item.options.into_iter().map(CommandOption::from).collect(),
             version: Id::new(1),
             nsfw: None,
+            integration_types: Vec::new(),
+            contexts: Vec::new(),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum IntegrationType {
+    GuildInstall,
+    UserInstall,
+    Unknown(u8),
+}
+
+impl ser::Serialize for IntegrationType {
+    fn serialize<S: ser::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let n = match self {
+            Self::GuildInstall => 0,
+            Self::UserInstall => 1,
+            Self::Unknown(n) => *n,
+        };
+
+        s.serialize_u8(n)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for IntegrationType {
+    fn deserialize<D: de::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let n: u8 = de::Deserialize::deserialize(d)?;
+
+        match n {
+            0 => Ok(Self::GuildInstall),
+            1 => Ok(Self::UserInstall),
+            _ => Ok(Self::Unknown(n)),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum InteractionContextType {
+    Guild,
+    BotDm,
+    PrivateChannel,
+    Unknown(u8),
+}
+
+impl ser::Serialize for InteractionContextType {
+    fn serialize<S: ser::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let n = match self {
+            Self::Guild => 0,
+            Self::BotDm => 1,
+            Self::PrivateChannel => 2,
+            Self::Unknown(n) => *n,
+        };
+
+        s.serialize_u8(n)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for InteractionContextType {
+    fn deserialize<D: de::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let n: u8 = de::Deserialize::deserialize(d)?;
+
+        match n {
+            0 => Ok(Self::Guild),
+            1 => Ok(Self::BotDm),
+            2 => Ok(Self::PrivateChannel),
+            _ => Ok(Self::Unknown(n)),
         }
     }
 }
