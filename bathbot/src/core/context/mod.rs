@@ -54,6 +54,7 @@ mod manager;
 mod matchlive;
 mod messages;
 mod osutrack;
+mod set_commands;
 mod shutdown;
 mod twitch;
 
@@ -81,6 +82,10 @@ pub struct Context {
 impl Context {
     pub fn interaction(&self) -> InteractionClient<'_> {
         self.http.interaction(self.data.application_id)
+    }
+
+    pub fn application_id(&self) -> Id<ApplicationMarker> {
+        self.data.application_id
     }
 
     pub fn osu(&self) -> &Osu {

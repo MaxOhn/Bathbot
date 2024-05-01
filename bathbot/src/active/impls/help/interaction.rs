@@ -5,7 +5,7 @@ use eyre::Result;
 use futures::future::{ready, BoxFuture};
 use twilight_interactions::command::{ApplicationCommandData, CommandOptionExt};
 use twilight_model::{
-    application::command::{Command, CommandOptionType},
+    application::command::CommandOptionType,
     channel::message::{
         component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
         embed::EmbedField,
@@ -17,7 +17,9 @@ use twilight_model::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     core::{
-        commands::interaction::{InteractionCommandKind, InteractionCommands},
+        commands::interaction::{
+            twilight_command::Command, InteractionCommandKind, InteractionCommands,
+        },
         Context,
     },
     util::{interaction::InteractionComponent, Authored},
