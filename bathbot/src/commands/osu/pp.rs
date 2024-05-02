@@ -1,4 +1,4 @@
-use std::{borrow::Cow, };
+use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
