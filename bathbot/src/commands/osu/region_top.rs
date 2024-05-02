@@ -1,6 +1,4 @@
-use std::{
-    borrow::Cow, cmp::Reverse, collections::HashMap, convert::identity, fmt::Write, mem, sync::Arc,
-};
+use std::{borrow::Cow, cmp::Reverse, collections::HashMap, convert::identity, fmt::Write, mem};
 
 use bathbot_macros::{HasMods, SlashCommand};
 use bathbot_model::Countries;
@@ -20,7 +18,7 @@ use crate::{
         osu::{HasMods, ModsResult, ScoresOrder},
         GameModeOption,
     },
-    core::{Context, ContextExt},
+    core::Context,
     manager::redis::RedisData,
     util::{
         interaction::InteractionCommand,
@@ -85,7 +83,7 @@ struct RegionTopInput {
     query: Option<String>,
 }
 
-pub async fn slash_regiontop(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_regiontop(mut command: InteractionCommand) -> Result<()> {
     let input = RegionTopInput::from_interaction(command.input_data())?;
     let mods = input.mods();
 
@@ -102,7 +100,7 @@ pub async fn slash_regiontop(ctx: Arc<Context>, mut command: InteractionCommand)
     let region_opt = match region {
         AutocompleteValue::None => None,
         AutocompleteValue::Focused(ref region) => {
-            return handle_autocomplete(ctx.cloned(), &command, country.as_deref(), region).await
+            return handle_autocomplete(&command, country.as_deref(), region).await
         }
         AutocompleteValue::Completed(ref mut region) => Some(mem::take(region)),
     };
@@ -116,7 +114,7 @@ pub async fn slash_regiontop(ctx: Arc<Context>, mut command: InteractionCommand)
                 If you want exact mods, specify it e.g. as `+hdhr!`.\n\
                 And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
@@ -133,7 +131,7 @@ pub async fn slash_regiontop(ctx: Arc<Context>, mut command: InteractionCommand)
         .map(|code| CompactString::from(code.as_ref()));
 
     let region = match (country_code.as_deref(), region_opt.as_deref()) {
-        (Some(country_code), Some(region)) => match ctx.redis().country_regions().await? {
+        (Some(country_code), Some(region)) => match Context::redis().country_regions().await? {
             RedisData::Original(ref country_regions) => country_regions
                 .get(country_code)
                 .and_then(|regions| regions.iter().find(|(_, name)| region == name.as_str()))
@@ -154,7 +152,7 @@ pub async fn slash_regiontop(ctx: Arc<Context>, mut command: InteractionCommand)
 
     let mode = match mode.map(GameMode::from) {
         Some(mode) => mode,
-        None => match ctx.user_config().mode(command.user_id()?).await {
+        None => match Context::user_config().mode(command.user_id()?).await {
             Ok(Some(mode)) => mode,
             Ok(None) => GameMode::Osu,
             Err(err) => {
@@ -176,27 +174,26 @@ pub async fn slash_regiontop(ctx: Arc<Context>, mut command: InteractionCommand)
     match (country_code, region) {
         (Some(_), None) if region_opt.is_some() => {
             let content = "Invalid region for the country";
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             Ok(())
         }
-        (None, _) => regiontop_global(ctx, &mut command, args).await,
-        (Some(country), None) => regiontop_country(ctx, &mut command, country, args).await,
+        (None, _) => regiontop_global(&mut command, args).await,
+        (Some(country), None) => regiontop_country(&mut command, country, args).await,
         (Some(country), Some(region)) => {
-            regiontop_region(ctx, &mut command, country, region, args).await
+            regiontop_region(&mut command, country, region, args).await
         }
     }
 }
 
-async fn regiontop_global(
-    ctx: Arc<Context>,
-    command: &mut InteractionCommand,
-    args: RegionTopArgs,
-) -> Result<()> {
-    let scores = match ctx.osu_scores().db_top_scores(args.mode, None, None).await {
+async fn regiontop_global(command: &mut InteractionCommand, args: RegionTopArgs) -> Result<()> {
+    let scores = match Context::osu_scores()
+        .db_top_scores(args.mode, None, None)
+        .await
+    {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -204,21 +201,23 @@ async fn regiontop_global(
 
     let kind = RegionTopKind::Global;
 
-    run_pagination(ctx, command, kind, scores, &args).await
+    run_pagination(command, kind, scores, &args).await
 }
 
 async fn regiontop_country(
-    ctx: Arc<Context>,
     command: &mut InteractionCommand,
     country_code: CompactString,
     args: RegionTopArgs,
 ) -> Result<()> {
     let code = Some(country_code.as_str());
 
-    let scores = match ctx.osu_scores().db_top_scores(args.mode, None, code).await {
+    let scores = match Context::osu_scores()
+        .db_top_scores(args.mode, None, code)
+        .await
+    {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -226,34 +225,31 @@ async fn regiontop_country(
 
     let kind = RegionTopKind::Country { country_code };
 
-    run_pagination(ctx, command, kind, scores, &args).await
+    run_pagination(command, kind, scores, &args).await
 }
 
 async fn regiontop_region(
-    ctx: Arc<Context>,
     command: &mut InteractionCommand,
     country_code: CompactString,
     region: Region,
     args: RegionTopArgs,
 ) -> Result<()> {
-    let user_ids = match ctx.client().get_region_user_ids(&region.code).await {
+    let user_ids = match Context::client().get_region_user_ids(&region.code).await {
         Ok(user_ids) => user_ids,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
     };
 
     let code = Some(country_code.as_str());
-    let scores_fut = ctx
-        .osu_scores()
-        .db_top_scores(args.mode, Some(&user_ids), code);
+    let scores_fut = Context::osu_scores().db_top_scores(args.mode, Some(&user_ids), code);
 
     let scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -264,11 +260,10 @@ async fn regiontop_region(
         region_name: region.name,
     };
 
-    run_pagination(ctx, command, kind, scores, &args).await
+    run_pagination(command, kind, scores, &args).await
 }
 
 async fn run_pagination(
-    ctx: Arc<Context>,
     command: &mut InteractionCommand,
     kind: RegionTopKind,
     mut scores: DbTopScores<IntHasher>,
@@ -289,7 +284,7 @@ async fn run_pagination(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, command)
+        .begin(command)
         .await
 }
 
@@ -618,14 +613,13 @@ pub enum RegionTopKind {
 }
 
 async fn handle_autocomplete(
-    ctx: Arc<Context>,
     command: &InteractionCommand,
     country: Option<&str>,
     region: &str,
 ) -> Result<()> {
     let Some(country) = country else {
         let choices = single_choice("Must specify country first");
-        command.autocomplete(&ctx, choices).await?;
+        command.autocomplete(choices).await?;
 
         return Ok(());
     };
@@ -637,18 +631,18 @@ async fn handle_autocomplete(
 
     let Some(country_code) = country_code else {
         let choices = single_choice("Invalid country");
-        command.autocomplete(&ctx, choices).await?;
+        command.autocomplete(choices).await?;
 
         return Ok(());
     };
 
     let region = region.cow_to_ascii_lowercase();
 
-    let mut choices = match ctx.redis().country_regions().await? {
+    let mut choices = match Context::redis().country_regions().await? {
         RedisData::Original(country_regions) => {
             let Some(regions) = country_regions.get(country_code.as_ref()) else {
                 let choices = single_choice("No regions for specified country");
-                command.autocomplete(&ctx, choices).await?;
+                command.autocomplete(choices).await?;
 
                 return Ok(());
             };
@@ -658,7 +652,7 @@ async fn handle_autocomplete(
         RedisData::Archive(country_regions) => {
             let Some(regions) = country_regions.get(country_code.as_ref()) else {
                 let choices = single_choice("No regions for specified country");
-                command.autocomplete(&ctx, choices).await?;
+                command.autocomplete(choices).await?;
 
                 return Ok(());
             };
@@ -668,7 +662,7 @@ async fn handle_autocomplete(
     };
 
     choices.sort_unstable_by(|a, b| a.name.cmp(&b.name));
-    command.autocomplete(&ctx, choices).await?;
+    command.autocomplete(choices).await?;
 
     Ok(())
 }

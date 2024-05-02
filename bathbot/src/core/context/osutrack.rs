@@ -25,7 +25,10 @@ impl Context {
             return;
         }
 
-        let notify_fut = self.client().notify_osutrack_user_activity(user_id, mode);
+        let notify_fut = self
+            .clients
+            .custom
+            .notify_osutrack_user_activity(user_id, mode);
 
         if let Err(err) = notify_fut.await {
             warn!(

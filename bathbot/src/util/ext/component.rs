@@ -12,23 +12,22 @@ use crate::{core::Context, util::interaction::InteractionComponent};
 
 pub trait ComponentExt {
     /// Ackowledge the component and respond immediatly by updating the message.
-    fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody>;
+    fn callback(&self, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody>;
 
     /// Ackownledge the component but don't respond yet.
-    fn defer(&self, ctx: &Context) -> ResponseFuture<EmptyBody>;
+    fn defer(&self) -> ResponseFuture<EmptyBody>;
 
     /// After having already ackowledged the component either via
     /// [`ComponentExt::callback`] or [`ComponentExt::defer`],
     /// use this to update the message.
-    fn update(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<Message>;
+    fn update(&self, builder: MessageBuilder<'_>) -> ResponseFuture<Message>;
 
     /// Acknowledge a component by responding with a modal.
-    fn modal(&self, ctx: &Context, modal: ModalBuilder) -> ResponseFuture<EmptyBody>;
+    fn modal(&self, modal: ModalBuilder) -> ResponseFuture<EmptyBody>;
 }
 
 impl ComponentExt for InteractionComponent {
-    #[inline]
-    fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody> {
+    fn callback(&self, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody> {
         let attachments = builder
             .attachment
             .filter(|_| {
@@ -51,26 +50,24 @@ impl ComponentExt for InteractionComponent {
             data: Some(data),
         };
 
-        ctx.interaction()
+        Context::interaction()
             .create_response(self.id, &self.token, &response)
             .into_future()
     }
 
-    #[inline]
-    fn defer(&self, ctx: &Context) -> ResponseFuture<EmptyBody> {
+    fn defer(&self) -> ResponseFuture<EmptyBody> {
         let response = InteractionResponse {
             kind: InteractionResponseType::DeferredUpdateMessage,
             data: None,
         };
 
-        ctx.interaction()
+        Context::interaction()
             .create_response(self.id, &self.token, &response)
             .into_future()
     }
 
-    #[inline]
-    fn update(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<Message> {
-        let client = ctx.interaction();
+    fn update(&self, builder: MessageBuilder<'_>) -> ResponseFuture<Message> {
+        let client = Context::interaction();
 
         let mut req = client.update_response(&self.token);
 
@@ -102,14 +99,13 @@ impl ComponentExt for InteractionComponent {
         req.into_future()
     }
 
-    #[inline]
-    fn modal(&self, ctx: &Context, modal: ModalBuilder) -> ResponseFuture<EmptyBody> {
+    fn modal(&self, modal: ModalBuilder) -> ResponseFuture<EmptyBody> {
         let response = InteractionResponse {
             kind: InteractionResponseType::Modal,
             data: Some(modal.build()),
         };
 
-        ctx.interaction()
+        Context::interaction()
             .create_response(self.id, &self.token, &response)
             .into_future()
     }

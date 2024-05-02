@@ -1,6 +1,5 @@
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
-    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -101,45 +100,35 @@ pub struct RenderSettingsCopy {
 #[command(name = "default", desc = "Reset your render settings to the default")]
 pub struct RenderSettingsDefault;
 
-pub async fn slash_render(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    if ctx.ordr().is_none() {
+pub async fn slash_render(mut command: InteractionCommand) -> Result<()> {
+    if Context::ordr().is_none() {
         command
-            .error_callback(&ctx, "Rendering is currently unavailable")
+            .error_callback("Rendering is currently unavailable")
             .await?;
 
         return Ok(());
     };
 
     match Render::from_interaction(command.input_data())? {
-        Render::Replay(args) => render_replay(ctx, command, args).await,
-        Render::Score(args) => render_score(ctx, command, args).await,
-        Render::Settings(RenderSettings::Modify(_)) => {
-            render_settings_modify(ctx, &mut command).await
-        }
-        Render::Settings(RenderSettings::Import(_)) => {
-            render_settings_import(ctx, &mut command).await
-        }
+        Render::Replay(args) => render_replay(command, args).await,
+        Render::Score(args) => render_score(command, args).await,
+        Render::Settings(RenderSettings::Modify(_)) => render_settings_modify(&mut command).await,
+        Render::Settings(RenderSettings::Import(_)) => render_settings_import(&mut command).await,
         Render::Settings(RenderSettings::Copy(args)) => {
-            render_settings_copy(ctx, &mut command, args).await
+            render_settings_copy(&mut command, args).await
         }
-        Render::Settings(RenderSettings::Default(_)) => {
-            render_settings_default(ctx, &mut command).await
-        }
+        Render::Settings(RenderSettings::Default(_)) => render_settings_default(&mut command).await,
     }
 }
 
-async fn render_replay(
-    ctx: Arc<Context>,
-    command: InteractionCommand,
-    replay: RenderReplay,
-) -> Result<()> {
+async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Result<()> {
     let owner = command.user_id()?;
 
-    if let Some(cooldown) = ctx.check_ratelimit(owner, BucketName::Render) {
+    if let Some(cooldown) = Context::check_ratelimit(owner, BucketName::Render) {
         trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
 
         let content = format!("Command on cooldown, try again in {cooldown} seconds");
-        command.error_callback(&ctx, content).await?;
+        command.error_callback(content).await?;
 
         return Ok(());
     }
@@ -148,18 +137,18 @@ async fn render_replay(
 
     if !replay.filename.ends_with(".osr") {
         let content = "The attached replay must be a .osr file";
-        command.error_callback(&ctx, content).await?;
+        command.error_callback(content).await?;
 
         return Ok(());
     }
 
     let status = RenderStatus::new_commissioning_replay();
-    command.callback(&ctx, status.as_message(), false).await?;
+    command.callback(status.as_message(), false).await?;
 
-    let settings = match ctx.replay().get_settings(owner).await {
+    let settings = match Context::replay().get_settings(owner).await {
         Ok(settings) => settings,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -167,7 +156,7 @@ async fn render_replay(
 
     let allow_custom_skins = match command.guild_id {
         Some(guild_id) => {
-            ctx.guild_config()
+            Context::guild_config()
                 .peek(guild_id, |config| config.allow_custom_skins.unwrap_or(true))
                 .await
         }
@@ -176,8 +165,7 @@ async fn render_replay(
 
     let skin = settings.skin(allow_custom_skins);
 
-    let render_fut = ctx
-        .ordr()
+    let render_fut = Context::ordr()
         .expect("ordr unavailable")
         .client()
         .render_with_replay_url(&replay.url, RENDERER_NAME, &skin.skin)
@@ -194,7 +182,7 @@ async fn render_replay(
             ..
         }) => {
             let content = "I can only render osu!standard scores";
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
@@ -209,12 +197,12 @@ async fn render_replay(
                 } => {
                     let content =
                         format!("Error code {int} from o!rdr: {code}", int = code.to_u8());
-                    command.error(&ctx, content).await?;
+                    command.error(content).await?;
 
                     Ok(())
                 }
                 _ => {
-                    let _ = command.error(&ctx, ORDR_ISSUE).await;
+                    let _ = command.error(ORDR_ISSUE).await;
 
                     Err(Report::new(err).wrap_err("Failed to commission render"))
                 }
@@ -222,59 +210,55 @@ async fn render_replay(
         }
     };
 
-    let ongoing = OngoingRender::new(ctx, render.render_id, command, status, None, owner).await;
+    let ongoing = OngoingRender::new(render.render_id, command, status, None, owner).await;
 
     tokio::spawn(ongoing.await_render_url());
 
     Ok(())
 }
 
-async fn render_score(
-    ctx: Arc<Context>,
-    mut command: InteractionCommand,
-    score: RenderScore,
-) -> Result<()> {
-    command.defer(&ctx, false).await?;
+async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Result<()> {
+    command.defer(false).await?;
 
     let owner = command.user_id()?;
     let RenderScore { score_id } = score;
 
     // Check if the score id has already been rendered
-    match ctx.replay().get_video_url(score_id).await {
+    match Context::replay().get_video_url(score_id).await {
         Ok(Some(video_url)) => {
             let cached = CachedRender::new(score_id, None, video_url, owner);
 
             return ActiveMessages::builder(cached)
                 .start_by_update(true)
-                .begin(ctx, &mut command)
+                .begin(&mut command)
                 .await;
         }
         Ok(None) => {}
         Err(err) => warn!(?err),
     }
 
-    if let Some(cooldown) = ctx.check_ratelimit(owner, BucketName::Render) {
+    if let Some(cooldown) = Context::check_ratelimit(owner, BucketName::Render) {
         trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
 
         let content = format!("Command on cooldown, try again in {cooldown} seconds");
-        command.error(&ctx, content).await?;
+        command.error(content).await?;
 
         return Ok(());
     }
 
     let mut status = RenderStatus::new_requesting_score();
-    command.update(&ctx, status.as_message()).await?;
+    command.update(status.as_message()).await?;
 
-    let score = match ctx.osu().score(score_id, GameMode::Osu).await {
+    let score = match Context::osu().score(score_id, GameMode::Osu).await {
         Ok(score) => score,
         Err(OsuError::NotFound) => {
             let content = "Found no osu!standard score with that id";
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
         Err(err) => {
-            let _ = command.error(&ctx, OSU_API_ISSUE).await;
+            let _ = command.error(OSU_API_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get score"));
         }
@@ -282,23 +266,23 @@ async fn render_score(
 
     let Some(replay_score) = ReplayScore::from_score(&score) else {
         let content = "Failed to prepare the replay";
-        command.error(&ctx, content).await?;
+        command.error(content).await?;
 
         return Ok(());
     };
 
     let Some(score_id) = score.legacy_score_id else {
         let content = "Scores on osu!lazer currently cannot be rendered :(";
-        command.error(&ctx, content).await?;
+        command.error(content).await?;
 
         return Ok(());
     };
 
     // Just a status update, no need to propagate an error
     status.set(RenderStatusInner::PreparingReplay);
-    let _ = command.update(&ctx, status.as_message()).await;
+    let _ = command.update(status.as_message()).await;
 
-    let replay_manager = ctx.replay();
+    let replay_manager = Context::replay();
     let replay_fut = replay_manager.get_replay(score_id, &replay_score);
     let settings_fut = replay_manager.get_settings(owner);
 
@@ -308,12 +292,12 @@ async fn render_score(
         Ok(Some(replay)) => replay,
         Ok(None) => {
             let content = "Looks like the replay for that score is not available";
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("Failed to get replay"));
         }
@@ -322,7 +306,7 @@ async fn render_score(
     let settings = match settings_res {
         Ok(settings) => settings,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -330,11 +314,11 @@ async fn render_score(
 
     // Just a status update, no need to propagate an error
     status.set(RenderStatusInner::CommissioningRender);
-    let _ = command.update(&ctx, status.as_message()).await;
+    let _ = command.update(status.as_message()).await;
 
     let allow_custom_skins = match command.guild_id {
         Some(guild_id) => {
-            ctx.guild_config()
+            Context::guild_config()
                 .peek(guild_id, |config| config.allow_custom_skins.unwrap_or(true))
                 .await
         }
@@ -343,8 +327,7 @@ async fn render_score(
 
     let skin = settings.skin(allow_custom_skins);
 
-    let render_fut = ctx
-        .ordr()
+    let render_fut = Context::ordr()
         .expect("ordr unavailable")
         .client()
         .render_with_replay_file(&replay, RENDERER_NAME, &skin.skin)
@@ -353,20 +336,13 @@ async fn render_score(
     let render = match render_fut.await {
         Ok(render) => render,
         Err(err) => {
-            let _ = command.error(&ctx, ORDR_ISSUE).await;
+            let _ = command.error(ORDR_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to commission render"));
         }
     };
 
-    let ongoing_fut = OngoingRender::new(
-        ctx,
-        render.render_id,
-        command,
-        status,
-        Some(score_id),
-        owner,
-    );
+    let ongoing_fut = OngoingRender::new(render.render_id, command, status, Some(score_id), owner);
 
     tokio::spawn(ongoing_fut.await.await_render_url());
 
@@ -502,7 +478,6 @@ impl Display for ProgressEmote {
 }
 
 pub struct OngoingRender {
-    ctx: Arc<Context>,
     render_id: u32,
     orig: OwnedCommandOrigin,
     status: RenderStatus,
@@ -513,7 +488,6 @@ pub struct OngoingRender {
 
 impl OngoingRender {
     pub async fn new(
-        ctx: Arc<Context>,
         render_id: u32,
         orig: impl Into<OwnedCommandOrigin>,
         status: RenderStatus,
@@ -523,13 +497,11 @@ impl OngoingRender {
         Self {
             orig: orig.into(),
             render_id,
-            receivers: ctx
-                .ordr()
+            receivers: Context::ordr()
                 .expect("ordr unavailable")
                 .subscribe_render_id(render_id)
                 .await,
             status,
-            ctx,
             score_id,
             msg_owner,
         }
@@ -560,7 +532,7 @@ impl OngoingRender {
                     self.status.set(RenderStatusInner::Rendering(progress.progress));
                     let builder = self.status.as_message();
 
-                    if let Err(err) = self.orig.update(&self.ctx, builder).await {
+                    if let Err(err) = self.orig.update( builder).await {
                         warn!(?err, "Failed to update message");
                     }
                 },
@@ -570,7 +542,7 @@ impl OngoingRender {
                     };
 
                     if let Some(score_id) = self.score_id {
-                        let replay_manager = self.ctx.replay();
+                        let replay_manager = Context::replay();
                         let store_fut = replay_manager.store_video_url(score_id, video_url.as_ref());
 
                         if let Err(err) = store_fut.await {
@@ -585,11 +557,11 @@ impl OngoingRender {
                     let video_url_with_user = format!("{video_url} <@{}>", self.msg_owner);
                     let builder = MessageBuilder::new().content(video_url_with_user).embed(None);
 
-                    if let Err(err) = self.orig.update(&self.ctx, builder).await {
+                    if let Err(err) = self.orig.update(builder).await {
                         warn!(?err, "Failed to update message");
                     }
 
-                    self.ctx.ordr().expect("ordr unavailable").unsubscribe_render_id(render_id).await;
+                    Context::ordr().expect("ordr unavailable").unsubscribe_render_id(render_id).await;
 
                     return;
                 },
@@ -603,11 +575,11 @@ impl OngoingRender {
                     let embed = EmbedBuilder::new().description(failed.error_message).color_red();
                     let builder = MessageBuilder::new().embed(embed);
 
-                    if let Err(err) = self.orig.update(&self.ctx, builder).await {
+                    if let Err(err) = self.orig.update( builder).await {
                         warn!(?err, "Failed to update message");
                     }
 
-                    self.ctx.ordr().expect("ordr unavailable").unsubscribe_render_id(failed.render_id).await;
+                    Context::ordr().expect("ordr unavailable").unsubscribe_render_id(failed.render_id).await;
 
                     return;
                 },
@@ -615,11 +587,11 @@ impl OngoingRender {
                     let content = "Timeout while waiting for o!rdr updates, \
                         there was probably a network issue.";
 
-                    if let Err(err) = self.orig.error(&self.ctx, content).await {
+                    if let Err(err) = self.orig.error(content).await {
                         warn!(?err, "Failed to update message");
                     }
 
-                    self.ctx.ordr().expect("ordr unavailable").unsubscribe_render_id(self.render_id).await;
+                    Context::ordr().expect("ordr unavailable").unsubscribe_render_id(self.render_id).await;
 
                     return;
                 },
@@ -628,18 +600,18 @@ impl OngoingRender {
     }
 }
 
-async fn render_settings_modify(ctx: Arc<Context>, command: &mut InteractionCommand) -> Result<()> {
+async fn render_settings_modify(command: &mut InteractionCommand) -> Result<()> {
     command
-        .defer(&ctx, false)
+        .defer(false)
         .await
         .wrap_err("Failed to defer command")?;
 
     let owner = command.user_id()?;
 
-    let settings = match ctx.replay().get_settings(owner).await {
+    let settings = match Context::replay().get_settings(owner).await {
         Ok(settings) => settings,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -649,40 +621,39 @@ async fn render_settings_modify(ctx: Arc<Context>, command: &mut InteractionComm
 
     ActiveMessages::builder(active)
         .start_by_update(true)
-        .begin(ctx, command)
+        .begin(command)
         .await
 }
 
-async fn render_settings_import(ctx: Arc<Context>, command: &mut InteractionCommand) -> Result<()> {
+async fn render_settings_import(command: &mut InteractionCommand) -> Result<()> {
     ActiveMessages::builder(SettingsImport::new(command.user_id()?))
-        .begin(ctx, command)
+        .begin(command)
         .await
 }
 
 async fn render_settings_copy(
-    ctx: Arc<Context>,
     command: &mut InteractionCommand,
     args: RenderSettingsCopy,
 ) -> Result<()> {
     command
-        .defer(&ctx, false)
+        .defer(false)
         .await
         .wrap_err("Failed to defer command")?;
 
     let owner = command.user_id()?;
-    let replay_manager = ctx.replay();
+    let replay_manager = Context::replay();
 
     let settings = match replay_manager.get_settings(args.user).await {
         Ok(settings) => settings,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
     };
 
     if let Err(err) = replay_manager.set_settings(owner, &settings).await {
-        let _ = command.error(&ctx, GENERAL_ISSUE).await;
+        let _ = command.error(GENERAL_ISSUE).await;
 
         return Err(err);
     }
@@ -692,25 +663,22 @@ async fn render_settings_copy(
 
     ActiveMessages::builder(active)
         .start_by_update(true)
-        .begin(ctx, command)
+        .begin(command)
         .await
 }
 
-async fn render_settings_default(
-    ctx: Arc<Context>,
-    command: &mut InteractionCommand,
-) -> Result<()> {
+async fn render_settings_default(command: &mut InteractionCommand) -> Result<()> {
     command
-        .defer(&ctx, false)
+        .defer(false)
         .await
         .wrap_err("Failed to defer command")?;
 
     let owner = command.user_id()?;
-    let replay_manager = ctx.replay();
+    let replay_manager = Context::replay();
     let settings = ReplaySettings::default();
 
     if let Err(err) = replay_manager.set_settings(owner, &settings).await {
-        let _ = command.error(&ctx, GENERAL_ISSUE).await;
+        let _ = command.error(GENERAL_ISSUE).await;
 
         return Err(err);
     }
@@ -720,6 +688,6 @@ async fn render_settings_default(
 
     ActiveMessages::builder(active)
         .start_by_update(true)
-        .begin(ctx, command)
+        .begin(command)
         .await
 }

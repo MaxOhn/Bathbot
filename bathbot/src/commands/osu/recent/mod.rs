@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
 use bathbot_psql::model::configs::ListSize;
@@ -16,7 +16,6 @@ use crate::{
         GameModeOption, GradeOption,
     },
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
 };
 
 mod fix;
@@ -398,30 +397,30 @@ impl From<Rb> for RecentBest {
     }
 }
 
-async fn slash_recent(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_recent(mut command: InteractionCommand) -> Result<()> {
     match Recent::from_interaction(command.input_data())? {
-        Recent::Score(args) => score(ctx, (&mut command).into(), args).await,
+        Recent::Score(args) => score((&mut command).into(), args).await,
         Recent::Best(args) => match TopArgs::try_from(args) {
-            Ok(args) => top(ctx, (&mut command).into(), args).await,
+            Ok(args) => top((&mut command).into(), args).await,
             Err(content) => {
-                command.error(&ctx, content).await?;
+                command.error(content).await?;
 
                 Ok(())
             }
         },
-        Recent::Leaderboard(args) => leaderboard(ctx, (&mut command).into(), args).await,
-        Recent::List(args) => list(ctx, (&mut command).into(), args).await,
-        Recent::Fix(args) => fix(ctx, (&mut command).into(), args).await,
+        Recent::Leaderboard(args) => leaderboard((&mut command).into(), args).await,
+        Recent::List(args) => list((&mut command).into(), args).await,
+        Recent::Fix(args) => fix((&mut command).into(), args).await,
     }
 }
 
-async fn slash_rb(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_rb(mut command: InteractionCommand) -> Result<()> {
     let args = Rb::from_interaction(command.input_data())?;
 
     match TopArgs::try_from(RecentBest::from(args)) {
-        Ok(args) => top(ctx, (&mut command).into(), args).await,
+        Ok(args) => top((&mut command).into(), args).await,
         Err(content) => {
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             Ok(())
         }

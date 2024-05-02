@@ -18,7 +18,6 @@ use crate::commands::osu::RecentTwitchStream;
 use crate::{
     active::BuildPage,
     commands::osu::RecentEntry,
-    core::Context,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap, OwnedReplayScore},
     util::{
@@ -34,7 +33,6 @@ pub struct RecentScoreEdit {
 impl RecentScoreEdit {
     #[allow(clippy::too_many_arguments)]
     pub async fn create(
-        ctx: &Context,
         user: &RedisData<User>,
         entry: &RecentEntry,
         personal: Option<&[Score]>,
@@ -56,7 +54,7 @@ impl RecentScoreEdit {
             stars,
         } = entry;
 
-        let if_fc = IfFc::new(ctx, score, map).await;
+        let if_fc = IfFc::new(score, map).await;
 
         let (combo, title) = if score.mode == GameMode::Mania {
             let mut ratio = score.statistics.count_geki as f32;

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::SlashCommand;
 use eyre::Result;
@@ -16,7 +16,6 @@ pub use self::{
 use crate::{
     commands::GameModeOption,
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
 };
 
 mod common;
@@ -219,11 +218,11 @@ pub struct CompareMostPlayed<'a> {
     discord2: Option<Id<UserMarker>>,
 }
 
-async fn slash_compare(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_compare(mut command: InteractionCommand) -> Result<()> {
     match CompareAutocomplete::from_interaction(command.input_data())? {
-        CompareAutocomplete::Score(args) => slash_compare_score(ctx, &mut command, args).await,
-        CompareAutocomplete::Profile(args) => profile(ctx, (&mut command).into(), args).await,
-        CompareAutocomplete::Top(args) => top(ctx, (&mut command).into(), args).await,
-        CompareAutocomplete::MostPlayed(args) => mostplayed(ctx, (&mut command).into(), args).await,
+        CompareAutocomplete::Score(args) => slash_compare_score(&mut command, args).await,
+        CompareAutocomplete::Profile(args) => profile((&mut command).into(), args).await,
+        CompareAutocomplete::Top(args) => top((&mut command).into(), args).await,
+        CompareAutocomplete::MostPlayed(args) => mostplayed((&mut command).into(), args).await,
     }
 }

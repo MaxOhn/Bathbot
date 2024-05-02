@@ -1,4 +1,4 @@
-use std::{ops::Deref, sync::Arc};
+use std::ops::Deref;
 
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::SlashCommand;
@@ -19,7 +19,7 @@ use time::{OffsetDateTime, Time};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    core::{Context, ContextExt},
+    core::Context,
     embeds::{ClaimNameEmbed, EmbedData},
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
@@ -41,7 +41,7 @@ pub struct ClaimName {
     name: String,
 }
 
-async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
     let ClaimName { name } = ClaimName::from_interaction(command.input_data())?;
 
     let content = if name.chars().count() > 15 {
@@ -72,12 +72,12 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 
     if let Some(content) = content {
         let builder = MessageBuilder::new().embed(content);
-        command.update(&ctx, builder).await?;
+        command.update(builder).await?;
 
         return Ok(());
     }
 
-    let user_id = match UserArgs::username(ctx.cloned(), &name).await {
+    let user_id = match UserArgs::username(&name).await {
         UserArgs::Args(args) => args.user_id,
         UserArgs::User { user, .. } => user.user_id,
         UserArgs::Err(OsuError::NotFound) => {
@@ -88,12 +88,12 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
             };
 
             let builder = MessageBuilder::new().embed(content);
-            command.update(&ctx, builder).await?;
+            command.update(builder).await?;
 
             return Ok(());
         }
         UserArgs::Err(err) => {
-            let _ = command.error(&ctx, OSU_API_ISSUE).await;
+            let _ = command.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
@@ -110,7 +110,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 
     let user_fut = args
         .into_iter()
-        .map(|args| ctx.redis().osu_user(args))
+        .map(|args| Context::redis().osu_user(args))
         .collect::<FuturesUnordered<_>>()
         .try_fold(None, |user: Option<ClaimNameUser>, next| match user {
             Some(mut user) => {
@@ -195,7 +195,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
     let user = match user_fut.await {
         Ok(user) => user.unwrap(),
         Err(err) => {
-            let _ = command.error(&ctx, OSU_API_ISSUE).await;
+            let _ = command.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
@@ -204,7 +204,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 
     let embed = ClaimNameEmbed::new(&user, &name).build();
     let builder = MessageBuilder::new().embed(embed);
-    command.update(&ctx, builder).await?;
+    command.update(builder).await?;
 
     Ok(())
 }

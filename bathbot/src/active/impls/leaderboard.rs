@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult, Write},
-    sync::Arc,
-};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
@@ -22,7 +19,6 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::{AttrMap, LeaderboardScore, LeaderboardUserScore},
-    core::Context,
     embeds::PpFormatter,
     manager::OsuMap,
     util::{
@@ -48,8 +44,8 @@ pub struct LeaderboardPagination {
 }
 
 impl IActiveMessage for LeaderboardPagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -58,23 +54,21 @@ impl IActiveMessage for LeaderboardPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, true, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, true, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, true, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, true, &mut self.pages)
     }
 }
 
 impl LeaderboardPagination {
-    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let start_idx = self.pages.index();
         let end_idx = self.scores.len().min(start_idx + self.pages.per_page());
 
@@ -107,7 +101,6 @@ impl LeaderboardPagination {
             let fmt_fut = ScoreFormatter::new(
                 score,
                 found_author,
-                &ctx,
                 &mut self.attr_map,
                 &self.map,
                 self.max_combo,
@@ -126,7 +119,6 @@ impl LeaderboardPagination {
             let fmt_fut = ScoreFormatter::new(
                 &score.score,
                 false,
-                &ctx,
                 &mut self.attr_map,
                 &self.map,
                 self.max_combo,
@@ -223,12 +215,11 @@ impl<'a> ScoreFormatter<'a> {
     async fn new(
         score: &'a LeaderboardScore,
         found_author: bool,
-        ctx: &Context,
         attr_map: &mut AttrMap,
         map: &OsuMap,
         max_combo: u32,
     ) -> ScoreFormatter<'a> {
-        let (pp, max_pp) = score.pp(ctx, map, attr_map).await;
+        let (pp, max_pp) = score.pp(map, attr_map).await;
         let pp = PpFormatter::new(Some(pp), Some(max_pp));
         let combo = ComboFormatter::new(score, max_combo, map.mode());
 

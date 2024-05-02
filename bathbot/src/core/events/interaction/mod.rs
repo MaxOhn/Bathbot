@@ -1,18 +1,15 @@
-use std::sync::Arc;
-
 use twilight_model::application::interaction::{Interaction, InteractionData, InteractionType};
 
 use self::{autocomplete::handle_autocomplete, command::handle_command};
 use crate::{
     active::ActiveMessages,
-    core::Context,
     util::interaction::{InteractionCommand, InteractionComponent, InteractionModal},
 };
 
 mod autocomplete;
 mod command;
 
-pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
+pub async fn handle_interaction(interaction: Interaction) {
     let Interaction {
         app_permissions: permissions,
         channel,
@@ -45,10 +42,8 @@ pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
             };
 
             match kind {
-                InteractionType::ApplicationCommand => handle_command(ctx, cmd).await,
-                InteractionType::ApplicationCommandAutocomplete => {
-                    handle_autocomplete(ctx, cmd).await
-                }
+                InteractionType::ApplicationCommand => handle_command(cmd).await,
+                InteractionType::ApplicationCommandAutocomplete => handle_autocomplete(cmd).await,
                 _ => warn!(?kind, "Got unexpected interaction"),
             }
         }
@@ -69,7 +64,7 @@ pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
                 user,
             };
 
-            ActiveMessages::handle_component(ctx, component).await
+            ActiveMessages::handle_component(component).await
         }
         Some(InteractionData::ModalSubmit(data)) => {
             let modal = InteractionModal {
@@ -84,7 +79,7 @@ pub async fn handle_interaction(ctx: Arc<Context>, interaction: Interaction) {
                 user,
             };
 
-            ActiveMessages::handle_modal(ctx, modal).await
+            ActiveMessages::handle_modal(modal).await
         }
         _ => {}
     }

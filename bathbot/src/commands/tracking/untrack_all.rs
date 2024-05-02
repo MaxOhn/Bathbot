@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_macros::command;
 use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::Result;
@@ -18,7 +16,7 @@ use crate::{core::commands::CommandOrigin, util::ChannelExt, Context};
 #[example("", "mania")]
 #[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
 #[group(Tracking)]
-async fn prefix_untrackall(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_untrackall(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let mode = match args.next() {
         Some("osu") | Some("o") | Some("standard") | Some("s") => Some(GameMode::Osu),
         Some("mania") | Some("m") => Some(GameMode::Mania),
@@ -29,36 +27,30 @@ async fn prefix_untrackall(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
             let content = "If an argument is provided, \
                 it must be either `osu`, `mania`, `taiko`, or `ctb`.";
 
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             return Ok(());
         }
     };
 
-    untrackall(ctx, msg.into(), mode).await
+    untrackall(msg.into(), mode).await
 }
 
-pub async fn untrackall(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    mode: Option<GameMode>,
-) -> Result<()> {
+pub async fn untrackall(orig: CommandOrigin<'_>, mode: Option<GameMode>) -> Result<()> {
     let channel_id = orig.channel_id();
 
-    let remove_fut = ctx
-        .tracking()
-        .remove_channel(channel_id, mode, ctx.osu_tracking());
+    let remove_fut = Context::tracking().remove_channel(channel_id, mode);
 
     match remove_fut.await {
         Ok(amount) => {
             let content = format!("Untracked {amount} users in this channel");
             let builder = MessageBuilder::new().embed(content);
-            orig.create_message(&ctx, builder).await?;
+            orig.create_message(builder).await?;
 
             Ok(())
         }
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             Err(err.wrap_err("failed to remove channel from osu tracking"))
         }

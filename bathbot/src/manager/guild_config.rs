@@ -10,13 +10,13 @@ use twilight_model::id::{marker::GuildMarker, Id};
 type GuildConfigs = FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>;
 
 #[derive(Copy, Clone)]
-pub struct GuildConfigManager<'d> {
-    psql: &'d Database,
-    guild_configs: &'d GuildConfigs,
+pub struct GuildConfigManager {
+    psql: &'static Database,
+    guild_configs: &'static GuildConfigs,
 }
 
-impl<'d> GuildConfigManager<'d> {
-    pub fn new(psql: &'d Database, guild_configs: &'d GuildConfigs) -> Self {
+impl GuildConfigManager {
+    pub fn new(psql: &'static Database, guild_configs: &'static GuildConfigs) -> Self {
         Self {
             psql,
             guild_configs,
@@ -69,9 +69,7 @@ impl<'d> GuildConfigManager<'d> {
 
         Ok(res)
     }
-}
 
-impl GuildConfigManager<'_> {
     async fn store(&self, guild_id: Id<GuildMarker>, config: GuildConfig) -> Result<()> {
         let res = self
             .psql

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use bathbot_macros::SlashCommand;
 use bathbot_util::{
@@ -46,13 +46,13 @@ struct Help_ {
     command: AutocompleteValue<String>,
 }
 
-pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_help(mut command: InteractionCommand) -> Result<()> {
     let args = Help_::from_interaction(command.input_data())?;
 
     match args.command {
-        AutocompleteValue::None => help_slash_basic(ctx, command).await,
+        AutocompleteValue::None => help_slash_basic(command).await,
         AutocompleteValue::Completed(name) => match InteractionCommands::get().command(&name) {
-            Some(cmd) => help_slash_command(ctx, &mut command, cmd).await,
+            Some(cmd) => help_slash_command(&mut command, cmd).await,
             None => {
                 let dists: BTreeMap<_, _> = InteractionCommands::get()
                     .names()
@@ -61,7 +61,7 @@ pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> R
                     .collect();
 
                 let content = failed_message_content(dists);
-                command.error_callback(&ctx, content).await?;
+                command.error_callback(content).await?;
 
                 Ok(())
             }
@@ -81,16 +81,17 @@ pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> R
                     .collect(),
             };
 
-            command.autocomplete(&ctx, choices).await?;
+            command.autocomplete(choices).await?;
 
             Ok(())
         }
     }
 }
 
-async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
-    let id = ctx
-        .cache
+async fn help_slash_basic(command: InteractionCommand) -> Result<()> {
+    let cache = Context::cache();
+
+    let id = cache
         .current_user()
         .await?
         .wrap_err("Missing CurrentUser in cache")?
@@ -124,7 +125,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         value: format!("Try using this [**invite link**]({INVITE_LINK})"),
     };
 
-    let stats = ctx.cache.stats();
+    let stats = cache.stats();
 
     let servers = EmbedField {
         inline: true,
@@ -132,6 +133,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
         value: WithComma::new(stats.guilds + stats.unavailable_guilds).to_string(),
     };
 
+    let ctx = Context::get();
     let boot_time = ctx.start_time;
 
     let boot_up = EmbedField {
@@ -187,13 +189,12 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
 
     let builder = MessageBuilder::new().embed(embed);
 
-    command.callback(&ctx, builder, true).await?;
+    command.callback(builder, true).await?;
 
     Ok(())
 }
 
 async fn help_slash_command(
-    ctx: Arc<Context>,
     command: &mut InteractionCommand,
     cmd: InteractionCommandKind,
 ) -> Result<()> {
@@ -205,12 +206,12 @@ async fn help_slash_command(
 
         let embed_builder = EmbedBuilder::new().title(name).description(description);
         let builder = MessageBuilder::new().embed(embed_builder);
-        command.callback(&ctx, builder, true).await?;
+        command.callback(builder, true).await?;
 
         return Ok(());
     }
 
     let help = HelpInteractionCommand::new(name, command.user_id()?);
 
-    ActiveMessages::builder(help).begin(ctx, command).await
+    ActiveMessages::builder(help).begin(command).await
 }

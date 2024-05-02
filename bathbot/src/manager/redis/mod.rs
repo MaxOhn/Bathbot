@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Write, sync::Arc};
+use std::{borrow::Cow, fmt::Write};
 
 use bathbot_cache::{Cache, CacheSerializer};
 use bathbot_model::{
@@ -14,7 +14,7 @@ use rosu_v2::prelude::{GameMode, OsuError, Rankings as RosuRankings};
 pub use self::data::RedisData;
 use crate::{
     commands::osu::MapOrScore,
-    core::{BotMetrics, Context, ContextExt},
+    core::{BotMetrics, Context},
     util::interaction::InteractionCommand,
 };
 
@@ -24,21 +24,19 @@ mod data;
 
 type RedisResult<T, A = T, E = Report> = Result<RedisData<T, A>, E>;
 
-#[derive(Clone)]
-pub struct RedisManager {
-    ctx: Arc<Context>,
-}
+#[derive(Copy, Clone)]
+pub struct RedisManager;
 
 impl RedisManager {
-    pub fn new(ctx: Arc<Context>) -> Self {
-        Self { ctx }
+    pub fn new() -> Self {
+        Self
     }
 
     pub async fn badges(self) -> RedisResult<Vec<OsekaiBadge>> {
         const EXPIRE: usize = 7200;
         const KEY: &str = "osekai_badges";
 
-        let mut conn = match self.ctx.cache.fetch(KEY).await {
+        let mut conn = match Context::cache().fetch(KEY).await {
             Ok(Ok(badges)) => {
                 BotMetrics::inc_redis_hit("Osekai badges");
 
@@ -52,7 +50,7 @@ impl RedisManager {
             }
         };
 
-        let badges = self.ctx.client().get_osekai_badges().await?;
+        let badges = Context::client().get_osekai_badges().await?;
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 65_536>(conn, KEY, &badges, EXPIRE).await {
@@ -67,7 +65,7 @@ impl RedisManager {
         const EXPIRE: usize = 3600;
         const KEY: &str = "osekai_medals";
 
-        let mut conn = match self.ctx.cache.fetch(KEY).await {
+        let mut conn = match Context::cache().fetch(KEY).await {
             Ok(Ok(medals)) => {
                 BotMetrics::inc_redis_hit("Osekai medals");
 
@@ -81,7 +79,7 @@ impl RedisManager {
             }
         };
 
-        let medals = self.ctx.client().get_osekai_medals().await?;
+        let medals = Context::client().get_osekai_medals().await?;
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 16_384>(conn, KEY, &medals, EXPIRE).await {
@@ -102,7 +100,7 @@ impl RedisManager {
         let mut key = b"osekai_ranking_".to_vec();
         key.extend_from_slice(R::FORM.as_bytes());
 
-        let mut conn = match self.ctx.cache.fetch(&key).await {
+        let mut conn = match Context::cache().fetch(&key).await {
             Ok(Ok(ranking)) => {
                 BotMetrics::inc_redis_hit("Osekai ranking");
 
@@ -116,7 +114,7 @@ impl RedisManager {
             }
         };
 
-        let ranking = self.ctx.client().get_osekai_ranking::<R>().await?;
+        let ranking = Context::client().get_osekai_ranking::<R>().await?;
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 65_536>(conn, &key, &ranking, EXPIRE).await {
@@ -140,7 +138,7 @@ impl RedisManager {
             let _ = write!(key, "_{country}");
         }
 
-        let mut conn = match self.ctx.cache.fetch(&key).await {
+        let mut conn = match Context::cache().fetch(&key).await {
             Ok(Ok(ranking)) => {
                 BotMetrics::inc_redis_hit("PP ranking");
 
@@ -154,7 +152,7 @@ impl RedisManager {
             }
         };
 
-        let ranking_fut = self.ctx.osu().performance_rankings(mode).page(page);
+        let ranking_fut = Context::osu().performance_rankings(mode).page(page);
 
         let ranking = if let Some(country) = country {
             ranking_fut.country(country).await?
@@ -181,7 +179,7 @@ impl RedisManager {
         const EXPIRE: usize = 3600;
         let key = format!("osustats_best_{}_{}", timeframe as u8, mode as u8);
 
-        let mut conn = match self.ctx.cache.fetch(&key).await {
+        let mut conn = match Context::cache().fetch(&key).await {
             Ok(Ok(scores)) => {
                 BotMetrics::inc_redis_hit("osu!stats best");
 
@@ -195,7 +193,7 @@ impl RedisManager {
             }
         };
 
-        let scores = self.ctx.client().get_osustats_best(timeframe, mode).await?;
+        let scores = Context::client().get_osustats_best(timeframe, mode).await?;
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 8192>(conn, &key, &scores, EXPIRE).await {
@@ -210,7 +208,7 @@ impl RedisManager {
         const EXPIRE: usize = 43_200; // 12 hours
         let key = format!("snipe_countries_{mode}");
 
-        let mut conn = match self.ctx.cache.fetch(&key).await {
+        let mut conn = match Context::cache().fetch(&key).await {
             Ok(Ok(countries)) => {
                 BotMetrics::inc_redis_hit("Snipe countries");
 
@@ -224,7 +222,7 @@ impl RedisManager {
             }
         };
 
-        let countries = self.ctx.client().get_snipe_countries(mode).await?;
+        let countries = Context::client().get_snipe_countries(mode).await?;
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 712>(conn, &key, &countries, EXPIRE).await {
@@ -239,7 +237,7 @@ impl RedisManager {
         const EXPIRE: usize = 43_200; // 12 hours
         let key = "country_regions";
 
-        let mut conn = match self.ctx.cache.fetch(key).await {
+        let mut conn = match Context::cache().fetch(key).await {
             Ok(Ok(countries)) => {
                 BotMetrics::inc_redis_hit("Country regions");
 
@@ -253,7 +251,7 @@ impl RedisManager {
             }
         };
 
-        let country_regions = self.ctx.client().get_country_regions().await?;
+        let country_regions = Context::client().get_country_regions().await?;
 
         if let Some(ref mut conn) = conn {
             if let Err(err) = Cache::store::<_, _, 1024>(conn, key, &country_regions, EXPIRE).await
@@ -284,7 +282,7 @@ impl RedisManager {
         let map_ = map.as_deref().unwrap_or_default();
         let key = format!("diffs_{}_{idx}_{map_}", command.id);
 
-        let mut conn = match self.ctx.cache.fetch(&key).await {
+        let mut conn = match Context::cache().fetch(&key).await {
             Ok(Ok(diffs)) => {
                 BotMetrics::inc_redis_hit("Beatmap difficulties");
 
@@ -316,20 +314,20 @@ impl RedisManager {
 
         let map_id = match map {
             Some(MapOrScore::Map(id)) => Some(id),
-            Some(MapOrScore::Score { id, mode }) => match self.ctx.osu().score(id, mode).await {
+            Some(MapOrScore::Score { id, mode }) => match Context::osu().score(id, mode).await {
                 Ok(score) => Some(MapIdType::Map(score.map_id)),
                 Err(err) => return Err(Report::new(err).wrap_err("Failed to get score")),
             },
-            None => match self.ctx.retrieve_channel_history(command.channel_id).await {
-                Ok(msgs) => self.ctx.find_map_id_in_msgs(&msgs, idx).await,
+            None => match Context::retrieve_channel_history(command.channel_id).await {
+                Ok(msgs) => Context::find_map_id_in_msgs(&msgs, idx).await,
                 Err(err) => return Err(err.wrap_err("Failed to retrieve channel history")),
             },
         };
 
         let diffs = match map_id {
-            Some(MapIdType::Map(map_id)) => self.ctx.osu_map().versions_by_map(map_id).await?,
+            Some(MapIdType::Map(map_id)) => Context::osu_map().versions_by_map(map_id).await?,
             Some(MapIdType::Set(mapset_id)) => {
-                self.ctx.osu_map().versions_by_mapset(mapset_id).await?
+                Context::osu_map().versions_by_mapset(mapset_id).await?
             }
             None => Vec::new(),
         };

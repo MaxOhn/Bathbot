@@ -1,4 +1,4 @@
-use std::{iter, mem, sync::Arc};
+use std::{iter, mem};
 
 use bathbot_model::{
     rosu_v2::user::{MonthlyCount as MonthlyCountRkyv, User},
@@ -38,36 +38,35 @@ use time::{Date, Month, OffsetDateTime};
 use super::{BitMapElement, H, W};
 use crate::{
     commands::osu::user_not_found,
-    core::{commands::CommandOrigin, Context, ContextExt},
+    core::{commands::CommandOrigin, Context},
     manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,
 };
 
 pub async fn playcount_replays_graph(
-    ctx: Arc<Context>,
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     flags: ProfileGraphFlags,
 ) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
+    let user_args = UserArgs::rosu_id(&user_id).await;
 
-    let mut user = match ctx.redis().osu_user(user_args).await {
+    let mut user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
-            orig.error(&ctx, content).await?;
+            let content = user_not_found(user_id).await;
+            orig.error(content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user");
 
             return Err(err);
         }
     };
 
-    let params = ProfileGraphParams::new(&ctx, &mut user)
+    let params = ProfileGraphParams::new(&mut user)
         .width(W)
         .height(H)
         .flags(flags);
@@ -81,19 +80,19 @@ pub async fn playcount_replays_graph(
             );
 
             let builder = MessageBuilder::new().embed(content);
-            orig.create_message(&ctx, builder).await?;
+            orig.create_message(builder).await?;
 
             return Ok(None);
         }
         Ok(GraphResult::NoBadges) => {
             let content = format!("`{}` does not have any badges", user.username());
             let builder = MessageBuilder::new().embed(content);
-            orig.create_message(&ctx, builder).await?;
+            orig.create_message(builder).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             warn!(?err, "Failed to create profile graph");
 
             return Ok(None);
@@ -133,7 +132,6 @@ impl Default for ProfileGraphFlags {
 }
 
 pub struct ProfileGraphParams<'l> {
-    ctx: &'l Context,
     user: &'l mut RedisData<User>,
     w: u32,
     h: u32,
@@ -144,9 +142,8 @@ impl<'l> ProfileGraphParams<'l> {
     const H: u32 = 350;
     const W: u32 = 1350;
 
-    pub fn new(ctx: &'l Context, user: &'l mut RedisData<User>) -> Self {
+    pub fn new(user: &'l mut RedisData<User>) -> Self {
         Self {
-            ctx,
             user,
             w: Self::W,
             h: Self::H,
@@ -177,11 +174,7 @@ type Area<'b> = DrawingArea<SkiaBackend<'b>, Shift>;
 type Chart<'a, 'b> = ChartContext<'a, SkiaBackend<'b>, Cartesian2d<Monthly<Date>, RangedCoordi32>>;
 
 // Request all badge images if required
-async fn gather_badges(
-    ctx: &Context,
-    user: &mut RedisData<User>,
-    flags: ProfileGraphFlags,
-) -> Result<Vec<Bytes>> {
+async fn gather_badges(user: &mut RedisData<User>, flags: ProfileGraphFlags) -> Result<Vec<Bytes>> {
     let badges = match user {
         RedisData::Original(user) => Either::Left(user.badges.as_slice()),
         RedisData::Archive(user) => Either::Right(user.badges.as_slice()),
@@ -193,11 +186,13 @@ async fn gather_badges(
         return Ok(Vec::new());
     }
 
+    let client = Context::client();
+
     match badges {
         Either::Left(badges) => {
             badges
                 .iter()
-                .map(|badge| ctx.client().get_badge(&badge.image_url))
+                .map(|badge| client.get_badge(&badge.image_url))
                 .collect::<FuturesUnordered<_>>()
                 .try_collect()
                 .await
@@ -205,7 +200,7 @@ async fn gather_badges(
         Either::Right(badges) => {
             badges
                 .iter()
-                .map(|badge| ctx.client().get_badge(&badge.image_url))
+                .map(|badge| client.get_badge(&badge.image_url))
                 .collect::<FuturesUnordered<_>>()
                 .try_collect()
                 .await
@@ -217,7 +212,7 @@ async fn graphs(params: ProfileGraphParams<'_>) -> Result<GraphResult> {
     let w = params.w;
     let h = params.h;
 
-    let badges = gather_badges(params.ctx, params.user, params.flags)
+    let badges = gather_badges(params.user, params.flags)
         .await
         .wrap_err("Failed to gather badges")?;
 
@@ -240,13 +235,7 @@ async fn graphs(params: ProfileGraphParams<'_>) -> Result<GraphResult> {
 }
 
 fn draw(surface: &mut Surface, params: ProfileGraphParams<'_>, badges: &[Bytes]) -> Result<bool> {
-    let ProfileGraphParams {
-        ctx: _,
-        user,
-        w,
-        h,
-        flags,
-    } = params;
+    let ProfileGraphParams { user, w, h, flags } = params;
 
     let (playcounts, replays) = prepare_monthly_counts(user, flags);
 

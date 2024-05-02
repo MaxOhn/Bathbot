@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use bathbot_macros::{command, SlashCommand};
 use bathbot_util::constants::OSU_API_ISSUE;
@@ -575,10 +575,10 @@ impl Search {
     }
 }
 
-async fn slash_search(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_search(mut command: InteractionCommand) -> Result<()> {
     let args = Search::from_interaction(command.input_data())?;
 
-    search(ctx, (&mut command).into(), args).await
+    search((&mut command).into(), args).await
 }
 
 #[command]
@@ -611,22 +611,22 @@ async fn slash_search(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
     "artist=camellia length<240 stars>8 genre=electronic"
 )]
 #[group(AllModes)]
-async fn prefix_search(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_search(msg: &Message, args: Args<'_>) -> Result<()> {
     match Search::args(args) {
-        Ok(args) => search(ctx, msg.into(), args).await,
+        Ok(args) => search(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> Result<()> {
-    let mut search_result = match args.request(ctx.osu()).await {
+async fn search(orig: CommandOrigin<'_>, args: Search) -> Result<()> {
+    let mut search_result = match args.request(Context::osu()).await {
         Ok(response) => response,
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get search results"));
         }
@@ -639,6 +639,6 @@ async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> Res
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }

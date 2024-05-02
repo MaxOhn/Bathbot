@@ -1,6 +1,4 @@
-#![cfg(feature = "osutracking")]
-
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_macros::SlashCommand;
 use bathbot_util::CowUtils;
@@ -11,10 +9,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
 use super::GameModeOption;
 use crate::{
-    core::{
-        commands::prefix::{Args, ArgsNum},
-        ContextExt,
-    },
+    core::commands::prefix::{Args, ArgsNum},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
@@ -108,25 +103,22 @@ pub struct TrackRemoveAll {
 )]
 pub struct TrackList;
 
-async fn slash_track(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_track(mut command: InteractionCommand) -> Result<()> {
     match Track::from_interaction(command.input_data())? {
-        Track::Add(add) => track(ctx, (&mut command).into(), add.into()).await,
-        Track::Remove(TrackRemove::User(user)) => {
-            untrack(ctx, (&mut command).into(), user.into()).await
-        }
+        Track::Add(add) => track((&mut command).into(), add.into()).await,
+        Track::Remove(TrackRemove::User(user)) => untrack((&mut command).into(), user.into()).await,
         Track::Remove(TrackRemove::All(all)) => {
-            untrackall(ctx, (&mut command).into(), all.mode.map(GameMode::from)).await
+            untrackall((&mut command).into(), all.mode.map(GameMode::from)).await
         }
-        Track::List(_) => tracklist(ctx, (&mut command).into()).await,
+        Track::List(_) => tracklist((&mut command).into()).await,
     }
 }
 
 async fn get_names(
-    ctx: Arc<Context>,
     names: &[String],
     mode: GameMode,
 ) -> Result<HashMap<Username, u32>, (OsuError, Cow<'_, str>)> {
-    let mut entries = match ctx.osu_user().ids(names).await {
+    let mut entries = match Context::osu_user().ids(names).await {
         Ok(names) => names,
         Err(err) => {
             warn!(?err, "Failed to get user ids by names");
@@ -140,11 +132,9 @@ async fn get_names(
             let name = name.cow_to_ascii_lowercase();
 
             if entries.keys().all(|n| name != n.cow_to_ascii_lowercase()) {
-                let args = UserArgs::username(ctx.cloned(), name.as_ref())
-                    .await
-                    .mode(mode);
+                let args = UserArgs::username(name.as_ref()).await.mode(mode);
 
-                match ctx.redis().osu_user(args).await {
+                match Context::redis().osu_user(args).await {
                     Ok(user) => entries.insert(user.username().into(), user.user_id()),
                     Err(err) => return Err((err, name)),
                 };

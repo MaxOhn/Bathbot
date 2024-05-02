@@ -103,6 +103,8 @@ impl Bucket {
     }
 }
 
+// Some buckets require certain features to be enabled
+#[allow(unused)]
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub enum BucketName {
     All,

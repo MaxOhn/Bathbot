@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     cmp::{Ordering, Reverse},
-    sync::Arc,
 };
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
@@ -34,12 +33,9 @@ use super::{CompareScoreAutocomplete, ScoreOrder};
 use crate::{
     active::{impls::CompareScoresPagination, ActiveMessages},
     commands::osu::{require_link, HasMods, ModsResult},
-    core::{
-        commands::{
-            prefix::{Args, ArgsNum},
-            CommandOrigin,
-        },
-        ContextExt,
+    core::commands::{
+        prefix::{Args, ArgsNum},
+        CommandOrigin,
     },
     manager::{
         redis::{
@@ -273,7 +269,6 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
 #[aliases("c", "score", "scores", "gap")]
 #[group(AllModes)]
 async fn prefix_compare(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
@@ -286,54 +281,49 @@ async fn prefix_compare(
         .filter(|_| msg.kind == MessageType::Reply);
 
     if let Some(msg) = reply {
-        if let Some(id) = ctx.find_map_id_in_msg(msg).await {
+        if let Some(id) = Context::find_map_id_in_msg(msg).await {
             args.map = Some(MapOrScore::Map(id));
         } else if let Some((mode, id)) = matcher::get_osu_score_id(&msg.content) {
             args.map = Some(MapOrScore::Score { id, mode });
         }
     }
 
-    score(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    score(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
-pub async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_cs(mut command: InteractionCommand) -> Result<()> {
     let args = CompareScoreAutocomplete::from_interaction(command.input_data())?;
 
-    slash_compare(ctx, &mut command, args).await
+    slash_compare(&mut command, args).await
 }
 
-async fn slash_comparescore_(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_comparescore_(mut command: InteractionCommand) -> Result<()> {
     let args = CompareScoreAutocomplete::from_interaction(command.input_data())?;
 
-    slash_compare(ctx, &mut command, args).await
+    slash_compare(&mut command, args).await
 }
 
 pub async fn slash_compare(
-    ctx: Arc<Context>,
     command: &mut InteractionCommand,
     args: CompareScoreAutocomplete<'_>,
 ) -> Result<()> {
     if let AutocompleteValue::Focused(diff) = args.difficulty {
-        return handle_autocomplete(ctx, command, Some(diff), &args.map, args.index).await;
+        return handle_autocomplete(command, Some(diff), &args.map, args.index).await;
     }
 
     match CompareScoreArgs::try_from(args) {
-        Ok(args) => score(ctx, command.into(), args).await,
+        Ok(args) => score(command.into(), args).await,
         Err(content) => {
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-pub(super) async fn score(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: CompareScoreArgs<'_>,
-) -> Result<()> {
+pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -> Result<()> {
     let owner = orig.user_id()?;
-    let config = ctx.user_config().with_osu_id(owner).await?;
+    let config = Context::user_config().with_osu_id(owner).await?;
 
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
@@ -344,23 +334,22 @@ pub(super) async fn score(
                 For exact mods, provide it e.g. as `+hdhr!`.\n\
                 And for excluded mods, provide it e.g. as `-hdnf!`.";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
     };
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -384,39 +373,39 @@ pub(super) async fn score(
             Some(MapOrScore::Map(MapIdType::Set(_))) => {
                 let content = "Looks like you gave me a mapset id, I need a map id though";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
             Some(MapOrScore::Score { id, mode }) => {
-                return compare_from_score(ctx, orig, id, mode, legacy_scores).await
+                return compare_from_score(orig, id, mode, legacy_scores).await
             }
             None if orig.can_read_history() => {
                 let idx = match index {
                     Some(51..) => {
                         let content = "I can only go back 50 messages";
 
-                        return orig.error(&ctx, content).await;
+                        return orig.error(content).await;
                     }
                     Some(idx) => idx.saturating_sub(1) as usize,
                     None => 0,
                 };
 
-                let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
+                let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
                     Ok(msgs) => msgs,
                     Err(err) => {
-                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error(GENERAL_ISSUE).await;
 
                         return Err(err.wrap_err("failed to retrieve channel history"));
                     }
                 };
 
-                match ctx.find_map_id_in_msgs(&msgs, idx).await {
+                match Context::find_map_id_in_msgs(&msgs, idx).await {
                     Some(MapIdType::Map(id)) => id,
                     None | Some(MapIdType::Set(_)) if idx == 0 => {
                         let content =
                             "No beatmap specified and none found in recent channel history.\n\
                             Try specifying a map either by url to the map, or just by map id.";
 
-                        return orig.error(&ctx, content).await;
+                        return orig.error(content).await;
                     }
                     None | Some(MapIdType::Set(_)) => {
                         let content = format!(
@@ -426,7 +415,7 @@ pub(super) async fn score(
                             idx + 1
                         );
 
-                        return orig.error(&ctx, content).await;
+                        return orig.error(content).await;
                     }
                 }
             }
@@ -436,13 +425,13 @@ pub(super) async fn score(
                 Try specifying a map either by url to the map, or just by map id, \
                 or give me the \"Read Message History\" permission.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         }
     };
 
     // Retrieving the beatmap
-    let map = match ctx.osu_map().map(map_id, None).await {
+    let map = match Context::osu_map().map(map_id, None).await {
         Ok(map) => map,
         Err(MapError::NotFound) => {
             let content = format!(
@@ -450,23 +439,22 @@ pub(super) async fn score(
                 Did you give me a mapset id instead of a map id?"
             );
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(MapError::Report(err)) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
     };
 
     let mode = map.mode();
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
     let (user_res, score_res) = match user_args {
         UserArgs::Args(args) => {
-            let user_fut = ctx.redis().osu_user_from_args(args);
-            let score_fut = ctx
-                .osu_scores()
+            let user_fut = Context::redis().osu_user_from_args(args);
+            let score_fut = Context::osu_scores()
                 .user_on_map(map_id, legacy_scores)
                 .exec(args);
 
@@ -475,8 +463,7 @@ pub(super) async fn score(
         UserArgs::User { user, mode } => {
             let args = UserArgsSlim::user_id(user.user_id).mode(mode);
             let user = RedisData::Original(*user);
-            let score_res = ctx
-                .osu_scores()
+            let score_res = Context::osu_scores()
                 .user_on_map(map_id, legacy_scores)
                 .exec(args)
                 .await;
@@ -494,33 +481,27 @@ pub(super) async fn score(
                 UserId::Name(name) => format!("User `{name}` was not found"),
             };
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (_, Err(OsuError::NotFound)) => {
             let content = "Beatmap was not found. Maybe unranked?";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (Err(err), _) | (_, Err(err)) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user or scores");
 
             return Err(err);
         }
     };
 
-    let process_fut = process_scores(
-        ctx.cloned(),
-        map_id,
-        scores,
-        mods.as_ref(),
-        sort.unwrap_or_default(),
-    );
+    let process_fut = process_scores(map_id, scores, mods.as_ref(), sort.unwrap_or_default());
 
     let entries = match process_fut.await {
         Ok(entries) => entries,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("Failed to process scores"));
         }
@@ -529,13 +510,13 @@ pub(super) async fn score(
     if entries.is_empty() {
         let embed = no_scores_embed(&user, &map, mods);
         let builder = MessageBuilder::new().embed(embed);
-        orig.create_message(&ctx, builder).await?;
+        orig.create_message(builder).await?;
 
         return Ok(());
     }
 
     let user_args = UserArgsSlim::user_id(user.user_id()).mode(mode);
-    let scores_manager = ctx.osu_scores();
+    let scores_manager = Context::osu_scores();
     let pinned_fut = scores_manager
         .clone()
         .pinned(legacy_scores)
@@ -632,7 +613,7 @@ pub(super) async fn score(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
@@ -646,21 +627,20 @@ pub struct CompareEntry {
 }
 
 async fn process_scores(
-    ctx: Arc<Context>,
     map_id: u32,
     mut scores: Vec<Score>,
     mods: Option<&ModSelection>,
     sort: ScoreOrder,
 ) -> Result<Vec<CompareEntry>> {
     let mut entries = Vec::with_capacity(scores.len());
-    let map = ctx.osu_map().map(map_id, None).await?;
+    let map = Context::osu_map().map(map_id, None).await?;
 
     if let Some(selection) = mods {
         selection.filter_scores(&mut scores);
     }
 
     for score in scores {
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
+        let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
         let attrs = calc.performance().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo();
@@ -677,7 +657,7 @@ async fn process_scores(
 
         let has_replay = score.replay;
         let score = ScoreSlim::new(score, pp);
-        let if_fc = IfFc::new(&ctx, &score, &map).await;
+        let if_fc = IfFc::new(&score, &map).await;
 
         let entry = CompareEntry {
             score,
@@ -739,16 +719,15 @@ async fn process_scores(
 }
 
 async fn compare_from_score(
-    ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     score_id: u64,
     mode: GameMode,
     legacy_scores: bool,
 ) -> Result<()> {
-    let mut score = match ctx.osu().score(score_id, mode).await {
+    let mut score = match Context::osu().score(score_id, mode).await {
         Ok(score) => score,
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get score");
 
             return Err(err);
@@ -756,13 +735,13 @@ async fn compare_from_score(
     };
 
     let map = score.map.take().expect("missing map");
-    let map_fut = ctx.osu_map().map(map.map_id, map.checksum.as_deref());
+    let map_fut = Context::osu_map().map(map.map_id, map.checksum.as_deref());
 
     let user_args = UserArgs::user_id(score.user_id).mode(mode);
-    let user_fut = ctx.redis().osu_user(user_args);
+    let user_fut = Context::redis().osu_user(user_args);
 
     let user_args = UserArgsSlim::user_id(score.user_id).mode(mode);
-    let scores_manager = ctx.osu_scores();
+    let scores_manager = Context::osu_scores();
     let pinned_fut = scores_manager
         .clone()
         .pinned(legacy_scores)
@@ -774,7 +753,7 @@ async fn compare_from_score(
     let user = match user_res {
         Ok(user) => user,
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user");
 
             return Err(err);
@@ -786,7 +765,7 @@ async fn compare_from_score(
     let map = match map_res {
         Ok(map) => map,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(Report::new(err));
         }
@@ -803,7 +782,7 @@ async fn compare_from_score(
 
     let mode = score.mode;
 
-    let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
+    let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
     let attrs = calc.performance().await;
 
     let max_pp = score
@@ -818,7 +797,7 @@ async fn compare_from_score(
 
     let has_replay = score.replay;
     let score = ScoreSlim::new(score, pp);
-    let if_fc = IfFc::new(&ctx, &score, &map).await;
+    let if_fc = IfFc::new(&score, &map).await;
 
     let entries = vec![CompareEntry {
         score,
@@ -880,18 +859,17 @@ async fn compare_from_score(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
 async fn handle_autocomplete(
-    ctx: Arc<Context>,
     command: &InteractionCommand,
     difficulty: Option<String>,
     map: &Option<Cow<'_, str>>,
     idx: Option<u32>,
 ) -> Result<()> {
-    let diffs = ctx.redis().cs_diffs(command, map, idx).await?;
+    let diffs = Context::redis().cs_diffs(command, map, idx).await?;
 
     let diff = difficulty
         .as_deref()
@@ -937,7 +915,7 @@ async fn handle_autocomplete(
             .collect(),
     };
 
-    command.autocomplete(&ctx, choices).await?;
+    command.autocomplete(choices).await?;
 
     Ok(())
 }

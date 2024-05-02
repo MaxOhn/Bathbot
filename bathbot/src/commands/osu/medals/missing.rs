@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering};
 
 use bathbot_macros::command;
 use bathbot_model::{MedalGroup, OsekaiMedal, MEDAL_GROUPS};
@@ -15,7 +15,7 @@ use super::{MedalMissing, MedalMissingOrder};
 use crate::{
     active::{impls::MedalsMissingPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };
@@ -26,7 +26,7 @@ use crate::{
 #[example("badewanne3")]
 #[aliases("mm", "missingmedals")]
 #[group(AllModes)]
-async fn prefix_medalsmissing(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_medalsmissing(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => MedalMissing {
@@ -43,47 +43,43 @@ async fn prefix_medalsmissing(ctx: Arc<Context>, msg: &Message, mut args: Args<'
         None => MedalMissing::default(),
     };
 
-    missing(ctx, msg.into(), args).await
+    missing(msg.into(), args).await
 }
 
-pub(super) async fn missing(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: MedalMissing<'_>,
-) -> Result<()> {
+pub(super) async fn missing(orig: CommandOrigin<'_>, args: MedalMissing<'_>) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(owner).await {
+        None => match Context::user_config().osu_id(owner).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
+            Ok(None) => return require_link(&orig).await,
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
         },
     };
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
-    let user_fut = ctx.redis().osu_user(user_args);
-    let medals_fut = ctx.redis().medals();
+    let user_args = UserArgs::rosu_id(&user_id).await;
+    let user_fut = Context::redis().osu_user(user_args);
+    let medals_fut = Context::redis().medals();
 
     let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {
         (Ok(user), Ok(medals)) => (user, medals),
         (Err(OsuError::NotFound), _) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (_, Err(err)) => {
-            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached medals"));
         }
         (Err(err), _) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let report = Report::new(err).wrap_err("failed to get user");
 
             return Err(report);
@@ -170,7 +166,7 @@ pub(super) async fn missing(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 

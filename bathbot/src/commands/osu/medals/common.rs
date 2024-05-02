@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     cmp::{Ordering, Reverse},
-    sync::Arc,
 };
 
 use bathbot_macros::command;
@@ -25,7 +24,7 @@ use super::{MedalCommon, MedalCommonFilter, MedalCommonOrder};
 use crate::{
     active::{impls::MedalsCommonPagination, ActiveMessages},
     commands::osu::UserExtraction,
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
     util::osu::get_combined_thumbnail,
     Context,
@@ -37,7 +36,7 @@ use crate::{
 #[example("badewanne3 5joshi")]
 #[alias("medalcommon")]
 #[group(AllModes)]
-pub async fn prefix_medalscommon(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_medalscommon(msg: &Message, args: Args<'_>) -> Result<()> {
     let mut args_ = MedalCommon::default();
 
     for arg in args.take(2) {
@@ -54,10 +53,10 @@ pub async fn prefix_medalscommon(ctx: Arc<Context>, msg: &Message, args: Args<'_
         }
     }
 
-    common(ctx, msg.into(), args_).await
+    common(msg.into(), args_).await
 }
 
-async fn extract_user_id<'a>(ctx: &Context, args: &mut MedalCommon<'a>) -> UserExtraction {
+async fn extract_user_id(args: &mut MedalCommon<'_>) -> UserExtraction {
     if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
         let name = match name {
             Cow::Borrowed(name) => name.into(),
@@ -66,7 +65,7 @@ async fn extract_user_id<'a>(ctx: &Context, args: &mut MedalCommon<'a>) -> UserE
 
         UserExtraction::Id(UserId::Name(name))
     } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
-        match ctx.user_config().osu_id(discord).await {
+        match Context::user_config().osu_id(discord).await {
             Ok(Some(user_id)) => UserExtraction::Id(UserId::Id(user_id)),
             Ok(None) => {
                 UserExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
@@ -78,45 +77,41 @@ async fn extract_user_id<'a>(ctx: &Context, args: &mut MedalCommon<'a>) -> UserE
     }
 }
 
-pub(super) async fn common(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    mut args: MedalCommon<'_>,
-) -> Result<()> {
-    let user_id1 = match extract_user_id(&ctx, &mut args).await {
+pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -> Result<()> {
+    let user_id1 = match extract_user_id(&mut args).await {
         UserExtraction::Id(user_id) => user_id,
         UserExtraction::Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
+        UserExtraction::Content(content) => return orig.error(content).await,
         UserExtraction::None => {
             let content = "You need to specify at least one osu username. \
             If you're not linked, you must specify two names.";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
     };
 
-    let user_id2 = match extract_user_id(&ctx, &mut args).await {
+    let user_id2 = match extract_user_id(&mut args).await {
         UserExtraction::Id(user_id) => user_id,
         UserExtraction::Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
-        UserExtraction::None => match ctx.user_config().osu_id(orig.user_id()?).await {
+        UserExtraction::Content(content) => return orig.error(content).await,
+        UserExtraction::None => match Context::user_config().osu_id(orig.user_id()?).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => {
                 let content =
                     "Since you're not linked with the `/link` command, you must specify two names.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -124,19 +119,19 @@ pub(super) async fn common(
     };
 
     if user_id1 == user_id2 {
-        return orig.error(&ctx, "Give two different names").await;
+        return orig.error("Give two different names").await;
     }
 
     let MedalCommon { sort, filter, .. } = args;
 
     // Retrieve all users and their scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id1).await;
-    let user_fut1 = ctx.redis().osu_user(user_args);
+    let user_args = UserArgs::rosu_id(&user_id1).await;
+    let user_fut1 = Context::redis().osu_user(user_args);
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id2).await;
-    let user_fut2 = ctx.redis().osu_user(user_args);
+    let user_args = UserArgs::rosu_id(&user_id2).await;
+    let user_fut2 = Context::redis().osu_user(user_args);
 
-    let medals_fut = ctx.redis().medals();
+    let medals_fut = Context::redis().medals();
 
     let (user_res1, user_res2, all_medals_res) = tokio::join!(user_fut1, user_fut2, medals_fut);
 
@@ -145,10 +140,10 @@ pub(super) async fn common(
         (Err(OsuError::NotFound), _) | (_, Err(OsuError::NotFound)) => {
             let content = "At least one of the users was not found";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (Err(err), _) | (_, Err(err)) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("failed to get user"));
         }
@@ -157,7 +152,7 @@ pub(super) async fn common(
     let mut all_medals = match all_medals_res {
         Ok(medals) => medals.into_original(),
         Err(err) => {
-            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached medals"));
         }
@@ -166,7 +161,7 @@ pub(super) async fn common(
     if user1.user_id() == user2.user_id() {
         let content = "Give two different users";
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
     // Combining and sorting all medals
@@ -252,7 +247,7 @@ pub(super) async fn common(
         None => medals.sort_unstable_by(|a, b| a.medal.cmp(&b.medal)),
         Some(MedalCommonOrder::Rarity) => {
             if !medals.is_empty() {
-                match ctx.redis().osekai_ranking::<Rarity>().await {
+                match Context::redis().osekai_ranking::<Rarity>().await {
                     Ok(rarities) => {
                         let rarities: HashMap<_, _, IntHasher> = match rarities {
                             RedisData::Original(rarities) => rarities
@@ -273,7 +268,7 @@ pub(super) async fn common(
                         });
                     }
                     Err(err) => {
-                        let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
+                        let _ = orig.error(OSEKAI_ISSUE).await;
 
                         return Err(err.wrap_err("failed to get cached rarity ranking"));
                     }
@@ -299,7 +294,7 @@ pub(super) async fn common(
 
     let urls = [user1.avatar_url(), user2.avatar_url()];
 
-    let thumbnail = match get_combined_thumbnail(&ctx, urls, 2, None).await {
+    let thumbnail = match get_combined_thumbnail(urls, 2, None).await {
         Ok(thumbnail) => Some(thumbnail),
         Err(err) => {
             warn!(?err, "Failed to combine avatars");
@@ -331,7 +326,7 @@ pub(super) async fn common(
     ActiveMessages::builder(pagination)
         .start_by_update(true)
         .attachment(thumbnail.map(|bytes| ("avatar_fuse.png".to_owned(), bytes)))
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 

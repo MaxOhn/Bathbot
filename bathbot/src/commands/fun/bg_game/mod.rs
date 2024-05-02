@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_macros::{command, SlashCommand};
 use bathbot_model::Effects;
 use bathbot_psql::model::games::DbMapTagsParams;
@@ -23,7 +21,6 @@ use crate::{
         ActiveMessages,
     },
     commands::ThreadChannel,
-    core::ContextExt,
     util::{interaction::InteractionCommand, Authored, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -41,7 +38,6 @@ mod stop;
 #[flags(SKIP_DEFER)] // defer manually on specific subcommands
 #[group(Games)]
 pub async fn prefix_backgroundgame(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
@@ -65,29 +61,29 @@ pub async fn prefix_backgroundgame(
                 I will only show members of this server.";
 
             let builder = MessageBuilder::new().embed(content);
-            msg.create_message(&ctx, builder, permissions).await?;
+            msg.create_message(builder, permissions).await?;
 
             Ok(())
         }
-        Some("s" | "skip" | "r" | "resolve" | "start") => skip(ctx, msg).await,
-        Some("h" | "hint") => hint(ctx, msg, permissions).await,
-        Some("b" | "bigger" | "enhance") => bigger(ctx, msg, permissions).await,
-        Some("stop" | "end" | "quit") => stop(ctx, msg).await,
+        Some("s" | "skip" | "r" | "resolve" | "start") => skip(msg).await,
+        Some("h" | "hint") => hint(msg, permissions).await,
+        Some("b" | "bigger" | "enhance") => bigger(msg, permissions).await,
+        Some("stop" | "end" | "quit") => stop(msg).await,
         Some("l" | "lb" | "leaderboard") => {
             let arg = args.next();
 
             match arg.as_ref().map(|arg| arg.as_ref()) {
-                Some("s" | "server") => leaderboard(ctx, msg, false).await,
-                _ => leaderboard(ctx, msg, true).await,
+                Some("s" | "server") => leaderboard(msg, false).await,
+                _ => leaderboard(msg, true).await,
             }
         }
         _ => {
-            let prefix = ctx.guild_config().first_prefix(msg.guild_id).await;
+            let prefix = Context::guild_config().first_prefix(msg.guild_id).await;
 
             let content =
                 format!("That's not a valid subcommand. Check `{prefix}bg` for more help.");
 
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -161,7 +157,7 @@ impl Default for GameDifficulty {
     }
 }
 
-async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_bg(mut command: InteractionCommand) -> Result<()> {
     let Bg {
         difficulty,
         mode,
@@ -174,7 +170,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
     if !can_view_channel {
         let content = r#"I'm lacking the "View Channel" permission in this channel"#;
-        command.error_callback(&ctx, content).await?;
+        command.error_callback(content).await?;
 
         return Ok(());
     }
@@ -185,7 +181,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
     if !can_attach_files {
         let content = "I'm lacking the permission to attach files";
-        command.error_callback(&ctx, content).await?;
+        command.error_callback(content).await?;
 
         return Ok(());
     }
@@ -196,7 +192,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
     if let Some(ThreadChannel::Thread) = thread {
         if command.guild_id.is_none() {
-            command.error_callback(&ctx, THREADS_UNAVAILABLE).await?;
+            command.error_callback(THREADS_UNAVAILABLE).await?;
 
             return Ok(());
         }
@@ -207,7 +203,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
         if !can_create_thread {
             let content = r#"I'm lacking "Create Public Threads" permission in this channel"#;
-            command.error_callback(&ctx, content).await?;
+            command.error_callback(content).await?;
 
             return Ok(());
         }
@@ -219,7 +215,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
         if !can_send_msgs {
             let content =
                 r#"I'm lacking the "Send Messages in Threads" permission in this channel"#;
-            command.error_callback(&ctx, content).await?;
+            command.error_callback(content).await?;
 
             return Ok(());
         }
@@ -228,8 +224,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
         let archive_dur = AutoArchiveDuration::Day;
         let thread_name = format!("Background guessing game of {}", author_user.name);
 
-        let create_fut = ctx
-            .http
+        let create_fut = Context::http()
             .create_thread(channel, &thread_name, kind)
             .unwrap()
             .auto_archive_duration(archive_dur);
@@ -250,12 +245,12 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
                 match content {
                     Some(content) => {
-                        command.error_callback(&ctx, content).await?;
+                        command.error_callback(content).await?;
 
                         return Ok(());
                     }
                     None => {
-                        let _ = command.error_callback(&ctx, GENERAL_ISSUE).await;
+                        let _ = command.error_callback(GENERAL_ISSUE).await;
 
                         return Err(Report::new(err).wrap_err("failed to create thread"));
                     }
@@ -269,13 +264,13 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
         if !can_send_msgs {
             let content = r#"I'm lacking the "Send Messages" permission in this channel"#;
-            command.error_callback(&ctx, content).await?;
+            command.error_callback(content).await?;
 
             return Ok(());
         }
     }
 
-    if let Some(game) = ctx.bg_games().write(&channel).await.remove() {
+    if let Some(game) = Context::bg_games().write(&channel).await.remove() {
         if let Err(err) = game.stop() {
             warn!(?err, "Failed to stop game");
         }
@@ -289,22 +284,20 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
             if matches!(thread, Some(ThreadChannel::Thread)) {
                 let res_builder = MessageBuilder::new().embed("Starting new thread...");
-                command.callback(&ctx, res_builder, true).await?;
+                command.callback(res_builder, true).await?;
 
-                ActiveMessages::builder(setup).begin(ctx, channel).await
+                ActiveMessages::builder(setup).begin(channel).await
             } else {
-                ActiveMessages::builder(setup)
-                    .begin(ctx, &mut command)
-                    .await
+                ActiveMessages::builder(setup).begin(&mut command).await
             }
         }
         Some(BgGameMode::Mania) => {
             let params = DbMapTagsParams::new(GameMode::Mania);
 
-            let entries = match ctx.games().bggame_tags(params).await {
+            let entries = match Context::games().bggame_tags(params).await {
                 Ok(entries) => entries,
                 Err(err) => {
-                    let _ = command.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = command.error(GENERAL_ISSUE).await;
 
                     return Err(err.wrap_err("failed to get all tagged mania mapsets"));
                 }
@@ -319,17 +312,19 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
             if matches!(thread, Some(ThreadChannel::Thread)) {
                 let res_builder = MessageBuilder::new().embed("Starting new thread...");
-                command.callback(&ctx, res_builder, true).await?;
+                command.callback(res_builder, true).await?;
 
-                channel.create_message(&ctx, builder, None).await?;
+                channel.create_message(builder, None).await?;
             } else {
-                command.callback(&ctx, builder, false).await?;
+                command.callback(builder, false).await?;
             }
 
-            let game_fut =
-                BackgroundGame::new(ctx.cloned(), channel, entries, Effects::empty(), difficulty);
+            let game_fut = BackgroundGame::new(channel, entries, Effects::empty(), difficulty);
 
-            ctx.bg_games().own(channel).await.insert(game_fut.await);
+            Context::bg_games()
+                .own(channel)
+                .await
+                .insert(game_fut.await);
 
             Ok(())
         }

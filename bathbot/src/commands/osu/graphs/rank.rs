@@ -1,4 +1,4 @@
-use std::{iter, sync::Arc};
+use std::iter;
 
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
@@ -21,26 +21,25 @@ use crate::{
         graphs::{H, W},
         user_not_found,
     },
-    core::{commands::CommandOrigin, Context, ContextExt},
+    core::{commands::CommandOrigin, Context},
     manager::redis::{osu::UserArgs, RedisData},
 };
 
 pub async fn rank_graph(
-    ctx: Arc<Context>,
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     user_args: UserArgs,
 ) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
-            orig.error(&ctx, content).await?;
+            let content = user_not_found(user_id).await;
+            orig.error(content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
@@ -203,12 +202,12 @@ pub async fn rank_graph(
                 name = user.username()
             );
 
-            orig.error(&ctx, content).await?;
+            orig.error(content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             warn!(?err, "Failed to draw rank graph");
 
             return Ok(None);

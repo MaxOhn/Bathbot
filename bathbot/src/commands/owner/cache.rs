@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_util::{numbers::WithComma, EmbedBuilder, FooterBuilder, MessageBuilder};
 use eyre::Result;
 
@@ -8,8 +6,8 @@ use crate::{
     Context,
 };
 
-pub async fn cache(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
-    let stats = ctx.cache.stats();
+pub async fn cache(command: InteractionCommand) -> Result<()> {
+    let stats = Context::cache().stats();
 
     let description = format!(
         "Guilds: {guilds}\n\
@@ -27,10 +25,10 @@ pub async fn cache(ctx: Arc<Context>, command: InteractionCommand) -> Result<()>
     let embed = EmbedBuilder::new()
         .description(description)
         .footer(FooterBuilder::new("Boot time"))
-        .timestamp(ctx.start_time);
+        .timestamp(Context::get().start_time);
 
     let builder = MessageBuilder::new().embed(embed);
-    command.callback(&ctx, builder, false).await?;
+    command.callback(builder, false).await?;
 
     Ok(())
 }

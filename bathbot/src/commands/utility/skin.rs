@@ -1,9 +1,6 @@
 use std::{
     mem::MaybeUninit,
-    sync::{
-        atomic::{AtomicPtr, Ordering::Relaxed},
-        Arc,
-    },
+    sync::atomic::{AtomicPtr, Ordering::Relaxed},
 };
 
 use bathbot_macros::{HasName, SlashCommand};
@@ -32,12 +29,12 @@ pub enum Skin {
     Unset(UnsetSkin),
 }
 
-pub async fn slash_skin(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_skin(mut command: InteractionCommand) -> Result<()> {
     match Skin::from_interaction(command.input_data())? {
-        Skin::Check(args) => args.process(&ctx, &command).await,
-        Skin::All(args) => args.process(ctx, &mut command).await,
-        Skin::Set(args) => args.process(&ctx, &command).await,
-        Skin::Unset(args) => args.process(&ctx, &command).await,
+        Skin::Check(args) => args.process(&command).await,
+        Skin::All(args) => args.process(&mut command).await,
+        Skin::Set(args) => args.process(&command).await,
+        Skin::Unset(args) => args.process(&command).await,
     }
 }
 
@@ -56,48 +53,48 @@ pub struct CheckSkin {
 }
 
 impl CheckSkin {
-    async fn process(self, ctx: &Context, command: &InteractionCommand) -> Result<()> {
+    async fn process(self, command: &InteractionCommand) -> Result<()> {
         if let Some(username) = self.name {
             // User specified an osu! username
-            match ctx.user_config().skin_from_osu_name(&username).await {
+            match Context::user_config().skin_from_osu_name(&username).await {
                 Ok(Some(skin_url)) => {
                     let content = format!("`{username}`'s current skin: {skin_url}");
                     let builder = MessageBuilder::new().embed(content);
-                    command.update(ctx, builder).await?;
+                    command.update(builder).await?;
                 }
                 Ok(None) => {
                     let content = format!("`{username}` has not yet set their skin.");
                     let builder = MessageBuilder::new().embed(content);
-                    command.update(ctx, builder).await?;
+                    command.update(builder).await?;
                 }
                 Err(err) => {
-                    let _ = command.error(ctx, GENERAL_ISSUE).await;
+                    let _ = command.error(GENERAL_ISSUE).await;
 
                     return Err(err);
                 }
             }
         } else if let Some(user_id) = self.discord {
             // User specified a discord user
-            match ctx.user_config().skin(user_id).await {
+            match Context::user_config().skin(user_id).await {
                 Ok(Some(skin_url)) => {
                     let content = format!("<@{user_id}>'s current skin: {skin_url}");
                     let builder = MessageBuilder::new().embed(content);
-                    command.update(ctx, builder).await?;
+                    command.update(builder).await?;
                 }
                 Ok(None) => {
                     let content = format!("<@{user_id}> has not yet set their skin.");
                     let builder = MessageBuilder::new().embed(content);
-                    command.update(ctx, builder).await?;
+                    command.update(builder).await?;
                 }
                 Err(err) => {
-                    let _ = command.error(ctx, GENERAL_ISSUE).await;
+                    let _ = command.error(GENERAL_ISSUE).await;
 
                     return Err(err);
                 }
             }
         } else {
             // User didn't specify anything, choose user themselves
-            match ctx.user_config().skin(command.user_id()?).await {
+            match Context::user_config().skin(command.user_id()?).await {
                 Ok(Some(skin_url)) => {
                     let embed = EmbedBuilder::new()
                         .description(format!("Your current skin: {skin_url}"))
@@ -107,15 +104,15 @@ impl CheckSkin {
                         );
 
                     let builder = MessageBuilder::new().embed(embed);
-                    command.update(ctx, builder).await?;
+                    command.update(builder).await?;
                 }
                 Ok(None) => {
                     let content = "You have not yet set your skin. You can do so with `/skin set`";
                     let builder = MessageBuilder::new().embed(content);
-                    command.update(ctx, builder).await?;
+                    command.update(builder).await?;
                 }
                 Err(err) => {
-                    let _ = command.error(ctx, GENERAL_ISSUE).await;
+                    let _ = command.error(GENERAL_ISSUE).await;
 
                     return Err(err);
                 }
@@ -131,8 +128,8 @@ impl CheckSkin {
 pub struct AllSkin;
 
 impl AllSkin {
-    async fn process(self, ctx: Arc<Context>, command: &mut InteractionCommand) -> Result<()> {
-        match ctx.user_config().all_skins().await {
+    async fn process(self, command: &mut InteractionCommand) -> Result<()> {
+        match Context::user_config().all_skins().await {
             Ok(entries) => {
                 let pagination = active::impls::SkinsPagination::builder()
                     .entries(entries.into_boxed_slice())
@@ -141,12 +138,12 @@ impl AllSkin {
 
                 ActiveMessages::builder(pagination)
                     .start_by_update(true)
-                    .begin(ctx, CommandOrigin::from(command))
+                    .begin(CommandOrigin::from(command))
                     .await
                     .wrap_err("Failed to begin active message")
             }
             Err(err) => {
-                let _ = command.error(&ctx, GENERAL_ISSUE).await;
+                let _ = command.error(GENERAL_ISSUE).await;
 
                 Err(err)
             }
@@ -179,20 +176,18 @@ pub struct SetSkin {
 }
 
 impl SetSkin {
-    async fn process(self, ctx: &Context, command: &InteractionCommand) -> Result<()> {
+    async fn process(self, command: &InteractionCommand) -> Result<()> {
         let Self { url } = self;
 
-        match SkinValidation::check(ctx, command, &url).await? {
+        match SkinValidation::check(command, &url).await? {
             ValidationStatus::Continue => {}
             ValidationStatus::Handled => return Ok(()),
         }
 
-        let update_fut = ctx
-            .user_config()
-            .update_skin(command.user_id()?, Some(&url));
+        let update_fut = Context::user_config().update_skin(command.user_id()?, Some(&url));
 
         if let Err(err) = update_fut.await {
-            let _ = command.error(ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -205,7 +200,7 @@ impl SetSkin {
             );
 
         let builder = MessageBuilder::new().embed(embed);
-        command.update(ctx, builder).await?;
+        command.update(builder).await?;
 
         Ok(())
     }
@@ -216,18 +211,18 @@ impl SetSkin {
 pub struct UnsetSkin;
 
 impl UnsetSkin {
-    async fn process(self, ctx: &Context, command: &InteractionCommand) -> Result<()> {
-        let update_fut = ctx.user_config().update_skin(command.user_id()?, None);
+    async fn process(self, command: &InteractionCommand) -> Result<()> {
+        let update_fut = Context::user_config().update_skin(command.user_id()?, None);
 
         if let Err(err) = update_fut.await {
-            let _ = command.error(ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
 
         let content = "Successfully unset your skin";
         let builder = MessageBuilder::new().embed(content);
-        command.update(ctx, builder).await?;
+        command.update(builder).await?;
 
         Ok(())
     }
@@ -256,12 +251,8 @@ pub enum Reason {
 }
 
 impl SkinValidation {
-    pub async fn check(
-        ctx: &Context,
-        command: &InteractionCommand,
-        skin_url: &str,
-    ) -> Result<ValidationStatus> {
-        match Self::validate(ctx, skin_url).await {
+    pub async fn check(command: &InteractionCommand, skin_url: &str) -> Result<ValidationStatus> {
+        match Self::validate(skin_url).await {
             SkinValidation::Ok => Ok(ValidationStatus::Continue),
             SkinValidation::Invalid(reason) => {
                 debug!(?reason, "Invalid skin url");
@@ -277,20 +268,20 @@ impl SkinValidation {
                     - `https://github.com`\n\
                     If you want to suggest another site let Badewanne3 know";
 
-                command.error(ctx, content).await?;
+                command.error(content).await?;
 
                 Ok(ValidationStatus::Handled)
             }
             SkinValidation::Err(err) => {
                 let content = "Failed to validate skin url";
-                let _ = command.error(ctx, content).await;
+                let _ = command.error(content).await;
 
                 Err(err.wrap_err("Failed to validate skin url"))
             }
         }
     }
 
-    async fn validate(ctx: &Context, skin_url: &str) -> Self {
+    async fn validate(skin_url: &str) -> Self {
         if skin_url.len() > 256 {
             return Self::Invalid(Reason::TooLong);
         } else if matcher::is_approved_skin_site(skin_url) {
@@ -299,7 +290,7 @@ impl SkinValidation {
             return Self::Invalid(Reason::InvalidUrl);
         }
 
-        let (parts, _) = match ctx.client().check_skin_url(skin_url).await {
+        let (parts, _) = match Context::client().check_skin_url(skin_url).await {
             Ok(res) => res.into_parts(),
             Err(err) => return Self::Err(err.into()),
         };

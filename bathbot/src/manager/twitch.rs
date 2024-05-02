@@ -4,14 +4,18 @@ use eyre::{Result, WrapErr};
 use rosu_v2::request::UserId;
 use twilight_model::id::{marker::ChannelMarker, Id};
 
+use crate::core::Context;
+
 #[derive(Copy, Clone)]
-pub struct TwitchManager<'d> {
-    psql: &'d Database,
+pub struct TwitchManager {
+    psql: &'static Database,
 }
 
-impl<'d> TwitchManager<'d> {
-    pub fn new(psql: &'d Database) -> Self {
-        Self { psql }
+impl TwitchManager {
+    pub fn new() -> Self {
+        Self {
+            psql: Context::psql(),
+        }
     }
 
     pub async fn id_from_osu(self, user_id: &UserId) -> Result<Option<u64>> {

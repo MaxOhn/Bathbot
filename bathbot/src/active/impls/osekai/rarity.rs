@@ -1,4 +1,4 @@
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{OsekaiMedal, OsekaiRarityEntry};
@@ -15,7 +15,6 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    core::Context,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 
@@ -28,7 +27,7 @@ pub struct MedalRarityPagination {
 }
 
 impl IActiveMessage for MedalRarityPagination {
-    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         let pages = &self.pages;
         let idx = pages.index();
         let limit = self.ranking.len().min(idx + pages.per_page());
@@ -80,17 +79,15 @@ impl IActiveMessage for MedalRarityPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, false, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
     }
 }

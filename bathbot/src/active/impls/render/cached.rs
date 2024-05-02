@@ -1,4 +1,4 @@
-use std::{fmt::Write, future::ready, mem, sync::Arc};
+use std::{fmt::Write, future::ready, mem};
 
 use bathbot_util::{
     constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
@@ -50,11 +50,7 @@ impl CachedRender {
         }
     }
 
-    async fn send_link(
-        &mut self,
-        ctx: Arc<Context>,
-        component: &mut InteractionComponent,
-    ) -> Result<()> {
+    async fn send_link(&mut self, component: &mut InteractionComponent) -> Result<()> {
         // Anyone, not only the msg_owner, is allowed to use this
 
         let mut video_url = mem::take(&mut self.video_url).into_string();
@@ -65,7 +61,7 @@ impl CachedRender {
             .embed(None)
             .components(Vec::new());
 
-        if let Err(err) = component.callback(&ctx, builder).await {
+        if let Err(err) = component.callback(builder).await {
             return Err(Report::new(err).wrap_err("Failed to callback component"));
         }
 
@@ -74,14 +70,10 @@ impl CachedRender {
         Ok(())
     }
 
-    async fn render_anyway(
-        &mut self,
-        ctx: Arc<Context>,
-        component: &mut InteractionComponent,
-    ) -> Result<()> {
+    async fn render_anyway(&mut self, component: &mut InteractionComponent) -> Result<()> {
         let owner = component.user_id()?;
 
-        if let Some(cooldown) = ctx.check_ratelimit(owner, BucketName::Render) {
+        if let Some(cooldown) = Context::check_ratelimit(owner, BucketName::Render) {
             let content = format!(
                 "Rendering is on cooldown for you <@{owner}>, try again in {cooldown} seconds"
             );
@@ -91,7 +83,7 @@ impl CachedRender {
 
             return component
                 .message
-                .reply(&ctx, builder, component.permissions)
+                .reply(builder, component.permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("Failed to reply for render cooldown error");
@@ -101,10 +93,10 @@ impl CachedRender {
             Some(score) => {
                 let status = RenderStatus::new_preparing_replay();
                 let builder = status.as_message().components(Vec::new());
-                component.callback(&ctx, builder).await?;
+                component.callback(builder).await?;
                 self.done = true;
 
-                let replay_manager = ctx.replay();
+                let replay_manager = Context::replay();
                 let score = ReplayScore::from(score);
                 let replay_fut = replay_manager.get_replay(self.score_id, &score);
                 let settings_fut = replay_manager.get_settings(owner);
@@ -114,15 +106,15 @@ impl CachedRender {
             None => {
                 let mut status = RenderStatus::new_requesting_score();
                 let builder = status.as_message().components(Vec::new());
-                component.callback(&ctx, builder).await?;
+                component.callback(builder).await?;
                 self.done = true;
 
-                let score = match ctx.osu().score(self.score_id, GameMode::Osu).await {
+                let score = match Context::osu().score(self.score_id, GameMode::Osu).await {
                     Ok(score) => score,
                     Err(err) => {
                         let embed = EmbedBuilder::new().color_red().description(OSU_API_ISSUE);
                         let builder = MessageBuilder::new().embed(embed);
-                        let _ = component.update(&ctx, builder).await;
+                        let _ = component.update(builder).await;
 
                         return Err(Report::new(err).wrap_err("Failed to get score"));
                     }
@@ -132,7 +124,7 @@ impl CachedRender {
                     let content = "Failed to prepare the replay";
                     let embed = EmbedBuilder::new().color_red().description(content);
                     let builder = MessageBuilder::new().embed(embed);
-                    component.update(&ctx, builder).await?;
+                    component.update(builder).await?;
 
                     return Ok(());
                 };
@@ -141,16 +133,16 @@ impl CachedRender {
                     let content = "Scores on osu!lazer currently cannot be rendered :(";
                     let embed = EmbedBuilder::new().color_red().description(content);
                     let builder = MessageBuilder::new().embed(embed);
-                    component.update(&ctx, builder).await?;
+                    component.update(builder).await?;
 
                     return Ok(());
                 };
 
                 // Just a status update, no need to propagate an error
                 status.set(RenderStatusInner::PreparingReplay);
-                let _ = component.update(&ctx, status.as_message()).await;
+                let _ = component.update(status.as_message()).await;
 
-                let replay_manager = ctx.replay();
+                let replay_manager = Context::replay();
                 let replay_fut = replay_manager.get_replay(score_id, &replay_score);
                 let settings_fut = replay_manager.get_settings(owner);
 
@@ -166,14 +158,14 @@ impl CachedRender {
                     .description("Looks like the replay for that score is not available");
 
                 let builder = MessageBuilder::new().embed(embed);
-                component.update(&ctx, builder).await?;
+                component.update(builder).await?;
 
                 return Ok(());
             }
             Err(err) => {
                 let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
                 let builder = MessageBuilder::new().embed(embed);
-                let _ = component.update(&ctx, builder).await;
+                let _ = component.update(builder).await;
 
                 return Err(err.wrap_err("Failed to get replay"));
             }
@@ -184,7 +176,7 @@ impl CachedRender {
             Err(err) => {
                 let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
                 let builder = MessageBuilder::new().embed(embed);
-                let _ = component.update(&ctx, builder).await;
+                let _ = component.update(builder).await;
 
                 return Err(err);
             }
@@ -192,11 +184,11 @@ impl CachedRender {
 
         // Just a status update, no need to propagate an error
         status.set(RenderStatusInner::CommissioningRender);
-        let _ = component.update(&ctx, status.as_message()).await;
+        let _ = component.update(status.as_message()).await;
 
         let allow_custom_skins = match component.guild_id {
             Some(guild_id) => {
-                ctx.guild_config()
+                Context::guild_config()
                     .peek(guild_id, |config| config.allow_custom_skins.unwrap_or(true))
                     .await
             }
@@ -205,8 +197,7 @@ impl CachedRender {
 
         let skin = settings.skin(allow_custom_skins);
 
-        let render_fut = ctx
-            .ordr()
+        let render_fut = Context::ordr()
             .expect("ordr unavailable")
             .client()
             .render_with_replay_file(&replay, RENDERER_NAME, &skin.skin)
@@ -217,14 +208,13 @@ impl CachedRender {
             Err(err) => {
                 let embed = EmbedBuilder::new().color_red().description(ORDR_ISSUE);
                 let builder = MessageBuilder::new().embed(embed);
-                let _ = component.update(&ctx, builder).await;
+                let _ = component.update(builder).await;
 
                 return Err(Report::new(err).wrap_err("Failed to commission render"));
             }
         };
 
         let ongoing_fut = OngoingRender::new(
-            ctx,
             render.render_id,
             &*component,
             status,
@@ -239,12 +229,12 @@ impl CachedRender {
 
     async fn async_handle_component(
         &mut self,
-        ctx: Arc<Context>,
+
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let res = match component.data.custom_id.as_str() {
-            "send_link" => self.send_link(ctx, component).await,
-            "render_anyway" => self.render_anyway(ctx, component).await,
+            "send_link" => self.send_link(component).await,
+            "render_anyway" => self.render_anyway(component).await,
             other => Err(eyre!("Unknown cached render component `{other}`")),
         };
 
@@ -256,7 +246,7 @@ impl CachedRender {
 }
 
 impl IActiveMessage for CachedRender {
-    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         let description =
             "Do you want to save time and send the video link here or re-record this score?";
 
@@ -300,18 +290,17 @@ impl IActiveMessage for CachedRender {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
+
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        Box::pin(self.async_handle_component(ctx, component))
+        Box::pin(self.async_handle_component(component))
     }
 
-    fn on_timeout<'a>(
-        &'a mut self,
-        ctx: &'a Context,
+    fn on_timeout(
+        &mut self,
         msg: Id<MessageMarker>,
         channel: Id<ChannelMarker>,
-    ) -> BoxFuture<'a, Result<()>> {
+    ) -> BoxFuture<'_, Result<()>> {
         if self.done {
             return Box::pin(ready(Ok(())));
         }
@@ -324,7 +313,7 @@ impl IActiveMessage for CachedRender {
             .embed(None)
             .components(Vec::new());
 
-        let Some(fut) = (msg, channel).update(ctx, builder, None) else {
+        let Some(fut) = (msg, channel).update(builder, None) else {
             return Box::pin(ready(Err(eyre!(
                 "Lacking permissions to handle cached render timeout"
             ))));

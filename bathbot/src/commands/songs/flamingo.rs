@@ -1,18 +1,14 @@
-use std::sync::Arc;
-
 use bathbot_macros::command;
 use eyre::Result;
-
-use crate::Context;
 
 #[command]
 #[desc("https://youtu.be/la9C0n7jSsI")]
 #[group(Songs)]
 #[flags(SKIP_DEFER)]
-async fn prefix_flamingo(ctx: Arc<Context>, msg: &Message) -> Result<()> {
+async fn prefix_flamingo(msg: &Message) -> Result<()> {
     let (lyrics, delay) = flamingo_();
 
-    super::song(lyrics, delay, ctx, msg.into()).await
+    super::song(lyrics, delay, msg.into()).await
 }
 
 pub fn flamingo_() -> (&'static [&'static str], u64) {

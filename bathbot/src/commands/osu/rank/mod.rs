@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{HasName, SlashCommand};
 use eyre::Result;
@@ -9,7 +9,6 @@ pub use self::{pp::*, score::*};
 use crate::{
     commands::GameModeOption,
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
 };
 
 mod pp;
@@ -101,9 +100,9 @@ impl<'a> RankValue<'a> {
     }
 }
 
-async fn slash_rank(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_rank(mut command: InteractionCommand) -> Result<()> {
     match Rank::from_interaction(command.input_data())? {
-        Rank::Pp(args) => pp(ctx, (&mut command).into(), args).await,
-        Rank::Score(args) => score(ctx, (&mut command).into(), args).await,
+        Rank::Pp(args) => pp((&mut command).into(), args).await,
+        Rank::Score(args) => score((&mut command).into(), args).await,
     }
 }

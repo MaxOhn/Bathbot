@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use bathbot_macros::command;
 use bathbot_util::{
@@ -16,7 +16,7 @@ use twilight_model::guild::Permissions;
 use super::{SnipeGameMode, SnipePlayerStats};
 use crate::{
     commands::osu::require_link,
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
     manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,
@@ -35,7 +35,6 @@ use crate::{
 #[alias("pss")]
 #[group(Osu)]
 async fn prefix_playersnipestats(
-    ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
     permissions: Option<Permissions>,
@@ -57,7 +56,7 @@ async fn prefix_playersnipestats(
         discord,
     };
 
-    player_stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    player_stats(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -72,7 +71,6 @@ async fn prefix_playersnipestats(
 #[alias("pssm")]
 #[group(Mania)]
 async fn prefix_playersnipestatsmania(
-    ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
     permissions: Option<Permissions>,
@@ -94,22 +92,21 @@ async fn prefix_playersnipestatsmania(
         discord,
     };
 
-    player_stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    player_stats(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 pub(super) async fn player_stats(
-    ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: SnipePlayerStats<'_>,
 ) -> Result<()> {
     let owner = orig.user_id()?;
-    let config = ctx.user_config().with_osu_id(owner).await?;
+    let config = Context::user_config().with_osu_id(owner).await?;
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
@@ -122,8 +119,7 @@ pub(super) async fn player_stats(
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -131,9 +127,9 @@ pub(super) async fn player_stats(
         },
     };
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = match user_id {
@@ -141,10 +137,10 @@ pub(super) async fn player_stats(
                 UserId::Name(name) => format!("User `{name}` was not found"),
             };
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let report = Report::new(err).wrap_err("failed to get user");
 
             return Err(report);
@@ -168,29 +164,32 @@ pub(super) async fn player_stats(
         }
     };
 
-    let player_fut = if ctx.huismetbenen().is_supported(country_code, mode).await {
-        ctx.client().get_snipe_player(country_code, user_id, mode)
+    let client = Context::client();
+
+    let player_fut = if Context::huismetbenen()
+        .is_supported(country_code, mode)
+        .await
+    {
+        client.get_snipe_player(country_code, user_id, mode)
     } else {
         let content = format!("`{username}`'s country {country_code} is not supported :(");
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     };
 
-    let history_fut = ctx
-        .client()
-        .get_snipe_player_history(country_code, user_id, mode);
+    let history_fut = client.get_snipe_player_history(country_code, user_id, mode);
 
     let (player, history) = match tokio::try_join!(player_fut, history_fut) {
         Ok((Some(player), history)) => (player, history),
         Ok((None, _)) => {
             let content = format!("`{username}` does not have any national #1s");
             let builder = MessageBuilder::new().embed(content);
-            orig.create_message(&ctx, builder).await?;
+            orig.create_message(builder).await?;
 
             return Ok(());
         }
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -207,20 +206,19 @@ pub(super) async fn player_stats(
 
     let oldest = if let Some(map_id) = player.oldest_map_id {
         let score_fut =
-            ctx.osu_scores()
-                .user_on_map_single(user_id, map_id, mode, None, legacy_scores);
+            Context::osu_scores().user_on_map_single(user_id, map_id, mode, None, legacy_scores);
 
-        let map_fut = ctx.osu_map().map(map_id, None);
+        let map_fut = Context::osu_map().map(map_id, None);
 
         match tokio::join!(score_fut, map_fut) {
             (Ok(score), Ok(map)) => Some((score.score, map)),
             (Err(err), _) => {
-                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let _ = orig.error(OSU_API_ISSUE).await;
 
                 return Err(Report::new(err).wrap_err("Failed to get oldest score"));
             }
             (_, Err(err)) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(Report::new(err).wrap_err("Failed to get map of oldest score"));
             }
@@ -229,7 +227,7 @@ pub(super) async fn player_stats(
         None
     };
 
-    let embed = PlayerSnipeStatsEmbed::new(&user, player, oldest.as_ref(), &ctx)
+    let embed = PlayerSnipeStatsEmbed::new(&user, player, oldest.as_ref())
         .await
         .build();
 
@@ -239,7 +237,7 @@ pub(super) async fn player_stats(
         builder = builder.attachment("stats_graph.png", bytes);
     }
 
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

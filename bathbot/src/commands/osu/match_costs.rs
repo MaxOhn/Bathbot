@@ -3,7 +3,6 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::Write,
     mem,
-    sync::Arc,
 };
 
 use bathbot_macros::{command, SlashCommand};
@@ -114,24 +113,24 @@ impl<'m> MatchCost<'m> {
 #[examples("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
 #[aliases("mc", "matchcost")]
 #[group(AllModes)]
-async fn prefix_matchcosts(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_matchcosts(msg: &Message, args: Args<'_>) -> Result<()> {
     match MatchCost::args(args) {
-        Ok(args) => matchcosts(ctx, msg.into(), args).await,
+        Ok(args) => matchcosts(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-async fn slash_matchcost(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_matchcost(mut command: InteractionCommand) -> Result<()> {
     let args = MatchCost::from_interaction(command.input_data())?;
 
-    matchcosts(ctx, (&mut command).into(), args).await
+    matchcosts((&mut command).into(), args).await
 }
 
-async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<'_>) -> Result<()> {
+async fn matchcosts(orig: CommandOrigin<'_>, args: MatchCost<'_>) -> Result<()> {
     let owner = orig.user_id()?;
 
     let MatchCost {
@@ -146,17 +145,18 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
         let content = "Failed to parse match url.\n\
             Be sure it's a valid mp url or a match id.";
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     };
 
     let warmups = warmups.unwrap_or(0);
     let ez_mult = ez_mult.unwrap_or(1.0);
     let skip_last = skip_last.unwrap_or(0);
+    let osu = Context::osu();
 
     // Retrieve the match
-    let (osu_match, games) = match ctx.osu().osu_match(match_id).await {
+    let (osu_match, games) = match osu.osu_match(match_id).await {
         Ok(mut osu_match) => {
-            retrieve_previous(&mut osu_match, ctx.osu()).await?;
+            retrieve_previous(&mut osu_match, osu).await?;
 
             let games_iter = osu_match
                 .drain_games()
@@ -193,15 +193,15 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
         Err(OsuError::NotFound) => {
             let content = format!("No match with id `{match_id}` was found");
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(OsuError::Response { status, .. }) if status == 401 => {
             let content = "I can't access the match because it was set as private";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get match");
 
             return Err(err);
@@ -254,7 +254,7 @@ async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 

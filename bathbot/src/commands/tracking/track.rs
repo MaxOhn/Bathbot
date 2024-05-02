@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_macros::command;
 use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
 use eyre::{Report, Result};
@@ -8,17 +6,13 @@ use time::OffsetDateTime;
 
 use super::TrackArgs;
 use crate::{
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     embeds::{EmbedData, TrackEmbed},
     util::ChannelExt,
     Context,
 };
 
-pub(super) async fn track(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: TrackArgs,
-) -> Result<()> {
+pub(super) async fn track(orig: CommandOrigin<'_>, args: TrackArgs) -> Result<()> {
     let TrackArgs {
         name,
         mode,
@@ -31,7 +25,7 @@ pub(super) async fn track(
     if let Some(name) = more_names.iter().find(|name| name.len() > 15) {
         let content = format!("`{name}` is too long for an osu! username");
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
     let limit = match limit {
@@ -39,12 +33,12 @@ pub(super) async fn track(
         Some(_) => {
             let content = "The given limit must be between 1 and 100";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         None => {
             let guild = orig.guild_id().unwrap();
 
-            ctx.guild_config()
+            Context::guild_config()
                 .peek(guild, |config| config.track_limit)
                 .await
                 .unwrap_or(50)
@@ -53,15 +47,15 @@ pub(super) async fn track(
 
     let mode = mode.unwrap_or(GameMode::Osu);
 
-    let users = match super::get_names(ctx.cloned(), &more_names, mode).await {
+    let users = match super::get_names(&more_names, mode).await {
         Ok(map) => map,
         Err((OsuError::NotFound, name)) => {
             let content = format!("User `{name}` was not found");
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err((err, _)) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get names");
 
             return Err(err);
@@ -71,16 +65,10 @@ pub(super) async fn track(
     let channel = orig.channel_id();
     let mut success = Vec::with_capacity(users.len());
     let mut failure = Vec::new();
+    let tracking = Context::tracking();
 
     for (username, user_id) in users {
-        let add_fut = ctx.tracking().add(
-            user_id,
-            mode,
-            OffsetDateTime::now_utc(),
-            channel,
-            limit,
-            ctx.osu_tracking(),
-        );
+        let add_fut = tracking.add(user_id, mode, OffsetDateTime::now_utc(), channel, limit);
 
         match add_fut.await {
             Ok(true) => success.push(username),
@@ -91,7 +79,7 @@ pub(super) async fn track(
                 let embed = TrackEmbed::new(mode, success, failure, Some(username), limit).build();
 
                 let builder = MessageBuilder::new().embed(embed);
-                orig.create_message(&ctx, builder).await?;
+                orig.create_message(builder).await?;
 
                 return Ok(());
             }
@@ -100,7 +88,7 @@ pub(super) async fn track(
 
     let embed = TrackEmbed::new(mode, success, failure, None, limit);
     let builder = MessageBuilder::new().embed(embed.build());
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }
@@ -126,11 +114,11 @@ pub(super) async fn track(
 )]
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
-async fn prefix_track(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_track(msg: &Message, args: Args<'_>) -> Result<()> {
     match TrackArgs::args(Some(GameMode::Osu), args).await {
-        Ok(args) => track(ctx, msg.into(), args).await,
+        Ok(args) => track(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -158,11 +146,11 @@ async fn prefix_track(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resul
 )]
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
-pub async fn prefix_trackmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_trackmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match TrackArgs::args(Some(GameMode::Mania), args).await {
-        Ok(args) => track(ctx, msg.into(), args).await,
+        Ok(args) => track(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -190,11 +178,11 @@ pub async fn prefix_trackmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>)
 )]
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
-pub async fn prefix_tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_tracktaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match TrackArgs::args(Some(GameMode::Taiko), args).await {
-        Ok(args) => track(ctx, msg.into(), args).await,
+        Ok(args) => track(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -223,11 +211,11 @@ pub async fn prefix_tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>)
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[alias("trackingcatch")]
 #[group(Tracking)]
-pub async fn prefix_trackctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_trackctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match TrackArgs::args(Some(GameMode::Catch), args).await {
-        Ok(args) => track(ctx, msg.into(), args).await,
+        Ok(args) => track(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }

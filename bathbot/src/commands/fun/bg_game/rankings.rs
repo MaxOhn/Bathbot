@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use bathbot_model::{RankingEntries, RankingEntry, RankingKind};
 use bathbot_util::{constants::GENERAL_ISSUE, IntHasher};
@@ -12,11 +12,13 @@ use crate::{
     Context,
 };
 
-pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> Result<()> {
-    let mut scores = match ctx.games().bggame_leaderboard().await {
+pub async fn leaderboard(msg: &Message, global: bool) -> Result<()> {
+    let cache = Context::cache();
+
+    let mut scores = match Context::games().bggame_leaderboard().await {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = msg.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to get bggame scores"));
         }
@@ -25,8 +27,7 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> Resu
     let guild = msg.guild_id;
 
     if let Some(guild) = guild.filter(|_| !global) {
-        let members: HashSet<_, IntHasher> = ctx
-            .cache
+        let members: HashSet<_, IntHasher> = cache
             .members(guild)
             .await?
             .into_iter()
@@ -47,9 +48,9 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> Resu
     for (i, row) in scores.iter().enumerate().take(20) {
         let id = Id::new(row.discord_id as u64);
 
-        let name_opt = match ctx.user_config().osu_name(id).await {
+        let name_opt = match Context::user_config().osu_name(id).await {
             Ok(Some(name)) => Some(name),
-            Ok(None) => match ctx.cache.user(id).await {
+            Ok(None) => match cache.user(id).await {
                 Ok(Some(user)) => Some(user.name.as_ref().into()),
                 Ok(None) => None,
                 Err(err) => {
@@ -92,5 +93,5 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> Resu
         .msg_owner(msg.author.id)
         .build();
 
-    ActiveMessages::builder(pagination).begin(ctx, msg).await
+    ActiveMessages::builder(pagination).begin(msg).await
 }

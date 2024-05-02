@@ -1,4 +1,4 @@
-use std::{mem, sync::Arc, time::Duration};
+use std::{mem, time::Duration};
 
 use bathbot_util::{
     constants::{GENERAL_ISSUE, ORDR_ISSUE},
@@ -23,7 +23,7 @@ use super::render::CachedRender;
 use crate::{
     active::{ActiveMessages, BuildPage, ComponentResult, IActiveMessage},
     commands::osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
-    core::{buckets::BucketName, Context, ContextExt},
+    core::{buckets::BucketName, Context},
     manager::{OwnedReplayScore, ReplayScore},
     util::{interaction::InteractionComponent, Authored, Emote, MessageExt},
 };
@@ -37,7 +37,7 @@ pub struct EditOnTimeout {
 }
 
 impl IActiveMessage for EditOnTimeout {
-    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         Box::pin(ready(self.inner.build_page()))
     }
 
@@ -47,18 +47,16 @@ impl IActiveMessage for EditOnTimeout {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        Box::pin(self.async_handle_component(ctx, component))
+        Box::pin(self.async_handle_component(component))
     }
 
-    fn on_timeout<'a>(
-        &'a mut self,
-        ctx: &'a Context,
+    fn on_timeout(
+        &mut self,
         msg: Id<MessageMarker>,
         channel: Id<ChannelMarker>,
-    ) -> BoxFuture<'a, Result<()>> {
+    ) -> BoxFuture<'_, Result<()>> {
         match self.inner {
             EditOnTimeoutInner::Edit { ref mut edited, .. } => {
                 let edited = mem::take(edited);
@@ -71,7 +69,7 @@ impl IActiveMessage for EditOnTimeout {
                     builder = builder.content(content.as_ref());
                 }
 
-                match (msg, channel).update(ctx, builder, None) {
+                match (msg, channel).update(builder, None) {
                     Some(update_fut) => {
                         let fut = async {
                             update_fut
@@ -85,7 +83,7 @@ impl IActiveMessage for EditOnTimeout {
                     None => Box::pin(ready(Err(eyre!("Lacking permission to edit on timeout")))),
                 }
             }
-            EditOnTimeoutInner::Stay(_) => Box::pin(self.kind.on_timeout(ctx, msg, channel)),
+            EditOnTimeoutInner::Stay(_) => Box::pin(self.kind.on_timeout(msg, channel)),
         }
     }
 
@@ -117,7 +115,6 @@ impl EditOnTimeout {
 
     async fn async_handle_component(
         &mut self,
-        ctx: Arc<Context>,
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let button_data = match &mut self.kind {
@@ -133,7 +130,7 @@ impl EditOnTimeout {
                     ));
                 };
 
-                handle_miss_analyzer_button(&ctx, component, score_id).await
+                handle_miss_analyzer_button(component, score_id).await
             }
             "render" => {
                 let (Some(score_id), score_opt) = button_data.borrow_mut_render() else {
@@ -152,14 +149,14 @@ impl EditOnTimeout {
                 };
 
                 // Check if the score id has already been rendered
-                match ctx.replay().get_video_url(score_id).await {
+                match Context::replay().get_video_url(score_id).await {
                     Ok(Some(video_url)) => {
                         let channel_id = component.message.channel_id;
 
                         // Spawn in new task so that we're sure to callback the component in time
                         tokio::spawn(async move {
                             let cached = CachedRender::new(score_id, Some(score), video_url, owner);
-                            let begin_fut = ActiveMessages::builder(cached).begin(ctx, channel_id);
+                            let begin_fut = ActiveMessages::builder(cached).begin(channel_id);
 
                             if let Err(err) = begin_fut.await {
                                 error!(?err, "Failed to begin cached render message");
@@ -172,7 +169,7 @@ impl EditOnTimeout {
                     Err(err) => warn!(?err),
                 }
 
-                if let Some(cooldown) = ctx.check_ratelimit(owner, BucketName::Render) {
+                if let Some(cooldown) = Context::check_ratelimit(owner, BucketName::Render) {
                     // Put the score back so that the button can still be used
                     *score_opt = Some(score);
 
@@ -183,9 +180,7 @@ impl EditOnTimeout {
                     let embed = EmbedBuilder::new().description(content).color_red();
                     let builder = MessageBuilder::new().embed(embed);
 
-                    let reply_fut = component
-                        .message
-                        .reply(&ctx, builder, component.permissions);
+                    let reply_fut = component.message.reply(builder, component.permissions);
 
                     return match reply_fut.await {
                         Ok(_) => ComponentResult::BuildPage,
@@ -201,7 +196,6 @@ impl EditOnTimeout {
                 let permissions = component.permissions;
 
                 tokio::spawn(handle_render_button(
-                    ctx,
                     orig,
                     permissions,
                     score_id,
@@ -275,12 +269,7 @@ impl EditOnTimeoutKind {
         }
     }
 
-    async fn on_timeout(
-        &self,
-        ctx: &Context,
-        msg: Id<MessageMarker>,
-        channel: Id<ChannelMarker>,
-    ) -> Result<()> {
+    async fn on_timeout(&self, msg: Id<MessageMarker>, channel: Id<ChannelMarker>) -> Result<()> {
         match self {
             Self::RecentScore(RecentScoreEdit { button_data })
             | Self::TopScore(TopScoreEdit { button_data })
@@ -288,7 +277,7 @@ impl EditOnTimeoutKind {
             {
                 let builder = MessageBuilder::new().components(Vec::new());
 
-                match (msg, channel).update(ctx, builder, None) {
+                match (msg, channel).update(builder, None) {
                     Some(update_fut) => {
                         update_fut
                             .await
@@ -322,7 +311,6 @@ impl EditOnTimeoutInner {
 }
 
 async fn handle_miss_analyzer_button(
-    ctx: &Context,
     component: &InteractionComponent,
     score_id: u64,
 ) -> ComponentResult {
@@ -338,9 +326,7 @@ async fn handle_miss_analyzer_button(
         msg, channel, guild, "Sending message to miss analyzer",
     );
 
-    let res_fut = ctx
-        .client()
-        .miss_analyzer_score_response(guild, channel, msg, score_id);
+    let res_fut = Context::client().miss_analyzer_score_response(guild, channel, msg, score_id);
 
     if let Err(err) = res_fut.await {
         warn!(?err, "Failed to send miss analyzer response");
@@ -350,7 +336,6 @@ async fn handle_miss_analyzer_button(
 }
 
 async fn handle_render_button(
-    ctx: Arc<Context>,
     orig: (Id<MessageMarker>, Id<ChannelMarker>),
     permissions: Option<Permissions>,
     score_id: u64,
@@ -361,7 +346,7 @@ async fn handle_render_button(
     let mut status = RenderStatus::new_preparing_replay();
     let score = ReplayScore::from(score);
 
-    let msg = match orig.reply(&ctx, status.as_message(), permissions).await {
+    let msg = match orig.reply(status.as_message(), permissions).await {
         Ok(response) => match response.model().await {
             Ok(msg) => msg,
             Err(err) => {
@@ -376,11 +361,11 @@ async fn handle_render_button(
 
     status.set(RenderStatusInner::PreparingReplay);
 
-    if let Some(update_fut) = msg.update(&ctx, status.as_message(), permissions) {
+    if let Some(update_fut) = msg.update(status.as_message(), permissions) {
         let _ = update_fut.await;
     }
 
-    let replay_manager = ctx.replay();
+    let replay_manager = Context::replay();
     let replay_fut = replay_manager.get_replay(score_id, &score);
     let settings_fut = replay_manager.get_settings(owner);
 
@@ -394,7 +379,7 @@ async fn handle_render_button(
             let embed = EmbedBuilder::new().color_red().description(content);
             let builder = MessageBuilder::new().embed(embed);
 
-            return match msg.update(&ctx, builder, permissions) {
+            return match msg.update(builder, permissions) {
                 Some(update_fut) => match update_fut.await {
                     Ok(_) => {}
                     Err(err) => error!(?err, "Failed to update message"),
@@ -406,7 +391,7 @@ async fn handle_render_button(
             let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
             let builder = MessageBuilder::new().embed(embed);
 
-            if let Some(update_fut) = msg.update(&ctx, builder, permissions) {
+            if let Some(update_fut) = msg.update(builder, permissions) {
                 let _ = update_fut.await;
             }
 
@@ -420,7 +405,7 @@ async fn handle_render_button(
             let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
             let builder = MessageBuilder::new().embed(embed);
 
-            if let Some(update_fut) = msg.update(&ctx, builder, permissions) {
+            if let Some(update_fut) = msg.update(builder, permissions) {
                 let _ = update_fut.await;
             }
 
@@ -430,13 +415,13 @@ async fn handle_render_button(
 
     status.set(RenderStatusInner::CommissioningRender);
 
-    if let Some(update_fut) = msg.update(&ctx, status.as_message(), permissions) {
+    if let Some(update_fut) = msg.update(status.as_message(), permissions) {
         let _ = update_fut.await;
     }
 
     let allow_custom_skins = match guild {
         Some(guild_id) => {
-            ctx.guild_config()
+            Context::guild_config()
                 .peek(guild_id, |config| config.allow_custom_skins.unwrap_or(true))
                 .await
         }
@@ -445,8 +430,7 @@ async fn handle_render_button(
 
     let skin = settings.skin(allow_custom_skins);
 
-    let render_fut = ctx
-        .ordr()
+    let render_fut = Context::ordr()
         .expect("ordr unavailable")
         .client()
         .render_with_replay_file(&replay, RENDERER_NAME, &skin.skin)
@@ -458,7 +442,7 @@ async fn handle_render_button(
             let embed = EmbedBuilder::new().color_red().description(ORDR_ISSUE);
             let builder = MessageBuilder::new().embed(embed);
 
-            if let Some(update_fut) = msg.update(&ctx, builder, permissions) {
+            if let Some(update_fut) = msg.update(builder, permissions) {
                 let _ = update_fut.await;
             }
 
@@ -467,7 +451,6 @@ async fn handle_render_button(
     };
 
     let ongoing_fut = OngoingRender::new(
-        ctx.cloned(),
         render.render_id,
         (msg, permissions),
         status,

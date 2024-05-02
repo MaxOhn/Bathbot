@@ -3,61 +3,79 @@ use rosu_v2::prelude::GameMode;
 
 use super::Context;
 use crate::manager::{
-    ApproxManager, BookmarkManager, GameManager, GithubManager, GuildConfigManager, OsuMap,
-    OsuTrackingManager, OsuUserManager, PpManager, ReplayManager, TwitchManager, UserConfigManager,
+    redis::RedisManager, ApproxManager, BookmarkManager, GameManager, GithubManager,
+    GuildConfigManager, HuismetbenenCountryManager, MapManager, OsuMap, OsuUserManager, PpManager,
+    ReplayManager, ScoresManager, UserConfigManager,
 };
 
 impl Context {
-    pub fn guild_config(&self) -> GuildConfigManager<'_> {
-        GuildConfigManager::new(&self.clients.psql, &self.data.guild_configs)
+    pub fn guild_config() -> GuildConfigManager {
+        let ctx = Self::get();
+
+        GuildConfigManager::new(&ctx.clients.psql, &ctx.data.guild_configs)
     }
 
-    pub fn user_config(&self) -> UserConfigManager<'_> {
-        UserConfigManager::new(&self.clients.psql)
+    pub fn user_config() -> UserConfigManager {
+        UserConfigManager::new()
     }
 
-    pub fn osu_user(&self) -> OsuUserManager<'_> {
-        OsuUserManager::new(&self.clients.psql)
+    pub fn osu_user() -> OsuUserManager {
+        OsuUserManager::new()
     }
 
-    pub fn osu_tracking(&self) -> OsuTrackingManager<'_> {
-        OsuTrackingManager::new(&self.clients.psql)
+    #[cfg(feature = "osutracking")]
+    pub fn osu_tracking() -> crate::manager::OsuTrackingManager {
+        crate::manager::OsuTrackingManager::new()
     }
 
-    pub fn pp<'d, 'm>(&'d self, map: &'m OsuMap) -> PpManager<'d, 'm> {
-        PpManager::new(map, &self.clients.psql)
+    pub fn pp(map: &OsuMap) -> PpManager<'_> {
+        PpManager::new(map)
     }
 
-    pub fn pp_parsed<'d, 'm>(
-        &'d self,
-        map: &'m Beatmap,
-        map_id: u32,
-        mode: GameMode,
-    ) -> PpManager<'d, 'm> {
-        PpManager::from_parsed(map, map_id, &self.clients.psql).mode(mode)
+    pub fn pp_parsed(map: &Beatmap, map_id: u32, mode: GameMode) -> PpManager<'_> {
+        PpManager::from_parsed(map, map_id).mode(mode)
     }
 
-    pub fn approx(&self) -> ApproxManager<'_> {
-        ApproxManager::new(&self.clients.psql)
+    pub fn approx() -> ApproxManager {
+        ApproxManager::new()
     }
 
-    pub fn games(&self) -> GameManager<'_> {
-        GameManager::new(&self.clients.psql)
+    pub fn games() -> GameManager {
+        GameManager::new()
     }
 
-    pub fn twitch(&self) -> TwitchManager<'_> {
-        TwitchManager::new(&self.clients.psql)
+    #[cfg(feature = "twitch")]
+    pub fn twitch() -> crate::manager::TwitchManager {
+        crate::manager::TwitchManager::new()
     }
 
-    pub fn bookmarks(&self) -> BookmarkManager<'_> {
-        BookmarkManager::new(&self.clients.psql)
+    pub fn bookmarks() -> BookmarkManager {
+        BookmarkManager::new()
     }
 
-    pub fn replay(&self) -> ReplayManager<'_> {
-        ReplayManager::new(&self.clients.psql, &self.clients.custom, &self.cache)
+    pub fn replay() -> ReplayManager {
+        let ctx = Self::get();
+
+        ReplayManager::new(&ctx.clients.psql, &ctx.clients.custom, &ctx.data.cache)
     }
 
-    pub fn github(&self) -> GithubManager<'_> {
-        GithubManager::new(self)
+    pub fn github() -> GithubManager {
+        GithubManager::new()
+    }
+
+    pub fn redis() -> RedisManager {
+        RedisManager::new()
+    }
+
+    pub fn osu_map() -> MapManager {
+        MapManager::new()
+    }
+
+    pub fn osu_scores() -> ScoresManager {
+        ScoresManager::new()
+    }
+
+    pub fn huismetbenen() -> HuismetbenenCountryManager {
+        HuismetbenenCountryManager::new()
     }
 }

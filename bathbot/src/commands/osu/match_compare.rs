@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use bathbot_macros::SlashCommand;
 use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
@@ -58,17 +58,13 @@ impl Default for MatchCompareComparison {
     }
 }
 
-async fn slash_matchcompare(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_matchcompare(mut command: InteractionCommand) -> Result<()> {
     let args = MatchCompare::from_interaction(command.input_data())?;
 
-    matchcompare(ctx, command, args).await
+    matchcompare(command, args).await
 }
 
-async fn matchcompare(
-    ctx: Arc<Context>,
-    mut command: InteractionCommand,
-    args: MatchCompare,
-) -> Result<()> {
+async fn matchcompare(mut command: InteractionCommand, args: MatchCompare) -> Result<()> {
     let MatchCompare {
         match_url_1,
         match_url_2,
@@ -81,7 +77,7 @@ async fn matchcompare(
         None => {
             let content = "Failed to parse `match_url_1`.\n\
                 Be sure it's a valid mp url or a match id.";
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
@@ -92,7 +88,7 @@ async fn matchcompare(
         None => {
             let content = "Failed to parse `match_url_1`.\n\
                 Be sure it's a valid mp url or a match id.";
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
@@ -100,24 +96,24 @@ async fn matchcompare(
 
     if match_id1 == match_id2 {
         let content = "Trying to compare a match with itself huh";
-        command.error(&ctx, content).await?;
+        command.error(content).await?;
 
         return Ok(());
     }
 
-    let match_fut1 = ctx.osu().osu_match(match_id1);
-    let match_fut2 = ctx.osu().osu_match(match_id2);
+    let match_fut1 = Context::osu().osu_match(match_id1);
+    let match_fut2 = Context::osu().osu_match(match_id2);
 
     let output = output.unwrap_or_default();
     let comparison = comparison.unwrap_or_default();
 
     let pagination = match tokio::try_join!(match_fut1, match_fut2) {
         Ok((mut match1, mut match2)) => {
-            let previous_fut_1 = retrieve_previous(&mut match1, ctx.osu());
-            let previous_fut_2 = retrieve_previous(&mut match2, ctx.osu());
+            let previous_fut_1 = retrieve_previous(&mut match1, Context::osu());
+            let previous_fut_2 = retrieve_previous(&mut match2, Context::osu());
 
             if let Err(err) = tokio::try_join!(previous_fut_1, previous_fut_2) {
-                let _ = command.error(&ctx, OSU_API_ISSUE).await;
+                let _ = command.error(OSU_API_ISSUE).await;
                 let report = Report::new(err)
                     .wrap_err("Failed to get history of at least one of the matches");
 
@@ -130,19 +126,19 @@ async fn matchcompare(
         }
         Err(OsuError::NotFound) => {
             let content = "At least one of the two given matches was not found";
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
         Err(OsuError::Response { status, .. }) if status == 401 => {
             let content =
                 "I can't access at least one of the two matches because it was set as private";
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
         Err(err) => {
-            let _ = command.error(&ctx, OSU_API_ISSUE).await;
+            let _ = command.error(OSU_API_ISSUE).await;
             let report = Report::new(err).wrap_err("failed to get at least one of the matches");
 
             return Err(report);
@@ -155,7 +151,7 @@ async fn matchcompare(
 
             if let Some(embed) = embeds.next() {
                 let builder = MessageBuilder::new().embed(embed);
-                command.update(&ctx, builder).await?;
+                command.update(builder).await?;
 
                 let mut interval = interval(Duration::from_secs(1));
                 interval.tick().await;
@@ -165,7 +161,7 @@ async fn matchcompare(
 
                     command
                         .channel_id
-                        .create_message(&ctx, embed.into(), command.permissions)
+                        .create_message(embed.into(), command.permissions)
                         .await?;
                 }
             }
@@ -173,7 +169,7 @@ async fn matchcompare(
         MatchCompareOutput::Paginated => {
             ActiveMessages::builder(pagination)
                 .start_by_update(true)
-                .begin(ctx, &mut command)
+                .begin(&mut command)
                 .await?;
         }
     }

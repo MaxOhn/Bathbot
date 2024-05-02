@@ -1,24 +1,18 @@
-use std::sync::Arc;
-
 use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::Result;
 use twilight_model::{channel::Message, guild::Permissions};
 
 use crate::{core::buckets::BucketName, util::ChannelExt, Context};
 
-pub async fn bigger(
-    ctx: Arc<Context>,
-    msg: &Message,
-    permissions: Option<Permissions>,
-) -> Result<()> {
-    if let Some(cooldown) = ctx.check_ratelimit(msg.author.id, BucketName::BgBigger) {
+pub async fn bigger(msg: &Message, permissions: Option<Permissions>) -> Result<()> {
+    if let Some(cooldown) = Context::check_ratelimit(msg.author.id, BucketName::BgBigger) {
         trace!(
             "Ratelimiting user {} on bucket `BgBigger` for {cooldown} seconds",
             msg.author.id
         );
 
         let content = format!("Command on cooldown, try again in {cooldown} seconds");
-        msg.error(&ctx, content).await?;
+        msg.error(content).await?;
 
         return Ok(());
     }
@@ -29,28 +23,28 @@ pub async fn bigger(
 
     if !can_attach_files {
         let content = "I'm lacking the permission to attach files";
-        msg.error(&ctx, content).await?;
+        msg.error(content).await?;
 
         return Ok(());
     }
 
-    let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
+    let _ = Context::http().create_typing_trigger(msg.channel_id).await;
 
-    match ctx.bg_games().read(&msg.channel_id).await.get() {
+    match Context::bg_games().read(&msg.channel_id).await.get() {
         Some(game) => match game.sub_image().await {
             Ok(bytes) => {
                 let builder = MessageBuilder::new().attachment("bg_img.png", bytes);
-                msg.create_message(&ctx, builder, permissions).await?;
+                msg.create_message(builder, permissions).await?;
             }
             Err(err) => {
-                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                let _ = msg.error(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("Failed to get subimage"));
             }
         },
         None => {
             let content = "No running game in this channel. Start one with `/bg`.";
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
         }
     }
 

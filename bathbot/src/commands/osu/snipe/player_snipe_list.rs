@@ -2,7 +2,6 @@ use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap},
     fmt::Write,
-    sync::Arc,
 };
 
 use bathbot_macros::command;
@@ -20,10 +19,7 @@ use super::{SnipeGameMode, SnipePlayerList, SnipePlayerListOrder};
 use crate::{
     active::{impls::SnipePlayerListPagination, ActiveMessages},
     commands::osu::{HasMods, ModsResult},
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,
     Context,
@@ -48,11 +44,11 @@ use crate::{
 #[examples("badewanne3 +dt sort=acc reverse=true", "+hdhr sort=scoredate")]
 #[alias("psl")]
 #[group(Osu)]
-async fn prefix_playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_playersnipelist(msg: &Message, args: Args<'_>) -> Result<()> {
     match SnipePlayerList::args(args, GameMode::Osu) {
-        Ok(args) => player_list(ctx, msg.into(), args).await,
+        Ok(args) => player_list(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -77,31 +73,23 @@ async fn prefix_playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[examples("badewanne3 sort=acc reverse=true", "sort=scoredate")]
 #[alias("pslm")]
 #[group(Mania)]
-async fn prefix_playersnipelistmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> Result<()> {
+async fn prefix_playersnipelistmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match SnipePlayerList::args(args, GameMode::Mania) {
-        Ok(args) => player_list(ctx, msg.into(), args).await,
+        Ok(args) => player_list(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-pub(super) async fn player_list(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: SnipePlayerList<'_>,
-) -> Result<()> {
+pub(super) async fn player_list(orig: CommandOrigin<'_>, args: SnipePlayerList<'_>) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(ModSelection::Exclude(_)) => {
             let content = "The huismetbenen api unfortunately does not support excluded mods :(";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -109,16 +97,16 @@ pub(super) async fn player_list(
             let content =
                 "Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
     };
 
     let owner = orig.user_id()?;
 
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let (user_id, mode) = user_id_mode!(orig, args);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = match user_id {
@@ -126,10 +114,10 @@ pub(super) async fn player_list(
                 UserId::Name(name) => format!("User `{name}` was not found"),
             };
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let report = Report::new(err).wrap_err("failed to get user");
 
             return Err(report);
@@ -153,12 +141,15 @@ pub(super) async fn player_list(
         }
     };
 
-    let country = if ctx.huismetbenen().is_supported(country_code, mode).await {
+    let country = if Context::huismetbenen()
+        .is_supported(country_code, mode)
+        .await
+    {
         country_code.to_owned()
     } else {
         let content = format!("`{username}`'s country {country_code} is not supported :(");
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     };
 
     let params = SnipeScoreParams::new(user_id, &country, mode)
@@ -166,8 +157,9 @@ pub(super) async fn player_list(
         .descending(args.reverse.map_or(true, |b| !b))
         .mods(mods);
 
-    let scores_fut = ctx.client().get_national_firsts(&params);
-    let count_fut = ctx.client().get_national_firsts_count(&params, mode);
+    let client = Context::client();
+    let scores_fut = client.get_national_firsts(&params);
+    let count_fut = client.get_national_firsts_count(&params, mode);
 
     let (scores, count) = match tokio::try_join!(scores_fut, count_fut) {
         Ok((scores, count)) => {
@@ -176,7 +168,7 @@ pub(super) async fn player_list(
             (scores, count)
         }
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to get scores or counts"));
         }
@@ -189,7 +181,7 @@ pub(super) async fn player_list(
         .map(|score| (score.map_id as i32, None))
         .collect();
 
-    let maps = match ctx.osu_map().maps(&map_ids).await {
+    let maps = match Context::osu_map().maps(&map_ids).await {
         Ok(maps) => maps,
         Err(err) => {
             warn!(?err, "Failed to get maps from database");
@@ -221,7 +213,7 @@ pub(super) async fn player_list(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 

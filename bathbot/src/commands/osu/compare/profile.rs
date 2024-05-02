@@ -1,4 +1,4 @@
-use std::{borrow::Cow, io::Cursor, sync::Arc};
+use std::{borrow::Cow, io::Cursor};
 
 use bathbot_macros::{command, SlashCommand};
 use bathbot_model::{RankAccPeaks, RespektiveUser};
@@ -29,10 +29,7 @@ use twilight_model::{
 use super::{CompareProfile, AT_LEAST_ONE};
 use crate::{
     commands::{osu::UserExtraction, GameModeOption},
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, ProfileCompareEmbed},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, InteractionCommandExt},
@@ -67,17 +64,17 @@ pub struct Cp<'a> {
     discord2: Option<Id<UserMarker>>,
 }
 
-async fn slash_cp(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_cp(mut command: InteractionCommand) -> Result<()> {
     let args = CompareProfile::from_interaction(command.input_data())?;
 
-    profile(ctx, (&mut command).into(), args).await
+    profile((&mut command).into(), args).await
 }
 
-async fn extract_user_id(ctx: &Context, args: &mut CompareProfile<'_>) -> UserExtraction {
+async fn extract_user_id(args: &mut CompareProfile<'_>) -> UserExtraction {
     if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
         UserExtraction::Id(UserId::Name(name.as_ref().into()))
     } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
-        match ctx.user_config().osu_id(discord).await {
+        match Context::user_config().osu_id(discord).await {
             Ok(Some(user_id)) => UserExtraction::Id(UserId::Id(user_id)),
             Ok(None) => {
                 UserExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
@@ -89,40 +86,36 @@ async fn extract_user_id(ctx: &Context, args: &mut CompareProfile<'_>) -> UserEx
     }
 }
 
-pub(super) async fn profile(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    mut args: CompareProfile<'_>,
-) -> Result<()> {
-    let user_id1 = match extract_user_id(&ctx, &mut args).await {
+pub(super) async fn profile(orig: CommandOrigin<'_>, mut args: CompareProfile<'_>) -> Result<()> {
+    let user_id1 = match extract_user_id(&mut args).await {
         UserExtraction::Id(user_id) => user_id,
         UserExtraction::Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
-        UserExtraction::None => return orig.error(&ctx, AT_LEAST_ONE).await,
+        UserExtraction::Content(content) => return orig.error(content).await,
+        UserExtraction::None => return orig.error(AT_LEAST_ONE).await,
     };
 
-    let user_id2 = match extract_user_id(&ctx, &mut args).await {
+    let user_id2 = match extract_user_id(&mut args).await {
         UserExtraction::Id(user_id) => user_id,
         UserExtraction::Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
-        UserExtraction::None => match ctx.user_config().osu_id(orig.user_id()?).await {
+        UserExtraction::Content(content) => return orig.error(content).await,
+        UserExtraction::None => match Context::user_config().osu_id(orig.user_id()?).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => {
                 let content =
                     "Since you're not linked with the `/link` command, you must specify two names.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -130,15 +123,15 @@ pub(super) async fn profile(
     };
 
     if user_id1 == user_id2 {
-        return orig.error(&ctx, "Give two different names").await;
+        return orig.error("Give two different names").await;
     }
 
     let mode = match args.mode {
         Some(mode) => mode.into(),
-        None => match ctx.user_config().mode(orig.user_id()?).await {
+        None => match Context::user_config().mode(orig.user_id()?).await {
             Ok(mode) => mode.unwrap_or(GameMode::Osu),
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -146,9 +139,9 @@ pub(super) async fn profile(
     };
 
     // Retrieve all users and their scores
-    let user_args1 = UserArgs::rosu_id(ctx.cloned(), &user_id1).await.mode(mode);
-    let user_args2 = UserArgs::rosu_id(ctx.cloned(), &user_id2).await.mode(mode);
-    let score_args = ctx.osu_scores().top(false).limit(100);
+    let user_args1 = UserArgs::rosu_id(&user_id1).await.mode(mode);
+    let user_args2 = UserArgs::rosu_id(&user_id2).await.mode(mode);
+    let score_args = Context::osu_scores().top(false).limit(100);
 
     let fut1 = score_args.clone().exec_with_user(user_args1);
     let fut2 = score_args.exec_with_user(user_args2);
@@ -158,10 +151,10 @@ pub(super) async fn profile(
         Err(OsuError::NotFound) => {
             let content = "At least one of the players was not found";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user and scores");
 
             return Err(err);
@@ -171,7 +164,7 @@ pub(super) async fn profile(
     if user1.user_id() == user2.user_id() {
         let content = "Give two different users";
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
     let content = if scores1.is_empty() {
@@ -183,17 +176,16 @@ pub(super) async fn profile(
     };
 
     if let Some(content) = content {
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
-    let thumbnail_fut = get_combined_thumbnail(&ctx, user1.avatar_url(), user2.avatar_url());
+    let client = Context::client();
+    let thumbnail_fut = get_combined_thumbnail(user1.avatar_url(), user2.avatar_url());
 
-    let score_ranks_fut = ctx
-        .client()
-        .get_respektive_users([user1.user_id(), user2.user_id()], mode);
+    let score_ranks_fut = client.get_respektive_users([user1.user_id(), user2.user_id()], mode);
 
-    let osutrack_fut1 = ctx.client().osu_user_rank_acc_peak(user1.user_id(), mode);
-    let osutrack_fut2 = ctx.client().osu_user_rank_acc_peak(user2.user_id(), mode);
+    let osutrack_fut1 = client.osu_user_rank_acc_peak(user1.user_id(), mode);
+    let osutrack_fut2 = client.osu_user_rank_acc_peak(user2.user_id(), mode);
 
     let (thumbnail_res, score_ranks_res, osutrack_res1, osutrack_res2) =
         tokio::join!(thumbnail_fut, score_ranks_fut, osutrack_fut1, osutrack_fut2);
@@ -275,7 +267,7 @@ pub(super) async fn profile(
         builder = builder.attachment("avatar_fuse.png", bytes);
     }
 
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }
@@ -293,14 +285,13 @@ pub(super) async fn profile(
 #[aliases("pc", "profilecompareosu", "pco", "compareprofile")]
 #[group(Osu)]
 async fn prefix_profilecompare(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = CompareProfile::args(None, args);
 
-    profile(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    profile(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -316,14 +307,13 @@ async fn prefix_profilecompare(
 #[aliases("pcm", "compareprofilemania")]
 #[group(Mania)]
 async fn prefix_profilecomparemania(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = CompareProfile::args(Some(GameModeOption::Mania), args);
 
-    profile(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    profile(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -339,14 +329,13 @@ async fn prefix_profilecomparemania(
 #[aliases("pct", "compareprofiletaiko")]
 #[group(Taiko)]
 async fn prefix_profilecomparetaiko(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = CompareProfile::args(Some(GameModeOption::Taiko), args);
 
-    profile(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    profile(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -367,14 +356,13 @@ async fn prefix_profilecomparetaiko(
 )]
 #[group(Catch)]
 async fn prefix_profilecomparectb(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = CompareProfile::args(Some(GameModeOption::Catch), args);
 
-    profile(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    profile(CommandOrigin::from_msg(msg, permissions), args).await
 }
 pub struct CompareResult {
     pub mode: GameMode,
@@ -440,18 +428,13 @@ impl CompareResult {
     }
 }
 
-async fn get_combined_thumbnail(
-    ctx: &Context,
-    user1_url: &str,
-    user2_url: &str,
-) -> Result<Vec<u8>> {
+async fn get_combined_thumbnail(user1_url: &str, user2_url: &str) -> Result<Vec<u8>> {
     let mut img = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(720, 128, Rgba([0, 0, 0, 0])));
+    let client = Context::client();
 
-    let (pfp1, pfp2) = tokio::try_join!(
-        ctx.client().get_avatar(user1_url),
-        ctx.client().get_avatar(user2_url),
-    )
-    .wrap_err("Failed to get avatar")?;
+    let (pfp1, pfp2) =
+        tokio::try_join!(client.get_avatar(user1_url), client.get_avatar(user2_url),)
+            .wrap_err("Failed to get avatar")?;
 
     let pfp1 = image::load_from_memory(&pfp1)
         .wrap_err("Failed to load pfp1 from memory")?

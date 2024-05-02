@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_model::{Countries, MedalCount};
 use bathbot_util::constants::OSEKAI_ISSUE;
@@ -7,13 +7,11 @@ use eyre::Result;
 use super::OsekaiMedalCount;
 use crate::{
     active::{impls::MedalCountPagination, ActiveMessages},
-    core::ContextExt,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
 
 pub(super) async fn medal_count(
-    ctx: Arc<Context>,
     mut command: InteractionCommand,
     args: OsekaiMedalCount,
 ) -> Result<()> {
@@ -27,7 +25,7 @@ pub(super) async fn medal_count(
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");
 
-                command.error(&ctx, content).await?;
+                command.error(content).await?;
 
                 return Ok(());
             }
@@ -36,15 +34,15 @@ pub(super) async fn medal_count(
     };
 
     let owner = command.user_id()?;
-    let ranking_fut = ctx.redis().osekai_ranking::<MedalCount>();
-    let config_fut = ctx.user_config().osu_name(owner);
+    let ranking_fut = Context::redis().osekai_ranking::<MedalCount>();
+    let config_fut = Context::user_config().osu_name(owner);
 
     let (osekai_res, name_res) = tokio::join!(ranking_fut, config_fut);
 
     let mut ranking = match osekai_res {
         Ok(ranking) => ranking.into_original(),
         Err(err) => {
-            let _ = command.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = command.error(OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached medal count ranking"));
         }
@@ -77,6 +75,6 @@ pub(super) async fn medal_count(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }

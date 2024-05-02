@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{BTreeMap, HashSet};
 
 use bathbot_macros::SlashCommand;
 use bathbot_model::{HlVersion, RankingEntries, RankingEntry, RankingKind};
@@ -17,7 +14,6 @@ use crate::{
         ActiveMessages,
     },
     commands::GameModeOption,
-    core::ContextExt,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
@@ -52,7 +48,7 @@ pub struct HigherLowerScorePp {
 )]
 pub struct HigherLowerLeaderboard;
 
-async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_higherlower(mut command: InteractionCommand) -> Result<()> {
     let args = HigherLower::from_interaction(command.input_data())?;
     let user = command.user_id()?;
 
@@ -60,13 +56,16 @@ async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -
         HigherLower::ScorePp(args) => {
             let mode = match args.mode.map(GameMode::from) {
                 Some(mode) => mode,
-                None => ctx.user_config().mode(user).await?.unwrap_or(GameMode::Osu),
+                None => Context::user_config()
+                    .mode(user)
+                    .await?
+                    .unwrap_or(GameMode::Osu),
             };
 
-            HigherLowerGame::new_score_pp(ctx.cloned(), mode, user).await
+            HigherLowerGame::new_score_pp(mode, user).await
         }
         HigherLower::Leaderboard(_) => {
-            return higherlower_leaderboard(ctx, command, HlVersion::ScorePp).await
+            return higherlower_leaderboard(command, HlVersion::ScorePp).await
         }
     };
 
@@ -74,11 +73,11 @@ async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -
         Ok(game) => {
             ActiveMessages::builder(game)
                 .start_by_update(true)
-                .begin(ctx, &mut command)
+                .begin(&mut command)
                 .await
         }
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             Err(err)
         }
@@ -86,7 +85,6 @@ async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -
 }
 
 async fn higherlower_leaderboard(
-    ctx: Arc<Context>,
     mut command: InteractionCommand,
     version: HlVersion,
 ) -> Result<()> {
@@ -94,23 +92,22 @@ async fn higherlower_leaderboard(
         Some(guild) => guild,
         None => {
             let content = "That command is only available in servers";
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
     };
 
-    let mut scores = match ctx.games().higherlower_leaderboard(version).await {
+    let mut scores = match Context::games().higherlower_leaderboard(version).await {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
     };
 
-    let members: HashSet<_, IntHasher> = ctx
-        .cache
+    let members: HashSet<_, IntHasher> = Context::cache()
         .members(guild)
         .await?
         .into_iter()
@@ -131,9 +128,9 @@ async fn higherlower_leaderboard(
     for (i, row) in scores.iter().enumerate().take(20) {
         let id = Id::new(row.discord_id as u64);
 
-        let name_opt = match ctx.user_config().osu_name(id).await {
+        let name_opt = match Context::user_config().osu_name(id).await {
             Ok(Some(name)) => Some(name),
-            Ok(None) => match ctx.cache.user(id).await {
+            Ok(None) => match Context::cache().user(id).await {
                 Ok(Some(user)) => Some(user.name.as_ref().into()),
                 Ok(None) => None,
                 Err(err) => {
@@ -175,6 +172,6 @@ async fn higherlower_leaderboard(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }

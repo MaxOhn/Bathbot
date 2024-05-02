@@ -1,4 +1,4 @@
-use std::{borrow::Cow, mem, sync::Arc};
+use std::{borrow::Cow, mem};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
@@ -30,10 +30,7 @@ use crate::{
         osu::{require_link, user_not_found},
         GameModeOption, GradeOption,
     },
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::{
         redis::osu::{UserArgs, UserArgsSlim},
         OsuMap, OwnedReplayScore,
@@ -58,11 +55,11 @@ use crate::{
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[aliases("r", "rs")]
 #[group(Osu)]
-async fn prefix_recent(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recent(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(None, args) {
-        Ok(args) => score(ctx, msg.into(), args).await,
+        Ok(args) => score(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -85,11 +82,11 @@ async fn prefix_recent(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resu
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[aliases("rm")]
 #[group(Mania)]
-async fn prefix_recentmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Mania), args) {
-        Ok(args) => score(ctx, msg.into(), args).await,
+        Ok(args) => score(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -112,11 +109,11 @@ async fn prefix_recentmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[alias("rt")]
 #[group(Taiko)]
-async fn prefix_recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recenttaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Taiko), args) {
-        Ok(args) => score(ctx, msg.into(), args).await,
+        Ok(args) => score(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -139,11 +136,11 @@ async fn prefix_recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[alias("rc", "recentcatch")]
 #[group(Catch)]
-async fn prefix_recentctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Catch), args) {
-        Ok(args) => score(ctx, msg.into(), args).await,
+        Ok(args) => score(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -164,15 +161,15 @@ async fn prefix_recentctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> R
 #[examples("badewanne3", "grade=a", "whitecat grade=B")]
 #[aliases("rp", "rps")]
 #[group(Osu)]
-async fn prefix_recentpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentpass(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(None, args) {
         Ok(mut args) => {
             args.passes = Some(true);
 
-            score(ctx, msg.into(), args).await
+            score(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -194,15 +191,15 @@ async fn prefix_recentpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[examples("badewanne3", "grade=a", "whitecat grade=B")]
 #[aliases("rpm")]
 #[group(Mania)]
-async fn prefix_recentpassmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentpassmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Mania), args) {
         Ok(mut args) => {
             args.passes = Some(true);
 
-            score(ctx, msg.into(), args).await
+            score(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -224,15 +221,15 @@ async fn prefix_recentpassmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[examples("badewanne3", "grade=a", "whitecat grade=B")]
 #[alias("rpt")]
 #[group(Taiko)]
-async fn prefix_recentpasstaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentpasstaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Taiko), args) {
         Ok(mut args) => {
             args.passes = Some(true);
 
-            score(ctx, msg.into(), args).await
+            score(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -255,15 +252,15 @@ async fn prefix_recentpasstaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[examples("badewanne3", "grade=a", "whitecat grade=B")]
 #[alias("rpc", "rpctb")]
 #[group(Catch)]
-async fn prefix_recentpassctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentpassctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Catch), args) {
         Ok(mut args) => {
             args.passes = Some(true);
 
-            score(ctx, msg.into(), args).await
+            score(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -339,22 +336,18 @@ impl<'m> RecentScore<'m> {
     }
 }
 
-pub(super) async fn score(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: RecentScore<'_>,
-) -> Result<()> {
+pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Result<()> {
     let author = orig.user_id()?;
 
-    let user_config_fut = ctx.user_config().with_osu_id(author);
-    let guild_values_fut = get_guild_values(&ctx, &orig);
+    let user_config_fut = Context::user_config().with_osu_id(author);
+    let guild_values_fut = get_guild_values(&orig);
 
     let (user_config_res, guild_values) = tokio::join!(user_config_fut, guild_values_fut);
 
     let config = match user_config_res {
         Ok(config) => config,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("Failed to get user config"));
         }
@@ -374,11 +367,11 @@ pub(super) async fn score(
         .or(config.mode)
         .unwrap_or(GameMode::Osu);
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
@@ -392,10 +385,10 @@ pub(super) async fn score(
     let grade = grade.map(Grade::from);
 
     // Retrieve the user and their recent scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
     let include_fails = match (grade, passes) {
-        (Some(Grade::F), Some(true)) => return orig.error(&ctx, ":clown:").await,
+        (Some(Grade::F), Some(true)) => return orig.error(":clown:").await,
         (_, Some(passes)) => !passes,
         (Some(Grade::F), _) | (None, None) => true,
         _ => false,
@@ -406,15 +399,15 @@ pub(super) async fn score(
         .or(guild_legacy_scores)
         .unwrap_or(false);
 
-    let scores_fut = ctx
-        .osu_scores()
+    let scores_fut = Context::osu_scores()
         .recent(legacy_scores)
         .limit(100)
         .include_fails(include_fails)
         .exec_with_user(user_args);
 
     #[cfg(feature = "twitch")]
-    let (scores_res, twitch_res) = tokio::join!(scores_fut, ctx.twitch().id_from_osu(&user_id));
+    let (scores_res, twitch_res) =
+        tokio::join!(scores_fut, Context::twitch().id_from_osu(&user_id));
 
     #[cfg(not(feature = "twitch"))]
     let scores_res = scores_fut.await;
@@ -432,16 +425,16 @@ pub(super) async fn score(
                 },
             );
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user or scores");
 
             return Err(err);
@@ -479,7 +472,7 @@ pub(super) async fn score(
                 let content = "Failed to parse index. \
                 Must be an integer between 1 and 100 or `random` / `?`.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
         None => 0,
@@ -504,16 +497,16 @@ pub(super) async fn score(
                 genitive = if username.ends_with('s') { "" } else { "s" }
             );
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         };
 
         let map_id = score.map_id;
         let checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref());
 
-        let map = match ctx.osu_map().map(map_id, checksum).await {
+        let map = match Context::osu_map().map(map_id, checksum).await {
             Ok(map) => map.convert(mode),
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(Report::new(err));
             }
@@ -582,7 +575,8 @@ pub(super) async fn score(
 
     let mut with_miss_analyzer = orig
         .guild_id()
-        .map_or(false, |guild| ctx.has_miss_analyzer(&guild));
+        .as_ref()
+        .map_or(false, Context::has_miss_analyzer);
 
     let mut with_render = match (guild_render_button, config.render_button) {
         (None | Some(true), None) => true,
@@ -593,9 +587,13 @@ pub(super) async fn score(
     // Prepare retrieval of the the user's top 50 and score position on the map
     let map_score_fut = async {
         if grade != Grade::F && matches!(status, Ranked | Loved | Qualified | Approved) {
-            let fut =
-                ctx.osu_scores()
-                    .user_on_map_single(user_id, map_id, mode, None, legacy_scores);
+            let fut = Context::osu_scores().user_on_map_single(
+                user_id,
+                map_id,
+                mode,
+                None,
+                legacy_scores,
+            );
 
             Some(fut.await)
         } else {
@@ -608,7 +606,7 @@ pub(super) async fn score(
             let user_args = UserArgsSlim::user_id(user_id).mode(mode);
 
             Some(
-                ctx.osu_scores()
+                Context::osu_scores()
                     .top(legacy_scores)
                     .limit(100)
                     .exec(user_args)
@@ -624,7 +622,7 @@ pub(super) async fn score(
     with_render &= mode == GameMode::Osu
         && score.replay
         && orig.has_permission_to(Permissions::SEND_MESSAGES)
-        && ctx.ordr().is_some();
+        && Context::ordr().is_some();
 
     let miss_analyzer_fut = async {
         if let Some((guild_id, score_id)) =
@@ -632,7 +630,7 @@ pub(super) async fn score(
         {
             debug!(score_id, "Sending score id to miss analyzer");
 
-            ctx.client()
+            Context::client()
                 .miss_analyzer_score_request(guild_id.get(), score_id)
                 .await
         } else {
@@ -643,7 +641,7 @@ pub(super) async fn score(
     #[cfg(feature = "twitch")]
     let twitch_fut = async {
         if let Some(user_id) = twitch_id {
-            twitch_stream(&ctx, user_id, &score, &map).await
+            twitch_stream(user_id, &score, &map).await
         } else {
             None
         }
@@ -694,14 +692,13 @@ pub(super) async fn score(
         .then(|| OwnedReplayScore::from_score(&score))
         .flatten();
 
-    let entry = RecentEntry::new(&ctx, score, map).await;
+    let entry = RecentEntry::new(score, map).await;
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
     let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
     let content = tries.map(|tries| format!("Try #{tries}"));
 
     let active_msg_fut = RecentScoreEdit::create(
-        &ctx,
         &user,
         &entry,
         top100.as_deref(),
@@ -719,7 +716,7 @@ pub(super) async fn score(
 
     ActiveMessages::builder(active_msg_fut.await)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
@@ -752,15 +749,16 @@ impl RecentTwitchStream {
 
 #[cfg(feature = "twitch")]
 async fn twitch_stream(
-    ctx: &Context,
     user_id: u64,
     score: &rosu_v2::prelude::Score,
     map: &crate::manager::OsuMap,
 ) -> Option<RecentTwitchStream> {
-    let is_online = ctx.online_twitch_streams().is_user_online(user_id);
+    let client = Context::client();
+    let online_twitch_streams = Context::online_twitch_streams();
+    let is_online = online_twitch_streams.is_user_online(user_id);
 
     if is_online {
-        match ctx.client().get_last_twitch_vod(user_id).await {
+        match client.get_last_twitch_vod(user_id).await {
             Ok(Some(vod)) => {
                 let score_started_at = score_started_at(score, map);
 
@@ -778,19 +776,19 @@ async fn twitch_stream(
             Ok(None) => {}
             Err(err) => {
                 warn!(?err, "Failed to get twitch vod");
-                ctx.online_twitch_streams().set_offline_by_user(user_id);
+                online_twitch_streams.set_offline_by_user(user_id);
 
                 return None;
             }
         }
 
-        match ctx.client().get_twitch_stream(user_id).await {
+        match client.get_twitch_stream(user_id).await {
             Ok(Some(stream)) => {
                 if stream.live {
                     Some(RecentTwitchStream::new_stream(stream.login))
                 } else {
-                    let guard = ctx.online_twitch_streams().guard();
-                    ctx.online_twitch_streams().set_offline(&stream, &guard);
+                    let guard = online_twitch_streams.guard();
+                    online_twitch_streams.set_offline(&stream, &guard);
 
                     None
                 }
@@ -802,24 +800,24 @@ async fn twitch_stream(
             }
             Err(err) => {
                 warn!(?err, "Failed to get twitch stream");
-                ctx.online_twitch_streams().set_offline_by_user(user_id);
+                online_twitch_streams.set_offline_by_user(user_id);
 
                 None
             }
         }
     } else {
-        match ctx.client().get_twitch_stream(user_id).await {
+        match client.get_twitch_stream(user_id).await {
             Ok(Some(stream)) => {
                 if !stream.live {
                     return None;
                 }
 
                 {
-                    let guard = ctx.online_twitch_streams().guard();
-                    ctx.online_twitch_streams().set_online(&stream, &guard);
+                    let guard = online_twitch_streams.guard();
+                    online_twitch_streams.set_online(&stream, &guard);
                 }
 
-                match ctx.client().get_last_twitch_vod(user_id).await {
+                match client.get_last_twitch_vod(user_id).await {
                     Ok(Some(vod)) => {
                         let score_started_at = score_started_at(score, map);
 
@@ -940,10 +938,10 @@ impl<'a> From<Rs<'a>> for RecentScore<'a> {
     }
 }
 
-async fn slash_rs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_rs(mut command: InteractionCommand) -> Result<()> {
     let args = Rs::from_interaction(command.input_data())?;
 
-    score(ctx, (&mut command).into(), args.into()).await
+    score((&mut command).into(), args.into()).await
 }
 
 pub struct RecentEntry {
@@ -955,8 +953,8 @@ pub struct RecentEntry {
 }
 
 impl RecentEntry {
-    async fn new(ctx: &Context, score: Score, map: OsuMap) -> Self {
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
+    async fn new(score: Score, map: OsuMap) -> Self {
+        let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
         let attrs = calc.performance().await;
 
         let max_pp = score
@@ -1000,10 +998,10 @@ impl From<&GuildConfig> for GuildValues {
     }
 }
 
-async fn get_guild_values(ctx: &Context, orig: &CommandOrigin<'_>) -> GuildValues {
+async fn get_guild_values(orig: &CommandOrigin<'_>) -> GuildValues {
     match orig.guild_id() {
         Some(guild_id) => {
-            ctx.guild_config()
+            Context::guild_config()
                 .peek(guild_id, |config| GuildValues::from(config))
                 .await
         }

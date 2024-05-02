@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::command;
 use bathbot_model::{Countries, SnipeCountryListOrder};
@@ -17,10 +17,7 @@ use super::{SnipeCountryList, SnipeGameMode};
 use crate::{
     active::{impls::SnipeCountryListPagination, ActiveMessages},
     commands::osu::user_not_found,
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,
     Context,
@@ -45,11 +42,11 @@ use crate::{
 #[example("sort=stars", "fr sort=weighted", "sort=pp")]
 #[aliases("csl", "countrysnipeleaderboard", "cslb")]
 #[group(Osu)]
-async fn prefix_countrysnipelist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_countrysnipelist(msg: &Message, args: Args<'_>) -> Result<()> {
     match SnipeCountryList::args(args, GameMode::Osu) {
-        Ok(args) => country_list(ctx, msg.into(), args).await,
+        Ok(args) => country_list(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -75,15 +72,11 @@ async fn prefix_countrysnipelist(ctx: Arc<Context>, msg: &Message, args: Args<'_
 #[example("sort=stars", "fr sort=weighted", "sort=pp")]
 #[aliases("cslm", "countrysnipeleaderboardmania", "cslbm")]
 #[group(Mania)]
-async fn prefix_countrysnipelistmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> Result<()> {
+async fn prefix_countrysnipelistmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match SnipeCountryList::args(args, GameMode::Mania) {
-        Ok(args) => country_list(ctx, msg.into(), args).await,
+        Ok(args) => country_list(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -91,7 +84,6 @@ async fn prefix_countrysnipelistmania(
 }
 
 pub(super) async fn country_list(
-    ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: SnipeCountryList<'_>,
 ) -> Result<()> {
@@ -103,7 +95,7 @@ pub(super) async fn country_list(
         sort,
     } = args;
 
-    let (osu_user, mode) = match ctx.user_config().with_osu_id(author_id).await {
+    let (osu_user, mode) = match Context::user_config().with_osu_id(author_id).await {
         Ok(config) => {
             let mode = match mode {
                 Some(SnipeGameMode::Osu) => GameMode::Osu,
@@ -115,15 +107,15 @@ pub(super) async fn country_list(
                 Some(user_id) => {
                     let user_args = UserArgs::user_id(user_id).mode(mode);
 
-                    match ctx.redis().osu_user(user_args).await {
+                    match Context::redis().osu_user(user_args).await {
                         Ok(user) => (Some(user), mode),
                         Err(OsuError::NotFound) => {
-                            let content = user_not_found(&ctx, UserId::Id(user_id)).await;
+                            let content = user_not_found(UserId::Id(user_id)).await;
 
-                            return orig.error(&ctx, content).await;
+                            return orig.error(content).await;
                         }
                         Err(err) => {
-                            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                            let _ = orig.error(OSU_API_ISSUE).await;
                             let err = Report::new(err).wrap_err("failed to get user");
 
                             return Err(err);
@@ -148,7 +140,7 @@ pub(super) async fn country_list(
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
         None => match &osu_user {
@@ -157,33 +149,31 @@ pub(super) async fn country_list(
             None => {
                 let content = "Since you're not linked, you must specify a country (code)";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
     };
 
     // Check if huisemetbenen supports the country
-    if !ctx
-        .huismetbenen()
+    if !Context::huismetbenen()
         .is_supported(country_code.as_str(), mode)
         .await
     {
         let content = format!("The country code `{country_code}` is not supported :(",);
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
     let sort = sort.unwrap_or_default();
 
     // Request players
-    let players = match ctx
-        .client()
+    let players = match Context::client()
         .get_snipe_country(&country_code, sort, mode)
         .await
     {
         Ok(players) => players,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to get snipe country"));
         }
@@ -219,7 +209,7 @@ pub(super) async fn country_list(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 

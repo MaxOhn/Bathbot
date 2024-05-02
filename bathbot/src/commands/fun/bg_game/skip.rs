@@ -1,31 +1,29 @@
-use std::sync::Arc;
-
 use bathbot_util::constants::{GENERAL_ISSUE, INVITE_LINK};
 use eyre::Result;
 use twilight_model::channel::Message;
 
 use crate::{core::buckets::BucketName, util::ChannelExt, Context};
 
-pub async fn skip(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    if let Some(cooldown) = ctx.check_ratelimit(msg.author.id, BucketName::BgSkip) {
+pub async fn skip(msg: &Message) -> Result<()> {
+    if let Some(cooldown) = Context::check_ratelimit(msg.author.id, BucketName::BgSkip) {
         trace!(
             "Ratelimiting user {} on bucket `BgSkip` for {cooldown} seconds",
             msg.author.id
         );
 
         let content = format!("Command on cooldown, try again in {cooldown} seconds");
-        msg.error(&ctx, content).await?;
+        msg.error(content).await?;
 
         return Ok(());
     }
 
-    let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
+    let _ = Context::http().create_typing_trigger(msg.channel_id).await;
 
-    match ctx.bg_games().read(&msg.channel_id).await.get() {
+    match Context::bg_games().read(&msg.channel_id).await.get() {
         Some(game) => match game.restart() {
             Ok(_) => {}
             Err(err) => {
-                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                let _ = msg.error(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("Failed to restart game"));
             }
@@ -37,7 +35,7 @@ pub async fn skip(ctx: Arc<Context>, msg: &Message) -> Result<()> {
                 try [re-inviting the bot]({INVITE_LINK})."
             );
 
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
         }
     }
 

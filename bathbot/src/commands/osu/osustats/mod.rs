@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
 use bathbot_model::{OsuStatsBestTimeframe, OsuStatsScoresOrder};
@@ -11,7 +11,6 @@ pub use self::{counts::*, globals::*, list::*};
 use crate::{
     commands::GameModeOption,
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
 };
 
 mod best;
@@ -167,11 +166,11 @@ impl Default for OsuStatsBestSort {
     }
 }
 
-async fn slash_osustats(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_osustats(mut command: InteractionCommand) -> Result<()> {
     match OsuStats::from_interaction(command.input_data())? {
-        OsuStats::Count(args) => count(ctx, (&mut command).into(), args).await,
-        OsuStats::Players(args) => players(ctx, (&mut command).into(), args).await,
-        OsuStats::Scores(args) => scores(ctx, (&mut command).into(), args).await,
-        OsuStats::Best(args) => recentbest(ctx, (&mut command).into(), args).await,
+        OsuStats::Count(args) => count((&mut command).into(), args).await,
+        OsuStats::Players(args) => players((&mut command).into(), args).await,
+        OsuStats::Scores(args) => scores((&mut command).into(), args).await,
+        OsuStats::Best(args) => recentbest((&mut command).into(), args).await,
     }
 }

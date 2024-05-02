@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Write, sync::Arc};
+use std::{cmp::Ordering, fmt::Write};
 
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::command;
@@ -27,7 +27,6 @@ use crate::{core::commands::checks::check_authority, util::ChannelExt, Context};
 #[flags(ONLY_GUILDS, SKIP_DEFER)] // authority check is done manually
 #[group(Utility)]
 async fn prefix_prefix(
-    ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
     permissions: Option<Permissions>,
@@ -38,23 +37,23 @@ async fn prefix_prefix(
         let mut content = String::new();
 
         let f = |config: &GuildConfig| current_prefixes(&mut content, &config.prefixes);
-        ctx.guild_config().peek(guild_id, f).await;
+        Context::guild_config().peek(guild_id, f).await;
 
         let builder = MessageBuilder::new().embed(content);
-        msg.create_message(&ctx, builder, permissions).await?;
+        msg.create_message(builder, permissions).await?;
 
         return Ok(());
     };
 
-    match check_authority(&ctx, msg.author.id, msg.guild_id).await {
+    match check_authority(msg.author.id, msg.guild_id).await {
         Ok(None) => {}
         Ok(Some(content)) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             return Ok(());
         }
         Err(err) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = msg.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("Failed to check authority status"));
         }
@@ -69,7 +68,7 @@ async fn prefix_prefix(
                 must be either `add` or `remove`, not `{other}`"
             );
 
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             return Ok(());
         }
@@ -79,14 +78,14 @@ async fn prefix_prefix(
 
     if args.is_empty() {
         let content = "After the first argument you should specify some prefix(es)";
-        msg.error(&ctx, content).await?;
+        msg.error(content).await?;
 
         return Ok(());
     }
 
     if args.iter().any(|arg| matcher::is_custom_emote(arg)) {
         let content = "Does not work with custom emotes unfortunately \\:(";
-        msg.error(&ctx, content).await?;
+        msg.error(content).await?;
 
         return Ok(());
     }
@@ -96,7 +95,7 @@ async fn prefix_prefix(
         FullCapacity,
     }
 
-    let update_fut = ctx.guild_config().update(guild_id, |config| match action {
+    let update_fut = Context::guild_config().update(guild_id, |config| match action {
         Action::Add => {
             args.retain(|prefix| PrefixValidator::is_valid(prefix));
 
@@ -142,10 +141,10 @@ async fn prefix_prefix(
 
             let f = |config: &GuildConfig| current_prefixes(&mut content, &config.prefixes);
 
-            ctx.guild_config().peek(guild_id, f).await;
+            Context::guild_config().peek(guild_id, f).await;
 
             let builder = MessageBuilder::new().embed(content);
-            msg.create_message(&ctx, builder, permissions).await?;
+            msg.create_message(builder, permissions).await?;
 
             Ok(())
         }
@@ -154,12 +153,12 @@ async fn prefix_prefix(
                 "Cannot add more prefixes, the limit of {} is already reached",
                 Prefixes::LEN
             );
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
         Err(err) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = msg.error(GENERAL_ISSUE).await;
 
             Err(err.wrap_err("failed to update guild config"))
         }

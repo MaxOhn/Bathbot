@@ -1,4 +1,4 @@
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{datetime::HowLongAgoText, EmbedBuilder, FooterBuilder};
@@ -16,7 +16,7 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    core::{commands::interaction::InteractionCommands, Context},
+    core::commands::interaction::InteractionCommands,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 
@@ -32,7 +32,7 @@ pub struct SlashCommandsPagination {
 }
 
 impl IActiveMessage for SlashCommandsPagination {
-    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         let idx = self.pages.index();
         let counts = &self.counts[idx..self.counts.len().min(idx + self.pages.per_page())];
 
@@ -124,17 +124,15 @@ impl IActiveMessage for SlashCommandsPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, false, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
     }
 }

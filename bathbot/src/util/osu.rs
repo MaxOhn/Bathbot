@@ -110,15 +110,11 @@ impl TopCounts {
         self.top100s.len()
     }
 
-    pub async fn request(ctx: &Context, user: &RedisData<User>, mode: GameMode) -> Result<Self> {
-        Self::request_osustats(ctx, user, mode).await
+    pub async fn request(user: &RedisData<User>, mode: GameMode) -> Result<Self> {
+        Self::request_osustats(user, mode).await
     }
 
-    async fn request_osustats(
-        ctx: &Context,
-        user: &RedisData<User>,
-        mode: GameMode,
-    ) -> Result<Self> {
+    async fn request_osustats(user: &RedisData<User>, mode: GameMode) -> Result<Self> {
         let mut counts = [
             MaybeUninit::uninit(),
             MaybeUninit::uninit(),
@@ -143,13 +139,13 @@ impl TopCounts {
             }
 
             params.max_rank(next_rank);
-            let next_fut = ctx.client().get_global_scores(&params);
+            let next_fut = Context::client().get_global_scores(&params);
 
             let count = match iter.next() {
                 Some((next_next_rank, next_next_count)) => {
                     params_clone.max_rank(next_next_rank);
 
-                    let next_next_fut = ctx.client().get_global_scores(&params_clone);
+                    let next_next_fut = Context::client().get_global_scores(&params_clone);
 
                     let (next_raw, next_next_raw) = tokio::try_join!(next_fut, next_next_fut)
                         .wrap_err("Failed to get global scores count")?;
@@ -377,9 +373,9 @@ pub struct IfFc {
 }
 
 impl IfFc {
-    pub async fn new(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Option<Self> {
+    pub async fn new(score: &ScoreSlim, map: &OsuMap) -> Option<Self> {
         let mode = score.mode;
-        let mut calc = ctx.pp(map).mods(&score.mods).mode(score.mode);
+        let mut calc = Context::pp(map).mods(&score.mods).mode(score.mode);
         let attrs = calc.difficulty().await;
 
         if score.is_fc(mode, attrs.max_combo()) {
@@ -510,7 +506,6 @@ impl IfFc {
 }
 
 pub async fn get_combined_thumbnail<'s>(
-    ctx: &Context,
     avatar_urls: impl IntoIterator<Item = &'s str>,
     amount: u32,
     width: Option<u32>,
@@ -523,7 +518,7 @@ pub async fn get_combined_thumbnail<'s>(
     // Future stream
     let mut pfp_futs: FuturesOrdered<_> = avatar_urls
         .into_iter()
-        .map(|url| ctx.client().get_avatar(url))
+        .map(|url| Context::client().get_avatar(url))
         .collect();
 
     let mut next = pfp_futs.next().await;

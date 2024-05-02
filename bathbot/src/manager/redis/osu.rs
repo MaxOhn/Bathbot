@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_cache::Cache;
 use bathbot_model::rosu_v2::user::{StatsWrapper, User};
@@ -25,19 +25,19 @@ impl UserArgs {
         Self::Args(UserArgsSlim::user_id(user_id))
     }
 
-    pub async fn rosu_id(ctx: Arc<Context>, user_id: &UserId) -> Self {
+    pub async fn rosu_id(user_id: &UserId) -> Self {
         match user_id {
             UserId::Id(user_id) => Self::user_id(*user_id),
-            UserId::Name(name) => Self::username(ctx, name).await,
+            UserId::Name(name) => Self::username(name).await,
         }
     }
 
     // TODO: require mode already
-    pub async fn username(ctx: Arc<Context>, name: impl AsRef<str>) -> Self {
+    pub async fn username(name: impl AsRef<str>) -> Self {
         let name = name.as_ref();
         let alt_name = Self::alt_name(name);
 
-        match ctx.osu_user().user_id(name, alt_name.as_deref()).await {
+        match Context::osu_user().user_id(name, alt_name.as_deref()).await {
             Ok(Some(user_id)) => return Self::Args(UserArgsSlim::user_id(user_id)),
             Err(err) => warn!(?err, "Failed to get user id"),
             Ok(None) => {}
@@ -45,13 +45,14 @@ impl UserArgs {
 
         let mode = GameMode::Osu;
 
-        match (ctx.osu().user(name).mode(mode).await, alt_name) {
+        match (Context::osu().user(name).mode(mode).await, alt_name) {
             (Ok(user), _) => {
                 let user_clone = user.clone();
 
                 tokio::spawn(async move {
-                    ctx.osu_user().store(&user_clone, mode).await;
-                    ctx.notify_osutrack_of_user_activity(user_clone.user_id, mode)
+                    Context::osu_user().store(&user_clone, mode).await;
+                    Context::get()
+                        .notify_osutrack_of_user_activity(user_clone.user_id, mode)
                         .await;
                 });
 
@@ -61,13 +62,14 @@ impl UserArgs {
                 }
             }
             (Err(OsuError::NotFound), Some(alt_name)) => {
-                match ctx.osu().user(alt_name).mode(mode).await {
+                match Context::osu().user(alt_name).mode(mode).await {
                     Ok(user) => {
                         let user_clone = user.clone();
 
                         tokio::spawn(async move {
-                            ctx.osu_user().store(&user_clone, mode).await;
-                            ctx.notify_osutrack_of_user_activity(user_clone.user_id, mode)
+                            Context::osu_user().store(&user_clone, mode).await;
+                            Context::get()
+                                .notify_osutrack_of_user_activity(user_clone.user_id, mode)
                                 .await;
                         });
 
@@ -154,7 +156,7 @@ impl RedisManager {
         let UserArgsSlim { user_id, mode } = args;
         let key = Self::osu_user_key(user_id, mode);
 
-        let mut conn = match self.ctx.cache.fetch(&key).await {
+        let mut conn = match Context::cache().fetch(&key).await {
             Ok(Ok(user)) => {
                 BotMetrics::inc_redis_hit("osu! user");
 
@@ -168,12 +170,12 @@ impl RedisManager {
             }
         };
 
-        let mut user = match self.ctx.osu().user(user_id).mode(mode).await {
+        let mut user = match Context::osu().user(user_id).mode(mode).await {
             Ok(user) => user,
             Err(OsuError::NotFound) => {
                 // Remove stats of unknown/restricted users so they don't appear in the
                 // leaderboard
-                if let Err(err) = self.ctx.osu_user().remove_stats_and_scores(user_id).await {
+                if let Err(err) = Context::osu_user().remove_stats_and_scores(user_id).await {
                     warn!(?err, "Failed to remove stats of unknown user");
                 }
 
@@ -196,8 +198,8 @@ impl RedisManager {
         drop(conn);
 
         tokio::spawn(async move {
-            self.ctx.osu_user().store(&user_clone, mode).await;
-            self.ctx
+            Context::osu_user().store(&user_clone, mode).await;
+            Context::get()
                 .notify_osutrack_of_user_activity(user_clone.user_id, mode)
                 .await;
         });
@@ -215,7 +217,7 @@ impl RedisManager {
         user.mode = mode;
 
         // Cache users for 10 minutes
-        let store_fut = self.ctx.cache.store_new::<_, _, 64>(&key, &user, EXPIRE);
+        let store_fut = Context::cache().store_new::<_, _, 64>(&key, &user, EXPIRE);
 
         if let Err(err) = store_fut.await {
             warn!(?err, "Failed to store user");

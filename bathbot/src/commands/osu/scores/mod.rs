@@ -1,7 +1,6 @@
 use std::{
     cmp::Reverse,
     collections::{HashMap, HashSet},
-    sync::Arc,
 };
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
@@ -251,11 +250,11 @@ pub struct MapScores {
     grade: Option<GradeOption>,
 }
 
-async fn slash_scores(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_scores(mut command: InteractionCommand) -> Result<()> {
     match Scores::from_interaction(command.input_data())? {
-        Scores::Server(args) => server_scores(ctx, command, args).await,
-        Scores::User(args) => user_scores(ctx, command, args).await,
-        Scores::Map(args) => map_scores(ctx, command, args).await,
+        Scores::Server(args) => server_scores(command, args).await,
+        Scores::User(args) => user_scores(command, args).await,
+        Scores::Map(args) => map_scores(command, args).await,
     }
 }
 
@@ -628,7 +627,6 @@ fn separate_content(content: &mut String) {
 }
 
 async fn get_mode(
-    ctx: &Context,
     mode: Option<ScoresGameMode>,
     user_id: Id<UserMarker>,
 ) -> Result<Option<GameMode>> {
@@ -636,5 +634,5 @@ async fn get_mode(
         return Ok(mode.into());
     }
 
-    ctx.user_config().mode(user_id).await
+    Context::user_config().mode(user_id).await
 }

@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
@@ -13,11 +12,8 @@ use twilight_model::{
 use crate::Context;
 
 impl Context {
-    pub async fn retrieve_channel_history(
-        &self,
-        channel_id: Id<ChannelMarker>,
-    ) -> Result<Vec<Message>> {
-        self.http
+    pub async fn retrieve_channel_history(channel_id: Id<ChannelMarker>) -> Result<Vec<Message>> {
+        Context::http()
             .channel_messages(channel_id)
             .limit(50)
             .unwrap()
@@ -28,7 +24,7 @@ impl Context {
             .wrap_err("failed to deserialize channel messages")
     }
 
-    pub async fn find_map_id_in_msgs(&self, msgs: &[Message], idx: usize) -> Option<MapIdType> {
+    pub async fn find_map_id_in_msgs(msgs: &[Message], idx: usize) -> Option<MapIdType> {
         const SKIP_DELAY: Duration = Duration::from_millis(500);
 
         let now = OffsetDateTime::now_utc() - SKIP_DELAY;
@@ -39,7 +35,7 @@ impl Context {
             .skip_while(|msg| msg.timestamp.as_micros() > secs);
 
         let stream = futures::stream::iter(iter)
-            .filter_map(|msg| self.find_map_id_in_msg(msg))
+            .filter_map(Self::find_map_id_in_msg)
             .skip(idx);
 
         tokio::pin!(stream);
@@ -47,9 +43,9 @@ impl Context {
         stream.next().await
     }
 
-    pub async fn find_map_id_in_msg(&self, msg: &Message) -> Option<MapIdType> {
+    pub async fn find_map_id_in_msg(msg: &Message) -> Option<MapIdType> {
         if msg.content.chars().all(|c| c.is_numeric()) {
-            return self.find_map_id_in_embeds(&msg.embeds).await;
+            return Self::find_map_id_in_embeds(&msg.embeds).await;
         }
 
         let opt = matcher::get_osu_map_id(&msg.content)
@@ -58,11 +54,11 @@ impl Context {
 
         match opt {
             id @ Some(_) => id,
-            None => self.find_map_id_in_embeds(&msg.embeds).await,
+            None => Self::find_map_id_in_embeds(&msg.embeds).await,
         }
     }
 
-    pub async fn find_map_id_in_embeds(&self, embeds: &[Embed]) -> Option<MapIdType> {
+    pub async fn find_map_id_in_embeds(embeds: &[Embed]) -> Option<MapIdType> {
         let opt = embeds.iter().find_map(|embed| {
             let url = embed
                 .author
@@ -113,7 +109,9 @@ impl Context {
                 continue;
             };
 
-            let Some(ordr) = self.ordr() else { continue };
+            let Some(ordr) = Context::ordr() else {
+                continue;
+            };
 
             let render_opt = ordr
                 .client()
@@ -126,7 +124,8 @@ impl Context {
                 .and_then(|mut list| list.renders.pop().filter(|_| list.renders.is_empty()));
 
             let Some(render) = render_opt else { continue };
-            let Ok(versions) = versions_by_mapset(self, render.map_id).await else {
+
+            let Ok(versions) = Context::osu_map().versions_by_mapset(render.map_id).await else {
                 continue;
             };
 
@@ -141,38 +140,4 @@ impl Context {
 
         None
     }
-}
-
-/// Same as [`MapManager::versions_by_mapset`] but if the mapset had to be
-/// retrieved it won't be stored in the DB
-///
-/// [`MapManager::versions_by_mapset`]: crate::manager::MapManager::versions_by_mapset
-async fn versions_by_mapset(ctx: &Context, mapset_id: u32) -> Result<Vec<MapVersion>> {
-    let versions = ctx
-        .psql()
-        .select_map_versions_by_mapset_id(mapset_id)
-        .await
-        .wrap_err("Failed to get versions by mapset")?;
-
-    if !versions.is_empty() {
-        return Ok(versions);
-    }
-
-    let mapset = ctx
-        .osu()
-        .beatmapset(mapset_id)
-        .await
-        .wrap_err("Failed to retrieve mapset")?;
-
-    let maps = mapset
-        .maps
-        .unwrap_or_default()
-        .into_iter()
-        .map(|map| MapVersion {
-            map_id: map.map_id as i32,
-            version: map.version,
-        })
-        .collect();
-
-    Ok(maps)
 }

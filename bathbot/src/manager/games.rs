@@ -7,18 +7,22 @@ use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use twilight_model::id::{marker::UserMarker, Id};
 
+use crate::core::Context;
+
 #[derive(Copy, Clone)]
-pub struct GameManager<'d> {
-    psql: &'d Database,
+pub struct GameManager {
+    psql: &'static Database,
 }
 
-impl<'d> GameManager<'d> {
-    pub fn new(psql: &'d Database) -> Self {
-        Self { psql }
+impl GameManager {
+    pub fn new() -> Self {
+        Self {
+            psql: Context::psql(),
+        }
     }
 }
 
-impl GameManager<'_> {
+impl GameManager {
     pub async fn higherlower_leaderboard(self, version: HlVersion) -> Result<Vec<HlGameScore>> {
         self.psql
             .select_higherlower_scores_by_version(version as i16)
@@ -48,9 +52,7 @@ impl GameManager<'_> {
             .await
             .wrap_err("Failed to upsert higherlower score")
     }
-}
 
-impl GameManager<'_> {
     pub async fn bggame_leaderboard(self) -> Result<Vec<BgGameScore>> {
         self.psql
             .select_bggame_scores()

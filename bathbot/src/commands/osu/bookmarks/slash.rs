@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Write, sync::Arc};
+use std::{collections::HashMap, fmt::Write};
 
 use bathbot_macros::SlashCommand;
 use bathbot_psql::model::osu::MapBookmark;
@@ -69,14 +69,14 @@ impl Default for BookmarksSort {
     }
 }
 
-pub async fn slash_bookmarks(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_bookmarks(mut command: InteractionCommand) -> Result<()> {
     let args = Bookmarks::from_interaction(command.input_data())?;
     let owner = command.user_id()?;
 
-    let mut bookmarks = match ctx.bookmarks().get(owner).await {
+    let mut bookmarks = match Context::bookmarks().get(owner).await {
         Ok(bookmarks) => bookmarks,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await?;
+            let _ = command.error(GENERAL_ISSUE).await?;
 
             return Err(err);
         }
@@ -103,7 +103,7 @@ pub async fn slash_bookmarks(ctx: Arc<Context>, mut command: InteractionCommand)
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }
 

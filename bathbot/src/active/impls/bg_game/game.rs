@@ -1,7 +1,4 @@
-use std::{
-    collections::VecDeque,
-    sync::{Arc, RwLock},
-};
+use std::{collections::VecDeque, sync::RwLock};
 
 use bathbot_model::Effects;
 use bathbot_psql::model::games::MapsetTagsEntries;
@@ -21,12 +18,7 @@ use twilight_model::id::{
 use twilight_standby::future::WaitForMessageStream;
 
 use super::{hints::Hints, img_reveal::ImageReveal, mapset::GameMapset, util};
-use crate::{
-    commands::fun::GameDifficulty,
-    core::{BotConfig, ContextExt},
-    util::ChannelExt,
-    Context,
-};
+use crate::{commands::fun::GameDifficulty, core::BotConfig, util::ChannelExt, Context};
 
 pub struct Game {
     pub mapset: GameMapset,
@@ -37,14 +29,13 @@ pub struct Game {
 
 impl Game {
     pub async fn new(
-        ctx: Arc<Context>,
         entries: &MapsetTagsEntries,
         previous_ids: &mut VecDeque<i32>,
         effects: Effects,
         difficulty: GameDifficulty,
     ) -> (Self, Vec<u8>) {
         loop {
-            match Game::new_(ctx.cloned(), entries, previous_ids, effects, difficulty).await {
+            match Game::new_(entries, previous_ids, effects, difficulty).await {
                 Ok(game) => {
                     let sub_image_result = { game.reveal.read().unwrap().sub_image() };
 
@@ -67,7 +58,6 @@ impl Game {
     }
 
     async fn new_(
-        ctx: Arc<Context>,
         entries: &MapsetTagsEntries,
         previous_ids: &mut VecDeque<i32>,
         effects: Effects,
@@ -128,8 +118,7 @@ impl Game {
             Ok(img)
         };
 
-        let (mapset_, img) =
-            tokio::try_join!(GameMapset::new(ctx, mapset.mapset_id as u32), img_fut)?;
+        let (mapset_, img) = tokio::try_join!(GameMapset::new(mapset.mapset_id as u32), img_fut)?;
 
         Ok(Self {
             hints: RwLock::new(Hints::new(mapset_.title())),
@@ -184,7 +173,6 @@ pub enum LoopResult {
 
 pub async fn game_loop(
     msg_stream: &mut WaitForMessageStream,
-    ctx: &Context,
     game_locked: &TokioRwLock<Game>,
     channel: Id<ChannelMarker>,
 ) -> LoopResult {
@@ -209,7 +197,7 @@ pub async fn game_loop(
                 );
 
                 // Send message
-                if let Err(err) = channel.plain_message(ctx, &content).await {
+                if let Err(err) = channel.plain_message(&content).await {
                     warn!(?err, "Error while sending msg for winner");
                 }
 
@@ -234,7 +222,10 @@ pub async fn game_loop(
                 };
 
                 // Send message
-                let msg_fut = ctx.http.create_message(channel).content(&content).unwrap();
+                let msg_fut = Context::http()
+                    .create_message(channel)
+                    .content(&content)
+                    .unwrap();
 
                 if let Err(err) = msg_fut.await {
                     warn!(?err, "Error while sending msg for correct artist");

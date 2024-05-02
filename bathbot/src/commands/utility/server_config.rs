@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{
     GuildConfig, HideSolutions, ListSize, MinimizedPp, Retries, ScoreSize,
@@ -172,21 +170,21 @@ impl ServerConfigEdit {
     }
 }
 
-async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
     let args = ServerConfig::from_interaction(command.input_data())?;
 
     let guild_id = command.guild_id.unwrap();
 
-    let guild = match ctx.cache.guild(guild_id).await {
+    let guild = match Context::cache().guild(guild_id).await {
         Ok(Some(guild)) => guild,
         Ok(None) => {
             warn!("Missing guild {guild_id} in cache");
-            command.error(&ctx, GENERAL_ISSUE).await?;
+            command.error(GENERAL_ISSUE).await?;
 
             return Ok(());
         }
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -194,7 +192,7 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
 
     let args = match args {
         ServerConfig::Authorities(args) => {
-            return super::authorities(ctx, (&mut command).into(), args.into()).await
+            return super::authorities((&mut command).into(), args.into()).await
         }
         ServerConfig::Edit(edit) => edit,
     };
@@ -250,29 +248,28 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
             }
         };
 
-        if let Err(err) = ctx.guild_config().update(guild_id, f).await {
-            let _ = command.error_callback(&ctx, GENERAL_ISSUE).await;
+        if let Err(err) = Context::guild_config().update(guild_id, f).await {
+            let _ = command.error_callback(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to update guild config"));
         }
     }
 
-    let config = ctx
-        .guild_config()
+    let config = Context::guild_config()
         .peek(guild_id, GuildConfig::to_owned)
         .await;
 
     let mut authorities = Vec::with_capacity(config.authorities.len());
 
     for &role in config.authorities.iter() {
-        if let Ok(Some(role)) = ctx.cache.role(guild_id, role).await {
+        if let Ok(Some(role)) = Context::cache().role(guild_id, role).await {
             authorities.push(role.name.as_ref().to_owned());
         }
     }
 
     let embed = ServerConfigEmbed::new(guild, config, &authorities);
     let builder = embed.build().into();
-    command.callback(&ctx, builder, false).await?;
+    command.callback(builder, false).await?;
 
     Ok(())
 }

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::SlashCommand;
 use bathbot_model::{Countries, RankingKind, UserModeStatsColumn, UserStatsColumn, UserStatsKind};
@@ -123,7 +123,6 @@ pub struct ServerLeaderboardMania {
 }
 
 async fn country_code<'a>(
-    ctx: &Context,
     command: &InteractionCommand,
     country: &'a str,
 ) -> Result<Option<Cow<'a, str>>> {
@@ -134,51 +133,50 @@ async fn country_code<'a>(
             let content =
                 format!("Looks like `{country}` is neither a country name nor a country code");
 
-            command.error(ctx, content).await?;
+            command.error(content).await?;
 
             Ok(None)
         }
     }
 }
 
-async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_serverleaderboard(mut command: InteractionCommand) -> Result<()> {
     let args = ServerLeaderboard::from_interaction(command.input_data())?;
 
     let owner = command.user_id()?;
     let guild_id = command.guild_id.unwrap(); // command is only processed in guilds
+    let cache = Context::cache();
 
-    let members: Vec<_> = match ctx.cache.members(guild_id).await {
+    let members: Vec<_> = match cache.members(guild_id).await {
         Ok(members) => members.into_iter().map(|id| id as i64).collect(),
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
     };
 
-    let guild_icon = ctx
-        .cache
+    let guild_icon = cache
         .guild(guild_id)
         .await
         .ok()
         .flatten()
         .and_then(|guild| Some((guild.id, *guild.icon.as_ref()?)));
 
-    let author_name_fut = ctx.user_config().osu_name(owner);
+    let author_name_fut = Context::user_config().osu_name(owner);
 
     let ((author_name_res, entries_res), kind) = match &args {
         ServerLeaderboard::AllModes(args) => {
             let country_code = match args.country.as_deref() {
-                Some(country) => match country_code(&ctx, &command, country).await? {
+                Some(country) => match country_code(&command, country).await? {
                     code @ Some(_) => code,
                     None => return Ok(()),
                 },
                 None => None,
             };
 
-            let entries_fut = ctx
-                .osu_user()
-                .stats(&members, args.kind, country_code.as_deref());
+            let entries_fut =
+                Context::osu_user().stats(&members, args.kind, country_code.as_deref());
 
             let kind = RankingKind::UserStats {
                 guild_icon,
@@ -189,14 +187,14 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
         }
         ServerLeaderboard::Osu(args) => {
             let country_code = match args.country.as_deref() {
-                Some(country) => match country_code(&ctx, &command, country).await? {
+                Some(country) => match country_code(&command, country).await? {
                     code @ Some(_) => code,
                     None => return Ok(()),
                 },
                 None => None,
             };
 
-            let entries_fut = ctx.osu_user().stats_mode(
+            let entries_fut = Context::osu_user().stats_mode(
                 &members,
                 GameMode::Osu,
                 args.kind,
@@ -215,14 +213,14 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
         }
         ServerLeaderboard::Taiko(args) => {
             let country_code = match args.country.as_deref() {
-                Some(country) => match country_code(&ctx, &command, country).await? {
+                Some(country) => match country_code(&command, country).await? {
                     code @ Some(_) => code,
                     None => return Ok(()),
                 },
                 None => None,
             };
 
-            let entries_fut = ctx.osu_user().stats_mode(
+            let entries_fut = Context::osu_user().stats_mode(
                 &members,
                 GameMode::Taiko,
                 args.kind,
@@ -241,14 +239,14 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
         }
         ServerLeaderboard::Catch(args) => {
             let country_code = match args.country.as_deref() {
-                Some(country) => match country_code(&ctx, &command, country).await? {
+                Some(country) => match country_code(&command, country).await? {
                     code @ Some(_) => code,
                     None => return Ok(()),
                 },
                 None => None,
             };
 
-            let entries_fut = ctx.osu_user().stats_mode(
+            let entries_fut = Context::osu_user().stats_mode(
                 &members,
                 GameMode::Catch,
                 args.kind,
@@ -267,14 +265,14 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
         }
         ServerLeaderboard::Mania(args) => {
             let country_code = match args.country.as_deref() {
-                Some(country) => match country_code(&ctx, &command, country).await? {
+                Some(country) => match country_code(&command, country).await? {
                     code @ Some(_) => code,
                     None => return Ok(()),
                 },
                 None => None,
             };
 
-            let entries_fut = ctx.osu_user().stats_mode(
+            let entries_fut = Context::osu_user().stats_mode(
                 &members,
                 GameMode::Mania,
                 args.kind,
@@ -296,7 +294,7 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
     let entries = match entries_res {
         Ok(entries) => entries,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -336,7 +334,7 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
             )
         };
 
-        command.error(&ctx, content).await?;
+        command.error(content).await?;
 
         return Ok(());
     }
@@ -355,6 +353,6 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }

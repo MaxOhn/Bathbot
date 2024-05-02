@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Reverse, fmt::Write, mem, sync::Arc};
+use std::{borrow::Cow, cmp::Reverse, fmt::Write, mem};
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
@@ -35,10 +35,7 @@ use crate::{
         ActiveMessages,
     },
     commands::{GameModeOption, GradeOption},
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap, OwnedReplayScore},
     util::{
         interaction::InteractionCommand,
@@ -185,11 +182,11 @@ impl From<ScoreOrder> for TopScoreOrder {
 )]
 #[aliases("topscores", "toposu", "topstd", "topstandard", "topo", "tops")]
 #[group(Osu)]
-async fn prefix_top(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_top(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(None, args) {
-        Ok(args) => top(ctx, msg.into(), args).await,
+        Ok(args) => top(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -223,11 +220,11 @@ async fn prefix_top(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<
 )]
 #[alias("topm")]
 #[group(Mania)]
-async fn prefix_topmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_topmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Mania), args) {
-        Ok(args) => top(ctx, msg.into(), args).await,
+        Ok(args) => top(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -261,11 +258,11 @@ async fn prefix_topmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Re
 )]
 #[alias("topt")]
 #[group(Taiko)]
-async fn prefix_toptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_toptaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Taiko), args) {
-        Ok(args) => top(ctx, msg.into(), args).await,
+        Ok(args) => top(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -299,11 +296,11 @@ async fn prefix_toptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Re
 )]
 #[alias("topc", "topcatch", "topcatchthebeat")]
 #[group(Catch)]
-async fn prefix_topctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_topctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Catch), args) {
-        Ok(args) => top(ctx, msg.into(), args).await,
+        Ok(args) => top(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -342,15 +339,15 @@ async fn prefix_topctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resu
     "recentbeststandard"
 )]
 #[group(Osu)]
-async fn prefix_recentbest(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentbest(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(None, args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
 
-            top(ctx, msg.into(), args).await
+            top(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -382,15 +379,15 @@ async fn prefix_recentbest(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 )]
 #[alias("rbm")]
 #[group(Mania)]
-async fn prefix_recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentbestmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Mania), args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
 
-            top(ctx, msg.into(), args).await
+            top(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -422,15 +419,15 @@ async fn prefix_recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 )]
 #[alias("rbt")]
 #[group(Taiko)]
-async fn prefix_recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentbesttaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Taiko), args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
 
-            top(ctx, msg.into(), args).await
+            top(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -462,28 +459,28 @@ async fn prefix_recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 )]
 #[alias("rbc")]
 #[group(Catch)]
-async fn prefix_recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentbestctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Catch), args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
 
-            top(ctx, msg.into(), args).await
+            top(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-async fn slash_top(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_top(mut command: InteractionCommand) -> Result<()> {
     let args = Top::from_interaction(command.input_data())?;
 
     match TopArgs::try_from(args) {
-        Ok(args) => top(ctx, (&mut command).into(), args).await,
+        Ok(args) => top((&mut command).into(), args).await,
         Err(content) => {
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             Ok(())
         }
@@ -716,17 +713,13 @@ impl TryFrom<Top> for TopArgs<'static> {
     }
 }
 
-pub(super) async fn top(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: TopArgs<'_>,
-) -> Result<()> {
+pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()> {
     let msg_owner = orig.user_id()?;
 
-    let mut config = match ctx.user_config().with_osu_id(msg_owner).await {
+    let mut config = match Context::user_config().with_osu_id(msg_owner).await {
         Ok(config) => config,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -736,7 +729,7 @@ pub(super) async fn top(
 
     if args.sort_by == TopScoreOrder::Pp && args.has_dash_r {
         let mode_long = mode_long(mode);
-        let prefix = ctx.guild_config().first_prefix(orig.guild_id()).await;
+        let prefix = Context::guild_config().first_prefix(orig.guild_id()).await;
 
         let mode_short = match mode {
             GameMode::Osu => "",
@@ -750,7 +743,7 @@ pub(super) async fn top(
             or `{prefix}rb{mode_short}` for short ;)",
         );
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     } else if args.has_dash_p_or_i {
         let cmd = match args.sort_by {
             TopScoreOrder::Date => "rb",
@@ -759,7 +752,7 @@ pub(super) async fn top(
         };
 
         let mode_long = mode_long(mode);
-        let prefix = ctx.guild_config().first_prefix(orig.guild_id()).await;
+        let prefix = Context::guild_config().first_prefix(orig.guild_id()).await;
 
         let content = format!(
             "`{prefix}{cmd}{mode_long} -i / -p`? \
@@ -767,22 +760,21 @@ pub(super) async fn top(
             `{prefix}{cmd}{mode_long}42`, or use the pagination buttons.",
         );
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu.take() {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -791,9 +783,8 @@ pub(super) async fn top(
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
-    let scores_fut = ctx
-        .osu_scores()
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)
         .exec_with_user(user_args);
@@ -801,12 +792,12 @@ pub(super) async fn top(
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user or scores");
 
             return Err(err);
@@ -816,10 +807,10 @@ pub(super) async fn top(
     let pre_len = scores.len();
 
     // Filter scores according to mods, combo, acc, and grade
-    let entries = match process_scores(ctx.cloned(), scores, &args).await {
+    let entries = match process_scores(scores, &args).await {
         Ok(entries) => entries,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to process scores"));
         }
@@ -839,14 +830,14 @@ pub(super) async fn top(
                     let _ = write!(content, " with the specified properties");
                 }
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
             Ok(n) => Some(n),
             Err(_) => {
                 let content = "Failed to parse index. \
                 Must be an integer between 1 and 100 or `random` / `?`.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
         None => None,
@@ -859,7 +850,7 @@ pub(super) async fn top(
         render_button: guild_render_button,
     } = match orig.guild_id() {
         Some(guild_id) => {
-            ctx.guild_config()
+            Context::guild_config()
                 .peek(guild_id, |config| GuildValues::from(config))
                 .await
         }
@@ -884,8 +875,7 @@ pub(super) async fn top(
         // Prepare retrieval of the map's global top 50 and the user's top 100
         let global_idx = match entry.map.status() {
             Ranked | Loved | Qualified | Approved => {
-                match ctx
-                    .osu_scores()
+                match Context::osu_scores()
                     .map_leaderboard(
                         entry.map.map_id(),
                         entry.score.mode,
@@ -923,10 +913,10 @@ pub(super) async fn top(
         with_render &= mode == GameMode::Osu
             && entry.replay
             && orig.has_permission_to(Permissions::SEND_MESSAGES)
-            && ctx.ordr().is_some();
+            && Context::ordr().is_some();
 
         let replay_score = if with_render {
-            match ctx.osu_map().checksum(entry.map.map_id()).await {
+            match Context::osu_map().checksum(entry.map.map_id()).await {
                 Ok(Some(checksum)) => {
                     Some(OwnedReplayScore::from_top_entry(entry, username, checksum))
                 }
@@ -944,7 +934,6 @@ pub(super) async fn top(
         let personal_idx = Some(entry.original_idx);
 
         let active_msg_fut = TopScoreEdit::create(
-            &ctx,
             &user,
             entry,
             personal_idx,
@@ -958,7 +947,7 @@ pub(super) async fn top(
 
         ActiveMessages::builder(active_msg_fut.await)
             .start_by_update(true)
-            .begin(ctx, orig)
+            .begin(orig)
             .await
     } else {
         let content = write_content(username, &args, entries.len(), index);
@@ -987,7 +976,7 @@ pub(super) async fn top(
 
         ActiveMessages::builder(pagination)
             .start_by_update(true)
-            .begin(ctx, orig)
+            .begin(orig)
             .await
     }
 }
@@ -1120,11 +1109,7 @@ impl<'q> Searchable<TopCriteria<'q>> for TopEntry {
     }
 }
 
-async fn process_scores(
-    ctx: Arc<Context>,
-    scores: Vec<Score>,
-    args: &TopArgs<'_>,
-) -> Result<Vec<TopEntry>> {
+async fn process_scores(scores: Vec<Score>, args: &TopArgs<'_>) -> Result<Vec<TopEntry>> {
     let mut entries = Vec::with_capacity(scores.len());
 
     let acc_range = match (args.min_acc, args.max_acc) {
@@ -1169,7 +1154,7 @@ async fn process_scores(
         })
         .collect();
 
-    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+    let mut maps = Context::osu_map().maps(&maps_id_checksum).await?;
 
     for (i, score) in scores.into_iter().enumerate() {
         let Some(mut map) = maps.remove(&score.map_id) else {
@@ -1177,8 +1162,7 @@ async fn process_scores(
         };
         map = map.convert(score.mode);
 
-        let attrs = ctx
-            .pp(&map)
+        let attrs = Context::pp(&map)
             .mode(score.mode)
             .mods(&score.mods)
             .performance()

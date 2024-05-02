@@ -2,14 +2,18 @@ use bathbot_psql::Database;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 
+use crate::core::Context;
+
 #[derive(Copy, Clone)]
-pub struct ApproxManager<'d> {
-    psql: &'d Database,
+pub struct ApproxManager {
+    psql: &'static Database,
 }
 
-impl<'d> ApproxManager<'d> {
-    pub fn new(psql: &'d Database) -> Self {
-        Self { psql }
+impl ApproxManager {
+    pub fn new() -> Self {
+        Self {
+            psql: Context::psql(),
+        }
     }
 
     pub async fn rank(self, pp: f32, mode: GameMode) -> Result<u32> {

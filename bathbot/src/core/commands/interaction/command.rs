@@ -1,6 +1,6 @@
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
-    sync::{Arc, OnceLock},
+    sync::OnceLock,
 };
 
 use twilight_interactions::command::ApplicationCommandData;
@@ -8,7 +8,7 @@ use twilight_model::id::{marker::CommandMarker, Id};
 
 use super::{twilight_command::Command, CommandResult};
 use crate::{
-    core::{buckets::BucketName, commands::flags::CommandFlags, Context},
+    core::{buckets::BucketName, commands::flags::CommandFlags},
     util::interaction::InteractionCommand,
 };
 
@@ -51,7 +51,7 @@ impl InteractionCommandKind {
 pub struct SlashCommand {
     pub bucket: Option<BucketName>,
     pub create: fn() -> ApplicationCommandData,
-    pub exec: fn(Arc<Context>, InteractionCommand) -> CommandResult,
+    pub exec: fn(InteractionCommand) -> CommandResult,
     pub flags: CommandFlags,
     pub name: &'static str,
     pub id: OnceLock<Id<CommandMarker>>,
@@ -59,7 +59,7 @@ pub struct SlashCommand {
 
 pub struct MessageCommand {
     pub create: fn() -> Command,
-    pub exec: fn(Arc<Context>, InteractionCommand) -> CommandResult,
+    pub exec: fn(InteractionCommand) -> CommandResult,
     pub flags: CommandFlags,
     pub name: &'static str,
     pub id: OnceLock<Id<CommandMarker>>,

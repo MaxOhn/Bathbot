@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex, OnceLock, RwLock},
     time::Duration,
 };
 
@@ -37,7 +37,6 @@ use twilight_model::{
 };
 use twilight_standby::Standby;
 
-pub use self::ext::ContextExt;
 use self::osutrack::OsuTrackUserNotifTimestamps;
 use super::{
     buckets::{BucketName, Buckets},
@@ -48,31 +47,33 @@ use crate::{
     tracking::Ordr,
 };
 
-mod ext;
 mod games;
 mod manager;
-mod matchlive;
 mod messages;
 mod osutrack;
 mod set_commands;
 mod shutdown;
+
+#[cfg(feature = "matchlive")]
+mod matchlive;
+
+#[cfg(feature = "twitchtracking")]
 mod twitch;
 
 type GuildShards = FlurryMap<Id<GuildMarker>, u64>;
 type GuildConfigs = FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>;
-type TrackedStreams = FlurryMap<u64, Vec<Id<ChannelMarker>>, IntHasher>;
 type MissAnalyzerGuilds = FlurrySet<Id<GuildMarker>, IntHasher>;
 
+#[cfg(feature = "twitchtracking")]
+type TrackedStreams = FlurryMap<u64, Vec<Id<ChannelMarker>>, IntHasher>;
+
+static CONTEXT: OnceLock<Box<Context>> = OnceLock::new();
+
 pub struct Context {
-    #[cfg(feature = "server")]
-    pub auth_standby: Arc<bathbot_server::AuthenticationStandby>,
     pub buckets: Buckets,
-    pub cache: Cache,
     pub shard_senders: RwLock<HashMap<u64, MessageSender>>,
-    pub http: Arc<Client>,
     pub member_requests: MemberRequests,
     pub active_msgs: ActiveMessages,
-    pub standby: Standby,
     pub start_time: OffsetDateTime,
     pub metrics: MetricsReader,
     data: ContextData,
@@ -80,50 +81,72 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn interaction(&self) -> InteractionClient<'_> {
-        self.http.interaction(self.data.application_id)
+    pub fn get() -> &'static Self {
+        CONTEXT.get().expect("Context not yet initialized")
     }
 
-    pub fn osu(&self) -> &Osu {
-        &self.clients.osu
+    pub fn interaction() -> InteractionClient<'static> {
+        let ctx = Self::get();
+
+        ctx.clients.http.interaction(ctx.data.application_id)
     }
 
-    /// Returns the custom client
-    pub fn client(&self) -> &BathbotClient {
-        &self.clients.custom
+    pub fn http() -> &'static Client {
+        &Self::get().clients.http
     }
 
-    pub fn ordr(&self) -> Option<&Ordr> {
-        self.clients.ordr.as_deref()
+    pub fn standby() -> &'static Standby {
+        &Self::get().clients.standby
     }
 
-    pub fn psql(&self) -> &Database {
-        &self.clients.psql
+    pub fn cache() -> &'static Cache {
+        &Self::get().data.cache
+    }
+
+    pub fn osu() -> &'static Osu {
+        &Self::get().clients.osu
+    }
+
+    pub fn client() -> &'static BathbotClient {
+        &Self::get().clients.custom
+    }
+
+    pub fn ordr() -> Option<&'static Ordr> {
+        Self::get().clients.ordr.as_deref()
+    }
+
+    pub fn psql() -> &'static Database {
+        &Self::get().clients.psql
     }
 
     #[cfg(feature = "osutracking")]
-    pub fn tracking(&self) -> &crate::tracking::OsuTracking {
-        &self.data.osu_tracking
+    pub fn tracking() -> &'static crate::tracking::OsuTracking {
+        &Self::get().data.osu_tracking
+    }
+
+    #[cfg(feature = "server")]
+    pub fn auth_standby() -> &'static bathbot_server::AuthenticationStandby {
+        &Self::get().clients.auth_standby
     }
 
     pub fn guild_shards(&self) -> &GuildShards {
         &self.data.guild_shards
     }
 
-    pub fn miss_analyzer_guilds(&self) -> &MissAnalyzerGuilds {
-        &self.data.miss_analyzer_guilds
+    pub fn miss_analyzer_guilds() -> &'static MissAnalyzerGuilds {
+        &Self::get().data.miss_analyzer_guilds
     }
 
-    pub fn has_miss_analyzer(&self, guild: &Id<GuildMarker>) -> bool {
-        self.miss_analyzer_guilds().pin().contains(guild)
+    pub fn has_miss_analyzer(guild: &Id<GuildMarker>) -> bool {
+        Self::miss_analyzer_guilds().pin().contains(guild)
     }
 
     #[cfg(feature = "twitch")]
-    pub fn online_twitch_streams(&self) -> &crate::tracking::OnlineTwitchStreams {
-        &self.data.online_twitch_streams
+    pub fn online_twitch_streams() -> &'static crate::tracking::OnlineTwitchStreams {
+        &Self::get().data.online_twitch_streams
     }
 
-    pub async fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Result<ContextTuple> {
+    pub async fn init(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Result<ContextResult> {
         let (_prometheus, reader) = {
             const DEFAULT_BUCKETS: [f64; 10] =
                 [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0];
@@ -174,13 +197,17 @@ impl Context {
             .await
             .wrap_err("Failed to create redis cache")?;
 
-        let data = ContextData::new(&psql, &cache, application_id)
+        let data = ContextData::new(&psql, cache, application_id)
             .await
             .wrap_err("Failed to create context data")?;
 
-        let resume_data = cache.defrost().await.wrap_err("Failed to defrost cache")?;
+        let resume_data = data
+            .cache
+            .defrost()
+            .await
+            .wrap_err("Failed to defrost cache")?;
 
-        BotMetrics::init(&cache);
+        BotMetrics::init(&data.cache);
 
         let client_fut = BathbotClient::new(
             #[cfg(feature = "twitch")]
@@ -207,8 +234,6 @@ impl Context {
             }
         };
 
-        let clients = Clients::new(psql, osu, custom_client, ordr);
-
         let shards = discord_gateway(config, &http, resume_data)
             .await
             .wrap_err("Failed to create discord gateway shards")?;
@@ -225,15 +250,21 @@ impl Context {
             .await
             .wrap_err("Failed to create server")?;
 
-        let ctx = Self {
-            cache,
+        let clients = Clients {
             http,
+            standby: Standby::new(),
+            custom: custom_client,
+            osu,
+            psql,
+            ordr,
+            #[cfg(feature = "server")]
+            auth_standby,
+        };
+
+        let ctx = Self {
             clients,
             shard_senders,
             data,
-            standby: Standby::new(),
-            #[cfg(feature = "server")]
-            auth_standby,
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
             active_msgs: ActiveMessages::new(),
@@ -241,8 +272,11 @@ impl Context {
             metrics: reader,
         };
 
+        if CONTEXT.set(Box::new(ctx)).is_err() {
+            panic!("must init Context only once");
+        }
+
         Ok((
-            ctx,
             shards,
             #[cfg(feature = "server")]
             server_tx,
@@ -251,8 +285,13 @@ impl Context {
 
     /// Acquire an entry for the user in the bucket and optionally return the
     /// cooldown in amount of seconds if acquiring the entry was ratelimitted.
-    pub fn check_ratelimit(&self, user_id: Id<UserMarker>, bucket: BucketName) -> Option<i64> {
-        let ratelimit = self.buckets.get(bucket).lock().unwrap().take(user_id.get());
+    pub fn check_ratelimit(user_id: Id<UserMarker>, bucket: BucketName) -> Option<i64> {
+        let ratelimit = Self::get()
+            .buckets
+            .get(bucket)
+            .lock()
+            .unwrap()
+            .take(user_id.get());
 
         (ratelimit > 0).then_some(ratelimit)
     }
@@ -280,14 +319,14 @@ impl Context {
             .await
     }
 
-    pub async fn reshard(&self, shards: &mut Vec<Shard>) -> Result<()> {
+    pub async fn reshard(shards: &mut Vec<Shard>) -> Result<()> {
         info!("Resharding...");
 
-        *shards = discord_gateway(BotConfig::get(), &self.http, HashMap::default())
+        *shards = discord_gateway(BotConfig::get(), Context::http(), HashMap::default())
             .await
             .wrap_err("Failed to create new shards for resharding")?;
 
-        let mut unlocked = self.shard_senders.write().unwrap();
+        let mut unlocked = Context::get().shard_senders.write().unwrap();
 
         *unlocked = shards
             .iter()
@@ -301,10 +340,10 @@ impl Context {
 }
 
 #[cfg(not(feature = "server"))]
-pub type ContextTuple = (Context, Vec<Shard>);
+pub type ContextResult = (Vec<Shard>,);
 
 #[cfg(feature = "server")]
-pub type ContextTuple = (Context, Vec<Shard>, tokio::sync::oneshot::Sender<()>);
+pub type ContextResult = (Vec<Shard>, tokio::sync::oneshot::Sender<()>);
 
 pub struct MemberRequests {
     pub tx: UnboundedSender<(Id<GuildMarker>, u64)>,
@@ -321,32 +360,27 @@ impl MemberRequests {
 }
 
 struct Clients {
+    http: Arc<Client>,
+    standby: Standby,
     custom: BathbotClient,
     osu: Osu,
     psql: Database,
     ordr: Option<Arc<Ordr>>,
-}
-
-impl Clients {
-    fn new(psql: Database, osu: Osu, custom: BathbotClient, ordr: Option<Arc<Ordr>>) -> Self {
-        Self {
-            psql,
-            osu,
-            custom,
-            ordr,
-        }
-    }
+    #[cfg(feature = "server")]
+    auth_standby: Arc<bathbot_server::AuthenticationStandby>,
 }
 
 struct ContextData {
+    cache: Cache,
     application_id: Id<ApplicationMarker>,
     games: Games,
     #[cfg(feature = "matchlive")]
     matchlive: crate::matchlive::MatchLiveChannels,
     #[cfg(feature = "osutracking")]
     osu_tracking: crate::tracking::OsuTracking,
+    #[cfg(feature = "twitchtracking")]
+    tracked_streams: TrackedStreams, // read-heavy
     guild_configs: GuildConfigs,              // read-heavy
-    tracked_streams: TrackedStreams,          // read-heavy
     guild_shards: GuildShards,                // necessary to request members for a guild
     miss_analyzer_guilds: MissAnalyzerGuilds, // read-heavy
     osutrack_user_notif_timestamps: OsuTrackUserNotifTimestamps,
@@ -357,21 +391,31 @@ struct ContextData {
 impl ContextData {
     async fn new(
         psql: &Database,
-        cache: &Cache,
+        cache: Cache,
         application_id: Id<ApplicationMarker>,
     ) -> Result<Self> {
+        #[cfg(feature = "twitchtracking")]
         let (guild_configs_res, tracked_streams_res, guild_shards, miss_analyzer_guilds) = tokio::join!(
             psql.select_guild_configs::<IntHasher>(),
             psql.select_tracked_twitch_streams::<IntHasher>(),
-            Self::fetch_guild_shards(cache),
-            Self::fetch_miss_analyzer_guilds(cache),
+            Self::fetch_guild_shards(&cache),
+            Self::fetch_miss_analyzer_guilds(&cache),
+        );
+
+        #[cfg(not(feature = "twitchtracking"))]
+        let (guild_configs_res, guild_shards, miss_analyzer_guilds) = tokio::join!(
+            psql.select_guild_configs::<IntHasher>(),
+            Self::fetch_guild_shards(&cache),
+            Self::fetch_miss_analyzer_guilds(&cache),
         );
 
         Ok(Self {
+            cache,
             guild_configs: guild_configs_res
                 .wrap_err("Failed to get guild configs")?
                 .into_iter()
                 .collect(),
+            #[cfg(feature = "twitchtracking")]
             tracked_streams: tracked_streams_res
                 .wrap_err("Failed to get tracked streams")?
                 .into_iter()
@@ -382,11 +426,9 @@ impl ContextData {
             #[cfg(feature = "matchlive")]
             matchlive: crate::matchlive::MatchLiveChannels::new(),
             #[cfg(feature = "osutracking")]
-            osu_tracking: crate::tracking::OsuTracking::new(
-                crate::manager::OsuTrackingManager::new(psql),
-            )
-            .await
-            .wrap_err("Failed to create osu tracking")?,
+            osu_tracking: crate::tracking::OsuTracking::new()
+                .await
+                .wrap_err("Failed to create osu tracking")?,
             miss_analyzer_guilds,
             osutrack_user_notif_timestamps: OsuTrackUserNotifTimestamps::default(),
             #[cfg(feature = "twitch")]

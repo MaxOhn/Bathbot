@@ -14,26 +14,24 @@ pub trait ChannelExt {
     /// Create a message inside a green embed
     fn create_message(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> ResponseFuture<Message>;
 
     /// Create a message inside a red embed
-    fn error(&self, ctx: &Context, content: impl Into<String>) -> ResponseFuture<Message>;
+    fn error(&self, content: impl Into<String>) -> ResponseFuture<Message>;
 
     /// Create a message without embed; only content
-    fn plain_message(&self, ctx: &Context, content: &str) -> ResponseFuture<Message>;
+    fn plain_message(&self, content: &str) -> ResponseFuture<Message>;
 }
 
 impl ChannelExt for Id<ChannelMarker> {
     fn create_message(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> ResponseFuture<Message> {
-        let mut req = ctx.http.create_message(*self);
+        let mut req = Context::http().create_message(*self);
 
         if let Some(ref content) = builder.content {
             req = req.content(content.as_ref()).expect("invalid content");
@@ -62,20 +60,18 @@ impl ChannelExt for Id<ChannelMarker> {
         }
     }
 
-    #[inline]
-    fn error(&self, ctx: &Context, content: impl Into<String>) -> ResponseFuture<Message> {
+    fn error(&self, content: impl Into<String>) -> ResponseFuture<Message> {
         let embed = EmbedBuilder::new().color_red().description(content).build();
 
-        ctx.http
+        Context::http()
             .create_message(*self)
             .embeds(&[embed])
             .expect("invalid embed")
             .into_future()
     }
 
-    #[inline]
-    fn plain_message(&self, ctx: &Context, content: &str) -> ResponseFuture<Message> {
-        ctx.http
+    fn plain_message(&self, content: &str) -> ResponseFuture<Message> {
+        Context::http()
             .create_message(*self)
             .content(content)
             .expect("invalid content")
@@ -84,23 +80,19 @@ impl ChannelExt for Id<ChannelMarker> {
 }
 
 impl ChannelExt for Message {
-    #[inline]
     fn create_message(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> ResponseFuture<Message> {
-        self.channel_id.create_message(ctx, builder, permissions)
+        self.channel_id.create_message(builder, permissions)
     }
 
-    #[inline]
-    fn error(&self, ctx: &Context, content: impl Into<String>) -> ResponseFuture<Message> {
-        self.channel_id.error(ctx, content)
+    fn error(&self, content: impl Into<String>) -> ResponseFuture<Message> {
+        self.channel_id.error(content)
     }
 
-    #[inline]
-    fn plain_message(&self, ctx: &Context, content: &str) -> ResponseFuture<Message> {
-        self.channel_id.plain_message(ctx, content)
+    fn plain_message(&self, content: &str) -> ResponseFuture<Message> {
+        self.channel_id.plain_message(content)
     }
 }

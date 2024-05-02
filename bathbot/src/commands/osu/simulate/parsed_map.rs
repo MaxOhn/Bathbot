@@ -14,22 +14,21 @@ pub struct AttachedSimulateMap {
 
 impl AttachedSimulateMap {
     pub async fn new(
-        ctx: &Context,
         orig: &CommandOrigin<'_>,
         attachment: Box<Attachment>,
         mode: Option<GameMode>,
     ) -> Result<Option<Self>> {
         if !attachment.filename.ends_with(".osu") {
             let content = "The attached file must be of type .osu";
-            orig.error(ctx, content).await?;
+            orig.error(content).await?;
 
             return Ok(None);
         }
 
-        let bytes = match ctx.client().get_discord_attachment(&attachment).await {
+        let bytes = match Context::client().get_discord_attachment(&attachment).await {
             Ok(bytes) => bytes,
             Err(err) => {
-                let _ = orig.error(ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("Failed to download attachment"));
             }
@@ -41,7 +40,7 @@ impl AttachedSimulateMap {
                 debug!(err = ?Report::new(err), "Failed to parse attachment as beatmap");
 
                 let content = "Failed to parse file. Be sure you provide a valid .osu file.";
-                orig.error(ctx, content).await?;
+                orig.error(content).await?;
 
                 return Ok(None);
             }

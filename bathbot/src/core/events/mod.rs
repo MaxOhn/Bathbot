@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
-    sync::Arc,
-};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use bathbot_cache::model::CachedArchive;
 use bathbot_model::twilight_model::{channel::Channel, guild::Guild};
@@ -14,7 +11,7 @@ use twilight_model::{gateway::CloseCode, user::User};
 
 use self::{interaction::handle_interaction, message::handle_message};
 use super::{buckets::BucketName, BotMetrics, Context};
-use crate::{core::ContextExt, util::Authored};
+use crate::util::Authored;
 
 mod interaction;
 mod message;
@@ -41,7 +38,7 @@ pub enum EventKind {
 }
 
 impl EventKind {
-    pub async fn log<A>(self, ctx: &Context, orig: &A, name: &str)
+    pub async fn log<A>(self, orig: &A, name: &str)
     where
         A: Authored + Send + Sync,
     {
@@ -51,7 +48,7 @@ impl EventKind {
             info!("[{location}] {username} {kind} `{name}`");
         }
 
-        let location = EventLocation::new(ctx, orig).await;
+        let location = EventLocation::new(orig).await;
         log(self, &location, orig.user(), name);
     }
 }
@@ -82,7 +79,7 @@ enum EventLocation {
 }
 
 impl EventLocation {
-    async fn new<A>(ctx: &Context, orig: &A) -> Self
+    async fn new<A>(orig: &A) -> Self
     where
         A: Authored + Send + Sync,
     {
@@ -90,11 +87,13 @@ impl EventLocation {
             return Self::Private;
         };
 
-        let Ok(Some(guild)) = ctx.cache.guild(guild_id).await else {
+        let cache = Context::cache();
+
+        let Ok(Some(guild)) = cache.guild(guild_id).await else {
             return Self::UncachedGuild;
         };
 
-        let Ok(Some(channel)) = ctx.cache.channel(Some(guild_id), orig.channel_id()).await else {
+        let Ok(Some(channel)) = cache.channel(Some(guild_id), orig.channel_id()).await else {
             return Self::UncachedChannel { guild };
         };
 
@@ -119,7 +118,10 @@ impl Display for EventLocation {
     }
 }
 
-pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>, mut reshard_rx: Receiver<()>) {
+pub async fn event_loop(shards: &mut Vec<Shard>, mut reshard_rx: Receiver<()>) {
+    let standby = Context::standby();
+    let cache = Context::cache();
+
     // restarts event loop in case the bot was instructed to reshard
     'reshard_loop: loop {
         let mut stream = ShardEventStream::new(shards.iter_mut());
@@ -129,14 +131,13 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>, mut reshard_
             let err = tokio::select!(
                  res = stream.next()  => match res {
                     Some((shard, Ok(event))) => {
-                        ctx.standby.process(&event);
-                        let change = ctx.cache.update(&event).await;
+                        standby.process(&event);
+                        let change = cache.update(&event).await;
                         BotMetrics::event(&event, change);
-                        let ctx = ctx.cloned();
                         let shard_id = shard.id().number();
 
                         tokio::spawn(async move {
-                            if let Err(err) = handle_event(ctx, event, shard_id).await {
+                            if let Err(err) = handle_event(event, shard_id).await {
                                 error!(?err, "Failed to handle event");
                             }
                         });
@@ -170,7 +171,7 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>, mut reshard_
             if must_reshard {
                 drop(stream);
 
-                if let Err(err) = ctx.reshard(shards).await {
+                if let Err(err) = Context::reshard(shards).await {
                     return error!("{err:?}");
                 }
 
@@ -182,7 +183,7 @@ pub async fn event_loop(ctx: Arc<Context>, shards: &mut Vec<Shard>, mut reshard_
     }
 }
 
-async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<()> {
+async fn handle_event(event: Event, shard_id: u64) -> Result<()> {
     match event {
         Event::GatewayClose(Some(frame)) => {
             warn!(
@@ -208,6 +209,8 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
             info!(shard_id, "Gateway requested shard to reconnect")
         }
         Event::GuildCreate(e) => {
+            let ctx = Context::get();
+
             ctx.guild_shards().pin().insert(e.id, shard_id);
             ctx.member_requests
                 .pending_guilds
@@ -219,28 +222,28 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
                 warn!(?err, "Failed to forward member request");
             }
         }
-        Event::InteractionCreate(e) => handle_interaction(ctx, e.0).await,
+        Event::InteractionCreate(e) => handle_interaction(e.0).await,
         Event::MemberAdd(e) if e.member.user.id == MISS_ANALYZER_ID => {
-            ctx.miss_analyzer_guilds().pin().insert(e.guild_id);
+            Context::miss_analyzer_guilds().pin().insert(e.guild_id);
         }
         Event::MemberChunk(e) => {
             if e.members
                 .iter()
                 .any(|member| member.user.id == MISS_ANALYZER_ID)
             {
-                ctx.miss_analyzer_guilds().pin().insert(e.guild_id);
+                Context::miss_analyzer_guilds().pin().insert(e.guild_id);
             }
         }
         Event::MemberRemove(e) if e.user.id == MISS_ANALYZER_ID => {
-            ctx.miss_analyzer_guilds().pin().remove(&e.guild_id);
+            Context::miss_analyzer_guilds().pin().remove(&e.guild_id);
         }
-        Event::MessageCreate(msg) => handle_message(ctx, msg.0).await,
+        Event::MessageCreate(msg) => handle_message(msg.0).await,
         Event::MessageDelete(e) => {
-            ctx.active_msgs.remove(e.id).await;
+            Context::get().active_msgs.remove(e.id).await;
         }
         Event::MessageDeleteBulk(msgs) => {
             for id in msgs.ids.into_iter() {
-                ctx.active_msgs.remove(id).await;
+                Context::get().active_msgs.remove(id).await;
             }
         }
         Event::Ready(_) => info!(shard_id, "Shard is ready"),

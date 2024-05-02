@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_macros::command;
 use bathbot_model::{Countries, OsuStatsPlayer, OsuStatsPlayersArgs};
@@ -30,18 +30,14 @@ impl<'a> From<OsuStatsPlayers<'a>> for OsuStatsPlayersArgs {
     }
 }
 
-pub(super) async fn players(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    mut args: OsuStatsPlayers<'_>,
-) -> Result<()> {
+pub(super) async fn players(orig: CommandOrigin<'_>, mut args: OsuStatsPlayers<'_>) -> Result<()> {
     let owner = orig.user_id()?;
 
     if args.mode.is_none() {
-        args.mode = match ctx.user_config().mode(owner).await {
+        args.mode = match Context::user_config().mode(owner).await {
             Ok(mode) => mode.map(GameModeOption::from),
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -59,7 +55,7 @@ pub(super) async fn players(
                         "Looks like `{country}` is neither a country name nor a country code"
                     );
 
-                    return orig.error(&ctx, content).await;
+                    return orig.error(content).await;
                 }
             }
         } else {
@@ -68,10 +64,10 @@ pub(super) async fn players(
     }
 
     // Retrieve leaderboard
-    let (amount, players) = match prepare_players(&ctx, &mut params).await {
+    let (amount, players) = match prepare_players(&mut params).await {
         Ok(tuple) => tuple,
         Err(err) => {
-            let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
+            let _ = orig.error(OSUSTATS_API_ISSUE).await;
 
             return Err(err.wrap_err("failed to prepare players"));
         }
@@ -89,7 +85,7 @@ pub(super) async fn players(
             Be sure to specify it with its acronym, e.g. `de` for germany."
         );
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
     let first_place_id = players[&1].first().unwrap().user_id;
@@ -105,7 +101,7 @@ pub(super) async fn players(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
@@ -124,13 +120,13 @@ pub(super) async fn players(
 /// find the exact amount with as few requests as possible with a worst case of
 /// six requests (1,10,5,7,8,9).
 async fn prepare_players(
-    ctx: &Context,
     params: &mut OsuStatsPlayersArgs,
 ) -> Result<(usize, HashMap<usize, Box<[OsuStatsPlayer]>, IntHasher>)> {
     let mut players = HashMap::with_capacity_and_hasher(2, IntHasher);
+    let client = Context::client();
 
     // Retrieve page one
-    let page = ctx.client().get_country_globals(params).await?;
+    let page = client.get_country_globals(params).await?;
 
     let len = page.len();
 
@@ -142,7 +138,7 @@ async fn prepare_players(
 
     // Retrieve page ten
     params.page = 10;
-    let page = ctx.client().get_country_globals(params).await?;
+    let page = client.get_country_globals(params).await?;
     let len = page.len();
     insert(&mut players, 10, page);
 
@@ -152,7 +148,7 @@ async fn prepare_players(
 
     // Retrieve page five
     params.page = 5;
-    let page = ctx.client().get_country_globals(params).await?;
+    let page = client.get_country_globals(params).await?;
     let len = page.len();
     insert(&mut players, 5, page);
 
@@ -161,7 +157,7 @@ async fn prepare_players(
     } else if len == 0 {
         // Retrieve page three
         params.page = 3;
-        let page = ctx.client().get_country_globals(params).await?;
+        let page = client.get_country_globals(params).await?;
         let len = page.len();
         insert(&mut players, 3, page);
 
@@ -170,7 +166,7 @@ async fn prepare_players(
         } else if len == 0 {
             // Retrieve page two
             params.page = 2;
-            let page = ctx.client().get_country_globals(params).await?;
+            let page = client.get_country_globals(params).await?;
             let len = page.len();
             insert(&mut players, 2, page);
 
@@ -178,7 +174,7 @@ async fn prepare_players(
         } else if len == 15 {
             // Retrieve page four
             params.page = 4;
-            let page = ctx.client().get_country_globals(params).await?;
+            let page = client.get_country_globals(params).await?;
             let len = page.len();
             insert(&mut players, 4, page);
 
@@ -187,7 +183,7 @@ async fn prepare_players(
     } else if len == 15 {
         // Retrieve page seven
         params.page = 7;
-        let page = ctx.client().get_country_globals(params).await?;
+        let page = client.get_country_globals(params).await?;
         let len = page.len();
         insert(&mut players, 7, page);
 
@@ -196,7 +192,7 @@ async fn prepare_players(
         } else if len == 0 {
             // Retrieve page six
             params.page = 6;
-            let page = ctx.client().get_country_globals(params).await?;
+            let page = client.get_country_globals(params).await?;
             let len = page.len();
             insert(&mut players, 6, page);
 
@@ -207,7 +203,7 @@ async fn prepare_players(
     for idx in 8..=9 {
         // Retrieve page idx
         params.page = idx;
-        let page = ctx.client().get_country_globals(params).await?;
+        let page = client.get_country_globals(params).await?;
         let len = page.len();
         insert(&mut players, idx, page);
 
@@ -245,11 +241,11 @@ fn insert(
 #[examples("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("osl")]
 #[group(Osu)]
-async fn prefix_osustatslist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_osustatslist(msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsPlayers::args(None, args) {
-        Ok(args) => players(ctx, msg.into(), args).await,
+        Ok(args) => players(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -272,11 +268,11 @@ async fn prefix_osustatslist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -
 #[examples("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("oslm")]
 #[group(Mania)]
-async fn prefix_osustatslistmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_osustatslistmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsPlayers::args(Some(GameModeOption::Mania), args) {
-        Ok(args) => players(ctx, msg.into(), args).await,
+        Ok(args) => players(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -299,11 +295,11 @@ async fn prefix_osustatslistmania(ctx: Arc<Context>, msg: &Message, args: Args<'
 #[examples("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("oslt")]
 #[group(Taiko)]
-async fn prefix_osustatslisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_osustatslisttaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsPlayers::args(Some(GameModeOption::Taiko), args) {
-        Ok(args) => players(ctx, msg.into(), args).await,
+        Ok(args) => players(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -326,11 +322,11 @@ async fn prefix_osustatslisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'
 #[examples("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("oslc", "osustatslistcatch")]
 #[group(Catch)]
-async fn prefix_osustatslistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_osustatslistctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsPlayers::args(Some(GameModeOption::Catch), args) {
-        Ok(args) => players(ctx, msg.into(), args).await,
+        Ok(args) => players(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }

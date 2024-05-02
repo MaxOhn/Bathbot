@@ -1,10 +1,9 @@
-use std::{cmp::Reverse, collections::HashMap, sync::Arc};
+use std::{cmp::Reverse, collections::HashMap};
 
 use bathbot_util::IntHasher;
 use rosu_v2::prelude::{GameMod, GameModIntermode, GameModsIntermode, Score};
 
 use super::ProfileMenu;
-use crate::core::Context;
 
 pub(super) struct Top100Mods {
     pub percent_mods: Box<[(GameModIntermode, u8)]>,
@@ -13,12 +12,12 @@ pub(super) struct Top100Mods {
 }
 
 impl Top100Mods {
-    pub(super) async fn prepare(ctx: Arc<Context>, menu: &mut ProfileMenu) -> Option<Self> {
+    pub(super) async fn prepare(menu: &mut ProfileMenu) -> Option<Self> {
         let user_id = menu.user.user_id();
         let mode = menu.user.mode();
 
         menu.scores
-            .get(ctx, user_id, mode, menu.legacy_scores)
+            .get(user_id, mode, menu.legacy_scores)
             .await
             .map(Self::new)
     }

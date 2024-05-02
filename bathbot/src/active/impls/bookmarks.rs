@@ -4,7 +4,6 @@ use std::{
     fmt::Write,
     future::ready,
     mem,
-    sync::Arc,
     time::Duration,
 };
 
@@ -37,7 +36,7 @@ use crate::{
         pagination::{handle_pagination_component, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    core::{Context, ContextExt},
+    core::Context,
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionComponent, Authored, ComponentExt, Emote},
 };
@@ -59,7 +58,6 @@ pub struct BookmarksPagination {
 
 impl BookmarksPagination {
     async fn cached_entry<'a>(
-        ctx: Arc<Context>,
         entries: &'a mut CachedBookmarkEntries,
         map: &MapBookmark,
     ) -> Result<&'a CachedBookmarkEntry> {
@@ -68,16 +66,16 @@ impl BookmarksPagination {
             Entry::Vacant(entry) => entry,
         };
 
-        let map_manager = ctx.osu_map();
+        let map_manager = Context::osu_map();
         let map_fut = map_manager.pp_map(map.map_id);
-        let creator_fut = creator_name(ctx.cloned(), map);
+        let creator_fut = creator_name(map);
         let (map_res, gd_creator) = tokio::join!(map_fut, creator_fut);
         let pp_map = map_res.wrap_err("Failed to get pp map")?;
 
         Ok(entry.insert(CachedBookmarkEntry { pp_map, gd_creator }))
     }
 
-    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let defer = mem::replace(&mut self.defer_next, false);
 
         if self.bookmarks.is_empty() {
@@ -105,7 +103,7 @@ impl BookmarksPagination {
         let map = &self.bookmarks[self.pages.index()];
 
         let CachedBookmarkEntry { pp_map, gd_creator } =
-            Self::cached_entry(ctx, &mut self.cached_entries, map).await?;
+            Self::cached_entry(&mut self.cached_entries, map).await?;
 
         let attrs = Difficulty::new().calculate(pp_map);
         let stars = attrs.stars();
@@ -271,11 +269,7 @@ impl BookmarksPagination {
         Ok(BuildPage::new(embed, defer).content(self.content.clone()))
     }
 
-    async fn handle_remove(
-        &mut self,
-        ctx: Arc<Context>,
-        component: &InteractionComponent,
-    ) -> ComponentResult {
+    async fn handle_remove(&mut self, component: &InteractionComponent) -> ComponentResult {
         let owner = match component.user_id() {
             Ok(user_id) => user_id,
             Err(err) => return ComponentResult::Err(err),
@@ -285,14 +279,14 @@ impl BookmarksPagination {
             return ComponentResult::Ignore;
         }
 
-        if let Err(err) = component.defer(&ctx).await {
+        if let Err(err) = component.defer().await {
             return ComponentResult::Err(Report::new(err).wrap_err("Failed to defer component"));
         }
 
         let idx = self.pages.index();
         let bookmark = self.bookmarks.remove(idx);
 
-        if let Err(err) = ctx.bookmarks().remove(owner, bookmark.map_id).await {
+        if let Err(err) = Context::bookmarks().remove(owner, bookmark.map_id).await {
             return ComponentResult::Err(err);
         }
 
@@ -311,8 +305,8 @@ impl BookmarksPagination {
 }
 
 impl IActiveMessage for BookmarksPagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -389,7 +383,6 @@ impl IActiveMessage for BookmarksPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         self.confirm_remove = Some(false);
@@ -400,11 +393,11 @@ impl IActiveMessage for BookmarksPagination {
 
                 Box::pin(ready(ComponentResult::BuildPage))
             }
-            "bookmarks_confirm_remove" => Box::pin(self.handle_remove(ctx, component)),
+            "bookmarks_confirm_remove" => Box::pin(self.handle_remove(component)),
             _ => {
                 self.defer_next = true;
 
-                handle_pagination_component(ctx, component, self.msg_owner, true, &mut self.pages)
+                handle_pagination_component(component, self.msg_owner, true, &mut self.pages)
             }
         }
     }
@@ -413,14 +406,13 @@ impl IActiveMessage for BookmarksPagination {
         (!self.bookmarks.is_empty()).then_some(Duration::from_secs(60))
     }
 
-    fn on_timeout<'a>(
-        &'a mut self,
-        ctx: &'a Context,
+    fn on_timeout(
+        &mut self,
         _: Id<MessageMarker>,
         _: Id<ChannelMarker>,
-    ) -> BoxFuture<'a, Result<()>> {
+    ) -> BoxFuture<'_, Result<()>> {
         let fut = async move {
-            ctx.interaction()
+            Context::interaction()
                 .update_response(&self.token)
                 .components(Some(&[]))
                 .expect("invalid components")
@@ -433,12 +425,12 @@ impl IActiveMessage for BookmarksPagination {
     }
 }
 
-async fn creator_name(ctx: Arc<Context>, map: &MapBookmark) -> Option<Username> {
+async fn creator_name(map: &MapBookmark) -> Option<Username> {
     if map.mapper_id == map.creator_id {
         return None;
     }
 
-    match ctx.osu_user().name(map.mapper_id).await {
+    match Context::osu_user().name(map.mapper_id).await {
         Ok(name @ Some(_)) => return name,
         Ok(None) => {}
         Err(err) => warn!("{err:?}"),
@@ -446,7 +438,7 @@ async fn creator_name(ctx: Arc<Context>, map: &MapBookmark) -> Option<Username> 
 
     let args = UserArgs::user_id(map.mapper_id);
 
-    match ctx.redis().osu_user(args).await {
+    match Context::redis().osu_user(args).await {
         Ok(RedisData::Original(user)) => Some(user.username),
         Ok(RedisData::Archive(user)) => Some(user.username.as_str().into()),
         Err(err) => {

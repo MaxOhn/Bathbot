@@ -12,20 +12,19 @@ use crate::{core::Context, util::interaction::InteractionModal};
 
 pub trait ModalExt {
     /// Ackowledge the modal and respond immediatly by updating the message.
-    fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody>;
+    fn callback(&self, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody>;
 
     /// Ackownledge the modal but don't respond yet.
-    fn defer(&self, ctx: &Context) -> ResponseFuture<EmptyBody>;
+    fn defer(&self) -> ResponseFuture<EmptyBody>;
 
     /// After having already ackowledged the modal either via
     /// [`ModalExt::callback`] or [`ModalExt::defer`],
     /// use this to update the message.
-    fn update(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<Message>;
+    fn update(&self, builder: MessageBuilder<'_>) -> ResponseFuture<Message>;
 }
 
 impl ModalExt for InteractionModal {
-    #[inline]
-    fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody> {
+    fn callback(&self, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody> {
         let attachments = builder
             .attachment
             .filter(|_| {
@@ -47,26 +46,24 @@ impl ModalExt for InteractionModal {
             data: Some(data),
         };
 
-        ctx.interaction()
+        Context::interaction()
             .create_response(self.id, &self.token, &response)
             .into_future()
     }
 
-    #[inline]
-    fn defer(&self, ctx: &Context) -> ResponseFuture<EmptyBody> {
+    fn defer(&self) -> ResponseFuture<EmptyBody> {
         let response = InteractionResponse {
             kind: InteractionResponseType::DeferredUpdateMessage,
             data: None,
         };
 
-        ctx.interaction()
+        Context::interaction()
             .create_response(self.id, &self.token, &response)
             .into_future()
     }
 
-    #[inline]
-    fn update(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<Message> {
-        let client = ctx.interaction();
+    fn update(&self, builder: MessageBuilder<'_>) -> ResponseFuture<Message> {
+        let client = Context::interaction();
 
         let mut req = client.update_response(&self.token);
 

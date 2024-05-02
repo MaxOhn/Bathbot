@@ -1,5 +1,3 @@
-#![cfg(feature = "matchlive")]
-
 use std::{
     borrow::Cow,
     cmp::Ordering,

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
@@ -12,7 +12,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{require_link, user_not_found};
 use crate::{
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     embeds::{EmbedData, RatioEmbed},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, InteractionCommandExt},
@@ -56,7 +56,7 @@ pub struct Ratios<'a> {
 #[example("badewanne3")]
 #[alias("ratio")]
 #[group(Mania)]
-async fn prefix_ratios(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_ratios(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => Ratios {
@@ -71,32 +71,31 @@ async fn prefix_ratios(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
         None => Ratios::default(),
     };
 
-    ratios(ctx, msg.into(), args).await
+    ratios(msg.into(), args).await
 }
 
-async fn slash_ratios(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_ratios(mut command: InteractionCommand) -> Result<()> {
     let args = Ratios::from_interaction(command.input_data())?;
 
-    ratios(ctx, (&mut command).into(), args).await
+    ratios((&mut command).into(), args).await
 }
 
-async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) -> Result<()> {
+async fn ratios(orig: CommandOrigin<'_>, args: Ratios<'_>) -> Result<()> {
     let owner = orig.user_id()?;
-    let config = ctx.user_config().with_osu_id(owner).await?;
+    let config = Context::user_config().with_osu_id(owner).await?;
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -105,12 +104,9 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id)
-        .await
-        .mode(GameMode::Mania);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(GameMode::Mania);
 
-    let scores_fut = ctx
-        .osu_scores()
+    let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)
         .exec_with_user(user_args);
@@ -118,12 +114,12 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user or scores");
 
             return Err(err);
@@ -141,7 +137,7 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
     // Creating the embed
     let embed = embed_data.build();
     let builder = MessageBuilder::new().content(content).embed(embed);
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

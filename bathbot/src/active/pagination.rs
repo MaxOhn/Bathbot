@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_util::{
     modal::{ModalBuilder, TextInputBuilder},
     numbers::last_multiple,
@@ -15,12 +13,9 @@ use twilight_model::{
 };
 
 use super::ComponentResult;
-use crate::{
-    core::Context,
-    util::{
-        interaction::{InteractionComponent, InteractionModal},
-        Authored, ComponentExt, Emote, ModalExt,
-    },
+use crate::util::{
+    interaction::{InteractionComponent, InteractionModal},
+    Authored, ComponentExt, Emote, ModalExt,
 };
 
 #[derive(Clone, Debug)]
@@ -131,14 +126,13 @@ impl Pages {
 }
 
 pub fn handle_pagination_component<'a>(
-    ctx: Arc<Context>,
     component: &'a mut InteractionComponent,
     msg_owner: Id<UserMarker>,
     defer: bool,
     pages: &'a mut Pages,
 ) -> BoxFuture<'a, ComponentResult> {
     let fut = async move {
-        async_handle_pagination_component(ctx, component, msg_owner, defer, pages)
+        async_handle_pagination_component(component, msg_owner, defer, pages)
             .await
             .unwrap_or_else(ComponentResult::Err)
     };
@@ -147,7 +141,6 @@ pub fn handle_pagination_component<'a>(
 }
 
 async fn async_handle_pagination_component(
-    ctx: Arc<Context>,
     component: &mut InteractionComponent,
     msg_owner: Id<UserMarker>,
     defer: bool,
@@ -161,7 +154,7 @@ async fn async_handle_pagination_component(
         "pagination_start" => {
             if defer {
                 component
-                    .defer(&ctx)
+                    .defer()
                     .await
                     .wrap_err("Failed to defer component")?;
             }
@@ -171,7 +164,7 @@ async fn async_handle_pagination_component(
         "pagination_back" => {
             if defer {
                 component
-                    .defer(&ctx)
+                    .defer()
                     .await
                     .wrap_err("Failed to defer component")?;
             }
@@ -181,7 +174,7 @@ async fn async_handle_pagination_component(
         "pagination_step" => {
             if defer {
                 component
-                    .defer(&ctx)
+                    .defer()
                     .await
                     .wrap_err("Failed to defer component")?;
             }
@@ -191,7 +184,7 @@ async fn async_handle_pagination_component(
         "pagination_end" => {
             if defer {
                 component
-                    .defer(&ctx)
+                    .defer()
                     .await
                     .wrap_err("Failed to defer component")?;
             }
@@ -222,19 +215,17 @@ async fn async_handle_pagination_component(
 }
 
 pub fn handle_pagination_modal<'a>(
-    ctx: &'a Context,
     modal: &'a mut InteractionModal,
     msg_owner: Id<UserMarker>,
     defer: bool,
     pages: &'a mut Pages,
 ) -> BoxFuture<'a, Result<()>> {
     Box::pin(async_handle_pagination_modal(
-        ctx, modal, msg_owner, defer, pages,
+        modal, msg_owner, defer, pages,
     ))
 }
 
 async fn async_handle_pagination_modal(
-    ctx: &Context,
     modal: &mut InteractionModal,
     msg_owner: Id<UserMarker>,
     defer: bool,
@@ -266,7 +257,7 @@ async fn async_handle_pagination_modal(
     }
 
     if defer {
-        modal.defer(ctx).await.wrap_err("Failed to defer modal")?;
+        modal.defer().await.wrap_err("Failed to defer modal")?;
     }
 
     pages.set_index((page - 1) * pages.per_page());

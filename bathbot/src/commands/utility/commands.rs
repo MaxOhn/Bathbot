@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, slice, sync::Arc};
+use std::{cmp::Reverse, slice};
 
 use bathbot_macros::{command, SlashCommand};
 use bathbot_model::{RankingEntries, RankingEntry, RankingKind};
@@ -21,7 +21,7 @@ use crate::{
 #[flags(SKIP_DEFER)]
 pub struct Commands;
 
-pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_commands(mut command: InteractionCommand) -> Result<()> {
     static LABEL: Label = Label::from_static_parts("kind", "slash");
 
     let owner = command.user_id()?;
@@ -30,7 +30,7 @@ pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) 
 
     let mut full_name = String::new();
 
-    let mut cmd_counts: Box<[(Box<str>, u32)]> = ctx
+    let mut cmd_counts: Box<[(Box<str>, u32)]> = Context::get()
         .metrics
         .collect_histograms(&key, |key, count| {
             full_name.clear();
@@ -70,13 +70,13 @@ pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) 
 
     let pagination = SlashCommandsPagination::builder()
         .counts(cmd_counts)
-        .start_time(ctx.start_time)
+        .start_time(Context::get().start_time)
         .msg_owner(owner)
         .build();
 
     ActiveMessages::builder(pagination)
         .start_by_update(false)
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }
 
@@ -84,21 +84,23 @@ pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) 
 #[desc("List of popular prefix commands")]
 #[group(Utility)]
 #[flags(SKIP_DEFER)]
-async fn prefix_commands(ctx: Arc<Context>, msg: &Message) -> Result<()> {
+async fn prefix_commands(msg: &Message) -> Result<()> {
     static LABEL: Label = Label::from_static_parts("kind", "prefix");
 
     let orig = CommandOrigin::from(msg);
 
     let key = Key::from_static_parts("bathbot.commands_process_time", slice::from_ref(&LABEL));
 
-    let mut cmds = ctx.metrics.collect_histograms(&key, |key, count| {
-        let name: Box<str> = key
-            .labels()
-            .find_map(|label| (label.key() == "name").then(|| Box::from(label.value())))
-            .unwrap_or_else(|| Box::from("<unknown name>"));
+    let mut cmds = Context::get()
+        .metrics
+        .collect_histograms(&key, |key, count| {
+            let name: Box<str> = key
+                .labels()
+                .find_map(|label| (label.key() == "name").then(|| Box::from(label.value())))
+                .unwrap_or_else(|| Box::from("<unknown name>"));
 
-        (name, count as u32)
-    });
+            (name, count as u32)
+        });
 
     cmds.sort_unstable_by_key(|(_, count)| Reverse(*count));
 
@@ -121,7 +123,7 @@ async fn prefix_commands(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     let total = entries.len();
 
     let kind = RankingKind::Commands {
-        bootup_time: ctx.start_time,
+        bootup_time: Context::get().start_time,
     };
 
     let pagination = RankingPagination::builder()
@@ -132,5 +134,5 @@ async fn prefix_commands(ctx: Arc<Context>, msg: &Message) -> Result<()> {
         .msg_owner(msg_owner)
         .build();
 
-    ActiveMessages::builder(pagination).begin(ctx, orig).await
+    ActiveMessages::builder(pagination).begin(orig).await
 }

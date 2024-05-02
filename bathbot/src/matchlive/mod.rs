@@ -1,5 +1,3 @@
-#![cfg(feature = "matchlive")]
-
 use std::{slice, time::Duration};
 
 use eyre::{Context as EyreContext, Result};
@@ -19,7 +17,6 @@ const EMBED_LIMIT: usize = 10;
 /// Sends a message to the channel for each embed
 /// and returns the last of these messages
 pub async fn send_match_messages(
-    ctx: &Context,
     channel: Id<ChannelMarker>,
     embeds: &[MatchLiveEmbed],
 ) -> Result<Id<MessageMarker>> {
@@ -31,8 +28,9 @@ pub async fn send_match_messages(
         .expect("no embed on fresh match")
         .as_embed();
 
-    let mut last_msg_fut = ctx
-        .http
+    let http = Context::http();
+
+    let mut last_msg_fut = http
         .create_message(channel)
         .embeds(slice::from_ref(&last))
         .wrap_err("Failed to create last match live msg")?;
@@ -45,7 +43,7 @@ pub async fn send_match_messages(
             let embed = embed.as_embed();
             interval.tick().await;
 
-            match ctx.http.create_message(channel).embeds(&[embed]) {
+            match http.create_message(channel).embeds(&[embed]) {
                 Ok(msg_fut) => {
                     if let Err(err) = msg_fut.await {
                         warn!(?err, "Failed to send match live embed");

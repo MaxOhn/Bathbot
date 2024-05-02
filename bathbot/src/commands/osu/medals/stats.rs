@@ -1,4 +1,4 @@
-use std::{borrow::Cow, mem, sync::Arc};
+use std::{borrow::Cow, mem};
 
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::MedalCompact as MedalCompactRkyv;
@@ -25,7 +25,7 @@ use twilight_model::guild::Permissions;
 use super::MedalStats;
 use crate::{
     commands::osu::{require_link, user_not_found},
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     embeds::{EmbedData, MedalStatsEmbed, StatsMedal},
     manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,
@@ -39,7 +39,6 @@ use crate::{
 #[alias("ms")]
 #[group(AllModes)]
 async fn prefix_medalstats(
-    ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
     permissions: Option<Permissions>,
@@ -58,45 +57,41 @@ async fn prefix_medalstats(
         None => MedalStats::default(),
     };
 
-    stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    stats(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
-pub(super) async fn stats(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: MedalStats<'_>,
-) -> Result<()> {
-    let user_id = match user_id!(ctx, orig, args) {
+pub(super) async fn stats(orig: CommandOrigin<'_>, args: MedalStats<'_>) -> Result<()> {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+        None => match Context::user_config().osu_id(orig.user_id()?).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
+            Ok(None) => return require_link(&orig).await,
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
         },
     };
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
-    let user_fut = ctx.redis().osu_user(user_args);
-    let medals_fut = ctx.redis().medals();
+    let user_args = UserArgs::rosu_id(&user_id).await;
+    let user_fut = Context::redis().osu_user(user_args);
+    let medals_fut = Context::redis().medals();
 
     let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
         (Ok(user), Ok(medals)) => (user, medals),
         (Err(OsuError::NotFound), _) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (_, Err(err)) => {
-            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("Failed to get cached medals"));
         }
         (Err(err), _) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get user"));
         }
@@ -163,7 +158,7 @@ pub(super) async fn stats(
         builder = builder.attachment("medal_graph.png", graph);
     }
 
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

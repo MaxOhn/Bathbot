@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{HasName, SlashCommand};
 use bathbot_model::MedalGroup;
@@ -9,10 +9,7 @@ use twilight_interactions::command::{
 use twilight_model::id::{marker::UserMarker, Id};
 
 pub use self::{common::*, list::*, medal::*, missing::*, recent::*, stats::*};
-use crate::{
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
-};
+use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
 
 mod common;
 mod list;
@@ -260,13 +257,13 @@ pub struct MedalStats<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-pub async fn slash_medal(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_medal(mut command: InteractionCommand) -> Result<()> {
     match Medal_::from_interaction(command.input_data())? {
-        Medal_::Common(args) => common(ctx, (&mut command).into(), args).await,
-        Medal_::Info(args) => info(ctx, (&mut command).into(), args).await,
-        Medal_::List(args) => list(ctx, (&mut command).into(), args).await,
-        Medal_::Missing(args) => missing(ctx, (&mut command).into(), args).await,
-        Medal_::Recent(args) => recent(ctx, (&mut command).into(), args).await,
-        Medal_::Stats(args) => stats(ctx, (&mut command).into(), args).await,
+        Medal_::Common(args) => common((&mut command).into(), args).await,
+        Medal_::Info(args) => info((&mut command).into(), args).await,
+        Medal_::List(args) => list((&mut command).into(), args).await,
+        Medal_::Missing(args) => missing((&mut command).into(), args).await,
+        Medal_::Recent(args) => recent((&mut command).into(), args).await,
+        Medal_::Stats(args) => stats((&mut command).into(), args).await,
     }
 }

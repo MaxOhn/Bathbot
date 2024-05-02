@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
@@ -10,10 +10,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::user_not_found;
 use crate::{
     commands::GameModeOption,
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, PpMissingEmbed},
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
@@ -77,10 +74,10 @@ impl<'m> Pp<'m> {
     }
 }
 
-async fn slash_pp(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_pp(mut command: InteractionCommand) -> Result<()> {
     let args = Pp::from_interaction(command.input_data())?;
 
-    pp(ctx, (&mut command).into(), args).await
+    pp((&mut command).into(), args).await
 }
 
 #[command]
@@ -93,11 +90,11 @@ async fn slash_pp(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 #[usage("[username] [+][number]")]
 #[example("badewanne3 8000", "+72.7")]
 #[group(Osu)]
-pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_pp(msg: &Message, args: Args<'_>) -> Result<()> {
     match Pp::args(None, args) {
-        Ok(args) => pp(ctx, msg.into(), args).await,
+        Ok(args) => pp(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -115,11 +112,11 @@ pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resu
 #[example("badewanne3 8000", "+72.7")]
 #[alias("ppm")]
 #[group(Mania)]
-pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_ppmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match Pp::args(Some(GameModeOption::Mania), args) {
-        Ok(args) => pp(ctx, msg.into(), args).await,
+        Ok(args) => pp(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -137,11 +134,11 @@ pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("badewanne3 8000", "+72.7")]
 #[alias("ppt")]
 #[group(Taiko)]
-pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_pptaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match Pp::args(Some(GameModeOption::Taiko), args) {
-        Ok(args) => pp(ctx, msg.into(), args).await,
+        Ok(args) => pp(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -159,40 +156,39 @@ pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("badewanne3 8000", "+72.7")]
 #[aliases("ppc", "ppcatch")]
 #[group(Catch)]
-pub async fn prefix_ppctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_ppctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match Pp::args(Some(GameModeOption::Catch), args) {
-        Ok(args) => pp(ctx, msg.into(), args).await,
+        Ok(args) => pp(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<()> {
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+async fn pp(orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<()> {
+    let (user_id, mode) = user_id_mode!(orig, args);
 
     let Pp { pp, each, .. } = args;
 
     let Some(pp) = PpValue::parse(pp.as_ref()) else {
         let content = "Failed to parse pp. Be sure to specify a decimal number.";
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     };
 
     let pp_value = pp.value();
 
     if pp_value < 0.0 {
-        return orig.error(&ctx, "The pp number must be non-negative").await;
+        return orig.error("The pp number must be non-negative").await;
     } else if pp_value > (i64::MAX / 1024) as f32 {
-        return orig.error(&ctx, "Number too large").await;
+        return orig.error("Number too large").await;
     }
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
-    let scores_fut = ctx
-        .osu_scores()
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let scores_fut = Context::osu_scores()
         .top(false)
         .limit(100)
         .exec_with_user(user_args);
@@ -200,12 +196,12 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
@@ -226,7 +222,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
         },
     };
 
-    let rank = match ctx.approx().rank(target_pp, mode).await {
+    let rank = match Context::approx().rank(target_pp, mode).await {
         Ok(rank_pp) => Some(rank_pp),
         Err(err) => {
             warn!(?err, "Failed to get rank pp");
@@ -241,7 +237,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
     // Creating the embed
     let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

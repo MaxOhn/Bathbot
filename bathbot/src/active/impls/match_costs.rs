@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashMap, fmt::Write, sync::Arc};
+use std::{cmp, collections::HashMap, fmt::Write};
 
 use bathbot_util::{
     constants::{DESCRIPTION_SIZE, OSU_BASE},
@@ -19,7 +19,6 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::{MatchCostDisplay, MatchResult, TeamResult, UserMatchCostEntry},
-    core::Context,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 
@@ -33,8 +32,8 @@ pub struct MatchCostPagination {
 }
 
 impl IActiveMessage for MatchCostPagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -43,18 +42,16 @@ impl IActiveMessage for MatchCostPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, false, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
     }
 }
 
@@ -127,7 +124,7 @@ impl MatchCostPagination {
         MatchCostPaginationBuilder::default()
     }
 
-    async fn async_build_page(&mut self, _: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let match_id = self.osu_match.match_id;
         let mut title = self.osu_match.name.clone();
         title.retain(|c| c != '(' && c != ')');

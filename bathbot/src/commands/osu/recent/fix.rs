@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_model::ScoreSlim;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -15,35 +13,34 @@ use rosu_v2::{
 use super::RecentFix;
 use crate::{
     commands::osu::{require_link, user_not_found, FixEntry, FixScore},
-    core::{commands::CommandOrigin, Context, ContextExt},
+    core::{commands::CommandOrigin, Context},
     embeds::{EmbedData, FixScoreEmbed},
     manager::redis::osu::{UserArgs, UserArgsSlim},
     util::osu::IfFc,
 };
 
-pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> {
+pub(super) async fn fix(orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> {
     let owner = orig.user_id()?;
-    let config = ctx.user_config().with_osu_id(owner).await?;
+    let config = Context::user_config().with_osu_id(owner).await?;
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
     let mode = match args.mode.map(GameMode::from).or(config.mode) {
         None => GameMode::Osu,
-        Some(GameMode::Mania) => return orig.error(&ctx, "Can't fix mania scores \\:(").await,
+        Some(GameMode::Mania) => return orig.error("Can't fix mania scores \\:(").await,
         Some(mode) => mode,
     };
 
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -52,10 +49,9 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
     };
 
     // Retrieve the user and their recent scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-    let scores_fut = ctx
-        .osu_scores()
+    let scores_fut = Context::osu_scores()
         .recent(legacy_scores)
         .limit(100)
         .include_fails(true)
@@ -74,16 +70,16 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
                 user.username(),
             );
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user or scores");
 
             return Err(err);
@@ -101,7 +97,7 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
                 let content = "Failed to parse index. \
                 Must be an integer between 1 and 100 or `random` / `?`.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
         None => 0,
@@ -112,11 +108,10 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
     let (score, map, top) = match scores.into_iter().nth(num) {
         Some(score) => {
             let checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref());
-            let map_fut = ctx.osu_map().map(score.map_id, checksum);
+            let map_fut = Context::osu_map().map(score.map_id, checksum);
 
             let user_args = UserArgsSlim::user_id(user.user_id()).mode(score.mode);
-            let best_fut = ctx
-                .osu_scores()
+            let best_fut = Context::osu_scores()
                 .top(legacy_scores)
                 .limit(100)
                 .exec(user_args);
@@ -124,12 +119,12 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
             match tokio::join!(map_fut, best_fut) {
                 (Ok(map), Ok(best)) => (score, map, best),
                 (Err(err), _) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(GENERAL_ISSUE).await;
 
                     return Err(Report::new(err));
                 }
                 (_, Err(err)) => {
-                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                    let _ = orig.error(OSU_API_ISSUE).await;
                     let err = Report::new(err).wrap_err("failed to get top scores");
 
                     return Err(err);
@@ -147,23 +142,23 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
                 genitive = if username.ends_with('s') { "" } else { "s" }
             );
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
     };
 
     let pp = match score.pp {
         Some(pp) => pp,
-        None => ctx.pp(&map).score(&score).performance().await.pp() as f32,
+        None => Context::pp(&map).score(&score).performance().await.pp() as f32,
     };
 
     let score = ScoreSlim::new(score, pp);
-    let if_fc = IfFc::new(&ctx, &score, &map).await;
+    let if_fc = IfFc::new(&score, &map).await;
     let score = Some(FixScore { score, top, if_fc });
     let entry = FixEntry { user, map, score };
 
     let embed = FixScoreEmbed::new(&entry, None).build();
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

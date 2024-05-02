@@ -1,13 +1,10 @@
-use std::{collections::HashMap, hint, iter, num::NonZeroU32, sync::Arc};
+use std::{collections::HashMap, hint, iter, num::NonZeroU32};
 
 use bathbot_model::RespektiveUserRankHighest;
 use bathbot_util::IntHasher;
 use rosu_v2::prelude::{GameMode, Score, Username};
 
-use crate::{
-    core::{Context, ContextExt},
-    manager::redis::osu::UserArgsSlim,
-};
+use crate::{core::Context, manager::redis::osu::UserArgsSlim};
 
 #[derive(Copy, Clone)]
 pub(super) enum Availability<T> {
@@ -31,7 +28,6 @@ impl<T> Availability<T> {
 impl Availability<Box<[Score]>> {
     pub(super) async fn get(
         &mut self,
-        ctx: Arc<Context>,
         user_id: u32,
         mode: GameMode,
         legacy_scores: bool,
@@ -44,7 +40,11 @@ impl Availability<Box<[Score]>> {
 
         let user_args = UserArgsSlim::user_id(user_id).mode(mode);
 
-        match ctx.osu_scores().top(legacy_scores).exec(user_args).await {
+        match Context::osu_scores()
+            .top(legacy_scores)
+            .exec(user_args)
+            .await
+        {
             Ok(scores) => Some(self.insert(scores.into_boxed_slice())),
             Err(err) => {
                 warn!(?err, "Failed to get top scores");
@@ -59,18 +59,14 @@ impl Availability<Box<[Score]>> {
 pub(super) struct MapperNames(pub HashMap<u32, Username, IntHasher>);
 
 impl Availability<MapperNames> {
-    pub(super) async fn get(
-        &mut self,
-        ctx: Arc<Context>,
-        entries: &[(u32, (u8, f32))],
-    ) -> Option<&MapperNames> {
+    pub(super) async fn get(&mut self, entries: &[(u32, (u8, f32))]) -> Option<&MapperNames> {
         match self {
             Availability::Received(ref names) => Some(names),
             Availability::Errored => None,
             Availability::NotRequested => {
                 let ids: Vec<_> = entries.iter().map(|(id, _)| *id as i32).collect();
 
-                let mut names = match ctx.osu_user().names(&ids).await {
+                let mut names = match Context::osu_user().names(&ids).await {
                     Ok(names) => names,
                     Err(err) => {
                         warn!(?err, "Failed to get mapper names");
@@ -84,7 +80,7 @@ impl Availability<MapperNames> {
                         .iter()
                         .filter_map(|(id, _)| (!names.contains_key(id)).then_some(*id));
 
-                    match ctx.osu().users(id_iter).await {
+                    match Context::osu().users(id_iter).await {
                         Ok(users) => names
                             .extend(users.into_iter().map(|user| (user.user_id, user.username))),
                         Err(err) => warn!(?err, "Failed to get mapper names"),
@@ -100,14 +96,14 @@ impl Availability<MapperNames> {
 pub(super) struct SkinUrl(pub Option<String>);
 
 impl Availability<SkinUrl> {
-    pub(super) async fn get(&mut self, ctx: &Context, user_id: u32) -> Option<&str> {
+    pub(super) async fn get(&mut self, user_id: u32) -> Option<&str> {
         match self {
             Availability::Received(SkinUrl(ref skin_url)) => return skin_url.as_deref(),
             Availability::Errored => return None,
             Availability::NotRequested => {}
         }
 
-        let skin_fut = ctx.user_config().skin_from_osu_id(user_id);
+        let skin_fut = Context::user_config().skin_from_osu_id(user_id);
 
         match skin_fut.await {
             Ok(skin_url) => {
@@ -132,19 +128,14 @@ pub(super) struct ScoreData {
 }
 
 impl Availability<ScoreData> {
-    pub(super) async fn get(
-        &mut self,
-        ctx: &Context,
-        user_id: u32,
-        mode: GameMode,
-    ) -> Option<ScoreData> {
+    pub(super) async fn get(&mut self, user_id: u32, mode: GameMode) -> Option<ScoreData> {
         match self {
             Availability::Received(data) => return Some(*data),
             Availability::Errored => return None,
             Availability::NotRequested => {}
         }
 
-        let user_fut = ctx.client().get_respektive_users(iter::once(user_id), mode);
+        let user_fut = Context::client().get_respektive_users(iter::once(user_id), mode);
 
         match user_fut.await.map(|mut iter| iter.next().flatten()) {
             Ok(Some(user)) => {

@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter, Result as FmtResult},
-    sync::Arc,
 };
 
 use bathbot_macros::msg_command;
@@ -12,12 +11,12 @@ use twilight_model::channel::Message;
 
 use crate::{
     active::{impls::BookmarksPagination, ActiveMessages},
-    core::{Context, ContextExt},
+    core::Context,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
 
 #[msg_command(name = "Bookmark map", flags(EPHEMERAL))]
-async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn bookmark_map(mut command: InteractionCommand) -> Result<()> {
     let msg_opt = command
         .data
         .resolved
@@ -25,12 +24,12 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
         .and_then(|resolved| resolved.messages.values().next());
 
     let Some(msg) = msg_opt else {
-        let _ = command.error(&ctx, GENERAL_ISSUE).await;
+        let _ = command.error(GENERAL_ISSUE).await;
 
         return Err(eyre!("Missing resolved message"));
     };
 
-    let map_id = match ctx.find_map_id_in_msg(msg).await {
+    let map_id = match Context::find_map_id_in_msg(msg).await {
         Some(MapIdType::Map(map_id)) => map_id,
         Some(MapIdType::Set(mapset_id)) => {
             let content = format!(
@@ -38,7 +37,7 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
                 url = MessageUrl::new(msg)
             );
 
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
@@ -52,13 +51,13 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
                 url = MessageUrl::new(msg)
             );
 
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
     };
 
-    let mapset = match ctx.osu().beatmapset_from_map_id(map_id).await {
+    let mapset = match Context::osu().beatmapset_from_map_id(map_id).await {
         Ok(mapset) => mapset,
         Err(OsuError::NotFound) => {
             let content = format!(
@@ -67,20 +66,19 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
                 url = MessageUrl::new(msg)
             );
 
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get mapset"));
         }
     };
 
     let mapset_clone = mapset.clone();
-    let ctx_clone = ctx.cloned();
-    tokio::spawn(async move { ctx_clone.osu_map().store(&mapset_clone).await });
+    tokio::spawn(async move { Context::osu_map().store(&mapset_clone).await });
 
     let map_opt = mapset
         .maps
@@ -94,17 +92,17 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
             url = MessageUrl::new(msg)
         );
 
-        command.error(&ctx, content).await?;
+        command.error(content).await?;
 
         return Ok(());
     };
 
     let user_id = command.user_id()?;
 
-    let bookmarks = match ctx.bookmarks().get(user_id).await {
+    let bookmarks = match Context::bookmarks().get(user_id).await {
         Ok(bookmarks) => bookmarks,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await?;
+            let _ = command.error(GENERAL_ISSUE).await?;
 
             return Err(err);
         }
@@ -113,8 +111,8 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
     let idx = match bookmarks.iter().position(|x| x.map_id == map_id) {
         Some(index) => index,
         None => {
-            if let Err(err) = ctx.bookmarks().add(user_id, map_id).await {
-                let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            if let Err(err) = Context::bookmarks().add(user_id, map_id).await {
+                let _ = command.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             } else {
@@ -125,10 +123,10 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
 
     debug!(user = %user_id, map = map_id, "Added bookmarked map");
 
-    let bookmarks = match ctx.bookmarks().get(user_id).await {
+    let bookmarks = match Context::bookmarks().get(user_id).await {
         Ok(bookmarks) => bookmarks,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await?;
+            let _ = command.error(GENERAL_ISSUE).await?;
 
             return Err(err);
         }
@@ -156,7 +154,7 @@ async fn bookmark_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }
 

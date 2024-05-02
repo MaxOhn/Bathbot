@@ -3,7 +3,6 @@ use std::{
     cmp::{Ordering, Reverse},
     collections::{hash_map::Entry, HashMap},
     fmt::Write,
-    sync::Arc,
 };
 
 use bathbot_macros::command;
@@ -28,10 +27,7 @@ use crate::{
         osu::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder},
         GameModeOption, GradeOption,
     },
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, Mods, OsuMap},
     util::{
         query::{IFilterCriteria, RegularCriteria, Searchable},
@@ -52,11 +48,11 @@ use crate::{
 #[example("badewanne3")]
 #[alias("rl")]
 #[group(Osu)]
-async fn prefix_recentlist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentlist(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(None, args) {
-        Ok(args) => list(ctx, msg.into(), args).await,
+        Ok(args) => list(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -75,11 +71,11 @@ async fn prefix_recentlist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[example("badewanne3")]
 #[alias("rlm")]
 #[group(Mania)]
-async fn prefix_recentlistmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentlistmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Mania), args) {
-        Ok(args) => list(ctx, msg.into(), args).await,
+        Ok(args) => list(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -98,11 +94,11 @@ async fn prefix_recentlistmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[example("badewanne3")]
 #[alias("rlt")]
 #[group(Taiko)]
-async fn prefix_recentlisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentlisttaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Taiko), args) {
-        Ok(args) => list(ctx, msg.into(), args).await,
+        Ok(args) => list(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -121,11 +117,11 @@ async fn prefix_recentlisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[example("badewanne3")]
 #[aliases("rlc", "recentlistcatch")]
 #[group(Catch)]
-async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentlistctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Catch), args) {
-        Ok(args) => list(ctx, msg.into(), args).await,
+        Ok(args) => list(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -143,15 +139,15 @@ async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 #[example("badewanne3")]
 #[alias("rlp", "recentlistpasses", "rpl")]
 #[group(Osu)]
-async fn prefix_recentlistpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentlistpass(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(None, args) {
         Ok(mut args) => {
             args.passes = Some(true);
 
-            list(ctx, msg.into(), args).await
+            list(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -169,19 +165,15 @@ async fn prefix_recentlistpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>)
 #[example("badewanne3")]
 #[alias("rlpm", "recentlistpassesmania", "rplm")]
 #[group(Mania)]
-async fn prefix_recentlistpassmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> Result<()> {
+async fn prefix_recentlistpassmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Mania), args) {
         Ok(mut args) => {
             args.passes = Some(true);
 
-            list(ctx, msg.into(), args).await
+            list(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -200,19 +192,15 @@ async fn prefix_recentlistpassmania(
 #[example("badewanne3")]
 #[alias("rlpt", "recentlistpassestaiko", "rplt")]
 #[group(Taiko)]
-async fn prefix_recentlistpasstaiko(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> Result<()> {
+async fn prefix_recentlistpasstaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Taiko), args) {
         Ok(mut args) => {
             args.passes = Some(true);
 
-            list(ctx, msg.into(), args).await
+            list(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -237,15 +225,15 @@ async fn prefix_recentlistpasstaiko(
     "rplc"
 )]
 #[group(Catch)]
-async fn prefix_recentlistpassctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentlistpassctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Catch), args) {
         Ok(mut args) => {
             args.passes = Some(true);
 
-            list(ctx, msg.into(), args).await
+            list(msg.into(), args).await
         }
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -323,11 +311,7 @@ impl<'m> RecentList<'m> {
     }
 }
 
-pub(super) async fn list(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: RecentList<'_>,
-) -> Result<()> {
+pub(super) async fn list(orig: CommandOrigin<'_>, args: RecentList<'_>) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -337,18 +321,18 @@ pub(super) async fn list(
             If you want exact mods, specify it e.g. as `+hdhr!`.\n\
             And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
     };
 
     let owner = orig.user_id()?;
-    let config = ctx.user_config().with_osu_id(owner).await?;
+    let config = Context::user_config().with_osu_id(owner).await?;
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
@@ -360,8 +344,7 @@ pub(super) async fn list(
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -379,17 +362,16 @@ pub(super) async fn list(
     let grade = grade.map(Grade::from);
 
     // Retrieve the user and their recent scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
     let include_fails = match (grade, passes) {
-        (Some(Grade::F), Some(true)) => return orig.error(&ctx, ":clown:").await,
+        (Some(Grade::F), Some(true)) => return orig.error(":clown:").await,
         (_, Some(passes)) => !passes,
         (Some(Grade::F), _) | (None, None) => true,
         _ => false,
     };
 
-    let scores_fut = ctx
-        .osu_scores()
+    let scores_fut = Context::osu_scores()
         .recent(legacy_scores)
         .limit(100)
         .include_fails(include_fails)
@@ -409,31 +391,30 @@ pub(super) async fn list(
                 },
             );
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
     };
 
-    let (entries, maps) =
-        match process_scores(ctx.cloned(), scores, &args, mode, mods.as_ref()).await {
-            Ok(entries) => entries,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+    let (entries, maps) = match process_scores(scores, &args, mode, mods.as_ref()).await {
+        Ok(entries) => entries,
+        Err(err) => {
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("Failed to process scores"));
-            }
-        };
+            return Err(err.wrap_err("Failed to process scores"));
+        }
+    };
 
     let content = message_content(grade, mods.as_ref(), query.as_deref()).unwrap_or_default();
 
@@ -447,7 +428,7 @@ pub(super) async fn list(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
@@ -499,7 +480,6 @@ pub struct RecentListEntry {
 }
 
 async fn process_scores(
-    ctx: Arc<Context>,
     scores: Vec<Score>,
     args: &RecentList<'_>,
     mode: GameMode,
@@ -553,7 +533,7 @@ async fn process_scores(
         .map(|map| (map.map_id as i32, map.checksum.as_deref()))
         .collect();
 
-    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+    let mut maps = Context::osu_map().maps(&maps_id_checksum).await?;
 
     if mode != GameMode::Osu {
         maps.values_mut().for_each(|map| map.convert_mut(mode));
@@ -573,7 +553,7 @@ async fn process_scores(
         };
 
         let mods = Mods::from(&score.mods);
-        let mut calc = ctx.pp(map).mode(score.mode).mods(mods);
+        let mut calc = Context::pp(map).mode(score.mode).mods(mods);
 
         let attrs = match attrs_map.entry((score.map_id, mods)) {
             Entry::Occupied(e) => {

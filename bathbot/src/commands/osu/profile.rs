@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{
@@ -17,10 +17,7 @@ use super::{require_link, user_not_found};
 use crate::{
     active::{impls::ProfileMenu, ActiveMessages},
     commands::GameModeOption,
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
@@ -95,11 +92,11 @@ impl<'m> Profile<'m> {
 #[examples("badewanne3")]
 #[alias("profile")]
 #[group(Osu)]
-async fn prefix_osu(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_osu(msg: &Message, args: Args<'_>) -> Result<()> {
     match Profile::args(GameModeOption::Osu, args) {
-        Ok(args) => profile(ctx, msg.into(), args).await,
+        Ok(args) => profile(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -112,11 +109,11 @@ async fn prefix_osu(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<
 #[examples("badewanne3")]
 #[aliases("profilemania", "maniaprofile", "profilem")]
 #[group(Mania)]
-async fn prefix_mania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_mania(msg: &Message, args: Args<'_>) -> Result<()> {
     match Profile::args(GameModeOption::Mania, args) {
-        Ok(args) => profile(ctx, msg.into(), args).await,
+        Ok(args) => profile(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -129,11 +126,11 @@ async fn prefix_mania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resul
 #[examples("badewanne3")]
 #[aliases("profiletaiko", "taikoprofile", "profilet")]
 #[group(Taiko)]
-async fn prefix_taiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_taiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match Profile::args(GameModeOption::Taiko, args) {
-        Ok(args) => profile(ctx, msg.into(), args).await,
+        Ok(args) => profile(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -155,30 +152,30 @@ async fn prefix_taiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resul
     "fruits"
 )]
 #[group(Catch)]
-async fn prefix_ctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_ctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match Profile::args(GameModeOption::Catch, args) {
-        Ok(args) => profile(ctx, msg.into(), args).await,
+        Ok(args) => profile(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-async fn slash_profile(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_profile(mut command: InteractionCommand) -> Result<()> {
     let args = Profile::from_interaction(command.input_data())?;
 
-    profile(ctx, (&mut command).into(), args).await
+    profile((&mut command).into(), args).await
 }
 
-async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) -> Result<()> {
+async fn profile(orig: CommandOrigin<'_>, args: Profile<'_>) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let config = match ctx.user_config().with_osu_id(owner).await {
+    let config = match Context::user_config().with_osu_id(owner).await {
         Ok(config) => config,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("Failed to get user config"));
         }
@@ -196,8 +193,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match guild {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -205,26 +201,26 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
         },
     };
 
-    let (user_id, no_user_specified) = match user_id!(ctx, orig, args) {
+    let (user_id, no_user_specified) = match user_id!(orig, args) {
         Some(user_id) => (user_id, false),
         None => match config.osu {
             Some(user_id) => (UserId::Id(user_id), true),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
@@ -232,16 +228,15 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
     };
 
     let user_id = user.user_id();
-    let peaks_fut = ctx.client().osu_user_rank_acc_peak(user_id, mode);
-    let user_id_fut = ctx.user_config().discord_from_osu_id(user_id);
+    let peaks_fut = Context::client().osu_user_rank_acc_peak(user_id, mode);
+    let user_id_fut = Context::user_config().discord_from_osu_id(user_id);
 
     let (peaks_res, user_id_res) = tokio::join!(peaks_fut, user_id_fut);
 
     // Try to get the discord user id that is linked to the osu!user
     let discord_id = match user_id_res {
         Ok(user) => match (guild, user) {
-            (Some(guild), Some(user)) => ctx
-                .cache
+            (Some(guild), Some(user)) => Context::cache()
                 .member(guild, user) // make sure the user is in the guild
                 .await?
                 .map(|_| user),
@@ -279,6 +274,6 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }

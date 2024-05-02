@@ -8,14 +8,18 @@ use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
+use crate::core::Context;
+
 #[derive(Copy, Clone)]
-pub struct OsuTrackingManager<'d> {
-    psql: &'d Database,
+pub struct OsuTrackingManager {
+    psql: &'static Database,
 }
 
-impl<'d> OsuTrackingManager<'d> {
-    pub fn new(psql: &'d Database) -> Self {
-        Self { psql }
+impl OsuTrackingManager {
+    pub fn new() -> Self {
+        Self {
+            psql: Context::psql(),
+        }
     }
 
     pub async fn get_users(

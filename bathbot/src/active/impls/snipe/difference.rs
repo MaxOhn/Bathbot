@@ -2,7 +2,6 @@ use std::{
     borrow::Cow,
     collections::{hash_map::Entry, HashMap},
     fmt::Write,
-    sync::Arc,
 };
 
 use bathbot_macros::PaginationBuilder;
@@ -25,7 +24,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::Difference,
-    core::{Context, ContextExt},
+    core::Context,
     embeds::ModsFormatter,
     manager::redis::RedisData,
     util::interaction::{InteractionComponent, InteractionModal},
@@ -43,8 +42,8 @@ pub struct SnipeDifferencePagination {
 }
 
 impl IActiveMessage for SnipeDifferencePagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -53,23 +52,22 @@ impl IActiveMessage for SnipeDifferencePagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
+
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, true, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, true, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, true, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, true, &mut self.pages)
     }
 }
 
 impl SnipeDifferencePagination {
-    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let pages = &self.pages;
         let mut description = String::with_capacity(512);
 
@@ -87,14 +85,12 @@ impl SnipeDifferencePagination {
                 None => match self.star_map.entry(score.map_id) {
                     Entry::Occupied(e) => *e.get(),
                     Entry::Vacant(e) => {
-                        let map = ctx
-                            .osu_map()
+                        let map = Context::osu_map()
                             .pp_map(score.map_id)
                             .await
                             .wrap_err("Failed to get pp map")?;
 
-                        let stars = ctx
-                            .pp_parsed(&map, score.map_id, GameMode::Osu)
+                        let stars = Context::pp_parsed(&map, score.map_id, GameMode::Osu)
                             .difficulty()
                             .await
                             .stars();

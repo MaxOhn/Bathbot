@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_model::{Effects, MapsetTags};
 use bathbot_psql::model::games::DbMapTagsParams;
 use bathbot_util::{constants::GENERAL_ISSUE, fields, EmbedBuilder, FooterBuilder, MessageBuilder};
@@ -21,7 +19,7 @@ pub use self::game_wrapper::BackgroundGame;
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::fun::GameDifficulty,
-    core::{Context, ContextExt},
+    core::Context,
     util::{interaction::InteractionComponent, Authored, ComponentExt},
 };
 
@@ -42,9 +40,9 @@ pub struct BackgroundGameSetup {
 }
 
 impl IActiveMessage for BackgroundGameSetup {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         if let SetupState::Ready { channel } = self.state {
-            return Box::pin(self.start(ctx, channel));
+            return Box::pin(self.start(channel));
         }
 
         let description = format!(
@@ -291,7 +289,6 @@ impl IActiveMessage for BackgroundGameSetup {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {
@@ -312,7 +309,7 @@ impl IActiveMessage for BackgroundGameSetup {
                     channel: component.channel_id,
                 }
             }
-            "bg_cancel_button" => return Box::pin(self.cancel(ctx, component)),
+            "bg_cancel_button" => return Box::pin(self.cancel(component)),
             other => {
                 warn!(name = %other, ?component, "Unknown background game setup component");
 
@@ -336,8 +333,8 @@ impl BackgroundGameSetup {
         }
     }
 
-    async fn start(&mut self, ctx: Arc<Context>, channel: Id<ChannelMarker>) -> Result<BuildPage> {
-        if let Some(game) = ctx.bg_games().write(&channel).await.remove() {
+    async fn start(&mut self, channel: Id<ChannelMarker>) -> Result<BuildPage> {
+        if let Some(game) = Context::bg_games().write(&channel).await.remove() {
             if let Err(err) = game.stop() {
                 warn!(?err, "Failed to stop previous game");
             }
@@ -348,7 +345,7 @@ impl BackgroundGameSetup {
         params.include(self.included);
         params.exclude(self.excluded);
 
-        let entries = match ctx.games().bggame_tags(params).await {
+        let entries = match Context::games().bggame_tags(params).await {
             Ok(entries) => entries,
             Err(err) => {
                 warn!(?err, "Failed to get background game tags");
@@ -403,31 +400,21 @@ impl BackgroundGameSetup {
                 "Starting game"
             );
 
-            let game_fut = BackgroundGame::new(
-                ctx.cloned(),
-                channel,
-                entries,
-                self.effects,
-                self.difficulty,
-            );
+            let game_fut = BackgroundGame::new(channel, entries, self.effects, self.difficulty);
 
             let game = game_fut.await;
-            ctx.bg_games().own(channel).await.insert(game);
+            Context::bg_games().own(channel).await.insert(game);
 
             Ok(BuildPage::new(embed, true))
         }
     }
 
-    async fn cancel(
-        &mut self,
-        ctx: Arc<Context>,
-        component: &InteractionComponent,
-    ) -> ComponentResult {
+    async fn cancel(&mut self, component: &InteractionComponent) -> ComponentResult {
         let builder = MessageBuilder::new()
             .embed("Aborted background game setup")
             .components(Vec::new());
 
-        match component.callback(&ctx, builder).await {
+        match component.callback(builder).await {
             Ok(_) => ComponentResult::Ignore,
             Err(err) => {
                 let wrap = "Failed to callback on background game setup cancel";

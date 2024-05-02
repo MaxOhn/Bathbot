@@ -9,11 +9,13 @@ pub mod help;
 pub mod osu;
 pub mod owner;
 pub mod songs;
-pub mod twitch;
 pub mod utility;
 
 #[cfg(feature = "osutracking")]
 pub mod tracking;
+
+#[cfg(feature = "twitchtracking")]
+pub mod twitch;
 
 #[derive(Copy, Clone, CommandOption, CreateOption, Eq, PartialEq)]
 pub enum ShowHideOption {

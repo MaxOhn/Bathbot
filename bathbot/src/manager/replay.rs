@@ -19,14 +19,18 @@ use twilight_model::id::{marker::UserMarker, Id};
 use crate::{commands::osu::TopEntry, core::BotConfig};
 
 #[derive(Copy, Clone)]
-pub struct ReplayManager<'d> {
-    psql: &'d Database,
-    client: &'d BathbotClient,
-    cache: &'d BathbotCache,
+pub struct ReplayManager {
+    psql: &'static Database,
+    client: &'static BathbotClient,
+    cache: &'static BathbotCache,
 }
 
-impl<'d> ReplayManager<'d> {
-    pub fn new(psql: &'d Database, client: &'d BathbotClient, cache: &'d BathbotCache) -> Self {
+impl ReplayManager {
+    pub fn new(
+        psql: &'static Database,
+        client: &'static BathbotClient,
+        cache: &'static BathbotCache,
+    ) -> Self {
         Self {
             psql,
             client,

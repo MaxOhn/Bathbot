@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt::Write, ops::Not, sync::Arc};
+use std::{borrow::Cow, collections::BTreeMap, fmt::Write, ops::Not};
 
 use bathbot_macros::command;
 use bathbot_model::{
@@ -23,10 +23,7 @@ use crate::{
         osu::{user_not_found, HasMods, ModsResult},
         GameModeOption,
     },
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     util::ChannelExt,
     Context,
@@ -55,11 +52,11 @@ use crate::{
 )]
 #[aliases("osg", "osustatsglobal")]
 #[group(Osu)]
-async fn prefix_osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_osustatsglobals(msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsScores::args(None, args) {
-        Ok(args) => scores(ctx, msg.into(), args).await,
+        Ok(args) => scores(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -89,15 +86,11 @@ async fn prefix_osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 )]
 #[aliases("osgm", "osustatsglobalmania")]
 #[group(Mania)]
-async fn prefix_osustatsglobalsmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> Result<()> {
+async fn prefix_osustatsglobalsmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsScores::args(Some(GameModeOption::Mania), args) {
-        Ok(args) => scores(ctx, msg.into(), args).await,
+        Ok(args) => scores(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -127,15 +120,11 @@ async fn prefix_osustatsglobalsmania(
 )]
 #[aliases("osgt", "osustatsglobaltaiko")]
 #[group(Taiko)]
-async fn prefix_osustatsglobalstaiko(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> Result<()> {
+async fn prefix_osustatsglobalstaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsScores::args(Some(GameModeOption::Taiko), args) {
-        Ok(args) => scores(ctx, msg.into(), args).await,
+        Ok(args) => scores(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -165,64 +154,60 @@ async fn prefix_osustatsglobalstaiko(
 )]
 #[aliases("osgc", "osustatsglobalctb", "osustatsglobalscatch")]
 #[group(Catch)]
-async fn prefix_osustatsglobalsctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_osustatsglobalsctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsScores::args(Some(GameModeOption::Catch), args) {
-        Ok(args) => scores(ctx, msg.into(), args).await,
+        Ok(args) => scores(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-pub(super) async fn scores(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: OsuStatsScores<'_>,
-) -> Result<()> {
+pub(super) async fn scores(orig: CommandOrigin<'_>, args: OsuStatsScores<'_>) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
-        ModsResult::Invalid => return orig.error(&ctx, OsuStatsScores::ERR_PARSE_MODS).await,
+        ModsResult::Invalid => return orig.error(OsuStatsScores::ERR_PARSE_MODS).await,
     };
 
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let (user_id, mode) = user_id_mode!(orig, args);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
     // Retrieve user
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(OSU_API_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
     let params = args.into_params(user.username().into(), mode, mods);
-    let scores_fut = ctx.client().get_global_scores(&params);
+    let scores_fut = Context::client().get_global_scores(&params);
 
     // Retrieve their top global scores
     let (scores, amount) = match scores_fut.await.map(OsuStatsScoresRaw::into_scores) {
         Ok(Ok(scores)) => (scores.scores, scores.count),
         Err(err) | Ok(Err(err)) => {
-            let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
+            let _ = orig.error(OSUSTATS_API_ISSUE).await;
 
             return Err(err.wrap_err("Failed to get global scores"));
         }
     };
 
-    let entries = match process_scores(ctx.cloned(), scores, mode).await {
+    let entries = match process_scores(scores, mode).await {
         Ok(entries) => entries,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("Failed to process scores"));
         }
@@ -281,7 +266,7 @@ pub(super) async fn scores(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
@@ -471,7 +456,6 @@ pub struct OsuStatsEntry {
 }
 
 async fn process_scores(
-    ctx: Arc<Context>,
     scores: Vec<OsuStatsScore>,
     mode: GameMode,
 ) -> Result<BTreeMap<usize, OsuStatsEntry>> {
@@ -482,13 +466,13 @@ async fn process_scores(
         .map(|score| (score.map.map_id as i32, None))
         .collect();
 
-    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+    let mut maps = Context::osu_map().maps(&maps_id_checksum).await?;
 
     for (i, score) in scores.into_iter().enumerate() {
         let map_opt = maps.remove(&score.map.map_id);
         let Some(map) = map_opt else { continue };
 
-        let mut calc = ctx.pp(&map).mode(mode).mods(&score.mods);
+        let mut calc = Context::pp(&map).mode(mode).mods(&score.mods);
         let attrs = calc.performance().await;
 
         let pp = match score.pp {

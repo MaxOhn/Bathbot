@@ -1,3 +1,7 @@
+#[cfg(feature = "osutracking")]
+pub use self::osu_tracking::OsuTrackingManager;
+#[cfg(feature = "twitch")]
+pub use self::twitch::TwitchManager;
 pub use self::{
     bookmarks::BookmarkManager,
     games::GameManager,
@@ -6,12 +10,10 @@ pub use self::{
     huismetbenen_country::HuismetbenenCountryManager,
     osu_map::{MapError, MapManager, OsuMap, OsuMapSlim},
     osu_scores::ScoresManager,
-    osu_tracking::OsuTrackingManager,
     osu_user::OsuUserManager,
     pp::{Mods, PpManager},
     rank_pp_approx::ApproxManager,
     replay::{OwnedReplayScore, ReplayManager, ReplayScore, ReplaySettings},
-    twitch::TwitchManager,
     user_config::UserConfigManager,
 };
 
@@ -24,10 +26,14 @@ mod guild_config;
 mod huismetbenen_country;
 mod osu_map;
 mod osu_scores;
-mod osu_tracking;
 mod osu_user;
 mod pp;
 mod rank_pp_approx;
 mod replay;
-mod twitch;
 mod user_config;
+
+#[cfg(feature = "osutracking")]
+mod osu_tracking;
+
+#[cfg(feature = "twitch")]
+mod twitch;

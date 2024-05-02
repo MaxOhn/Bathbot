@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use bathbot_cache::{model::CachedArchive, Cache};
+use bathbot_cache::model::CachedArchive;
 use bathbot_model::twilight_model::{
     channel::{PermissionOverwrite, PermissionOverwriteTypeRkyv},
     guild::Member,
@@ -22,15 +22,11 @@ use crate::core::{BotConfig, Context};
 /// No authority -> Ok(Some(message to user))
 /// Couldn't figure out -> Err()
 pub async fn check_authority(
-    ctx: &Context,
     author: Id<UserMarker>,
     guild: Option<Id<GuildMarker>>,
 ) -> Result<Option<String>> {
     let (guild_id, (permissions, roles)) = match guild {
-        Some(guild) => (
-            guild,
-            check_guild_permissions(&ctx.cache, author, guild).await,
-        ),
+        Some(guild) => (guild, check_guild_permissions(author, guild).await),
         None => return Ok(None),
     };
 
@@ -38,8 +34,7 @@ pub async fn check_authority(
         return Ok(None);
     }
 
-    let auth_roles = ctx
-        .guild_config()
+    let auth_roles = Context::guild_config()
         .peek(guild_id, |config| config.authorities.clone())
         .await;
 
@@ -52,8 +47,7 @@ pub async fn check_authority(
 
     let member = match roles {
         RolesLookup::Found(member) => member,
-        RolesLookup::NotChecked => ctx
-            .cache
+        RolesLookup::NotChecked => Context::cache()
             .member(guild_id, author)
             .await?
             .wrap_err("Missing member in cache")?,
@@ -88,13 +82,14 @@ pub async fn check_authority(
 }
 
 pub async fn check_guild_permissions(
-    cache: &Cache,
     user: Id<UserMarker>,
     guild: Id<GuildMarker>,
 ) -> (Permissions, RolesLookup) {
     if user == BotConfig::get().owner {
         return (Permissions::all(), RolesLookup::NotChecked);
     }
+
+    let cache = Context::cache();
 
     match cache.guild(guild).await {
         Ok(Some(guild)) if guild.owner_id == user => {
@@ -135,16 +130,17 @@ pub async fn check_guild_permissions(
 }
 
 pub async fn check_channel_permissions(
-    cache: &Cache,
     user: Id<UserMarker>,
     channel: Id<ChannelMarker>,
     guild: Id<GuildMarker>,
 ) -> Permissions {
-    let (mut permissions, roles) = check_guild_permissions(cache, user, guild).await;
+    let (mut permissions, roles) = check_guild_permissions(user, guild).await;
 
     if permissions.contains(Permissions::ADMINISTRATOR) {
         return Permissions::all();
     }
+
+    let cache = Context::cache();
 
     if let Ok(Some(channel)) = cache.channel(Some(guild), channel).await {
         if let Some(permission_overwrites) = channel.permission_overwrites.as_ref() {
