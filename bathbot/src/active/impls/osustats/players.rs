@@ -1,7 +1,6 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt::Write,
-    sync::Arc,
 };
 
 use bathbot_model::{OsuStatsPlayer, OsuStatsPlayersArgs};
@@ -37,8 +36,8 @@ pub struct OsuStatsPlayersPagination {
 }
 
 impl IActiveMessage for OsuStatsPlayersPagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -47,18 +46,16 @@ impl IActiveMessage for OsuStatsPlayersPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, true, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, true, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, true, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, true, &mut self.pages)
     }
 }
 
@@ -81,7 +78,7 @@ impl OsuStatsPlayersPagination {
         }
     }
 
-    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let pages = &self.pages;
         let page = pages.curr_page();
 
@@ -90,8 +87,7 @@ impl OsuStatsPlayersPagination {
             Entry::Vacant(e) => {
                 self.params.page = page;
 
-                let players = ctx
-                    .client()
+                let players = Context::client()
                     .get_country_globals(&self.params)
                     .await
                     .wrap_err("Failed to get country globals")?;

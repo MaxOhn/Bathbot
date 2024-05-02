@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{
@@ -14,10 +14,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{require_link, user_not_found};
 use crate::{
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
@@ -37,10 +34,10 @@ pub struct Avatar<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-pub async fn slash_avatar(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_avatar(mut command: InteractionCommand) -> Result<()> {
     let args = Avatar::from_interaction(command.input_data())?;
 
-    avatar(ctx, (&mut command).into(), args).await
+    avatar((&mut command).into(), args).await
 }
 
 #[command]
@@ -49,8 +46,8 @@ pub async fn slash_avatar(ctx: Arc<Context>, mut command: InteractionCommand) ->
 #[usage("[username]")]
 #[example("Badewanne3")]
 #[group(AllModes)]
-async fn prefix_avatar(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
-    avatar(ctx, msg.into(), Avatar::args(args)).await
+async fn prefix_avatar(msg: &Message, args: Args<'_>) -> Result<()> {
+    avatar(msg.into(), Avatar::args(args)).await
 }
 
 impl<'m> Avatar<'m> {
@@ -69,31 +66,31 @@ impl<'m> Avatar<'m> {
     }
 }
 
-async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) -> Result<()> {
-    let user_id = match user_id!(ctx, orig, args) {
+async fn avatar(orig: CommandOrigin<'_>, args: Avatar<'_>) -> Result<()> {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+        None => match Context::user_config().osu_id(orig.user_id()?).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
+            Ok(None) => return require_link(&orig).await,
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
         },
     };
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
+    let user_args = UserArgs::rosu_id(&user_id).await;
 
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user");
 
             return Err(err);
@@ -120,7 +117,7 @@ async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) ->
     };
 
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

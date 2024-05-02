@@ -10,7 +10,6 @@ use crate::util::PunctuatedExt;
 
 pub struct CommandFun {
     pub name: Ident,
-    pub ctx_arg: PatType,
     pub cmd_arg: PatType,
     pub ret: ReturnType,
     pub body: Block,
@@ -37,7 +36,7 @@ impl Parse for CommandFun {
 
         // args
         let args = Vec::<FnArg>::parse_terminated::<Token![,]>(&content)?;
-        let CommandArgs { ctx, cmd } = validate_args(args)?;
+        let CommandArgs { cmd } = validate_args(args)?;
 
         // -> ...
         let ret = input.parse::<ReturnType>()?;
@@ -48,7 +47,6 @@ impl Parse for CommandFun {
 
         Ok(Self {
             name,
-            ctx_arg: ctx,
             cmd_arg: cmd,
             ret,
             body,
@@ -57,15 +55,12 @@ impl Parse for CommandFun {
 }
 
 struct CommandArgs {
-    ctx: PatType,
     cmd: PatType,
 }
 
 fn validate_args(args: Vec<FnArg>) -> Result<CommandArgs> {
-    let mut ctx = None;
     let mut cmd = None;
 
-    let ctx_check = parse_quote!(Arc<Context>);
     let cmd_check = parse_quote!(InteractionCommand);
 
     for arg in args {
@@ -76,22 +71,17 @@ fn validate_args(args: Vec<FnArg>) -> Result<CommandArgs> {
             FnArg::Typed(pat) => pat,
         };
 
-        if pat.ty == ctx_check {
-            ctx = Some(pat);
-        } else if pat.ty == cmd_check {
+        if pat.ty == cmd_check {
             cmd = Some(pat);
         } else {
             return Err(Error::new_spanned(
                 pat,
-                "args must have type `Arc<Context>` or `InteractionCommand`",
+                "args must have type `InteractionCommand`",
             ));
         }
     }
 
     Ok(CommandArgs {
-        ctx: ctx.ok_or_else(|| {
-            Error::new(Span::call_site(), "require argument of type `Arc<Context>`")
-        })?,
         cmd: cmd.ok_or_else(|| {
             Error::new(
                 Span::call_site(),

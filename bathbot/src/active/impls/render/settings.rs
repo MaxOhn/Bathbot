@@ -59,11 +59,7 @@ impl RenderSettingsActive {
         }
     }
 
-    async fn handle_group_menu(
-        &mut self,
-        ctx: Arc<Context>,
-        component: &mut InteractionComponent,
-    ) -> ComponentResult {
+    async fn handle_group_menu(&mut self, component: &mut InteractionComponent) -> ComponentResult {
         let Some(value) = component.data.values.pop() else {
             return ComponentResult::Err(eyre!("Missing value for settings group menu"));
         };
@@ -85,11 +81,7 @@ impl RenderSettingsActive {
         ComponentResult::BuildPage
     }
 
-    async fn handle_edit_menu(
-        &mut self,
-        ctx: Arc<Context>,
-        component: &mut InteractionComponent,
-    ) -> ComponentResult {
+    async fn handle_edit_menu(&mut self, component: &mut InteractionComponent) -> ComponentResult {
         let Some(value) = component.data.values.pop() else {
             return ComponentResult::Err(eyre!("Missing value for settings edit menu"));
         };
@@ -287,11 +279,7 @@ impl RenderSettingsActive {
         ComponentResult::CreateModal(modal)
     }
 
-    async fn async_handle_modal(
-        &mut self,
-        ctx: &Context,
-        modal: &mut InteractionModal,
-    ) -> Result<()> {
+    async fn async_handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
         let mut input = modal
             .data
             .components
@@ -329,14 +317,13 @@ impl RenderSettingsActive {
 
         match modal.data.custom_id.as_str() {
             "official_skin" => {
-                modal.defer(ctx).await.wrap_err("Failed to defer modal")?;
+                modal.defer().await.wrap_err("Failed to defer modal")?;
                 deferred = true;
                 let input = input.trim();
 
                 // We're not simply propagating errors because the modal must be deferred
                 // already so we need to respond properly
-                match ctx
-                    .ordr()
+                match Context::ordr()
                     .expect("ordr unavailable")
                     .client()
                     .skin_list()
@@ -365,11 +352,10 @@ impl RenderSettingsActive {
                         .parse()
                         .map_err(|_| eyre!("Failed to parse custom skin id input `{input}`"))?;
 
-                    modal.defer(ctx).await.wrap_err("Failed to defer modal")?;
+                    modal.defer().await.wrap_err("Failed to defer modal")?;
                     deferred = true;
 
-                    match ctx
-                        .ordr()
+                    match Context::ordr()
                         .expect("ordr unavailable")
                         .client()
                         .custom_skin_info(id)
@@ -450,13 +436,12 @@ impl RenderSettingsActive {
         }
 
         if !deferred {
-            if let Err(err) = modal.defer(ctx).await {
+            if let Err(err) = modal.defer().await {
                 warn!("Failed to defer modal");
             }
         }
 
-        let res = ctx
-            .replay()
+        let res = Context::replay()
             .set_settings(self.msg_owner, &self.settings)
             .await;
 
@@ -467,7 +452,7 @@ impl RenderSettingsActive {
 }
 
 impl IActiveMessage for RenderSettingsActive {
-    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         let Self {
             settings,
             group,
@@ -580,7 +565,7 @@ impl IActiveMessage for RenderSettingsActive {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
+
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {
@@ -593,18 +578,17 @@ impl IActiveMessage for RenderSettingsActive {
         }
 
         match component.data.custom_id.as_str() {
-            "group_menu" => Box::pin(self.handle_group_menu(ctx, component)),
-            "edit_menu" => Box::pin(self.handle_edit_menu(ctx, component)),
+            "group_menu" => Box::pin(self.handle_group_menu(component)),
+            "edit_menu" => Box::pin(self.handle_edit_menu(component)),
             other => ComponentResult::Err(eyre!("Unknown settings component `{other}`")).boxed(),
         }
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        Box::pin(self.async_handle_modal(ctx, modal))
+        Box::pin(self.async_handle_modal(modal))
     }
 }
 

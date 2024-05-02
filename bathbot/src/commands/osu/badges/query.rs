@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{cmp::Ordering, collections::BTreeMap, fmt::Write};
 
 use bathbot_model::OsekaiBadge;
 use bathbot_util::{
@@ -14,7 +14,7 @@ use twilight_model::application::command::{CommandOptionChoice, CommandOptionCho
 use super::BadgesQuery_;
 use crate::{
     active::{impls::BadgesPagination, ActiveMessages},
-    core::{Context, ContextExt},
+    core::Context,
     manager::redis::RedisData,
     util::{
         interaction::InteractionCommand, osu::get_combined_thumbnail, Authored,
@@ -22,23 +22,19 @@ use crate::{
     },
 };
 
-pub(super) async fn query(
-    ctx: Arc<Context>,
-    mut command: InteractionCommand,
-    args: BadgesQuery_,
-) -> Result<()> {
+pub(super) async fn query(mut command: InteractionCommand, args: BadgesQuery_) -> Result<()> {
     let BadgesQuery_ { name, sort } = args;
 
     let name = match name {
-        AutocompleteValue::None => return handle_autocomplete(ctx, &command, String::new()).await,
-        AutocompleteValue::Focused(name) => return handle_autocomplete(ctx, &command, name).await,
+        AutocompleteValue::None => return handle_autocomplete(&command, String::new()).await,
+        AutocompleteValue::Focused(name) => return handle_autocomplete(&command, name).await,
         AutocompleteValue::Completed(name) => name,
     };
 
-    let badges = match ctx.redis().badges().await {
+    let badges = match Context::redis().badges().await {
         Ok(badges) => badges,
         Err(err) => {
-            let _ = command.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = command.error(OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached badges"));
         }
@@ -104,18 +100,18 @@ pub(super) async fn query(
     sort.unwrap_or_default().apply(&mut badges);
 
     let owners = if let Some(badge) = badges.first() {
-        let owners_fut = ctx.client().get_osekai_badge_owners(badge.badge_id);
+        let owners_fut = Context::client().get_osekai_badge_owners(badge.badge_id);
 
         match owners_fut.await {
             Ok(owners) => owners,
             Err(err) => {
-                let _ = command.error(&ctx, OSEKAI_ISSUE).await;
+                let _ = command.error(OSEKAI_ISSUE).await;
 
                 return Err(err.wrap_err("Failed to get badge owners"));
             }
         }
     } else {
-        return no_badge_found(ctx, &command, name).await;
+        return no_badge_found(&command, name).await;
     };
 
     let urls: Vec<_> = owners
@@ -126,7 +122,7 @@ pub(super) async fn query(
     let urls = urls.iter().map(Box::as_ref);
 
     let bytes = if badges.len() == 1 {
-        match get_combined_thumbnail(&ctx, urls, owners.len() as u32, Some(1024)).await {
+        match get_combined_thumbnail(urls, owners.len() as u32, Some(1024)).await {
             Ok(bytes) => Some(bytes),
             Err(err) => {
                 warn!(?err, "Failed to combine avatars");
@@ -150,15 +146,15 @@ pub(super) async fn query(
     ActiveMessages::builder(pagination)
         .start_by_update(true)
         .attachment(bytes.map(|bytes| ("badge_owners.png".to_owned(), bytes)))
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }
 
-async fn no_badge_found(ctx: Arc<Context>, command: &InteractionCommand, name: &str) -> Result<()> {
-    let badges = match ctx.redis().badges().await {
+async fn no_badge_found(command: &InteractionCommand, name: &str) -> Result<()> {
+    let badges = match Context::redis().badges().await {
         Ok(badges) => badges,
         Err(err) => {
-            let _ = command.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = command.error(OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached badges"));
         }
@@ -208,18 +204,14 @@ async fn no_badge_found(ctx: Arc<Context>, command: &InteractionCommand, name: &
         content.push('?');
     }
 
-    command.error(&ctx, content).await?;
+    command.error(content).await?;
 
     Ok(())
 }
 
-pub async fn handle_autocomplete(
-    ctx: Arc<Context>,
-    command: &InteractionCommand,
-    name: String,
-) -> Result<()> {
+pub async fn handle_autocomplete(command: &InteractionCommand, name: String) -> Result<()> {
     let name = if name.is_empty() {
-        command.autocomplete(&ctx, Vec::new()).await?;
+        command.autocomplete(Vec::new()).await?;
 
         return Ok(());
     } else {
@@ -228,8 +220,7 @@ pub async fn handle_autocomplete(
 
     let name = name.as_ref();
 
-    let badges = ctx
-        .redis()
+    let badges = Context::redis()
         .badges()
         .await
         .wrap_err("failed to get cached badges")?;
@@ -281,7 +272,7 @@ pub async fn handle_autocomplete(
         }
     }
 
-    command.autocomplete(&ctx, choices).await?;
+    command.autocomplete(choices).await?;
 
     Ok(())
 }

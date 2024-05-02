@@ -1,18 +1,14 @@
-use std::sync::Arc;
-
 use bathbot_macros::command;
 use eyre::Result;
-
-use crate::Context;
 
 #[command]
 #[desc("https://youtu.be/SBjQ9tuuTJQ?t=83")]
 #[group(Songs)]
 #[flags(SKIP_DEFER)]
-async fn prefix_pretender(ctx: Arc<Context>, msg: &Message) -> Result<()> {
+async fn prefix_pretender(msg: &Message) -> Result<()> {
     let (lyrics, delay) = pretender_();
 
-    super::song(lyrics, delay, ctx, msg.into()).await
+    super::song(lyrics, delay, msg.into()).await
 }
 
 pub fn pretender_() -> (&'static [&'static str], u64) {

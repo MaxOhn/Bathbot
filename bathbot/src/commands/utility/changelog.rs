@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
-    sync::Arc,
-};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use bathbot_macros::SlashCommand;
 use bathbot_model::{PullRequests, PullRequestsAndTags, ReferencedIssue, Tag};
@@ -20,18 +17,18 @@ use crate::{
 #[command(name = "changelog", desc = "Show all recent changes to the bot")]
 pub struct Changelog;
 
-async fn slash_changelog(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let mut data = match ctx.github().tags_and_prs().await {
+async fn slash_changelog(mut command: InteractionCommand) -> Result<()> {
+    let mut data = match Context::github().tags_and_prs().await {
         Ok(res) => res,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
     };
 
     if data.tags.len() != 25 {
-        let _ = command.error(&ctx, GENERAL_ISSUE).await;
+        let _ = command.error(GENERAL_ISSUE).await;
 
         bail!("Expected 25 tags, got {}", data.tags.len());
     }
@@ -43,31 +40,30 @@ async fn slash_changelog(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 
     data.tags.insert(0, upcoming);
 
-    let upcoming_pages = create_pages(&ctx, &command, &mut data, 0, 1).await?;
-    let first_tag_pages = create_pages(&ctx, &command, &mut data, 1, 2).await?;
+    let upcoming_pages = create_pages(&command, &mut data, 0, 1).await?;
+    let first_tag_pages = create_pages(&command, &mut data, 1, 2).await?;
     let pages = vec![upcoming_pages, first_tag_pages];
 
     let pagination = ChangelogPagination::new(pages, data, command.user_id()?);
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }
 
 async fn create_pages(
-    ctx: &Context,
     command: &InteractionCommand,
     data: &mut PullRequestsAndTags,
     tag_start: usize,
     tag_end: usize,
 ) -> Result<ChangelogTagPages> {
-    let pages_fut = ChangelogTagPages::new(ctx, data, tag_start, tag_end);
+    let pages_fut = ChangelogTagPages::new(data, tag_start, tag_end);
 
     match pages_fut.await {
         Ok(res) => Ok(res),
         Err(err) => {
-            let _ = command.error(ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             Err(err.wrap_err("Failed to build pages"))
         }
@@ -89,7 +85,6 @@ pub struct ChangelogTagPages {
 
 impl ChangelogTagPages {
     pub async fn new(
-        ctx: &Context,
         data: &mut PullRequestsAndTags,
         tag_start: usize,
         tag_end: usize,
@@ -119,8 +114,7 @@ impl ChangelogTagPages {
             {
                 Some(idx) => break idx,
                 None => {
-                    let mut next_prs = ctx
-                        .github()
+                    let mut next_prs = Context::github()
                         .next_prs(next_cursor)
                         .await
                         .wrap_err("Failed to get next pull requests")?

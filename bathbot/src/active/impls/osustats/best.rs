@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult, Write},
-    sync::Arc,
-};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{OsuStatsBestScore, OsuStatsBestScores};
@@ -25,7 +22,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::OsuStatsBestSort,
-    core::{BotConfig, Context},
+    core::BotConfig,
     embeds::ComboFormatter,
     util::{
         interaction::{InteractionComponent, InteractionModal},
@@ -44,7 +41,7 @@ pub struct OsuStatsBestPagination {
 }
 
 impl IActiveMessage for OsuStatsBestPagination {
-    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         let pages = &self.pages;
 
         let OsuStatsBestScores {
@@ -125,18 +122,16 @@ impl IActiveMessage for OsuStatsBestPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, false, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
     }
 }
 

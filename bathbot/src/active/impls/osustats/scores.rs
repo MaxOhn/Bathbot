@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{rosu_v2::user::User, OsuStatsParams, OsuStatsScoresRaw, ScoreSlim};
@@ -25,7 +25,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::OsuStatsEntry,
-    core::{Context, ContextExt},
+    core::Context,
     embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
     manager::redis::RedisData,
     util::{
@@ -47,8 +47,8 @@ pub struct OsuStatsScoresPagination {
 }
 
 impl IActiveMessage for OsuStatsScoresPagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -57,23 +57,21 @@ impl IActiveMessage for OsuStatsScoresPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, true, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, true, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, true, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, true, &mut self.pages)
     }
 }
 
 impl OsuStatsScoresPagination {
-    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let pages = &self.pages;
 
         let entries = self
@@ -84,7 +82,7 @@ impl OsuStatsScoresPagination {
         if count < pages.per_page() && self.total - pages.index() > count {
             let osustats_page = (pages.index() / 24) + 1;
             self.params.page = osustats_page;
-            let scores_fut = ctx.client().get_global_scores(&self.params);
+            let scores_fut = Context::client().get_global_scores(&self.params);
 
             let scores = match scores_fut.await.map(OsuStatsScoresRaw::into_scores) {
                 Ok(Ok(scores)) => scores.scores,
@@ -96,14 +94,14 @@ impl OsuStatsScoresPagination {
                 .map(|score| (score.map.map_id as i32, None))
                 .collect();
 
-            let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+            let mut maps = Context::osu_map().maps(&maps_id_checksum).await?;
             let mode = self.params.mode;
 
             for (score, i) in scores.into_iter().zip((osustats_page - 1) * 24..) {
                 let map_opt = maps.remove(&score.map.map_id);
                 let Some(map) = map_opt else { continue };
 
-                let mut calc = ctx.pp(&map).mods(&score.mods).mode(mode);
+                let mut calc = Context::pp(&map).mods(&score.mods).mode(mode);
                 let attrs = calc.performance().await;
 
                 let pp = match score.pp {

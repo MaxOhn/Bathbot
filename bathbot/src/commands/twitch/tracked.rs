@@ -1,4 +1,4 @@
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 use bathbot_macros::command;
 use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
@@ -10,17 +10,17 @@ use crate::{core::commands::CommandOrigin, Context};
 #[desc("List all streams that are tracked in a channel")]
 #[alias("tracked")]
 #[group(Twitch)]
-async fn prefix_trackedstreams(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    tracked(ctx, msg.into()).await
+async fn prefix_trackedstreams(msg: &Message) -> Result<()> {
+    tracked(msg.into()).await
 }
 
-pub async fn tracked(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
-    let twitch_ids = ctx.tracked_users_in(orig.channel_id());
+pub async fn tracked(orig: CommandOrigin<'_>) -> Result<()> {
+    let twitch_ids = Context::tracked_users_in(orig.channel_id());
 
-    let mut twitch_users: Vec<_> = match ctx.client().get_twitch_users(&twitch_ids).await {
+    let mut twitch_users: Vec<_> = match Context::client().get_twitch_users(&twitch_ids).await {
         Ok(users) => users.into_iter().map(|user| user.display_name).collect(),
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to get twitch users"));
         }
@@ -41,7 +41,7 @@ pub async fn tracked(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     }
 
     let builder = MessageBuilder::new().embed(content);
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

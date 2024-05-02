@@ -1,4 +1,4 @@
-use std::{fmt::Display, sync::Arc};
+use std::fmt::Display;
 
 use bathbot_model::rosu_v2::ranking::ArchivedRankingsUser;
 use bathbot_util::{
@@ -14,7 +14,7 @@ use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
     active::impls::higherlower::state::{mapset_cover, HigherLowerState, H, W},
-    core::{Context, ContextExt},
+    core::Context,
     manager::{redis::RedisData, OsuMapSlim},
     util::{osu::grade_emote, Emote},
 };
@@ -40,7 +40,6 @@ pub(super) struct ScorePp {
 
 impl ScorePp {
     pub(super) async fn random(
-        ctx: Arc<Context>,
         mode: GameMode,
         prev: Option<&Self>,
         curr_score: u32,
@@ -62,8 +61,7 @@ impl ScorePp {
         let page = ((rank - 1) / 50) + 1;
         let idx = ((rank - 1) % 50) as usize;
 
-        let ranking = ctx
-            .redis()
+        let ranking = Context::redis()
             .pp_ranking(mode, page, None)
             .await
             .wrap_err("Failed to get cached pp ranking")?;
@@ -73,8 +71,7 @@ impl ScorePp {
             RedisData::Archive(ranking) => UserCompact::from(&ranking.ranking[idx]),
         };
 
-        let mut plays = ctx
-            .osu()
+        let mut plays = Context::osu()
             .user_scores(player.user_id)
             .limit(100)
             .mode(mode)
@@ -91,8 +88,9 @@ impl ScorePp {
 
         let play = plays.swap_remove(play as usize);
 
-        let map_fut = ctx.osu_map().map_slim(play.map_id);
-        let attrs_fut = ctx.osu_map().difficulty(play.map_id, play.mode, &play.mods);
+        let map_manager = Context::osu_map();
+        let map_fut = map_manager.map_slim(play.map_id);
+        let attrs_fut = map_manager.difficulty(play.map_id, play.mode, &play.mods);
 
         let (map_res, attrs_res) = tokio::join!(map_fut, attrs_fut);
 
@@ -111,7 +109,6 @@ impl ScorePp {
     }
 
     pub(super) async fn image(
-        ctx: &Context,
         pfp1: &str,
         pfp2: &str,
         mapset_id1: u32,
@@ -121,7 +118,7 @@ impl ScorePp {
         let cover2 = mapset_cover(mapset_id2);
 
         // Gather the profile pictures and map covers
-        let client = ctx.client();
+        let client = Context::client();
 
         let (pfp_left, pfp_right, bg_left, bg_right) = tokio::try_join!(
             client.get_avatar(pfp1),
@@ -185,7 +182,7 @@ impl ScorePp {
                 .unwrap_or(pfp2),
         );
 
-        HigherLowerState::upload_image(ctx, blipped.as_raw(), content).await
+        HigherLowerState::upload_image(blipped.as_raw(), content).await
     }
 
     pub(super) fn play_string(&self, pp_visible: bool) -> String {

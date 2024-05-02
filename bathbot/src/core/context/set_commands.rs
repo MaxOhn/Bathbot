@@ -12,28 +12,25 @@ use crate::core::{
 };
 
 impl Context {
-    pub async fn set_global_commands(
-        &self,
-        mut cmds: Vec<Command>,
-    ) -> Result<Vec<TwilightCommand>> {
+    pub async fn set_global_commands(mut cmds: Vec<Command>) -> Result<Vec<TwilightCommand>> {
         let route = Route::SetGlobalCommands {
-            application_id: self.data.application_id.get(),
+            application_id: Self::get().data.application_id.get(),
         };
 
         add_integrations_and_contexts(&mut cmds);
 
-        send_command_request(self, route, &cmds).await
+        send_command_request(route, &cmds).await
     }
 
-    pub async fn set_guild_commands(&self, mut cmds: Vec<Command>) -> Result<Vec<TwilightCommand>> {
+    pub async fn set_guild_commands(mut cmds: Vec<Command>) -> Result<Vec<TwilightCommand>> {
         let route = Route::SetGuildCommands {
-            application_id: self.data.application_id.get(),
+            application_id: Self::get().data.application_id.get(),
             guild_id: BotConfig::get().dev_guild.get(),
         };
 
         add_integrations_and_contexts(&mut cmds);
 
-        send_command_request(self, route, &cmds).await
+        send_command_request(route, &cmds).await
     }
 }
 
@@ -52,17 +49,13 @@ fn add_integrations_and_contexts(cmds: &mut [Command]) {
     }
 }
 
-async fn send_command_request(
-    ctx: &Context,
-    route: Route<'_>,
-    cmds: &[Command],
-) -> Result<Vec<TwilightCommand>> {
+async fn send_command_request(route: Route<'_>, cmds: &[Command]) -> Result<Vec<TwilightCommand>> {
     let req = Request::builder(&route)
         .json(&cmds)
         .map(RequestBuilder::build)
         .wrap_err("Failed to build command request")?;
 
-    ctx.http
+    Context::http()
         .request(req)
         .await
         .wrap_err("Failed to set commands")?

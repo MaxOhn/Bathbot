@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Reverse, collections::HashMap, fmt::Write, mem, sync::Arc};
+use std::{borrow::Cow, cmp::Reverse, collections::HashMap, fmt::Write, mem};
 
 use bathbot_util::{
     constants::OSU_BASE,
@@ -24,7 +24,6 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::MatchCompareComparison,
-    core::Context,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::grade_emote,
@@ -38,7 +37,7 @@ pub struct MatchComparePagination {
 }
 
 impl IActiveMessage for MatchComparePagination {
-    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         let embed = self.embeds[self.pages.index()].clone();
 
         BuildPage::new(embed, false).boxed()
@@ -50,18 +49,16 @@ impl IActiveMessage for MatchComparePagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, false, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
     }
 }
 

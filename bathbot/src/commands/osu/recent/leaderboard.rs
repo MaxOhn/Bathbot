@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use bathbot_macros::command;
 use bathbot_util::{
@@ -23,10 +23,7 @@ use crate::{
         },
         GameModeOption,
     },
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, Mods},
     Context,
 };
@@ -43,10 +40,10 @@ use crate::{
 #[example("badewanne3 +hdhr")]
 #[aliases("rlb", "rglb", "recentgloballeaderboard")]
 #[group(Osu)]
-async fn prefix_recentleaderboard(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_recentleaderboard(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = RecentLeaderboard::args(None, args);
 
-    leaderboard(ctx, msg.into(), args).await
+    leaderboard(msg.into(), args).await
 }
 
 #[command]
@@ -61,14 +58,10 @@ async fn prefix_recentleaderboard(ctx: Arc<Context>, msg: &Message, args: Args<'
 #[example("badewanne3 +hdhr")]
 #[aliases("rmlb", "rmglb", "recentmaniagloballeaderboard")]
 #[group(Mania)]
-async fn prefix_recentmanialeaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> Result<()> {
+async fn prefix_recentmanialeaderboard(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = RecentLeaderboard::args(Some(GameModeOption::Mania), args);
 
-    leaderboard(ctx, msg.into(), args).await
+    leaderboard(msg.into(), args).await
 }
 
 #[command]
@@ -83,14 +76,10 @@ async fn prefix_recentmanialeaderboard(
 #[example("badewanne3 +hdhr")]
 #[aliases("rtlb", "rtglb", "recenttaikogloballeaderboard")]
 #[group(Taiko)]
-async fn prefix_recenttaikoleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> Result<()> {
+async fn prefix_recenttaikoleaderboard(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = RecentLeaderboard::args(Some(GameModeOption::Taiko), args);
 
-    leaderboard(ctx, msg.into(), args).await
+    leaderboard(msg.into(), args).await
 }
 
 #[command]
@@ -110,14 +99,10 @@ async fn prefix_recenttaikoleaderboard(
     "recentcatchleaderboard"
 )]
 #[group(Catch)]
-async fn prefix_recentctbleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> Result<()> {
+async fn prefix_recentctbleaderboard(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = RecentLeaderboard::args(Some(GameModeOption::Catch), args);
 
-    leaderboard(ctx, msg.into(), args).await
+    leaderboard(msg.into(), args).await
 }
 
 impl<'m> RecentLeaderboard<'m> {
@@ -149,7 +134,6 @@ impl<'m> RecentLeaderboard<'m> {
 }
 
 pub(super) async fn leaderboard(
-    ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: RecentLeaderboard<'_>,
 ) -> Result<()> {
@@ -162,7 +146,7 @@ pub(super) async fn leaderboard(
             If you want exact mods, specify it e.g. as `+hdhr!`.\n\
             And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
     };
 
@@ -172,14 +156,14 @@ pub(super) async fn leaderboard(
             Ok(n) if n > 100 => {
                 let content = "Recent history goes only 100 scores back.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
             Ok(n) => n,
             Err(_) => {
                 let content = "Failed to parse index. \
                 Must be an integer between 1 and 100 or `random` / `?`.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
         None => 1,
@@ -187,10 +171,10 @@ pub(super) async fn leaderboard(
 
     let owner = orig.user_id()?;
 
-    let config = match ctx.user_config().with_osu_id(owner).await {
+    let config = match Context::user_config().with_osu_id(owner).await {
         Ok(config) => config,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("Failed to get user config"));
         }
@@ -202,19 +186,18 @@ pub(super) async fn leaderboard(
         .or(config.mode)
         .unwrap_or(GameMode::Osu);
 
-    let user_id = if let Some(user_id) = user_id!(ctx, orig, args) {
+    let user_id = if let Some(user_id) = user_id!(orig, args) {
         user_id
     } else if let Some(user_id) = config.osu {
         UserId::Id(user_id)
     } else {
-        return require_link(&ctx, &orig).await;
+        return require_link(&orig).await;
     };
 
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -223,10 +206,9 @@ pub(super) async fn leaderboard(
     };
 
     // Retrieve the recent scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-    let scores_fut = ctx
-        .osu_scores()
+    let scores_fut = Context::osu_scores()
         .recent(legacy_scores)
         .limit(limit)
         .include_fails(true)
@@ -242,7 +224,7 @@ pub(super) async fn leaderboard(
                 if username.ends_with('s') { "" } else { "s" }
             );
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Ok((user, mut scores)) => match scores.pop() {
             Some(score) => {
@@ -264,16 +246,16 @@ pub(super) async fn leaderboard(
                     },
                 );
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get scores");
 
             return Err(err);
@@ -287,13 +269,16 @@ pub(super) async fn leaderboard(
         }
     };
 
-    let scores_fut =
-        ctx.osu_scores()
-            .map_leaderboard(map_id, mode, specify_mods.clone(), 100, legacy_scores);
-    let map_fut = ctx.osu_map().map(map_id, checksum.as_deref());
+    let scores_fut = Context::osu_scores().map_leaderboard(
+        map_id,
+        mode,
+        specify_mods.clone(),
+        100,
+        legacy_scores,
+    );
+    let map_fut = Context::osu_map().map(map_id, checksum.as_deref());
 
     let user_score_fut = get_user_score(
-        ctx.cloned(),
         map_id,
         config.osu,
         mode,
@@ -307,7 +292,7 @@ pub(super) async fn leaderboard(
     let map = match map_res {
         Ok(map) => map,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(Report::new(err));
         }
@@ -329,7 +314,7 @@ pub(super) async fn leaderboard(
             })
             .collect(),
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
+            let _ = orig.error(OSU_WEB_ISSUE).await;
 
             return Err(err.wrap_err("Failed to get scores"));
         }
@@ -356,7 +341,7 @@ pub(super) async fn leaderboard(
         None => Mods::default(),
     };
 
-    let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods_);
+    let mut calc = Context::pp(&map).mode(map.mode()).mods(mods_);
     let attrs = calc.performance().await;
 
     if let Some(ModSelection::Exclude(ref mods)) = mods {
@@ -395,7 +380,7 @@ pub(super) async fn leaderboard(
     let mut attr_map = HashMap::default();
 
     let order = args.sort.unwrap_or_default();
-    order.sort(&ctx, &mut scores, &map, &mut attr_map).await;
+    order.sort(&mut scores, &map, &mut attr_map).await;
     order.push_content(&mut content);
 
     let first_place_icon = scores
@@ -416,12 +401,11 @@ pub(super) async fn leaderboard(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
 async fn get_user_score(
-    ctx: Arc<Context>,
     map_id: u32,
     user_id: Option<u32>,
     mode: GameMode,
@@ -432,11 +416,10 @@ async fn get_user_score(
         return Ok(None);
     };
 
-    let name_fut = ctx.osu_user().name(user_id);
+    let name_fut = Context::osu_user().name(user_id);
 
-    let score_fut = ctx
-        .osu_scores()
-        .user_on_map_single(user_id, map_id, mode, mods, legacy_scores);
+    let score_fut =
+        Context::osu_scores().user_on_map_single(user_id, map_id, mode, mods, legacy_scores);
 
     let (score_res, name_res) = tokio::join!(score_fut, name_fut);
 

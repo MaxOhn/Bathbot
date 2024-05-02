@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_macros::{command, SlashCommand};
 use bathbot_util::MessageBuilder;
 use eyre::Result;
@@ -8,10 +6,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::guild::Permissions;
 
 use crate::{
-    core::{
-        commands::{prefix::ArgsNum, CommandOrigin},
-        Context,
-    },
+    core::commands::{prefix::ArgsNum, CommandOrigin},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
@@ -25,7 +20,7 @@ pub struct Roll {
     limit: Option<String>,
 }
 
-async fn slash_roll(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_roll(mut command: InteractionCommand) -> Result<()> {
     let args = Roll::from_interaction(command.input_data())?;
 
     let limit = match args.limit.as_deref() {
@@ -34,7 +29,7 @@ async fn slash_roll(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
         None => Some(DEFAULT_LIMIT),
     };
 
-    roll(ctx, (&mut command).into(), limit).await
+    roll((&mut command).into(), limit).await
 }
 
 #[command]
@@ -47,7 +42,6 @@ async fn slash_roll(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
 #[flags(SKIP_DEFER)]
 #[group(Utility)]
 async fn prefix_roll(
-    ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
     permissions: Option<Permissions>,
@@ -61,10 +55,10 @@ async fn prefix_roll(
         },
     };
 
-    roll(ctx, CommandOrigin::from_msg(msg, permissions), limit).await
+    roll(CommandOrigin::from_msg(msg, permissions), limit).await
 }
 
-async fn roll(ctx: Arc<Context>, orig: CommandOrigin<'_>, limit: Option<u32>) -> Result<()> {
+async fn roll(orig: CommandOrigin<'_>, limit: Option<u32>) -> Result<()> {
     let author_id = orig.user_id()?;
     let num = limit.map_or_else(random, |limit| thread_rng().gen_range(1..=limit.max(2)));
 
@@ -74,7 +68,7 @@ async fn roll(ctx: Arc<Context>, orig: CommandOrigin<'_>, limit: Option<u32>) ->
     );
 
     let builder = MessageBuilder::new().embed(description);
-    orig.callback(&ctx, builder).await?;
+    orig.callback(builder).await?;
 
     Ok(())
 }

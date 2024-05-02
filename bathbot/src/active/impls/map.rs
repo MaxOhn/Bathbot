@@ -1,4 +1,4 @@
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
@@ -25,7 +25,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::CustomAttrs,
-    core::{Context, ContextExt},
+    core::Context,
     embeds::attachment,
     manager::redis::{osu::UserArgs, RedisData},
     util::{
@@ -48,8 +48,8 @@ pub struct MapPagination {
 }
 
 impl IActiveMessage for MapPagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -58,23 +58,21 @@ impl IActiveMessage for MapPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, true, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, true, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, true, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, true, &mut self.pages)
     }
 }
 
 impl MapPagination {
-    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let map = &self.maps[self.pages.index()];
 
         let mut title = String::with_capacity(32);
@@ -116,9 +114,9 @@ impl MapPagination {
         let mut info_value = String::with_capacity(128);
         let mut fields = Vec::with_capacity(3);
 
-        let map_manager = ctx.osu_map();
+        let map_manager = Context::osu_map();
         let map_fut = map_manager.pp_map(map.map_id);
-        let creator_fut = creator_name(ctx.cloned(), map, &self.mapset);
+        let creator_fut = creator_name(map, &self.mapset);
         let (map_res, gd_creator) = tokio::join!(map_fut, creator_fut);
 
         let mut rosu_map = map_res.wrap_err("Failed to get pp map")?;
@@ -325,16 +323,12 @@ impl MapPagination {
     }
 }
 
-async fn creator_name(
-    ctx: Arc<Context>,
-    map: &BeatmapExtended,
-    mapset: &BeatmapsetExtended,
-) -> Option<Username> {
+async fn creator_name(map: &BeatmapExtended, mapset: &BeatmapsetExtended) -> Option<Username> {
     if map.creator_id == mapset.creator_id {
         return None;
     }
 
-    match ctx.osu_user().name(map.creator_id).await {
+    match Context::osu_user().name(map.creator_id).await {
         Ok(name @ Some(_)) => return name,
         Ok(None) => {}
         Err(err) => warn!("{err:?}"),
@@ -342,7 +336,7 @@ async fn creator_name(
 
     let args = UserArgs::user_id(map.creator_id);
 
-    match ctx.redis().osu_user(args).await {
+    match Context::redis().osu_user(args).await {
         Ok(RedisData::Original(user)) => Some(user.username),
         Ok(RedisData::Archive(user)) => Some(user.username.as_str().into()),
         Err(err) => {

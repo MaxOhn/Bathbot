@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     cmp::{Ordering, Reverse},
-    sync::Arc,
 };
 
 use bathbot_macros::{command, HasName, SlashCommand};
@@ -23,10 +22,7 @@ use super::{require_link, user_not_found, ScoreOrder, TopEntry};
 use crate::{
     active::{impls::TopPagination, ActiveMessages},
     commands::GameModeOption,
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
@@ -114,11 +110,11 @@ impl<'m> Mapper<'m> {
 #[usage("[mapper] [user]")]
 #[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[group(Osu)]
-async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_mapper(msg: &Message, args: Args<'_>) -> Result<()> {
     match Mapper::args(None, args, None) {
-        Ok(args) => mapper(ctx, msg.into(), args).await,
+        Ok(args) => mapper(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -135,11 +131,11 @@ async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resu
 #[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[alias("mapperm")]
 #[group(Mania)]
-pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_mappermania(msg: &Message, args: Args<'_>) -> Result<()> {
     match Mapper::args(Some(GameModeOption::Mania), args, None) {
-        Ok(args) => mapper(ctx, msg.into(), args).await,
+        Ok(args) => mapper(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -156,11 +152,11 @@ pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[alias("mappert")]
 #[group(Taiko)]
-pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_mappertaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match Mapper::args(Some(GameModeOption::Taiko), args, None) {
-        Ok(args) => mapper(ctx, msg.into(), args).await,
+        Ok(args) => mapper(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -177,11 +173,11 @@ pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[aliases("mapperc", "mappercatch")]
 #[group(Catch)]
-async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_mapperctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match Mapper::args(Some(GameModeOption::Catch), args, None) {
-        Ok(args) => mapper(ctx, msg.into(), args).await,
+        Ok(args) => mapper(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -193,30 +189,30 @@ async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> R
 #[usage("[username]")]
 #[example("badewanne3")]
 #[group(Osu)]
-pub async fn prefix_sotarks(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_sotarks(msg: &Message, args: Args<'_>) -> Result<()> {
     match Mapper::args(Some(GameModeOption::Osu), args, Some("sotarks")) {
-        Ok(args) => mapper(ctx, msg.into(), args).await,
+        Ok(args) => mapper(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-async fn slash_mapper(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_mapper(mut command: InteractionCommand) -> Result<()> {
     let args = Mapper::from_interaction(command.input_data())?;
 
-    mapper(ctx, (&mut command).into(), args).await
+    mapper((&mut command).into(), args).await
 }
 
-async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
+async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
     let msg_owner = orig.user_id()?;
 
-    let mut config = match ctx.user_config().with_osu_id(msg_owner).await {
+    let mut config = match Context::user_config().with_osu_id(msg_owner).await {
         Ok(config) => config,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -228,19 +224,18 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         .or(config.mode)
         .unwrap_or(GameMode::Osu);
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu.take() {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -249,15 +244,12 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
     };
 
     let mapper = args.mapper.cow_to_ascii_lowercase();
-    let mapper_args = UserArgs::username(ctx.cloned(), mapper.as_ref())
-        .await
-        .mode(mode);
-    let mapper_fut = ctx.redis().osu_user(mapper_args);
+    let mapper_args = UserArgs::username(mapper.as_ref()).await.mode(mode);
+    let mapper_fut = Context::redis().osu_user(mapper_args);
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
-    let scores_fut = ctx
-        .osu_scores()
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)
         .exec_with_user(user_args);
@@ -267,15 +259,15 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         (Err(OsuError::NotFound), _) => {
             let content = format!("Mapper with username `{mapper}` was not found");
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (_, Err(OsuError::NotFound)) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (Err(err), _) | (_, Err(err)) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get mapper, user, or scores");
 
             return Err(err);
@@ -289,10 +281,10 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
 
     let username = user.username();
 
-    let entries = match process_scores(ctx.cloned(), scores, mapper_id, args.sort).await {
+    let entries = match process_scores(scores, mapper_id, args.sort).await {
         Ok(entries) => entries,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to process scores"));
         }
@@ -340,8 +332,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
     let list_size = match args.size.or(config.list_size) {
         Some(size) => size,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.list_size)
                 .await
                 .unwrap_or_default(),
@@ -354,8 +345,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         None => match list_size {
             ListSize::Condensed | ListSize::Detailed => MinimizedPp::default(),
             ListSize::Single => match orig.guild_id() {
-                Some(guild_id) => ctx
-                    .guild_config()
+                Some(guild_id) => Context::guild_config()
                     .peek(guild_id, |config| config.minimized_pp)
                     .await
                     .unwrap_or_default(),
@@ -377,12 +367,11 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
 async fn process_scores(
-    ctx: Arc<Context>,
     scores: Vec<Score>,
     mapper_id: u32,
     sort: Option<ScoreOrder>,
@@ -396,7 +385,7 @@ async fn process_scores(
         .map(|map| (map.map_id as i32, map.checksum.as_deref()))
         .collect();
 
-    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+    let mut maps = Context::osu_map().maps(&maps_id_checksum).await?;
 
     for (i, score) in scores.into_iter().enumerate() {
         let Some(mut map) = maps.remove(&score.map_id) else {
@@ -404,7 +393,7 @@ async fn process_scores(
         };
         map.convert_mut(score.mode);
 
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
+        let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
         let attrs = calc.difficulty().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo();

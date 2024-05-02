@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
+use std::{borrow::Cow, collections::BTreeMap};
 
 use bathbot_model::{
     ArchivedOsekaiRankingEntry, Countries, OsekaiRanking, OsekaiRankingEntry, RankingEntries,
@@ -10,17 +10,12 @@ use rosu_v2::prelude::Username;
 
 use crate::{
     active::{impls::RankingPagination, ActiveMessages},
-    core::ContextExt,
     manager::redis::RedisData,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
 
-pub(super) async fn count<R>(
-    ctx: Arc<Context>,
-    command: InteractionCommand,
-    country: Option<String>,
-) -> Result<()>
+pub(super) async fn count<R>(command: InteractionCommand, country: Option<String>) -> Result<()>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<usize>>,
 {
@@ -34,7 +29,7 @@ where
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");
 
-                command.error(&ctx, content).await?;
+                command.error(content).await?;
 
                 return Ok(());
             }
@@ -43,15 +38,15 @@ where
     };
 
     let owner = command.user_id()?;
-    let ranking_fut = ctx.redis().osekai_ranking::<R>();
-    let name_fut = ctx.user_config().osu_name(owner);
+    let ranking_fut = Context::redis().osekai_ranking::<R>();
+    let name_fut = Context::user_config().osu_name(owner);
 
     let (osekai_res, name_res) = tokio::join!(ranking_fut, name_fut);
 
     let ranking = match osekai_res {
         Ok(ranking) => ranking,
         Err(err) => {
-            let _ = command.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = command.error(OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached osekai ranking"));
         }
@@ -71,14 +66,10 @@ where
     let entries = RankingEntries::Amount(entries);
     let data = <R as OsekaiRanking>::RANKING;
 
-    send_response(ctx, command, entries, data, name_res).await
+    send_response(command, entries, data, name_res).await
 }
 
-pub(super) async fn pp<R>(
-    ctx: Arc<Context>,
-    command: InteractionCommand,
-    country: Option<String>,
-) -> Result<()>
+pub(super) async fn pp<R>(command: InteractionCommand, country: Option<String>) -> Result<()>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<u32>>,
 {
@@ -92,7 +83,7 @@ where
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");
 
-                command.error(&ctx, content).await?;
+                command.error(content).await?;
 
                 return Ok(());
             }
@@ -101,15 +92,15 @@ where
     };
 
     let owner = command.user_id()?;
-    let ranking_fut = ctx.redis().osekai_ranking::<R>();
-    let name_fut = ctx.user_config().osu_name(owner);
+    let ranking_fut = Context::redis().osekai_ranking::<R>();
+    let name_fut = Context::user_config().osu_name(owner);
 
     let (osekai_res, name_res) = tokio::join!(ranking_fut, name_fut);
 
     let ranking = match osekai_res {
         Ok(ranking) => ranking,
         Err(err) => {
-            let _ = command.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = command.error(OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached osekai ranking"));
         }
@@ -128,7 +119,7 @@ where
     let entries = RankingEntries::PpU32(entries);
     let data = <R as OsekaiRanking>::RANKING;
 
-    send_response(ctx, command, entries, data, name_res).await
+    send_response(command, entries, data, name_res).await
 }
 
 fn prepare_amount_users(
@@ -190,7 +181,6 @@ fn prepare_pp_users(
 }
 
 async fn send_response(
-    ctx: Arc<Context>,
     mut command: InteractionCommand,
     entries: RankingEntries,
     data: RankingKind,
@@ -217,6 +207,6 @@ async fn send_response(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }

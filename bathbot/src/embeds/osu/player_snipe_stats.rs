@@ -37,7 +37,6 @@ impl PlayerSnipeStatsEmbed {
         user: &RedisData<User>,
         player: SnipePlayer,
         oldest: Option<&(Score, OsuMap)>,
-        ctx: &Context,
     ) -> Self {
         let footer_text = format!(
             "{:+} #1{} since last update",
@@ -64,7 +63,7 @@ impl PlayerSnipeStatsEmbed {
             }];
 
             if let Some((oldest_score, oldest_map)) = oldest {
-                let mut calc = ctx.pp(oldest_map).mods(&oldest_score.mods);
+                let mut calc = Context::pp(oldest_map).mods(&oldest_score.mods);
 
                 let attrs = calc.performance().await;
                 let stars = attrs.stars() as f32;

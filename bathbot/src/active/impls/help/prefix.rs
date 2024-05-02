@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fmt::Write, sync::Arc};
+use std::{collections::HashSet, fmt::Write};
 
 use bathbot_psql::model::configs::{GuildConfig, DEFAULT_PREFIX};
 use bathbot_util::{
@@ -33,9 +33,9 @@ pub struct HelpPrefixMenu {
 }
 
 impl IActiveMessage for HelpPrefixMenu {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         let Some(group) = self.current_group else {
-            return Box::pin(self.handle_general(ctx));
+            return Box::pin(self.handle_general());
         };
 
         let mut cmds: Vec<_> = {
@@ -178,7 +178,6 @@ impl IActiveMessage for HelpPrefixMenu {
 
     fn handle_component<'a>(
         &'a mut self,
-        _: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let Some(value) = component.data.values.pop() else {
@@ -216,7 +215,7 @@ impl HelpPrefixMenu {
         }
     }
 
-    async fn handle_general(&self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn handle_general(&self) -> Result<BuildPage> {
         let (custom_prefix, first_prefix) = if let Some(guild_id) = self.guild {
             let f = |config: &GuildConfig| {
                 let prefixes = &config.prefixes;
@@ -240,7 +239,7 @@ impl HelpPrefixMenu {
                 }
             };
 
-            ctx.guild_config().peek(guild_id, f).await
+            Context::guild_config().peek(guild_id, f).await
         } else {
             (None, DEFAULT_PREFIX.into())
         };

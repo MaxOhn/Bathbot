@@ -1,4 +1,4 @@
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 use bathbot_model::TwitchUser;
 use bathbot_util::{
@@ -17,19 +17,22 @@ use twilight_model::id::{marker::ChannelMarker, Id};
 use crate::Context;
 
 #[cold]
-pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
+pub async fn twitch_tracking_loop() {
     let mut online_streams = HashSet::with_hasher(IntHasher);
     let mut interval = interval(Duration::from_secs(10 * 60));
     interval.tick().await;
+
+    let client = Context::client();
+    let online_twitch_streams = Context::online_twitch_streams();
 
     loop {
         interval.tick().await;
 
         // Get data about what needs to be tracked for which channel
-        let user_ids = ctx.tracked_users();
+        let user_ids = Context::tracked_users();
 
         // Get stream data about all streams that need to be tracked
-        let mut streams = match ctx.client().get_twitch_streams(&user_ids).await {
+        let mut streams = match client.get_twitch_streams(&user_ids).await {
             Ok(streams) => streams,
             Err(err) => {
                 warn!(?err, "Failed to retrieve streams");
@@ -40,13 +43,13 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
 
         // Filter streams whether they're live
         {
-            let guard = ctx.online_twitch_streams().guard();
+            let guard = online_twitch_streams.guard();
 
             streams.retain(|stream| {
                 if stream.live {
-                    ctx.online_twitch_streams().set_online(stream, &guard);
+                    online_twitch_streams.set_online(stream, &guard);
                 } else {
-                    ctx.online_twitch_streams().set_offline(stream, &guard);
+                    online_twitch_streams.set_offline(stream, &guard);
                 }
 
                 stream.live
@@ -74,7 +77,7 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
 
         let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
 
-        let users: HashMap<_, _, IntHasher> = match ctx.client().get_twitch_users(&ids).await {
+        let users: HashMap<_, _, IntHasher> = match client.get_twitch_users(&ids).await {
             Ok(users) => users
                 .into_iter()
                 .map(|u| (u.user_id, TwitchUserCompact::from(u)))
@@ -98,7 +101,7 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
 
         // Process each stream by notifying all corresponding channels
         for mut stream in streams {
-            let Some(channels) = ctx.tracked_channels_for(stream.user_id) else {
+            let Some(channels) = Context::tracked_channels_for(stream.user_id) else {
                 continue;
             };
 
@@ -121,12 +124,12 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
             let last = channels.next_back();
 
             for channel in channels {
-                send_notif(&ctx, embed.clone(), channel).await;
+                send_notif(embed.clone(), channel).await;
             }
 
             // doing last one separately so we don't clone embed
             if let Some(channel) = last {
-                send_notif(&ctx, embed, channel).await;
+                send_notif(embed, channel).await;
             }
         }
 
@@ -134,10 +137,10 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
     }
 }
 
-async fn send_notif(ctx: &Context, embed: EmbedBuilder, channel: Id<ChannelMarker>) {
+async fn send_notif(embed: EmbedBuilder, channel: Id<ChannelMarker>) {
     let embed = embed.build();
 
-    match ctx.http.create_message(channel).embeds(&[embed]) {
+    match Context::http().create_message(channel).embeds(&[embed]) {
         Ok(msg_fut) => {
             if let Err(err) = msg_fut.await {
                 if let ErrorType::Response { error, .. } = err.kind() {
@@ -146,7 +149,7 @@ async fn send_notif(ctx: &Context, embed: EmbedBuilder, channel: Id<ChannelMarke
                             code: UNKNOWN_CHANNEL,
                             ..
                         }) => {
-                            if let Err(err) = ctx.twitch().untrack_all(channel).await {
+                            if let Err(err) = Context::twitch().untrack_all(channel).await {
                                 warn!(
                                     %channel,
                                     ?err,

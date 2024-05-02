@@ -1,4 +1,4 @@
-use std::{borrow::Cow, iter, sync::Arc};
+use std::{borrow::Cow, iter};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{
@@ -15,10 +15,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::user_not_found;
 use crate::{
     commands::GameModeOption,
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, WhatIfEmbed},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
@@ -114,11 +111,11 @@ impl<'m> WhatIf<'m> {
 #[example("badewanne3 321.98")]
 #[alias("wi")]
 #[group(Osu)]
-pub async fn prefix_whatif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_whatif(msg: &Message, args: Args<'_>) -> Result<()> {
     match WhatIf::args(None, args) {
-        Ok(args) => whatif(ctx, msg.into(), args).await,
+        Ok(args) => whatif(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -135,11 +132,11 @@ pub async fn prefix_whatif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[example("badewanne3 321.98")]
 #[alias("wim")]
 #[group(Mania)]
-pub async fn prefix_whatifmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_whatifmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match WhatIf::args(Some(GameModeOption::Mania), args) {
-        Ok(args) => whatif(ctx, msg.into(), args).await,
+        Ok(args) => whatif(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -156,11 +153,11 @@ pub async fn prefix_whatifmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[example("badewanne3 321.98")]
 #[alias("wit")]
 #[group(Taiko)]
-pub async fn prefix_whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_whatiftaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match WhatIf::args(Some(GameModeOption::Taiko), args) {
-        Ok(args) => whatif(ctx, msg.into(), args).await,
+        Ok(args) => whatif(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -177,38 +174,37 @@ pub async fn prefix_whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[example("badewanne3 321.98")]
 #[aliases("wic", "whatifcatch")]
 #[group(Catch)]
-pub async fn prefix_whatifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+pub async fn prefix_whatifctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match WhatIf::args(Some(GameModeOption::Catch), args) {
-        Ok(args) => whatif(ctx, msg.into(), args).await,
+        Ok(args) => whatif(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-async fn slash_whatif(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_whatif(mut command: InteractionCommand) -> Result<()> {
     let args = WhatIf::from_interaction(command.input_data())?;
 
-    whatif(ctx, (&mut command).into(), args).await
+    whatif((&mut command).into(), args).await
 }
 
-async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
+    let (user_id, mode) = user_id_mode!(orig, args);
     let count = args.count.unwrap_or(1);
     let pp = args.pp;
 
     if pp < 0.0 {
-        return orig.error(&ctx, "The pp number must be non-negative").await;
+        return orig.error("The pp number must be non-negative").await;
     } else if pp > (i64::MAX / 1024) as f32 {
-        return orig.error(&ctx, "Number too large").await;
+        return orig.error("Number too large").await;
     }
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
-    let scores_fut = ctx
-        .osu_scores()
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let scores_fut = Context::osu_scores()
         .top(false)
         .limit(100)
         .exec_with_user(user_args);
@@ -216,12 +212,12 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
@@ -234,7 +230,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
             .take(count)
             .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
-        let rank = match ctx.approx().rank(pp, mode).await {
+        let rank = match Context::approx().rank(pp, mode).await {
             Ok(rank) => Some(rank),
             Err(err) => {
                 warn!(?err, "Failed to get rank pp");
@@ -264,7 +260,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
 
         let new_pp = pps.accum_weighted();
 
-        let rank = match ctx.approx().rank(new_pp + bonus_pp, mode).await {
+        let rank = match Context::approx().rank(new_pp + bonus_pp, mode).await {
             Ok(rank) => Some(rank),
             Err(err) => {
                 warn!(?err, "Failed to get rank pp");
@@ -286,7 +282,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
     // Sending the embed
     let embed = WhatIfEmbed::new(&user, pp, whatif_data);
     let builder = MessageBuilder::new().embed(embed.build());
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

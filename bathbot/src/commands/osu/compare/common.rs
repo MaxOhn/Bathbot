@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering, collections::HashMap, fmt::Write, iter, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, collections::HashMap, fmt::Write, iter};
 
 use bathbot_macros::{command, SlashCommand};
 use bathbot_model::rosu_v2::user::User;
@@ -27,10 +27,7 @@ use crate::{
         osu::{user_not_found, UserExtraction},
         GameModeOption,
     },
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
     Context,
@@ -61,10 +58,10 @@ pub struct Ct<'a> {
     discord2: Option<Id<UserMarker>>,
 }
 
-async fn slash_ct(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_ct(mut command: InteractionCommand) -> Result<()> {
     let args = CompareTop::from_interaction(command.input_data())?;
 
-    top(ctx, (&mut command).into(), args).await
+    top((&mut command).into(), args).await
 }
 
 #[command]
@@ -75,14 +72,13 @@ async fn slash_ct(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 #[group(Osu)]
 #[alias("comparetop")]
 async fn prefix_common(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = CompareTop::args(None, args);
 
-    top(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    top(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -93,14 +89,13 @@ async fn prefix_common(
 #[alias("commonm", "comparetopmania")]
 #[group(Mania)]
 async fn prefix_commonmania(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = CompareTop::args(Some(GameModeOption::Mania), args);
 
-    top(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    top(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -111,14 +106,13 @@ async fn prefix_commonmania(
 #[alias("commont", "comparetoptaiko")]
 #[group(Taiko)]
 async fn prefix_commontaiko(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = CompareTop::args(Some(GameModeOption::Taiko), args);
 
-    top(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    top(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -129,21 +123,20 @@ async fn prefix_commontaiko(
 #[alias("commonc", "commoncatch", "comparetopctb", "comparetopcatch")]
 #[group(Catch)]
 async fn prefix_commonctb(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let args = CompareTop::args(Some(GameModeOption::Catch), args);
 
-    top(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    top(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
-async fn extract_user_id(ctx: &Context, args: &mut CompareTop<'_>) -> UserExtraction {
+async fn extract_user_id(args: &mut CompareTop<'_>) -> UserExtraction {
     if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
         UserExtraction::Id(UserId::Name(name.as_ref().into()))
     } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
-        match ctx.user_config().osu_id(discord).await {
+        match Context::user_config().osu_id(discord).await {
             Ok(Some(user_id)) => UserExtraction::Id(UserId::Id(user_id)),
             Ok(None) => {
                 UserExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
@@ -155,42 +148,38 @@ async fn extract_user_id(ctx: &Context, args: &mut CompareTop<'_>) -> UserExtrac
     }
 }
 
-pub(super) async fn top(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    mut args: CompareTop<'_>,
-) -> Result<()> {
+pub(super) async fn top(orig: CommandOrigin<'_>, mut args: CompareTop<'_>) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let user_id1 = match extract_user_id(&ctx, &mut args).await {
+    let user_id1 = match extract_user_id(&mut args).await {
         UserExtraction::Id(user_id) => user_id,
         UserExtraction::Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
-        UserExtraction::None => return orig.error(&ctx, AT_LEAST_ONE).await,
+        UserExtraction::Content(content) => return orig.error(content).await,
+        UserExtraction::None => return orig.error(AT_LEAST_ONE).await,
     };
 
-    let user_id2 = match extract_user_id(&ctx, &mut args).await {
+    let user_id2 = match extract_user_id(&mut args).await {
         UserExtraction::Id(user_id) => user_id,
         UserExtraction::Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
-        UserExtraction::None => match ctx.user_config().osu_id(owner).await {
+        UserExtraction::Content(content) => return orig.error(content).await,
+        UserExtraction::None => match Context::user_config().osu_id(owner).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => {
                 let content =
                     "Since you're not linked with the `/link` command, you must specify two names.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -198,38 +187,38 @@ pub(super) async fn top(
     };
 
     if user_id1 == user_id2 {
-        return orig.error(&ctx, "Give two different names").await;
+        return orig.error("Give two different names").await;
     }
 
     let mode = match args.mode {
         Some(mode) => mode.into(),
-        None => match ctx.user_config().mode(owner).await {
+        None => match Context::user_config().mode(owner).await {
             Ok(mode) => mode.unwrap_or(GameMode::Osu),
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
         },
     };
 
-    let fut1 = get_user_and_scores(ctx.cloned(), &user_id1, mode);
-    let fut2 = get_user_and_scores(ctx.cloned(), &user_id2, mode);
+    let fut1 = get_user_and_scores(&user_id1, mode);
+    let fut2 = get_user_and_scores(&user_id2, mode);
 
     let (user1, scores1, user2, scores2) = match tokio::join!(fut1, fut2) {
         (Ok((user1, scores1)), Ok((user2, scores2))) => (user1, scores1, user2, scores2),
         (Err(OsuError::NotFound), _) => {
-            let content = user_not_found(&ctx, user_id1).await;
+            let content = user_not_found(user_id1).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (_, Err(OsuError::NotFound)) => {
-            let content = user_not_found(&ctx, user_id2).await;
+            let content = user_not_found(user_id2).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (Err(err), _) | (_, Err(err)) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get scores");
 
             return Err(err);
@@ -248,14 +237,14 @@ pub(super) async fn top(
     };
 
     if let Some(content) = content {
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
     // Check if different names that both belong to the same user were given
     if user1.id() == user2.id() {
         let content = "You must specify two different users";
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
     let indices: HashMap<_, _, IntHasher> = scores2
@@ -320,7 +309,7 @@ pub(super) async fn top(
     // Create the combined profile pictures
     let urls = iter::once(user1.avatar_url()).chain(iter::once(user2.avatar_url()));
 
-    let thumbnail = match get_combined_thumbnail(&ctx, urls, 2, None).await {
+    let thumbnail = match get_combined_thumbnail(urls, 2, None).await {
         Ok(thumbnail) => Some(thumbnail),
         Err(err) => {
             warn!(?err, "Failed to combine avatars");
@@ -341,18 +330,17 @@ pub(super) async fn top(
     ActiveMessages::builder(pagination)
         .start_by_update(true)
         .attachment(thumbnail.map(|bytes| ("avatar_fuse.png".to_owned(), bytes)))
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
 async fn get_user_and_scores(
-    ctx: Arc<Context>,
     user_id: &UserId,
     mode: GameMode,
 ) -> OsuResult<(RedisData<User>, Vec<Score>)> {
-    let args = UserArgs::rosu_id(ctx.cloned(), user_id).await.mode(mode);
+    let args = UserArgs::rosu_id(user_id).await.mode(mode);
 
-    ctx.osu_scores()
+    Context::osu_scores()
         .top(false)
         .limit(100)
         .exec_with_user(args)

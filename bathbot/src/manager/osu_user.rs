@@ -6,14 +6,18 @@ use bathbot_util::{CowUtils, IntHasher};
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMode, UserExtended, Username};
 
+use crate::core::Context;
+
 #[derive(Copy, Clone)]
-pub struct OsuUserManager<'d> {
-    psql: &'d Database,
+pub struct OsuUserManager {
+    psql: &'static Database,
 }
 
-impl<'d> OsuUserManager<'d> {
-    pub fn new(psql: &'d Database) -> Self {
-        Self { psql }
+impl OsuUserManager {
+    pub fn new() -> Self {
+        Self {
+            psql: Context::psql(),
+        }
     }
 
     pub async fn user_id(self, username: &str, alt_username: Option<&str>) -> Result<Option<u32>> {

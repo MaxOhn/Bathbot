@@ -3,7 +3,6 @@ use std::{
     cmp,
     fmt::{Display, Formatter, Result as FmtResult},
     iter,
-    sync::Arc,
 };
 
 use bathbot_macros::command;
@@ -21,10 +20,7 @@ use rosu_v2::prelude::{CountryCode, OsuError, Score, UserId, Username};
 use super::{RankPp, RankValue};
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{
         osu::{UserArgs, UserArgsSlim},
         RedisData,
@@ -33,8 +29,8 @@ use crate::{
     Context,
 };
 
-pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> {
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> {
+    let (user_id, mode) = user_id_mode!(orig, args);
 
     let RankPp {
         country,
@@ -55,32 +51,30 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
         None => None,
     };
 
     if matches!(rank_value, RankValue::Raw(0)) {
-        return orig.error(&ctx, "Rank can't be zero :clown:").await;
+        return orig.error("Rank can't be zero :clown:").await;
     } else if matches!(rank_value, RankValue::Delta(0)) {
-        return orig
-            .error(&ctx, "Delta must be greater than zero :clown:")
-            .await;
+        return orig.error("Delta must be greater than zero :clown:").await;
     }
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
-    let user_fut = ctx.redis().osu_user(user_args);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_fut = Context::redis().osu_user(user_args);
 
     let user = match user_fut.await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get user"));
         }
@@ -94,9 +88,9 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         RankValue::Raw(rank) => RankOrHolder::Rank(rank),
         RankValue::Name(name) => {
             let user_id = UserId::from(name);
-            let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+            let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-            match ctx.redis().osu_user(user_args).await {
+            match Context::redis().osu_user(user_args).await {
                 Ok(target_user) => {
                     let rank_holder = RankHolder {
                         country_code: target_user.country_code().into(),
@@ -109,12 +103,12 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
                     RankOrHolder::Holder(rank_holder)
                 }
                 Err(OsuError::NotFound) => {
-                    let content = user_not_found(&ctx, user_id).await;
+                    let content = user_not_found(user_id).await;
 
-                    return orig.error(&ctx, content).await;
+                    return orig.error(content).await;
                 }
                 Err(err) => {
-                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                    let _ = orig.error(OSU_API_ISSUE).await;
 
                     return Err(Report::new(err).wrap_err("Failed to get target user"));
                 }
@@ -127,12 +121,11 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
     if rank_or_holder.rank() > 10_000 && country.is_some() {
         let content = "Unfortunately I can only provide data for country ranks up to 10,000 :(";
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
-    async fn insufficient_ranking_entries(ctx: &Context, orig: CommandOrigin<'_>) -> Result<()> {
-        orig.error(ctx, "Not enough ranking entries available")
-            .await
+    async fn insufficient_ranking_entries(orig: CommandOrigin<'_>) -> Result<()> {
+        orig.error("Not enough ranking entries available").await
     }
 
     let rank_data = match rank_or_holder {
@@ -141,18 +134,17 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
             let page = (rank / 50) + (rank % 50 != 0) as u32;
 
             let rankings_fut =
-                ctx.redis()
-                    .pp_ranking(mode, page, country.as_ref().map(|c| c.as_str()));
+                Context::redis().pp_ranking(mode, page, country.as_ref().map(|c| c.as_str()));
 
             let rankings = match rankings_fut.await {
                 Ok(rankings) => rankings,
                 Err(OsuError::NotFound) => {
-                    let content = user_not_found(&ctx, user_id).await;
+                    let content = user_not_found(user_id).await;
 
-                    return orig.error(&ctx, content).await;
+                    return orig.error(content).await;
                 }
                 Err(err) => {
-                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                    let _ = orig.error(OSU_API_ISSUE).await;
 
                     return Err(Report::new(err).wrap_err("Failed to get user"));
                 }
@@ -163,7 +155,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
             let rank_holder = match rankings {
                 RedisData::Original(mut rankings) => {
                     if rankings.ranking.len() <= idx {
-                        return insufficient_ranking_entries(&ctx, orig).await;
+                        return insufficient_ranking_entries(orig).await;
                     }
 
                     let holder = rankings.ranking.swap_remove(idx);
@@ -182,7 +174,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
                 }
                 RedisData::Archive(rankings) => {
                     if rankings.ranking.len() <= idx {
-                        return insufficient_ranking_entries(&ctx, orig).await;
+                        return insufficient_ranking_entries(orig).await;
                     }
 
                     let holder = &rankings.ranking[idx];
@@ -208,10 +200,10 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
             }
         }
         RankOrHolder::Rank(rank) => {
-            let required_pp = match ctx.approx().pp(rank, mode).await {
+            let required_pp = match Context::approx().pp(rank, mode).await {
                 Ok(pp) => pp,
                 Err(err) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(GENERAL_ISSUE).await;
 
                     return Err(err);
                 }
@@ -234,8 +226,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         let user = rank_data.user();
 
         let user_args = UserArgsSlim::user_id(user.user_id()).mode(mode);
-        let scores_fut = ctx
-            .osu_scores()
+        let scores_fut = Context::osu_scores()
             // legacy data shouldn't matter so no need to retrieve it via
             // user/guild configs
             .top(true)
@@ -245,7 +236,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         match scores_fut.await {
             Ok(scores) => (!scores.is_empty()).then_some(scores),
             Err(err) => {
-                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let _ = orig.error(OSU_API_ISSUE).await;
                 let err = Report::new(err).wrap_err("Failed to get scores");
 
                 return Err(err);
@@ -268,7 +259,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         .title(title);
 
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }
@@ -285,11 +276,11 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
 #[examples("badewanne3 be50", "badewanne3 123")]
 #[alias("reach")]
 #[group(Osu)]
-async fn prefix_rank(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_rank(msg: &Message, args: Args<'_>) -> Result<()> {
     match RankPp::args(None, args) {
-        Ok(args) => pp(ctx, msg.into(), args).await,
+        Ok(args) => pp(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -308,11 +299,11 @@ async fn prefix_rank(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result
 #[examples("badewanne3 be50", "badewanne3 123")]
 #[alias("rankm", "reachmania", "reachm")]
 #[group(Mania)]
-async fn prefix_rankmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_rankmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match RankPp::args(Some(GameModeOption::Mania), args) {
-        Ok(args) => pp(ctx, msg.into(), args).await,
+        Ok(args) => pp(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -331,11 +322,11 @@ async fn prefix_rankmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> R
 #[examples("badewanne3 be50", "badewanne3 123")]
 #[alias("rankt", "reachtaiko", "reacht")]
 #[group(Taiko)]
-async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_ranktaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match RankPp::args(Some(GameModeOption::Taiko), args) {
-        Ok(args) => pp(ctx, msg.into(), args).await,
+        Ok(args) => pp(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -354,11 +345,11 @@ async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> R
 #[examples("badewanne3 be50", "badewanne3 123")]
 #[alias("rankc", "reachctb", "reachc", "rankcatch", "reachcatch")]
 #[group(Catch)]
-async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_rankctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match RankPp::args(Some(GameModeOption::Catch), args) {
-        Ok(args) => pp(ctx, msg.into(), args).await,
+        Ok(args) => pp(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_macros::SlashCommand;
 use bathbot_model::{
     Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, Subscribers, TotalPp,
@@ -12,10 +10,7 @@ use self::{
     rarity::rarity,
     user_value::{count, pp},
 };
-use crate::{
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
-};
+use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
 
 mod medal_count;
 mod rarity;
@@ -117,18 +112,16 @@ pub struct OsekaiTotalPp {
     country: Option<String>,
 }
 
-async fn slash_osekai(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_osekai(mut command: InteractionCommand) -> Result<()> {
     match Osekai::from_interaction(command.input_data())? {
-        Osekai::Badges(args) => count::<Badges>(ctx, command, args.country).await,
-        Osekai::LovedMapsets(args) => count::<LovedMapsets>(ctx, command, args.country).await,
-        Osekai::MedalCount(args) => medal_count(ctx, command, args).await,
-        Osekai::RankedMapsets(args) => count::<RankedMapsets>(ctx, command, args.country).await,
-        Osekai::Rarity(_) => rarity(ctx, command).await,
-        Osekai::Replays(args) => count::<Replays>(ctx, command, args.country).await,
-        Osekai::StandardDeviation(args) => {
-            pp::<StandardDeviation>(ctx, command, args.country).await
-        }
-        Osekai::Subscribers(args) => count::<Subscribers>(ctx, command, args.country).await,
-        Osekai::TotalPp(args) => pp::<TotalPp>(ctx, command, args.country).await,
+        Osekai::Badges(args) => count::<Badges>(command, args.country).await,
+        Osekai::LovedMapsets(args) => count::<LovedMapsets>(command, args.country).await,
+        Osekai::MedalCount(args) => medal_count(command, args).await,
+        Osekai::RankedMapsets(args) => count::<RankedMapsets>(command, args.country).await,
+        Osekai::Rarity(_) => rarity(command).await,
+        Osekai::Replays(args) => count::<Replays>(command, args.country).await,
+        Osekai::StandardDeviation(args) => pp::<StandardDeviation>(command, args.country).await,
+        Osekai::Subscribers(args) => count::<Subscribers>(command, args.country).await,
+        Osekai::TotalPp(args) => pp::<TotalPp>(command, args.country).await,
     }
 }

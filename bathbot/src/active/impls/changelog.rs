@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_model::{PullRequestsAndTags, Tag};
 use bathbot_util::{
     datetime::DATE_FORMAT, numbers::last_multiple, AuthorBuilder, EmbedBuilder, FooterBuilder,
@@ -18,7 +16,6 @@ use twilight_model::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::utility::ChangelogTagPages,
-    core::Context,
     util::{interaction::InteractionComponent, Authored, ComponentExt, Emote},
 };
 
@@ -30,8 +27,8 @@ pub struct ChangelogPagination {
 }
 
 impl IActiveMessage for ChangelogPagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -40,10 +37,9 @@ impl IActiveMessage for ChangelogPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        Box::pin(self.async_handle_component(ctx, component))
+        Box::pin(self.async_handle_component(component))
     }
 }
 
@@ -65,7 +61,7 @@ impl ChangelogPagination {
         self.pages.tag_idx >= self.tag_pages.len()
     }
 
-    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let defer = self.defer();
 
         let pages = loop {
@@ -77,7 +73,6 @@ impl ChangelogPagination {
             }
 
             let page_fut = ChangelogTagPages::new(
-                &ctx,
                 &mut self.data,
                 self.tag_pages.len(),
                 self.tag_pages.len() + 1,
@@ -155,7 +150,6 @@ impl ChangelogPagination {
 
     async fn async_handle_component(
         &mut self,
-        ctx: Arc<Context>,
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let user_id = match component.user_id() {
@@ -197,7 +191,7 @@ impl ChangelogPagination {
                     self.pages.set_index(0);
 
                     if self.defer() {
-                        if let Err(err) = component.defer(&ctx).await.map_err(Report::new) {
+                        if let Err(err) = component.defer().await.map_err(Report::new) {
                             return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                         }
                     }

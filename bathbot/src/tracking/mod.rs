@@ -10,5 +10,8 @@ pub use self::twitch::online_streams::OnlineTwitchStreams;
 pub use self::twitch::twitch_loop::twitch_tracking_loop;
 
 mod ordr;
+
+#[cfg(feature = "osutracking")]
 mod osu;
+#[cfg(feature = "twitch")]
 mod twitch;

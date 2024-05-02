@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::HashMap, sync::Arc};
+use std::{cmp::Reverse, collections::HashMap};
 
 use bathbot_macros::command;
 use bathbot_util::{
@@ -12,7 +12,7 @@ use time::{Duration, OffsetDateTime};
 use super::{SnipeGameMode, SnipePlayerGain, SnipePlayerLoss};
 use crate::{
     active::{impls::SnipeDifferencePagination, ActiveMessages},
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };
@@ -28,7 +28,7 @@ use crate::{
 #[example("badewanne3")]
 #[aliases("sg", "snipegain", "snipesgain")]
 #[group(Osu)]
-async fn prefix_snipedgain(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_snipedgain(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let mode = None;
     let mut name = None;
     let mut discord = None;
@@ -46,7 +46,7 @@ async fn prefix_snipedgain(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
         discord,
     };
 
-    player_gain(ctx, msg.into(), args).await
+    player_gain(msg.into(), args).await
 }
 
 #[command]
@@ -60,11 +60,7 @@ async fn prefix_snipedgain(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
 #[example("badewanne3")]
 #[aliases("sgm", "snipegainmania", "snipesgainmania")]
 #[group(Mania)]
-async fn prefix_snipedgainmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    mut args: Args<'_>,
-) -> Result<()> {
+async fn prefix_snipedgainmania(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let mode = Some(SnipeGameMode::Mania);
     let mut name = None;
     let mut discord = None;
@@ -82,7 +78,7 @@ async fn prefix_snipedgainmania(
         discord,
     };
 
-    player_gain(ctx, msg.into(), args).await
+    player_gain(msg.into(), args).await
 }
 
 #[command]
@@ -103,7 +99,7 @@ async fn prefix_snipedgainmania(
     "snipeslost"
 )]
 #[group(Osu)]
-async fn prefix_snipedloss(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_snipedloss(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let mode = None;
     let mut name = None;
     let mut discord = None;
@@ -121,7 +117,7 @@ async fn prefix_snipedloss(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
         discord,
     };
 
-    player_loss(ctx, msg.into(), args).await
+    player_loss(msg.into(), args).await
 }
 
 #[command]
@@ -142,11 +138,7 @@ async fn prefix_snipedloss(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
     "snipeslostmania"
 )]
 #[group(Mania)]
-async fn prefix_snipedlossmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    mut args: Args<'_>,
-) -> Result<()> {
+async fn prefix_snipedlossmania(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let mode = Some(SnipeGameMode::Mania);
     let mut name = None;
     let mut discord = None;
@@ -164,31 +156,22 @@ async fn prefix_snipedlossmania(
         discord,
     };
 
-    player_loss(ctx, msg.into(), args).await
+    player_loss(msg.into(), args).await
 }
 
-pub(super) async fn player_gain(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: SnipePlayerGain<'_>,
-) -> Result<()> {
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+pub(super) async fn player_gain(orig: CommandOrigin<'_>, args: SnipePlayerGain<'_>) -> Result<()> {
+    let (user_id, mode) = user_id_mode!(orig, args);
 
-    sniped_diff(ctx, orig, Difference::Gain, user_id, mode).await
+    sniped_diff(orig, Difference::Gain, user_id, mode).await
 }
 
-pub(super) async fn player_loss(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: SnipePlayerLoss<'_>,
-) -> Result<()> {
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+pub(super) async fn player_loss(orig: CommandOrigin<'_>, args: SnipePlayerLoss<'_>) -> Result<()> {
+    let (user_id, mode) = user_id_mode!(orig, args);
 
-    sniped_diff(ctx, orig, Difference::Loss, user_id, mode).await
+    sniped_diff(orig, Difference::Loss, user_id, mode).await
 }
 
 async fn sniped_diff(
-    ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     diff: Difference,
     user_id: UserId,
@@ -197,9 +180,9 @@ async fn sniped_diff(
     let owner = orig.user_id()?;
 
     // Request the user
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = match user_id {
@@ -207,10 +190,10 @@ async fn sniped_diff(
                 UserId::Name(name) => format!("User `{name}` was not found"),
             };
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
@@ -234,13 +217,16 @@ async fn sniped_diff(
         }
     };
 
-    if !ctx.huismetbenen().is_supported(country_code, mode).await {
+    if !Context::huismetbenen()
+        .is_supported(country_code, mode)
+        .await
+    {
         let content = format!("`{username}`'s country {country_code} is not supported :(");
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
-    let client = &ctx.client();
+    let client = Context::client();
     let now = OffsetDateTime::now_utc();
     let week_ago = now - Duration::weeks(1);
 
@@ -253,7 +239,7 @@ async fn sniped_diff(
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to get snipes"));
         }
@@ -269,7 +255,7 @@ async fn sniped_diff(
         );
 
         let builder = MessageBuilder::new().embed(content);
-        orig.create_message(&ctx, builder).await?;
+        orig.create_message(builder).await?;
 
         return Ok(());
     }
@@ -286,7 +272,7 @@ async fn sniped_diff(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Write, sync::Arc};
+use std::{borrow::Cow, fmt::Write};
 
 use bathbot_util::{
     constants::OSU_BASE,
@@ -34,7 +34,6 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::parsed_map::AttachedSimulateMap,
-    core::Context,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::{Mods, OsuMap},
     util::{
@@ -56,7 +55,7 @@ pub struct SimulateComponents {
 }
 
 impl IActiveMessage for SimulateComponents {
-    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         {
             let pp_map = self.map.pp_map_mut();
 
@@ -263,7 +262,7 @@ impl IActiveMessage for SimulateComponents {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
+
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {
@@ -386,7 +385,7 @@ impl IActiveMessage for SimulateComponents {
                     .input(od)
             }
             "sim_osu_version" | "sim_taiko_version" | "sim_catch_version" | "sim_mania_version" => {
-                return Box::pin(self.handle_topold_menu(ctx, component));
+                return Box::pin(self.handle_topold_menu(component));
             }
             other => {
                 warn!(name = %other, ?component, "Unknown simulate component");
@@ -400,10 +399,9 @@ impl IActiveMessage for SimulateComponents {
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        Box::pin(self.async_handle_modal(ctx, modal))
+        Box::pin(self.async_handle_modal(modal))
     }
 }
 
@@ -418,7 +416,7 @@ impl SimulateComponents {
 
     async fn handle_topold_menu(
         &mut self,
-        ctx: Arc<Context>,
+
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let Some(version) = component.data.values.first() else {
@@ -429,7 +427,7 @@ impl SimulateComponents {
             return ComponentResult::Err(eyre!("Unknown TopOldVersion `{version}`"));
         };
 
-        if let Err(err) = component.defer(&ctx).await.map_err(Report::new) {
+        if let Err(err) = component.defer().await.map_err(Report::new) {
             return ComponentResult::Err(err.wrap_err("Failed to defer component"));
         }
 
@@ -438,11 +436,7 @@ impl SimulateComponents {
         ComponentResult::BuildPage
     }
 
-    async fn async_handle_modal(
-        &mut self,
-        ctx: &Context,
-        modal: &mut InteractionModal,
-    ) -> Result<()> {
+    async fn async_handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
         if modal.user_id()? != self.msg_owner {
             return Ok(());
         }
@@ -584,7 +578,7 @@ impl SimulateComponents {
             other => warn!(name = %other, ?modal, "Unknown simulate modal"),
         }
 
-        if let Err(err) = modal.defer(ctx).await {
+        if let Err(err) = modal.defer().await {
             warn!(?err, "Failed to defer modal");
         }
 

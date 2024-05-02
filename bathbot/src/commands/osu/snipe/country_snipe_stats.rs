@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering::Equal};
 
 use bathbot_macros::command;
 use bathbot_model::{Countries, SnipeCountryListOrder, SnipeCountryPlayer};
@@ -20,7 +20,7 @@ use twilight_model::guild::Permissions;
 use super::{SnipeCountryStats, SnipeGameMode};
 use crate::{
     commands::osu::user_not_found,
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
@@ -40,7 +40,6 @@ use crate::{
 #[alias("css")]
 #[group(Osu)]
 async fn prefix_countrysnipestats(
-    ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
     permissions: Option<Permissions>,
@@ -50,7 +49,7 @@ async fn prefix_countrysnipestats(
         country: args.next().map(Cow::from),
     };
 
-    country_stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    country_stats(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -67,7 +66,6 @@ async fn prefix_countrysnipestats(
 #[alias("cssm")]
 #[group(Mania)]
 async fn prefix_countrysnipestatsmania(
-    ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
     permissions: Option<Permissions>,
@@ -77,18 +75,17 @@ async fn prefix_countrysnipestatsmania(
         country: args.next().map(Cow::from),
     };
 
-    country_stats(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    country_stats(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 pub(super) async fn country_stats(
-    ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: SnipeCountryStats<'_>,
 ) -> Result<()> {
-    let config = match ctx.user_config().with_osu_id(orig.user_id()?).await {
+    let config = match Context::user_config().with_osu_id(orig.user_id()?).await {
         Ok(config) => config,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("Failed to get user config"));
         }
@@ -108,22 +105,22 @@ pub(super) async fn country_stats(
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
         None => match config.osu {
             Some(user_id) => {
                 let user_args = UserArgs::user_id(user_id).mode(mode);
 
-                let user = match ctx.redis().osu_user(user_args).await {
+                let user = match Context::redis().osu_user(user_args).await {
                     Ok(user) => user,
                     Err(OsuError::NotFound) => {
-                        let content = user_not_found(&ctx, UserId::Id(user_id)).await;
+                        let content = user_not_found(UserId::Id(user_id)).await;
 
-                        return orig.error(&ctx, content).await;
+                        return orig.error(content).await;
                     }
                     Err(err) => {
-                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                        let _ = orig.error(OSU_API_ISSUE).await;
                         let err = Report::new(err).wrap_err("Failed to get user");
 
                         return Err(err);
@@ -138,23 +135,22 @@ pub(super) async fn country_stats(
             None => {
                 let content = "Since you're not linked, you must specify a country (code)";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
     };
 
     // Check if huisemetbenen supports the country
-    if !ctx
-        .huismetbenen()
+    if !Context::huismetbenen()
         .is_supported(country_code.as_str(), mode)
         .await
     {
         let content = format!("The country code `{country_code}` is not supported :(",);
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
-    let client = &ctx.client();
+    let client = Context::client();
 
     let players_fut =
         client.get_snipe_country(&country_code, SnipeCountryListOrder::WeightedPp, mode);
@@ -164,7 +160,7 @@ pub(super) async fn country_stats(
         match tokio::try_join!(players_fut, stats_fut,) {
             Ok((players, statistics)) => (players, statistics),
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("failed to get country data"));
             }
@@ -194,7 +190,7 @@ pub(super) async fn country_stats(
         builder = builder.attachment("stats_graph.png", bytes);
     }
 
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

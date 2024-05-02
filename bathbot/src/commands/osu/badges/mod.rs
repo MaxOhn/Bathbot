@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, sync::Arc};
+use std::cmp::Reverse;
 
 use bathbot_macros::{HasName, SlashCommand};
 use bathbot_model::OsekaiBadge;
@@ -9,10 +9,7 @@ use twilight_interactions::command::{
 use twilight_model::id::{marker::UserMarker, Id};
 
 use self::{query::*, user::*};
-use crate::{
-    core::Context,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-};
+use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
 
 mod query;
 mod user;
@@ -94,9 +91,9 @@ impl Default for BadgesOrder {
     }
 }
 
-pub async fn slash_badges(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_badges(mut command: InteractionCommand) -> Result<()> {
     match Badges_::from_interaction(command.input_data())? {
-        Badges_::Query(args) => query(ctx, command, args).await,
-        Badges_::User(args) => user(ctx, (&mut command).into(), args).await,
+        Badges_::Query(args) => query(command, args).await,
+        Badges_::User(args) => user((&mut command).into(), args).await,
     }
 }

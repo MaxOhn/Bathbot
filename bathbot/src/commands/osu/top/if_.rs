@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Write, sync::Arc};
+use std::{borrow::Cow, fmt::Write};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
@@ -23,10 +23,7 @@ use crate::{
         osu::{require_link, user_not_found},
         GameModeOption,
     },
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     util::{
         interaction::InteractionCommand,
@@ -91,10 +88,10 @@ pub enum TopIfScoreOrder {
     Stars,
 }
 
-async fn slash_topif(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_topif(mut command: InteractionCommand) -> Result<()> {
     let args = TopIf::from_interaction(command.input_data())?;
 
-    topif(ctx, (&mut command).into(), args).await
+    topif((&mut command).into(), args).await
 }
 
 impl<'m> TopIf<'m> {
@@ -142,11 +139,11 @@ impl<'m> TopIf<'m> {
 #[examples("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
 #[alias("ti")]
 #[group(Osu)]
-async fn prefix_topif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_topif(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopIf::args(None, args) {
-        Ok(args) => topif(ctx, msg.into(), args).await,
+        Ok(args) => topif(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -166,11 +163,11 @@ async fn prefix_topif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resul
 #[examples("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
 #[alias("tit")]
 #[group(Taiko)]
-async fn prefix_topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_topiftaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopIf::args(Some(GameModeOption::Taiko), args) {
-        Ok(args) => topif(ctx, msg.into(), args).await,
+        Ok(args) => topif(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -190,31 +187,31 @@ async fn prefix_topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[examples("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
 #[aliases("tic", "topifcatch")]
 #[group(Catch)]
-async fn prefix_topifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_topifctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopIf::args(Some(GameModeOption::Catch), args) {
-        Ok(args) => topif(ctx, msg.into(), args).await,
+        Ok(args) => topif(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
+async fn topif(orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
     let mods = match matcher::get_mods(&args.mods) {
         Some(mods) => mods,
-        None => return orig.error(&ctx, TopIf::ERR_PARSE_MODS).await,
+        None => return orig.error(TopIf::ERR_PARSE_MODS).await,
     };
 
     let owner = orig.user_id()?;
-    let config = ctx.user_config().with_osu_id(owner).await?;
+    let config = Context::user_config().with_osu_id(owner).await?;
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
@@ -224,14 +221,13 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     };
 
     if let Err(content) = mods.clone().validate(mode) {
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -240,9 +236,8 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
-    let scores_fut = ctx
-        .osu_scores()
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)
         .exec_with_user(user_args);
@@ -250,12 +245,12 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user or scores");
 
             return Err(err);
@@ -272,15 +267,14 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     let sort = args.sort.unwrap_or_default();
     let content = get_content(user.username(), mode, &mods, args.query.as_deref(), sort);
 
-    let mut entries =
-        match process_scores(ctx.cloned(), scores, mods, mode, sort, legacy_scores).await {
-            Ok(scores) => scores,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+    let mut entries = match process_scores(scores, mods, mode, sort, legacy_scores).await {
+        Ok(scores) => scores,
+        Err(err) => {
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to modify scores"));
-            }
-        };
+            return Err(err.wrap_err("failed to modify scores"));
+        }
+    };
 
     // Calculate adjusted pp
     let adjusted_pp: f32 = entries.iter().zip(0..).fold(0.0, |sum, (entry, i)| {
@@ -295,7 +289,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
 
     let final_pp = round(bonus_pp + adjusted_pp);
 
-    let rank = match ctx.approx().rank(final_pp, mode).await {
+    let rank = match Context::approx().rank(final_pp, mode).await {
         Ok(rank) => Some(rank),
         Err(err) => {
             warn!(?err, "Failed to get rank from pp");
@@ -320,7 +314,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
@@ -436,7 +430,6 @@ impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
 }
 
 async fn process_scores(
-    ctx: Arc<Context>,
     scores: Vec<Score>,
     mut arg_mods: ModSelection,
     mode: GameMode,
@@ -455,7 +448,7 @@ async fn process_scores(
         })
         .collect();
 
-    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+    let mut maps = Context::osu_map().maps(&maps_id_checksum).await?;
 
     match &mut arg_mods {
         ModSelection::Exact(mods) | ModSelection::Include(mods) if mods.is_empty() => {
@@ -533,7 +526,7 @@ async fn process_scores(
             };
         }
 
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
+        let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
         let attrs = calc.performance().await;
 
         let old_pp = score.pp.expect("missing pp");

@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult, Write},
-    sync::Arc,
-};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::{command, SlashCommand};
 use bathbot_util::{CowUtils, Matrix, MessageBuilder};
@@ -10,10 +7,7 @@ use rand::RngCore;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        Context,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
 };
 
@@ -42,10 +36,10 @@ enum Difficulty {
     // Expert,
 }
 
-pub async fn slash_minesweeper(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_minesweeper(mut command: InteractionCommand) -> Result<()> {
     let args = Minesweeper::from_interaction(command.input_data())?;
 
-    minesweeper(ctx, (&mut command).into(), args.difficulty).await
+    minesweeper((&mut command).into(), args.difficulty).await
 }
 
 #[command]
@@ -60,24 +54,20 @@ pub async fn slash_minesweeper(ctx: Arc<Context>, mut command: InteractionComman
 #[usage("[easy / medium / hard]")]
 #[flags(SKIP_DEFER)]
 #[group(Games)]
-async fn prefix_minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_minesweeper(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let difficulty = match Difficulty::args(&mut args) {
         Ok(difficulty) => difficulty,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             return Ok(());
         }
     };
 
-    minesweeper(ctx, msg.into(), difficulty).await
+    minesweeper(msg.into(), difficulty).await
 }
 
-async fn minesweeper(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    difficulty: Difficulty,
-) -> Result<()> {
+async fn minesweeper(orig: CommandOrigin<'_>, difficulty: Difficulty) -> Result<()> {
     let game = difficulty.create();
     let (w, h) = game.dim();
     let mut field = String::with_capacity(w * h * 9);
@@ -94,7 +84,7 @@ async fn minesweeper(
 
     let content = format!("Here's a {w}x{h} game with {} mines:\n{field}", game.mines);
     let builder = MessageBuilder::new().content(content);
-    orig.callback(&ctx, builder).await?;
+    orig.callback(builder).await?;
 
     Ok(())
 }

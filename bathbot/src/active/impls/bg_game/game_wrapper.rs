@@ -21,7 +21,7 @@ use twilight_model::{
 };
 
 use super::game::{game_loop, Game, LoopResult};
-use crate::{commands::fun::GameDifficulty, core::ContextExt, util::ChannelExt, Context};
+use crate::{commands::fun::GameDifficulty, util::ChannelExt, Context};
 
 const GAME_LEN: Duration = Duration::from_secs(180);
 
@@ -33,7 +33,6 @@ pub struct BackgroundGame {
 
 impl BackgroundGame {
     pub async fn new(
-        ctx: Arc<Context>,
         channel: Id<ChannelMarker>,
         entries: MapsetTagsEntries,
         effects: Effects,
@@ -41,22 +40,14 @@ impl BackgroundGame {
     ) -> Self {
         let (tx, mut rx) = mpsc::unbounded_channel();
 
-        let mut msg_stream = ctx
-            .standby
+        let mut msg_stream = Context::standby()
             .wait_for_message_stream(channel, |event: &MessageCreate| !event.author.bot);
 
         let mut previous_ids = VecDeque::with_capacity(50);
         let mut scores = HashMap::with_hasher(IntHasher);
 
         // Initialize game
-        let (game, mut img) = Game::new(
-            ctx.cloned(),
-            &entries,
-            &mut previous_ids,
-            effects,
-            difficulty,
-        )
-        .await;
+        let (game, mut img) = Game::new(&entries, &mut previous_ids, effects, difficulty).await;
         let game = Arc::new(RwLock::new(game));
         let game_clone = Arc::clone(&game);
 
@@ -66,7 +57,7 @@ impl BackgroundGame {
                     .content("Here's the next one:")
                     .attachment("bg_img.png", mem::take(&mut img));
 
-                if let Err(err) = channel.create_message(&ctx, builder, None).await {
+                if let Err(err) = channel.create_message(builder, None).await {
                     warn!(?err, "Failed to send initial bg game msg");
                 }
 
@@ -74,7 +65,7 @@ impl BackgroundGame {
                     // Listen for stop or restart invokes
                     option = rx.recv() => option.unwrap_or(LoopResult::Stop),
                     // Let the game run
-                    result = game_loop(&mut msg_stream, &ctx, &game_clone, channel) => result,
+                    result = game_loop(&mut msg_stream, &game_clone, channel) => result,
                     // Timeout after 3 minutes
                     _ = sleep(GAME_LEN) => LoopResult::Stop,
                 };
@@ -90,7 +81,7 @@ impl BackgroundGame {
                             Full background: https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg"
                         );
 
-                        if let Err(err) = channel.plain_message(&ctx, &content).await {
+                        if let Err(err) = channel.plain_message(&content).await {
                             warn!(?err, "Failed to show resolve for bg game restart");
                         }
                     }
@@ -104,13 +95,14 @@ impl BackgroundGame {
                             End of game, see you next time o/"
                         );
 
-                        if let Err(err) = channel.plain_message(&ctx, &content).await {
+                        if let Err(err) = channel.plain_message(&content).await {
                             warn!(?err, "Failed to show resolve for bg game stop");
                         }
 
                         // Store score for winners
                         for (user, score) in scores {
-                            if let Err(err) = ctx.games().bggame_increment_score(user, score).await
+                            if let Err(err) =
+                                Context::games().bggame_increment_score(user, score).await
                             {
                                 warn!("{err:?}");
                             }
@@ -128,19 +120,13 @@ impl BackgroundGame {
                 }
 
                 // Initialize next game
-                let (game, img_) = Game::new(
-                    ctx.cloned(),
-                    &entries,
-                    &mut previous_ids,
-                    effects,
-                    difficulty,
-                )
-                .await;
+                let (game, img_) =
+                    Game::new(&entries, &mut previous_ids, effects, difficulty).await;
                 img = img_;
                 *game_clone.write().await = game;
             }
 
-            ctx.bg_games().write(&channel).await.remove();
+            Context::bg_games().write(&channel).await.remove();
         });
 
         Self { game, tx }

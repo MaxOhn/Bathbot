@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_macros::command;
 use bathbot_psql::model::configs::{GuildConfig, DEFAULT_PREFIX};
@@ -17,7 +17,7 @@ use crate::{
     active::{impls::HelpPrefixMenu, ActiveMessageOriginError, ActiveMessages},
     core::{
         commands::prefix::{PrefixCommand, PrefixCommands},
-        Context, ContextExt,
+        Context,
     },
     util::ChannelExt,
 };
@@ -29,21 +29,20 @@ use crate::{
 #[usage("[command]")]
 #[example("", "recent", "osg")]
 async fn prefix_help(
-    ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     match args.next() {
         Some(arg) => match PrefixCommands::get().command(arg) {
-            Some(cmd) => command_help(ctx, msg, cmd, permissions).await,
-            None => failed_help(ctx, msg, arg).await,
+            Some(cmd) => command_help(msg, cmd, permissions).await,
+            None => failed_help(msg, arg).await,
         },
-        None => dm_help(ctx, msg, permissions).await,
+        None => dm_help(msg, permissions).await,
     }
 }
 
-async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> Result<()> {
+async fn failed_help(msg: &Message, name: &str) -> Result<()> {
     let mut seen = HashSet::new();
 
     let dists: BTreeMap<_, _> = PrefixCommands::get()
@@ -55,13 +54,12 @@ async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> Result<()>
         .collect();
 
     let content = failed_message_content(dists);
-    msg.error(&ctx, content).await?;
+    msg.error(content).await?;
 
     Ok(())
 }
 
 async fn command_help(
-    ctx: Arc<Context>,
     msg: &Message,
     cmd: &PrefixCommand,
     permissions: Option<Permissions>,
@@ -70,7 +68,7 @@ async fn command_help(
 
     let guild_config = match msg.guild_id {
         Some(guild_id) => Some(
-            ctx.guild_config()
+            Context::guild_config()
                 .peek(guild_id, GuildConfig::to_owned)
                 .await,
         ),
@@ -197,21 +195,21 @@ async fn command_help(
     let embed = eb.footer(footer).fields(fields);
     let builder = MessageBuilder::new().embed(embed);
 
-    msg.create_message(&ctx, builder, permissions).await?;
+    msg.create_message(builder, permissions).await?;
 
     Ok(())
 }
 
-async fn dm_help(ctx: Arc<Context>, msg: &Message, permissions: Option<Permissions>) -> Result<()> {
+async fn dm_help(msg: &Message, permissions: Option<Permissions>) -> Result<()> {
     let owner = msg.author.id;
 
-    let channel = match ctx.http.create_private_channel(owner).await {
+    let channel = match Context::http().create_private_channel(owner).await {
         Ok(channel_res) => channel_res.model().await?.id,
         Err(err) => {
             let content = "Your DMs seem blocked :(\n\
             Perhaps you disabled incoming messages from other server members?";
             warn!(?err, "Failed to create DM channel");
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             return Ok(());
         }
@@ -220,18 +218,18 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message, permissions: Option<Permissio
     if msg.guild_id.is_some() {
         let content = "Don't mind me sliding into your DMs :eyes:";
         let builder = MessageBuilder::new().embed(content);
-        let _ = msg.create_message(&ctx, builder, permissions).await;
+        let _ = msg.create_message(builder, permissions).await;
     }
 
     let help_menu = HelpPrefixMenu::new(msg.guild_id);
-    let active_fut = ActiveMessages::builder(help_menu).begin_with_err(ctx.cloned(), channel);
+    let active_fut = ActiveMessages::builder(help_menu).begin_with_err(channel);
 
     match active_fut.await {
         Ok(_) => Ok(()),
         Err(ActiveMessageOriginError::Report(err)) => Err(err),
         Err(ActiveMessageOriginError::CannotDmUser) => {
             let content = "Could not DM you, perhaps you disabled it?";
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }

@@ -4,7 +4,6 @@ use std::{
 };
 
 use bathbot_model::{OsuStatsScore, ScoreSlim};
-use bathbot_psql::Database;
 use eyre::Result;
 use rosu_pp::{
     any::{DifficultyAttributes, PerformanceAttributes, ScoreState},
@@ -17,11 +16,10 @@ use rosu_v2::{
 };
 
 use super::OsuMap;
-use crate::commands::osu::LeaderboardScore;
+use crate::{commands::osu::LeaderboardScore, core::Context};
 
 #[derive(Clone)]
-pub struct PpManager<'d, 'm> {
-    psql: &'d Database,
+pub struct PpManager<'m> {
     map: Cow<'m, Beatmap>,
     map_id: u32,
     attrs: Option<DifficultyAttributes>,
@@ -30,14 +28,13 @@ pub struct PpManager<'d, 'm> {
     partial: bool,
 }
 
-impl<'d, 'm> PpManager<'d, 'm> {
-    pub fn new(map: &'m OsuMap, psql: &'d Database) -> Self {
-        Self::from_parsed(&map.pp_map, map.map_id(), psql)
+impl<'m> PpManager<'m> {
+    pub fn new(map: &'m OsuMap) -> Self {
+        Self::from_parsed(&map.pp_map, map.map_id())
     }
 
-    pub fn from_parsed(map: &'m Beatmap, map_id: u32, psql: &'d Database) -> Self {
+    pub fn from_parsed(map: &'m Beatmap, map_id: u32) -> Self {
         Self {
-            psql,
             map: Cow::Borrowed(map),
             map_id,
             attrs: None,
@@ -76,7 +73,7 @@ impl<'d, 'm> PpManager<'d, 'm> {
     }
 
     pub fn mods(self, mods: impl Into<Mods>) -> Self {
-        fn inner<'d, 'm>(mut this: PpManager<'d, 'm>, mods: Mods) -> PpManager<'d, 'm> {
+        fn inner(mut this: PpManager<'_>, mods: Mods) -> PpManager<'_> {
             if this.mods != mods {
                 this.attrs = None;
             }
@@ -114,7 +111,7 @@ impl<'d, 'm> PpManager<'d, 'm> {
 
         let mode = GameMode::from(self.map.mode as u8);
 
-        self.psql
+        Context::psql()
             .select_map_difficulty_attrs(self.map_id, mode, self.mods.bits)
             .await
     }
@@ -145,9 +142,8 @@ impl<'d, 'm> PpManager<'d, 'm> {
         let attrs = calc.calculate(&self.map);
 
         if !self.partial && self.mods.clock_rate.is_some() {
-            let upsert_fut = self
-                .psql
-                .upsert_map_difficulty(self.map_id, self.mods.bits, &attrs);
+            let upsert_fut =
+                Context::psql().upsert_map_difficulty(self.map_id, self.mods.bits, &attrs);
 
             if let Err(err) = upsert_fut.await {
                 warn!(?err, "Failed to upsert difficulty attrs");

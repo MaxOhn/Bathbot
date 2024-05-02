@@ -1,7 +1,6 @@
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     ptr,
-    sync::Arc,
 };
 
 use bathbot_util::{
@@ -80,11 +79,7 @@ impl SettingsImport {
         }
     }
 
-    async fn async_handle_modal(
-        &mut self,
-        ctx: &Context,
-        modal: &mut InteractionModal,
-    ) -> Result<()> {
+    async fn async_handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
         #[cfg(debug_assertions)]
         ensure!(
             modal.data.custom_id == "import",
@@ -103,7 +98,7 @@ impl SettingsImport {
             return Err(eyre!("Missing settings import modal input"));
         };
 
-        modal.defer(ctx).await.wrap_err("Failed to defer modal")?;
+        modal.defer().await.wrap_err("Failed to defer modal")?;
 
         let (options, skin) = match parse(&input) {
             Ok(tuple) => tuple,
@@ -115,7 +110,7 @@ impl SettingsImport {
         };
 
         let user = modal.user_id()?;
-        let ordr = ctx.ordr().expect("ordr unavailable").client();
+        let ordr = Context::ordr().expect("ordr unavailable").client();
 
         let settings = match skin {
             RenderSkinOption::Official { ref name } => {
@@ -152,7 +147,7 @@ impl SettingsImport {
             },
         };
 
-        if let Err(err) = ctx.replay().set_settings(user, &settings).await {
+        if let Err(err) = Context::replay().set_settings(user, &settings).await {
             self.import_result = ImportResult::Err(err);
 
             return Ok(());
@@ -171,7 +166,7 @@ impl SettingsImport {
 }
 
 impl IActiveMessage for SettingsImport {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         const TITLE: &str = "Copy Yuna's settings, click the button, and paste them in";
         const IMAGE_URL: &str = "https://cdn.discordapp.com/attachments/579428622964621324/1215304506036986007/image.png?ex=65fc4385&is=65e9ce85&hm=cd271413f8d7b5f5913a7454adb9e55bc18cf763b0d395c7065fb783bb31e8f7&";
 
@@ -186,7 +181,7 @@ impl IActiveMessage for SettingsImport {
             ImportResult::Ok(ref mut active) => {
                 if skipped_defer {
                     let fut = async {
-                        match active.build_page(ctx).await {
+                        match active.build_page().await {
                             Ok(mut build) => {
                                 build.defer = true;
 
@@ -198,7 +193,7 @@ impl IActiveMessage for SettingsImport {
 
                     Box::pin(fut)
                 } else {
-                    active.build_page(ctx)
+                    active.build_page()
                 }
             }
             ImportResult::ParseError(ref err) => {
@@ -264,13 +259,13 @@ impl IActiveMessage for SettingsImport {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
+
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         if let ImportResult::OkWithDefer(active) | ImportResult::Ok(active) =
             &mut self.import_result
         {
-            return active.handle_component(ctx, component);
+            return active.handle_component(component);
         }
 
         #[cfg(debug_assertions)]
@@ -302,16 +297,15 @@ impl IActiveMessage for SettingsImport {
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
         if let ImportResult::OkWithDefer(ref mut active) | ImportResult::Ok(ref mut active) =
             self.import_result
         {
-            return active.handle_modal(ctx, modal);
+            return active.handle_modal(modal);
         }
 
-        Box::pin(self.async_handle_modal(ctx, modal))
+        Box::pin(self.async_handle_modal(modal))
     }
 }
 

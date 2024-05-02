@@ -1,6 +1,5 @@
 use std::{
     future::ready,
-    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -127,15 +126,15 @@ impl ActiveMessages {
         ActiveMessagesBuilder::new(active_msg)
     }
 
-    pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionComponent) {
+    pub async fn handle_component(mut component: InteractionComponent) {
         let start = Instant::now();
 
         EventKind::Component
-            .log(&ctx, &component, &component.data.custom_id)
+            .log(&component, &component.data.custom_id)
             .await;
 
         let msg_id = component.message.id;
-        let mut guard = ctx.active_msgs.inner.lock(&msg_id).await;
+        let mut guard = Context::get().active_msgs.inner.lock(&msg_id).await;
 
         let Some(FullActiveMessage {
             active_msg,
@@ -150,16 +149,12 @@ impl ActiveMessages {
         };
 
         async fn handle_component_inner(
-            ctx: &Arc<Context>,
             active_msg: &mut ActiveMessage,
             activity_tx: &Sender<()>,
             component: &mut InteractionComponent,
         ) {
-            match active_msg
-                .handle_component(Arc::clone(ctx), component)
-                .await
-            {
-                ComponentResult::BuildPage => match active_msg.build_page(Arc::clone(ctx)).await {
+            match active_msg.handle_component(component).await {
+                ComponentResult::BuildPage => match active_msg.build_page().await {
                     Ok(build) => {
                         let mut builder = MessageBuilder::new()
                             .embed(build.embed)
@@ -170,7 +165,7 @@ impl ActiveMessages {
                         }
 
                         if build.defer {
-                            if let Err(err) = component.update(ctx, builder).await {
+                            if let Err(err) = component.update(builder).await {
                                 BotMetrics::inc_command_error(
                                     "component",
                                     component.data.custom_id.clone(),
@@ -182,7 +177,7 @@ impl ActiveMessages {
                                     "Failed to update component",
                                 );
                             }
-                        } else if let Err(err) = component.callback(ctx, builder).await {
+                        } else if let Err(err) = component.callback(builder).await {
                             BotMetrics::inc_command_error(
                                 "component",
                                 component.data.custom_id.clone(),
@@ -211,7 +206,7 @@ impl ActiveMessages {
                     }
                 },
                 ComponentResult::CreateModal(modal) => {
-                    if let Err(err) = component.modal(ctx, modal).await {
+                    if let Err(err) = component.modal(modal).await {
                         BotMetrics::inc_command_error(
                             "component",
                             component.data.custom_id.clone(),
@@ -235,21 +230,19 @@ impl ActiveMessages {
             }
         }
 
-        handle_component_inner(&ctx, active_msg, activity_tx, &mut component).await;
+        handle_component_inner(active_msg, activity_tx, &mut component).await;
 
         let elapsed = start.elapsed();
         BotMetrics::observe_command("component", component.data.custom_id, elapsed);
     }
 
-    pub async fn handle_modal(ctx: Arc<Context>, mut modal: InteractionModal) {
+    pub async fn handle_modal(mut modal: InteractionModal) {
         let start = Instant::now();
 
-        EventKind::Modal
-            .log(&ctx, &modal, &modal.data.custom_id)
-            .await;
+        EventKind::Modal.log(&modal, &modal.data.custom_id).await;
 
         let mut guard = match modal.message {
-            Some(ref msg) => ctx.active_msgs.inner.own(msg.id).await,
+            Some(ref msg) => Context::get().active_msgs.inner.own(msg.id).await,
             None => return warn!("Received modal without message"),
         };
 
@@ -262,18 +255,17 @@ impl ActiveMessages {
         };
 
         async fn handle_modal_inner(
-            ctx: &Arc<Context>,
             active_msg: &mut ActiveMessage,
             activity_tx: &Sender<()>,
             modal: &mut InteractionModal,
         ) {
-            if let Err(err) = active_msg.handle_modal(ctx, modal).await {
+            if let Err(err) = active_msg.handle_modal(modal).await {
                 BotMetrics::inc_command_error("modal", modal.data.custom_id.clone());
 
                 return error!(name = %modal.data.custom_id, ?err, "Failed to process modal");
             }
 
-            match active_msg.build_page(Arc::clone(ctx)).await {
+            match active_msg.build_page().await {
                 Ok(build) => {
                     let mut builder = MessageBuilder::new()
                         .embed(build.embed)
@@ -284,7 +276,7 @@ impl ActiveMessages {
                     }
 
                     if build.defer {
-                        if let Err(err) = modal.update(ctx, builder).await {
+                        if let Err(err) = modal.update(builder).await {
                             BotMetrics::inc_command_error("modal", modal.data.custom_id.clone());
 
                             return error!(
@@ -293,7 +285,7 @@ impl ActiveMessages {
                                 "Failed to update modal",
                             );
                         }
-                    } else if let Err(err) = modal.callback(ctx, builder).await {
+                    } else if let Err(err) = modal.callback(builder).await {
                         BotMetrics::inc_command_error("modal", modal.data.custom_id.clone());
 
                         return error!(
@@ -317,7 +309,7 @@ impl ActiveMessages {
             }
         }
 
-        handle_modal_inner(&ctx, active_msg, activity_tx, &mut modal).await;
+        handle_modal_inner(active_msg, activity_tx, &mut modal).await;
 
         let elapsed = start.elapsed();
         BotMetrics::observe_command("modal", modal.data.custom_id, elapsed);
@@ -343,7 +335,7 @@ impl ActiveMessages {
 #[enum_dispatch]
 pub trait IActiveMessage {
     /// The content of responses.
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>>;
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>>;
 
     /// The components that are added to the message.
     ///
@@ -357,7 +349,6 @@ pub trait IActiveMessage {
     /// Defaults to ignoring the component.
     fn handle_component<'a>(
         &'a mut self,
-        _ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         warn!(name = %component.data.custom_id, ?component, "Unknown component");
@@ -370,7 +361,6 @@ pub trait IActiveMessage {
     /// Defaults to ignoring the modal.
     fn handle_modal<'a>(
         &'a mut self,
-        _ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
         warn!(name = %modal.data.custom_id, ?modal, "Unknown modal");
@@ -381,15 +371,14 @@ pub trait IActiveMessage {
     /// What happens when the message is no longer active.
     ///
     /// Defaults to removing all components.
-    fn on_timeout<'a>(
-        &'a mut self,
-        ctx: &'a Context,
+    fn on_timeout(
+        &mut self,
         msg: Id<MessageMarker>,
         channel: Id<ChannelMarker>,
-    ) -> BoxFuture<'a, Result<()>> {
+    ) -> BoxFuture<'_, Result<()>> {
         let builder = MessageBuilder::new().components(Vec::new());
 
-        match (msg, channel).update(ctx, builder, None) {
+        match (msg, channel).update(builder, None) {
             Some(update_fut) => {
                 let fut = async {
                     update_fut

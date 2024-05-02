@@ -15,7 +15,6 @@ use super::{ButtonData, EditOnTimeout, EditOnTimeoutKind};
 use crate::{
     active::BuildPage,
     commands::osu::TopEntry,
-    core::Context,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap, OwnedReplayScore},
     util::{
@@ -31,7 +30,6 @@ pub struct TopScoreEdit {
 impl TopScoreEdit {
     #[allow(clippy::too_many_arguments)]
     pub async fn create(
-        ctx: &Context,
         user: &RedisData<User>,
         entry: &TopEntry,
         personal_idx: Option<usize>,
@@ -52,7 +50,7 @@ impl TopScoreEdit {
             replay: _,
         } = entry;
 
-        let if_fc = IfFc::new(ctx, score, map).await;
+        let if_fc = IfFc::new(score, map).await;
 
         let (combo, title) = if score.mode == GameMode::Mania {
             let mut ratio = score.statistics.count_geki as f32;

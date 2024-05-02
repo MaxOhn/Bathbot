@@ -37,10 +37,9 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
         };
 
         fn #exec(
-            ctx: std::sync::Arc<crate::core::Context>,
             command: crate::util::interaction::InteractionCommand,
         ) -> crate::core::commands::interaction::CommandResult {
-            Box::pin(#slash_cmd(ctx, command))
+            Box::pin(#slash_cmd(command))
         }
     };
 

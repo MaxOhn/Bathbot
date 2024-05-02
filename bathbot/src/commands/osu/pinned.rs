@@ -1,7 +1,6 @@
 use std::{
     cmp::{Ordering, Reverse},
     fmt::Write,
-    sync::Arc,
 };
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
@@ -34,7 +33,7 @@ use crate::{
         ActiveMessages,
     },
     commands::GameModeOption,
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     manager::{
         redis::{
             osu::{UserArgs, UserArgsSlim},
@@ -97,13 +96,13 @@ pub struct Pinned {
     size: Option<ListSize>,
 }
 
-async fn slash_pinned(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_pinned(mut command: InteractionCommand) -> Result<()> {
     let args = Pinned::from_interaction(command.input_data())?;
 
-    pinned(ctx, (&mut command).into(), args).await
+    pinned((&mut command).into(), args).await
 }
 
-async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
+async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -113,16 +112,16 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
                 If you want exact mods, specify it e.g. as `+hdhr!`.\n\
                 And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
     };
 
     let msg_owner = orig.user_id()?;
 
-    let mut config = match ctx.user_config().with_osu_id(msg_owner).await {
+    let mut config = match Context::user_config().with_osu_id(msg_owner).await {
         Ok(config) => config,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -142,7 +141,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         legacy_scores: guild_legacy_scores,
     } = match orig.guild_id() {
         Some(guild_id) => {
-            ctx.guild_config()
+            Context::guild_config()
                 .peek(guild_id, |config| GuildValues::from(config))
                 .await
         }
@@ -157,27 +156,27 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
     let size_single = matches!(list_size, ListSize::Single);
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu.take() {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
-    let (user_args, user_opt) = match UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode) {
+    let (user_args, user_opt) = match UserArgs::rosu_id(&user_id).await.mode(mode) {
         UserArgs::Args(args) => (args, None),
         UserArgs::User { user, mode } => (
             UserArgsSlim::user_id(user.user_id).mode(mode),
             Some(RedisData::Original(*user)),
         ),
         UserArgs::Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         UserArgs::Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
@@ -191,8 +190,8 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
     let missing_user = user_opt.is_none();
 
-    let scores_manager = ctx.osu_scores();
-    let redis = ctx.redis();
+    let scores_manager = Context::osu_scores();
+    let redis = Context::redis();
     let pinned_fut = scores_manager
         .clone()
         .pinned(legacy_scores)
@@ -222,12 +221,12 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
     let (pinned, top100, user) = match tokio::try_join!(pinned_fut, top100_fut, user_fut) {
         Ok((pinned, top100, user)) => (pinned, top100, user.or(user_opt).expect("missing user")),
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user or prepare scores");
 
             return Err(err);
@@ -236,19 +235,10 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
     let pre_len = pinned.len();
 
-    let entries = match process_scores(
-        ctx.cloned(),
-        pinned,
-        &args,
-        mods.as_ref(),
-        &top100,
-        size_single,
-    )
-    .await
-    {
+    let entries = match process_scores(pinned, &args, mods.as_ref(), &top100, size_single).await {
         Ok(entries) => entries,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("Failed to process scores"));
         }
@@ -267,14 +257,14 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
                     let _ = write!(content, " with the specified properties");
                 }
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
             Ok(n) => Some(n),
             Err(_) => {
                 let content = "Failed to parse index. \
                 Must be an integer between 1 and 100 or `random` / `?`.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
         None => None,
@@ -306,10 +296,10 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         with_render &= mode == GameMode::Osu
             && entry.replay
             && orig.has_permission_to(Permissions::SEND_MESSAGES)
-            && ctx.ordr().is_some();
+            && Context::ordr().is_some();
 
         let replay_score = if with_render {
-            match ctx.osu_map().checksum(entry.map.map_id()).await {
+            match Context::osu_map().checksum(entry.map.map_id()).await {
                 Ok(Some(checksum)) => {
                     Some(OwnedReplayScore::from_top_entry(entry, username, checksum))
                 }
@@ -328,13 +318,12 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         let (personal_idx, global_idx) = match entry.map.status() {
             Ranked | Loved | Qualified | Approved => {
                 let user_args = UserArgsSlim::user_id(user_id).mode(entry.score.mode);
-                let best_fut = ctx
-                    .osu_scores()
+                let best_fut = Context::osu_scores()
                     .top(legacy_scores)
                     .limit(100)
                     .exec(user_args);
 
-                let global_fut = ctx.osu_scores().map_leaderboard(
+                let global_fut = Context::osu_scores().map_leaderboard(
                     entry.map.map_id(),
                     entry.score.mode,
                     None,
@@ -369,7 +358,6 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         };
 
         let active_msg_fut = TopScoreEdit::create(
-            &ctx,
             &user,
             entry,
             personal_idx,
@@ -383,7 +371,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
         ActiveMessages::builder(active_msg_fut.await)
             .start_by_update(true)
-            .begin(ctx, orig)
+            .begin(orig)
             .await
     } else {
         let content = write_content(username, &args, entries.len(), mods);
@@ -407,13 +395,12 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
         ActiveMessages::builder(pagination)
             .start_by_update(true)
-            .begin(ctx, orig)
+            .begin(orig)
             .await
     }
 }
 
 async fn process_scores(
-    ctx: Arc<Context>,
     pinned: Vec<Score>,
     args: &Pinned,
     mods: Option<&ModSelection>,
@@ -434,7 +421,7 @@ async fn process_scores(
         .map(|map| (map.map_id as i32, map.checksum.as_deref()))
         .collect();
 
-    let maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+    let maps = Context::osu_map().maps(&maps_id_checksum).await?;
 
     for (mut i, score) in pinned.into_iter().enumerate() {
         let Some(mut map) = maps.get(&score.map_id).cloned() else {
@@ -442,7 +429,7 @@ async fn process_scores(
         };
         map.convert_mut(score.mode);
 
-        let mut calc = ctx.pp(&map).mode(score.mode).mods(&score.mods);
+        let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
         let attrs = calc.difficulty().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo();

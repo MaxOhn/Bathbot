@@ -1,4 +1,4 @@
-use std::{ops, sync::Arc};
+use std::ops;
 
 use bathbot_macros::command;
 use bathbot_model::SnipedWeek;
@@ -24,7 +24,7 @@ use twilight_model::guild::Permissions;
 
 use super::{SnipeGameMode, SnipePlayerSniped};
 use crate::{
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     embeds::{EmbedData, SnipedEmbed},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
@@ -42,7 +42,6 @@ use crate::{
 #[alias("snipes")]
 #[group(Osu)]
 async fn prefix_sniped(
-    ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
     permissions: Option<Permissions>,
@@ -64,7 +63,7 @@ async fn prefix_sniped(
         discord,
     };
 
-    player_sniped(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    player_sniped(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 #[command]
@@ -79,7 +78,6 @@ async fn prefix_sniped(
 #[alias("snipedm", "snipesmania")]
 #[group(Mania)]
 async fn prefix_snipedmania(
-    ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
     permissions: Option<Permissions>,
@@ -101,18 +99,17 @@ async fn prefix_snipedmania(
         discord,
     };
 
-    player_sniped(ctx, CommandOrigin::from_msg(msg, permissions), args).await
+    player_sniped(CommandOrigin::from_msg(msg, permissions), args).await
 }
 
 pub(super) async fn player_sniped(
-    ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: SnipePlayerSniped<'_>,
 ) -> Result<()> {
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let (user_id, mode) = user_id_mode!(orig, args);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = match user_id {
@@ -120,17 +117,17 @@ pub(super) async fn player_sniped(
                 UserId::Name(name) => format!("User `{name}` was not found"),
             };
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user");
 
             return Err(err);
         }
     };
 
-    let client = &ctx.client();
+    let client = Context::client();
 
     let (user_id, username, country_code) = match &user {
         RedisData::Original(user) => (
@@ -145,14 +142,17 @@ pub(super) async fn player_sniped(
         ),
     };
 
-    let (mut sniper, mut snipee) = if ctx.huismetbenen().is_supported(country_code, mode).await {
+    let (mut sniper, mut snipee) = if Context::huismetbenen()
+        .is_supported(country_code, mode)
+        .await
+    {
         let sniper_fut = client.get_sniped_players(user_id, true, mode);
         let snipee_fut = client.get_sniped_players(user_id, false, mode);
 
         match tokio::try_join!(sniper_fut, snipee_fut) {
             Ok(tuple) => tuple,
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("Failed to get sniper or snipee"));
             }
@@ -160,7 +160,7 @@ pub(super) async fn player_sniped(
     } else {
         let content = format!("`{username}`'s country {country_code} is not supported :(");
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     };
 
     let graph = match graphs(username, &mut sniper, &mut snipee, W, H) {
@@ -179,7 +179,7 @@ pub(super) async fn player_sniped(
         builder = builder.attachment("sniped_graph.png", bytes);
     }
 
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

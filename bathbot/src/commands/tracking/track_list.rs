@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use bathbot_macros::command;
 use bathbot_psql::model::osu::TrackedOsuUserKey;
@@ -11,7 +11,7 @@ use rosu_v2::{
 use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     embeds::{EmbedData, TrackListEmbed},
     manager::redis::osu::UserArgs,
     Context,
@@ -28,18 +28,18 @@ pub struct TracklistUserEntry {
 #[alias("tl")]
 #[group(Tracking)]
 #[flags(AUTHORITY, ONLY_GUILDS)]
-async fn prefix_tracklist(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    tracklist(ctx, msg.into()).await
+async fn prefix_tracklist(msg: &Message) -> Result<()> {
+    tracklist(msg.into()).await
 }
 
-pub async fn tracklist(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
+pub async fn tracklist(orig: CommandOrigin<'_>) -> Result<()> {
     let channel_id = orig.channel_id();
-    let tracked = ctx.tracking().list(channel_id).await;
+    let tracked = Context::tracking().list(channel_id).await;
 
-    let mut users = match get_users(ctx.cloned(), orig.channel_id(), tracked).await {
+    let mut users = match get_users(orig.channel_id(), tracked).await {
         Ok(entries) => entries,
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("failed to get users"));
         }
@@ -56,12 +56,12 @@ pub async fn tracklist(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()>
     if embeds.is_empty() {
         let content = "No tracked users in this channel";
         let builder = MessageBuilder::new().embed(content);
-        orig.create_message(&ctx, builder).await?;
+        orig.create_message(builder).await?;
     } else {
         for embed_data in embeds {
             let embed = embed_data.build();
             let builder = MessageBuilder::new().embed(embed);
-            orig.create_message(&ctx, builder).await?;
+            orig.create_message(builder).await?;
         }
     }
 
@@ -69,14 +69,13 @@ pub async fn tracklist(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()>
 }
 
 async fn get_users(
-    ctx: Arc<Context>,
     channel: Id<ChannelMarker>,
     tracked: Vec<(TrackedOsuUserKey, u8)>,
 ) -> OsuResult<Vec<TracklistUserEntry>> {
     let user_ids: Vec<_> = tracked.iter().map(|(key, ..)| key.user_id as i32).collect();
 
     // Get all names that are stored in the DB
-    let stored_names = match ctx.osu_user().names(&user_ids).await {
+    let stored_names = match Context::osu_user().names(&user_ids).await {
         Ok(map) => map,
         Err(err) => {
             warn!(?err, "Failed to get names by user ids");
@@ -98,16 +97,14 @@ async fn get_users(
             None => {
                 let user_args = UserArgs::user_id(user_id).mode(mode);
 
-                match ctx.redis().osu_user(user_args).await {
+                match Context::redis().osu_user(user_args).await {
                     Ok(user) => TracklistUserEntry {
                         name: user.username().into(),
                         mode,
                         limit,
                     },
                     Err(OsuError::NotFound) => {
-                        let remove_fut =
-                            ctx.tracking()
-                                .remove_user(user_id, None, channel, ctx.osu_tracking());
+                        let remove_fut = Context::tracking().remove_user(user_id, None, channel);
 
                         if let Err(err) = remove_fut.await {
                             warn!(user_id, ?err, "Failed to remove unknown user from tracking");

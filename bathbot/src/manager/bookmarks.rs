@@ -2,14 +2,18 @@ use bathbot_psql::{model::osu::MapBookmark, Database};
 use eyre::{Result, WrapErr};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use crate::core::Context;
+
 #[derive(Copy, Clone)]
-pub struct BookmarkManager<'d> {
-    psql: &'d Database,
+pub struct BookmarkManager {
+    psql: &'static Database,
 }
 
-impl<'d> BookmarkManager<'d> {
-    pub fn new(psql: &'d Database) -> Self {
-        Self { psql }
+impl BookmarkManager {
+    pub fn new() -> Self {
+        Self {
+            psql: Context::psql(),
+        }
     }
 
     pub async fn get(self, user: Id<UserMarker>) -> Result<Vec<MapBookmark>> {

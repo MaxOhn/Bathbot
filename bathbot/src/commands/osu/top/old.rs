@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering};
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
@@ -22,10 +22,7 @@ use super::TopIfEntry;
 use crate::{
     active::{impls::TopIfPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found, HasMods, ModsResult, TopIfScoreOrder},
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     util::{
         interaction::InteractionCommand,
@@ -387,10 +384,10 @@ impl TryFrom<i32> for TopOldManiaVersion {
     }
 }
 
-pub async fn slash_topold(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_topold(mut command: InteractionCommand) -> Result<()> {
     let args = TopOld::from_interaction(command.input_data())?;
 
-    topold(ctx, (&mut command).into(), args).await
+    topold((&mut command).into(), args).await
 }
 
 #[command]
@@ -416,11 +413,11 @@ pub async fn slash_topold(ctx: Arc<Context>, mut command: InteractionCommand) ->
 #[example("\"freddie benson\" 2015")]
 #[alias("to")]
 #[group(Osu)]
-async fn prefix_topold(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_topold(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopOld::args(GameMode::Osu, args) {
-        Ok(args) => topold(ctx, msg.into(), args).await,
+        Ok(args) => topold(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -442,11 +439,11 @@ async fn prefix_topold(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resu
 #[example("\"freddie benson\" 2015")]
 #[alias("tom")]
 #[group(Mania)]
-async fn prefix_topoldmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_topoldmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopOld::args(GameMode::Mania, args) {
-        Ok(args) => topold(ctx, msg.into(), args).await,
+        Ok(args) => topold(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -468,11 +465,11 @@ async fn prefix_topoldmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("\"freddie benson\" 2015")]
 #[alias("tot")]
 #[group(Taiko)]
-async fn prefix_topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_topoldtaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopOld::args(GameMode::Taiko, args) {
-        Ok(args) => topold(ctx, msg.into(), args).await,
+        Ok(args) => topold(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -493,11 +490,11 @@ async fn prefix_topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("\"freddie benson\" 2019")]
 #[aliases("toc", "topoldcatch")]
 #[group(Catch)]
-async fn prefix_topoldctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_topoldctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopOld::args(GameMode::Catch, args) {
-        Ok(args) => topold(ctx, msg.into(), args).await,
+        Ok(args) => topold(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -701,8 +698,8 @@ macro_rules! pp_tko {
 
 /// Same as `user_id!` but the args aren't passed by reference
 macro_rules! user_id_ref {
-    ($ctx:ident, $orig:ident, $args:ident) => {
-        match crate::commands::osu::HasName::user_id($args, &$ctx) {
+    ($orig:ident, $args:ident) => {
+        match crate::commands::osu::HasName::user_id($args) {
             crate::commands::osu::UserIdResult::Id(user_id) => Some(user_id),
             crate::commands::osu::UserIdResult::None => None,
             crate::commands::osu::UserIdResult::Future(fut) => match fut.await {
@@ -710,11 +707,11 @@ macro_rules! user_id_ref {
                 crate::commands::osu::UserIdFutureResult::NotLinked(user_id) => {
                     let content = format!("<@{user_id}> is not linked to an osu!profile");
 
-                    return $orig.error(&$ctx, content).await;
+                    return $orig.error(content).await;
                 }
                 crate::commands::osu::UserIdFutureResult::Err(err) => {
                     let content = bathbot_util::constants::GENERAL_ISSUE;
-                    let _ = $orig.error(&$ctx, content).await;
+                    let _ = $orig.error(content).await;
 
                     return Err(err);
                 }
@@ -723,12 +720,12 @@ macro_rules! user_id_ref {
     };
 }
 
-async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
+async fn topold(orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
     let (user_id, common) = match &args {
-        TopOld::Osu(args) => (user_id_ref!(ctx, orig, args), args.to_common()),
-        TopOld::Taiko(args) => (user_id_ref!(ctx, orig, args), args.to_common()),
-        TopOld::Catch(args) => (user_id_ref!(ctx, orig, args), args.to_common()),
-        TopOld::Mania(args) => (user_id_ref!(ctx, orig, args), args.to_common()),
+        TopOld::Osu(args) => (user_id_ref!(orig, args), args.to_common()),
+        TopOld::Taiko(args) => (user_id_ref!(orig, args), args.to_common()),
+        TopOld::Catch(args) => (user_id_ref!(orig, args), args.to_common()),
+        TopOld::Mania(args) => (user_id_ref!(orig, args), args.to_common()),
     };
 
     let Some(common) = common else {
@@ -737,26 +734,25 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
             If you want exact mods, specify it e.g. as `+hdhr!`.\n\
             And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     };
 
     let mode = common.mode;
     let owner = orig.user_id()?;
-    let config = ctx.user_config().with_osu_id(owner).await?;
+    let config = Context::user_config().with_osu_id(owner).await?;
 
     let user_id = match user_id {
         Some(user_id) => user_id,
         None => match config.osu {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -765,9 +761,8 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
-    let scores_fut = ctx
-        .osu_scores()
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)
         .exec_with_user(user_args);
@@ -775,12 +770,12 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user or scores");
 
             return Err(err);
@@ -797,10 +792,10 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
     let pre_pp = user.stats().pp();
     let bonus_pp = pre_pp - actual_pp;
 
-    let mut entries = match process_scores(ctx.cloned(), scores, &args).await {
+    let mut entries = match process_scores(scores, &args).await {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to process scores"));
         }
@@ -864,15 +859,11 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
-async fn process_scores(
-    ctx: Arc<Context>,
-    scores: Vec<Score>,
-    args: &TopOld<'_>,
-) -> Result<Vec<TopIfEntry>> {
+async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<TopIfEntry>> {
     let mut entries = Vec::with_capacity(scores.len());
 
     let maps_id_checksum = scores
@@ -885,7 +876,7 @@ async fn process_scores(
         })
         .collect();
 
-    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+    let mut maps = Context::osu_map().maps(&maps_id_checksum).await?;
 
     for (score, i) in scores.into_iter().zip(1..) {
         let Some(mut map) = maps.remove(&score.map_id) else {
@@ -893,13 +884,8 @@ async fn process_scores(
         };
         map = map.convert(score.mode);
 
-        async fn use_current_system(
-            ctx: &Context,
-            score: &Score,
-            map: &OsuMap,
-        ) -> (f32, f32, f32, u32) {
-            let attrs = ctx
-                .pp(map)
+        async fn use_current_system(score: &Score, map: &OsuMap) -> (f32, f32, f32, u32) {
+            let attrs = Context::pp(map)
                 .mode(score.mode)
                 .mods(&score.mods)
                 .performance()
@@ -933,7 +919,7 @@ async fn process_scores(
                 TopOldOsuVersion::November21September22 => {
                     pp_std!(osu_2021_november, rosu_map, score, mods)
                 }
-                TopOldOsuVersion::September22Now => use_current_system(&ctx, &score, &map).await,
+                TopOldOsuVersion::September22Now => use_current_system(&score, &map).await,
             },
             TopOld::Taiko(t) => match t.version {
                 TopOldTaikoVersion::March14September20 => {
@@ -942,11 +928,11 @@ async fn process_scores(
                 TopOldTaikoVersion::September20September22 => {
                     pp_tko!(taiko_2020, rosu_map, score, mods)
                 }
-                TopOldTaikoVersion::September22Now => use_current_system(&ctx, &score, &map).await,
+                TopOldTaikoVersion::September22Now => use_current_system(&score, &map).await,
             },
             TopOld::Catch(c) => match c.version {
                 TopOldCatchVersion::March14May20 => pp_ctb!(fruits_ppv1, rosu_map, score, mods),
-                TopOldCatchVersion::May20Now => use_current_system(&ctx, &score, &map).await,
+                TopOldCatchVersion::May20Now => use_current_system(&score, &map).await,
             },
             TopOld::Mania(m) => match m.version {
                 TopOldManiaVersion::March14May18 => {
@@ -963,7 +949,7 @@ async fn process_scores(
                         .calculate();
 
                     let pp = attrs.pp as f32;
-                    let max_combo = ctx.pp(&map).difficulty().await.max_combo();
+                    let max_combo = Context::pp(&map).difficulty().await.max_combo();
 
                     (pp, max_pp, stars, max_combo)
                 }
@@ -980,11 +966,11 @@ async fn process_scores(
                         .calculate();
 
                     let pp = attrs.pp as f32;
-                    let max_combo = ctx.pp(&map).difficulty().await.max_combo();
+                    let max_combo = Context::pp(&map).difficulty().await.max_combo();
 
                     (pp, max_pp, stars, max_combo)
                 }
-                TopOldManiaVersion::October22Now => use_current_system(&ctx, &score, &map).await,
+                TopOldManiaVersion::October22Now => use_current_system(&score, &map).await,
             },
         };
 

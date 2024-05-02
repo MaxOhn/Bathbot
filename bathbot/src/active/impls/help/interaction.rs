@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_util::{EmbedBuilder, FooterBuilder};
 use eyre::Result;
 use futures::future::{ready, BoxFuture};
@@ -16,11 +14,8 @@ use twilight_model::{
 
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
-    core::{
-        commands::interaction::{
-            twilight_command::Command, InteractionCommandKind, InteractionCommands,
-        },
-        Context,
+    core::commands::interaction::{
+        twilight_command::Command, InteractionCommandKind, InteractionCommands,
     },
     util::{interaction::InteractionComponent, Authored},
 };
@@ -33,7 +28,7 @@ pub struct HelpInteractionCommand {
 }
 
 impl IActiveMessage for HelpInteractionCommand {
-    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         let Some(command) = self.find_command() else {
             let err = eyre!("Unknown command title={:?}", self.next_title);
 
@@ -145,7 +140,6 @@ impl IActiveMessage for HelpInteractionCommand {
 
     fn handle_component<'a>(
         &'a mut self,
-        _: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {

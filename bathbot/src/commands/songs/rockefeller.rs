@@ -1,19 +1,15 @@
-use std::sync::Arc;
-
 use bathbot_macros::command;
 use eyre::Result;
-
-use crate::Context;
 
 #[command]
 #[desc("https://youtu.be/hjGZLnja1o8?t=41")]
 #[group(Songs)]
 #[alias("1273")]
 #[flags(SKIP_DEFER)]
-pub async fn prefix_rockefeller(ctx: Arc<Context>, msg: &Message) -> Result<()> {
+pub async fn prefix_rockefeller(msg: &Message) -> Result<()> {
     let (lyrics, delay) = rockefeller_();
 
-    super::song(lyrics, delay, ctx, msg.into()).await
+    super::song(lyrics, delay, msg.into()).await
 }
 
 pub fn rockefeller_() -> (&'static [&'static str], u64) {

@@ -21,7 +21,7 @@ use rosu_v2::model::GameMode;
 use tokio::{sync::Mutex, time};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
-use crate::manager::OsuTrackingManager;
+use crate::core::Context;
 
 static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(180));
 
@@ -49,10 +49,8 @@ pub struct OsuTracking {
 
 impl OsuTracking {
     #[cold]
-    pub async fn new(manager: OsuTrackingManager<'_>) -> Result<Self> {
-        OsuTrackingQueue::new(manager)
-            .await
-            .map(|queue| Self { queue })
+    pub async fn new() -> Result<Self> {
+        OsuTrackingQueue::new().await.map(|queue| Self { queue })
     }
 
     pub fn set_stop_tracking(&self, value: bool) {
@@ -83,10 +81,9 @@ impl OsuTracking {
         &self,
         key: TrackedOsuUserKey,
         new_date: OffsetDateTime,
-        manager: OsuTrackingManager<'_>,
     ) -> Result<()> {
         if self.queue.update_last_date(key, new_date).await {
-            manager.update_date(key).await?;
+            Context::osu_tracking().update_date(key).await?;
         }
 
         Ok(())
@@ -103,11 +100,9 @@ impl OsuTracking {
         self.queue.pop().await
     }
 
-    pub async fn remove_user_all(
-        &self,
-        user_id: u32,
-        manager: OsuTrackingManager<'_>,
-    ) -> Result<()> {
+    pub async fn remove_user_all(&self, user_id: u32) -> Result<()> {
+        let manager = Context::osu_tracking();
+
         for mode in self.queue.remove_user_all(user_id).await {
             let key = TrackedOsuUserKey { user_id, mode };
             manager.remove_user(key).await?;
@@ -121,10 +116,9 @@ impl OsuTracking {
         user_id: u32,
         mode: Option<GameMode>,
         channel: Id<ChannelMarker>,
-        manager: OsuTrackingManager<'_>,
     ) -> Result<()> {
         let remove_entries = self.queue.remove_user(user_id, mode, channel).await;
-        self.remove(remove_entries, manager).await?;
+        self.remove(remove_entries).await?;
 
         Ok(())
     }
@@ -133,20 +127,17 @@ impl OsuTracking {
         &self,
         channel: Id<ChannelMarker>,
         mode: Option<GameMode>,
-        manager: OsuTrackingManager<'_>,
     ) -> Result<usize> {
         let remove_entries = self.queue.remove_channel(channel, mode).await;
         let len = remove_entries.len();
-        self.remove(remove_entries, manager).await?;
+        self.remove(remove_entries).await?;
 
         Ok(len)
     }
 
-    async fn remove(
-        &self,
-        remove: Vec<RemoveEntry>,
-        manager: OsuTrackingManager<'_>,
-    ) -> Result<()> {
+    async fn remove(&self, remove: Vec<RemoveEntry>) -> Result<()> {
+        let manager = Context::osu_tracking();
+
         for remove_entry in remove {
             if remove_entry.no_longer_tracked {
                 manager.remove_user(remove_entry.key).await?;
@@ -171,8 +162,8 @@ impl OsuTracking {
         last_top_score: OffsetDateTime,
         channel: Id<ChannelMarker>,
         limit: u8,
-        manager: OsuTrackingManager<'_>,
     ) -> Result<bool> {
+        let manager = Context::osu_tracking();
         let key = TrackedOsuUserKey { user_id, mode };
         let added = self.queue.add(key, last_top_score, channel, limit).await;
 
@@ -212,8 +203,8 @@ pub struct OsuTrackingQueue {
 
 impl OsuTrackingQueue {
     #[cold]
-    async fn new(manager: OsuTrackingManager<'_>) -> Result<Self> {
-        let users = manager.get_users().await?;
+    async fn new() -> Result<Self> {
+        let users = Context::osu_tracking().get_users().await?;
         let now = OffsetDateTime::now_utc();
 
         let queue = users

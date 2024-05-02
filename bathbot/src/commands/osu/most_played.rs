@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{
@@ -13,7 +13,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::{require_link, user_not_found};
 use crate::{
     active::{impls::MostPlayedPagination, ActiveMessages},
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
@@ -33,10 +33,10 @@ pub struct MostPlayed<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-async fn slash_mostplayed(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_mostplayed(mut command: InteractionCommand) -> Result<()> {
     let args = MostPlayed::from_interaction(command.input_data())?;
 
-    mostplayed(ctx, (&mut command).into(), args).await
+    mostplayed((&mut command).into(), args).await
 }
 
 #[command]
@@ -45,7 +45,7 @@ async fn slash_mostplayed(ctx: Arc<Context>, mut command: InteractionCommand) ->
 #[example("badewanne3")]
 #[alias("mp")]
 #[group(AllModes)]
-async fn prefix_mostplayed(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_mostplayed(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => MostPlayed {
@@ -60,23 +60,19 @@ async fn prefix_mostplayed(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
         None => MostPlayed::default(),
     };
 
-    mostplayed(ctx, msg.into(), args).await
+    mostplayed(msg.into(), args).await
 }
 
-async fn mostplayed(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: MostPlayed<'_>,
-) -> Result<()> {
+async fn mostplayed(orig: CommandOrigin<'_>, args: MostPlayed<'_>) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(owner).await {
+        None => match Context::user_config().osu_id(owner).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
+            Ok(None) => return require_link(&orig).await,
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -84,29 +80,29 @@ async fn mostplayed(
     };
 
     // Retrieve the user and their most played maps
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
+    let user_args = UserArgs::rosu_id(&user_id).await;
 
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
     };
 
-    let maps_fut = ctx.osu().user_most_played(user.user_id()).limit(100);
+    let maps_fut = Context::osu().user_most_played(user.user_id()).limit(100);
 
     let maps = match maps_fut.await {
         Ok(maps) => maps,
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get maps");
 
             return Err(err);
@@ -121,6 +117,6 @@ async fn mostplayed(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }

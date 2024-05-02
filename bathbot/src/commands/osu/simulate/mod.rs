@@ -1,7 +1,7 @@
 pub mod args;
 pub mod parsed_map;
 
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::MapIdType};
@@ -26,7 +26,7 @@ use crate::{
     commands::{osu::parsed_map::AttachedSimulateMap, GameModeOption},
     core::{
         commands::{prefix::Args, CommandOrigin},
-        Context, ContextExt,
+        Context,
     },
     manager::MapError,
     util::{interaction::InteractionCommand, CheckPermissions, InteractionCommandExt},
@@ -78,25 +78,21 @@ pub struct Simulate<'m> {
     file: Option<Attachment>,
 }
 
-pub async fn slash_simulate(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_simulate(mut command: InteractionCommand) -> Result<()> {
     let args = Simulate::from_interaction(command.input_data())?;
     let orig = CommandOrigin::from(&mut command);
 
     match SimulateArgs::from_simulate(args) {
-        Ok(args) => simulate(ctx, orig, args).await,
-        Err(content) => orig.error(&ctx, content).await,
+        Ok(args) => simulate(orig, args).await,
+        Err(content) => orig.error(content).await,
     }
 }
 
-async fn simulate(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    mut args: SimulateArgs,
-) -> Result<()> {
+async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()> {
     let map = args.map.take();
     let mode = args.mode;
 
-    let Some(map) = prepare_map(ctx.cloned(), &orig, map, mode).await? else {
+    let Some(map) = prepare_map(&orig, map, mode).await? else {
         return Ok(());
     };
 
@@ -110,7 +106,7 @@ async fn simulate(
     };
 
     let max_combo = match map {
-        SimulateMap::Full(ref map) => ctx.pp(map).difficulty().await.max_combo(),
+        SimulateMap::Full(ref map) => Context::pp(map).difficulty().await.max_combo(),
         SimulateMap::Attached(ref map) => map.max_combo,
     };
 
@@ -120,7 +116,7 @@ async fn simulate(
         Some(None) => {
             let content = format!("Looks like those mods are invalid for the {mode:?} mode");
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
     };
 
@@ -152,7 +148,7 @@ async fn simulate(
 
     ActiveMessages::builder(active)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
@@ -187,16 +183,15 @@ async fn simulate(
 #[alias("s", "sim")]
 #[group(Osu)]
 async fn prefix_simulate(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let orig = CommandOrigin::from_msg(msg, permissions);
 
-    match SimulateArgs::from_args(&ctx, None, msg, args).await {
-        Ok(args) => simulate(ctx, orig, args).await,
-        Err(content) => orig.error(&ctx, content).await,
+    match SimulateArgs::from_args(None, msg, args).await {
+        Ok(args) => simulate(orig, args).await,
+        Err(content) => orig.error(content).await,
     }
 }
 
@@ -228,16 +223,15 @@ async fn prefix_simulate(
 #[alias("st", "simt", "simtaiko")]
 #[group(Taiko)]
 async fn prefix_simulatetaiko(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let orig = CommandOrigin::from_msg(msg, permissions);
 
-    match SimulateArgs::from_args(&ctx, Some(GameMode::Taiko), msg, args).await {
-        Ok(args) => simulate(ctx, orig, args).await,
-        Err(content) => orig.error(&ctx, content).await,
+    match SimulateArgs::from_args(Some(GameMode::Taiko), msg, args).await {
+        Ok(args) => simulate(orig, args).await,
+        Err(content) => orig.error(content).await,
     }
 }
 
@@ -271,16 +265,15 @@ async fn prefix_simulatetaiko(
 #[alias("sc", "simc", "simctb", "simcatch", "simulatecatch")]
 #[group(Catch)]
 async fn prefix_simulatectb(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let orig = CommandOrigin::from_msg(msg, permissions);
 
-    match SimulateArgs::from_args(&ctx, Some(GameMode::Catch), msg, args).await {
-        Ok(args) => simulate(ctx, orig, args).await,
-        Err(content) => orig.error(&ctx, content).await,
+    match SimulateArgs::from_args(Some(GameMode::Catch), msg, args).await {
+        Ok(args) => simulate(orig, args).await,
+        Err(content) => orig.error(content).await,
     }
 }
 
@@ -315,21 +308,19 @@ async fn prefix_simulatectb(
 #[alias("sm", "simm", "simmania")]
 #[group(Mania)]
 async fn prefix_simulatemania(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let orig = CommandOrigin::from_msg(msg, permissions);
 
-    match SimulateArgs::from_args(&ctx, Some(GameMode::Mania), msg, args).await {
-        Ok(args) => simulate(ctx, orig, args).await,
-        Err(content) => orig.error(&ctx, content).await,
+    match SimulateArgs::from_args(Some(GameMode::Mania), msg, args).await {
+        Ok(args) => simulate(orig, args).await,
+        Err(content) => orig.error(content).await,
     }
 }
 
 async fn prepare_map(
-    ctx: Arc<Context>,
     orig: &CommandOrigin<'_>,
     map: Option<SimulateMapArg>,
     mode: Option<GameMode>,
@@ -339,30 +330,30 @@ async fn prepare_map(
         Some(SimulateMapArg::Id(MapIdType::Set(_))) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
 
-            return orig.error(&ctx, content).await.map(|_| None);
+            return orig.error(content).await.map(|_| None);
         }
         Some(SimulateMapArg::Attachment(attachment)) => {
-            return AttachedSimulateMap::new(&ctx, orig, attachment, mode)
+            return AttachedSimulateMap::new(orig, attachment, mode)
                 .await
                 .map(|opt| opt.map(SimulateMap::Attached))
         }
         None if orig.can_read_history() => {
-            let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
+            let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
                 Err(err) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(GENERAL_ISSUE).await;
 
                     return Err(err.wrap_err("Failed to retrieve channel history"));
                 }
             };
 
-            match ctx.find_map_id_in_msgs(&msgs, 0).await {
+            match Context::find_map_id_in_msgs(&msgs, 0).await {
                 Some(MapIdType::Map(id)) => id,
                 None | Some(MapIdType::Set(_)) => {
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
 
-                    return orig.error(&ctx, content).await.map(|_| None);
+                    return orig.error(content).await.map(|_| None);
                 }
             }
         }
@@ -372,11 +363,11 @@ async fn prepare_map(
                 Try specifying a map either by url to the map, or just by map id, \
                 or give me the \"Read Message History\" permission.";
 
-            return orig.error(&ctx, content).await.map(|_| None);
+            return orig.error(content).await.map(|_| None);
         }
     };
 
-    let map = match ctx.osu_map().map(map_id, None).await {
+    let map = match Context::osu_map().map(map_id, None).await {
         Ok(map) => match mode {
             Some(mode) => map.convert(mode),
             None => map,
@@ -387,10 +378,10 @@ async fn prepare_map(
                 Did you give me a mapset id instead of a map id?"
             );
 
-            return orig.error(&ctx, content).await.map(|_| None);
+            return orig.error(content).await.map(|_| None);
         }
         Err(MapError::Report(err)) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -427,7 +418,6 @@ struct SimulateArgs {
 
 impl SimulateArgs {
     async fn from_args(
-        ctx: &Context,
         mode: Option<GameMode>,
         msg: &Message,
         args: Args<'_>,
@@ -440,7 +430,7 @@ impl SimulateArgs {
         let mut map = None;
 
         if let Some(reply) = reply {
-            if let Some(id) = ctx.find_map_id_in_msg(reply).await {
+            if let Some(id) = Context::find_map_id_in_msg(reply).await {
                 map = Some(SimulateMapArg::Id(id));
             }
         }

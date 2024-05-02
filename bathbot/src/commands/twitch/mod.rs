@@ -1,16 +1,9 @@
-#![cfg(feature = "twitch")]
-
-use std::sync::Arc;
-
 use bathbot_macros::SlashCommand;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 pub use self::{addstream::*, removestream::*, tracked::*};
-use crate::{
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
-};
+use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
 
 pub mod addstream;
 pub mod removestream;
@@ -60,12 +53,12 @@ pub struct TrackStreamRemove {
 )]
 pub struct TrackStreamList;
 
-pub async fn slash_trackstream(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_trackstream(mut command: InteractionCommand) -> Result<()> {
     match TrackStream::from_interaction(command.input_data())? {
-        TrackStream::Add(add) => addstream(ctx, (&mut command).into(), add.name.as_ref()).await,
+        TrackStream::Add(add) => addstream((&mut command).into(), add.name.as_ref()).await,
         TrackStream::Remove(remove) => {
-            removestream(ctx, (&mut command).into(), remove.name.as_ref()).await
+            removestream((&mut command).into(), remove.name.as_ref()).await
         }
-        TrackStream::List(_) => tracked(ctx, (&mut command).into()).await,
+        TrackStream::List(_) => tracked((&mut command).into()).await,
     }
 }

@@ -2,7 +2,6 @@ use std::{
     borrow::Cow,
     cmp::Reverse,
     collections::{hash_map::Entry, HashMap},
-    sync::Arc,
 };
 
 use bathbot_macros::{command, HasMods, SlashCommand};
@@ -32,10 +31,7 @@ use twilight_model::{
 use super::{HasMods, ModsResult};
 use crate::{
     active::{impls::LeaderboardPagination, ActiveMessages},
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::{
         redis::{osu::UserArgs, RedisData},
         MapError, Mods, OsuMap,
@@ -88,13 +84,7 @@ pub enum LeaderboardSort {
 pub type AttrMap = HashMap<Mods, (DifficultyAttributes, f32)>;
 
 impl LeaderboardSort {
-    pub async fn sort(
-        self,
-        ctx: &Context,
-        scores: &mut [LeaderboardScore],
-        map: &OsuMap,
-        attr_map: &mut AttrMap,
-    ) {
+    pub async fn sort(self, scores: &mut [LeaderboardScore], map: &OsuMap, attr_map: &mut AttrMap) {
         match self {
             Self::Accuracy => scores.sort_by(|a, b| b.accuracy.total_cmp(&a.accuracy)),
             Self::Combo => scores.sort_by_key(|score| Reverse(score.combo)),
@@ -104,7 +94,7 @@ impl LeaderboardSort {
                 let mut pps = HashMap::with_capacity_and_hasher(scores.len(), IntHasher);
 
                 for score in scores.iter() {
-                    let (pp, _) = score.pp(ctx, map, attr_map).await;
+                    let (pp, _) = score.pp(map, attr_map).await;
                     pps.insert(score.pos, pp);
                 }
 
@@ -139,11 +129,7 @@ struct LeaderboardArgs<'a> {
 }
 
 impl<'m> LeaderboardArgs<'m> {
-    async fn args(
-        ctx: &Context,
-        msg: &Message,
-        args: Args<'m>,
-    ) -> Result<LeaderboardArgs<'m>, String> {
+    async fn args(msg: &Message, args: Args<'m>) -> Result<LeaderboardArgs<'m>, String> {
         let mut map = None;
         let mut mods = None;
 
@@ -171,7 +157,7 @@ impl<'m> LeaderboardArgs<'m> {
             .filter(|_| msg.kind == MessageType::Reply);
 
         if let Some(reply) = reply {
-            if let Some(id) = ctx.find_map_id_in_msg(reply).await {
+            if let Some(id) = Context::find_map_id_in_msg(reply).await {
                 map = Some(id);
             }
         }
@@ -223,39 +209,34 @@ impl<'a> TryFrom<Leaderboard<'a>> for LeaderboardArgs<'a> {
 #[alias("lb")]
 #[group(AllModes)]
 async fn prefix_leaderboard(
-    ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    match LeaderboardArgs::args(&ctx, msg, args).await {
-        Ok(args) => leaderboard(ctx, CommandOrigin::from_msg(msg, permissions), args).await,
+    match LeaderboardArgs::args(msg, args).await {
+        Ok(args) => leaderboard(CommandOrigin::from_msg(msg, permissions), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-async fn slash_leaderboard(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_leaderboard(mut command: InteractionCommand) -> Result<()> {
     let args = Leaderboard::from_interaction(command.input_data())?;
 
     match LeaderboardArgs::try_from(args) {
-        Ok(args) => leaderboard(ctx, (&mut command).into(), args).await,
+        Ok(args) => leaderboard((&mut command).into(), args).await,
         Err(content) => {
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-async fn leaderboard(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: LeaderboardArgs<'_>,
-) -> Result<()> {
+async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -265,22 +246,22 @@ async fn leaderboard(
             If you want exact mods, specify it e.g. as `+hdhr!`.\n\
             And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
     };
 
     let owner = orig.user_id()?;
 
-    let map_id_fut = get_map_id(&ctx, &orig, args.map);
-    let config_fut = ctx.user_config().with_osu_id(owner);
+    let map_id_fut = get_map_id(&orig, args.map);
+    let config_fut = Context::user_config().with_osu_id(owner);
 
     let (map_id_res, config_res) = tokio::join!(map_id_fut, config_fut);
 
     let map_id = match map_id_res {
         Ok(map_id) => map_id,
-        Err(GetMapError::Content(content)) => return orig.error(&ctx, content).await,
+        Err(GetMapError::Content(content)) => return orig.error(content).await,
         Err(GetMapError::Err { err, content }) => {
-            let _ = orig.error(&ctx, content).await;
+            let _ = orig.error(content).await;
 
             return Err(err);
         }
@@ -289,7 +270,7 @@ async fn leaderboard(
     let config = config_res?;
 
     // Retrieving the beatmap
-    let map = match ctx.osu_map().map(map_id, None).await {
+    let map = match Context::osu_map().map(map_id, None).await {
         Ok(map) => map,
         Err(MapError::NotFound) => {
             let content = format!(
@@ -297,10 +278,10 @@ async fn leaderboard(
                 Did you give me a mapset id instead of a map id?",
             );
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(MapError::Report(err)) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -309,8 +290,7 @@ async fn leaderboard(
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -327,10 +307,12 @@ async fn leaderboard(
 
     let mods_bits = specify_mods.as_ref().map_or(0, GameModsIntermode::bits);
 
-    let mut calc = ctx.pp(&map).mode(map.mode()).mods(Mods::new(mods_bits));
+    let mut calc = Context::pp(&map)
+        .mode(map.mode())
+        .mods(Mods::new(mods_bits));
     let attrs_fut = calc.performance();
 
-    let scores_fut = ctx.osu_scores().map_leaderboard(
+    let scores_fut = Context::osu_scores().map_leaderboard(
         map_id,
         map.mode(),
         specify_mods.clone(),
@@ -339,7 +321,6 @@ async fn leaderboard(
     );
 
     let user_fut = get_user_score(
-        ctx.cloned(),
         config.osu,
         map_id,
         map.mode(),
@@ -365,7 +346,7 @@ async fn leaderboard(
             })
             .collect(),
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
+            let _ = orig.error(OSU_WEB_ISSUE).await;
 
             return Err(err.wrap_err("Failed to get leaderboard"));
         }
@@ -422,7 +403,7 @@ async fn leaderboard(
     // specified
     let mut attr_map = HashMap::default();
 
-    args.sort.sort(&ctx, &mut scores, &map, &mut attr_map).await;
+    args.sort.sort(&mut scores, &map, &mut attr_map).await;
     args.sort.push_content(&mut content);
 
     let first_place_icon = scores.first().map(|s| format!("{AVATAR_URL}{}", s.user_id));
@@ -441,7 +422,7 @@ async fn leaderboard(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
@@ -450,11 +431,7 @@ enum GetMapError {
     Err { err: Report, content: &'static str },
 }
 
-async fn get_map_id(
-    ctx: &Context,
-    orig: &CommandOrigin<'_>,
-    map: Option<MapIdType>,
-) -> Result<u32, GetMapError> {
+async fn get_map_id(orig: &CommandOrigin<'_>, map: Option<MapIdType>) -> Result<u32, GetMapError> {
     match map {
         Some(MapIdType::Map(id)) => Ok(id),
         Some(MapIdType::Set(_)) => {
@@ -463,15 +440,14 @@ async fn get_map_id(
             Err(GetMapError::Content(content))
         }
         None if orig.can_read_history() => {
-            let msgs = ctx
-                .retrieve_channel_history(orig.channel_id())
+            let msgs = Context::retrieve_channel_history(orig.channel_id())
                 .await
                 .map_err(|err| GetMapError::Err {
                     err,
                     content: GENERAL_ISSUE,
                 })?;
 
-            match ctx.find_map_id_in_msgs(&msgs, 0).await {
+            match Context::find_map_id_in_msgs(&msgs, 0).await {
                 Some(MapIdType::Map(id)) => Ok(id),
                 None | Some(MapIdType::Set(_)) => {
                     let content = "No beatmap specified and none found in recent channel history. \
@@ -493,7 +469,6 @@ async fn get_map_id(
 }
 
 async fn get_user_score(
-    ctx: Arc<Context>,
     osu_id: Option<u32>,
     map_id: u32,
     mode: GameMode,
@@ -505,11 +480,10 @@ async fn get_user_score(
     };
 
     let user_args = UserArgs::user_id(user_id).mode(mode);
-    let user_fut = ctx.redis().osu_user(user_args);
+    let user_fut = Context::redis().osu_user(user_args);
 
-    let score_fut = ctx
-        .osu_scores()
-        .user_on_map_single(user_id, map_id, mode, mods, legacy_scores);
+    let score_fut =
+        Context::osu_scores().user_on_map_single(user_id, map_id, mode, mods, legacy_scores);
 
     match tokio::try_join!(user_fut, score_fut) {
         Ok(tuple) => Ok(Some(tuple)),
@@ -551,7 +525,7 @@ impl LeaderboardScore {
 }
 
 impl LeaderboardScore {
-    pub async fn pp(&self, ctx: &Context, map: &OsuMap, attr_map: &mut AttrMap) -> (f32, f32) {
+    pub async fn pp(&self, map: &OsuMap, attr_map: &mut AttrMap) -> (f32, f32) {
         let mods = Mods::from(&self.mods);
 
         match attr_map.entry(mods) {
@@ -579,7 +553,7 @@ impl LeaderboardScore {
                 (pp, *max_pp)
             }
             Entry::Vacant(entry) => {
-                let mut calc = ctx.pp(map).mode(self.mode).mods(mods);
+                let mut calc = Context::pp(map).mode(self.mode).mods(mods);
                 let attrs = calc.performance().await;
                 let max_pp = attrs.pp() as f32;
                 let pp = calc.score(self).performance().await.pp() as f32;

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use bathbot_macros::command;
 use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
@@ -17,57 +17,53 @@ use crate::{
 #[desc("Display the osu! rankings for countries")]
 #[aliases("cr")]
 #[group(Osu)]
-pub async fn prefix_countryranking(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    country(ctx, msg.into(), None.into()).await
+pub async fn prefix_countryranking(msg: &Message) -> Result<()> {
+    country(msg.into(), None.into()).await
 }
 
 #[command]
 #[desc("Display the osu!mania rankings for countries")]
 #[aliases("crm")]
 #[group(Mania)]
-pub async fn prefix_countryrankingmania(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    country(ctx, msg.into(), Some(GameModeOption::Mania).into()).await
+pub async fn prefix_countryrankingmania(msg: &Message) -> Result<()> {
+    country(msg.into(), Some(GameModeOption::Mania).into()).await
 }
 
 #[command]
 #[desc("Display the osu!taiko rankings for countries")]
 #[aliases("crt")]
 #[group(Taiko)]
-pub async fn prefix_countryrankingtaiko(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    country(ctx, msg.into(), Some(GameModeOption::Taiko).into()).await
+pub async fn prefix_countryrankingtaiko(msg: &Message) -> Result<()> {
+    country(msg.into(), Some(GameModeOption::Taiko).into()).await
 }
 
 #[command]
 #[desc("Display the osu!ctb rankings for countries")]
 #[aliases("crc", "countryrankingcatch")]
 #[group(Catch)]
-pub async fn prefix_countryrankingctb(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    country(ctx, msg.into(), Some(GameModeOption::Catch).into()).await
+pub async fn prefix_countryrankingctb(msg: &Message) -> Result<()> {
+    country(msg.into(), Some(GameModeOption::Catch).into()).await
 }
 
-pub(super) async fn country(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: RankingCountry,
-) -> Result<()> {
+pub(super) async fn country(orig: CommandOrigin<'_>, args: RankingCountry) -> Result<()> {
     let owner = orig.user_id()?;
 
     let mode = match args.mode {
         Some(mode) => mode.into(),
-        None => match ctx.user_config().mode(owner).await {
+        None => match Context::user_config().mode(owner).await {
             Ok(mode) => mode.unwrap_or(GameMode::Osu),
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
         },
     };
 
-    let mut ranking = match ctx.osu().country_rankings(mode).await {
+    let mut ranking = match Context::osu().country_rankings(mode).await {
         Ok(ranking) => ranking,
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get country ranking");
 
             return Err(err);
@@ -85,6 +81,6 @@ pub(super) async fn country(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }

@@ -1,7 +1,7 @@
 /// Try to extract an osu! user from the `args`' fields `name` or `discord`
 macro_rules! user_id {
-    ($ctx:ident, $orig:ident, $args:ident) => {
-        match crate::commands::osu::HasName::user_id(&$args, &$ctx) {
+    ($orig:ident, $args:ident) => {
+        match crate::commands::osu::HasName::user_id(&$args) {
             crate::commands::osu::UserIdResult::Id(user_id) => Some(user_id),
             crate::commands::osu::UserIdResult::None => None,
             crate::commands::osu::UserIdResult::Future(fut) => match fut.await {
@@ -9,11 +9,11 @@ macro_rules! user_id {
                 crate::commands::osu::UserIdFutureResult::NotLinked(user_id) => {
                     let content = format!("<@{user_id}> is not linked to an osu!profile");
 
-                    return $orig.error(&$ctx, content).await;
+                    return $orig.error(content).await;
                 }
                 crate::commands::osu::UserIdFutureResult::Err(err) => {
                     let content = bathbot_util::constants::GENERAL_ISSUE;
-                    let _ = $orig.error(&$ctx, content).await;
+                    let _ = $orig.error(content).await;
 
                     return Err(err);
                 }
@@ -30,15 +30,14 @@ macro_rules! user_id {
 /// Only use this when the user config is not needed otherwise,
 /// else you'll have to query multiple times from the DB.
 macro_rules! user_id_mode {
-    ($ctx:ident, $orig:ident, $args:ident) => {{
+    ($orig:ident, $args:ident) => {{
         let mode = $args.mode.map(rosu_v2::prelude::GameMode::from);
 
-        if let Some(user_id) = user_id!($ctx, $orig, $args) {
+        if let Some(user_id) = user_id!($orig, $args) {
             if let Some(mode) = mode {
                 (user_id, mode)
             } else {
-                let mode = $ctx
-                    .user_config()
+                let mode = crate::core::Context::user_config()
                     .mode($orig.user_id()?)
                     .await?
                     .unwrap_or(rosu_v2::prelude::GameMode::Osu);
@@ -46,7 +45,9 @@ macro_rules! user_id_mode {
                 (user_id, mode)
             }
         } else {
-            let config = $ctx.user_config().with_osu_id($orig.user_id()?).await?;
+            let config = crate::core::Context::user_config()
+                .with_osu_id($orig.user_id()?)
+                .await?;
 
             let mode = mode
                 .or(config.mode)
@@ -54,7 +55,7 @@ macro_rules! user_id_mode {
 
             match config.osu {
                 Some(user_id) => (rosu_v2::request::UserId::Id(user_id), mode),
-                None => return crate::commands::osu::require_link(&$ctx, &$orig).await,
+                None => return crate::commands::osu::require_link(&$orig).await,
             }
         }
     }};
@@ -89,13 +90,11 @@ mod compare;
 mod fix;
 mod graphs;
 mod leaderboard;
-mod link;
 mod map;
 mod map_search;
 mod mapper;
 mod match_compare;
 mod match_costs;
-mod match_live;
 mod medals;
 mod most_played;
 mod nochoke;
@@ -117,6 +116,12 @@ mod snipe;
 mod top;
 mod whatif;
 
+#[cfg(feature = "server")]
+mod link;
+
+#[cfg(feature = "matchlive")]
+mod match_live;
+
 pub trait HasMods {
     fn mods(&self) -> ModsResult;
 }
@@ -128,13 +133,13 @@ pub enum ModsResult {
 }
 
 pub trait HasName {
-    fn user_id<'ctx>(&self, ctx: &'ctx Context) -> UserIdResult<'ctx>;
+    fn user_id(&self) -> UserIdResult;
 }
 
-pub enum UserIdResult<'ctx> {
+pub enum UserIdResult {
     Id(UserId),
     None,
-    Future(Pin<Box<dyn Future<Output = UserIdFutureResult> + 'ctx + Send>>),
+    Future(Pin<Box<dyn Future<Output = UserIdFutureResult> + Send>>),
 }
 
 pub enum UserIdFutureResult {
@@ -143,7 +148,7 @@ pub enum UserIdFutureResult {
     Err(Report),
 }
 
-pub async fn require_link(ctx: &Context, orig: &CommandOrigin<'_>) -> Result<()> {
+pub async fn require_link(orig: &CommandOrigin<'_>) -> Result<()> {
     let link = InteractionCommands::get_command("link").map_or_else(
         || "`/link`".to_owned(),
         |cmd| cmd.mention("link").to_string(),
@@ -152,15 +157,15 @@ pub async fn require_link(ctx: &Context, orig: &CommandOrigin<'_>) -> Result<()>
     let content =
         format!("Either specify an osu! username or link yourself to an osu! profile via {link}");
 
-    orig.error(ctx, content)
+    orig.error(content)
         .await
         .wrap_err("Failed to send require-link message")
 }
 
-pub async fn user_not_found(ctx: &Context, user_id: UserId) -> String {
+pub async fn user_not_found(user_id: UserId) -> String {
     let user_id = match user_id {
         user_id @ UserId::Name(_) => user_id,
-        UserId::Id(user_id) => match ctx.osu_user().name(user_id).await {
+        UserId::Id(user_id) => match Context::osu_user().name(user_id).await {
             Ok(Some(name)) => UserId::Name(name),
             Ok(None) => UserId::Id(user_id),
             Err(err) => {

@@ -1,4 +1,4 @@
-use std::{mem, sync::Arc};
+use std::mem;
 
 use bathbot_model::HlVersion;
 use bathbot_util::{EmbedBuilder, MessageBuilder};
@@ -8,10 +8,7 @@ use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::{self, Receiver};
 
 use super::{score_pp::ScorePp, HlGuess};
-use crate::{
-    core::{BotConfig, Context, ContextExt},
-    util::ChannelExt,
-};
+use crate::{core::BotConfig, util::ChannelExt};
 
 pub(super) const W: u32 = 900;
 pub(super) const H: u32 = 250;
@@ -39,18 +36,15 @@ pub(super) enum HigherLowerState {
 }
 
 impl HigherLowerState {
-    pub(super) async fn start_score_pp(
-        ctx: Arc<Context>,
-        mode: GameMode,
-    ) -> Result<(Self, Receiver<String>)> {
+    pub(super) async fn start_score_pp(mode: GameMode) -> Result<(Self, Receiver<String>)> {
         let (previous, mut next) = tokio::try_join!(
-            ScorePp::random(ctx.cloned(), mode, None, 0),
-            ScorePp::random(ctx.cloned(), mode, None, 0)
+            ScorePp::random(mode, None, 0),
+            ScorePp::random(mode, None, 0)
         )
         .wrap_err("Failed to create score pp entry")?;
 
         while next == previous {
-            next = ScorePp::random(ctx.cloned(), mode, None, 0)
+            next = ScorePp::random(mode, None, 0)
                 .await
                 .wrap_err("Failed to create score pp entry")?;
         }
@@ -65,7 +59,7 @@ impl HigherLowerState {
         let mapset_id1 = previous.mapset_id;
         let mapset_id2 = next.mapset_id;
 
-        let url = match ScorePp::image(&ctx, pfp1, pfp2, mapset_id1, mapset_id2).await {
+        let url = match ScorePp::image(pfp1, pfp2, mapset_id1, mapset_id2).await {
             Ok(url) => url,
             Err(err) => {
                 warn!(?err, "Failed to create image");
@@ -85,17 +79,13 @@ impl HigherLowerState {
         Ok((inner, rx))
     }
 
-    pub(super) async fn restart(&mut self, ctx: Arc<Context>) -> Result<(Self, Receiver<String>)> {
+    pub(super) async fn restart(&mut self) -> Result<(Self, Receiver<String>)> {
         match self {
-            Self::ScorePp { mode, .. } => Self::start_score_pp(ctx, *mode).await,
+            Self::ScorePp { mode, .. } => Self::start_score_pp(*mode).await,
         }
     }
 
-    pub(super) async fn next(
-        &mut self,
-        ctx: Arc<Context>,
-        curr_score: u32,
-    ) -> Result<Receiver<String>> {
+    pub(super) async fn next(&mut self, curr_score: u32) -> Result<Receiver<String>> {
         let rx = match self {
             Self::ScorePp {
                 mode,
@@ -105,12 +95,12 @@ impl HigherLowerState {
                 let mode = *mode;
                 mem::swap(previous, next);
 
-                *next = ScorePp::random(ctx.cloned(), mode, Some(&*previous), curr_score)
+                *next = ScorePp::random(mode, Some(&*previous), curr_score)
                     .await
                     .wrap_err("Failed to create score pp entry")?;
 
                 while previous == next {
-                    *next = ScorePp::random(ctx.cloned(), mode, Some(&*previous), curr_score)
+                    *next = ScorePp::random(mode, Some(&*previous), curr_score)
                         .await
                         .wrap_err("Failed to create score pp entry")?;
                 }
@@ -129,8 +119,7 @@ impl HigherLowerState {
 
                 // Create the image in the background so it's available when needed later
                 tokio::spawn(async move {
-                    let url = match ScorePp::image(&ctx, &pfp1, &pfp2, mapset_id1, mapset_id2).await
-                    {
+                    let url = match ScorePp::image(&pfp1, &pfp2, mapset_id1, mapset_id2).await {
                         Ok(url) => url,
                         Err(err) => {
                             warn!(?err, "Failed to create image");
@@ -149,7 +138,7 @@ impl HigherLowerState {
         Ok(rx)
     }
 
-    pub(super) async fn upload_image(ctx: &Context, img: &[u8], content: String) -> Result<String> {
+    pub(super) async fn upload_image(img: &[u8], content: String) -> Result<String> {
         // Encode the combined images
         let mut png_bytes: Vec<u8> = Vec::with_capacity((W * H * 4) as usize);
 
@@ -164,7 +153,7 @@ impl HigherLowerState {
 
         let mut message = BotConfig::get()
             .hl_channel
-            .create_message(ctx, builder, None)
+            .create_message(builder, None)
             .await?
             .model()
             .await

@@ -16,7 +16,6 @@ pub fn impl_cmd(attrs: CommandAttrs, fun: CommandFun) -> Result<TokenStream> {
 
     let CommandFun {
         name: cmd_name,
-        ctx_arg,
         cmd_arg,
         ret,
         body,
@@ -66,13 +65,12 @@ pub fn impl_cmd(attrs: CommandAttrs, fun: CommandFun) -> Result<TokenStream> {
         }
 
         fn #exec(
-            ctx: std::sync::Arc<crate::core::Context>,
             command: crate::util::interaction::InteractionCommand,
         ) -> crate::core::commands::interaction::CommandResult {
-            Box::pin(#cmd_name(ctx, command))
+            Box::pin(#cmd_name(command))
         }
 
-        async fn #cmd_name(#ctx_arg, #cmd_arg) #ret {
+        async fn #cmd_name(#cmd_arg) #ret {
             #body
         }
     };

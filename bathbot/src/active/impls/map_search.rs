@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_util::{
     constants::OSU_BASE,
@@ -32,8 +32,8 @@ pub struct MapSearchPagination {
 }
 
 impl IActiveMessage for MapSearchPagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -42,10 +42,9 @@ impl IActiveMessage for MapSearchPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        Box::pin(self.async_handle_component(ctx, component))
+        Box::pin(self.async_handle_component(component))
     }
 }
 
@@ -79,11 +78,11 @@ impl MapSearchPagination {
         self.available_entries_in_page() < self.pages.per_page()
     }
 
-    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let should_request_more = self.defer();
 
         if should_request_more {
-            let next_fut = self.search_result.get_next(ctx.osu());
+            let next_fut = self.search_result.get_next(Context::osu());
 
             if let Some(mut next_search_result) = next_fut.await.transpose()? {
                 let idx = self.pages.index();
@@ -281,7 +280,6 @@ impl MapSearchPagination {
 
     async fn async_handle_component(
         &mut self,
-        ctx: Arc<Context>,
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let user_id = match component.user_id() {
@@ -298,7 +296,7 @@ impl MapSearchPagination {
                 self.pages.set_index(0);
 
                 if self.defer() {
-                    if let Err(err) = component.defer(&ctx).await.map_err(Report::new) {
+                    if let Err(err) = component.defer().await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
                 }
@@ -308,7 +306,7 @@ impl MapSearchPagination {
                 self.pages.set_index(new_index);
 
                 if self.defer() {
-                    if let Err(err) = component.defer(&ctx).await.map_err(Report::new) {
+                    if let Err(err) = component.defer().await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
                 }
@@ -318,7 +316,7 @@ impl MapSearchPagination {
                 self.pages.set_index(new_index);
 
                 if self.defer() {
-                    if let Err(err) = component.defer(&ctx).await.map_err(Report::new) {
+                    if let Err(err) = component.defer().await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
                 }
@@ -327,7 +325,7 @@ impl MapSearchPagination {
                 self.pages.set_index(self.pages.last_index());
 
                 if self.defer() {
-                    if let Err(err) = component.defer(&ctx).await.map_err(Report::new) {
+                    if let Err(err) = component.defer().await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
                 }

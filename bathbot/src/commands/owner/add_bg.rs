@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::str::FromStr;
 
 use bathbot_psql::model::osu::ArtistTitle;
 use bathbot_util::{
@@ -14,12 +14,12 @@ use tokio::{
 
 use super::OwnerAddBg;
 use crate::{
-    core::{BotConfig, ContextExt},
+    core::BotConfig,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 
-pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddBg) -> Result<()> {
+pub async fn addbg(command: InteractionCommand, bg: OwnerAddBg) -> Result<()> {
     let OwnerAddBg { image, mode } = bg;
 
     let mode = mode.map_or(GameMode::Osu, GameMode::from);
@@ -32,7 +32,7 @@ pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddB
         None | Some(Err(_)) => {
             let content = "Provided image has no appropriate name. \
                 Be sure to let the name be the mapset id, e.g. 948199.png";
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
@@ -45,13 +45,13 @@ pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddB
 
     if valid_filetype_opt.is_none() {
         let content = "Provided image has inappropriate type. Must be either `.jpg` or `.png`";
-        command.error(&ctx, content).await?;
+        command.error(content).await?;
 
         return Ok(());
     }
 
     // Download attachement
-    let path = match ctx.client().get_discord_attachment(&image).await {
+    let path = match Context::client().get_discord_attachment(&image).await {
         Ok(content) => {
             let mut path = BotConfig::get().paths.backgrounds.clone();
 
@@ -67,7 +67,7 @@ pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddB
             let mut file = match File::create(&path).await {
                 Ok(file) => file,
                 Err(err) => {
-                    let _ = command.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = command.error(GENERAL_ISSUE).await;
                     let err = Report::new(err).wrap_err("failed to create file for new bg");
 
                     return Err(err);
@@ -76,7 +76,7 @@ pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddB
 
             // Store in file
             if let Err(err) = file.write_all(&content).await {
-                let _ = command.error(&ctx, GENERAL_ISSUE).await;
+                let _ = command.error(GENERAL_ISSUE).await;
                 let err = Report::new(err).wrap_err("failed writing to bg file");
 
                 return Err(err);
@@ -84,14 +84,14 @@ pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddB
             path
         }
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to get discord attachment"));
         }
     };
 
     // Check if valid mapset id
-    let content = match prepare_mapset(ctx.cloned(), mapset_id, &image.filename, mode).await {
+    let content = match prepare_mapset(mapset_id, &image.filename, mode).await {
         Ok(ArtistTitle { artist, title }) => format!(
             "Background for [{artist} - {title}]({OSU_BASE}s/{mapset_id}) successfully added ({mode})",
         ),
@@ -103,18 +103,17 @@ pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddB
     };
 
     let builder = MessageBuilder::new().embed(content);
-    command.callback(&ctx, builder, false).await?;
+    command.callback(builder, false).await?;
 
     Ok(())
 }
 
 async fn prepare_mapset(
-    ctx: Arc<Context>,
     mapset_id: u32,
     filename: &str,
     mode: GameMode,
 ) -> Result<ArtistTitle, &'static str> {
-    let artist_title = match ctx.osu_map().artist_title(mapset_id).await {
+    let artist_title = match Context::osu_map().artist_title(mapset_id).await {
         Ok(artist_title) => artist_title,
         Err(err) => {
             warn!("{:?}", Report::new(err));
@@ -123,7 +122,7 @@ async fn prepare_mapset(
         }
     };
 
-    let upsert_fut = ctx.games().bggame_upsert_mapset(mapset_id, filename, mode);
+    let upsert_fut = Context::games().bggame_upsert_mapset(mapset_id, filename, mode);
 
     if let Err(err) = upsert_fut.await {
         warn!("{err:?}");

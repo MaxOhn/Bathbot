@@ -3,7 +3,6 @@ mod bws;
 mod claim_name;
 mod country_snipe_stats;
 mod fix_score;
-mod match_live;
 mod medal_stats;
 mod osustats_counts;
 mod player_snipe_stats;
@@ -12,6 +11,9 @@ mod profile_compare;
 mod ratio;
 mod sniped;
 mod whatif;
+
+#[cfg(feature = "matchlive")]
+mod match_live;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 

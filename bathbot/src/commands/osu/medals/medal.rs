@@ -1,7 +1,6 @@
 use std::{
     cmp::{Ordering, Reverse},
     fmt::Write,
-    sync::Arc,
 };
 
 use bathbot_macros::command;
@@ -26,7 +25,7 @@ use twilight_model::{
 
 use super::{MedalAchieved, MedalInfo_};
 use crate::{
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     manager::redis::RedisData,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
@@ -43,11 +42,11 @@ use crate::{
 #[usage("[medal name]")]
 #[examples(r#""50,000 plays""#, "any%")]
 #[group(AllModes)]
-async fn prefix_medal(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_medal(msg: &Message, args: Args<'_>) -> Result<()> {
     let name = args.rest().trim_matches('"');
 
     if name.is_empty() {
-        msg.error(&ctx, "You must specify a medal name").await?;
+        msg.error("You must specify a medal name").await?;
 
         return Ok(());
     }
@@ -56,20 +55,16 @@ async fn prefix_medal(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resul
         name: AutocompleteValue::Completed(name.into()),
     };
 
-    info(ctx, msg.into(), args).await
+    info(msg.into(), args).await
 }
 
-pub(super) async fn info(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: MedalInfo_<'_>,
-) -> Result<()> {
+pub(super) async fn info(orig: CommandOrigin<'_>, args: MedalInfo_<'_>) -> Result<()> {
     let MedalInfo_ { name } = args;
 
-    let mut medals = match ctx.redis().medals().await {
+    let mut medals = match Context::redis().medals().await {
         Ok(medals) => medals,
         Err(err) => {
-            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached medals"));
         }
@@ -77,10 +72,10 @@ pub(super) async fn info(
 
     let name = match (name, &orig) {
         (AutocompleteValue::None, CommandOrigin::Interaction { command }) => {
-            return handle_autocomplete(ctx, command, String::new()).await
+            return handle_autocomplete(command, String::new()).await
         }
         (AutocompleteValue::Focused(name), CommandOrigin::Interaction { command }) => {
-            return handle_autocomplete(ctx, command, name).await
+            return handle_autocomplete(command, name).await
         }
         (AutocompleteValue::Completed(name), _) => name,
         _ => unreachable!(),
@@ -94,7 +89,7 @@ pub(super) async fn info(
             .position(|m| m.name.to_ascii_lowercase() == name)
         {
             Some(idx) => original.swap_remove(idx),
-            None => return no_medal(&ctx, &orig, name.as_ref(), medals).await,
+            None => return no_medal(&orig, name.as_ref(), medals).await,
         },
         RedisData::Archive(ref archived) => {
             match archived
@@ -102,18 +97,19 @@ pub(super) async fn info(
                 .position(|m| m.name.to_ascii_lowercase() == name)
             {
                 Some(idx) => archived[idx].deserialize(&mut Infallible).unwrap(),
-                None => return no_medal(&ctx, &orig, name.as_ref(), medals).await,
+                None => return no_medal(&orig, name.as_ref(), medals).await,
             }
         }
     };
 
-    let map_fut = ctx.client().get_osekai_beatmaps(&medal.name);
-    let comment_fut = ctx.client().get_osekai_comments(medal.medal_id);
+    let client = Context::client();
+    let map_fut = client.get_osekai_beatmaps(&medal.name);
+    let comment_fut = client.get_osekai_comments(medal.medal_id);
 
     let (mut maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
         Ok((maps, comments)) => (maps, comments),
         Err(err) => {
-            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get osekai map or comments"));
         }
@@ -133,7 +129,7 @@ pub(super) async fn info(
 
     let hide_solution = match orig.guild_id() {
         Some(guild) => {
-            ctx.guild_config()
+            Context::guild_config()
                 .peek(guild, |config| {
                     config.hide_medal_solution.unwrap_or(HideSolutions::ShowAll)
                 })
@@ -145,7 +141,7 @@ pub(super) async fn info(
     let embed_data = MedalEmbed::new(&medal, None, maps, top_comment, hide_solution);
     let embed = embed_data.maximized();
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }
@@ -153,7 +149,6 @@ pub(super) async fn info(
 const SIMILARITY_THRESHOLD: f32 = 0.6;
 
 async fn no_medal(
-    ctx: &Context,
     orig: &CommandOrigin<'_>,
     name: &str,
     medals: RedisData<Vec<OsekaiMedal>>,
@@ -196,16 +191,12 @@ async fn no_medal(
         content.push('?');
     }
 
-    orig.error(ctx, content).await
+    orig.error(content).await
 }
 
-pub async fn handle_autocomplete(
-    ctx: Arc<Context>,
-    command: &InteractionCommand,
-    name: String,
-) -> Result<()> {
+pub async fn handle_autocomplete(command: &InteractionCommand, name: String) -> Result<()> {
     let name = if name.is_empty() {
-        command.autocomplete(&ctx, Vec::new()).await?;
+        command.autocomplete(Vec::new()).await?;
 
         return Ok(());
     } else {
@@ -214,8 +205,7 @@ pub async fn handle_autocomplete(
 
     let name = name.as_ref();
 
-    let medals = ctx
-        .redis()
+    let medals = Context::redis()
         .medals()
         .await
         .wrap_err("Failed to get cached medals")?;
@@ -247,7 +237,7 @@ pub async fn handle_autocomplete(
         }
     }
 
-    command.autocomplete(&ctx, choices).await?;
+    command.autocomplete(choices).await?;
 
     Ok(())
 }

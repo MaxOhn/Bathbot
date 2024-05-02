@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder};
 use eyre::Result;
 use twilight_model::channel::message::embed::EmbedField;
@@ -9,8 +7,8 @@ use crate::{
     Context,
 };
 
-pub async fn trackingstats(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
-    let stats = ctx.tracking().stats().await;
+pub async fn trackingstats(command: InteractionCommand) -> Result<()> {
+    let stats = Context::tracking().stats().await;
 
     let mut fields = vec![
         EmbedField {
@@ -52,7 +50,7 @@ pub async fn trackingstats(ctx: Arc<Context>, command: InteractionCommand) -> Re
         .fields(fields);
 
     let builder = MessageBuilder::new().embed(embed);
-    command.callback(&ctx, builder, false).await?;
+    command.callback(builder, false).await?;
 
     Ok(())
 }

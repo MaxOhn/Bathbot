@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use ::time::UtcOffset;
 use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{
@@ -16,8 +14,6 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{SkinValidation, ValidationStatus};
-#[allow(unused)]
-use crate::core::ContextExt;
 use crate::{
     commands::{ShowHideOption, TimezoneOption},
     embeds::{ConfigEmbed, EmbedData},
@@ -219,13 +215,13 @@ enum ScoreData {
     Stable,
 }
 
-async fn slash_config(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_config(mut command: InteractionCommand) -> Result<()> {
     let args = Config::from_interaction(command.input_data())?;
 
-    config(ctx, command, args).await
+    config(command, args).await
 }
 
-pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Config) -> Result<()> {
+pub async fn config(command: InteractionCommand, config: Config) -> Result<()> {
     let Config {
         #[cfg(feature = "server")]
         osu,
@@ -243,7 +239,7 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
     } = config;
 
     if let Some(ref skin_url) = skin_url {
-        match SkinValidation::check(&ctx, &command, skin_url).await? {
+        match SkinValidation::check(&command, skin_url).await? {
             ValidationStatus::Continue => {}
             ValidationStatus::Handled => return Ok(()),
         }
@@ -251,10 +247,10 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
 
     let author = command.user()?;
 
-    let mut config = match ctx.user_config().with_osu_id(author.id).await {
+    let mut config = match Context::user_config().with_osu_id(author.id).await {
         Ok(config) => config,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -311,34 +307,32 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
     let res = {
         match (osu, twitch) {
             (Some(ConfigLink::Link), Some(ConfigLink::Link)) => {
-                handle_both_links(ctx.cloned(), &command, &mut config).await
+                handle_both_links(&command, &mut config).await
             }
-            (Some(ConfigLink::Link), _) => {
-                handle_osu_link(ctx.cloned(), &command, &mut config).await
-            }
-            (_, Some(ConfigLink::Link)) => handle_twitch_link(&ctx, &command, &mut config).await,
-            (..) => handle_no_links(&ctx, &command, &mut config).await,
+            (Some(ConfigLink::Link), _) => handle_osu_link(&command, &mut config).await,
+            (_, Some(ConfigLink::Link)) => handle_twitch_link(&command, &mut config).await,
+            (..) => handle_no_links(&command, &mut config).await,
         }
     };
 
     #[cfg(not(feature = "server"))]
-    let res = handle_no_links(&ctx, &command, &mut config).await;
+    let res = handle_no_links(&command, &mut config).await;
 
     match res {
         HandleResult::TwitchName(twitch_name) => {
             let config = if let Some(ref skin_url) = skin_url {
-                let update_fut = ctx.user_config().update_skin(author.id, Some(skin_url));
+                let update_fut = Context::user_config().update_skin(author.id, Some(skin_url));
 
                 if let Err(err) = update_fut.await {
-                    command.error(&ctx, GENERAL_ISSUE).await?;
+                    command.error(GENERAL_ISSUE).await?;
 
                     return Err(err);
                 }
 
-                convert_config(&ctx, config, author.id).await
+                convert_config(config, author.id).await
             } else {
-                let config_fut = convert_config(&ctx, config, author.id);
-                let skin_fut = ctx.user_config().skin(author.id);
+                let config_fut = convert_config(config, author.id);
+                let skin_fut = Context::user_config().skin(author.id);
                 let (config, skin_res) = tokio::join!(config_fut, skin_fut);
 
                 match skin_res {
@@ -351,7 +345,7 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
 
             let embed_data = ConfigEmbed::new(author, config, twitch_name, skin_url);
             let builder = embed_data.build().into();
-            command.update(&ctx, builder).await?;
+            command.update(builder).await?;
 
             Ok(())
         }
@@ -393,12 +387,12 @@ fn twitch_content(state: u8) -> String {
 
 #[cfg(feature = "server")]
 async fn handle_both_links(
-    ctx: Arc<Context>,
     command: &InteractionCommand,
     config: &mut UserConfig<OsuUserId>,
 ) -> HandleResult {
-    let osu_fut = ctx.auth_standby.wait_for_osu();
-    let twitch_fut = ctx.auth_standby.wait_for_twitch();
+    let auth_standby = Context::auth_standby();
+    let osu_fut = auth_standby.wait_for_osu();
+    let twitch_fut = auth_standby.wait_for_twitch();
 
     let content = format!(
         "{}\n{}",
@@ -410,14 +404,13 @@ async fn handle_both_links(
     let builder = MessageBuilder::new().embed(embed);
     let fut = async { tokio::try_join!(osu_fut, twitch_fut) };
 
-    let twitch_name = match handle_ephemeral(&ctx, command, builder, fut).await {
+    let twitch_name = match handle_ephemeral(command, builder, fut).await {
         Some(Ok((osu, twitch))) => {
             config.osu = Some(osu.user_id);
             config.twitch_id = Some(twitch.user_id);
 
-            let ctx = ctx.cloned();
             tokio::spawn(async move {
-                ctx.osu_user().store(&osu, osu.mode).await;
+                Context::osu_user().store(&osu, osu.mode).await;
             });
 
             Some(twitch.display_name)
@@ -431,8 +424,8 @@ async fn handle_both_links(
         Err(err) => return HandleResult::Err(err),
     };
 
-    if let Err(err) = ctx.user_config().store(author.id, config).await {
-        let _ = command.error(&ctx, GENERAL_ISSUE).await;
+    if let Err(err) = Context::user_config().store(author.id, config).await {
+        let _ = command.error(GENERAL_ISSUE).await;
 
         return HandleResult::Err(err);
     }
@@ -442,11 +435,10 @@ async fn handle_both_links(
 
 #[cfg(feature = "server")]
 async fn handle_twitch_link(
-    ctx: &Context,
     command: &InteractionCommand,
     config: &mut UserConfig<OsuUserId>,
 ) -> HandleResult {
-    let fut = ctx.auth_standby.wait_for_twitch();
+    let fut = Context::auth_standby().wait_for_twitch();
 
     let embed = EmbedBuilder::new()
         .description(twitch_content(fut.state))
@@ -454,7 +446,7 @@ async fn handle_twitch_link(
 
     let builder = MessageBuilder::new().embed(embed);
 
-    let twitch_name = match handle_ephemeral(ctx, command, builder, fut).await {
+    let twitch_name = match handle_ephemeral(command, builder, fut).await {
         Some(Ok(user)) => {
             config.twitch_id = Some(user.user_id);
 
@@ -469,8 +461,8 @@ async fn handle_twitch_link(
         Err(err) => return HandleResult::Err(err),
     };
 
-    if let Err(err) = ctx.user_config().store(author.id, config).await {
-        let _ = command.error(ctx, GENERAL_ISSUE).await;
+    if let Err(err) = Context::user_config().store(author.id, config).await {
+        let _ = command.error(GENERAL_ISSUE).await;
 
         return HandleResult::Err(err);
     }
@@ -480,11 +472,10 @@ async fn handle_twitch_link(
 
 #[cfg(feature = "server")]
 async fn handle_osu_link(
-    ctx: Arc<Context>,
     command: &InteractionCommand,
     config: &mut UserConfig<OsuUserId>,
 ) -> HandleResult {
-    let fut = ctx.auth_standby.wait_for_osu();
+    let fut = Context::auth_standby().wait_for_osu();
 
     let embed = EmbedBuilder::new()
         .description(osu_content(fut.state))
@@ -492,13 +483,12 @@ async fn handle_osu_link(
 
     let builder = MessageBuilder::new().embed(embed);
 
-    config.osu = match handle_ephemeral(&ctx, command, builder, fut).await {
+    config.osu = match handle_ephemeral(command, builder, fut).await {
         Some(Ok(user)) => {
             let user_id = user.user_id;
 
-            let ctx = ctx.cloned();
             tokio::spawn(async move {
-                ctx.osu_user().store(&user, user.mode).await;
+                Context::osu_user().store(&user, user.mode).await;
             });
 
             Some(user_id)
@@ -515,7 +505,7 @@ async fn handle_osu_link(
     let mut twitch_name = None;
 
     if let Some(user_id) = config.twitch_id {
-        match ctx.client().get_twitch_user_by_id(user_id).await {
+        match Context::client().get_twitch_user_by_id(user_id).await {
             Ok(Some(user)) => twitch_name = Some(user.display_name),
             Ok(None) => {
                 debug!("No twitch user found for given id, remove from config");
@@ -523,7 +513,7 @@ async fn handle_osu_link(
             }
             Err(err) => {
                 let _ = command
-                    .error(&ctx, bathbot_util::constants::TWITCH_API_ISSUE)
+                    .error(bathbot_util::constants::TWITCH_API_ISSUE)
                     .await;
 
                 return HandleResult::Err(err.wrap_err("failed to get twitch user by id"));
@@ -531,8 +521,8 @@ async fn handle_osu_link(
         }
     }
 
-    if let Err(err) = ctx.user_config().store(author.id, config).await {
-        let _ = command.error(&ctx, GENERAL_ISSUE).await;
+    if let Err(err) = Context::user_config().store(author.id, config).await {
+        let _ = command.error(GENERAL_ISSUE).await;
 
         return HandleResult::Err(err);
     }
@@ -542,12 +532,11 @@ async fn handle_osu_link(
 
 #[cfg(feature = "server")]
 async fn handle_ephemeral<T>(
-    ctx: &Context,
     command: &InteractionCommand,
     builder: MessageBuilder<'_>,
     fut: impl std::future::Future<Output = Result<T, AuthenticationStandbyError>>,
 ) -> Option<Result<T>> {
-    if let Err(err) = command.update(ctx, builder).await {
+    if let Err(err) = command.update(builder).await {
         return Some(Err(eyre::Report::new(err)));
     }
 
@@ -557,7 +546,7 @@ async fn handle_ephemeral<T>(
         Err(AuthenticationStandbyError::Canceled) => GENERAL_ISSUE,
     };
 
-    if let Err(err) = command.error(ctx, content).await {
+    if let Err(err) = command.error(content).await {
         return Some(Err(err.into()));
     }
 
@@ -565,7 +554,6 @@ async fn handle_ephemeral<T>(
 }
 
 async fn handle_no_links(
-    ctx: &Context,
     command: &InteractionCommand,
     config: &mut UserConfig<OsuUserId>,
 ) -> HandleResult {
@@ -578,7 +566,7 @@ async fn handle_no_links(
 
     if let Some(_user_id) = config.twitch_id {
         #[cfg(feature = "twitch")]
-        match ctx.client().get_twitch_user_by_id(_user_id).await {
+        match Context::client().get_twitch_user_by_id(_user_id).await {
             Ok(Some(user)) => twitch_name = Some(user.display_name),
             Ok(None) => {
                 debug!("No twitch user found for given id, remove from config");
@@ -586,7 +574,7 @@ async fn handle_no_links(
             }
             Err(err) => {
                 let _ = command
-                    .error(ctx, bathbot_util::constants::TWITCH_API_ISSUE)
+                    .error(bathbot_util::constants::TWITCH_API_ISSUE)
                     .await;
 
                 return HandleResult::Err(err.wrap_err("failed to get twitch user by id"));
@@ -599,8 +587,8 @@ async fn handle_no_links(
         }
     }
 
-    if let Err(err) = ctx.user_config().store(author.id, config).await {
-        let _ = command.error(ctx, GENERAL_ISSUE).await;
+    if let Err(err) = Context::user_config().store(author.id, config).await {
+        let _ = command.error(GENERAL_ISSUE).await;
 
         return HandleResult::Err(err);
     }
@@ -609,11 +597,10 @@ async fn handle_no_links(
 }
 
 async fn convert_config(
-    ctx: &Context,
     config: UserConfig<OsuUserId>,
     user_id: Id<UserMarker>,
 ) -> UserConfig<OsuUsername> {
-    let username = match ctx.user_config().osu_name(user_id).await {
+    let username = match Context::user_config().osu_name(user_id).await {
         Ok(Some(name)) => name,
         Ok(None) => {
             warn!("Missing name for user config");

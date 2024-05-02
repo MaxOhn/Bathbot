@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_util::MessageBuilder;
 use eyre::Result;
 use time::Duration;
@@ -9,14 +7,11 @@ use crate::{
     Context,
 };
 
-pub async fn trackinginterval(
-    ctx: Arc<Context>,
-    command: InteractionCommand,
-    seconds: i64,
-) -> Result<()> {
+pub async fn trackinginterval(command: InteractionCommand, seconds: i64) -> Result<()> {
+    let tracking = Context::tracking();
     let interval = Duration::seconds(seconds);
-    let previous = ctx.tracking().interval().whole_seconds();
-    ctx.tracking().set_interval(interval);
+    let previous = tracking.interval().whole_seconds();
+    tracking.set_interval(interval);
 
     let content = format!(
         "Tracking interval: {previous}s -> {}s",
@@ -24,7 +19,7 @@ pub async fn trackinginterval(
     );
 
     let builder = MessageBuilder::new().embed(content);
-    command.callback(&ctx, builder, false).await?;
+    command.callback(builder, false).await?;
 
     Ok(())
 }

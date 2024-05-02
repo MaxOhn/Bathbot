@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::HashMap, fmt::Write, sync::Arc};
+use std::{cmp::Reverse, collections::HashMap, fmt::Write};
 
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::User;
@@ -17,7 +17,7 @@ use super::{CompareMostPlayed, AT_LEAST_ONE};
 use crate::{
     active::{impls::CompareMostPlayedPagination, ActiveMessages},
     commands::osu::{user_not_found, UserExtraction},
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };
@@ -32,7 +32,7 @@ use crate::{
 #[example("badewanne3 \"nathan on osu\"")]
 #[aliases("commonmostplayed", "mpc")]
 #[group(AllModes)]
-async fn prefix_mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_mostplayedcommon(msg: &Message, args: Args<'_>) -> Result<()> {
     let mut args_ = CompareMostPlayed::default();
 
     for arg in args.take(2) {
@@ -49,14 +49,14 @@ async fn prefix_mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args<'_
         }
     }
 
-    mostplayed(ctx, msg.into(), args_).await
+    mostplayed(msg.into(), args_).await
 }
 
-async fn extract_user_id(ctx: &Context, args: &mut CompareMostPlayed<'_>) -> UserExtraction {
+async fn extract_user_id(args: &mut CompareMostPlayed<'_>) -> UserExtraction {
     if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
         UserExtraction::Id(UserId::Name(name.as_ref().into()))
     } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
-        match ctx.user_config().osu_id(discord).await {
+        match Context::user_config().osu_id(discord).await {
             Ok(Some(user_id)) => UserExtraction::Id(UserId::Id(user_id)),
             Ok(None) => {
                 UserExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
@@ -69,64 +69,63 @@ async fn extract_user_id(ctx: &Context, args: &mut CompareMostPlayed<'_>) -> Use
 }
 
 pub(super) async fn mostplayed(
-    ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     mut args: CompareMostPlayed<'_>,
 ) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let user_id1 = match extract_user_id(&ctx, &mut args).await {
+    let user_id1 = match extract_user_id(&mut args).await {
         UserExtraction::Id(user_id) => user_id,
         UserExtraction::Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
-        UserExtraction::None => return orig.error(&ctx, AT_LEAST_ONE).await,
+        UserExtraction::Content(content) => return orig.error(content).await,
+        UserExtraction::None => return orig.error(AT_LEAST_ONE).await,
     };
 
-    let user_id2 = match extract_user_id(&ctx, &mut args).await {
+    let user_id2 = match extract_user_id(&mut args).await {
         UserExtraction::Id(user_id) => user_id,
         UserExtraction::Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
-        UserExtraction::None => match ctx.user_config().osu_id(owner).await {
+        UserExtraction::Content(content) => return orig.error(content).await,
+        UserExtraction::None => match Context::user_config().osu_id(owner).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => {
                 let content =
                     "Since you're not linked with the `/link` command, you must specify two names.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
         },
     };
 
-    let fut1 = get_user_and_scores(ctx.cloned(), &user_id1);
-    let fut2 = get_user_and_scores(ctx.cloned(), &user_id2);
+    let fut1 = get_user_and_scores(&user_id1);
+    let fut2 = get_user_and_scores(&user_id2);
 
     let (user1, maps1, user2, maps2) = match tokio::join!(fut1, fut2) {
         (Ok((user1, maps1)), Ok((user2, maps2))) => (user1, maps1, user2, maps2),
         (Err(OsuError::NotFound), _) => {
-            let content = user_not_found(&ctx, user_id1).await;
+            let content = user_not_found(user_id1).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (_, Err(OsuError::NotFound)) => {
-            let content = user_not_found(&ctx, user_id2).await;
+            let content = user_not_found(user_id2).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (Err(err), _) | (_, Err(err)) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get scores");
 
             return Err(err);
@@ -163,7 +162,7 @@ pub(super) async fn mostplayed(
     if amount_common == 0 {
         content.push_str(" don't share any maps in their 100 most played maps");
         let builder = MessageBuilder::new().embed(content);
-        orig.create_message(&ctx, builder).await?;
+        orig.create_message(builder).await?;
 
         return Ok(());
     }
@@ -185,23 +184,19 @@ pub(super) async fn mostplayed(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
-async fn get_user_and_scores(
-    ctx: Arc<Context>,
-    user_id: &UserId,
-) -> OsuResult<(RedisData<User>, Vec<MostPlayedMap>)> {
-    match UserArgs::rosu_id(ctx.cloned(), user_id).await {
+async fn get_user_and_scores(user_id: &UserId) -> OsuResult<(RedisData<User>, Vec<MostPlayedMap>)> {
+    match UserArgs::rosu_id(user_id).await {
         UserArgs::Args(args) => {
-            let score_fut = ctx.osu().user_most_played(args.user_id).limit(100);
-            let user_fut = ctx.redis().osu_user_from_args(args);
+            let score_fut = Context::osu().user_most_played(args.user_id).limit(100);
+            let user_fut = Context::redis().osu_user_from_args(args);
 
             tokio::try_join!(user_fut, score_fut)
         }
-        UserArgs::User { user, .. } => ctx
-            .osu()
+        UserArgs::User { user, .. } => Context::osu()
             .user_most_played(user.user_id)
             .limit(100)
             .await

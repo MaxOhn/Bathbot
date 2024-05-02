@@ -7,14 +7,18 @@ use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::id::{marker::UserMarker, Id};
 
+use crate::core::Context;
+
 #[derive(Copy, Clone)]
-pub struct UserConfigManager<'d> {
-    psql: &'d Database,
+pub struct UserConfigManager {
+    psql: &'static Database,
 }
 
-impl<'d> UserConfigManager<'d> {
-    pub fn new(psql: &'d Database) -> Self {
-        Self { psql }
+impl UserConfigManager {
+    pub fn new() -> Self {
+        Self {
+            psql: Context::psql(),
+        }
     }
 
     pub async fn with_osu_id(self, user_id: Id<UserMarker>) -> Result<UserConfig<OsuUserId>> {

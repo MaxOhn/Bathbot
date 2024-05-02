@@ -1,11 +1,9 @@
-use std::sync::Arc;
-
 use bathbot_util::numbers::MinMaxAvg;
 use eyre::Result;
 use rosu_v2::prelude::Score;
 
 use super::ProfileMenu;
-use crate::core::{Context, ContextExt};
+use crate::core::Context;
 
 pub(super) struct Top100Stats {
     pub acc: MinMaxAvg<f32>,
@@ -22,19 +20,16 @@ pub(super) struct Top100Stats {
 }
 
 impl Top100Stats {
-    pub(super) async fn prepare(ctx: Arc<Context>, menu: &mut ProfileMenu) -> Option<&Self> {
+    pub(super) async fn prepare(menu: &mut ProfileMenu) -> Option<&Self> {
         if let Some(ref stats) = menu.top100stats {
             return Some(stats);
         }
 
         let user_id = menu.user.user_id();
         let mode = menu.user.mode();
-        let scores = menu
-            .scores
-            .get(ctx.cloned(), user_id, mode, menu.legacy_scores)
-            .await?;
+        let scores = menu.scores.get(user_id, mode, menu.legacy_scores).await?;
 
-        match Self::new(ctx, scores).await {
+        match Self::new(scores).await {
             Ok(stats) => Some(menu.top100stats.insert(stats)),
             Err(err) => {
                 warn!(?err, "Failed to calculate top100 stats");
@@ -44,7 +39,7 @@ impl Top100Stats {
         }
     }
 
-    async fn new(ctx: Arc<Context>, scores: &[Score]) -> Result<Self> {
+    async fn new(scores: &[Score]) -> Result<Self> {
         let maps_id_checksum = scores
             .iter()
             .map(|score| {
@@ -54,7 +49,7 @@ impl Top100Stats {
             })
             .collect();
 
-        let maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+        let maps = Context::osu_map().maps(&maps_id_checksum).await?;
 
         let mut this = Self {
             acc: MinMaxAvg::new(),
@@ -81,7 +76,7 @@ impl Top100Stats {
                 .and_then(|map| maps.get(&map.map_id))
                 .expect("missing map");
 
-            let mut calc = ctx.pp(map).mode(score.mode).mods(&score.mods);
+            let mut calc = Context::pp(map).mode(score.mode).mods(&score.mods);
 
             let stars = calc.difficulty().await.stars();
             this.stars.add(stars);

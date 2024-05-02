@@ -14,41 +14,43 @@ use crate::{util::ChannelExt, Context};
 
 impl Context {
     #[cold]
-    pub async fn shutdown(&self, shards: &mut [Shard]) {
+    pub async fn shutdown(shards: &mut [Shard]) {
+        let this = Self::get();
+
         // Disable tracking while preparing shutdown
         #[cfg(feature = "osutracking")]
-        self.tracking().set_stop_tracking(true);
+        Context::tracking().set_stop_tracking(true);
 
         // Prevent non-minimized msgs from getting minimized
-        self.active_msgs.clear().await;
+        this.active_msgs.clear().await;
 
-        let count = self.stop_all_games().await;
+        let count = Context::stop_all_games().await;
         info!("Stopped {count} bg games");
 
         #[cfg(feature = "matchlive")]
         {
-            let count = self.notify_match_live_shutdown().await;
+            let count = this.notify_match_live_shutdown().await;
             info!("Stopped match tracking in {count} channels");
         }
 
-        if let Some(ordr) = self.ordr() {
+        if let Some(ordr) = Context::ordr() {
             ordr.disconnect();
         }
 
         let resume_data = Self::down_resumable(shards).await;
 
-        if let Err(err) = self.cache.freeze(&resume_data).await {
+        if let Err(err) = Context::cache().freeze(&resume_data).await {
             error!(?err, "Failed to freeze cache");
         }
 
         const STORE_DURATION: usize = 240;
 
-        match self.store_guild_shards(STORE_DURATION).await {
+        match this.store_guild_shards(STORE_DURATION).await {
             Ok(len) => info!("Stored {len} guild shards"),
             Err(err) => error!(?err, "Failed to store guild shards"),
         }
 
-        match self.store_miss_analyzer_guilds(STORE_DURATION).await {
+        match Context::store_miss_analyzer_guilds(STORE_DURATION).await {
             Ok(len) => info!("Stored {len} miss analyzer guilds"),
             Err(err) => error!(?err, "Failed to store miss analyzer guilds"),
         }
@@ -56,9 +58,9 @@ impl Context {
 
     /// Notify all active bg games that they'll be aborted due to a bot restart
     #[cold]
-    async fn stop_all_games(&self) -> usize {
+    async fn stop_all_games() -> usize {
         let mut active_games = Vec::new();
-        let mut stream = self.bg_games().iter();
+        let mut stream = Context::bg_games().iter();
 
         while let Some(guard) = stream.next().await {
             let key = *guard.key();
@@ -79,7 +81,7 @@ impl Context {
         for (channel, game) in active_games {
             match game.stop() {
                 Ok(_) => {
-                    let _ = channel.plain_message(self, content).await;
+                    let _ = channel.plain_message(content).await;
                     count += 1;
                 }
                 Err(err) => warn!(%channel, ?err, "Error while stopping game"),
@@ -117,16 +119,15 @@ impl Context {
             .align_for::<ArchivedData>()
             .wrap_err("Failed to align serializer")?;
 
-        self.finalize_store_as_vec(serializer, len, "guild_shards", store_duration)
-            .await
+        Self::finalize_store_as_vec(serializer, len, "guild_shards", store_duration).await
     }
 
     #[cold]
-    async fn store_miss_analyzer_guilds(&self, store_duration: usize) -> Result<usize> {
+    async fn store_miss_analyzer_guilds(store_duration: usize) -> Result<usize> {
         let mut serializer = AllocSerializer::<0>::default();
 
         // Will be serialized as ArchivedVec
-        let miss_analyzer_guilds = self.miss_analyzer_guilds().pin();
+        let miss_analyzer_guilds = Self::miss_analyzer_guilds().pin();
         let len = miss_analyzer_guilds.len();
 
         // Serialize data
@@ -143,13 +144,11 @@ impl Context {
             .align_for::<ArchivedData>()
             .wrap_err("Failed to align serializer")?;
 
-        self.finalize_store_as_vec(serializer, len, "miss_analyzer_guilds", store_duration)
-            .await
+        Self::finalize_store_as_vec(serializer, len, "miss_analyzer_guilds", store_duration).await
     }
 
     // Does not include serializer alignment to avoid generics
     async fn finalize_store_as_vec<const N: usize>(
-        &self,
         mut serializer: AllocSerializer<N>,
         len: usize,
         key: &str,
@@ -170,7 +169,7 @@ impl Context {
         let bytes = serializer.into_serializer().into_inner();
 
         // Store bytes
-        self.cache
+        Context::cache()
             .store_new_raw(key, &bytes, duration)
             .await
             .wrap_err("Failed to store in redis")?;

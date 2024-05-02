@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult, Write},
-    sync::Arc,
-};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::configs::{ListSize, MinimizedPp};
@@ -27,7 +24,6 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::{TopEntry, TopScoreOrder},
-    core::Context,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap},
     util::{
@@ -220,7 +216,7 @@ impl TopPagination {
         BuildPage::new(embed, false).content(self.content.clone())
     }
 
-    async fn build_single(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn build_single(&mut self) -> Result<BuildPage> {
         let entry = &self.entries[self.pages.index()];
 
         // Required for /pinned
@@ -236,7 +232,7 @@ impl TopPagination {
             replay: _,
         } = entry;
 
-        let if_fc = IfFc::new(&ctx, score, map).await;
+        let if_fc = IfFc::new(score, map).await;
         let hits = HitResultFormatter::new(score.mode, score.statistics.clone());
         let grade_completion_mods = grade_completion_mods(score, map.mode(), map.n_objects());
 
@@ -322,11 +318,11 @@ impl TopPagination {
 }
 
 impl IActiveMessage for TopPagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         match self.list_size {
             ListSize::Condensed => self.build_condensed().boxed(),
             ListSize::Detailed => self.build_detailed().boxed(),
-            ListSize::Single => Box::pin(self.build_single(ctx)),
+            ListSize::Single => Box::pin(self.build_single()),
         }
     }
 
@@ -336,22 +332,20 @@ impl IActiveMessage for TopPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let defer = matches!(self.list_size, ListSize::Single);
 
-        handle_pagination_component(ctx, component, self.msg_owner, defer, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, defer, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
         let defer = matches!(self.list_size, ListSize::Single);
 
-        handle_pagination_modal(ctx, modal, self.msg_owner, defer, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, defer, &mut self.pages)
     }
 }
 

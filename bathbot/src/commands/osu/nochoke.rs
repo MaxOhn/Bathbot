@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
@@ -20,10 +20,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::{require_link, user_not_found};
 use crate::{
     active::{impls::NoChokePagination, ActiveMessages},
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
@@ -149,10 +146,10 @@ impl<'m> Nochoke<'m> {
 #[examples("badewanne3", "vaxei 5")]
 #[aliases("nc", "nochoke")]
 #[group(Osu)]
-async fn prefix_nochokes(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_nochokes(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Nochoke::args(None, args);
 
-    nochoke(ctx, msg.into(), args).await
+    nochoke(msg.into(), args).await
 }
 
 #[command]
@@ -167,10 +164,10 @@ async fn prefix_nochokes(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Re
 #[examples("badewanne3", "vaxei 5")]
 #[alias("nct", "nochoketaiko")]
 #[group(Taiko)]
-async fn prefix_nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_nochokestaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Nochoke::args(Some(NochokeGameMode::Taiko), args);
 
-    nochoke(ctx, msg.into(), args).await
+    nochoke(msg.into(), args).await
 }
 
 #[command]
@@ -185,27 +182,27 @@ async fn prefix_nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 #[examples("badewanne3", "vaxei 5")]
 #[alias("ncc", "nochokectb", "nochokecatch", "nochokescatch")]
 #[group(Catch)]
-async fn prefix_nochokesctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_nochokesctb(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Nochoke::args(Some(NochokeGameMode::Catch), args);
 
-    nochoke(ctx, msg.into(), args).await
+    nochoke(msg.into(), args).await
 }
 
-async fn slash_nochoke(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_nochoke(mut command: InteractionCommand) -> Result<()> {
     let args = Nochoke::from_interaction(command.input_data())?;
 
-    nochoke(ctx, (&mut command).into(), args).await
+    nochoke((&mut command).into(), args).await
 }
 
-async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) -> Result<()> {
+async fn nochoke(orig: CommandOrigin<'_>, args: Nochoke<'_>) -> Result<()> {
     let owner = orig.user_id()?;
-    let config = ctx.user_config().with_osu_id(owner).await?;
+    let config = Context::user_config().with_osu_id(owner).await?;
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
@@ -217,8 +214,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -234,9 +230,8 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
     } = args;
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
-    let scores_fut = ctx
-        .osu_scores()
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)
         .exec_with_user(user_args);
@@ -244,12 +239,12 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user or scores");
 
             return Err(err);
@@ -258,10 +253,10 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
 
     let version = version.unwrap_or_default();
 
-    let mut entries = match process_scores(ctx.cloned(), scores, miss_limit, version).await {
+    let mut entries = match process_scores(scores, miss_limit, version).await {
         Ok(entries) => entries,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to process scores"));
         }
@@ -298,7 +293,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
         None => {}
     }
 
-    let rank = match ctx.approx().rank(unchoked_pp, mode).await {
+    let rank = match Context::approx().rank(unchoked_pp, mode).await {
         Ok(rank) => Some(rank),
         Err(err) => {
             warn!(?err, "Failed to get rank pp");
@@ -341,7 +336,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
@@ -404,7 +399,6 @@ impl Unchoked {
 }
 
 async fn process_scores(
-    ctx: Arc<Context>,
     scores: Vec<Score>,
     miss_limit: Option<u32>,
     version: NochokeVersion,
@@ -417,7 +411,7 @@ async fn process_scores(
         .map(|map| (map.map_id as i32, map.checksum.as_deref()))
         .collect();
 
-    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+    let mut maps = Context::osu_map().maps(&maps_id_checksum).await?;
     let miss_limit = miss_limit.unwrap_or(u32::MAX);
 
     for (i, score) in scores.into_iter().enumerate() {
@@ -426,8 +420,7 @@ async fn process_scores(
         };
         map = map.convert(score.mode);
 
-        let attrs = ctx
-            .pp(&map)
+        let attrs = Context::pp(&map)
             .mode(score.mode)
             .mods(&score.mods)
             .performance()
@@ -448,11 +441,11 @@ async fn process_scores(
         let unchoked = match version {
             NochokeVersion::Unchoke if too_many_misses => None,
             // Skip unchoking because it has too many misses or because its a convert
-            NochokeVersion::Unchoke => IfFc::new(&ctx, &score, &map)
+            NochokeVersion::Unchoke => IfFc::new(&score, &map)
                 .await
                 .map(|if_fc| Unchoked::new(if_fc, &score.mods, score.mode)),
             NochokeVersion::Perfect if too_many_misses => None,
-            NochokeVersion::Perfect => Some(perfect_score(&ctx, &score, &map).await),
+            NochokeVersion::Perfect => Some(perfect_score(&score, &map).await),
         };
 
         let entry = NochokeEntry {
@@ -471,9 +464,9 @@ async fn process_scores(
     Ok(entries)
 }
 
-async fn perfect_score(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Unchoked {
+async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
     let total_hits = score.total_hits();
-    let mut calc = ctx.pp(map).mode(score.mode).mods(&score.mods);
+    let mut calc = Context::pp(map).mode(score.mode).mods(&score.mods);
     let attrs = calc.difficulty().await;
 
     let stats = match attrs {

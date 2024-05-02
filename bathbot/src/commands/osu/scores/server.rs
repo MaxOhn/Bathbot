@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Write, sync::Arc};
+use std::{borrow::Cow, fmt::Write};
 
 use bathbot_model::Countries;
 use bathbot_util::{
@@ -16,7 +16,7 @@ use super::{get_mode, process_scores, separate_content, MapStatus, ServerScores}
 use crate::{
     active::{impls::ScoresServerPagination, ActiveMessages},
     commands::osu::{user_not_found, HasMods, ModsResult, ScoresOrder},
-    core::{Context, ContextExt},
+    core::Context,
     manager::redis::osu::UserArgs,
     util::{
         interaction::InteractionCommand,
@@ -25,14 +25,10 @@ use crate::{
     },
 };
 
-pub async fn server_scores(
-    ctx: Arc<Context>,
-    mut command: InteractionCommand,
-    args: ServerScores,
-) -> Result<()> {
+pub async fn server_scores(mut command: InteractionCommand, args: ServerScores) -> Result<()> {
     let Some(guild_id) = command.guild_id else {
         let content = "This command does not work in DMs";
-        command.error(&ctx, content).await?;
+        command.error(content).await?;
 
         return Ok(());
     };
@@ -46,7 +42,7 @@ pub async fn server_scores(
                 If you want exact mods, specify it e.g. as `+hdhr!`.\n\
                 And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
@@ -60,7 +56,7 @@ pub async fn server_scores(
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");
 
-                command.error(&ctx, content).await?;
+                command.error(content).await?;
 
                 return Ok(());
             }
@@ -68,10 +64,11 @@ pub async fn server_scores(
         None => None,
     };
 
-    let guild_fut = ctx.cache.guild(guild_id);
-    let members_fut = ctx.cache.members(guild_id);
+    let cache = Context::cache();
+    let guild_fut = cache.guild(guild_id);
+    let members_fut = cache.members(guild_id);
     let owner = command.user_id()?;
-    let mode_fut = get_mode(&ctx, args.mode, owner);
+    let mode_fut = get_mode(args.mode, owner);
 
     let (guild_res, members_res, mode_res) = tokio::join!(guild_fut, members_fut, mode_fut);
 
@@ -83,7 +80,7 @@ pub async fn server_scores(
     let members: Vec<_> = match members_res {
         Ok(members) => members.into_iter().map(|id| id as i64).collect(),
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -97,7 +94,7 @@ pub async fn server_scores(
 
     let grade = args.grade.map(Grade::from);
 
-    let scores_fut = ctx.osu_scores().from_discord_ids(
+    let scores_fut = Context::osu_scores().from_discord_ids(
         &members,
         mode,
         mods.as_ref(),
@@ -109,24 +106,24 @@ pub async fn server_scores(
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
     };
 
     let creator_id = match args.mapper {
-        Some(ref mapper) => match UserArgs::username(ctx.cloned(), mapper).await {
+        Some(ref mapper) => match UserArgs::username(mapper).await {
             UserArgs::Args(args) => Some(args.user_id),
             UserArgs::User { user, .. } => Some(user.user_id),
             UserArgs::Err(OsuError::NotFound) => {
-                let content = user_not_found(&ctx, UserId::Name(mapper.as_str().into())).await;
-                command.error(&ctx, content).await?;
+                let content = user_not_found(UserId::Name(mapper.as_str().into())).await;
+                command.error(content).await?;
 
                 return Ok(());
             }
             UserArgs::Err(err) => {
-                let _ = command.error(&ctx, OSU_API_ISSUE).await;
+                let _ = command.error(OSU_API_ISSUE).await;
 
                 return Err(Report::new(err).wrap_err("Failed to get mapper"));
             }
@@ -174,7 +171,7 @@ pub async fn server_scores(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }
 

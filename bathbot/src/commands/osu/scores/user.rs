@@ -1,4 +1,4 @@
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
@@ -15,7 +15,7 @@ use super::{process_scores, separate_content, MapStatus, ScoresOrder, UserScores
 use crate::{
     active::{impls::ScoresUserPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found, HasMods, ModsResult},
-    core::{commands::CommandOrigin, Context, ContextExt},
+    core::{commands::CommandOrigin, Context},
     manager::redis::{osu::UserArgs, RedisData},
     util::{
         interaction::InteractionCommand,
@@ -24,11 +24,7 @@ use crate::{
     },
 };
 
-pub async fn user_scores(
-    ctx: Arc<Context>,
-    mut command: InteractionCommand,
-    args: UserScores,
-) -> Result<()> {
+pub async fn user_scores(mut command: InteractionCommand, args: UserScores) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -38,38 +34,38 @@ pub async fn user_scores(
                 If you want exact mods, specify it e.g. as `+hdhr!`.\n\
                 And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
     };
 
     let author_id = command.user_id()?;
-    let config = ctx.user_config().with_osu_id(author_id).await?;
+    let config = Context::user_config().with_osu_id(author_id).await?;
 
     let mode = args.mode.map_or(config.mode, Option::from);
 
     let user_id = {
         let orig = CommandOrigin::from(&mut command);
 
-        match user_id!(ctx, orig, args).or_else(|| config.osu.map(UserId::Id)) {
+        match user_id!(orig, args).or_else(|| config.osu.map(UserId::Id)) {
             Some(user_id) => user_id,
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         }
     };
 
-    let user_fut = get_user(ctx.cloned(), &user_id, mode);
+    let user_fut = get_user(&user_id, mode);
 
     let user = match user_fut.await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
-            command.error(&ctx, content).await?;
+            let content = user_not_found(user_id).await;
+            command.error(content).await?;
 
             return Ok(());
         }
         Err(err) => {
-            let _ = command.error(&ctx, OSU_API_ISSUE).await;
+            let _ = command.error(OSU_API_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get user"));
         }
@@ -78,31 +74,30 @@ pub async fn user_scores(
     let grade = args.grade.map(Grade::from);
     let ids = &[user.user_id() as i32];
 
-    let scores_fut = ctx
-        .osu_scores()
-        .from_osu_ids(ids, mode, mods.as_ref(), None, None, grade);
+    let scores_fut =
+        Context::osu_scores().from_osu_ids(ids, mode, mods.as_ref(), None, None, grade);
 
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
     };
 
     let creator_id = match args.mapper {
-        Some(ref mapper) => match UserArgs::username(ctx.cloned(), mapper).await {
+        Some(ref mapper) => match UserArgs::username(mapper).await {
             UserArgs::Args(args) => Some(args.user_id),
             UserArgs::User { user, .. } => Some(user.user_id),
             UserArgs::Err(OsuError::NotFound) => {
-                let content = user_not_found(&ctx, UserId::Name(mapper.as_str().into())).await;
-                command.error(&ctx, content).await?;
+                let content = user_not_found(UserId::Name(mapper.as_str().into())).await;
+                command.error(content).await?;
 
                 return Ok(());
             }
             UserArgs::Err(err) => {
-                let _ = command.error(&ctx, OSU_API_ISSUE).await;
+                let _ = command.error(OSU_API_ISSUE).await;
 
                 return Err(Report::new(err).wrap_err("Failed to get mapper"));
             }
@@ -150,22 +145,18 @@ pub async fn user_scores(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }
 
-async fn get_user(
-    ctx: Arc<Context>,
-    user_id: &UserId,
-    mode: Option<GameMode>,
-) -> Result<RedisData<User>, OsuError> {
-    let mut args = UserArgs::rosu_id(ctx.cloned(), user_id).await;
+async fn get_user(user_id: &UserId, mode: Option<GameMode>) -> Result<RedisData<User>, OsuError> {
+    let mut args = UserArgs::rosu_id(user_id).await;
 
     if let Some(mode) = mode {
         args = args.mode(mode);
     }
 
-    ctx.redis().osu_user(args).await
+    Context::redis().osu_user(args).await
 }
 
 fn msg_content(

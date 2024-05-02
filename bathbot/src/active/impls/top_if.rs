@@ -1,4 +1,4 @@
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::rosu_v2::user::User;
@@ -22,7 +22,6 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::TopIfEntry,
-    core::Context,
     embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
     manager::redis::RedisData,
     util::{
@@ -46,7 +45,7 @@ pub struct TopIfPagination {
 }
 
 impl IActiveMessage for TopIfPagination {
-    fn build_page(&mut self, _: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         let pages = &self.pages;
         let end_idx = self.entries.len().min(pages.index() + pages.per_page());
         let entries = &self.entries[pages.index()..end_idx];
@@ -121,17 +120,15 @@ impl IActiveMessage for TopIfPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, false, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, false, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
     }
 }

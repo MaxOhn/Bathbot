@@ -1,4 +1,4 @@
-use std::{borrow::Cow, iter, mem, sync::Arc};
+use std::{borrow::Cow, iter, mem};
 
 use bathbot_macros::command;
 use bathbot_model::{
@@ -12,7 +12,7 @@ use super::{RankingPp, RankingScore};
 use crate::{
     active::{impls::RankingPagination, ActiveMessages},
     commands::GameModeOption,
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,
     Context,
@@ -29,16 +29,12 @@ fn check_country(arg: &str) -> Result<CountryCode, &'static str> {
     }
 }
 
-pub(super) async fn pp(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: RankingPp<'_>,
-) -> Result<()> {
+pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankingPp<'_>) -> Result<()> {
     let RankingPp { country, mode } = args;
     let owner = orig.user_id()?;
 
     let (mode, author_id) = match mode {
-        Some(mode) => match ctx.user_config().osu_id(owner).await {
+        Some(mode) => match Context::user_config().osu_id(owner).await {
             Ok(user_id) => (mode.into(), user_id),
             Err(err) => {
                 warn!(?err, "Failed to get author id");
@@ -46,10 +42,10 @@ pub(super) async fn pp(
                 (mode.into(), None)
             }
         },
-        None => match ctx.user_config().with_osu_id(owner).await {
+        None => match Context::user_config().with_osu_id(owner).await {
             Ok(config) => (config.mode.unwrap_or(GameMode::Osu), config.osu),
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("Failed to get user config"));
             }
@@ -64,7 +60,7 @@ pub(super) async fn pp(
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
         None => None,
@@ -73,7 +69,7 @@ pub(super) async fn pp(
     let ranking_fut = async {
         let country = country.as_deref();
 
-        ctx.redis()
+        Context::redis()
             .pp_ranking(mode, 1, country)
             .await
             .map(|ranking| match ranking {
@@ -82,23 +78,22 @@ pub(super) async fn pp(
             })
     };
 
-    let author_idx_fut = pp_author_idx(ctx.cloned(), author_id, mode, country.as_ref());
+    let author_idx_fut = pp_author_idx(author_id, mode, country.as_ref());
 
     let (ranking_res, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
     let kind = OsuRankingKind::Performance;
 
-    ranking(ctx, orig, mode, country, kind, author_idx, ranking_res).await
+    ranking(orig, mode, country, kind, author_idx, ranking_res).await
 }
 
 async fn pp_author_idx(
-    ctx: Arc<Context>,
     author_id: Option<u32>,
     mode: GameMode,
     country: Option<&CountryCode>,
 ) -> Option<usize> {
     let user_args = UserArgs::user_id(author_id?).mode(mode);
 
-    match ctx.redis().osu_user(user_args).await {
+    match Context::redis().osu_user(user_args).await {
         Ok(user) => {
             let idx = match country {
                 Some(code) => {
@@ -122,15 +117,11 @@ async fn pp_author_idx(
     }
 }
 
-pub(super) async fn score(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: RankingScore,
-) -> Result<()> {
+pub(super) async fn score(orig: CommandOrigin<'_>, args: RankingScore) -> Result<()> {
     let owner = orig.user_id()?;
 
     let (mode, osu_id) = match args.mode.map(GameMode::from) {
-        Some(mode) => match ctx.user_config().osu_id(owner).await {
+        Some(mode) => match Context::user_config().osu_id(owner).await {
             Ok(user_id) => (mode, user_id),
             Err(err) => {
                 warn!("{err:?}");
@@ -138,21 +129,21 @@ pub(super) async fn score(
                 (mode, None)
             }
         },
-        None => match ctx.user_config().with_osu_id(owner).await {
+        None => match Context::user_config().with_osu_id(owner).await {
             Ok(config) => (config.mode.unwrap_or(GameMode::Osu), config.osu),
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("failed to get user config"));
             }
         },
     };
 
-    let ranking_fut = ctx.osu().score_rankings(mode);
+    let ranking_fut = Context::osu().score_rankings(mode);
 
     let author_idx_fut = async {
         match osu_id.map(iter::once) {
-            Some(user_id) => match ctx.client().get_respektive_users(user_id, mode).await {
+            Some(user_id) => match Context::client().get_respektive_users(user_id, mode).await {
                 Ok(mut iter) => iter
                     .next()
                     .flatten()
@@ -172,11 +163,10 @@ pub(super) async fn score(
     let ranking_res = ranking_res.map(Either::Left);
     let kind = OsuRankingKind::Score;
 
-    ranking(ctx, orig, mode, None, kind, author_idx, ranking_res).await
+    ranking(orig, mode, None, kind, author_idx, ranking_res).await
 }
 
 async fn ranking(
-    ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     mode: GameMode,
     country: Option<CountryCode>,
@@ -187,7 +177,7 @@ async fn ranking(
     let mut ranking = match result {
         Ok(ranking) => ranking,
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("failed to get ranking"));
         }
@@ -300,7 +290,7 @@ async fn ranking(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
@@ -315,11 +305,11 @@ async fn ranking(
 #[examples("", "de", "russia")]
 #[aliases("ppr", "pplb", "ppleaderboard")]
 #[group(Osu)]
-pub async fn prefix_ppranking(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+pub async fn prefix_ppranking(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let country = match args.next().map(check_country) {
         Some(Ok(arg)) => Some(arg),
         Some(Err(content)) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             return Ok(());
         }
@@ -331,7 +321,7 @@ pub async fn prefix_ppranking(ctx: Arc<Context>, msg: &Message, mut args: Args<'
         country: country.map(CountryCode::into_string).map(Cow::Owned),
     };
 
-    pp(ctx, msg.into(), args).await
+    pp(msg.into(), args).await
 }
 
 #[command]
@@ -345,15 +335,11 @@ pub async fn prefix_ppranking(ctx: Arc<Context>, msg: &Message, mut args: Args<'
 #[examples("", "de", "russia")]
 #[aliases("pprm", "pplbm", "ppleaderboardmania")]
 #[group(Mania)]
-pub async fn prefix_pprankingmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    mut args: Args<'_>,
-) -> Result<()> {
+pub async fn prefix_pprankingmania(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let country = match args.next().map(check_country) {
         Some(Ok(arg)) => Some(arg),
         Some(Err(content)) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             return Ok(());
         }
@@ -365,7 +351,7 @@ pub async fn prefix_pprankingmania(
         country: country.map(CountryCode::into_string).map(Cow::Owned),
     };
 
-    pp(ctx, msg.into(), args).await
+    pp(msg.into(), args).await
 }
 
 #[command]
@@ -379,15 +365,11 @@ pub async fn prefix_pprankingmania(
 #[examples("", "de", "russia")]
 #[aliases("pprt", "pplbt", "ppleaderboardtaiko")]
 #[group(Taiko)]
-pub async fn prefix_pprankingtaiko(
-    ctx: Arc<Context>,
-    msg: &Message,
-    mut args: Args<'_>,
-) -> Result<()> {
+pub async fn prefix_pprankingtaiko(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let country = match args.next().map(check_country) {
         Some(Ok(arg)) => Some(arg),
         Some(Err(content)) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             return Ok(());
         }
@@ -399,7 +381,7 @@ pub async fn prefix_pprankingtaiko(
         country: country.map(CountryCode::into_string).map(Cow::Owned),
     };
 
-    pp(ctx, msg.into(), args).await
+    pp(msg.into(), args).await
 }
 
 #[command]
@@ -413,15 +395,11 @@ pub async fn prefix_pprankingtaiko(
 #[examples("", "de", "russia")]
 #[aliases("pprc", "pplbc", "ppleaderboardctb", "pprankingcatch")]
 #[group(Catch)]
-pub async fn prefix_pprankingctb(
-    ctx: Arc<Context>,
-    msg: &Message,
-    mut args: Args<'_>,
-) -> Result<()> {
+pub async fn prefix_pprankingctb(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let country = match args.next().map(check_country) {
         Some(Ok(arg)) => Some(arg),
         Some(Err(content)) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             return Ok(());
         }
@@ -433,39 +411,39 @@ pub async fn prefix_pprankingctb(
         country: country.map(CountryCode::into_string).map(Cow::Owned),
     };
 
-    pp(ctx, msg.into(), args).await
+    pp(msg.into(), args).await
 }
 
 #[command]
 #[desc("Display the global osu! ranked score ranking")]
 #[aliases("rsr", "rslb")]
 #[group(Osu)]
-pub async fn prefix_rankedscoreranking(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    score(ctx, msg.into(), None.into()).await
+pub async fn prefix_rankedscoreranking(msg: &Message) -> Result<()> {
+    score(msg.into(), None.into()).await
 }
 
 #[command]
 #[desc("Display the global osu!mania ranked score ranking")]
 #[aliases("rsrm", "rslbm")]
 #[group(Mania)]
-pub async fn prefix_rankedscorerankingmania(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    score(ctx, msg.into(), Some(GameModeOption::Mania).into()).await
+pub async fn prefix_rankedscorerankingmania(msg: &Message) -> Result<()> {
+    score(msg.into(), Some(GameModeOption::Mania).into()).await
 }
 
 #[command]
 #[desc("Display the global osu!taiko ranked score ranking")]
 #[aliases("rsrt", "rslbt")]
 #[group(Taiko)]
-pub async fn prefix_rankedscorerankingtaiko(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    score(ctx, msg.into(), Some(GameModeOption::Taiko).into()).await
+pub async fn prefix_rankedscorerankingtaiko(msg: &Message) -> Result<()> {
+    score(msg.into(), Some(GameModeOption::Taiko).into()).await
 }
 
 #[command]
 #[desc("Display the global osu!ctb ranked score ranking")]
 #[aliases("rsrc", "rslbc")]
 #[group(Catch)]
-pub async fn prefix_rankedscorerankingctb(ctx: Arc<Context>, msg: &Message) -> Result<()> {
-    score(ctx, msg.into(), Some(GameModeOption::Catch).into()).await
+pub async fn prefix_rankedscorerankingctb(msg: &Message) -> Result<()> {
+    score(msg.into(), Some(GameModeOption::Catch).into()).await
 }
 
 #[derive(Eq, PartialEq)]

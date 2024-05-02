@@ -1,4 +1,4 @@
-use std::{borrow::Cow, mem, sync::Arc};
+use std::{borrow::Cow, mem};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{
@@ -12,10 +12,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{require_link, user_not_found};
 use crate::{
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{BWSEmbed, EmbedData},
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
@@ -112,10 +109,10 @@ impl<'m> Bws<'m> {
     }
 }
 
-async fn slash_bws(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_bws(mut command: InteractionCommand) -> Result<()> {
     let args = Bws::from_interaction(command.input_data())?;
 
-    bws(ctx, (&mut command).into(), args).await
+    bws((&mut command).into(), args).await
 }
 
 #[command]
@@ -131,11 +128,11 @@ async fn slash_bws(ctx: Arc<Context>, mut command: InteractionCommand) -> Result
 #[usage("[username] [rank=integer] [badges=integer]")]
 #[examples("badewanne3", "badewanne3 rank=1234 badges=10", "badewanne3 badges=3")]
 #[group(Osu)]
-async fn prefix_bws(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_bws(msg: &Message, args: Args<'_>) -> Result<()> {
     match Bws::args(args) {
-        Ok(args) => bws(ctx, msg.into(), args).await,
+        Ok(args) => bws(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -144,14 +141,14 @@ async fn prefix_bws(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<
 
 const MIN_BADGES_OFFSET: usize = 2;
 
-async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> Result<()> {
-    let user_id = match user_id!(ctx, orig, args) {
+async fn bws(orig: CommandOrigin<'_>, args: Bws<'_>) -> Result<()> {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+        None => match Context::user_config().osu_id(orig.user_id()?).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
+            Ok(None) => return require_link(&orig).await,
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -160,17 +157,17 @@ async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> Resul
 
     let Bws { rank, badges, .. } = args;
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
+    let user_args = UserArgs::rosu_id(&user_id).await;
 
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user");
 
             return Err(err);
@@ -209,7 +206,7 @@ async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> Resul
     let embed_data = BWSEmbed::new(&user, badges_curr, badges_min, badges_max, rank);
     let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Write},
-    sync::Arc,
-};
+use std::fmt::{Display, Write};
 
 use bathbot_model::{
     rkyv_util::time::DateTimeRkyv,
@@ -43,7 +40,6 @@ use self::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::osu::ProfileKind,
-    core::{Context, ContextExt},
     manager::redis::RedisData,
     util::{interaction::InteractionComponent, osu::grade_emote, Authored, ComponentExt, Emote},
 };
@@ -70,14 +66,14 @@ pub struct ProfileMenu {
 }
 
 impl IActiveMessage for ProfileMenu {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         match self.kind {
-            ProfileKind::Compact => Box::pin(self.compact(ctx)),
-            ProfileKind::UserStats => Box::pin(self.user_stats(ctx)),
-            ProfileKind::Top100Stats => Box::pin(self.top100_stats(ctx)),
-            ProfileKind::Top100Mods => Box::pin(self.top100_mods(ctx)),
-            ProfileKind::Top100Mappers => Box::pin(self.top100_mappers(ctx)),
-            ProfileKind::MapperStats => Box::pin(self.mapper_stats(ctx)),
+            ProfileKind::Compact => Box::pin(self.compact()),
+            ProfileKind::UserStats => Box::pin(self.user_stats()),
+            ProfileKind::Top100Stats => Box::pin(self.top100_stats()),
+            ProfileKind::Top100Mods => Box::pin(self.top100_mods()),
+            ProfileKind::Top100Mappers => Box::pin(self.top100_mappers()),
+            ProfileKind::MapperStats => Box::pin(self.mapper_stats()),
         }
     }
 
@@ -143,11 +139,9 @@ impl IActiveMessage for ProfileMenu {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         async fn inner(
-            ctx: Arc<Context>,
             component: &mut InteractionComponent,
             kind: &mut ProfileKind,
             msg_owner: Id<UserMarker>,
@@ -176,14 +170,14 @@ impl IActiveMessage for ProfileMenu {
                 None => return ComponentResult::Err(eyre!("Missing value for profile menu")),
             };
 
-            if let Err(err) = component.defer(&ctx).await {
+            if let Err(err) = component.defer().await {
                 warn!(?err, "Failed to defer component");
             }
 
             ComponentResult::BuildPage
         }
 
-        Box::pin(inner(ctx, component, &mut self.kind, self.msg_owner))
+        Box::pin(inner(component, &mut self.kind, self.msg_owner))
     }
 }
 
@@ -216,7 +210,7 @@ impl ProfileMenu {
         }
     }
 
-    async fn compact(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn compact(&mut self) -> Result<BuildPage> {
         let user_id = self.user.user_id();
 
         let (mode, medals, mut highest_rank) = match self.user {
@@ -239,7 +233,7 @@ impl ProfileMenu {
         };
 
         self.consider_osutrack_peaks(&mut highest_rank);
-        let skin_url = self.skin_url.get(&ctx, user_id).await;
+        let skin_url = self.skin_url.get(user_id).await;
         let stats = self.user.stats();
 
         let mut description = format!(
@@ -280,17 +274,14 @@ impl ProfileMenu {
         Ok(BuildPage::new(embed, true))
     }
 
-    async fn user_stats(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn user_stats(&mut self) -> Result<BuildPage> {
         let user_id = self.user.user_id();
         let mode = self.user.mode();
 
-        let scores_fut = self.scores.get(
-            ctx.cloned(),
-            self.user.user_id(),
-            self.user.mode(),
-            self.legacy_scores,
-        );
-        let score_rank_fut = self.score_rank.get(&ctx, user_id, mode);
+        let scores_fut = self
+            .scores
+            .get(self.user.user_id(), self.user.mode(), self.legacy_scores);
+        let score_rank_fut = self.score_rank.get(user_id, mode);
 
         let (scores_opt, score_rank_opt) = tokio::join!(scores_fut, score_rank_fut);
 
@@ -499,7 +490,7 @@ impl ProfileMenu {
         Ok(BuildPage::new(embed, true))
     }
 
-    async fn top100_stats(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn top100_stats(&mut self) -> Result<BuildPage> {
         let mode = self.user.mode();
         let mut description = String::with_capacity(1024);
 
@@ -515,7 +506,7 @@ impl ProfileMenu {
 
         description.push_str(":**__\n");
 
-        if let Some(stats) = Top100Stats::prepare(ctx, self).await {
+        if let Some(stats) = Top100Stats::prepare(self).await {
             description.push_str("```\n");
 
             let Top100Stats {
@@ -682,7 +673,7 @@ impl ProfileMenu {
         Ok(BuildPage::new(embed, true))
     }
 
-    async fn top100_mods(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn top100_mods(&mut self) -> Result<BuildPage> {
         let mode = self.user.mode();
         let mut description = format!("__**{mode} Top100 mods", mode = Emote::from(mode));
 
@@ -692,7 +683,7 @@ impl ProfileMenu {
 
         description.push_str(":**__\n");
 
-        let fields = if let Some(stats) = Top100Mods::prepare(ctx, self).await {
+        let fields = if let Some(stats) = Top100Mods::prepare(self).await {
             fn mod_value<M, V, F, const N: usize>(
                 map: &[(M, V)],
                 to_string: F,
@@ -785,7 +776,7 @@ impl ProfileMenu {
         Ok(BuildPage::new(embed, true))
     }
 
-    async fn top100_mappers(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn top100_mappers(&mut self) -> Result<BuildPage> {
         let mut description = format!(
             "__**{mode} Top100 mappers",
             mode = Emote::from(self.user.mode()),
@@ -797,7 +788,7 @@ impl ProfileMenu {
 
         description.push_str(":**__\n");
 
-        if let Some(mappers) = Top100Mappers::prepare(ctx, self).await {
+        if let Some(mappers) = Top100Mappers::prepare(self).await {
             description.push_str("```\n");
 
             let mut names_len = 0;
@@ -853,8 +844,8 @@ impl ProfileMenu {
         Ok(BuildPage::new(embed, true))
     }
 
-    async fn mapper_stats(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
-        let own_maps_in_top100 = self.own_maps_in_top100(ctx).await;
+    async fn mapper_stats(&mut self) -> Result<BuildPage> {
+        let own_maps_in_top100 = self.own_maps_in_top100().await;
 
         let (
             mode,
@@ -961,13 +952,10 @@ impl ProfileMenu {
         Ok(BuildPage::new(embed, true))
     }
 
-    async fn own_maps_in_top100(&mut self, ctx: Arc<Context>) -> Option<usize> {
+    async fn own_maps_in_top100(&mut self) -> Option<usize> {
         let user_id = self.user.user_id();
         let mode = self.user.mode();
-        let scores = self
-            .scores
-            .get(ctx, user_id, mode, self.legacy_scores)
-            .await?;
+        let scores = self.scores.get(user_id, mode, self.legacy_scores).await?;
 
         let count = scores.iter().fold(0, |count, score| {
             let self_mapped = score

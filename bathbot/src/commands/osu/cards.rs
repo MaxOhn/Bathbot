@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use bathbot_cards::{BathbotCard, RequiredAttributes};
 use bathbot_macros::{HasName, SlashCommand};
@@ -18,7 +18,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::{require_link, user_not_found};
 use crate::{
     commands::GameModeOption,
-    core::{commands::CommandOrigin, BotConfig, Context, ContextExt},
+    core::{commands::CommandOrigin, BotConfig, Context},
     embeds::attachment,
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
@@ -89,7 +89,7 @@ pub struct Card {
     discord: Option<Id<UserMarker>>,
 }
 
-async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_card(mut command: InteractionCommand) -> Result<()> {
     let args = Card::from_interaction(command.input_data())?;
 
     let orig = CommandOrigin::Interaction {
@@ -97,13 +97,13 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
     };
 
     let owner = orig.user_id()?;
-    let config = ctx.user_config().with_osu_id(owner).await?;
+    let config = Context::user_config().with_osu_id(owner).await?;
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu {
             Some(user_id) => UserId::Id(user_id),
-            None => return require_link(&ctx, &orig).await,
+            None => return require_link(&orig).await,
         },
     };
 
@@ -116,8 +116,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
     let legacy_scores = match config.legacy_scores {
         Some(legacy_scores) => legacy_scores,
         None => match orig.guild_id() {
-            Some(guild_id) => ctx
-                .guild_config()
+            Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.legacy_scores)
                 .await
                 .unwrap_or(false),
@@ -125,13 +124,12 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
         },
     };
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
-    let scores_fut = ctx
-        .osu_scores()
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)
         .exec_with_user(user_args);
-    let medals_fut = ctx.redis().medals();
+    let medals_fut = Context::redis().medals();
 
     let (user, scores, total_medals) = match tokio::join!(scores_fut, medals_fut) {
         (Ok((user, scores)), Ok(medals)) => {
@@ -143,18 +141,18 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
             (user, scores, medals_len)
         }
         (Err(OsuError::NotFound), _) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         (Err(err), _) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user");
 
             return Err(err);
         }
         (_, Err(err)) => {
-            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached medals"));
         }
@@ -162,7 +160,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
 
     if scores.is_empty() {
         let content = "Looks like they don't have any scores on that mode";
-        orig.error(&ctx, content).await?;
+        orig.error(content).await?;
 
         return Ok(());
     }
@@ -170,14 +168,12 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
     let maps: HashMap<_, _, IntHasher> = scores
         .iter()
         .map(|score| async {
-            let map = ctx
-                .osu_map()
+            let map = Context::osu_map()
                 .pp_map(score.map_id)
                 .await
                 .wrap_err("failed to get pp map")?;
 
-            let difficulty = ctx
-                .pp_parsed(&map, score.map_id, mode)
+            let difficulty = Context::pp_parsed(&map, score.map_id, mode)
                 .mods(&score.mods)
                 .difficulty()
                 .await
@@ -194,19 +190,20 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
         .try_collect()
         .await?;
 
-    let pfp_fut = ctx.client().get_avatar(user.avatar_url());
+    let client = Context::client();
+    let pfp_fut = client.get_avatar(user.avatar_url());
     let flag_url = flag_url_size(user.country_code(), 70);
-    let flag_fut = ctx.client().get_flag(&flag_url);
+    let flag_fut = client.get_flag(&flag_url);
 
     let (pfp, flag) = match tokio::join!(pfp_fut, flag_fut) {
         (Ok(pfp), Ok(flag)) => (pfp, flag),
         (Err(err), _) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("Failed to acquire card avatar"));
         }
         (_, Err(err)) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("Failed to acquire card flag"));
         }
@@ -236,7 +233,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
     let bytes = match card_res {
         Ok(bytes) => bytes,
         Err(err) => {
-            let _ = orig.error(&ctx, "Failed to draw the card :(").await;
+            let _ = orig.error("Failed to draw the card :(").await;
 
             return Err(Report::new(err).wrap_err("Failed to draw card"));
         }
@@ -250,7 +247,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
         .attachment("card.png", bytes)
         .embed(embed);
 
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

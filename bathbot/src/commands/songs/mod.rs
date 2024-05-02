@@ -20,7 +20,7 @@ mod time_traveler;
 mod wordsneversaid;
 mod zenzenzense;
 
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 use bathbot_macros::SlashCommand;
 use bathbot_util::MessageBuilder;
@@ -40,25 +40,19 @@ use crate::{
     Context,
 };
 
-async fn song(
-    lyrics: &[&str],
-    delay: u64,
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-) -> Result<()> {
+async fn song(lyrics: &[&str], delay: u64, orig: CommandOrigin<'_>) -> Result<()> {
     debug_assert!(lyrics.len() > 1);
 
     if !orig.can_view_channel() {
         let content = "I'm lacking the \"View Channel\" permission \
             required to update message.";
 
-        return orig.error_callback(&ctx, content).await;
+        return orig.error_callback(content).await;
     }
 
     let (id, allow) = match orig.guild_id() {
         Some(guild) => {
-            let allow = ctx
-                .guild_config()
+            let allow = Context::guild_config()
                 .peek(guild, |config| config.allow_songs.unwrap_or(true))
                 .await;
 
@@ -68,10 +62,10 @@ async fn song(
     };
 
     // same bucket for guilds
-    if let Some(cooldown) = ctx.check_ratelimit(id, BucketName::Songs) {
+    if let Some(cooldown) = Context::check_ratelimit(id, BucketName::Songs) {
         let content = format!("Command on cooldown, try again in {cooldown} seconds");
 
-        return orig.error_callback(&ctx, content).await;
+        return orig.error_callback(content).await;
     }
 
     if allow {
@@ -84,11 +78,7 @@ async fn song(
 
         interval.tick().await;
 
-        let mut response = orig
-            .callback_with_response(&ctx, builder)
-            .await?
-            .model()
-            .await?;
+        let mut response = orig.callback_with_response(builder).await?.model().await?;
 
         for line in &lyrics[1..] {
             interval.tick().await;
@@ -97,7 +87,7 @@ async fn song(
             let builder = MessageBuilder::new().content(&content);
 
             response = response
-                .update(&ctx, builder, None)
+                .update(builder, None)
                 .wrap_err("lacking permission to update message")?
                 .await?
                 .model()
@@ -107,7 +97,7 @@ async fn song(
         let content = "The server's higher-ups have disabled song commands. \
             Server authorities can re-enable them with the `/serverconfig` command";
 
-        orig.error(&ctx, content).await?;
+        orig.error(content).await?;
     }
 
     Ok(())
@@ -221,9 +211,9 @@ impl SongTitle {
     }
 }
 
-pub async fn slash_song(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+pub async fn slash_song(mut command: InteractionCommand) -> Result<()> {
     let args = Song::from_interaction(command.input_data())?;
     let (lyrics, delay) = args.title.get();
 
-    song(lyrics, delay, ctx, (&mut command).into()).await
+    song(lyrics, delay, (&mut command).into()).await
 }

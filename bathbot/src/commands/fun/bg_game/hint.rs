@@ -1,17 +1,11 @@
-use std::sync::Arc;
-
 use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::Result;
 use twilight_model::{channel::Message, guild::Permissions};
 
 use crate::{core::buckets::BucketName, util::ChannelExt, Context};
 
-pub async fn hint(
-    ctx: Arc<Context>,
-    msg: &Message,
-    permissions: Option<Permissions>,
-) -> Result<()> {
-    let ratelimit = ctx.check_ratelimit(msg.author.id, BucketName::BgHint);
+pub async fn hint(msg: &Message, permissions: Option<Permissions>) -> Result<()> {
+    let ratelimit = Context::check_ratelimit(msg.author.id, BucketName::BgHint);
 
     if let Some(cooldown) = ratelimit {
         trace!(
@@ -22,21 +16,21 @@ pub async fn hint(
         return Ok(());
     }
 
-    match ctx.bg_games().read(&msg.channel_id).await.get() {
+    match Context::bg_games().read(&msg.channel_id).await.get() {
         Some(game) => match game.hint().await {
             Ok(hint) => {
                 let builder = MessageBuilder::new().content(hint);
-                msg.create_message(&ctx, builder, permissions).await?;
+                msg.create_message(builder, permissions).await?;
             }
             Err(err) => {
-                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                let _ = msg.error(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("Failed to get hint"));
             }
         },
         None => {
             let content = "No running game in this channel. Start one with `/bg`.";
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
         }
     }
 

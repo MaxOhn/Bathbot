@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{
@@ -13,10 +13,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::OsuStatsCount;
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, OsuStatsCountsEmbed},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, osu::TopCounts, InteractionCommandExt},
@@ -87,10 +84,10 @@ impl<'m> OsuStatsCount<'m> {
 #[example("badewanne3")]
 #[aliases("osc", "osustatscounts")]
 #[group(Osu)]
-async fn prefix_osustatscount(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_osustatscount(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = OsuStatsCount::args(None, args);
 
-    count(ctx, msg.into(), args).await
+    count(msg.into(), args).await
 }
 
 #[command]
@@ -105,10 +102,10 @@ async fn prefix_osustatscount(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 #[example("badewanne3")]
 #[aliases("oscm", "osustatscountsmania")]
 #[group(Mania)]
-async fn prefix_osustatscountmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_osustatscountmania(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = OsuStatsCount::args(Some(GameModeOption::Mania), args);
 
-    count(ctx, msg.into(), args).await
+    count(msg.into(), args).await
 }
 
 #[command]
@@ -123,10 +120,10 @@ async fn prefix_osustatscountmania(ctx: Arc<Context>, msg: &Message, args: Args<
 #[example("badewanne3")]
 #[aliases("osct", "osustatscountstaiko")]
 #[group(Taiko)]
-async fn prefix_osustatscounttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_osustatscounttaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = OsuStatsCount::args(Some(GameModeOption::Taiko), args);
 
-    count(ctx, msg.into(), args).await
+    count(msg.into(), args).await
 }
 
 #[command]
@@ -141,45 +138,41 @@ async fn prefix_osustatscounttaiko(ctx: Arc<Context>, msg: &Message, args: Args<
 #[example("badewanne3")]
 #[aliases("oscc", "osustatscountsctb", "osustatscountcatch")]
 #[group(Catch)]
-async fn prefix_osustatscountctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_osustatscountctb(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = OsuStatsCount::args(Some(GameModeOption::Catch), args);
 
-    count(ctx, msg.into(), args).await
+    count(msg.into(), args).await
 }
 
-async fn slash_osc(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_osc(mut command: InteractionCommand) -> Result<()> {
     let args = Osc::from_interaction(command.input_data())?;
 
-    count(ctx, (&mut command).into(), args.into()).await
+    count((&mut command).into(), args.into()).await
 }
 
-pub(super) async fn count(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: OsuStatsCount<'_>,
-) -> Result<()> {
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+pub(super) async fn count(orig: CommandOrigin<'_>, args: OsuStatsCount<'_>) -> Result<()> {
+    let (user_id, mode) = user_id_mode!(orig, args);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user");
 
             return Err(err);
         }
     };
 
-    let counts = match TopCounts::request(&ctx, &user, mode).await {
+    let counts = match TopCounts::request(&user, mode).await {
         Ok(counts) => counts,
         Err(err) => {
-            let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
+            let _ = orig.error(OSUSTATS_API_ISSUE).await;
 
             return Err(err.wrap_err("failed to get top counts"));
         }
@@ -188,7 +181,7 @@ pub(super) async fn count(
     let embed_data = OsuStatsCountsEmbed::new(&user, mode, counts);
     let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

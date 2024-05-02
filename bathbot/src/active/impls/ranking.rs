@@ -4,7 +4,6 @@ use std::{
         BTreeMap,
     },
     fmt::{Display, Formatter, Result as FmtResult, Write},
-    sync::Arc,
 };
 
 use bathbot_macros::PaginationBuilder;
@@ -26,7 +25,7 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    core::{Context, ContextExt},
+    core::Context,
     manager::redis::RedisData,
     util::interaction::{InteractionComponent, InteractionModal},
 };
@@ -44,8 +43,8 @@ pub struct RankingPagination {
 }
 
 impl IActiveMessage for RankingPagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -54,24 +53,16 @@ impl IActiveMessage for RankingPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(
-            ctx,
-            component,
-            self.msg_owner,
-            self.defer(),
-            &mut self.pages,
-        )
+        handle_pagination_component(component, self.msg_owner, self.defer(), &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, self.defer(), &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, self.defer(), &mut self.pages)
     }
 }
 
@@ -86,16 +77,16 @@ impl RankingPagination {
         )
     }
 
-    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let idx = self.pages.index().saturating_sub(1);
         let mut page = ((idx - idx % 50) + 50) / 50;
         page += self.entries.contains_key(idx) as usize;
 
-        self.assure_present_users(ctx.cloned(), page).await?;
+        self.assure_present_users(page).await?;
 
         // Handle edge cases like idx=140;total=151 where two pages have to be requested
         // at once
-        self.assure_present_users(ctx.cloned(), page + 1).await?;
+        self.assure_present_users(page + 1).await?;
 
         let idx = self.pages.index();
 
@@ -204,7 +195,7 @@ impl RankingPagination {
         }
     }
 
-    async fn assure_present_users(&mut self, ctx: Arc<Context>, page: usize) -> Result<()> {
+    async fn assure_present_users(&mut self, page: usize) -> Result<()> {
         let pages = &self.pages;
         let range = pages.index()..pages.index() + pages.per_page();
         let count = self.entries.entry_count(range);
@@ -227,7 +218,7 @@ impl RankingPagination {
                             let BgGameScore { discord_id, score } = scores[i];
                             let id = Id::new(discord_id as u64);
 
-                            let mut name_opt = match ctx.user_config().osu_name(id).await {
+                            let mut name_opt = match Context::user_config().osu_name(id).await {
                                 Ok(Some(name)) => Some(name),
                                 Ok(None) => None,
                                 Err(err) => {
@@ -239,7 +230,7 @@ impl RankingPagination {
 
                             name_opt = match name_opt {
                                 Some(name) => Some(name),
-                                None => match ctx.cache.user(id).await {
+                                None => match Context::cache().user(id).await {
                                     Ok(Some(user)) => Some(user.name.as_ref().into()),
                                     Ok(None) => None,
                                     Err(err) => {
@@ -263,8 +254,7 @@ impl RankingPagination {
                     country_code: country,
                     ..
                 } => {
-                    let ranking = ctx
-                        .redis()
+                    let ranking = Context::redis()
                         .pp_ranking(*mode, page, Some(country.as_str()))
                         .await
                         .wrap_err("Failed to get ranking page")?;
@@ -312,8 +302,7 @@ impl RankingPagination {
                     }
                 }
                 RankingKind::PpGlobal { mode } => {
-                    let ranking = ctx
-                        .redis()
+                    let ranking = Context::redis()
                         .pp_ranking(*mode, page, None)
                         .await
                         .wrap_err("failed to get ranking page")?;
@@ -361,8 +350,7 @@ impl RankingPagination {
                     }
                 }
                 RankingKind::RankedScore { mode } => {
-                    let ranking = ctx
-                        .osu()
+                    let ranking = Context::osu()
                         .score_rankings(*mode)
                         .page(page)
                         .await

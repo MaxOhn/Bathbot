@@ -11,7 +11,7 @@ use twilight_model::{
 };
 
 use crate::{
-    core::{commands::CommandOrigin, Context},
+    core::commands::CommandOrigin,
     util::{interaction::InteractionCommand, ChannelExt},
 };
 
@@ -23,26 +23,20 @@ pub enum ActiveMessageOrigin<'d> {
 impl ActiveMessageOrigin<'_> {
     pub(super) async fn create_message(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
     ) -> Result<Response<Message>, ActiveMessageOriginError> {
         match self {
-            Self::Channel(channel) => {
-                channel
-                    .create_message(ctx, builder, None)
-                    .await
-                    .map_err(|err| {
-                        if cannot_dm(&err) {
-                            ActiveMessageOriginError::CannotDmUser
-                        } else {
-                            let wrap = "Failed to create message as response";
+            Self::Channel(channel) => channel.create_message(builder, None).await.map_err(|err| {
+                if cannot_dm(&err) {
+                    ActiveMessageOriginError::CannotDmUser
+                } else {
+                    let wrap = "Failed to create message as response";
 
-                            Report::new(err).wrap_err(wrap).into()
-                        }
-                    })
-            }
+                    Report::new(err).wrap_err(wrap).into()
+                }
+            }),
             Self::Command(orig) => orig
-                .create_message(ctx, builder)
+                .create_message(builder)
                 .await
                 .map_err(ActiveMessageOriginError::Report),
         }
@@ -50,26 +44,20 @@ impl ActiveMessageOrigin<'_> {
 
     pub(super) async fn callback(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
     ) -> Result<Response<Message>, ActiveMessageOriginError> {
         match self {
-            Self::Channel(channel) => {
-                channel
-                    .create_message(ctx, builder, None)
-                    .await
-                    .map_err(|err| {
-                        if cannot_dm(&err) {
-                            ActiveMessageOriginError::CannotDmUser
-                        } else {
-                            let wrap = "Failed to create message as response";
+            Self::Channel(channel) => channel.create_message(builder, None).await.map_err(|err| {
+                if cannot_dm(&err) {
+                    ActiveMessageOriginError::CannotDmUser
+                } else {
+                    let wrap = "Failed to create message as response";
 
-                            Report::new(err).wrap_err(wrap).into()
-                        }
-                    })
-            }
+                    Report::new(err).wrap_err(wrap).into()
+                }
+            }),
             Self::Command(orig) => orig
-                .callback_with_response(ctx, builder)
+                .callback_with_response(builder)
                 .await
                 .map_err(ActiveMessageOriginError::Report),
         }

@@ -31,17 +31,10 @@ pub struct TrackNotificationEmbed {
 }
 
 impl TrackNotificationEmbed {
-    pub async fn new(
-        user: &RedisData<User>,
-        score: &Score,
-        map: &OsuMap,
-        idx: u8,
-        ctx: &Context,
-    ) -> Self {
+    pub async fn new(user: &RedisData<User>, score: &Score, map: &OsuMap, idx: u8) -> Self {
         let description = format!("__**Personal Best #{idx}**__");
 
-        let attrs = ctx
-            .pp(map)
+        let attrs = Context::pp(map)
             .mode(score.mode)
             .mods(&score.mods)
             .performance()

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Write, sync::Arc};
+use std::{borrow::Cow, fmt::Write};
 
 use bathbot_model::Countries;
 use bathbot_util::{
@@ -18,7 +18,7 @@ use crate::{
         compare::{slash_compare_score, ScoreOrder},
         CompareScoreAutocomplete, HasMods, ModsResult,
     },
-    core::{Context, ContextExt},
+    core::Context,
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, IFilterCriteria, ScoresCriteria},
@@ -26,11 +26,7 @@ use crate::{
     },
 };
 
-pub async fn map_scores(
-    ctx: Arc<Context>,
-    mut command: InteractionCommand,
-    args: MapScores,
-) -> Result<()> {
+pub async fn map_scores(mut command: InteractionCommand, args: MapScores) -> Result<()> {
     let Some(guild_id) = command.guild_id else {
         // TODO: use mode when /cs uses it
         let MapScores {
@@ -67,7 +63,7 @@ pub async fn map_scores(
                 let content = "When using this command in DMs, \
                 the only available sort orders are \
                 `Accuracy`, `Combo`, `Date`, `Misses`, `PP`, `Score`, or `Stars`";
-                command.error(&ctx, content).await?;
+                command.error(content).await?;
 
                 return Ok(());
             }
@@ -83,7 +79,7 @@ pub async fn map_scores(
             discord: None,
         };
 
-        return slash_compare_score(ctx, &mut command, args).await;
+        return slash_compare_score(&mut command, args).await;
     };
 
     let mods = match args.mods() {
@@ -95,7 +91,7 @@ pub async fn map_scores(
                 If you want exact mods, specify it e.g. as `+hdhr!`.\n\
                 And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
@@ -110,7 +106,7 @@ pub async fn map_scores(
             if map_opt.is_none() {
                 let content =
                     "Failed to parse map url. Be sure you specify a valid map id or url to a map.";
-                command.error(&ctx, content).await?;
+                command.error(content).await?;
 
                 return Ok(());
             }
@@ -124,26 +120,26 @@ pub async fn map_scores(
         Some(MapIdType::Map(id)) => id,
         Some(MapIdType::Set(_)) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
         None if command.can_read_history() => {
-            let msgs = match ctx.retrieve_channel_history(command.channel_id()).await {
+            let msgs = match Context::retrieve_channel_history(command.channel_id()).await {
                 Ok(msgs) => msgs,
                 Err(err) => {
-                    let _ = command.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = command.error(GENERAL_ISSUE).await;
 
                     return Err(err.wrap_err("Failed to retrieve channel history"));
                 }
             };
 
-            match ctx.find_map_id_in_msgs(&msgs, 0).await {
+            match Context::find_map_id_in_msgs(&msgs, 0).await {
                 Some(MapIdType::Map(id)) => id,
                 None | Some(MapIdType::Set(_)) => {
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
-                    command.error(&ctx, content).await?;
+                    command.error(content).await?;
 
                     return Ok(());
                 }
@@ -155,7 +151,7 @@ pub async fn map_scores(
                 Try specifying a map either by url to the map, or just by map id, \
                 or give me the \"Read Message History\" permission.";
 
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             return Ok(());
         }
@@ -169,7 +165,7 @@ pub async fn map_scores(
                 let content =
                     format!("Looks like `{country}` is neither a country name nor a country code");
 
-                command.error(&ctx, content).await?;
+                command.error(content).await?;
 
                 return Ok(());
             }
@@ -177,10 +173,11 @@ pub async fn map_scores(
         None => None,
     };
 
-    let guild_fut = ctx.cache.guild(guild_id);
-    let members_fut = ctx.cache.members(guild_id);
+    let cache = Context::cache();
+    let guild_fut = cache.guild(guild_id);
+    let members_fut = cache.members(guild_id);
     let owner = command.user_id()?;
-    let mode_fut = get_mode(&ctx, args.mode, owner);
+    let mode_fut = get_mode(args.mode, owner);
 
     let (guild_res, members_res, mode_res) = tokio::join!(guild_fut, members_fut, mode_fut);
 
@@ -192,7 +189,7 @@ pub async fn map_scores(
     let members: Vec<_> = match members_res {
         Ok(members) => members.into_iter().map(|id| id as i64).collect(),
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -206,7 +203,7 @@ pub async fn map_scores(
 
     let grade = args.grade.map(Grade::from);
 
-    let scores_fut = ctx.osu_scores().from_discord_ids(
+    let scores_fut = Context::osu_scores().from_discord_ids(
         &members,
         mode,
         mods.as_ref(),
@@ -218,7 +215,7 @@ pub async fn map_scores(
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -240,13 +237,13 @@ pub async fn map_scores(
             }
         );
         let builder = MessageBuilder::new().embed(content);
-        command.update(&ctx, builder).await?;
+        command.update(builder).await?;
 
         return Ok(());
     } else if scores.maps().next().zip(scores.mapsets().next()).is_none() {
         let content = format!("Looks like I don't have map id {map_id} stored");
         let builder = MessageBuilder::new().embed(content);
-        command.update(&ctx, builder).await?;
+        command.update(builder).await?;
 
         return Ok(());
     }
@@ -293,7 +290,7 @@ pub async fn map_scores(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, &mut command)
+        .begin(&mut command)
         .await
 }
 

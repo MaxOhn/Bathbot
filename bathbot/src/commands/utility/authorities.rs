@@ -1,4 +1,4 @@
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 use bathbot_macros::command;
 use bathbot_psql::model::configs::{Authorities, GuildConfig};
@@ -32,35 +32,31 @@ use crate::{
 #[alias("authority")]
 #[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
 #[group(Utility)]
-async fn prefix_authorities(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_authorities(msg: &Message, mut args: Args<'_>) -> Result<()> {
     match AuthorityCommandKind::args(&mut args) {
-        Ok(args) => authorities(ctx, msg.into(), args).await,
+        Ok(args) => authorities(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-pub async fn authorities(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: AuthorityCommandKind,
-) -> Result<()> {
+pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) -> Result<()> {
     let guild_id = orig.guild_id().unwrap();
+    let cache = Context::cache();
 
     let mut content = match args {
         AuthorityCommandKind::Add(role_id) => {
-            let roles = ctx
-                .guild_config()
+            let roles = Context::guild_config()
                 .peek(guild_id, |config| config.authorities.clone())
                 .await;
 
             if roles.len() >= 10 {
                 let content = "You can have at most 10 roles per server setup as authorities.";
 
-                return orig.error_callback(&ctx, content).await;
+                return orig.error_callback(content).await;
             }
 
             let f = |config: &mut GuildConfig| {
@@ -69,8 +65,8 @@ pub async fn authorities(
                 }
             };
 
-            if let Err(err) = ctx.guild_config().update(guild_id, f).await {
-                let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
+            if let Err(err) = Context::guild_config().update(guild_id, f).await {
+                let _ = orig.error_callback(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("failed to update guild config"));
             }
@@ -80,46 +76,44 @@ pub async fn authorities(
         AuthorityCommandKind::List => "Current authority roles for this server: ".to_owned(),
         AuthorityCommandKind::Remove(role_id) => {
             let author_id = orig.user_id()?;
-            let roles = ctx
-                .guild_config()
+            let roles = Context::guild_config()
                 .peek(guild_id, |config| config.authorities.clone())
                 .await;
 
             if roles.iter().all(|&id| id != role_id) {
                 let content = "The role was no authority role anyway";
                 let builder = MessageBuilder::new().embed(content);
-                orig.callback(&ctx, builder).await?;
+                orig.callback(builder).await?;
 
                 return Ok(());
             }
 
             // Make sure the author is still an authority after applying new roles
             if !(author_id == BotConfig::get().owner
-                || ctx
-                    .cache
+                || cache
                     .guild(guild_id)
                     .await?
                     .map_or(false, |guild| guild.owner_id == author_id))
             {
-                let member_fut = ctx.cache.member(guild_id, author_id);
+                let member_fut = cache.member(guild_id, author_id);
 
                 let member_roles = match member_fut.await {
                     Ok(Some(member)) => member.roles().to_vec(),
                     Ok(None) => Vec::new(),
                     Err(err) => {
-                        let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error_callback(GENERAL_ISSUE).await;
 
                         return Err(err);
                     }
                 };
 
-                let still_authority = match ctx.cache.roles(guild_id, member_roles).await {
+                let still_authority = match cache.roles(guild_id, member_roles).await {
                     Ok(cached_roles) => cached_roles.into_iter().any(|role| {
                         role.permissions.contains(Permissions::ADMINISTRATOR)
                             || roles.iter().any(|&new| new == role.id && new != role_id)
                     }),
                     Err(err) => {
-                        let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error_callback(GENERAL_ISSUE).await;
 
                         return Err(err);
                     }
@@ -129,14 +123,14 @@ pub async fn authorities(
                     let content = "You cannot set authority roles to something \
                                 that would make you lose authority status.";
 
-                    return orig.error_callback(&ctx, content).await;
+                    return orig.error_callback(content).await;
                 }
             }
 
             let f = |config: &mut GuildConfig| config.authorities.retain(|id| *id != role_id);
 
-            if let Err(err) = ctx.guild_config().update(guild_id, f).await {
-                let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
+            if let Err(err) = Context::guild_config().update(guild_id, f).await {
+                let _ = orig.error_callback(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("failed to update guild config"));
             }
@@ -148,31 +142,30 @@ pub async fn authorities(
 
             // Make sure the author is still an authority after applying new roles
             if !(author_id == BotConfig::get().owner
-                || ctx
-                    .cache
+                || cache
                     .guild(guild_id)
                     .await?
                     .map_or(false, |guild| guild.owner_id == author_id))
             {
-                let member_fut = ctx.cache.member(guild_id, author_id);
+                let member_fut = cache.member(guild_id, author_id);
 
                 let member_roles = match member_fut.await {
                     Ok(Some(member)) => member.roles().to_vec(),
                     Ok(None) => Vec::new(),
                     Err(err) => {
-                        let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error_callback(GENERAL_ISSUE).await;
 
                         return Err(err);
                     }
                 };
 
-                let still_authority = match ctx.cache.roles(guild_id, member_roles).await {
+                let still_authority = match cache.roles(guild_id, member_roles).await {
                     Ok(cached_roles) => cached_roles.into_iter().any(|role| {
                         role.permissions.contains(Permissions::ADMINISTRATOR)
                             || roles.iter().any(|&new| new == role.id)
                     }),
                     Err(err) => {
-                        let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error_callback(GENERAL_ISSUE).await;
 
                         return Err(err);
                     }
@@ -182,14 +175,14 @@ pub async fn authorities(
                     let content = "You cannot set authority roles to something \
                         that would make you lose authority status.";
 
-                    return orig.error_callback(&ctx, content).await;
+                    return orig.error_callback(content).await;
                 }
             }
 
             let f = |config: &mut GuildConfig| config.authorities = roles.into_iter().collect();
 
-            if let Err(err) = ctx.guild_config().update(guild_id, f).await {
-                let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
+            if let Err(err) = Context::guild_config().update(guild_id, f).await {
+                let _ = orig.error_callback(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("failed to update guild config"));
             }
@@ -199,13 +192,12 @@ pub async fn authorities(
     };
 
     // Send the message
-    let roles = ctx
-        .guild_config()
+    let roles = Context::guild_config()
         .peek(guild_id, |config| config.authorities.clone())
         .await;
     role_string(&roles, &mut content);
     let builder = MessageBuilder::new().embed(content);
-    orig.callback(&ctx, builder).await?;
+    orig.callback(builder).await?;
 
     Ok(())
 }

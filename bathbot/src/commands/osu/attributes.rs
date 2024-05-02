@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_macros::SlashCommand;
 use bathbot_util::{matcher, osu::AttributeKind, MessageBuilder};
 use eyre::Result;
@@ -7,7 +5,6 @@ use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    core::Context,
     embeds::{AttributesEmbed, EmbedData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
@@ -111,7 +108,7 @@ pub struct AttributesOd {
     clock_rate: Option<f32>,
 }
 
-async fn slash_attributes(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_attributes(mut command: InteractionCommand) -> Result<()> {
     let attrs = Attributes::from_interaction(command.input_data())?;
 
     let (kind, value, mods, clock_rate) = match attrs {
@@ -128,7 +125,7 @@ async fn slash_attributes(ctx: Arc<Context>, mut command: InteractionCommand) ->
     } else {
         let content =
             "Failed to parse mods. Be sure to specify a valid mod combination e.g. `hrdt`.";
-        command.error_callback(&ctx, content).await?;
+        command.error_callback(content).await?;
 
         return Ok(());
     };
@@ -146,14 +143,14 @@ async fn slash_attributes(ctx: Arc<Context>, mut command: InteractionCommand) ->
     if !valid_mods {
         let content = "Looks like either some of these mods are incompatible with each other \
             or those mods don't fit to any gamemode.";
-        command.error_callback(&ctx, content).await?;
+        command.error_callback(content).await?;
 
         return Ok(());
     }
 
     let embed = AttributesEmbed::new(kind, value, mods, clock_rate).build();
     let builder = MessageBuilder::new().embed(embed);
-    command.callback(&ctx, builder, false).await?;
+    command.callback(builder, false).await?;
 
     Ok(())
 }

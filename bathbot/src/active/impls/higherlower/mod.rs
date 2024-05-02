@@ -1,6 +1,5 @@
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
-    sync::Arc,
     time::Duration,
 };
 
@@ -26,7 +25,7 @@ use twilight_model::{
 use self::state::{ButtonState, HigherLowerState};
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
-    core::{Context, ContextExt},
+    core::Context,
     util::{interaction::InteractionComponent, Authored, ComponentExt, Emote, MessageExt},
 };
 
@@ -44,8 +43,8 @@ pub struct HigherLowerGame {
 }
 
 impl IActiveMessage for HigherLowerGame {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -65,7 +64,6 @@ impl IActiveMessage for HigherLowerGame {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {
@@ -78,10 +76,10 @@ impl IActiveMessage for HigherLowerGame {
         }
 
         match component.data.custom_id.as_str() {
-            "higher_button" => Box::pin(self.handle_higherlower(ctx, component, HlGuess::Higher)),
-            "lower_button" => Box::pin(self.handle_higherlower(ctx, component, HlGuess::Lower)),
-            "next_higherlower" => Box::pin(self.handle_next(ctx, component)),
-            "try_again_button" => Box::pin(self.handle_try_again(ctx, component)),
+            "higher_button" => Box::pin(self.handle_higherlower(component, HlGuess::Higher)),
+            "lower_button" => Box::pin(self.handle_higherlower(component, HlGuess::Lower)),
+            "next_higherlower" => Box::pin(self.handle_next(component)),
+            "try_again_button" => Box::pin(self.handle_try_again(component)),
             other => {
                 warn!(name = %other, ?component, "Unknown higherlower component");
 
@@ -90,13 +88,12 @@ impl IActiveMessage for HigherLowerGame {
         }
     }
 
-    fn on_timeout<'a>(
-        &'a mut self,
-        ctx: &'a Context,
+    fn on_timeout(
+        &mut self,
         msg: Id<MessageMarker>,
         channel: Id<ChannelMarker>,
-    ) -> BoxFuture<'a, Result<()>> {
-        Box::pin(self.async_on_timeout(ctx, msg, channel))
+    ) -> BoxFuture<'_, Result<()>> {
+        Box::pin(self.async_on_timeout(msg, channel))
     }
 
     fn until_timeout(&self) -> Option<Duration> {
@@ -109,15 +106,9 @@ impl IActiveMessage for HigherLowerGame {
 }
 
 impl HigherLowerGame {
-    pub async fn new_score_pp(
-        ctx: Arc<Context>,
-        mode: GameMode,
-        msg_owner: Id<UserMarker>,
-    ) -> Result<Self> {
-        let game_fut = HigherLowerState::start_score_pp(ctx.cloned(), mode);
-        let highscore_fut = ctx
-            .games()
-            .higherlower_highscore(msg_owner, HlVersion::ScorePp);
+    pub async fn new_score_pp(mode: GameMode, msg_owner: Id<UserMarker>) -> Result<Self> {
+        let game_fut = HigherLowerState::start_score_pp(mode);
+        let highscore_fut = Context::games().higherlower_highscore(msg_owner, HlVersion::ScorePp);
 
         let ((state, rx), highscore) = tokio::try_join!(game_fut, highscore_fut)?;
 
@@ -132,7 +123,7 @@ impl HigherLowerGame {
         })
     }
 
-    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let mut embed = self.state.to_embed(self.revealed);
 
         let deferred = match self.buttons {
@@ -168,7 +159,7 @@ impl HigherLowerGame {
 
                 let rx = self
                     .state
-                    .next(ctx, self.current_score)
+                    .next(self.current_score)
                     .await
                     .wrap_err("Failed to get next game")?;
 
@@ -188,7 +179,7 @@ impl HigherLowerGame {
                     embed = embed.image(image);
                 }
 
-                let value = if self.new_highscore(&ctx).await? {
+                let value = if self.new_highscore().await? {
                     format!(
                         "You achieved a total score of {}, your new personal best :tada:",
                         self.current_score
@@ -219,18 +210,17 @@ impl HigherLowerGame {
 
     async fn async_on_timeout(
         &mut self,
-        ctx: &Context,
         msg: Id<MessageMarker>,
         channel: Id<ChannelMarker>,
     ) -> Result<()> {
         let builder = MessageBuilder::new().components(self.disabled_buttons());
 
-        let update_res = match (msg, channel).update(ctx, builder, None) {
+        let update_res = match (msg, channel).update(builder, None) {
             Some(update_fut) => update_fut.await,
             None => return Err(eyre!("Lacking permission to disable components on timeout")),
         };
 
-        self.new_highscore(ctx)
+        self.new_highscore()
             .await
             .wrap_err("Failed to update highscore on timeout")?;
 
@@ -241,7 +231,6 @@ impl HigherLowerGame {
 
     async fn handle_higherlower(
         &mut self,
-        ctx: Arc<Context>,
         component: &mut InteractionComponent,
         guess: HlGuess,
     ) -> ComponentResult {
@@ -254,7 +243,7 @@ impl HigherLowerGame {
         let image = embed.image.map(|image| image.url.into_boxed_str());
 
         if self.state.check_guess(guess) {
-            if let Err(err) = component.defer(&ctx).await {
+            if let Err(err) = component.defer().await {
                 warn!(?err, "Failed to defer higherlower button");
             }
 
@@ -276,12 +265,8 @@ impl HigherLowerGame {
         }
     }
 
-    async fn handle_next(
-        &mut self,
-        ctx: Arc<Context>,
-        component: &InteractionComponent,
-    ) -> ComponentResult {
-        if let Err(err) = component.defer(&ctx).await {
+    async fn handle_next(&mut self, component: &InteractionComponent) -> ComponentResult {
+        if let Err(err) = component.defer().await {
             warn!(?err, "Failed to defer next button");
         }
 
@@ -291,11 +276,7 @@ impl HigherLowerGame {
         ComponentResult::BuildPage
     }
 
-    async fn handle_try_again(
-        &mut self,
-        ctx: Arc<Context>,
-        component: &mut InteractionComponent,
-    ) -> ComponentResult {
+    async fn handle_try_again(&mut self, component: &mut InteractionComponent) -> ComponentResult {
         let Some(embed) = component.message.embeds.pop() else {
             return ComponentResult::Err(eyre!("Missing embed in higherlower message"));
         };
@@ -348,11 +329,11 @@ impl HigherLowerGame {
             .embed(eb)
             .components(self.disabled_buttons());
 
-        if let Err(err) = component.callback(&ctx, builder).await {
+        if let Err(err) = component.callback(builder).await {
             warn!(?err, "Failed to callback try again button");
         }
 
-        let (state, rx) = match self.state.restart(ctx).await {
+        let (state, rx) = match self.state.restart().await {
             Ok(tuple) => tuple,
             Err(err) => return ComponentResult::Err(err),
         };
@@ -367,8 +348,8 @@ impl HigherLowerGame {
         ComponentResult::BuildPage
     }
 
-    async fn new_highscore(&self, ctx: &Context) -> Result<bool> {
-        ctx.games()
+    async fn new_highscore(&self) -> Result<bool> {
+        Context::games()
             .upsert_higherlower_score(self.msg_owner, self.state.version(), self.current_score)
             .await
             .wrap_err("Failed to upsert higherlower score")

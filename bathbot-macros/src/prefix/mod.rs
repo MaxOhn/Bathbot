@@ -85,12 +85,11 @@ pub fn fun(mut fun: CommandFun) -> Result<TokenStream2> {
         #fun
 
         fn #exec<'fut>(
-            ctx: Arc<Context>,
             msg: &'fut twilight_model::channel::Message,
             args: crate::core::commands::prefix::Args<'fut>,
             permissions: Option<::twilight_model::guild::Permissions>,
         ) -> crate::core::commands::prefix::CommandResult<'fut> {
-            Box::pin(#fun_name(ctx, msg, args, permissions))
+            Box::pin(#fun_name(msg, args, permissions))
         }
     };
 
@@ -101,35 +100,19 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
     let mut iter = fun.args.iter_mut();
 
     match iter.next() {
-        Some(arg) if arg.ty == parse_quote! { Arc<Context> } => {}
-        Some(arg) => {
-            return Err(Error::new_spanned(
-                &arg.ty,
-                "expected first argument to be of type `Arc<Context>`",
-            ));
-        }
-        None => {
-            return Err(Error::new_spanned(
-                &fun.name,
-                "expected first argument to be of type `Arc<Context>`",
-            ));
-        }
-    }
-
-    match iter.next() {
         Some(arg) if arg.ty == parse_quote! { &Message } => {
             arg.ty = parse_quote! { &'fut twilight_model::channel::Message };
         }
         Some(arg) => {
             return Err(Error::new_spanned(
                 &arg.ty,
-                "expected second argument to be of type `&Message`",
+                "expected first argument to be of type `&Message`",
             ));
         }
         None => {
             return Err(Error::new_spanned(
                 &fun.name,
-                "expected second argument to be of type `&Message`",
+                "expected first argument to be of type `&Message`",
             ));
         }
     }
@@ -158,7 +141,7 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
         (Some(arg), None) => {
             return Err(Error::new_spanned(
                 &arg.ty,
-                "expected third argument to be of type `Args<'_>` or `Option<Permissions>`",
+                "expected second argument to be of type `Args<'_>` or `Option<Permissions>`",
             ))
         }
         (Some(arg1), Some(arg2)) if arg1.ty == parse_quote! { Args<'_> } && arg2.ty == parse_quote! { Option<Permissions> } => {
@@ -174,7 +157,7 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
         (Some(arg), Some(_)) => {
             return Err(Error::new_spanned(
                 &arg.ty,
-                "expected third and fourth arguments to be of type `Args<'_>` and `Option<Permissions>`",
+                "expected second and third arguments to be of type `Args<'_>` and `Option<Permissions>`",
             ))
         }
         (None, Some(_)) => unreachable!(),
@@ -183,7 +166,7 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
     if iter.count() > 0 {
         return Err(Error::new_spanned(
             &fun.name,
-            "expected at most four arguments",
+            "expected at most three arguments",
         ));
     }
 
@@ -196,7 +179,7 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
     }
 
     if swap {
-        fun.args.swap(2, 3);
+        fun.args.swap(1, 2);
     }
 
     Ok(())

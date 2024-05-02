@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
 use bathbot_psql::model::osu::ArtistTitle;
 use bathbot_util::string_cmp::{gestalt_pattern_matching, levenshtein_similarity};
 use eyre::{Report, Result};
 
-use crate::core::{Context, ContextExt};
+use crate::core::Context;
 
 pub struct GameMapset {
     pub mapset_id: u32,
@@ -14,8 +12,8 @@ pub struct GameMapset {
 }
 
 impl GameMapset {
-    pub async fn new(ctx: Arc<Context>, mapset_id: u32) -> Result<Self> {
-        let ArtistTitle { artist, title } = match ctx.osu_map().artist_title(mapset_id).await {
+    pub async fn new(mapset_id: u32) -> Result<Self> {
+        let ArtistTitle { artist, title } = match Context::osu_map().artist_title(mapset_id).await {
             Ok(mut artist_title) => {
                 artist_title.title.make_ascii_lowercase();
                 artist_title.artist.make_ascii_lowercase();

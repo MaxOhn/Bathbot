@@ -55,15 +55,15 @@ impl CommandOrigin<'_> {
     /// In case of a message, discard the response message created.
     ///
     /// In case of an interaction, the response will **not** be ephemeral.
-    pub async fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> Result<()> {
+    pub async fn callback(&self, builder: MessageBuilder<'_>) -> Result<()> {
         match self {
             Self::Message { msg, permissions } => msg
-                .create_message(ctx, builder, *permissions)
+                .create_message(builder, *permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to create message to callback"),
             Self::Interaction { command } => command
-                .callback(ctx, builder, false)
+                .callback(builder, false)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to callback"),
@@ -75,21 +75,20 @@ impl CommandOrigin<'_> {
     /// In case of an interaction, the response will **not** be ephemeral.
     pub async fn callback_with_response(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
     ) -> Result<Response<Message>> {
         match self {
             Self::Message { msg, permissions } => msg
-                .create_message(ctx, builder, *permissions)
+                .create_message(builder, *permissions)
                 .await
                 .wrap_err("failed to create message for response callback"),
             Self::Interaction { command } => {
                 command
-                    .callback(ctx, builder, false)
+                    .callback(builder, false)
                     .await
                     .wrap_err("failed to callback for response")?;
 
-                ctx.interaction()
+                Context::interaction()
                     .response(&command.token)
                     .await
                     .wrap_err("failed to get response message")
@@ -104,18 +103,17 @@ impl CommandOrigin<'_> {
     /// created.
     pub async fn callback_with_flags(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
         ephemeral: bool,
     ) -> Result<()> {
         match self {
             Self::Message { msg, permissions } => msg
-                .create_message(ctx, builder, *permissions)
+                .create_message(builder, *permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to create message for flagged callback"),
             Self::Interaction { command } => command
-                .callback(ctx, builder, ephemeral)
+                .callback(builder, ephemeral)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to callback with flags"),
@@ -128,18 +126,14 @@ impl CommandOrigin<'_> {
     /// either through deferring or a previous initial response.
     /// Also be sure this is only called once.
     /// Afterwards, use the resulting response message instead.
-    pub async fn create_message(
-        &self,
-        ctx: &Context,
-        builder: MessageBuilder<'_>,
-    ) -> Result<Response<Message>> {
+    pub async fn create_message(&self, builder: MessageBuilder<'_>) -> Result<Response<Message>> {
         match self {
             Self::Message { msg, permissions } => msg
-                .create_message(ctx, builder, *permissions)
+                .create_message(builder, *permissions)
                 .await
                 .wrap_err("failed to create message as response"),
             Self::Interaction { command } => command
-                .update(ctx, builder)
+                .update(builder)
                 .await
                 .wrap_err("failed to update as response"),
         }
@@ -149,19 +143,15 @@ impl CommandOrigin<'_> {
     ///
     /// In case of an interaction, be sure this is the first and only time you
     /// call this. Afterwards, you must update the resulting message.
-    pub async fn update(
-        &self,
-        ctx: &Context,
-        builder: MessageBuilder<'_>,
-    ) -> Result<Response<Message>> {
+    pub async fn update(&self, builder: MessageBuilder<'_>) -> Result<Response<Message>> {
         match self {
             Self::Message { msg, permissions } => msg
-                .update(ctx, builder, *permissions)
+                .update(builder, *permissions)
                 .wrap_err("lacking permission to update message")?
                 .await
                 .wrap_err("failed to update message"),
             Self::Interaction { command } => command
-                .update(ctx, builder)
+                .update(builder)
                 .await
                 .wrap_err("failed to update interaction message"),
         }
@@ -170,15 +160,15 @@ impl CommandOrigin<'_> {
     /// Respond with a red embed.
     ///
     /// In case of an interaction, be sure you already called back beforehand.
-    pub async fn error(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
+    pub async fn error(&self, content: impl Into<String>) -> Result<()> {
         match self {
             Self::Message { msg, .. } => msg
-                .error(ctx, content)
+                .error(content)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to respond with error"),
             Self::Interaction { command } => command
-                .error(ctx, content)
+                .error(content)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to respond with error"),
@@ -189,15 +179,15 @@ impl CommandOrigin<'_> {
     ///
     /// In case of an interaction, be sure this is the first and only time you
     /// call this. The response will not be ephemeral.
-    pub async fn error_callback(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
+    pub async fn error_callback(&self, content: impl Into<String>) -> Result<()> {
         match self {
             CommandOrigin::Message { msg, .. } => msg
-                .error(ctx, content)
+                .error(content)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to callback with error"),
             CommandOrigin::Interaction { command } => command
-                .error_callback(ctx, content)
+                .error_callback(content)
                 .await
                 .map(|_| ())
                 .wrap_err("failed to callback with error"),
@@ -216,14 +206,12 @@ impl<'d> CommandOrigin<'d> {
 }
 
 impl<'d> From<&'d Message> for CommandOrigin<'d> {
-    #[inline]
     fn from(msg: &'d Message) -> Self {
         Self::from_msg(msg, None)
     }
 }
 
 impl<'d> From<&'d mut InteractionCommand> for CommandOrigin<'d> {
-    #[inline]
     fn from(command: &'d mut InteractionCommand) -> Self {
         Self::from_interaction(command)
     }
@@ -245,23 +233,19 @@ impl OwnedCommandOrigin {
     ///
     /// In case of an interaction, be sure this is the first and only time you
     /// call this. Afterwards, you must update the resulting message.
-    pub async fn update(
-        &self,
-        ctx: &Context,
-        builder: MessageBuilder<'_>,
-    ) -> Result<Response<Message>> {
+    pub async fn update(&self, builder: MessageBuilder<'_>) -> Result<Response<Message>> {
         match self {
             Self::Message {
                 msg,
                 channel,
                 permissions,
             } => (*msg, *channel)
-                .update(ctx, builder, *permissions)
+                .update(builder, *permissions)
                 .wrap_err("Lacking permission to update message")?
                 .await
                 .wrap_err("Failed to update message"),
             Self::Interaction { command } => command
-                .update(ctx, builder)
+                .update(builder)
                 .await
                 .wrap_err("Failed to update interaction message"),
         }
@@ -270,7 +254,7 @@ impl OwnedCommandOrigin {
     /// Respond with a red embed.
     ///
     /// In case of an interaction, be sure you already called back beforehand.
-    pub async fn error(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
+    pub async fn error(&self, content: impl Into<String>) -> Result<()> {
         match self {
             Self::Message {
                 msg,
@@ -281,14 +265,14 @@ impl OwnedCommandOrigin {
                 let builder = MessageBuilder::new().embed(embed);
 
                 (*msg, *channel)
-                    .update(ctx, builder, *permissions)
+                    .update(builder, *permissions)
                     .wrap_err("Lacking permission to respond with error")?
                     .await
                     .map(|_| ())
                     .wrap_err("Failed to respond with error")
             }
             Self::Interaction { command } => command
-                .error(ctx, content)
+                .error(content)
                 .await
                 .map(|_| ())
                 .wrap_err("Failed to respond with error"),

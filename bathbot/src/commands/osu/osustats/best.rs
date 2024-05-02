@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bathbot_util::constants::OSUSTATS_API_ISSUE;
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
@@ -7,21 +5,17 @@ use rosu_v2::prelude::GameMode;
 use super::{OsuStatsBest, OsuStatsBestSort};
 use crate::{
     active::{impls::OsuStatsBestPagination, ActiveMessages},
-    core::{commands::CommandOrigin, Context, ContextExt},
+    core::{commands::CommandOrigin, Context},
 };
 
-pub(super) async fn recentbest(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: OsuStatsBest,
-) -> Result<()> {
+pub(super) async fn recentbest(orig: CommandOrigin<'_>, args: OsuStatsBest) -> Result<()> {
     let mode = args.mode.map(GameMode::from).unwrap_or(GameMode::Osu);
-    let scores_fut = ctx.redis().osustats_best(args.timeframe, mode);
+    let scores_fut = Context::redis().osustats_best(args.timeframe, mode);
 
     let mut scores = match scores_fut.await {
         Ok(scores) => scores.into_original(),
         Err(err) => {
-            let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
+            let _ = orig.error(OSUSTATS_API_ISSUE).await;
 
             return Err(err);
         }
@@ -71,6 +65,6 @@ pub(super) async fn recentbest(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }

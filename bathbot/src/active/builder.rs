@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use bathbot_util::MessageBuilder;
 use eyre::{Report, Result, WrapErr};
@@ -15,7 +15,7 @@ use super::{
     origin::{ActiveMessageOrigin, ActiveMessageOriginError},
     ActiveMessage, BuildPage, FullActiveMessage, IActiveMessage,
 };
-use crate::core::{Context, ContextExt};
+use crate::core::Context;
 
 pub struct ActiveMessagesBuilder {
     inner: ActiveMessage,
@@ -32,22 +32,15 @@ impl ActiveMessagesBuilder {
         }
     }
 
-    pub async fn begin(
-        self,
-        ctx: Arc<Context>,
-        orig: impl Into<ActiveMessageOrigin<'_>>,
-    ) -> Result<()> {
-        self.begin_with_err(ctx, orig)
-            .await
-            .map_err(|err| match err {
-                ActiveMessageOriginError::Report(err) => err,
-                err @ ActiveMessageOriginError::CannotDmUser => Report::new(err),
-            })
+    pub async fn begin(self, orig: impl Into<ActiveMessageOrigin<'_>>) -> Result<()> {
+        self.begin_with_err(orig).await.map_err(|err| match err {
+            ActiveMessageOriginError::Report(err) => err,
+            err @ ActiveMessageOriginError::CannotDmUser => Report::new(err),
+        })
     }
 
     pub async fn begin_with_err(
         self,
-        ctx: Arc<Context>,
         orig: impl Into<ActiveMessageOrigin<'_>>,
     ) -> Result<(), ActiveMessageOriginError> {
         let Self {
@@ -61,7 +54,7 @@ impl ActiveMessagesBuilder {
             content,
             defer: _,
         } = active_msg
-            .build_page(ctx.cloned())
+            .build_page()
             .await
             .wrap_err("Failed to build page")?;
 
@@ -80,9 +73,9 @@ impl ActiveMessagesBuilder {
         let orig: ActiveMessageOrigin<'_> = orig.into();
 
         let response_raw = if start_by_update.unwrap_or(false) {
-            orig.create_message(&ctx, builder).await?
+            orig.create_message(builder).await?
         } else {
-            orig.callback(&ctx, builder).await?
+            orig.callback(builder).await?
         };
 
         let response = response_raw
@@ -95,14 +88,14 @@ impl ActiveMessagesBuilder {
         let (activity_tx, activity_rx) = watch::channel(());
 
         if let Some(until_timeout) = active_msg.until_timeout() {
-            Self::spawn_timeout(ctx.cloned(), activity_rx, msg, channel, until_timeout);
+            Self::spawn_timeout(activity_rx, msg, channel, until_timeout);
 
             let full = FullActiveMessage {
                 active_msg,
                 activity_tx,
             };
 
-            ctx.active_msgs.insert(msg, full).await;
+            Context::get().active_msgs.insert(msg, full).await;
         }
 
         Ok(())
@@ -120,7 +113,6 @@ impl ActiveMessagesBuilder {
     }
 
     fn spawn_timeout(
-        ctx: Arc<Context>,
         mut rx: Receiver<()>,
         msg: Id<MessageMarker>,
         channel: Id<ChannelMarker>,
@@ -135,10 +127,10 @@ impl ActiveMessagesBuilder {
                         return
                     },
                     _ = sleep(until_timeout) => {
-                        let active_msg = ctx.active_msgs.remove_full(msg).await;
+                        let active_msg = Context::get().active_msgs.remove_full(msg).await;
 
                         if let Some(FullActiveMessage { mut active_msg, .. }) = active_msg {
-                            if let Err(err) = active_msg.on_timeout(&ctx, msg, channel).await {
+                            if let Err(err) = active_msg.on_timeout(msg, channel).await {
                                 warn!(?err, "Failed to timeout active message");
                             }
                         }

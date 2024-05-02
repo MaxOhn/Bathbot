@@ -2,7 +2,6 @@ use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap},
     fmt::{Display, Formatter, Result as FmtResult, Write},
-    sync::Arc,
 };
 
 use bathbot_macros::PaginationBuilder;
@@ -25,7 +24,7 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    core::{Context, ContextExt},
+    core::Context,
     embeds::PpFormatter,
     manager::{redis::RedisData, OsuMap},
     util::{
@@ -48,8 +47,8 @@ pub struct SnipePlayerListPagination {
 }
 
 impl IActiveMessage for SnipePlayerListPagination {
-    fn build_page(&mut self, ctx: Arc<Context>) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page(ctx))
+    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+        Box::pin(self.async_build_page())
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -58,23 +57,22 @@ impl IActiveMessage for SnipePlayerListPagination {
 
     fn handle_component<'a>(
         &'a mut self,
-        ctx: Arc<Context>,
+
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(ctx, component, self.msg_owner, true, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, true, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
-        ctx: &'a Context,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(ctx, modal, self.msg_owner, true, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, true, &mut self.pages)
     }
 }
 
 impl SnipePlayerListPagination {
-    async fn async_build_page(&mut self, ctx: Arc<Context>) -> Result<BuildPage> {
+    async fn async_build_page(&mut self) -> Result<BuildPage> {
         let pages = &self.pages;
 
         let count = self
@@ -87,8 +85,7 @@ impl SnipePlayerListPagination {
             self.params.page(huismetbenen_page as u32);
 
             // Get scores
-            let scores = ctx
-                .client()
+            let scores = Context::client()
                 .get_national_firsts(&self.params)
                 .await
                 .wrap_err("Failed to get national firsts")?;
@@ -116,7 +113,7 @@ impl SnipePlayerListPagination {
             .collect();
 
         if !map_ids.is_empty() {
-            let new_maps = match ctx.osu_map().maps(&map_ids).await {
+            let new_maps = match Context::osu_map().maps(&map_ids).await {
                 Ok(maps) => maps,
                 Err(err) => {
                     warn!(?err, "Failed to get maps from database");
@@ -148,7 +145,7 @@ impl SnipePlayerListPagination {
             let map = self.maps.get(&score.map_id).expect("missing map");
             let mods = score.mods.as_ref().map(Cow::Borrowed).unwrap_or_default();
 
-            let max_attrs = ctx.pp(map).mods(mods.as_ref()).performance().await;
+            let max_attrs = Context::pp(map).mods(mods.as_ref()).performance().await;
             let max_pp = max_attrs.pp() as f32;
             let max_combo = max_attrs.max_combo();
             let count_miss = score.count_miss.unwrap_or(0);

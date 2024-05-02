@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::SlashCommand;
 use eyre::Result;
@@ -8,7 +8,6 @@ pub use self::{countries::*, players::*};
 use crate::{
     commands::GameModeOption,
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
 };
 
 mod countries;
@@ -75,10 +74,10 @@ impl From<Option<GameModeOption>> for RankingCountry {
     }
 }
 
-async fn slash_ranking(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_ranking(mut command: InteractionCommand) -> Result<()> {
     match Ranking::from_interaction(command.input_data())? {
-        Ranking::Pp(args) => pp(ctx, (&mut command).into(), args).await,
-        Ranking::Score(args) => score(ctx, (&mut command).into(), args).await,
-        Ranking::Country(args) => country(ctx, (&mut command).into(), args).await,
+        Ranking::Pp(args) => pp((&mut command).into(), args).await,
+        Ranking::Score(args) => score((&mut command).into(), args).await,
+        Ranking::Country(args) => country((&mut command).into(), args).await,
     }
 }

@@ -16,16 +16,14 @@ use crate::core::Context;
 pub trait MessageExt {
     fn update(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> Option<ResponseFuture<Message>>;
 
-    fn delete(&self, ctx: &Context) -> ResponseFuture<EmptyBody>;
+    fn delete(&self) -> ResponseFuture<EmptyBody>;
 
     fn reply(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> ResponseFuture<Message>;
@@ -34,7 +32,6 @@ pub trait MessageExt {
 impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
     fn update(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> Option<ResponseFuture<Message>> {
@@ -47,7 +44,7 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
             return None;
         }
 
-        let mut req = ctx.http.update_message(self.1, self.0);
+        let mut req = Context::http().update_message(self.1, self.0);
 
         if let Some(ref content) = builder.content {
             req = req
@@ -67,18 +64,16 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
         Some(req.into_future())
     }
 
-    #[inline]
-    fn delete<'l>(&'l self, ctx: &'l Context) -> ResponseFuture<EmptyBody> {
-        ctx.http.delete_message(self.1, self.0).into_future()
+    fn delete(&self) -> ResponseFuture<EmptyBody> {
+        Context::http().delete_message(self.1, self.0).into_future()
     }
 
     fn reply(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> ResponseFuture<Message> {
-        let mut req = ctx.http.create_message(self.1).reply(self.0);
+        let mut req = Context::http().create_message(self.1).reply(self.0);
 
         if let Some(ref content) = builder.content {
             req = req.content(content.as_ref()).expect("invalid content");
@@ -109,28 +104,23 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
 }
 
 impl MessageExt for Message {
-    #[inline]
     fn update(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> Option<ResponseFuture<Message>> {
-        (self.id, self.channel_id).update(ctx, builder, permissions)
+        (self.id, self.channel_id).update(builder, permissions)
     }
 
-    #[inline]
-    fn delete(&self, ctx: &Context) -> ResponseFuture<EmptyBody> {
-        (self.id, self.channel_id).delete(ctx)
+    fn delete(&self) -> ResponseFuture<EmptyBody> {
+        (self.id, self.channel_id).delete()
     }
 
-    #[inline]
     fn reply(
         &self,
-        ctx: &Context,
         builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> ResponseFuture<Message> {
-        (self.id, self.channel_id).reply(ctx, builder, permissions)
+        (self.id, self.channel_id).reply(builder, permissions)
     }
 }

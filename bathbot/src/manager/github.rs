@@ -7,30 +7,28 @@ use crate::{
     manager::redis::RedisData,
 };
 
-pub struct GithubManager<'a> {
-    ctx: &'a Context,
-}
+#[derive(Copy, Clone)]
+pub struct GithubManager;
 
-impl<'a> GithubManager<'a> {
-    pub fn new(ctx: &'a Context) -> Self {
-        Self { ctx }
+impl GithubManager {
+    pub fn new() -> Self {
+        Self
     }
 }
 
-impl GithubManager<'_> {
-    pub async fn tags_and_prs(&self) -> Result<PullRequestsAndTags> {
-        self.ctx
-            .client()
+impl GithubManager {
+    pub async fn tags_and_prs(self) -> Result<PullRequestsAndTags> {
+        Context::client()
             .github_pull_requests_and_tags()
             .await
             .wrap_err("Failed to get tags and PRs")
     }
 
-    pub async fn next_prs(&self, next_cursor: &str) -> Result<RedisData<PullRequests>> {
+    pub async fn next_prs(self, next_cursor: &str) -> Result<RedisData<PullRequests>> {
         const EXPIRE: usize = 1800; // 30 min
         let key = format!("github_prs_{next_cursor}");
 
-        let mut conn = match self.ctx.cache.fetch(&key).await {
+        let mut conn = match Context::cache().fetch(&key).await {
             Ok(Ok(prs)) => {
                 BotMetrics::inc_redis_hit("github prs");
 
@@ -44,7 +42,7 @@ impl GithubManager<'_> {
             }
         };
 
-        let prs = self.ctx.client().github_pull_requests(next_cursor).await?;
+        let prs = Context::client().github_pull_requests(next_cursor).await?;
 
         if let Some(ref mut conn) = conn {
             // TODO: check scratch size

@@ -1,6 +1,4 @@
-#![cfg(feature = "matchlive")]
-
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bathbot_macros::{command, SlashCommand};
 use bathbot_util::{
@@ -54,10 +52,10 @@ pub struct MatchliveRemove<'a> {
     match_url: Cow<'a, str>,
 }
 
-async fn slash_matchlive(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_matchlive(mut command: InteractionCommand) -> Result<()> {
     match Matchlive::from_interaction(command.input_data())? {
-        Matchlive::Add(args) => matchlive(ctx, (&mut command).into(), args).await,
-        Matchlive::Remove(args) => matchliveremove(ctx, (&mut command).into(), Some(args)).await,
+        Matchlive::Add(args) => matchlive((&mut command).into(), args).await,
+        Matchlive::Remove(args) => matchliveremove((&mut command).into(), Some(args)).await,
     }
 }
 
@@ -75,7 +73,7 @@ async fn slash_matchlive(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 #[bucket(MatchLive)]
 #[flags(AUTHORITY)]
 #[group(AllModes)]
-async fn prefix_matchlive(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
+async fn prefix_matchlive(msg: &Message, mut args: Args<'_>) -> Result<()> {
     match args.next() {
         Some(arg) => {
             let args = MatchliveAdd {
@@ -83,11 +81,11 @@ async fn prefix_matchlive(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) 
                 thread: ThreadChannel::Channel,
             };
 
-            matchlive(ctx, msg.into(), args).await
+            matchlive(msg.into(), args).await
         }
         None => {
             let content = "You must specify either a match id or a multiplayer link to a match";
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -106,18 +104,14 @@ async fn prefix_matchlive(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) 
 #[alias("mlr")]
 #[flags(AUTHORITY)]
 #[group(AllModes)]
-async fn prefix_matchliveremove(
-    ctx: Arc<Context>,
-    msg: &Message,
-    mut args: Args<'_>,
-) -> Result<()> {
+async fn prefix_matchliveremove(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match parse_match_id(arg) {
             Ok(_) => Some(MatchliveRemove {
                 match_url: arg.into(),
             }),
             Err(content) => {
-                msg.error(&ctx, content).await?;
+                msg.error(content).await?;
 
                 return Ok(());
             }
@@ -125,7 +119,7 @@ async fn prefix_matchliveremove(
         None => None,
     };
 
-    matchliveremove(ctx, msg.into(), args).await
+    matchliveremove(msg.into(), args).await
 }
 
 fn parse_match_id(match_url: &str) -> Result<u32, &'static str> {
@@ -140,37 +134,32 @@ fn parse_match_id(match_url: &str) -> Result<u32, &'static str> {
     }
 }
 
-async fn matchlive(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: MatchliveAdd<'_>,
-) -> Result<()> {
+async fn matchlive(orig: CommandOrigin<'_>, args: MatchliveAdd<'_>) -> Result<()> {
     let MatchliveAdd { match_url, thread } = args;
 
     let match_id = match parse_match_id(&match_url) {
         Ok(id) => id,
-        Err(content) => return orig.error(&ctx, content).await,
+        Err(content) => return orig.error(content).await,
     };
 
     let mut channel = orig.channel_id();
 
     if let ThreadChannel::Thread = thread {
         if orig.guild_id().is_none() {
-            return orig.error(&ctx, THREADS_UNAVAILABLE).await;
+            return orig.error(THREADS_UNAVAILABLE).await;
         }
 
         if !orig.can_create_thread() {
             let content = "I'm lacking the permission to create public threads";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
 
         let kind = ChannelType::PublicThread;
         let archive_dur = AutoArchiveDuration::Day;
         let thread_name = format!("Live tracking match id {match_id}");
 
-        let create_fut = ctx
-            .http
+        let create_fut = Context::http()
             .create_thread(channel, &thread_name, kind)
             .unwrap()
             .auto_archive_duration(archive_dur);
@@ -190,9 +179,9 @@ async fn matchlive(
                 };
 
                 match content {
-                    Some(content) => return orig.error(&ctx, content).await,
+                    Some(content) => return orig.error(content).await,
                     None => {
-                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error(GENERAL_ISSUE).await;
                         let report = Report::new(err).wrap_err("failed to create thread");
 
                         return Err(report);
@@ -202,11 +191,11 @@ async fn matchlive(
         }
     }
 
-    let content: &str = match ctx.add_match_track(channel, match_id).await {
+    let content: &str = match Context::add_match_track(channel, match_id).await {
         MatchTrackResult::Added => match orig {
             CommandOrigin::Message { .. } => return Ok(()),
             CommandOrigin::Interaction { command } => {
-                ctx.interaction()
+                Context::interaction()
                     .delete_response(&command.token)
                     .await
                     .wrap_err("Failed to delete response")?;
@@ -221,42 +210,38 @@ async fn matchlive(
         MatchTrackResult::Private => "The match can't be tracked because it is private",
     };
 
-    orig.error(&ctx, content).await
+    orig.error(content).await
 }
 
-async fn matchliveremove(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: Option<MatchliveRemove<'_>>,
-) -> Result<()> {
+async fn matchliveremove(orig: CommandOrigin<'_>, args: Option<MatchliveRemove<'_>>) -> Result<()> {
     let channel = orig.channel_id();
 
     let match_id = match args.map(|args| parse_match_id(&args.match_url)) {
         Some(Ok(id)) => id,
-        Some(Err(content)) => return orig.error(&ctx, content).await,
-        None => match ctx.tracks_single_match(channel).await {
+        Some(Err(content)) => return orig.error(content).await,
+        None => match Context::tracks_single_match(channel).await {
             Some(id) => id,
             None => {
                 let content = "The channel does not track exactly one match \
                     and the match id could not be parsed from the first argument.\n\
                     Try specifying the match id as first argument.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         },
     };
 
-    if ctx.remove_match_track(channel, match_id).await {
+    if Context::remove_match_track(channel, match_id).await {
         let content =
             format!("Stopped live tracking [the match]({OSU_BASE}community/matches/{match_id})",);
 
         let builder = MessageBuilder::new().embed(content);
-        orig.create_message(&ctx, builder).await?;
+        orig.create_message(builder).await?;
 
         Ok(())
     } else {
         let content = "The match wasn't tracked in this channel";
 
-        orig.error(&ctx, content).await
+        orig.error(content).await
     }
 }

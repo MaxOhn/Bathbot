@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp, fmt::Write, iter, sync::Arc};
+use std::{borrow::Cow, cmp, fmt::Write, iter};
 
 use bathbot_macros::command;
 use bathbot_model::{rosu_v2::user::User, RespektiveUser};
@@ -15,10 +15,7 @@ use rosu_v2::prelude::{OsuError, UserId, Username};
 use super::{RankScore, RankValue};
 use crate::{
     commands::{osu::user_not_found, GameModeOption},
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,
     Context,
@@ -35,11 +32,11 @@ use crate::{
 #[example("badewanne3 123")]
 #[alias("rrs")]
 #[group(Osu)]
-async fn prefix_rankrankedscore(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_rankrankedscore(msg: &Message, args: Args<'_>) -> Result<()> {
     match RankScore::args(None, args) {
-        Ok(args) => score(ctx, msg.into(), args).await,
+        Ok(args) => score(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -57,15 +54,11 @@ async fn prefix_rankrankedscore(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[example("badewanne3 123")]
 #[alias("rrsm")]
 #[group(Mania)]
-async fn prefix_rankrankedscoremania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> Result<()> {
+async fn prefix_rankrankedscoremania(msg: &Message, args: Args<'_>) -> Result<()> {
     match RankScore::args(Some(GameModeOption::Mania), args) {
-        Ok(args) => score(ctx, msg.into(), args).await,
+        Ok(args) => score(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -83,15 +76,11 @@ async fn prefix_rankrankedscoremania(
 #[example("badewanne3 123")]
 #[alias("rrst")]
 #[group(Taiko)]
-async fn prefix_rankrankedscoretaiko(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> Result<()> {
+async fn prefix_rankrankedscoretaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match RankScore::args(Some(GameModeOption::Taiko), args) {
-        Ok(args) => score(ctx, msg.into(), args).await,
+        Ok(args) => score(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -109,11 +98,11 @@ async fn prefix_rankrankedscoretaiko(
 #[example("badewanne3 123")]
 #[aliases("rrsc", "rankrankedscorecatch")]
 #[group(Catch)]
-async fn prefix_rankrankedscorectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+async fn prefix_rankrankedscorectb(msg: &Message, args: Args<'_>) -> Result<()> {
     match RankScore::args(Some(GameModeOption::Catch), args) {
-        Ok(args) => score(ctx, msg.into(), args).await,
+        Ok(args) => score(msg.into(), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
@@ -153,35 +142,29 @@ impl<'m> RankScore<'m> {
     }
 }
 
-pub(super) async fn score(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: RankScore<'_>,
-) -> Result<()> {
-    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Result<()> {
+    let (user_id, mode) = user_id_mode!(orig, args);
     let rank_value = RankValue::parse(args.rank.as_ref());
 
     if matches!(rank_value, RankValue::Raw(0)) {
         let content = "Rank number must be between 1 and 10,000";
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     } else if matches!(rank_value, RankValue::Delta(0)) {
-        return orig
-            .error(&ctx, "Delta must be greater than zero :clown:")
-            .await;
+        return orig.error("Delta must be greater than zero :clown:").await;
     }
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-    let user = match ctx.redis().osu_user(user_args).await {
+    let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
+            let content = user_not_found(user_id).await;
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get user"));
         }
@@ -192,9 +175,7 @@ pub(super) async fn score(
 
     let rank = match rank_value {
         RankValue::Delta(delta) => {
-            let user_fut = ctx
-                .client()
-                .get_respektive_users(iter::once(user.user_id()), mode);
+            let user_fut = Context::client().get_respektive_users(iter::once(user.user_id()), mode);
 
             let curr_rank = match user_fut
                 .await
@@ -209,10 +190,10 @@ pub(super) async fn score(
                         user.username()
                     );
 
-                    return orig.error(&ctx, content).await;
+                    return orig.error(content).await;
                 }
                 Err(err) => {
-                    let _ = orig.error(&ctx, "Some issue with respektive's api").await;
+                    let _ = orig.error("Some issue with respektive's api").await;
 
                     return Err(err.wrap_err("Failed to get respektive user"));
                 }
@@ -222,7 +203,7 @@ pub(super) async fn score(
         }
         RankValue::Raw(rank) => rank,
         RankValue::Name(name) => {
-            let user_id = match UserArgs::username(ctx.cloned(), name).await {
+            let user_id = match UserArgs::username(name).await {
                 UserArgs::Args(args) => args.user_id,
                 UserArgs::User { user, .. } => {
                     rank_holder = Some(RankHolder {
@@ -233,23 +214,23 @@ pub(super) async fn score(
                     user.user_id
                 }
                 UserArgs::Err(OsuError::NotFound) => {
-                    let content = user_not_found(&ctx, UserId::from(name)).await;
+                    let content = user_not_found(UserId::from(name)).await;
 
-                    return orig.error(&ctx, content).await;
+                    return orig.error(content).await;
                 }
                 UserArgs::Err(err) => {
-                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                    let _ = orig.error(OSU_API_ISSUE).await;
 
                     return Err(Report::new(err).wrap_err("Failed to get target user"));
                 }
             };
 
-            let user_fut = ctx.client().get_respektive_users(iter::once(user_id), mode);
+            let user_fut = Context::client().get_respektive_users(iter::once(user_id), mode);
 
             let rank_opt = match user_fut.await {
                 Ok(mut users) => users.next().flatten().and_then(|user| user.rank),
                 Err(err) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(GENERAL_ISSUE).await;
 
                     return Err(err.wrap_err("Failed to get respektive user"));
                 }
@@ -262,7 +243,7 @@ pub(super) async fn score(
                     the user must be at least top 10k in the score ranking.",
                 );
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             };
 
             reach_name = true;
@@ -274,7 +255,7 @@ pub(super) async fn score(
     if rank > 10_000 {
         let content = "Unfortunately I can only provide data for ranks up to 10,000 :(";
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
     // Retrieve the user and the user thats holding the given rank
@@ -282,7 +263,7 @@ pub(super) async fn score(
         rank_holder
     } else {
         let page = (rank as usize / 50) + (rank % 50 != 0) as usize;
-        let rank_holder_fut = ctx.osu().score_rankings(mode).page(page as u32);
+        let rank_holder_fut = Context::osu().score_rankings(mode).page(page as u32);
 
         match rank_holder_fut.await {
             Ok(mut rankings) => {
@@ -295,12 +276,12 @@ pub(super) async fn score(
                 }
             }
             Err(OsuError::NotFound) => {
-                let content = user_not_found(&ctx, user_id).await;
+                let content = user_not_found(user_id).await;
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
             Err(err) => {
-                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let _ = orig.error(OSU_API_ISSUE).await;
                 let err = Report::new(err).wrap_err("Failed to get user");
 
                 return Err(err);
@@ -308,9 +289,7 @@ pub(super) async fn score(
         }
     };
 
-    let rank_fut = ctx
-        .client()
-        .get_respektive_users(iter::once(user.user_id()), mode);
+    let rank_fut = Context::client().get_respektive_users(iter::once(user.user_id()), mode);
 
     let respektive_user = match rank_fut.await {
         Ok(mut iter) => iter.next().flatten(),
@@ -373,7 +352,7 @@ pub(super) async fn score(
         .title(title);
 
     let builder = MessageBuilder::new().embed(embed);
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }

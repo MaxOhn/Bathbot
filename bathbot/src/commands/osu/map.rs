@@ -1,6 +1,4 @@
-use std::{
-    borrow::Cow, cell::RefCell, cmp::Ordering, fmt::Write, mem, rc::Rc, sync::Arc, time::Duration,
-};
+use std::{borrow::Cow, cell::RefCell, cmp::Ordering, fmt::Write, mem, rc::Rc, time::Duration};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_util::{
@@ -29,10 +27,7 @@ use twilight_model::{
 use super::{BitMapElement, HasMods, ModsResult};
 use crate::{
     active::{impls::MapPagination, ActiveMessages},
-    core::{
-        commands::{prefix::Args, CommandOrigin},
-        ContextExt,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
@@ -128,7 +123,7 @@ impl CustomAttrs {
 }
 
 impl<'m> MapArgs<'m> {
-    async fn args(ctx: &Context, msg: &Message, args: Args<'m>) -> Result<MapArgs<'m>, String> {
+    async fn args(msg: &Message, args: Args<'m>) -> Result<MapArgs<'m>, String> {
         let mut map = None;
         let mut mods = None;
 
@@ -156,7 +151,7 @@ impl<'m> MapArgs<'m> {
             .filter(|_| msg.kind == MessageType::Reply);
 
         if let Some(reply) = reply {
-            if let Some(id) = ctx.find_map_id_in_msg(reply).await {
+            if let Some(id) = Context::find_map_id_in_msg(reply).await {
                 map = Some(id);
             }
         }
@@ -216,29 +211,24 @@ impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
 #[examples("2240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
 #[aliases("m", "beatmap", "maps", "beatmaps", "mapinfo")]
 #[group(AllModes)]
-async fn prefix_map(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-    permissions: Option<Permissions>,
-) -> Result<()> {
-    match MapArgs::args(&ctx, msg, args).await {
-        Ok(args) => map(ctx, CommandOrigin::from_msg(msg, permissions), args).await,
+async fn prefix_map(msg: &Message, args: Args<'_>, permissions: Option<Permissions>) -> Result<()> {
+    match MapArgs::args(msg, args).await {
+        Ok(args) => map(CommandOrigin::from_msg(msg, permissions), args).await,
         Err(content) => {
-            msg.error(&ctx, content).await?;
+            msg.error(content).await?;
 
             Ok(())
         }
     }
 }
 
-async fn slash_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_map(mut command: InteractionCommand) -> Result<()> {
     let args = Map::from_interaction(command.input_data())?;
 
     match MapArgs::try_from(args) {
-        Ok(args) => map(ctx, (&mut command).into(), args).await,
+        Ok(args) => map((&mut command).into(), args).await,
         Err(content) => {
-            command.error(&ctx, content).await?;
+            command.error(content).await?;
 
             Ok(())
         }
@@ -249,7 +239,7 @@ const W: u32 = 590;
 const H: u32 = 170;
 const LEGEND_H: u32 = 25;
 
-async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
+async fn map(orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -257,7 +247,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
             let content =
                 "Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.";
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
     };
 
@@ -266,23 +256,23 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
     let map_id = if let Some(id) = map {
         id
     } else if orig.can_read_history() {
-        let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
+        let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
             Ok(msgs) => msgs,
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("failed to retrieve channel history"));
             }
         };
 
-        match ctx.find_map_id_in_msgs(&msgs, 0).await {
+        match Context::find_map_id_in_msgs(&msgs, 0).await {
             Some(id) => id,
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map(set) either by url to the map, \
                     or just by map(set) id.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
         }
     } else {
@@ -291,7 +281,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
             Try specifying a map(set) either by url to the map, \
             or just by map(set) id, or give me the \"Read Message History\" permission.";
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     };
 
     let mods = match mods {
@@ -300,8 +290,8 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
     };
 
     let mapset_res = match map_id {
-        MapIdType::Map(id) => ctx.osu().beatmapset_from_map_id(id).await,
-        MapIdType::Set(id) => ctx.osu().beatmapset(id).await,
+        MapIdType::Map(id) => Context::osu().beatmapset_from_map_id(id).await,
+        MapIdType::Set(id) => Context::osu().beatmapset(id).await,
     };
 
     let mut mapset = match mapset_res {
@@ -312,21 +302,20 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
                 MapIdType::Set(id) => format!("Beatmapset with id {id} was not found"),
             };
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("failed to get mapset"));
         }
     };
 
     let mapset_clone = mapset.clone();
-    let ctx_clone = ctx.cloned();
-    tokio::spawn(async move { ctx_clone.osu_map().store(&mapset_clone).await });
+    tokio::spawn(async move { Context::osu_map().store(&mapset_clone).await });
 
     let Some(mut maps) = mapset.maps.take().filter(|maps| !maps.is_empty()) else {
-        return orig.error(&ctx, "The mapset has no maps").await;
+        return orig.error("The mapset has no maps").await;
     };
 
     maps.sort_unstable_by(|m1, m2| {
@@ -358,7 +347,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
             let content =
                 format!("Looks like some mods in `{mods}` are incompatible with each other");
 
-            return orig.error(&ctx, content).await;
+            return orig.error(content).await;
         }
     } else {
         let content = format!(
@@ -366,12 +355,14 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
             maps[map_idx].mode
         );
 
-        return orig.error(&ctx, content).await;
+        return orig.error(content).await;
     }
 
     // Try creating the strain graph for the map
     let bg_fut = async {
-        let bytes = ctx.client().get_mapset_cover(&mapset.covers.cover).await?;
+        let bytes = Context::client()
+            .get_mapset_cover(&mapset.covers.cover)
+            .await?;
 
         let cover =
             image::load_from_memory(&bytes).wrap_err("failed to load mapset cover from memory")?;
@@ -379,8 +370,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
         Ok::<_, Report>(cover.thumbnail_exact(W, H))
     };
 
-    let (strain_values_res, img_res) =
-        tokio::join!(strain_values(ctx.cloned(), map_id, &mods), bg_fut);
+    let (strain_values_res, img_res) = tokio::join!(strain_values(map_id, &mods), bg_fut);
 
     let img_opt = match img_res {
         Ok(img) => Some(img),
@@ -426,7 +416,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
     ActiveMessages::builder(pagination)
         .start_by_update(true)
         .attachment(graph.map(|bytes| ("map_graph.png".to_owned(), bytes)))
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 
@@ -439,13 +429,8 @@ struct GraphStrains {
 
 const NEW_STRAIN_COUNT: usize = 200;
 
-async fn strain_values(
-    ctx: Arc<Context>,
-    map_id: u32,
-    mods: &GameModsIntermode,
-) -> Result<GraphStrains> {
-    let map = ctx
-        .osu_map()
+async fn strain_values(map_id: u32, mods: &GameModsIntermode) -> Result<GraphStrains> {
+    let map = Context::osu_map()
         .pp_map(map_id)
         .await
         .wrap_err("failed to get pp map")?;

@@ -1,4 +1,4 @@
-use std::{iter, sync::Arc};
+use std::iter;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::{rosu_v2::user::User, Countries};
@@ -32,7 +32,7 @@ use self::{
 use super::{require_link, user_not_found, SnipeGameMode};
 use crate::{
     commands::{GameModeOption, ShowHideOption, TimezoneOption},
-    core::{commands::CommandOrigin, Context, ContextExt},
+    core::{commands::CommandOrigin, Context},
     embeds::attachment,
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, InteractionCommandExt},
@@ -187,42 +187,42 @@ pub enum GraphTopOrder {
     Time,
 }
 
-async fn slash_graph(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+async fn slash_graph(mut command: InteractionCommand) -> Result<()> {
     let args = Graph::from_interaction(command.input_data())?;
 
-    graph(ctx, (&mut command).into(), args).await
+    graph((&mut command).into(), args).await
 }
 
 // Takes a `CommandOrigin` since `require_link` does not take
 // `InteractionCommand`
-async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
+async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
     let tuple_option = match args {
         Graph::Medals(args) => {
-            let user_id = match user_id!(ctx, orig, args) {
+            let user_id = match user_id!(orig, args) {
                 Some(user_id) => user_id,
-                None => match ctx.user_config().osu_id(orig.user_id()?).await {
+                None => match Context::user_config().osu_id(orig.user_id()?).await {
                     Ok(Some(user_id)) => UserId::Id(user_id),
-                    Ok(None) => return require_link(&ctx, &orig).await,
+                    Ok(None) => return require_link(&orig).await,
                     Err(err) => {
-                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error(GENERAL_ISSUE).await;
 
                         return Err(err);
                     }
                 },
             };
 
-            medals_graph(ctx.cloned(), &orig, user_id)
+            medals_graph(&orig, user_id)
                 .await
                 .wrap_err("failed to create medals graph")?
         }
         Graph::PlaycountReplays(args) => {
-            let user_id = match user_id!(ctx, orig, args) {
+            let user_id = match user_id!(orig, args) {
                 Some(user_id) => user_id,
-                None => match ctx.user_config().osu_id(orig.user_id()?).await {
+                None => match Context::user_config().osu_id(orig.user_id()?).await {
                     Ok(Some(user_id)) => UserId::Id(user_id),
-                    Ok(None) => return require_link(&ctx, &orig).await,
+                    Ok(None) => return require_link(&orig).await,
                     Err(err) => {
-                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error(GENERAL_ISSUE).await;
 
                         return Err(err);
                     }
@@ -244,42 +244,42 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
             }
 
             if flags.is_empty() {
-                return orig.error(&ctx, ":clown:").await;
+                return orig.error(":clown:").await;
             }
 
-            playcount_replays_graph(ctx.cloned(), &orig, user_id, flags)
+            playcount_replays_graph(&orig, user_id, flags)
                 .await
                 .wrap_err("failed to create profile graph")?
         }
         Graph::Rank(args) => {
-            let (user_id, mode) = user_id_mode!(ctx, orig, args);
-            let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+            let (user_id, mode) = user_id_mode!(orig, args);
+            let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-            rank_graph(ctx.cloned(), &orig, user_id, user_args)
+            rank_graph(&orig, user_id, user_args)
                 .await
                 .wrap_err("failed to create rank graph")?
         }
         Graph::Sniped(args) => {
-            let (user_id, mode) = user_id_mode!(ctx, orig, args);
+            let (user_id, mode) = user_id_mode!(orig, args);
 
-            sniped_graph(ctx.cloned(), &orig, user_id, mode)
+            sniped_graph(&orig, user_id, mode)
                 .await
                 .wrap_err("failed to create snipe graph")?
         }
         Graph::SnipeCount(args) => {
-            let (user_id, mode) = user_id_mode!(ctx, orig, args);
+            let (user_id, mode) = user_id_mode!(orig, args);
 
-            snipe_count_graph(ctx.cloned(), &orig, user_id, mode)
+            snipe_count_graph(&orig, user_id, mode)
                 .await
                 .wrap_err("failed to create snipe count graph")?
         }
         Graph::Top(args) => {
             let owner = orig.user_id()?;
 
-            let config = match ctx.user_config().with_osu_id(owner).await {
+            let config = match Context::user_config().with_osu_id(owner).await {
                 Ok(config) => config,
                 Err(err) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(GENERAL_ISSUE).await;
 
                     return Err(err.wrap_err("failed to get user config"));
                 }
@@ -291,15 +291,15 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 .or(config.mode)
                 .unwrap_or(GameMode::Osu);
 
-            let (user_id, no_user_specified) = match user_id!(ctx, orig, args) {
+            let (user_id, no_user_specified) = match user_id!(orig, args) {
                 Some(user_id) => (user_id, false),
                 None => match config.osu {
                     Some(user_id) => (UserId::Id(user_id), true),
-                    None => return require_link(&ctx, &orig).await,
+                    None => return require_link(&orig).await,
                 },
             };
 
-            let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await.mode(mode);
+            let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
             let tz = args
                 .timezone
@@ -309,8 +309,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
             let legacy_scores = match config.legacy_scores {
                 Some(legacy_scores) => legacy_scores,
                 None => match orig.guild_id() {
-                    Some(guild_id) => ctx
-                        .guild_config()
+                    Some(guild_id) => Context::guild_config()
                         .peek(guild_id, |config| config.legacy_scores)
                         .await
                         .unwrap_or(false),
@@ -318,17 +317,9 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 },
             };
 
-            top_graph(
-                ctx.cloned(),
-                &orig,
-                user_id,
-                user_args,
-                args.order,
-                tz,
-                legacy_scores,
-            )
-            .await
-            .wrap_err("failed to create top graph")?
+            top_graph(&orig, user_id, user_args, args.order, tz, legacy_scores)
+                .await
+                .wrap_err("failed to create top graph")?
         }
     };
 
@@ -344,7 +335,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
         .embed(embed)
         .attachment("graph.png", graph);
 
-    orig.create_message(&ctx, builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }
@@ -353,7 +344,6 @@ const W: u32 = 1350;
 const H: u32 = 711;
 
 async fn top_graph(
-    ctx: Arc<Context>,
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     user_args: UserArgs,
@@ -361,8 +351,7 @@ async fn top_graph(
     tz: Option<UtcOffset>,
     legacy_scores: bool,
 ) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
-    let scores_fut = ctx
-        .osu_scores()
+    let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)
         .exec_with_user(user_args);
@@ -370,13 +359,13 @@ async fn top_graph(
     let (user, mut scores) = match scores_fut.await {
         Ok(tuple) => tuple,
         Err(OsuError::NotFound) => {
-            let content = user_not_found(&ctx, user_id).await;
-            orig.error(&ctx, content).await?;
+            let content = user_not_found(user_id).await;
+            orig.error(content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user or scores");
 
             return Err(err);
@@ -385,7 +374,7 @@ async fn top_graph(
 
     if scores.is_empty() {
         let content = "User's top scores are empty";
-        orig.error(&ctx, content).await?;
+        orig.error(content).await?;
 
         return Ok(None);
     }
@@ -435,7 +424,7 @@ async fn top_graph(
     let bytes = match graph_result {
         Ok(graph) => graph,
         Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             warn!("{err:?}");
 
             return Ok(None);

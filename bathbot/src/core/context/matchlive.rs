@@ -1,6 +1,4 @@
-#![cfg(feature = "matchlive")]
-
-use std::{slice, sync::Arc};
+use std::slice;
 
 use hashbrown::hash_map::Entry;
 use rosu_v2::prelude::{MatchEvent, OsuError};
@@ -16,8 +14,8 @@ use crate::{
 
 impl Context {
     /// In case the channel tracks exactly one match, returns the match's id
-    pub async fn tracks_single_match(&self, channel: Id<ChannelMarker>) -> Option<u32> {
-        let match_live = self.data.matchlive.inner.lock().await;
+    pub async fn tracks_single_match(channel: Id<ChannelMarker>) -> Option<u32> {
+        let match_live = Context::get().data.matchlive.inner.lock().await;
 
         // If the channel doesn't track exactly one match, return early
         match_live
@@ -33,12 +31,8 @@ impl Context {
             .map(|(key, _)| *key)
     }
 
-    pub async fn add_match_track(
-        &self,
-        channel: Id<ChannelMarker>,
-        match_id: u32,
-    ) -> MatchTrackResult {
-        let mut match_live = self.data.matchlive.inner.lock().await;
+    pub async fn add_match_track(channel: Id<ChannelMarker>, match_id: u32) -> MatchTrackResult {
+        let mut match_live = Context::get().data.matchlive.inner.lock().await;
 
         // Increment the track counter for the channel
         let capped = match_live
@@ -63,7 +57,7 @@ impl Context {
 
                 let embeds = &entry.tracked.embeds;
 
-                let channel = match send_match_messages(self, channel, embeds).await {
+                let channel = match send_match_messages(channel, embeds).await {
                     Ok(msg) => Channel::new(channel, msg),
                     Err(err) => {
                         error!("{err:?}");
@@ -79,11 +73,11 @@ impl Context {
                 MatchTrackResult::Added
             }
             // The match is not yet tracked -> request and store it
-            Entry::Vacant(e) => match self.osu().osu_match(match_id).await {
+            Entry::Vacant(e) => match Context::osu().osu_match(match_id).await {
                 Ok(osu_match) => {
                     let embeds = MatchLiveEmbed::new(&osu_match);
 
-                    let channel = match send_match_messages(self, channel, &embeds).await {
+                    let channel = match send_match_messages(channel, &embeds).await {
                         Ok(msg) => Channel::new(channel, msg),
                         Err(err) => {
                             error!("{err:?}");
@@ -116,8 +110,8 @@ impl Context {
     }
 
     /// Returns false if the match wasn't tracked in the channel
-    pub async fn remove_match_track(&self, channel: Id<ChannelMarker>, match_id: u32) -> bool {
-        let mut match_live = self.data.matchlive.inner.lock().await;
+    pub async fn remove_match_track(channel: Id<ChannelMarker>, match_id: u32) -> bool {
+        let mut match_live = Context::get().data.matchlive.inner.lock().await;
 
         if let Entry::Occupied(mut e) = match_live.match_channels.entry(match_id) {
             let entry = e.get_mut();
@@ -162,13 +156,16 @@ impl Context {
         }
     }
 
-    pub async fn match_live_loop(ctx: Arc<Context>) {
+    pub async fn match_live_loop() {
         // Update all matches every 10 seconds
         let mut interval = interval(Duration::from_secs(10));
         interval.tick().await;
 
         // Match ids of matches that finished this iteration
         let mut remove = Vec::new();
+
+        let ctx = Context::get();
+        let http = Context::http();
 
         loop {
             interval.tick().await;
@@ -182,7 +179,7 @@ impl Context {
                     let tracked_match = &mut entry.tracked;
 
                     // Request an update
-                    let next_match = match tracked_match.osu_match.get_next(ctx.osu()).await {
+                    let next_match = match tracked_match.osu_match.get_next(Context::osu()).await {
                         Ok(next_match) => next_match,
                         Err(err) => {
                             warn!(?err, "Failed to request match");
@@ -213,8 +210,7 @@ impl Context {
                             let embed = Some(data.as_embed());
 
                             // Update the last message
-                            let update_result = ctx
-                                .http
+                            let update_result = http
                                 .update_message(*id, *msg_id)
                                 .embeds(embed.as_ref().map(slice::from_ref));
 
@@ -236,7 +232,7 @@ impl Context {
                     // For all new embeds, send them to all channels
                     if let Some(embeds) = new_embeds {
                         for Channel { id, msg_id } in entry.channels.iter_mut() {
-                            match send_match_messages(&ctx, *id, &embeds).await {
+                            match send_match_messages(*id, &embeds).await {
                                 Ok(msg) => *msg_id = msg,
                                 Err(err) => {
                                     error!(channel = id.get(), ?err, "Failed to send last msg")
@@ -269,7 +265,7 @@ impl Context {
 
         for (channel, count) in match_live.channel_count.iter() {
             if *count > 0 {
-                let _ = channel.plain_message(self, content).await;
+                let _ = channel.plain_message(content).await;
                 notified += 1;
             }
         }

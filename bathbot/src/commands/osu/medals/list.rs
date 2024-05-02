@@ -1,7 +1,4 @@
-use std::{
-    cmp::{Ordering, Reverse},
-    sync::Arc,
-};
+use std::cmp::{Ordering, Reverse};
 
 use bathbot_model::{rkyv_util::time::DateTimeRkyv, OsekaiMedal, Rarity};
 use bathbot_util::{
@@ -18,25 +15,21 @@ use super::{MedalList, MedalListOrder};
 use crate::{
     active::{impls::MedalsListPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
-    core::{commands::CommandOrigin, ContextExt},
+    core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };
 
-pub(super) async fn list(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: MedalList<'_>,
-) -> Result<()> {
+pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let user_id = match user_id!(ctx, orig, args) {
+    let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
-        None => match ctx.user_config().osu_id(owner).await {
+        None => match Context::user_config().osu_id(owner).await {
             Ok(Some(user_id)) => UserId::Id(user_id),
-            Ok(None) => return require_link(&ctx, &orig).await,
+            Ok(None) => return require_link(&orig).await,
             Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -50,27 +43,27 @@ pub(super) async fn list(
         ..
     } = args;
 
-    let user_args = UserArgs::rosu_id(ctx.cloned(), &user_id).await;
-    let user_fut = ctx.redis().osu_user(user_args);
-    let medals_fut = ctx.redis().medals();
-    let ranking_fut = ctx.redis().osekai_ranking::<Rarity>();
+    let user_args = UserArgs::rosu_id(&user_id).await;
+    let user_fut = Context::redis().osu_user(user_args);
+    let medals_fut = Context::redis().medals();
+    let ranking_fut = Context::redis().osekai_ranking::<Rarity>();
 
     let (mut user, mut osekai_medals, rarities) =
         match tokio::join!(user_fut, medals_fut, ranking_fut) {
             (Ok(user), Ok(medals), Ok(rarities)) => (user, medals.into_original(), rarities),
             (Err(OsuError::NotFound), ..) => {
-                let content = user_not_found(&ctx, user_id).await;
+                let content = user_not_found(user_id).await;
 
-                return orig.error(&ctx, content).await;
+                return orig.error(content).await;
             }
             (Err(err), ..) => {
-                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let _ = orig.error(OSU_API_ISSUE).await;
                 let report = Report::new(err).wrap_err("failed to get user");
 
                 return Err(report);
             }
             (_, Err(err), _) | (.., Err(err)) => {
-                let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
+                let _ = orig.error(OSEKAI_ISSUE).await;
 
                 return Err(err.wrap_err("failed to get cached rarity ranking"));
             }
@@ -211,7 +204,7 @@ pub(super) async fn list(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(ctx, orig)
+        .begin(orig)
         .await
 }
 

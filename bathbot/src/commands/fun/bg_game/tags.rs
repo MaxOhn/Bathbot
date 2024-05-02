@@ -35,7 +35,7 @@ use crate::{
 #[example("21662 r hard farm streams alternate hardname tech weeb bluesky")]
 #[aliases("bgtm", "bgtagmanual")]
 #[owner()]
-async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> Result<()> {
+async fn bgtagsmanual(data: CommandData) -> Result<()> {
     let (msg, mut args) = match data {
         CommandData::Message { msg, args, .. } => (msg, args),
         CommandData::Interaction { .. } => unreachable!(),
@@ -47,7 +47,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> Result<()> {
         Some(Err(_)) => {
             let content = "Could not parse mapset id. Be sure to specify it as first argument";
 
-            return msg.error(&ctx, content).await;
+            return msg.error(content).await;
         }
         None => {
             let content = "Arguments: `[mapset id] [add/a/remove/r] [list of tags]`\n\
@@ -56,7 +56,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> Result<()> {
             weeb, bluesky, english`";
 
             let builder = MessageBuilder::new().content(content);
-            msg.create_message(&ctx, builder).await?;
+            msg.create_message(builder).await?;
 
             return Ok(());
         }
@@ -66,7 +66,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> Result<()> {
     if ctx.psql().get_tags_mapset(mapset_id).await.is_err() {
         let content = "No background entry found with this id";
 
-        return msg.error(&ctx, content).await;
+        return msg.error(content).await;
     }
 
     // Parse action
@@ -76,7 +76,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> Result<()> {
             let content = "Could not parse action. \
                 Be sure to specify `r`, `remove`, `a`, or `add` as second argument";
 
-            return msg.error(&ctx, content).await;
+            return msg.error(content).await;
         }
     };
 
@@ -94,7 +94,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> Result<()> {
                     easy, hard, tech, weeb, bluesky, english`"
                 );
 
-                return msg.error(&ctx, content).await;
+                return msg.error(content).await;
             }
             None => unreachable!(),
         }
@@ -120,10 +120,10 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> Result<()> {
             let content = format!("{OSU_BASE}beatmapsets/{mapset_id} is now tagged as:\n{tags}");
 
             let builder = MessageBuilder::new().content(content);
-            msg.create_message(&ctx, builder).await?;
+            msg.create_message(builder).await?;
         }
         Err(err) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = msg.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -145,7 +145,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> Result<()> {
 // #[usage("[std / mna]")]
 // #[aliases("bgt", "bgtag")]
 // #[owner()]
-async fn bgtags(ctx: Arc<Context>, data: CommandData) -> Result<()> {
+async fn bgtags(data: CommandData) -> Result<()> {
     let (msg, mut args) = match data {
         CommandData::Message { msg, args, .. } => (msg, args),
         CommandData::Interaction { .. } => unreachable!(),
@@ -160,7 +160,7 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> Result<()> {
                 let content = "Could not parse first argument as mode. \
                 Provide either `mna`, or `std`";
 
-                return msg.error(&ctx, content).await;
+                return msg.error(content).await;
             }
         },
         None => GameMode::Osu,
@@ -169,7 +169,7 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> Result<()> {
     let mut untagged = match ctx.psql().get_all_tags_mapset(mode).await {
         Ok(tags) => tags.iter().any(|tag| tag.untagged()),
         Err(err) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = msg.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -180,7 +180,7 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> Result<()> {
             here are some random ones you can review again though";
 
         let builder = MessageBuilder::new().content(content);
-        let _ = msg.create_message(&ctx, builder).await;
+        let _ = msg.create_message(builder).await;
     }
 
     let mut owner = msg.author.id;
@@ -206,7 +206,7 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> Result<()> {
                             here are some random ones you can review again though";
 
                         let builder = MessageBuilder::new().content(content);
-                        let _ = msg.create_message(&ctx, builder).await;
+                        let _ = msg.create_message(builder).await;
                         untagged = false;
                         tags.truncate(1);
                     }
@@ -215,7 +215,7 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> Result<()> {
                 tags
             }
             Err(err) => {
-                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                let _ = msg.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -360,11 +360,11 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> Result<()> {
                     );
 
                     let builder = MessageBuilder::new().content(content);
-                    msg.create_message(&ctx, builder).await?;
+                    msg.create_message(builder).await?;
                 }
             }
             Err(err) => {
-                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                let _ = msg.error(GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -372,7 +372,7 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> Result<()> {
 
         if break_loop {
             let builder = MessageBuilder::new().content("Exiting loop :wave:");
-            msg.create_message(&ctx, builder).await?;
+            msg.create_message(builder).await?;
 
             break;
         }
