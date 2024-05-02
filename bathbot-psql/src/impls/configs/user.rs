@@ -1,14 +1,11 @@
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
-use rosu_v2::prelude::{GameMode, Username};
+use rosu_v2::prelude::GameMode;
 use time::UtcOffset;
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    model::configs::{
-        DbSkinEntry, DbUserConfig, ListSize, MinimizedPp, OsuUserId, OsuUsername, Retries,
-        ScoreSize, SkinEntry, UserConfig,
-    },
+    model::configs::{DbSkinEntry, DbUserConfig, OsuUserId, SkinEntry, UserConfig},
     Database,
 };
 
@@ -44,63 +41,6 @@ WHERE
             .wrap_err("failed to fetch optional")?;
 
         Ok(config_opt.map(UserConfig::from))
-    }
-
-    pub async fn select_user_config_with_osu_name_by_discord_id(
-        &self,
-        user_id: Id<UserMarker>,
-    ) -> Result<Option<UserConfig<OsuUsername>>> {
-        let query = sqlx::query!(
-            r#"
-SELECT 
-  score_size, 
-  list_size, 
-  minimized_pp, 
-  gamemode, 
-  (
-    SELECT 
-      username 
-    FROM 
-      osu_user_names 
-    WHERE 
-      user_id = osu_id
-  ), 
-  retries, 
-  twitch_id, 
-  timezone_seconds, 
-  render_button, 
-  legacy_scores 
-FROM 
-  user_configs 
-WHERE 
-  discord_id = $1"#,
-            user_id.get() as i64,
-        );
-
-        let config_opt = query
-            .fetch_optional(self)
-            .await
-            .wrap_err("Failed to fetch optional")?
-            .map(|row| UserConfig {
-                score_size: row.score_size.map(ScoreSize::try_from).and_then(Result::ok),
-                list_size: row.list_size.map(ListSize::try_from).and_then(Result::ok),
-                minimized_pp: row
-                    .minimized_pp
-                    .map(MinimizedPp::try_from)
-                    .and_then(Result::ok),
-                mode: row.gamemode.map(|mode| GameMode::from(mode as u8)),
-                osu: row.username.map(Username::from),
-                retries: row.retries.map(Retries::try_from).and_then(Result::ok),
-                twitch_id: row.twitch_id.map(|id| id as u64),
-                timezone: row
-                    .timezone_seconds
-                    .map(UtcOffset::from_whole_seconds)
-                    .map(Result::unwrap),
-                render_button: row.render_button,
-                legacy_scores: row.legacy_scores,
-            });
-
-        Ok(config_opt)
     }
 
     pub async fn select_osu_id_by_discord_id(
@@ -415,31 +355,6 @@ WHERE
             .wrap_err("failed to fetch optional")?;
 
         Ok(row_opt.map(|row| Id::new(row.discord_id as u64)))
-    }
-
-    pub async fn select_user_score_size(
-        &self,
-        user_id: Id<UserMarker>,
-    ) -> Result<Option<ScoreSize>> {
-        let query = sqlx::query!(
-            r#"
-SELECT 
-  score_size 
-FROM 
-  user_configs 
-WHERE 
-  discord_id = $1"#,
-            user_id.get() as i64
-        );
-
-        let score_size_opt = query
-            .fetch_optional(self)
-            .await
-            .wrap_err("failed to fetch optional")?
-            .and_then(|row| row.score_size)
-            .and_then(|size| ScoreSize::try_from(size).ok());
-
-        Ok(score_size_opt)
     }
 
     pub async fn select_user_mode(&self, user_id: Id<UserMarker>) -> Result<Option<GameMode>> {

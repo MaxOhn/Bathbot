@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
 use bathbot_model::{RankingEntries, UserModeStatsColumn, UserStatsColumn};
 use bathbot_psql::Database;
@@ -39,13 +39,14 @@ impl<'d> OsuUserManager<'d> {
             .wrap_err("Failed to get usernames")
     }
 
+    #[cfg(feature = "osutracking")]
     pub async fn ids(&self, names: &[String]) -> Result<HashMap<Username, u32>> {
         let escaped_names = if names.iter().any(|name| name.contains('_')) {
             let names: Vec<_> = names.iter().map(|name| name.replace('_', r"\_")).collect();
 
-            Cow::Owned(names)
+            std::borrow::Cow::Owned(names)
         } else {
-            Cow::Borrowed(names)
+            std::borrow::Cow::Borrowed(names)
         };
 
         self.psql
@@ -79,13 +80,6 @@ impl<'d> OsuUserManager<'d> {
             .await
             .map(RankingEntries::from)
             .wrap_err("Failed to get user mode stats")
-    }
-
-    pub async fn store_name(self, user_id: u32, username: &str) -> Result<()> {
-        self.psql
-            .upsert_osu_username(user_id, username)
-            .await
-            .wrap_err("Failed to upsert osu username")
     }
 
     pub async fn store(self, user: &UserExtended, mode: GameMode) {

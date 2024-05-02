@@ -1,5 +1,5 @@
 use bathbot_psql::{
-    model::configs::{OsuUserId, OsuUsername, ScoreSize, SkinEntry, UserConfig},
+    model::configs::{OsuUserId, SkinEntry, UserConfig},
     Database,
 };
 use bathbot_util::CowUtils;
@@ -36,22 +36,6 @@ impl<'d> UserConfigManager<'d> {
         }
     }
 
-    pub async fn with_osu_name(self, user_id: Id<UserMarker>) -> Result<UserConfig<OsuUsername>> {
-        let config_fut = self
-            .psql
-            .select_user_config_with_osu_name_by_discord_id(user_id);
-
-        match config_fut.await.wrap_err("Failed to get user config")? {
-            Some(config) => Ok(config),
-            None => self
-                .psql
-                .upsert_user_config(user_id, &UserConfig::default())
-                .await
-                .wrap_err("Failed to insert default user config")
-                .map(|_| UserConfig::default()),
-        }
-    }
-
     pub async fn mode(self, user_id: Id<UserMarker>) -> Result<Option<GameMode>> {
         self.psql
             .select_user_mode(user_id)
@@ -78,13 +62,6 @@ impl<'d> UserConfigManager<'d> {
             .select_user_discord_id_by_osu_id(user_id)
             .await
             .wrap_err("failed to get discord id from osu id")
-    }
-
-    pub async fn score_size(self, user_id: Id<UserMarker>) -> Result<Option<ScoreSize>> {
-        self.psql
-            .select_user_score_size(user_id)
-            .await
-            .wrap_err("failed to get user score size from DB")
     }
 
     pub async fn skin(self, user_id: Id<UserMarker>) -> Result<Option<String>> {

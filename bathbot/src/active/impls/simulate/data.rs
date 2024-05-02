@@ -29,10 +29,6 @@ pub struct SimulateData {
 }
 
 impl SimulateData {
-    pub fn set_acc(&mut self, acc: Option<f32>) {
-        self.acc = acc.map(|acc| acc.clamp(0.0, 100.0));
-    }
-
     pub(super) fn simulate(&mut self, map: &SimulateMap) -> SimulateValues {
         let mods = self.mods.as_ref().map_or(0, GameMods::bits);
 

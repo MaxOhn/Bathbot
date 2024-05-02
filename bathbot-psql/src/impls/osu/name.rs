@@ -82,27 +82,6 @@ WHERE
         Ok(row_opt.map(|row| row.username.into()))
     }
 
-    pub async fn upsert_osu_username(&self, user_id: u32, username: &str) -> Result<()> {
-        let query = sqlx::query!(
-            r#"
-INSERT INTO osu_user_names (user_id, username) 
-VALUES 
-  ($1, $2) ON CONFLICT (user_id) DO 
-UPDATE 
-SET 
-  username = $2"#,
-            user_id as i32,
-            username,
-        );
-
-        query
-            .execute(self)
-            .await
-            .wrap_err("failed to execute query")?;
-
-        Ok(())
-    }
-
     pub async fn delete_osu_username<'c, E>(executor: E, user_id: u32) -> Result<()>
     where
         E: Executor<'c, Database = Postgres>,

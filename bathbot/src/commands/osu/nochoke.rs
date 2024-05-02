@@ -376,14 +376,6 @@ impl NochokeEntry {
         }
     }
 
-    pub fn unchoked_statistics(&self) -> &LegacyScoreStatistics {
-        self.unchoked
-            .as_ref()
-            .map_or(&self.original_score.statistics, |unchoked| {
-                &unchoked.statistics
-            })
-    }
-
     pub fn unchoked_accuracy(&self) -> f32 {
         self.unchoked
             .as_ref()
