@@ -17,14 +17,14 @@ use plotters::{
     prelude::*,
 };
 use plotters_skia::SkiaBackend;
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use skia_safe::{surfaces, EncodedImageFormat};
 use time::Date;
 use twilight_model::guild::Permissions;
 
 use super::{SnipeGameMode, SnipePlayerSniped};
 use crate::{
-    core::commands::CommandOrigin,
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, SnipedEmbed},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
@@ -43,25 +43,31 @@ use crate::{
 #[group(Osu)]
 async fn prefix_sniped(
     msg: &Message,
-    mut args: Args<'_>,
+    args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    let mode = None;
-    let mut name = None;
-    let mut discord = None;
+    let args = SnipePlayerSniped::args(args, None);
 
-    if let Some(arg) = args.next() {
-        match matcher::get_mention_user(arg) {
-            Some(id) => discord = Some(id),
-            None => name = Some(arg.into()),
-        }
-    }
+    player_sniped(CommandOrigin::from_msg(msg, permissions), args).await
+}
 
-    let args = SnipePlayerSniped {
-        mode,
-        name,
-        discord,
-    };
+#[command]
+#[desc("Sniped ctb users of the last 8 weeks")]
+#[help(
+    "Sniped ctb users of the last 8 weeks.\n\
+    Data for osu!catch originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("snipedc", "snipedcatch", "snipesctb", "snipescatch")]
+#[group(Catch)]
+async fn prefix_snipedctb(
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let args = SnipePlayerSniped::args(args, Some(GameMode::Catch));
 
     player_sniped(CommandOrigin::from_msg(msg, permissions), args).await
 }
@@ -79,25 +85,10 @@ async fn prefix_sniped(
 #[group(Mania)]
 async fn prefix_snipedmania(
     msg: &Message,
-    mut args: Args<'_>,
+    args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    let mode = Some(SnipeGameMode::Mania);
-    let mut name = None;
-    let mut discord = None;
-
-    if let Some(arg) = args.next() {
-        match matcher::get_mention_user(arg) {
-            Some(id) => discord = Some(id),
-            None => name = Some(arg.into()),
-        }
-    }
-
-    let args = SnipePlayerSniped {
-        mode,
-        name,
-        discord,
-    };
+    let args = SnipePlayerSniped::args(args, Some(GameMode::Mania));
 
     player_sniped(CommandOrigin::from_msg(msg, permissions), args).await
 }
@@ -445,5 +436,25 @@ impl<'a> DiscreteRanged for SnipedWeeksCoord<'a> {
         self.weeks
             .get(self.weeks.len() - (idx + 1))
             .map(|week| week.until.date())
+    }
+}
+
+impl<'m> SnipePlayerSniped<'m> {
+    fn args(mut args: Args<'m>, mode: Option<GameMode>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        if let Some(arg) = args.next() {
+            match matcher::get_mention_user(arg) {
+                Some(id) => discord = Some(id),
+                None => name = Some(arg.into()),
+            }
+        }
+
+        Self {
+            mode: mode.and_then(SnipeGameMode::try_from_mode),
+            name,
+            discord,
+        }
     }
 }

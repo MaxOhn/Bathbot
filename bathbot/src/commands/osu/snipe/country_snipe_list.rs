@@ -54,6 +54,42 @@ async fn prefix_countrysnipelist(msg: &Message, args: Args<'_>) -> Result<()> {
 }
 
 #[command]
+#[desc("Sort the country's ctb #1 leaderboard")]
+#[help(
+    "Sort the country's ctb #1 leaderboard.\n\
+    To specify a country, you must provide its acronym e.g. `be`.\n\
+    To specify an order, you must provide `sort=...` with any of these values:\n\
+     - `count` to sort by #1 count\n\
+     - `pp` to sort by average pp of #1 scores\n\
+     - `stars` to sort by average star rating of #1 scores\n\
+     - `weighted` to sort by pp gained only from #1 scores\n\
+    If no ordering is specified, it defaults to `count`.\n\
+    If no country is specified either, I will take the country of the linked user.\n\
+    Data for osu!catch originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[country acronym] [sort=count/pp/stars/weighted]")]
+#[example("sort=stars", "fr sort=weighted", "sort=pp")]
+#[aliases(
+    "cslc",
+    "countrysnipelistcatch",
+    "countrysnipeleaderboardctb",
+    "countrysnipeleaderboardcatch",
+    "cslbc"
+)]
+#[group(Catch)]
+async fn prefix_countrysnipelistctb(msg: &Message, args: Args<'_>) -> Result<()> {
+    match SnipeCountryList::args(args, GameMode::Catch) {
+        Ok(args) => country_list(msg.into(), args).await,
+        Err(content) => {
+            msg.error(content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
 #[desc("Sort the country's mania #1 leaderboard")]
 #[help(
     "Sort the country's mania #1 leaderboard.\n\
@@ -98,8 +134,7 @@ pub(super) async fn country_list(
     let (osu_user, mode) = match Context::user_config().with_osu_id(author_id).await {
         Ok(config) => {
             let mode = match mode {
-                Some(SnipeGameMode::Osu) => GameMode::Osu,
-                Some(SnipeGameMode::Mania) => GameMode::Mania,
+                Some(mode) => mode.into(),
                 None => config.mode.unwrap_or(GameMode::Osu),
             };
 
@@ -215,12 +250,6 @@ pub(super) async fn country_list(
 
 impl<'m> SnipeCountryList<'m> {
     fn args(args: Args<'m>, mode: GameMode) -> Result<Self, Cow<'static, str>> {
-        let mode = match mode {
-            GameMode::Osu => Some(SnipeGameMode::Osu),
-            GameMode::Mania => Some(SnipeGameMode::Mania),
-            GameMode::Taiko | GameMode::Catch => None,
-        };
-
         let mut country = None;
         let mut sort = None;
 
@@ -257,7 +286,7 @@ impl<'m> SnipeCountryList<'m> {
         }
 
         Ok(Self {
-            mode,
+            mode: SnipeGameMode::try_from_mode(mode),
             country,
             sort,
         })

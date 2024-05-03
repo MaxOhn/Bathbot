@@ -27,12 +27,12 @@ impl Client {
     ) -> Result<Option<SnipePlayer>> {
         match mode {
             GameMode::Osu => huismetbenen::get_snipe_player(self, country, user_id).await,
-            GameMode::Mania => {
-                let stats_fut = kittenroleplay::get_snipe_player(self, user_id);
-                let mod_counts_fut = kittenroleplay::get_mod_counts(self, user_id);
-                let player_stars_fut = kittenroleplay::get_player_stars(self, user_id);
+            GameMode::Catch | GameMode::Mania => {
+                let stats_fut = kittenroleplay::get_snipe_player(self, user_id, mode);
+                let mod_counts_fut = kittenroleplay::get_mod_counts(self, user_id, mode);
+                let player_stars_fut = kittenroleplay::get_player_stars(self, user_id, mode);
 
-                let params = SnipeScoreParams::new(user_id, country, GameMode::Mania)
+                let params = SnipeScoreParams::new(user_id, country, mode)
                     .limit(1)
                     .order(SnipePlayerListOrder::Date)
                     .descending(false);
@@ -91,7 +91,7 @@ impl Client {
 
                 Ok(Some(player))
             }
-            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+            GameMode::Taiko => unimplemented!(),
         }
     }
 
@@ -103,15 +103,17 @@ impl Client {
     ) -> Result<BTreeMap<Date, u32>> {
         match mode {
             GameMode::Osu => huismetbenen::get_snipe_player_history(self, country, user_id).await,
-            GameMode::Mania => kittenroleplay::get_snipe_player_history(self, user_id)
-                .await
-                .map(|history| {
-                    history
-                        .into_iter()
-                        .map(|entry| (entry.date.date(), entry.count))
-                        .collect()
-                }),
-            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+            GameMode::Catch | GameMode::Mania => {
+                kittenroleplay::get_snipe_player_history(self, user_id, mode)
+                    .await
+                    .map(|history| {
+                        history
+                            .into_iter()
+                            .map(|entry| (entry.date.date(), entry.count))
+                            .collect()
+                    })
+            }
+            GameMode::Taiko => unimplemented!(),
         }
     }
 
@@ -123,8 +125,8 @@ impl Client {
     ) -> Result<Vec<SnipeCountryPlayer>> {
         match mode {
             GameMode::Osu => huismetbenen::get_snipe_country(self, country_code, sort).await,
-            GameMode::Mania => {
-                let players = kittenroleplay::get_snipe_country(self, country_code, sort)
+            GameMode::Catch | GameMode::Mania => {
+                let players = kittenroleplay::get_snipe_country(self, country_code, sort, mode)
                     .await?
                     .into_iter()
                     .map(|player| SnipeCountryPlayer {
@@ -139,7 +141,7 @@ impl Client {
 
                 Ok(players)
             }
-            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+            GameMode::Taiko => unimplemented!(),
         }
     }
 
@@ -150,10 +152,12 @@ impl Client {
     ) -> Result<SnipeCountryStatistics> {
         match mode {
             GameMode::Osu => huismetbenen::get_country_statistics(self, country_code).await,
-            GameMode::Mania => kittenroleplay::get_country_statistics(self, country_code)
-                .await
-                .map(From::from),
-            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+            GameMode::Catch | GameMode::Mania => {
+                kittenroleplay::get_country_statistics(self, country_code, mode)
+                    .await
+                    .map(From::from)
+            }
+            GameMode::Taiko => unimplemented!(),
         }
     }
 
@@ -270,8 +274,9 @@ impl Client {
 
                 Ok(weeks)
             }
-            GameMode::Mania => {
-                let mut weeks = kittenroleplay::get_sniped_players(self, user_id, sniper).await?;
+            GameMode::Catch | GameMode::Mania => {
+                let mut weeks =
+                    kittenroleplay::get_sniped_players(self, user_id, sniper, mode).await?;
 
                 weeks.retain(|week| !week.players.is_empty());
                 weeks.reverse();
@@ -280,7 +285,7 @@ impl Client {
 
                 Ok(weeks)
             }
-            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+            GameMode::Taiko => unimplemented!(),
         }
     }
 
@@ -293,7 +298,7 @@ impl Client {
     ) -> Result<Vec<SnipeRecent>> {
         match mode {
             GameMode::Osu => huismetbenen::get_national_snipes(self, user_id, sniper, since).await,
-            GameMode::Mania => {
+            GameMode::Catch | GameMode::Mania => {
                 let days_since = (OffsetDateTime::now_utc() - since).whole_days() as u32;
                 let mut offset = 0;
 
@@ -301,7 +306,7 @@ impl Client {
 
                 loop {
                     let new_scores_fut = kittenroleplay::get_national_snipes(
-                        self, user_id, sniper, offset, days_since,
+                        self, user_id, sniper, offset, days_since, mode,
                     );
 
                     let new_scores = new_scores_fut.await?;
@@ -334,14 +339,14 @@ impl Client {
 
                 Ok(scores)
             }
-            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+            GameMode::Taiko => unimplemented!(),
         }
     }
 
     pub async fn get_national_firsts(&self, params: &SnipeScoreParams) -> Result<Vec<SnipeScore>> {
         match params.mode {
             GameMode::Osu => huismetbenen::get_national_firsts(self, params).await,
-            GameMode::Mania => {
+            GameMode::Catch | GameMode::Mania => {
                 let scores = kittenroleplay::get_national_firsts(self, params)
                     .await?
                     .into_iter()
@@ -360,19 +365,17 @@ impl Client {
 
                 Ok(scores)
             }
-            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+            GameMode::Taiko => unimplemented!(),
         }
     }
 
-    pub async fn get_national_firsts_count(
-        &self,
-        params: &SnipeScoreParams,
-        mode: GameMode,
-    ) -> Result<usize> {
-        match mode {
+    pub async fn get_national_firsts_count(&self, params: &SnipeScoreParams) -> Result<usize> {
+        match params.mode {
             GameMode::Osu => huismetbenen::get_national_firsts_count(self, params).await,
-            GameMode::Mania => kittenroleplay::get_national_firsts_count(self, params).await,
-            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+            GameMode::Catch | GameMode::Mania => {
+                kittenroleplay::get_national_firsts_count(self, params).await
+            }
+            GameMode::Taiko => unimplemented!(),
         }
     }
 
@@ -380,8 +383,10 @@ impl Client {
     pub async fn get_snipe_countries(&self, mode: GameMode) -> Result<SnipeCountries> {
         let mut countries = match mode {
             GameMode::Osu => huismetbenen::get_countries(self).await?,
-            GameMode::Mania => kittenroleplay::get_countries(self).await.map(From::from)?,
-            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+            GameMode::Catch | GameMode::Mania => kittenroleplay::get_countries(self, mode)
+                .await
+                .map(From::from)?,
+            GameMode::Taiko => unimplemented!(),
         };
 
         countries.sort();

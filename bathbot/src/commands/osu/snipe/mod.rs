@@ -51,14 +51,28 @@ pub enum SnipeGameMode {
     #[default]
     #[option(name = "osu", value = "osu")]
     Osu,
+    #[option(name = "ctb", value = "ctb")]
+    Catch,
     #[option(name = "mania", value = "mania")]
     Mania,
+}
+
+impl SnipeGameMode {
+    pub fn try_from_mode(mode: GameMode) -> Option<Self> {
+        match mode {
+            GameMode::Osu => Some(Self::Osu),
+            GameMode::Taiko => None,
+            GameMode::Catch => Some(Self::Catch),
+            GameMode::Mania => Some(Self::Mania),
+        }
+    }
 }
 
 impl From<SnipeGameMode> for GameMode {
     fn from(mode: SnipeGameMode) -> Self {
         match mode {
             SnipeGameMode::Osu => Self::Osu,
+            SnipeGameMode::Catch => Self::Catch,
             SnipeGameMode::Mania => Self::Mania,
         }
     }

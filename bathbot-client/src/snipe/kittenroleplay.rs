@@ -8,15 +8,18 @@ use bathbot_model::{
 };
 use bathbot_util::osu::ModSelection;
 use eyre::{Report, Result, WrapErr};
+use rosu_v2::model::GameMode;
 
 use crate::{site::Site, Client, ClientError};
 
 pub async fn get_snipe_player(
     client: &Client,
     user_id: u32,
+    mode: GameMode,
 ) -> Result<Option<KittenRoleplayPlayerStatistics>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/player/statistics?mode=3&user_id={user_id}",
+        "https://snipes.kittenroleplay.com/api/player/statistics?mode={mode}&user_id={user_id}",
+        mode = mode as u8,
     );
 
     let bytes = match client.make_get_request(url, Site::KittenRoleplay).await {
@@ -36,9 +39,11 @@ pub async fn get_snipe_country(
     client: &Client,
     country_code: &str,
     sort: SnipeCountryListOrder,
+    mode: GameMode,
 ) -> Result<Vec<KittenRoleplayCountryRankingPlayer>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/country/rankings?mode=3&country={country_code}&sort={sort}",
+        "https://snipes.kittenroleplay.com/api/country/rankings?mode={mode}&country={country_code}&sort={sort}",
+        mode = mode as u8,
         sort = sort.as_kittenroleplay_str(),
     );
 
@@ -54,9 +59,11 @@ pub async fn get_snipe_country(
 pub async fn get_country_statistics(
     client: &Client,
     country_code: &str,
+    mode: GameMode,
 ) -> Result<KittenRoleplayCountryStatistics> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/country/statistics?mode=3&country={country_code}"
+        "https://snipes.kittenroleplay.com/api/country/statistics?mode={mode}&country={country_code}",
+        mode = mode as u8,
     );
 
     let bytes = client.make_get_request(url, Site::KittenRoleplay).await?;
@@ -72,9 +79,11 @@ pub async fn get_sniped_players(
     client: &Client,
     user_id: u32,
     sniper: bool,
+    mode: GameMode,
 ) -> Result<Vec<SnipedWeek>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/player/{version}/counter?mode=3&user_id={user_id}",
+        "https://snipes.kittenroleplay.com/api/player/{version}/counter?mode={mode}&user_id={user_id}",
+        mode = mode as u8,
         version = if sniper { "gains" } else { "losses" },
     );
 
@@ -93,10 +102,12 @@ pub async fn get_national_snipes(
     sniper: bool,
     offset: u32,
     days_since: u32,
+    mode: GameMode,
 ) -> Result<Vec<KittenRoleplaySnipe>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/player/{version}?mode=3&\
+        "https://snipes.kittenroleplay.com/api/player/{version}?mode={mode}&\
         user_id={user_id}&since={days_since}&self_snipes=0&offset={offset}&limit=50",
+        mode = mode as u8,
         version = if sniper { "gains" } else { "losses" },
     );
 
@@ -114,8 +125,9 @@ pub async fn get_national_firsts(
     params: &SnipeScoreParams,
 ) -> Result<Vec<KittenRoleplayScore>> {
     let mut url = format!(
-        "https://snipes.kittenroleplay.com/api/player/scores?mode=3&user_id={user}&sort={sort}\
+        "https://snipes.kittenroleplay.com/api/player/scores?mode={mode}&user_id={user}&sort={sort}\
         &order={order}&offset={offset}",
+        mode = params.mode as u8,
         user = params.user_id,
         sort = params.order.as_kittenroleplay_str(),
         order = if params.descending { "DESC" } else { "ASC" },
@@ -139,7 +151,7 @@ pub async fn get_national_firsts_count(
     client: &Client,
     params: &SnipeScoreParams,
 ) -> Result<usize> {
-    let counts = get_mod_counts(client, params.user_id).await?;
+    let counts = get_mod_counts(client, params.user_id, params.mode).await?;
 
     let count = match params.mods {
         Some(ModSelection::Include(ref mods) | ModSelection::Exact(ref mods)) => {
@@ -158,8 +170,12 @@ pub async fn get_national_firsts_count(
     Ok(count as usize)
 }
 
-pub async fn get_countries(client: &Client) -> Result<KittenRoleplayCountries> {
-    let url = "https://snipes.kittenroleplay.com/api/country/list?mode=3";
+pub async fn get_countries(client: &Client, mode: GameMode) -> Result<KittenRoleplayCountries> {
+    let url = format!(
+        "https://snipes.kittenroleplay.com/api/country/list?mode={mode}",
+        mode = mode as u8
+    );
+
     let bytes = client.make_get_request(url, Site::KittenRoleplay).await?;
 
     serde_json::from_slice(&bytes).wrap_err_with(|| {
@@ -169,9 +185,14 @@ pub async fn get_countries(client: &Client) -> Result<KittenRoleplayCountries> {
     })
 }
 
-pub async fn get_mod_counts(client: &Client, user_id: u32) -> Result<Vec<KittenRoleplayModsCount>> {
+pub async fn get_mod_counts(
+    client: &Client,
+    user_id: u32,
+    mode: GameMode,
+) -> Result<Vec<KittenRoleplayModsCount>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/player/mods/combos?mode=3&user_id={user_id}",
+        "https://snipes.kittenroleplay.com/api/player/mods/combos?mode={mode}&user_id={user_id}",
+        mode = mode as u8
     );
 
     let bytes = client.make_get_request(url, Site::KittenRoleplay).await?;
@@ -186,9 +207,11 @@ pub async fn get_mod_counts(client: &Client, user_id: u32) -> Result<Vec<KittenR
 pub async fn get_snipe_player_history(
     client: &Client,
     user_id: u32,
+    mode: GameMode,
 ) -> Result<Vec<KittenRoleplayPlayerHistoryEntry>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/player/historical?mode=3&user_id={user_id}",
+        "https://snipes.kittenroleplay.com/api/player/historical?mode={mode}&user_id={user_id}",
+        mode = mode as u8
     );
 
     let bytes = client.make_get_request(url, Site::KittenRoleplay).await?;
@@ -203,9 +226,12 @@ pub async fn get_snipe_player_history(
 pub async fn get_player_stars(
     client: &Client,
     user_id: u32,
+    mode: GameMode,
 ) -> Result<Vec<KittenRoleplayStarsCount>> {
-    let url =
-        format!("https://snipes.kittenroleplay.com/api/player/stars?mode=3&user_id={user_id}",);
+    let url = format!(
+        "https://snipes.kittenroleplay.com/api/player/stars?mode={mode}&user_id={user_id}",
+        mode = mode as u8
+    );
 
     let bytes = client.make_get_request(url, Site::KittenRoleplay).await?;
 
@@ -215,21 +241,3 @@ pub async fn get_player_stars(
         format!("Failed to deserialize kittenroleplay player stars: {body}")
     })
 }
-
-/*
-class Allowed:
-    Countries = [country.alpha_2 for country in pycountry.countries] + ['XX']
-    RankingSorts = ['count', 'average_accuracy', 'average_stars', 'average_pp', 'weighted_pp', 'average_score', 'total_score']
-    ScoreSorts = ['created_at', 'score', 'accuracy', 'max_combo', 'pp', 'stars', 'count_miss']
-    Orders = ['DESC', 'ASC']
-
-@bp.route("/country/scores", methods=["GET"])
-def country_scores(country, mode, sort, order, limit, offset):
-
-@bp.route("/player/gains", methods=["GET"])
-def player_gains(user_id, mode, limit, offset):
-
-@bp.route("/player/losses", methods=["GET"])
-def player_losses(user_id, mode, limit, offset):
-
-*/

@@ -53,6 +53,32 @@ async fn prefix_countrysnipestats(
 }
 
 #[command]
+#[desc("Snipe / #1 count related ctb stats for a country")]
+#[help(
+    "Some snipe / #1 count related ctb stats for a country.\n\
+    As argument, provide an optional country acronym, e.g. `be`.\n\
+    If no country is specified, I will take the country of the linked user.\n\
+    Data for osu!catch originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[country acronym]")]
+#[examples("fr")]
+#[alias("cssc", "countrysnipestatscatch")]
+#[group(Catch)]
+async fn prefix_countrysnipestatsctb(
+    msg: &Message,
+    mut args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let args = SnipeCountryStats {
+        mode: Some(SnipeGameMode::Catch),
+        country: args.next().map(Cow::from),
+    };
+
+    country_stats(CommandOrigin::from_msg(msg, permissions), args).await
+}
+
+#[command]
 #[desc("Snipe / #1 count related mania stats for a country")]
 #[help(
     "Some snipe / #1 count related mania stats for a country.\n\
