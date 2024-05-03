@@ -38,7 +38,7 @@ use crate::{
 
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
 #[command(
-    name = "cp",
+    name = "pc",
     desc = "Compare two profiles",
     help = "Compare profile stats between two players.\n\
     Note:\n\
@@ -46,7 +46,7 @@ use crate::{
     - PP spread = PP difference between the top score and the 100th score"
 )]
 #[allow(unused)]
-pub struct Cp<'a> {
+pub struct Pc<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
@@ -64,7 +64,7 @@ pub struct Cp<'a> {
     discord2: Option<Id<UserMarker>>,
 }
 
-async fn slash_cp(mut command: InteractionCommand) -> Result<()> {
+async fn slash_pc(mut command: InteractionCommand) -> Result<()> {
     let args = CompareProfile::from_interaction(command.input_data())?;
 
     profile((&mut command).into(), args).await
