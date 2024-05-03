@@ -240,10 +240,16 @@ async fn sniped_diff(
 
     if scores.is_empty() {
         let content = format!(
-            "`{username}` didn't {diff} national #1s in the last week.",
+            "`{username}` didn't {diff} national {mode} #1s in the last week.",
             diff = match diff {
                 Difference::Gain => "gain any new",
                 Difference::Loss => "lose any",
+            },
+            mode = match mode {
+                GameMode::Osu => "osu!standard",
+                GameMode::Taiko => "osu!taiko",
+                GameMode::Catch => "osu!catch",
+                GameMode::Mania => "osu!mania",
             }
         );
 

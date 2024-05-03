@@ -64,7 +64,16 @@ pub async fn snipe_count_graph(
         match tokio::try_join!(player_fut, history_fut) {
             Ok((Some(player), history)) => (player, history),
             Ok((None, _)) => {
-                let content = format!("`{username}` has never had any national #1s");
+                let content = format!(
+                    "`{username}` has never had any national #1s in {mode}",
+                    mode = match mode {
+                        GameMode::Osu => "osu!standard",
+                        GameMode::Taiko => "osu!taiko",
+                        GameMode::Catch => "osu!catch",
+                        GameMode::Mania => "osu!mania",
+                    }
+                );
+
                 let builder = MessageBuilder::new().embed(content);
                 orig.create_message(builder).await?;
 
