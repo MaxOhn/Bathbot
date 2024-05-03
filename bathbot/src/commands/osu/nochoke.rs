@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering};
+use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
@@ -272,11 +272,7 @@ async fn nochoke(orig: CommandOrigin<'_>, args: Nochoke<'_>) -> Result<()> {
     let bonus_pp = user.stats().pp() - actual_pp;
 
     // Sort by unchoked pp
-    entries.sort_unstable_by(|a, b| {
-        b.unchoked_pp()
-            .partial_cmp(&a.unchoked_pp())
-            .unwrap_or(Ordering::Equal)
-    });
+    entries.sort_unstable_by(|a, b| b.unchoked_pp().total_cmp(&a.unchoked_pp()));
 
     // Calculate total user pp without chokes
     let mut unchoked_pp: f32 = entries
@@ -426,7 +422,7 @@ async fn process_scores(
             .performance()
             .await;
 
-        let pp = score.pp.expect("missing pp");
+        let pp = score.pp.unwrap_or(0.0);
 
         let max_pp = if score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania && pp > 0.0
         {
