@@ -119,6 +119,18 @@ impl IActiveMessage for CompareScoresPagination {
                     args.description.push('\n');
                 }
 
+                let combo = if entry.score.mode == GameMode::Mania {
+                    let mut ratio = entry.score.statistics.count_geki as f32;
+
+                    if entry.score.statistics.count_300 > 0 {
+                        ratio /= entry.score.statistics.count_300 as f32
+                    }
+
+                    format!("**{}x** / {ratio:.2}", &entry.score.max_combo)
+                } else {
+                    ComboFormatter::new(entry.score.max_combo, Some(entry.max_combo)).to_string()
+                };
+
                 let _ = write!(
                     args.description,
                     "{grade} **+{mods}** [{stars:.2}★] • {score} • {acc}%\n\
@@ -131,7 +143,6 @@ impl IActiveMessage for CompareScoresPagination {
                     pp_format = if pp_idx == Some(0) { "" } else { "~~" },
                     pp = entry.score.pp,
                     max_pp = entry.score.pp.max(entry.max_pp),
-                    combo = ComboFormatter::new(entry.score.max_combo, Some(entry.max_combo)),
                 );
 
                 if let Some(ref if_fc) = entry.if_fc {
