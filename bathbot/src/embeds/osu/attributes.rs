@@ -57,9 +57,15 @@ impl AttributesEmbed {
             AttributeKind::Od => attrs.od,
         };
 
+        let mut mods_name = mods.to_string();
+
+        if let Some(clock_rate) = clock_rate.map(round) {
+            let _ = write!(mods_name, "({clock_rate}x)");
+        }
+
         let mut mods_field = EmbedField {
             inline: true,
-            name: mods.to_string(),
+            name: mods_name,
             value: round(adjusted as f32).to_string(),
         };
 
