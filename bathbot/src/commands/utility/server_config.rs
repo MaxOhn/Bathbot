@@ -7,7 +7,7 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::RoleMarker, Id};
 
-use super::AuthorityCommandKind;
+use super::{AuthorityCommandKind, ScoreData};
 use crate::{
     commands::{EnableDisable, ShowHideOption},
     embeds::{EmbedData, ServerConfigEmbed},
@@ -142,6 +142,13 @@ pub struct ServerConfigEdit {
     allow_custom_skins: Option<bool>,
     #[command(desc = "Should medal solutions should be hidden behind spoiler tags?")]
     hide_medal_solutions: Option<HideSolutions>,
+    #[command(
+        desc = "Whether scores should be requested as lazer or stable scores",
+        help = "Whether scores should be requested as lazer or stable scores.\n\
+        They have a different score and grade calculation and only lazer adds the new mods.\n\
+        Applies only if the member has not specified a config for themselves."
+    )]
+    score_data: Option<ScoreData>,
 }
 
 impl ServerConfigEdit {
@@ -156,6 +163,7 @@ impl ServerConfigEdit {
             render_button,
             allow_custom_skins,
             hide_medal_solutions,
+            score_data,
         } = self;
 
         song_commands.is_some()
@@ -167,6 +175,7 @@ impl ServerConfigEdit {
             || render_button.is_some()
             || allow_custom_skins.is_some()
             || hide_medal_solutions.is_some()
+            || score_data.is_some()
     }
 }
 
@@ -209,6 +218,7 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
                 render_button,
                 allow_custom_skins,
                 hide_medal_solutions,
+                score_data,
             } = args;
 
             if let Some(score_embeds) = score_embeds {
@@ -245,6 +255,10 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
 
             if let Some(hide_medal_solutions) = hide_medal_solutions {
                 config.hide_medal_solution = Some(hide_medal_solutions);
+            }
+
+            if let Some(score_data) = score_data {
+                config.legacy_scores = Some(score_data == ScoreData::Stable);
             }
         };
 
