@@ -9,7 +9,10 @@ use std::{
 };
 
 use ::time::{Duration, OffsetDateTime};
-use bathbot_psql::model::osu::{TrackedOsuUserKey, TrackedOsuUserValue};
+use bathbot_psql::{
+    model::osu::{TrackedOsuUserKey, TrackedOsuUserValue},
+    Database,
+};
 use bathbot_util::IntHasher;
 use eyre::Result;
 use flexmap::tokio::TokioMutexMap;
@@ -21,7 +24,7 @@ use rosu_v2::model::GameMode;
 use tokio::{sync::Mutex, time};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
-use crate::core::Context;
+use crate::{core::Context, manager::OsuTrackingManager};
 
 static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(180));
 
@@ -48,9 +51,13 @@ pub struct OsuTracking {
 }
 
 impl OsuTracking {
+    // This is called before the global context is set so we need to pass a DB
+    // reference here.
     #[cold]
-    pub async fn new() -> Result<Self> {
-        OsuTrackingQueue::new().await.map(|queue| Self { queue })
+    pub async fn new(psql: &Database) -> Result<Self> {
+        OsuTrackingQueue::new(psql)
+            .await
+            .map(|queue| Self { queue })
     }
 
     pub fn set_stop_tracking(&self, value: bool) {
@@ -202,9 +209,11 @@ pub struct OsuTrackingQueue {
 }
 
 impl OsuTrackingQueue {
+    // This is called before the global context is set so we need to pass a DB
+    // reference here.
     #[cold]
-    async fn new() -> Result<Self> {
-        let users = Context::osu_tracking().get_users().await?;
+    async fn new(psql: &Database) -> Result<Self> {
+        let users = OsuTrackingManager::new(psql).get_users().await?;
         let now = OffsetDateTime::now_utc();
 
         let queue = users

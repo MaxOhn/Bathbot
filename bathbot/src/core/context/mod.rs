@@ -81,6 +81,7 @@ pub struct Context {
 }
 
 impl Context {
+    #[track_caller]
     pub fn get() -> &'static Self {
         CONTEXT.get().expect("Context not yet initialized")
     }
@@ -426,7 +427,7 @@ impl ContextData {
             #[cfg(feature = "matchlive")]
             matchlive: crate::matchlive::MatchLiveChannels::new(),
             #[cfg(feature = "osutracking")]
-            osu_tracking: crate::tracking::OsuTracking::new()
+            osu_tracking: crate::tracking::OsuTracking::new(psql)
                 .await
                 .wrap_err("Failed to create osu tracking")?,
             miss_analyzer_guilds,
