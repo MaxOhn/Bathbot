@@ -207,8 +207,8 @@ impl From<ConfigGameMode> for Option<GameMode> {
     }
 }
 
-#[derive(CommandOption, CreateOption)]
-enum ScoreData {
+#[derive(CommandOption, CreateOption, PartialEq, Eq)]
+pub enum ScoreData {
     #[option(name = "Lazer", value = "lazer")]
     Lazer,
     #[option(name = "Stable", value = "stable")]
