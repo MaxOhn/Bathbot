@@ -130,9 +130,9 @@ impl<'m> TopIf<'m> {
 #[desc("Display a user's top plays with(out) the given mods")]
 #[help(
     "Display how a user's top plays would look like with the given mods.\n\
-    As for all other commands with mods input, you can specify them as follows:\n  \
-    - `+mods` to include the mod(s) into all scores\n  \
-    - `+mods!` to make all scores have exactly those mods\n  \
+    As for all other commands with mods input, you can specify them as follows:\n\
+    - `+mods` to include the mod(s) into all scores\n\
+    - `+mods!` to make all scores have exactly those mods\n\
     - `-mods!` to remove all these mods from all scores"
 )]
 #[usage("[username] [mods")]
@@ -154,9 +154,9 @@ async fn prefix_topif(msg: &Message, args: Args<'_>) -> Result<()> {
 #[desc("Display a user's top taiko plays with(out) the given mods")]
 #[help(
     "Display how a user's top taiko plays would look like with the given mods.\n\
-    As for all other commands with mods input, you can specify them as follows:\n  \
-    - `+mods` to include the mod(s) into all scores\n  \
-    - `+mods!` to make all scores have exactly those mods\n  \
+    As for all other commands with mods input, you can specify them as follows:\n\
+    - `+mods` to include the mod(s) into all scores\n\
+    - `+mods!` to make all scores have exactly those mods\n\
     - `-mods!` to remove all these mods from all scores"
 )]
 #[usage("[username] [mods")]
@@ -178,9 +178,9 @@ async fn prefix_topiftaiko(msg: &Message, args: Args<'_>) -> Result<()> {
 #[desc("Display a user's top ctb plays with(out) the given mods")]
 #[help(
     "Display how a user's top ctb plays would look like with the given mods.\n\
-    As for all other commands with mods input, you can specify them as follows:\n  \
-    - `+mods` to include the mod(s) into all scores\n  \
-    - `+mods!` to make all scores have exactly those mods\n  \
+    As for all other commands with mods input, you can specify them as follows:\n\
+    - `+mods` to include the mod(s) into all scores\n\
+    - `+mods!` to make all scores have exactly those mods\n\
     - `-mods!` to remove all these mods from all scores"
 )]
 #[usage("[username] [mods")]
