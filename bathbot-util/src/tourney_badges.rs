@@ -49,7 +49,8 @@ impl TourneyBadges {
             || badge.starts_with("outstanding")
             || badge.starts_with("pending")
             || badge.starts_with("spotlight")
-            || badge.contains("playlist"))
+            || badge.contains("playlist")
+            || badge.contains("pickem"))
     }
 }
 
@@ -90,6 +91,7 @@ mod tests {
             "Aspire V Community Pick Grand Award: \
             Innovative Storyboarding (osu!) Runner Up and Song Title Runner Up", // /u/2330619
             "Featured Artist Playlist Leader: osu! (June 2022)",               // /u/12736534
+            "OWC 2022 Pickem Winner",                                          // /u/3149577
         ];
 
         assert_eq!(TourneyBadges::count(badges), 0);
