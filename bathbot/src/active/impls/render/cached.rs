@@ -12,14 +12,11 @@ use twilight_model::{
         component::{ActionRow, Button, ButtonStyle},
         Component,
     },
-    id::{
-        marker::{ChannelMarker, MessageMarker, UserMarker},
-        Id,
-    },
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    active::{BuildPage, ComponentResult, IActiveMessage},
+    active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
     commands::osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
     core::{buckets::BucketName, Context},
     manager::{OwnedReplayScore, ReplayScore},
@@ -296,11 +293,7 @@ impl IActiveMessage for CachedRender {
         Box::pin(self.async_handle_component(component))
     }
 
-    fn on_timeout(
-        &mut self,
-        msg: Id<MessageMarker>,
-        channel: Id<ChannelMarker>,
-    ) -> BoxFuture<'_, Result<()>> {
+    fn on_timeout(&mut self, response: ActiveResponse) -> BoxFuture<'_, Result<()>> {
         if self.done {
             return Box::pin(ready(Ok(())));
         }
@@ -313,7 +306,7 @@ impl IActiveMessage for CachedRender {
             .embed(None)
             .components(Vec::new());
 
-        let Some(fut) = (msg, channel).update(builder, None) else {
+        let Some(fut) = response.update(builder) else {
             return Box::pin(ready(Err(eyre!(
                 "Lacking permissions to handle cached render timeout"
             ))));

@@ -11,10 +11,7 @@ use futures::future::BoxFuture;
 use tokio::sync::watch::Sender;
 use twilight_model::{
     channel::message::Component,
-    id::{
-        marker::{ChannelMarker, MessageMarker},
-        Id,
-    },
+    id::{marker::MessageMarker, Id},
 };
 
 pub use self::origin::ActiveMessageOriginError;
@@ -35,12 +32,13 @@ use self::{
         SnipeCountryListPagination, SnipeDifferencePagination, SnipePlayerListPagination,
         TopIfPagination, TopPagination,
     },
+    response::ActiveResponse,
 };
 use crate::{
     core::{BotMetrics, Context, EventKind},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        ComponentExt, MessageExt, ModalExt,
+        ComponentExt, ModalExt,
     },
 };
 
@@ -49,6 +47,7 @@ pub mod impls;
 mod builder;
 mod origin;
 mod pagination;
+mod response;
 
 #[enum_dispatch(IActiveMessage)]
 pub enum ActiveMessage {
@@ -371,14 +370,10 @@ pub trait IActiveMessage {
     /// What happens when the message is no longer active.
     ///
     /// Defaults to removing all components.
-    fn on_timeout(
-        &mut self,
-        msg: Id<MessageMarker>,
-        channel: Id<ChannelMarker>,
-    ) -> BoxFuture<'_, Result<()>> {
+    fn on_timeout(&mut self, response: ActiveResponse) -> BoxFuture<'_, Result<()>> {
         let builder = MessageBuilder::new().components(Vec::new());
 
-        match (msg, channel).update(builder, None) {
+        match response.update(builder) {
             Some(update_fut) => {
                 let fut = async {
                     update_fut

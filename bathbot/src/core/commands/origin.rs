@@ -140,9 +140,6 @@ impl CommandOrigin<'_> {
     }
 
     /// Update a response and return the resulting response message.
-    ///
-    /// In case of an interaction, be sure this is the first and only time you
-    /// call this. Afterwards, you must update the resulting message.
     pub async fn update(&self, builder: MessageBuilder<'_>) -> Result<Response<Message>> {
         match self {
             Self::Message { msg, permissions } => msg
