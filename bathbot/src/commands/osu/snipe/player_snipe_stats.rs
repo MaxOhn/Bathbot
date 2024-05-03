@@ -16,7 +16,7 @@ use twilight_model::guild::Permissions;
 use super::{SnipeGameMode, SnipePlayerStats};
 use crate::{
     commands::osu::require_link,
-    core::commands::CommandOrigin,
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
     manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,
@@ -36,25 +36,10 @@ use crate::{
 #[group(Osu)]
 async fn prefix_playersnipestats(
     msg: &Message,
-    mut args: Args<'_>,
+    args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    let mode = None;
-    let mut name = None;
-    let mut discord = None;
-
-    if let Some(arg) = args.next() {
-        match matcher::get_mention_user(arg) {
-            Some(id) => discord = Some(id),
-            None => name = Some(arg.into()),
-        }
-    }
-
-    let args = SnipePlayerStats {
-        mode,
-        name,
-        discord,
-    };
+    let args = SnipePlayerStats::args(args, None);
 
     player_stats(CommandOrigin::from_msg(msg, permissions), args).await
 }
@@ -72,25 +57,10 @@ async fn prefix_playersnipestats(
 #[group(Catch)]
 async fn prefix_playersnipestatsctb(
     msg: &Message,
-    mut args: Args<'_>,
+    args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    let mode = Some(SnipeGameMode::Catch);
-    let mut name = None;
-    let mut discord = None;
-
-    if let Some(arg) = args.next() {
-        match matcher::get_mention_user(arg) {
-            Some(id) => discord = Some(id),
-            None => name = Some(arg.into()),
-        }
-    }
-
-    let args = SnipePlayerStats {
-        mode,
-        name,
-        discord,
-    };
+    let args = SnipePlayerStats::args(args, Some(GameMode::Catch));
 
     player_stats(CommandOrigin::from_msg(msg, permissions), args).await
 }
@@ -108,25 +78,10 @@ async fn prefix_playersnipestatsctb(
 #[group(Mania)]
 async fn prefix_playersnipestatsmania(
     msg: &Message,
-    mut args: Args<'_>,
+    args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    let mode = Some(SnipeGameMode::Mania);
-    let mut name = None;
-    let mut discord = None;
-
-    if let Some(arg) = args.next() {
-        match matcher::get_mention_user(arg) {
-            Some(id) => discord = Some(id),
-            None => name = Some(arg.into()),
-        }
-    }
-
-    let args = SnipePlayerStats {
-        mode,
-        name,
-        discord,
-    };
+    let args = SnipePlayerStats::args(args, Some(GameMode::Mania));
 
     player_stats(CommandOrigin::from_msg(msg, permissions), args).await
 }
@@ -416,4 +371,24 @@ pub fn graphs(
         .to_vec();
 
     Ok(png_bytes)
+}
+
+impl<'m> SnipePlayerStats<'m> {
+    fn args(mut args: Args<'m>, mode: Option<GameMode>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        if let Some(arg) = args.next() {
+            match matcher::get_mention_user(arg) {
+                Some(id) => discord = Some(id),
+                None => name = Some(arg.into()),
+            }
+        }
+
+        Self {
+            mode: mode.and_then(SnipeGameMode::try_from_mode),
+            name,
+            discord,
+        }
+    }
 }

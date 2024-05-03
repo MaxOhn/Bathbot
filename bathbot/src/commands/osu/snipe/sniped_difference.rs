@@ -12,7 +12,7 @@ use time::{Duration, OffsetDateTime};
 use super::{SnipeGameMode, SnipePlayerGain, SnipePlayerLoss};
 use crate::{
     active::{impls::SnipeDifferencePagination, ActiveMessages},
-    core::commands::CommandOrigin,
+    core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
     Context,
 };
@@ -28,23 +28,8 @@ use crate::{
 #[example("badewanne3")]
 #[aliases("sg", "snipegain", "snipesgain")]
 #[group(Osu)]
-async fn prefix_snipedgain(msg: &Message, mut args: Args<'_>) -> Result<()> {
-    let mode = None;
-    let mut name = None;
-    let mut discord = None;
-
-    if let Some(arg) = args.next() {
-        match matcher::get_mention_user(arg) {
-            Some(id) => discord = Some(id),
-            None => name = Some(arg.into()),
-        }
-    }
-
-    let args = SnipePlayerGain {
-        mode,
-        name,
-        discord,
-    };
+async fn prefix_snipedgain(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = SnipePlayerGain::args(args, None);
 
     player_gain(msg.into(), args).await
 }
@@ -67,23 +52,8 @@ async fn prefix_snipedgain(msg: &Message, mut args: Args<'_>) -> Result<()> {
     "snipesgaincatch"
 )]
 #[group(Catch)]
-async fn prefix_snipedgainctb(msg: &Message, mut args: Args<'_>) -> Result<()> {
-    let mode = Some(SnipeGameMode::Catch);
-    let mut name = None;
-    let mut discord = None;
-
-    if let Some(arg) = args.next() {
-        match matcher::get_mention_user(arg) {
-            Some(id) => discord = Some(id),
-            None => name = Some(arg.into()),
-        }
-    }
-
-    let args = SnipePlayerGain {
-        mode,
-        name,
-        discord,
-    };
+async fn prefix_snipedgainctb(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = SnipePlayerGain::args(args, Some(GameMode::Catch));
 
     player_gain(msg.into(), args).await
 }
@@ -99,23 +69,8 @@ async fn prefix_snipedgainctb(msg: &Message, mut args: Args<'_>) -> Result<()> {
 #[example("badewanne3")]
 #[aliases("sgm", "snipegainmania", "snipesgainmania")]
 #[group(Mania)]
-async fn prefix_snipedgainmania(msg: &Message, mut args: Args<'_>) -> Result<()> {
-    let mode = Some(SnipeGameMode::Mania);
-    let mut name = None;
-    let mut discord = None;
-
-    if let Some(arg) = args.next() {
-        match matcher::get_mention_user(arg) {
-            Some(id) => discord = Some(id),
-            None => name = Some(arg.into()),
-        }
-    }
-
-    let args = SnipePlayerGain {
-        mode,
-        name,
-        discord,
-    };
+async fn prefix_snipedgainmania(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = SnipePlayerGain::args(args, Some(GameMode::Mania));
 
     player_gain(msg.into(), args).await
 }
@@ -138,23 +93,8 @@ async fn prefix_snipedgainmania(msg: &Message, mut args: Args<'_>) -> Result<()>
     "snipeslost"
 )]
 #[group(Osu)]
-async fn prefix_snipedloss(msg: &Message, mut args: Args<'_>) -> Result<()> {
-    let mode = None;
-    let mut name = None;
-    let mut discord = None;
-
-    if let Some(arg) = args.next() {
-        match matcher::get_mention_user(arg) {
-            Some(id) => discord = Some(id),
-            None => name = Some(arg.into()),
-        }
-    }
-
-    let args = SnipePlayerLoss {
-        mode,
-        name,
-        discord,
-    };
+async fn prefix_snipedloss(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = SnipePlayerLoss::args(args, None);
 
     player_loss(msg.into(), args).await
 }
@@ -182,23 +122,8 @@ async fn prefix_snipedloss(msg: &Message, mut args: Args<'_>) -> Result<()> {
     "snipeslostcatch"
 )]
 #[group(Catch)]
-async fn prefix_snipedlossctb(msg: &Message, mut args: Args<'_>) -> Result<()> {
-    let mode = Some(SnipeGameMode::Catch);
-    let mut name = None;
-    let mut discord = None;
-
-    if let Some(arg) = args.next() {
-        match matcher::get_mention_user(arg) {
-            Some(id) => discord = Some(id),
-            None => name = Some(arg.into()),
-        }
-    }
-
-    let args = SnipePlayerLoss {
-        mode,
-        name,
-        discord,
-    };
+async fn prefix_snipedlossctb(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = SnipePlayerLoss::args(args, Some(GameMode::Catch));
 
     player_loss(msg.into(), args).await
 }
@@ -221,23 +146,8 @@ async fn prefix_snipedlossctb(msg: &Message, mut args: Args<'_>) -> Result<()> {
     "snipeslostmania"
 )]
 #[group(Mania)]
-async fn prefix_snipedlossmania(msg: &Message, mut args: Args<'_>) -> Result<()> {
-    let mode = Some(SnipeGameMode::Mania);
-    let mut name = None;
-    let mut discord = None;
-
-    if let Some(arg) = args.next() {
-        match matcher::get_mention_user(arg) {
-            Some(id) => discord = Some(id),
-            None => name = Some(arg.into()),
-        }
-    }
-
-    let args = SnipePlayerLoss {
-        mode,
-        name,
-        discord,
-    };
+async fn prefix_snipedlossmania(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = SnipePlayerLoss::args(args, Some(GameMode::Mania));
 
     player_loss(msg.into(), args).await
 }
@@ -363,4 +273,44 @@ async fn sniped_diff(
 pub enum Difference {
     Gain,
     Loss,
+}
+
+impl<'m> SnipePlayerGain<'m> {
+    fn args(mut args: Args<'m>, mode: Option<GameMode>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        if let Some(arg) = args.next() {
+            match matcher::get_mention_user(arg) {
+                Some(id) => discord = Some(id),
+                None => name = Some(arg.into()),
+            }
+        }
+
+        Self {
+            mode: mode.and_then(SnipeGameMode::try_from_mode),
+            name,
+            discord,
+        }
+    }
+}
+
+impl<'m> SnipePlayerLoss<'m> {
+    fn args(mut args: Args<'m>, mode: Option<GameMode>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        if let Some(arg) = args.next() {
+            match matcher::get_mention_user(arg) {
+                Some(id) => discord = Some(id),
+                None => name = Some(arg.into()),
+            }
+        }
+
+        Self {
+            mode: mode.and_then(SnipeGameMode::try_from_mode),
+            name,
+            discord,
+        }
+    }
 }
