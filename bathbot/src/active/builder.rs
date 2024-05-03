@@ -6,13 +6,10 @@ use tokio::{
     sync::watch::{self, Receiver},
     time::sleep,
 };
-use twilight_model::id::{
-    marker::{ChannelMarker, MessageMarker},
-    Id,
-};
 
 use super::{
     origin::{ActiveMessageOrigin, ActiveMessageOriginError},
+    response::ActiveResponse,
     ActiveMessage, BuildPage, FullActiveMessage, IActiveMessage,
 };
 use crate::core::Context;
@@ -83,12 +80,12 @@ impl ActiveMessagesBuilder {
             .await
             .wrap_err("Failed to deserialize response")?;
 
-        let channel = response.channel_id;
         let msg = response.id;
+        let response = ActiveResponse::new(&orig, &response);
         let (activity_tx, activity_rx) = watch::channel(());
 
         if let Some(until_timeout) = active_msg.until_timeout() {
-            Self::spawn_timeout(activity_rx, msg, channel, until_timeout);
+            Self::spawn_timeout(activity_rx, response, until_timeout);
 
             let full = FullActiveMessage {
                 active_msg,
@@ -112,12 +109,7 @@ impl ActiveMessagesBuilder {
         }
     }
 
-    fn spawn_timeout(
-        mut rx: Receiver<()>,
-        msg: Id<MessageMarker>,
-        channel: Id<ChannelMarker>,
-        until_timeout: Duration,
-    ) {
+    fn spawn_timeout(mut rx: Receiver<()>, response: ActiveResponse, until_timeout: Duration) {
         tokio::spawn(async move {
             loop {
                 tokio::select! {
@@ -127,10 +119,10 @@ impl ActiveMessagesBuilder {
                         return
                     },
                     _ = sleep(until_timeout) => {
-                        let active_msg = Context::get().active_msgs.remove_full(msg).await;
+                        let active_msg = Context::get().active_msgs.remove_full(response.msg).await;
 
                         if let Some(FullActiveMessage { mut active_msg, .. }) = active_msg {
-                            if let Err(err) = active_msg.on_timeout(msg, channel).await {
+                            if let Err(err) = active_msg.on_timeout(response).await {
                                 warn!(?err, "Failed to timeout active message");
                             }
                         }

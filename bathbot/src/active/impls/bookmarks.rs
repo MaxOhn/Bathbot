@@ -25,15 +25,13 @@ use twilight_model::{
         component::{ActionRow, Button, ButtonStyle},
         Component,
     },
-    id::{
-        marker::{ChannelMarker, MessageMarker, UserMarker},
-        Id,
-    },
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
     active::{
         pagination::{handle_pagination_component, Pages},
+        response::ActiveResponse,
         BuildPage, ComponentResult, IActiveMessage,
     },
     core::Context,
@@ -406,11 +404,7 @@ impl IActiveMessage for BookmarksPagination {
         (!self.bookmarks.is_empty()).then_some(Duration::from_secs(60))
     }
 
-    fn on_timeout(
-        &mut self,
-        _: Id<MessageMarker>,
-        _: Id<ChannelMarker>,
-    ) -> BoxFuture<'_, Result<()>> {
+    fn on_timeout(&mut self, _: ActiveResponse) -> BoxFuture<'_, Result<()>> {
         let fut = async move {
             Context::interaction()
                 .update_response(&self.token)

@@ -13,7 +13,10 @@ use twilight_model::{
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
-use crate::{core::Context, util::interaction::InteractionCommand};
+use crate::{
+    core::Context,
+    util::{interaction::InteractionCommand, CheckPermissions},
+};
 
 pub trait InteractionCommandExt {
     /// Extract input data containing options and resolved values
@@ -100,16 +103,12 @@ impl InteractionCommandExt for InteractionCommand {
     fn callback(&self, builder: MessageBuilder<'_>, ephemeral: bool) -> ResponseFuture<EmptyBody> {
         let attachments = builder
             .attachment
-            .filter(|_| {
-                self.permissions.map_or(true, |permissions| {
-                    permissions.contains(Permissions::ATTACH_FILES)
-                })
-            })
+            .filter(|_| self.can_attach_file())
             .map(|attachment| vec![attachment]);
 
         let data = InteractionResponseData {
             components: builder.components,
-            content: builder.content.map(|c| c.into_owned()),
+            content: builder.content.map(Cow::into_owned),
             embeds: builder.embed.into(),
             flags: ephemeral.then_some(MessageFlags::EPHEMERAL),
             attachments,
@@ -143,9 +142,37 @@ impl InteractionCommandExt for InteractionCommand {
     }
 
     fn update<'l>(&'l self, builder: MessageBuilder<'l>) -> ResponseFuture<Message> {
+        InteractionToken(&self.token).update(builder, self.permissions)
+    }
+
+    fn autocomplete(&self, choices: Vec<CommandOptionChoice>) -> ResponseFuture<EmptyBody> {
+        let data = InteractionResponseData {
+            choices: Some(choices),
+            ..Default::default()
+        };
+
+        let response = InteractionResponse {
+            kind: InteractionResponseType::ApplicationCommandAutocompleteResult,
+            data: Some(data),
+        };
+
+        Context::interaction()
+            .create_response(self.id, &self.token, &response)
+            .into_future()
+    }
+}
+
+pub struct InteractionToken<'a>(pub &'a str);
+
+impl InteractionToken<'_> {
+    pub fn update<'l>(
+        &'l self,
+        builder: MessageBuilder<'l>,
+        permissions: Option<Permissions>,
+    ) -> ResponseFuture<Message> {
         let client = Context::interaction();
 
-        let mut req = client.update_response(&self.token);
+        let mut req = client.update_response(self.0);
 
         if let Some(ref content) = builder.content {
             req = req
@@ -163,7 +190,7 @@ impl InteractionCommandExt for InteractionCommand {
         }
 
         if let Some(attachment) = builder.attachment.as_ref().filter(|_| {
-            self.permissions.map_or(true, |permissions| {
+            permissions.map_or(true, |permissions| {
                 permissions.contains(Permissions::ATTACH_FILES)
             })
         }) {
@@ -173,21 +200,5 @@ impl InteractionCommandExt for InteractionCommand {
         }
 
         req.into_future()
-    }
-
-    fn autocomplete(&self, choices: Vec<CommandOptionChoice>) -> ResponseFuture<EmptyBody> {
-        let data = InteractionResponseData {
-            choices: Some(choices),
-            ..Default::default()
-        };
-
-        let response = InteractionResponse {
-            kind: InteractionResponseType::ApplicationCommandAutocompleteResult,
-            data: Some(data),
-        };
-
-        Context::interaction()
-            .create_response(self.id, &self.token, &response)
-            .into_future()
     }
 }

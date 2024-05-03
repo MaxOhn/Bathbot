@@ -2,14 +2,11 @@ use std::time::Instant;
 
 use bathbot_macros::{command, SlashCommand};
 use bathbot_util::MessageBuilder;
-use eyre::{ContextCompat, Result};
+use eyre::Result;
 use twilight_interactions::command::CreateCommand;
 use twilight_model::guild::Permissions;
 
-use crate::{
-    core::commands::CommandOrigin,
-    util::{interaction::InteractionCommand, CheckPermissions, MessageExt},
-};
+use crate::{core::commands::CommandOrigin, util::interaction::InteractionCommand};
 
 #[derive(CreateCommand, SlashCommand)]
 #[command(
@@ -47,13 +44,17 @@ async fn ping(orig: CommandOrigin<'_>) -> Result<()> {
     let elapsed = (Instant::now() - start).as_millis();
 
     let response = response_raw.model().await?;
+
+    let response = match orig {
+        CommandOrigin::Message { permissions, .. } => {
+            CommandOrigin::from_msg(&response, permissions)
+        }
+        orig @ CommandOrigin::Interaction { .. } => orig,
+    };
+
     let content = format!(":ping_pong: Pong! ({elapsed}ms)");
     let builder = MessageBuilder::new().content(content);
-
-    response
-        .update(builder, orig.permissions())
-        .wrap_err("lacking permission to update message")?
-        .await?;
+    response.update(builder).await?;
 
     Ok(())
 }

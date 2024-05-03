@@ -21,7 +21,9 @@ use twilight_model::{
 pub use self::{recent_score::RecentScoreEdit, top_score::TopScoreEdit};
 use super::render::CachedRender;
 use crate::{
-    active::{ActiveMessages, BuildPage, ComponentResult, IActiveMessage},
+    active::{
+        response::ActiveResponse, ActiveMessages, BuildPage, ComponentResult, IActiveMessage,
+    },
     commands::osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
     core::{buckets::BucketName, Context},
     manager::{OwnedReplayScore, ReplayScore},
@@ -52,11 +54,7 @@ impl IActiveMessage for EditOnTimeout {
         Box::pin(self.async_handle_component(component))
     }
 
-    fn on_timeout(
-        &mut self,
-        msg: Id<MessageMarker>,
-        channel: Id<ChannelMarker>,
-    ) -> BoxFuture<'_, Result<()>> {
+    fn on_timeout(&mut self, response: ActiveResponse) -> BoxFuture<'_, Result<()>> {
         match self.inner {
             EditOnTimeoutInner::Edit { ref mut edited, .. } => {
                 let edited = mem::take(edited);
@@ -69,7 +67,7 @@ impl IActiveMessage for EditOnTimeout {
                     builder = builder.content(content.as_ref());
                 }
 
-                match (msg, channel).update(builder, None) {
+                match response.update(builder) {
                     Some(update_fut) => {
                         let fut = async {
                             update_fut
@@ -83,7 +81,7 @@ impl IActiveMessage for EditOnTimeout {
                     None => Box::pin(ready(Err(eyre!("Lacking permission to edit on timeout")))),
                 }
             }
-            EditOnTimeoutInner::Stay(_) => Box::pin(self.kind.on_timeout(msg, channel)),
+            EditOnTimeoutInner::Stay(_) => Box::pin(self.kind.on_timeout(response)),
         }
     }
 
@@ -269,7 +267,7 @@ impl EditOnTimeoutKind {
         }
     }
 
-    async fn on_timeout(&self, msg: Id<MessageMarker>, channel: Id<ChannelMarker>) -> Result<()> {
+    async fn on_timeout(&self, response: ActiveResponse) -> Result<()> {
         match self {
             Self::RecentScore(RecentScoreEdit { button_data })
             | Self::TopScore(TopScoreEdit { button_data })
@@ -277,7 +275,7 @@ impl EditOnTimeoutKind {
             {
                 let builder = MessageBuilder::new().components(Vec::new());
 
-                match (msg, channel).update(builder, None) {
+                match response.update(builder) {
                     Some(update_fut) => {
                         update_fut
                             .await

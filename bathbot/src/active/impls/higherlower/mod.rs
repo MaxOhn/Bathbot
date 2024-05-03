@@ -16,17 +16,14 @@ use twilight_model::{
         embed::EmbedField,
         Component, ReactionType,
     },
-    id::{
-        marker::{ChannelMarker, MessageMarker, UserMarker},
-        Id,
-    },
+    id::{marker::UserMarker, Id},
 };
 
 use self::state::{ButtonState, HigherLowerState};
 use crate::{
-    active::{BuildPage, ComponentResult, IActiveMessage},
+    active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
     core::Context,
-    util::{interaction::InteractionComponent, Authored, ComponentExt, Emote, MessageExt},
+    util::{interaction::InteractionComponent, Authored, ComponentExt, Emote},
 };
 
 mod score_pp;
@@ -88,12 +85,8 @@ impl IActiveMessage for HigherLowerGame {
         }
     }
 
-    fn on_timeout(
-        &mut self,
-        msg: Id<MessageMarker>,
-        channel: Id<ChannelMarker>,
-    ) -> BoxFuture<'_, Result<()>> {
-        Box::pin(self.async_on_timeout(msg, channel))
+    fn on_timeout(&mut self, response: ActiveResponse) -> BoxFuture<'_, Result<()>> {
+        Box::pin(self.async_on_timeout(response))
     }
 
     fn until_timeout(&self) -> Option<Duration> {
@@ -208,14 +201,10 @@ impl HigherLowerGame {
         Ok(BuildPage::new(embed, deferred))
     }
 
-    async fn async_on_timeout(
-        &mut self,
-        msg: Id<MessageMarker>,
-        channel: Id<ChannelMarker>,
-    ) -> Result<()> {
+    async fn async_on_timeout(&mut self, response: ActiveResponse) -> Result<()> {
         let builder = MessageBuilder::new().components(self.disabled_buttons());
 
-        let update_res = match (msg, channel).update(builder, None) {
+        let update_res = match response.update(builder) {
             Some(update_fut) => update_fut.await,
             None => return Err(eyre!("Lacking permission to disable components on timeout")),
         };
