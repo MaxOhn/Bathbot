@@ -67,6 +67,42 @@ async fn prefix_sniped(
 }
 
 #[command]
+#[desc("Sniped ctb users of the last 8 weeks")]
+#[help(
+    "Sniped ctb users of the last 8 weeks.\n\
+    Data for osu!catch originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("snipedc", "snipedcatch", "snipesctb", "snipescatch")]
+#[group(Catch)]
+async fn prefix_snipedctb(
+    msg: &Message,
+    mut args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let mode = Some(SnipeGameMode::Catch);
+    let mut name = None;
+    let mut discord = None;
+
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerSniped {
+        mode,
+        name,
+        discord,
+    };
+
+    player_sniped(CommandOrigin::from_msg(msg, permissions), args).await
+}
+
+#[command]
 #[desc("Sniped mania users of the last 8 weeks")]
 #[help(
     "Sniped mania users of the last 8 weeks.\n\

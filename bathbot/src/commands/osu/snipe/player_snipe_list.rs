@@ -56,6 +56,35 @@ async fn prefix_playersnipelist(msg: &Message, args: Args<'_>) -> Result<()> {
 }
 
 #[command]
+#[desc("List all national #1 ctb scores of a player")]
+#[help(
+    "List all national #1 ctb scores of a player.\n\
+    To specify an order, you must provide `sort=...` with any of these values:\n\
+    - `acc`: Sort by accuracy\n\
+    - `stars`: Sort by the map's stars\n\
+    - `misses`: Sort by amount of misses\n\
+    - `scoredate`: Sort by the date when the score was set\n\
+    By default the scores will be sorted by pp.\n\
+    To reverse the resulting list you can specify `reverse=true`\n\
+    Data for osu!catch originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[username] [sort=acc/stars/misses/scoredate] [reverse=true/false]")]
+#[examples("badewanne3 sort=acc reverse=true", "sort=scoredate")]
+#[alias("pslc", "playersnipelistcatch")]
+#[group(Catch)]
+async fn prefix_playersnipelistctb(msg: &Message, args: Args<'_>) -> Result<()> {
+    match SnipePlayerList::args(args, GameMode::Catch) {
+        Ok(args) => player_list(msg.into(), args).await,
+        Err(content) => {
+            msg.error(content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
 #[desc("List all national #1 mania scores of a player")]
 #[help(
     "List all national #1 mania scores of a player.\n\
@@ -159,7 +188,7 @@ pub(super) async fn player_list(orig: CommandOrigin<'_>, args: SnipePlayerList<'
 
     let client = Context::client();
     let scores_fut = client.get_national_firsts(&params);
-    let count_fut = client.get_national_firsts_count(&params, mode);
+    let count_fut = client.get_national_firsts_count(&params);
 
     let (scores, count) = match tokio::try_join!(scores_fut, count_fut) {
         Ok((scores, count)) => {
@@ -219,12 +248,6 @@ pub(super) async fn player_list(orig: CommandOrigin<'_>, args: SnipePlayerList<'
 
 impl<'m> SnipePlayerList<'m> {
     fn args(args: Args<'m>, mode: GameMode) -> Result<Self, Cow<'static, str>> {
-        let mode = match mode {
-            GameMode::Osu => Some(SnipeGameMode::Osu),
-            GameMode::Mania => Some(SnipeGameMode::Mania),
-            GameMode::Taiko | GameMode::Catch => None,
-        };
-
         let mut name = None;
         let mut discord = None;
         let mut sort = None;
@@ -280,7 +303,7 @@ impl<'m> SnipePlayerList<'m> {
         }
 
         Ok(Self {
-            mode,
+            mode: SnipeGameMode::try_from_mode(mode),
             name,
             mods,
             sort,

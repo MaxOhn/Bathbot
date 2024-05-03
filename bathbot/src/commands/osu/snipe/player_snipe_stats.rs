@@ -60,6 +60,42 @@ async fn prefix_playersnipestats(
 }
 
 #[command]
+#[desc("Stats about a user's #1 ctb scores in their country leaderboards")]
+#[help(
+    "Stats about a user's #1 ctb scores in their country leaderboards.\n\
+    Data for osu!catch originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("pssc", "playersnipestatscatch")]
+#[group(Catch)]
+async fn prefix_playersnipestatsctb(
+    msg: &Message,
+    mut args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let mode = Some(SnipeGameMode::Catch);
+    let mut name = None;
+    let mut discord = None;
+
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerStats {
+        mode,
+        name,
+        discord,
+    };
+
+    player_stats(CommandOrigin::from_msg(msg, permissions), args).await
+}
+
+#[command]
 #[desc("Stats about a user's #1 mania scores in their country leaderboards")]
 #[help(
     "Stats about a user's #1 mania scores in their country leaderboards.\n\

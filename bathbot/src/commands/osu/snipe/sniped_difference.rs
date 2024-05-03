@@ -50,6 +50,45 @@ async fn prefix_snipedgain(msg: &Message, mut args: Args<'_>) -> Result<()> {
 }
 
 #[command]
+#[desc("Display a user's recently acquired national #1 ctb scores")]
+#[help(
+    "Display a user's national #1 ctb scores that they acquired within the last week.\n\
+    Data for osu!catch originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[aliases(
+    "sgc",
+    "snipedgaincatch",
+    "snipegainctb",
+    "snipegaincatch",
+    "snipesgainctb",
+    "snipesgaincatch"
+)]
+#[group(Catch)]
+async fn prefix_snipedgainctb(msg: &Message, mut args: Args<'_>) -> Result<()> {
+    let mode = Some(SnipeGameMode::Catch);
+    let mut name = None;
+    let mut discord = None;
+
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerGain {
+        mode,
+        name,
+        discord,
+    };
+
+    player_gain(msg.into(), args).await
+}
+
+#[command]
 #[desc("Display a user's recently acquired national #1 mania scores")]
 #[help(
     "Display a user's national #1 mania scores that they acquired within the last week.\n\
@@ -101,6 +140,50 @@ async fn prefix_snipedgainmania(msg: &Message, mut args: Args<'_>) -> Result<()>
 #[group(Osu)]
 async fn prefix_snipedloss(msg: &Message, mut args: Args<'_>) -> Result<()> {
     let mode = None;
+    let mut name = None;
+    let mut discord = None;
+
+    if let Some(arg) = args.next() {
+        match matcher::get_mention_user(arg) {
+            Some(id) => discord = Some(id),
+            None => name = Some(arg.into()),
+        }
+    }
+
+    let args = SnipePlayerLoss {
+        mode,
+        name,
+        discord,
+    };
+
+    player_loss(msg.into(), args).await
+}
+
+#[command]
+#[desc("Display a user's recently lost national #1 ctb scores")]
+#[help(
+    "Display a user's national #1 ctb scores that they lost within the last week.\n\
+    Data for osu!catch originates from [molneya](https://osu.ppy.sh/users/8945180)'s \
+    [kittenroleplay](https://snipes.kittenroleplay.com)."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[aliases(
+    "slc",
+    "snipelossctb",
+    "snipelosscatch",
+    "snipeslossctb",
+    "snipeslosscatch",
+    "snipedlostctb",
+    "snipedlostcatch",
+    "snipelostctb",
+    "snipelostcatch",
+    "snipeslostctb",
+    "snipeslostcatch"
+)]
+#[group(Catch)]
+async fn prefix_snipedlossctb(msg: &Message, mut args: Args<'_>) -> Result<()> {
+    let mode = Some(SnipeGameMode::Catch);
     let mut name = None;
     let mut discord = None;
 

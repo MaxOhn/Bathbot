@@ -153,8 +153,9 @@ impl PlayerSnipeStatsEmbed {
                 "https://snipe.huismetbenen.nl/player/{code}/osu/{user_id}",
                 code = country_code.to_lowercase(),
             ),
+            GameMode::Catch => format!("https://snipes.kittenroleplay.com/player/{user_id}/catch"),
             GameMode::Mania => format!("https://snipes.kittenroleplay.com/player/{user_id}/mania"),
-            GameMode::Taiko | GameMode::Catch => unimplemented!(),
+            GameMode::Taiko => unimplemented!(),
         };
 
         Self {
