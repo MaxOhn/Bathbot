@@ -23,12 +23,6 @@ pub trait Authored {
     fn user_id(&self) -> Result<Id<UserMarker>> {
         self.user().map(|user| user.id)
     }
-
-    /// Author's username
-    #[inline]
-    fn username(&self) -> Result<&str> {
-        self.user().map(|user| user.name.as_str())
-    }
 }
 
 impl Authored for Message {
@@ -50,10 +44,5 @@ impl Authored for Message {
     #[inline]
     fn user_id(&self) -> Result<Id<UserMarker>> {
         Ok(self.author.id)
-    }
-
-    #[inline]
-    fn username(&self) -> Result<&str> {
-        Ok(self.author.name.as_str())
     }
 }

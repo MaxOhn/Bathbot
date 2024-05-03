@@ -94,7 +94,7 @@ impl IActiveMessage for RecentListPagination {
         }
 
         if description.is_empty() {
-            description = "No recent scores found".to_owned();
+            "No recent scores found".clone_into(&mut description);
         }
 
         let embed = EmbedBuilder::new()

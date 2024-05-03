@@ -37,25 +37,24 @@ impl<'d, 'p> Executor<'p> for &'d Database {
     type Database = Postgres;
 
     #[inline]
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q, E>(
         self,
         query: E,
     ) -> BoxStream<'e, Result<Either<PgQueryResult, PgRow>, SqlxError>>
     where
+        'q: 'e,
         'p: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         <&PgPool as Executor<'p>>::fetch_many(&self.pool, query)
     }
 
     #[inline]
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
-        self,
-        query: E,
-    ) -> BoxFuture<'e, Result<Option<PgRow>, SqlxError>>
+    fn fetch_optional<'e, 'q, E>(self, query: E) -> BoxFuture<'e, Result<Option<PgRow>, SqlxError>>
     where
+        'q: 'e,
         'p: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         <&PgPool as Executor<'p>>::fetch_optional(&self.pool, query)
     }

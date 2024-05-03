@@ -21,7 +21,10 @@ use crate::{
         ActiveMessages,
     },
     commands::ThreadChannel,
-    util::{interaction::InteractionCommand, Authored, ChannelExt, InteractionCommandExt},
+    util::{
+        interaction::InteractionCommand, Authored, ChannelExt, CheckPermissions,
+        InteractionCommandExt,
+    },
     Context,
 };
 
@@ -175,11 +178,7 @@ async fn slash_bg(mut command: InteractionCommand) -> Result<()> {
         return Ok(());
     }
 
-    let can_attach_files = command.permissions.map_or(true, |permissions| {
-        permissions.contains(Permissions::ATTACH_FILES)
-    });
-
-    if !can_attach_files {
+    if !command.can_attach_file() {
         let content = "I'm lacking the permission to attach files";
         command.error_callback(content).await?;
 
@@ -197,11 +196,7 @@ async fn slash_bg(mut command: InteractionCommand) -> Result<()> {
             return Ok(());
         }
 
-        let can_create_thread = command.permissions.map_or(true, |permissions| {
-            permissions.contains(Permissions::CREATE_PUBLIC_THREADS)
-        });
-
-        if !can_create_thread {
+        if !command.can_create_thread() {
             let content = r#"I'm lacking "Create Public Threads" permission in this channel"#;
             command.error_callback(content).await?;
 

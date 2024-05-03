@@ -55,8 +55,6 @@ pub trait TimeValue: Copy + Eq {
     fn subtract(&self, other: &Self) -> Duration;
     /// Instantiate a date type for current time value;
     fn ymd(year: i32, month: Month, day: u8) -> Self::DateType;
-    /// Cast current date type into this type
-    fn from_date(date: Self::DateType) -> Self;
 
     /// Map the coord spec
     fn map_coord(value: &Self, begin: &Self, end: &Self, (min, max): (i32, i32)) -> i32 {
@@ -92,10 +90,6 @@ impl TimeValue for Date {
     fn ymd(year: i32, month: Month, day: u8) -> Self::DateType {
         Date::from_calendar_date(year, month, day).unwrap()
     }
-
-    fn from_date(date: Self::DateType) -> Self {
-        date
-    }
 }
 
 impl TimeValue for OffsetDateTime {
@@ -123,10 +117,6 @@ impl TimeValue for OffsetDateTime {
 
     fn ymd(year: i32, month: Month, day: u8) -> Self::DateType {
         Date::from_calendar_date(year, month, day).unwrap()
-    }
-
-    fn from_date(date: Self::DateType) -> Self {
-        date.with_hms(0, 0, 0).unwrap().assume_utc()
     }
 }
 

@@ -3,7 +3,7 @@ use std::time::Duration;
 use bathbot_macros::SlashCommand;
 use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{MatchScore, OsuError, Team};
+use rosu_v2::prelude::OsuError;
 use tokio::time::interval;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
@@ -175,19 +175,4 @@ async fn matchcompare(mut command: InteractionCommand, args: MatchCompare) -> Re
     }
 
     Ok(())
-}
-
-trait HasScore {
-    fn team(&self) -> Team;
-    fn score(&self) -> u32;
-}
-
-impl HasScore for MatchScore {
-    fn team(&self) -> Team {
-        self.team
-    }
-
-    fn score(&self) -> u32 {
-        self.score
-    }
 }
