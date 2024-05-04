@@ -181,7 +181,10 @@ impl InteractionToken<'_> {
         }
 
         let embed = builder.embed.build();
-        req = req.embeds(embed.as_option_slice()).expect("invalid embed");
+
+        if let Some(embeds) = embed.as_option_slice() {
+            req = req.embeds(Some(embeds)).expect("invalid embed");
+        }
 
         if let Some(ref components) = builder.components {
             req = req
