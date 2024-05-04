@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashMap, fmt::Write};
+use std::{cmp, collections::HashMap, fmt::Write, time::Duration};
 
 use bathbot_util::{
     constants::{DESCRIPTION_SIZE, OSU_BASE},
@@ -52,6 +52,15 @@ impl IActiveMessage for MatchCostPagination {
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
         handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
+    }
+
+    fn until_timeout(&self) -> Option<Duration> {
+        match self.result {
+            MatchResult::TeamVS { .. } | MatchResult::NoGames { .. } => None,
+            MatchResult::HeadToHead { ref players, .. } => {
+                (players.len() > self.pages.per_page()).then_some(Duration::from_secs(60))
+            }
+        }
     }
 }
 
