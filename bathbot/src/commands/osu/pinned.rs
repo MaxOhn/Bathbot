@@ -248,7 +248,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
     let username = user.username();
 
     let index = match args.index.as_deref() {
-        Some("random" | "?") => (post_len > 0).then_some(thread_rng().gen_range(1..=post_len)),
+        Some("random" | "?") => (post_len > 0).then(|| thread_rng().gen_range(1..=post_len)),
         Some(n) => match n.parse::<usize>() {
             Ok(n) if n > post_len => {
                 let mut content = format!("`{username}` only has {post_len} pinned scores");
@@ -272,7 +272,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
 
     let single_idx = index
         .map(|num| num.saturating_sub(1))
-        .or_else(|| (entries.len() == 1).then_some(0));
+        .or_else(|| (post_len == 1).then_some(0));
 
     if let Some(idx) = single_idx {
         let entry = &entries[idx];
