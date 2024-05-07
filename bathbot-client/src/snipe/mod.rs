@@ -76,7 +76,7 @@ impl Client {
                 let player = SnipePlayer {
                     username: stats.username,
                     user_id,
-                    avg_pp: stats.average_pp,
+                    avg_pp: stats.average_pp.unwrap_or(0.0),
                     avg_acc: stats.average_accuracy,
                     avg_stars: stats.average_stars,
                     avg_score: stats.average_score,

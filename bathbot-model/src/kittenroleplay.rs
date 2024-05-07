@@ -92,7 +92,7 @@ impl From<KittenRoleplayCountryStatistics> for SnipeCountryStatistics {
 pub struct KittenRoleplayPlayerStatistics {
     #[serde(with = "super::deser::adjust_acc")]
     pub average_accuracy: f32,
-    pub average_pp: f32,
+    pub average_pp: Option<f32>,
     pub average_score: f32,
     pub average_stars: f32,
     pub count: u32,
@@ -109,7 +109,7 @@ pub struct KittenRoleplayPlayerStatistics {
     pub rank_weighted_pp: u32,
     pub total_score: u64,
     pub username: Username,
-    pub weighted_pp: f32,
+    pub weighted_pp: Option<f32>,
 }
 
 #[derive(Deserialize)]
@@ -119,7 +119,7 @@ pub struct KittenRoleplayPlayerHistoryEntry {
     #[serde(with = "super::deser::datetime_rfc2822")]
     pub date: OffsetDateTime,
     pub total_score: u64,
-    pub weighted_pp: f32,
+    pub weighted_pp: Option<f32>,
 }
 
 #[derive(Deserialize)]
