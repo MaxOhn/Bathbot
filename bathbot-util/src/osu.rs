@@ -90,7 +90,7 @@ impl ModSelection {
         };
 
         let mods = mods
-            .with_mode(mode)
+            .try_with_mode(mode)
             .ok_or("Looks like inappropriate mods for the mode")?;
 
         if mods.is_valid() {

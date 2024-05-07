@@ -10,8 +10,7 @@ use rosu_v2::prelude::{
 };
 use serde::{
     de::{
-        value::StrDeserializer, DeserializeSeed, Error as DeError, IgnoredAny, SeqAccess,
-        Unexpected, Visitor,
+        value::StrDeserializer, DeserializeSeed, Error as DeError, IgnoredAny, SeqAccess, Visitor,
     },
     Deserialize, Deserializer,
 };
@@ -264,11 +263,8 @@ impl<'de> Visitor<'de> for ModeAsSeed<GameMods> {
 
         let mut mods = v
             .split(',')
-            .map(|s| GameMod::new(s, self.mode).or_else(|| parse_mod_alt(s)))
-            .collect::<Option<GameMods>>()
-            .ok_or_else(|| {
-                DeError::invalid_value(Unexpected::Str(v), &"comma separated list of acronyms")
-            })?;
+            .map(|s| parse_mod_alt(s).unwrap_or_else(|| GameMod::new(s, self.mode)))
+            .collect::<GameMods>();
 
         // osustats doesn't seem to validate mods so we have to do it
         if mods.contains_intermode(GameModIntermode::Nightcore) {

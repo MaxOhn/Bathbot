@@ -137,8 +137,7 @@ async fn slash_attributes(mut command: InteractionCommand) -> Result<()> {
         GameMode::Mania,
     ]
     .into_iter()
-    .filter_map(|mode| mods.clone().with_mode(mode))
-    .any(|mods| mods.is_valid());
+    .any(|mode| mods.clone().with_mode(mode).is_valid());
 
     if !valid_mods {
         let content = "Looks like either some of these mods are incompatible with each other \

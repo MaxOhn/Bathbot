@@ -122,7 +122,7 @@ pub fn get_osu_match_id(msg: &str) -> Option<u32> {
 
 pub fn get_mods(msg: &str) -> Option<ModSelection> {
     let selection = if let Some(captures) = MOD_PLUS_MATCHER.get().captures(msg) {
-        let mods = GameModsIntermode::from_acronyms(captures.get(1)?.as_str())?;
+        let mods = GameModsIntermode::try_from_acronyms(captures.get(1)?.as_str())?;
 
         if msg.ends_with('!') {
             ModSelection::Exact(mods)
@@ -130,7 +130,7 @@ pub fn get_mods(msg: &str) -> Option<ModSelection> {
             ModSelection::Include(mods)
         }
     } else if let Some(captures) = MOD_MINUS_MATCHER.get().captures(msg) {
-        let mods = GameModsIntermode::from_acronyms(captures.get(1)?.as_str())?;
+        let mods = GameModsIntermode::try_from_acronyms(captures.get(1)?.as_str())?;
 
         ModSelection::Exclude(mods)
     } else {

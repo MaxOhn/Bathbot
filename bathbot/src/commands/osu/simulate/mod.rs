@@ -110,7 +110,7 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
         SimulateMap::Attached(ref map) => map.max_combo,
     };
 
-    let mods = match args.mods.map(|mods| mods.with_mode(mode)) {
+    let mods = match args.mods.map(|mods| mods.try_with_mode(mode)) {
         Some(mods @ Some(_)) => mods,
         None => None,
         Some(None) => {

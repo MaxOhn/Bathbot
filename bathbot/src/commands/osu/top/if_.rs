@@ -466,11 +466,7 @@ async fn process_scores(
         ModSelection::Exact(_) | ModSelection::Include(_) => {}
     }
 
-    let converted_mods = arg_mods
-        .as_mods()
-        .to_owned()
-        .with_mode(mode)
-        .expect("mods have been validated before");
+    let converted_mods = arg_mods.as_mods().to_owned().with_mode(mode);
 
     for (mut score, i) in scores.into_iter().zip(1..) {
         let Some(mut map) = maps.remove(&score.map_id) else {
@@ -506,9 +502,8 @@ async fn process_scores(
 
                 for m in converted_mods.iter() {
                     for &acronym in m.incompatible_mods().iter() {
-                        if let Some(m) = GameModIntermode::from_acronym(acronym) {
-                            changed |= score.mods.remove_intermode(m);
-                        }
+                        let gamemod = GameModIntermode::from_acronym(acronym);
+                        changed |= score.mods.remove_intermode(gamemod);
                     }
                 }
 

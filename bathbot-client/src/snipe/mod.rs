@@ -319,7 +319,7 @@ impl Client {
                         stars: Some(snipe.stars),
                         accuracy: snipe.accuracy,
                         date: Some(snipe.sniped_at),
-                        mods: GameModsIntermode::from_bits(snipe.mods).with_mode(mode),
+                        mods: GameModsIntermode::from_bits(snipe.mods).try_with_mode(mode),
                         max_combo: Some(snipe.max_combo),
                         artist: snipe.artist,
                         title: snipe.title,
@@ -357,7 +357,7 @@ impl Client {
                         accuracy: score.accuracy,
                         count_miss: Some(score.count_miss),
                         date_set: Some(score.created_at),
-                        mods: GameModsIntermode::from_bits(score.mods).with_mode(params.mode),
+                        mods: GameModsIntermode::from_bits(score.mods).try_with_mode(params.mode),
                         max_combo: Some(score.max_combo),
                         map_id: score.map_id,
                     })

@@ -336,7 +336,7 @@ impl<'de> Visitor<'de> for SnipeModsVisitor {
         };
 
         intermode
-            .with_mode(GameMode::Osu)
+            .try_with_mode(GameMode::Osu)
             .ok_or_else(|| DeError::custom("invalid mods for mode"))
     }
 }

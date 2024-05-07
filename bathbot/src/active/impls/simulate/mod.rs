@@ -469,7 +469,7 @@ impl SimulateComponents {
                     None => None,
                 };
 
-                match mods.map(|mods| mods.with_mode(self.map.mode())) {
+                match mods.map(|mods| mods.try_with_mode(self.map.mode())) {
                     Some(Some(mods)) if mods.is_valid() => self.data.mods = Some(mods),
                     None => self.data.mods = None,
                     Some(Some(mods)) => {

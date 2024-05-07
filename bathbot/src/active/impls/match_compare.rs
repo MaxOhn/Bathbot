@@ -469,7 +469,7 @@ pub struct MatchCompareScore {
 impl MatchCompareScore {
     fn new(score: MatchScore, mode: GameMode) -> Self {
         // TODO: make this prettier
-        let mods = score.mods.clone().with_mode(mode).expect("invalid mods");
+        let mods = score.mods.clone().with_mode(mode);
 
         Self {
             grade: calculate_grade(mode, &mods, &score.statistics),

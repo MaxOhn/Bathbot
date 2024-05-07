@@ -342,7 +342,7 @@ async fn map(orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
     let map_id = maps[map_idx].map_id;
     let mode = maps[map_idx].mode;
 
-    if let Some(mods) = mods.clone().with_mode(mode) {
+    if let Some(mods) = mods.clone().try_with_mode(mode) {
         if !mods.is_valid() {
             let content =
                 format!("Looks like some mods in `{mods}` are incompatible with each other");
