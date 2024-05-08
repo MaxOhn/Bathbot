@@ -656,7 +656,7 @@ impl SimulateMap {
 
                 let mut builder = map.attributes();
 
-                if let Some(clock_rate) = clock_rate {
+                if let Some(clock_rate) = clock_rate.or_else(|| mods.clock_rate()) {
                     builder = builder.clock_rate(f64::from(clock_rate));
                 }
 
