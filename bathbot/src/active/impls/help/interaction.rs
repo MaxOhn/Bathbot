@@ -20,7 +20,8 @@ use crate::{
     util::{interaction::InteractionComponent, Authored},
 };
 
-const AUTHORITY_STATUS: &str = "Requires authority status (check the /authorities command)";
+const AUTHORITY_STATUS: &str =
+    "Requires authority status (check the `/serverconfig authorities` command)";
 
 pub struct HelpInteractionCommand {
     next_title: String,
