@@ -683,7 +683,7 @@ fn prepare_scores(
 
         // TODO: make this prettier
         let grade = {
-            let mods = score.mods.clone().with_mode(mode).unwrap_or_default();
+            let mods = score.mods.clone().with_mode(mode);
 
             calculate_grade(mode, &mods, &score.statistics)
         };
