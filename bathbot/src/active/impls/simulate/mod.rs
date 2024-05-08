@@ -19,7 +19,10 @@ use rosu_pp::{
     Beatmap,
 };
 use rosu_v2::{
-    model::mods::GameMods,
+    model::mods::{
+        DifficultyAdjustCatch, DifficultyAdjustMania, DifficultyAdjustOsu, DifficultyAdjustTaiko,
+        GameMod, GameMods,
+    },
     mods,
     prelude::{GameMode, GameModsIntermode, Grade},
 };
@@ -658,6 +661,95 @@ impl SimulateMap {
 
                 if let Some(clock_rate) = clock_rate.or_else(|| mods.clock_rate()) {
                     builder = builder.clock_rate(f64::from(clock_rate));
+                }
+
+                // Technically probably not necessary since users cannot input
+                // DA-specific settings through the discord interface but let's
+                // consider the mod regardless.
+                for gamemod in mods.iter() {
+                    match gamemod {
+                        GameMod::DifficultyAdjustOsu(m) => {
+                            let DifficultyAdjustOsu {
+                                circle_size,
+                                approach_rate,
+                                drain_rate,
+                                overall_difficulty,
+                                ..
+                            } = m;
+
+                            if let Some(cs) = circle_size {
+                                builder = builder.cs(*cs, false);
+                            }
+
+                            if let Some(ar) = approach_rate {
+                                builder = builder.ar(*ar, false);
+                            }
+
+                            if let Some(hp) = drain_rate {
+                                builder = builder.hp(*hp, false);
+                            }
+
+                            if let Some(od) = overall_difficulty {
+                                builder = builder.od(*od, false);
+                            }
+                        }
+                        GameMod::DifficultyAdjustTaiko(m) => {
+                            let DifficultyAdjustTaiko {
+                                drain_rate,
+                                overall_difficulty,
+                                ..
+                            } = m;
+
+                            if let Some(hp) = drain_rate {
+                                builder = builder.hp(*hp, false);
+                            }
+
+                            if let Some(od) = overall_difficulty {
+                                builder = builder.od(*od, false);
+                            }
+                        }
+                        GameMod::DifficultyAdjustCatch(m) => {
+                            let DifficultyAdjustCatch {
+                                circle_size,
+                                approach_rate,
+                                drain_rate,
+                                overall_difficulty,
+                                ..
+                            } = m;
+
+                            if let Some(cs) = circle_size {
+                                builder = builder.cs(*cs, false);
+                            }
+
+                            if let Some(ar) = approach_rate {
+                                builder = builder.ar(*ar, false);
+                            }
+
+                            if let Some(hp) = drain_rate {
+                                builder = builder.hp(*hp, false);
+                            }
+
+                            if let Some(od) = overall_difficulty {
+                                builder = builder.od(*od, false);
+                            }
+                        }
+                        GameMod::DifficultyAdjustMania(m) => {
+                            let DifficultyAdjustMania {
+                                drain_rate,
+                                overall_difficulty,
+                                ..
+                            } = m;
+
+                            if let Some(hp) = drain_rate {
+                                builder = builder.hp(*hp, false);
+                            }
+
+                            if let Some(od) = overall_difficulty {
+                                builder = builder.od(*od, false);
+                            }
+                        }
+                        _ => {}
+                    }
                 }
 
                 let attrs = builder.mods(bits).build();
