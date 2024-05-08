@@ -32,7 +32,7 @@ use time::OffsetDateTime;
 use crate::{
     core::{BotConfig, Context},
     embeds::HitResultFormatter,
-    manager::{redis::RedisData, Mods, OsuMap},
+    manager::{redis::RedisData, OsuMap},
 };
 
 pub fn grade_emote(grade: Grade) -> &'static str {
@@ -561,23 +561,31 @@ pub async fn get_combined_thumbnail<'s>(
     Ok(cursor.into_inner())
 }
 
-pub struct MapInfo<'map> {
-    map: &'map OsuMap,
+pub struct MapInfo<'a> {
+    map: &'a OsuMap,
     stars: f32,
-    mods: Mods,
+    mods: Option<&'a GameMods>,
+    clock_rate: Option<f32>,
 }
 
-impl<'map> MapInfo<'map> {
-    pub fn new(map: &'map OsuMap, stars: f32) -> Self {
+impl<'a> MapInfo<'a> {
+    pub fn new(map: &'a OsuMap, stars: f32) -> Self {
         Self {
             map,
             stars,
-            mods: Mods::default(),
+            mods: None,
+            clock_rate: None,
         }
     }
 
-    pub fn mods(&mut self, mods: impl Into<Mods>) -> &mut Self {
-        self.mods = mods.into();
+    pub fn mods(&mut self, mods: &'a GameMods) -> &mut Self {
+        self.mods = Some(mods);
+
+        self
+    }
+
+    pub fn clock_rate(&mut self, clock_rate: Option<f32>) -> &mut Self {
+        self.clock_rate = clock_rate;
 
         self
     }
@@ -609,11 +617,11 @@ impl<'map> MapInfo<'map> {
 
 impl Display for MapInfo<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let mods = self.mods.bits;
+        let mods = self.mods.map_or(0, GameMods::bits);
 
         let mut builder = self.map.attributes();
 
-        if let Some(clock_rate) = self.mods.clock_rate {
+        if let Some(clock_rate) = self.clock_rate {
             builder = builder.clock_rate(f64::from(clock_rate));
         }
 

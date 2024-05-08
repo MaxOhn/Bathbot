@@ -19,6 +19,7 @@ use rosu_pp::{
     Beatmap,
 };
 use rosu_v2::{
+    model::mods::GameMods,
     mods,
     prelude::{GameMode, GameModsIntermode, Grade},
 };
@@ -35,7 +36,7 @@ use crate::{
     },
     commands::osu::parsed_map::AttachedSimulateMap,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
-    manager::{Mods, OsuMap},
+    manager::OsuMap,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::{grade_completion_mods_raw, MapInfo},
@@ -229,13 +230,9 @@ impl IActiveMessage for SimulateComponents {
             fields.push(hits);
         }
 
-        let mut mods = Mods::from(mods.as_ref());
-
-        if let Some(clock_rate) = self.data.clock_rate {
-            mods.clock_rate = Some(clock_rate);
-        }
-
-        let map_info = self.map.map_info(stars, mods);
+        let map_info = self
+            .map
+            .map_info(stars, mods.as_ref(), self.data.clock_rate);
         fields![fields { "Map Info", map_info, false; }];
 
         let mut embed = EmbedBuilder::new()
@@ -646,23 +643,24 @@ impl SimulateMap {
         }
     }
 
-    pub fn map_info(&self, stars: f32, mods: Mods) -> String {
+    pub fn map_info(&self, stars: f32, mods: &GameMods, clock_rate: Option<f32>) -> String {
         match self {
             Self::Full(map) => {
                 let mut map_info = MapInfo::new(map, stars);
 
-                map_info.mods(mods).to_string()
+                map_info.mods(mods).clock_rate(clock_rate).to_string()
             }
             Self::Attached(map) => {
                 let map = &map.pp_map;
+                let bits = mods.bits();
 
                 let mut builder = map.attributes();
 
-                if let Some(clock_rate) = mods.clock_rate {
+                if let Some(clock_rate) = clock_rate {
                     builder = builder.clock_rate(f64::from(clock_rate));
                 }
 
-                let attrs = builder.mods(mods.bits).build();
+                let attrs = builder.mods(bits).build();
 
                 let clock_rate = attrs.clock_rate;
 
@@ -688,7 +686,7 @@ impl SimulateMap {
                 }
 
                 let (cs_key, cs_value) = if map.mode == Mode::Mania {
-                    ("Keys", MapInfo::keys(mods.bits, attrs.cs as f32))
+                    ("Keys", MapInfo::keys(bits, attrs.cs as f32))
                 } else {
                     ("CS", round(attrs.cs as f32))
                 };
