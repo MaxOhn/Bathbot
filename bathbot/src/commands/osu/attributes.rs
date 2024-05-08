@@ -1,7 +1,7 @@
 use bathbot_macros::SlashCommand;
 use bathbot_util::{matcher, osu::AttributeKind, MessageBuilder};
 use eyre::Result;
-use rosu_v2::prelude::GameMode;
+use rosu_v2::{model::mods::GameModsIntermode, prelude::GameMode};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
@@ -118,7 +118,7 @@ async fn slash_attributes(mut command: InteractionCommand) -> Result<()> {
         Attributes::Od(args) => (AttributeKind::Od, args.number, args.mods, args.clock_rate),
     };
 
-    let mods = if let Ok(mods) = mods.parse() {
+    let mods = if let Some(mods) = GameModsIntermode::try_from_acronyms(&mods) {
         mods
     } else if let Some(mods) = matcher::get_mods(&mods) {
         mods.into_mods()
