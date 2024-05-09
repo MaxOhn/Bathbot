@@ -22,7 +22,7 @@ use crate::{
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, IFilterCriteria, ScoresCriteria},
-        Authored, CheckPermissions, InteractionCommandExt,
+        Authored, InteractionCommandExt,
     },
 };
 
@@ -124,13 +124,18 @@ pub async fn map_scores(mut command: InteractionCommand, args: MapScores) -> Res
 
             return Ok(());
         }
-        None if command.can_read_history() => {
+        None => {
             let msgs = match Context::retrieve_channel_history(command.channel_id()).await {
                 Ok(msgs) => msgs,
-                Err(err) => {
-                    let _ = command.error(GENERAL_ISSUE).await;
+                Err(_) => {
+                    let content =
+                        "No beatmap specified and lacking permission to search the channel \
+                        history for maps.\nTry specifying a map either by url to the map, or \
+                        just by map id, or give me the \"Read Message History\" permission.";
 
-                    return Err(err.wrap_err("Failed to retrieve channel history"));
+                    command.error(content).await?;
+
+                    return Ok(());
                 }
             };
 
@@ -144,16 +149,6 @@ pub async fn map_scores(mut command: InteractionCommand, args: MapScores) -> Res
                     return Ok(());
                 }
             }
-        }
-        None => {
-            let content =
-                "No beatmap specified and lacking permission to search the channel history for maps.\n\
-                Try specifying a map either by url to the map, or just by map id, \
-                or give me the \"Read Message History\" permission.";
-
-            command.error(content).await?;
-
-            return Ok(());
         }
     };
 

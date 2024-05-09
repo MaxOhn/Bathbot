@@ -36,7 +36,7 @@ use crate::{
         redis::{osu::UserArgs, RedisData},
         MapError, Mods, OsuMap,
     },
-    util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 
@@ -259,12 +259,7 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
 
     let map_id = match map_id_res {
         Ok(map_id) => map_id,
-        Err(GetMapError::Content(content)) => return orig.error(content).await,
-        Err(GetMapError::Err { err, content }) => {
-            let _ = orig.error(content).await;
-
-            return Err(err);
-        }
+        Err(content) => return orig.error(content).await,
     };
 
     let config = config_res?;
@@ -426,25 +421,19 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         .await
 }
 
-enum GetMapError {
-    Content(&'static str),
-    Err { err: Report, content: &'static str },
-}
-
-async fn get_map_id(orig: &CommandOrigin<'_>, map: Option<MapIdType>) -> Result<u32, GetMapError> {
+async fn get_map_id(orig: &CommandOrigin<'_>, map: Option<MapIdType>) -> Result<u32, &'static str> {
     match map {
         Some(MapIdType::Map(id)) => Ok(id),
         Some(MapIdType::Set(_)) => {
-            let content = "Looks like you gave me a mapset id, I need a map id though";
-
-            Err(GetMapError::Content(content))
+            Err("Looks like you gave me a mapset id, I need a map id though")
         }
-        None if orig.can_read_history() => {
+        None => {
             let msgs = Context::retrieve_channel_history(orig.channel_id())
                 .await
-                .map_err(|err| GetMapError::Err {
-                    err,
-                    content: GENERAL_ISSUE,
+                .map_err(|err| {
+                    "No beatmap specified and lacking permission to search the channel \
+                    history for maps.\nTry specifying a map either by url to the map, or \
+                    just by map id, or give me the \"Read Message History\" permission."
                 })?;
 
             match Context::find_map_id_in_msgs(&msgs, 0).await {
@@ -453,17 +442,9 @@ async fn get_map_id(orig: &CommandOrigin<'_>, map: Option<MapIdType>) -> Result<
                     let content = "No beatmap specified and none found in recent channel history. \
                         Try specifying a map either by url to the map, or just by map id.";
 
-                    Err(GetMapError::Content(content))
+                    Err(content)
                 }
             }
-        }
-        None => {
-            let content =
-                "No beatmap specified and lacking permission to search the channel history for maps.\n\
-                Try specifying a map either by url to the map, or just by map id, \
-                or give me the \"Read Message History\" permission.";
-
-            Err(GetMapError::Content(content))
         }
     }
 }

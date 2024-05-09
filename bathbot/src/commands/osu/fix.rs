@@ -30,7 +30,7 @@ use crate::{
         },
         MapError, OsuMap,
     },
-    util::{interaction::InteractionCommand, osu::IfFc, CheckPermissions, InteractionCommandExt},
+    util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
 };
 
@@ -241,13 +241,16 @@ async fn fix(orig: CommandOrigin<'_>, args: FixArgs<'_>) -> Result<()> {
 
             return orig.error(content).await;
         }
-        None if orig.can_read_history() => {
+        None => {
             let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
-                Err(err) => {
-                    let _ = orig.error(GENERAL_ISSUE).await;
+                Err(_) => {
+                    let content =
+                        "No beatmap specified and lacking permission to search the channel \
+                        history for maps.\nTry specifying a map either by url to the map, or \
+                        just by map id, or give me the \"Read Message History\" permission.";
 
-                    return Err(err);
+                    return orig.error(content).await;
                 }
             };
 
@@ -262,14 +265,6 @@ async fn fix(orig: CommandOrigin<'_>, args: FixArgs<'_>) -> Result<()> {
                     return orig.error(content).await;
                 }
             }
-        }
-        None => {
-            let content =
-                "No beatmap specified and lacking permission to search the channel history for maps.\n\
-                Try specifying a map either by url to the map, or just by map id, \
-                or give me the \"Read Message History\" permission.";
-
-            return orig.error(content).await;
         }
     };
 

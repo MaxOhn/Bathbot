@@ -44,9 +44,7 @@ use crate::{
         },
         MapError, OsuMap,
     },
-    util::{
-        interaction::InteractionCommand, osu::IfFc, CheckPermissions, Emote, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, osu::IfFc, Emote, InteractionCommandExt},
     Context,
 };
 
@@ -378,7 +376,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
             Some(MapOrScore::Score { id, mode }) => {
                 return compare_from_score(orig, id, mode, legacy_scores).await
             }
-            None if orig.can_read_history() => {
+            None => {
                 let idx = match index {
                     Some(51..) => {
                         let content = "I can only go back 50 messages";
@@ -391,10 +389,13 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
 
                 let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
                     Ok(msgs) => msgs,
-                    Err(err) => {
-                        let _ = orig.error(GENERAL_ISSUE).await;
+                    Err(_) => {
+                        let content =
+                            "No beatmap specified and lacking permission to search the channel \
+                            history for maps.\nTry specifying a map either by url to the map, or \
+                            just by map id, or give me the \"Read Message History\" permission.";
 
-                        return Err(err.wrap_err("failed to retrieve channel history"));
+                        return orig.error(content).await;
                     }
                 };
 
@@ -418,14 +419,6 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
                         return orig.error(content).await;
                     }
                 }
-            }
-            None => {
-                let content =
-                "No beatmap specified and lacking permission to search the channel history for maps.\n\
-                Try specifying a map either by url to the map, or just by map id, \
-                or give me the \"Read Message History\" permission.";
-
-                return orig.error(content).await;
             }
         }
     };
