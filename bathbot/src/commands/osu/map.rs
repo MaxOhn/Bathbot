@@ -1,12 +1,7 @@
 use std::{borrow::Cow, cell::RefCell, cmp::Ordering, fmt::Write, mem, rc::Rc, time::Duration};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher,
-    osu::MapIdType,
-    MessageOrigin,
-};
+use bathbot_util::{constants::OSU_API_ISSUE, matcher, osu::MapIdType, MessageOrigin};
 use enterpolation::{linear::Linear, Curve};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use image::DynamicImage;
@@ -28,7 +23,7 @@ use super::{BitMapElement, HasMods, ModsResult};
 use crate::{
     active::{impls::MapPagination, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
-    util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 
@@ -255,13 +250,16 @@ async fn map(orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
 
     let map_id = if let Some(id) = map {
         id
-    } else if orig.can_read_history() {
+    } else {
         let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
             Ok(msgs) => msgs,
             Err(err) => {
-                let _ = orig.error(GENERAL_ISSUE).await;
+                let content =
+                    "No beatmap specified and lacking permission to search the channel history \
+                    for maps.\nTry specifying a map(set) either by url to the map, \
+                    or just by map(set) id, or give me the \"Read Message History\" permission.";
 
-                return Err(err.wrap_err("failed to retrieve channel history"));
+                return orig.error(content).await;
             }
         };
 
@@ -275,13 +273,6 @@ async fn map(orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
                 return orig.error(content).await;
             }
         }
-    } else {
-        let content =
-            "No beatmap specified and lacking permission to search the channel history for maps.\n\
-            Try specifying a map(set) either by url to the map, \
-            or just by map(set) id, or give me the \"Read Message History\" permission.";
-
-        return orig.error(content).await;
     };
 
     let mods = match mods {

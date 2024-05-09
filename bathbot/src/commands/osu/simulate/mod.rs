@@ -29,7 +29,7 @@ use crate::{
         Context,
     },
     manager::MapError,
-    util::{interaction::InteractionCommand, CheckPermissions, InteractionCommandExt},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
 #[derive(CreateCommand, CommandModel, Default, HasMods, SlashCommand)]
@@ -337,13 +337,16 @@ async fn prepare_map(
                 .await
                 .map(|opt| opt.map(SimulateMap::Attached))
         }
-        None if orig.can_read_history() => {
+        None => {
             let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
-                Err(err) => {
-                    let _ = orig.error(GENERAL_ISSUE).await;
+                Err(_) => {
+                    let content =
+                        "No beatmap specified and lacking permission to search the channel \
+                        history for maps.\nTry specifying a map either by url to the map, or \
+                        just by map id, or give me the \"Read Message History\" permission.";
 
-                    return Err(err.wrap_err("Failed to retrieve channel history"));
+                    return orig.error(content).await.map(|_| None);
                 }
             };
 
@@ -356,14 +359,6 @@ async fn prepare_map(
                     return orig.error(content).await.map(|_| None);
                 }
             }
-        }
-        None => {
-            let content =
-                "No beatmap specified and lacking permission to search the channel history for maps.\n\
-                Try specifying a map either by url to the map, or just by map id, \
-                or give me the \"Read Message History\" permission.";
-
-            return orig.error(content).await.map(|_| None);
         }
     };
 

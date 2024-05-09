@@ -6,10 +6,6 @@ use crate::core::commands::CommandOrigin;
 pub trait CheckPermissions {
     fn permissions(&self) -> Option<Permissions>;
 
-    fn can_read_history(&self) -> bool {
-        self.has_permission_to(Permissions::READ_MESSAGE_HISTORY)
-    }
-
     fn can_attach_file(&self) -> bool {
         self.has_permission_to(Permissions::ATTACH_FILES)
     }
