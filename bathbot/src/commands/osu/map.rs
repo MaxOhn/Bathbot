@@ -253,7 +253,7 @@ async fn map(orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
     } else {
         let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
             Ok(msgs) => msgs,
-            Err(err) => {
+            Err(_) => {
                 let content =
                     "No beatmap specified and lacking permission to search the channel history \
                     for maps.\nTry specifying a map(set) either by url to the map, \

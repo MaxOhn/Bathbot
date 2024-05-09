@@ -430,7 +430,7 @@ async fn get_map_id(orig: &CommandOrigin<'_>, map: Option<MapIdType>) -> Result<
         None => {
             let msgs = Context::retrieve_channel_history(orig.channel_id())
                 .await
-                .map_err(|err| {
+                .map_err(|_| {
                     "No beatmap specified and lacking permission to search the channel \
                     history for maps.\nTry specifying a map either by url to the map, or \
                     just by map id, or give me the \"Read Message History\" permission."
