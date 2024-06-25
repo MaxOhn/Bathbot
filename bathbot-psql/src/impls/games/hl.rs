@@ -30,7 +30,7 @@ WHERE
             .wrap_err("failed to fetch all")?;
 
         // SAFETY: the two types have the exact same structure
-        Ok(unsafe { mem::transmute(scores) })
+        Ok(unsafe { mem::transmute::<Vec<DbHlGameScore>, Vec<HlGameScore>>(scores) })
     }
 
     pub async fn select_higherlower_highscore(

@@ -247,7 +247,10 @@ pub enum Reason {
     NeitherAttachmentNorInline,
     MissingFilename,
     NotOsk,
-    UrlSyntaxViolation(SyntaxViolation),
+    UrlSyntaxViolation(
+        // used in debug logging
+        #[allow(unused)] SyntaxViolation,
+    ),
 }
 
 impl SkinValidation {

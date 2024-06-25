@@ -138,7 +138,6 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
             hp: args.hp,
             od: args.od,
         },
-        original_attrs: SimulateAttributes::from(map.pp_map()),
         score: None,
         version,
         max_combo,

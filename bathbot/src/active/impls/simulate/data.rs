@@ -24,7 +24,6 @@ pub struct SimulateData {
     pub clock_rate: Option<f32>,
     pub version: TopOldVersion,
     pub attrs: SimulateAttributes,
-    pub original_attrs: SimulateAttributes,
     pub max_combo: u32,
 }
 

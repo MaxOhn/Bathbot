@@ -759,7 +759,10 @@ pub enum PersonalBestIndex {
     /// Found the score in the top100
     FoundScore { idx: usize },
     /// There was a score on the same map with more pp in the top100
-    FoundBetter { idx: usize },
+    FoundBetter {
+        #[allow(unused)]
+        idx: usize,
+    },
     /// Found another score on the same map and the
     /// same mods that has more score but less pp
     ScoreV1d { would_be_idx: usize, old_idx: usize },

@@ -389,7 +389,6 @@ pub struct CommonUser {
     name: Username,
     avatar_url: Box<str>,
     user_id: u32,
-    pub first_count: usize,
 }
 
 impl CommonUser {
@@ -399,13 +398,11 @@ impl CommonUser {
                 name: user.username,
                 avatar_url: user.avatar_url,
                 user_id: user.user_id,
-                first_count: 0,
             },
             RedisData::Archive(user) => Self {
                 name: user.username.as_str().into(),
                 avatar_url: user.avatar_url.deserialize(&mut Infallible).unwrap(),
                 user_id: user.user_id,
-                first_count: 0,
             },
         }
     }

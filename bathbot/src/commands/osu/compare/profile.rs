@@ -242,20 +242,10 @@ pub(super) async fn profile(orig: CommandOrigin<'_>, mut args: CompareProfile<'_
         }
     };
 
-    let profile_result1 = CompareResult::calc(
-        mode,
-        &scores1,
-        user1.stats(),
-        score_rank_data1,
-        osutrack_peaks1,
-    );
-    let profile_result2 = CompareResult::calc(
-        mode,
-        &scores2,
-        user2.stats(),
-        score_rank_data2,
-        osutrack_peaks2,
-    );
+    let profile_result1 =
+        CompareResult::calc(&scores1, user1.stats(), score_rank_data1, osutrack_peaks1);
+    let profile_result2 =
+        CompareResult::calc(&scores2, user2.stats(), score_rank_data2, osutrack_peaks2);
 
     // Creating the embed
     let embed_data =
@@ -365,7 +355,6 @@ async fn prefix_profilecomparectb(
     profile(CommandOrigin::from_msg(msg, permissions), args).await
 }
 pub struct CompareResult {
-    pub mode: GameMode,
     pub pp: MinMaxAvg<f32>,
     pub map_len: MinMaxAvg<u32>,
     pub bonus_pp: f32,
@@ -378,12 +367,13 @@ pub struct CompareResult {
 
 impl CompareResult {
     fn calc(
-        mode: GameMode,
         scores: &[Score],
         stats: impl UserStats,
         score_rank_data: Option<RespektiveUser>,
         osutrack_peaks: Option<RankAccPeaks>,
     ) -> Self {
+        // TODO: shrink function body for `impl` argument type
+
         let mut pp = MinMaxAvg::new();
         let mut map_len = MinMaxAvg::new();
         let mut bonus_pp = BonusPP::new();
@@ -415,7 +405,6 @@ impl CompareResult {
         }
 
         Self {
-            mode,
             pp,
             map_len: map_len.into(),
             bonus_pp: bonus_pp.calculate(stats),

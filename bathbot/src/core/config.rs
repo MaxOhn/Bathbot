@@ -51,6 +51,7 @@ pub struct Tokens {
     pub osu_client_id: u64,
     pub osu_client_secret: Box<str>,
     pub osu_key: Box<str>,
+    #[cfg(not(debug_assertions))]
     pub ordr_key: Box<str>,
     pub github_token: Box<str>,
     #[cfg(feature = "twitch")]
@@ -94,6 +95,7 @@ impl BotConfig {
                 osu_client_id: env_var("OSU_CLIENT_ID")?,
                 osu_client_secret: env_var("OSU_CLIENT_SECRET")?,
                 osu_key: env_var("OSU_API_KEY")?,
+                #[cfg(not(debug_assertions))]
                 ordr_key: env_var("ORDR_KEY")?,
                 github_token: env_var("GITHUB_TOKEN")?,
                 #[cfg(feature = "twitch")]

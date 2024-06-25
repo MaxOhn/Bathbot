@@ -49,7 +49,7 @@ FROM
             .wrap_err("failed to fetch all")?;
 
         // SAFETY: the two types have the exact same structure
-        Ok(unsafe { mem::transmute(scores) })
+        Ok(unsafe { mem::transmute::<Vec<DbBgGameScore>, Vec<BgGameScore>>(scores) })
     }
 
     pub async fn upsert_map_tag(

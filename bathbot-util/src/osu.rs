@@ -462,7 +462,7 @@ fn taiko_grade(mods: &GameMods, stats: &LegacyScoreStatistics) -> Grade {
 fn catch_grade(mods: &GameMods, stats: &LegacyScoreStatistics) -> Grade {
     let acc = stats.accuracy(GameMode::Catch);
 
-    if (100.0 - acc).abs() <= std::f32::EPSILON {
+    if (100.0 - acc).abs() <= f32::EPSILON {
         if mods.contains_any(mods!(HD FL)) {
             Grade::XH
         } else {

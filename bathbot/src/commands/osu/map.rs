@@ -518,7 +518,7 @@ fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<
             .fold(0.0_f64, |max, strain| max.max(*strain)),
     };
 
-    if max_strain <= std::f64::EPSILON {
+    if max_strain <= f64::EPSILON {
         bail!("no non-zero strain point");
     }
 
