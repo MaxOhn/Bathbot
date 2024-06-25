@@ -717,7 +717,7 @@ async fn compare_from_score(
     mode: GameMode,
     legacy_scores: bool,
 ) -> Result<()> {
-    let mut score = match Context::osu().score(score_id, mode).await {
+    let mut score = match Context::osu().score(score_id).mode(mode).await {
         Ok(score) => score,
         Err(err) => {
             let _ = orig.error(OSU_API_ISSUE).await;

@@ -439,7 +439,7 @@ async fn request_by_score(
     user_id: UserId,
     legacy_scores: bool,
 ) -> ScoreResult {
-    let score_fut = Context::osu().score(score_id, mode);
+    let score_fut = Context::osu().score(score_id).mode(mode);
     let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
     let user_fut = Context::redis().osu_user(user_args);
 

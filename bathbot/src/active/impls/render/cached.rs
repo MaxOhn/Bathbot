@@ -105,8 +105,9 @@ impl CachedRender {
                 let builder = status.as_message().components(Vec::new());
                 component.callback(builder).await?;
                 self.done = true;
+                let score_fut = Context::osu().score(self.score_id).mode(GameMode::Osu);
 
-                let score = match Context::osu().score(self.score_id, GameMode::Osu).await {
+                let score = match score_fut.await {
                     Ok(score) => score,
                     Err(err) => {
                         let embed = EmbedBuilder::new().color_red().description(OSU_API_ISSUE);

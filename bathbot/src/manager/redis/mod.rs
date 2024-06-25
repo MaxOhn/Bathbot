@@ -314,7 +314,8 @@ impl RedisManager {
 
         let map_id = match map {
             Some(MapOrScore::Map(id)) => Some(id),
-            Some(MapOrScore::Score { id, mode }) => match Context::osu().score(id, mode).await {
+            Some(MapOrScore::Score { id, mode }) => match Context::osu().score(id).mode(mode).await
+            {
                 Ok(score) => Some(MapIdType::Map(score.map_id)),
                 Err(err) => return Err(Report::new(err).wrap_err("Failed to get score")),
             },

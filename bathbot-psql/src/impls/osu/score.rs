@@ -1075,6 +1075,7 @@ FROM
 
         for score in scores {
             let Score {
+                classic_score: _,
                 ranked: _,
                 preserve: _,
                 processed: _,

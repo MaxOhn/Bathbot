@@ -249,7 +249,7 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
     let mut status = RenderStatus::new_requesting_score();
     command.update(status.as_message()).await?;
 
-    let score = match Context::osu().score(score_id, GameMode::Osu).await {
+    let score = match Context::osu().score(score_id).mode(GameMode::Osu).await {
         Ok(score) => score,
         Err(OsuError::NotFound) => {
             let content = "Found no osu!standard score with that id";
