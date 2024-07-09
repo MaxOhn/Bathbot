@@ -133,9 +133,10 @@ impl IActiveMessage for CompareScoresPagination {
 
                 let _ = write!(
                     args.description,
-                    "{grade} **+{mods}** [{stars:.2}★] • {score} • {acc}%\n\
+                    "[{grade}]({OSU_BASE}scores/{score_id}) **+{mods}** [{stars:.2}★] • {score} • {acc}%\n\
                     {pp_format}**{pp:.2}**{pp_format}/{max_pp:.2}PP • {combo}",
                     grade = BotConfig::get().grade(entry.score.grade),
+                    score_id = entry.score.score_id,
                     mods = ModsFormatter::new(&entry.score.mods),
                     stars = entry.stars,
                     score = WithComma::new(entry.score.score),
@@ -281,9 +282,10 @@ fn write_compact_entry(
 
     let _ = write!(
         args.description,
-        "{grade} **+{mods}** [{stars:.2}★] {pp_format}{pp:.2}pp{pp_format} \
+        "[{grade}]({OSU_BASE}scores/{score_id}) **+{mods}** [{stars:.2}★] {pp_format}{pp:.2}pp{pp_format} \
         ({acc}%) {combo}x • {miss} {timestamp}",
         grade = config.grade(entry.score.grade),
+        score_id = entry.score.score_id,
         mods = ModsFormatter::new(&entry.score.mods),
         stars = entry.stars,
         pp_format = if args.pp_idx == Some(i) { "**" } else { "~~" },
