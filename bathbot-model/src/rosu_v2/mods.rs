@@ -1,6 +1,9 @@
 use std::fmt::{Formatter, Result as FmtResult};
 
-use rosu_v2::prelude::{GameMode, GameMods, ModeAsSeed};
+use rosu_v2::{
+    model::mods::serde::GameModsSeed,
+    prelude::{GameMode, GameMods},
+};
 use serde::{
     de::{DeserializeSeed, Error as DeError, Visitor},
     Deserializer,
@@ -24,6 +27,6 @@ impl<'de> Visitor<'de> for MaybeMods {
     }
 
     fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-        ModeAsSeed::<GameMods>::new(self.0).deserialize(d).map(Some)
+        GameModsSeed::Mode(self.0).deserialize(d).map(Some)
     }
 }

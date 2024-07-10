@@ -20,7 +20,10 @@ use rosu_pp::{
 };
 use rosu_v2::{
     model::mods::{
-        DifficultyAdjustCatch, DifficultyAdjustMania, DifficultyAdjustOsu, DifficultyAdjustTaiko,
+        generated_mods::{
+            DifficultyAdjustCatch, DifficultyAdjustMania, DifficultyAdjustOsu,
+            DifficultyAdjustTaiko,
+        },
         GameMod, GameMods,
     },
     mods,

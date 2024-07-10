@@ -22,6 +22,7 @@ use super::deser;
 use crate::{
     deser::ModeAsSeed,
     rkyv_util::time::{DateRkyv, DateTimeRkyv},
+    rosu_v2::grade::GradeRkyv,
 };
 
 #[derive(Debug)]
@@ -586,6 +587,7 @@ pub struct OsuStatsBestScore {
     pub ended_at: OffsetDateTime,
     pub position: u32,
     pub pp: f32,
+    #[with(GradeRkyv)]
     pub grade: Grade,
     pub score: u32,
     pub map: OsuStatsBestScoreMap,

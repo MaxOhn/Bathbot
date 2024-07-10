@@ -13,6 +13,7 @@ eyre = { version = "0.6" }
 http = { version = "0.2" }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
 once_cell = { version = "1.0" }
+rosu-mods = { workspace = true }
 rosu-v2 = { workspace = true }
 rkyv = { version = "0.7" }
 rkyv-with = { version = "0.1" }
