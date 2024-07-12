@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 use bathbot_model::{BgGameScore, HlGameScore, HlVersion};
 use bathbot_psql::{
     model::games::{DbMapTagsParams, MapsetTagsEntries},
     Database,
 };
+use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use twilight_model::id::{marker::UserMarker, Id};
@@ -72,9 +75,20 @@ impl GameManager {
         Ok(MapsetTagsEntries { mode, tags })
     }
 
-    pub async fn bggame_increment_score(self, user_id: Id<UserMarker>, amount: u32) -> Result<()> {
+    pub async fn bggame_increment_scores(
+        self,
+        scores: &HashMap<Id<UserMarker>, u32, IntHasher>,
+    ) -> Result<()> {
+        let mut user_ids = Vec::with_capacity(scores.len());
+        let mut amounts = Vec::with_capacity(scores.len());
+
+        for (user_id, amount) in scores {
+            user_ids.push(user_id.get() as i64);
+            amounts.push(*amount as i32);
+        }
+
         self.psql
-            .increment_bggame_score(user_id, amount as i32)
+            .increment_bggame_scores(&user_ids, &amounts)
             .await
             .wrap_err("failed to increment score")
     }

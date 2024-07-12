@@ -100,12 +100,8 @@ impl BackgroundGame {
                         }
 
                         // Store score for winners
-                        for (user, score) in scores {
-                            if let Err(err) =
-                                Context::games().bggame_increment_score(user, score).await
-                            {
-                                warn!("{err:?}");
-                            }
+                        if let Err(err) = Context::games().bggame_increment_scores(&scores).await {
+                            warn!("{err:?}");
                         }
 
                         // Then quit

@@ -3,7 +3,6 @@ use std::mem;
 use bathbot_model::BgGameScore;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
-use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     model::games::{DbBgGameScore, DbMapTagEntry, DbMapTagsParams},
@@ -11,17 +10,19 @@ use crate::{
 };
 
 impl Database {
-    pub async fn increment_bggame_score(&self, user_id: Id<UserMarker>, amount: i32) -> Result<()> {
+    pub async fn increment_bggame_scores(&self, user_ids: &[i64], amounts: &[i32]) -> Result<()> {
         let query = sqlx::query!(
             r#"
 INSERT INTO bggame_scores (discord_id, score) 
-VALUES 
-  ($1, $2) ON CONFLICT (discord_id) DO 
+SELECT
+  *
+FROM
+  UNNEST($1::INT8[], $2::INT4[]) ON CONFLICT (discord_id) DO 
 UPDATE 
 SET 
-  score = bggame_scores.score + $2"#,
-            user_id.get() as i64,
-            amount
+  score = bggame_scores.score + excluded.score"#,
+            user_ids,
+            amounts,
         );
 
         query
