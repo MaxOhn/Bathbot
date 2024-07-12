@@ -168,8 +168,8 @@ impl Context {
 
             let prefix = PrefixLayer::new("bathbot").layer(fanout);
 
-            metrics::set_boxed_recorder(Box::new(prefix))
-                .wrap_err("Failed to install metrics recorder")?;
+            metrics::set_global_recorder(prefix)
+                .map_err(|e| eyre!("Failed to install metrics recorder: {e:?}"))?;
 
             (prometheus_handle, reader)
         };

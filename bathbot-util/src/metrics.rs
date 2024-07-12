@@ -3,7 +3,9 @@ use std::sync::{
     Arc,
 };
 
-use metrics::{Counter, Gauge, Histogram, HistogramFn, Key, KeyName, Recorder, SharedString, Unit};
+use metrics::{
+    Counter, Gauge, Histogram, HistogramFn, Key, KeyName, Metadata, Recorder, SharedString, Unit,
+};
 use metrics_util::registry::{Registry, Storage};
 
 /// Only records the amount of times histograms where updated, not the specific
@@ -134,19 +136,19 @@ impl MetricsReader {
 }
 
 impl Recorder for MetricsReader {
-    fn register_counter(&self, key: &Key) -> Counter {
+    fn register_counter(&self, key: &Key, _: &Metadata<'_>) -> Counter {
         self.inner
             .registry
             .get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
     }
 
-    fn register_gauge(&self, key: &Key) -> Gauge {
+    fn register_gauge(&self, key: &Key, _: &Metadata<'_>) -> Gauge {
         self.inner
             .registry
             .get_or_create_gauge(key, |c| Gauge::from_arc(c.clone()))
     }
 
-    fn register_histogram(&self, key: &Key) -> Histogram {
+    fn register_histogram(&self, key: &Key, _: &Metadata<'_>) -> Histogram {
         self.inner
             .registry
             .get_or_create_histogram(key, |c| Histogram::from_arc(c.clone()))

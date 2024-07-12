@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use bathbot_cache::{model::CacheChange, Cache};
 use metrics::{
-    describe_counter, describe_gauge, describe_histogram, gauge, histogram, increment_counter,
-    increment_gauge, SharedString, Unit,
+    counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram, SharedString,
+    Unit,
 };
 use twilight_gateway::Event;
 
@@ -37,15 +37,16 @@ impl BotMetrics {
 
         let stats = cache.stats();
 
-        gauge!(CACHE_ENTRIES, stats.guilds as f64, "kind" => "Guilds");
-        gauge!(CACHE_ENTRIES, stats.channels as f64, "kind" => "Channels");
-        gauge!(CACHE_ENTRIES, stats.users as f64, "kind" => "Users");
-        gauge!(CACHE_ENTRIES, stats.roles as f64, "kind" => "Roles");
-        gauge!(CACHE_ENTRIES, stats.unavailable_guilds as f64, "kind" => "Unavailable guilds");
+        gauge!(CACHE_ENTRIES, "kind" => "Guilds").increment(stats.guilds as f64);
+        gauge!(CACHE_ENTRIES, "kind" => "Channels").increment(stats.channels as f64);
+        gauge!(CACHE_ENTRIES, "kind" => "Users").increment(stats.users as f64);
+        gauge!(CACHE_ENTRIES, "kind" => "Roles").increment(stats.roles as f64);
+        gauge!(CACHE_ENTRIES, "kind" => "Unavailable guilds")
+            .increment(stats.unavailable_guilds as f64);
     }
 
     pub fn inc_command_error(kind: &'static str, name: impl Into<SharedString>) {
-        increment_counter!(COMMAND_ERRORS, "kind" => kind, "name" => name);
+        counter!(COMMAND_ERRORS, "kind" => kind, "name" => name).increment(1);
     }
 
     pub fn inc_slash_command_error(
@@ -53,16 +54,17 @@ impl BotMetrics {
         group: impl Into<SharedString>,
         sub: impl Into<SharedString>,
     ) {
-        increment_counter!(COMMAND_ERRORS,
+        counter!(COMMAND_ERRORS,
             "kind" => "slash",
             "name" => name,
             "group" => group,
             "sub" => sub
-        );
+        )
+        .increment(1);
     }
 
     pub fn observe_command(kind: &'static str, name: impl Into<SharedString>, duration: Duration) {
-        histogram!(COMMANDS_PROCESS_TIME, duration, "kind" => kind, "name" => name);
+        histogram!(COMMANDS_PROCESS_TIME, "kind" => kind, "name" => name).record(duration);
     }
 
     pub fn observe_slash_command(
@@ -72,29 +74,30 @@ impl BotMetrics {
         duration: Duration,
     ) {
         histogram!(COMMANDS_PROCESS_TIME,
-            duration,
             "kind" => "slash",
             "name" => name,
             "group" => group,
             "sub" => sub
-        );
+        )
+        .record(duration);
     }
 
     pub fn inc_redis_hit(kind: impl Into<SharedString>) {
-        increment_counter!(REDIS_CACHE_HITS, "kind" => kind);
+        counter!(REDIS_CACHE_HITS, "kind" => kind).increment(1);
     }
 
     pub fn event(event: &Event, change: Option<CacheChange>) {
         if let Some(change) = change {
-            increment_gauge!(CACHE_ENTRIES, change.guilds as f64, "kind" => "Guilds");
-            increment_gauge!(CACHE_ENTRIES, change.channels as f64, "kind" => "Channels");
-            increment_gauge!(CACHE_ENTRIES, change.users as f64, "kind" => "Users");
-            increment_gauge!(CACHE_ENTRIES, change.roles as f64, "kind" => "Roles");
-            increment_gauge!(CACHE_ENTRIES, change.unavailable_guilds as f64, "kind" => "Unavailable guilds");
+            gauge!(CACHE_ENTRIES, "kind" => "Guilds").increment(change.guilds as f64);
+            gauge!(CACHE_ENTRIES, "kind" => "Channels").increment(change.channels as f64);
+            gauge!(CACHE_ENTRIES, "kind" => "Users").increment(change.users as f64);
+            gauge!(CACHE_ENTRIES, "kind" => "Roles").increment(change.roles as f64);
+            gauge!(CACHE_ENTRIES, "kind" => "Unavailable guilds")
+                .increment(change.unavailable_guilds as f64);
         }
 
         if let Some(name) = event.kind().name() {
-            increment_counter!(GATEWAY_EVENTS, "event" => name);
+            counter!(GATEWAY_EVENTS, "event" => name).increment(1);
         }
     }
 }

@@ -26,13 +26,13 @@ impl ClientMetrics {
     pub(crate) fn observe(site: Site, status: StatusCode, latency: Duration) {
         histogram!(
             CLIENT_RESPONSE_TIME,
-            latency,
             "site" => site.as_str(),
             "status" => status.as_str().to_owned()
-        );
+        )
+        .record(latency);
     }
 
     pub(crate) fn internal_error(site: Site) {
-        counter!(CLIENT_INTERNAL_ERRORS, 1, "site" => site.as_str());
+        counter!(CLIENT_INTERNAL_ERRORS, "site" => site.as_str()).increment(1);
     }
 }

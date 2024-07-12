@@ -19,11 +19,11 @@ pub async fn track_metrics<B>(req: Request<B>, next: Next<B>) -> Response {
 
     histogram!(
         "server_response_time",
-        latency,
         "method" => method,
         "path" => path,
         "status" => status
-    );
+    )
+    .record(latency);
 
     response
 }
