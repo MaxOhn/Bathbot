@@ -28,7 +28,7 @@ impl Cache {
         conn: &mut CacheConnection<'_>,
         key: &K,
         value: &T,
-        expire_seconds: usize,
+        expire_seconds: u64,
     ) -> Result<()>
     where
         K: ToCacheKey + ?Sized,
@@ -43,7 +43,7 @@ impl Cache {
         CacheConnection(conn): &mut CacheConnection<'_>,
         key: &K,
         bytes: &[u8],
-        expire_seconds: usize,
+        expire_seconds: u64,
     ) -> Result<()>
     where
         K: ToCacheKey + ?Sized,
@@ -64,7 +64,7 @@ impl Cache {
         &self,
         key: &K,
         value: &T,
-        expire_seconds: usize,
+        expire_seconds: u64,
     ) -> Result<()>
     where
         K: ToCacheKey + ?Sized,
@@ -75,7 +75,7 @@ impl Cache {
         Self::store(&mut conn, key, value, expire_seconds).await
     }
 
-    pub async fn store_new_raw<K>(&self, key: &K, bytes: &[u8], expire_seconds: usize) -> Result<()>
+    pub async fn store_new_raw<K>(&self, key: &K, bytes: &[u8], expire_seconds: u64) -> Result<()>
     where
         K: ToCacheKey + ?Sized,
     {

@@ -25,7 +25,7 @@ impl GithubManager {
     }
 
     pub async fn next_prs(self, next_cursor: &str) -> Result<RedisData<PullRequests>> {
-        const EXPIRE: usize = 1800; // 30 min
+        const EXPIRE: u64 = 1800; // 30 min
         let key = format!("github_prs_{next_cursor}");
 
         let mut conn = match Context::cache().fetch(&key).await {

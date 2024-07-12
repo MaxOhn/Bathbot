@@ -9,7 +9,7 @@ use twilight_gateway::Session;
 
 use crate::{key::RedisKey, model::CachedArchive, Cache};
 
-const STORE_DURATION: usize = 240;
+const STORE_DURATION: u64 = 240;
 
 impl Cache {
     pub async fn freeze<S>(&self, resume_data: &HashMap<u64, Session, S>) -> Result<()> {

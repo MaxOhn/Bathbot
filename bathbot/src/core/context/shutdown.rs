@@ -43,7 +43,7 @@ impl Context {
             error!(?err, "Failed to freeze cache");
         }
 
-        const STORE_DURATION: usize = 240;
+        const STORE_DURATION: u64 = 240;
 
         match this.store_guild_shards(STORE_DURATION).await {
             Ok(len) => info!("Stored {len} guild shards"),
@@ -93,7 +93,7 @@ impl Context {
 
     /// Serialize guild shards and store them in redis for 240 seconds
     #[cold]
-    async fn store_guild_shards(&self, store_duration: usize) -> Result<usize> {
+    async fn store_guild_shards(&self, store_duration: u64) -> Result<usize> {
         let mut serializer = AllocSerializer::<0>::default();
 
         // Will be serialized as ArchivedVec
@@ -123,7 +123,7 @@ impl Context {
     }
 
     #[cold]
-    async fn store_miss_analyzer_guilds(store_duration: usize) -> Result<usize> {
+    async fn store_miss_analyzer_guilds(store_duration: u64) -> Result<usize> {
         let mut serializer = AllocSerializer::<0>::default();
 
         // Will be serialized as ArchivedVec
@@ -152,7 +152,7 @@ impl Context {
         mut serializer: AllocSerializer<N>,
         len: usize,
         key: &str,
-        duration: usize,
+        duration: u64,
     ) -> Result<usize> {
         // Serialize relative pointer
         for byte in (-(serializer.pos() as i32)).to_le_bytes() {

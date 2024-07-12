@@ -33,7 +33,7 @@ impl RedisManager {
     }
 
     pub async fn badges(self) -> RedisResult<Vec<OsekaiBadge>> {
-        const EXPIRE: usize = 7200;
+        const EXPIRE: u64 = 7200;
         const KEY: &str = "osekai_badges";
 
         let mut conn = match Context::cache().fetch(KEY).await {
@@ -62,7 +62,7 @@ impl RedisManager {
     }
 
     pub async fn medals(self) -> RedisResult<Vec<OsekaiMedal>> {
-        const EXPIRE: usize = 3600;
+        const EXPIRE: u64 = 3600;
         const KEY: &str = "osekai_medals";
 
         let mut conn = match Context::cache().fetch(KEY).await {
@@ -95,7 +95,7 @@ impl RedisManager {
         R: OsekaiRanking,
         <R as OsekaiRanking>::Entry: Serialize<CacheSerializer<65_536>>,
     {
-        const EXPIRE: usize = 7200;
+        const EXPIRE: u64 = 7200;
 
         let mut key = b"osekai_ranking_".to_vec();
         key.extend_from_slice(R::FORM.as_bytes());
@@ -131,7 +131,7 @@ impl RedisManager {
         page: u32,
         country: Option<&str>,
     ) -> RedisResult<RosuRankings, Rankings, OsuError> {
-        const EXPIRE: usize = 1800;
+        const EXPIRE: u64 = 1800;
         let mut key = format!("pp_ranking_{}_{page}", mode as u8);
 
         if let Some(country) = country {
@@ -176,7 +176,7 @@ impl RedisManager {
         timeframe: OsuStatsBestTimeframe,
         mode: GameMode,
     ) -> RedisResult<OsuStatsBestScores> {
-        const EXPIRE: usize = 3600;
+        const EXPIRE: u64 = 3600;
         let key = format!("osustats_best_{}_{}", timeframe as u8, mode as u8);
 
         let mut conn = match Context::cache().fetch(&key).await {
@@ -205,7 +205,7 @@ impl RedisManager {
     }
 
     pub async fn snipe_countries(self, mode: GameMode) -> RedisResult<SnipeCountries> {
-        const EXPIRE: usize = 43_200; // 12 hours
+        const EXPIRE: u64 = 43_200; // 12 hours
         let key = format!("snipe_countries_{mode}");
 
         let mut conn = match Context::cache().fetch(&key).await {
@@ -234,7 +234,7 @@ impl RedisManager {
     }
 
     pub async fn country_regions(self) -> RedisResult<CountryRegions> {
-        const EXPIRE: usize = 43_200; // 12 hours
+        const EXPIRE: u64 = 43_200; // 12 hours
         let key = "country_regions";
 
         let mut conn = match Context::cache().fetch(key).await {
@@ -270,7 +270,7 @@ impl RedisManager {
         map: &Option<Cow<'_, str>>,
         idx: Option<u32>,
     ) -> RedisResult<Vec<MapVersion>> {
-        const EXPIRE: usize = 30;
+        const EXPIRE: u64 = 30;
 
         let idx = match idx {
             Some(idx @ 0..=50) => idx.saturating_sub(1) as usize,
