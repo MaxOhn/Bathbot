@@ -358,7 +358,6 @@ dependencies = [
  "futures",
  "hashbrown 0.14.5",
  "image",
- "itertools",
  "leaky-bucket-lite",
  "linkme",
  "metrics",
@@ -1480,15 +1479,6 @@ checksum = "168fb715dda47215e360912c096649d23d58bf392ac62f73919e831745e40f26"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.5",
-]
-
-[[package]]
-name = "itertools"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
-dependencies = [
- "either",
 ]
 
 [[package]]
