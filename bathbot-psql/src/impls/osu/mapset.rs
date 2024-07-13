@@ -125,40 +125,79 @@ SET
         Ok(())
     }
 
-    pub(super) async fn update_beatmapset_compact<'c, E>(
+    pub(super) async fn update_beatmapsets<'c, E>(
         executor: E,
-        mapset: &Beatmapset,
+        mapsets: impl Iterator<Item = &Beatmapset>,
+        len: usize,
     ) -> Result<()>
     where
         E: Executor<'c, Database = Postgres>,
     {
+        let mut vec_creator_id = Vec::with_capacity(len);
+        let mut vec_artist = Vec::with_capacity(len);
+        let mut vec_title = Vec::with_capacity(len);
+        let mut vec_creator_name = Vec::with_capacity(len);
+        let mut vec_source = Vec::with_capacity(len);
+        let mut vec_video = Vec::with_capacity(len);
+        let mut vec_status = Vec::with_capacity(len);
+        let mut vec_thumbnail = Vec::with_capacity(len);
+        let mut vec_cover = Vec::with_capacity(len);
+        let mut vec_mapset_id = Vec::with_capacity(len);
+
+        for mapset in mapsets {
+            vec_creator_id.push(mapset.creator_id as i32);
+            vec_artist.push(mapset.artist.as_str());
+            vec_title.push(mapset.title.as_str());
+            vec_creator_name.push(mapset.creator_name.as_str());
+            vec_source.push(mapset.source.as_str());
+            vec_video.push(mapset.video);
+            vec_status.push(mapset.status as i16);
+            vec_thumbnail.push(mapset.covers.list.as_str());
+            vec_cover.push(mapset.covers.cover.as_str());
+            vec_mapset_id.push(mapset.mapset_id as i32);
+        }
+
         let query = sqlx::query!(
             r#"
 UPDATE 
   osu_mapsets 
 SET 
-  user_id = $1, 
-  artist = $2, 
-  title = $3, 
-  creator = $4, 
-  source = $5, 
-  video = $6, 
-  rank_status = $7, 
-  thumbnail = $8, 
-  cover = $9, 
+  user_id = bulk.user_id, 
+  artist = bulk.artist, 
+  title = bulk.title, 
+  creator = bulk.creator, 
+  source = bulk.source, 
+  video = bulk.video, 
+  rank_status = bulk.rank_status, 
+  thumbnail = bulk.thumbnail, 
+  cover = bulk.cover, 
   last_update = NOW() 
+FROM 
+  (
+    SELECT
+      *
+    FROM
+      UNNEST(
+        $1::INT4[], $2::VARCHAR[], $3::VARCHAR[], $4::VARCHAR[], 
+        $5::VARCHAR[], $6::BOOL[], $7::INT2[], $8::VARCHAR[], 
+        $9::VARCHAR[], $10::INT4[]
+      ) AS t(
+        user_id, artist, title, creator, source, video, 
+        rank_status, thumbnail, cover, mapset_id
+      )
+  ) AS bulk
 WHERE 
-  mapset_id = $10"#,
-            mapset.creator_id as i32,
-            mapset.artist,
-            mapset.title,
-            mapset.creator_name.as_str(),
-            mapset.source,
-            mapset.video,
-            mapset.status as i16,
-            mapset.covers.list,
-            mapset.covers.cover,
-            mapset.mapset_id as i32,
+  osu_mapsets.mapset_id = bulk.mapset_id"#,
+            &vec_creator_id,
+            &vec_artist as _,
+            &vec_title as _,
+            &vec_creator_name as _,
+            &vec_source as _,
+            &vec_video,
+            &vec_status,
+            &vec_thumbnail as _,
+            &vec_cover as _,
+            &vec_mapset_id,
         );
 
         query

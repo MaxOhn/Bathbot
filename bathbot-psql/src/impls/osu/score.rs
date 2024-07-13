@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::BuildHasher};
+use std::{cmp, collections::HashMap, hash::BuildHasher};
 
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
@@ -1073,88 +1073,156 @@ FROM
     pub async fn insert_scores(&self, scores: &[Score]) -> Result<()> {
         let mut tx = self.begin().await.wrap_err("failed to begin transaction")?;
 
-        for score in scores {
-            let Score {
-                classic_score: _,
-                ranked: _,
-                preserve: _,
-                processed: _,
-                maximum_statistics: _,
-                mods,
-                statistics,
-                map_id,
-                best_id: _,
-                id: score_id,
-                grade,
-                kind: _,
-                user_id,
-                accuracy: _,
-                build_id: _,
-                ended_at,
-                has_replay: _,
-                is_perfect_combo,
-                legacy_perfect,
-                legacy_score_id,
-                legacy_score: _,
-                max_combo,
-                passed,
-                pp,
-                mode,
-                started_at: _,
-                score,
-                replay: _,
-                current_user_attributes: _,
-                map: _, // updated through checksum-missmatch
-                mapset,
-                rank_global: _,
-                user: _,
-                weight: _,
-            } = score;
+        let cap = cmp::min(scores.len(), 100);
 
-            // TODO: remove from database?
-            let perfect = legacy_perfect.unwrap_or(*is_perfect_combo);
+        let mut vec_score_id = Vec::with_capacity(cap);
+        let mut vec_user_id = Vec::with_capacity(cap);
+        let mut vec_map_id = Vec::with_capacity(cap);
+        let mut vec_gamemode = Vec::with_capacity(cap);
+        let mut vec_mods = Vec::with_capacity(cap);
+        let mut vec_score = Vec::with_capacity(cap);
+        let mut vec_maxcombo = Vec::with_capacity(cap);
+        let mut vec_grade = Vec::with_capacity(cap);
+        let mut vec_count50 = Vec::with_capacity(cap);
+        let mut vec_count100 = Vec::with_capacity(cap);
+        let mut vec_count300 = Vec::with_capacity(cap);
+        let mut vec_countmiss = Vec::with_capacity(cap);
+        let mut vec_countgeki = Vec::with_capacity(cap);
+        let mut vec_countkatu = Vec::with_capacity(cap);
+        let mut vec_perfect = Vec::with_capacity(cap);
+        let mut vec_ended_at = Vec::with_capacity(cap);
+        let mut vec_pp_score_id = Vec::with_capacity(cap);
+        let mut vec_pp = Vec::with_capacity(cap);
 
-            let grade = if *passed { *grade } else { Grade::F };
-            let score_id = legacy_score_id.unwrap_or(*score_id);
+        for chunk in scores.chunks(100) {
+            vec_score_id.clear();
+            vec_user_id.clear();
+            vec_map_id.clear();
+            vec_gamemode.clear();
+            vec_mods.clear();
+            vec_score.clear();
+            vec_maxcombo.clear();
+            vec_grade.clear();
+            vec_count50.clear();
+            vec_count100.clear();
+            vec_count300.clear();
+            vec_countmiss.clear();
+            vec_countgeki.clear();
+            vec_countkatu.clear();
+            vec_perfect.clear();
+            vec_ended_at.clear();
+            vec_pp_score_id.clear();
+            vec_pp.clear();
 
-            let LegacyScoreStatistics {
-                count_geki,
-                count_katu,
-                count_300,
-                count_100,
-                count_50,
-                count_miss,
-            } = statistics.as_legacy(*mode);
+            for score in chunk {
+                let Score {
+                    classic_score: _,
+                    ranked: _,
+                    preserve: _,
+                    processed: _,
+                    maximum_statistics: _,
+                    mods,
+                    statistics,
+                    map_id,
+                    best_id: _,
+                    id: score_id,
+                    grade,
+                    kind: _,
+                    user_id,
+                    accuracy: _,
+                    build_id: _,
+                    ended_at,
+                    has_replay: _,
+                    is_perfect_combo,
+                    legacy_perfect,
+                    legacy_score_id,
+                    legacy_score: _,
+                    max_combo,
+                    passed,
+                    pp,
+                    mode,
+                    started_at: _,
+                    score,
+                    replay: _,
+                    current_user_attributes: _,
+                    map: _,    // updated through checksum-missmatch
+                    mapset: _, // handled in later iteration further down
+                    rank_global: _,
+                    user: _,
+                    weight: _,
+                } = score;
+
+                // TODO: remove from database?
+                let perfect = legacy_perfect.unwrap_or(*is_perfect_combo);
+
+                let grade = if *passed { *grade } else { Grade::F };
+                let score_id = legacy_score_id.unwrap_or(*score_id);
+
+                let LegacyScoreStatistics {
+                    count_geki,
+                    count_katu,
+                    count_300,
+                    count_100,
+                    count_50,
+                    count_miss,
+                } = statistics.as_legacy(*mode);
+
+                vec_score_id.push(score_id as i64);
+                vec_user_id.push(*user_id as i32);
+                vec_map_id.push(*map_id as i32);
+                vec_gamemode.push(*mode as i16);
+                vec_mods.push(mods.bits() as i32);
+                vec_score.push(*score as i32);
+                vec_maxcombo.push(*max_combo as i32);
+                vec_grade.push(grade as i16);
+                vec_count50.push(count_50 as i32);
+                vec_count100.push(count_100 as i32);
+                vec_count300.push(count_300 as i32);
+                vec_countmiss.push(count_miss as i32);
+                vec_countgeki.push(count_geki as i32);
+                vec_countkatu.push(count_katu as i32);
+                vec_perfect.push(perfect);
+                vec_ended_at.push(*ended_at);
+
+                if let Some(pp) = pp {
+                    vec_pp_score_id.push(score_id as i64);
+                    vec_pp.push(*pp as f64);
+                }
+            }
 
             let query = sqlx::query!(
                 r#"
 INSERT INTO osu_scores (
-  score_id, user_id, map_id, gamemode, 
-  mods, score, maxcombo, grade, count50, 
-  count100, count300, countmiss, countgeki, 
-  countkatu, perfect, ended_at
+score_id, user_id, map_id, gamemode, 
+mods, score, maxcombo, grade, count50, 
+count100, count300, countmiss, countgeki, 
+countkatu, perfect, ended_at
 ) 
-VALUES 
-  (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
-    $11, $12, $13, $14, $15, $16
-  ) ON CONFLICT (score_id) DO NOTHING"#,
-                score_id as i64,
-                *user_id as i32,
-                *map_id as i32,
-                *mode as i16,
-                mods.bits() as i32,
-                *score as i64,
-                *max_combo as i32,
-                grade as i16,
-                count_50 as i32,
-                count_100 as i32,
-                count_300 as i32,
-                count_miss as i32,
-                count_geki as i32,
-                count_katu as i32,
-                perfect,
-                ended_at,
+SELECT
+  *
+FROM
+  UNNEST(
+  $1::INT8[], $2::INT4[], $3::INT4[], $4::INT2[], 
+  $5::INT4[], $6::INT4[], $7::INT4[], $8::INT2[], 
+  $9::INT4[], $10::INT4[], $11::INT4[], $12::INT4[], 
+  $13::INT4[], $14::INT4[], $15::BOOL[], $16::TIMESTAMPTZ[]
+) ON CONFLICT (score_id) DO NOTHING"#,
+                &vec_score_id,
+                &vec_user_id,
+                &vec_map_id,
+                &vec_gamemode,
+                &vec_mods,
+                &vec_score,
+                &vec_maxcombo,
+                &vec_grade,
+                &vec_count50,
+                &vec_count100,
+                &vec_count300,
+                &vec_countmiss,
+                &vec_countgeki,
+                &vec_countkatu,
+                &vec_perfect,
+                &vec_ended_at,
             );
 
             query
@@ -1162,14 +1230,16 @@ VALUES
                 .await
                 .wrap_err("failed to execute score query")?;
 
-            if let Some(pp) = pp {
+            if !vec_pp.is_empty() {
                 let query = sqlx::query!(
                     r#"
 INSERT INTO osu_scores_performance (score_id, pp) 
-VALUES 
-  ($1, $2) ON CONFLICT (score_id) DO NOTHING"#,
-                    score_id as i64,
-                    *pp as f64,
+SELECT
+  *
+FROM
+  UNNEST($1::INT8[], $2::FLOAT8[]) ON CONFLICT (score_id) DO NOTHING"#,
+                    &vec_pp_score_id,
+                    &vec_pp,
                 );
 
                 query
@@ -1178,28 +1248,14 @@ VALUES
                     .wrap_err("failed to execute pp query")?;
             }
 
-            if let Some(mapset) = mapset {
-                Self::update_beatmapset_compact(&mut *tx, mapset)
-                    .await
-                    .wrap_err("failed to update mapset")?;
-            }
+            let mapset_iter = chunk.iter().filter_map(|score| score.mapset.as_deref());
+
+            Self::update_beatmapsets(&mut *tx, mapset_iter, chunk.len())
+                .await
+                .wrap_err("failed to update mapset")?
         }
 
         tx.commit().await.wrap_err("failed to commit transaction")?;
-
-        Ok(())
-    }
-
-    pub async fn update_beatmapsets_compact(&self, scores: &[Score]) -> Result<()> {
-        let mut tx = self.begin().await.wrap_err("Failed to begin transaction")?;
-
-        for score in scores {
-            if let Some(ref mapset) = score.mapset {
-                Self::update_beatmapset_compact(&mut *tx, mapset).await?;
-            }
-        }
-
-        tx.commit().await.wrap_err("Failed to commit transaction")?;
 
         Ok(())
     }
