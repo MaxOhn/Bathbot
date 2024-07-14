@@ -23,7 +23,7 @@ use crate::{
     manager::OsuMap,
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::grade_emote,
+        osu::GradeFormatter,
         Emote,
     },
 };
@@ -242,7 +242,7 @@ impl Display for ScoreFormatter<'_> {
             underline = if self.found_author { "__" } else { "" },
             username = self.score.username,
             user_id = self.score.user_id,
-            grade = grade_emote(self.score.grade),
+            grade = GradeFormatter::new(self.score.grade, Some(self.score.score_id), self.score.is_legacy),
             score = WithComma::new(self.score.score),
             combo = self.combo,
             mods = ModsFormatter::new(&self.score.mods),

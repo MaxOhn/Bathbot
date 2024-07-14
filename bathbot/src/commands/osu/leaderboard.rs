@@ -10,7 +10,7 @@ use bathbot_util::{
     constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
     matcher,
     osu::{MapIdType, ModSelection},
-    IntHasher,
+    IntHasher, ScoreExt,
 };
 use eyre::{Report, Result};
 use rosu_pp::any::{DifficultyAttributes, ScoreState};
@@ -485,6 +485,8 @@ pub struct LeaderboardScore {
     pub combo: u32,
     pub score: u32,
     pub ended_at: OffsetDateTime,
+    pub score_id: u64,
+    pub is_legacy: bool,
 }
 
 impl LeaderboardScore {
@@ -493,6 +495,7 @@ impl LeaderboardScore {
             user_id,
             username,
             pos,
+            is_legacy: score.is_legacy(),
             grade: if score.passed { score.grade } else { Grade::F },
             accuracy: score.accuracy,
             statistics: score.statistics.as_legacy(score.mode),
@@ -501,6 +504,7 @@ impl LeaderboardScore {
             combo: score.max_combo,
             score: score.score,
             ended_at: score.ended_at,
+            score_id: score.id,
         }
     }
 }

@@ -21,7 +21,7 @@ use crate::{
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap, OwnedReplayScore},
     util::{
-        osu::{grade_completion_mods, IfFc, MapInfo, PersonalBestIndex},
+        osu::{GradeCompletionFormatter, IfFc, MapInfo, PersonalBestIndex},
         Emote,
     },
 };
@@ -253,7 +253,16 @@ impl RecentScoreEdit {
     ) -> EmbedBuilder {
         let name = format!(
             "{grade_completion_mods}\t{score}\t({acc}%)\t{ago}",
-            grade_completion_mods = grade_completion_mods(score, map.mode(), map.n_objects()),
+            // We don't use `GradeCompletionFormatter::new` so that it doesn't
+            // use the score id to hyperlink the grade because those don't
+            // work in embed field names.
+            grade_completion_mods = GradeCompletionFormatter::new_without_score(
+                &score.mods,
+                score.grade,
+                score.total_hits(),
+                map.mode(),
+                map.n_objects()
+            ),
             score = WithComma::new(score.score),
             acc = round(score.accuracy),
             ago = HowLongAgoDynamic::new(&score.ended_at),
@@ -354,7 +363,7 @@ impl RecentScoreEdit {
         let pp = highlight_funny_numeral(&pp).into_owned();
 
         let grade_completion_mods =
-            grade_completion_mods(score, map.mode(), map.n_objects()).into_owned();
+            GradeCompletionFormatter::new(score, map.mode(), map.n_objects()).to_string();
 
         let mut fields = fields![
             "Grade", grade_completion_mods, true;

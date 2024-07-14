@@ -10,6 +10,7 @@ use std::{
 
 use bathbot_model::{rosu_v2::user::User, OsuStatsParams, ScoreSlim};
 use bathbot_util::{
+    constants::OSU_BASE,
     datetime::SecToMinSec,
     numbers::{round, WithComma},
     MessageOrigin, ModsFormatter, ScoreExt,
@@ -45,53 +46,104 @@ pub fn grade_emote(grade: Grade) -> &'static str {
     BotConfig::get().grade(grade)
 }
 
-// TODO: make struct that implements Display
-pub fn grade_completion_mods<S: ScoreExt>(
-    score: &S,
-    mode: GameMode,
-    n_objects: u32,
-) -> Cow<'static, str> {
-    let mods = score.mods();
-    let grade = score.grade();
-    let score_hits = score.total_hits(mode as u8);
-
-    grade_completion_mods_raw(mods, grade, score_hits, mode, n_objects)
-}
-
-/// Careful about the grade!
-///
-/// The osu!api no longer uses `Grade::F` but this method expects `Grade::F`
-/// for fails.
-pub fn grade_completion_mods_raw(
-    mods: &GameMods,
+pub struct GradeCompletionFormatter<'a> {
+    mods: &'a GameMods,
     grade: Grade,
     score_hits: u32,
     mode: GameMode,
     n_objects: u32,
-) -> Cow<'static, str> {
-    let grade_str = BotConfig::get().grade(grade);
-    let mods_fmt = ModsFormatter::new(mods);
+    score_id: Option<u64>,
+}
 
-    match (
-        mods.is_empty(),
-        grade == Grade::F && mode != GameMode::Catch,
-    ) {
-        (true, true) => format!("{grade_str}@{}%", completion(score_hits, n_objects)).into(),
-        (false, true) => format!(
-            "{grade_str}@{}% +{mods_fmt}",
-            completion(score_hits, n_objects)
-        )
-        .into(),
-        (true, false) => grade_str.into(),
-        (false, false) => format!("{grade_str} +{mods_fmt}").into(),
+impl<'a> GradeCompletionFormatter<'a> {
+    pub fn new<S: ScoreExt>(score: &'a S, mode: GameMode, n_objects: u32) -> Self {
+        Self {
+            mods: score.mods(),
+            grade: score.grade(),
+            score_hits: score.total_hits(mode as u8),
+            mode,
+            n_objects,
+            score_id: score.score_id().filter(|_| !score.is_legacy()),
+        }
+    }
+
+    /// Careful about the grade!
+    ///
+    /// The osu!api no longer uses `Grade::F` but this method expects `Grade::F`
+    /// for fails.
+    pub fn new_without_score(
+        mods: &'a GameMods,
+        grade: Grade,
+        score_hits: u32,
+        mode: GameMode,
+        n_objects: u32,
+    ) -> Self {
+        Self {
+            mods,
+            grade,
+            score_hits,
+            mode,
+            n_objects,
+            score_id: None,
+        }
     }
 }
 
-fn completion(score_hits: u32, n_objects: u32) -> u32 {
-    if n_objects != 0 {
-        100 * score_hits / n_objects
-    } else {
-        100
+impl Display for GradeCompletionFormatter<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let completion = || {
+            if self.n_objects != 0 {
+                100 * self.score_hits / self.n_objects
+            } else {
+                100
+            }
+        };
+
+        let grade_fmt = GradeFormatter {
+            grade: self.grade,
+            score_id: self.score_id,
+        };
+
+        let mods_fmt = ModsFormatter::new(self.mods);
+
+        // The completion is very hard to calculate for `Catch` because
+        // `n_objects` is not correct due to juicestreams so we won't
+        // show it for that mode.
+        let is_fail = self.grade == Grade::F && self.mode != GameMode::Catch;
+
+        match (self.mods.is_empty(), is_fail) {
+            (true, true) => write!(f, "{grade_fmt}@{}%", completion()),
+            (false, true) => write!(f, "{grade_fmt}@{}% +{mods_fmt}", completion()),
+            (true, false) => Display::fmt(&grade_fmt, f),
+            (false, false) => write!(f, "{grade_fmt} +{mods_fmt}"),
+        }
+    }
+}
+
+/// Format a grade's emote and optionally hyperlink to the score if the id is
+/// available.
+pub struct GradeFormatter {
+    grade: Grade,
+    score_id: Option<u64>,
+}
+
+impl GradeFormatter {
+    pub fn new(grade: Grade, score_id: Option<u64>, is_legacy: bool) -> Self {
+        Self {
+            grade,
+            score_id: score_id.filter(|_| !is_legacy),
+        }
+    }
+}
+
+impl Display for GradeFormatter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let grade = grade_emote(self.grade);
+
+        match self.score_id {
+            Some(score_id) => write!(f, "[{grade}]({OSU_BASE}scores/{score_id})"),
+            None => f.write_str(grade),
+        }
     }
 }
 
