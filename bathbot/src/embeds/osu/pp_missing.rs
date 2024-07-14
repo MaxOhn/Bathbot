@@ -1,4 +1,9 @@
-use std::{cmp::Ordering, iter};
+use std::{
+    cmp::Ordering,
+    convert::identity,
+    fmt::{Display, Formatter, Result as FmtResult},
+    iter,
+};
 
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
@@ -25,6 +30,7 @@ impl PpMissingEmbed {
         goal_pp: f32,
         rank: Option<u32>,
         each: Option<f32>,
+        amount: Option<u8>,
     ) -> Self {
         let stats_pp = user.stats().pp();
 
@@ -36,9 +42,9 @@ impl PpMissingEmbed {
             goal_pp = WithComma::new(goal_pp),
         );
 
-        let description = match (scores.last().and_then(|s| s.pp), each) {
+        let description = match (scores.last().and_then(|s| s.pp), each, amount) {
             // No top scores
-            (None, _) => "No top scores found".to_owned(),
+            (None, ..) => "No top scores found".to_owned(),
             // Total pp already above goal
             _ if stats_pp > goal_pp => format!(
                 "{name} has {pp_raw}pp which is already more than {pp_given}pp.",
@@ -47,7 +53,7 @@ impl PpMissingEmbed {
                 pp_given = WithComma::new(goal_pp),
             ),
             // Reach goal with only one score
-            (Some(_), None) => {
+            (Some(_), None, None | Some(1)) => {
                 let (required, idx) = if scores.len() == 100 {
                     let mut pps = scores.extract_pp();
                     approx_more_pp(&mut pps, 50);
@@ -79,7 +85,7 @@ impl PpMissingEmbed {
                 )
             }
             // Given score pp is below last top 100 score pp
-            (Some(last_pp), Some(each)) if each < last_pp => {
+            (Some(last_pp), Some(each), _) if each < last_pp => {
                 format!(
                     "New top100 scores require at least **{last_pp}pp** for {user} \
                     so {pp} total pp can't be reached with {each}pp scores.",
@@ -90,7 +96,7 @@ impl PpMissingEmbed {
                 )
             }
             // Given score pp would be in top 100
-            (Some(_), Some(each)) => {
+            (Some(_), Some(each), _) => {
                 let mut pps = scores.extract_pp();
 
                 let (required, idx) = if scores.len() == 100 {
@@ -209,6 +215,38 @@ impl PpMissingEmbed {
                     }
                 }
             }
+            (Some(_), None, Some(amount)) => {
+                let mut pps = scores.extract_pp();
+
+                if scores.len() == 100 {
+                    approx_more_pp(&mut pps, 50);
+                }
+
+                let raw_delta = goal_pp - stats_pp;
+                let weight_sum: f32 = (0..amount as i32).map(|exp| 0.95_f32.powi(exp)).sum();
+                let mid_goal = stats_pp + (raw_delta / weight_sum);
+                let (mut required, _) = pp_missing(stats_pp, mid_goal, pps.as_slice());
+
+                let pb_start_idx = pps
+                    .binary_search_by(|probe| required.total_cmp(probe))
+                    .map_or_else(identity, |idx| idx + 1);
+
+                let pb_fmt = PersonalBestIndexFormatter::new(pb_start_idx, amount);
+
+                if scores.len() == 100 {
+                    required = pps[99];
+                }
+
+                format!(
+                    "To reach {pp}pp with {amount} additional score{plural} of \
+                    the same pp, each of them would need to be **{required}pp**, \
+                    placing them {pb_fmt} for {user}.",
+                    pp = WithComma::new(goal_pp),
+                    plural = if amount == 1 { "" } else { "s" },
+                    required = WithComma::new(required),
+                    user = username.cow_escape_markdown(),
+                )
+            }
         };
 
         let footer = rank.map(|rank| {
@@ -241,6 +279,32 @@ impl EmbedData for PpMissingEmbed {
             builder.footer(footer)
         } else {
             builder
+        }
+    }
+}
+
+struct PersonalBestIndexFormatter {
+    start_idx: usize,
+    amount: u8,
+}
+
+impl PersonalBestIndexFormatter {
+    fn new(start_idx: usize, amount: u8) -> Self {
+        Self { start_idx, amount }
+    }
+}
+
+impl Display for PersonalBestIndexFormatter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.start_idx >= 100 {
+            f.write_str("outside of the top 100")
+        } else {
+            write!(
+                f,
+                "at personal bests #{} to #{}",
+                self.start_idx + 1,
+                self.start_idx + usize::from(self.amount)
+            )
         }
     }
 }

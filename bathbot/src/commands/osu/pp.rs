@@ -40,6 +40,14 @@ pub struct Pp<'a> {
     )]
     each: Option<f32>,
     #[command(
+        min_value = 1,
+        max_value = 100,
+        desc = "Specify an amount of scores to set to reach the target pp",
+        help = "Specify an amount of scores to set to reach the target pp.\n\
+        If `each` is set, this argument will be ignored"
+    )]
+    amount: Option<u8>,
+    #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
@@ -69,6 +77,7 @@ impl<'m> Pp<'m> {
             mode,
             name,
             each: None,
+            amount: None,
             discord,
         })
     }
@@ -170,7 +179,9 @@ pub async fn prefix_ppctb(msg: &Message, args: Args<'_>) -> Result<()> {
 async fn pp(orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<()> {
     let (user_id, mode) = user_id_mode!(orig, args);
 
-    let Pp { pp, each, .. } = args;
+    let Pp {
+        pp, each, amount, ..
+    } = args;
 
     let Some(pp) = PpValue::parse(pp.as_ref()) else {
         let content = "Failed to parse pp. Be sure to specify a decimal number.";
@@ -232,7 +243,7 @@ async fn pp(orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<()> {
     };
 
     // Accumulate all necessary data
-    let embed_data = PpMissingEmbed::new(&user, &scores, target_pp, rank, each);
+    let embed_data = PpMissingEmbed::new(&user, &scores, target_pp, rank, each, amount);
 
     // Creating the embed
     let embed = embed_data.build();
