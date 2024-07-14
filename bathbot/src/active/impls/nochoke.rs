@@ -4,6 +4,7 @@ use bathbot_macros::PaginationBuilder;
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE, numbers::WithComma, CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter,
+    ScoreExt,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -21,7 +22,7 @@ use crate::{
     manager::redis::RedisData,
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::grade_emote,
+        osu::GradeFormatter,
         Emote,
     },
 };
@@ -77,7 +78,7 @@ impl IActiveMessage for NoChokePagination {
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
                 mods = ModsFormatter::new(&original_score.mods),
-                grade = grade_emote(entry.unchoked_grade()),
+                grade = GradeFormatter::new(entry.unchoked_grade(), Some(entry.original_score.score_id), entry.original_score.is_legacy()),
                 old_pp = original_score.pp,
                 new_pp = entry.unchoked_pp(),
                 old_acc = original_score.accuracy,

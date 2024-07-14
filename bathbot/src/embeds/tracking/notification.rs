@@ -15,7 +15,7 @@ use crate::{
     core::Context,
     embeds::osu,
     manager::{redis::RedisData, OsuMap},
-    util::{osu::grade_completion_mods, Emote},
+    util::{osu::GradeCompletionFormatter, Emote},
 };
 
 #[derive(EmbedData)]
@@ -67,7 +67,16 @@ impl TrackNotificationEmbed {
 
         let name = format!(
             "{}\t{score}\t({acc}%)",
-            grade_completion_mods(score, map.mode(), map.n_objects()),
+            // We don't use `GradeCompletionFormatter::new` so that it doesn't
+            // use the score id to hyperlink the grade because those don't
+            // work in embed field names.
+            grade_completion_mods = GradeCompletionFormatter::new_without_score(
+                &score.mods,
+                score.grade,
+                score.total_hits(),
+                map.mode(),
+                map.n_objects()
+            ),
             score = WithComma::new(score.score),
             acc = round(score.accuracy)
         );

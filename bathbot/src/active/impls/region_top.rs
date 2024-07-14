@@ -27,9 +27,9 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::{RegionTopKind, ScoresOrder},
-    core::BotConfig,
     util::{
         interaction::{InteractionComponent, InteractionModal},
+        osu::GradeFormatter,
         Emote,
     },
 };
@@ -92,7 +92,6 @@ impl IActiveMessage for RegionTopPagination {
             }
         };
 
-        let config = BotConfig::get();
         let mut description = String::with_capacity(scores.len() * 160);
 
         if scores.is_empty() {
@@ -114,7 +113,7 @@ impl IActiveMessage for RegionTopPagination {
                 mods = GameModsIntermode::from_bits(score.mods),
                 user = score.username.cow_escape_markdown(),
                 user_id = score.user_id,
-                grade = config.grade(score.grade),
+                grade = GradeFormatter::new(score.grade, None, false),
                 pp = round(score.pp),
                 stars = StarsFormatter::new(score.stars),
                 acc = round(score.statistics.accuracy(self.mode)),

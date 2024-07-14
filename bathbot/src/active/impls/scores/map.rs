@@ -28,9 +28,9 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::ScoresOrder,
-    core::BotConfig,
     util::{
         interaction::{InteractionComponent, InteractionModal},
+        osu::GradeFormatter,
         Emote,
     },
 };
@@ -86,7 +86,6 @@ impl IActiveMessage for ScoresMapPagination {
         let idx = pages.index();
         let scores = &data.scores()[idx..data.len().min(idx + pages.per_page())];
 
-        let config = BotConfig::get();
         let mut description = String::with_capacity(scores.len() * 160);
 
         for (score, i) in scores.iter().zip(idx + 1..) {
@@ -101,7 +100,7 @@ impl IActiveMessage for ScoresMapPagination {
                 "**#{i} [{user}]({OSU_BASE}u/{user_id})**: \
                 {score} [ **{combo}x** ] **+{mods}**{stars}\n\
                 {grade} **{pp}pp** • {acc}% {mode}{miss} {appendix}",
-                grade = config.grade(score.grade),
+                grade = GradeFormatter::new(score.grade, None, false),
                 user = UserFormatter::new(data.user(score.user_id)),
                 user_id = score.user_id,
                 score = WithComma::new(score.score),

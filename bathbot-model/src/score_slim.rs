@@ -64,6 +64,11 @@ impl ScoreExt for ScoreSlim {
     #[inline] fn score(&self) -> u32 { self.score }
     #[inline] fn pp(&self) -> Option<f32> { Some(self.pp) }
     #[inline] fn accuracy(&self) -> f32 { self.accuracy }
+    #[inline] fn score_id(&self) -> Option<u64> { Some(self.score_id) }
+
+    fn is_legacy(&self) -> bool {
+        self.legacy_id == Some(self.score_id)
+    }
 }
 
 #[rustfmt::skip]

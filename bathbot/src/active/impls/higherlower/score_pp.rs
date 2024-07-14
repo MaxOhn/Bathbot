@@ -190,6 +190,8 @@ impl ScorePp {
             "**{map} +{mods}**\n{grade} {score} • **{acc}%** • **{combo}x**{max_combo} {miss}• **{pp}pp**",
             map = self.map_string,
             mods = ModsFormatter::new(&self.mods),
+            // No `GradeFormatter` here because we don't want to hyperlink to
+            // the score for obvious reasons.
             grade = grade_emote(self.grade),
             score = WithComma::new(self.score),
             acc = self.acc,

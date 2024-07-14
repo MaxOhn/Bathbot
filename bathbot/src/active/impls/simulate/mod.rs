@@ -45,7 +45,7 @@ use crate::{
     manager::OsuMap,
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::{grade_completion_mods_raw, MapInfo},
+        osu::{GradeCompletionFormatter, MapInfo},
         Authored, ComponentExt, Emote, ModalExt,
     },
 };
@@ -207,8 +207,14 @@ impl IActiveMessage for SimulateComponents {
         };
 
         let n_objects = self.map.n_objects();
-        let grade = grade_completion_mods_raw(&mods, grade, n_objects, self.map.mode(), n_objects);
-        let mut fields = fields!["Grade", grade.into_owned(), true;];
+        let grade = GradeCompletionFormatter::new_without_score(
+            &mods,
+            grade,
+            n_objects,
+            self.map.mode(),
+            n_objects,
+        );
+        let mut fields = fields!["Grade", grade.to_string(), true;];
 
         if let Some(acc) = acc {
             fields.push(acc);

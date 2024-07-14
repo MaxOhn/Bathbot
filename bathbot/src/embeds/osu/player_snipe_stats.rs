@@ -17,7 +17,7 @@ use crate::{
     core::Context,
     embeds::{attachment, osu},
     manager::{redis::RedisData, OsuMap},
-    util::osu::grade_completion_mods,
+    util::osu::GradeCompletionFormatter,
 };
 
 #[derive(EmbedData)]
@@ -84,7 +84,7 @@ impl PlayerSnipeStatsEmbed {
                     title = oldest_map.title().cow_escape_markdown(),
                     version = oldest_map.version().cow_escape_markdown(),
                     id = oldest_map.map_id(),
-                    grade = grade_completion_mods(
+                    grade = GradeCompletionFormatter::new(
                         oldest_score,
                         oldest_map.mode(),
                         oldest_map.n_objects(),

@@ -27,7 +27,7 @@ use crate::{
     manager::{redis::RedisData, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::PersonalBestIndex,
+        osu::{GradeFormatter, PersonalBestIndex},
         Emote,
     },
 };
@@ -278,14 +278,15 @@ fn write_compact_entry(
     map: &OsuMap,
     origin: &MessageOrigin,
 ) {
-    let config = BotConfig::get();
-
     let _ = write!(
         args.description,
-        "[{grade}]({OSU_BASE}scores/{score_id}) **+{mods}** [{stars:.2}★] {pp_format}{pp:.2}pp{pp_format} \
+        "{grade} **+{mods}** [{stars:.2}★] {pp_format}{pp:.2}pp{pp_format} \
         ({acc}%) {combo}x • {miss} {timestamp}",
-        grade = config.grade(entry.score.grade),
-        score_id = entry.score.score_id,
+        grade = GradeFormatter::new(
+            entry.score.grade,
+            Some(entry.score.score_id),
+            entry.score.is_legacy()
+        ),
         mods = ModsFormatter::new(&entry.score.mods),
         stars = entry.stars,
         pp_format = if args.pp_idx == Some(i) { "**" } else { "~~" },

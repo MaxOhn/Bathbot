@@ -6,7 +6,7 @@ use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
     numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter,
+    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter, ScoreExt,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -26,7 +26,7 @@ use crate::{
     manager::redis::RedisData,
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::grade_emote,
+        osu::GradeFormatter,
     },
 };
 
@@ -72,7 +72,7 @@ impl IActiveMessage for TopIfPagination {
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
                 mods = ModsFormatter::new(&score.mods),
-                grade = grade_emote(score.grade),
+                grade = GradeFormatter::new(score.grade, Some(score.score_id), entry.score.is_legacy()),
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),

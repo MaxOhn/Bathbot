@@ -16,6 +16,16 @@ pub trait ScoreExt {
     fn accuracy(&self) -> f32;
     fn grade(&self) -> Grade;
 
+    /// Returns the *new* kind of score id.
+    fn score_id(&self) -> Option<u64>;
+
+    /// Whether the score contains legacy data.
+    ///
+    /// Note that this does *not* mean whether the score was set on stable,
+    /// but whether the score was set on stable *and* was request as legacy
+    /// data.
+    fn is_legacy(&self) -> bool;
+
     // Optional to implement
     #[inline]
     fn total_hits(&self, mode: u8) -> u32 {
@@ -110,6 +120,11 @@ impl ScoreExt for Score {
     #[inline] fn score(&self) -> u32 { self.score }
     #[inline] fn pp(&self) -> Option<f32> { self.pp }
     #[inline] fn accuracy(&self) -> f32 { self.accuracy }
+    #[inline] fn score_id(&self) -> Option<u64> { Some(self.id) }
+
+    fn is_legacy(&self) -> bool {
+        self.legacy_score_id == Some(self.id)
+    }
 }
 
 pub trait ScoreHasMode {

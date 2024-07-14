@@ -7,7 +7,7 @@ use bathbot_util::{
     datetime::HowLongAgoDynamic,
     fields,
     numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter,
+    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter, ScoreExt,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -28,7 +28,7 @@ use crate::{
     manager::{redis::RedisData, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::{grade_completion_mods, grade_emote, IfFc},
+        osu::{GradeCompletionFormatter, GradeFormatter, IfFc},
         Emote,
     },
 };
@@ -108,7 +108,7 @@ impl TopPagination {
                 map = MapFormat::new(map),
                 map_id = map.map_id(),
                 stars = round(*stars),
-                grade = grade_emote(score.grade),
+                grade = GradeFormatter::new(score.grade, Some(score.score_id), score.is_legacy()),
                 pp = round(score.pp),
                 acc = round(score.accuracy),
                 combo = score.max_combo,
@@ -145,7 +145,7 @@ impl TopPagination {
                 map = MapFormat::new(map),
                 map_id = map.map_id(),
                 stars = round(*stars),
-                grade = grade_emote(score.grade),
+                grade = GradeFormatter::new(score.grade, Some(score.score_id), score.is_legacy()),
                 pp = round(score.pp),
                 acc = round(score.accuracy),
                 score = ScoreFormat(score.score),
@@ -188,7 +188,7 @@ impl TopPagination {
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
                 mods = ModsFormatter::new(&score.mods),
-                grade = grade_emote(score.grade),
+                grade = GradeFormatter::new(score.grade, Some(score.score_id), score.is_legacy()),
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),
@@ -234,7 +234,8 @@ impl TopPagination {
 
         let if_fc = IfFc::new(score, map).await;
         let hits = HitResultFormatter::new(score.mode, score.statistics.clone());
-        let grade_completion_mods = grade_completion_mods(score, map.mode(), map.n_objects());
+        let grade_completion_mods =
+            GradeCompletionFormatter::new(score, map.mode(), map.n_objects());
 
         let (combo, title) = if score.mode == GameMode::Mania {
             let mut ratio = score.statistics.count_geki as f32;
