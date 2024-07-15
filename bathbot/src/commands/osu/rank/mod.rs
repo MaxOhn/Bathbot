@@ -42,6 +42,14 @@ pub struct RankPp<'a> {
         desc = "Fill a top100 with scores of this many pp until the pp of the target rank are reached"
     )]
     each: Option<f32>,
+    #[command(
+        min_value = 1,
+        max_value = 100,
+        desc = "Specify an amount of scores to set to reach the target rank",
+        help = "Specify an amount of scores to set to reach the target rank.\n\
+        If `each` is set, this argument will be ignored"
+    )]
+    amount: Option<u8>,
     #[command(desc = "Specify a country (code)")]
     country: Option<Cow<'a, str>>,
     #[command(
