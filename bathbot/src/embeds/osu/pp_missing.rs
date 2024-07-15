@@ -233,8 +233,8 @@ impl PpMissingEmbed {
 
                 let pb_fmt = PersonalBestIndexFormatter::new(pb_start_idx, amount);
 
-                if scores.len() == 100 {
-                    required = pps[99];
+                if scores.len() == 100 && required < pps[99] {
+                    required = (pps[99] - 0.01).max(0.0);
                 }
 
                 format!(
@@ -283,13 +283,13 @@ impl EmbedData for PpMissingEmbed {
     }
 }
 
-struct PersonalBestIndexFormatter {
+pub struct PersonalBestIndexFormatter {
     start_idx: usize,
     amount: u8,
 }
 
 impl PersonalBestIndexFormatter {
-    fn new(start_idx: usize, amount: u8) -> Self {
+    pub fn new(start_idx: usize, amount: u8) -> Self {
         Self { start_idx, amount }
     }
 }
