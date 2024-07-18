@@ -70,7 +70,7 @@ impl TrackNotificationEmbed {
             // We don't use `GradeCompletionFormatter::new` so that it doesn't
             // use the score id to hyperlink the grade because those don't
             // work in embed field names.
-            grade_completion_mods = GradeCompletionFormatter::new_without_score(
+            GradeCompletionFormatter::new_without_score(
                 &score.mods,
                 score.grade,
                 score.total_hits(),
