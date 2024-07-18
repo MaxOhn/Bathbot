@@ -1145,6 +1145,7 @@ FROM
                     score,
                     replay: _,
                     current_user_attributes: _,
+                    total_score_without_mods: _,
                     map: _,    // updated through checksum-missmatch
                     mapset: _, // handled in later iteration further down
                     rank_global: _,
