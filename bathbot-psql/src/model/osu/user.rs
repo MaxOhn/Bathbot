@@ -108,9 +108,7 @@ impl OsuUserStatsColumnName for UserModeStatsColumn {
             Self::ScoreRanked => Some("ranked_score"),
             Self::ScoreTotal => Some("total_score"),
             Self::ScoresFirst => Some("scores_first"),
-            Self::Top1 => None,
             Self::TotalHits => Some("total_hits"),
-            Self::TopRange => None,
         }
     }
 }
