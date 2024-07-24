@@ -2,6 +2,7 @@ use std::iter;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::{rosu_v2::user::User, Countries};
+use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     EmbedBuilder, MessageBuilder,
@@ -306,11 +307,11 @@ async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
                 .map(UtcOffset::from)
                 .or_else(|| no_user_specified.then_some(config.timezone).flatten());
 
-            let legacy_scores = match config.legacy_scores {
-                Some(legacy_scores) => legacy_scores,
+            let legacy_scores = match config.score_data {
+                Some(score_data) => score_data.is_legacy(),
                 None => match orig.guild_id() {
                     Some(guild_id) => Context::guild_config()
-                        .peek(guild_id, |config| config.legacy_scores)
+                        .peek(guild_id, |config| config.score_data.map(ScoreData::is_legacy))
                         .await
                         .unwrap_or(false),
                     None => false,

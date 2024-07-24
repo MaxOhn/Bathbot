@@ -1,7 +1,9 @@
 use rosu_v2::prelude::{GameMode, Username};
 use time::UtcOffset;
 
-use super::{list_size::ListSize, minimized_pp::MinimizedPp, score_size::ScoreSize, Retries};
+use super::{
+    list_size::ListSize, minimized_pp::MinimizedPp, score_size::ScoreSize, Retries, ScoreData,
+};
 
 pub struct DbUserConfig {
     pub score_size: Option<i16>,
@@ -13,7 +15,7 @@ pub struct DbUserConfig {
     pub twitch_id: Option<i64>,
     pub timezone_seconds: Option<i32>,
     pub render_button: Option<bool>,
-    pub legacy_scores: Option<bool>,
+    pub score_data: Option<i16>,
 }
 
 pub trait OsuId {
@@ -45,7 +47,7 @@ pub struct UserConfig<O: OsuId> {
     pub twitch_id: Option<u64>,
     pub timezone: Option<UtcOffset>,
     pub render_button: Option<bool>,
-    pub legacy_scores: Option<bool>,
+    pub score_data: Option<ScoreData>,
 }
 
 impl<O: OsuId> Default for UserConfig<O> {
@@ -61,7 +63,7 @@ impl<O: OsuId> Default for UserConfig<O> {
             twitch_id: None,
             timezone: None,
             render_button: None,
-            legacy_scores: None,
+            score_data: None,
         }
     }
 }
@@ -79,7 +81,7 @@ impl From<DbUserConfig> for UserConfig<OsuUserId> {
             twitch_id,
             timezone_seconds,
             render_button,
-            legacy_scores,
+            score_data,
         } = config;
 
         Self {
@@ -94,7 +96,7 @@ impl From<DbUserConfig> for UserConfig<OsuUserId> {
                 .map(UtcOffset::from_whole_seconds)
                 .map(Result::unwrap),
             render_button,
-            legacy_scores,
+            score_data: score_data.map(ScoreData::try_from).and_then(Result::ok),
         }
     }
 }

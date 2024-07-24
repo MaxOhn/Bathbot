@@ -5,7 +5,7 @@ use std::{
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
-use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
+use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreData, ScoreSize};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     osu::ModSelection,
@@ -138,7 +138,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
         score_size: guild_score_size,
         list_size: guild_list_size,
         render_button: guild_render_button,
-        legacy_scores: guild_legacy_scores,
+        score_data: guild_score_data,
     } = match orig.guild_id() {
         Some(guild_id) => {
             Context::guild_config()
@@ -184,9 +184,9 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
     };
 
     let legacy_scores = config
-        .legacy_scores
-        .or(guild_legacy_scores)
-        .unwrap_or(false);
+        .score_data
+        .or(guild_score_data)
+        .map_or(false, ScoreData::is_legacy);
 
     let missing_user = user_opt.is_none();
 
@@ -621,7 +621,7 @@ struct GuildValues {
     score_size: Option<ScoreSize>,
     list_size: Option<ListSize>,
     render_button: Option<bool>,
-    legacy_scores: Option<bool>,
+    score_data: Option<ScoreData>,
 }
 
 impl From<&GuildConfig> for GuildValues {
@@ -631,7 +631,7 @@ impl From<&GuildConfig> for GuildValues {
             score_size: config.score_size,
             list_size: config.list_size,
             render_button: config.render_button,
-            legacy_scores: config.legacy_scores,
+            score_data: config.score_data,
         }
     }
 }

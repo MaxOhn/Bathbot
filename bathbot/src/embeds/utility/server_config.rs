@@ -4,7 +4,7 @@ use bathbot_cache::model::CachedArchive;
 use bathbot_macros::EmbedData;
 use bathbot_model::twilight_model::guild::Guild;
 use bathbot_psql::model::configs::{
-    GuildConfig, HideSolutions, ListSize, MinimizedPp, Retries, ScoreSize,
+    GuildConfig, HideSolutions, ListSize, MinimizedPp, Retries, ScoreData, ScoreSize,
 };
 use bathbot_util::AuthorBuilder;
 use twilight_model::channel::message::embed::EmbedField;
@@ -113,24 +113,31 @@ impl ServerConfigEmbed {
                 )
             },
             create_field(
-                "Score data*",
-                config.legacy_scores.unwrap_or(false),
-                &[(false, "lazer"), (true, "stable")],
-            ),
-            create_field(
                 "Render button",
                 config.render_button.unwrap_or(true),
                 &[(false, "hide"), (true, "let user decide")],
             ),
+            create_field(
+                "Retries*",
+                config.retries.unwrap_or(Retries::ConsiderMods),
+                &[
+                    (Retries::Hide, "hide"),
+                    (Retries::ConsiderMods, "reset on different mods"),
+                    (Retries::IgnoreMods, "ignore mods"),
+                ],
+            ),
             EmbedField {
                 inline: false,
                 ..create_field(
-                    "Retries*",
-                    config.retries.unwrap_or(Retries::ConsiderMods),
+                    "Score data*",
+                    config.score_data.unwrap_or(ScoreData::Lazer),
                     &[
-                        (Retries::Hide, "hide"),
-                        (Retries::ConsiderMods, "reset on different mods"),
-                        (Retries::IgnoreMods, "ignore mods"),
+                        (ScoreData::Stable, "stable"),
+                        (ScoreData::Lazer, "lazer"),
+                        (
+                            ScoreData::LazerWithClassicScoring,
+                            "lazer (classic scoring)",
+                        ),
                     ],
                 )
             },

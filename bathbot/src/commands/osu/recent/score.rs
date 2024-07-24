@@ -2,7 +2,7 @@ use std::{borrow::Cow, mem};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
-use bathbot_psql::model::configs::{GuildConfig, MinimizedPp, Retries, ScoreSize};
+use bathbot_psql::model::configs::{GuildConfig, MinimizedPp, Retries, ScoreData, ScoreSize};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, CowUtils, MessageOrigin,
@@ -358,7 +358,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         retries: guild_retries,
         score_size: guild_score_size,
         render_button: guild_render_button,
-        legacy_scores: guild_legacy_scores,
+        score_data: guild_score_data,
     } = guild_values;
 
     let mode = args
@@ -395,9 +395,9 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
     };
 
     let legacy_scores = config
-        .legacy_scores
-        .or(guild_legacy_scores)
-        .unwrap_or(false);
+        .score_data
+        .or(guild_score_data)
+        .map_or(false, ScoreData::is_legacy);
 
     let scores_fut = Context::osu_scores()
         .recent(legacy_scores)
@@ -983,7 +983,7 @@ struct GuildValues {
     retries: Option<Retries>,
     score_size: Option<ScoreSize>,
     render_button: Option<bool>,
-    legacy_scores: Option<bool>,
+    score_data: Option<ScoreData>,
 }
 
 impl From<&GuildConfig> for GuildValues {
@@ -993,7 +993,7 @@ impl From<&GuildConfig> for GuildValues {
             retries: config.retries,
             score_size: config.score_size,
             render_button: config.render_button,
-            legacy_scores: config.legacy_scores,
+            score_data: config.score_data,
         }
     }
 }

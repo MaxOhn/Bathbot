@@ -6,6 +6,7 @@ use std::{
 
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_model::rosu_v2::user::User;
+use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
     matcher,
@@ -282,11 +283,11 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         }
     };
 
-    let legacy_scores = match config.legacy_scores {
-        Some(legacy_scores) => legacy_scores,
+    let legacy_scores = match config.score_data {
+        Some(score_data) => score_data.is_legacy(),
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| config.legacy_scores)
+                .peek(guild_id, |config| config.score_data.map(ScoreData::is_legacy))
                 .await
                 .unwrap_or(false),
             None => false,

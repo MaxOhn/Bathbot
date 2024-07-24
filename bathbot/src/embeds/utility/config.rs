@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use ::time::UtcOffset;
 use bathbot_psql::model::configs::{
-    ListSize, MinimizedPp, OsuUsername, Retries, ScoreSize, UserConfig,
+    ListSize, MinimizedPp, OsuUsername, Retries, ScoreData, ScoreSize, UserConfig,
 };
 use bathbot_util::{AuthorBuilder, EmbedBuilder, FooterBuilder};
 use rosu_v2::prelude::GameMode;
@@ -60,6 +60,11 @@ impl ConfigEmbed {
         );
 
         let mut fields = vec![
+            EmbedField {
+                inline: true,
+                name: "Accounts".to_owned(),
+                value: account_value,
+            },
             create_field(
                 "Minimized PP",
                 config.minimized_pp.unwrap_or_default(),
@@ -72,14 +77,16 @@ impl ConfigEmbed {
             ),
             create_field(
                 "Score data",
-                config.legacy_scores.unwrap_or(false),
-                &[(false, "lazer"), (true, "stable")],
+                config.score_data.unwrap_or(ScoreData::Lazer),
+                &[
+                    (ScoreData::Stable, "stable"),
+                    (ScoreData::Lazer, "lazer"),
+                    (
+                        ScoreData::LazerWithClassicScoring,
+                        "lazer (classic scoring)",
+                    ),
+                ],
             ),
-            EmbedField {
-                inline: true,
-                name: "Accounts".to_owned(),
-                value: account_value,
-            },
             create_field(
                 "Mode",
                 config.mode,

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO guild_configs (\n  guild_id, authorities, prefixes, allow_songs, \n  score_size, retries, osu_track_limit, \n  minimized_pp, list_size, render_button, \n  allow_custom_skins, hide_medal_solution, \n  score_data\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13\n  ) ON CONFLICT (guild_id) DO \nUPDATE \nSET \n  authorities = $2, \n  prefixes = $3, \n  allow_songs = $4, \n  score_size = $5, \n  retries = $6, \n  osu_track_limit = $7, \n  minimized_pp = $8, \n  list_size = $9, \n  render_button = $10, \n  allow_custom_skins = $11, \n  hide_medal_solution = $12, \n  score_data = $13",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Bytea",
+        "Bytea",
+        "Bool",
+        "Int2",
+        "Int2",
+        "Int2",
+        "Int2",
+        "Int2",
+        "Bool",
+        "Bool",
+        "Int2",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b4116eec2ecdb734b1c3e1b71678e474de42af31350e9627c907ea4b29d4a8cb"
+}

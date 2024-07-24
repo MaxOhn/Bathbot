@@ -1,7 +1,7 @@
 use ::time::UtcOffset;
 use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{
-    ListSize, MinimizedPp, OsuUserId, OsuUsername, Retries, ScoreSize, UserConfig,
+    ListSize, MinimizedPp, OsuUserId, OsuUsername, Retries, ScoreData, ScoreSize, UserConfig,
 };
 #[cfg(feature = "server")]
 use bathbot_server::AuthenticationStandbyError;
@@ -207,14 +207,6 @@ impl From<ConfigGameMode> for Option<GameMode> {
     }
 }
 
-#[derive(CommandOption, CreateOption, PartialEq, Eq)]
-pub enum ScoreData {
-    #[option(name = "Lazer", value = "lazer")]
-    Lazer,
-    #[option(name = "Stable", value = "stable")]
-    Stable,
-}
-
 async fn slash_config(mut command: InteractionCommand) -> Result<()> {
     let args = Config::from_interaction(command.input_data())?;
 
@@ -290,7 +282,7 @@ pub async fn config(command: InteractionCommand, config: Config) -> Result<()> {
     }
 
     if let Some(score_data) = score_data {
-        config.legacy_scores = Some(matches!(score_data, ScoreData::Stable));
+        config.score_data = Some(score_data);
     }
 
     #[cfg(feature = "server")]
@@ -624,7 +616,7 @@ async fn convert_config(
         twitch_id,
         timezone,
         render_button,
-        legacy_scores,
+        score_data,
     } = config;
 
     UserConfig {
@@ -637,7 +629,7 @@ async fn convert_config(
         twitch_id,
         timezone,
         render_button,
-        legacy_scores,
+        score_data,
     }
 }
 
