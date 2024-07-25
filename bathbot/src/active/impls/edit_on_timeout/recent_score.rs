@@ -1,14 +1,10 @@
 use std::fmt::Write;
 
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
-use bathbot_psql::model::configs::{MinimizedPp, ScoreSize};
+use bathbot_psql::model::configs::{MinimizedPp, ScoreData, ScoreSize};
 use bathbot_util::{
-    constants::OSU_BASE,
-    datetime::HowLongAgoDynamic,
-    fields,
-    matcher::highlight_funny_numeral,
-    numbers::{round, WithComma},
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin,
+    constants::OSU_BASE, datetime::HowLongAgoDynamic, fields, matcher::highlight_funny_numeral,
+    numbers::round, AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin,
 };
 use rosu_v2::prelude::{BeatmapUserScore, GameMode, Score};
 
@@ -21,7 +17,7 @@ use crate::{
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap, OwnedReplayScore},
     util::{
-        osu::{GradeCompletionFormatter, IfFc, MapInfo, PersonalBestIndex},
+        osu::{GradeCompletionFormatter, IfFc, MapInfo, PersonalBestIndex, ScoreFormatter},
         Emote,
     },
 };
@@ -44,6 +40,7 @@ impl RecentScoreEdit {
         replay_score: Option<OwnedReplayScore>,
         origin: &MessageOrigin,
         size: ScoreSize,
+        score_data: ScoreData,
         content: Option<String>,
     ) -> EditOnTimeout {
         let RecentEntry {
@@ -132,6 +129,8 @@ impl RecentScoreEdit {
             },
         };
 
+        let score_fmt = ScoreFormatter::new(score, score_data);
+
         match size {
             ScoreSize::AlwaysMinimized => {
                 let minimized = Self::minimized(
@@ -142,6 +141,7 @@ impl RecentScoreEdit {
                     max_pp,
                     if_fc.as_ref(),
                     combo,
+                    score_fmt,
                     minimized_pp,
                     author,
                     description,
@@ -168,6 +168,7 @@ impl RecentScoreEdit {
                     max_pp,
                     if_fc.as_ref(),
                     combo,
+                    score_fmt,
                     author,
                     description,
                     title,
@@ -193,6 +194,7 @@ impl RecentScoreEdit {
                     max_pp,
                     if_fc.as_ref(),
                     combo.clone(),
+                    score_fmt,
                     minimized_pp,
                     author.clone(),
                     description.clone(),
@@ -209,6 +211,7 @@ impl RecentScoreEdit {
                     max_pp,
                     if_fc.as_ref(),
                     combo,
+                    score_fmt,
                     author,
                     description,
                     title,
@@ -243,6 +246,7 @@ impl RecentScoreEdit {
         max_pp: Option<f32>,
         if_fc: Option<&IfFc>,
         combo: String,
+        score_fmt: ScoreFormatter,
         minimized_pp: MinimizedPp,
         author: AuthorBuilder,
         #[allow(unused_mut)] // feature-gated
@@ -252,7 +256,7 @@ impl RecentScoreEdit {
         #[cfg(feature = "twitch")] twitch_stream: Option<&RecentTwitchStream>,
     ) -> EmbedBuilder {
         let name = format!(
-            "{grade_completion_mods}\t{score}\t({acc}%)\t{ago}",
+            "{grade_completion_mods}\t{score_fmt}\t({acc}%)\t{ago}",
             // We don't use `GradeCompletionFormatter::new` so that it doesn't
             // use the score id to hyperlink the grade because those don't
             // work in embed field names.
@@ -263,7 +267,6 @@ impl RecentScoreEdit {
                 map.mode(),
                 map.n_objects()
             ),
-            score = WithComma::new(score.score),
             acc = round(score.accuracy),
             ago = HowLongAgoDynamic::new(&score.ended_at),
         );
@@ -346,6 +349,7 @@ impl RecentScoreEdit {
         max_pp: Option<f32>,
         if_fc: Option<&IfFc>,
         combo: String,
+        score_fmt: ScoreFormatter,
         author: AuthorBuilder,
         #[allow(unused_mut)] // feature-gated
         mut description: String,
@@ -353,7 +357,7 @@ impl RecentScoreEdit {
         url: String,
         #[cfg(feature = "twitch")] twitch_stream: Option<&RecentTwitchStream>,
     ) -> EmbedBuilder {
-        let mut score_str = WithComma::new(score.score).to_string();
+        let mut score_str = score_fmt.to_string();
         score_str = highlight_funny_numeral(&score_str).into_owned();
 
         let acc = round(score.accuracy);

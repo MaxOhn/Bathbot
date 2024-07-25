@@ -1,8 +1,9 @@
 use twilight_interactions::command::{CommandOption, CreateOption};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, CommandOption, CreateOption)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, CommandOption, CreateOption)]
 #[repr(u8)]
 pub enum ScoreData {
+    #[default]
     #[option(name = "Lazer", value = "lazer")]
     Lazer = 1,
     #[option(name = "Stable", value = "stable")]

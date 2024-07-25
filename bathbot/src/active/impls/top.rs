@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_model::rosu_v2::user::User;
-use bathbot_psql::model::configs::{ListSize, MinimizedPp};
+use bathbot_psql::model::configs::{ListSize, MinimizedPp, ScoreData};
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
     datetime::HowLongAgoDynamic,
@@ -28,7 +28,7 @@ use crate::{
     manager::{redis::RedisData, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::{GradeCompletionFormatter, GradeFormatter, IfFc},
+        osu::{GradeCompletionFormatter, GradeFormatter, IfFc, ScoreFormatter},
         Emote,
     },
 };
@@ -40,6 +40,7 @@ pub struct TopPagination {
     sort_by: TopScoreOrder,
     list_size: ListSize,
     minimized_pp: MinimizedPp, // only relevant for `ListSize::Single`
+    score_data: ScoreData,
     content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
@@ -54,6 +55,7 @@ impl TopPagination {
             sort_by: None,
             list_size: None,
             minimized_pp: None,
+            score_data: None,
             content: None,
             msg_owner: None,
         }
@@ -114,7 +116,7 @@ impl TopPagination {
                 combo = score.max_combo,
                 miss = MissFormat(score.statistics.count_miss),
                 mods = ModsFormatter::new(&score.mods),
-                appendix = OrderAppendix::new(self.sort_by, entry, map.ranked_date(),  true),
+                appendix = OrderAppendix::new(self.sort_by, entry, map.ranked_date(),  true, self.score_data),
             );
         }
 
@@ -148,13 +150,14 @@ impl TopPagination {
                 grade = GradeFormatter::new(score.grade, Some(score.score_id), score.is_legacy()),
                 pp = round(score.pp),
                 acc = round(score.accuracy),
+                // currently ignoring classic scoring, should it be considered for mania?
                 score = ScoreFormat(score.score),
                 n320 = stats.count_geki,
                 n300 = stats.count_300,
                 miss = stats.count_miss,
                 mods = ModsFormatter::new(&score.mods),
                 appendix =
-                    OrderAppendix::new(self.sort_by, entry, map.ranked_date(), true),
+                    OrderAppendix::new(self.sort_by, entry, map.ranked_date(), true, self.score_data),
             );
         }
 
@@ -191,10 +194,16 @@ impl TopPagination {
                 grade = GradeFormatter::new(score.grade, Some(score.score_id), score.is_legacy()),
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
                 acc = round(score.accuracy),
-                score = WithComma::new(score.score),
+                score = ScoreFormatter::new(score, self.score_data),
                 combo = ComboFormatter::new(score.max_combo, Some(*max_combo)),
                 hits = HitResultFormatter::new(score.mode, score.statistics.clone()),
-                appendix = OrderAppendix::new(self.sort_by, entry, map.ranked_date(), false),
+                appendix = OrderAppendix::new(
+                    self.sort_by,
+                    entry,
+                    map.ranked_date(),
+                    false,
+                    self.score_data
+                ),
             );
         }
 
@@ -234,8 +243,13 @@ impl TopPagination {
 
         let if_fc = IfFc::new(score, map).await;
         let hits = HitResultFormatter::new(score.mode, score.statistics.clone());
-        let grade_completion_mods =
-            GradeCompletionFormatter::new(score, map.mode(), map.n_objects());
+        let grade_completion_mods = GradeCompletionFormatter::new_without_score(
+            &score.mods,
+            score.grade,
+            score.total_hits(),
+            map.mode(),
+            map.n_objects(),
+        );
 
         let (combo, title) = if score.mode == GameMode::Mania {
             let mut ratio = score.statistics.count_geki as f32;
@@ -279,7 +293,7 @@ impl TopPagination {
 
         let name = format!(
             "{grade_completion_mods}\t{score}\t({acc}%)\t{ago}",
-            score = WithComma::new(score.score),
+            score = ScoreFormatter::new(score, self.score_data),
             acc = round(score.accuracy),
             ago = HowLongAgoDynamic::new(&score.ended_at),
         );
@@ -357,6 +371,7 @@ pub struct TopPaginationBuilder {
     sort_by: Option<TopScoreOrder>,
     list_size: Option<ListSize>,
     minimized_pp: Option<MinimizedPp>,
+    score_data: Option<ScoreData>,
     content: Option<Box<str>>,
     msg_owner: Option<Id<UserMarker>>,
 }
@@ -369,6 +384,7 @@ impl TopPaginationBuilder {
         let sort_by = self.sort_by.expect("missing sort_by");
         let list_size = self.list_size.expect("missing list_size");
         let minimized_pp = self.minimized_pp.expect("missing minimized_pp");
+        let score_data = self.score_data.expect("missing score_data");
         let content = self.content.take().expect("missing content");
         let msg_owner = self.msg_owner.expect("missing msg_owner");
 
@@ -385,6 +401,7 @@ impl TopPaginationBuilder {
             sort_by,
             list_size,
             minimized_pp,
+            score_data,
             content,
             msg_owner,
             pages,
@@ -423,6 +440,12 @@ impl TopPaginationBuilder {
 
     pub fn minimized_pp(&mut self, minimized_pp: MinimizedPp) -> &mut Self {
         self.minimized_pp = Some(minimized_pp);
+
+        self
+    }
+
+    pub fn score_data(&mut self, score_data: ScoreData) -> &mut Self {
+        self.score_data = Some(score_data);
 
         self
     }
@@ -608,6 +631,7 @@ pub struct OrderAppendix<'a> {
     entry: &'a TopEntry,
     ranked_date: Option<OffsetDateTime>,
     condensed: bool,
+    score_data: ScoreData,
 }
 
 impl<'a> OrderAppendix<'a> {
@@ -616,12 +640,14 @@ impl<'a> OrderAppendix<'a> {
         entry: &'a TopEntry,
         ranked_date: Option<OffsetDateTime>,
         condensed: bool,
+        score_data: ScoreData,
     ) -> Self {
         Self {
             sort_by,
             entry,
             ranked_date,
             condensed,
+            score_data,
         }
     }
 }
@@ -650,7 +676,13 @@ impl Display for OrderAppendix<'_> {
                 None => Ok(()),
             },
             TopScoreOrder::Score if self.condensed && self.entry.map.mode() != GameMode::Mania => {
-                let score = self.entry.score.score;
+                let score = match self.score_data {
+                    ScoreData::Stable | ScoreData::Lazer => self.entry.score.score,
+                    ScoreData::LazerWithClassicScoring if self.entry.score.classic_score == 0 => {
+                        self.entry.score.score
+                    }
+                    ScoreData::LazerWithClassicScoring => self.entry.score.classic_score,
+                };
 
                 if score > 1_000_000_000 {
                     write!(f, "`{:.2}bn`", score as f32 / 1_000_000_000.0)

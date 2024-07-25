@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use bathbot_macros::command;
-use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
     matcher,
@@ -195,18 +194,18 @@ pub(super) async fn leaderboard(
         return require_link(&orig).await;
     };
 
-    let legacy_scores = match config.score_data {
-        Some(score_data) => score_data.is_legacy(),
+    let score_data = match config.score_data {
+        Some(score_data) => score_data,
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| {
-                    config.score_data.map(ScoreData::is_legacy)
-                })
+                .peek(guild_id, |config| config.score_data)
                 .await
-                .unwrap_or(false),
-            None => false,
+                .unwrap_or_default(),
+            None => Default::default(),
         },
     };
+
+    let legacy_scores = score_data.is_legacy();
 
     // Retrieve the recent scores
     let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
@@ -383,7 +382,9 @@ pub(super) async fn leaderboard(
     let mut attr_map = HashMap::default();
 
     let order = args.sort.unwrap_or_default();
-    order.sort(&mut scores, &map, &mut attr_map).await;
+    order
+        .sort(&mut scores, &map, &mut attr_map, score_data)
+        .await;
     order.push_content(&mut content);
 
     let first_place_icon = scores
@@ -398,6 +399,7 @@ pub(super) async fn leaderboard(
         .attr_map(attr_map)
         .author_data(user_score)
         .first_place_icon(first_place_icon)
+        .score_data(score_data)
         .content(content.into_boxed_str())
         .msg_owner(owner)
         .build();

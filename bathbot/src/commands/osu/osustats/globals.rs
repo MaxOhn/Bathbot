@@ -497,6 +497,7 @@ async fn process_scores(
             mods: score.mods,
             pp,
             score: score.score,
+            classic_score: 0,
             score_id: 0,
             legacy_id: None,
             statistics: LegacyScoreStatistics {

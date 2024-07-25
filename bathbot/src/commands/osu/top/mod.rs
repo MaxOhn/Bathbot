@@ -771,16 +771,18 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
         },
     };
 
-    let legacy_scores = match config.score_data {
-        Some(score_data) => score_data.is_legacy(),
+    let score_data = match config.score_data {
+        Some(score_data) => score_data,
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| config.score_data.map(ScoreData::is_legacy))
+                .peek(guild_id, |config| config.score_data)
                 .await
-                .unwrap_or(false),
-            None => false,
+                .unwrap_or_default(),
+            None => Default::default(),
         },
     };
+
+    let legacy_scores = score_data.is_legacy();
 
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
@@ -807,7 +809,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
     let pre_len = scores.len();
 
     // Filter scores according to mods, combo, acc, and grade
-    let entries = match process_scores(scores, &args).await {
+    let entries = match process_scores(scores, &args, score_data).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(GENERAL_ISSUE).await;
@@ -942,6 +944,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
             entry.score.legacy_id,
             replay_score,
             score_size,
+            score_data,
             content,
         );
 
@@ -970,6 +973,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
             .sort_by(args.sort_by)
             .list_size(list_size)
             .minimized_pp(minimized_pp)
+            .score_data(score_data)
             .content(content.unwrap_or_default().into_boxed_str())
             .msg_owner(msg_owner)
             .build();
@@ -1109,7 +1113,11 @@ impl<'q> Searchable<TopCriteria<'q>> for TopEntry {
     }
 }
 
-async fn process_scores(scores: Vec<Score>, args: &TopArgs<'_>) -> Result<Vec<TopEntry>> {
+async fn process_scores(
+    scores: Vec<Score>,
+    args: &TopArgs<'_>,
+    score_data: ScoreData,
+) -> Result<Vec<TopEntry>> {
     let mut entries = Vec::with_capacity(scores.len());
 
     let acc_range = match (args.min_acc, args.max_acc) {
@@ -1240,6 +1248,9 @@ async fn process_scores(scores: Vec<Score>, args: &TopArgs<'_>) -> Result<Vec<To
         TopScoreOrder::Od => entries.sort_by(|a, b| b.od().total_cmp(&a.od())),
         TopScoreOrder::Pp => entries.sort_by(|a, b| b.score.pp.total_cmp(&a.score.pp)),
         TopScoreOrder::RankedDate => entries.sort_by_key(|entry| Reverse(entry.map.ranked_date())),
+        TopScoreOrder::Score if score_data == ScoreData::LazerWithClassicScoring => {
+            entries.sort_by_key(|entry| Reverse(entry.score.classic_score))
+        }
         TopScoreOrder::Score => entries.sort_by_key(|entry| Reverse(entry.score.score)),
         TopScoreOrder::Stars => entries.sort_by(|a, b| b.stars.total_cmp(&a.stars)),
     }

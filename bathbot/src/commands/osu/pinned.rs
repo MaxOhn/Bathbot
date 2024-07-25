@@ -183,11 +183,8 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
         }
     };
 
-    let legacy_scores = config
-        .score_data
-        .or(guild_score_data)
-        .map_or(false, ScoreData::is_legacy);
-
+    let score_data = config.score_data.or(guild_score_data).unwrap_or_default();
+    let legacy_scores = score_data.is_legacy();
     let missing_user = user_opt.is_none();
 
     let scores_manager = Context::osu_scores();
@@ -366,6 +363,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
             entry.score.legacy_id,
             replay_score,
             score_size,
+            score_data,
             content,
         );
 
@@ -389,6 +387,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
             .sort_by(sort_by)
             .list_size(list_size)
             .minimized_pp(minimized_pp)
+            .score_data(score_data)
             .content(content.unwrap_or_default().into_boxed_str())
             .msg_owner(msg_owner)
             .build();

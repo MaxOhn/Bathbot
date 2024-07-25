@@ -15,6 +15,7 @@ pub struct ScoreSlim {
     pub mods: GameMods,
     pub pp: f32,
     pub score: u32,
+    pub classic_score: u32,
     /// Note that this is the *new* kind of score id
     pub score_id: u64,
     pub legacy_id: Option<u64>,
@@ -32,6 +33,7 @@ impl ScoreSlim {
             mods: score.mods,
             pp,
             score: score.score,
+            classic_score: score.classic_score,
             score_id: score.id,
             legacy_id: score.legacy_score_id,
             statistics: score.statistics.as_legacy(score.mode),

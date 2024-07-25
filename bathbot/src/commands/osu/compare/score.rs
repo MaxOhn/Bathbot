@@ -5,7 +5,10 @@ use std::{
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
-use bathbot_psql::model::{configs::ScoreData, osu::{ArchivedMapVersion, MapVersion}};
+use bathbot_psql::model::{
+    configs::ScoreData,
+    osu::{ArchivedMapVersion, MapVersion},
+};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
     matcher,
@@ -344,16 +347,18 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
         },
     };
 
-    let legacy_scores = match config.score_data {
-        Some(score_data) => score_data.is_legacy(),
+    let score_data = match config.score_data {
+        Some(score_data) => score_data,
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| config.score_data.map(ScoreData::is_legacy))
+                .peek(guild_id, |config| config.score_data)
                 .await
-                .unwrap_or(false),
-            None => false,
+                .unwrap_or_default(),
+            None => Default::default(),
         },
     };
+
+    let legacy_scores = score_data.is_legacy();
 
     let CompareScoreArgs {
         sort,
@@ -374,7 +379,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
                 return orig.error(content).await;
             }
             Some(MapOrScore::Score { id, mode }) => {
-                return compare_from_score(orig, id, mode, legacy_scores).await
+                return compare_from_score(orig, id, mode, score_data).await
             }
             None => {
                 let idx = match index {
@@ -489,7 +494,13 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
         }
     };
 
-    let process_fut = process_scores(map_id, scores, mods.as_ref(), sort.unwrap_or_default());
+    let process_fut = process_scores(
+        map_id,
+        scores,
+        mods.as_ref(),
+        sort.unwrap_or_default(),
+        score_data,
+    );
 
     let entries = match process_fut.await {
         Ok(entries) => entries,
@@ -600,6 +611,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
         .personal(personal.into_boxed_slice())
         .global_idx(global_idx)
         .pp_idx(pp_idx)
+        .score_data(score_data)
         .origin(origin)
         .msg_owner(owner)
         .build();
@@ -624,6 +636,7 @@ async fn process_scores(
     mut scores: Vec<Score>,
     mods: Option<&ModSelection>,
     sort: ScoreOrder,
+    score_data: ScoreData,
 ) -> Result<Vec<CompareEntry>> {
     let mut entries = Vec::with_capacity(scores.len());
     let map = Context::osu_map().map(map_id, None).await?;
@@ -701,6 +714,9 @@ async fn process_scores(
                     .unwrap_or(Ordering::Equal)
             });
         }
+        ScoreOrder::Score if score_data == ScoreData::LazerWithClassicScoring => {
+            entries.sort_unstable_by_key(|s| Reverse(s.score.classic_score))
+        }
         ScoreOrder::Score => entries.sort_unstable_by_key(|s| Reverse(s.score.score)),
         ScoreOrder::Stars => {
             entries
@@ -715,7 +731,7 @@ async fn compare_from_score(
     orig: CommandOrigin<'_>,
     score_id: u64,
     mode: GameMode,
-    legacy_scores: bool,
+    score_data: ScoreData,
 ) -> Result<()> {
     let mut score = match Context::osu().score(score_id).mode(mode).await {
         Ok(score) => score,
@@ -726,6 +742,8 @@ async fn compare_from_score(
             return Err(err);
         }
     };
+
+    let legacy_scores = score_data.is_legacy();
 
     let map = score.map.take().expect("missing map");
     let map_fut = Context::osu_map().map(map.map_id, map.checksum.as_deref());
@@ -846,6 +864,7 @@ async fn compare_from_score(
         .personal(best.into_boxed_slice())
         .global_idx(global_idx)
         .pp_idx(0)
+        .score_data(score_data)
         .origin(origin)
         .msg_owner(orig.user_id()?)
         .build();

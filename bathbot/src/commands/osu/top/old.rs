@@ -754,9 +754,9 @@ async fn topold(orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
         Some(score_data) => score_data.is_legacy(),
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| config.score_data.map(ScoreData::is_legacy))
+                .peek(guild_id, |config| config.score_data)
                 .await
-                .unwrap_or(false),
+                .map_or(false, ScoreData::is_legacy),
             None => false,
         },
     };

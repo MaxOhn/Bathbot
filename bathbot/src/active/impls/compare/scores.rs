@@ -2,11 +2,10 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
+use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::OSU_BASE,
-    datetime::HowLongAgoDynamic,
-    numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin, ModsFormatter, ScoreExt,
+    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, CowUtils, EmbedBuilder,
+    FooterBuilder, MessageOrigin, ModsFormatter, ScoreExt,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -27,7 +26,7 @@ use crate::{
     manager::{redis::RedisData, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::{GradeFormatter, PersonalBestIndex},
+        osu::{GradeFormatter, PersonalBestIndex, ScoreFormatter},
         Emote,
     },
 };
@@ -42,6 +41,7 @@ pub struct CompareScoresPagination {
     personal: Box<[Score]>,
     global_idx: Option<GlobalIndex>,
     pp_idx: usize,
+    score_data: ScoreData,
     origin: MessageOrigin,
     msg_owner: Id<UserMarker>,
     pages: Pages,
@@ -139,7 +139,7 @@ impl IActiveMessage for CompareScoresPagination {
                     score_id = entry.score.score_id,
                     mods = ModsFormatter::new(&entry.score.mods),
                     stars = entry.stars,
-                    score = WithComma::new(entry.score.score),
+                    score = ScoreFormatter::new(&entry.score, self.score_data),
                     acc = round(entry.score.accuracy),
                     pp_format = if pp_idx == Some(0) { "" } else { "~~" },
                     pp = entry.score.pp,

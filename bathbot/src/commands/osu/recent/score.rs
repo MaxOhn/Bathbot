@@ -394,10 +394,8 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         _ => false,
     };
 
-    let legacy_scores = config
-        .score_data
-        .or(guild_score_data)
-        .map_or(false, ScoreData::is_legacy);
+    let score_data = config.score_data.or(guild_score_data).unwrap_or_default();
+    let legacy_scores = score_data.is_legacy();
 
     let scores_fut = Context::osu_scores()
         .recent(legacy_scores)
@@ -711,6 +709,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         replay_score,
         &origin,
         score_size,
+        score_data,
         content,
     );
 
