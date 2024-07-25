@@ -9,6 +9,7 @@ use std::{
 };
 
 use bathbot_model::{rosu_v2::user::User, OsuStatsParams, ScoreSlim};
+use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::SecToMinSec,
@@ -144,6 +145,29 @@ impl Display for GradeFormatter {
             Some(score_id) => write!(f, "[{grade}]({OSU_BASE}scores/{score_id})"),
             None => f.write_str(grade),
         }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct ScoreFormatter {
+    score: u32,
+}
+
+impl ScoreFormatter {
+    pub fn new(score: &ScoreSlim, score_data: ScoreData) -> Self {
+        let score = match score_data {
+            ScoreData::Stable | ScoreData::Lazer => score.score,
+            ScoreData::LazerWithClassicScoring if score.classic_score == 0 => score.score,
+            ScoreData::LazerWithClassicScoring => score.classic_score,
+        };
+
+        Self { score }
+    }
+}
+
+impl Display for ScoreFormatter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        Display::fmt(&WithComma::new(self.score), f)
     }
 }
 

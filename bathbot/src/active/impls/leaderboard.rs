@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
+use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::WithComma, AuthorBuilder, CowUtils,
     EmbedBuilder, FooterBuilder, ModsFormatter,
@@ -38,6 +39,7 @@ pub struct LeaderboardPagination {
     attr_map: AttrMap,
     author_data: Option<LeaderboardUserScore>,
     first_place_icon: Option<String>,
+    score_data: ScoreData,
     content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
@@ -104,6 +106,7 @@ impl LeaderboardPagination {
                 &mut self.attr_map,
                 &self.map,
                 self.max_combo,
+                self.score_data,
             );
 
             let _ = write!(description, "{}", fmt_fut.await);
@@ -122,6 +125,7 @@ impl LeaderboardPagination {
                 &mut self.attr_map,
                 &self.map,
                 self.max_combo,
+                self.score_data,
             );
 
             let _ = write!(description, "{}", fmt_fut.await);
@@ -209,6 +213,7 @@ struct ScoreFormatter<'a> {
     pp: PpFormatter,
     combo: ComboFormatter<'a>,
     found_author: bool,
+    score_data: ScoreData,
 }
 
 impl<'a> ScoreFormatter<'a> {
@@ -218,6 +223,7 @@ impl<'a> ScoreFormatter<'a> {
         attr_map: &mut AttrMap,
         map: &OsuMap,
         max_combo: u32,
+        score_data: ScoreData,
     ) -> ScoreFormatter<'a> {
         let (pp, max_pp) = score.pp(map, attr_map).await;
         let pp = PpFormatter::new(Some(pp), Some(max_pp));
@@ -228,12 +234,19 @@ impl<'a> ScoreFormatter<'a> {
             pp,
             combo,
             found_author,
+            score_data,
         }
     }
 }
 
 impl Display for ScoreFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let score = match self.score_data {
+            ScoreData::Stable | ScoreData::Lazer => self.score.score,
+            ScoreData::LazerWithClassicScoring if self.score.classic_score == 0 => self.score.score,
+            ScoreData::LazerWithClassicScoring => self.score.classic_score,
+        };
+
         writeln!(
             f,
             "**#{i}** {underline}**[{username}]({OSU_BASE}users/{user_id})**{underline}: {score} [ {combo} ] **+{mods}**\n\
@@ -243,7 +256,7 @@ impl Display for ScoreFormatter<'_> {
             username = self.score.username,
             user_id = self.score.user_id,
             grade = GradeFormatter::new(self.score.grade, Some(self.score.score_id), self.score.is_legacy),
-            score = WithComma::new(self.score.score),
+            score = WithComma::new(score),
             combo = self.combo,
             mods = ModsFormatter::new(&self.score.mods),
             pp = self.pp,

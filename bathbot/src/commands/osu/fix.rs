@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
+use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -213,13 +214,13 @@ async fn fix(orig: CommandOrigin<'_>, args: FixArgs<'_>) -> Result<()> {
         }
     };
 
-    let legacy_scores = match config.legacy_scores {
-        Some(legacy_scores) => legacy_scores,
+    let legacy_scores = match config.score_data {
+        Some(score_data) => score_data.is_legacy(),
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| config.legacy_scores)
+                .peek(guild_id, |config| config.score_data)
                 .await
-                .unwrap_or(false),
+                .map_or(false, ScoreData::is_legacy),
             None => false,
         },
     };

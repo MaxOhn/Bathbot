@@ -1,13 +1,10 @@
 use std::fmt::Write;
 
 use bathbot_model::{rosu_v2::user::User, ScoreSlim};
-use bathbot_psql::model::configs::{MinimizedPp, ScoreSize};
+use bathbot_psql::model::configs::{MinimizedPp, ScoreData, ScoreSize};
 use bathbot_util::{
-    constants::OSU_BASE,
-    datetime::HowLongAgoDynamic,
-    fields,
-    numbers::{round, WithComma},
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
+    constants::OSU_BASE, datetime::HowLongAgoDynamic, fields, numbers::round, AuthorBuilder,
+    CowUtils, EmbedBuilder, FooterBuilder,
 };
 use rosu_v2::prelude::GameMode;
 
@@ -18,7 +15,7 @@ use crate::{
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap, OwnedReplayScore},
     util::{
-        osu::{GradeCompletionFormatter, IfFc, MapInfo},
+        osu::{GradeCompletionFormatter, IfFc, MapInfo, ScoreFormatter},
         Emote,
     },
 };
@@ -38,6 +35,7 @@ impl TopScoreEdit {
         score_id: Option<u64>,
         replay_score: Option<OwnedReplayScore>,
         size: ScoreSize,
+        score_data: ScoreData,
         content: Option<String>,
     ) -> EditOnTimeout {
         let TopEntry {
@@ -120,6 +118,8 @@ impl TopScoreEdit {
             },
         };
 
+        let score_fmt = ScoreFormatter::new(score, score_data);
+
         match size {
             ScoreSize::AlwaysMinimized => {
                 let minimized = Self::minimized(
@@ -129,6 +129,7 @@ impl TopScoreEdit {
                     *max_pp,
                     if_fc.as_ref(),
                     combo,
+                    score_fmt,
                     minimized_pp,
                     author,
                     description,
@@ -153,6 +154,7 @@ impl TopScoreEdit {
                     *max_pp,
                     if_fc.as_ref(),
                     combo,
+                    score_fmt,
                     author,
                     description,
                     footer,
@@ -176,6 +178,7 @@ impl TopScoreEdit {
                     *max_pp,
                     if_fc.as_ref(),
                     combo.clone(),
+                    score_fmt,
                     minimized_pp,
                     author.clone(),
                     description.clone(),
@@ -191,6 +194,7 @@ impl TopScoreEdit {
                     *max_pp,
                     if_fc.as_ref(),
                     combo,
+                    score_fmt,
                     author,
                     description,
                     footer,
@@ -223,6 +227,7 @@ impl TopScoreEdit {
         max_pp: f32,
         if_fc: Option<&IfFc>,
         combo: String,
+        score_fmt: ScoreFormatter,
         minimized_pp: MinimizedPp,
         author: AuthorBuilder,
         description: String,
@@ -231,7 +236,7 @@ impl TopScoreEdit {
         url: String,
     ) -> EmbedBuilder {
         let name = format!(
-            "{grade_completion_mods}\t{score}\t({acc}%)\t{ago}",
+            "{grade_completion_mods}\t{score_fmt}\t({acc}%)\t{ago}",
             // We don't use `GradeCompletionFormatter::new` so that it doesn't
             // use the score id to hyperlink the grade because those don't
             // work in embed field names.
@@ -242,7 +247,6 @@ impl TopScoreEdit {
                 map.mode(),
                 map.n_objects()
             ),
-            score = WithComma::new(score.score),
             acc = round(score.accuracy),
             ago = HowLongAgoDynamic::new(&score.ended_at),
         );
@@ -297,13 +301,14 @@ impl TopScoreEdit {
         max_pp: f32,
         if_fc: Option<&IfFc>,
         combo: String,
+        score_fmt: ScoreFormatter,
         author: AuthorBuilder,
         description: String,
         footer: FooterBuilder,
         title: String,
         url: String,
     ) -> EmbedBuilder {
-        let score_str = WithComma::new(score.score).to_string();
+        let score_str = score_fmt.to_string();
         let acc = format!("{}%", round(score.accuracy));
         let pp = PpFormatter::new(Some(score.pp), Some(max_pp)).to_string();
 

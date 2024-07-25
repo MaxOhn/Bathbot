@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use bathbot_macros::command;
+use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, MessageBuilder,
@@ -107,11 +108,13 @@ pub(super) async fn player_stats(
         .or(config.mode)
         .unwrap_or(GameMode::Osu);
 
-    let legacy_scores = match config.legacy_scores {
-        Some(legacy_scores) => legacy_scores,
+    let legacy_scores = match config.score_data {
+        Some(score_data) => score_data.is_legacy(),
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| config.legacy_scores)
+                .peek(guild_id, |config| {
+                    config.score_data.map(ScoreData::is_legacy)
+                })
                 .await
                 .unwrap_or(false),
             None => false,

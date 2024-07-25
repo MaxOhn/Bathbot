@@ -6,6 +6,7 @@ use std::{
 
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_model::rosu_v2::user::User;
+use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
     matcher,
@@ -84,7 +85,13 @@ pub enum LeaderboardSort {
 pub type AttrMap = HashMap<Mods, (DifficultyAttributes, f32)>;
 
 impl LeaderboardSort {
-    pub async fn sort(self, scores: &mut [LeaderboardScore], map: &OsuMap, attr_map: &mut AttrMap) {
+    pub async fn sort(
+        self,
+        scores: &mut [LeaderboardScore],
+        map: &OsuMap,
+        attr_map: &mut AttrMap,
+        score_data: ScoreData,
+    ) {
         match self {
             Self::Accuracy => scores.sort_by(|a, b| b.accuracy.total_cmp(&a.accuracy)),
             Self::Combo => scores.sort_by_key(|score| Reverse(score.combo)),
@@ -104,6 +111,9 @@ impl LeaderboardSort {
 
                     b_pp.total_cmp(&a_pp)
                 })
+            }
+            Self::Score if score_data == ScoreData::LazerWithClassicScoring => {
+                scores.sort_by_key(|score| Reverse(score.classic_score))
             }
             Self::Score => scores.sort_by_key(|score| Reverse(score.score)),
         }
@@ -282,16 +292,18 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         }
     };
 
-    let legacy_scores = match config.legacy_scores {
-        Some(legacy_scores) => legacy_scores,
+    let score_data = match config.score_data {
+        Some(score_data) => score_data,
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| config.legacy_scores)
+                .peek(guild_id, |config| config.score_data)
                 .await
-                .unwrap_or(false),
-            None => false,
+                .unwrap_or_default(),
+            None => Default::default(),
         },
     };
+
+    let legacy_scores = score_data.is_legacy();
 
     let specify_mods = match mods {
         Some(ModSelection::Include(ref mods) | ModSelection::Exact(ref mods)) => {
@@ -398,7 +410,9 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
     // specified
     let mut attr_map = HashMap::default();
 
-    args.sort.sort(&mut scores, &map, &mut attr_map).await;
+    args.sort
+        .sort(&mut scores, &map, &mut attr_map, score_data)
+        .await;
     args.sort.push_content(&mut content);
 
     let first_place_icon = scores.first().map(|s| format!("{AVATAR_URL}{}", s.user_id));
@@ -411,6 +425,7 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         .attr_map(attr_map)
         .author_data(user_score)
         .first_place_icon(first_place_icon)
+        .score_data(score_data)
         .content(content.into_boxed_str())
         .msg_owner(owner)
         .build();
@@ -484,6 +499,7 @@ pub struct LeaderboardScore {
     pub mods: GameMods,
     pub combo: u32,
     pub score: u32,
+    pub classic_score: u32,
     pub ended_at: OffsetDateTime,
     pub score_id: u64,
     pub is_legacy: bool,
@@ -503,6 +519,7 @@ impl LeaderboardScore {
             mods: score.mods,
             combo: score.max_combo,
             score: score.score,
+            classic_score: score.classic_score,
             ended_at: score.ended_at,
             score_id: score.id,
         }

@@ -232,16 +232,18 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
         },
     };
 
-    let legacy_scores = match config.legacy_scores {
-        Some(legacy_scores) => legacy_scores,
+    let score_data = match config.score_data {
+        Some(score_data) => score_data,
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| config.legacy_scores)
+                .peek(guild_id, |config| config.score_data)
                 .await
-                .unwrap_or(false),
-            None => false,
+                .unwrap_or_default(),
+            None => Default::default(),
         },
     };
+
+    let legacy_scores = score_data.is_legacy();
 
     let mapper = args.mapper.cow_to_ascii_lowercase();
     let mapper_args = UserArgs::username(mapper.as_ref()).await.mode(mode);
@@ -361,6 +363,7 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
         .sort_by(sort_by)
         .list_size(list_size)
         .minimized_pp(minimized_pp)
+        .score_data(score_data)
         .content(content.into_boxed_str())
         .msg_owner(msg_owner)
         .build();

@@ -32,7 +32,7 @@ SELECT
   render_button, 
   allow_custom_skins, 
   hide_medal_solution, 
-  legacy_scores 
+  score_data 
 FROM 
   guild_configs"#
         );
@@ -66,7 +66,7 @@ FROM
             render_button,
             allow_custom_skins,
             hide_medal_solution,
-            legacy_scores,
+            score_data,
         } = config;
 
         let authorities =
@@ -82,7 +82,7 @@ INSERT INTO guild_configs (
   score_size, retries, osu_track_limit, 
   minimized_pp, list_size, render_button, 
   allow_custom_skins, hide_medal_solution, 
-  legacy_scores
+  score_data
 ) 
 VALUES 
   (
@@ -102,7 +102,7 @@ SET
   render_button = $10, 
   allow_custom_skins = $11, 
   hide_medal_solution = $12, 
-  legacy_scores = $13"#,
+  score_data = $13"#,
             guild_id.get() as i64,
             &authorities as &[u8],
             &prefixes as &[u8],
@@ -115,7 +115,7 @@ SET
             *render_button,
             *allow_custom_skins,
             hide_medal_solution.map(i16::from),
-            *legacy_scores,
+            score_data.map(i16::from),
         );
 
         query

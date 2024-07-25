@@ -1,13 +1,13 @@
 use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{
-    GuildConfig, HideSolutions, ListSize, MinimizedPp, Retries, ScoreSize,
+    GuildConfig, HideSolutions, ListSize, MinimizedPp, Retries, ScoreData, ScoreSize,
 };
 use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::RoleMarker, Id};
 
-use super::{AuthorityCommandKind, ScoreData};
+use super::AuthorityCommandKind;
 use crate::{
     commands::{EnableDisable, ShowHideOption},
     embeds::{EmbedData, ServerConfigEmbed},
@@ -258,7 +258,7 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
             }
 
             if let Some(score_data) = score_data {
-                config.legacy_scores = Some(score_data == ScoreData::Stable);
+                config.score_data = Some(score_data);
             }
         };
 
