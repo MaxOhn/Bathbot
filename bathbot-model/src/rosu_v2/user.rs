@@ -1,6 +1,6 @@
 use ::rosu_v2::model::user::{
     Badge as RosuBadge, GradeCounts as RosuGradeCounts, MedalCompact as RosuMedalCompact,
-    MonthlyCount as RosuMonthlyCount, UserExtended as RosuUser,
+    MonthlyCount as RosuMonthlyCount, UserExtended as RosuUserExtended,
     UserHighestRank as RosuUserHighestRank, UserKudosu as RosuUserKudosu,
     UserLevel as RosuUserLevel, UserStatistics as RosuUserStatistics,
 };
@@ -103,10 +103,10 @@ pub struct User {
     pub medals: Vec<RosuMedalCompact>,
 }
 
-impl From<RosuUser> for User {
+impl From<RosuUserExtended> for User {
     #[inline]
-    fn from(user: RosuUser) -> Self {
-        let RosuUser {
+    fn from(user: RosuUserExtended) -> Self {
+        let RosuUserExtended {
             avatar_url,
             country_code,
             join_date,
@@ -160,7 +160,6 @@ impl From<RosuUser> for User {
         }
     }
 }
-
 #[derive(Archive, ArchiveWith, DeserializeWith)]
 #[archive_with(from(RosuUserHighestRank))]
 pub struct UserHighestRank {

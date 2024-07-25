@@ -156,7 +156,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
 
     let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
 
-    let user = match Context::redis().osu_user(user_args).await {
+    let mut user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = user_not_found(user_id).await;
@@ -203,22 +203,24 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
         }
         RankValue::Raw(rank) => rank,
         RankValue::Name(name) => {
-            let user_id = match UserArgs::username(name).await {
-                UserArgs::Args(args) => args.user_id,
-                UserArgs::User { user, .. } => {
+            let user_id = UserId::from(name);
+            let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+
+            let user_id = match Context::redis().osu_user(user_args).await {
+                Ok(user) => {
                     rank_holder = Some(RankHolder {
-                        ranked_score: user.statistics.map_or(0, |stats| stats.ranked_score),
-                        username: user.username,
+                        ranked_score: user.stats().ranked_score(),
+                        username: user.username().into(),
                     });
 
-                    user.user_id
+                    user.user_id()
                 }
-                UserArgs::Err(OsuError::NotFound) => {
+                Err(OsuError::NotFound) => {
                     let content = user_not_found(UserId::from(name)).await;
 
                     return orig.error(content).await;
                 }
-                UserArgs::Err(err) => {
+                Err(err) => {
                     let _ = orig.error(OSU_API_ISSUE).await;
 
                     return Err(Report::new(err).wrap_err("Failed to get target user"));
@@ -268,11 +270,28 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
         match rank_holder_fut.await {
             Ok(mut rankings) => {
                 let idx = (rank as usize + 49) % 50;
-                let user = rankings.ranking.swap_remove(idx);
+                let user_ = rankings.ranking.swap_remove(idx);
+
+                let ranked_score = user_
+                    .statistics
+                    .as_ref()
+                    .map_or(0, |stats| stats.ranked_score);
+
+                // In case the given rank belongs to the user itself,
+                // might as well update user data in case it was previously
+                // cached.
+                let username = if user_.user_id == user.user_id() {
+                    let username = user_.username.clone();
+                    user.update(user_);
+
+                    username
+                } else {
+                    user_.username
+                };
 
                 RankHolder {
-                    ranked_score: user.statistics.map_or(0, |stats| stats.ranked_score),
-                    username: user.username,
+                    ranked_score,
+                    username,
                 }
             }
             Err(OsuError::NotFound) => {

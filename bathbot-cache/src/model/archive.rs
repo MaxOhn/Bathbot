@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::Deref};
+use std::{marker::PhantomData, ops::Deref, pin::Pin};
 
 use bb8_redis::redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, Value};
 use rkyv::{
@@ -37,6 +37,15 @@ impl<T: Archive> CachedArchive<T> {
         Archived<T>: Deserialize<O, Infallible>,
     {
         <Archived<T> as Deserialize<O, _>>::deserialize(self, &mut Infallible).unwrap()
+    }
+
+    pub fn mutate<F>(&mut self, f: F)
+    where
+        F: FnOnce(Pin<&mut <T as Archive>::Archived>),
+    {
+        // SAFETY: Bytes originate from redis which only stores valid archived data
+        let archived = unsafe { rkyv::archived_root_mut::<T>(Pin::new(&mut self.bytes)) };
+        f(archived);
     }
 }
 
