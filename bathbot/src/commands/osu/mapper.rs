@@ -5,7 +5,7 @@ use std::{
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
-use bathbot_psql::model::configs::{ListSize, MinimizedPp,};
+use bathbot_psql::model::configs::{ListSize, MinimizedPp};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, CowUtils,
