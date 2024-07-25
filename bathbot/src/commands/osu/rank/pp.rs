@@ -69,7 +69,7 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
     let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
     let user_fut = Context::redis().osu_user(user_args);
 
-    let user = match user_fut.await {
+    let mut user = match user_fut.await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = user_not_found(user_id).await;
@@ -163,16 +163,30 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
 
                     let holder = rankings.ranking.swap_remove(idx);
 
+                    let global_rank = holder
+                        .statistics
+                        .as_ref()
+                        .and_then(|stats| stats.global_rank)
+                        .unwrap_or(0);
+
+                    let pp = holder.statistics.as_ref().map_or(0.0, |stats| stats.pp);
+                    let user_id = holder.user_id;
+
+                    let (username, country_code) = if user_id == user.user_id() {
+                        let tuple = (holder.username.clone(), holder.country_code.clone());
+                        user.update(holder);
+
+                        tuple
+                    } else {
+                        (holder.username, holder.country_code)
+                    };
+
                     RankHolder {
-                        country_code: holder.country_code,
-                        global_rank: holder
-                            .statistics
-                            .as_ref()
-                            .and_then(|stats| stats.global_rank)
-                            .unwrap_or(0),
-                        pp: holder.statistics.as_ref().map_or(0.0, |stats| stats.pp),
-                        user_id: holder.user_id,
-                        username: holder.username,
+                        country_code,
+                        global_rank,
+                        pp,
+                        user_id,
+                        username,
                     }
                 }
                 RedisData::Archive(rankings) => {
