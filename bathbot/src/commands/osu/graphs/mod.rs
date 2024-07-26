@@ -254,7 +254,7 @@ async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
         }
         Graph::Rank(args) => {
             let (user_id, mode) = user_id_mode!(orig, args);
-            let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+            let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
             rank_graph(&orig, user_id, user_args)
                 .await
@@ -300,7 +300,7 @@ async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
                 },
             };
 
-            let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+            let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
             let tz = args
                 .timezone

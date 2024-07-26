@@ -173,7 +173,7 @@ pub(super) async fn scores(orig: CommandOrigin<'_>, args: OsuStatsScores<'_>) ->
     };
 
     let (user_id, mode) = user_id_mode!(orig, args);
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
     // Retrieve user
     let user = match Context::redis().osu_user(user_args).await {

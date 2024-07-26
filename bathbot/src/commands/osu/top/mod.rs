@@ -785,7 +785,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
     let legacy_scores = score_data.is_legacy();
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)

@@ -10,7 +10,7 @@ use rkyv::{
     with::{DeserializeWith, Map},
     Infallible,
 };
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
 use super::{H, W};
 use crate::{
@@ -23,7 +23,7 @@ pub async fn medals_graph(
     orig: &CommandOrigin<'_>,
     user_id: UserId,
 ) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
-    let user_args = UserArgs::rosu_id(&user_id).await;
+    let user_args = UserArgs::rosu_id(&user_id, GameMode::Osu).await;
 
     let mut user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,

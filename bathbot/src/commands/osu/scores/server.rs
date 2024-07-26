@@ -8,6 +8,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_v2::{
+    model::GameMode,
     prelude::{Grade, OsuError},
     request::UserId,
 };
@@ -113,7 +114,7 @@ pub async fn server_scores(mut command: InteractionCommand, args: ServerScores) 
     };
 
     let creator_id = match args.mapper {
-        Some(ref mapper) => match UserArgs::username(mapper).await {
+        Some(ref mapper) => match UserArgs::username(mapper, GameMode::Osu).await {
             UserArgs::Args(args) => Some(args.user_id),
             UserArgs::User { user, .. } => Some(user.user_id),
             UserArgs::Err(OsuError::NotFound) => {

@@ -447,7 +447,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
     };
 
     let mode = map.mode();
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
     let (user_res, score_res) = match user_args {
         UserArgs::Args(args) => {
@@ -748,7 +748,7 @@ async fn compare_from_score(
     let map = score.map.take().expect("missing map");
     let map_fut = Context::osu_map().map(map.map_id, map.checksum.as_deref());
 
-    let user_args = UserArgs::user_id(score.user_id).mode(mode);
+    let user_args = UserArgs::user_id(score.user_id, mode);
     let user_fut = Context::redis().osu_user(user_args);
 
     let user_args = UserArgsSlim::user_id(score.user_id).mode(mode);

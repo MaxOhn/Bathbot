@@ -21,19 +21,18 @@ pub enum UserArgs {
 }
 
 impl UserArgs {
-    pub fn user_id(user_id: u32) -> Self {
-        Self::Args(UserArgsSlim::user_id(user_id))
+    pub fn user_id(user_id: u32, mode: GameMode) -> Self {
+        Self::Args(UserArgsSlim::user_id(user_id).mode(mode))
     }
 
-    pub async fn rosu_id(user_id: &UserId) -> Self {
+    pub async fn rosu_id(user_id: &UserId, mode: GameMode) -> Self {
         match user_id {
-            UserId::Id(user_id) => Self::user_id(*user_id),
-            UserId::Name(name) => Self::username(name).await,
+            UserId::Id(user_id) => Self::user_id(*user_id, mode),
+            UserId::Name(name) => Self::username(name, mode).await,
         }
     }
 
-    // TODO: require mode already
-    pub async fn username(name: impl AsRef<str>) -> Self {
+    pub async fn username(name: impl AsRef<str>, mode: GameMode) -> Self {
         let name = name.as_ref();
         let alt_name = Self::alt_name(name);
 
@@ -42,8 +41,6 @@ impl UserArgs {
             Err(err) => warn!(?err, "Failed to get user id"),
             Ok(None) => {}
         }
-
-        let mode = GameMode::Osu;
 
         match (Context::osu().user(name).mode(mode).await, alt_name) {
             (Ok(user), _) => {
@@ -82,20 +79,6 @@ impl UserArgs {
                 }
             }
             (Err(err), _) => Self::Err(err),
-        }
-    }
-
-    pub fn mode(self, mode: GameMode) -> Self {
-        match self {
-            Self::Args(args) => Self::Args(args.mode(mode)),
-            Self::User { user, mode: mode_ } => {
-                if mode == mode_ {
-                    Self::User { user, mode }
-                } else {
-                    Self::user_id(user.user_id).mode(mode)
-                }
-            }
-            Self::Err(err) => Self::Err(err),
         }
     }
 

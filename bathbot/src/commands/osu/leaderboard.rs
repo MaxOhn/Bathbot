@@ -475,7 +475,7 @@ async fn get_user_score(
         return Ok(None);
     };
 
-    let user_args = UserArgs::user_id(user_id).mode(mode);
+    let user_args = UserArgs::user_id(user_id, mode);
     let user_fut = Context::redis().osu_user(user_args);
 
     let score_fut =

@@ -6,7 +6,7 @@ use bathbot_util::{
     matcher,
 };
 use eyre::{Report, Result};
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -80,7 +80,7 @@ async fn mostplayed(orig: CommandOrigin<'_>, args: MostPlayed<'_>) -> Result<()>
     };
 
     // Retrieve the user and their most played maps
-    let user_args = UserArgs::rosu_id(&user_id).await;
+    let user_args = UserArgs::rosu_id(&user_id, GameMode::Osu).await;
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,

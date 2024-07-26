@@ -105,7 +105,7 @@ async fn ratios(orig: CommandOrigin<'_>, args: Ratios<'_>) -> Result<()> {
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(GameMode::Mania);
+    let user_args = UserArgs::rosu_id(&user_id, GameMode::Mania).await;
 
     let scores_fut = Context::osu_scores()
         .top(legacy_scores)

@@ -6,7 +6,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
 use super::BadgesUser;
 use crate::{
@@ -33,7 +33,7 @@ pub(super) async fn user(orig: CommandOrigin<'_>, args: BadgesUser) -> Result<()
         },
     };
 
-    let user_args_fut = UserArgs::rosu_id(&user_id);
+    let user_args_fut = UserArgs::rosu_id(&user_id, GameMode::Osu);
     let badges_fut = Context::redis().badges();
 
     let (user_args_res, badges_res) = tokio::join!(user_args_fut, badges_fut);

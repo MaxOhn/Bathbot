@@ -8,7 +8,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rkyv::{with::DeserializeWith, Infallible};
-use rosu_v2::{prelude::OsuError, request::UserId};
+use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
 
 use super::{MedalList, MedalListOrder};
@@ -43,7 +43,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
         ..
     } = args;
 
-    let user_args = UserArgs::rosu_id(&user_id).await;
+    let user_args = UserArgs::rosu_id(&user_id, GameMode::Osu).await;
     let user_fut = Context::redis().osu_user(user_args);
     let medals_fut = Context::redis().medals();
     let ranking_fut = Context::redis().osekai_ranking::<Rarity>();

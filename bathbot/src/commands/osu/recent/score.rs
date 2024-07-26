@@ -385,7 +385,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
     let grade = grade.map(Grade::from);
 
     // Retrieve the user and their recent scores
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
     let include_fails = match (grade, passes) {
         (Some(Grade::F), Some(true)) => return orig.error(":clown:").await,

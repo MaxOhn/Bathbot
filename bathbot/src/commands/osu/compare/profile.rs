@@ -139,8 +139,8 @@ pub(super) async fn profile(orig: CommandOrigin<'_>, mut args: CompareProfile<'_
     };
 
     // Retrieve all users and their scores
-    let user_args1 = UserArgs::rosu_id(&user_id1).await.mode(mode);
-    let user_args2 = UserArgs::rosu_id(&user_id2).await.mode(mode);
+    let user_args1 = UserArgs::rosu_id(&user_id1, mode).await;
+    let user_args2 = UserArgs::rosu_id(&user_id2, mode).await;
     let score_args = Context::osu_scores().top(false).limit(100);
 
     let fut1 = score_args.clone().exec_with_user(user_args1);

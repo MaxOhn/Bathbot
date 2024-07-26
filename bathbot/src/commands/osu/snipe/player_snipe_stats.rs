@@ -121,7 +121,7 @@ pub(super) async fn player_stats(
         },
     };
 
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,

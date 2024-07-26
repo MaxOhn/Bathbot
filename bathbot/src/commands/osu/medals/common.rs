@@ -15,6 +15,7 @@ use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rkyv::{with::DeserializeWith, Infallible};
 use rosu_v2::{
+    model::GameMode,
     prelude::{OsuError, Username},
     request::UserId,
 };
@@ -125,10 +126,10 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
     let MedalCommon { sort, filter, .. } = args;
 
     // Retrieve all users and their scores
-    let user_args = UserArgs::rosu_id(&user_id1).await;
+    let user_args = UserArgs::rosu_id(&user_id1, GameMode::Osu).await;
     let user_fut1 = Context::redis().osu_user(user_args);
 
-    let user_args = UserArgs::rosu_id(&user_id2).await;
+    let user_args = UserArgs::rosu_id(&user_id2, GameMode::Osu).await;
     let user_fut2 = Context::redis().osu_user(user_args);
 
     let medals_fut = Context::redis().medals();
