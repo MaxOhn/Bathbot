@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use flurry::HashMap as FlurryMap;
+use papaya::HashMap as PapayaMap;
 use rosu_v2::model::GameMode;
 use time::OffsetDateTime;
 
@@ -8,7 +8,7 @@ use super::Context;
 
 /// Mapping user ids to the last timestamp that osutrack was notified of that
 /// user's activity.
-pub type OsuTrackUserNotifTimestamps = FlurryMap<(u32, GameMode), OffsetDateTime>;
+pub type OsuTrackUserNotifTimestamps = PapayaMap<(u32, GameMode), OffsetDateTime>;
 
 impl Context {
     pub async fn notify_osutrack_of_user_activity(&self, user_id: u32, mode: GameMode) {

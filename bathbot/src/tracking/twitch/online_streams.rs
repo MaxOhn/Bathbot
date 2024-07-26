@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use bathbot_model::TwitchStream;
 use bathbot_util::IntHasher;
-use flurry::{Guard, HashMap as FlurryMap};
+use papaya::{Guard, HashMap as PapayaMap};
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct TwitchUserId(u64);
@@ -32,11 +32,11 @@ impl From<u64> for TwitchStreamId {
 
 #[derive(Default)]
 pub struct OnlineTwitchStreams {
-    user_streams: FlurryMap<TwitchUserId, TwitchStreamId, IntHasher>,
+    user_streams: PapayaMap<TwitchUserId, TwitchStreamId, IntHasher>,
 }
 
 impl OnlineTwitchStreams {
-    pub fn guard(&self) -> Guard<'_> {
+    pub fn guard(&self) -> impl Guard + '_ {
         self.user_streams.guard()
     }
 
@@ -44,12 +44,12 @@ impl OnlineTwitchStreams {
         self.user_streams.pin().contains_key(&user)
     }
 
-    pub fn set_online(&self, stream: &TwitchStream, guard: &Guard<'_>) {
+    pub fn set_online(&self, stream: &TwitchStream, guard: &impl Guard) {
         self.user_streams
             .insert(stream.user_id.into(), stream.stream_id.into(), guard);
     }
 
-    pub fn set_offline(&self, stream: &TwitchStream, guard: &Guard<'_>) {
+    pub fn set_offline(&self, stream: &TwitchStream, guard: &impl Guard) {
         self.user_streams.remove(&stream.user_id, guard);
     }
 

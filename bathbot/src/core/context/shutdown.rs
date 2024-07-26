@@ -131,7 +131,7 @@ impl Context {
         let len = miss_analyzer_guilds.len();
 
         // Serialize data
-        for guild in miss_analyzer_guilds.iter() {
+        for guild in miss_analyzer_guilds.keys() {
             serializer
                 .serialize_value(With::<_, IdRkyv>::cast(guild))
                 .wrap_err("Failed to serialize guild")?;

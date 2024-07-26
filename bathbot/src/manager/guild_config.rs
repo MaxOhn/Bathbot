@@ -4,10 +4,10 @@ use bathbot_psql::{
 };
 use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
-use flurry::HashMap as FlurryMap;
+use papaya::HashMap as PapayaMap;
 use twilight_model::id::{marker::GuildMarker, Id};
 
-type GuildConfigs = FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>;
+type GuildConfigs = PapayaMap<Id<GuildMarker>, GuildConfig, IntHasher>;
 
 #[derive(Copy, Clone)]
 pub struct GuildConfigManager {
