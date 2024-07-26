@@ -1,29 +1,25 @@
+use papaya::Operation;
 use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::Context;
 
 impl Context {
     pub fn add_tracking(twitch_id: u64, channel_id: Id<ChannelMarker>) {
-        let streams = &Context::get().data.tracked_streams;
-        let guard = streams.guard();
-
-        let missing = streams
-            .update(
-                twitch_id,
-                |old_channels| {
+        Context::get()
+            .data
+            .tracked_streams
+            .pin()
+            .compute(twitch_id, |entry| match entry {
+                Some((_, channels)) if channels.contains(&channel_id) => Operation::Abort(()),
+                Some((_, old_channels)) => {
                     let mut new_channels = Vec::with_capacity(old_channels.len() + 1);
                     new_channels.extend_from_slice(old_channels);
                     new_channels.push(channel_id);
 
-                    new_channels
-                },
-                &guard,
-            )
-            .is_none();
-
-        if missing {
-            streams.insert(twitch_id, vec![channel_id], &guard);
-        }
+                    Operation::Insert(new_channels)
+                }
+                None => Operation::Insert(vec![channel_id]),
+            });
     }
 
     pub fn remove_tracking(twitch_id: u64, channel_id: u64) {
@@ -32,16 +28,10 @@ impl Context {
             .tracked_streams
             .pin()
             .update(twitch_id, |old_channels| {
-                match old_channels.iter().position(|&id| id == channel_id) {
-                    Some(idx) => {
-                        let mut new_channels = Vec::with_capacity(old_channels.len() - 1);
-                        new_channels.extend_from_slice(&old_channels[..idx]);
-                        new_channels.extend_from_slice(&old_channels[idx + 1..]);
+                let mut new_channels = old_channels.clone();
+                new_channels.retain(|&id| id != channel_id);
 
-                        new_channels
-                    }
-                    None => old_channels.clone(),
-                }
+                new_channels
             });
     }
 
