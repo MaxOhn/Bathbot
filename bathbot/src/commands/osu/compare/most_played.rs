@@ -8,9 +8,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_v2::{
-    prelude::{MostPlayedMap, OsuError},
-    request::UserId,
-    OsuResult,
+    model::GameMode, prelude::{MostPlayedMap, OsuError}, request::UserId, OsuResult
 };
 
 use super::{CompareMostPlayed, AT_LEAST_ONE};
@@ -189,7 +187,7 @@ pub(super) async fn mostplayed(
 }
 
 async fn get_user_and_scores(user_id: &UserId) -> OsuResult<(RedisData<User>, Vec<MostPlayedMap>)> {
-    match UserArgs::rosu_id(user_id).await {
+    match UserArgs::rosu_id(user_id, GameMode::Osu).await {
         UserArgs::Args(args) => {
             let score_fut = Context::osu().user_most_played(args.user_id).limit(100);
             let user_fut = Context::redis().osu_user_from_args(args);

@@ -154,7 +154,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
         return orig.error("Delta must be greater than zero :clown:").await;
     }
 
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
     let mut user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
@@ -204,7 +204,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
         RankValue::Raw(rank) => rank,
         RankValue::Name(name) => {
             let user_id = UserId::from(name);
-            let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+            let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
             let user_id = match Context::redis().osu_user(user_args).await {
                 Ok(user) => {

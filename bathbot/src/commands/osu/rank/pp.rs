@@ -66,7 +66,7 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
         return orig.error("Delta must be greater than zero :clown:").await;
     }
 
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let user_fut = Context::redis().osu_user(user_args);
 
     let mut user = match user_fut.await {
@@ -91,7 +91,7 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
         RankValue::Raw(rank) => RankOrHolder::Rank(rank),
         RankValue::Name(name) => {
             let user_id = UserId::from(name);
-            let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+            let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
             match Context::redis().osu_user(user_args).await {
                 Ok(target_user) => {

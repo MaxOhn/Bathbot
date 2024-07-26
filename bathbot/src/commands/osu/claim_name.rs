@@ -77,7 +77,7 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
         return Ok(());
     }
 
-    let user_id = match UserArgs::username(&name).await {
+    let user_id = match UserArgs::username(&name, GameMode::Osu).await {
         UserArgs::Args(args) => args.user_id,
         UserArgs::User { user, .. } => user.user_id,
         UserArgs::Err(OsuError::NotFound) => {
@@ -106,7 +106,7 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
         GameMode::Catch,
         GameMode::Mania,
     ]
-    .map(|mode| UserArgs::user_id(user_id).mode(mode));
+    .map(|mode| UserArgs::user_id(user_id, mode));
 
     let user_fut = args
         .into_iter()

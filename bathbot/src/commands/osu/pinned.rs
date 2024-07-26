@@ -164,7 +164,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
         },
     };
 
-    let (user_args, user_opt) = match UserArgs::rosu_id(&user_id).await.mode(mode) {
+    let (user_args, user_opt) = match UserArgs::rosu_id(&user_id, mode).await {
         UserArgs::Args(args) => (args, None),
         UserArgs::User { user, mode } => (
             UserArgsSlim::user_id(user.user_id).mode(mode),

@@ -430,7 +430,7 @@ async fn creator_name(map: &MapBookmark) -> Option<Username> {
         Err(err) => warn!("{err:?}"),
     }
 
-    let args = UserArgs::user_id(map.mapper_id);
+    let args = UserArgs::user_id(map.mapper_id, GameMode::Osu);
 
     match Context::redis().osu_user(args).await {
         Ok(RedisData::Original(user)) => Some(user.username),

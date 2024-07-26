@@ -225,7 +225,7 @@ impl<'u> TrackUser<'u> {
             TrackNotificationEmbed::new(user, score, map, idx).await
         } else {
             let TrackedOsuUserKey { user_id, mode } = self.key;
-            let args = UserArgs::user_id(user_id).mode(mode);
+            let args = UserArgs::user_id(user_id, mode);
             let user = Context::redis().osu_user(args).await?;
             let user = self.user.get_or_insert(Cow::Owned(user));
 

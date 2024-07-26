@@ -125,7 +125,7 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
         },
     };
 
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)

@@ -15,8 +15,7 @@ use rkyv::{
     Deserialize, Infallible,
 };
 use rosu_v2::{
-    prelude::{MedalCompact, OsuError},
-    request::UserId,
+    model::GameMode, prelude::{MedalCompact, OsuError}, request::UserId
 };
 use skia_safe::{surfaces, EncodedImageFormat};
 use time::OffsetDateTime;
@@ -74,7 +73,7 @@ pub(super) async fn stats(orig: CommandOrigin<'_>, args: MedalStats<'_>) -> Resu
         },
     };
 
-    let user_args = UserArgs::rosu_id(&user_id).await;
+    let user_args = UserArgs::rosu_id(&user_id, GameMode::Osu).await;
     let user_fut = Context::redis().osu_user(user_args);
     let medals_fut = Context::redis().medals();
 

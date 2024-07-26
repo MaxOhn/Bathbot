@@ -173,7 +173,7 @@ async fn sniped_diff(
     let owner = orig.user_id()?;
 
     // Request the user
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,

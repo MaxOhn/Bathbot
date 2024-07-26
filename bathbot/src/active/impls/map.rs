@@ -334,7 +334,7 @@ async fn creator_name(map: &BeatmapExtended, mapset: &BeatmapsetExtended) -> Opt
         Err(err) => warn!("{err:?}"),
     }
 
-    let args = UserArgs::user_id(map.creator_id);
+    let args = UserArgs::user_id(map.creator_id, GameMode::Osu);
 
     match Context::redis().osu_user(args).await {
         Ok(RedisData::Original(user)) => Some(user.username),

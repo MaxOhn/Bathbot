@@ -237,7 +237,7 @@ async fn topif(orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)

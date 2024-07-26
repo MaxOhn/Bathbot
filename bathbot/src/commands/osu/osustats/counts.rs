@@ -152,7 +152,7 @@ async fn slash_osc(mut command: InteractionCommand) -> Result<()> {
 
 pub(super) async fn count(orig: CommandOrigin<'_>, args: OsuStatsCount<'_>) -> Result<()> {
     let (user_id, mode) = user_id_mode!(orig, args);
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,

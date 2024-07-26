@@ -140,7 +140,7 @@ pub(super) async fn country_list(
 
             match config.osu {
                 Some(user_id) => {
-                    let user_args = UserArgs::user_id(user_id).mode(mode);
+                    let user_args = UserArgs::user_id(user_id, mode);
 
                     match Context::redis().osu_user(user_args).await {
                         Ok(user) => (Some(user), mode),

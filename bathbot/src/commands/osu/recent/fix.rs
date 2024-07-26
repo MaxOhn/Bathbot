@@ -52,7 +52,7 @@ pub(super) async fn fix(orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> 
     };
 
     // Retrieve the user and their recent scores
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
     let scores_fut = Context::osu_scores()
         .recent(legacy_scores)

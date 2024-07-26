@@ -91,7 +91,7 @@ async fn pp_author_idx(
     mode: GameMode,
     country: Option<&CountryCode>,
 ) -> Option<usize> {
-    let user_args = UserArgs::user_id(author_id?).mode(mode);
+    let user_args = UserArgs::user_id(author_id?, mode);
 
     match Context::redis().osu_user(user_args).await {
         Ok(user) => {

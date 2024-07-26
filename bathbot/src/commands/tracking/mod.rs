@@ -132,7 +132,7 @@ async fn get_names(
             let name = name.cow_to_ascii_lowercase();
 
             if entries.keys().all(|n| name != n.cow_to_ascii_lowercase()) {
-                let args = UserArgs::username(name.as_ref()).await.mode(mode);
+                let args = UserArgs::username(name.as_ref(), mode).await;
 
                 match Context::redis().osu_user(args).await {
                     Ok(user) => entries.insert(user.username().into(), user.user_id()),

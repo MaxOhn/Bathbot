@@ -87,7 +87,7 @@ pub async fn user_scores(mut command: InteractionCommand, args: UserScores) -> R
     };
 
     let creator_id = match args.mapper {
-        Some(ref mapper) => match UserArgs::username(mapper).await {
+        Some(ref mapper) => match UserArgs::username(mapper, GameMode::Osu).await {
             UserArgs::Args(args) => Some(args.user_id),
             UserArgs::User { user, .. } => Some(user.user_id),
             UserArgs::Err(OsuError::NotFound) => {
@@ -150,11 +150,7 @@ pub async fn user_scores(mut command: InteractionCommand, args: UserScores) -> R
 }
 
 async fn get_user(user_id: &UserId, mode: Option<GameMode>) -> Result<RedisData<User>, OsuError> {
-    let mut args = UserArgs::rosu_id(user_id).await;
-
-    if let Some(mode) = mode {
-        args = args.mode(mode);
-    }
+    let args = UserArgs::rosu_id(user_id, mode.unwrap_or(GameMode::Osu)).await;
 
     Context::redis().osu_user(args).await
 }

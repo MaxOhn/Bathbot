@@ -133,7 +133,7 @@ pub(super) async fn player_list(orig: CommandOrigin<'_>, args: SnipePlayerList<'
     let owner = orig.user_id()?;
 
     let (user_id, mode) = user_id_mode!(orig, args);
-    let user_args = UserArgs::rosu_id(&user_id).await.mode(mode);
+    let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,

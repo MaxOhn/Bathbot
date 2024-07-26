@@ -136,7 +136,7 @@ pub(super) async fn country_stats(
         },
         None => match config.osu {
             Some(user_id) => {
-                let user_args = UserArgs::user_id(user_id).mode(mode);
+                let user_args = UserArgs::user_id(user_id, mode);
 
                 let user = match Context::redis().osu_user(user_args).await {
                     Ok(user) => user,
