@@ -29,7 +29,9 @@ use rkyv::{
     Infallible,
 };
 use rosu_v2::{
-    model::GameMode, prelude::{MonthlyCount, OsuError}, request::UserId
+    model::GameMode,
+    prelude::{MonthlyCount, OsuError},
+    request::UserId,
 };
 use skia_safe::{surfaces, EncodedImageFormat, Surface};
 use time::{Date, Month, OffsetDateTime};

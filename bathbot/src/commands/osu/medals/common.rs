@@ -15,7 +15,9 @@ use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rkyv::{with::DeserializeWith, Infallible};
 use rosu_v2::{
-    model::GameMode, prelude::{OsuError, Username}, request::UserId
+    model::GameMode,
+    prelude::{OsuError, Username},
+    request::UserId,
 };
 use time::OffsetDateTime;
 

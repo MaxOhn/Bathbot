@@ -15,7 +15,9 @@ use rkyv::{
     Deserialize, Infallible,
 };
 use rosu_v2::{
-    model::GameMode, prelude::{MedalCompact, OsuError}, request::UserId
+    model::GameMode,
+    prelude::{MedalCompact, OsuError},
+    request::UserId,
 };
 use skia_safe::{surfaces, EncodedImageFormat};
 use time::OffsetDateTime;

@@ -8,7 +8,10 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_v2::{
-    model::GameMode, prelude::{MostPlayedMap, OsuError}, request::UserId, OsuResult
+    model::GameMode,
+    prelude::{MostPlayedMap, OsuError},
+    request::UserId,
+    OsuResult,
 };
 
 use super::{CompareMostPlayed, AT_LEAST_ONE};

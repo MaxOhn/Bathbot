@@ -14,7 +14,9 @@ use rkyv::{
     Infallible,
 };
 use rosu_v2::{
-    model::GameMode, prelude::{MedalCompact, OsuError}, request::UserId
+    model::GameMode,
+    prelude::{MedalCompact, OsuError},
+    request::UserId,
 };
 use time::OffsetDateTime;
 
