@@ -11,10 +11,10 @@ use bathbot_psql::{model::configs::GuildConfig, Database};
 use bathbot_util::{IntHasher, MetricsReader};
 use eyre::{Result, WrapErr};
 use flexmap::tokio::TokioRwLockMap;
-use flurry::{HashMap as FlurryMap, HashSet as FlurrySet};
 use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
 use metrics_util::layers::{FanoutBuilder, Layer, PrefixLayer};
+use papaya::HashMap as PapayaMap;
 use rkyv::with::With;
 use rosu_v2::Osu;
 use time::OffsetDateTime;
@@ -60,12 +60,13 @@ mod matchlive;
 #[cfg(feature = "twitchtracking")]
 mod twitch;
 
-type GuildShards = FlurryMap<Id<GuildMarker>, u64>;
-type GuildConfigs = FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>;
-type MissAnalyzerGuilds = FlurrySet<Id<GuildMarker>, IntHasher>;
+type PapayaSet<K, S> = PapayaMap<K, (), S>; // TODO: await native support for sets
+type GuildShards = PapayaMap<Id<GuildMarker>, u64>;
+type GuildConfigs = PapayaMap<Id<GuildMarker>, GuildConfig, IntHasher>;
+type MissAnalyzerGuilds = PapayaSet<Id<GuildMarker>, IntHasher>;
 
 #[cfg(feature = "twitchtracking")]
-type TrackedStreams = FlurryMap<u64, Vec<Id<ChannelMarker>>, IntHasher>;
+type TrackedStreams = PapayaMap<u64, Vec<Id<ChannelMarker>>, IntHasher>;
 
 static CONTEXT: OnceLock<Box<Context>> = OnceLock::new();
 
@@ -139,7 +140,7 @@ impl Context {
     }
 
     pub fn has_miss_analyzer(guild: &Id<GuildMarker>) -> bool {
-        Self::miss_analyzer_guilds().pin().contains(guild)
+        Self::miss_analyzer_guilds().pin().contains_key(guild)
     }
 
     #[cfg(feature = "twitch")]
@@ -441,7 +442,7 @@ impl ContextData {
         let fetch_fut = cache.fetch::<_, Vec<(With<Id<GuildMarker>, IdRkyv>, u64)>>("guild_shards");
 
         match fetch_fut.await {
-            Ok(Ok(guild_shards)) => guild_shards.iter().collect(),
+            Ok(Ok(guild_shards)) => guild_shards.iter().copied().collect(),
             Ok(Err(_)) => GuildShards::default(),
             Err(err) => {
                 warn!(?err, "Failed to fetch guild shards, creating default...");
@@ -456,7 +457,9 @@ impl ContextData {
             cache.fetch::<_, Vec<With<Id<GuildMarker>, IdRkyv>>>("miss_analyzer_guilds");
 
         match fetch_fut.await {
-            Ok(Ok(miss_analyzer_guilds)) => miss_analyzer_guilds.iter().collect(),
+            Ok(Ok(miss_analyzer_guilds)) => {
+                miss_analyzer_guilds.iter().map(|id| (*id, ())).collect()
+            }
             Ok(Err(_)) => MissAnalyzerGuilds::default(),
             Err(err) => {
                 warn!(

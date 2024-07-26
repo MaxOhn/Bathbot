@@ -22,7 +22,6 @@ enterpolation = { version = "0.2", default-features = false, features = ["std", 
 enum_dispatch = { version = "0.3.11" }
 eyre = { version = "0.6" }
 flexmap = { git = "https://github.com/MaxOhn/flexmap" }
-flurry = { version = "0.4" }
 futures = { version = "0.3", default-features = false }
 hashbrown = { version = "0.14" }
 image = { version = "0.24", default-features = false, features = ["gif", "png"] }
@@ -33,6 +32,7 @@ metrics-exporter-prometheus = { version = "0.15.1", default-features = false }
 metrics-util = { version = "0.17.0" }
 nom = { version = "7.1.3" }
 once_cell = { version = "1.0" }
+papaya = { version = "0.1.2" }
 plotters = { version = "0.3", default-features = false, features = ["ttf", "image", "line_series", "area_series", "histogram", "point_series"] }
 plotters-backend = { version = "0.3" }
 plotters-skia = { git = "https://github.com/MaxOhn/plotters-skia", branch = "main" }
