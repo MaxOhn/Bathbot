@@ -372,48 +372,60 @@ impl CompareResult {
         score_rank_data: Option<RespektiveUser>,
         osutrack_peaks: Option<RankAccPeaks>,
     ) -> Self {
-        // TODO: shrink function body for `impl` argument type
+        // Nested body to reduce function size w.r.t. the generic argument.
+        fn inner(
+            scores: &[Score],
+            score_rank_data: Option<RespektiveUser>,
+            osutrack_peaks: Option<RankAccPeaks>,
+        ) -> (CompareResult, BonusPP) {
+            let mut pp = MinMaxAvg::new();
+            let mut map_len = MinMaxAvg::new();
+            let mut bonus_pp = BonusPP::new();
 
-        let mut pp = MinMaxAvg::new();
-        let mut map_len = MinMaxAvg::new();
-        let mut bonus_pp = BonusPP::new();
+            let mut misses = 0;
+            let mut hits = 0;
 
-        let mut misses = 0;
-        let mut hits = 0;
+            for (i, score) in scores.iter().enumerate() {
+                if let Some(score_pp) = score.pp {
+                    pp.add(score_pp);
+                }
 
-        for (i, score) in scores.iter().enumerate() {
-            if let Some(score_pp) = score.pp {
-                pp.add(score_pp);
+                if let Some(weighted_pp) = score.weight.map(|w| w.pp) {
+                    bonus_pp.update(weighted_pp, i);
+                }
+
+                let map = score.map.as_ref().unwrap();
+
+                let seconds_drain = if let Some(clock_rate) = score.mods.clock_rate() {
+                    map.seconds_drain as f32 / clock_rate
+                } else {
+                    map.seconds_drain as f32
+                };
+
+                map_len.add(seconds_drain);
+
+                hits += score.total_hits() - score.statistics.miss;
+                misses += score.statistics.miss;
             }
 
-            if let Some(weighted_pp) = score.weight.map(|w| w.pp) {
-                bonus_pp.update(weighted_pp, i);
-            }
-
-            let map = score.map.as_ref().unwrap();
-
-            let seconds_drain = if let Some(clock_rate) = score.mods.clock_rate() {
-                map.seconds_drain as f32 / clock_rate
-            } else {
-                map.seconds_drain as f32
+            let res = CompareResult {
+                pp,
+                map_len: map_len.into(),
+                bonus_pp: 0.0,
+                top1pp: scores.first().and_then(|score| score.pp).unwrap_or(0.0),
+                score_rank_data,
+                osutrack_peaks,
+                hits,
+                misses,
             };
 
-            map_len.add(seconds_drain);
-
-            hits += score.total_hits() - score.statistics.miss;
-            misses += score.statistics.miss;
+            (res, bonus_pp)
         }
 
-        Self {
-            pp,
-            map_len: map_len.into(),
-            bonus_pp: bonus_pp.calculate(stats),
-            top1pp: scores.first().and_then(|score| score.pp).unwrap_or(0.0),
-            score_rank_data,
-            osutrack_peaks,
-            hits,
-            misses,
-        }
+        let (mut this, bonus_pp) = inner(scores, score_rank_data, osutrack_peaks);
+        this.bonus_pp = bonus_pp.calculate(stats);
+
+        this
     }
 }
 
