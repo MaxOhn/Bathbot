@@ -166,7 +166,7 @@ impl IActiveMessage for SimulateComponents {
             StateOrScore::State(state) => {
                 let (mode, stats) = state.into_parts();
 
-                grade = calculate_grade(mode, &mods, &stats);
+                grade = calculate_grade(mode, mods.as_ref(), &stats);
 
                 let acc = EmbedField {
                     inline: true,
