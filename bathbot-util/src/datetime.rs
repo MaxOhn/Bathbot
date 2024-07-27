@@ -10,18 +10,35 @@ use time::{
 
 pub struct SecToMinSec {
     secs: u32,
+    pad_secs: bool,
 }
 
 impl SecToMinSec {
     pub fn new(secs: u32) -> Self {
-        Self { secs }
+        Self {
+            secs,
+            pad_secs: false,
+        }
+    }
+
+    pub fn pad_secs(self) -> Self {
+        Self {
+            pad_secs: true,
+            ..self
+        }
     }
 }
 
 impl Display for SecToMinSec {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}:{:02}", self.secs / 60, self.secs % 60)
+        if self.pad_secs {
+            write!(f, "{:02}", self.secs / 60)?;
+        } else {
+            write!(f, "{}", self.secs / 60)?;
+        }
+
+        write!(f, ":{:02}", self.secs % 60)
     }
 }
 

@@ -17,7 +17,7 @@ pub mod tracking;
 #[cfg(feature = "twitchtracking")]
 pub mod twitch;
 
-#[derive(Copy, Clone, CommandOption, CreateOption, Eq, PartialEq)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Debug, Eq, PartialEq)]
 pub enum ShowHideOption {
     #[option(name = "Show", value = "show")]
     Show,

@@ -5,6 +5,10 @@ pub use self::{
     changelog::ChangelogPagination,
     compare::{CompareMostPlayedPagination, CompareScoresPagination, CompareTopPagination},
     edit_on_timeout::{EditOnTimeout, RecentScoreEdit, TopScoreEdit},
+    embed_builder::{
+        ScoreEmbedBuilderActive, ScoreEmbedBuilderImage, ScoreEmbedBuilderPp,
+        ScoreEmbedBuilderSettings, ScoreEmbedBuilderTimestamp,
+    },
     help::{HelpInteractionCommand, HelpPrefixMenu},
     higherlower::HigherLowerGame,
     leaderboard::LeaderboardPagination,
@@ -41,6 +45,7 @@ mod bookmarks;
 mod changelog;
 mod compare;
 mod edit_on_timeout;
+mod embed_builder;
 mod help;
 mod higherlower;
 mod leaderboard;

@@ -711,6 +711,7 @@ impl Display for MapInfo<'_> {
             builder = builder.clock_rate(f64::from(clock_rate));
         }
 
+        // TODO: remove this, rosu-pp does that now
         if let Some(mods) = self.mods {
             for gamemod in mods.iter() {
                 match gamemod {
