@@ -3,9 +3,7 @@ use std::fmt::Write;
 use bathbot_cache::model::CachedArchive;
 use bathbot_macros::EmbedData;
 use bathbot_model::twilight_model::guild::Guild;
-use bathbot_psql::model::configs::{
-    GuildConfig, HideSolutions, ListSize, MinimizedPp, Retries, ScoreData, ScoreSize,
-};
+use bathbot_psql::model::configs::{GuildConfig, HideSolutions, ListSize, Retries, ScoreData};
 use bathbot_util::AuthorBuilder;
 use twilight_model::channel::message::embed::EmbedField;
 
@@ -68,11 +66,6 @@ impl ServerConfigEmbed {
 
         let fields = vec![
             create_field(
-                "Minimized PP*",
-                config.minimized_pp.unwrap_or_default(),
-                &[(MinimizedPp::MaxPp, "max pp"), (MinimizedPp::IfFc, "if FC")],
-            ),
-            create_field(
                 "Song commands",
                 config.allow_songs.unwrap_or(true),
                 &[(true, "enabled"), (false, "disabled")],
@@ -91,15 +84,6 @@ impl ServerConfigEmbed {
                     (ListSize::Single, "single"),
                 ],
             ),
-            create_field(
-                "Score embeds*",
-                config.score_size.unwrap_or_default(),
-                &[
-                    (ScoreSize::AlwaysMinimized, "always minimized"),
-                    (ScoreSize::AlwaysMaximized, "always maximized"),
-                    (ScoreSize::InitialMaximized, "initial maximized"),
-                ],
-            ),
             EmbedField {
                 inline: false,
                 ..create_field(
@@ -109,6 +93,21 @@ impl ServerConfigEmbed {
                         (HideSolutions::ShowAll, "show"),
                         (HideSolutions::HideHushHush, "hide hush-hush"),
                         (HideSolutions::HideAll, "hide all"),
+                    ],
+                )
+            },
+            EmbedField {
+                inline: false,
+                ..create_field(
+                    "Score data*",
+                    config.score_data.unwrap_or(ScoreData::Lazer),
+                    &[
+                        (ScoreData::Stable, "stable"),
+                        (ScoreData::Lazer, "lazer"),
+                        (
+                            ScoreData::LazerWithClassicScoring,
+                            "lazer (classic scoring)",
+                        ),
                     ],
                 )
             },
@@ -126,21 +125,6 @@ impl ServerConfigEmbed {
                     (Retries::IgnoreMods, "ignore mods"),
                 ],
             ),
-            EmbedField {
-                inline: false,
-                ..create_field(
-                    "Score data*",
-                    config.score_data.unwrap_or(ScoreData::Lazer),
-                    &[
-                        (ScoreData::Stable, "stable"),
-                        (ScoreData::Lazer, "lazer"),
-                        (
-                            ScoreData::LazerWithClassicScoring,
-                            "lazer (classic scoring)",
-                        ),
-                    ],
-                )
-            },
         ];
 
         Self {

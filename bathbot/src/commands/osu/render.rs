@@ -24,7 +24,7 @@ use twilight_model::{
 
 use crate::{
     active::{
-        impls::{CachedRender, RenderSettingsActive, SettingsImport},
+        impls::{CachedRender, CachedRenderData, RenderSettingsActive, SettingsImport},
         ActiveMessages,
     },
     core::{buckets::BucketName, commands::OwnedCommandOrigin, Context},
@@ -226,7 +226,8 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
     // Check if the score id has already been rendered
     match Context::replay().get_video_url(score_id).await {
         Ok(Some(video_url)) => {
-            let cached = CachedRender::new(score_id, None, video_url, owner);
+            let data = CachedRenderData::ScoreId(score_id);
+            let cached = CachedRender::new(data, video_url, owner);
 
             return ActiveMessages::builder(cached)
                 .start_by_update(true)
@@ -264,7 +265,7 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
         }
     };
 
-    let Some(replay_score) = ReplayScore::from_score(&score) else {
+    let Some(replay_score) = ReplayScore::try_from_score(&score) else {
         let content = "Failed to prepare the replay";
         command.error(content).await?;
 
@@ -278,12 +279,18 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
         return Ok(());
     };
 
+    let username = score
+        .user
+        .as_ref()
+        .map(|user| user.username.as_str())
+        .unwrap_or_default();
+
     // Just a status update, no need to propagate an error
     status.set(RenderStatusInner::PreparingReplay);
     let _ = command.update(status.as_message()).await;
 
     let replay_manager = Context::replay();
-    let replay_fut = replay_manager.get_replay(score_id, &replay_score);
+    let replay_fut = replay_manager.get_replay(&replay_score, username);
     let settings_fut = replay_manager.get_settings(owner);
 
     let (replay_res, settings_res) = tokio::join!(replay_fut, settings_fut);

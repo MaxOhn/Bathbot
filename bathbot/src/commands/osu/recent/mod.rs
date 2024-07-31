@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
+use bathbot_model::command_fields::{GameModeOption, GradeOption};
 use bathbot_psql::model::configs::ListSize;
 use eyre::Result;
 use rosu_v2::prelude::{GameMode, Grade};
@@ -11,10 +12,7 @@ use self::fix::*;
 pub use self::{leaderboard::*, list::*, score::*};
 use super::{HasMods, ModsResult, ScoreOrder, TopArgs, TopScoreOrder};
 use crate::{
-    commands::{
-        osu::{top, LeaderboardSort},
-        GameModeOption, GradeOption,
-    },
+    commands::osu::{top, LeaderboardSort},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 

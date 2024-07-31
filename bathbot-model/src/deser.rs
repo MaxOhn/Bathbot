@@ -2,8 +2,9 @@ use std::{fmt, marker::PhantomData};
 
 use rosu_v2::prelude::GameMode;
 use serde::{
-    de::{Error, Unexpected, Visitor},
-    Deserialize, Deserializer,
+    de::{Deserializer, Error, Unexpected, Visitor},
+    ser::Serializer,
+    Deserialize,
 };
 use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
@@ -272,6 +273,26 @@ pub(super) mod date {
     }
 }
 
+pub(super) mod bool_as_u8 {
+    use super::*;
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
+        match u8::deserialize(d)? {
+            0 => Ok(false),
+            1 => Ok(true),
+            other => Err(Error::invalid_value(
+                Unexpected::Unsigned(other as u64),
+                &"0 or 1",
+            )),
+        }
+    }
+
+    pub fn serialize<S: Serializer>(value: &bool, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_u8(*value as u8)
+    }
+}
+
+// TODO: remove
 pub struct ModeAsSeed<T> {
     pub(crate) mode: GameMode,
     phantom: PhantomData<T>,

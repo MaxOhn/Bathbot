@@ -1,8 +1,8 @@
 use std::{borrow::Cow, cmp::Reverse, fmt::Write, mem};
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
-use bathbot_model::ScoreSlim;
-use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreData, ScoreSize};
+use bathbot_model::command_fields::{GameModeOption, GradeOption};
+use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -12,13 +12,8 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
-use rosu_pp::model::beatmap::BeatmapAttributes;
 use rosu_v2::{
-    prelude::{
-        GameModIntermode, GameMode, Grade, OsuError,
-        RankStatus::{Approved, Loved, Qualified, Ranked},
-        Score,
-    },
+    prelude::{GameMode, Grade, OsuError, Score},
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -31,15 +26,17 @@ pub use self::{if_::*, old::*};
 use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
 use crate::{
     active::{
-        impls::{TopPagination, TopScoreEdit},
+        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
         ActiveMessages,
     },
-    commands::{GameModeOption, GradeOption},
+    commands::utility::{
+        MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
+    },
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::UserArgs, OsuMap, OwnedReplayScore},
+    manager::redis::osu::UserArgs,
     util::{
         interaction::InteractionCommand,
-        query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
+        query::{IFilterCriteria, Searchable, TopCriteria},
         ChannelExt, CheckPermissions, InteractionCommandExt,
     },
     Context,
@@ -771,17 +768,20 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
         },
     };
 
-    let score_data = match config.score_data {
-        Some(score_data) => score_data,
-        None => match orig.guild_id() {
-            Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| config.score_data)
+    let GuildValues {
+        list_size: guild_list_size,
+        render_button: guild_render_button,
+        score_data: guild_score_data,
+    } = match orig.guild_id() {
+        Some(guild_id) => {
+            Context::guild_config()
+                .peek(guild_id, |config| GuildValues::from(config))
                 .await
-                .unwrap_or_default(),
-            None => Default::default(),
-        },
+        }
+        None => GuildValues::default(),
     };
 
+    let score_data = config.score_data.or(guild_score_data).unwrap_or_default();
     let legacy_scores = score_data.is_legacy();
 
     // Retrieve the user and their top scores
@@ -806,10 +806,19 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
         }
     };
 
+    let mut with_render = match (guild_render_button, config.render_button) {
+        (None | Some(true), None) => true,
+        (None | Some(true), Some(with_render)) => with_render,
+        (Some(false), _) => false,
+    };
+
+    with_render &= mode == GameMode::Osu
+        && orig.has_permission_to(Permissions::SEND_MESSAGES)
+        && Context::ordr().is_some();
+
     let pre_len = scores.len();
 
-    // Filter scores according to mods, combo, acc, and grade
-    let entries = match process_scores(scores, &args, score_data).await {
+    let entries = match process_scores(scores, &args, with_render, score_data).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(GENERAL_ISSUE).await;
@@ -819,7 +828,6 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
     };
 
     let post_len = entries.len();
-
     let username = user.username();
 
     let index = match args.index.as_deref() {
@@ -845,280 +853,66 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
         None => None,
     };
 
-    let GuildValues {
-        minimized_pp: guild_minimized_pp,
-        score_size: guild_score_size,
-        list_size: guild_list_size,
-        render_button: guild_render_button,
-    } = match orig.guild_id() {
-        Some(guild_id) => {
-            Context::guild_config()
-                .peek(guild_id, |config| GuildValues::from(config))
-                .await
-        }
-        None => GuildValues::default(),
-    };
-
     let single_idx = index
         .map(|num| num.saturating_sub(1))
         .or_else(|| (post_len == 1).then_some(0));
 
-    if let Some(idx) = single_idx {
-        let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
+    let entries = entries.into_boxed_slice();
+    let content = write_content(username, &args, entries.len(), index);
 
-        let minimized_pp = config
-            .minimized_pp
-            .or(guild_minimized_pp)
-            .unwrap_or_default();
+    let list_size = args
+        .size
+        .or(config.list_size)
+        .or(guild_list_size)
+        .unwrap_or_default();
 
-        let content = write_content(username, &args, 1, index);
-        let entry = &entries[idx];
+    let condensed_list = match (single_idx, list_size) {
+        (Some(_), _) | (None, ListSize::Single) => {
+            let settings = config.score_embed.unwrap_or_default();
+            let content = content.map_or(SingleScoreContent::None, SingleScoreContent::SameForAll);
 
-        // Prepare retrieval of the map's global top 50 and the user's top 100
-        let global_idx = match entry.map.status() {
-            Ranked | Loved | Qualified | Approved => {
-                match Context::osu_scores()
-                    .map_leaderboard(
-                        entry.map.map_id(),
-                        entry.score.mode,
-                        None,
-                        50,
-                        legacy_scores,
-                    )
-                    .await
-                {
-                    Ok(scores) => {
-                        let user_id = user.user_id();
-                        let timestamp = entry.score.ended_at.unix_timestamp();
+            let mut pagination = SingleScorePagination::new(
+                &user, entries, settings, score_data, msg_owner, content,
+            );
 
-                        scores.iter().position(|s| {
-                            s.user_id == user_id
-                                && (timestamp - s.ended_at.unix_timestamp()).abs() <= 2
-                        })
-                    }
-                    Err(err) => {
-                        warn!(?err, "Failed to get global scores");
-
-                        None
-                    }
-                }
+            if let Some(idx) = single_idx {
+                pagination.set_index(idx);
             }
-            _ => None,
-        };
 
-        let mut with_render = match (guild_render_button, config.render_button) {
-            (None | Some(true), None) => true,
-            (None | Some(true), Some(with_render)) => with_render,
-            (Some(false), _) => false,
-        };
-
-        with_render &= mode == GameMode::Osu
-            && entry.replay
-            && orig.has_permission_to(Permissions::SEND_MESSAGES)
-            && Context::ordr().is_some();
-
-        let replay_score = if with_render {
-            match Context::osu_map().checksum(entry.map.map_id()).await {
-                Ok(Some(checksum)) => {
-                    Some(OwnedReplayScore::from_top_entry(entry, username, checksum))
-                }
-                Ok(None) => None,
-                Err(err) => {
-                    warn!(?err);
-
-                    None
-                }
-            }
-        } else {
-            None
-        };
-
-        let personal_idx = Some(entry.original_idx);
-
-        let active_msg_fut = TopScoreEdit::create(
-            &user,
-            entry,
-            personal_idx,
-            global_idx,
-            minimized_pp,
-            entry.score.legacy_id,
-            replay_score,
-            score_size,
-            score_data,
-            content,
-        );
-
-        ActiveMessages::builder(active_msg_fut.await)
-            .start_by_update(true)
-            .begin(orig)
-            .await
-    } else {
-        let content = write_content(username, &args, entries.len(), index);
-
-        let list_size = args
-            .size
-            .or(config.list_size)
-            .or(guild_list_size)
-            .unwrap_or_default();
-
-        let minimized_pp = config
-            .minimized_pp
-            .or(guild_minimized_pp)
-            .unwrap_or_default();
-
-        let pagination = TopPagination::builder()
-            .user(user)
-            .mode(mode)
-            .entries(entries.into_boxed_slice())
-            .sort_by(args.sort_by)
-            .list_size(list_size)
-            .minimized_pp(minimized_pp)
-            .score_data(score_data)
-            .content(content.unwrap_or_default().into_boxed_str())
-            .msg_owner(msg_owner)
-            .build();
-
-        ActiveMessages::builder(pagination)
-            .start_by_update(true)
-            .begin(orig)
-            .await
-    }
-}
-
-pub struct TopEntry {
-    pub original_idx: usize,
-    pub score: ScoreSlim,
-    pub map: OsuMap,
-    pub max_pp: f32,
-    pub stars: f32,
-    pub max_combo: u32,
-    pub replay: bool,
-}
-
-impl TopEntry {
-    fn map_attrs(&self) -> BeatmapAttributes {
-        self.map.attributes().mods(self.score.mods.bits()).build()
-    }
-
-    pub fn ar(&self) -> f64 {
-        self.map_attrs().ar
-    }
-
-    pub fn cs(&self) -> f64 {
-        self.map_attrs().cs
-    }
-
-    pub fn hp(&self) -> f64 {
-        self.map_attrs().hp
-    }
-
-    pub fn od(&self) -> f64 {
-        self.map_attrs().od
-    }
-}
-
-impl<'q> Searchable<TopCriteria<'q>> for TopEntry {
-    fn matches(&self, criteria: &FilterCriteria<TopCriteria<'q>>) -> bool {
-        let mut matches = true;
-
-        matches &= criteria.combo.contains(self.score.max_combo);
-        matches &= criteria.miss.contains(self.score.statistics.count_miss);
-        matches &= criteria.score.contains(self.score.score);
-        matches &= criteria.date.contains(self.score.ended_at.date());
-        matches &= criteria.stars.contains(self.stars);
-        matches &= criteria.pp.contains(self.score.pp);
-        matches &= criteria.acc.contains(self.score.accuracy);
-
-        if !criteria.ranked_date.is_empty() {
-            let Some(datetime) = self.map.ranked_date() else {
-                return false;
-            };
-            matches &= criteria.ranked_date.contains(datetime.date());
+            return ActiveMessages::builder(pagination)
+                .start_by_update(true)
+                .begin(orig)
+                .await;
         }
+        (None, ListSize::Condensed) => true,
+        (None, ListSize::Detailed) => false,
+    };
 
-        let attrs = self.map.attributes().mods(self.score.mods.bits()).build();
+    let pagination = TopPagination::builder()
+        .user(user)
+        .mode(mode)
+        .entries(entries)
+        .sort_by(args.sort_by)
+        .condensed_list(condensed_list)
+        .score_data(score_data)
+        .content(content.unwrap_or_default().into_boxed_str())
+        .msg_owner(msg_owner)
+        .build();
 
-        matches &= criteria.ar.contains(attrs.ar as f32);
-        matches &= criteria.cs.contains(attrs.cs as f32);
-        matches &= criteria.hp.contains(attrs.hp as f32);
-        matches &= criteria.od.contains(attrs.od as f32);
-
-        let keys = [
-            (GameModIntermode::OneKey, 1.0),
-            (GameModIntermode::TwoKeys, 2.0),
-            (GameModIntermode::ThreeKeys, 3.0),
-            (GameModIntermode::FourKeys, 4.0),
-            (GameModIntermode::FiveKeys, 5.0),
-            (GameModIntermode::SixKeys, 6.0),
-            (GameModIntermode::SevenKeys, 7.0),
-            (GameModIntermode::EightKeys, 8.0),
-            (GameModIntermode::NineKeys, 9.0),
-            (GameModIntermode::TenKeys, 10.0),
-        ]
-        .into_iter()
-        .find_map(|(gamemod, keys)| self.score.mods.contains_intermode(gamemod).then_some(keys))
-        .unwrap_or(attrs.cs as f32);
-
-        matches &= self.map.mode() != GameMode::Mania || criteria.keys.contains(keys);
-
-        if !matches
-            || (criteria.length.is_empty()
-                && criteria.bpm.is_empty()
-                && criteria.artist.is_empty()
-                && criteria.creator.is_empty()
-                && criteria.version.is_empty()
-                && criteria.title.is_empty()
-                && !criteria.has_search_terms())
-        {
-            return matches;
-        }
-
-        let clock_rate = attrs.clock_rate as f32;
-        matches &= criteria
-            .length
-            .contains(self.map.seconds_drain() as f32 / clock_rate);
-        matches &= criteria.bpm.contains(self.map.bpm() * clock_rate);
-
-        if !matches
-            || (criteria.artist.is_empty()
-                && criteria.creator.is_empty()
-                && criteria.title.is_empty()
-                && criteria.version.is_empty()
-                && !criteria.has_search_terms())
-        {
-            return matches;
-        }
-
-        let artist = self.map.artist().cow_to_ascii_lowercase();
-        matches &= criteria.artist.matches(&artist);
-
-        let creator = self.map.creator().cow_to_ascii_lowercase();
-        matches &= criteria.creator.matches(&creator);
-
-        let version = self.map.version().cow_to_ascii_lowercase();
-        matches &= criteria.version.matches(&version);
-
-        let title = self.map.title().cow_to_ascii_lowercase();
-        matches &= criteria.title.matches(&title);
-
-        if matches && criteria.has_search_terms() {
-            let terms = [artist, creator, version, title];
-
-            matches &= criteria
-                .search_terms()
-                .all(|term| terms.iter().any(|searchable| searchable.contains(term)))
-        }
-
-        matches
-    }
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(orig)
+        .await
 }
 
 async fn process_scores(
     scores: Vec<Score>,
     args: &TopArgs<'_>,
+    with_render: bool,
     score_data: ScoreData,
-) -> Result<Vec<TopEntry>> {
-    let mut entries = Vec::with_capacity(scores.len());
+) -> Result<Vec<ScoreEmbedDataWrap>> {
+    let legacy_scores = score_data.is_legacy();
+    let mut entries = Vec::<ScoreEmbedDataWrap>::with_capacity(scores.len());
 
     let acc_range = match (args.min_acc, args.max_acc) {
         (None, None) => None,
@@ -1168,67 +962,87 @@ async fn process_scores(
         let Some(mut map) = maps.remove(&score.map_id) else {
             continue;
         };
+
         map = map.convert(score.mode);
 
-        let attrs = Context::pp(&map)
-            .mode(score.mode)
-            .mods(&score.mods)
-            .performance()
-            .await;
+        let map_checksum = score
+            .map
+            .as_ref()
+            .filter(|_| score.replay)
+            .and_then(|map| map.checksum.clone());
 
-        let pp = score.pp.unwrap_or(0.0);
+        let pb_idx = Some(ScoreEmbedDataPersonalBest::from_index(i));
 
-        let max_pp = if score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania {
-            pp
-        } else {
-            attrs.pp() as f32
-        };
-
-        let entry = TopEntry {
-            original_idx: i,
-            replay: score.replay,
-            score: ScoreSlim::new(score, pp),
+        let half = ScoreEmbedDataHalf::new(
+            score,
             map,
-            max_pp,
-            stars: attrs.stars() as f32,
-            max_combo: attrs.max_combo(),
-        };
+            map_checksum,
+            pb_idx,
+            legacy_scores,
+            with_render,
+            MissAnalyzerCheck::without(),
+        )
+        .await;
 
         if let Some(ref criteria) = filter_criteria {
-            if entry.matches(criteria) {
-                entries.push(entry);
+            if half.matches(criteria) {
+                entries.push(half.into());
             }
         } else {
-            entries.push(entry);
+            entries.push(half.into());
         }
     }
 
     if let Some(perfect_combo) = args.perfect_combo {
-        entries.retain(|entry| perfect_combo == (entry.max_combo == entry.score.max_combo));
+        entries.retain(|entry| {
+            perfect_combo == (entry.get_half().max_combo == entry.get_half().score.max_combo)
+        });
     }
 
     match args.sort_by {
-        TopScoreOrder::Acc => entries.sort_by(|a, b| b.score.accuracy.total_cmp(&a.score.accuracy)),
-        TopScoreOrder::Ar => entries.sort_by(|a, b| b.ar().total_cmp(&a.ar())),
+        TopScoreOrder::Acc => entries.sort_by(|a, b| {
+            b.get_half()
+                .score
+                .accuracy
+                .total_cmp(&a.get_half().score.accuracy)
+        }),
+        TopScoreOrder::Ar => {
+            entries.sort_by(|a, b| b.get_half().ar().total_cmp(&a.get_half().ar()))
+        }
         TopScoreOrder::Bpm => entries.sort_by(|a, b| {
-            let a_bpm = a.map.bpm() * a.score.mods.clock_rate().unwrap_or(1.0);
-            let b_bpm = b.map.bpm() * b.score.mods.clock_rate().unwrap_or(1.0);
+            let a_bpm =
+                a.get_half().map.bpm() * a.get_half().score.mods.clock_rate().unwrap_or(1.0);
+            let b_bpm =
+                b.get_half().map.bpm() * b.get_half().score.mods.clock_rate().unwrap_or(1.0);
 
             b_bpm.total_cmp(&a_bpm)
         }),
-        TopScoreOrder::Combo => entries.sort_by_key(|entry| Reverse(entry.score.max_combo)),
-        TopScoreOrder::Cs => entries.sort_by(|a, b| b.cs().total_cmp(&a.cs())),
-        TopScoreOrder::Date => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
-        TopScoreOrder::Hp => entries.sort_by(|a, b| b.hp().total_cmp(&a.hp())),
+        TopScoreOrder::Combo => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.max_combo))
+        }
+        TopScoreOrder::Cs => {
+            entries.sort_by(|a, b| b.get_half().cs().total_cmp(&a.get_half().cs()))
+        }
+        TopScoreOrder::Date => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.ended_at))
+        }
+        TopScoreOrder::Hp => {
+            entries.sort_by(|a, b| b.get_half().hp().total_cmp(&a.get_half().hp()))
+        }
         TopScoreOrder::Length => {
             entries.sort_by(|a, b| {
-                let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
-                let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
+                let a_len = a.get_half().map.seconds_drain() as f32
+                    / a.get_half().score.mods.clock_rate().unwrap_or(1.0);
+                let b_len = b.get_half().map.seconds_drain() as f32
+                    / b.get_half().score.mods.clock_rate().unwrap_or(1.0);
 
                 b_len.total_cmp(&a_len)
             });
         }
         TopScoreOrder::Misses => entries.sort_by(|a, b| {
+            let a = a.get_half();
+            let b = b.get_half();
+
             b.score
                 .statistics
                 .count_miss
@@ -1245,14 +1059,22 @@ async fn process_scores(
                         .then_with(|| hits_b.cmp(&hits_a))
                 })
         }),
-        TopScoreOrder::Od => entries.sort_by(|a, b| b.od().total_cmp(&a.od())),
-        TopScoreOrder::Pp => entries.sort_by(|a, b| b.score.pp.total_cmp(&a.score.pp)),
-        TopScoreOrder::RankedDate => entries.sort_by_key(|entry| Reverse(entry.map.ranked_date())),
-        TopScoreOrder::Score if score_data == ScoreData::LazerWithClassicScoring => {
-            entries.sort_by_key(|entry| Reverse(entry.score.classic_score))
+        TopScoreOrder::Od => {
+            entries.sort_by(|a, b| b.get_half().od().total_cmp(&a.get_half().od()))
         }
-        TopScoreOrder::Score => entries.sort_by_key(|entry| Reverse(entry.score.score)),
-        TopScoreOrder::Stars => entries.sort_by(|a, b| b.stars.total_cmp(&a.stars)),
+        TopScoreOrder::Pp => {
+            entries.sort_by(|a, b| b.get_half().score.pp.total_cmp(&a.get_half().score.pp))
+        }
+        TopScoreOrder::RankedDate => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().map.ranked_date()))
+        }
+        TopScoreOrder::Score if score_data == ScoreData::LazerWithClassicScoring => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.classic_score))
+        }
+        TopScoreOrder::Score => entries.sort_by_key(|entry| Reverse(entry.get_half().score.score)),
+        TopScoreOrder::Stars => {
+            entries.sort_by(|a, b| b.get_half().stars.total_cmp(&a.get_half().stars))
+        }
     }
 
     if args.reverse {
@@ -1449,19 +1271,17 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
 
 #[derive(Default)]
 struct GuildValues {
-    minimized_pp: Option<MinimizedPp>,
-    score_size: Option<ScoreSize>,
     list_size: Option<ListSize>,
     render_button: Option<bool>,
+    score_data: Option<ScoreData>,
 }
 
 impl From<&GuildConfig> for GuildValues {
     fn from(config: &GuildConfig) -> Self {
         Self {
-            minimized_pp: config.minimized_pp,
-            score_size: config.score_size,
             list_size: config.list_size,
             render_button: config.render_button,
+            score_data: config.score_data,
         }
     }
 }

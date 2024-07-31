@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Write};
 
 use bathbot_macros::SlashCommand;
+use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::osu::MapBookmark;
 use bathbot_util::{constants::GENERAL_ISSUE, CowUtils, MessageOrigin};
 use eyre::Result;
@@ -9,7 +10,6 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 
 use crate::{
     active::{impls::BookmarksPagination, ActiveMessages},
-    commands::GameModeOption,
     core::Context,
     util::{
         interaction::InteractionCommand,

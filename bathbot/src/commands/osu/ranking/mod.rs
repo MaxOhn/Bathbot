@@ -1,14 +1,12 @@
 use std::borrow::Cow;
 
 use bathbot_macros::SlashCommand;
+use bathbot_model::command_fields::GameModeOption;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 pub use self::{countries::*, players::*};
-use crate::{
-    commands::GameModeOption,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-};
+use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
 
 mod countries;
 mod players;

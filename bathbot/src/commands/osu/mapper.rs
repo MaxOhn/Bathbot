@@ -4,27 +4,33 @@ use std::{
 };
 
 use bathbot_macros::{command, HasName, SlashCommand};
-use bathbot_model::ScoreSlim;
-use bathbot_psql::model::configs::{ListSize, MinimizedPp};
+use bathbot_model::command_fields::GameModeOption;
+use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, CowUtils,
 };
 use eyre::{Report, Result};
 use rosu_v2::{
-    prelude::{GameMode, Grade, OsuError, Score},
+    prelude::{GameMode, OsuError, Score},
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::{
+    guild::Permissions,
+    id::{marker::UserMarker, Id},
+};
 
-use super::{require_link, user_not_found, ScoreOrder, TopEntry};
+use super::{require_link, user_not_found, ScoreOrder};
 use crate::{
-    active::{impls::TopPagination, ActiveMessages},
-    commands::GameModeOption,
+    active::{
+        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
+        ActiveMessages,
+    },
+    commands::utility::{MissAnalyzerCheck, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap},
     core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
+    util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
 
@@ -232,17 +238,20 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
         },
     };
 
-    let score_data = match config.score_data {
-        Some(score_data) => score_data,
-        None => match orig.guild_id() {
-            Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| config.score_data)
+    let GuildValues {
+        list_size: guild_list_size,
+        render_button: guild_render_button,
+        score_data: guild_score_data,
+    } = match orig.guild_id() {
+        Some(guild_id) => {
+            Context::guild_config()
+                .peek(guild_id, |config| GuildValues::from(config))
                 .await
-                .unwrap_or_default(),
-            None => Default::default(),
-        },
+        }
+        None => GuildValues::default(),
     };
 
+    let score_data = config.score_data.or(guild_score_data).unwrap_or_default();
     let legacy_scores = score_data.is_legacy();
 
     let mapper = args.mapper.cow_to_ascii_lowercase();
@@ -283,14 +292,25 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
 
     let username = user.username();
 
-    let entries = match process_scores(scores, mapper_id, args.sort).await {
-        Ok(entries) => entries,
-        Err(err) => {
-            let _ = orig.error(GENERAL_ISSUE).await;
-
-            return Err(err.wrap_err("failed to process scores"));
-        }
+    let mut with_render = match (guild_render_button, config.render_button) {
+        (None | Some(true), None) => true,
+        (None | Some(true), Some(with_render)) => with_render,
+        (Some(false), _) => false,
     };
+
+    with_render &= mode == GameMode::Osu
+        && orig.has_permission_to(Permissions::SEND_MESSAGES)
+        && Context::ordr().is_some();
+
+    let entries =
+        match process_scores(scores, mapper_id, args.sort, with_render, legacy_scores).await {
+            Ok(entries) => entries,
+            Err(err) => {
+                let _ = orig.error(GENERAL_ISSUE).await;
+
+                return Err(err.wrap_err("failed to process scores"));
+            }
+        };
 
     // Accumulate all necessary data
     let content = match mapper_name {
@@ -331,38 +351,38 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
 
     let sort_by = args.sort.unwrap_or(ScoreOrder::Pp).into();
 
-    let list_size = match args.size.or(config.list_size) {
-        Some(size) => size,
-        None => match orig.guild_id() {
-            Some(guild_id) => Context::guild_config()
-                .peek(guild_id, |config| config.list_size)
-                .await
-                .unwrap_or_default(),
-            None => ListSize::default(),
-        },
-    };
+    let list_size = args
+        .size
+        .or(config.list_size)
+        .or(guild_list_size)
+        .unwrap_or_default();
 
-    let minimized_pp = match config.minimized_pp {
-        Some(minimized_pp) => minimized_pp,
-        None => match list_size {
-            ListSize::Condensed | ListSize::Detailed => MinimizedPp::default(),
-            ListSize::Single => match orig.guild_id() {
-                Some(guild_id) => Context::guild_config()
-                    .peek(guild_id, |config| config.minimized_pp)
-                    .await
-                    .unwrap_or_default(),
-                None => MinimizedPp::default(),
-            },
-        },
+    let entries = entries.into_boxed_slice();
+
+    let condensed_list = match list_size {
+        ListSize::Condensed => true,
+        ListSize::Detailed => false,
+        ListSize::Single => {
+            let settings = config.score_embed.unwrap_or_default();
+            let content = SingleScoreContent::SameForAll(content);
+
+            let pagination = SingleScorePagination::new(
+                &user, entries, settings, score_data, msg_owner, content,
+            );
+
+            return ActiveMessages::builder(pagination)
+                .start_by_update(true)
+                .begin(orig)
+                .await;
+        }
     };
 
     let pagination = TopPagination::builder()
         .user(user)
         .mode(mode)
-        .entries(entries.into_boxed_slice())
+        .entries(entries)
         .sort_by(sort_by)
-        .list_size(list_size)
-        .minimized_pp(minimized_pp)
+        .condensed_list(condensed_list)
         .score_data(score_data)
         .content(content.into_boxed_str())
         .msg_owner(msg_owner)
@@ -378,7 +398,9 @@ async fn process_scores(
     scores: Vec<Score>,
     mapper_id: u32,
     sort: Option<ScoreOrder>,
-) -> Result<Vec<TopEntry>> {
+    with_render: bool,
+    legacy_scores: bool,
+) -> Result<Vec<ScoreEmbedDataWrap>> {
     let mut entries = Vec::new();
 
     let maps_id_checksum = scores
@@ -394,32 +416,27 @@ async fn process_scores(
         let Some(mut map) = maps.remove(&score.map_id) else {
             continue;
         };
+
         map.convert_mut(score.mode);
 
-        let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
-        let attrs = calc.difficulty().await;
-        let stars = attrs.stars() as f32;
-        let max_combo = attrs.max_combo();
+        let map_checksum = score
+            .map
+            .as_ref()
+            .filter(|_| score.replay)
+            .and_then(|map| map.checksum.clone());
 
-        let pp = score.pp.expect("missing pp");
+        let pb_idx = Some(ScoreEmbedDataPersonalBest::from_index(i));
 
-        let max_pp = match score
-            .pp
-            .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
-        {
-            Some(pp) => pp,
-            None => calc.performance().await.pp() as f32,
-        };
-
-        let entry = TopEntry {
-            original_idx: i,
-            replay: score.replay,
-            score: ScoreSlim::new(score, pp),
+        let entry = ScoreEmbedDataWrap::new_half(
+            score,
             map,
-            max_pp,
-            stars,
-            max_combo,
-        };
+            map_checksum,
+            pb_idx,
+            legacy_scores,
+            with_render,
+            MissAnalyzerCheck::without(),
+        )
+        .await;
 
         entries.push(entry);
     }
@@ -427,28 +444,39 @@ async fn process_scores(
     match sort {
         None => {}
         Some(ScoreOrder::Acc) => entries.sort_by(|a, b| {
-            b.score
+            b.get_half()
+                .score
                 .accuracy
-                .partial_cmp(&a.score.accuracy)
+                .partial_cmp(&a.get_half().score.accuracy)
                 .unwrap_or(Ordering::Equal)
         }),
         Some(ScoreOrder::Bpm) => entries.sort_by(|a, b| {
-            b.map
+            b.get_half()
+                .map
                 .bpm()
-                .partial_cmp(&a.map.bpm())
+                .partial_cmp(&a.get_half().map.bpm())
                 .unwrap_or(Ordering::Equal)
         }),
-        Some(ScoreOrder::Combo) => entries.sort_by_key(|entry| Reverse(entry.score.max_combo)),
-        Some(ScoreOrder::Date) => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
+        Some(ScoreOrder::Combo) => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.max_combo))
+        }
+        Some(ScoreOrder::Date) => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.ended_at))
+        }
         Some(ScoreOrder::Length) => {
             entries.sort_by(|a, b| {
-                let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
-                let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
+                let a_len = a.get_half().map.seconds_drain() as f32
+                    / a.get_half().score.mods.clock_rate().unwrap_or(1.0);
+                let b_len = b.get_half().map.seconds_drain() as f32
+                    / b.get_half().score.mods.clock_rate().unwrap_or(1.0);
 
                 b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
             });
         }
         Some(ScoreOrder::Misses) => entries.sort_by(|a, b| {
+            let a = a.get_half();
+            let b = b.get_half();
+
             b.score
                 .statistics
                 .count_miss
@@ -467,19 +495,42 @@ async fn process_scores(
                 })
         }),
         Some(ScoreOrder::Pp) => entries.sort_by(|a, b| {
-            b.score
+            b.get_half()
+                .score
                 .pp
-                .partial_cmp(&a.score.pp)
+                .partial_cmp(&a.get_half().score.pp)
                 .unwrap_or(Ordering::Equal)
         }),
         Some(ScoreOrder::RankedDate) => {
-            entries.sort_by_key(|entry| Reverse(entry.map.ranked_date()))
+            entries.sort_by_key(|entry| Reverse(entry.get_half().map.ranked_date()))
         }
-        Some(ScoreOrder::Score) => entries.sort_by_key(|entry| Reverse(entry.score.score)),
-        Some(ScoreOrder::Stars) => {
-            entries.sort_by(|a, b| b.stars.partial_cmp(&a.stars).unwrap_or(Ordering::Equal))
+        Some(ScoreOrder::Score) => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.score))
         }
+        Some(ScoreOrder::Stars) => entries.sort_by(|a, b| {
+            b.get_half()
+                .stars
+                .partial_cmp(&a.get_half().stars)
+                .unwrap_or(Ordering::Equal)
+        }),
     }
 
     Ok(entries)
+}
+
+#[derive(Default)]
+struct GuildValues {
+    list_size: Option<ListSize>,
+    render_button: Option<bool>,
+    score_data: Option<ScoreData>,
+}
+
+impl From<&GuildConfig> for GuildValues {
+    fn from(config: &GuildConfig) -> Self {
+        Self {
+            list_size: config.list_size,
+            render_button: config.render_button,
+            score_data: config.score_data,
+        }
+    }
 }

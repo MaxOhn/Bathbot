@@ -468,10 +468,6 @@ impl OsuMapSlim {
         self.map.mapset_id as u32
     }
 
-    pub fn creator_id(&self) -> u32 {
-        self.map.user_id as u32
-    }
-
     pub fn version(&self) -> &str {
         self.map.map_version.as_str()
     }
@@ -498,6 +494,10 @@ impl OsuMapSlim {
 
     pub fn n_circles(&self) -> usize {
         self.map.count_circles as usize
+    }
+
+    pub fn n_spinners(&self) -> usize {
+        self.map.count_spinners as usize
     }
 
     pub fn n_objects(&self) -> u32 {
@@ -563,10 +563,6 @@ impl OsuMap {
         self.convert_mut(mode);
 
         self
-    }
-
-    pub fn footer_text(&self) -> String {
-        format!("{:?} mapset of {}", self.status(), self.creator())
     }
 }
 

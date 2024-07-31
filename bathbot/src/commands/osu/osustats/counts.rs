@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::{
     constants::{OSUSTATS_API_ISSUE, OSU_API_ISSUE},
     matcher, MessageBuilder,
@@ -12,7 +13,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::OsuStatsCount;
 use crate::{
-    commands::{osu::user_not_found, GameModeOption},
+    commands::osu::user_not_found,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, OsuStatsCountsEmbed},
     manager::redis::osu::UserArgs,

@@ -140,7 +140,7 @@ pub fn handle_pagination_component<'a>(
     fut.boxed()
 }
 
-async fn async_handle_pagination_component(
+pub async fn async_handle_pagination_component(
     component: &mut InteractionComponent,
     msg_owner: Id<UserMarker>,
     defer: bool,

@@ -4,20 +4,17 @@ use std::{
 };
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
-use bathbot_model::ScoreSlim;
-use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreData, ScoreSize};
+use bathbot_model::command_fields::GameModeOption;
+use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     osu::ModSelection,
+    MessageOrigin,
 };
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
 use rosu_v2::{
-    prelude::{
-        GameMode, Grade, OsuError,
-        RankStatus::{Approved, Loved, Qualified, Ranked},
-        Score,
-    },
+    prelude::{GameMode, OsuError, Score},
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -26,23 +23,23 @@ use twilight_model::{
     id::{marker::UserMarker, Id},
 };
 
-use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder, TopEntry};
+use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
 use crate::{
     active::{
-        impls::{TopPagination, TopScoreEdit},
+        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
         ActiveMessages,
     },
-    commands::GameModeOption,
+    commands::utility::{
+        MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
+    },
     core::commands::CommandOrigin,
-    manager::{
-        redis::{
-            osu::{UserArgs, UserArgsSlim},
-            RedisData,
-        },
-        OwnedReplayScore,
+    manager::redis::{
+        osu::{UserArgs, UserArgsSlim},
+        RedisData,
     },
     util::{
         interaction::InteractionCommand,
+        osu::PersonalBestIndex,
         query::{IFilterCriteria, Searchable, TopCriteria},
         CheckPermissions, InteractionCommandExt,
     },
@@ -133,13 +130,13 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
         .or(config.mode)
         .unwrap_or(GameMode::Osu);
 
+    let guild_id = orig.guild_id();
+
     let GuildValues {
-        minimized_pp: guild_minimized_pp,
-        score_size: guild_score_size,
         list_size: guild_list_size,
         render_button: guild_render_button,
         score_data: guild_score_data,
-    } = match orig.guild_id() {
+    } = match guild_id {
         Some(guild_id) => {
             Context::guild_config()
                 .peek(guild_id, |config| GuildValues::from(config))
@@ -153,8 +150,6 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
         .or(config.list_size)
         .or(guild_list_size)
         .unwrap_or_default();
-
-    let size_single = matches!(list_size, ListSize::Single);
 
     let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
@@ -230,9 +225,31 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
         }
     };
 
+    let mut with_render = match (guild_render_button, config.render_button) {
+        (None | Some(true), None) => true,
+        (None | Some(true), Some(with_render)) => with_render,
+        (Some(false), _) => false,
+    };
+
+    with_render &= mode == GameMode::Osu
+        && orig.has_permission_to(Permissions::SEND_MESSAGES)
+        && Context::ordr().is_some();
+
+    let origin = MessageOrigin::new(guild_id, orig.channel_id());
+
     let pre_len = pinned.len();
 
-    let entries = match process_scores(pinned, &args, mods.as_ref(), &top100, size_single).await {
+    let entries = match process_scores(
+        pinned,
+        &args,
+        mods.as_ref(),
+        &top100,
+        with_render,
+        legacy_scores,
+        &origin,
+    )
+    .await
+    {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(GENERAL_ISSUE).await;
@@ -271,132 +288,48 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
         .map(|num| num.saturating_sub(1))
         .or_else(|| (post_len == 1).then_some(0));
 
-    if let Some(idx) = single_idx {
-        let entry = &entries[idx];
-        let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
+    let entries = entries.into_boxed_slice();
 
-        let minimized_pp = config
-            .minimized_pp
-            .or(guild_minimized_pp)
-            .unwrap_or_default();
+    let content = write_content(username, &args, entries.len(), mods.as_ref());
+    let sort_by = args.sort.unwrap_or(ScoreOrder::Pp).into(); // TopOrder::Pp does not show anything
 
-        let content = write_content(username, &args, 1, mods);
+    let condensed_list = match (single_idx, list_size) {
+        (Some(_), _) | (None, ListSize::Single) => {
+            let settings = config.score_embed.unwrap_or_default();
+            let content = content.map_or(SingleScoreContent::None, SingleScoreContent::SameForAll);
 
-        let user_id = user.user_id();
+            let mut pagination = SingleScorePagination::new(
+                &user, entries, settings, score_data, msg_owner, content,
+            );
 
-        let mut with_render = match (guild_render_button, config.render_button) {
-            (None | Some(true), None) => true,
-            (None | Some(true), Some(with_render)) => with_render,
-            (Some(false), _) => false,
-        };
-
-        with_render &= mode == GameMode::Osu
-            && entry.replay
-            && orig.has_permission_to(Permissions::SEND_MESSAGES)
-            && Context::ordr().is_some();
-
-        let replay_score = if with_render {
-            match Context::osu_map().checksum(entry.map.map_id()).await {
-                Ok(Some(checksum)) => {
-                    Some(OwnedReplayScore::from_top_entry(entry, username, checksum))
-                }
-                Ok(None) => None,
-                Err(err) => {
-                    warn!(?err);
-
-                    None
-                }
+            if let Some(idx) = single_idx {
+                pagination.set_index(idx);
             }
-        } else {
-            None
-        };
 
-        // Get indices of score in user top100 and map top50
-        let (personal_idx, global_idx) = match entry.map.status() {
-            Ranked | Loved | Qualified | Approved => {
-                let user_args = UserArgsSlim::user_id(user_id).mode(entry.score.mode);
-                let best_fut = Context::osu_scores()
-                    .top(legacy_scores)
-                    .limit(100)
-                    .exec(user_args);
+            return ActiveMessages::builder(pagination)
+                .start_by_update(true)
+                .begin(orig)
+                .await;
+        }
+        (None, ListSize::Condensed) => true,
+        (None, ListSize::Detailed) => false,
+    };
 
-                let global_fut = Context::osu_scores().map_leaderboard(
-                    entry.map.map_id(),
-                    entry.score.mode,
-                    None,
-                    50,
-                    legacy_scores,
-                );
-                let (best_res, global_res) = tokio::join!(best_fut, global_fut);
+    let pagination = TopPagination::builder()
+        .user(user)
+        .mode(mode)
+        .entries(entries)
+        .sort_by(sort_by)
+        .condensed_list(condensed_list)
+        .score_data(score_data)
+        .content(content.unwrap_or_default().into_boxed_str())
+        .msg_owner(msg_owner)
+        .build();
 
-                let personal_idx = match best_res {
-                    Ok(scores) => scores.iter().position(|s| entry.score.is_eq(s)),
-                    Err(err) => {
-                        warn!(?err, "Failed to get top scores");
-
-                        None
-                    }
-                };
-
-                let global_idx = match global_res {
-                    Ok(scores) => scores
-                        .iter()
-                        .position(|s| s.user_id == user_id && entry.score.is_eq(s)),
-                    Err(err) => {
-                        warn!(?err, "Failed to get global scores");
-
-                        None
-                    }
-                };
-
-                (personal_idx, global_idx)
-            }
-            _ => (None, None),
-        };
-
-        let active_msg_fut = TopScoreEdit::create(
-            &user,
-            entry,
-            personal_idx,
-            global_idx,
-            minimized_pp,
-            entry.score.legacy_id,
-            replay_score,
-            score_size,
-            score_data,
-            content,
-        );
-
-        ActiveMessages::builder(active_msg_fut.await)
-            .start_by_update(true)
-            .begin(orig)
-            .await
-    } else {
-        let content = write_content(username, &args, entries.len(), mods);
-        let sort_by = args.sort.unwrap_or(ScoreOrder::Pp).into(); // TopOrder::Pp does not show anything
-
-        let minimized_pp = config
-            .minimized_pp
-            .or(guild_minimized_pp)
-            .unwrap_or_default();
-
-        let pagination = TopPagination::builder()
-            .user(user)
-            .mode(mode)
-            .entries(entries.into_boxed_slice())
-            .sort_by(sort_by)
-            .list_size(list_size)
-            .minimized_pp(minimized_pp)
-            .score_data(score_data)
-            .content(content.unwrap_or_default().into_boxed_str())
-            .msg_owner(msg_owner)
-            .build();
-
-        ActiveMessages::builder(pagination)
-            .start_by_update(true)
-            .begin(orig)
-            .await
-    }
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(orig)
+        .await
 }
 
 async fn process_scores(
@@ -404,11 +337,13 @@ async fn process_scores(
     args: &Pinned,
     mods: Option<&ModSelection>,
     top100: &[Score],
-    size_single: bool,
-) -> Result<Vec<TopEntry>> {
+    with_render: bool,
+    legacy_scores: bool,
+    origin: &MessageOrigin,
+) -> Result<Vec<ScoreEmbedDataWrap>> {
     let filter_criteria = args.query.as_deref().map(TopCriteria::create);
 
-    let mut entries = Vec::new();
+    let mut entries = Vec::<ScoreEmbedDataWrap>::new();
 
     let maps_id_checksum = pinned
         .iter()
@@ -422,84 +357,81 @@ async fn process_scores(
 
     let maps = Context::osu_map().maps(&maps_id_checksum).await?;
 
-    for (mut i, score) in pinned.into_iter().enumerate() {
+    for (i, score) in pinned.into_iter().enumerate() {
         let Some(mut map) = maps.get(&score.map_id).cloned() else {
             continue;
         };
+
         map.convert_mut(score.mode);
 
-        let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
-        let attrs = calc.difficulty().await;
-        let stars = attrs.stars() as f32;
-        let max_combo = attrs.max_combo();
+        let map_checksum = score
+            .map
+            .as_ref()
+            .filter(|_| score.replay)
+            .and_then(|map| map.checksum.clone());
 
-        let max_pp = match score
-            .pp
-            .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
-        {
-            Some(pp) => pp,
-            None => calc.performance().await.pp() as f32,
-        };
-
-        let pp = match score.pp {
-            Some(pp) => pp,
-            None => calc.score(&score).performance().await.pp() as f32,
-        };
-
-        let replay = score.replay;
-        let score = ScoreSlim::new(score, pp);
-
-        if size_single {
-            i = top100
-                .iter()
-                .position(|s| score.is_eq(s))
-                .unwrap_or(usize::MAX);
-        }
-
-        let entry = TopEntry {
-            original_idx: i,
+        let mut half = ScoreEmbedDataHalf::new(
             score,
             map,
-            max_pp,
-            stars,
-            max_combo,
-            replay,
-        };
+            map_checksum,
+            None,
+            legacy_scores,
+            with_render,
+            MissAnalyzerCheck::without(),
+        )
+        .await;
+
+        let pb_idx =
+            PersonalBestIndex::new(&half.score, half.map.map_id(), half.map.status(), top100);
+
+        half.pb_idx = ScoreEmbedDataPersonalBest::try_new(pb_idx, origin);
+        half.original_idx = Some(i);
 
         if let Some(ref criteria) = filter_criteria {
-            if entry.matches(criteria) {
-                entries.push(entry);
+            if half.matches(criteria) {
+                entries.push(half.into());
             }
         } else {
-            entries.push(entry);
+            entries.push(half.into());
         }
     }
 
     match args.sort {
         None => {}
         Some(ScoreOrder::Acc) => entries.sort_by(|a, b| {
-            b.score
+            b.get_half()
+                .score
                 .accuracy
-                .partial_cmp(&a.score.accuracy)
+                .partial_cmp(&a.get_half().score.accuracy)
                 .unwrap_or(Ordering::Equal)
         }),
         Some(ScoreOrder::Bpm) => entries.sort_by(|a, b| {
-            b.map
+            b.get_half()
+                .map
                 .bpm()
-                .partial_cmp(&a.map.bpm())
+                .partial_cmp(&a.get_half().map.bpm())
                 .unwrap_or(Ordering::Equal)
         }),
-        Some(ScoreOrder::Combo) => entries.sort_by_key(|entry| Reverse(entry.score.max_combo)),
-        Some(ScoreOrder::Date) => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
+        Some(ScoreOrder::Combo) => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.max_combo))
+        }
+        Some(ScoreOrder::Date) => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.ended_at))
+        }
         Some(ScoreOrder::Length) => {
             entries.sort_by(|a, b| {
-                let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
-                let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
+                let a_len = a.get_half().map.seconds_drain() as f32
+                    / a.get_half().score.mods.clock_rate().unwrap_or(1.0);
+                let b_len = b.get_half().map.seconds_drain() as f32
+                    / b.get_half().score.mods.clock_rate().unwrap_or(1.0);
 
                 b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
             });
         }
         Some(ScoreOrder::Misses) => entries.sort_by(|a, b| {
+            let a = a.get_half();
+            let b = b.get_half();
+
             b.score
                 .statistics
                 .count_miss
@@ -518,18 +450,24 @@ async fn process_scores(
                 })
         }),
         Some(ScoreOrder::Pp) => entries.sort_by(|a, b| {
-            b.score
+            b.get_half()
+                .score
                 .pp
-                .partial_cmp(&a.score.pp)
+                .partial_cmp(&a.get_half().score.pp)
                 .unwrap_or(Ordering::Equal)
         }),
         Some(ScoreOrder::RankedDate) => {
-            entries.sort_by_key(|entry| Reverse(entry.map.ranked_date()))
+            entries.sort_by_key(|entry| Reverse(entry.get_half().map.ranked_date()))
         }
-        Some(ScoreOrder::Score) => entries.sort_by_key(|entry| Reverse(entry.score.score)),
-        Some(ScoreOrder::Stars) => {
-            entries.sort_by(|a, b| b.stars.partial_cmp(&a.stars).unwrap_or(Ordering::Equal))
+        Some(ScoreOrder::Score) => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.score))
         }
+        Some(ScoreOrder::Stars) => entries.sort_by(|a, b| {
+            b.get_half()
+                .stars
+                .partial_cmp(&a.get_half().stars)
+                .unwrap_or(Ordering::Equal)
+        }),
     }
 
     Ok(entries)
@@ -539,7 +477,7 @@ fn write_content(
     name: &str,
     args: &Pinned,
     amount: usize,
-    mods: Option<ModSelection>,
+    mods: Option<&ModSelection>,
 ) -> Option<String> {
     if args.query.is_some() || mods.is_some() {
         Some(content_with_condition(args, amount, mods))
@@ -573,7 +511,7 @@ fn write_content(
     }
 }
 
-fn content_with_condition(args: &Pinned, amount: usize, mods: Option<ModSelection>) -> String {
+fn content_with_condition(args: &Pinned, amount: usize, mods: Option<&ModSelection>) -> String {
     let mut content = String::with_capacity(64);
 
     match args.sort {
@@ -616,8 +554,6 @@ fn content_with_condition(args: &Pinned, amount: usize, mods: Option<ModSelectio
 
 #[derive(Default)]
 struct GuildValues {
-    minimized_pp: Option<MinimizedPp>,
-    score_size: Option<ScoreSize>,
     list_size: Option<ListSize>,
     render_button: Option<bool>,
     score_data: Option<ScoreData>,
@@ -626,8 +562,6 @@ struct GuildValues {
 impl From<&GuildConfig> for GuildValues {
     fn from(config: &GuildConfig) -> Self {
         Self {
-            minimized_pp: config.minimized_pp,
-            score_size: config.score_size,
             list_size: config.list_size,
             render_button: config.render_button,
             score_data: config.score_data,

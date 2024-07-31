@@ -147,6 +147,12 @@ pub const TIME_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Component(Component::Second(<Second>::default())),
 ];
 
+pub const SHORT_TIME_FORMAT: &[FormatItem<'_>] = &[
+    FormatItem::Component(Component::Hour(<Hour>::default())),
+    FormatItem::Literal(b":"),
+    FormatItem::Component(Component::Minute(<Minute>::default())),
+];
+
 pub const OFFSET_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Component(Component::OffsetHour(OffsetHour::default())),
     FormatItem::Literal(b":"),
@@ -157,6 +163,12 @@ pub const NAIVE_DATETIME_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Compound(DATE_FORMAT),
     FormatItem::Literal(b" "),
     FormatItem::Compound(TIME_FORMAT),
+];
+
+pub const SHORT_NAIVE_DATETIME_FORMAT: &[FormatItem<'_>] = &[
+    FormatItem::Compound(DATE_FORMAT),
+    FormatItem::Literal(b" "),
+    FormatItem::Compound(SHORT_TIME_FORMAT),
 ];
 
 pub const DATETIME_FORMAT: &[FormatItem<'_>] = &[

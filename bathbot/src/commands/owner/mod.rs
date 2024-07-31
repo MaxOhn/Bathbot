@@ -1,4 +1,5 @@
 use bathbot_macros::SlashCommand;
+use bathbot_model::command_fields::GameModeOption;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::Attachment;
@@ -7,7 +8,6 @@ pub use self::reshard::RESHARD_TX;
 use self::{add_bg::*, cache::*, request_members::*};
 #[cfg(feature = "osutracking")]
 use self::{tracking_interval::*, tracking_stats::*};
-use super::GameModeOption;
 #[cfg(feature = "osutracking")]
 use crate::tracking::default_tracking_interval;
 use crate::{

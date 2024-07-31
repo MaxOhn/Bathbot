@@ -4,6 +4,7 @@ use std::{
 };
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
+use bathbot_model::command_fields::GradeOption;
 use bathbot_psql::model::osu::{DbScore, DbScoreBeatmap, DbScoreBeatmapset, DbScores};
 use bathbot_util::{CowUtils, IntHasher};
 use eyre::Result;
@@ -14,7 +15,6 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use self::{map::map_scores, server::server_scores, user::user_scores};
 use crate::{
-    commands::GradeOption,
     core::Context,
     util::{
         interaction::InteractionCommand,

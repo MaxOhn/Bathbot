@@ -24,23 +24,72 @@ use crate::{
 };
 
 pub struct CachedRender {
-    score_id: u64,
-    score: Option<OwnedReplayScore>,
+    data: CachedRenderData,
     video_url: Box<str>,
     msg_owner: Id<UserMarker>,
     done: bool,
 }
 
+pub enum CachedRenderData {
+    Replay {
+        replay: ReplayOrScoreId,
+        username: Box<str>,
+    },
+    ScoreId(u64),
+}
+
+pub enum ReplayOrScoreId {
+    Replay(OwnedReplayScore),
+    ScoreId(u64),
+}
+
+impl ReplayOrScoreId {
+    fn is_replay(&self) -> bool {
+        matches!(self, Self::Replay(_))
+    }
+
+    fn take(&mut self) -> Option<OwnedReplayScore> {
+        if let Self::Replay(replay) = self {
+            let score_id = replay.score_id;
+
+            let Self::Replay(replay) = mem::replace(self, Self::ScoreId(score_id)) else {
+                unreachable!()
+            };
+
+            Some(replay)
+        } else {
+            None
+        }
+    }
+
+    fn score_id(&self) -> u64 {
+        match self {
+            ReplayOrScoreId::Replay(replay) => replay.score_id,
+            ReplayOrScoreId::ScoreId(score_id) => *score_id,
+        }
+    }
+}
+
+impl CachedRenderData {
+    pub fn new_replay(replay: OwnedReplayScore, username: Box<str>) -> Self {
+        Self::Replay {
+            replay: ReplayOrScoreId::Replay(replay),
+            username,
+        }
+    }
+
+    fn score_id(&self) -> u64 {
+        match self {
+            CachedRenderData::Replay { replay, .. } => replay.score_id(),
+            CachedRenderData::ScoreId(score_id) => *score_id,
+        }
+    }
+}
+
 impl CachedRender {
-    pub fn new(
-        score_id: u64,
-        score: Option<OwnedReplayScore>,
-        video_url: Box<str>,
-        msg_owner: Id<UserMarker>,
-    ) -> Self {
+    pub fn new(data: CachedRenderData, video_url: Box<str>, msg_owner: Id<UserMarker>) -> Self {
         Self {
-            score_id,
-            score,
+            data,
             video_url,
             msg_owner,
             done: false,
@@ -86,26 +135,30 @@ impl CachedRender {
                 .wrap_err("Failed to reply for render cooldown error");
         }
 
-        let (mut status, (replay_res, settings_res)) = match self.score.take() {
-            Some(score) => {
+        let score_id = self.data.score_id();
+
+        let (mut status, (replay_res, settings_res)) = match &mut self.data {
+            CachedRenderData::Replay {
+                replay, username, ..
+            } if replay.is_replay() => {
                 let status = RenderStatus::new_preparing_replay();
                 let builder = status.as_message().components(Vec::new());
                 component.callback(builder).await?;
                 self.done = true;
 
                 let replay_manager = Context::replay();
-                let score = ReplayScore::from(score);
-                let replay_fut = replay_manager.get_replay(self.score_id, &score);
+                let score = ReplayScore::from(replay.take().expect("missing replay score"));
+                let replay_fut = replay_manager.get_replay(&score, username);
                 let settings_fut = replay_manager.get_settings(owner);
 
                 (status, tokio::join!(replay_fut, settings_fut))
             }
-            None => {
+            CachedRenderData::ScoreId(_) | CachedRenderData::Replay { .. } => {
                 let mut status = RenderStatus::new_requesting_score();
                 let builder = status.as_message().components(Vec::new());
                 component.callback(builder).await?;
                 self.done = true;
-                let score_fut = Context::osu().score(self.score_id).mode(GameMode::Osu);
+                let score_fut = Context::osu().score(score_id).mode(GameMode::Osu);
 
                 let score = match score_fut.await {
                     Ok(score) => score,
@@ -118,7 +171,7 @@ impl CachedRender {
                     }
                 };
 
-                let Some(replay_score) = ReplayScore::from_score(&score) else {
+                let Some(replay_score) = ReplayScore::try_from_score(&score) else {
                     let content = "Failed to prepare the replay";
                     let embed = EmbedBuilder::new().color_red().description(content);
                     let builder = MessageBuilder::new().embed(embed);
@@ -127,7 +180,7 @@ impl CachedRender {
                     return Ok(());
                 };
 
-                let Some(score_id) = score.legacy_score_id else {
+                if score.legacy_score_id.is_none() {
                     let content = "Scores on osu!lazer currently cannot be rendered :(";
                     let embed = EmbedBuilder::new().color_red().description(content);
                     let builder = MessageBuilder::new().embed(embed);
@@ -136,12 +189,18 @@ impl CachedRender {
                     return Ok(());
                 };
 
+                let username = score
+                    .user
+                    .as_ref()
+                    .map(|user| user.username.as_str())
+                    .unwrap_or_default();
+
                 // Just a status update, no need to propagate an error
                 status.set(RenderStatusInner::PreparingReplay);
                 let _ = component.update(status.as_message()).await;
 
                 let replay_manager = Context::replay();
-                let replay_fut = replay_manager.get_replay(score_id, &replay_score);
+                let replay_fut = replay_manager.get_replay(&replay_score, username);
                 let settings_fut = replay_manager.get_settings(owner);
 
                 (status, tokio::join!(replay_fut, settings_fut))
@@ -212,13 +271,8 @@ impl CachedRender {
             }
         };
 
-        let ongoing_fut = OngoingRender::new(
-            render.render_id,
-            &*component,
-            status,
-            Some(self.score_id),
-            owner,
-        );
+        let ongoing_fut =
+            OngoingRender::new(render.render_id, &*component, status, Some(score_id), owner);
 
         tokio::spawn(ongoing_fut.await.await_render_url());
 
@@ -227,7 +281,6 @@ impl CachedRender {
 
     async fn async_handle_component(
         &mut self,
-
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let res = match component.data.custom_id.as_str() {
@@ -288,7 +341,6 @@ impl IActiveMessage for CachedRender {
 
     fn handle_component<'a>(
         &'a mut self,
-
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         Box::pin(self.async_handle_component(component))

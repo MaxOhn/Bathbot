@@ -1,6 +1,8 @@
+use bathbot_model::command_fields::ScoreEmbedSettings;
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
 use rosu_v2::prelude::GameMode;
+use sqlx::types::Json;
 use time::UtcOffset;
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -18,9 +20,8 @@ impl Database {
             DbUserConfig,
             r#"
 SELECT 
-  score_size, 
   list_size, 
-  minimized_pp, 
+  score_embed as "score_embed: Json<ScoreEmbedSettings>", 
   gamemode, 
   osu_id, 
   retries, 
@@ -252,9 +253,8 @@ FROM
         config: &UserConfig<OsuUserId>,
     ) -> Result<()> {
         let UserConfig {
-            score_size,
             list_size,
-            minimized_pp,
+            score_embed,
             mode,
             osu,
             retries,
@@ -268,31 +268,28 @@ FROM
             r#"
 INSERT INTO user_configs (
   discord_id, osu_id, gamemode, twitch_id, 
-  score_size, retries, minimized_pp, 
-  list_size, timezone_seconds, render_button, 
-  score_data
+  retries, score_embed, list_size, 
+  timezone_seconds, render_button, score_data
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (discord_id) DO 
+  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (discord_id) DO 
 UPDATE 
 SET 
   osu_id = $2, 
   gamemode = $3, 
   twitch_id = $4, 
-  score_size = $5, 
-  retries = $6, 
-  minimized_pp = $7, 
-  list_size = $8, 
-  timezone_seconds = $9, 
-  render_button = $10, 
-  score_data = $11"#,
+  retries = $5, 
+  score_embed = $6, 
+  list_size = $7, 
+  timezone_seconds = $8, 
+  render_button = $9, 
+  score_data = $10"#,
             user_id.get() as i64,
             osu.map(|id| id as i32),
             mode.map(|mode| mode as i16) as Option<i16>,
             twitch_id.map(|id| id as i64),
-            score_size.map(i16::from),
             retries.map(i16::from),
-            minimized_pp.map(i16::from),
+            score_embed.as_ref().map(Json) as Option<Json<_>>,
             list_size.map(i16::from),
             timezone.map(UtcOffset::whole_seconds),
             *render_button,
@@ -305,6 +302,35 @@ SET
             .wrap_err("failed to execute query")?;
 
         debug!(user_id = user_id.get(), "Inserted UserConfig into DB");
+
+        Ok(())
+    }
+
+    pub async fn update_score_embed_settings(
+        &self,
+        user_id: Id<UserMarker>,
+        settings: &ScoreEmbedSettings,
+    ) -> Result<()> {
+        let query = sqlx::query!(
+            r#"
+UPDATE user_configs
+SET
+  score_embed = $2
+WHERE
+  discord_id = $1"#,
+            user_id.get() as i64,
+            Json(settings) as Json<_>,
+        );
+
+        query
+            .execute(self)
+            .await
+            .wrap_err("Failed to execute query")?;
+
+        debug!(
+            user_id = user_id.get(),
+            "Inserted score embed settings into DB"
+        );
 
         Ok(())
     }

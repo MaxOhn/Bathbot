@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Write};
 
 use bathbot_macros::{command, HasName, SlashCommand};
-use bathbot_model::ScoreSlim;
+use bathbot_model::{command_fields::GameModeOption, ScoreSlim};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -20,10 +20,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     active::{impls::TopIfPagination, ActiveMessages},
-    commands::{
-        osu::{require_link, user_not_found},
-        GameModeOption,
-    },
+    commands::osu::{require_link, user_not_found},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     util::{

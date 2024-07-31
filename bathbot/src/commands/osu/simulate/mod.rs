@@ -4,6 +4,7 @@ pub mod parsed_map;
 use std::borrow::Cow;
 
 use bathbot_macros::{command, HasMods, SlashCommand};
+use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::MapIdType};
 use eyre::Result;
 use rosu_v2::prelude::{GameMode, GameModsIntermode};
@@ -23,7 +24,7 @@ use crate::{
         impls::{SimulateAttributes, SimulateComponents, SimulateData, SimulateMap, TopOldVersion},
         ActiveMessages,
     },
-    commands::{osu::parsed_map::AttachedSimulateMap, GameModeOption},
+    commands::osu::parsed_map::AttachedSimulateMap,
     core::{
         commands::{prefix::Args, CommandOrigin},
         Context,

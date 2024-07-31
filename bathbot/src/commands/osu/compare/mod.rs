@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use bathbot_macros::SlashCommand;
+use bathbot_model::command_fields::GameModeOption;
 use eyre::Result;
 use twilight_interactions::command::{
     AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
@@ -13,10 +14,7 @@ pub use self::{
     profile::*,
     score::{slash_compare as slash_compare_score, *},
 };
-use crate::{
-    commands::GameModeOption,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-};
+use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
 
 mod common;
 mod most_played;

@@ -1,3 +1,4 @@
+use bathbot_model::command_fields::ScoreEmbedSettings;
 use bathbot_psql::{
     model::configs::{OsuUserId, SkinEntry, UserConfig},
     Database,
@@ -114,5 +115,16 @@ impl UserConfigManager {
             .upsert_user_config(user_id, config)
             .await
             .wrap_err("failed to store user config")
+    }
+
+    pub async fn store_score_embed_settings(
+        self,
+        user_id: Id<UserMarker>,
+        settings: &ScoreEmbedSettings,
+    ) -> Result<()> {
+        self.psql
+            .update_score_embed_settings(user_id, settings)
+            .await
+            .wrap_err("Failed to store score embed settings")
     }
 }

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::constants::OSU_API_ISSUE;
 use eyre::{Report, Result};
 use rosu_v2::prelude::{
@@ -11,7 +12,6 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 
 use crate::{
     active::{impls::MapSearchPagination, ActiveMessages},
-    commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,

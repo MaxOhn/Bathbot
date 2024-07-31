@@ -2,7 +2,8 @@ use std::{borrow::Cow, iter, mem};
 
 use bathbot_macros::command;
 use bathbot_model::{
-    rosu_v2::ranking::Rankings, Countries, Either, RankingEntries, RankingEntry, RankingKind,
+    command_fields::GameModeOption, rosu_v2::ranking::Rankings, Countries, Either, RankingEntries,
+    RankingEntry, RankingKind,
 };
 use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
 use eyre::{Report, Result};
@@ -11,7 +12,6 @@ use rosu_v2::prelude::{CountryCode, GameMode, OsuResult, Rankings as RosuRanking
 use super::{RankingPp, RankingScore};
 use crate::{
     active::{impls::RankingPagination, ActiveMessages},
-    commands::GameModeOption,
     core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,

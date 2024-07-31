@@ -2,7 +2,8 @@ use std::{borrow::Cow, collections::BTreeMap, fmt::Write, ops::Not};
 
 use bathbot_macros::command;
 use bathbot_model::{
-    OsuStatsParams, OsuStatsScore, OsuStatsScoresOrder, OsuStatsScoresRaw, ScoreSlim,
+    command_fields::GameModeOption, OsuStatsParams, OsuStatsScore, OsuStatsScoresOrder,
+    OsuStatsScoresRaw, ScoreSlim,
 };
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE},
@@ -19,10 +20,7 @@ use rosu_v2::{
 use super::OsuStatsScores;
 use crate::{
     active::{impls::OsuStatsScoresPagination, ActiveMessages},
-    commands::{
-        osu::{user_not_found, HasMods, ModsResult},
-        GameModeOption,
-    },
+    commands::osu::{user_not_found, HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     util::ChannelExt,

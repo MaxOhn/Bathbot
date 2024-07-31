@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp, fmt::Write, iter};
 
 use bathbot_macros::command;
-use bathbot_model::{rosu_v2::user::User, RespektiveUser};
+use bathbot_model::{command_fields::GameModeOption, rosu_v2::user::User, RespektiveUser};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
     matcher,
@@ -14,7 +14,7 @@ use rosu_v2::prelude::{OsuError, UserId, Username};
 
 use super::{RankScore, RankValue};
 use crate::{
-    commands::{osu::user_not_found, GameModeOption},
+    commands::osu::user_not_found,
     core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
     util::ChannelExt,

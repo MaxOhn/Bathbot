@@ -1,14 +1,9 @@
-use super::{
-    list_size::ListSize, minimized_pp::MinimizedPp, score_size::ScoreSize, Authorities,
-    HideSolutions, Prefixes, Retries, ScoreData,
-};
+use super::{list_size::ListSize, Authorities, HideSolutions, Prefixes, Retries, ScoreData};
 
 pub struct DbGuildConfig {
     pub guild_id: i64,
     pub authorities: Vec<u8>,
-    pub score_size: Option<i16>,
     pub list_size: Option<i16>,
-    pub minimized_pp: Option<i16>,
     pub prefixes: Vec<u8>,
     pub retries: Option<i16>,
     pub osu_track_limit: Option<i16>,
@@ -22,9 +17,7 @@ pub struct DbGuildConfig {
 #[derive(Clone, Default)]
 pub struct GuildConfig {
     pub authorities: Authorities,
-    pub score_size: Option<ScoreSize>,
     pub list_size: Option<ListSize>,
-    pub minimized_pp: Option<MinimizedPp>,
     pub prefixes: Prefixes,
     pub retries: Option<Retries>,
     pub track_limit: Option<u8>,
@@ -41,9 +34,7 @@ impl From<DbGuildConfig> for GuildConfig {
         let DbGuildConfig {
             guild_id: _,
             authorities,
-            score_size,
             list_size,
-            minimized_pp,
             prefixes,
             retries,
             osu_track_limit,
@@ -61,9 +52,7 @@ impl From<DbGuildConfig> for GuildConfig {
 
         Self {
             authorities,
-            score_size: score_size.map(ScoreSize::try_from).and_then(Result::ok),
             list_size: list_size.map(ListSize::try_from).and_then(Result::ok),
-            minimized_pp: minimized_pp.map(MinimizedPp::try_from).and_then(Result::ok),
             prefixes,
             retries: retries.map(Retries::try_from).and_then(Result::ok),
             track_limit: osu_track_limit.map(|limit| limit as u8),

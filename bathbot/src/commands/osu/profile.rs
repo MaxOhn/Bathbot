@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -17,7 +18,6 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::{require_link, user_not_found};
 use crate::{
     active::{impls::ProfileMenu, ActiveMessages},
-    commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
     manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp::Reverse, collections::HashMap, convert::identity, fmt::Write, mem};
 
 use bathbot_macros::{HasMods, SlashCommand};
-use bathbot_model::Countries;
+use bathbot_model::{command_fields::GameModeOption, Countries};
 use bathbot_psql::model::osu::{DbScoreBeatmap, DbScoreBeatmapset, DbTopScore, DbTopScores};
 use bathbot_util::{constants::GENERAL_ISSUE, osu::ModSelection, CowUtils, IntHasher};
 use compact_str::CompactString;
@@ -14,10 +14,7 @@ use twilight_model::application::command::{CommandOptionChoice, CommandOptionCho
 
 use crate::{
     active::{impls::RegionTopPagination, ActiveMessages},
-    commands::{
-        osu::{HasMods, ModsResult, ScoresOrder},
-        GameModeOption,
-    },
+    commands::osu::{HasMods, ModsResult, ScoresOrder},
     core::Context,
     manager::redis::RedisData,
     util::{

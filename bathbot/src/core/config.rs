@@ -19,8 +19,8 @@ pub struct BotConfig {
     pub paths: Paths,
     #[cfg(feature = "server")]
     pub server: Server,
-    grades: Box<[Box<str>; 9]>,
-    emotes: Box<[CustomEmote; 13]>,
+    grades: Box<[Box<str>; 9]>, // TODO: remove length
+    emotes: Box<[CustomEmote; 16]>,
     pub redis_host: Box<str>,
     pub redis_port: u16,
     pub redis_db_idx: u8,
@@ -85,8 +85,11 @@ impl BotConfig {
             "single_step",
             "jump_end",
             "miss",
+            "bpm",
+            "count_objects",
+            "count_spinners",
         ];
-        let emotes = Self::parse_emotes::<Emote, _, 13>(emote_strs)?;
+        let emotes = Self::parse_emotes::<Emote, _, 16>(emote_strs)?;
 
         let config = BotConfig {
             database_url: env_var("DATABASE_URL")?,

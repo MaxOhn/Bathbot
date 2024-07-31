@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp::Ordering, collections::HashMap, fmt::Write, iter};
 
 use bathbot_macros::{command, SlashCommand};
-use bathbot_model::rosu_v2::user::User;
+use bathbot_model::{command_fields::GameModeOption, rosu_v2::user::User};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher,
@@ -23,10 +23,7 @@ use twilight_model::{
 use super::{CompareTop, AT_LEAST_ONE};
 use crate::{
     active::{impls::CompareTopPagination, ActiveMessages},
-    commands::{
-        osu::{user_not_found, UserExtraction},
-        GameModeOption,
-    },
+    commands::osu::{user_not_found, UserExtraction},
     core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
     util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
