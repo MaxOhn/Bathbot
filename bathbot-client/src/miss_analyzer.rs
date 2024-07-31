@@ -5,7 +5,7 @@ use crate::{site::Site, Client};
 
 impl Client {
     pub async fn miss_analyzer_score_request(&self, guild_id: u64, score_id: u64) -> Result<bool> {
-        let url = "http://104.6.255.43:24342/api/scorerequest";
+        let url = "http://104.176.138.100:24342/api/scorerequest";
 
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]
@@ -35,7 +35,7 @@ impl Client {
         message_id: u64,
         score_id: u64,
     ) -> Result<()> {
-        let url = "http://104.6.255.43:24342/api/scoreresponse";
+        let url = "http://104.176.138.100:24342/api/scoreresponse";
 
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]
