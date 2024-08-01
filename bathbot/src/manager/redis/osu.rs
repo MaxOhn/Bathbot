@@ -37,7 +37,7 @@ impl UserArgs {
         let alt_name = Self::alt_name(name);
 
         match Context::osu_user().user_id(name, alt_name.as_deref()).await {
-            Ok(Some(user_id)) => return Self::Args(UserArgsSlim::user_id(user_id)),
+            Ok(Some(user_id)) => return Self::user_id(user_id, mode),
             Err(err) => warn!(?err, "Failed to get user id"),
             Ok(None) => {}
         }
@@ -55,7 +55,7 @@ impl UserArgs {
 
                 Self::User {
                     user: Box::new(user.into()),
-                    mode: GameMode::Osu,
+                    mode,
                 }
             }
             (Err(OsuError::NotFound), Some(alt_name)) => {
