@@ -411,33 +411,12 @@ impl ContextData {
             Self::fetch_miss_analyzer_guilds(&cache),
         );
 
-        let mut iter = guild_configs_res
-            .wrap_err("Failed to get guild configs")?
-            .into_iter();
-
-        // TODO: use `iter.collect()` once the segfault on linux is fixed in
-        // the papaya crate
-        let guild_configs = if let Some((key, value)) = iter.next() {
-            let (lower, _) = iter.size_hint();
-            let map = PapayaMap::with_capacity_and_hasher(lower.saturating_add(1), IntHasher);
-            let guard = map.guard();
-
-            map.insert(key, value, &guard);
-
-            for (key, value) in iter {
-                map.insert(key, value, &guard);
-            }
-
-            drop(guard);
-
-            map
-        } else {
-            PapayaMap::default()
-        };
-
         Ok(Self {
             cache,
-            guild_configs,
+            guild_configs: guild_configs_res
+                .wrap_err("Failed to get guild configs")?
+                .into_iter()
+                .collect(),
             #[cfg(feature = "twitchtracking")]
             tracked_streams: tracked_streams_res
                 .wrap_err("Failed to get tracked streams")?
