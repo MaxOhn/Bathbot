@@ -244,9 +244,9 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
 
         let user_args = UserArgsSlim::user_id(user.user_id()).mode(mode);
         let scores_fut = Context::osu_scores()
-            // legacy data shouldn't matter so no need to retrieve it via
-            // user/guild configs
-            .top(true)
+            // making sure to retrieve potential lazer top scores as well;
+            // no need to retrieve it via user/guild config
+            .top(false)
             .limit(100)
             .exec(user_args);
 
