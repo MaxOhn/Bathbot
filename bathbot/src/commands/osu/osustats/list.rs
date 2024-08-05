@@ -1,7 +1,9 @@
 use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_macros::command;
-use bathbot_model::{Countries, OsuStatsPlayer, OsuStatsPlayersArgs};
+use bathbot_model::{
+    command_fields::GameModeOption, Countries, OsuStatsPlayer, OsuStatsPlayersArgs,
+};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
     CowUtils, IntHasher,
@@ -12,7 +14,6 @@ use rosu_v2::{model::GameMode, prelude::CountryCode};
 use super::OsuStatsPlayers;
 use crate::{
     active::{impls::OsuStatsPlayersPagination, ActiveMessages},
-    commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
     util::ChannelExt,
     Context,

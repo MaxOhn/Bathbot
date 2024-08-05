@@ -5,7 +5,7 @@ use std::{
 
 use bathbot_cache::Cache as BathbotCache;
 use bathbot_client::Client as BathbotClient;
-use bathbot_model::Either;
+use bathbot_model::{Either, ScoreSlim};
 use bathbot_psql::{model::render::DbRenderOptions, Database};
 use eyre::{Result, WrapErr};
 use rosu_render::model::{RenderOptions, RenderResolution, RenderSkinOption, Skin, SkinInfo};
@@ -16,7 +16,7 @@ use rosu_v2::{
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{commands::osu::TopEntry, core::BotConfig};
+use crate::core::BotConfig;
 
 #[derive(Copy, Clone)]
 pub struct ReplayManager {
@@ -40,9 +40,11 @@ impl ReplayManager {
 
     pub async fn get_replay(
         self,
-        score_id: u64,
         score: &ReplayScore<'_>,
+        username: &str,
     ) -> Result<Option<Box<[u8]>>> {
+        let score_id = score.score_id();
+
         match self.psql.select_osu_replay(score_id).await {
             Ok(Some(replay)) => return Ok(Some(replay)),
             Ok(None) => {}
@@ -73,7 +75,7 @@ impl ReplayManager {
             return Ok(None);
         };
 
-        let replay = complete_replay(score, score_id, &raw_replay);
+        let replay = complete_replay(score, &raw_replay, username);
 
         if let Err(err) = self.psql.insert_osu_replay(score_id, &replay).await {
             warn!(?err, "Failed to insert replay into DB");
@@ -416,39 +418,42 @@ impl From<OwnedReplayScore> for ReplayScore<'_> {
 
 enum ReplayScoreInner<'s> {
     Owned(OwnedReplayScore),
-    Borrowed(&'s Score),
+    Borrowed { score_id: u64, score: &'s Score },
 }
 
 impl<'s> ReplayScore<'s> {
-    /// Constructs a [`ReplayScore`], returning `None` if the `Score` had no map
-    /// checksum.
-    pub fn from_score(score: &'s Score) -> Option<Self> {
+    /// Constructs a [`ReplayScore`]
+    ///
+    /// Returns `None` if `score` had no map checksum or legacy score id.
+    pub fn try_from_score(score: &'s Score) -> Option<Self> {
         score
             .map
             .as_ref()
-            .is_some_and(|map| map.checksum.is_some())
-            .then_some(ReplayScoreInner::Borrowed(score))
-            .map(|inner| Self { inner })
+            .zip(score.legacy_score_id)
+            .filter(|(map, _)| map.checksum.is_some())
+            .map(|(_, score_id)| Self {
+                inner: ReplayScoreInner::Borrowed { score_id, score },
+            })
     }
 
     fn mode(&self) -> GameMode {
         match &self.inner {
             ReplayScoreInner::Owned(score) => score.mode,
-            ReplayScoreInner::Borrowed(score) => score.mode,
+            ReplayScoreInner::Borrowed { score, .. } => score.mode,
         }
     }
 
     fn ended_at(&self) -> OffsetDateTime {
         match &self.inner {
             ReplayScoreInner::Owned(score) => score.ended_at,
-            ReplayScoreInner::Borrowed(score) => score.ended_at,
+            ReplayScoreInner::Borrowed { score, .. } => score.ended_at,
         }
     }
 
     fn map_checksum(&self) -> &str {
         match &self.inner {
             ReplayScoreInner::Owned(score) => score.map_checksum.as_ref(),
-            ReplayScoreInner::Borrowed(score) => score
+            ReplayScoreInner::Borrowed { score, .. } => score
                 .map
                 .as_ref()
                 .and_then(|map| map.checksum.as_deref())
@@ -456,58 +461,54 @@ impl<'s> ReplayScore<'s> {
         }
     }
 
-    fn username(&self) -> &str {
-        match &self.inner {
-            ReplayScoreInner::Owned(score) => score.username.as_ref(),
-            ReplayScoreInner::Borrowed(score) => score
-                .user
-                .as_ref()
-                .map(|user| user.username.as_str())
-                .unwrap_or_default(),
-        }
-    }
-
     fn statistics(&self) -> Either<&LegacyScoreStatistics, &ScoreStatistics> {
         match &self.inner {
             ReplayScoreInner::Owned(score) => Either::Left(&score.statistics),
-            ReplayScoreInner::Borrowed(score) => Either::Right(&score.statistics),
+            ReplayScoreInner::Borrowed { score, .. } => Either::Right(&score.statistics),
         }
     }
 
     fn score(&self) -> u32 {
         match &self.inner {
             ReplayScoreInner::Owned(score) => score.score,
-            ReplayScoreInner::Borrowed(score) => score.score,
+            ReplayScoreInner::Borrowed { score, .. } => score.score,
         }
     }
 
     fn max_combo(&self) -> u16 {
         match &self.inner {
             ReplayScoreInner::Owned(score) => score.max_combo,
-            ReplayScoreInner::Borrowed(score) => score.max_combo as u16,
+            ReplayScoreInner::Borrowed { score, .. } => score.max_combo as u16,
         }
     }
 
     fn perfect(&self) -> bool {
         match &self.inner {
             ReplayScoreInner::Owned(score) => score.perfect,
-            ReplayScoreInner::Borrowed(score) => score.legacy_perfect == Some(true),
+            ReplayScoreInner::Borrowed { score, .. } => score.legacy_perfect == Some(true),
         }
     }
 
     fn mods(&self) -> u32 {
         match &self.inner {
             ReplayScoreInner::Owned(score) => score.mods,
-            ReplayScoreInner::Borrowed(score) => score.mods.bits(),
+            ReplayScoreInner::Borrowed { score, .. } => score.mods.bits(),
+        }
+    }
+
+    fn score_id(&self) -> u64 {
+        match &self.inner {
+            ReplayScoreInner::Owned(score) => score.score_id,
+            ReplayScoreInner::Borrowed { score_id, .. } => *score_id,
         }
     }
 }
 
 pub struct OwnedReplayScore {
+    pub score_id: u64,
     mode: GameMode,
     ended_at: OffsetDateTime,
     map_checksum: Box<str>,
-    username: Box<str>,
     statistics: LegacyScoreStatistics,
     score: u32,
     max_combo: u16,
@@ -516,37 +517,35 @@ pub struct OwnedReplayScore {
 }
 
 impl OwnedReplayScore {
-    pub fn from_top_entry(
-        entry: &TopEntry,
-        username: impl Into<Box<str>>,
+    pub fn try_from_slim(
+        score: &ScoreSlim,
+        max_combo: u32,
         map_checksum: impl Into<Box<str>>,
-    ) -> Self {
-        Self {
-            mode: entry.score.mode,
-            ended_at: entry.score.ended_at,
-            map_checksum: map_checksum.into(),
-            username: username.into(),
-            statistics: entry.score.statistics.clone(),
-            score: entry.score.score,
-            max_combo: entry.score.max_combo as u16,
-            perfect: entry.max_combo == entry.score.max_combo,
-            mods: entry.score.mods.bits(),
-        }
-    }
-
-    pub fn from_score(score: &Score) -> Option<Self> {
-        let map_checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref())?;
+    ) -> Option<Self> {
+        let score_id = score.legacy_id?;
 
         Some(Self {
+            score_id,
+            mode: score.mode,
+            ended_at: score.ended_at,
+            map_checksum: map_checksum.into(),
+            statistics: score.statistics.clone(),
+            score: score.score,
+            max_combo: score.max_combo as u16,
+            perfect: max_combo == score.max_combo,
+            mods: score.mods.bits(),
+        })
+    }
+
+    pub fn try_from_score(score: &Score) -> Option<Self> {
+        let map_checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref())?;
+        let score_id = score.legacy_score_id?;
+
+        Some(Self {
+            score_id,
             mode: score.mode,
             ended_at: score.ended_at,
             map_checksum: Box::from(map_checksum),
-            username: score
-                .user
-                .as_ref()
-                .map(|user| user.username.as_str())
-                .unwrap_or_default()
-                .into(),
             statistics: score.statistics.as_legacy(score.mode),
             score: score.score,
             max_combo: score.max_combo as u16,
@@ -557,7 +556,7 @@ impl OwnedReplayScore {
 }
 
 // https://osu.ppy.sh/wiki/en/Client/File_formats/Osr_%28file_format%29
-fn complete_replay(score: &ReplayScore<'_>, score_id: u64, raw_replay: &[u8]) -> Box<[u8]> {
+fn complete_replay(score: &ReplayScore<'_>, raw_replay: &[u8], username: &str) -> Box<[u8]> {
     let mut replay = Vec::with_capacity(128 + raw_replay.len());
 
     let mut bytes_written = 0;
@@ -568,7 +567,6 @@ fn complete_replay(score: &ReplayScore<'_>, score_id: u64, raw_replay: &[u8]) ->
     let map_md5 = score.map_checksum();
     bytes_written += encode_string(&mut replay, map_md5);
 
-    let username = score.username();
     bytes_written += encode_string(&mut replay, username);
 
     let replay_md5 = String::new();
@@ -602,7 +600,7 @@ fn complete_replay(score: &ReplayScore<'_>, score_id: u64, raw_replay: &[u8]) ->
     bytes_written += encode_int(&mut replay, raw_replay.len() as u32);
     replay.extend_from_slice(raw_replay);
 
-    bytes_written += encode_long(&mut replay, score_id);
+    bytes_written += encode_long(&mut replay, score.score_id());
 
     if bytes_written > 128 {
         warn!(bytes_written, "Wrote more bytes than initial allocation");

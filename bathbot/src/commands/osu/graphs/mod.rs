@@ -1,7 +1,11 @@
 use std::iter;
 
 use bathbot_macros::{command, HasName, SlashCommand};
-use bathbot_model::{rosu_v2::user::User, Countries};
+use bathbot_model::{
+    command_fields::{GameModeOption, ShowHideOption, TimezoneOption},
+    rosu_v2::user::User,
+    Countries,
+};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -32,7 +36,6 @@ use self::{
 };
 use super::{require_link, user_not_found, SnipeGameMode};
 use crate::{
-    commands::{GameModeOption, ShowHideOption, TimezoneOption},
     core::{commands::CommandOrigin, Context},
     embeds::attachment,
     manager::redis::{osu::UserArgs, RedisData},

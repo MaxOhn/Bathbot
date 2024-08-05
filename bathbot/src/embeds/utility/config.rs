@@ -1,9 +1,7 @@
 use std::fmt::{Display, Write};
 
 use ::time::UtcOffset;
-use bathbot_psql::model::configs::{
-    ListSize, MinimizedPp, OsuUsername, Retries, ScoreData, ScoreSize, UserConfig,
-};
+use bathbot_psql::model::configs::{ListSize, OsuUsername, Retries, ScoreData, UserConfig};
 use bathbot_util::{AuthorBuilder, EmbedBuilder, FooterBuilder};
 use rosu_v2::prelude::GameMode;
 use twilight_model::{channel::message::embed::EmbedField, user::User};
@@ -61,19 +59,23 @@ impl ConfigEmbed {
 
         let mut fields = vec![
             EmbedField {
-                inline: true,
+                inline: false,
                 name: "Accounts".to_owned(),
                 value: account_value,
             },
             create_field(
-                "Minimized PP",
-                config.minimized_pp.unwrap_or_default(),
-                &[(MinimizedPp::MaxPp, "max pp"), (MinimizedPp::IfFc, "if FC")],
-            ),
-            create_field(
                 "Render button",
                 config.render_button,
                 &[(Some(true), "show"), (Some(false), "hide")],
+            ),
+            create_field(
+                "List embeds",
+                config.list_size.unwrap_or_default(),
+                &[
+                    (ListSize::Condensed, "condensed"),
+                    (ListSize::Detailed, "detailed"),
+                    (ListSize::Single, "single"),
+                ],
             ),
             create_field(
                 "Score data",
@@ -97,34 +99,13 @@ impl ConfigEmbed {
                     (Some(GameMode::Mania), "mania"),
                 ],
             ),
-            EmbedField {
-                inline: false,
-                ..create_field(
-                    "Retries",
-                    config.retries.unwrap_or(Retries::ConsiderMods),
-                    &[
-                        (Retries::Hide, "hide"),
-                        (Retries::ConsiderMods, "reset on different mods"),
-                        (Retries::IgnoreMods, "ignore mods"),
-                    ],
-                )
-            },
             create_field(
-                "Score embeds",
-                config.score_size.unwrap_or_default(),
+                "Retries",
+                config.retries.unwrap_or(Retries::ConsiderMods),
                 &[
-                    (ScoreSize::AlwaysMinimized, "always minimized"),
-                    (ScoreSize::AlwaysMaximized, "always maximized"),
-                    (ScoreSize::InitialMaximized, "initial maximized"),
-                ],
-            ),
-            create_field(
-                "List embeds",
-                config.list_size.unwrap_or_default(),
-                &[
-                    (ListSize::Condensed, "condensed"),
-                    (ListSize::Detailed, "detailed"),
-                    (ListSize::Single, "single"),
+                    (Retries::Hide, "hide"),
+                    (Retries::ConsiderMods, "reset on different mods"),
+                    (Retries::IgnoreMods, "ignore mods"),
                 ],
             ),
         ];

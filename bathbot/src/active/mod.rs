@@ -20,15 +20,15 @@ use self::{
     impls::{
         BackgroundGameSetup, BadgesPagination, BookmarksPagination, CachedRender,
         ChangelogPagination, CompareMostPlayedPagination, CompareScoresPagination,
-        CompareTopPagination, EditOnTimeout, HelpInteractionCommand, HelpPrefixMenu,
-        HigherLowerGame, LeaderboardPagination, MapPagination, MapSearchPagination,
-        MatchComparePagination, MatchCostPagination, MedalCountPagination, MedalRarityPagination,
-        MedalsCommonPagination, MedalsListPagination, MedalsMissingPagination,
-        MedalsRecentPagination, MostPlayedPagination, NoChokePagination, OsuStatsBestPagination,
-        OsuStatsPlayersPagination, OsuStatsScoresPagination, ProfileMenu,
-        RankingCountriesPagination, RankingPagination, RecentListPagination, RegionTopPagination,
-        RenderSettingsActive, ScoresMapPagination, ScoresServerPagination, ScoresUserPagination,
-        SettingsImport, SimulateComponents, SkinsPagination, SlashCommandsPagination,
+        CompareTopPagination, HelpInteractionCommand, HelpPrefixMenu, HigherLowerGame,
+        LeaderboardPagination, MapPagination, MapSearchPagination, MatchComparePagination,
+        MatchCostPagination, MedalCountPagination, MedalRarityPagination, MedalsCommonPagination,
+        MedalsListPagination, MedalsMissingPagination, MedalsRecentPagination,
+        MostPlayedPagination, NoChokePagination, OsuStatsBestPagination, OsuStatsPlayersPagination,
+        OsuStatsScoresPagination, ProfileMenu, RankingCountriesPagination, RankingPagination,
+        RecentListPagination, RegionTopPagination, RenderSettingsActive, ScoreEmbedBuilderActive,
+        ScoresMapPagination, ScoresServerPagination, ScoresUserPagination, SettingsImport,
+        SimulateComponents, SingleScorePagination, SkinsPagination, SlashCommandsPagination,
         SnipeCountryListPagination, SnipeDifferencePagination, SnipePlayerListPagination,
         TopIfPagination, TopPagination,
     },
@@ -59,7 +59,6 @@ pub enum ActiveMessage {
     CompareMostPlayedPagination,
     CompareScoresPagination,
     CompareTopPagination,
-    EditOnTimeout,
     HelpInteractionCommand,
     HelpPrefixMenu,
     HigherLowerGame,
@@ -85,11 +84,13 @@ pub enum ActiveMessage {
     RecentListPagination,
     RegionTopPagination,
     RenderSettingsActive,
+    ScoreEmbedBuilderActive,
     ScoresMapPagination,
     ScoresServerPagination,
     ScoresUserPagination,
     SettingsImport,
     SimulateComponents,
+    SingleScorePagination,
     SkinsPagination,
     SlashCommandsPagination,
     SnipeCountryListPagination,
@@ -425,6 +426,10 @@ impl BuildPage {
         self.content = Some(content.into());
 
         self
+    }
+
+    pub fn into_embed(self) -> EmbedBuilder {
+        self.embed
     }
 }
 

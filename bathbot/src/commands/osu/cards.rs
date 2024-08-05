@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bathbot_cards::{BathbotCard, RequiredAttributes};
 use bathbot_macros::{HasName, SlashCommand};
+use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
@@ -18,7 +19,6 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{require_link, user_not_found};
 use crate::{
-    commands::GameModeOption,
     core::{commands::CommandOrigin, BotConfig, Context},
     embeds::attachment,
     manager::redis::{osu::UserArgs, RedisData},

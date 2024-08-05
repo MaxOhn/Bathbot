@@ -1,15 +1,13 @@
 use std::borrow::Cow;
 
 use bathbot_macros::{HasName, SlashCommand};
+use bathbot_model::command_fields::GameModeOption;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 pub use self::{pp::*, score::*};
-use crate::{
-    commands::GameModeOption,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-};
+use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
 
 mod pp;
 mod score;

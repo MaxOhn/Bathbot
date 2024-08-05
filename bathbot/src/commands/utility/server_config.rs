@@ -1,7 +1,6 @@
 use bathbot_macros::{command, SlashCommand};
-use bathbot_psql::model::configs::{
-    GuildConfig, HideSolutions, ListSize, MinimizedPp, Retries, ScoreData, ScoreSize,
-};
+use bathbot_model::command_fields::{EnableDisable, ShowHideOption};
+use bathbot_psql::model::configs::{GuildConfig, HideSolutions, ListSize, Retries, ScoreData};
 use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -9,7 +8,6 @@ use twilight_model::id::{marker::RoleMarker, Id};
 
 use super::AuthorityCommandKind;
 use crate::{
-    commands::{EnableDisable, ShowHideOption},
     embeds::{EmbedData, ServerConfigEmbed},
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
@@ -93,15 +91,6 @@ pub struct ServerConfigEdit {
     #[command(desc = "Choose whether song commands can be used or not")]
     song_commands: Option<EnableDisable>,
     #[command(
-        desc = "What size should the recent, compare, simulate, ... commands be?",
-        help = "Some embeds are pretty chunky and show too much data.\n\
-        With this option you can make those embeds minimized by default.\n\
-        Affected commands are: `compare score`, `recent score`, `recent simulate`, \
-        and any command showing top scores when the `index` option is specified.\n\
-        Applies only if the member has not specified a config for themselves."
-    )]
-    score_embeds: Option<ScoreSize>,
-    #[command(
         desc = "Adjust the amount of scores shown per page in top, rb, pinned, ...",
         help = "Adjust the amount of scores shown per page in top, rb, pinned, and mapper.\n\
         `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
@@ -122,10 +111,6 @@ pub struct ServerConfigEdit {
         The value must be between 1 and 100, defaults to 50."
     )]
     track_limit: Option<i64>,
-    #[command(
-        desc = "Specify whether the recent command should show max or if-fc pp when minimized"
-    )]
-    minimized_pp: Option<MinimizedPp>,
     #[command(
         desc = "Should the recent command include a render button?",
         help = "Should the `recent` command include a render button?\n\
@@ -155,11 +140,9 @@ impl ServerConfigEdit {
     fn any(&self) -> bool {
         let Self {
             song_commands,
-            score_embeds,
             list_embeds,
             retries,
             track_limit,
-            minimized_pp,
             render_button,
             allow_custom_skins,
             hide_medal_solutions,
@@ -167,11 +150,9 @@ impl ServerConfigEdit {
         } = self;
 
         song_commands.is_some()
-            || score_embeds.is_some()
             || list_embeds.is_some()
             || retries.is_some()
             || track_limit.is_some()
-            || minimized_pp.is_some()
             || render_button.is_some()
             || allow_custom_skins.is_some()
             || hide_medal_solutions.is_some()
@@ -209,9 +190,7 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
     if args.any() {
         let f = |config: &mut GuildConfig| {
             let ServerConfigEdit {
-                score_embeds,
                 list_embeds,
-                minimized_pp,
                 retries,
                 song_commands,
                 track_limit,
@@ -221,16 +200,8 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
                 score_data,
             } = args;
 
-            if let Some(score_embeds) = score_embeds {
-                config.score_size = Some(score_embeds);
-            }
-
             if let Some(list_embeds) = list_embeds {
                 config.list_size = Some(list_embeds);
-            }
-
-            if let Some(pp) = minimized_pp {
-                config.minimized_pp = Some(pp);
             }
 
             if let Some(retries) = retries {

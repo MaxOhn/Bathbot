@@ -16,7 +16,10 @@ use rosu_v2::{
 };
 
 use super::OsuMap;
-use crate::{commands::osu::LeaderboardScore, core::Context};
+use crate::{
+    commands::{osu::LeaderboardScore, utility::ScoreEmbedDataRaw},
+    core::Context,
+};
 
 #[derive(Clone)]
 pub struct PpManager<'m> {
@@ -86,22 +89,26 @@ impl<'m> PpManager<'m> {
         inner(self, mods.into())
     }
 
-    pub fn score(mut self, score: impl Into<ScoreData>) -> Self {
-        let ScoreData {
-            state,
-            mods,
-            mode,
-            partial,
-        } = score.into();
+    pub fn score(self, score: impl Into<ScoreData>) -> Self {
+        fn inner(mut manager: PpManager<'_>, score: ScoreData) -> PpManager<'_> {
+            let ScoreData {
+                state,
+                mods,
+                mode,
+                partial,
+            } = score;
 
-        self.state = Some(state);
-        self.partial = partial;
+            manager.state = Some(state);
+            manager.partial = partial;
 
-        if let Some(mode) = mode {
-            self = self.mode(mode);
+            if let Some(mode) = mode {
+                manager = manager.mode(mode);
+            }
+
+            manager.mods(mods)
         }
 
-        self.mods(mods)
+        inner(self, score.into())
     }
 
     async fn lookup_attrs(&self) -> Result<Option<DifficultyAttributes>> {
@@ -252,6 +259,26 @@ impl<'s> From<&'s LeaderboardScore> for ScoreData {
         Self {
             state: ScoreState {
                 max_combo: score.combo,
+                n_geki: score.statistics.count_geki,
+                n_katu: score.statistics.count_katu,
+                n300: score.statistics.count_300,
+                n100: score.statistics.count_100,
+                n50: score.statistics.count_50,
+                misses: score.statistics.count_miss,
+            },
+            mods: Mods::from(&score.mods),
+            mode: Some(score.mode),
+            partial: score.grade == Grade::F,
+        }
+    }
+}
+
+impl<'s> From<&'s ScoreEmbedDataRaw> for ScoreData {
+    #[inline]
+    fn from(score: &'s ScoreEmbedDataRaw) -> Self {
+        Self {
+            state: ScoreState {
+                max_combo: score.max_combo,
                 n_geki: score.statistics.count_geki,
                 n_katu: score.statistics.count_katu,
                 n300: score.statistics.count_300,

@@ -1,7 +1,8 @@
 use ::time::UtcOffset;
 use bathbot_macros::{command, SlashCommand};
+use bathbot_model::command_fields::{ShowHideOption, TimezoneOption};
 use bathbot_psql::model::configs::{
-    ListSize, MinimizedPp, OsuUserId, OsuUsername, Retries, ScoreData, ScoreSize, UserConfig,
+    ListSize, OsuUserId, OsuUsername, Retries, ScoreData, UserConfig,
 };
 #[cfg(feature = "server")]
 use bathbot_server::AuthenticationStandbyError;
@@ -14,14 +15,13 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 use twilight_model::id::{marker::UserMarker, Id};
 
 use super::{SkinValidation, ValidationStatus};
+#[cfg(feature = "server")]
+use crate::{core::BotConfig, util::Emote};
 use crate::{
-    commands::{ShowHideOption, TimezoneOption},
     embeds::{ConfigEmbed, EmbedData},
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
-#[cfg(feature = "server")]
-use crate::{core::BotConfig, util::Emote};
 
 #[cfg(feature = "server")]
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
@@ -59,14 +59,6 @@ pub struct Config {
     )]
     mode: Option<ConfigGameMode>,
     #[command(
-        desc = "What size should the recent, compare, simulate, ... commands be?",
-        help = "Some embeds are pretty chunky and show too much data.\n\
-        With this option you can make those embeds minimized by default.\n\
-        Affected commands are: `compare score`, `recent score`, `recent simulate`, \
-        and any command showing top scores when the `index` option is specified."
-    )]
-    score_embeds: Option<ScoreSize>,
-    #[command(
         desc = "Adjust the amount of scores shown per page in top, rb, pinned, ...",
         help = "Adjust the amount of scores shown per page in `/top`, `/rb`, `/pinned`, and `/mapper`.\n\
         `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
@@ -74,10 +66,6 @@ pub struct Config {
     list_embeds: Option<ListSize>,
     #[command(desc = "Should the amount of retries be shown for the recent command?")]
     retries: Option<Retries>,
-    #[command(
-        desc = "Specify whether the recent command should show max or if-fc pp when minimized"
-    )]
-    minimized_pp: Option<MinimizedPp>,
     #[command(desc = "Specify a timezone which will be used for commands like `/graph`")]
     timezone: Option<TimezoneOption>,
     #[command(
@@ -125,14 +113,6 @@ pub struct Config {
     )]
     mode: Option<ConfigGameMode>,
     #[command(
-        desc = "What size should the recent, compare, simulate, ... commands be?",
-        help = "Some embeds are pretty chunky and show too much data.\n\
-        With this option you can make those embeds minimized by default.\n\
-        Affected commands are: `compare score`, `recent score`, `recent simulate`, \
-        and any command showing top scores when the `index` option is specified."
-    )]
-    score_embeds: Option<ScoreSize>,
-    #[command(
         desc = "Adjust the amount of scores shown per page in top, rb, pinned, ...",
         help = "Adjust the amount of scores shown per page in top, rb, pinned, and mapper.\n\
         `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
@@ -140,10 +120,6 @@ pub struct Config {
     list_embeds: Option<ListSize>,
     #[command(desc = "Specify if and how retries should be shown for the recent command")]
     retries: Option<Retries>,
-    #[command(
-        desc = "Specify whether the recent command should show max or if-fc pp when minimized"
-    )]
-    minimized_pp: Option<MinimizedPp>,
     #[command(desc = "Specify a timezone which will be used for commands like `/graph`")]
     timezone: Option<TimezoneOption>,
     #[command(
@@ -220,10 +196,8 @@ pub async fn config(command: InteractionCommand, config: Config) -> Result<()> {
         #[cfg(feature = "server")]
         twitch,
         mode,
-        score_embeds,
         list_embeds,
         retries,
-        minimized_pp,
         timezone,
         mut skin_url,
         render_button,
@@ -248,10 +222,6 @@ pub async fn config(command: InteractionCommand, config: Config) -> Result<()> {
         }
     };
 
-    if let Some(pp) = minimized_pp {
-        config.minimized_pp = Some(pp);
-    }
-
     match mode {
         None => {}
         Some(ConfigGameMode::None) => config.mode = None,
@@ -259,10 +229,6 @@ pub async fn config(command: InteractionCommand, config: Config) -> Result<()> {
         Some(ConfigGameMode::Taiko) => config.mode = Some(GameMode::Taiko),
         Some(ConfigGameMode::Catch) => config.mode = Some(GameMode::Catch),
         Some(ConfigGameMode::Mania) => config.mode = Some(GameMode::Mania),
-    }
-
-    if let Some(score_embeds) = score_embeds {
-        config.score_size = Some(score_embeds);
     }
 
     if let Some(list_embeds) = list_embeds {
@@ -607,9 +573,8 @@ async fn convert_config(
     };
 
     let UserConfig {
-        score_size,
         list_size,
-        minimized_pp,
+        score_embed,
         mode,
         osu: _,
         retries,
@@ -620,9 +585,8 @@ async fn convert_config(
     } = config;
 
     UserConfig {
-        score_size,
         list_size,
-        minimized_pp,
+        score_embed,
         mode,
         osu: Some(username),
         retries,

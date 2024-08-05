@@ -39,7 +39,6 @@ use time::OffsetDateTime;
 
 use crate::{
     core::{BotConfig, Context},
-    embeds::HitResultFormatter,
     manager::{redis::RedisData, OsuMap},
 };
 
@@ -449,7 +448,6 @@ impl<'a> IntoIterator for &'a TopCounts {
 
 #[derive(Clone)]
 pub struct IfFc {
-    mode: GameMode,
     pub statistics: LegacyScoreStatistics,
     pub pp: f32,
 }
@@ -467,7 +465,7 @@ impl IfFc {
         let mods = score.mods.bits();
         let stats = &score.statistics;
 
-        let (pp, statistics, mode) = match attrs {
+        let (pp, statistics) = match attrs {
             DifficultyAttributes::Osu(attrs) => {
                 let total_objects = map.n_objects();
                 let passed_objects =
@@ -499,7 +497,7 @@ impl IfFc {
                     count_miss: 0,
                 };
 
-                (attrs.pp as f32, statistics, GameMode::Osu)
+                (attrs.pp as f32, statistics)
             }
             DifficultyAttributes::Taiko(attrs) => {
                 let total_objects = map.n_circles();
@@ -532,7 +530,7 @@ impl IfFc {
                     count_miss: 0,
                 };
 
-                (attrs.pp as f32, statistics, GameMode::Taiko)
+                (attrs.pp as f32, statistics)
             }
             DifficultyAttributes::Catch(attrs) => {
                 let total_objects = attrs.max_combo();
@@ -566,24 +564,12 @@ impl IfFc {
                     count_miss: 0,
                 };
 
-                (attrs.pp as f32, statistics, GameMode::Catch)
+                (attrs.pp as f32, statistics)
             }
             DifficultyAttributes::Mania(_) => return None,
         };
 
-        Some(Self {
-            mode,
-            statistics,
-            pp,
-        })
-    }
-
-    pub fn accuracy(&self) -> f32 {
-        self.statistics.accuracy(self.mode)
-    }
-
-    pub fn hitresults(&self) -> HitResultFormatter {
-        HitResultFormatter::new(self.mode, self.statistics.clone())
+        Some(Self { statistics, pp })
     }
 }
 
@@ -711,6 +697,7 @@ impl Display for MapInfo<'_> {
             builder = builder.clock_rate(f64::from(clock_rate));
         }
 
+        // TODO: remove this, rosu-pp does that now
         if let Some(mods) = self.mods {
             for gamemod in mods.iter() {
                 match gamemod {

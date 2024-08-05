@@ -30,6 +30,9 @@ pub enum Emote {
     JumpEnd,
 
     Miss,
+    Bpm,
+    CountObjects,
+    CountSpinners,
 }
 
 impl Emote {
@@ -79,6 +82,9 @@ impl FromStr for Emote {
             "single_step" => Self::SingleStep,
             "jump_end" => Self::JumpEnd,
             "miss" => Self::Miss,
+            "bpm" => Self::Bpm,
+            "count_objects" => Self::CountObjects,
+            "count_spinners" => Self::CountSpinners,
             _ => return Err(()),
         };
 

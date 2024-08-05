@@ -1,11 +1,10 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_model::rosu_v2::user::User;
-use bathbot_psql::model::configs::{ListSize, MinimizedPp, ScoreData};
+use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::{AVATAR_URL, OSU_BASE},
+    constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
-    fields,
     numbers::{round, WithComma},
     CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter, ScoreExt,
 };
@@ -23,12 +22,15 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    commands::osu::{TopEntry, TopScoreOrder},
-    embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
+    commands::{
+        osu::TopScoreOrder,
+        utility::{ScoreEmbedDataHalf, ScoreEmbedDataWrap},
+    },
+    embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
     manager::{redis::RedisData, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::{GradeCompletionFormatter, GradeFormatter, IfFc, ScoreFormatter},
+        osu::{GradeFormatter, ScoreFormatter},
         Emote,
     },
 };
@@ -36,10 +38,9 @@ use crate::{
 pub struct TopPagination {
     user: RedisData<User>,
     mode: GameMode,
-    entries: Box<[TopEntry]>,
+    entries: Box<[ScoreEmbedDataWrap]>,
     sort_by: TopScoreOrder,
-    list_size: ListSize,
-    minimized_pp: MinimizedPp, // only relevant for `ListSize::Single`
+    condensed_list: bool,
     score_data: ScoreData,
     content: Box<str>,
     msg_owner: Id<UserMarker>,
@@ -53,17 +54,17 @@ impl TopPagination {
             mode: None,
             entries: None,
             sort_by: None,
-            list_size: None,
-            minimized_pp: None,
+            condensed_list: None,
             score_data: None,
             content: None,
             msg_owner: None,
         }
     }
 
-    fn build_condensed(&mut self) -> BuildPage {
+    fn build_condensed(&self) -> BuildPage {
         let pages = &self.pages;
         let end_idx = self.entries.len().min(pages.index() + pages.per_page());
+
         let scores = &self.entries[pages.index()..end_idx];
 
         let description = if self.mode == GameMode::Mania {
@@ -88,25 +89,27 @@ impl TopPagination {
         BuildPage::new(embed, false).content(self.content.clone())
     }
 
-    fn condensed_description(&self, entries: &[TopEntry]) -> String {
+    fn condensed_description(&self, entries: &[ScoreEmbedDataWrap]) -> String {
         let mut description = String::with_capacity(1024);
 
         for entry in entries {
-            let TopEntry {
-                original_idx,
+            let entry = entry.get_half();
+
+            let ScoreEmbedDataHalf {
                 score,
                 map,
                 stars,
-                max_pp: _,
                 max_combo,
-                replay: _,
+                pb_idx,
+                original_idx,
+                ..
             } = entry;
 
             let _ = writeln!(
                 description,
                 "**#{idx} [{map}]({OSU_BASE}b/{map_id})** [{stars}★]\n\
                 {grade} **{pp}pp** ({acc}%) [**{combo}x**/{max_combo}x] {miss}**+{mods}** {appendix}",
-                idx = *original_idx + 1,
+                idx = original_idx.or(pb_idx.as_ref().and_then(|idx| idx.idx)).expect("missing idx") + 1,
                 map = MapFormat::new(map),
                 map_id = map.map_id(),
                 stars = round(*stars),
@@ -123,18 +126,19 @@ impl TopPagination {
         description
     }
 
-    fn condensed_description_mania(&self, entries: &[TopEntry]) -> String {
+    fn condensed_description_mania(&self, entries: &[ScoreEmbedDataWrap]) -> String {
         let mut description = String::with_capacity(1024);
 
         for entry in entries {
-            let TopEntry {
-                original_idx,
+            let entry = entry.get_half();
+
+            let ScoreEmbedDataHalf {
                 score,
                 map,
-                max_pp: _,
-                max_combo: _,
                 stars,
-                replay: _,
+                pb_idx,
+                original_idx,
+                ..
             } = entry;
 
             let stats = &score.statistics;
@@ -143,7 +147,7 @@ impl TopPagination {
                 description,
                 "**#{idx} [{map}]({OSU_BASE}b/{map_id})** [{stars}★]\n\
                 {grade} **{pp}pp** ({acc}%) `{score}` {{{n320}/{n300}/../{miss}}} **+{mods}** {appendix}",
-                idx = *original_idx + 1,
+                idx = original_idx.or(pb_idx.as_ref().and_then(|idx| idx.idx)).expect("missing idx") + 1,
                 map = MapFormat::new(map),
                 map_id = map.map_id(),
                 stars = round(*stars),
@@ -164,7 +168,7 @@ impl TopPagination {
         description
     }
 
-    fn build_detailed(&mut self) -> BuildPage {
+    fn build_detailed(&self) -> BuildPage {
         let pages = &self.pages;
         let end_idx = self.entries.len().min(pages.index() + pages.per_page());
         let scores = &self.entries[pages.index()..end_idx];
@@ -172,21 +176,27 @@ impl TopPagination {
         let mut description = String::with_capacity(512);
 
         for entry in scores {
-            let TopEntry {
-                original_idx,
+            let entry = entry.get_half();
+
+            let ScoreEmbedDataHalf {
                 score,
                 map,
                 max_pp,
-                max_combo,
                 stars,
-                replay: _,
+                max_combo,
+                pb_idx,
+                original_idx,
+                ..
             } = entry;
 
             let _ = writeln!(
                 description,
                 "**#{idx} [{title} [{version}]]({OSU_BASE}b/{id}) +{mods}** [{stars:.2}★]\n\
                 {grade} {pp} • {acc}% • {score}\n[ {combo} ] • {hits} • {appendix}",
-                idx = *original_idx + 1,
+                idx = original_idx
+                    .or(pb_idx.as_ref().and_then(|idx| idx.idx))
+                    .expect("missing idx")
+                    + 1,
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
@@ -224,120 +234,14 @@ impl TopPagination {
 
         BuildPage::new(embed, false).content(self.content.clone())
     }
-
-    async fn build_single(&mut self) -> Result<BuildPage> {
-        let entry = &self.entries[self.pages.index()];
-
-        // Required for /pinned
-        let personal_idx = (entry.original_idx != usize::MAX).then_some(entry.original_idx);
-
-        let TopEntry {
-            original_idx: _, // use personal_idx instead so this works for pinned aswell
-            score,
-            map,
-            max_pp,
-            max_combo,
-            stars,
-            replay: _,
-        } = entry;
-
-        let if_fc = IfFc::new(score, map).await;
-        let hits = HitResultFormatter::new(score.mode, score.statistics.clone());
-        let grade_completion_mods = GradeCompletionFormatter::new_without_score(
-            &score.mods,
-            score.grade,
-            score.total_hits(),
-            map.mode(),
-            map.n_objects(),
-        );
-
-        let (combo, title) = if score.mode == GameMode::Mania {
-            let mut ratio = score.statistics.count_geki as f32;
-
-            if score.statistics.count_300 > 0 {
-                ratio /= score.statistics.count_300 as f32
-            }
-
-            let combo = format!("**{}x** / {ratio:.2}", &score.max_combo);
-
-            let title = format!(
-                "{} {} - {} [{}] [{}★]",
-                KeyFormatter::new(&score.mods, map.attributes().build().cs as f32),
-                map.artist().cow_escape_markdown(),
-                map.title().cow_escape_markdown(),
-                map.version().cow_escape_markdown(),
-                round(*stars),
-            );
-
-            (combo, title)
-        } else {
-            let combo = ComboFormatter::new(score.max_combo, Some(*max_combo)).to_string();
-
-            let title = format!(
-                "{} - {} [{}] [{}★]",
-                map.artist().cow_escape_markdown(),
-                map.title().cow_escape_markdown(),
-                map.version().cow_escape_markdown(),
-                round(*stars),
-            );
-
-            (combo, title)
-        };
-
-        let footer = FooterBuilder::new(map.footer_text())
-            .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
-
-        let description = personal_idx
-            .map(|idx| format!("__**Personal Best #{}**__", idx + 1))
-            .unwrap_or_default();
-
-        let name = format!(
-            "{grade_completion_mods}\t{score}\t({acc}%)\t{ago}",
-            score = ScoreFormatter::new(score, self.score_data),
-            acc = round(score.accuracy),
-            ago = HowLongAgoDynamic::new(&score.ended_at),
-        );
-
-        let pp = match self.minimized_pp {
-            MinimizedPp::IfFc => {
-                let mut result = String::with_capacity(17);
-                result.push_str("**");
-                let _ = write!(result, "{:.2}", score.pp);
-
-                let _ = if let Some(ref if_fc) = if_fc {
-                    write!(result, "pp** ~~({:.2}pp)~~", if_fc.pp)
-                } else {
-                    write!(result, "**/{:.2}PP", max_pp.max(score.pp))
-                };
-
-                result
-            }
-            MinimizedPp::MaxPp => PpFormatter::new(Some(score.pp), Some(*max_pp)).to_string(),
-        };
-
-        let value = format!("{pp} [ {combo} ] {hits}");
-
-        let url = format!("{OSU_BASE}b/{}", map.map_id());
-
-        let embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
-            .description(description)
-            .fields(fields![name, value, false])
-            .footer(footer)
-            .thumbnail(map.thumbnail())
-            .title(title)
-            .url(url);
-
-        Ok(BuildPage::new(embed, true).content(self.content.clone()))
-    }
 }
 
 impl IActiveMessage for TopPagination {
     fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
-        match self.list_size {
-            ListSize::Condensed => self.build_condensed().boxed(),
-            ListSize::Detailed => self.build_detailed().boxed(),
-            ListSize::Single => Box::pin(self.build_single()),
+        if self.condensed_list {
+            self.build_condensed().boxed()
+        } else {
+            self.build_detailed().boxed()
         }
     }
 
@@ -349,28 +253,23 @@ impl IActiveMessage for TopPagination {
         &'a mut self,
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
-        let defer = matches!(self.list_size, ListSize::Single);
-
-        handle_pagination_component(component, self.msg_owner, defer, &mut self.pages)
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
     }
 
     fn handle_modal<'a>(
         &'a mut self,
         modal: &'a mut InteractionModal,
     ) -> BoxFuture<'a, Result<()>> {
-        let defer = matches!(self.list_size, ListSize::Single);
-
-        handle_pagination_modal(modal, self.msg_owner, defer, &mut self.pages)
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
     }
 }
 
 pub struct TopPaginationBuilder {
     user: Option<RedisData<User>>,
     mode: Option<GameMode>,
-    entries: Option<Box<[TopEntry]>>,
+    entries: Option<Box<[ScoreEmbedDataWrap]>>,
     sort_by: Option<TopScoreOrder>,
-    list_size: Option<ListSize>,
-    minimized_pp: Option<MinimizedPp>,
+    condensed_list: Option<bool>,
     score_data: Option<ScoreData>,
     content: Option<Box<str>>,
     msg_owner: Option<Id<UserMarker>>,
@@ -382,16 +281,15 @@ impl TopPaginationBuilder {
         let mode = self.mode.expect("missing mode");
         let entries = self.entries.take().expect("missing entries");
         let sort_by = self.sort_by.expect("missing sort_by");
-        let list_size = self.list_size.expect("missing list_size");
-        let minimized_pp = self.minimized_pp.expect("missing minimized_pp");
+        let condensed_list = self.condensed_list.expect("missing condensed_list");
         let score_data = self.score_data.expect("missing score_data");
         let content = self.content.take().expect("missing content");
         let msg_owner = self.msg_owner.expect("missing msg_owner");
 
-        let pages = match list_size {
-            ListSize::Condensed => Pages::new(10, entries.len()),
-            ListSize::Detailed => Pages::new(5, entries.len()),
-            ListSize::Single => Pages::new(1, entries.len()),
+        let pages = if condensed_list {
+            Pages::new(10, entries.len())
+        } else {
+            Pages::new(5, entries.len())
         };
 
         TopPagination {
@@ -399,8 +297,7 @@ impl TopPaginationBuilder {
             mode,
             entries,
             sort_by,
-            list_size,
-            minimized_pp,
+            condensed_list,
             score_data,
             content,
             msg_owner,
@@ -420,7 +317,7 @@ impl TopPaginationBuilder {
         self
     }
 
-    pub fn entries(&mut self, entries: Box<[TopEntry]>) -> &mut Self {
+    pub fn entries(&mut self, entries: Box<[ScoreEmbedDataWrap]>) -> &mut Self {
         self.entries = Some(entries);
 
         self
@@ -432,14 +329,8 @@ impl TopPaginationBuilder {
         self
     }
 
-    pub fn list_size(&mut self, list_size: ListSize) -> &mut Self {
-        self.list_size = Some(list_size);
-
-        self
-    }
-
-    pub fn minimized_pp(&mut self, minimized_pp: MinimizedPp) -> &mut Self {
-        self.minimized_pp = Some(minimized_pp);
+    pub fn condensed_list(&mut self, condensed_list: bool) -> &mut Self {
+        self.condensed_list = Some(condensed_list);
 
         self
     }
@@ -628,7 +519,7 @@ impl Display for ScoreFormat {
 
 pub struct OrderAppendix<'a> {
     sort_by: TopScoreOrder,
-    entry: &'a TopEntry,
+    entry: &'a ScoreEmbedDataHalf,
     ranked_date: Option<OffsetDateTime>,
     condensed: bool,
     score_data: ScoreData,
@@ -637,7 +528,7 @@ pub struct OrderAppendix<'a> {
 impl<'a> OrderAppendix<'a> {
     pub fn new(
         sort_by: TopScoreOrder,
-        entry: &'a TopEntry,
+        entry: &'a ScoreEmbedDataHalf,
         ranked_date: Option<OffsetDateTime>,
         condensed: bool,
         score_data: ScoreData,

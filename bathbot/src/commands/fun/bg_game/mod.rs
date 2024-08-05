@@ -1,5 +1,5 @@
 use bathbot_macros::{command, SlashCommand};
-use bathbot_model::Effects;
+use bathbot_model::{command_fields::ThreadChannel, Effects};
 use bathbot_psql::model::games::DbMapTagsParams;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, INVALID_ACTION_FOR_CHANNEL_TYPE, THREADS_UNAVAILABLE},
@@ -20,7 +20,6 @@ use crate::{
         impls::{BackgroundGame, BackgroundGameSetup},
         ActiveMessages,
     },
-    commands::ThreadChannel,
     util::{
         interaction::InteractionCommand, Authored, ChannelExt, CheckPermissions,
         InteractionCommandExt,

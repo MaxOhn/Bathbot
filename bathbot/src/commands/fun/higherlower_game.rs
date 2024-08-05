@@ -1,7 +1,9 @@
 use std::collections::{BTreeMap, HashSet};
 
 use bathbot_macros::SlashCommand;
-use bathbot_model::{HlVersion, RankingEntries, RankingEntry, RankingKind};
+use bathbot_model::{
+    command_fields::GameModeOption, HlVersion, RankingEntries, RankingEntry, RankingKind,
+};
 use bathbot_util::{constants::GENERAL_ISSUE, IntHasher};
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
@@ -13,7 +15,6 @@ use crate::{
         impls::{HigherLowerGame, RankingPagination},
         ActiveMessages,
     },
-    commands::GameModeOption,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };

@@ -1,17 +1,14 @@
 use std::borrow::Cow;
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
-use bathbot_model::{OsuStatsBestTimeframe, OsuStatsScoresOrder};
+use bathbot_model::{command_fields::GameModeOption, OsuStatsBestTimeframe, OsuStatsScoresOrder};
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use self::best::*;
 pub use self::{counts::*, globals::*, list::*};
-use crate::{
-    commands::GameModeOption,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-};
+use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
 
 mod best;
 mod counts;

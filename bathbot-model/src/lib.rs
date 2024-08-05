@@ -15,6 +15,7 @@ mod score_slim;
 mod twitch;
 mod user_stats;
 
+pub mod command_fields;
 pub mod rosu_v2;
 pub mod twilight_gateway;
 pub mod twilight_model;

@@ -7,7 +7,7 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{rosu_v2::user::User, Countries};
+use bathbot_model::{command_fields::GameModeOption, rosu_v2::user::User, Countries};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -20,7 +20,7 @@ use rosu_v2::prelude::{CountryCode, OsuError, Score, UserId, Username};
 
 use super::{RankPp, RankValue};
 use crate::{
-    commands::{osu::user_not_found, GameModeOption},
+    commands::osu::user_not_found,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::PersonalBestIndexFormatter,
     manager::redis::{

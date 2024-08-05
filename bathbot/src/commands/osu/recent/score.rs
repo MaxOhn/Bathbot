@@ -1,8 +1,8 @@
-use std::{borrow::Cow, mem};
+use std::{borrow::Cow, mem, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
-use bathbot_model::ScoreSlim;
-use bathbot_psql::model::configs::{GuildConfig, MinimizedPp, Retries, ScoreData, ScoreSize};
+use bathbot_model::command_fields::{GameModeOption, GradeOption};
+use bathbot_psql::model::configs::{GuildConfig, Retries, ScoreData};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, CowUtils, MessageOrigin,
@@ -10,11 +10,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
 use rosu_v2::{
-    prelude::{
-        GameMod, GameMode, GameMods, Grade, OsuError,
-        RankStatus::{Approved, Loved, Qualified, Ranked},
-        Score,
-    },
+    prelude::{GameMod, GameMode, GameMods, Grade, OsuError, Score},
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -25,16 +21,16 @@ use twilight_model::{
 
 use super::RecentScore;
 use crate::{
-    active::{impls::RecentScoreEdit, ActiveMessages},
+    active::{
+        impls::{SingleScoreContent, SingleScorePagination},
+        ActiveMessages,
+    },
     commands::{
         osu::{require_link, user_not_found},
-        GameModeOption, GradeOption,
+        utility::{MissAnalyzerCheck, ScoreEmbedDataWrap},
     },
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{
-        redis::osu::{UserArgs, UserArgsSlim},
-        OsuMap, OwnedReplayScore,
-    },
+    manager::redis::osu::{UserArgs, UserArgsSlim},
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
@@ -354,9 +350,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
     };
 
     let GuildValues {
-        minimized_pp: guild_minimized_pp,
         retries: guild_retries,
-        score_size: guild_score_size,
         render_button: guild_render_button,
         score_data: guild_score_data,
     } = guild_values;
@@ -481,95 +475,82 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         .or(guild_retries)
         .unwrap_or(Retries::ConsiderMods);
 
-    let (score, map, tries) = {
+    let Some([score, prev_scores @ ..]) = scores.get(num..) else {
         let len = scores.len();
-        let mut iter = scores.into_iter().skip(num);
+        let username = user.username();
 
-        let Some(score) = iter.next() else {
-            let username = user.username();
+        let content = format!(
+            "There {verb} only {len} score{plural} in `{username}`'{genitive} recent history.",
+            verb = if len != 1 { "are" } else { "is" },
+            plural = if len != 1 { "s" } else { "" },
+            genitive = if username.ends_with('s') { "" } else { "s" }
+        );
 
-            let content = format!(
-                "There {verb} only {len} score{plural} in `{username}`'{genitive} recent history.",
-                verb = if len != 1 { "are" } else { "is" },
-                plural = if len != 1 { "s" } else { "" },
-                genitive = if username.ends_with('s') { "" } else { "s" }
-            );
+        return orig.error(content).await;
+    };
 
-            return orig.error(content).await;
-        };
+    let map_id = score.map_id;
+    let mods = &score.mods;
 
-        let map_id = score.map_id;
-        let checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref());
-
-        let map = match Context::osu_map().map(map_id, checksum).await {
-            Ok(map) => map.convert(mode),
-            Err(err) => {
-                let _ = orig.error(GENERAL_ISSUE).await;
-
-                return Err(Report::new(err));
+    let tries = match retries {
+        Retries::Hide => None,
+        Retries::ConsiderMods => {
+            // Treats DT & NC as well as SD & PF as the same.
+            fn same_mods(a: &GameMods, b: &GameMods) -> bool {
+                a.iter().zip(b.iter()).all(|(a, b)| match (a, b) {
+                    (GameMod::DoubleTimeOsu(a), GameMod::NightcoreOsu(b))
+                    | (GameMod::NightcoreOsu(b), GameMod::DoubleTimeOsu(a)) => {
+                        a.speed_change.eq(&b.speed_change)
+                    }
+                    (GameMod::SuddenDeathOsu(a), GameMod::PerfectOsu(b))
+                    | (GameMod::PerfectOsu(b), GameMod::SuddenDeathOsu(a)) => {
+                        a.restart.eq(&b.restart)
+                    }
+                    (GameMod::DoubleTimeTaiko(a), GameMod::NightcoreTaiko(b))
+                    | (GameMod::NightcoreTaiko(b), GameMod::DoubleTimeTaiko(a)) => {
+                        a.speed_change.eq(&b.speed_change)
+                    }
+                    (GameMod::SuddenDeathTaiko(a), GameMod::PerfectTaiko(b))
+                    | (GameMod::PerfectTaiko(b), GameMod::SuddenDeathTaiko(a)) => {
+                        a.restart.eq(&b.restart)
+                    }
+                    (GameMod::DoubleTimeCatch(a), GameMod::NightcoreCatch(b))
+                    | (GameMod::NightcoreCatch(b), GameMod::DoubleTimeCatch(a)) => {
+                        a.speed_change.eq(&b.speed_change)
+                    }
+                    (GameMod::SuddenDeathCatch(a), GameMod::PerfectCatch(b))
+                    | (GameMod::PerfectCatch(b), GameMod::SuddenDeathCatch(a)) => {
+                        a.restart.eq(&b.restart)
+                    }
+                    (GameMod::DoubleTimeMania(a), GameMod::NightcoreMania(b))
+                    | (GameMod::NightcoreMania(b), GameMod::DoubleTimeMania(a)) => {
+                        a.speed_change.eq(&b.speed_change)
+                    }
+                    (GameMod::SuddenDeathMania(a), GameMod::PerfectMania(b))
+                    | (GameMod::PerfectMania(b), GameMod::SuddenDeathMania(a)) => {
+                        a.restart.eq(&b.restart)
+                    }
+                    (a, b) => a.eq(b),
+                })
             }
-        };
 
-        let mods = &score.mods;
-
-        let tries = match retries {
-            Retries::Hide => None,
-            Retries::ConsiderMods => {
-                fn same_mods(a: &GameMods, b: &GameMods) -> bool {
-                    a.iter().zip(b.iter()).all(|(a, b)| match (a, b) {
-                        (GameMod::DoubleTimeOsu(a), GameMod::NightcoreOsu(b))
-                        | (GameMod::NightcoreOsu(b), GameMod::DoubleTimeOsu(a)) => {
-                            a.speed_change.eq(&b.speed_change)
-                        }
-                        (GameMod::SuddenDeathOsu(a), GameMod::PerfectOsu(b))
-                        | (GameMod::PerfectOsu(b), GameMod::SuddenDeathOsu(a)) => {
-                            a.restart.eq(&b.restart)
-                        }
-                        (GameMod::DoubleTimeTaiko(a), GameMod::NightcoreTaiko(b))
-                        | (GameMod::NightcoreTaiko(b), GameMod::DoubleTimeTaiko(a)) => {
-                            a.speed_change.eq(&b.speed_change)
-                        }
-                        (GameMod::SuddenDeathTaiko(a), GameMod::PerfectTaiko(b))
-                        | (GameMod::PerfectTaiko(b), GameMod::SuddenDeathTaiko(a)) => {
-                            a.restart.eq(&b.restart)
-                        }
-                        (GameMod::DoubleTimeCatch(a), GameMod::NightcoreCatch(b))
-                        | (GameMod::NightcoreCatch(b), GameMod::DoubleTimeCatch(a)) => {
-                            a.speed_change.eq(&b.speed_change)
-                        }
-                        (GameMod::SuddenDeathCatch(a), GameMod::PerfectCatch(b))
-                        | (GameMod::PerfectCatch(b), GameMod::SuddenDeathCatch(a)) => {
-                            a.restart.eq(&b.restart)
-                        }
-                        (GameMod::DoubleTimeMania(a), GameMod::NightcoreMania(b))
-                        | (GameMod::NightcoreMania(b), GameMod::DoubleTimeMania(a)) => {
-                            a.speed_change.eq(&b.speed_change)
-                        }
-                        (GameMod::SuddenDeathMania(a), GameMod::PerfectMania(b))
-                        | (GameMod::PerfectMania(b), GameMod::SuddenDeathMania(a)) => {
-                            a.restart.eq(&b.restart)
-                        }
-                        (a, b) => a.eq(b),
-                    })
-                }
-
-                Some(
-                    1 + iter
-                        .take_while(|s| same_mods(&s.mods, mods) && s.map_id == map_id)
-                        .count(),
-                )
-            }
-            Retries::IgnoreMods => Some(1 + iter.take_while(|s| s.map_id == map_id).count()),
-        };
-
-        (score, map, tries)
+            Some(
+                1 + prev_scores
+                    .iter()
+                    .take_while(|s| same_mods(&s.mods, mods) && s.map_id == map_id)
+                    .count(),
+            )
+        }
+        Retries::IgnoreMods => Some(
+            1 + prev_scores
+                .iter()
+                .take_while(|s| s.map_id == map_id)
+                .count(),
+        ),
     };
 
     let user_id = user.user_id();
     let grade = if score.passed { score.grade } else { Grade::F };
-    let status = map.status();
-    let map_id = score.map_id;
-    let score_id = score.legacy_score_id;
 
     let mut with_miss_analyzer = orig
         .guild_id()
@@ -582,25 +563,10 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         (Some(false), _) => false,
     };
 
-    // Prepare retrieval of the the user's top 50 and score position on the map
-    let map_score_fut = async {
-        if grade != Grade::F && matches!(status, Ranked | Loved | Qualified | Approved) {
-            let fut = Context::osu_scores().user_on_map_single(
-                user_id,
-                map_id,
-                mode,
-                None,
-                legacy_scores,
-            );
-
-            Some(fut.await)
-        } else {
-            None
-        }
-    };
+    let settings = config.score_embed.unwrap_or_default();
 
     let top100_fut = async {
-        if grade != Grade::F {
+        if grade != Grade::F || settings.buttons.pagination {
             let user_args = UserArgsSlim::user_id(user_id).mode(mode);
 
             Some(
@@ -615,53 +581,25 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         }
     };
 
-    let guild_id_opt = orig.guild_id();
     with_miss_analyzer &= mode == GameMode::Osu;
     with_render &= mode == GameMode::Osu
-        && score.replay
         && orig.has_permission_to(Permissions::SEND_MESSAGES)
         && Context::ordr().is_some();
-
-    let miss_analyzer_fut = async {
-        if let Some((guild_id, score_id)) =
-            guild_id_opt.filter(|_| with_miss_analyzer).zip(score_id)
-        {
-            debug!(score_id, "Sending score id to miss analyzer");
-
-            Context::client()
-                .miss_analyzer_score_request(guild_id.get(), score_id)
-                .await
-        } else {
-            Ok(false)
-        }
-    };
 
     #[cfg(feature = "twitch")]
     let twitch_fut = async {
         if let Some(user_id) = twitch_id {
-            twitch_stream(user_id, &score, &map).await
+            twitch_data(user_id).await
         } else {
             None
         }
     };
 
     #[cfg(feature = "twitch")]
-    let (map_score_res, top100_res, miss_analyzer_res, twitch_stream) =
-        tokio::join!(map_score_fut, top100_fut, miss_analyzer_fut, twitch_fut);
+    let (top100_res, twitch_data) = tokio::join!(top100_fut, twitch_fut);
 
     #[cfg(not(feature = "twitch"))]
-    let (map_score_res, top100_res, miss_analyzer_res) =
-        tokio::join!(map_score_fut, top100_fut, miss_analyzer_fut);
-
-    let map_score = match map_score_res {
-        None | Some(Err(OsuError::NotFound)) => None,
-        Some(Ok(score)) => Some(score),
-        Some(Err(err)) => {
-            warn!(?err, "Failed to get global scores");
-
-            None
-        }
-    };
+    let top100_res = top100_fut.await;
 
     let top100 = match top100_res {
         Some(Ok(scores)) => Some(scores),
@@ -673,125 +611,90 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         }
     };
 
-    match miss_analyzer_res {
-        Ok(wants_button) => with_miss_analyzer &= wants_button,
-        Err(err) => {
-            warn!(?err, "Failed to send score id to miss analyzer");
-            with_miss_analyzer = false;
-        }
-    }
+    let guild_id = orig.guild_id();
+    let miss_analyzer = MissAnalyzerCheck::new(guild_id, with_miss_analyzer);
+    let origin = MessageOrigin::new(guild_id, orig.channel_id());
 
-    let minimized_pp = config
-        .minimized_pp
-        .or(guild_minimized_pp)
-        .unwrap_or_default();
-
-    let replay_score = with_render
-        .then(|| OwnedReplayScore::from_score(&score))
-        .flatten();
-
-    let entry = RecentEntry::new(score, map).await;
-    let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
-
-    let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
-    let content = tries.map(|tries| format!("Try #{tries}"));
-
-    let active_msg_fut = RecentScoreEdit::create(
-        &user,
-        &entry,
-        top100.as_deref(),
-        map_score.as_ref(),
+    let entries = process_scores(
+        scores,
+        top100,
         #[cfg(feature = "twitch")]
-        twitch_stream,
-        minimized_pp,
-        score_id,
-        with_miss_analyzer,
-        replay_score,
-        &origin,
-        score_size,
-        score_data,
-        content,
+        twitch_data,
+        origin,
+        legacy_scores,
+        with_render,
+        miss_analyzer,
     );
 
-    ActiveMessages::builder(active_msg_fut.await)
+    let content = tries.map_or(SingleScoreContent::None, |tries| {
+        SingleScoreContent::OnlyForIndex {
+            idx: num,
+            content: format!("Try #{tries}"),
+        }
+    });
+
+    let mut pagination =
+        SingleScorePagination::new(&user, entries, settings, score_data, author, content);
+
+    pagination.set_index(num);
+
+    ActiveMessages::builder(pagination)
         .start_by_update(true)
         .begin(orig)
         .await
 }
 
-#[cfg(feature = "twitch")]
-pub enum RecentTwitchStream {
-    Stream {
-        login: Box<str>,
-    },
-    Video {
-        username: Box<str>,
-        login: Box<str>,
-        vod_url: Box<str>,
-    },
+fn process_scores(
+    scores: Vec<Score>,
+    top100: Option<Vec<Score>>,
+    #[cfg(feature = "twitch")] twitch_data: Option<crate::commands::utility::TwitchData>,
+    origin: MessageOrigin,
+    legacy_scores: bool,
+    with_render: bool,
+    miss_analyzer: MissAnalyzerCheck,
+) -> Box<[ScoreEmbedDataWrap]> {
+    let top100 = top100.map(Arc::from);
+
+    #[cfg(feature = "twitch")]
+    let twitch_data = twitch_data.map(Arc::new);
+
+    scores
+        .into_iter()
+        .map(|score| {
+            ScoreEmbedDataWrap::new_raw(
+                score,
+                legacy_scores,
+                with_render,
+                miss_analyzer,
+                top100.as_ref().map(Arc::clone),
+                #[cfg(feature = "twitch")]
+                twitch_data.as_ref().map(Arc::clone),
+                origin,
+            )
+        })
+        .collect()
 }
 
 #[cfg(feature = "twitch")]
-impl RecentTwitchStream {
-    fn new_stream(login: Box<str>) -> Self {
-        Self::Stream { login }
-    }
+async fn twitch_data(user_id: u64) -> Option<crate::commands::utility::TwitchData> {
+    use crate::commands::utility::TwitchData;
 
-    fn new_vod(username: Box<str>, login: Box<str>, vod_url: String) -> Self {
-        Self::Video {
-            username,
-            login,
-            vod_url: vod_url.into_boxed_str(),
-        }
-    }
-}
-
-#[cfg(feature = "twitch")]
-async fn twitch_stream(
-    user_id: u64,
-    score: &rosu_v2::prelude::Score,
-    map: &crate::manager::OsuMap,
-) -> Option<RecentTwitchStream> {
-    let client = Context::client();
-    let online_twitch_streams = Context::online_twitch_streams();
-    let is_online = online_twitch_streams.is_user_online(user_id);
-
-    if is_online {
-        match client.get_last_twitch_vod(user_id).await {
-            Ok(Some(vod)) => {
-                let score_started_at = score_started_at(score, map);
-
-                let vod_start = vod.created_at;
-                let vod_end = vod.ended_at();
-
-                if vod_start < score_started_at && score_started_at < vod_end {
-                    let mut url = vod.url;
-                    let offset = score_started_at - vod_start;
-                    bathbot_model::TwitchVideo::append_url_timestamp(&mut url, offset);
-
-                    return Some(RecentTwitchStream::new_vod(vod.username, vod.login, url));
-                }
-            }
-            Ok(None) => {}
+    async fn get_vod(user_id: u64) -> Option<bathbot_model::TwitchVideo> {
+        match Context::client().get_last_twitch_vod(user_id).await {
+            Ok(Some(vod)) => Some(vod),
+            Ok(None) => None,
             Err(err) => {
                 warn!(?err, "Failed to get twitch vod");
-                online_twitch_streams.set_offline_by_user(user_id);
+                Context::online_twitch_streams().set_offline_by_user(user_id);
 
-                return None;
+                None
             }
         }
+    }
 
-        match client.get_twitch_stream(user_id).await {
-            Ok(Some(stream)) => {
-                if stream.live {
-                    Some(RecentTwitchStream::new_stream(stream.login))
-                } else {
-                    let guard = online_twitch_streams.guard();
-                    online_twitch_streams.set_offline(&stream, &guard);
-
-                    None
-                }
-            }
+    async fn get_stream(user_id: u64) -> Option<bathbot_model::TwitchStream> {
+        match Context::client().get_twitch_stream(user_id).await {
+            Ok(Some(stream)) => Some(stream),
             Ok(None) => {
                 // TODO: remove twitch id from user config
 
@@ -799,96 +702,36 @@ async fn twitch_stream(
             }
             Err(err) => {
                 warn!(?err, "Failed to get twitch stream");
-                online_twitch_streams.set_offline_by_user(user_id);
-
-                None
-            }
-        }
-    } else {
-        match client.get_twitch_stream(user_id).await {
-            Ok(Some(stream)) => {
-                if !stream.live {
-                    return None;
-                }
-
-                {
-                    let guard = online_twitch_streams.guard();
-                    online_twitch_streams.set_online(&stream, &guard);
-                }
-
-                match client.get_last_twitch_vod(user_id).await {
-                    Ok(Some(vod)) => {
-                        let score_started_at = score_started_at(score, map);
-
-                        let vod_start = vod.created_at;
-                        let vod_end = vod.ended_at();
-
-                        if vod_start < score_started_at && score_started_at < vod_end {
-                            let mut url = vod.url;
-                            let offset = score_started_at - vod_start;
-                            bathbot_model::TwitchVideo::append_url_timestamp(&mut url, offset);
-
-                            Some(RecentTwitchStream::new_vod(vod.username, vod.login, url))
-                        } else {
-                            Some(RecentTwitchStream::new_stream(stream.login))
-                        }
-                    }
-                    Ok(None) => Some(RecentTwitchStream::new_stream(stream.login)),
-                    Err(err) => {
-                        warn!(?err, "Failed to get twitch vod");
-
-                        None
-                    }
-                }
-            }
-            Ok(None) => {
-                // TODO: remove twitch id from user config
-
-                None
-            }
-            Err(err) => {
-                warn!(?err, "Failed to get twitch stream");
+                Context::online_twitch_streams().set_offline_by_user(user_id);
 
                 None
             }
         }
     }
-}
 
-#[cfg(feature = "twitch")]
-fn score_started_at(
-    score: &rosu_v2::prelude::Score,
-    map: &crate::manager::OsuMap,
-) -> time::OffsetDateTime {
-    let mut map_len = map.seconds_drain() as f64;
+    let stream = get_stream(user_id).await?;
 
-    // Adjust map length with passed objects in case of fail
-    if score.passed {
-        map_len += map.pp_map.total_break_time() / 1000.0;
-    } else {
-        let passed = score.total_hits();
-
-        if map.mode() == GameMode::Catch {
-            // amount objects in .osu file != amount of hitobjects for catch
-            map_len += 2.0;
-        } else if let Some(obj) = passed
-            .checked_sub(1)
-            .and_then(|i| map.pp_map.hit_objects.get(i as usize))
-        {
-            map_len = obj.start_time / 1000.0;
-        } else {
-            let total = map.n_objects();
-            map_len *= passed as f64 / total as f64;
-
-            map_len += 2.0;
-        }
+    if !stream.live {
+        return None;
     }
 
-    if let Some(clock_rate) = score.mods.clock_rate() {
-        map_len /= f64::from(clock_rate);
+    {
+        let online_twitch_streams = Context::online_twitch_streams();
+        let guard = online_twitch_streams.guard();
+        online_twitch_streams.set_online(&stream, &guard);
     }
 
-    score.ended_at - std::time::Duration::from_secs(map_len as u64 + 3)
+    let data = match get_vod(user_id).await {
+        Some(vod) => TwitchData::Vod {
+            vod,
+            stream_login: stream.login,
+        },
+        None => TwitchData::Stream {
+            login: stream.login,
+        },
+    };
+
+    Some(data)
 }
 
 #[allow(unused)] // fields are used through transmute in From impl
@@ -943,44 +786,9 @@ async fn slash_rs(mut command: InteractionCommand) -> Result<()> {
     score((&mut command).into(), args.into()).await
 }
 
-pub struct RecentEntry {
-    pub score: ScoreSlim,
-    pub map: OsuMap,
-    pub max_pp: f32,
-    pub max_combo: u32,
-    pub stars: f32,
-}
-
-impl RecentEntry {
-    async fn new(score: Score, map: OsuMap) -> Self {
-        let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
-        let attrs = calc.performance().await;
-
-        let max_pp = score
-            .pp
-            .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
-            .unwrap_or(attrs.pp() as f32);
-
-        let pp = match score.pp {
-            Some(pp) => pp,
-            None => calc.score(&score).performance().await.pp() as f32,
-        };
-
-        Self {
-            score: ScoreSlim::new(score, pp),
-            map,
-            stars: attrs.stars() as f32,
-            max_pp,
-            max_combo: attrs.max_combo(),
-        }
-    }
-}
-
 #[derive(Default)]
 struct GuildValues {
-    minimized_pp: Option<MinimizedPp>,
     retries: Option<Retries>,
-    score_size: Option<ScoreSize>,
     render_button: Option<bool>,
     score_data: Option<ScoreData>,
 }
@@ -988,9 +796,7 @@ struct GuildValues {
 impl From<&GuildConfig> for GuildValues {
     fn from(config: &GuildConfig) -> Self {
         Self {
-            minimized_pp: config.minimized_pp,
             retries: config.retries,
-            score_size: config.score_size,
             render_button: config.render_button,
             score_data: config.score_data,
         }

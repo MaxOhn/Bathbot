@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bathbot_macros::command;
+use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::{
     constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
     matcher,
@@ -16,12 +17,8 @@ use rosu_v2::{
 use super::RecentLeaderboard;
 use crate::{
     active::{impls::LeaderboardPagination, ActiveMessages},
-    commands::{
-        osu::{
-            require_link, user_not_found, HasMods, LeaderboardScore, LeaderboardUserScore,
-            ModsResult,
-        },
-        GameModeOption,
+    commands::osu::{
+        require_link, user_not_found, HasMods, LeaderboardScore, LeaderboardUserScore, ModsResult,
     },
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, Mods},

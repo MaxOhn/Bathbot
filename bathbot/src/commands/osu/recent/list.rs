@@ -6,7 +6,10 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::ScoreSlim;
+use bathbot_model::{
+    command_fields::{GameModeOption, GradeOption},
+    ScoreSlim,
+};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -24,10 +27,7 @@ use rosu_v2::{
 use super::{RecentList, RecentListUnique};
 use crate::{
     active::{impls::RecentListPagination, ActiveMessages},
-    commands::{
-        osu::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder},
-        GameModeOption, GradeOption,
-    },
+    commands::osu::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, Mods, OsuMap},
     util::{

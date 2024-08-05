@@ -97,8 +97,7 @@ pub struct TwitchVideo {
     #[serde(with = "super::deser::datetime_rfc3339")]
     pub published_at: OffsetDateTime,
     pub title: Box<str>,
-    // Gets modified inside the struct so required to keep as `String`
-    pub url: String,
+    pub url: Box<str>,
     #[serde(rename = "user_name")]
     pub username: Box<str>,
     #[serde(rename = "user_login")]

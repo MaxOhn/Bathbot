@@ -1,14 +1,13 @@
+use bathbot_model::command_fields::ScoreEmbedSettings;
 use rosu_v2::prelude::{GameMode, Username};
+use sqlx::types::Json;
 use time::UtcOffset;
 
-use super::{
-    list_size::ListSize, minimized_pp::MinimizedPp, score_size::ScoreSize, Retries, ScoreData,
-};
+use super::{list_size::ListSize, Retries, ScoreData};
 
 pub struct DbUserConfig {
-    pub score_size: Option<i16>,
     pub list_size: Option<i16>,
-    pub minimized_pp: Option<i16>,
+    pub score_embed: Option<Json<ScoreEmbedSettings>>,
     pub gamemode: Option<i16>,
     pub osu_id: Option<i32>,
     pub retries: Option<i16>,
@@ -38,9 +37,8 @@ impl OsuId for OsuUsername {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserConfig<O: OsuId> {
-    pub score_size: Option<ScoreSize>,
     pub list_size: Option<ListSize>,
-    pub minimized_pp: Option<MinimizedPp>,
+    pub score_embed: Option<ScoreEmbedSettings>,
     pub mode: Option<GameMode>,
     pub osu: Option<O::Type>,
     pub retries: Option<Retries>,
@@ -54,9 +52,8 @@ impl<O: OsuId> Default for UserConfig<O> {
     #[inline]
     fn default() -> Self {
         Self {
-            score_size: None,
             list_size: None,
-            minimized_pp: None,
+            score_embed: None,
             mode: None,
             osu: None,
             retries: None,
@@ -72,9 +69,8 @@ impl From<DbUserConfig> for UserConfig<OsuUserId> {
     #[inline]
     fn from(config: DbUserConfig) -> Self {
         let DbUserConfig {
-            score_size,
             list_size,
-            minimized_pp,
+            score_embed,
             gamemode,
             osu_id,
             retries,
@@ -85,9 +81,8 @@ impl From<DbUserConfig> for UserConfig<OsuUserId> {
         } = config;
 
         Self {
-            score_size: score_size.map(ScoreSize::try_from).and_then(Result::ok),
             list_size: list_size.map(ListSize::try_from).and_then(Result::ok),
-            minimized_pp: minimized_pp.map(MinimizedPp::try_from).and_then(Result::ok),
+            score_embed: score_embed.map(|Json(score_embed)| score_embed),
             mode: gamemode.map(|mode| GameMode::from(mode as u8)),
             osu: osu_id.map(|id| id as u32),
             retries: retries.map(Retries::try_from).and_then(Result::ok),

@@ -24,10 +24,8 @@ SELECT
   authorities,
   prefixes,
   allow_songs,
-  score_size,
   retries,
   osu_track_limit,
-  minimized_pp,
   list_size, 
   render_button, 
   allow_custom_skins, 
@@ -56,9 +54,7 @@ FROM
     ) -> Result<()> {
         let GuildConfig {
             authorities,
-            score_size,
             list_size,
-            minimized_pp,
             prefixes,
             retries,
             track_limit,
@@ -79,38 +75,33 @@ FROM
             r#"
 INSERT INTO guild_configs (
   guild_id, authorities, prefixes, allow_songs, 
-  score_size, retries, osu_track_limit, 
-  minimized_pp, list_size, render_button, 
-  allow_custom_skins, hide_medal_solution, 
-  score_data
+  retries, osu_track_limit, list_size, 
+  render_button, allow_custom_skins, 
+  hide_medal_solution, score_data
 ) 
 VALUES 
   (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
-    $11, $12, $13
+    $11
   ) ON CONFLICT (guild_id) DO 
 UPDATE 
 SET 
   authorities = $2, 
   prefixes = $3, 
   allow_songs = $4, 
-  score_size = $5, 
-  retries = $6, 
-  osu_track_limit = $7, 
-  minimized_pp = $8, 
-  list_size = $9, 
-  render_button = $10, 
-  allow_custom_skins = $11, 
-  hide_medal_solution = $12, 
-  score_data = $13"#,
+  retries = $5, 
+  osu_track_limit = $6, 
+  list_size = $7, 
+  render_button = $8, 
+  allow_custom_skins = $9, 
+  hide_medal_solution = $10, 
+  score_data = $11"#,
             guild_id.get() as i64,
             &authorities as &[u8],
             &prefixes as &[u8],
             *allow_songs,
-            score_size.map(i16::from),
             retries.map(i16::from),
             track_limit.map(|limit| limit as i16),
-            minimized_pp.map(i16::from),
             list_size.map(i16::from),
             *render_button,
             *allow_custom_skins,

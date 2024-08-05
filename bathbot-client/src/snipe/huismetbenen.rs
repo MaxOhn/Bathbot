@@ -128,13 +128,11 @@ pub async fn get_national_firsts(
         order = if params.descending { "desc" } else { "asc" },
     );
 
-    if let Some(ref mods) = params.mods {
-        if let ModSelection::Include(mods) | ModSelection::Exact(mods) = mods {
-            if mods.is_empty() {
-                url.push_str("&mods=nomod");
-            } else {
-                let _ = write!(url, "&mods={mods}");
-            }
+    if let Some(ModSelection::Include(ref mods) | ModSelection::Exact(ref mods)) = params.mods {
+        if mods.is_empty() {
+            url.push_str("&mods=nomod");
+        } else {
+            let _ = write!(url, "&mods={mods}");
         }
     }
 
@@ -157,13 +155,11 @@ pub async fn get_national_firsts_count(
         user = params.user_id,
     );
 
-    if let Some(ref mods) = params.mods {
-        if let ModSelection::Include(mods) | ModSelection::Exact(mods) = mods {
-            if mods.is_empty() {
-                url.push_str("?mods=nomod");
-            } else {
-                let _ = write!(url, "?mods={mods}");
-            }
+    if let Some(ModSelection::Include(ref mods) | ModSelection::Exact(ref mods)) = params.mods {
+        if mods.is_empty() {
+            url.push_str("?mods=nomod");
+        } else {
+            let _ = write!(url, "?mods={mods}");
         }
     }
 

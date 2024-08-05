@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_model::command_fields::ThreadChannel;
 use bathbot_util::{
     constants::{
         GENERAL_ISSUE, INVALID_ACTION_FOR_CHANNEL_TYPE, OSU_API_ISSUE, OSU_BASE,
@@ -14,7 +15,6 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::{thread::AutoArchiveDuration, ChannelType};
 
 use crate::{
-    commands::ThreadChannel,
     core::commands::CommandOrigin,
     matchlive::MatchTrackResult,
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
