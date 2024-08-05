@@ -427,6 +427,10 @@ impl BuildPage {
 
         self
     }
+
+    pub fn into_embed(self) -> EmbedBuilder {
+        self.embed
+    }
 }
 
 pub enum ComponentResult {

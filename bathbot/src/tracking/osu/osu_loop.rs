@@ -1,7 +1,16 @@
 use std::{borrow::Cow, collections::HashMap, num::NonZeroU64, slice};
 
-use bathbot_model::rosu_v2::user::User;
-use bathbot_psql::model::osu::{TrackedOsuUserKey, TrackedOsuUserValue};
+use bathbot_model::{
+    command_fields::{
+        ScoreEmbedButtons, ScoreEmbedFooter, ScoreEmbedHitResults, ScoreEmbedImage,
+        ScoreEmbedMapInfo, ScoreEmbedPp, ScoreEmbedSettings,
+    },
+    rosu_v2::user::User,
+};
+use bathbot_psql::model::{
+    configs::ScoreData,
+    osu::{TrackedOsuUserKey, TrackedOsuUserValue},
+};
 use bathbot_util::{constants::UNKNOWN_CHANNEL, EmbedBuilder, IntHasher};
 use eyre::Report;
 use rosu_v2::{
@@ -16,7 +25,8 @@ use twilight_http::{
 use twilight_model::id::Id;
 
 use crate::{
-    embeds::{EmbedData, TrackNotificationEmbed},
+    active::impls::{SingleScoreContent, SingleScorePagination},
+    commands::utility::ScoreEmbedDataWrap,
     manager::{
         redis::{osu::UserArgs, RedisData},
         OsuMap,
@@ -156,7 +166,7 @@ async fn score_loop(
             }
         };
 
-        let embed = user.embed(score, &map, idx).await?.build();
+        let embed = user.embed(score, map, idx).await?.build();
         let http = Context::http();
         let tracking = Context::tracking();
 
@@ -220,18 +230,62 @@ impl<'u> TrackUser<'u> {
         }
     }
 
-    async fn embed(&mut self, score: &Score, map: &OsuMap, idx: u8) -> OsuResult<EmbedBuilder> {
-        let data = if let Some(user) = self.user.as_deref() {
-            TrackNotificationEmbed::new(user, score, map, idx).await
-        } else {
-            let TrackedOsuUserKey { user_id, mode } = self.key;
-            let args = UserArgs::user_id(user_id, mode);
-            let user = Context::redis().osu_user(args).await?;
-            let user = self.user.get_or_insert(Cow::Owned(user));
+    async fn embed(&mut self, score: &Score, map: OsuMap, idx: u8) -> OsuResult<EmbedBuilder> {
+        let user = match self.user.as_deref() {
+            Some(user) => user,
+            None => {
+                let TrackedOsuUserKey { user_id, mode } = self.key;
+                let args = UserArgs::user_id(user_id, mode);
+                let user = Context::redis().osu_user(args).await?;
 
-            TrackNotificationEmbed::new(user.as_ref(), score, map, idx).await
+                match self.user.get_or_insert(Cow::Owned(user)) {
+                    Cow::Owned(user) => &*user,
+                    Cow::Borrowed(user) => *user,
+                }
+            }
         };
 
-        Ok(data.build())
+        let settings = ScoreEmbedSettings {
+            image: ScoreEmbedImage::Thumbnail,
+            pp: ScoreEmbedPp::Max,
+            map_info: ScoreEmbedMapInfo {
+                len: true,
+                ar: true,
+                cs: true,
+                od: true,
+                hp: true,
+                bpm: true,
+                n_obj: false,
+                n_spin: false,
+            },
+            footer: ScoreEmbedFooter::WithScoreDate,
+            buttons: ScoreEmbedButtons {
+                pagination: false,
+                render: false,
+                miss_analyzer: false,
+            },
+            hitresults: ScoreEmbedHitResults::Full,
+        };
+
+        let score_data = ScoreData::Lazer;
+        let msg_owner = Id::new(1);
+        let content = SingleScoreContent::None;
+
+        let entry = ScoreEmbedDataWrap::new_custom(score.clone(), map, idx as usize, None).await;
+
+        let entries = Box::<[_]>::from([entry]);
+
+        let mut pagination =
+            SingleScorePagination::new(user, entries, settings, score_data, msg_owner, content);
+
+        match pagination.async_build_page(Box::default()).await {
+            Ok(data) => Ok(data.into_embed()),
+            Err(_) => {
+                // Unreachable because `async_build_page` can only fail while
+                // converting to full score data but it already starts off as
+                // full.
+                Ok(Default::default())
+            }
+        }
     }
 }

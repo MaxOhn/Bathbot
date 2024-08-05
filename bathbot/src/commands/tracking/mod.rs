@@ -1,13 +1,13 @@
 use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_macros::SlashCommand;
+use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::CowUtils;
 use eyre::Result;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
-use super::GameModeOption;
 use crate::{
     core::commands::prefix::{Args, ArgsNum},
     manager::redis::osu::UserArgs,

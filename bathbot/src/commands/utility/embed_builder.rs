@@ -91,7 +91,7 @@ pub async fn slash_scoreembedbuilder(mut command: InteractionCommand) -> Result<
 
     let settings = config.score_embed.unwrap_or_default();
 
-    let data = ScoreEmbedDataWrap::new_example(score, map).await;
+    let data = ScoreEmbedDataWrap::new_custom(score, map, 71, Some(7)).await;
 
     let active_msg = ScoreEmbedBuilderActive::new(&user, data, settings, score_data, msg_owner);
 
@@ -158,7 +158,12 @@ impl ScoreEmbedDataWrap {
         }
     }
 
-    async fn new_example(score: Score, map: OsuMap) -> Self {
+    pub async fn new_custom(
+        score: Score,
+        map: OsuMap,
+        pb_idx: usize,
+        global_idx: Option<usize>,
+    ) -> Self {
         let PpAttrs {
             calc,
             stars,
@@ -184,8 +189,8 @@ impl ScoreEmbedDataWrap {
                 max_pp,
                 replay: None,
                 miss_analyzer: None,
-                pb_idx: Some(ScoreEmbedDataPersonalBest::from_index(71)),
-                global_idx: Some(7),
+                pb_idx: Some(ScoreEmbedDataPersonalBest::from_index(pb_idx)),
+                global_idx,
                 if_fc_pp,
                 #[cfg(feature = "twitch")]
                 twitch: None,
