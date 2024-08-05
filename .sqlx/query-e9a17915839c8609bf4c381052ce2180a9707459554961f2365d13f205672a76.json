@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT \n  guild_id,\n  authorities,\n  prefixes,\n  allow_songs,\n  score_size,\n  retries,\n  osu_track_limit,\n  minimized_pp,\n  list_size, \n  render_button, \n  allow_custom_skins, \n  hide_medal_solution, \n  score_data \nFROM \n  guild_configs",
+  "query": "\nSELECT \n  guild_id,\n  authorities,\n  prefixes,\n  allow_songs,\n  retries,\n  osu_track_limit,\n  list_size, \n  render_button, \n  allow_custom_skins, \n  hide_medal_solution, \n  score_data \nFROM \n  guild_configs",
   "describe": {
     "columns": [
       {
@@ -25,46 +25,36 @@
       },
       {
         "ordinal": 4,
-        "name": "score_size",
-        "type_info": "Int2"
-      },
-      {
-        "ordinal": 5,
         "name": "retries",
         "type_info": "Int2"
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "osu_track_limit",
         "type_info": "Int2"
       },
       {
-        "ordinal": 7,
-        "name": "minimized_pp",
-        "type_info": "Int2"
-      },
-      {
-        "ordinal": 8,
+        "ordinal": 6,
         "name": "list_size",
         "type_info": "Int2"
       },
       {
-        "ordinal": 9,
+        "ordinal": 7,
         "name": "render_button",
         "type_info": "Bool"
       },
       {
-        "ordinal": 10,
+        "ordinal": 8,
         "name": "allow_custom_skins",
         "type_info": "Bool"
       },
       {
-        "ordinal": 11,
+        "ordinal": 9,
         "name": "hide_medal_solution",
         "type_info": "Int2"
       },
       {
-        "ordinal": 12,
+        "ordinal": 10,
         "name": "score_data",
         "type_info": "Int2"
       }
@@ -83,10 +73,8 @@
       true,
       true,
       true,
-      true,
-      true,
       true
     ]
   },
-  "hash": "f3298e320b1b18481b0eca7a3d174ad6c34c3abea59dd12362ac34f8e19f675a"
+  "hash": "e9a17915839c8609bf4c381052ce2180a9707459554961f2365d13f205672a76"
 }

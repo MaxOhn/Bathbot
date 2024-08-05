@@ -1,55 +1,50 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT \n  score_size, \n  list_size, \n  minimized_pp, \n  gamemode, \n  osu_id, \n  retries, \n  twitch_id, \n  timezone_seconds, \n  render_button, \n  score_data \nFROM \n  user_configs \nWHERE \n  discord_id = $1",
+  "query": "\nSELECT \n  list_size, \n  score_embed as \"score_embed: Json<ScoreEmbedSettings>\", \n  gamemode, \n  osu_id, \n  retries, \n  twitch_id, \n  timezone_seconds, \n  render_button, \n  score_data \nFROM \n  user_configs \nWHERE \n  discord_id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "score_size",
-        "type_info": "Int2"
-      },
-      {
-        "ordinal": 1,
         "name": "list_size",
         "type_info": "Int2"
       },
       {
-        "ordinal": 2,
-        "name": "minimized_pp",
-        "type_info": "Int2"
+        "ordinal": 1,
+        "name": "score_embed: Json<ScoreEmbedSettings>",
+        "type_info": "Jsonb"
       },
       {
-        "ordinal": 3,
+        "ordinal": 2,
         "name": "gamemode",
         "type_info": "Int2"
       },
       {
-        "ordinal": 4,
+        "ordinal": 3,
         "name": "osu_id",
         "type_info": "Int4"
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "retries",
         "type_info": "Int2"
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "twitch_id",
         "type_info": "Int8"
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "timezone_seconds",
         "type_info": "Int4"
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "render_button",
         "type_info": "Bool"
       },
       {
-        "ordinal": 9,
+        "ordinal": 8,
         "name": "score_data",
         "type_info": "Int2"
       }
@@ -68,9 +63,8 @@
       true,
       true,
       true,
-      true,
       true
     ]
   },
-  "hash": "47ce590ad9d08a641a0438d952ac077f29d8a528b6dc12d499fc6d4eade1469f"
+  "hash": "e4c13068406ed0461fd8816fa8ff2d1f9ead9779e6c35e389c89af2cd13a62af"
 }
