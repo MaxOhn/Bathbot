@@ -76,106 +76,110 @@ impl IActiveMessage for BackgroundGameSetup {
             return Vec::new();
         }
 
-        let options = vec![
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Easy".to_owned(),
-                value: "easy".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Hard".to_owned(),
-                value: "hard".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Meme".to_owned(),
-                value: "meme".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Weeb".to_owned(),
-                value: "weeb".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "K-Pop".to_owned(),
-                value: "kpop".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Farm".to_owned(),
-                value: "farm".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Hard name".to_owned(),
-                value: "hardname".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Alternate".to_owned(),
-                value: "alt".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Blue sky".to_owned(),
-                value: "bluesky".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "English".to_owned(),
-                value: "english".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Streams".to_owned(),
-                value: "streams".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Old".to_owned(),
-                value: "old".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Tech".to_owned(),
-                value: "tech".to_owned(),
-            },
-        ];
+        let tag_options = |tags: MapsetTags| {
+            vec![
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::Easy),
+                    description: None,
+                    emoji: None,
+                    label: "Easy".to_owned(),
+                    value: "easy".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::Hard),
+                    description: None,
+                    emoji: None,
+                    label: "Hard".to_owned(),
+                    value: "hard".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::Meme),
+                    description: None,
+                    emoji: None,
+                    label: "Meme".to_owned(),
+                    value: "meme".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::Weeb),
+                    description: None,
+                    emoji: None,
+                    label: "Weeb".to_owned(),
+                    value: "weeb".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::Kpop),
+                    description: None,
+                    emoji: None,
+                    label: "K-Pop".to_owned(),
+                    value: "kpop".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::Farm),
+                    description: None,
+                    emoji: None,
+                    label: "Farm".to_owned(),
+                    value: "farm".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::HardName),
+                    description: None,
+                    emoji: None,
+                    label: "Hard name".to_owned(),
+                    value: "hardname".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::Alternate),
+                    description: None,
+                    emoji: None,
+                    label: "Alternate".to_owned(),
+                    value: "alt".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::BlueSky),
+                    description: None,
+                    emoji: None,
+                    label: "Blue sky".to_owned(),
+                    value: "bluesky".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::English),
+                    description: None,
+                    emoji: None,
+                    label: "English".to_owned(),
+                    value: "english".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::Streams),
+                    description: None,
+                    emoji: None,
+                    label: "Streams".to_owned(),
+                    value: "streams".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::Old),
+                    description: None,
+                    emoji: None,
+                    label: "Old".to_owned(),
+                    value: "old".to_owned(),
+                },
+                SelectMenuOption {
+                    default: tags.contains(MapsetTags::Tech),
+                    description: None,
+                    emoji: None,
+                    label: "Tech".to_owned(),
+                    value: "tech".to_owned(),
+                },
+            ]
+        };
+
+        let include_options = tag_options(self.included);
 
         let include_menu = SelectMenu {
             custom_id: "bg_setup_include".to_owned(),
             disabled: false,
-            max_values: Some(options.len() as u8),
+            max_values: Some(include_options.len() as u8),
             min_values: Some(0),
-            options: options.clone(),
+            options: include_options,
             placeholder: Some("Select which tags should be included".to_owned()),
         };
 
@@ -183,12 +187,14 @@ impl IActiveMessage for BackgroundGameSetup {
             components: vec![Component::SelectMenu(include_menu)],
         };
 
+        let exclude_options = tag_options(self.excluded);
+
         let exclude_menu = SelectMenu {
             custom_id: "bg_setup_exclude".to_owned(),
             disabled: false,
-            max_values: Some(options.len() as u8),
+            max_values: Some(exclude_options.len() as u8),
             min_values: Some(0),
-            options,
+            options: exclude_options,
             placeholder: Some("Select which tags should be excluded".to_owned()),
         };
 
@@ -198,42 +204,42 @@ impl IActiveMessage for BackgroundGameSetup {
 
         let effects = vec![
             SelectMenuOption {
-                default: false,
+                default: self.effects.contains(Effects::Blur),
                 description: Some("Blur the image".to_owned()),
                 emoji: None,
                 label: "Blur".to_owned(),
                 value: "blur".to_owned(),
             },
             SelectMenuOption {
-                default: false,
+                default: self.effects.contains(Effects::Contrast),
                 description: Some("Increase the color contrast".to_owned()),
                 emoji: None,
                 label: "Contrast".to_owned(),
                 value: "contrast".to_owned(),
             },
             SelectMenuOption {
-                default: false,
+                default: self.effects.contains(Effects::FlipHorizontal),
                 description: Some("Flip the image horizontally".to_owned()),
                 emoji: None,
                 label: "Flip horizontal".to_owned(),
                 value: "flip_h".to_owned(),
             },
             SelectMenuOption {
-                default: false,
+                default: self.effects.contains(Effects::FlipVertical),
                 description: Some("Flip the image vertically".to_owned()),
                 emoji: None,
                 label: "Flip vertical".to_owned(),
                 value: "flip_v".to_owned(),
             },
             SelectMenuOption {
-                default: false,
+                default: self.effects.contains(Effects::Grayscale),
                 description: Some("Grayscale the colors".to_owned()),
                 emoji: None,
                 label: "Grayscale".to_owned(),
                 value: "grayscale".to_owned(),
             },
             SelectMenuOption {
-                default: false,
+                default: self.effects.contains(Effects::Invert),
                 description: Some("Invert the colors".to_owned()),
                 emoji: None,
                 label: "Invert".to_owned(),
