@@ -711,7 +711,11 @@ impl IActiveMessage for SingleScorePagination {
     }
 
     fn build_components(&self) -> Vec<Component> {
-        let mut all_components = self.pages.components();
+        let mut all_components = if self.settings.buttons.pagination {
+            self.pages.components()
+        } else {
+            Vec::new()
+        };
 
         let score = self.scores[self.pages.index()]
             .try_get()
