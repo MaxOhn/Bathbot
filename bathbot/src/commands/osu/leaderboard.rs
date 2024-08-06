@@ -314,14 +314,14 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
 
     let mods_bits = specify_mods.as_ref().map_or(0, GameModsIntermode::bits);
 
-    let mut calc = Context::pp(&map)
-        .mode(map.mode())
-        .mods(Mods::new(mods_bits));
+    let mode = map.mode();
+
+    let mut calc = Context::pp(&map).mode(mode).mods(Mods::new(mods_bits));
     let attrs_fut = calc.performance();
 
     let scores_fut = Context::osu_scores().map_leaderboard(
         map_id,
-        map.mode(),
+        mode,
         specify_mods.clone(),
         100,
         legacy_scores,
