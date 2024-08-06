@@ -148,7 +148,7 @@ impl<'m> PpManager<'m> {
 
         let attrs = calc.calculate(&self.map);
 
-        if !self.partial && self.mods.clock_rate.is_some() {
+        if !self.partial && self.mods.clock_rate.is_none() {
             let upsert_fut =
                 Context::psql().upsert_map_difficulty(self.map_id, self.mods.bits, &attrs);
 
