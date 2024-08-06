@@ -386,7 +386,7 @@ fn fmt_compact(
         let _ = writeln!(
             description,
             "` [`{name:<name_len$}`]({OSU_BASE}u/{user_id}) \
-                `{match_cost:0<4}`{medal}",
+                `{match_cost:0<4?}`{medal}",
             name = users
                 .get(&entry.user_id)
                 .map_or(UNKNOWN_NAME, |user| user.username.as_str()),
