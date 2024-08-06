@@ -661,7 +661,7 @@ impl SingleScorePagination {
                 value,
                 "{emote} **{bpm}**",
                 emote = Emote::Bpm,
-                bpm = map.bpm() * clock_rate
+                bpm = round(map.bpm() * clock_rate)
             );
 
             separate = true;
