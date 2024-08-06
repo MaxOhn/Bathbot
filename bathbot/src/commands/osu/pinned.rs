@@ -63,6 +63,8 @@ pub struct Pinned {
         While ar & co will be adjusted to mods, stars will not."
     )]
     query: Option<String>,
+    #[command(desc = "Reverse the resulting score list")]
+    reverse: Option<bool>,
     #[command(
         desc = "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)",
         help = "Filter out all scores that don't match the specified mods.\n\
@@ -470,6 +472,10 @@ async fn process_scores(
         }),
     }
 
+    if args.reverse.unwrap_or(false) {
+        entries.reverse();
+    }
+
     Ok(entries)
 }
 
@@ -483,22 +489,35 @@ fn write_content(
         Some(content_with_condition(args, amount, mods))
     } else if let Some(sort_by) = args.sort {
         let genitive = if name.ends_with('s') { "" } else { "s" };
+        let as_reverse = args.reverse.unwrap_or(false);
+        let reverse = if as_reverse { "reversed " } else { "" };
 
         let content = match sort_by {
-            ScoreOrder::Acc => format!("`{name}`'{genitive} pinned scores sorted by accuracy:"),
-            ScoreOrder::Bpm => format!("`{name}`'{genitive} pinned scores sorted by BPM:"),
-            ScoreOrder::Combo => format!("`{name}`'{genitive} pinned scores sorted by combo:"),
+            ScoreOrder::Acc => {
+                format!("`{name}`'{genitive} pinned scores sorted by {reverse}accuracy:")
+            }
+            ScoreOrder::Bpm => format!("`{name}`'{genitive} pinned scores sorted by {reverse}BPM:"),
+            ScoreOrder::Combo => {
+                format!("`{name}`'{genitive} pinned scores sorted by {reverse}combo:")
+            }
+            ScoreOrder::Date if as_reverse => format!("Oldest pinned scores of `{name}`:"),
             ScoreOrder::Date => format!("Most recent pinned scores of `{name}`:"),
-            ScoreOrder::Length => format!("`{name}`'{genitive} pinned scores sorted by length:"),
+            ScoreOrder::Length => {
+                format!("`{name}`'{genitive} pinned scores sorted by {reverse}length:")
+            }
             ScoreOrder::Misses => {
-                format!("`{name}`'{genitive} pinned scores sorted by miss count:")
+                format!("`{name}`'{genitive} pinned scores sorted by {reverse}miss count:")
             }
-            ScoreOrder::Pp => format!("`{name}`'{genitive} pinned scores sorted by pp"),
+            ScoreOrder::Pp => format!("`{name}`'{genitive} pinned scores sorted by {reverse}pp"),
             ScoreOrder::RankedDate => {
-                format!("`{name}`'{genitive} pinned scores sorted by ranked date:")
+                format!("`{name}`'{genitive} pinned scores sorted by {reverse}ranked date:")
             }
-            ScoreOrder::Score => format!("`{name}`'{genitive} pinned scores sorted by score"),
-            ScoreOrder::Stars => format!("`{name}`'{genitive} pinned scores sorted by stars"),
+            ScoreOrder::Score => {
+                format!("`{name}`'{genitive} pinned scores sorted by {reverse}score")
+            }
+            ScoreOrder::Stars => {
+                format!("`{name}`'{genitive} pinned scores sorted by {reverse}stars")
+            }
         };
 
         Some(content)
@@ -515,17 +534,23 @@ fn content_with_condition(args: &Pinned, amount: usize, mods: Option<&ModSelecti
     let mut content = String::with_capacity(64);
 
     match args.sort {
-        Some(ScoreOrder::Acc) => content.push_str("`Order: Accuracy`"),
-        Some(ScoreOrder::Bpm) => content.push_str("`Order: BPM`"),
-        Some(ScoreOrder::Combo) => content.push_str("`Order: Combo`"),
-        Some(ScoreOrder::Date) => content.push_str("`Order: Date`"),
-        Some(ScoreOrder::Length) => content.push_str("`Order: Length`"),
-        Some(ScoreOrder::Misses) => content.push_str("`Order: Miss count`"),
-        Some(ScoreOrder::Pp) => content.push_str("`Order: Pp`"),
-        Some(ScoreOrder::RankedDate) => content.push_str("`Order: Ranked date`"),
-        Some(ScoreOrder::Score) => content.push_str("`Order: Score`"),
-        Some(ScoreOrder::Stars) => content.push_str("`Order: Stars`"),
+        Some(ScoreOrder::Acc) => content.push_str("`Order: Accuracy"),
+        Some(ScoreOrder::Bpm) => content.push_str("`Order: BPM"),
+        Some(ScoreOrder::Combo) => content.push_str("`Order: Combo"),
+        Some(ScoreOrder::Date) => content.push_str("`Order: Date"),
+        Some(ScoreOrder::Length) => content.push_str("`Order: Length"),
+        Some(ScoreOrder::Misses) => content.push_str("`Order: Miss count"),
+        Some(ScoreOrder::Pp) => content.push_str("`Order: Pp"),
+        Some(ScoreOrder::RankedDate) => content.push_str("`Order: Ranked date"),
+        Some(ScoreOrder::Score) => content.push_str("`Order: Score"),
+        Some(ScoreOrder::Stars) => content.push_str("`Order: Stars"),
         None => {}
+    }
+
+    if args.reverse.unwrap_or(false) {
+        content.push_str(" (reverse)`");
+    } else {
+        content.push('`');
     }
 
     if let Some(selection) = mods {
