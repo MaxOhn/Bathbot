@@ -29,7 +29,7 @@ use crate::{
         osu::{require_link, user_not_found},
         utility::{MissAnalyzerCheck, ScoreEmbedDataWrap},
     },
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{interaction::InteractionCommands, prefix::Args, CommandOrigin},
     manager::redis::osu::{UserArgs, UserArgsSlim},
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
@@ -563,7 +563,10 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         (Some(false), _) => false,
     };
 
-    let settings = config.score_embed.unwrap_or_default();
+    let (settings, missing_settings) = match config.score_embed {
+        Some(settings) => (settings, false),
+        None => (Default::default(), true),
+    };
 
     let top100_fut = async {
         if grade != Grade::F || settings.buttons.pagination {
@@ -626,12 +629,54 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         miss_analyzer,
     );
 
-    let content = tries.map_or(SingleScoreContent::None, |tries| {
+    let mut content = tries.map_or(SingleScoreContent::None, |tries| {
         SingleScoreContent::OnlyForIndex {
             idx: num,
             content: format!("Try #{tries}"),
         }
     });
+
+    if missing_settings {
+        let add_content_notices = {
+            const MAX_NOTICES: usize = 4;
+            const NOTICE_PERCENT: f64 = 0.25;
+
+            let mut guard = Context::get().builder_notices.own(author);
+            let notices = guard.entry().or_default();
+
+            if *notices < MAX_NOTICES && thread_rng().gen_bool(NOTICE_PERCENT) {
+                *notices += 1;
+
+                Some(*notices)
+            } else {
+                None
+            }
+        };
+
+        if let Some(notices) = add_content_notices {
+            debug!(user = %author, notices, "Adding builder notice");
+
+            let builder = InteractionCommands::get_command("builder").map_or_else(
+                || "`/builder`".to_owned(),
+                |cmd| cmd.mention("builder").to_string(),
+            );
+
+            let mut new_content =
+                format!("✨ NEW: You can now use {builder} to customize your score format! ✨");
+
+            match content {
+                SingleScoreContent::OnlyForIndex {
+                    ref mut content, ..
+                } => {
+                    new_content.push('\n');
+                    new_content.push_str(content);
+                    *content = new_content;
+                }
+                SingleScoreContent::None => content = SingleScoreContent::SameForAll(new_content),
+                SingleScoreContent::SameForAll(_) => unreachable!(),
+            }
+        }
+    }
 
     let mut pagination =
         SingleScorePagination::new(&user, entries, settings, score_data, author, content);

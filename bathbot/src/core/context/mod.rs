@@ -10,7 +10,7 @@ use bathbot_model::twilight_model::id::IdRkyv;
 use bathbot_psql::{model::configs::GuildConfig, Database};
 use bathbot_util::{IntHasher, MetricsReader};
 use eyre::{Result, WrapErr};
-use flexmap::tokio::TokioRwLockMap;
+use flexmap::{std::StdMutexMap, tokio::TokioRwLockMap};
 use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
 use metrics_util::layers::{FanoutBuilder, Layer, PrefixLayer};
@@ -79,6 +79,10 @@ pub struct Context {
     pub metrics: MetricsReader,
     data: ContextData,
     clients: Clients,
+
+    /// Keeps track of the amount of times content was added to a usual bot
+    /// response to remind users about the new /builder command.
+    pub builder_notices: StdMutexMap<Id<UserMarker>, usize, IntHasher>,
 }
 
 impl Context {
@@ -272,6 +276,7 @@ impl Context {
             active_msgs: ActiveMessages::new(),
             start_time,
             metrics: reader,
+            builder_notices: StdMutexMap::default(),
         };
 
         if CONTEXT.set(Box::new(ctx)).is_err() {
