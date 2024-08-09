@@ -31,6 +31,7 @@ use twilight_model::{
     },
 };
 
+use super::embed_builder::Settings;
 use crate::{
     active::{
         impls::{CachedRender, CachedRenderData},
@@ -55,6 +56,7 @@ const DAY: Duration = Duration::from_secs(60 * 60 * 24);
 
 pub struct SingleScorePagination {
     pub settings: ScoreEmbedSettings,
+    pub new_settings: Settings,
     scores: Box<[ScoreEmbedDataWrap]>,
     score_data: ScoreData,
     username: Box<str>,
@@ -78,6 +80,7 @@ impl SingleScorePagination {
 
         Self {
             settings,
+            new_settings: Default::default(),
             scores,
             score_data,
             username: Box::from(user.username()),
