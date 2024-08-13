@@ -960,22 +960,22 @@ fn write_value(
 
             let _ = write!(writer, "{bold}{:.2}", data.score.pp);
 
-            match (pp.max, data.if_fc_pp.filter(|_| pp.if_fc)) {
+            let _ = match (pp.max, data.if_fc_pp.filter(|_| pp.if_fc)) {
                 (true, Some(if_fc_pp)) => {
-                    let _ = write!(
+                    write!(
                         writer,
                         "{bold}/{max:.2}PP {tilde}({if_fc_pp:.2}pp){tilde}",
                         max = data.max_pp.max(data.score.pp)
-                    );
+                    )
                 }
                 (true, None) => {
-                    let _ = write!(writer, "{bold}/{:.2}PP", data.max_pp.max(data.score.pp));
+                    write!(writer, "{bold}/{:.2}PP", data.max_pp.max(data.score.pp))
                 }
                 (false, Some(if_fc_pp)) => {
-                    let _ = write!(writer, "pp{bold} {tilde}({if_fc_pp:.2}pp){tilde}");
+                    write!(writer, "pp{bold} {tilde}({if_fc_pp:.2}pp){tilde}")
                 }
-                (false, None) => writer.push_str("pp**"),
-            }
+                (false, None) => write!(writer, "pp{bold}"),
+            };
         }
         Value::Combo(combo) => {
             if value.y < SettingValue::FOOTER_Y {
