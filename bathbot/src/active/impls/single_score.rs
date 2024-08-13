@@ -1082,6 +1082,22 @@ fn write_value(
                 }
             };
         }
+        Value::CountSliders(emote_text) => {
+            let n = data.map.n_sliders();
+
+            let _ = match emote_text {
+                EmoteTextValue::Emote if value.y < SettingValue::FOOTER_Y => {
+                    write!(writer, "{} {n}", Emote::CountSliders)
+                }
+                EmoteTextValue::Text | EmoteTextValue::Emote => {
+                    write!(
+                        writer,
+                        "{n} slider{plural}",
+                        plural = if n == 1 { "" } else { "s" }
+                    )
+                }
+            };
+        }
         Value::CountSpinners(emote_text) => {
             let n = data.map.n_spinners();
 
