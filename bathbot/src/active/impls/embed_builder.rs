@@ -1,26 +1,19 @@
 use std::{
-    borrow::Cow,
     cmp::{self, Ordering},
-    fmt::Write,
     future::ready,
-    time::Duration,
 };
 
-use bathbot_model::{command_fields::ScoreEmbedSettings, rosu_v2::user::User};
-use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{
-    datetime::{HowLongAgoDynamic, HowLongAgoText, SecToMinSec, SHORT_NAIVE_DATETIME_FORMAT},
-    numbers::round,
-    MessageBuilder,
+use bathbot_model::{
+    embed_builder::{
+        ComboValue, EmoteTextValue, HitresultsValue, MapperValue, PpValue, ScoreEmbedSettings,
+        SettingValue, SettingsButtons, SettingsImage, Value,
+    },
+    rosu_v2::user::User,
 };
+use bathbot_psql::model::configs::ScoreData;
+use bathbot_util::MessageBuilder;
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
-use rosu_pp::model::beatmap::BeatmapAttributes;
-use rosu_v2::{
-    model::{GameMode, Grade},
-    prelude::RankStatus,
-};
-use time::OffsetDateTime;
 use twilight_model::{
     channel::message::{
         component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
@@ -32,19 +25,11 @@ use twilight_model::{
 use super::{SingleScoreContent, SingleScorePagination};
 use crate::{
     active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
-    commands::utility::{ScoreEmbedData, ScoreEmbedDataWrap},
+    commands::utility::ScoreEmbedDataWrap,
     core::Context,
-    embeds::HitResultFormatter,
     manager::redis::RedisData,
-    util::{
-        interaction::InteractionComponent,
-        osu::{GradeFormatter, ScoreFormatter},
-        Authored, Emote,
-    },
+    util::{interaction::InteractionComponent, Authored, Emote},
 };
-
-const FOOTER_Y: u8 = u8::MAX;
-const DAY: Duration = Duration::from_secs(60 * 60 * 24);
 
 pub struct ScoreEmbedBuilderActive {
     inner: SingleScorePagination,
@@ -105,7 +90,7 @@ impl ScoreEmbedBuilderActive {
                 self.section = match value.as_str() {
                     "score_data" => EmbedSection::ScoreData,
                     "image" => EmbedSection::Image,
-                    "button" => EmbedSection::Buttons,
+                    "buttons" => EmbedSection::Buttons,
                     _ => {
                         return ComponentResult::Err(eyre!(
                             "Invalid value `{value}` for builder component `{}`",
@@ -152,54 +137,49 @@ impl ScoreEmbedBuilderActive {
             "embed_builder_show_button" => {
                 let last_idx = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter()
-                    .rposition(|value| value.y < FOOTER_Y)
+                    .rposition(|value| value.y < SettingValue::FOOTER_Y)
                     .expect("at least one field");
 
-                let last_y = self.inner.new_settings.values[last_idx].y;
+                let last_y = self.inner.settings.values[last_idx].y;
 
                 let value = SettingValue {
                     inner: self.value_kind.into(),
                     y: last_y + 1,
                 };
 
-                self.inner.new_settings.values.insert(last_idx + 1, value);
+                self.inner.settings.values.insert(last_idx + 1, value);
             }
             "embed_builder_hide_button" => {
                 let Some(idx) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter()
-                    .position(|value| value.kind() == self.value_kind)
+                    .position(|value| ValueKind::from_setting(value) == self.value_kind)
                 else {
                     return ComponentResult::Err(eyre!("Cannot remove value that's not present"));
                 };
 
-                if self.inner.new_settings.disable_hide(idx) {
+                if disable_hide(&self.inner.settings, idx) {
                     return ComponentResult::Err(eyre!("Conditions were not met to hide value"));
                 }
 
-                let curr_y = self.inner.new_settings.values[idx].y;
+                let curr_y = self.inner.settings.values[idx].y;
 
-                let curr_x = self.inner.new_settings.values[..idx]
+                let curr_x = self.inner.settings.values[..idx]
                     .iter()
                     .rev()
                     .take_while(|value| value.y == curr_y)
                     .count();
 
-                let next_y = self
-                    .inner
-                    .new_settings
-                    .values
-                    .get(idx + 1)
-                    .map(|value| value.y);
+                let next_y = self.inner.settings.values.get(idx + 1).map(|value| value.y);
 
                 if curr_x == 0 && next_y.is_some_and(|next_y| next_y != curr_y) {
-                    for value in self.inner.new_settings.values[idx + 1..].iter_mut() {
-                        if value.y == FOOTER_Y {
+                    for value in self.inner.settings.values[idx + 1..].iter_mut() {
+                        if value.y == SettingValue::FOOTER_Y {
                             break;
                         }
 
@@ -207,36 +187,36 @@ impl ScoreEmbedBuilderActive {
                     }
                 }
 
-                self.inner.new_settings.values.remove(idx);
+                self.inner.settings.values.remove(idx);
             }
             "embed_builder_reset_button" => {
-                self.inner.new_settings.values = Settings::default().values;
+                self.inner.settings.values = ScoreEmbedSettings::default().values;
             }
             "embed_builder_value_left" => {
                 let Some(idx) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter()
-                    .position(|value| value.kind() == self.value_kind)
+                    .position(|value| ValueKind::from_setting(value) == self.value_kind)
                 else {
                     return ComponentResult::Err(eyre!("Cannot move value that's not present"));
                 };
 
-                self.inner.new_settings.values.swap(idx - 1, idx);
+                self.inner.settings.values.swap(idx - 1, idx);
             }
             "embed_builder_value_up" => {
                 let Some(idx) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter()
-                    .position(|value| value.kind() == self.value_kind)
+                    .position(|value| ValueKind::from_setting(value) == self.value_kind)
                 else {
                     return ComponentResult::Err(eyre!("Cannot move value that's not present"));
                 };
 
-                let can_move = match self.inner.new_settings.values.get(idx) {
+                let can_move = match self.inner.settings.values.get(idx) {
                     Some(value) => value.y > 0,
                     None => false,
                 };
@@ -245,16 +225,16 @@ impl ScoreEmbedBuilderActive {
                     return ComponentResult::Err(eyre!("Conditions were not met to move value up"));
                 }
 
-                let curr_y = self.inner.new_settings.values[idx].y;
+                let curr_y = self.inner.settings.values[idx].y;
 
                 let mut curr_x = 0;
                 let mut prev_y = None;
                 let mut prev_row_len = 0;
 
-                for prev in self.inner.new_settings.values[..idx].iter().rev() {
+                for prev in self.inner.settings.values[..idx].iter().rev() {
                     if prev.y == curr_y {
                         curr_x += 1;
-                    } else if curr_y == FOOTER_Y {
+                    } else if curr_y == SettingValue::FOOTER_Y {
                         prev_y = Some(prev.y);
 
                         break;
@@ -270,20 +250,20 @@ impl ScoreEmbedBuilderActive {
                     }
                 }
 
-                let to_right_count = self.inner.new_settings.values[idx + 1..]
+                let to_right_count = self.inner.settings.values[idx + 1..]
                     .iter()
                     .take_while(|value| value.y == curr_y)
                     .count();
 
-                if self.inner.new_settings.values[idx].y == FOOTER_Y {
-                    self.inner.new_settings.values[idx].y = prev_y.unwrap_or(0) + 1;
+                if self.inner.settings.values[idx].y == SettingValue::FOOTER_Y {
+                    self.inner.settings.values[idx].y = prev_y.unwrap_or(0) + 1;
                 } else {
-                    self.inner.new_settings.values[idx].y -= 1;
+                    self.inner.settings.values[idx].y -= 1;
                 }
 
                 if curr_x == 0 && to_right_count == 0 {
-                    for value in self.inner.new_settings.values[idx + 1..].iter_mut() {
-                        if value.y == FOOTER_Y {
+                    for value in self.inner.settings.values[idx + 1..].iter_mut() {
+                        if value.y == SettingValue::FOOTER_Y {
                             break;
                         }
 
@@ -296,22 +276,22 @@ impl ScoreEmbedBuilderActive {
                     Ordering::Greater => prev_row_len,
                 };
 
-                self.inner.new_settings.values[idx - shift..=idx].rotate_right(1);
+                self.inner.settings.values[idx - shift..=idx].rotate_right(1);
             }
             "embed_builder_value_down" => {
                 let Some(idx) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter()
-                    .position(|value| value.kind() == self.value_kind)
+                    .position(|value| ValueKind::from_setting(value) == self.value_kind)
                 else {
                     return ComponentResult::Err(eyre!("Cannot move value that's not present"));
                 };
 
-                let curr_y = self.inner.new_settings.values[idx].y;
+                let curr_y = self.inner.settings.values[idx].y;
 
-                let curr_x = self.inner.new_settings.values[..idx]
+                let curr_x = self.inner.settings.values[..idx]
                     .iter()
                     .rev()
                     .take_while(|value| value.y == curr_y)
@@ -320,7 +300,7 @@ impl ScoreEmbedBuilderActive {
                 let mut to_right_count = 0;
                 let mut next_row_len = 0;
 
-                for next in self.inner.new_settings.values[idx + 1..].iter() {
+                for next in self.inner.settings.values[idx + 1..].iter() {
                     if next.y == curr_y {
                         to_right_count += 1;
                     } else if next.y == curr_y + 1 {
@@ -331,8 +311,8 @@ impl ScoreEmbedBuilderActive {
                 }
 
                 if curr_x == 0 && to_right_count == 0 {
-                    for value in self.inner.new_settings.values[idx + 1..].iter_mut() {
-                        if value.y == FOOTER_Y {
+                    for value in self.inner.settings.values[idx + 1..].iter_mut() {
+                        if value.y == SettingValue::FOOTER_Y {
                             break;
                         }
 
@@ -340,10 +320,10 @@ impl ScoreEmbedBuilderActive {
                     }
 
                     if next_row_len == 0 {
-                        self.inner.new_settings.values[idx].y = FOOTER_Y;
+                        self.inner.settings.values[idx].y = SettingValue::FOOTER_Y;
                     }
                 } else {
-                    self.inner.new_settings.values[idx].y += 1;
+                    self.inner.settings.values[idx].y += 1;
                 }
 
                 let shift_next_line = if next_row_len > 0 {
@@ -352,33 +332,33 @@ impl ScoreEmbedBuilderActive {
                     0
                 } else {
                     self.inner
-                        .new_settings
+                        .settings
                         .values
                         .iter()
                         .rev()
-                        .take_while(|value| value.y == FOOTER_Y)
+                        .take_while(|value| value.y == SettingValue::FOOTER_Y)
                         .count()
                 };
 
                 let shift = 1 + to_right_count + cmp::min(shift_next_line, curr_x);
-                self.inner.new_settings.values[idx..idx + shift].rotate_left(1);
+                self.inner.settings.values[idx..idx + shift].rotate_left(1);
             }
             "embed_builder_value_right" => {
                 let Some(idx) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter()
-                    .position(|value| value.kind() == self.value_kind)
+                    .position(|value| ValueKind::from_setting(value) == self.value_kind)
                 else {
                     return ComponentResult::Err(eyre!("Cannot move value that's not present"));
                 };
 
-                let curr_y = self.inner.new_settings.values[idx].y;
-                let next = self.inner.new_settings.values.get(idx + 1);
+                let curr_y = self.inner.settings.values[idx].y;
+                let next = self.inner.settings.values.get(idx + 1);
 
                 if next.is_some_and(|next| next.y == curr_y) {
-                    self.inner.new_settings.values.swap(idx, idx + 1);
+                    self.inner.settings.values.swap(idx, idx + 1);
                 } else {
                     return ComponentResult::Err(eyre!(
                         "Cannot move right-most value to the right"
@@ -404,10 +384,10 @@ impl ScoreEmbedBuilderActive {
 
                 if let Some(value) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter_mut()
-                    .find(|value| value.kind() == ValueKind::Pp)
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::Pp)
                 {
                     value.inner = Value::Pp(PpValue { max, if_fc });
                 }
@@ -429,10 +409,10 @@ impl ScoreEmbedBuilderActive {
 
                 if let Some(value) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter_mut()
-                    .find(|value| value.kind() == ValueKind::Combo)
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::Combo)
                 {
                     value.inner = Value::Combo(ComboValue { max });
                 }
@@ -440,10 +420,10 @@ impl ScoreEmbedBuilderActive {
             "embed_builder_hitresults_full" => {
                 if let Some(value) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter_mut()
-                    .find(|value| value.kind() == ValueKind::Hitresults)
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::Hitresults)
                 {
                     value.inner = Value::Hitresults(HitresultsValue::Full);
                 }
@@ -451,10 +431,10 @@ impl ScoreEmbedBuilderActive {
             "embed_builder_hitresults_misses" => {
                 if let Some(value) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter_mut()
-                    .find(|value| value.kind() == ValueKind::Hitresults)
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::Hitresults)
                 {
                     value.inner = Value::Hitresults(HitresultsValue::OnlyMisses);
                 }
@@ -462,10 +442,10 @@ impl ScoreEmbedBuilderActive {
             "embed_builder_bpm_emote" => {
                 if let Some(value) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter_mut()
-                    .find(|value| value.kind() == ValueKind::Bpm)
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::Bpm)
                 {
                     value.inner = Value::Bpm(EmoteTextValue::Emote);
                 }
@@ -473,10 +453,10 @@ impl ScoreEmbedBuilderActive {
             "embed_builder_bpm_text" => {
                 if let Some(value) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter_mut()
-                    .find(|value| value.kind() == ValueKind::Bpm)
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::Bpm)
                 {
                     value.inner = Value::Bpm(EmoteTextValue::Text);
                 }
@@ -484,10 +464,10 @@ impl ScoreEmbedBuilderActive {
             "embed_builder_objects_emote" => {
                 if let Some(value) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter_mut()
-                    .find(|value| value.kind() == ValueKind::CountObjects)
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::CountObjects)
                 {
                     value.inner = Value::CountObjects(EmoteTextValue::Emote);
                 }
@@ -495,10 +475,10 @@ impl ScoreEmbedBuilderActive {
             "embed_builder_objects_text" => {
                 if let Some(value) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter_mut()
-                    .find(|value| value.kind() == ValueKind::CountObjects)
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::CountObjects)
                 {
                     value.inner = Value::CountObjects(EmoteTextValue::Text);
                 }
@@ -506,10 +486,10 @@ impl ScoreEmbedBuilderActive {
             "embed_builder_spinners_emote" => {
                 if let Some(value) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter_mut()
-                    .find(|value| value.kind() == ValueKind::CountSpinners)
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::CountSpinners)
                 {
                     value.inner = Value::CountSpinners(EmoteTextValue::Emote);
                 }
@@ -517,10 +497,10 @@ impl ScoreEmbedBuilderActive {
             "embed_builder_spinners_text" => {
                 if let Some(value) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter_mut()
-                    .find(|value| value.kind() == ValueKind::CountSpinners)
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::CountSpinners)
                 {
                     value.inner = Value::CountSpinners(EmoteTextValue::Text);
                 }
@@ -542,10 +522,10 @@ impl ScoreEmbedBuilderActive {
 
                 if let Some(value) = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter_mut()
-                    .find(|value| value.kind() == ValueKind::Mapper)
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::Mapper)
                 {
                     value.inner = Value::Mapper(MapperValue { with_status });
                 }
@@ -558,7 +538,7 @@ impl ScoreEmbedBuilderActive {
                     ));
                 };
 
-                self.inner.new_settings.image = match value.as_str() {
+                self.inner.settings.image = match value.as_str() {
                     "thumbnail" => SettingsImage::Thumbnail,
                     "image" => SettingsImage::Image,
                     "hide" => SettingsImage::Hide,
@@ -589,7 +569,7 @@ impl ScoreEmbedBuilderActive {
                     }
                 }
 
-                self.inner.new_settings.buttons = SettingsButtons {
+                self.inner.settings.buttons = SettingsButtons {
                     pagination,
                     render,
                     miss_analyzer,
@@ -604,13 +584,13 @@ impl ScoreEmbedBuilderActive {
 
         let right_order = self
             .inner
-            .new_settings
+            .settings
             .values
             .windows(2)
             .all(|window| window[0].y <= window[1].y);
 
         if !right_order {
-            debug!(values = ?self.inner.new_settings.values, "Wrong setting values order");
+            debug!(values = ?self.inner.settings.values, "Wrong setting values order");
         }
 
         let store_fut =
@@ -634,10 +614,10 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
 
         let mark_idx = self
             .inner
-            .new_settings
+            .settings
             .values
             .iter()
-            .position(|value| value.kind() == self.value_kind);
+            .position(|value| ValueKind::from_setting(value) == self.value_kind);
 
         Box::pin(self.inner.async_build_page(content, mark_idx))
     }
@@ -725,7 +705,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
 
                 let show_hide_row = |idx: Option<usize>| {
                     let disable_hide = match idx {
-                        Some(idx) => self.inner.new_settings.disable_hide(idx),
+                        Some(idx) => disable_hide(&self.inner.settings, idx),
                         None => true,
                     };
 
@@ -762,28 +742,28 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                 let arrow_row = |idx: Option<usize>| {
                     let (disable_left, disable_up, disable_down, disable_right) =
                         if let Some(idx) = idx {
-                            let curr_y = self.inner.new_settings.values[idx].y;
+                            let curr_y = self.inner.settings.values[idx].y;
 
-                            let to_left = self.inner.new_settings.values[..idx]
+                            let to_left = self.inner.settings.values[..idx]
                                 .iter()
                                 .rev()
                                 .take_while(|value| value.y == curr_y)
                                 .count();
 
-                            let to_right = self.inner.new_settings.values[idx + 1..]
+                            let to_right = self.inner.settings.values[idx + 1..]
                                 .iter()
                                 .take_while(|value| value.y == curr_y)
                                 .count();
 
                             let is_last_row =
-                                self.inner.new_settings.values[idx + to_right + 1..].is_empty();
+                                self.inner.settings.values[idx + to_right + 1..].is_empty();
 
                             // Disable up if too many values in field name
                             let disable_up = curr_y == 0
                                 || (idx == 1
                                     && self
                                         .inner
-                                        .new_settings
+                                        .settings
                                         .values
                                         .iter()
                                         .take_while(|value| value.y == 0)
@@ -848,10 +828,10 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
 
                 let idx = self
                     .inner
-                    .new_settings
+                    .settings
                     .values
                     .iter()
-                    .position(|value| value.kind() == self.value_kind);
+                    .position(|value| ValueKind::from_setting(value) == self.value_kind);
 
                 match self.value_kind {
                     ValueKind::None => {}
@@ -879,7 +859,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         components.push(show_hide_row(idx));
 
                         let pp = match idx
-                            .and_then(|idx| self.inner.new_settings.values.get(idx))
+                            .and_then(|idx| self.inner.settings.values.get(idx))
                             .map(|value| &value.inner)
                         {
                             Some(Value::Pp(pp)) => *pp,
@@ -921,7 +901,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         components.push(show_hide_row(idx));
 
                         let combo = match idx
-                            .and_then(|idx| self.inner.new_settings.values.get(idx))
+                            .and_then(|idx| self.inner.settings.values.get(idx))
                             .map(|value| &value.inner)
                         {
                             Some(Value::Combo(combo)) => *combo,
@@ -954,7 +934,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         components.push(show_hide_row(idx));
 
                         let hitresults = idx
-                            .and_then(|idx| self.inner.new_settings.values.get(idx))
+                            .and_then(|idx| self.inner.settings.values.get(idx))
                             .and_then(|value| match value.inner {
                                 Value::Hitresults(ref hitresults) => Some(hitresults),
                                 _ => None,
@@ -993,11 +973,27 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         components.push(show_hide_row(idx));
                         components.push(arrow_row(idx));
                     }
+                    ValueKind::Ar => {
+                        components.push(show_hide_row(idx));
+                        components.push(arrow_row(idx));
+                    }
+                    ValueKind::Cs => {
+                        components.push(show_hide_row(idx));
+                        components.push(arrow_row(idx));
+                    }
+                    ValueKind::Hp => {
+                        components.push(show_hide_row(idx));
+                        components.push(arrow_row(idx));
+                    }
+                    ValueKind::Od => {
+                        components.push(show_hide_row(idx));
+                        components.push(arrow_row(idx));
+                    }
                     ValueKind::Bpm => {
                         components.push(show_hide_row(idx));
 
                         let emote_text = idx
-                            .and_then(|idx| self.inner.new_settings.values.get(idx))
+                            .and_then(|idx| self.inner.settings.values.get(idx))
                             .and_then(|value| match value.inner {
                                 Value::Bpm(ref emote_text) => Some(emote_text),
                                 _ => None,
@@ -1032,27 +1028,11 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
 
                         components.push(arrow_row(idx));
                     }
-                    ValueKind::Ar => {
-                        components.push(show_hide_row(idx));
-                        components.push(arrow_row(idx));
-                    }
-                    ValueKind::Cs => {
-                        components.push(show_hide_row(idx));
-                        components.push(arrow_row(idx));
-                    }
-                    ValueKind::Hp => {
-                        components.push(show_hide_row(idx));
-                        components.push(arrow_row(idx));
-                    }
-                    ValueKind::Od => {
-                        components.push(show_hide_row(idx));
-                        components.push(arrow_row(idx));
-                    }
                     ValueKind::CountObjects => {
                         components.push(show_hide_row(idx));
 
                         let emote_text = idx
-                            .and_then(|idx| self.inner.new_settings.values.get(idx))
+                            .and_then(|idx| self.inner.settings.values.get(idx))
                             .and_then(|value| match value.inner {
                                 Value::CountObjects(ref emote_text) => Some(emote_text),
                                 _ => None,
@@ -1091,7 +1071,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         components.push(show_hide_row(idx));
 
                         let emote_text = idx
-                            .and_then(|idx| self.inner.new_settings.values.get(idx))
+                            .and_then(|idx| self.inner.settings.values.get(idx))
                             .and_then(|value| match value.inner {
                                 Value::CountSpinners(ref emote_text) => Some(emote_text),
                                 _ => None,
@@ -1134,7 +1114,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         components.push(show_hide_row(idx));
 
                         let mapper = match idx
-                            .and_then(|idx| self.inner.new_settings.values.get(idx))
+                            .and_then(|idx| self.inner.settings.values.get(idx))
                             .map(|value| &value.inner)
                         {
                             Some(Value::Mapper(mapper)) => *mapper,
@@ -1171,21 +1151,21 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
             EmbedSection::Image => {
                 let options = vec![
                     SelectMenuOption {
-                        default: self.inner.new_settings.image == SettingsImage::Thumbnail,
+                        default: self.inner.settings.image == SettingsImage::Thumbnail,
                         description: None,
                         emoji: None,
                         label: "Thumbnail".to_owned(),
                         value: "thumbnail".to_owned(),
                     },
                     SelectMenuOption {
-                        default: self.inner.new_settings.image == SettingsImage::Image,
+                        default: self.inner.settings.image == SettingsImage::Image,
                         description: None,
                         emoji: None,
                         label: "Image".to_owned(),
                         value: "image".to_owned(),
                     },
                     SelectMenuOption {
-                        default: self.inner.new_settings.image == SettingsImage::Hide,
+                        default: self.inner.settings.image == SettingsImage::Hide,
                         description: None,
                         emoji: None,
                         label: "Hide".to_owned(),
@@ -1207,21 +1187,21 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
             EmbedSection::Buttons => {
                 let options = vec![
                     SelectMenuOption {
-                        default: self.inner.new_settings.buttons.pagination,
+                        default: self.inner.settings.buttons.pagination,
                         description: None,
                         emoji: None,
                         label: "Pagination".to_owned(),
                         value: "pagination".to_owned(),
                     },
                     SelectMenuOption {
-                        default: self.inner.new_settings.buttons.render,
+                        default: self.inner.settings.buttons.render,
                         description: None,
                         emoji: None,
                         label: "Render".to_owned(),
                         value: "render".to_owned(),
                     },
                     SelectMenuOption {
-                        default: self.inner.new_settings.buttons.miss_analyzer,
+                        default: self.inner.settings.buttons.miss_analyzer,
                         description: None,
                         emoji: None,
                         label: "Miss analyzer".to_owned(),
@@ -1303,7 +1283,7 @@ pub enum EmbedSection {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-enum ValueKind {
+pub enum ValueKind {
     None,
     Grade,
     Mods,
@@ -1314,678 +1294,20 @@ enum ValueKind {
     Combo,
     Hitresults,
     Length,
-    Bpm,
     Ar,
     Cs,
     Hp,
     Od,
+    Bpm,
     CountObjects,
     CountSpinners,
     MapRankedDate,
     Mapper,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct PpValue {
-    pub max: bool,
-    pub if_fc: bool,
-}
-
-impl Default for PpValue {
-    fn default() -> Self {
-        Self {
-            max: true,
-            if_fc: true,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct ComboValue {
-    pub max: bool,
-}
-
-impl Default for ComboValue {
-    fn default() -> Self {
-        Self { max: true }
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default)]
-pub enum HitresultsValue {
-    Full,
-    #[default]
-    OnlyMisses,
-}
-
-#[derive(Copy, Clone, Debug, Default)]
-pub enum EmoteTextValue {
-    #[default]
-    Emote,
-    Text,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct MapperValue {
-    pub with_status: bool,
-}
-
-impl Default for MapperValue {
-    fn default() -> Self {
-        Self { with_status: true }
-    }
-}
-
-#[derive(Debug)]
-pub struct Settings {
-    pub values: Vec<SettingValue>,
-    pub image: SettingsImage,
-    pub buttons: SettingsButtons,
-}
-
-impl Settings {
-    fn disable_hide(&self, idx: usize) -> bool {
-        match self.values.get(idx) {
-            Some(value) => match value.y {
-                // disable hide button if first row has only one value
-                0 => self.values.get(1).map_or(true, |value| value.y != 0),
-                _ => false,
-            },
-            None => true,
-        }
-    }
-
-    pub fn apply(
-        &self,
-        data: &ScoreEmbedData,
-        score_data: ScoreData,
-        mark_idx: Option<usize>,
-    ) -> (String, String, Option<String>) {
-        const SEP_NAME: &str = "\t";
-        const SEP_VALUE: &str = " • ";
-
-        let map_attrs = data.map.attributes().mods(data.score.mods.clone()).build();
-
-        let mut field_name = String::new();
-        let mut field_value = String::new();
-        let mut footer_text = String::new();
-
-        let mut writer = &mut field_name;
-
-        let first = self.values.first().expect("at least one field");
-
-        let next = self
-            .values
-            .get(1)
-            .filter(|next| next.y == 0)
-            .map(|value| &value.inner);
-
-        match (&first.inner, next) {
-            (
-                Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                Some(Value::Ar | Value::Cs | Value::Hp | Value::Od),
-            ) => {
-                writer.push('`');
-
-                if mark_idx == Some(0) {
-                    writer.push('*');
-                }
-
-                let _ = match first.inner {
-                    Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
-                    Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
-                    Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
-                    Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
-                    _ => unreachable!(),
-                };
-
-                if mark_idx == Some(0) {
-                    writer.push('*');
-                }
-            }
-            (Value::MapRankedDate, _) if data.map.ranked_date().is_none() => {}
-            _ => {
-                let mut value = Cow::Borrowed(first);
-
-                if matches!(&first.inner, Value::Mapper(mapper) if mapper.with_status)
-                    && data.map.status() == RankStatus::Ranked
-                    && data.map.ranked_date().is_some()
-                    && self
-                        .values
-                        .iter()
-                        .any(|value| value.kind() == ValueKind::MapRankedDate)
-                {
-                    value = Cow::Owned(SettingValue {
-                        inner: Value::Mapper(MapperValue { with_status: false }),
-                        y: first.y,
-                    });
-                }
-
-                if mark_idx == Some(0) {
-                    writer.push_str("__");
-                }
-
-                Self::write_field_inner(&value, data, &map_attrs, score_data, writer);
-
-                if mark_idx == Some(0) {
-                    writer.push_str("__");
-                }
-            }
-        }
-
-        for (window, i) in self.values.windows(3).zip(1..) {
-            let [prev, curr, next] = window else {
-                unreachable!()
-            };
-
-            match (&prev.inner, &curr.inner, &next.inner) {
-                (Value::Grade, Value::Mods, _) if prev.y == curr.y => {
-                    writer.push(' ');
-
-                    if mark_idx == Some(i) {
-                        writer.push_str("__");
-                    }
-
-                    let _ = write!(writer, "+{}", data.score.mods);
-
-                    if mark_idx == Some(i) {
-                        writer.push_str("__");
-                    }
-                }
-                (
-                    Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                    Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                    Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                ) if prev.y == curr.y && curr.y == next.y => {
-                    if mark_idx == Some(i) {
-                        writer.push('*');
-                    }
-
-                    let _ = match curr.inner {
-                        Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
-                        Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
-                        Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
-                        Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
-                        _ => unreachable!(),
-                    };
-
-                    if mark_idx == Some(i) {
-                        writer.push('*');
-                    }
-
-                    writer.push(' ');
-                }
-                (
-                    Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                    Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                    _,
-                ) if prev.y == curr.y => {
-                    if mark_idx == Some(i) {
-                        writer.push('*');
-                    }
-
-                    let _ = match curr.inner {
-                        Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
-                        Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
-                        Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
-                        Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
-                        _ => unreachable!(),
-                    };
-
-                    if mark_idx == Some(i) {
-                        writer.push('*');
-                    }
-
-                    if curr.y < FOOTER_Y {
-                        writer.push('`');
-                    }
-                }
-                (
-                    _,
-                    Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                    Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                ) if curr.y == next.y => {
-                    if prev.y == curr.y {
-                        let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
-                        writer.push_str(sep);
-                    } else if curr.y == FOOTER_Y {
-                        writer = &mut footer_text;
-                    } else if prev.y == 0 {
-                        writer = &mut field_value;
-                    } else {
-                        writer.push('\n');
-                    }
-
-                    if curr.y < FOOTER_Y {
-                        writer.push('`');
-                    }
-
-                    if mark_idx == Some(i) {
-                        writer.push('*');
-                    }
-
-                    let _ = match curr.inner {
-                        Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
-                        Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
-                        Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
-                        Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
-                        _ => unreachable!(),
-                    };
-
-                    if mark_idx == Some(i) {
-                        writer.push('*');
-                    }
-
-                    writer.push(' ');
-                }
-                (_, Value::MapRankedDate, _) if data.map.ranked_date().is_none() => {}
-                _ => {
-                    let mut value = Cow::Borrowed(curr);
-
-                    if matches!(&curr.inner, Value::Mapper(mapper) if mapper.with_status)
-                        && data.map.status() == RankStatus::Ranked
-                        && data.map.ranked_date().is_some()
-                        && self
-                            .values
-                            .iter()
-                            .any(|value| value.kind() == ValueKind::MapRankedDate)
-                    {
-                        value = Cow::Owned(SettingValue {
-                            inner: Value::Mapper(MapperValue { with_status: false }),
-                            y: curr.y,
-                        });
-                    }
-
-                    if prev.y == curr.y {
-                        let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
-                        writer.push_str(sep);
-                    } else if curr.y == FOOTER_Y {
-                        writer = &mut footer_text;
-                    } else if prev.y == 0 {
-                        writer = &mut field_value;
-                    } else {
-                        writer.push('\n');
-                    }
-
-                    let mark = if value.y == FOOTER_Y { "*" } else { "__" };
-
-                    if mark_idx == Some(i) {
-                        writer.push_str(mark);
-                    }
-
-                    Self::write_field_inner(&value, data, &map_attrs, score_data, writer);
-
-                    if mark_idx == Some(i) {
-                        writer.push_str(mark);
-                    }
-                }
-            }
-        }
-
-        let last_idx = self.values.len() - 1;
-        let last = self.values.get(last_idx).expect("at least one value");
-        let prev = last_idx.checked_sub(1).and_then(|idx| self.values.get(idx));
-
-        if !(last.kind() == ValueKind::MapRankedDate && data.map.ranked_date().is_none())
-            && last_idx > 0
-        {
-            let mark = if last.y == FOOTER_Y { "*" } else { "__" };
-
-            if prev.is_some_and(|prev| prev.y != last.y) {
-                if last.y == FOOTER_Y {
-                    writer = &mut footer_text;
-                } else if prev.is_some_and(|prev| prev.y == 0) {
-                    writer = &mut field_value;
-                } else {
-                    writer.push('\n');
-                }
-
-                let mut value = Cow::Borrowed(last);
-
-                if matches!(&last.inner, Value::Mapper(mapper) if mapper.with_status)
-                    && data.map.status() == RankStatus::Ranked
-                    && data.map.ranked_date().is_some()
-                    && self
-                        .values
-                        .iter()
-                        .any(|value| value.kind() == ValueKind::MapRankedDate)
-                {
-                    value = Cow::Owned(SettingValue {
-                        inner: Value::Mapper(MapperValue { with_status: false }),
-                        y: last.y,
-                    });
-                }
-
-                if mark_idx == Some(last_idx) {
-                    writer.push_str(mark);
-                }
-
-                Self::write_field_inner(&value, data, &map_attrs, score_data, writer);
-
-                if mark_idx == Some(last_idx) {
-                    writer.push_str(mark);
-                }
-            } else {
-                match (prev.map(|prev| &prev.inner), &last.inner) {
-                    (Some(Value::Grade), Value::Mods) => {
-                        writer.push(' ');
-
-                        if mark_idx == Some(last_idx) {
-                            writer.push_str("__");
-                        }
-
-                        let _ = write!(writer, "+{}", data.score.mods);
-
-                        if mark_idx == Some(last_idx) {
-                            writer.push_str("__");
-                        }
-                    }
-                    (
-                        Some(Value::Ar | Value::Cs | Value::Hp | Value::Od),
-                        Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                    ) => {
-                        if mark_idx == Some(last_idx) {
-                            writer.push('*');
-                        }
-
-                        let _ = match last.inner {
-                            Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
-                            Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
-                            Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
-                            Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
-                            _ => unreachable!(),
-                        };
-
-                        if mark_idx == Some(last_idx) {
-                            writer.push('*');
-                        }
-
-                        writer.push('`');
-                    }
-                    _ => {
-                        let sep = if last.y == 0 { SEP_NAME } else { SEP_VALUE };
-                        writer.push_str(sep);
-
-                        let mut value = Cow::Borrowed(last);
-
-                        if matches!(&last.inner, Value::Mapper(mapper) if mapper.with_status)
-                            && data.map.status() == RankStatus::Ranked
-                            && data.map.ranked_date().is_some()
-                            && self
-                                .values
-                                .iter()
-                                .any(|value| value.kind() == ValueKind::MapRankedDate)
-                        {
-                            value = Cow::Owned(SettingValue {
-                                inner: Value::Mapper(MapperValue { with_status: false }),
-                                y: last.y,
-                            });
-                        }
-
-                        if mark_idx == Some(last_idx) {
-                            writer.push_str(mark);
-                        }
-
-                        Self::write_field_inner(&value, data, &map_attrs, score_data, writer);
-
-                        if mark_idx == Some(last_idx) {
-                            writer.push_str(mark);
-                        }
-                    }
-                }
-            }
-        }
-
-        let footer_text = (!footer_text.is_empty()).then_some(footer_text);
-
-        (field_name, field_value, footer_text)
-    }
-
-    fn write_field_inner(
-        value: &SettingValue,
-        data: &ScoreEmbedData,
-        map_attrs: &BeatmapAttributes,
-        score_data: ScoreData,
-        writer: &mut String,
-    ) {
-        match &value.inner {
-            Value::Grade => {
-                let _ = if value.y == 0 {
-                    write!(
-                        writer,
-                        "{}",
-                        GradeFormatter::new(data.score.grade, None, false),
-                    )
-                } else if value.y == FOOTER_Y {
-                    write!(writer, "{:?}", data.score.grade)
-                } else {
-                    write!(
-                        writer,
-                        "{}",
-                        GradeFormatter::new(data.score.grade, data.score.legacy_id, true),
-                    )
-                };
-
-                // The completion is very hard to calculate for `Catch` because
-                // `n_objects` is not correct due to juicestreams so we won't
-                // show it for that mode.
-                let is_fail = data.score.grade == Grade::F && data.score.mode != GameMode::Catch;
-
-                if is_fail {
-                    let n_objects = data.map.n_objects();
-
-                    let completion = if n_objects != 0 {
-                        100 * data.score.total_hits() / n_objects
-                    } else {
-                        100
-                    };
-
-                    let _ = write!(writer, "@{completion}%");
-                }
-            }
-            Value::Mods => {
-                let _ = write!(writer, "+{}", data.score.mods);
-            }
-            Value::Score => {
-                let _ = write!(writer, "{}", ScoreFormatter::new(&data.score, score_data));
-            }
-            Value::Accuracy => {
-                let _ = write!(writer, "{}%", round(data.score.accuracy));
-            }
-            Value::ScoreDate => {
-                let score_date = data.score.ended_at;
-
-                if value.y == FOOTER_Y {
-                    if OffsetDateTime::now_utc() < score_date + DAY {
-                        let _ = write!(writer, "{}", HowLongAgoText::new(&score_date));
-                    } else {
-                        writer.push_str(&score_date.format(&SHORT_NAIVE_DATETIME_FORMAT).unwrap());
-                    }
-                } else {
-                    let _ = write!(writer, "{}", HowLongAgoDynamic::new(&score_date));
-                }
-            }
-            Value::Pp(pp) => {
-                let bold = if value.y < FOOTER_Y { "**" } else { "" };
-                let tilde = if value.y < FOOTER_Y { "~~" } else { "" };
-
-                let _ = write!(writer, "{bold}{:.2}", data.score.pp);
-
-                match (pp.max, data.if_fc_pp.filter(|_| pp.if_fc)) {
-                    (true, Some(if_fc_pp)) => {
-                        let _ = write!(
-                            writer,
-                            "{bold}/{max:.2}PP {tilde}({if_fc_pp:.2}pp){tilde}",
-                            max = data.max_pp.max(data.score.pp)
-                        );
-                    }
-                    (true, None) => {
-                        let _ = write!(writer, "{bold}/{:.2}PP", data.max_pp.max(data.score.pp));
-                    }
-                    (false, Some(if_fc_pp)) => {
-                        let _ = write!(writer, "pp{bold} {tilde}({if_fc_pp:.2}pp){tilde}");
-                    }
-                    (false, None) => writer.push_str("pp**"),
-                }
-            }
-            Value::Combo(combo) => {
-                if value.y < FOOTER_Y {
-                    writer.push_str("**");
-                }
-
-                let _ = write!(writer, "{}x", data.score.max_combo);
-
-                if value.y < FOOTER_Y {
-                    writer.push_str("**");
-                }
-
-                if combo.max {
-                    let _ = write!(writer, "/{}x", data.max_combo);
-                }
-            }
-            Value::Hitresults(hitresults) => {
-                let _ = match hitresults {
-                    HitresultsValue::Full => write!(
-                        writer,
-                        "{}",
-                        HitResultFormatter::new(data.score.mode, data.score.statistics.clone())
-                    ),
-                    HitresultsValue::OnlyMisses if value.y < FOOTER_Y => {
-                        write!(
-                            writer,
-                            "{}{}",
-                            data.score.statistics.count_miss,
-                            Emote::Miss
-                        )
-                    }
-                    HitresultsValue::OnlyMisses => {
-                        write!(writer, "{} miss", data.score.statistics.count_miss)
-                    }
-                };
-            }
-            Value::Length => {
-                let clock_rate = map_attrs.clock_rate as f32;
-                let seconds_drain = (data.map.seconds_drain() as f32 / clock_rate) as u32;
-
-                if value.y < FOOTER_Y {
-                    writer.push('`');
-                }
-
-                let _ = write!(writer, "{}", SecToMinSec::new(seconds_drain).pad_secs());
-
-                if value.y < FOOTER_Y {
-                    writer.push('`');
-                }
-            }
-            Value::Ar | Value::Cs | Value::Hp | Value::Od => {
-                if value.y < FOOTER_Y {
-                    writer.push('`');
-                }
-
-                let mut write = |name, value| write!(writer, "{name}: {}", round(value as f32));
-
-                let _ = match &value.inner {
-                    Value::Ar => write("AR", map_attrs.ar),
-                    Value::Cs => write("CS", map_attrs.cs),
-                    Value::Hp => write("HP", map_attrs.hp),
-                    Value::Od => write("OD", map_attrs.od),
-                    _ => unreachable!(),
-                };
-
-                if value.y < FOOTER_Y {
-                    writer.push('`');
-                }
-            }
-            Value::Bpm(emote_text) => {
-                let clock_rate = map_attrs.clock_rate as f32;
-                let bpm = round(data.map.bpm() * clock_rate);
-
-                if value.y < FOOTER_Y {
-                    writer.push_str("**");
-                }
-
-                let _ = match emote_text {
-                    EmoteTextValue::Emote if value.y < FOOTER_Y => {
-                        write!(writer, "{} {bpm}", Emote::Bpm)
-                    }
-                    EmoteTextValue::Text | EmoteTextValue::Emote => write!(writer, "{bpm} BPM"),
-                };
-
-                if value.y < FOOTER_Y {
-                    writer.push_str("**");
-                }
-            }
-            Value::CountObjects(emote_text) => {
-                let n = data.map.n_objects();
-
-                let _ = match emote_text {
-                    EmoteTextValue::Emote if value.y < FOOTER_Y => {
-                        write!(writer, "{} {n}", Emote::CountObjects)
-                    }
-                    EmoteTextValue::Text | EmoteTextValue::Emote => {
-                        write!(
-                            writer,
-                            "{n} object{plural}",
-                            plural = if n == 1 { "" } else { "s" }
-                        )
-                    }
-                };
-            }
-            Value::CountSpinners(emote_text) => {
-                let n = data.map.n_spinners();
-
-                let _ = match emote_text {
-                    EmoteTextValue::Emote if value.y < FOOTER_Y => {
-                        write!(writer, "{} {n}", Emote::CountSpinners)
-                    }
-                    EmoteTextValue::Text | EmoteTextValue::Emote => {
-                        write!(
-                            writer,
-                            "{n} spinner{plural}",
-                            plural = if n == 1 { "" } else { "s" }
-                        )
-                    }
-                };
-            }
-            Value::MapRankedDate => {
-                if let Some(ranked_date) = data.map.ranked_date() {
-                    writer.push_str("Ranked ");
-
-                    if OffsetDateTime::now_utc() < ranked_date + DAY {
-                        let _ = if value.y == FOOTER_Y {
-                            write!(writer, "{}", HowLongAgoText::new(&ranked_date))
-                        } else {
-                            write!(writer, "{}", HowLongAgoDynamic::new(&ranked_date))
-                        };
-                    } else if value.y == FOOTER_Y {
-                        writer.push_str(&ranked_date.format(&SHORT_NAIVE_DATETIME_FORMAT).unwrap());
-                    } else {
-                        let _ = write!(writer, "<t:{}:f>", ranked_date.unix_timestamp());
-                    }
-                }
-            }
-            Value::Mapper(mapper) => {
-                let creator = data.map.creator();
-
-                let _ = if mapper.with_status {
-                    write!(writer, "{:?} mapset by {creator}", data.map.status())
-                } else {
-                    write!(writer, "Mapset by {creator}")
-                };
-            }
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct SettingValue {
-    pub inner: Value,
-    pub y: u8,
-}
-
-impl SettingValue {
-    fn kind(&self) -> ValueKind {
-        match self.inner {
+impl ValueKind {
+    pub fn from_setting(value: &SettingValue) -> Self {
+        match value.inner {
             Value::Grade => ValueKind::Grade,
             Value::Mods => ValueKind::Mods,
             Value::Score => ValueKind::Score,
@@ -2006,28 +1328,6 @@ impl SettingValue {
             Value::Mapper(_) => ValueKind::Mapper,
         }
     }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum Value {
-    Grade,
-    Mods,
-    Score,
-    Accuracy,
-    ScoreDate,
-    Pp(PpValue),
-    Combo(ComboValue),
-    Hitresults(HitresultsValue),
-    Length,
-    Bpm(EmoteTextValue),
-    Ar,
-    Cs,
-    Hp,
-    Od,
-    CountObjects(EmoteTextValue),
-    CountSpinners(EmoteTextValue),
-    MapRankedDate,
-    Mapper(MapperValue),
 }
 
 impl From<ValueKind> for Value {
@@ -2056,95 +1356,13 @@ impl From<ValueKind> for Value {
     }
 }
 
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            values: vec![
-                SettingValue {
-                    inner: Value::Grade,
-                    y: 0,
-                },
-                SettingValue {
-                    inner: Value::Mods,
-                    y: 0,
-                },
-                SettingValue {
-                    inner: Value::Score,
-                    y: 0,
-                },
-                SettingValue {
-                    inner: Value::Accuracy,
-                    y: 0,
-                },
-                SettingValue {
-                    inner: Value::ScoreDate,
-                    y: 0,
-                },
-                SettingValue {
-                    inner: Value::Pp(Default::default()),
-                    y: 1,
-                },
-                SettingValue {
-                    inner: Value::Combo(Default::default()),
-                    y: 1,
-                },
-                SettingValue {
-                    inner: Value::Hitresults(Default::default()),
-                    y: 1,
-                },
-                SettingValue {
-                    inner: Value::Length,
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Cs,
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Ar,
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Od,
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Hp,
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Bpm(Default::default()),
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Mapper(Default::default()),
-                    y: FOOTER_Y,
-                },
-                SettingValue {
-                    inner: Value::MapRankedDate,
-                    y: FOOTER_Y,
-                },
-            ],
-            image: SettingsImage::Thumbnail,
-            buttons: SettingsButtons {
-                pagination: true,
-                render: true,
-                miss_analyzer: true,
-            },
-        }
+fn disable_hide(settings: &ScoreEmbedSettings, idx: usize) -> bool {
+    match settings.values.get(idx) {
+        Some(value) => match value.y {
+            // disable hide button if first row has only one value
+            0 => settings.values.get(1).map_or(true, |value| value.y != 0),
+            _ => false,
+        },
+        None => true,
     }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum SettingsImage {
-    Thumbnail,
-    Image,
-    Hide,
-}
-
-#[derive(Debug)]
-pub struct SettingsButtons {
-    pub pagination: bool,
-    pub render: bool,
-    pub miss_analyzer: bool,
 }

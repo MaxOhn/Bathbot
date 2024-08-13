@@ -1,4 +1,4 @@
-use bathbot_model::command_fields::ScoreEmbedSettings;
+use bathbot_model::embed_builder::ScoreEmbedSettings;
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
 use rosu_v2::prelude::GameMode;

@@ -1,4 +1,4 @@
-use bathbot_model::command_fields::ScoreEmbedSettings;
+use bathbot_model::embed_builder::ScoreEmbedSettings;
 use bathbot_psql::{
     model::configs::{OsuUserId, SkinEntry, UserConfig},
     Database,

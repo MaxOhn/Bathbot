@@ -31,7 +31,7 @@ const MAP_CHECKSUM: &str = "a708a5b90349e98b399f2a1c9fce5422";
 
 #[derive(CreateCommand, SlashCommand)]
 #[command(name = "builder", desc = "Build your own score embed format")]
-// #[flags(EPHEMERAL)] // TODO: uncomment
+#[flags(EPHEMERAL)]
 pub struct ScoreEmbedBuilder;
 
 pub async fn slash_scoreembedbuilder(mut command: InteractionCommand) -> Result<()> {
