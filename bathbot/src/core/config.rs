@@ -19,8 +19,8 @@ pub struct BotConfig {
     pub paths: Paths,
     #[cfg(feature = "server")]
     pub server: Server,
-    grades: Box<[Box<str>; 9]>, // TODO: remove length
-    emotes: Box<[CustomEmote; 17]>,
+    grades: Box<[Box<str>]>,
+    emotes: Box<[CustomEmote]>,
     pub redis_host: Box<str>,
     pub redis_port: u16,
     pub redis_db_idx: u8,
@@ -136,12 +136,12 @@ impl BotConfig {
         Ok(())
     }
 
-    fn parse_emotes<K, V, const N: usize>(names: [&str; N]) -> Result<Box<[V; N]>>
+    fn parse_emotes<K, V, const N: usize>(names: [&str; N]) -> Result<Box<[V]>>
     where
         K: FromStr + AsUsize,
         V: EnvKind,
     {
-        let mut emotes = Box::new([(); N].map(|_| MaybeUninit::uninit()));
+        let mut emotes = Box::<[_]>::from([(); N].map(|_| MaybeUninit::uninit()));
 
         for name in names {
             let Ok(key) = name.parse::<K>() else {
@@ -153,7 +153,7 @@ impl BotConfig {
 
         // SAFETY: All emotes have been initialized.
         // Otherwise an error would have been thrown due to a missing emote.
-        Ok(unsafe { Box::from_raw(Box::into_raw(emotes) as *mut [V; N]) })
+        Ok(unsafe { Box::from_raw(Box::into_raw(emotes) as *mut [V]) })
     }
 
     pub fn grade(&self, grade: Grade) -> &str {
