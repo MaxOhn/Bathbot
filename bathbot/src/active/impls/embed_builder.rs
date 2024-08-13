@@ -34,7 +34,7 @@ use crate::{
     active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
     commands::utility::{ScoreEmbedData, ScoreEmbedDataWrap},
     core::Context,
-    embeds::{ComboFormatter, HitResultFormatter},
+    embeds::HitResultFormatter,
     manager::redis::RedisData,
     util::{
         interaction::InteractionComponent,
@@ -150,20 +150,22 @@ impl ScoreEmbedBuilderActive {
                 };
             }
             "embed_builder_show_button" => {
-                let last_y = self
+                let last_idx = self
                     .inner
                     .new_settings
                     .values
-                    .last()
-                    .expect("at least one field")
-                    .y;
+                    .iter()
+                    .rposition(|value| value.y < FOOTER_Y)
+                    .expect("at least one field");
+
+                let last_y = self.inner.new_settings.values[last_idx].y;
 
                 let value = SettingValue {
                     inner: self.value_kind.into(),
                     y: last_y + 1,
                 };
 
-                self.inner.new_settings.values.push(value);
+                self.inner.new_settings.values.insert(last_idx + 1, value);
             }
             "embed_builder_hide_button" => {
                 let Some(idx) = self
@@ -197,6 +199,10 @@ impl ScoreEmbedBuilderActive {
 
                 if curr_x == 0 && next_y.is_some_and(|next_y| next_y != curr_y) {
                     for value in self.inner.new_settings.values[idx + 1..].iter_mut() {
+                        if value.y == FOOTER_Y {
+                            break;
+                        }
+
                         value.y -= 1;
                     }
                 }
@@ -241,18 +247,28 @@ impl ScoreEmbedBuilderActive {
 
                 let curr_y = self.inner.new_settings.values[idx].y;
 
-                let mut prev_iter = self.inner.new_settings.values[..idx].iter().rev();
+                let mut curr_x = 0;
+                let mut prev_y = None;
+                let mut prev_row_len = 0;
 
-                let curr_x = prev_iter
-                    .by_ref()
-                    .take_while(|value| value.y == curr_y)
-                    .count();
+                for prev in self.inner.new_settings.values[..idx].iter().rev() {
+                    if prev.y == curr_y {
+                        curr_x += 1;
+                    } else if curr_y == FOOTER_Y {
+                        prev_y = Some(prev.y);
 
-                let (prev_y, prev_row_len) = prev_iter.next().map_or((0, 0), |prev| {
-                    let len = prev_iter.take_while(|value| value.y == prev.y).count() + 1;
-
-                    (prev.y, len)
-                });
+                        break;
+                    } else if let Some(prev_y) = prev_y {
+                        if prev_y == prev.y {
+                            prev_row_len += 1;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        prev_y = Some(prev.y);
+                        prev_row_len += 1;
+                    }
+                }
 
                 let to_right_count = self.inner.new_settings.values[idx + 1..]
                     .iter()
@@ -260,7 +276,7 @@ impl ScoreEmbedBuilderActive {
                     .count();
 
                 if self.inner.new_settings.values[idx].y == FOOTER_Y {
-                    self.inner.new_settings.values[idx].y = prev_y;
+                    self.inner.new_settings.values[idx].y = prev_y.unwrap_or(0) + 1;
                 } else {
                     self.inner.new_settings.values[idx].y -= 1;
                 }
@@ -301,14 +317,18 @@ impl ScoreEmbedBuilderActive {
                     .take_while(|value| value.y == curr_y)
                     .count();
 
-                let mut next_iter = self.inner.new_settings.values[idx + 1..].iter();
+                let mut to_right_count = 0;
+                let mut next_row_len = 0;
 
-                let to_right_count = next_iter
-                    .by_ref()
-                    .take_while(|value| value.y == curr_y)
-                    .count();
-
-                let next_row_len = next_iter.take_while(|value| value.y == curr_y + 1).count();
+                for next in self.inner.new_settings.values[idx + 1..].iter() {
+                    if next.y == curr_y {
+                        to_right_count += 1;
+                    } else if next.y == curr_y + 1 {
+                        next_row_len += 1;
+                    } else {
+                        break;
+                    }
+                }
 
                 if curr_x == 0 && to_right_count == 0 {
                     for value in self.inner.new_settings.values[idx + 1..].iter_mut() {
@@ -326,12 +346,17 @@ impl ScoreEmbedBuilderActive {
                     self.inner.new_settings.values[idx].y += 1;
                 }
 
-                let shift_next_line = if next_row_len == 0 {
+                let shift_next_line = if next_row_len > 0 {
+                    next_row_len
+                } else if curr_x > 0 || to_right_count > 0 {
                     0
                 } else {
-                    // Footer row len
-                    self.inner.new_settings.values[idx + to_right_count + 1..]
+                    self.inner
+                        .new_settings
+                        .values
                         .iter()
+                        .rev()
+                        .take_while(|value| value.y == FOOTER_Y)
                         .count()
                 };
 
@@ -442,7 +467,7 @@ impl ScoreEmbedBuilderActive {
                     .iter_mut()
                     .find(|value| value.kind() == ValueKind::Bpm)
                 {
-                    value.inner = Value::Bpm(BpmValue::Emote);
+                    value.inner = Value::Bpm(EmoteTextValue::Emote);
                 }
             }
             "embed_builder_bpm_text" => {
@@ -453,7 +478,51 @@ impl ScoreEmbedBuilderActive {
                     .iter_mut()
                     .find(|value| value.kind() == ValueKind::Bpm)
                 {
-                    value.inner = Value::Bpm(BpmValue::Text);
+                    value.inner = Value::Bpm(EmoteTextValue::Text);
+                }
+            }
+            "embed_builder_objects_emote" => {
+                if let Some(value) = self
+                    .inner
+                    .new_settings
+                    .values
+                    .iter_mut()
+                    .find(|value| value.kind() == ValueKind::CountObjects)
+                {
+                    value.inner = Value::CountObjects(EmoteTextValue::Emote);
+                }
+            }
+            "embed_builder_objects_text" => {
+                if let Some(value) = self
+                    .inner
+                    .new_settings
+                    .values
+                    .iter_mut()
+                    .find(|value| value.kind() == ValueKind::CountObjects)
+                {
+                    value.inner = Value::CountObjects(EmoteTextValue::Text);
+                }
+            }
+            "embed_builder_spinners_emote" => {
+                if let Some(value) = self
+                    .inner
+                    .new_settings
+                    .values
+                    .iter_mut()
+                    .find(|value| value.kind() == ValueKind::CountSpinners)
+                {
+                    value.inner = Value::CountSpinners(EmoteTextValue::Emote);
+                }
+            }
+            "embed_builder_spinners_text" => {
+                if let Some(value) = self
+                    .inner
+                    .new_settings
+                    .values
+                    .iter_mut()
+                    .find(|value| value.kind() == ValueKind::CountSpinners)
+                {
+                    value.inner = Value::CountSpinners(EmoteTextValue::Text);
                 }
             }
             "embed_builder_mapper" => {
@@ -531,6 +600,17 @@ impl ScoreEmbedBuilderActive {
 
                 return ComponentResult::Ignore;
             }
+        }
+
+        let right_order = self
+            .inner
+            .new_settings
+            .values
+            .windows(2)
+            .all(|window| window[0].y <= window[1].y);
+
+        if !right_order {
+            debug!(values = ?self.inner.new_settings.values, "Wrong setting values order");
         }
 
         let store_fut =
@@ -621,11 +701,11 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             kind_option!("Combo", "combo", Combo),
                             kind_option!("Hitresults", "hitresults", Hitresults),
                             kind_option!("Length", "len", Length),
-                            kind_option!("BPM", "bpm", Bpm),
                             kind_option!("AR", "ar", Ar),
                             kind_option!("CS", "cs", Cs),
                             kind_option!("HP", "hp", Hp),
                             kind_option!("OD", "od", Od),
+                            kind_option!("BPM", "bpm", Bpm),
                             kind_option!("Count objects", "n_objects", CountObjects),
                             kind_option!("Count spinners", "n_spinners", CountSpinners),
                             SelectMenuOption {
@@ -679,7 +759,6 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                     })
                 };
 
-                // TODO: consider field name length or limit row size
                 let arrow_row = |idx: Option<usize>| {
                     let (disable_left, disable_up, disable_down, disable_right) =
                         if let Some(idx) = idx {
@@ -699,7 +778,17 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             let is_last_row =
                                 self.inner.new_settings.values[idx + to_right + 1..].is_empty();
 
-                            let disable_up = curr_y == 0;
+                            // Disable up if too many values in field name
+                            let disable_up = curr_y == 0
+                                || (idx == 1
+                                    && self
+                                        .inner
+                                        .new_settings
+                                        .values
+                                        .iter()
+                                        .take_while(|value| value.y == 0)
+                                        .count()
+                                        >= 10);
 
                             // No need to check if the first row only contains
                             // one value because if so then the current second
@@ -907,10 +996,10 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                     ValueKind::Bpm => {
                         components.push(show_hide_row(idx));
 
-                        let bpm = idx
+                        let emote_text = idx
                             .and_then(|idx| self.inner.new_settings.values.get(idx))
                             .and_then(|value| match value.inner {
-                                Value::Bpm(ref bpm) => Some(bpm),
+                                Value::Bpm(ref emote_text) => Some(emote_text),
                                 _ => None,
                             });
 
@@ -918,7 +1007,10 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             components: vec![
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_bpm_emote".to_owned()),
-                                    disabled: matches!(bpm, Some(BpmValue::Emote) | None),
+                                    disabled: matches!(
+                                        emote_text,
+                                        Some(EmoteTextValue::Emote) | None
+                                    ),
                                     emoji: Some(Emote::Bpm.reaction_type()),
                                     label: Some("Emote".to_owned()),
                                     style: ButtonStyle::Primary,
@@ -926,7 +1018,10 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_bpm_text".to_owned()),
-                                    disabled: matches!(bpm, Some(BpmValue::Text) | None),
+                                    disabled: matches!(
+                                        emote_text,
+                                        Some(EmoteTextValue::Text) | None
+                                    ),
                                     emoji: None,
                                     label: Some("Text".to_owned()),
                                     style: ButtonStyle::Primary,
@@ -955,10 +1050,80 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                     }
                     ValueKind::CountObjects => {
                         components.push(show_hide_row(idx));
+
+                        let emote_text = idx
+                            .and_then(|idx| self.inner.new_settings.values.get(idx))
+                            .and_then(|value| match value.inner {
+                                Value::CountObjects(ref emote_text) => Some(emote_text),
+                                _ => None,
+                            });
+
+                        components.push(Component::ActionRow(ActionRow {
+                            components: vec![
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_objects_emote".to_owned()),
+                                    disabled: matches!(
+                                        emote_text,
+                                        Some(EmoteTextValue::Emote) | None
+                                    ),
+                                    emoji: Some(Emote::Bpm.reaction_type()),
+                                    label: Some("Emote".to_owned()),
+                                    style: ButtonStyle::Primary,
+                                    url: None,
+                                }),
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_objects_text".to_owned()),
+                                    disabled: matches!(
+                                        emote_text,
+                                        Some(EmoteTextValue::Text) | None
+                                    ),
+                                    emoji: None,
+                                    label: Some("Text".to_owned()),
+                                    style: ButtonStyle::Primary,
+                                    url: None,
+                                }),
+                            ],
+                        }));
+
                         components.push(arrow_row(idx));
                     }
                     ValueKind::CountSpinners => {
                         components.push(show_hide_row(idx));
+
+                        let emote_text = idx
+                            .and_then(|idx| self.inner.new_settings.values.get(idx))
+                            .and_then(|value| match value.inner {
+                                Value::CountSpinners(ref emote_text) => Some(emote_text),
+                                _ => None,
+                            });
+
+                        components.push(Component::ActionRow(ActionRow {
+                            components: vec![
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_spinners_emote".to_owned()),
+                                    disabled: matches!(
+                                        emote_text,
+                                        Some(EmoteTextValue::Emote) | None
+                                    ),
+                                    emoji: Some(Emote::Bpm.reaction_type()),
+                                    label: Some("Emote".to_owned()),
+                                    style: ButtonStyle::Primary,
+                                    url: None,
+                                }),
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_spinners_text".to_owned()),
+                                    disabled: matches!(
+                                        emote_text,
+                                        Some(EmoteTextValue::Text) | None
+                                    ),
+                                    emoji: None,
+                                    label: Some("Text".to_owned()),
+                                    style: ButtonStyle::Primary,
+                                    url: None,
+                                }),
+                            ],
+                        }));
+
                         components.push(arrow_row(idx));
                     }
                     ValueKind::MapRankedDate => {
@@ -1194,7 +1359,7 @@ pub enum HitresultsValue {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
-pub enum BpmValue {
+pub enum EmoteTextValue {
     #[default]
     Emote,
     Text,
@@ -1224,9 +1389,6 @@ impl Settings {
             Some(value) => match value.y {
                 // disable hide button if first row has only one value
                 0 => self.values.get(1).map_or(true, |value| value.y != 0),
-                // disable hide button if there's only one value not in the
-                // first row
-                1 => self.values[idx..].len() == 1,
                 _ => false,
             },
             None => true,
@@ -1266,7 +1428,7 @@ impl Settings {
                 writer.push('`');
 
                 if mark_idx == Some(0) {
-                    writer.push_str("*");
+                    writer.push('*');
                 }
 
                 let _ = match first.inner {
@@ -1278,7 +1440,7 @@ impl Settings {
                 };
 
                 if mark_idx == Some(0) {
-                    writer.push_str("*");
+                    writer.push('*');
                 }
             }
             (Value::MapRankedDate, _) if data.map.ranked_date().is_none() => {}
@@ -1336,7 +1498,7 @@ impl Settings {
                     Value::Ar | Value::Cs | Value::Hp | Value::Od,
                 ) if prev.y == curr.y && curr.y == next.y => {
                     if mark_idx == Some(i) {
-                        writer.push_str("*");
+                        writer.push('*');
                     }
 
                     let _ = match curr.inner {
@@ -1348,7 +1510,7 @@ impl Settings {
                     };
 
                     if mark_idx == Some(i) {
-                        writer.push_str("*");
+                        writer.push('*');
                     }
 
                     writer.push(' ');
@@ -1359,7 +1521,7 @@ impl Settings {
                     _,
                 ) if prev.y == curr.y => {
                     if mark_idx == Some(i) {
-                        writer.push_str("*");
+                        writer.push('*');
                     }
 
                     let _ = match curr.inner {
@@ -1371,22 +1533,35 @@ impl Settings {
                     };
 
                     if mark_idx == Some(i) {
-                        writer.push_str("*");
+                        writer.push('*');
                     }
 
-                    writer.push('`');
+                    if curr.y < FOOTER_Y {
+                        writer.push('`');
+                    }
                 }
                 (
                     _,
                     Value::Ar | Value::Cs | Value::Hp | Value::Od,
                     Value::Ar | Value::Cs | Value::Hp | Value::Od,
                 ) if curr.y == next.y => {
-                    let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
-                    writer.push_str(sep);
-                    writer.push('`');
+                    if prev.y == curr.y {
+                        let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
+                        writer.push_str(sep);
+                    } else if curr.y == FOOTER_Y {
+                        writer = &mut footer_text;
+                    } else if prev.y == 0 {
+                        writer = &mut field_value;
+                    } else {
+                        writer.push('\n');
+                    }
+
+                    if curr.y < FOOTER_Y {
+                        writer.push('`');
+                    }
 
                     if mark_idx == Some(i) {
-                        writer.push_str("*");
+                        writer.push('*');
                     }
 
                     let _ = match curr.inner {
@@ -1398,7 +1573,7 @@ impl Settings {
                     };
 
                     if mark_idx == Some(i) {
-                        writer.push_str("*");
+                        writer.push('*');
                     }
 
                     writer.push(' ');
@@ -1447,18 +1622,19 @@ impl Settings {
             }
         }
 
-        let Some([prev, last]) = self.values.get(self.values.len() - 2..) else {
-            unreachable!("at least two values");
-        };
+        let last_idx = self.values.len() - 1;
+        let last = self.values.get(last_idx).expect("at least one value");
+        let prev = last_idx.checked_sub(1).and_then(|idx| self.values.get(idx));
 
-        if !(last.kind() == ValueKind::MapRankedDate && data.map.ranked_date().is_none()) {
-            let last_idx = self.values.len() - 1;
+        if !(last.kind() == ValueKind::MapRankedDate && data.map.ranked_date().is_none())
+            && last_idx > 0
+        {
             let mark = if last.y == FOOTER_Y { "*" } else { "__" };
 
-            if prev.y != last.y {
+            if prev.is_some_and(|prev| prev.y != last.y) {
                 if last.y == FOOTER_Y {
                     writer = &mut footer_text;
-                } else if prev.y == 0 {
+                } else if prev.is_some_and(|prev| prev.y == 0) {
                     writer = &mut field_value;
                 } else {
                     writer.push('\n');
@@ -1490,8 +1666,8 @@ impl Settings {
                     writer.push_str(mark);
                 }
             } else {
-                match (&prev.inner, &last.inner) {
-                    (Value::Grade, Value::Mods) => {
+                match (prev.map(|prev| &prev.inner), &last.inner) {
+                    (Some(Value::Grade), Value::Mods) => {
                         writer.push(' ');
 
                         if mark_idx == Some(last_idx) {
@@ -1505,11 +1681,11 @@ impl Settings {
                         }
                     }
                     (
-                        Value::Ar | Value::Cs | Value::Hp | Value::Od,
+                        Some(Value::Ar | Value::Cs | Value::Hp | Value::Od),
                         Value::Ar | Value::Cs | Value::Hp | Value::Od,
                     ) => {
                         if mark_idx == Some(last_idx) {
-                            writer.push_str("*");
+                            writer.push('*');
                         }
 
                         let _ = match last.inner {
@@ -1521,7 +1697,7 @@ impl Settings {
                         };
 
                         if mark_idx == Some(last_idx) {
-                            writer.push_str("*");
+                            writer.push('*');
                         }
 
                         writer.push('`');
@@ -1580,6 +1756,8 @@ impl Settings {
                         "{}",
                         GradeFormatter::new(data.score.grade, None, false),
                     )
+                } else if value.y == FOOTER_Y {
+                    write!(writer, "{:?}", data.score.grade)
                 } else {
                     write!(
                         writer,
@@ -1628,37 +1806,42 @@ impl Settings {
                 }
             }
             Value::Pp(pp) => {
-                let _ = write!(writer, "**{:.2}", data.score.pp);
+                let bold = if value.y < FOOTER_Y { "**" } else { "" };
+                let tilde = if value.y < FOOTER_Y { "~~" } else { "" };
+
+                let _ = write!(writer, "{bold}{:.2}", data.score.pp);
 
                 match (pp.max, data.if_fc_pp.filter(|_| pp.if_fc)) {
                     (true, Some(if_fc_pp)) => {
                         let _ = write!(
                             writer,
-                            "**/{max:.2}PP ~~({if_fc_pp:.2}pp)~~",
+                            "{bold}/{max:.2}PP {tilde}({if_fc_pp:.2}pp){tilde}",
                             max = data.max_pp.max(data.score.pp)
                         );
                     }
                     (true, None) => {
-                        let _ = write!(writer, "**/{:.2}PP", data.max_pp.max(data.score.pp));
+                        let _ = write!(writer, "{bold}/{:.2}PP", data.max_pp.max(data.score.pp));
                     }
                     (false, Some(if_fc_pp)) => {
-                        let _ = write!(writer, "pp** ~~({if_fc_pp:.2}pp)~~");
+                        let _ = write!(writer, "pp{bold} {tilde}({if_fc_pp:.2}pp){tilde}");
                     }
                     (false, None) => writer.push_str("pp**"),
                 }
             }
             Value::Combo(combo) => {
-                let score_combo = data.score.max_combo;
+                if value.y < FOOTER_Y {
+                    writer.push_str("**");
+                }
 
-                let _ = if combo.max {
-                    write!(
-                        writer,
-                        "{}",
-                        ComboFormatter::new(score_combo, Some(data.max_combo))
-                    )
-                } else {
-                    write!(writer, "**{score_combo}x**")
-                };
+                let _ = write!(writer, "{}x", data.score.max_combo);
+
+                if value.y < FOOTER_Y {
+                    writer.push_str("**");
+                }
+
+                if combo.max {
+                    let _ = write!(writer, "/{}x", data.max_combo);
+                }
             }
             Value::Hitresults(hitresults) => {
                 let _ = match hitresults {
@@ -1667,7 +1850,7 @@ impl Settings {
                         "{}",
                         HitResultFormatter::new(data.score.mode, data.score.statistics.clone())
                     ),
-                    HitresultsValue::OnlyMisses => {
+                    HitresultsValue::OnlyMisses if value.y < FOOTER_Y => {
                         write!(
                             writer,
                             "{}{}",
@@ -1675,40 +1858,94 @@ impl Settings {
                             Emote::Miss
                         )
                     }
+                    HitresultsValue::OnlyMisses => {
+                        write!(writer, "{} miss", data.score.statistics.count_miss)
+                    }
                 };
             }
             Value::Length => {
                 let clock_rate = map_attrs.clock_rate as f32;
                 let seconds_drain = (data.map.seconds_drain() as f32 / clock_rate) as u32;
 
-                let _ = write!(writer, "`{}`", SecToMinSec::new(seconds_drain).pad_secs());
-            }
-            Value::Bpm(bpm) => {
-                let clock_rate = map_attrs.clock_rate as f32;
-                let value = round(data.map.bpm() * clock_rate);
+                if value.y < FOOTER_Y {
+                    writer.push('`');
+                }
 
-                let _ = match bpm {
-                    BpmValue::Emote => write!(writer, "{} **{value}**", Emote::Bpm),
-                    BpmValue::Text => write!(writer, "**{value} BPM**"),
+                let _ = write!(writer, "{}", SecToMinSec::new(seconds_drain).pad_secs());
+
+                if value.y < FOOTER_Y {
+                    writer.push('`');
+                }
+            }
+            Value::Ar | Value::Cs | Value::Hp | Value::Od => {
+                if value.y < FOOTER_Y {
+                    writer.push('`');
+                }
+
+                let mut write = |name, value| write!(writer, "{name}: {}", round(value as f32));
+
+                let _ = match &value.inner {
+                    Value::Ar => write("AR", map_attrs.ar),
+                    Value::Cs => write("CS", map_attrs.cs),
+                    Value::Hp => write("HP", map_attrs.hp),
+                    Value::Od => write("OD", map_attrs.od),
+                    _ => unreachable!(),
+                };
+
+                if value.y < FOOTER_Y {
+                    writer.push('`');
+                }
+            }
+            Value::Bpm(emote_text) => {
+                let clock_rate = map_attrs.clock_rate as f32;
+                let bpm = round(data.map.bpm() * clock_rate);
+
+                if value.y < FOOTER_Y {
+                    writer.push_str("**");
+                }
+
+                let _ = match emote_text {
+                    EmoteTextValue::Emote if value.y < FOOTER_Y => {
+                        write!(writer, "{} {bpm}", Emote::Bpm)
+                    }
+                    EmoteTextValue::Text | EmoteTextValue::Emote => write!(writer, "{bpm} BPM"),
+                };
+
+                if value.y < FOOTER_Y {
+                    writer.push_str("**");
+                }
+            }
+            Value::CountObjects(emote_text) => {
+                let n = data.map.n_objects();
+
+                let _ = match emote_text {
+                    EmoteTextValue::Emote if value.y < FOOTER_Y => {
+                        write!(writer, "{} {n}", Emote::CountObjects)
+                    }
+                    EmoteTextValue::Text | EmoteTextValue::Emote => {
+                        write!(
+                            writer,
+                            "{n} object{plural}",
+                            plural = if n == 1 { "" } else { "s" }
+                        )
+                    }
                 };
             }
-            Value::Ar => {
-                let _ = write!(writer, "`AR: {}`", round(map_attrs.ar as f32));
-            }
-            Value::Cs => {
-                let _ = write!(writer, "`CS: {}`", round(map_attrs.cs as f32));
-            }
-            Value::Hp => {
-                let _ = write!(writer, "`HP: {}`", round(map_attrs.hp as f32));
-            }
-            Value::Od => {
-                let _ = write!(writer, "`OD: {}`", round(map_attrs.od as f32));
-            }
-            Value::CountObjects => {
-                let _ = write!(writer, "{} {}", Emote::CountObjects, data.map.n_objects());
-            }
-            Value::CountSpinners => {
-                let _ = write!(writer, "{} {}", Emote::CountSpinners, data.map.n_spinners());
+            Value::CountSpinners(emote_text) => {
+                let n = data.map.n_spinners();
+
+                let _ = match emote_text {
+                    EmoteTextValue::Emote if value.y < FOOTER_Y => {
+                        write!(writer, "{} {n}", Emote::CountSpinners)
+                    }
+                    EmoteTextValue::Text | EmoteTextValue::Emote => {
+                        write!(
+                            writer,
+                            "{n} spinner{plural}",
+                            plural = if n == 1 { "" } else { "s" }
+                        )
+                    }
+                };
             }
             Value::MapRankedDate => {
                 if let Some(ranked_date) = data.map.ranked_date() {
@@ -1763,8 +2000,8 @@ impl SettingValue {
             Value::Cs => ValueKind::Cs,
             Value::Hp => ValueKind::Hp,
             Value::Od => ValueKind::Od,
-            Value::CountObjects => ValueKind::CountObjects,
-            Value::CountSpinners => ValueKind::CountSpinners,
+            Value::CountObjects(_) => ValueKind::CountObjects,
+            Value::CountSpinners(_) => ValueKind::CountSpinners,
             Value::MapRankedDate => ValueKind::MapRankedDate,
             Value::Mapper(_) => ValueKind::Mapper,
         }
@@ -1782,13 +2019,13 @@ pub enum Value {
     Combo(ComboValue),
     Hitresults(HitresultsValue),
     Length,
-    Bpm(BpmValue),
+    Bpm(EmoteTextValue),
     Ar,
     Cs,
     Hp,
     Od,
-    CountObjects,
-    CountSpinners,
+    CountObjects(EmoteTextValue),
+    CountSpinners(EmoteTextValue),
     MapRankedDate,
     Mapper(MapperValue),
 }
@@ -1810,8 +2047,8 @@ impl From<ValueKind> for Value {
             ValueKind::Cs => Self::Cs,
             ValueKind::Hp => Self::Hp,
             ValueKind::Od => Self::Od,
-            ValueKind::CountObjects => Self::CountObjects,
-            ValueKind::CountSpinners => Self::CountSpinners,
+            ValueKind::CountObjects => Self::CountObjects(Default::default()),
+            ValueKind::CountSpinners => Self::CountSpinners(Default::default()),
             ValueKind::MapRankedDate => Self::MapRankedDate,
             ValueKind::Mapper => Self::Mapper(Default::default()),
             ValueKind::None => unreachable!(),
