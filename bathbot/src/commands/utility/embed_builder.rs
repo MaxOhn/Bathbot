@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use bathbot_macros::SlashCommand;
-use bathbot_model::ScoreSlim;
+use bathbot_model::{embed_builder::ScoreEmbedSettings, ScoreSlim};
+use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{constants::GENERAL_ISSUE, CowUtils, MessageOrigin};
 use eyre::{Report, Result};
 use rosu_pp::model::beatmap::BeatmapAttributes;
@@ -10,8 +11,11 @@ use rosu_v2::{
     prelude::{GameModIntermode, GameMods, LegacyScoreStatistics, RankStatus, Score},
 };
 use time::OffsetDateTime;
-use twilight_interactions::command::CreateCommand;
-use twilight_model::id::{marker::GuildMarker, Id};
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::id::{
+    marker::{GuildMarker, UserMarker},
+    Id,
+};
 
 use crate::{
     active::{impls::ScoreEmbedBuilderActive, ActiveMessages},
@@ -29,15 +33,49 @@ const USER_ID: u32 = 2;
 const MAP_ID: u32 = 197337;
 const MAP_CHECKSUM: &str = "a708a5b90349e98b399f2a1c9fce5422";
 
-#[derive(CreateCommand, SlashCommand)]
+#[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "builder", desc = "Build your own score embed format")]
 #[flags(EPHEMERAL)]
-pub struct ScoreEmbedBuilder;
+pub enum ScoreEmbedBuilder {
+    #[command(name = "edit")]
+    Edit(ScoreEmbedBuilderEdit),
+    #[command(name = "copy")]
+    Copy(ScoreEmbedBuilderCopy),
+    #[command(name = "default")]
+    Default(ScoreEmbedBuilderDefault),
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "edit", desc = "Edit your score embed format")]
+pub struct ScoreEmbedBuilderEdit;
+
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "copy",
+    desc = "Use someone else's score embed format as your own"
+)]
+pub struct ScoreEmbedBuilderCopy {
+    #[command(desc = "Specify a user to copy the score embed format from")]
+    user: Id<UserMarker>,
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "default",
+    desc = "Reset your scpre embed format to the default"
+)]
+pub struct ScoreEmbedBuilderDefault;
 
 pub async fn slash_scoreembedbuilder(mut command: InteractionCommand) -> Result<()> {
-    let msg_owner = command.user_id()?;
+    match ScoreEmbedBuilder::from_interaction(command.input_data())? {
+        ScoreEmbedBuilder::Edit(_) => edit(&mut command).await,
+        ScoreEmbedBuilder::Copy(args) => copy(&mut command, args).await,
+        ScoreEmbedBuilder::Default(_) => default(&mut command).await,
+    }
+}
 
-    let config = match Context::user_config().with_osu_id(msg_owner).await {
+async fn edit(command: &mut InteractionCommand) -> Result<()> {
+    let config = match Context::user_config().with_osu_id(command.user_id()?).await {
         Ok(config) => config,
         Err(err) => {
             let _ = command.error(GENERAL_ISSUE).await;
@@ -57,6 +95,88 @@ pub async fn slash_scoreembedbuilder(mut command: InteractionCommand) -> Result<
         },
     };
 
+    let settings = config.score_embed.unwrap_or_default();
+
+    exec(command, settings, score_data).await
+}
+
+async fn copy(command: &mut InteractionCommand, args: ScoreEmbedBuilderCopy) -> Result<()> {
+    let author = command.user_id()?;
+
+    let config_fut1 = Context::user_config().with_osu_id(author);
+    let config_fut2 = Context::user_config().with_osu_id(args.user);
+
+    let (config1, config2) = match tokio::try_join!(config_fut1, config_fut2) {
+        Ok(tuple) => tuple,
+        Err(err) => {
+            let _ = command.error(GENERAL_ISSUE).await;
+
+            return Err(err.wrap_err("Failed to get user config"));
+        }
+    };
+
+    let score_data = match config1.score_data {
+        Some(score_data) => score_data,
+        None => match command.guild_id() {
+            Some(guild_id) => Context::guild_config()
+                .peek(guild_id, |config| config.score_data)
+                .await
+                .unwrap_or_default(),
+            None => Default::default(),
+        },
+    };
+
+    let settings = config2.score_embed.unwrap_or_default();
+
+    let store_fut = Context::user_config().store_score_embed_settings(author, &settings);
+
+    if let Err(err) = store_fut.await {
+        warn!(?err);
+    }
+
+    exec(command, settings, score_data).await
+}
+
+async fn default(command: &mut InteractionCommand) -> Result<()> {
+    let author = command.user_id()?;
+
+    let config = match Context::user_config().with_osu_id(author).await {
+        Ok(config) => config,
+        Err(err) => {
+            let _ = command.error(GENERAL_ISSUE).await;
+
+            return Err(err.wrap_err("Failed to get user config"));
+        }
+    };
+
+    let score_data = match config.score_data {
+        Some(score_data) => score_data,
+        None => match command.guild_id() {
+            Some(guild_id) => Context::guild_config()
+                .peek(guild_id, |config| config.score_data)
+                .await
+                .unwrap_or_default(),
+            None => Default::default(),
+        },
+    };
+
+    let settings = ScoreEmbedSettings::default();
+
+    let store_fut = Context::user_config().store_score_embed_settings(author, &settings);
+
+    if let Err(err) = store_fut.await {
+        warn!(?err);
+    }
+
+    exec(command, settings, score_data).await
+}
+
+async fn exec(
+    command: &mut InteractionCommand,
+    settings: ScoreEmbedSettings,
+    score_data: ScoreData,
+) -> Result<()> {
+    let msg_owner = command.user_id()?;
     let legacy_scores = score_data.is_legacy();
 
     let user_fut = Context::redis().osu_user_from_args(UserArgsSlim::user_id(USER_ID));
@@ -90,15 +210,12 @@ pub async fn slash_scoreembedbuilder(mut command: InteractionCommand) -> Result<
         }
     };
 
-    let settings = config.score_embed.unwrap_or_default();
-
     let data = ScoreEmbedDataWrap::new_custom(score, map, 71, Some(7)).await;
-
     let active_msg = ScoreEmbedBuilderActive::new(&user, data, settings, score_data, msg_owner);
 
     ActiveMessages::builder(active_msg)
         .start_by_update(true)
-        .begin(&mut command)
+        .begin(command)
         .await
 }
 

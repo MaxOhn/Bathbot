@@ -1,9 +1,8 @@
 use std::{borrow::Cow, collections::HashMap, num::NonZeroU64, slice};
 
 use bathbot_model::{
-    command_fields::{
-        ScoreEmbedButtons, ScoreEmbedFooter, ScoreEmbedHitResults, ScoreEmbedImage,
-        ScoreEmbedMapInfo, ScoreEmbedPp, ScoreEmbedSettings,
+    embed_builder::{
+        HitresultsValue, ScoreEmbedSettings, SettingValue, SettingsButtons, SettingsImage, Value,
     },
     rosu_v2::user::User,
 };
@@ -246,25 +245,75 @@ impl<'u> TrackUser<'u> {
         };
 
         let settings = ScoreEmbedSettings {
-            image: ScoreEmbedImage::Thumbnail,
-            pp: ScoreEmbedPp::Max,
-            map_info: ScoreEmbedMapInfo {
-                len: true,
-                ar: true,
-                cs: true,
-                od: true,
-                hp: true,
-                bpm: true,
-                n_obj: false,
-                n_spin: false,
-            },
-            footer: ScoreEmbedFooter::WithScoreDate,
-            buttons: ScoreEmbedButtons {
+            values: vec![
+                SettingValue {
+                    inner: Value::Grade,
+                    y: 0,
+                },
+                SettingValue {
+                    inner: Value::Mods,
+                    y: 0,
+                },
+                SettingValue {
+                    inner: Value::Score,
+                    y: 0,
+                },
+                SettingValue {
+                    inner: Value::Accuracy,
+                    y: 0,
+                },
+                SettingValue {
+                    inner: Value::Combo(Default::default()),
+                    y: 0,
+                },
+                SettingValue {
+                    inner: Value::Pp(Default::default()),
+                    y: 1,
+                },
+                SettingValue {
+                    inner: Value::Hitresults(HitresultsValue::Full),
+                    y: 1,
+                },
+                SettingValue {
+                    inner: Value::Length,
+                    y: 2,
+                },
+                SettingValue {
+                    inner: Value::Cs,
+                    y: 2,
+                },
+                SettingValue {
+                    inner: Value::Ar,
+                    y: 2,
+                },
+                SettingValue {
+                    inner: Value::Od,
+                    y: 2,
+                },
+                SettingValue {
+                    inner: Value::Hp,
+                    y: 2,
+                },
+                SettingValue {
+                    inner: Value::Bpm(Default::default()),
+                    y: 2,
+                },
+                SettingValue {
+                    inner: Value::Mapper(Default::default()),
+                    y: SettingValue::FOOTER_Y,
+                },
+                SettingValue {
+                    inner: Value::ScoreDate,
+                    y: SettingValue::FOOTER_Y,
+                },
+            ],
+            show_artist: true,
+            image: SettingsImage::Thumbnail,
+            buttons: SettingsButtons {
                 pagination: false,
                 render: false,
                 miss_analyzer: false,
             },
-            hitresults: ScoreEmbedHitResults::Full,
         };
 
         let score_data = ScoreData::Lazer;
@@ -278,7 +327,7 @@ impl<'u> TrackUser<'u> {
         let mut pagination =
             SingleScorePagination::new(user, entries, settings, score_data, msg_owner, content);
 
-        match pagination.async_build_page(Box::default()).await {
+        match pagination.async_build_page(Box::default(), None).await {
             Ok(data) => Ok(data.into_embed()),
             Err(_) => {
                 // Unreachable because `async_build_page` can only fail while
