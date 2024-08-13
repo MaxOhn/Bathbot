@@ -937,6 +937,8 @@ fn write_value(
             let score_date = data.score.ended_at;
 
             if value.y == SettingValue::FOOTER_Y {
+                writer.push_str("Played ");
+
                 if OffsetDateTime::now_utc() < score_date + DAY {
                     let _ = write!(writer, "{}", HowLongAgoText::new(&score_date));
                 } else {
