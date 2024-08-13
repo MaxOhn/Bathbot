@@ -103,14 +103,6 @@ impl SingleScorePagination {
 
         let embed = apply_settings(&self.settings, score, self.score_data, mark_idx);
 
-        let title = format!(
-            "{} - {} [{}] [{}★]",
-            score.map.artist().cow_escape_markdown(),
-            score.map.title().cow_escape_markdown(),
-            score.map.version().cow_escape_markdown(),
-            round(score.stars)
-        );
-
         let url = format!("{OSU_BASE}b/{}", score.map.map_id());
 
         #[allow(unused_mut)]
@@ -150,7 +142,6 @@ impl SingleScorePagination {
         let builder = embed
             .author(self.author.clone())
             .description(description)
-            .title(title)
             .url(url);
 
         Ok(BuildPage::new(builder, false).content(content))
@@ -574,7 +565,7 @@ fn apply_settings(
                 writer.push_str("__");
             }
 
-            write_field(&value, data, &map_attrs, score_data, writer);
+            write_value(&value, data, &map_attrs, score_data, writer);
 
             if mark_idx == Some(0) {
                 writer.push_str("__");
@@ -726,7 +717,7 @@ fn apply_settings(
                     writer.push_str(mark);
                 }
 
-                write_field(&value, data, &map_attrs, score_data, writer);
+                write_value(&value, data, &map_attrs, score_data, writer);
 
                 if mark_idx == Some(i) {
                     writer.push_str(mark);
@@ -780,7 +771,7 @@ fn apply_settings(
                 writer.push_str(mark);
             }
 
-            write_field(&value, data, &map_attrs, score_data, writer);
+            write_value(&value, data, &map_attrs, score_data, writer);
 
             if mark_idx == Some(last_idx) {
                 writer.push_str(mark);
@@ -846,7 +837,7 @@ fn apply_settings(
                         writer.push_str(mark);
                     }
 
-                    write_field(&value, data, &map_attrs, score_data, writer);
+                    write_value(&value, data, &map_attrs, score_data, writer);
 
                     if mark_idx == Some(last_idx) {
                         writer.push_str(mark);
@@ -858,7 +849,21 @@ fn apply_settings(
 
     let fields = fields![field_name, field_value, false];
 
-    let mut builder = EmbedBuilder::new().fields(fields);
+    let mut title = String::with_capacity(32);
+
+    if settings.show_artist {
+        let _ = write!(title, "{} - ", data.map.artist().cow_escape_markdown());
+    }
+
+    let _ = write!(
+        title,
+        "{} [{}] [{}★]",
+        data.map.title().cow_escape_markdown(),
+        data.map.version().cow_escape_markdown(),
+        round(data.stars)
+    );
+
+    let mut builder = EmbedBuilder::new().fields(fields).title(title);
 
     match settings.image {
         SettingsImage::Thumbnail => builder = builder.thumbnail(data.map.thumbnail()),
@@ -877,7 +882,7 @@ fn apply_settings(
 
 const DAY: Duration = Duration::from_secs(60 * 60 * 24);
 
-fn write_field(
+fn write_value(
     value: &SettingValue,
     data: &ScoreEmbedData,
     map_attrs: &BeatmapAttributes,

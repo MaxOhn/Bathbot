@@ -108,6 +108,7 @@ impl ScoreEmbedBuilderActive {
                 };
 
                 self.value_kind = match value.as_str() {
+                    "artist" => ValueKind::Artist,
                     "grade" => ValueKind::Grade,
                     "mods" => ValueKind::Mods,
                     "score" => ValueKind::Score,
@@ -190,8 +191,12 @@ impl ScoreEmbedBuilderActive {
                 self.inner.settings.values.remove(idx);
             }
             "embed_builder_reset_button" => {
-                self.inner.settings.values = ScoreEmbedSettings::default().values;
+                let default = ScoreEmbedSettings::default();
+                self.inner.settings.values = default.values;
+                self.inner.settings.show_artist = default.show_artist;
             }
+            "embed_builder_show_artist_button" => self.inner.settings.show_artist = true,
+            "embed_builder_hide_artist_button" => self.inner.settings.show_artist = false,
             "embed_builder_value_left" => {
                 let Some(idx) = self
                     .inner
@@ -672,6 +677,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         max_values: None,
                         min_values: None,
                         options: vec![
+                            kind_option!("Artist", "artist", Artist),
                             kind_option!("Grade", "grade", Grade),
                             kind_option!("Mods", "mods", Mods),
                             kind_option!("Score", "score", Score),
@@ -835,6 +841,36 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
 
                 match self.value_kind {
                     ValueKind::None => {}
+                    ValueKind::Artist => {
+                        components.push(Component::ActionRow(ActionRow {
+                            components: vec![
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_show_artist_button".to_owned()),
+                                    disabled: self.inner.settings.show_artist,
+                                    emoji: None,
+                                    label: Some("Show".to_owned()),
+                                    style: ButtonStyle::Primary,
+                                    url: None,
+                                }),
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_hide_artist_button".to_owned()),
+                                    disabled: !self.inner.settings.show_artist,
+                                    emoji: None,
+                                    label: Some("Hide".to_owned()),
+                                    style: ButtonStyle::Primary,
+                                    url: None,
+                                }),
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_reset_button".to_owned()),
+                                    disabled: false,
+                                    emoji: None,
+                                    label: Some("Reset all".to_owned()),
+                                    style: ButtonStyle::Danger,
+                                    url: None,
+                                }),
+                            ],
+                        }));
+                    }
                     ValueKind::Grade => {
                         components.push(show_hide_row(idx));
                         components.push(arrow_row(idx));
@@ -1285,6 +1321,7 @@ pub enum EmbedSection {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ValueKind {
     None,
+    Artist,
     Grade,
     Mods,
     Score,
@@ -1351,7 +1388,7 @@ impl From<ValueKind> for Value {
             ValueKind::CountSpinners => Self::CountSpinners(Default::default()),
             ValueKind::MapRankedDate => Self::MapRankedDate,
             ValueKind::Mapper => Self::Mapper(Default::default()),
-            ValueKind::None => unreachable!(),
+            ValueKind::Artist | ValueKind::None => unreachable!(),
         }
     }
 }

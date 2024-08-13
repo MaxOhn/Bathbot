@@ -5,9 +5,25 @@ use crate::deser::bool_as_u8;
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct ScoreEmbedSettings {
+    #[serde(rename = "v")]
     pub values: Vec<SettingValue>,
+    #[serde(
+        rename = "a",
+        default = "ScoreEmbedSettings::default_show_artist",
+        with = "bool_as_u8",
+        skip_serializing_if = "super::is_true"
+    )]
+    pub show_artist: bool,
+    #[serde(rename = "i")]
     pub image: SettingsImage,
+    #[serde(rename = "b")]
     pub buttons: SettingsButtons,
+}
+
+impl ScoreEmbedSettings {
+    fn default_show_artist() -> bool {
+        true
+    }
 }
 
 impl Default for ScoreEmbedSettings {
@@ -79,6 +95,7 @@ impl Default for ScoreEmbedSettings {
                     y: SettingValue::FOOTER_Y,
                 },
             ],
+            show_artist: Self::default_show_artist(),
             image: SettingsImage::Thumbnail,
             buttons: SettingsButtons::default(),
         }

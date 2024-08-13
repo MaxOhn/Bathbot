@@ -4,6 +4,7 @@ use crate::deser::bool_as_u8;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct SettingValue {
+    #[serde(rename = "i")]
     pub inner: Value,
     pub y: u8,
 }
