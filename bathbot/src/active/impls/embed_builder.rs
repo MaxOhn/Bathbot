@@ -1,19 +1,26 @@
 use std::{
+    borrow::Cow,
     cmp::{self, Ordering},
     fmt::Write,
     future::ready,
+    time::Duration,
 };
 
 use bathbot_model::{command_fields::ScoreEmbedSettings, rosu_v2::user::User};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    datetime::{HowLongAgoDynamic, SecToMinSec},
+    datetime::{HowLongAgoDynamic, HowLongAgoText, SecToMinSec, SHORT_NAIVE_DATETIME_FORMAT},
     numbers::round,
     MessageBuilder,
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
 use rosu_pp::model::beatmap::BeatmapAttributes;
+use rosu_v2::{
+    model::{GameMode, Grade},
+    prelude::RankStatus,
+};
+use time::OffsetDateTime;
 use twilight_model::{
     channel::message::{
         component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
@@ -27,7 +34,7 @@ use crate::{
     active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
     commands::utility::{ScoreEmbedData, ScoreEmbedDataWrap},
     core::Context,
-    embeds::{ComboFormatter, HitResultFormatter, ModsFormatter},
+    embeds::{ComboFormatter, HitResultFormatter},
     manager::redis::RedisData,
     util::{
         interaction::InteractionComponent,
@@ -35,6 +42,9 @@ use crate::{
         Authored, Emote,
     },
 };
+
+const FOOTER_Y: u8 = u8::MAX;
+const DAY: Duration = Duration::from_secs(60 * 60 * 24);
 
 pub struct ScoreEmbedBuilderActive {
     inner: SingleScorePagination,
@@ -129,6 +139,8 @@ impl ScoreEmbedBuilderActive {
                     "od" => ValueKind::Od,
                     "n_objects" => ValueKind::CountObjects,
                     "n_spinners" => ValueKind::CountSpinners,
+                    "ranked_date" => ValueKind::MapRankedDate,
+                    "mapper" => ValueKind::Mapper,
                     _ => {
                         return ComponentResult::Err(eyre!(
                             "Invalid value `{value}` for builder component `{}`",
@@ -191,6 +203,9 @@ impl ScoreEmbedBuilderActive {
 
                 self.inner.new_settings.values.remove(idx);
             }
+            "embed_builder_reset_button" => {
+                self.inner.new_settings.values = Settings::default().values;
+            }
             "embed_builder_value_left" => {
                 let Some(idx) = self
                     .inner
@@ -216,18 +231,7 @@ impl ScoreEmbedBuilderActive {
                 };
 
                 let can_move = match self.inner.new_settings.values.get(idx) {
-                    Some(value) if value.y == 1 => {
-                        let count_non_first_row = self
-                            .inner
-                            .new_settings
-                            .values
-                            .iter()
-                            .skip_while(|value| value.y == 0)
-                            .count();
-
-                        count_non_first_row > 1
-                    }
-                    Some(_) => true,
+                    Some(value) => value.y > 0,
                     None => false,
                 };
 
@@ -244,17 +248,29 @@ impl ScoreEmbedBuilderActive {
                     .take_while(|value| value.y == curr_y)
                     .count();
 
-                let prev_row_len = prev_iter.take_while(|value| value.y == curr_y - 1).count();
+                let (prev_y, prev_row_len) = prev_iter.next().map_or((0, 0), |prev| {
+                    let len = prev_iter.take_while(|value| value.y == prev.y).count() + 1;
+
+                    (prev.y, len)
+                });
 
                 let to_right_count = self.inner.new_settings.values[idx + 1..]
                     .iter()
                     .take_while(|value| value.y == curr_y)
                     .count();
 
-                self.inner.new_settings.values[idx].y -= 1;
+                if self.inner.new_settings.values[idx].y == FOOTER_Y {
+                    self.inner.new_settings.values[idx].y = prev_y;
+                } else {
+                    self.inner.new_settings.values[idx].y -= 1;
+                }
 
                 if curr_x == 0 && to_right_count == 0 {
                     for value in self.inner.new_settings.values[idx + 1..].iter_mut() {
+                        if value.y == FOOTER_Y {
+                            break;
+                        }
+
                         value.y -= 1;
                     }
                 }
@@ -296,13 +312,30 @@ impl ScoreEmbedBuilderActive {
 
                 if curr_x == 0 && to_right_count == 0 {
                     for value in self.inner.new_settings.values[idx + 1..].iter_mut() {
+                        if value.y == FOOTER_Y {
+                            break;
+                        }
+
                         value.y -= 1;
+                    }
+
+                    if next_row_len == 0 {
+                        self.inner.new_settings.values[idx].y = FOOTER_Y;
                     }
                 } else {
                     self.inner.new_settings.values[idx].y += 1;
                 }
 
-                let shift = 1 + to_right_count + cmp::min(next_row_len, curr_x);
+                let shift_next_line = if next_row_len == 0 {
+                    0
+                } else {
+                    // Footer row len
+                    self.inner.new_settings.values[idx + to_right_count + 1..]
+                        .iter()
+                        .count()
+                };
+
+                let shift = 1 + to_right_count + cmp::min(shift_next_line, curr_x);
                 self.inner.new_settings.values[idx..idx + shift].rotate_left(1);
             }
             "embed_builder_value_right" => {
@@ -423,6 +456,31 @@ impl ScoreEmbedBuilderActive {
                     value.inner = Value::Bpm(BpmValue::Text);
                 }
             }
+            "embed_builder_mapper" => {
+                let mut with_status = false;
+
+                for value in component.data.values.iter() {
+                    match value.as_str() {
+                        "status" => with_status = true,
+                        _ => {
+                            return ComponentResult::Err(eyre!(
+                                "Unknown value `{value}` for builder component {}",
+                                component.data.custom_id
+                            ))
+                        }
+                    }
+                }
+
+                if let Some(value) = self
+                    .inner
+                    .new_settings
+                    .values
+                    .iter_mut()
+                    .find(|value| value.kind() == ValueKind::Mapper)
+                {
+                    value.inner = Value::Mapper(MapperValue { with_status });
+                }
+            }
             "embed_builder_image" => {
                 let Some(value) = component.data.values.first() else {
                     return ComponentResult::Err(eyre!(
@@ -434,7 +492,6 @@ impl ScoreEmbedBuilderActive {
                 self.inner.new_settings.image = match value.as_str() {
                     "thumbnail" => SettingsImage::Thumbnail,
                     "image" => SettingsImage::Image,
-                    "image_strains" => SettingsImage::ImageWithStrains,
                     "hide" => SettingsImage::Hide,
                     _ => {
                         return ComponentResult::Err(eyre!(
@@ -565,12 +622,22 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             kind_option!("Hitresults", "hitresults", Hitresults),
                             kind_option!("Length", "len", Length),
                             kind_option!("BPM", "bpm", Bpm),
-                            kind_option!("Approach Rate", "ar", Ar),
-                            kind_option!("Circle Size", "cs", Cs),
-                            kind_option!("Drain rate", "hp", Hp),
-                            kind_option!("Overall Difficulty", "od", Od),
+                            kind_option!("AR", "ar", Ar),
+                            kind_option!("CS", "cs", Cs),
+                            kind_option!("HP", "hp", Hp),
+                            kind_option!("OD", "od", Od),
                             kind_option!("Count objects", "n_objects", CountObjects),
                             kind_option!("Count spinners", "n_spinners", CountSpinners),
+                            SelectMenuOption {
+                                default: matches!(self.value_kind, ValueKind::MapRankedDate),
+                                description: Some(
+                                    "Note: This value only shows on ranked maps".to_owned(),
+                                ),
+                                emoji: None,
+                                label: "Map ranked date".to_owned(),
+                                value: "ranked_date".to_owned(),
+                            },
+                            kind_option!("Mapper", "mapper", Mapper),
                         ],
                         placeholder: Some("Select a value to display".to_owned()),
                     })],
@@ -600,11 +667,19 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 style: ButtonStyle::Primary,
                                 url: None,
                             }),
+                            Component::Button(Button {
+                                custom_id: Some("embed_builder_reset_button".to_owned()),
+                                disabled: false,
+                                emoji: None,
+                                label: Some("Reset all".to_owned()),
+                                style: ButtonStyle::Danger,
+                                url: None,
+                            }),
                         ],
                     })
                 };
 
-                // TODO: consider field name length
+                // TODO: consider field name length or limit row size
                 let arrow_row = |idx: Option<usize>| {
                     let (disable_left, disable_up, disable_down, disable_right) =
                         if let Some(idx) = idx {
@@ -624,21 +699,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             let is_last_row =
                                 self.inner.new_settings.values[idx + to_right + 1..].is_empty();
 
-                            let disable_up = match curr_y {
-                                0 => true,
-                                1 => {
-                                    let count_non_first_row = self
-                                        .inner
-                                        .new_settings
-                                        .values
-                                        .iter()
-                                        .skip_while(|value| value.y == 0)
-                                        .count();
-
-                                    count_non_first_row <= 1
-                                }
-                                _ => false,
-                            };
+                            let disable_up = curr_y == 0;
 
                             // No need to check if the first row only contains
                             // one value because if so then the current second
@@ -647,7 +708,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
 
                             (to_left == 0, disable_up, disable_down, to_right == 0)
                         } else {
-                            (false, false, false, false)
+                            (true, true, true, true)
                         };
 
                     Component::ActionRow(ActionRow {
@@ -900,6 +961,46 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         components.push(show_hide_row(idx));
                         components.push(arrow_row(idx));
                     }
+                    ValueKind::MapRankedDate => {
+                        components.push(show_hide_row(idx));
+                        components.push(arrow_row(idx));
+                    }
+                    ValueKind::Mapper => {
+                        components.push(show_hide_row(idx));
+
+                        let mapper = match idx
+                            .and_then(|idx| self.inner.new_settings.values.get(idx))
+                            .map(|value| &value.inner)
+                        {
+                            Some(Value::Mapper(mapper)) => *mapper,
+                            None => Default::default(),
+                            Some(_) => unreachable!(),
+                        };
+
+                        let mapper_options = vec![SelectMenuOption {
+                            default: mapper.with_status,
+                            description: Some(
+                                "Note: Won't show on ranked maps if `Map ranked date` enabled"
+                                    .to_owned(),
+                            ),
+                            emoji: None,
+                            label: "Include mapset status".to_owned(),
+                            value: "status".to_owned(),
+                        }];
+
+                        components.push(Component::ActionRow(ActionRow {
+                            components: vec![Component::SelectMenu(SelectMenu {
+                                custom_id: "embed_builder_mapper".to_owned(),
+                                disabled: idx.is_none(),
+                                max_values: Some(mapper_options.len() as u8),
+                                min_values: Some(0),
+                                options: mapper_options,
+                                placeholder: Some("Hide mapset status".to_owned()),
+                            })],
+                        }));
+
+                        components.push(arrow_row(idx));
+                    }
                 }
             }
             EmbedSection::Image => {
@@ -917,13 +1018,6 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         emoji: None,
                         label: "Image".to_owned(),
                         value: "image".to_owned(),
-                    },
-                    SelectMenuOption {
-                        default: self.inner.new_settings.image == SettingsImage::ImageWithStrains,
-                        description: None,
-                        emoji: None,
-                        label: "Image with strains".to_owned(),
-                        value: "image_strains".to_owned(),
                     },
                     SelectMenuOption {
                         default: self.inner.new_settings.image == SettingsImage::Hide,
@@ -1054,7 +1148,6 @@ enum ValueKind {
     Pp,
     Combo,
     Hitresults,
-    // Ratio,
     Length,
     Bpm,
     Ar,
@@ -1063,8 +1156,8 @@ enum ValueKind {
     Od,
     CountObjects,
     CountSpinners,
-    // MapRankedDate,
-    // Mapper,
+    MapRankedDate,
+    Mapper,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1093,18 +1186,29 @@ impl Default for ComboValue {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum HitresultsValue {
     Full,
     #[default]
     OnlyMisses,
 }
 
-#[derive(Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum BpmValue {
     #[default]
     Emote,
     Text,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct MapperValue {
+    pub with_status: bool,
+}
+
+impl Default for MapperValue {
+    fn default() -> Self {
+        Self { with_status: true }
+    }
 }
 
 #[derive(Debug)]
@@ -1129,12 +1233,12 @@ impl Settings {
         }
     }
 
-    pub fn write_field(
+    pub fn apply(
         &self,
         data: &ScoreEmbedData,
         score_data: ScoreData,
         mark_idx: Option<usize>,
-    ) -> (String, String) {
+    ) -> (String, String, Option<String>) {
         const SEP_NAME: &str = "\t";
         const SEP_VALUE: &str = " • ";
 
@@ -1142,10 +1246,11 @@ impl Settings {
 
         let mut field_name = String::new();
         let mut field_value = String::new();
+        let mut footer_text = String::new();
 
         let mut writer = &mut field_name;
 
-        let curr = self.values.first().expect("at least one field");
+        let first = self.values.first().expect("at least one field");
 
         let next = self
             .values
@@ -1153,70 +1258,123 @@ impl Settings {
             .filter(|next| next.y == 0)
             .map(|value| &value.inner);
 
-        if mark_idx == Some(0) {
-            writer.push_str("__");
-        }
-
-        match (&curr.inner, next) {
+        match (&first.inner, next) {
             (
                 Value::Ar | Value::Cs | Value::Hp | Value::Od,
                 Some(Value::Ar | Value::Cs | Value::Hp | Value::Od),
             ) => {
-                let _ = match curr.inner {
-                    Value::Ar => write!(writer, "`AR: {}", round(map_attrs.ar as f32)),
-                    Value::Cs => write!(writer, "`CS: {}", round(map_attrs.cs as f32)),
-                    Value::Hp => write!(writer, "`HP: {}", round(map_attrs.hp as f32)),
-                    Value::Od => write!(writer, "`OD: {}", round(map_attrs.od as f32)),
+                writer.push('`');
+
+                if mark_idx == Some(0) {
+                    writer.push_str("*");
+                }
+
+                let _ = match first.inner {
+                    Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
+                    Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
+                    Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
+                    Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
                     _ => unreachable!(),
                 };
+
+                if mark_idx == Some(0) {
+                    writer.push_str("*");
+                }
             }
+            (Value::MapRankedDate, _) if data.map.ranked_date().is_none() => {}
             _ => {
-                Self::write_field_inner(curr, data, &map_attrs, score_data, writer);
+                let mut value = Cow::Borrowed(first);
+
+                if matches!(&first.inner, Value::Mapper(mapper) if mapper.with_status)
+                    && data.map.status() == RankStatus::Ranked
+                    && data.map.ranked_date().is_some()
+                    && self
+                        .values
+                        .iter()
+                        .any(|value| value.kind() == ValueKind::MapRankedDate)
+                {
+                    value = Cow::Owned(SettingValue {
+                        inner: Value::Mapper(MapperValue { with_status: false }),
+                        y: first.y,
+                    });
+                }
+
+                if mark_idx == Some(0) {
+                    writer.push_str("__");
+                }
+
+                Self::write_field_inner(&value, data, &map_attrs, score_data, writer);
+
+                if mark_idx == Some(0) {
+                    writer.push_str("__");
+                }
             }
         }
 
-        if mark_idx == Some(0) {
-            writer.push_str("__");
-        }
-
-        for (i, window) in self.values.windows(3).enumerate() {
+        for (window, i) in self.values.windows(3).zip(1..) {
             let [prev, curr, next] = window else {
                 unreachable!()
             };
 
-            if mark_idx == Some(i) {
-                writer.push_str("__");
-            }
-
             match (&prev.inner, &curr.inner, &next.inner) {
                 (Value::Grade, Value::Mods, _) if prev.y == curr.y => {
-                    let _ = write!(writer, " {}", ModsFormatter::new(&data.score.mods));
+                    writer.push(' ');
+
+                    if mark_idx == Some(i) {
+                        writer.push_str("__");
+                    }
+
+                    let _ = write!(writer, "+{}", data.score.mods);
+
+                    if mark_idx == Some(i) {
+                        writer.push_str("__");
+                    }
                 }
                 (
                     Value::Ar | Value::Cs | Value::Hp | Value::Od,
                     Value::Ar | Value::Cs | Value::Hp | Value::Od,
                     Value::Ar | Value::Cs | Value::Hp | Value::Od,
                 ) if prev.y == curr.y && curr.y == next.y => {
+                    if mark_idx == Some(i) {
+                        writer.push_str("*");
+                    }
+
                     let _ = match curr.inner {
-                        Value::Ar => write!(writer, "AR: {} ", round(map_attrs.ar as f32)),
-                        Value::Cs => write!(writer, "CS: {} ", round(map_attrs.cs as f32)),
-                        Value::Hp => write!(writer, "HP: {} ", round(map_attrs.hp as f32)),
-                        Value::Od => write!(writer, "OD: {} ", round(map_attrs.od as f32)),
+                        Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
+                        Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
+                        Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
+                        Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
                         _ => unreachable!(),
                     };
+
+                    if mark_idx == Some(i) {
+                        writer.push_str("*");
+                    }
+
+                    writer.push(' ');
                 }
                 (
                     Value::Ar | Value::Cs | Value::Hp | Value::Od,
                     Value::Ar | Value::Cs | Value::Hp | Value::Od,
                     _,
                 ) if prev.y == curr.y => {
+                    if mark_idx == Some(i) {
+                        writer.push_str("*");
+                    }
+
                     let _ = match curr.inner {
-                        Value::Ar => write!(writer, "AR: {}`", round(map_attrs.ar as f32)),
-                        Value::Cs => write!(writer, "CS: {}`", round(map_attrs.cs as f32)),
-                        Value::Hp => write!(writer, "HP: {}`", round(map_attrs.hp as f32)),
-                        Value::Od => write!(writer, "OD: {}`", round(map_attrs.od as f32)),
+                        Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
+                        Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
+                        Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
+                        Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
                         _ => unreachable!(),
                     };
+
+                    if mark_idx == Some(i) {
+                        writer.push_str("*");
+                    }
+
+                    writer.push('`');
                 }
                 (
                     _,
@@ -1224,39 +1382,68 @@ impl Settings {
                     Value::Ar | Value::Cs | Value::Hp | Value::Od,
                 ) if curr.y == next.y => {
                     let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
+                    writer.push_str(sep);
+                    writer.push('`');
+
+                    if mark_idx == Some(i) {
+                        writer.push_str("*");
+                    }
 
                     let _ = match curr.inner {
-                        Value::Ar => {
-                            write!(writer, "{sep}`AR: {} ", round(map_attrs.ar as f32))
-                        }
-                        Value::Cs => {
-                            write!(writer, "{sep}`CS: {} ", round(map_attrs.cs as f32))
-                        }
-                        Value::Hp => {
-                            write!(writer, "{sep}`HP: {} ", round(map_attrs.hp as f32))
-                        }
-                        Value::Od => {
-                            write!(writer, "{sep}`OD: {} ", round(map_attrs.od as f32))
-                        }
+                        Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
+                        Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
+                        Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
+                        Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
                         _ => unreachable!(),
                     };
+
+                    if mark_idx == Some(i) {
+                        writer.push_str("*");
+                    }
+
+                    writer.push(' ');
                 }
+                (_, Value::MapRankedDate, _) if data.map.ranked_date().is_none() => {}
                 _ => {
+                    let mut value = Cow::Borrowed(curr);
+
+                    if matches!(&curr.inner, Value::Mapper(mapper) if mapper.with_status)
+                        && data.map.status() == RankStatus::Ranked
+                        && data.map.ranked_date().is_some()
+                        && self
+                            .values
+                            .iter()
+                            .any(|value| value.kind() == ValueKind::MapRankedDate)
+                    {
+                        value = Cow::Owned(SettingValue {
+                            inner: Value::Mapper(MapperValue { with_status: false }),
+                            y: curr.y,
+                        });
+                    }
+
                     if prev.y == curr.y {
                         let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
                         writer.push_str(sep);
+                    } else if curr.y == FOOTER_Y {
+                        writer = &mut footer_text;
                     } else if prev.y == 0 {
                         writer = &mut field_value;
                     } else {
                         writer.push('\n');
                     }
 
-                    Self::write_field_inner(curr, data, &map_attrs, score_data, writer);
-                }
-            }
+                    let mark = if value.y == FOOTER_Y { "*" } else { "__" };
 
-            if mark_idx == Some(i) {
-                writer.push_str("__");
+                    if mark_idx == Some(i) {
+                        writer.push_str(mark);
+                    }
+
+                    Self::write_field_inner(&value, data, &map_attrs, score_data, writer);
+
+                    if mark_idx == Some(i) {
+                        writer.push_str(mark);
+                    }
+                }
             }
         }
 
@@ -1264,48 +1451,118 @@ impl Settings {
             unreachable!("at least two values");
         };
 
-        if mark_idx == Some(self.values.len() - 1) {
-            writer.push_str("__");
-        }
+        if !(last.kind() == ValueKind::MapRankedDate && data.map.ranked_date().is_none()) {
+            let last_idx = self.values.len() - 1;
+            let mark = if last.y == FOOTER_Y { "*" } else { "__" };
 
-        if prev.y != last.y {
-            if prev.y == 0 {
-                writer = &mut field_value;
+            if prev.y != last.y {
+                if last.y == FOOTER_Y {
+                    writer = &mut footer_text;
+                } else if prev.y == 0 {
+                    writer = &mut field_value;
+                } else {
+                    writer.push('\n');
+                }
+
+                let mut value = Cow::Borrowed(last);
+
+                if matches!(&last.inner, Value::Mapper(mapper) if mapper.with_status)
+                    && data.map.status() == RankStatus::Ranked
+                    && data.map.ranked_date().is_some()
+                    && self
+                        .values
+                        .iter()
+                        .any(|value| value.kind() == ValueKind::MapRankedDate)
+                {
+                    value = Cow::Owned(SettingValue {
+                        inner: Value::Mapper(MapperValue { with_status: false }),
+                        y: last.y,
+                    });
+                }
+
+                if mark_idx == Some(last_idx) {
+                    writer.push_str(mark);
+                }
+
+                Self::write_field_inner(&value, data, &map_attrs, score_data, writer);
+
+                if mark_idx == Some(last_idx) {
+                    writer.push_str(mark);
+                }
             } else {
-                writer.push('\n');
-            }
+                match (&prev.inner, &last.inner) {
+                    (Value::Grade, Value::Mods) => {
+                        writer.push(' ');
 
-            Self::write_field_inner(last, data, &map_attrs, score_data, writer);
-        } else {
-            match (&prev.inner, &last.inner) {
-                (Value::Grade, Value::Mods) => {
-                    let _ = write!(writer, " {}", ModsFormatter::new(&data.score.mods));
-                }
-                (
-                    Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                    Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                ) => {
-                    let _ = match last.inner {
-                        Value::Ar => write!(writer, "AR: {}`", round(map_attrs.ar as f32)),
-                        Value::Cs => write!(writer, "CS: {}`", round(map_attrs.cs as f32)),
-                        Value::Hp => write!(writer, "HP: {}`", round(map_attrs.hp as f32)),
-                        Value::Od => write!(writer, "OD: {}`", round(map_attrs.od as f32)),
-                        _ => unreachable!(),
-                    };
-                }
-                _ => {
-                    let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
-                    writer.push_str(sep);
-                    Self::write_field_inner(last, data, &map_attrs, score_data, writer);
+                        if mark_idx == Some(last_idx) {
+                            writer.push_str("__");
+                        }
+
+                        let _ = write!(writer, "+{}", data.score.mods);
+
+                        if mark_idx == Some(last_idx) {
+                            writer.push_str("__");
+                        }
+                    }
+                    (
+                        Value::Ar | Value::Cs | Value::Hp | Value::Od,
+                        Value::Ar | Value::Cs | Value::Hp | Value::Od,
+                    ) => {
+                        if mark_idx == Some(last_idx) {
+                            writer.push_str("*");
+                        }
+
+                        let _ = match last.inner {
+                            Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
+                            Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
+                            Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
+                            Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
+                            _ => unreachable!(),
+                        };
+
+                        if mark_idx == Some(last_idx) {
+                            writer.push_str("*");
+                        }
+
+                        writer.push('`');
+                    }
+                    _ => {
+                        let sep = if last.y == 0 { SEP_NAME } else { SEP_VALUE };
+                        writer.push_str(sep);
+
+                        let mut value = Cow::Borrowed(last);
+
+                        if matches!(&last.inner, Value::Mapper(mapper) if mapper.with_status)
+                            && data.map.status() == RankStatus::Ranked
+                            && data.map.ranked_date().is_some()
+                            && self
+                                .values
+                                .iter()
+                                .any(|value| value.kind() == ValueKind::MapRankedDate)
+                        {
+                            value = Cow::Owned(SettingValue {
+                                inner: Value::Mapper(MapperValue { with_status: false }),
+                                y: last.y,
+                            });
+                        }
+
+                        if mark_idx == Some(last_idx) {
+                            writer.push_str(mark);
+                        }
+
+                        Self::write_field_inner(&value, data, &map_attrs, score_data, writer);
+
+                        if mark_idx == Some(last_idx) {
+                            writer.push_str(mark);
+                        }
+                    }
                 }
             }
         }
 
-        if mark_idx == Some(self.values.len() - 1) {
-            writer.push_str("__");
-        }
+        let footer_text = (!footer_text.is_empty()).then_some(footer_text);
 
-        (field_name, field_value)
+        (field_name, field_value, footer_text)
     }
 
     fn write_field_inner(
@@ -1316,24 +1573,40 @@ impl Settings {
         writer: &mut String,
     ) {
         match &value.inner {
-            Value::Grade if value.y == 0 => {
-                // TODO: Fail percent
-                let _ = write!(
-                    writer,
-                    "{}",
-                    GradeFormatter::new(data.score.grade, None, false),
-                );
-            }
             Value::Grade => {
-                // TODO: Fail percent
-                let _ = write!(
-                    writer,
-                    "{}",
-                    GradeFormatter::new(data.score.grade, data.score.legacy_id, true),
-                );
+                let _ = if value.y == 0 {
+                    write!(
+                        writer,
+                        "{}",
+                        GradeFormatter::new(data.score.grade, None, false),
+                    )
+                } else {
+                    write!(
+                        writer,
+                        "{}",
+                        GradeFormatter::new(data.score.grade, data.score.legacy_id, true),
+                    )
+                };
+
+                // The completion is very hard to calculate for `Catch` because
+                // `n_objects` is not correct due to juicestreams so we won't
+                // show it for that mode.
+                let is_fail = data.score.grade == Grade::F && data.score.mode != GameMode::Catch;
+
+                if is_fail {
+                    let n_objects = data.map.n_objects();
+
+                    let completion = if n_objects != 0 {
+                        100 * data.score.total_hits() / n_objects
+                    } else {
+                        100
+                    };
+
+                    let _ = write!(writer, "@{completion}%");
+                }
             }
             Value::Mods => {
-                let _ = write!(writer, "{}", data.score.mods);
+                let _ = write!(writer, "+{}", data.score.mods);
             }
             Value::Score => {
                 let _ = write!(writer, "{}", ScoreFormatter::new(&data.score, score_data));
@@ -1342,8 +1615,17 @@ impl Settings {
                 let _ = write!(writer, "{}%", round(data.score.accuracy));
             }
             Value::ScoreDate => {
-                // TODO: different format in footer
-                let _ = write!(writer, "{}", HowLongAgoDynamic::new(&data.score.ended_at));
+                let score_date = data.score.ended_at;
+
+                if value.y == FOOTER_Y {
+                    if OffsetDateTime::now_utc() < score_date + DAY {
+                        let _ = write!(writer, "{}", HowLongAgoText::new(&score_date));
+                    } else {
+                        writer.push_str(&score_date.format(&SHORT_NAIVE_DATETIME_FORMAT).unwrap());
+                    }
+                } else {
+                    let _ = write!(writer, "{}", HowLongAgoDynamic::new(&score_date));
+                }
             }
             Value::Pp(pp) => {
                 let _ = write!(writer, "**{:.2}", data.score.pp);
@@ -1428,14 +1710,40 @@ impl Settings {
             Value::CountSpinners => {
                 let _ = write!(writer, "{} {}", Emote::CountSpinners, data.map.n_spinners());
             }
+            Value::MapRankedDate => {
+                if let Some(ranked_date) = data.map.ranked_date() {
+                    writer.push_str("Ranked ");
+
+                    if OffsetDateTime::now_utc() < ranked_date + DAY {
+                        let _ = if value.y == FOOTER_Y {
+                            write!(writer, "{}", HowLongAgoText::new(&ranked_date))
+                        } else {
+                            write!(writer, "{}", HowLongAgoDynamic::new(&ranked_date))
+                        };
+                    } else if value.y == FOOTER_Y {
+                        writer.push_str(&ranked_date.format(&SHORT_NAIVE_DATETIME_FORMAT).unwrap());
+                    } else {
+                        let _ = write!(writer, "<t:{}:f>", ranked_date.unix_timestamp());
+                    }
+                }
+            }
+            Value::Mapper(mapper) => {
+                let creator = data.map.creator();
+
+                let _ = if mapper.with_status {
+                    write!(writer, "{:?} mapset by {creator}", data.map.status())
+                } else {
+                    write!(writer, "Mapset by {creator}")
+                };
+            }
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct SettingValue {
     pub inner: Value,
-    pub y: i32,
+    pub y: u8,
 }
 
 impl SettingValue {
@@ -1457,11 +1765,13 @@ impl SettingValue {
             Value::Od => ValueKind::Od,
             Value::CountObjects => ValueKind::CountObjects,
             Value::CountSpinners => ValueKind::CountSpinners,
+            Value::MapRankedDate => ValueKind::MapRankedDate,
+            Value::Mapper(_) => ValueKind::Mapper,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Value {
     Grade,
     Mods,
@@ -1471,7 +1781,6 @@ pub enum Value {
     Pp(PpValue),
     Combo(ComboValue),
     Hitresults(HitresultsValue),
-    // Ratio,
     Length,
     Bpm(BpmValue),
     Ar,
@@ -1480,8 +1789,8 @@ pub enum Value {
     Od,
     CountObjects,
     CountSpinners,
-    // MapRankedDate,
-    // Mapper,
+    MapRankedDate,
+    Mapper(MapperValue),
 }
 
 impl From<ValueKind> for Value {
@@ -1503,6 +1812,8 @@ impl From<ValueKind> for Value {
             ValueKind::Od => Self::Od,
             ValueKind::CountObjects => Self::CountObjects,
             ValueKind::CountSpinners => Self::CountSpinners,
+            ValueKind::MapRankedDate => Self::MapRankedDate,
+            ValueKind::Mapper => Self::Mapper(Default::default()),
             ValueKind::None => unreachable!(),
         }
     }
@@ -1568,14 +1879,14 @@ impl Default for Settings {
                     inner: Value::Bpm(Default::default()),
                     y: 2,
                 },
-                // SettingValue {
-                //     inner: Value::Mapper,
-                //     y: 3,
-                // },
-                // SettingValue {
-                //     inner: Value::MapRankedDate,
-                //     y: 3,
-                // },
+                SettingValue {
+                    inner: Value::Mapper(Default::default()),
+                    y: FOOTER_Y,
+                },
+                SettingValue {
+                    inner: Value::MapRankedDate,
+                    y: FOOTER_Y,
+                },
             ],
             image: SettingsImage::Thumbnail,
             buttons: SettingsButtons {
@@ -1591,7 +1902,6 @@ impl Default for Settings {
 pub enum SettingsImage {
     Thumbnail,
     Image,
-    ImageWithStrains,
     Hide,
 }
 
@@ -1601,87 +1911,3 @@ pub struct SettingsButtons {
     pub render: bool,
     pub miss_analyzer: bool,
 }
-
-/*
-v Single-Menu
-+-- [Score data]
-|   v Single-Menu
-|   +-- [Grade]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Mods]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Score]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Accuracy]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Score date]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [PP]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   v Multi-Menu
-|   |   +-- [Max PP]
-|   |   +-- [If-FC PP]
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Combo]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   v Multi-Menu
-|   |   +-- [Max combo]
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Hitresults]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Full/Only misses buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Ratio]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Length]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [BPM]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Emote/Text buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [AR]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [CS]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [HP]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [OD]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Count objects]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Count sliders]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Count spinners]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Map ranked date]
-|   |   - Hide/Show | Inline/Field buttons
-|   |   - Left/Up/Down/Right buttons
-|   +-- [Mapper]
-|       - Hide/Show | Inline/Field buttons
-|       - Left/Up/Down/Right buttons
-+-- [Image]
-|   v Single-Menu
-|   +-- [Image]
-|   +-- [Image with map strains]
-|   +-- [Thumbnail]
-|   +-- [Hide]
-+-- [Buttons]
-    v Multi-Menu
-    +-- [Pagination]
-    +-- [Render]
-    +-- [Miss analyzer]
-*/

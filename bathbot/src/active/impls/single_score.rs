@@ -1,24 +1,18 @@
 use std::{fmt::Write, time::Duration};
 
 use bathbot_model::{
-    command_fields::{
-        ScoreEmbedFooter, ScoreEmbedHitResults, ScoreEmbedImage, ScoreEmbedMapInfo, ScoreEmbedPp,
-        ScoreEmbedSettings,
-    },
+    command_fields::{ScoreEmbedImage, ScoreEmbedSettings},
     rosu_v2::user::User,
-    ScoreSlim,
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_BASE},
-    datetime::{HowLongAgoDynamic, HowLongAgoText, SecToMinSec, SHORT_NAIVE_DATETIME_FORMAT},
     fields,
     numbers::round,
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
 use eyre::{Report, Result};
 use futures::future::BoxFuture;
-use time::OffsetDateTime;
 use twilight_model::{
     channel::message::{
         component::{ActionRow, Button, ButtonStyle},
@@ -40,19 +34,15 @@ use crate::{
     },
     commands::{
         osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
-        utility::{ScoreEmbedData, ScoreEmbedDataWrap},
+        utility::ScoreEmbedDataWrap,
     },
     core::{buckets::BucketName, Context},
-    embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
-    manager::{redis::RedisData, OsuMap, OwnedReplayScore, ReplayScore},
+    manager::{redis::RedisData, OwnedReplayScore, ReplayScore},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::{GradeCompletionFormatter, ScoreFormatter},
         Authored, Emote, MessageExt,
     },
 };
-
-const DAY: Duration = Duration::from_secs(60 * 60 * 24);
 
 pub struct SingleScorePagination {
     pub settings: ScoreEmbedSettings,
@@ -102,111 +92,7 @@ impl SingleScorePagination {
     ) -> Result<BuildPage> {
         let score = &*self.scores[self.pages.index()].get_mut().await?;
 
-        // let ScoreEmbedData {
-        //     score,
-        //     map,
-        //     stars,
-        //     max_combo,
-        //     max_pp,
-        //     replay: _,
-        //     miss_analyzer: _,
-        //     pb_idx,
-        //     global_idx,
-        //     if_fc_pp,
-        //     #[cfg(feature = "twitch")]
-        //     twitch,
-        // } = &*score;
-
-        let (name, value) = self
-            .new_settings
-            .write_field(score, self.score_data, mark_idx);
-
-        // let combo = ComboFormatter::new(score.max_combo, Some(*max_combo));
-
-        // let mut name = format!(
-        //     "{grade_completion_mods}\t{score_fmt}\t{acc}%\t",
-        //     // We don't use `GradeCompletionFormatter::new` so that it doesn't
-        //     // use the score id to hyperlink the grade because those don't
-        //     // work in embed field names.
-        //     grade_completion_mods = GradeCompletionFormatter::new_without_score(
-        //         &score.mods,
-        //         score.grade,
-        //         score.total_hits(),
-        //         map.mode(),
-        //         map.n_objects()
-        //     ),
-        //     score_fmt = ScoreFormatter::new(score, self.score_data),
-        //     acc = round(score.accuracy),
-        // );
-
-        // let mut value = match self.settings.footer {
-        //     ScoreEmbedFooter::WithScoreDate => {
-        //         let _ = write!(name, "{combo}");
-
-        //         let mut result = PpFormatter::new(Some(score.pp), Some(*max_pp)).to_string();
-
-        //         if let Some(pp) = if_fc_pp {
-        //             let _ = write!(result, " ~~({pp:.2}pp)~~");
-        //         }
-
-        //         result
-        //     }
-        //     ScoreEmbedFooter::Hide | ScoreEmbedFooter::WithMapRankedDate => {
-        //         let _ = write!(name, "{}", HowLongAgoDynamic::new(&score.ended_at));
-
-        //         let mut result = match self.settings.hitresults {
-        //             ScoreEmbedHitResults::Full => match self.settings.pp {
-        //                 ScoreEmbedPp::Max => {
-        //                     PpFormatter::new(Some(score.pp), Some(*max_pp)).to_string()
-        //                 }
-        //                 ScoreEmbedPp::IfFc => {
-        //                     let mut result = String::with_capacity(17);
-        //                     result.push_str("**");
-        //                     let _ = write!(result, "{:.2}", score.pp);
-
-        //                     if let Some(pp) = if_fc_pp {
-        //                         let _ = write!(result, "pp** ~~({pp:.2}pp)~~");
-        //                     } else {
-        //                         let _ = write!(result, "**/{:.2}PP", max_pp.max(score.pp));
-        //                     }
-
-        //                     result
-        //                 }
-        //             },
-        //             ScoreEmbedHitResults::OnlyMisses => {
-        //                 let mut result =
-        //                     PpFormatter::new(Some(score.pp), Some(*max_pp)).to_string();
-
-        //                 if let Some(pp) = if_fc_pp {
-        //                     let _ = write!(result, " ~~({pp:.2}pp)~~");
-        //                 }
-
-        //                 result
-        //             }
-        //         };
-
-        //         let _ = write!(result, " • {combo}");
-
-        //         result
-        //     }
-        // };
-
-        // value.push_str(" • ");
-
-        // let _ = match self.settings.hitresults {
-        //     ScoreEmbedHitResults::Full => write!(
-        //         value,
-        //         "{}",
-        //         HitResultFormatter::new(score.mode, score.statistics.clone())
-        //     ),
-        //     ScoreEmbedHitResults::OnlyMisses => {
-        //         write!(value, "{}{}", score.statistics.count_miss, Emote::Miss)
-        //     }
-        // };
-
-        // if self.settings.map_info.show() {
-        //     Self::add_map_info(self.settings.map_info, score, map, &mut value);
-        // }
+        let (name, value, footer_text) = self.new_settings.apply(score, self.score_data, mark_idx);
 
         let fields = fields![name, value, false];
 
@@ -246,7 +132,7 @@ impl SingleScorePagination {
         };
 
         #[cfg(feature = "twitch")]
-        if let Some(data) = score.twitch {
+        if let Some(ref data) = score.twitch {
             if !description.is_empty() {
                 description.push(' ');
             }
@@ -267,63 +153,10 @@ impl SingleScorePagination {
             ScoreEmbedImage::None => {}
         }
 
-        match self.settings.footer {
-            ScoreEmbedFooter::WithScoreDate => {
-                let emote = Emote::from(score.score.mode).url();
-
-                let mut footer_text = format!(
-                    "{status:?} mapset by {creator} • Played ",
-                    status = score.map.status(),
-                    creator = score.map.creator(),
-                );
-
-                if OffsetDateTime::now_utc() < score.score.ended_at + DAY {
-                    let _ = write!(
-                        footer_text,
-                        "{}",
-                        HowLongAgoText::new(&score.score.ended_at)
-                    );
-                } else {
-                    footer_text.push_str(
-                        &score
-                            .score
-                            .ended_at
-                            .format(&SHORT_NAIVE_DATETIME_FORMAT)
-                            .unwrap(),
-                    );
-                }
-
-                let footer = FooterBuilder::new(footer_text).icon_url(emote);
-                builder = builder.footer(footer);
-            }
-            ScoreEmbedFooter::WithMapRankedDate => {
-                let emote = Emote::from(score.score.mode).url();
-
-                let footer_text = match score.map.ranked_date() {
-                    Some(ranked_date) => {
-                        let mut text = format!("Mapset by {} • Ranked ", score.map.creator());
-
-                        if OffsetDateTime::now_utc() < ranked_date + DAY {
-                            let _ = write!(text, "{}", HowLongAgoText::new(&ranked_date));
-                        } else {
-                            text.push_str(
-                                &ranked_date.format(&SHORT_NAIVE_DATETIME_FORMAT).unwrap(),
-                            );
-                        }
-
-                        text
-                    }
-                    None => format!(
-                        "{status:?} mapset by {creator}",
-                        status = score.map.status(),
-                        creator = score.map.creator(),
-                    ),
-                };
-
-                let footer = FooterBuilder::new(footer_text).icon_url(emote);
-                builder = builder.footer(footer);
-            }
-            ScoreEmbedFooter::Hide => {}
+        if let Some(footer_text) = footer_text {
+            let emote = Emote::from(score.score.mode).url();
+            let footer = FooterBuilder::new(footer_text).icon_url(emote);
+            builder = builder.footer(footer);
         }
 
         Ok(BuildPage::new(builder, false).content(content))
@@ -592,128 +425,6 @@ impl SingleScorePagination {
         );
 
         ongoing_fut.await.await_render_url().await;
-    }
-
-    fn add_map_info(
-        map_info: ScoreEmbedMapInfo,
-        score: &ScoreSlim,
-        map: &OsuMap,
-        value: &mut String,
-    ) {
-        let ScoreEmbedMapInfo {
-            len,
-            ar,
-            cs,
-            od,
-            hp,
-            bpm,
-            n_obj,
-            n_spin,
-        } = map_info;
-
-        const SEPARATOR: &str = " • ";
-
-        let map_attrs = map.attributes().mods(score.mods.clone()).build();
-        let clock_rate = map_attrs.clock_rate as f32;
-        let seconds_drain = (map.seconds_drain() as f32 / clock_rate) as u32;
-
-        if len || ar || cs || od || hp || bpm || n_obj {
-            value.push('\n');
-        }
-
-        let mut separate = false;
-
-        if len {
-            let _ = write!(value, "`{}`", SecToMinSec::new(seconds_drain).pad_secs());
-            separate = true;
-        }
-
-        if ar || cs || od || hp {
-            if separate {
-                value.push_str(SEPARATOR);
-            }
-
-            value.push('`');
-
-            let mut add_space = false;
-
-            if cs {
-                let _ = write!(value, "CS: {}", round(map_attrs.cs as f32));
-                add_space = true;
-            }
-
-            if ar {
-                if add_space {
-                    value.push(' ');
-                }
-
-                let _ = write!(value, "AR: {}", round(map_attrs.ar as f32));
-                add_space = true;
-            }
-
-            if od {
-                if add_space {
-                    value.push(' ');
-                }
-
-                let _ = write!(value, "OD: {}", round(map_attrs.od as f32));
-                add_space = true;
-            }
-
-            if hp {
-                if add_space {
-                    value.push(' ');
-                }
-
-                let _ = write!(value, "HP: {}", round(map_attrs.hp as f32));
-            }
-
-            value.push('`');
-            separate = true;
-        }
-
-        if bpm {
-            if separate {
-                value.push_str(SEPARATOR);
-            }
-
-            let _ = write!(
-                value,
-                "{emote} **{bpm}**",
-                emote = Emote::Bpm,
-                bpm = round(map.bpm() * clock_rate)
-            );
-
-            separate = true;
-        }
-
-        if n_obj {
-            if separate {
-                value.push_str(SEPARATOR);
-            }
-
-            let _ = write!(
-                value,
-                "{emote} {n_objects}",
-                emote = Emote::CountObjects,
-                n_objects = map.n_objects()
-            );
-
-            separate = true;
-        }
-
-        if n_spin {
-            if separate {
-                value.push_str(SEPARATOR);
-            }
-
-            let _ = write!(
-                value,
-                "{emote} {n_objects}",
-                emote = Emote::CountSpinners,
-                n_objects = map.n_spinners()
-            );
-        }
     }
 }
 
