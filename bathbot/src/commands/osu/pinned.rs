@@ -193,14 +193,15 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
         .exec(user_args);
 
     let top100_fut = async {
-        if matches!(list_size, ListSize::Single) {
+        if matches!(list_size, ListSize::Single) || args.index.is_some() {
             scores_manager
                 .top(legacy_scores)
                 .limit(100)
                 .exec(user_args)
                 .await
+                .map(Some)
         } else {
-            Ok(Vec::new())
+            Ok(None)
         }
     };
 
@@ -245,7 +246,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
         pinned,
         &args,
         mods.as_ref(),
-        &top100,
+        top100.as_deref(),
         with_render,
         legacy_scores,
         &origin,
@@ -361,7 +362,7 @@ async fn process_scores(
     pinned: Vec<Score>,
     args: &Pinned,
     mods: Option<&ModSelection>,
-    top100: &[Score],
+    top100: Option<&[Score]>,
     with_render: bool,
     legacy_scores: bool,
     origin: &MessageOrigin,
@@ -406,10 +407,13 @@ async fn process_scores(
         )
         .await;
 
-        let pb_idx =
-            PersonalBestIndex::new(&half.score, half.map.map_id(), half.map.status(), top100);
+        half.pb_idx = top100.and_then(|top100| {
+            let pb_idx =
+                PersonalBestIndex::new(&half.score, half.map.map_id(), half.map.status(), top100);
 
-        half.pb_idx = ScoreEmbedDataPersonalBest::try_new(pb_idx, origin);
+            ScoreEmbedDataPersonalBest::try_new(pb_idx, origin)
+        });
+
         half.original_idx = Some(i);
 
         if let Some(ref criteria) = filter_criteria {
