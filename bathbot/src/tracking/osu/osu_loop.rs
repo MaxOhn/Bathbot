@@ -2,7 +2,8 @@ use std::{borrow::Cow, collections::HashMap, num::NonZeroU64, slice};
 
 use bathbot_model::{
     embed_builder::{
-        HitresultsValue, ScoreEmbedSettings, SettingValue, SettingsButtons, SettingsImage, Value,
+        ComboValue, HitresultsValue, ScoreEmbedSettings, SettingValue, SettingsButtons,
+        SettingsImage, Value,
     },
     rosu_v2::user::User,
 };
@@ -13,7 +14,7 @@ use bathbot_psql::model::{
 use bathbot_util::{constants::UNKNOWN_CHANNEL, EmbedBuilder, IntHasher};
 use eyre::Report;
 use rosu_v2::{
-    prelude::{OsuError, Score},
+    prelude::{GameMode, OsuError, Score},
     OsuResult,
 };
 use time::OffsetDateTime;
@@ -244,77 +245,9 @@ impl<'u> TrackUser<'u> {
             }
         };
 
-        // TODO: different settings for mania scores
-        let settings = ScoreEmbedSettings {
-            values: vec![
-                SettingValue {
-                    inner: Value::Grade,
-                    y: 0,
-                },
-                SettingValue {
-                    inner: Value::Mods,
-                    y: 0,
-                },
-                SettingValue {
-                    inner: Value::Score,
-                    y: 0,
-                },
-                SettingValue {
-                    inner: Value::Accuracy,
-                    y: 0,
-                },
-                SettingValue {
-                    inner: Value::Combo(Default::default()),
-                    y: 0,
-                },
-                SettingValue {
-                    inner: Value::Pp(Default::default()),
-                    y: 1,
-                },
-                SettingValue {
-                    inner: Value::Hitresults(HitresultsValue::Full),
-                    y: 1,
-                },
-                SettingValue {
-                    inner: Value::Length,
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Cs,
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Ar,
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Od,
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Hp,
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Bpm(Default::default()),
-                    y: 2,
-                },
-                SettingValue {
-                    inner: Value::Mapper(Default::default()),
-                    y: SettingValue::FOOTER_Y,
-                },
-                SettingValue {
-                    inner: Value::ScoreDate,
-                    y: SettingValue::FOOTER_Y,
-                },
-            ],
-            show_artist: true,
-            image: SettingsImage::Thumbnail,
-            buttons: SettingsButtons {
-                pagination: false,
-                render: false,
-                miss_analyzer: false,
-            },
+        let settings = match score.mode {
+            GameMode::Mania => create_mania_settings(),
+            _ => create_settings(),
         };
 
         let score_data = ScoreData::Lazer;
@@ -341,5 +274,153 @@ impl<'u> TrackUser<'u> {
                 Ok(Default::default())
             }
         }
+    }
+}
+
+fn create_settings() -> ScoreEmbedSettings {
+    ScoreEmbedSettings {
+        values: vec![
+            SettingValue {
+                inner: Value::Grade,
+                y: 0,
+            },
+            SettingValue {
+                inner: Value::Mods,
+                y: 0,
+            },
+            SettingValue {
+                inner: Value::Score,
+                y: 0,
+            },
+            SettingValue {
+                inner: Value::Accuracy,
+                y: 0,
+            },
+            SettingValue {
+                inner: Value::Combo(Default::default()),
+                y: 0,
+            },
+            SettingValue {
+                inner: Value::Pp(Default::default()),
+                y: 1,
+            },
+            SettingValue {
+                inner: Value::Hitresults(HitresultsValue::Full),
+                y: 1,
+            },
+            SettingValue {
+                inner: Value::Length,
+                y: 2,
+            },
+            SettingValue {
+                inner: Value::Cs,
+                y: 2,
+            },
+            SettingValue {
+                inner: Value::Ar,
+                y: 2,
+            },
+            SettingValue {
+                inner: Value::Od,
+                y: 2,
+            },
+            SettingValue {
+                inner: Value::Hp,
+                y: 2,
+            },
+            SettingValue {
+                inner: Value::Bpm(Default::default()),
+                y: 2,
+            },
+            SettingValue {
+                inner: Value::Mapper(Default::default()),
+                y: SettingValue::FOOTER_Y,
+            },
+            SettingValue {
+                inner: Value::ScoreDate,
+                y: SettingValue::FOOTER_Y,
+            },
+        ],
+        show_artist: true,
+        image: SettingsImage::Thumbnail,
+        buttons: SettingsButtons {
+            pagination: false,
+            render: false,
+            miss_analyzer: false,
+        },
+    }
+}
+
+fn create_mania_settings() -> ScoreEmbedSettings {
+    ScoreEmbedSettings {
+        values: vec![
+            SettingValue {
+                inner: Value::Grade,
+                y: 0,
+            },
+            SettingValue {
+                inner: Value::Mods,
+                y: 0,
+            },
+            SettingValue {
+                inner: Value::Score,
+                y: 0,
+            },
+            SettingValue {
+                inner: Value::Accuracy,
+                y: 0,
+            },
+            SettingValue {
+                inner: Value::Combo(ComboValue { max: false }),
+                y: 0,
+            },
+            SettingValue {
+                inner: Value::Ratio,
+                y: 0,
+            },
+            SettingValue {
+                inner: Value::Pp(Default::default()),
+                y: 1,
+            },
+            SettingValue {
+                inner: Value::Hitresults(HitresultsValue::Full),
+                y: 1,
+            },
+            SettingValue {
+                inner: Value::Length,
+                y: 2,
+            },
+            SettingValue {
+                inner: Value::Od,
+                y: 2,
+            },
+            SettingValue {
+                inner: Value::Hp,
+                y: 2,
+            },
+            SettingValue {
+                inner: Value::Bpm(Default::default()),
+                y: 2,
+            },
+            SettingValue {
+                inner: Value::CountSliders(Default::default()),
+                y: 2,
+            },
+            SettingValue {
+                inner: Value::Mapper(Default::default()),
+                y: SettingValue::FOOTER_Y,
+            },
+            SettingValue {
+                inner: Value::ScoreDate,
+                y: SettingValue::FOOTER_Y,
+            },
+        ],
+        show_artist: true,
+        image: SettingsImage::Thumbnail,
+        buttons: SettingsButtons {
+            pagination: false,
+            render: false,
+            miss_analyzer: false,
+        },
     }
 }
