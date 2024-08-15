@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
-use bathbot_model::command_fields::GameModeOption;
+use bathbot_model::{command_fields::GameModeOption, embed_builder::SettingsImage};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -23,7 +23,7 @@ use twilight_model::{
     id::{marker::UserMarker, Id},
 };
 
-use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
+use super::{map_strain_graph, require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
 use crate::{
     active::{
         impls::{SingleScoreContent, SingleScorePagination, TopPagination},
@@ -300,6 +300,28 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
             let settings = config.score_embed.unwrap_or_default();
             let content = content.map_or(SingleScoreContent::None, SingleScoreContent::SameForAll);
 
+            let graph = match single_idx.map_or_else(|| entries.first(), |idx| entries.get(idx)) {
+                Some(entry) if matches!(settings.image, SettingsImage::ImageWithStrains) => {
+                    let entry = entry.get_half();
+
+                    let fut = map_strain_graph(
+                        &entry.map.pp_map,
+                        entry.score.mods.clone(),
+                        entry.map.cover(),
+                    );
+
+                    match fut.await {
+                        Ok(graph) => Some((SingleScorePagination::IMAGE_NAME.to_owned(), graph)),
+                        Err(err) => {
+                            warn!(?err, "Failed to create strain graph");
+
+                            None
+                        }
+                    }
+                }
+                Some(_) | None => None,
+            };
+
             let mut pagination = SingleScorePagination::new(
                 &user, entries, settings, score_data, msg_owner, content,
             );
@@ -310,6 +332,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
 
             return ActiveMessages::builder(pagination)
                 .start_by_update(true)
+                .attachment(graph)
                 .begin(orig)
                 .await;
         }

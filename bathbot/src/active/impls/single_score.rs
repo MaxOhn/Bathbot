@@ -46,7 +46,7 @@ use crate::{
         utility::{ScoreEmbedData, ScoreEmbedDataWrap},
     },
     core::{buckets::BucketName, Context},
-    embeds::HitResultFormatter,
+    embeds::{attachment, HitResultFormatter},
     manager::{redis::RedisData, OwnedReplayScore, ReplayScore},
     util::{
         interaction::{InteractionComponent, InteractionModal},
@@ -68,6 +68,8 @@ pub struct SingleScorePagination {
 }
 
 impl SingleScorePagination {
+    pub const IMAGE_NAME: &'static str = "map_graph.png";
+
     pub fn new(
         user: &RedisData<User>,
         scores: Box<[ScoreEmbedDataWrap]>,
@@ -941,6 +943,9 @@ fn apply_settings(
     match settings.image {
         SettingsImage::Thumbnail => builder = builder.thumbnail(data.map.thumbnail()),
         SettingsImage::Image => builder = builder.image(data.map.cover()),
+        SettingsImage::ImageWithStrains => {
+            builder = builder.image(attachment(SingleScorePagination::IMAGE_NAME));
+        }
         SettingsImage::Hide => {}
     }
 

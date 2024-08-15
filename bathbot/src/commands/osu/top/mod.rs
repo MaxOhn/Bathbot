@@ -1,7 +1,10 @@
 use std::{borrow::Cow, cmp::Reverse, fmt::Write, mem};
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
-use bathbot_model::command_fields::{GameModeOption, GradeOption};
+use bathbot_model::{
+    command_fields::{GameModeOption, GradeOption},
+    embed_builder::SettingsImage,
+};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -23,7 +26,7 @@ use twilight_model::{
 };
 
 pub use self::{if_::*, old::*};
-use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
+use super::{map_strain_graph, require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
 use crate::{
     active::{
         impls::{SingleScoreContent, SingleScorePagination, TopPagination},
@@ -871,6 +874,28 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
             let settings = config.score_embed.unwrap_or_default();
             let content = content.map_or(SingleScoreContent::None, SingleScoreContent::SameForAll);
 
+            let graph = match single_idx.map_or_else(|| entries.first(), |idx| entries.get(idx)) {
+                Some(entry) if matches!(settings.image, SettingsImage::ImageWithStrains) => {
+                    let entry = entry.get_half();
+
+                    let fut = map_strain_graph(
+                        &entry.map.pp_map,
+                        entry.score.mods.clone(),
+                        entry.map.cover(),
+                    );
+
+                    match fut.await {
+                        Ok(graph) => Some((SingleScorePagination::IMAGE_NAME.to_owned(), graph)),
+                        Err(err) => {
+                            warn!(?err, "Failed to create strain graph");
+
+                            None
+                        }
+                    }
+                }
+                Some(_) | None => None,
+            };
+
             let mut pagination = SingleScorePagination::new(
                 &user, entries, settings, score_data, msg_owner, content,
             );
@@ -881,6 +906,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
 
             return ActiveMessages::builder(pagination)
                 .start_by_update(true)
+                .attachment(graph)
                 .begin(orig)
                 .await;
         }
