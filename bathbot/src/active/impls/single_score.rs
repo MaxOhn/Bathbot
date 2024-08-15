@@ -544,6 +544,17 @@ fn apply_settings(
 
     let hide_ratio = || data.score.mode != GameMode::Mania && mark_idx == MarkIndex::Skip;
 
+    let hide_mapper_status = || {
+        matches!(
+            data.map.status(),
+            RankStatus::Ranked | RankStatus::Loved | RankStatus::Approved
+        ) && data.map.ranked_date().is_some()
+            && settings
+                .values
+                .iter()
+                .any(|value| ValueKind::from_setting(value) == ValueKind::MapRankedDate)
+    };
+
     let first = settings.values.first().expect("at least one field");
     let next = settings.values.get(1).filter(|next| next.y == 0);
 
@@ -582,12 +593,7 @@ fn apply_settings(
             let mut value = Cow::Borrowed(first);
 
             if matches!(&first.inner, Value::Mapper(mapper) if mapper.with_status)
-                && data.map.status() == RankStatus::Ranked
-                && data.map.ranked_date().is_some()
-                && settings
-                    .values
-                    .iter()
-                    .any(|value| ValueKind::from_setting(value) == ValueKind::MapRankedDate)
+                && hide_mapper_status()
             {
                 value = Cow::Owned(SettingValue {
                     inner: Value::Mapper(MapperValue { with_status: false }),
@@ -752,12 +758,7 @@ fn apply_settings(
                 let mut value = Cow::Borrowed(curr);
 
                 if matches!(&curr.inner, Value::Mapper(mapper) if mapper.with_status)
-                    && data.map.status() == RankStatus::Ranked
-                    && data.map.ranked_date().is_some()
-                    && settings
-                        .values
-                        .iter()
-                        .any(|value| ValueKind::from_setting(value) == ValueKind::MapRankedDate)
+                    && hide_mapper_status()
                 {
                     value = Cow::Owned(SettingValue {
                         inner: Value::Mapper(MapperValue { with_status: false }),
@@ -832,12 +833,7 @@ fn apply_settings(
             let mut value = Cow::Borrowed(last);
 
             if matches!(&last.inner, Value::Mapper(mapper) if mapper.with_status)
-                && data.map.status() == RankStatus::Ranked
-                && data.map.ranked_date().is_some()
-                && settings
-                    .values
-                    .iter()
-                    .any(|value| ValueKind::from_setting(value) == ValueKind::MapRankedDate)
+                && hide_mapper_status()
             {
                 value = Cow::Owned(SettingValue {
                     inner: Value::Mapper(MapperValue { with_status: false }),
@@ -904,12 +900,7 @@ fn apply_settings(
                     let mut value = Cow::Borrowed(last);
 
                     if matches!(&last.inner, Value::Mapper(mapper) if mapper.with_status)
-                        && data.map.status() == RankStatus::Ranked
-                        && data.map.ranked_date().is_some()
-                        && settings
-                            .values
-                            .iter()
-                            .any(|value| ValueKind::from_setting(value) == ValueKind::MapRankedDate)
+                        && hide_mapper_status()
                     {
                         value = Cow::Owned(SettingValue {
                             inner: Value::Mapper(MapperValue { with_status: false }),
@@ -1217,7 +1208,7 @@ fn write_value(
         }
         Value::MapRankedDate => {
             if let Some(ranked_date) = data.map.ranked_date() {
-                writer.push_str("Ranked ");
+                let _ = write!(writer, "{:?} ", data.map.status());
 
                 if OffsetDateTime::now_utc() < ranked_date + DAY {
                     let _ = if value.y == SettingValue::FOOTER_Y {
