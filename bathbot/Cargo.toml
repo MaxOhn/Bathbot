@@ -65,7 +65,7 @@ twilight-standby = { workspace = true }
 url = { version = "2.4", default-features = false }
 
 [features]
-default = []
+default = ["full"]
 full = ["global_slash", "matchlive", "notify_osutrack", "osutracking", "server", "twitch", "twitchtracking"]
 
 global_slash = []

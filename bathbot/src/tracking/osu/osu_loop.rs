@@ -24,7 +24,7 @@ use twilight_http::{
 use twilight_model::id::Id;
 
 use crate::{
-    active::impls::{SingleScoreContent, SingleScorePagination},
+    active::impls::{MarkIndex, SingleScoreContent, SingleScorePagination},
     commands::utility::ScoreEmbedDataWrap,
     manager::{
         redis::{osu::UserArgs, RedisData},
@@ -327,7 +327,10 @@ impl<'u> TrackUser<'u> {
         let mut pagination =
             SingleScorePagination::new(user, entries, settings, score_data, msg_owner, content);
 
-        match pagination.async_build_page(Box::default(), None).await {
+        match pagination
+            .async_build_page(Box::default(), MarkIndex::Skip)
+            .await
+        {
             Ok(data) => Ok(data.into_embed()),
             Err(_) => {
                 // Unreachable because `async_build_page` can only fail while

@@ -28,7 +28,7 @@ pub use self::{
     render::{CachedRender, CachedRenderData, RenderSettingsActive, SettingsImport},
     scores::{ScoresMapPagination, ScoresServerPagination, ScoresUserPagination},
     simulate::{SimulateAttributes, SimulateComponents, SimulateData, SimulateMap, TopOldVersion},
-    single_score::{SingleScoreContent, SingleScorePagination},
+    single_score::{MarkIndex, SingleScoreContent, SingleScorePagination},
     skins::SkinsPagination,
     slash_commands::SlashCommandsPagination,
     snipe::{SnipeCountryListPagination, SnipeDifferencePagination, SnipePlayerListPagination},
