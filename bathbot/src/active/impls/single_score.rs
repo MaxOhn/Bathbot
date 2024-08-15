@@ -796,6 +796,8 @@ fn apply_settings(
         .checked_sub(1)
         .and_then(|idx| settings.values.get(idx));
 
+    // A little more readable this way
+    #[allow(clippy::nonminimal_bool)]
     if !(ValueKind::from_setting(last) == ValueKind::MapRankedDate
         && data.map.ranked_date().is_none())
         && !(ValueKind::from_setting(last) == ValueKind::Ratio && hide_ratio())
