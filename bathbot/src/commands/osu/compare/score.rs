@@ -580,13 +580,13 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
     };
 
     let personal = match personal_res {
-        Some(Ok(scores)) => scores,
+        Some(Ok(scores)) => Some(scores.into_boxed_slice()),
         Some(Err(err)) => {
             warn!(?err, "Failed to get top scores");
 
-            Vec::new()
+            None
         }
-        None => Vec::new(),
+        None => None,
     };
 
     let pp_idx = entries
@@ -608,7 +608,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
         .map(map)
         .entries(entries.into_boxed_slice())
         .pinned(pinned.into_boxed_slice())
-        .personal(personal.into_boxed_slice())
+        .personal(personal)
         .global_idx(global_idx)
         .pp_idx(pp_idx)
         .score_data(score_data)
@@ -843,15 +843,15 @@ async fn compare_from_score(
         let fut = scores_manager.top(legacy_scores).limit(100).exec(user_args);
 
         match fut.await {
-            Ok(scores) => scores,
+            Ok(scores) => Some(scores.into_boxed_slice()),
             Err(err) => {
                 warn!(?err, "Failed to get top scores");
 
-                Vec::new()
+                None
             }
         }
     } else {
-        Vec::new()
+        None
     };
 
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
@@ -861,7 +861,7 @@ async fn compare_from_score(
         .map(map)
         .entries(entries.into_boxed_slice())
         .pinned(pinned.into_boxed_slice())
-        .personal(best.into_boxed_slice())
+        .personal(best)
         .global_idx(global_idx)
         .pp_idx(0)
         .score_data(score_data)
