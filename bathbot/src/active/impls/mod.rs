@@ -1,3 +1,6 @@
+// Used for tracking notifs
+#[allow(unused)]
+pub use self::single_score::MarkIndex;
 pub use self::{
     badges::BadgesPagination,
     bg_game::{BackgroundGame, BackgroundGameSetup},
@@ -28,7 +31,7 @@ pub use self::{
     render::{CachedRender, CachedRenderData, RenderSettingsActive, SettingsImport},
     scores::{ScoresMapPagination, ScoresServerPagination, ScoresUserPagination},
     simulate::{SimulateAttributes, SimulateComponents, SimulateData, SimulateMap, TopOldVersion},
-    single_score::{MarkIndex, SingleScoreContent, SingleScorePagination},
+    single_score::{SingleScoreContent, SingleScorePagination},
     skins::SkinsPagination,
     slash_commands::SlashCommandsPagination,
     snipe::{SnipeCountryListPagination, SnipeDifferencePagination, SnipePlayerListPagination},
