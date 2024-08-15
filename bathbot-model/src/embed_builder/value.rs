@@ -25,6 +25,7 @@ pub enum Value {
     Pp(PpValue),
     Combo(ComboValue),
     Hitresults(HitresultsValue),
+    Ratio,
     #[serde(rename = "len")]
     Length,
     Ar,

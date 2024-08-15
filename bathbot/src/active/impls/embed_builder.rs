@@ -22,7 +22,7 @@ use twilight_model::{
     id::{marker::UserMarker, Id},
 };
 
-use super::{SingleScoreContent, SingleScorePagination};
+use super::{single_score::MarkIndex, SingleScoreContent, SingleScorePagination};
 use crate::{
     active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
     commands::utility::ScoreEmbedDataWrap,
@@ -117,6 +117,7 @@ impl ScoreEmbedBuilderActive {
                     "pp" => ValueKind::Pp,
                     "combo" => ValueKind::Combo,
                     "hitresults" => ValueKind::Hitresults,
+                    "ratio" => ValueKind::Ratio,
                     "len" => ValueKind::Length,
                     "bpm" => ValueKind::Bpm,
                     "ar" => ValueKind::Ar,
@@ -645,7 +646,8 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
             .settings
             .values
             .iter()
-            .position(|value| ValueKind::from_setting(value) == self.value_kind);
+            .position(|value| ValueKind::from_setting(value) == self.value_kind)
+            .map_or(MarkIndex::None, MarkIndex::Some);
 
         Box::pin(self.inner.async_build_page(content, mark_idx))
     }
@@ -709,6 +711,15 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             kind_option!("PP", "pp", Pp),
                             kind_option!("Combo", "combo", Combo),
                             kind_option!("Hitresults", "hitresults", Hitresults),
+                            SelectMenuOption {
+                                default: matches!(self.value_kind, ValueKind::Ratio),
+                                description: Some(
+                                    "Note: This value only shows for mania scores".to_owned(),
+                                ),
+                                emoji: None,
+                                label: "Ratio".to_owned(),
+                                value: "ratio".to_owned(),
+                            },
                             kind_option!("Length", "len", Length),
                             kind_option!("AR", "ar", Ar),
                             kind_option!("CS", "cs", Cs),
@@ -1027,6 +1038,10 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             ],
                         }));
 
+                        components.push(arrow_row(idx));
+                    }
+                    ValueKind::Ratio => {
+                        components.push(show_hide_row(idx));
                         components.push(arrow_row(idx));
                     }
                     ValueKind::Length => {
@@ -1393,6 +1408,7 @@ pub enum ValueKind {
     Pp,
     Combo,
     Hitresults,
+    Ratio,
     Length,
     Ar,
     Cs,
@@ -1417,6 +1433,7 @@ impl ValueKind {
             Value::ScoreDate => ValueKind::ScoreDate,
             Value::Combo(_) => ValueKind::Combo,
             Value::Hitresults(_) => ValueKind::Hitresults,
+            Value::Ratio => ValueKind::Ratio,
             Value::Length => ValueKind::Length,
             Value::Bpm(_) => ValueKind::Bpm,
             Value::Ar => ValueKind::Ar,
@@ -1443,6 +1460,7 @@ impl From<ValueKind> for Value {
             ValueKind::Pp => Self::Pp(Default::default()),
             ValueKind::Combo => Self::Combo(Default::default()),
             ValueKind::Hitresults => Self::Hitresults(Default::default()),
+            ValueKind::Ratio => Self::Ratio,
             ValueKind::Length => Self::Length,
             ValueKind::Bpm => Self::Bpm(Default::default()),
             ValueKind::Ar => Self::Ar,

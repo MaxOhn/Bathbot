@@ -31,7 +31,7 @@ use crate::{
 
 const USER_ID: u32 = 2;
 const MAP_ID: u32 = 197337;
-const MAP_CHECKSUM: &str = "a708a5b90349e98b399f2a1c9fce5422";
+const MODE: GameMode = GameMode::Osu;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "builder", desc = "Build your own score embed format")]
@@ -181,15 +181,10 @@ async fn exec(
 
     let user_fut = Context::redis().osu_user_from_args(UserArgsSlim::user_id(USER_ID));
 
-    let score_fut = Context::osu_scores().user_on_map_single(
-        USER_ID,
-        MAP_ID,
-        GameMode::Osu,
-        None,
-        legacy_scores,
-    );
+    let score_fut =
+        Context::osu_scores().user_on_map_single(USER_ID, MAP_ID, MODE, None, legacy_scores);
 
-    let map_fut = Context::osu_map().map(MAP_ID, Some(MAP_CHECKSUM));
+    let map_fut = Context::osu_map().map(MAP_ID, None);
 
     let (user, score, map) = match tokio::join!(user_fut, score_fut, map_fut) {
         (Ok(user), Ok(score), Ok(map)) => (user, score.score, map),
@@ -210,7 +205,13 @@ async fn exec(
         }
     };
 
-    let data = ScoreEmbedDataWrap::new_custom(score, map, 71, Some(7)).await;
+    let mut data = ScoreEmbedDataWrap::new_custom(score, map, 71, Some(7)).await;
+
+    // Adjusting hitresults to better showcase the "Ratio" value
+    if let ScoreEmbedDataStatus::Full(ref mut data) = data.inner {
+        data.score.statistics.count_geki = 480;
+    }
+
     let active_msg = ScoreEmbedBuilderActive::new(&user, data, settings, score_data, msg_owner);
 
     ActiveMessages::builder(active_msg)
