@@ -842,8 +842,8 @@ pub enum PersonalBestIndex {
 
 impl PersonalBestIndex {
     pub fn new(score: &ScoreSlim, map_id: u32, status: RankStatus, top100: &[Score]) -> Self {
-        // Note that the index is determined through float
-        // comparisons which could result in issues
+        // Note that the index is determined through float comparisons which
+        // could result in issues
         let idx = top100
             .binary_search_by(|probe| {
                 probe
@@ -857,18 +857,32 @@ impl PersonalBestIndex {
             return Self::NotTop100;
         } else if !matches!(status, RankStatus::Ranked | RankStatus::Approved) {
             return Self::IfRanked { idx };
-        } else if top100.get(idx).filter(|&top| score.is_eq(top)).is_some() {
-            // If multiple scores have the exact same pp as the given
-            // score then `idx` might not belong to the given score.
-            // Chances are pretty slim though so this should be fine.
-            return Self::FoundScore { idx };
+        } else if let Some(top) = top100.get(idx) {
+            if score.is_eq(top) {
+                return Self::FoundScore { idx };
+            } else if let Some((idx, _)) = top100
+                .iter()
+                .enumerate()
+                .skip_while(|(_, top)| top.pp.map_or(true, |pp| pp < score.pp))
+                .take_while(|(_, top)| top.pp.is_some_and(|pp| pp <= score.pp))
+                .find(|(_, top)| score.is_eq(*top))
+            {
+                // If multiple scores have the exact same pp as the given score
+                // then the initial `idx` might not correspond to it. Hence, if
+                // the score at the initial `idx` does not match, we
+                // double-check all scores with the same pp.
+                return Self::FoundScore { idx };
+            }
         }
 
         let (better, worse) = top100.split_at(idx);
 
-        // A case that's not covered is when there is a score
-        // with more pp on the same map with the same mods that has
-        // less score than the current score. Sounds really fringe though.
+        // A case that's not covered is when there is a score with more pp on
+        // the same map with the same mods that has less score than the current
+        // score. This should only happen when the top scores haven't been
+        // updated yet so the more-pp-but-less-score play is not yet replaced
+        // with the new score. Fixes itself over time so it's probably fine to
+        // ignore.
         if let Some(idx) = better.iter().position(|top| top.map_id == map_id) {
             Self::FoundBetter { idx }
         } else if let Some(i) = worse.iter().position(|top| {

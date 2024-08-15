@@ -38,7 +38,7 @@ pub struct CompareScoresPagination {
     #[pagination(per_page = 10)]
     entries: Box<[CompareEntry]>,
     pinned: Box<[Score]>,
-    personal: Box<[Score]>,
+    personal: Option<Box<[Score]>>,
     global_idx: Option<GlobalIndex>,
     pp_idx: usize,
     score_data: ScoreData,
@@ -74,7 +74,7 @@ impl IActiveMessage for CompareScoresPagination {
         let mut args = WriteArgs::new(
             &mut description,
             &self.pinned,
-            &self.personal,
+            self.personal.as_deref(),
             global_idx,
             pp_idx,
         );
@@ -83,13 +83,15 @@ impl IActiveMessage for CompareScoresPagination {
 
         if page == 1 {
             if let Some(entry) = entries.next() {
-                let personal_best = PersonalBestIndex::new(
-                    &entry.score,
-                    self.map.map_id(),
-                    self.map.status(),
-                    args.personal,
-                )
-                .into_embed_description(&self.origin);
+                let personal_best = self.personal.as_deref().and_then(|top100| {
+                    PersonalBestIndex::new(
+                        &entry.score,
+                        self.map.map_id(),
+                        self.map.status(),
+                        top100,
+                    )
+                    .into_embed_description(&self.origin)
+                });
 
                 if personal_best.is_some() || matches!(args.global, Some((0, _))) {
                     args.description.push_str("__**");
@@ -248,7 +250,7 @@ impl IActiveMessage for CompareScoresPagination {
 struct WriteArgs<'c> {
     description: &'c mut String,
     pinned: &'c [Score],
-    personal: &'c [Score],
+    personal: Option<&'c [Score]>,
     global: Option<(usize, usize)>,
     pp_idx: Option<usize>,
 }
@@ -257,7 +259,7 @@ impl<'c> WriteArgs<'c> {
     fn new(
         description: &'c mut String,
         pinned: &'c [Score],
-        personal: &'c [Score],
+        personal: Option<&'c [Score]>,
         global: Option<(usize, usize)>,
         pp_idx: Option<usize>,
     ) -> Self {
@@ -303,9 +305,10 @@ fn write_compact_entry(
         args.description.push_str(" 📌");
     }
 
-    let personal_best =
-        PersonalBestIndex::new(&entry.score, map.map_id(), map.status(), args.personal)
-            .into_embed_description(origin);
+    let personal_best = args.personal.as_deref().and_then(|top100| {
+        PersonalBestIndex::new(&entry.score, map.map_id(), map.status(), top100)
+            .into_embed_description(origin)
+    });
 
     if personal_best.is_some() || matches!(args.global, Some((n, _)) if n == i) {
         args.description.push_str(" **(");
