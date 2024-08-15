@@ -292,7 +292,6 @@ pub(super) mod bool_as_u8 {
     }
 }
 
-// TODO: remove
 pub struct ModeAsSeed<T> {
     pub(crate) mode: GameMode,
     phantom: PhantomData<T>,
