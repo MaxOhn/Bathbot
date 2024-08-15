@@ -1016,6 +1016,7 @@ fn write_value(
                     let _ = write!(writer, "{}", HowLongAgoText::new(&score_date));
                 } else {
                     writer.push_str(&score_date.format(&SHORT_NAIVE_DATETIME_FORMAT).unwrap());
+                    writer.push_str(" UTC");
                 }
             } else {
                 let _ = write!(writer, "{}", HowLongAgoDynamic::new(&score_date));
@@ -1212,6 +1213,7 @@ fn write_value(
                     };
                 } else if value.y == SettingValue::FOOTER_Y {
                     writer.push_str(&ranked_date.format(&SHORT_NAIVE_DATETIME_FORMAT).unwrap());
+                    writer.push_str(" UTC");
                 } else {
                     let _ = write!(writer, "<t:{}:f>", ranked_date.unix_timestamp());
                 }
