@@ -641,8 +641,8 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
 
     if missing_settings {
         let add_content_notices = {
-            const MAX_NOTICES: usize = 4;
-            const NOTICE_PERCENT: f64 = 0.25;
+            const MAX_NOTICES: usize = 5;
+            const NOTICE_PERCENT: f64 = 0.10;
 
             let mut guard = Context::get().builder_notices.own(author);
             let notices = guard.entry().or_default();
