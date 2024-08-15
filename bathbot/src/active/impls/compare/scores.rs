@@ -305,7 +305,7 @@ fn write_compact_entry(
         args.description.push_str(" 📌");
     }
 
-    let personal_best = args.personal.as_deref().and_then(|top100| {
+    let personal_best = args.personal.and_then(|top100| {
         PersonalBestIndex::new(&entry.score, map.map_id(), map.status(), top100)
             .into_embed_description(origin)
     });

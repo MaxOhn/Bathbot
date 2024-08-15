@@ -400,7 +400,7 @@ struct GraphStrains {
 const NEW_STRAIN_COUNT: usize = 200;
 
 fn strain_values(map: &PpMap, mods: GameMods) -> Result<GraphStrains> {
-    let mut strains = Difficulty::new().mods(mods).strains(&map);
+    let mut strains = Difficulty::new().mods(mods).strains(map);
     let section_len = strains.section_len();
 
     let strains_count = match strains {
