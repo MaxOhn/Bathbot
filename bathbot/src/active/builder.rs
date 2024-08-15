@@ -40,64 +40,67 @@ impl ActiveMessagesBuilder {
         self,
         orig: impl Into<ActiveMessageOrigin<'_>>,
     ) -> Result<(), ActiveMessageOriginError> {
-        // TODO: refactor function body w.r.t. generic argument
+        async fn inner(
+            builder: ActiveMessagesBuilder,
+            orig: ActiveMessageOrigin<'_>,
+        ) -> Result<(), ActiveMessageOriginError> {
+            let ActiveMessagesBuilder {
+                inner: mut active_msg,
+                attachment,
+                start_by_update,
+            } = builder;
 
-        let Self {
-            inner: mut active_msg,
-            attachment,
-            start_by_update,
-        } = self;
+            let BuildPage {
+                embed,
+                content,
+                defer: _,
+            } = active_msg
+                .build_page()
+                .await
+                .wrap_err("Failed to build page")?;
 
-        let BuildPage {
-            embed,
-            content,
-            defer: _,
-        } = active_msg
-            .build_page()
-            .await
-            .wrap_err("Failed to build page")?;
+            let components = active_msg.build_components();
 
-        let components = active_msg.build_components();
+            let mut builder = MessageBuilder::new().embed(embed).components(components);
 
-        let mut builder = MessageBuilder::new().embed(embed).components(components);
+            if let Some(ref content) = content {
+                builder = builder.content(content.as_ref());
+            }
 
-        if let Some(ref content) = content {
-            builder = builder.content(content.as_ref());
-        }
+            if let Some((name, bytes)) = attachment {
+                builder = builder.attachment(name, bytes);
+            }
 
-        if let Some((name, bytes)) = attachment {
-            builder = builder.attachment(name, bytes);
-        }
-
-        let orig: ActiveMessageOrigin<'_> = orig.into();
-
-        let response_raw = if start_by_update.unwrap_or(false) {
-            orig.create_message(builder).await?
-        } else {
-            orig.callback(builder).await?
-        };
-
-        let response = response_raw
-            .model()
-            .await
-            .wrap_err("Failed to deserialize response")?;
-
-        let msg = response.id;
-        let response = ActiveResponse::new(&orig, &response);
-        let (activity_tx, activity_rx) = watch::channel(());
-
-        if let Some(until_timeout) = active_msg.until_timeout() {
-            Self::spawn_timeout(activity_rx, response, until_timeout);
-
-            let full = FullActiveMessage {
-                active_msg,
-                activity_tx,
+            let response_raw = if start_by_update.unwrap_or(false) {
+                orig.create_message(builder).await?
+            } else {
+                orig.callback(builder).await?
             };
 
-            Context::get().active_msgs.insert(msg, full).await;
+            let response = response_raw
+                .model()
+                .await
+                .wrap_err("Failed to deserialize response")?;
+
+            let msg = response.id;
+            let response = ActiveResponse::new(&orig, &response);
+            let (activity_tx, activity_rx) = watch::channel(());
+
+            if let Some(until_timeout) = active_msg.until_timeout() {
+                ActiveMessagesBuilder::spawn_timeout(activity_rx, response, until_timeout);
+
+                let full = FullActiveMessage {
+                    active_msg,
+                    activity_tx,
+                };
+
+                Context::get().active_msgs.insert(msg, full).await;
+            }
+
+            Ok(())
         }
 
-        Ok(())
+        inner(self, orig.into()).await
     }
 
     pub fn attachment(self, attachment: Option<(String, Vec<u8>)>) -> Self {
