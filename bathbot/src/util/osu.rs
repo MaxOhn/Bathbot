@@ -877,9 +877,12 @@ impl PersonalBestIndex {
 
         let (better, worse) = top100.split_at(idx);
 
-        // A case that's not covered is when there is a score
-        // with more pp on the same map with the same mods that has
-        // less score than the current score. Sounds really fringe though.
+        // A case that's not covered is when there is a score with more pp on
+        // the same map with the same mods that has less score than the current
+        // score. This should only happen when the top scores haven't been
+        // updated yet so the more-pp-but-less-score play is not yet replaced
+        // with the new score. Fixes itself over time so it's probably fine to
+        // ignore.
         if let Some(idx) = better.iter().position(|top| top.map_id == map_id) {
             Self::FoundBetter { idx }
         } else if let Some(i) = worse.iter().position(|top| {
