@@ -40,6 +40,8 @@ impl ActiveMessagesBuilder {
         self,
         orig: impl Into<ActiveMessageOrigin<'_>>,
     ) -> Result<(), ActiveMessageOriginError> {
+        // TODO: refactor function body w.r.t. generic argument
+
         let Self {
             inner: mut active_msg,
             attachment,
