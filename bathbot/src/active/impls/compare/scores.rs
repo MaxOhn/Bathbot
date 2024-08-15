@@ -1,11 +1,11 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{rosu_v2::user::User, ScoreSlim};
+use bathbot_model::{embed_builder::ScoreEmbedSettings, rosu_v2::user::User, ScoreSlim};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, CowUtils, EmbedBuilder,
-    FooterBuilder, MessageOrigin, ModsFormatter, ScoreExt,
+    FooterBuilder, ModsFormatter, ScoreExt,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -17,16 +17,15 @@ use twilight_model::{
 
 use crate::{
     active::{
+        impls::{MarkIndex, SingleScorePagination},
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    commands::osu::{CompareEntry, GlobalIndex},
-    core::BotConfig,
-    embeds::{ComboFormatter, HitResultFormatter},
+    commands::utility::ScoreEmbedData,
     manager::{redis::RedisData, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::{GradeFormatter, PersonalBestIndex, ScoreFormatter},
+        osu::GradeFormatter,
         Emote,
     },
 };
@@ -35,14 +34,12 @@ use crate::{
 pub struct CompareScoresPagination {
     user: RedisData<User>,
     map: OsuMap,
+    settings: ScoreEmbedSettings,
     #[pagination(per_page = 10)]
-    entries: Box<[CompareEntry]>,
+    entries: Box<[ScoreEmbedData]>,
     pinned: Box<[Score]>,
-    personal: Option<Box<[Score]>>,
-    global_idx: Option<GlobalIndex>,
     pp_idx: usize,
     score_data: ScoreData,
-    origin: MessageOrigin,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -53,177 +50,110 @@ impl IActiveMessage for CompareScoresPagination {
         let end_idx = self.entries.len().min(pages.index() + pages.per_page());
         let entries = &self.entries[pages.index()..end_idx];
 
-        let global_idx = self
-            .global_idx
-            .as_ref()
-            .filter(|global| {
-                (pages.index()..pages.index() + pages.per_page()).contains(&global.idx_in_entries)
-            })
-            .map(|global| {
-                let factor = global.idx_in_entries / pages.per_page();
-                let new_idx = global.idx_in_entries - factor * pages.per_page();
-
-                (new_idx, global.idx_in_map_lb)
-            });
-
         let page = pages.curr_page();
         let pages = pages.last_page();
 
         let mut description = String::with_capacity(512);
         let pp_idx = (page == self.pp_idx / 10 + 1).then_some(self.pp_idx % 10);
-        let mut args = WriteArgs::new(
-            &mut description,
-            &self.pinned,
-            self.personal.as_deref(),
-            global_idx,
-            pp_idx,
-        );
-
-        let mut entries = entries.iter();
-
-        if page == 1 {
-            if let Some(entry) = entries.next() {
-                let personal_best = self.personal.as_deref().and_then(|top100| {
-                    PersonalBestIndex::new(
-                        &entry.score,
-                        self.map.map_id(),
-                        self.map.status(),
-                        top100,
-                    )
-                    .into_embed_description(&self.origin)
-                });
-
-                if personal_best.is_some() || matches!(args.global, Some((0, _))) {
-                    args.description.push_str("__**");
-
-                    if let Some(ref desc) = personal_best {
-                        args.description.push_str(desc);
-                    }
-
-                    if let Some((_, idx)) = args.global.filter(|(idx, _)| *idx == 0) {
-                        if personal_best.is_some() {
-                            args.description.push_str(" and ");
-                        }
-
-                        let _ = write!(args.description, "Global Top #{idx}");
-                    }
-
-                    args.description.push_str("**__");
-                }
-
-                let mut pinned = args.pinned.iter();
-
-                if pinned.any(|s| s.id == entry.score.score_id) {
-                    args.description.push_str(" 📌");
-                }
-
-                if !args.description.is_empty() {
-                    args.description.push('\n');
-                }
-
-                let combo = if entry.score.mode == GameMode::Mania {
-                    let mut ratio = entry.score.statistics.count_geki as f32;
-
-                    if entry.score.statistics.count_300 > 0 {
-                        ratio /= entry.score.statistics.count_300 as f32
-                    }
-
-                    format!("**{}x** / {ratio:.2}", &entry.score.max_combo)
-                } else {
-                    ComboFormatter::new(entry.score.max_combo, Some(entry.max_combo)).to_string()
-                };
-
-                let _ = write!(
-                    args.description,
-                    "[{grade}]({OSU_BASE}scores/{score_id}) **+{mods}** [{stars:.2}★] • {score} • {acc}%\n\
-                    {pp_format}**{pp:.2}**{pp_format}/{max_pp:.2}PP • {combo}",
-                    grade = BotConfig::get().grade(entry.score.grade),
-                    score_id = entry.score.score_id,
-                    mods = ModsFormatter::new(&entry.score.mods),
-                    stars = entry.stars,
-                    score = ScoreFormatter::new(&entry.score, self.score_data),
-                    acc = round(entry.score.accuracy),
-                    pp_format = if pp_idx == Some(0) { "" } else { "~~" },
-                    pp = entry.score.pp,
-                    max_pp = entry.score.pp.max(entry.max_pp),
-                );
-
-                if let Some(ref if_fc) = entry.if_fc {
-                    let _ = writeln!(args.description, " • __If FC:__ *{:.2}pp*", if_fc.pp);
-                } else {
-                    args.description.push('\n');
-                }
-
-                let _ = write!(
-                    args.description,
-                    "{hits} {timestamp}",
-                    hits =
-                        HitResultFormatter::new(entry.score.mode, entry.score.statistics.clone()),
-                    timestamp = HowLongAgoDynamic::new(&entry.score.ended_at)
-                );
-
-                if entry.has_replay {
-                    let _ = write!(
-                        args.description,
-                        " • [Replay]({OSU_BASE}scores/{score_id}/download)",
-                        score_id = entry.score.score_id,
-                    );
-                }
-
-                args.description.push('\n');
-
-                if let Some(entry) = entries.next() {
-                    args.description
-                        .push_str("\n__Other scores on the beatmap:__\n");
-                    write_compact_entry(&mut args, 1, entry, &self.map, &self.origin);
-                }
-            }
-        }
-
-        for (entry, i) in entries.zip(2..) {
-            write_compact_entry(&mut args, i, entry, &self.map, &self.origin);
-        }
-
-        if args.description.is_empty() {
-            args.description.push_str("No scores found");
-        }
 
         let footer_text = format!(
-            "Page {page}/{pages} • {status:?} mapset of {creator}",
+            "Page {page}/{pages} • {status:?} mapset by {creator}",
             status = self.map.status(),
             creator = self.map.creator(),
         );
-
         let footer_icon = Emote::from(self.map.mode()).url();
         let footer = FooterBuilder::new(footer_text).icon_url(footer_icon);
 
-        let mut title_text = String::with_capacity(32);
+        let mut title = String::with_capacity(32);
 
-        let _ = write!(
-            title_text,
-            "{artist} - {title} [{version}]",
-            artist = self.map.artist().cow_escape_markdown(),
-            title = self.map.title().cow_escape_markdown(),
-            version = self.map.version().cow_escape_markdown()
-        );
-
-        if self.map.mode() == GameMode::Mania {
-            let _ = write!(
-                title_text,
-                "[{}K] ",
-                self.map.attributes().build().cs as u32
-            );
+        if self.settings.show_artist {
+            let _ = write!(title, "{} - ", self.map.artist().cow_escape_markdown());
         }
 
-        let url = format!("{OSU_BASE}b/{}", self.map.map_id());
+        let _ = write!(
+            title,
+            "{} [{}]",
+            self.map.title().cow_escape_markdown(),
+            self.map.version().cow_escape_markdown(),
+        );
 
-        let embed = EmbedBuilder::new()
+        let mut embed = EmbedBuilder::new()
             .author(self.user.author_builder())
-            .description(description)
             .footer(footer)
             .thumbnail(self.map.thumbnail())
-            .title(title_text)
-            .url(url);
+            .title(title)
+            .url(format!("{OSU_BASE}b/{}", self.map.map_id()));
+
+        embed = match entries.first() {
+            Some(entry) if page == 1 => {
+                if entry.pb_idx.is_some() || entry.global_idx.is_some() {
+                    description.push_str("__**");
+
+                    if let Some(ref pb) = entry.pb_idx {
+                        description.push_str(&pb.formatted);
+                    }
+
+                    if let Some(idx) = entry.global_idx {
+                        if entry.pb_idx.is_some() {
+                            description.push_str(" and ");
+                        }
+
+                        let _ = write!(description, "Global Top #{idx}");
+                    }
+
+                    description.push_str("**__");
+                }
+
+                if self.pinned.iter().any(|s| s.id == entry.score.score_id) {
+                    description.push_str(" 📌");
+                }
+
+                if !description.is_empty() {
+                    description.push('\n');
+                }
+
+                let mut applied_settings = SingleScorePagination::apply_settings(
+                    &self.settings,
+                    entry,
+                    self.score_data,
+                    MarkIndex::Skip,
+                );
+
+                if entries.len() > 1 {
+                    let field = applied_settings.fields.pop().expect("at least one field");
+                    description.push_str(&field.name.replace('\t', " • "));
+                    description.push('\n');
+                    description.push_str(&field.value);
+                    description.push_str("\n\n__Other scores on the beatmap:__\n");
+
+                    for (entry, i) in entries[1..].iter().zip(1..) {
+                        write_compact_entry(&mut description, pp_idx, &self.pinned, i, entry);
+                    }
+                } else {
+                    embed = embed.fields(applied_settings.fields);
+
+                    if let Some(footer) = applied_settings.footer {
+                        embed = embed.footer(footer);
+                    }
+
+                    if let Some(title) = applied_settings.title {
+                        embed = embed.title(title);
+                    }
+                }
+
+                embed.description(description)
+            }
+            Some(_) => {
+                for (i, entry) in entries.iter().enumerate() {
+                    write_compact_entry(&mut description, pp_idx, &self.pinned, i, entry);
+                }
+
+                embed.description(description)
+            }
+            None => embed
+                .description("No scores found")
+                .thumbnail(self.map.thumbnail()),
+        };
 
         BuildPage::new(embed, false).boxed()
     }
@@ -247,41 +177,15 @@ impl IActiveMessage for CompareScoresPagination {
     }
 }
 
-struct WriteArgs<'c> {
-    description: &'c mut String,
-    pinned: &'c [Score],
-    personal: Option<&'c [Score]>,
-    global: Option<(usize, usize)>,
-    pp_idx: Option<usize>,
-}
-
-impl<'c> WriteArgs<'c> {
-    fn new(
-        description: &'c mut String,
-        pinned: &'c [Score],
-        personal: Option<&'c [Score]>,
-        global: Option<(usize, usize)>,
-        pp_idx: Option<usize>,
-    ) -> Self {
-        Self {
-            description,
-            pinned,
-            personal,
-            global,
-            pp_idx,
-        }
-    }
-}
-
 fn write_compact_entry(
-    args: &mut WriteArgs<'_>,
+    writer: &mut String,
+    pp_idx: Option<usize>,
+    pinned: &[Score],
     i: usize,
-    entry: &CompareEntry,
-    map: &OsuMap,
-    origin: &MessageOrigin,
+    entry: &ScoreEmbedData,
 ) {
     let _ = write!(
-        args.description,
+        writer,
         "{grade} **+{mods}** [{stars:.2}★] {pp_format}{pp:.2}pp{pp_format} \
         ({acc}%) {combo}x • {miss} {timestamp}",
         grade = GradeFormatter::new(
@@ -291,7 +195,7 @@ fn write_compact_entry(
         ),
         mods = ModsFormatter::new(&entry.score.mods),
         stars = entry.stars,
-        pp_format = if args.pp_idx == Some(i) { "**" } else { "~~" },
+        pp_format = if pp_idx == Some(i) { "**" } else { "~~" },
         pp = entry.score.pp,
         acc = round(entry.score.accuracy),
         combo = entry.score.max_combo,
@@ -299,36 +203,29 @@ fn write_compact_entry(
         timestamp = HowLongAgoDynamic::new(&entry.score.ended_at),
     );
 
-    let mut pinned = args.pinned.iter();
-
-    if pinned.any(|s| s.id == entry.score.score_id) {
-        args.description.push_str(" 📌");
+    if pinned.iter().any(|s| s.id == entry.score.score_id) {
+        writer.push_str(" 📌");
     }
 
-    let personal_best = args.personal.and_then(|top100| {
-        PersonalBestIndex::new(&entry.score, map.map_id(), map.status(), top100)
-            .into_embed_description(origin)
-    });
+    if entry.pb_idx.is_some() || entry.global_idx.is_some() {
+        writer.push_str(" **(");
 
-    if personal_best.is_some() || matches!(args.global, Some((n, _)) if n == i) {
-        args.description.push_str(" **(");
-
-        if let Some(ref desc) = personal_best {
-            args.description.push_str(desc);
+        if let Some(ref pb) = entry.pb_idx {
+            writer.push_str(&pb.formatted);
         }
 
-        if let Some((_, idx)) = args.global.filter(|(idx, _)| *idx == i) {
-            if personal_best.is_some() {
-                args.description.push_str(" and ");
+        if let Some(idx) = entry.global_idx {
+            if entry.pb_idx.is_some() {
+                writer.push_str(" and ");
             }
 
-            let _ = write!(args.description, "Global Top #{idx}");
+            let _ = write!(writer, "Global Top #{idx}");
         }
 
-        args.description.push_str(")**");
+        writer.push_str(")**");
     }
 
-    args.description.push('\n');
+    writer.push('\n');
 }
 
 struct MissFormat<'s> {

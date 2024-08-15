@@ -103,7 +103,7 @@ impl SingleScorePagination {
     ) -> Result<BuildPage> {
         let score = &*self.scores[self.pages.index()].get_mut().await?;
 
-        let embed = apply_settings(&self.settings, score, self.score_data, mark_idx);
+        let embed = Self::apply_settings(&self.settings, score, self.score_data, mark_idx);
 
         let url = format!("{OSU_BASE}b/{}", score.map.map_id());
 
@@ -147,6 +147,15 @@ impl SingleScorePagination {
             .url(url);
 
         Ok(BuildPage::new(builder, false).content(content))
+    }
+
+    pub fn apply_settings(
+        settings: &ScoreEmbedSettings,
+        data: &ScoreEmbedData,
+        score_data: ScoreData,
+        mark_idx: MarkIndex,
+    ) -> EmbedBuilder {
+        apply_settings(settings, data, score_data, mark_idx)
     }
 
     async fn async_handle_component(
