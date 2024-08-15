@@ -22,7 +22,7 @@ use twilight_model::{
     id::{marker::UserMarker, Id},
 };
 
-use super::{SingleScoreContent, SingleScorePagination};
+use super::{single_score::MarkIndex, SingleScoreContent, SingleScorePagination};
 use crate::{
     active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
     commands::utility::ScoreEmbedDataWrap,
@@ -117,6 +117,7 @@ impl ScoreEmbedBuilderActive {
                     "pp" => ValueKind::Pp,
                     "combo" => ValueKind::Combo,
                     "hitresults" => ValueKind::Hitresults,
+                    "ratio" => ValueKind::Ratio,
                     "len" => ValueKind::Length,
                     "bpm" => ValueKind::Bpm,
                     "ar" => ValueKind::Ar,
@@ -124,6 +125,7 @@ impl ScoreEmbedBuilderActive {
                     "hp" => ValueKind::Hp,
                     "od" => ValueKind::Od,
                     "n_objects" => ValueKind::CountObjects,
+                    "n_sliders" => ValueKind::CountSliders,
                     "n_spinners" => ValueKind::CountSpinners,
                     "ranked_date" => ValueKind::MapRankedDate,
                     "mapper" => ValueKind::Mapper,
@@ -488,6 +490,28 @@ impl ScoreEmbedBuilderActive {
                     value.inner = Value::CountObjects(EmoteTextValue::Text);
                 }
             }
+            "embed_builder_sliders_emote" => {
+                if let Some(value) = self
+                    .inner
+                    .settings
+                    .values
+                    .iter_mut()
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::CountSliders)
+                {
+                    value.inner = Value::CountSliders(EmoteTextValue::Emote);
+                }
+            }
+            "embed_builder_sliders_text" => {
+                if let Some(value) = self
+                    .inner
+                    .settings
+                    .values
+                    .iter_mut()
+                    .find(|value| ValueKind::from_setting(value) == ValueKind::CountSliders)
+                {
+                    value.inner = Value::CountSliders(EmoteTextValue::Text);
+                }
+            }
             "embed_builder_spinners_emote" => {
                 if let Some(value) = self
                     .inner
@@ -622,7 +646,8 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
             .settings
             .values
             .iter()
-            .position(|value| ValueKind::from_setting(value) == self.value_kind);
+            .position(|value| ValueKind::from_setting(value) == self.value_kind)
+            .map_or(MarkIndex::None, MarkIndex::Some);
 
         Box::pin(self.inner.async_build_page(content, mark_idx))
     }
@@ -686,6 +711,15 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             kind_option!("PP", "pp", Pp),
                             kind_option!("Combo", "combo", Combo),
                             kind_option!("Hitresults", "hitresults", Hitresults),
+                            SelectMenuOption {
+                                default: matches!(self.value_kind, ValueKind::Ratio),
+                                description: Some(
+                                    "Note: This value only shows for mania scores".to_owned(),
+                                ),
+                                emoji: None,
+                                label: "Ratio".to_owned(),
+                                value: "ratio".to_owned(),
+                            },
                             kind_option!("Length", "len", Length),
                             kind_option!("AR", "ar", Ar),
                             kind_option!("CS", "cs", Cs),
@@ -693,6 +727,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             kind_option!("OD", "od", Od),
                             kind_option!("BPM", "bpm", Bpm),
                             kind_option!("Count objects", "n_objects", CountObjects),
+                            kind_option!("Count sliders", "n_sliders", CountSliders),
                             kind_option!("Count spinners", "n_spinners", CountSpinners),
                             SelectMenuOption {
                                 default: matches!(self.value_kind, ValueKind::MapRankedDate),
@@ -1005,6 +1040,10 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
 
                         components.push(arrow_row(idx));
                     }
+                    ValueKind::Ratio => {
+                        components.push(show_hide_row(idx));
+                        components.push(arrow_row(idx));
+                    }
                     ValueKind::Length => {
                         components.push(show_hide_row(idx));
                         components.push(arrow_row(idx));
@@ -1089,6 +1128,45 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_objects_text".to_owned()),
+                                    disabled: matches!(
+                                        emote_text,
+                                        Some(EmoteTextValue::Text) | None
+                                    ),
+                                    emoji: None,
+                                    label: Some("Text".to_owned()),
+                                    style: ButtonStyle::Primary,
+                                    url: None,
+                                }),
+                            ],
+                        }));
+
+                        components.push(arrow_row(idx));
+                    }
+                    ValueKind::CountSliders => {
+                        components.push(show_hide_row(idx));
+
+                        let emote_text = idx
+                            .and_then(|idx| self.inner.settings.values.get(idx))
+                            .and_then(|value| match value.inner {
+                                Value::CountSliders(ref emote_text) => Some(emote_text),
+                                _ => None,
+                            });
+
+                        components.push(Component::ActionRow(ActionRow {
+                            components: vec![
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_sliders_emote".to_owned()),
+                                    disabled: matches!(
+                                        emote_text,
+                                        Some(EmoteTextValue::Emote) | None
+                                    ),
+                                    emoji: Some(Emote::CountSliders.reaction_type()),
+                                    label: Some("Emote".to_owned()),
+                                    style: ButtonStyle::Primary,
+                                    url: None,
+                                }),
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_sliders_text".to_owned()),
                                     disabled: matches!(
                                         emote_text,
                                         Some(EmoteTextValue::Text) | None
@@ -1330,6 +1408,7 @@ pub enum ValueKind {
     Pp,
     Combo,
     Hitresults,
+    Ratio,
     Length,
     Ar,
     Cs,
@@ -1337,6 +1416,7 @@ pub enum ValueKind {
     Od,
     Bpm,
     CountObjects,
+    CountSliders,
     CountSpinners,
     MapRankedDate,
     Mapper,
@@ -1353,6 +1433,7 @@ impl ValueKind {
             Value::ScoreDate => ValueKind::ScoreDate,
             Value::Combo(_) => ValueKind::Combo,
             Value::Hitresults(_) => ValueKind::Hitresults,
+            Value::Ratio => ValueKind::Ratio,
             Value::Length => ValueKind::Length,
             Value::Bpm(_) => ValueKind::Bpm,
             Value::Ar => ValueKind::Ar,
@@ -1360,6 +1441,7 @@ impl ValueKind {
             Value::Hp => ValueKind::Hp,
             Value::Od => ValueKind::Od,
             Value::CountObjects(_) => ValueKind::CountObjects,
+            Value::CountSliders(_) => ValueKind::CountSliders,
             Value::CountSpinners(_) => ValueKind::CountSpinners,
             Value::MapRankedDate => ValueKind::MapRankedDate,
             Value::Mapper(_) => ValueKind::Mapper,
@@ -1378,6 +1460,7 @@ impl From<ValueKind> for Value {
             ValueKind::Pp => Self::Pp(Default::default()),
             ValueKind::Combo => Self::Combo(Default::default()),
             ValueKind::Hitresults => Self::Hitresults(Default::default()),
+            ValueKind::Ratio => Self::Ratio,
             ValueKind::Length => Self::Length,
             ValueKind::Bpm => Self::Bpm(Default::default()),
             ValueKind::Ar => Self::Ar,
@@ -1385,6 +1468,7 @@ impl From<ValueKind> for Value {
             ValueKind::Hp => Self::Hp,
             ValueKind::Od => Self::Od,
             ValueKind::CountObjects => Self::CountObjects(Default::default()),
+            ValueKind::CountSliders => Self::CountSliders(Default::default()),
             ValueKind::CountSpinners => Self::CountSpinners(Default::default()),
             ValueKind::MapRankedDate => Self::MapRankedDate,
             ValueKind::Mapper => Self::Mapper(Default::default()),

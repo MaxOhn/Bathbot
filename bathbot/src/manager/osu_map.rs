@@ -496,6 +496,10 @@ impl OsuMapSlim {
         self.map.count_circles as usize
     }
 
+    pub fn n_sliders(&self) -> usize {
+        self.map.count_sliders as usize
+    }
+
     pub fn n_spinners(&self) -> usize {
         self.map.count_spinners as usize
     }

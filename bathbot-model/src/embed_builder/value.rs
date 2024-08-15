@@ -25,6 +25,7 @@ pub enum Value {
     Pp(PpValue),
     Combo(ComboValue),
     Hitresults(HitresultsValue),
+    Ratio,
     #[serde(rename = "len")]
     Length,
     Ar,
@@ -34,6 +35,8 @@ pub enum Value {
     Bpm(EmoteTextValue),
     #[serde(rename = "n_obj")]
     CountObjects(EmoteTextValue),
+    #[serde(rename = "n_slid")]
+    CountSliders(EmoteTextValue),
     #[serde(rename = "n_spin")]
     CountSpinners(EmoteTextValue),
     #[serde(rename = "ranked_date")]

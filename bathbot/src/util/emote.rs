@@ -32,6 +32,7 @@ pub enum Emote {
     Miss,
     Bpm,
     CountObjects,
+    CountSliders,
     CountSpinners,
 }
 
@@ -84,6 +85,7 @@ impl FromStr for Emote {
             "miss" => Self::Miss,
             "bpm" => Self::Bpm,
             "count_objects" => Self::CountObjects,
+            "count_sliders" => Self::CountSliders,
             "count_spinners" => Self::CountSpinners,
             _ => return Err(()),
         };
