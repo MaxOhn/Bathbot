@@ -10,8 +10,8 @@ use plotters::{
     prelude::*,
 };
 use plotters_skia::SkiaBackend;
-use rosu_pp::{any::Strains, Difficulty};
-use rosu_v2::prelude::{GameMode, GameModsIntermode, OsuError};
+use rosu_pp::{any::Strains, Beatmap as PpMap, Difficulty};
+use rosu_v2::prelude::{GameMode, GameMods, GameModsIntermode, OsuError};
 use skia_safe::{surfaces, BlendMode, EncodedImageFormat};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
@@ -333,47 +333,26 @@ async fn map(orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
     let map_id = maps[map_idx].map_id;
     let mode = maps[map_idx].mode;
 
-    if let Some(mods) = mods.clone().try_with_mode(mode) {
-        if !mods.is_valid() {
+    let mods_with_mode = match mods.clone().try_with_mode(mode) {
+        Some(mods) if mods.is_valid() => mods,
+        Some(_) => {
             let content =
                 format!("Looks like some mods in `{mods}` are incompatible with each other");
 
             return orig.error(content).await;
         }
-    } else {
-        let content = format!(
-            "The mods `{mods}` are incompatible with the map's mode {:?}",
-            maps[map_idx].mode
-        );
+        None => {
+            let content = format!(
+                "The mods `{mods}` are incompatible with the map's mode {:?}",
+                maps[map_idx].mode
+            );
 
-        return orig.error(content).await;
-    }
-
-    // Try creating the strain graph for the map
-    let bg_fut = async {
-        let bytes = Context::client()
-            .get_mapset_cover(&mapset.covers.cover)
-            .await?;
-
-        let cover =
-            image::load_from_memory(&bytes).wrap_err("failed to load mapset cover from memory")?;
-
-        Ok::<_, Report>(cover.thumbnail_exact(W, H))
-    };
-
-    let (strain_values_res, img_res) = tokio::join!(strain_values(map_id, &mods), bg_fut);
-
-    let img_opt = match img_res {
-        Ok(img) => Some(img),
-        Err(err) => {
-            warn!(?err, "Failed to get graph background");
-
-            None
+            return orig.error(content).await;
         }
     };
 
-    let graph = match strain_values_res {
-        Ok(strain_values) => match graph(strain_values, img_opt) {
+    let graph = match Context::osu_map().pp_map(map_id).await {
+        Ok(map) => match map_strain_graph(&map, mods_with_mode, &mapset.covers.cover).await {
             Ok(graph) => Some(graph),
             Err(err) => {
                 warn!(?err, "Failed to create graph");
@@ -382,7 +361,7 @@ async fn map(orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
             }
         },
         Err(err) => {
-            warn!(?err, "Failed to calculate strain values");
+            warn!(?err, "Failed to get pp map");
 
             None
         }
@@ -420,13 +399,8 @@ struct GraphStrains {
 
 const NEW_STRAIN_COUNT: usize = 200;
 
-async fn strain_values(map_id: u32, mods: &GameModsIntermode) -> Result<GraphStrains> {
-    let map = Context::osu_map()
-        .pp_map(map_id)
-        .await
-        .wrap_err("failed to get pp map")?;
-
-    let mut strains = Difficulty::new().mods(mods.bits()).strains(&map);
+fn strain_values(map: &PpMap, mods: GameMods) -> Result<GraphStrains> {
+    let mut strains = Difficulty::new().mods(mods).strains(&map);
     let section_len = strains.section_len();
 
     let strains_count = match strains {
@@ -486,7 +460,19 @@ async fn strain_values(map_id: u32, mods: &GameModsIntermode) -> Result<GraphStr
     })
 }
 
-fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<u8>> {
+async fn get_cover(url: &str) -> Result<DynamicImage> {
+    let bytes = Context::client().get_mapset_cover(url).await?;
+
+    let cover =
+        image::load_from_memory(&bytes).wrap_err("Failed to load mapset cover from memory")?;
+
+    Ok(cover.thumbnail_exact(W, H))
+}
+
+pub async fn map_strain_graph(map: &PpMap, mods: GameMods, cover_url: &str) -> Result<Vec<u8>> {
+    let cover_res = get_cover(cover_url).await;
+    let strains = strain_values(map, mods)?;
+
     let last_timestamp = ((NEW_STRAIN_COUNT - 2) as f64
         * strains.strains.section_len()
         * strains.strains_count as f64)
@@ -530,17 +516,22 @@ fn graph(strains: GraphStrains, background: Option<DynamicImage>) -> Result<Vec<
         let root = DrawingArea::from(&backend);
 
         // Add background
-        if let Some(background) = background {
-            let background = background.blur(2.0);
-            let elem = BitMapElement::new(background, (0, 0));
-            root.draw(&elem).wrap_err("Failed to draw background")?;
+        match cover_res {
+            Ok(background) => {
+                let background = background.blur(2.0);
+                let elem = BitMapElement::new(background, (0, 0));
+                root.draw(&elem).wrap_err("Failed to draw background")?;
 
-            let rect = Rectangle::new([(0, 0), (W as i32, H as i32)], BLACK.mix(0.75).filled());
-            root.draw(&rect)
-                .wrap_err("Failed to draw darkening rectangle")?;
-        } else {
-            root.fill(&RGBColor(19, 43, 33))
-                .wrap_err("Failed to fill background")?;
+                let rect = Rectangle::new([(0, 0), (W as i32, H as i32)], BLACK.mix(0.75).filled());
+                root.draw(&rect)
+                    .wrap_err("Failed to draw darkening rectangle")?;
+            }
+            Err(err) => {
+                warn!(?err, "Failed to get mapset cover");
+
+                root.fill(&RGBColor(19, 43, 33))
+                    .wrap_err("Failed to fill background")?;
+            }
         }
 
         let (legend_area, graph_area) = root.split_vertically(LEGEND_H);

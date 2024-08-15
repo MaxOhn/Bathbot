@@ -1,7 +1,10 @@
 use std::{borrow::Cow, mem, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
-use bathbot_model::command_fields::{GameModeOption, GradeOption};
+use bathbot_model::{
+    command_fields::{GameModeOption, GradeOption},
+    embed_builder::SettingsImage,
+};
 use bathbot_psql::model::configs::{GuildConfig, Retries, ScoreData};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -26,7 +29,7 @@ use crate::{
         ActiveMessages,
     },
     commands::{
-        osu::{require_link, user_not_found},
+        osu::{map_strain_graph, require_link, user_not_found},
         utility::{MissAnalyzerCheck, ScoreEmbedDataWrap},
     },
     core::commands::{interaction::InteractionCommands, prefix::Args, CommandOrigin},
@@ -618,7 +621,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
     let miss_analyzer = MissAnalyzerCheck::new(guild_id, with_miss_analyzer);
     let origin = MessageOrigin::new(guild_id, orig.channel_id());
 
-    let entries = process_scores(
+    let mut entries = process_scores(
         scores,
         top100,
         #[cfg(feature = "twitch")]
@@ -678,6 +681,35 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         }
     }
 
+    let graph = match entries.get_mut(num) {
+        Some(entry) if matches!(settings.image, SettingsImage::ImageWithStrains) => {
+            match entry.get_mut().await {
+                Ok(entry) => {
+                    let fut = map_strain_graph(
+                        &entry.map.pp_map,
+                        entry.score.mods.clone(),
+                        entry.map.cover(),
+                    );
+
+                    match fut.await {
+                        Ok(graph) => Some((SingleScorePagination::IMAGE_NAME.to_owned(), graph)),
+                        Err(err) => {
+                            warn!(?err, "Failed to create strain graph");
+
+                            None
+                        }
+                    }
+                }
+                Err(err) => {
+                    warn!(?err, "Failed to get score data");
+
+                    None
+                }
+            }
+        }
+        Some(_) | None => None,
+    };
+
     let mut pagination =
         SingleScorePagination::new(&user, entries, settings, score_data, author, content);
 
@@ -685,6 +717,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
+        .attachment(graph)
         .begin(orig)
         .await
 }

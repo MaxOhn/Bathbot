@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::{command, HasName, SlashCommand};
-use bathbot_model::command_fields::GameModeOption;
+use bathbot_model::{command_fields::GameModeOption, embed_builder::SettingsImage};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -21,7 +21,7 @@ use twilight_model::{
     id::{marker::UserMarker, Id},
 };
 
-use super::{require_link, user_not_found, ScoreOrder};
+use super::{map_strain_graph, require_link, user_not_found, ScoreOrder};
 use crate::{
     active::{
         impls::{SingleScoreContent, SingleScorePagination, TopPagination},
@@ -366,12 +366,35 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
             let settings = config.score_embed.unwrap_or_default();
             let content = SingleScoreContent::SameForAll(content);
 
+            let graph = match entries.first() {
+                Some(entry) if matches!(settings.image, SettingsImage::ImageWithStrains) => {
+                    let entry = entry.get_half();
+
+                    let fut = map_strain_graph(
+                        &entry.map.pp_map,
+                        entry.score.mods.clone(),
+                        entry.map.cover(),
+                    );
+
+                    match fut.await {
+                        Ok(graph) => Some((SingleScorePagination::IMAGE_NAME.to_owned(), graph)),
+                        Err(err) => {
+                            warn!(?err, "Failed to create strain graph");
+
+                            None
+                        }
+                    }
+                }
+                Some(_) | None => None,
+            };
+
             let pagination = SingleScorePagination::new(
                 &user, entries, settings, score_data, msg_owner, content,
             );
 
             return ActiveMessages::builder(pagination)
                 .start_by_update(true)
+                .attachment(graph)
                 .begin(orig)
                 .await;
         }

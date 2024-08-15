@@ -571,6 +571,11 @@ impl ScoreEmbedBuilderActive {
                     "thumbnail" => SettingsImage::Thumbnail,
                     "image" => SettingsImage::Image,
                     "hide" => SettingsImage::Hide,
+                    "image_strains" => {
+                        self.inner.settings.buttons.pagination = false;
+
+                        SettingsImage::ImageWithStrains
+                    }
                     _ => {
                         return ComponentResult::Err(eyre!(
                             "Unknown value `{value}` for builder component {}",
@@ -586,7 +591,13 @@ impl ScoreEmbedBuilderActive {
 
                 for value in component.data.values.iter() {
                     match value.as_str() {
-                        "pagination" => pagination = true,
+                        "pagination" => {
+                            if self.inner.settings.image == SettingsImage::ImageWithStrains {
+                                self.inner.settings.image = SettingsImage::default();
+                            }
+
+                            pagination = true
+                        }
                         "render" => render = true,
                         "miss_analyzer" => miss_analyzer = true,
                         _ => {
@@ -1279,6 +1290,15 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         value: "image".to_owned(),
                     },
                     SelectMenuOption {
+                        default: self.inner.settings.image == SettingsImage::ImageWithStrains,
+                        description: Some(
+                            "Note: Disables pagination & doesn't show in preview".to_owned(),
+                        ),
+                        emoji: None,
+                        label: "Image with strains".to_owned(),
+                        value: "image_strains".to_owned(),
+                    },
+                    SelectMenuOption {
                         default: self.inner.settings.image == SettingsImage::Hide,
                         description: None,
                         emoji: None,
@@ -1302,7 +1322,9 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                 let options = vec![
                     SelectMenuOption {
                         default: self.inner.settings.buttons.pagination,
-                        description: None,
+                        description: Some(
+                            "Note: Doesn't work with \"Image with strains\"".to_owned(),
+                        ),
                         emoji: None,
                         label: "Pagination".to_owned(),
                         value: "pagination".to_owned(),

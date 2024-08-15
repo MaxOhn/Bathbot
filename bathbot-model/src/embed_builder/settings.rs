@@ -96,18 +96,20 @@ impl Default for ScoreEmbedSettings {
                 },
             ],
             show_artist: Self::default_show_artist(),
-            image: SettingsImage::Thumbnail,
+            image: SettingsImage::default(),
             buttons: SettingsButtons::default(),
         }
     }
 }
 
 define_enum! {
-    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
     pub enum SettingsImage {
+        #[default]
         Thumbnail = 0,
         Image = 1,
         Hide = 2,
+        ImageWithStrains = 3,
     }
 }
 
