@@ -244,6 +244,7 @@ impl<'u> TrackUser<'u> {
             }
         };
 
+        // TODO: different settings for mania scores
         let settings = ScoreEmbedSettings {
             values: vec![
                 SettingValue {
@@ -320,7 +321,8 @@ impl<'u> TrackUser<'u> {
         let msg_owner = Id::new(1);
         let content = SingleScoreContent::None;
 
-        let entry = ScoreEmbedDataWrap::new_custom(score.clone(), map, idx as usize, None).await;
+        let entry =
+            ScoreEmbedDataWrap::new_custom(score.clone(), map, idx as usize - 1, None).await;
 
         let entries = Box::<[_]>::from([entry]);
 
