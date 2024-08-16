@@ -114,11 +114,11 @@ pub struct KittenRoleplayPlayerStatistics {
 
 #[derive(Deserialize)]
 pub struct KittenRoleplayPlayerHistoryEntry {
-    pub average_accuracy: f32,
+    pub average_accuracy: Option<f32>,
     pub count: u32,
     #[serde(with = "super::deser::datetime_rfc2822")]
     pub date: OffsetDateTime,
-    pub total_score: u64,
+    pub total_score: Option<u64>,
     pub weighted_pp: Option<f32>,
 }
 
