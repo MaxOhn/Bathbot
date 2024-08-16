@@ -13,7 +13,7 @@ use bathbot_util::{
     datetime::{HowLongAgoDynamic, HowLongAgoText, SecToMinSec, SHORT_NAIVE_DATETIME_FORMAT},
     fields,
     numbers::round,
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder, ModsFormatter,
 };
 use eyre::{Report, Result};
 use futures::future::BoxFuture;
@@ -617,7 +617,7 @@ fn apply_settings(
                     writer.push_str("__");
                 }
 
-                let _ = write!(writer, "+{}", data.score.mods);
+                let _ = write!(writer, "+{}", ModsFormatter::new(&data.score.mods));
 
                 if mark_idx == MarkIndex::Some(i) {
                     writer.push_str("__");
@@ -850,7 +850,7 @@ fn apply_settings(
                         writer.push_str("__");
                     }
 
-                    let _ = write!(writer, "+{}", data.score.mods);
+                    let _ = write!(writer, "+{}", ModsFormatter::new(&data.score.mods));
 
                     if mark_idx == MarkIndex::Some(last_idx) {
                         writer.push_str("__");
@@ -994,7 +994,7 @@ fn write_value(
             }
         }
         Value::Mods => {
-            let _ = write!(writer, "+{}", data.score.mods);
+            let _ = write!(writer, "+{}", ModsFormatter::new(&data.score.mods));
         }
         Value::Score => {
             let _ = write!(writer, "{}", ScoreFormatter::new(&data.score, score_data));
