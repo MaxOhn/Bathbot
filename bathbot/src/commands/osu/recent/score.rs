@@ -660,8 +660,8 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
             debug!(user = %author, notices, "Adding builder notice");
 
             let builder = InteractionCommands::get_command("builder").map_or_else(
-                || "`/builder`".to_owned(),
-                |cmd| cmd.mention("builder").to_string(),
+                || "`/builder edit`".to_owned(),
+                |cmd| cmd.mention("builder edit").to_string(),
             );
 
             let mut new_content =
