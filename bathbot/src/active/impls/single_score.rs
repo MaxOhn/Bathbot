@@ -538,7 +538,7 @@ fn apply_settings(
     let hide_mapper_status = || {
         matches!(
             data.map.status(),
-            RankStatus::Ranked | RankStatus::Loved | RankStatus::Approved
+            RankStatus::Ranked | RankStatus::Loved | RankStatus::Approved | RankStatus::Qualified
         ) && data.map.ranked_date().is_some()
             && settings
                 .values
