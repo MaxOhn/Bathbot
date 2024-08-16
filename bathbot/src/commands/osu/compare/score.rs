@@ -625,6 +625,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
         .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn process_scores(
     map_id: u32,
     user_id: u32,

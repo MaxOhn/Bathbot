@@ -243,13 +243,6 @@ impl MapManager {
         Ok(versions)
     }
 
-    pub async fn checksum(self, map_id: u32) -> eyre::Result<Option<Box<str>>> {
-        Context::psql()
-            .select_beatmap_checksum(map_id)
-            .await
-            .wrap_err("Failed to get map checksum")
-    }
-
     pub async fn store(&self, mapset: &BeatmapsetExtended) {
         if let Err(err) = Context::psql().upsert_beatmapset(mapset).await {
             warn!(?err, "Failed to store mapset");

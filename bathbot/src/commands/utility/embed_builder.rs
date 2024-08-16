@@ -581,28 +581,6 @@ pub struct ScoreEmbedData {
     pub twitch: Option<Arc<TwitchData>>,
 }
 
-impl ScoreEmbedData {
-    fn map_attrs(&self) -> BeatmapAttributes {
-        self.map.attributes().mods(self.score.mods.clone()).build()
-    }
-
-    pub fn ar(&self) -> f64 {
-        self.map_attrs().ar
-    }
-
-    pub fn cs(&self) -> f64 {
-        self.map_attrs().cs
-    }
-
-    pub fn hp(&self) -> f64 {
-        self.map_attrs().hp
-    }
-
-    pub fn od(&self) -> f64 {
-        self.map_attrs().od
-    }
-}
-
 #[cfg(feature = "twitch")]
 pub enum TwitchData {
     Vod {

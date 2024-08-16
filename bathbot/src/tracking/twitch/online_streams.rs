@@ -40,10 +40,6 @@ impl OnlineTwitchStreams {
         self.user_streams.guard()
     }
 
-    pub fn is_user_online(&self, user: u64) -> bool {
-        self.user_streams.pin().contains_key(&user)
-    }
-
     pub fn set_online(&self, stream: &TwitchStream, guard: &impl Guard) {
         self.user_streams
             .insert(stream.user_id.into(), stream.stream_id.into(), guard);

@@ -536,23 +536,6 @@ impl OwnedReplayScore {
             mods: score.mods.bits(),
         })
     }
-
-    pub fn try_from_score(score: &Score) -> Option<Self> {
-        let map_checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref())?;
-        let score_id = score.legacy_score_id?;
-
-        Some(Self {
-            score_id,
-            mode: score.mode,
-            ended_at: score.ended_at,
-            map_checksum: Box::from(map_checksum),
-            statistics: score.statistics.as_legacy(score.mode),
-            score: score.score,
-            max_combo: score.max_combo as u16,
-            perfect: score.legacy_perfect == Some(true),
-            mods: score.mods.bits(),
-        })
-    }
 }
 
 // https://osu.ppy.sh/wiki/en/Client/File_formats/Osr_%28file_format%29

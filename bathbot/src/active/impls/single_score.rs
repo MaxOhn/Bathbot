@@ -516,15 +516,6 @@ pub enum MarkIndex {
     None,
 }
 
-impl MarkIndex {
-    pub fn from_builder(idx: Option<usize>) -> Self {
-        match idx {
-            Some(idx) => Self::Some(idx),
-            None => Self::None,
-        }
-    }
-}
-
 fn apply_settings(
     settings: &ScoreEmbedSettings,
     data: &ScoreEmbedData,
