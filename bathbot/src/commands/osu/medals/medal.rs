@@ -271,25 +271,53 @@ impl MedalEmbed {
 
         fields![fields { "Description", medal.description.as_ref().to_owned(), false }];
 
+        let as_spoiler = match hide_solution {
+            HideSolutions::ShowAll => false,
+            HideSolutions::HideHushHush => matches!(
+                medal.grouping,
+                MedalGroup::HushHush | MedalGroup::HushHushExpert
+            ),
+            HideSolutions::HideAll => true,
+        };
+
         if let Some(solution) = medal.solution().filter(|s| !s.is_empty()) {
-            let solution = match hide_solution {
-                HideSolutions::ShowAll => solution.into_owned(),
-                HideSolutions::HideHushHush => match medal.grouping {
-                    MedalGroup::HushHush | MedalGroup::HushHushExpert => format!("||{solution}||"),
-                    _ => solution.into_owned(),
-                },
-                HideSolutions::HideAll => format!("||{solution}||"),
+            let solution = if as_spoiler {
+                format!("||{solution}||")
+            } else {
+                solution.into_owned()
             };
 
             fields![fields { "Solution", solution, false }];
         }
 
-        let mode_mods = match (medal.restriction, medal.mods.as_deref()) {
-            (None, None) => "Any".to_owned(),
-            (None, Some(mods)) => format!("Any • {mods}"),
-            (Some(mode), None) => format!("{mode} • Any"),
-            (Some(mode), Some(mods)) => format!("{mode} • {mods}"),
-        };
+        let mut mode_mods = String::with_capacity(16);
+
+        if as_spoiler {
+            mode_mods.push_str("||");
+        }
+
+        if medal.restriction.is_none() && medal.mods.is_none() {
+            // Padded to not make the potential spoiler too obvious
+            mode_mods.push_str("Any      ");
+        } else {
+            if let Some(mode) = medal.restriction {
+                let _ = write!(mode_mods, "{mode}");
+            } else {
+                mode_mods.push_str("Any");
+            }
+
+            mode_mods.push_str(" • ");
+
+            if let Some(mods) = medal.mods.as_deref() {
+                let _ = write!(mode_mods, "{mods}");
+            } else {
+                mode_mods.push_str("Any");
+            }
+        }
+
+        if as_spoiler {
+            mode_mods.push_str("||");
+        }
 
         fields![fields {
             "Rarity", format!("{:.2}%", medal.rarity), true;
@@ -297,7 +325,7 @@ impl MedalEmbed {
             "Group", medal.grouping.to_string(), true;
         }];
 
-        if !maps.is_empty() {
+        if !(maps.is_empty() || as_spoiler) {
             let len = maps.len();
             let mut map_value = String::with_capacity(256);
             let mut map_buf = String::new();
@@ -334,7 +362,7 @@ impl MedalEmbed {
             fields![fields { format!("Beatmaps: {len}"), map_value, false }];
         }
 
-        if let Some(comment) = comment {
+        if let Some(comment) = comment.filter(|_| !as_spoiler) {
             let OsekaiComment {
                 content,
                 username,
