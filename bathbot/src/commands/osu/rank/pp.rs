@@ -798,10 +798,12 @@ impl RankData {
                         idx = 99;
                     }
 
-                    (required, idx + 1)
+                    (required, idx)
                 } else {
                     pp_missing(user_pp, rank_holder_pp, scores)
                 };
+
+                let idx = idx + 1;
 
                 let idx_suffix = match idx % 100 {
                     11 | 12 | 13 => "th",
@@ -878,15 +880,26 @@ impl RankData {
                 };
 
                 if required < each {
+                    let idx_suffix = match (idx + 1) % 100 {
+                        11 | 12 | 13 => "th",
+                        _ => match (idx + 1) % 10 {
+                            1 => "st",
+                            2 => "nd",
+                            3 => "rd",
+                            _ => "th",
+                        },
+                    };
+
                     return format!(
                         "{prefix}, so {username} is missing **{missing}** raw pp.\n\
                         To reach {holder_pp}pp with one additional score, {username} needs to \
-                        perform a **{required}pp** score which would be the top {approx}#{idx}",
+                        perform a **{required}pp** score which would be their {approx}{idx}{suffix} top play",
                         holder_pp = WithComma::new(rank_holder_pp),
                         missing = WithComma::new(rank_holder_pp - user_pp),
                         required = WithComma::new(required),
                         approx = if idx >= 100 { "~" } else { "" },
                         idx = idx + 1,
+                        suffix = idx_suffix
                     );
                 }
 
@@ -1017,10 +1030,12 @@ impl RankData {
                         idx = 99;
                     }
 
-                    (required, idx + 1)
+                    (required, idx)
                 } else {
                     pp_missing(user_pp, required_pp, scores)
                 };
+
+                let idx = idx + 1;
 
                 let idx_suffix = match idx % 100 {
                     11 | 12 | 13 => "th",
@@ -1040,7 +1055,7 @@ impl RankData {
                     required_pp = WithComma::new(required_pp),
                     missing = WithComma::new(required_pp - user_pp),
                     pp = WithComma::new(required),
-                    idx = idx + 1,
+                    idx = idx,
                     suffix = idx_suffix
                 )
             }
@@ -1104,16 +1119,27 @@ impl RankData {
                 };
 
                 if required < each {
+                    let idx_suffix = match (idx + 1) % 100 {
+                        11 | 12 | 13 => "th",
+                        _ => match (idx + 1) % 10 {
+                            1 => "st",
+                            2 => "nd",
+                            3 => "rd",
+                            _ => "th",
+                        },
+                    };
+
                     return format!(
                         "{prefix} #{rank} currently requires {maybe_approx}**{required_pp}pp**, \
                         so {username} is missing **{missing}** raw pp.\n\
                         To reach {required_pp}pp with one additional score, {username} needs to \
-                        perform a **{required}pp** score which would be the top {approx}#{idx}",
+                        perform a **{required}pp** score which would be their {approx}{idx}{suffix} top play",
                         required_pp = WithComma::new(required_pp),
                         missing = WithComma::new(required_pp - user_pp),
                         required = WithComma::new(required),
                         approx = if idx >= 100 { "~" } else { "" },
                         idx = idx + 1,
+                        suffix = idx_suffix
                     );
                 }
 

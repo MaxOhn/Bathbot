@@ -74,14 +74,25 @@ impl PpMissingEmbed {
                     pp_missing(stats_pp, goal_pp, scores)
                 };
 
+                let idx_suffix = match (idx + 1) % 100 {
+                    11 | 12 | 13 => "th",
+                    _ => match (idx + 1) % 10 {
+                        1 => "st",
+                        2 => "nd",
+                        3 => "rd",
+                        _ => "th",
+                    },
+                };
+
                 format!(
                     "To reach {pp}pp with one additional score, {user} needs to perform \
-                    a **{required}pp** score which would be the top {approx}#{idx}",
+                    a **{required}pp** score which would be their {approx}{idx}{suffix} top play",
                     pp = WithComma::new(goal_pp),
                     user = username.cow_escape_markdown(),
                     required = WithComma::new(required),
                     approx = if idx >= 100 { "~" } else { "" },
                     idx = idx + 1,
+                    suffix = idx_suffix
                 )
             }
             // Given score pp is below last top 100 score pp
@@ -119,13 +130,26 @@ impl PpMissingEmbed {
                 };
 
                 if required < each {
+                    let idx = idx + 1;
+
+                    let idx_suffix = match idx % 100 {
+                        11 | 12 | 13 => "th",
+                        _ => match idx % 10 {
+                            1 => "st",
+                            2 => "nd",
+                            3 => "rd",
+                            _ => "th",
+                        },
+                    };
+
                     format!(
                         "To reach {pp}pp with one additional score, {user} needs to perform \
-                        a **{required}pp** score which would be the top #{idx}",
+                        a **{required}pp** score which would be their {idx}{suffix} top play",
                         pp = WithComma::new(goal_pp),
                         user = username.cow_escape_markdown(),
                         required = WithComma::new(required),
-                        idx = idx + 1,
+                        idx = idx,
+                        suffix = idx_suffix
                     )
                 } else {
                     let idx = pps.partition_point(|&pp| pp >= each);
