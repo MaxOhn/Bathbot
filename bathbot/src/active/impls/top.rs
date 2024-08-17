@@ -146,7 +146,7 @@ impl TopPagination {
             let _ = writeln!(
                 description,
                 "**#{idx} [{map}]({OSU_BASE}b/{map_id})** [{stars}★]\n\
-                {grade} **{pp}pp** ({acc}%) `{score}` {{{n320}/{n300}/../{miss}}} **+{mods}** {appendix}",
+                {grade} **{pp}pp** {acc}% `{score}` {{{n320}/{n300}/../{miss}}} **+{mods}** {appendix}",
                 idx = original_idx.or(pb_idx.as_ref().and_then(|idx| idx.idx)).expect("missing idx") + 1,
                 map = MapFormat::new(map),
                 map_id = map.map_id(),
