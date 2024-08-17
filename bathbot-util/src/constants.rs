@@ -25,7 +25,6 @@ pub const TWITCH_OAUTH: &str = "https://id.twitch.tv/oauth2/token";
 // Error messages
 pub const GENERAL_ISSUE: &str = "Something went wrong, blame bade";
 pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
-pub const OSU_WEB_ISSUE: &str = "Some issue with the osu website, DDoS protection?";
 pub const ORDR_ISSUE: &str = "Some issue with the o!rdr api, blame bade";
 pub const OSEKAI_ISSUE: &str = "Some issue with the osekai api, blame bade";
 pub const OSUSTATS_API_ISSUE: &str = "Some issue with the osustats api, blame bade";

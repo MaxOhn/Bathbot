@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bathbot_macros::command;
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::{
-    constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
+    constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     osu::ModSelection,
 };
@@ -313,7 +313,7 @@ pub(super) async fn leaderboard(
             })
             .collect(),
         Err(err) => {
-            let _ = orig.error(OSU_WEB_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
 
             return Err(err.wrap_err("Failed to get scores"));
         }

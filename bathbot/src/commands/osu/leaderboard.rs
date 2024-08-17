@@ -8,7 +8,7 @@ use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
+    constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     osu::{MapIdType, ModSelection},
     IntHasher, ScoreExt,
@@ -353,7 +353,7 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
             })
             .collect(),
         Err(err) => {
-            let _ = orig.error(OSU_WEB_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
 
             return Err(err.wrap_err("Failed to get leaderboard"));
         }
