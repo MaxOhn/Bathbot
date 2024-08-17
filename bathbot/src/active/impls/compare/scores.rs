@@ -135,10 +135,10 @@ impl IActiveMessage for CompareScoresPagination {
                     if let Some(footer) = applied_settings.footer {
                         embed = embed.footer(footer);
                     }
+                }
 
-                    if let Some(title) = applied_settings.title {
-                        embed = embed.title(title);
-                    }
+                if let Some(title) = applied_settings.title {
+                    embed = embed.title(title);
                 }
 
                 embed.description(description)
