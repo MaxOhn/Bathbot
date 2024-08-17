@@ -73,7 +73,7 @@ impl MedalStatsEmbed {
                 );
             }
 
-            fields![fields { "Corner stone medals", value, false }];
+            fields![fields { "Cornerstone medals", value, false }];
         }
 
         if !user_medals.is_empty() {
