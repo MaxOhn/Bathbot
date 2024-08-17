@@ -113,10 +113,16 @@ SET
             .wrap_err("failed to execute query")?;
 
         if let Some(ref maps) = mapset.maps {
+            // In case maps were changed to the point they even got different
+            // map ids, we delete all maps of the mapset first.
+            Self::delete_beatmaps_of_beatmapset(&mut tx, mapset.mapset_id)
+                .await
+                .wrap_err("Failed to delete maps")?;
+
             for map in maps {
                 Self::upsert_beatmap(&mut tx, map)
                     .await
-                    .wrap_err("failed to insert map")?;
+                    .wrap_err("Failed to insert map")?;
             }
         }
 

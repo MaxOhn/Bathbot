@@ -397,12 +397,15 @@ FROM
             MapVersion,
             r#"
 SELECT 
-  map_id, 
-  map_version AS version
+  DISTINCT ON (version) map_id, 
+  map_version AS version 
 FROM 
   osu_maps 
 WHERE 
-  mapset_id = $1"#,
+  mapset_id = $1 
+ORDER BY 
+  version, 
+  last_update DESC"#,
             mapset_id as i32,
         );
 
@@ -426,6 +429,23 @@ SET
             .execute(self)
             .await
             .wrap_err("failed to execute query")?;
+
+        Ok(())
+    }
+
+    pub(super) async fn delete_beatmaps_of_beatmapset(
+        tx: &mut Transaction<'_, Postgres>,
+        mapset_id: u32,
+    ) -> Result<()> {
+        let query = sqlx::query!(
+            r#"DELETE FROM osu_maps WHERE mapset_id = $1"#,
+            mapset_id as i32
+        );
+
+        query
+            .execute(&mut **tx)
+            .await
+            .wrap_err("Failed to execute query")?;
 
         Ok(())
     }
