@@ -397,12 +397,15 @@ FROM
             MapVersion,
             r#"
 SELECT 
-  map_id, 
-  map_version AS version
+  DISTINCT ON (version) map_id, 
+  map_version AS version 
 FROM 
   osu_maps 
 WHERE 
-  mapset_id = $1"#,
+  mapset_id = $1 
+ORDER BY 
+  version, 
+  last_update DESC"#,
             mapset_id as i32,
         );
 
