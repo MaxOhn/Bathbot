@@ -798,17 +798,28 @@ impl RankData {
                         idx = 99;
                     }
 
-                    (required, idx)
+                    (required, idx + 1)
                 } else {
                     pp_missing(user_pp, rank_holder_pp, scores)
                 };
 
+                let idx_suffix = match idx % 100 {
+                    11 | 12 | 13 => "th",
+                    _ => match idx % 10 {
+                        1 => "st",
+                        2 => "nd",
+                        3 => "rd",
+                        _ => "th",
+                    },
+                };
+
                 format!(
                     "{prefix}, so {username} is missing **{missing}** raw pp, achievable \
-                    with a single score worth **{pp}pp** which would be the top #{idx}.",
+                    with a single score worth **{pp}pp** which would be their {idx}{suffix} top play.",
                     missing = WithComma::new(rank_holder_pp - user_pp),
                     pp = WithComma::new(required),
-                    idx = idx + 1,
+                    idx = idx,
+                    suffix = idx_suffix
                 )
             }
             RankMultipleScores::Amount(amount) => {
@@ -1006,20 +1017,31 @@ impl RankData {
                         idx = 99;
                     }
 
-                    (required, idx)
+                    (required, idx + 1)
                 } else {
                     pp_missing(user_pp, required_pp, scores)
+                };
+
+                let idx_suffix = match idx % 100 {
+                    11 | 12 | 13 => "th",
+                    _ => match idx % 10 {
+                        1 => "st",
+                        2 => "nd",
+                        3 => "rd",
+                        _ => "th",
+                    },
                 };
 
                 format!(
                     "{prefix} #{rank} currently requires {maybe_approx}**{required_pp}pp**, so \
                     {username} is missing **{missing}** raw pp, achievable with a \
-                    single score worth **{pp}pp** which would be the top #{idx}.",
+                    single score worth **{pp}pp** which would be their {idx}{suffix} top play.",
                     rank = WithComma::new(rank),
                     required_pp = WithComma::new(required_pp),
                     missing = WithComma::new(required_pp - user_pp),
                     pp = WithComma::new(required),
                     idx = idx + 1,
+                    suffix = idx_suffix
                 )
             }
             RankMultipleScores::Amount(amount) => {
