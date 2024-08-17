@@ -298,6 +298,10 @@ impl ScoreEmbedBuilderActive {
 
                 let curr_y = self.inner.settings.values[idx].y;
 
+                if curr_y == SettingValue::FOOTER_Y {
+                    return ComponentResult::Err(eyre!("Cannot move footer value down"));
+                }
+
                 let curr_x = self.inner.settings.values[..idx]
                     .iter()
                     .rev()
@@ -807,9 +811,6 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 .take_while(|value| value.y == curr_y)
                                 .count();
 
-                            let is_last_row =
-                                self.inner.settings.values[idx + to_right + 1..].is_empty();
-
                             // Disable up if too many values in field name
                             let disable_up = curr_y == 0
                                 || (idx == 1
@@ -825,7 +826,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             // No need to check if the first row only contains
                             // one value because if so then the current second
                             // row would be moved up anyway.
-                            let disable_down = is_last_row && to_left == 0 && to_right == 0;
+                            let disable_down = curr_y == SettingValue::FOOTER_Y;
 
                             (to_left == 0, disable_up, disable_down, to_right == 0)
                         } else {
