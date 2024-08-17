@@ -322,16 +322,23 @@ impl ScoreEmbedBuilderActive {
                 }
 
                 if curr_x == 0 && to_right_count == 0 {
-                    for value in self.inner.settings.values[idx + 1..].iter_mut() {
-                        if value.y == SettingValue::FOOTER_Y {
-                            break;
+                    // Move the footer up as field name
+                    if curr_y == 0 && next_row_len == 0 {
+                        for value in self.inner.settings.values[idx + 1..].iter_mut() {
+                            value.y = 0;
+                        }
+                    } else {
+                        for value in self.inner.settings.values[idx + 1..].iter_mut() {
+                            if value.y == SettingValue::FOOTER_Y {
+                                break;
+                            }
+
+                            value.y -= 1;
                         }
 
-                        value.y -= 1;
-                    }
-
-                    if next_row_len == 0 {
-                        self.inner.settings.values[idx].y = SettingValue::FOOTER_Y;
+                        if next_row_len == 0 {
+                            self.inner.settings.values[idx].y = SettingValue::FOOTER_Y;
+                        }
                     }
                 } else {
                     self.inner.settings.values[idx].y += 1;
