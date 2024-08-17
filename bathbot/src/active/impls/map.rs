@@ -295,12 +295,23 @@ impl MapPagination {
             mapset_id = self.mapset.mapset_id
         );
 
-        if map.mode == GameMode::Osu {
-            let _ = write!(
-                description,
-                " :clapper: [Map preview](https://preview.tryz.id.vn/?b={map_id})",
-                map_id = map.map_id
-            );
+        match map.mode {
+            GameMode::Osu => {
+                let _ = write!(
+                    description,
+                    " :clapper: [Map preview](http://jmir.xyz/osu/preview.html#{map_id})",
+                    map_id = map.map_id
+                );
+            }
+            GameMode::Mania | GameMode::Taiko => {
+                let _ = write!(
+                    description,
+                    " :clapper: [Map preview](https://osu-preview.jmir.xyz/preview#{map_id})",
+                    map_id = map.map_id
+                );
+            }
+            // Waiting on a preview website that supports catch
+            GameMode::Catch => {}
         }
 
         let embed = EmbedBuilder::new()
