@@ -430,6 +430,23 @@ SET
         Ok(())
     }
 
+    pub(super) async fn delete_beatmaps_of_beatmapset(
+        tx: &mut Transaction<'_, Postgres>,
+        mapset_id: u32,
+    ) -> Result<()> {
+        let query = sqlx::query!(
+            r#"DELETE FROM osu_maps WHERE mapset_id = $1"#,
+            mapset_id as i32
+        );
+
+        query
+            .execute(&mut **tx)
+            .await
+            .wrap_err("Failed to execute query")?;
+
+        Ok(())
+    }
+
     pub(super) async fn upsert_beatmap(
         tx: &mut Transaction<'_, Postgres>,
         map: &BeatmapExtended,
