@@ -301,12 +301,6 @@ impl MapPagination {
                 " :clapper: [Map preview](https://preview.tryz.id.vn/?b={map_id})",
                 map_id = map.map_id
             );
-        } else if map.mode != GameMode::Catch {
-            let _ = write!(
-                description,
-                " :clapper: [Map preview](https://osu-preview.jmir.xyz/preview#{map_id})",
-                map_id = map.map_id
-            );
         }
 
         let embed = EmbedBuilder::new()
