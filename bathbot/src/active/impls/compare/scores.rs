@@ -80,12 +80,18 @@ impl IActiveMessage for CompareScoresPagination {
         let mut embed = EmbedBuilder::new()
             .author(self.user.author_builder())
             .footer(footer)
-            .thumbnail(self.map.thumbnail())
             .title(title)
             .url(format!("{OSU_BASE}b/{}", self.map.map_id()));
 
-        embed = match entries.first() {
-            Some(entry) if page == 1 => {
+        embed = if let Some(entry) = entries.first() {
+            let mut applied_settings = SingleScorePagination::apply_settings(
+                &self.settings,
+                entry,
+                self.score_data,
+                MarkIndex::Skip,
+            );
+
+            if page == 1 {
                 if entry.pb_idx.is_some() || entry.global_idx.is_some() {
                     description.push_str("__**");
 
@@ -112,13 +118,6 @@ impl IActiveMessage for CompareScoresPagination {
                     description.push('\n');
                 }
 
-                let mut applied_settings = SingleScorePagination::apply_settings(
-                    &self.settings,
-                    entry,
-                    self.score_data,
-                    MarkIndex::Skip,
-                );
-
                 if entries.len() > 1 {
                     let field = applied_settings.fields.pop().expect("at least one field");
                     description.push_str(&field.name.replace('\t', " • "));
@@ -140,19 +139,23 @@ impl IActiveMessage for CompareScoresPagination {
                 if let Some(title) = applied_settings.title {
                     embed = embed.title(title);
                 }
-
-                embed.description(description)
-            }
-            Some(_) => {
+            } else {
                 for (i, entry) in entries.iter().enumerate() {
                     write_compact_entry(&mut description, pp_idx, &self.pinned, i, entry);
                 }
-
-                embed.description(description)
             }
-            None => embed
+
+            if let Some(thumbnail) = applied_settings.thumbnail_url {
+                embed = embed.thumbnail(thumbnail);
+            } else if let Some(image) = applied_settings.image_url {
+                embed = embed.image(image);
+            }
+
+            embed.description(description)
+        } else {
+            embed
                 .description("No scores found")
-                .thumbnail(self.map.thumbnail()),
+                .thumbnail(self.map.thumbnail())
         };
 
         BuildPage::new(embed, false).boxed()
