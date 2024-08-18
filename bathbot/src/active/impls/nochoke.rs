@@ -3,8 +3,8 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
-    constants::OSU_BASE, numbers::WithComma, CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter,
-    ScoreExt,
+    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::WithComma, CowUtils, EmbedBuilder,
+    FooterBuilder, ModsFormatter, ScoreExt,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -72,7 +72,7 @@ impl IActiveMessage for NoChokePagination {
                 description,
                 "**#{idx} [{title} [{version}]]({OSU_BASE}b/{id}) +{mods}** [{stars:.2}★]\n\
                 {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP • {old_acc:.2} → **{new_acc:.2}%**\n\
-                [ {old_combo} → **{new_combo}x**/{max_combo}x ]{misses}",
+                [ {old_combo} → **{new_combo}x**/{max_combo}x ]{misses} • {score_timestamp}",
                 idx = original_idx + 1,
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
@@ -85,6 +85,7 @@ impl IActiveMessage for NoChokePagination {
                 new_acc = entry.unchoked_accuracy(),
                 old_combo = original_score.max_combo,
                 new_combo = entry.unchoked_max_combo(),
+                score_timestamp = HowLongAgoDynamic::new(&original_score.ended_at)
             );
         }
 
