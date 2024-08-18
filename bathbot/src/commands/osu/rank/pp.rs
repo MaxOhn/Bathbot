@@ -619,6 +619,18 @@ struct RankHolder {
     username: Username,
 }
 
+fn idx_suffix(idx: usize) -> &'static str {
+    match idx % 100 {
+        11 | 12 | 13 => "th",
+        _ => match idx % 10 {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th",
+        },
+    }
+}
+
 impl RankData {
     fn with_scores(&self) -> bool {
         match self {
@@ -805,23 +817,13 @@ impl RankData {
 
                 let idx = idx + 1;
 
-                let idx_suffix = match idx % 100 {
-                    11 | 12 | 13 => "th",
-                    _ => match idx % 10 {
-                        1 => "st",
-                        2 => "nd",
-                        3 => "rd",
-                        _ => "th",
-                    },
-                };
+                let suffix = idx_suffix(idx);
 
                 format!(
                     "{prefix}, so {username} is missing **{missing}** raw pp, achievable \
                     with a single score worth **{pp}pp** which would be their {idx}{suffix} top play.",
                     missing = WithComma::new(rank_holder_pp - user_pp),
                     pp = WithComma::new(required),
-                    idx = idx,
-                    suffix = idx_suffix
                 )
             }
             RankMultipleScores::Amount(amount) => {
@@ -880,15 +882,7 @@ impl RankData {
                 };
 
                 if required < each {
-                    let idx_suffix = match (idx + 1) % 100 {
-                        11 | 12 | 13 => "th",
-                        _ => match (idx + 1) % 10 {
-                            1 => "st",
-                            2 => "nd",
-                            3 => "rd",
-                            _ => "th",
-                        },
-                    };
+                    let suffix = idx_suffix(idx + 1);
 
                     return format!(
                         "{prefix}, so {username} is missing **{missing}** raw pp.\n\
@@ -899,7 +893,6 @@ impl RankData {
                         required = WithComma::new(required),
                         approx = if idx >= 100 { "~" } else { "" },
                         idx = idx + 1,
-                        suffix = idx_suffix
                     );
                 }
 
@@ -1037,15 +1030,7 @@ impl RankData {
 
                 let idx = idx + 1;
 
-                let idx_suffix = match idx % 100 {
-                    11 | 12 | 13 => "th",
-                    _ => match idx % 10 {
-                        1 => "st",
-                        2 => "nd",
-                        3 => "rd",
-                        _ => "th",
-                    },
-                };
+                let suffix = idx_suffix(idx);
 
                 format!(
                     "{prefix} #{rank} currently requires {maybe_approx}**{required_pp}pp**, so \
@@ -1055,8 +1040,6 @@ impl RankData {
                     required_pp = WithComma::new(required_pp),
                     missing = WithComma::new(required_pp - user_pp),
                     pp = WithComma::new(required),
-                    idx = idx,
-                    suffix = idx_suffix
                 )
             }
             RankMultipleScores::Amount(amount) => {
@@ -1119,15 +1102,7 @@ impl RankData {
                 };
 
                 if required < each {
-                    let idx_suffix = match (idx + 1) % 100 {
-                        11 | 12 | 13 => "th",
-                        _ => match (idx + 1) % 10 {
-                            1 => "st",
-                            2 => "nd",
-                            3 => "rd",
-                            _ => "th",
-                        },
-                    };
+                    let suffix = idx_suffix(idx + 1);
 
                     return format!(
                         "{prefix} #{rank} currently requires {maybe_approx}**{required_pp}pp**, \
@@ -1139,7 +1114,6 @@ impl RankData {
                         required = WithComma::new(required),
                         approx = if idx >= 100 { "~" } else { "" },
                         idx = idx + 1,
-                        suffix = idx_suffix
                     );
                 }
 
