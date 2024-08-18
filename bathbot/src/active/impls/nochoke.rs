@@ -72,7 +72,7 @@ impl IActiveMessage for NoChokePagination {
                 description,
                 "**#{idx} [{title} [{version}]]({OSU_BASE}b/{id}) +{mods}** [{stars:.2}★]\n\
                 {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP • {old_acc:.2} → **{new_acc:.2}%**\n\
-                [ {old_combo} → **{new_combo}x**/{max_combo}x ]{misses}",
+                [ {old_combo} → **{new_combo}x**/{max_combo}x ]{misses} • <t:{score_date}:R>",
                 idx = original_idx + 1,
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
@@ -85,6 +85,7 @@ impl IActiveMessage for NoChokePagination {
                 new_acc = entry.unchoked_accuracy(),
                 old_combo = original_score.max_combo,
                 new_combo = entry.unchoked_max_combo(),
+                score_date = original_score.ended_at.unix_timestamp()
             );
         }
 
