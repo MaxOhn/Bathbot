@@ -872,7 +872,12 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
     let condensed_list = match (single_idx, list_size) {
         (Some(_), _) | (None, ListSize::Single) => {
             let settings = config.score_embed.unwrap_or_default();
-            let content = content.map_or(SingleScoreContent::None, SingleScoreContent::SameForAll);
+
+            let content = match (single_idx, content) {
+                (Some(idx), Some(content)) => SingleScoreContent::OnlyForIndex { idx, content },
+                (None, Some(content)) => SingleScoreContent::SameForAll(content),
+                (_, None) => SingleScoreContent::None,
+            };
 
             let graph = match single_idx.map_or_else(|| entries.first(), |idx| entries.get(idx)) {
                 Some(entry) if matches!(settings.image, SettingsImage::ImageWithStrains) => {
