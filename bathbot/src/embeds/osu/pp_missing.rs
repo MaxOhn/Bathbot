@@ -15,6 +15,18 @@ use rosu_v2::prelude::Score;
 
 use crate::{embeds::EmbedData, manager::redis::RedisData};
 
+fn idx_suffix(idx: usize) -> &'static str {
+    match idx % 100 {
+        11 | 12 | 13 => "th",
+        _ => match idx % 10 {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th",
+        },
+    }
+}
+
 pub struct PpMissingEmbed {
     author: AuthorBuilder,
     description: String,
@@ -74,9 +86,11 @@ impl PpMissingEmbed {
                     pp_missing(stats_pp, goal_pp, scores)
                 };
 
+                let suffix = idx_suffix(idx + 1);
+
                 format!(
                     "To reach {pp}pp with one additional score, {user} needs to perform \
-                    a **{required}pp** score which would be the top {approx}#{idx}",
+                    a **{required}pp** score which would be their {approx}{idx}{suffix} top play",
                     pp = WithComma::new(goal_pp),
                     user = username.cow_escape_markdown(),
                     required = WithComma::new(required),
@@ -119,13 +133,16 @@ impl PpMissingEmbed {
                 };
 
                 if required < each {
+                    let idx = idx + 1;
+
+                    let suffix = idx_suffix(idx);
+
                     format!(
                         "To reach {pp}pp with one additional score, {user} needs to perform \
-                        a **{required}pp** score which would be the top #{idx}",
+                        a **{required}pp** score which would be their {idx}{suffix} top play",
                         pp = WithComma::new(goal_pp),
                         user = username.cow_escape_markdown(),
                         required = WithComma::new(required),
-                        idx = idx + 1,
                     )
                 } else {
                     let idx = pps.partition_point(|&pp| pp >= each);
