@@ -62,7 +62,7 @@ pub struct ScoreEmbedBuilderCopy {
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "default",
-    desc = "Reset your scpre embed format to the default"
+    desc = "Reset your score embed format to the default"
 )]
 pub struct ScoreEmbedBuilderDefault;
 
