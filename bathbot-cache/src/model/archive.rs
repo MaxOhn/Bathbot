@@ -3,17 +3,17 @@ use std::{marker::PhantomData, ops::Deref, pin::Pin};
 use bb8_redis::redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, Value};
 use rkyv::{
     with::{ArchiveWith, DeserializeWith, With},
-    Archive, Archived, Deserialize, Infallible,
+    AlignedVec, Archive, Archived, Deserialize, Infallible,
 };
 
 #[derive(Clone)]
 pub struct CachedArchive<T> {
-    bytes: Vec<u8>,
+    bytes: AlignedVec,
     phantom: PhantomData<T>,
 }
 
 impl<T> CachedArchive<T> {
-    pub(crate) fn new(bytes: Vec<u8>) -> Self {
+    pub(crate) fn new(bytes: AlignedVec) -> Self {
         Self {
             bytes,
             phantom: PhantomData,
@@ -65,7 +65,13 @@ impl<T> FromRedisValue for CachedArchive<T> {
     #[inline]
     fn from_redis_value(v: &Value) -> RedisResult<Self> {
         match v {
-            Value::Data(bytes) => Ok(Self::new(bytes.to_owned())),
+            Value::Data(data) => {
+                let mut bytes = AlignedVec::new();
+                bytes.reserve_exact(data.len());
+                bytes.extend_from_slice(data);
+
+                Ok(Self::new(bytes))
+            }
             _ => Err(RedisError::from((
                 ErrorKind::TypeError,
                 "Response was of incompatible type",
