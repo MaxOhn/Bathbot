@@ -4,7 +4,10 @@ use std::{
 };
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
-use bathbot_model::{embed_builder::ScoreEmbedSettings, ScoreSlim};
+use bathbot_model::{
+    embed_builder::{ScoreEmbedSettings, SettingsImage},
+    ScoreSlim,
+};
 use bathbot_psql::model::{
     configs::ScoreData,
     osu::{ArchivedMapVersion, MapVersion},
@@ -34,9 +37,12 @@ use twilight_model::{
 
 use super::{CompareScoreAutocomplete, ScoreOrder};
 use crate::{
-    active::{impls::CompareScoresPagination, ActiveMessages},
+    active::{
+        impls::{CompareScoresPagination, SingleScorePagination},
+        ActiveMessages,
+    },
     commands::{
-        osu::{require_link, HasMods, ModsResult},
+        osu::{map_strain_graph, require_link, HasMods, ModsResult},
         utility::{ScoreEmbedData, ScoreEmbedDataPersonalBest},
     },
     core::commands::{
@@ -608,6 +614,13 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
         .map(|(i, _)| i)
         .unwrap_or(0);
 
+    let graph = match entries.first() {
+        Some(entry) if matches!(settings.image, SettingsImage::ImageWithStrains) => {
+            prepare_graph(entry).await
+        }
+        Some(_) | None => None,
+    };
+
     let pagination = CompareScoresPagination::builder()
         .user(user)
         .map(map)
@@ -621,6 +634,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
+        .attachment(graph)
         .begin(orig)
         .await
 }
@@ -883,6 +897,12 @@ async fn compare_from_score(
         twitch: None,
     };
 
+    let graph = if matches!(settings.image, SettingsImage::ImageWithStrains) {
+        prepare_graph(&entry).await
+    } else {
+        None
+    };
+
     let pagination = CompareScoresPagination::builder()
         .user(user)
         .map(map)
@@ -896,6 +916,7 @@ async fn compare_from_score(
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
+        .attachment(graph)
         .begin(orig)
         .await
 }
@@ -955,4 +976,21 @@ async fn handle_autocomplete(
     command.autocomplete(choices).await?;
 
     Ok(())
+}
+
+async fn prepare_graph(entry: &ScoreEmbedData) -> Option<(String, Vec<u8>)> {
+    let fut = map_strain_graph(
+        &entry.map.pp_map,
+        entry.score.mods.clone(),
+        entry.map.cover(),
+    );
+
+    match fut.await {
+        Ok(graph) => Some((SingleScorePagination::IMAGE_NAME.to_owned(), graph)),
+        Err(err) => {
+            warn!(?err, "Failed to create strain graph");
+
+            None
+        }
+    }
 }
