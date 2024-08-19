@@ -398,7 +398,7 @@ impl BackgroundGameSetup {
         if entries.tags.is_empty() {
             let description = "No stored backgrounds match these tags, try different ones";
 
-            Ok(BuildPage::new(embed.description(description), true))
+            Ok(BuildPage::new(embed.description(description), false))
         } else {
             info!(
                 included = self.included.join(','),
@@ -411,7 +411,7 @@ impl BackgroundGameSetup {
             let game = game_fut.await;
             Context::bg_games().own(channel).await.insert(game);
 
-            Ok(BuildPage::new(embed, true))
+            Ok(BuildPage::new(embed, false))
         }
     }
 
