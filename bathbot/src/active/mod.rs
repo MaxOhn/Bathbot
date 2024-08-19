@@ -428,6 +428,7 @@ impl BuildPage {
         self
     }
 
+    #[cfg(feature = "osutracking")]
     pub fn into_embed(self) -> EmbedBuilder {
         self.embed
     }
