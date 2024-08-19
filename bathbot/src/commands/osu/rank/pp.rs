@@ -621,7 +621,7 @@ struct RankHolder {
 
 fn idx_suffix(idx: usize) -> &'static str {
     match idx % 100 {
-        11 | 12 | 13 => "th",
+        11..=13 => "th",
         _ => match idx % 10 {
             1 => "st",
             2 => "nd",
