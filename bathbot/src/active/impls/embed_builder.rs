@@ -384,21 +384,46 @@ impl ScoreEmbedBuilderActive {
                 }
             }
             "embed_builder_pp" => {
-                let mut max = false;
-                let mut if_fc = false;
+                let Some(value) = component.data.values.first() else {
+                    return ComponentResult::Err(eyre!(
+                        "Missing value for builder component `{}`",
+                        component.data.custom_id
+                    ));
+                };
 
-                for value in component.data.values.iter() {
-                    match value.as_str() {
-                        "max" => max = true,
-                        "if_fc" => if_fc = true,
-                        _ => {
-                            return ComponentResult::Err(eyre!(
-                                "Unknown value `{value}` for builder component {}",
-                                component.data.custom_id
-                            ))
-                        }
+                let pp = match value.as_str() {
+                    "score" => PpValue {
+                        max: false,
+                        if_fc: false,
+                        max_if_fc: false,
+                    },
+                    "max" => PpValue {
+                        max: true,
+                        if_fc: false,
+                        max_if_fc: false,
+                    },
+                    "if_fc" => PpValue {
+                        max: false,
+                        if_fc: true,
+                        max_if_fc: false,
+                    },
+                    "either" => PpValue {
+                        max: false,
+                        if_fc: true,
+                        max_if_fc: true,
+                    },
+                    "all" => PpValue {
+                        max: true,
+                        if_fc: true,
+                        max_if_fc: false,
+                    },
+                    _ => {
+                        return ComponentResult::Err(eyre!(
+                            "Invalid value `{value}` for builder component `{}`",
+                            component.data.custom_id
+                        ));
                     }
-                }
+                };
 
                 if let Some(value) = self
                     .inner
@@ -407,7 +432,7 @@ impl ScoreEmbedBuilderActive {
                     .iter_mut()
                     .find(|value| ValueKind::from_setting(value) == ValueKind::Pp)
                 {
-                    value.inner = Value::Pp(PpValue { max, if_fc });
+                    value.inner = Value::Pp(pp);
                 }
             }
             "embed_builder_combo" => {
@@ -957,30 +982,51 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             Some(_) => unreachable!(),
                         };
 
-                        let pp_options = vec![
-                            SelectMenuOption {
-                                default: pp.max,
-                                description: None,
-                                emoji: None,
-                                label: "Show max pp".to_owned(),
-                                value: "max".to_owned(),
-                            },
-                            SelectMenuOption {
-                                default: pp.if_fc,
-                                description: None,
-                                emoji: None,
-                                label: "Show if-FC pp".to_owned(),
-                                value: "if_fc".to_owned(),
-                            },
-                        ];
-
                         components.push(Component::ActionRow(ActionRow {
                             components: vec![Component::SelectMenu(SelectMenu {
                                 custom_id: "embed_builder_pp".to_owned(),
                                 disabled: idx.is_none(),
-                                max_values: Some(pp_options.len() as u8),
-                                min_values: Some(0),
-                                options: pp_options,
+                                max_values: None,
+                                min_values: None,
+                                options: vec![
+                                    SelectMenuOption {
+                                        default: !(pp.max || pp.if_fc),
+                                        description: None,
+                                        emoji: None,
+                                        label: "Only show score pp".to_owned(),
+                                        value: "score".to_owned(),
+                                    },
+                                    SelectMenuOption {
+                                        default: pp.max && !pp.if_fc,
+                                        description: None,
+                                        emoji: None,
+                                        label: "Show score pp & max pp".to_owned(),
+                                        value: "max".to_owned(),
+                                    },
+                                    SelectMenuOption {
+                                        default: pp.if_fc && !(pp.max || pp.max_if_fc),
+                                        description: Some("Only shows score pp on FC".to_owned()),
+                                        emoji: None,
+                                        label: "Show score pp & if-FC pp".to_owned(),
+                                        value: "if_fc".to_owned(),
+                                    },
+                                    SelectMenuOption {
+                                        default: pp.if_fc && pp.max_if_fc && !pp.max,
+                                        description: Some(
+                                            "Shows max pp on FC, otherwise if-FC pp".to_owned(),
+                                        ),
+                                        emoji: None,
+                                        label: "Show score pp & max pp OR if-FC pp".to_owned(),
+                                        value: "either".to_owned(),
+                                    },
+                                    SelectMenuOption {
+                                        default: pp.max && pp.if_fc,
+                                        description: None,
+                                        emoji: None,
+                                        label: "Show score pp, max pp & if-FC pp".to_owned(),
+                                        value: "all".to_owned(),
+                                    },
+                                ],
                                 placeholder: Some("Only show score pp".to_owned()),
                             })],
                         }));
