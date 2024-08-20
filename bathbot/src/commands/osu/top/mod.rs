@@ -809,13 +809,16 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
         }
     };
 
+    let settings = config.score_embed.unwrap_or_default();
+
     let mut with_render = match (guild_render_button, config.render_button) {
         (None | Some(true), None) => true,
         (None | Some(true), Some(with_render)) => with_render,
         (Some(false), _) => false,
     };
 
-    with_render &= mode == GameMode::Osu
+    with_render &= settings.buttons.render
+        && mode == GameMode::Osu
         && orig.has_permission_to(Permissions::SEND_MESSAGES)
         && Context::ordr().is_some();
 
@@ -871,8 +874,6 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
 
     let condensed_list = match (single_idx, list_size) {
         (Some(_), _) | (None, ListSize::Single) => {
-            let settings = config.score_embed.unwrap_or_default();
-
             let content = match (single_idx, content) {
                 (Some(idx), Some(content)) => SingleScoreContent::OnlyForIndex { idx, content },
                 (None, Some(content)) => SingleScoreContent::SameForAll(content),

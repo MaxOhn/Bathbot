@@ -291,6 +291,7 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
     };
 
     let username = user.username();
+    let settings = config.score_embed.unwrap_or_default();
 
     let mut with_render = match (guild_render_button, config.render_button) {
         (None | Some(true), None) => true,
@@ -298,7 +299,8 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
         (Some(false), _) => false,
     };
 
-    with_render &= mode == GameMode::Osu
+    with_render &= settings.buttons.render
+        && mode == GameMode::Osu
         && orig.has_permission_to(Permissions::SEND_MESSAGES)
         && Context::ordr().is_some();
 
@@ -363,7 +365,6 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
         ListSize::Condensed => true,
         ListSize::Detailed => false,
         ListSize::Single => {
-            let settings = config.score_embed.unwrap_or_default();
             let content = SingleScoreContent::SameForAll(content);
 
             let graph = match entries.first() {
