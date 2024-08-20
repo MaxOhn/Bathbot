@@ -14,6 +14,13 @@ pub struct ScoreEmbedSettings {
         skip_serializing_if = "super::is_true"
     )]
     pub show_artist: bool,
+    #[serde(
+        rename = "s",
+        default = "ScoreEmbedSettings::default_show_sr_in_title",
+        with = "bool_as_u8",
+        skip_serializing_if = "super::is_true"
+    )]
+    pub show_sr_in_title: bool,
     #[serde(rename = "i")]
     pub image: SettingsImage,
     #[serde(rename = "b")]
@@ -22,6 +29,10 @@ pub struct ScoreEmbedSettings {
 
 impl ScoreEmbedSettings {
     fn default_show_artist() -> bool {
+        true
+    }
+
+    fn default_show_sr_in_title() -> bool {
         true
     }
 }
@@ -96,6 +107,7 @@ impl Default for ScoreEmbedSettings {
                 },
             ],
             show_artist: Self::default_show_artist(),
+            show_sr_in_title: Self::default_show_sr_in_title(),
             image: SettingsImage::default(),
             buttons: SettingsButtons::default(),
         }

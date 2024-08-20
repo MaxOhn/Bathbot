@@ -923,11 +923,14 @@ fn apply_settings(
 
     let _ = write!(
         title,
-        "{} [{}] [{}★]",
+        "{} [{}]",
         data.map.title().cow_escape_markdown(),
-        data.map.version().cow_escape_markdown(),
-        round(data.stars)
+        data.map.version().cow_escape_markdown()
     );
+
+    if settings.show_sr_in_title {
+        let _ = write!(title, " [{}★]", round(data.stars));
+    }
 
     let mut builder = EmbedBuilder::new().fields(fields).title(title);
 
@@ -1096,6 +1099,9 @@ fn write_value(
             };
 
             let _ = write!(writer, "{ratio:.2}:{against}");
+        }
+        Value::Stars => {
+            let _ = write!(writer, "{}★", round(data.stars));
         }
         Value::Length => {
             let clock_rate = map_attrs.clock_rate as f32;
