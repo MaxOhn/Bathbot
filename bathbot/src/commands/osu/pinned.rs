@@ -228,13 +228,16 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
         }
     };
 
+    let settings = config.score_embed.unwrap_or_default();
+
     let mut with_render = match (guild_render_button, config.render_button) {
         (None | Some(true), None) => true,
         (None | Some(true), Some(with_render)) => with_render,
         (Some(false), _) => false,
     };
 
-    with_render &= mode == GameMode::Osu
+    with_render &= settings.buttons.render
+        && mode == GameMode::Osu
         && orig.has_permission_to(Permissions::SEND_MESSAGES)
         && Context::ordr().is_some();
 
@@ -298,7 +301,6 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
 
     let condensed_list = match (single_idx, list_size) {
         (Some(_), _) | (None, ListSize::Single) => {
-            let settings = config.score_embed.unwrap_or_default();
             let content = content.map_or(SingleScoreContent::None, SingleScoreContent::SameForAll);
 
             let graph = match single_idx.map_or_else(|| entries.first(), |idx| entries.get(idx)) {
