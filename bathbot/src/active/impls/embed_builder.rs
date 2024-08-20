@@ -197,6 +197,7 @@ impl ScoreEmbedBuilderActive {
                 let default = ScoreEmbedSettings::default();
                 self.inner.settings.values = default.values;
                 self.inner.settings.show_artist = default.show_artist;
+                self.inner.settings.show_sr_in_title = default.show_sr_in_title;
             }
             "embed_builder_show_artist_button" => self.inner.settings.show_artist = true,
             "embed_builder_hide_artist_button" => self.inner.settings.show_artist = false,
