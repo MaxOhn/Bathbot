@@ -342,6 +342,7 @@ fn create_settings() -> ScoreEmbedSettings {
             },
         ],
         show_artist: true,
+        show_sr_in_title: true,
         image: SettingsImage::Thumbnail,
         buttons: SettingsButtons {
             pagination: false,
@@ -416,6 +417,7 @@ fn create_mania_settings() -> ScoreEmbedSettings {
             },
         ],
         show_artist: true,
+        show_sr_in_title: true,
         image: SettingsImage::Thumbnail,
         buttons: SettingsButtons {
             pagination: false,

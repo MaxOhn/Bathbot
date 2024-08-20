@@ -26,6 +26,7 @@ pub enum Value {
     Combo(ComboValue),
     Hitresults(HitresultsValue),
     Ratio,
+    Stars,
     #[serde(rename = "len")]
     Length,
     Ar,

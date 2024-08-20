@@ -118,6 +118,7 @@ impl ScoreEmbedBuilderActive {
                     "combo" => ValueKind::Combo,
                     "hitresults" => ValueKind::Hitresults,
                     "ratio" => ValueKind::Ratio,
+                    "sr" => ValueKind::Stars,
                     "len" => ValueKind::Length,
                     "bpm" => ValueKind::Bpm,
                     "ar" => ValueKind::Ar,
@@ -196,9 +197,12 @@ impl ScoreEmbedBuilderActive {
                 let default = ScoreEmbedSettings::default();
                 self.inner.settings.values = default.values;
                 self.inner.settings.show_artist = default.show_artist;
+                self.inner.settings.show_sr_in_title = default.show_sr_in_title;
             }
             "embed_builder_show_artist_button" => self.inner.settings.show_artist = true,
             "embed_builder_hide_artist_button" => self.inner.settings.show_artist = false,
+            "embed_builder_show_sr_title" => self.inner.settings.show_sr_in_title = true,
+            "embed_builder_hide_sr_title" => self.inner.settings.show_sr_in_title = false,
             "embed_builder_value_left" => {
                 let Some(idx) = self
                     .inner
@@ -767,6 +771,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 label: "Ratio".to_owned(),
                                 value: "ratio".to_owned(),
                             },
+                            kind_option!("Stars", "sr", Stars),
                             kind_option!("Length", "len", Length),
                             kind_option!("AR", "ar", Ar),
                             kind_option!("CS", "cs", Cs),
@@ -1107,6 +1112,59 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                     }
                     ValueKind::Ratio => {
                         components.push(show_hide_row(idx));
+                        components.push(arrow_row(idx));
+                    }
+                    ValueKind::Stars => {
+                        let disable_hide = match idx {
+                            Some(idx) => disable_hide(&self.inner.settings, idx),
+                            None => true,
+                        };
+
+                        components.push(Component::ActionRow(ActionRow {
+                            components: vec![
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_show_sr_title".to_owned()),
+                                    disabled: self.inner.settings.show_sr_in_title,
+                                    emoji: None,
+                                    label: Some("Show in title".to_owned()),
+                                    style: ButtonStyle::Secondary,
+                                    url: None,
+                                }),
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_hide_sr_title".to_owned()),
+                                    disabled: !self.inner.settings.show_sr_in_title,
+                                    emoji: None,
+                                    label: Some("Hide in title".to_owned()),
+                                    style: ButtonStyle::Secondary,
+                                    url: None,
+                                }),
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_show_button".to_owned()),
+                                    disabled: idx.is_some(),
+                                    emoji: None,
+                                    label: Some("Show as value".to_owned()),
+                                    style: ButtonStyle::Primary,
+                                    url: None,
+                                }),
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_hide_button".to_owned()),
+                                    disabled: disable_hide,
+                                    emoji: None,
+                                    label: Some("Hide value".to_owned()),
+                                    style: ButtonStyle::Primary,
+                                    url: None,
+                                }),
+                                Component::Button(Button {
+                                    custom_id: Some("embed_builder_reset_button".to_owned()),
+                                    disabled: false,
+                                    emoji: None,
+                                    label: Some("Reset all".to_owned()),
+                                    style: ButtonStyle::Danger,
+                                    url: None,
+                                }),
+                            ],
+                        }));
+
                         components.push(arrow_row(idx));
                     }
                     ValueKind::Length => {
@@ -1485,6 +1543,7 @@ pub enum ValueKind {
     Combo,
     Hitresults,
     Ratio,
+    Stars,
     Length,
     Ar,
     Cs,
@@ -1510,6 +1569,7 @@ impl ValueKind {
             Value::Combo(_) => ValueKind::Combo,
             Value::Hitresults(_) => ValueKind::Hitresults,
             Value::Ratio => ValueKind::Ratio,
+            Value::Stars => ValueKind::Stars,
             Value::Length => ValueKind::Length,
             Value::Bpm(_) => ValueKind::Bpm,
             Value::Ar => ValueKind::Ar,
@@ -1537,6 +1597,7 @@ impl From<ValueKind> for Value {
             ValueKind::Combo => Self::Combo(Default::default()),
             ValueKind::Hitresults => Self::Hitresults(Default::default()),
             ValueKind::Ratio => Self::Ratio,
+            ValueKind::Stars => Self::Stars,
             ValueKind::Length => Self::Length,
             ValueKind::Bpm => Self::Bpm(Default::default()),
             ValueKind::Ar => Self::Ar,
