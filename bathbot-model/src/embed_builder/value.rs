@@ -58,6 +58,12 @@ pub struct PpValue {
         skip_serializing_if = "super::is_true"
     )]
     pub if_fc: bool,
+    #[serde(
+        default = "PpValue::default_max_if_fc",
+        with = "bool_as_u8",
+        skip_serializing_if = "super::is_true"
+    )]
+    pub max_if_fc: bool,
 }
 
 impl PpValue {
@@ -68,6 +74,10 @@ impl PpValue {
     fn default_if_fc() -> bool {
         true
     }
+
+    fn default_max_if_fc() -> bool {
+        true
+    }
 }
 
 impl Default for PpValue {
@@ -75,6 +85,7 @@ impl Default for PpValue {
         Self {
             max: Self::default_max(),
             if_fc: Self::default_if_fc(),
+            max_if_fc: Self::default_max_if_fc(),
         }
     }
 }

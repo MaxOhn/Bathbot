@@ -1032,21 +1032,21 @@ fn write_value(
 
             let _ = write!(writer, "{bold}{:.2}", data.score.pp);
 
-            let _ = match (pp.max, data.if_fc_pp.filter(|_| pp.if_fc)) {
-                (true, Some(if_fc_pp)) => {
+            let _ = match (pp.max, data.if_fc_pp.filter(|_| pp.if_fc), pp.max_if_fc) {
+                (true, Some(if_fc_pp), _) => {
                     write!(
                         writer,
                         "{bold}/{max:.2}PP {tilde}({if_fc_pp:.2}pp){tilde}",
                         max = data.max_pp.max(data.score.pp)
                     )
                 }
-                (true, None) => {
+                (true, None, _) | (false, None, true) => {
                     write!(writer, "{bold}/{:.2}PP", data.max_pp.max(data.score.pp))
                 }
-                (false, Some(if_fc_pp)) => {
+                (false, Some(if_fc_pp), _) => {
                     write!(writer, "pp{bold} {tilde}({if_fc_pp:.2}pp){tilde}")
                 }
-                (false, None) => write!(writer, "pp{bold}"),
+                (false, None, false) => write!(writer, "pp{bold}"),
             };
         }
         Value::Combo(combo) => {
