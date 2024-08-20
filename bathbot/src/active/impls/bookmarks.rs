@@ -200,9 +200,9 @@ impl BookmarksPagination {
 
         let download_value = format!(
             "[osu!direct]({url}/osudirect/{mapset_id})\n\
-            [Mapset]({OSU_BASE}d/{mapset_id})\n\
-            [No Video]({OSU_BASE}d/{mapset_id}n)\n\
-            [Beatconnect](https://beatconnect.io/b/{mapset_id})",
+            [catboy.best](https://catboy.best/d/{mapset_id})\n\
+            [osu.direct](https://osu.direct/d/{mapset_id})\n\
+            [nerinyan.moe](https://api.nerinyan.moe/d/{mapset_id})",
             mapset_id = map.mapset_id,
         );
 
