@@ -252,7 +252,7 @@ impl BookmarksPagination {
             GameMode::Osu => {
                 let _ = write!(
                     description,
-                    " :clapper: [Map preview](http://jmir.xyz/osu/preview.html#{map_id})",
+                    " :clapper: [Map preview](https://preview.tryz.id.vn/?b={map_id})",
                     map_id = map.map_id
                 );
             }
