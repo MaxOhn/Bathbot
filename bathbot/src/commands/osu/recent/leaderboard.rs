@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bathbot_macros::command;
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::{
-    constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     osu::ModSelection,
 };
@@ -384,9 +384,7 @@ pub(super) async fn leaderboard(
         .await;
     order.push_content(&mut content);
 
-    let first_place_icon = scores
-        .first()
-        .map(|_| format!("{AVATAR_URL}{}", user.user_id()));
+    let first_place_icon = scores.first().map(|_| user.avatar_url().to_owned());
 
     let pagination = LeaderboardPagination::builder()
         .map(map)

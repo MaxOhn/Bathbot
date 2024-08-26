@@ -8,7 +8,7 @@ use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     osu::{MapIdType, ModSelection},
     IntHasher, ScoreExt,
@@ -319,11 +319,13 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
     let mut calc = Context::pp(&map).mode(mode).mods(Mods::new(mods_bits));
     let attrs_fut = calc.performance();
 
+    const SCORE_COUNT: usize = 100;
+
     let scores_fut = Context::osu_scores().map_leaderboard(
         map_id,
         mode,
         specify_mods.clone(),
-        100,
+        SCORE_COUNT as u32,
         legacy_scores,
     );
 
@@ -337,19 +339,23 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
 
     let (scores_res, user_res, attrs) = tokio::join!(scores_fut, user_fut, attrs_fut);
 
+    let mut avatar_urls = HashMap::with_capacity_and_hasher(SCORE_COUNT, IntHasher);
+
     let mut scores: Vec<_> = match scores_res {
         Ok(scores) => scores
             .into_iter()
             .enumerate()
             .map(|(i, mut score)| {
-                let user = score.user.take();
+                let username = match score.user.take() {
+                    Some(user) => {
+                        avatar_urls.insert(score.id, user.avatar_url);
 
-                LeaderboardScore::new(
-                    score.user_id,
-                    user.map_or_else(|| "<unknown user>".into(), |user| user.username),
-                    score,
-                    i + 1,
-                )
+                        user.username
+                    }
+                    None => "<unknown user>".into(),
+                };
+
+                LeaderboardScore::new(score.user_id, username, score, i + 1)
             })
             .collect(),
         Err(err) => {
@@ -415,7 +421,7 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         .await;
     args.sort.push_content(&mut content);
 
-    let first_place_icon = scores.first().map(|s| format!("{AVATAR_URL}{}", s.user_id));
+    let first_place_icon = scores.first().and_then(|s| avatar_urls.remove(&s.score_id));
 
     let pagination = LeaderboardPagination::builder()
         .map(map)
