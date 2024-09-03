@@ -36,7 +36,7 @@ impl SimulateArg {
     pub fn parse(input: &str) -> Result<Self, ParseError<'_>> {
         let (rest, key_opt) = parse_key(input).map_err(|_| ParseError::Nom(input))?;
 
-        match key_opt {
+        match key_opt.map(str::to_lowercase).as_deref() {
             None => parse_any(rest),
             Some("acc" | "a" | "accuracy") => parse_acc(rest).map(SimulateArg::Acc),
             Some("bpm") => parse_bpm(rest).map(SimulateArg::Bpm),
