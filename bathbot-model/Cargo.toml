@@ -7,16 +7,15 @@ edition.workspace = true
 [dependencies]
 bathbot-util = { path = "../bathbot-util" }
 bitflags = { version = "1.0" }
-compact_str = { version = "0.7.1", default-features = false, features = ["rkyv", "serde"] }
+compact_str = { version = "0.7.1", default-features = false, features = ["serde"] }
 form_urlencoded = { version = "1.2.0", default-features = false, features = ["std"] }
-eyre = { version = "0.6" }
+eyre = { workspace = true }
 http = { version = "0.2" }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
 once_cell = { version = "1.0" }
 rosu-mods = { workspace = true }
 rosu-v2 = { workspace = true }
-rkyv = { version = "0.7" }
-rkyv-with = { version = "0.1" }
+rkyv = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 serde_urlencoded = { version = "0.7.1", default-features = false }

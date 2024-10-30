@@ -1,7 +1,6 @@
 use std::{cmp::Reverse, collections::HashMap, fmt::Write};
 
 use bathbot_macros::command;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher, MessageBuilder,
@@ -11,7 +10,6 @@ use rosu_v2::{
     model::GameMode,
     prelude::{MostPlayedMap, OsuError},
     request::UserId,
-    OsuResult,
 };
 
 use super::{CompareMostPlayed, AT_LEAST_ONE};
@@ -19,7 +17,7 @@ use crate::{
     active::{impls::CompareMostPlayedPagination, ActiveMessages},
     commands::osu::{user_not_found, UserExtraction},
     core::commands::CommandOrigin,
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{CachedOsuUser, UserArgs, UserArgsError},
     Context,
 };
 
@@ -115,12 +113,12 @@ pub(super) async fn mostplayed(
 
     let (user1, maps1, user2, maps2) = match tokio::join!(fut1, fut2) {
         (Ok((user1, maps1)), Ok((user2, maps2))) => (user1, maps1, user2, maps2),
-        (Err(OsuError::NotFound), _) => {
+        (Err(UserArgsError::Osu(OsuError::NotFound)), _) => {
             let content = user_not_found(user_id1).await;
 
             return orig.error(content).await;
         }
-        (_, Err(OsuError::NotFound)) => {
+        (_, Err(UserArgsError::Osu(OsuError::NotFound))) => {
             let content = user_not_found(user_id2).await;
 
             return orig.error(content).await;
@@ -158,7 +156,7 @@ pub(super) async fn mostplayed(
     let amount_common = maps.len();
 
     // Accumulate all necessary data
-    let mut content = format!("`{}` and `{}`", user1.username(), user2.username());
+    let mut content = format!("`{}` and `{}`", user1.username, user2.username);
 
     if amount_common == 0 {
         content.push_str(" don't share any maps in their 100 most played maps");
@@ -175,8 +173,8 @@ pub(super) async fn mostplayed(
     );
 
     let pagination = CompareMostPlayedPagination::builder()
-        .username1(user1.username().into())
-        .username2(user2.username().into())
+        .username1(user1.username.as_str().into())
+        .username2(user2.username.as_str().into())
         .maps(maps)
         .map_counts(map_counts.into_boxed_slice())
         .content(content.into_boxed_str())
@@ -189,19 +187,23 @@ pub(super) async fn mostplayed(
         .await
 }
 
-async fn get_user_and_scores(user_id: &UserId) -> OsuResult<(RedisData<User>, Vec<MostPlayedMap>)> {
+async fn get_user_and_scores(
+    user_id: &UserId,
+) -> Result<(CachedOsuUser, Vec<MostPlayedMap>), UserArgsError> {
     match UserArgs::rosu_id(user_id, GameMode::Osu).await {
         UserArgs::Args(args) => {
             let score_fut = Context::osu().user_most_played(args.user_id).limit(100);
             let user_fut = Context::redis().osu_user_from_args(args);
+            let (user_res, scores_res) = tokio::join!(user_fut, score_fut);
 
-            tokio::try_join!(user_fut, score_fut)
+            Ok((user_res?, scores_res?))
         }
         UserArgs::User { user, .. } => Context::osu()
-            .user_most_played(user.user_id)
+            .user_most_played(user.user_id.to_native())
             .limit(100)
             .await
-            .map(|scores| (RedisData::Original(*user), scores)),
+            .map(|scores| (user, scores))
+            .map_err(UserArgsError::from),
         UserArgs::Err(err) => Err(err),
     }
 }

@@ -1,23 +1,34 @@
 use std::borrow::Cow;
 
-use bathbot_cache::Cache;
-use bathbot_model::rosu_v2::user::{ArchivedUserHighestRank, StatsWrapper, User};
-use bathbot_util::{
-    constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder, CowUtils,
-};
+use bathbot_cache::{data::BathbotRedisData, osu::user::CacheOsuUser, value::CachedArchive};
+use bathbot_model::rosu_v2::user::ArchivedUser;
+use bathbot_util::CowUtils;
+use eyre::{Report, WrapErr};
 use rosu_v2::{
-    prelude::{GameMode, OsuError, User as RosuUser},
+    prelude::{GameMode, OsuError, UserExtended},
     request::UserId,
 };
 
-use super::{RedisData, RedisManager, RedisResult};
+use super::RedisManager;
 use crate::core::{BotMetrics, Context};
+
+pub type CachedOsuUser = CachedArchive<ArchivedUser>;
 
 /// Retrieve an osu user through redis or the osu!api as backup
 pub enum UserArgs {
     Args(UserArgsSlim),
-    User { user: Box<User>, mode: GameMode },
-    Err(OsuError),
+    User { user: CachedOsuUser, mode: GameMode },
+    Err(UserArgsError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum UserArgsError {
+    #[error("osu error")]
+    Osu(#[from] OsuError),
+    #[error("serialization error")]
+    Serialization(#[source] Report),
+    #[error("validation error")]
+    Validation(#[source] Report),
 }
 
 impl UserArgs {
@@ -43,42 +54,14 @@ impl UserArgs {
         }
 
         match (Context::osu().user(name).mode(mode).await, alt_name) {
-            (Ok(user), _) => {
-                let user_clone = user.clone();
-
-                tokio::spawn(async move {
-                    Context::osu_user().store(&user_clone, mode).await;
-                    Context::get()
-                        .notify_osutrack_of_user_activity(user_clone.user_id, mode)
-                        .await;
-                });
-
-                Self::User {
-                    user: Box::new(user.into()),
-                    mode,
-                }
-            }
+            (Ok(user), _) => Self::from_user(user, mode),
             (Err(OsuError::NotFound), Some(alt_name)) => {
                 match Context::osu().user(alt_name).mode(mode).await {
-                    Ok(user) => {
-                        let user_clone = user.clone();
-
-                        tokio::spawn(async move {
-                            Context::osu_user().store(&user_clone, mode).await;
-                            Context::get()
-                                .notify_osutrack_of_user_activity(user_clone.user_id, mode)
-                                .await;
-                        });
-
-                        Self::User {
-                            user: Box::new(user.into()),
-                            mode,
-                        }
-                    }
-                    Err(err) => Self::Err(err),
+                    Ok(user) => Self::from_user(user, mode),
+                    Err(err) => Self::Err(UserArgsError::Osu(err)),
                 }
             }
-            (Err(err), _) => Self::Err(err),
+            (Err(err), _) => Self::Err(UserArgsError::Osu(err)),
         }
     }
 
@@ -89,6 +72,30 @@ impl UserArgs {
             Some(name)
         } else {
             None
+        }
+    }
+
+    fn from_user(mut user: UserExtended, mode: GameMode) -> Self {
+        user.mode = mode;
+
+        let archived = match CacheOsuUser::serialize(&user) {
+            Ok(bytes) => match CachedArchive::new(bytes) {
+                Ok(archived) => archived,
+                Err(err) => return Self::Err(UserArgsError::Validation(err)),
+            },
+            Err(err) => return Self::Err(UserArgsError::Serialization(Report::new(err))),
+        };
+
+        tokio::spawn(async move {
+            Context::osu_user().store(&user, mode).await;
+            Context::get()
+                .notify_osutrack_of_user_activity(user.user_id, mode)
+                .await;
+        });
+
+        Self::User {
+            user: archived,
+            mode,
         }
     }
 }
@@ -116,351 +123,171 @@ impl UserArgsSlim {
 }
 
 impl TryFrom<UserArgs> for UserArgsSlim {
-    type Error = OsuError;
+    type Error = UserArgsError;
 
     #[inline]
     fn try_from(args: UserArgs) -> Result<Self, Self::Error> {
         match args {
             UserArgs::Args(args) => Ok(args),
-            UserArgs::User { user, mode } => Ok(Self::user_id(user.user_id).mode(mode)),
+            UserArgs::User { user, mode } => Ok(Self::user_id(user.user_id.to_native()).mode(mode)),
             UserArgs::Err(err) => Err(err),
         }
     }
 }
-
-const EXPIRE: u64 = 600;
 
 impl RedisManager {
     fn osu_user_key(user_id: u32, mode: GameMode) -> String {
         format!("osu_user_{user_id}_{}", mode as u8)
     }
 
-    pub async fn osu_user_from_args(self, args: UserArgsSlim) -> RedisResult<User, User, OsuError> {
+    pub async fn osu_user_from_args(
+        self,
+        args: UserArgsSlim,
+    ) -> Result<CachedOsuUser, UserArgsError> {
         let UserArgsSlim { user_id, mode } = args;
         let key = Self::osu_user_key(user_id, mode);
 
-        let mut conn = match Context::cache().fetch(&key).await {
-            Ok(Ok(user)) => {
+        match Context::cache().fetch::<CacheOsuUser>(&key).await {
+            Ok(Some(data)) => {
                 BotMetrics::inc_redis_hit("osu! user");
 
-                return Ok(RedisData::Archive(user));
+                return Ok(data);
             }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
+            Ok(None) => {}
+            Err(err) => warn!("{err:?}"),
+        }
 
         let mut user = match Context::osu().user(user_id).mode(mode).await {
             Ok(user) => user,
-            Err(OsuError::NotFound) => {
+            Err(err @ OsuError::NotFound) => {
                 // Remove stats of unknown/restricted users so they don't appear in the
                 // leaderboard
                 if let Err(err) = Context::osu_user().remove_stats_and_scores(user_id).await {
                     warn!(?err, "Failed to remove stats of unknown user");
                 }
 
-                return Err(OsuError::NotFound);
+                return Err(UserArgsError::Osu(err));
             }
-            Err(err) => return Err(err),
+            Err(err) => return Err(UserArgsError::Osu(err)),
         };
 
         user.mode = mode;
-        let user_clone = user.clone();
-        let user = User::from(user);
 
-        if let Some(ref mut conn) = conn {
-            // Cache users for 10 minutes
-            if let Err(err) = Cache::store::<_, _, 64>(conn, &key, &user, EXPIRE).await {
-                warn!(?err, "Failed to store user");
-            }
+        let bytes = CacheOsuUser::serialize(&user)
+            .wrap_err_with(|| format!("Failed to serialize {key}"))
+            .map_err(UserArgsError::Serialization)?;
+
+        let store_fut = Context::cache().store_serialized::<CacheOsuUser>(&key, bytes.as_slice());
+
+        if let Err(err) = store_fut.await {
+            warn!(?err, "Failed to store {key}");
         }
 
-        drop(conn);
-
         tokio::spawn(async move {
-            Context::osu_user().store(&user_clone, mode).await;
+            Context::osu_user().store(&user, mode).await;
             Context::get()
-                .notify_osutrack_of_user_activity(user_clone.user_id, mode)
+                .notify_osutrack_of_user_activity(user.user_id, mode)
                 .await;
         });
 
-        Ok(RedisData::new(user))
+        CachedArchive::new(bytes).map_err(UserArgsError::Validation)
     }
 
-    pub async fn osu_user_from_user(
+    pub async fn osu_user_from_archived(
         self,
-        mut user: User,
+        user: CachedOsuUser,
         mode: GameMode,
-    ) -> RedisResult<User, User, OsuError> {
-        let key = Self::osu_user_key(user.user_id, mode);
-
-        user.mode = mode;
-
-        // Cache users for 10 minutes
-        let store_fut = Context::cache().store_new::<_, _, 64>(&key, &user, EXPIRE);
+    ) -> CachedOsuUser {
+        let key = Self::osu_user_key(user.user_id.to_native(), mode);
+        let bytes = user.bytes();
+        let store_fut = Context::cache().store_serialized::<CacheOsuUser>(&key, bytes);
 
         if let Err(err) = store_fut.await {
-            warn!(?err, "Failed to store user");
+            warn!(?err, "Failed to store {key}");
         }
 
-        Ok(RedisData::Original(user))
+        user
     }
 
-    pub async fn osu_user(self, args: UserArgs) -> RedisResult<User, User, OsuError> {
+    pub async fn osu_user(self, args: UserArgs) -> Result<CachedOsuUser, UserArgsError> {
         match args {
             UserArgs::Args(args) => self.osu_user_from_args(args).await,
-            UserArgs::User { user, mode } => self.osu_user_from_user(*user, mode).await,
+            UserArgs::User { user, mode } => Ok(self.osu_user_from_archived(user, mode).await),
             UserArgs::Err(err) => Err(err),
         }
     }
 }
 
-impl RedisData<User> {
-    pub fn avatar_url(&self) -> &str {
-        match self {
-            RedisData::Original(user) => user.avatar_url.as_ref(),
-            RedisData::Archive(user) => user.avatar_url.as_ref(),
-        }
-    }
+// TODO
+// impl ArchivedUser {
+//     pub fn update_(&mut self, user: RosuUser) {
+//         self.mutate(|mut archived| {
+//             if let Some(last_visit) = user.last_visit {
+//                 // SAFETY: The modified option will keep its variant and
+//                 // i128 is Unpin.
+//                 let last_visit_ = unsafe {
+//                     archived
+//                         .as_mut()
+//                         .map_unchecked_mut(|user| &mut user.last_visit)
+//                 };
 
-    pub fn user_id(&self) -> u32 {
-        match self {
-            RedisData::Original(user) => user.user_id,
-            RedisData::Archive(user) => user.user_id,
-        }
-    }
+//                 if let Some(last_visit_) = last_visit_.as_pin_mut() {
+//                     *last_visit_.get_mut() =
+// last_visit.unix_timestamp_nanos();                 }
+//             }
 
-    pub fn username(&self) -> &str {
-        match self {
-            RedisData::Original(user) => user.username.as_str(),
-            RedisData::Archive(user) => user.username.as_str(),
-        }
-    }
+//             if let Some(stats) = user.statistics {
+//                 // SAFETY: The modified option will keep its variant and
+//                 // UserStatistics is Unpin.
+//                 let stats_ = unsafe {
+//                     archived
+//                         .as_mut()
+//                         .map_unchecked_mut(|user| &mut user.statistics)
+//                 };
 
-    pub fn mode(&self) -> GameMode {
-        match self {
-            RedisData::Original(user) => user.mode,
-            RedisData::Archive(user) => user.mode,
-        }
-    }
+//                 if let Some(stats_) = stats_.as_pin_mut() {
+//                     *stats_.get_mut() = stats.into();
+//                 }
+//             }
 
-    pub fn country_code(&self) -> &str {
-        match self {
-            RedisData::Original(user) => user.country_code.as_str(),
-            RedisData::Archive(user) => user.country_code.as_str(),
-        }
-    }
+//             if let Some(highest_rank) = user.highest_rank {
+//                 // SAFETY: The modified option will keep its variant and
+//                 // ArchivedUserHighestRank is Unpin.
+//                 let highest_rank_ = unsafe {
+//                     archived
+//                         .as_mut()
+//                         .map_unchecked_mut(|user| &mut user.highest_rank)
+//                 };
 
-    pub fn stats(&self) -> StatsWrapper<'_> {
-        let stats_opt = match self {
-            RedisData::Original(user) => user.statistics.as_ref().map(StatsWrapper::Left),
-            RedisData::Archive(user) => user.statistics.as_ref().map(StatsWrapper::Right),
-        };
+//                 if let Some(highest_rank_) = highest_rank_.as_pin_mut() {
+//                     *highest_rank_.get_mut() = ArchivedUserHighestRank {
+//                         rank: highest_rank.rank,
+//                         updated_at:
+// highest_rank.updated_at.unix_timestamp_nanos(),                     };
+//                 }
+//             }
 
-        stats_opt.expect("missing statistics")
-    }
+//             macro_rules! update_pod {
+//                 ( $field:ident ) => {
+//                     if let Some($field) = user.$field {
+//                         // SAFETY: The modified option will keep its variant
+// and                         // POD is Unpin.
+//                         let field =
+//                             unsafe {
+// archived.as_mut().map_unchecked_mut(|user| &mut user.$field) };
 
-    pub fn author_builder(&self) -> AuthorBuilder {
-        match self {
-            RedisData::Original(user) => {
-                let stats = user.statistics.as_ref().expect("missing statistics");
+//                         *field.get_mut() = $field;
+//                     }
+//                 };
+//             }
 
-                let text = format!(
-                    "{name}: {pp}pp (#{global} {country}{national})",
-                    name = user.username,
-                    pp = WithComma::new(stats.pp),
-                    global = WithComma::new(stats.global_rank.unwrap_or(0)),
-                    country = user.country_code,
-                    national = stats.country_rank.unwrap_or(0)
-                );
-
-                let url = format!("{OSU_BASE}users/{}/{}", user.user_id, user.mode);
-                let icon = flag_url(&user.country_code);
-
-                AuthorBuilder::new(text).url(url).icon_url(icon)
-            }
-            RedisData::Archive(user) => {
-                let stats = user.statistics.as_ref().expect("missing statistics");
-                let country_code = user.country_code.as_str();
-
-                let text = format!(
-                    "{name}: {pp}pp (#{global} {country_code}{national})",
-                    name = user.username,
-                    pp = WithComma::new(stats.pp),
-                    global = WithComma::new(stats.global_rank),
-                    national = stats.country_rank
-                );
-
-                let url = format!("{OSU_BASE}users/{}/{}", user.user_id, user.mode);
-                let icon = flag_url(country_code);
-
-                AuthorBuilder::new(text).url(url).icon_url(icon)
-            }
-        }
-    }
-
-    pub fn update(&mut self, user: RosuUser) {
-        match self {
-            RedisData::Original(user_) => {
-                let RosuUser {
-                    avatar_url,
-                    country_code,
-                    last_visit,
-                    user_id,
-                    username,
-                    badges,
-                    follower_count,
-                    graveyard_mapset_count,
-                    guest_mapset_count,
-                    highest_rank,
-                    loved_mapset_count,
-                    monthly_playcounts,
-                    rank_history,
-                    ranked_mapset_count,
-                    replays_watched_counts,
-                    scores_first_count,
-                    statistics,
-                    pending_mapset_count,
-                    medals,
-                    ..
-                } = user;
-
-                user_.avatar_url = avatar_url.into_boxed_str();
-                user_.country_code = country_code;
-                user_.user_id = user_id;
-                user_.username = username;
-
-                if let last_visit @ Some(_) = last_visit {
-                    user_.last_visit = last_visit;
-                }
-
-                if let Some(badges) = badges {
-                    user_.badges = badges;
-                }
-
-                if let Some(follower_count) = follower_count {
-                    user_.follower_count = follower_count;
-                }
-
-                if let Some(graveyard_mapset_count) = graveyard_mapset_count {
-                    user_.graveyard_mapset_count = graveyard_mapset_count
-                }
-
-                if let Some(guest_mapset_count) = guest_mapset_count {
-                    user_.guest_mapset_count = guest_mapset_count
-                }
-
-                if let highest_rank @ Some(_) = highest_rank {
-                    user_.highest_rank = highest_rank;
-                }
-
-                if let Some(loved_mapset_count) = loved_mapset_count {
-                    user_.loved_mapset_count = loved_mapset_count;
-                }
-
-                if let Some(monthly_playcounts) = monthly_playcounts {
-                    user_.monthly_playcounts = monthly_playcounts
-                }
-
-                if let Some(rank_history) = rank_history {
-                    user_.rank_history = rank_history.into_boxed_slice();
-                }
-
-                if let Some(ranked_mapset_count) = ranked_mapset_count {
-                    user_.ranked_mapset_count = ranked_mapset_count;
-                }
-
-                if let Some(replays_watched_counts) = replays_watched_counts {
-                    user_.replays_watched_counts = replays_watched_counts;
-                }
-
-                if let Some(scores_first_count) = scores_first_count {
-                    user_.scores_first_count = scores_first_count;
-                }
-
-                if let Some(pending_mapset_count) = pending_mapset_count {
-                    user_.pending_mapset_count = pending_mapset_count;
-                }
-
-                if let Some(medals) = medals {
-                    user_.medals = medals;
-                }
-
-                if let statistics @ Some(_) = statistics {
-                    user_.statistics = statistics;
-                }
-            }
-            RedisData::Archive(user_) => user_.mutate(|mut archived| {
-                if let Some(last_visit) = user.last_visit {
-                    // SAFETY: The modified option will keep its variant and
-                    // i128 is Unpin.
-                    let last_visit_ = unsafe {
-                        archived
-                            .as_mut()
-                            .map_unchecked_mut(|user| &mut user.last_visit)
-                    };
-
-                    if let Some(last_visit_) = last_visit_.as_pin_mut() {
-                        *last_visit_.get_mut() = last_visit.unix_timestamp_nanos();
-                    }
-                }
-
-                if let Some(stats) = user.statistics {
-                    // SAFETY: The modified option will keep its variant and
-                    // UserStatistics is Unpin.
-                    let stats_ = unsafe {
-                        archived
-                            .as_mut()
-                            .map_unchecked_mut(|user| &mut user.statistics)
-                    };
-
-                    if let Some(stats_) = stats_.as_pin_mut() {
-                        *stats_.get_mut() = stats.into();
-                    }
-                }
-
-                if let Some(highest_rank) = user.highest_rank {
-                    // SAFETY: The modified option will keep its variant and
-                    // ArchivedUserHighestRank is Unpin.
-                    let highest_rank_ = unsafe {
-                        archived
-                            .as_mut()
-                            .map_unchecked_mut(|user| &mut user.highest_rank)
-                    };
-
-                    if let Some(highest_rank_) = highest_rank_.as_pin_mut() {
-                        *highest_rank_.get_mut() = ArchivedUserHighestRank {
-                            rank: highest_rank.rank,
-                            updated_at: highest_rank.updated_at.unix_timestamp_nanos(),
-                        };
-                    }
-                }
-
-                macro_rules! update_pod {
-                    ( $field:ident ) => {
-                        if let Some($field) = user.$field {
-                            // SAFETY: The modified option will keep its variant and
-                            // POD is Unpin.
-                            let field = unsafe {
-                                archived.as_mut().map_unchecked_mut(|user| &mut user.$field)
-                            };
-
-                            *field.get_mut() = $field;
-                        }
-                    };
-                }
-
-                update_pod!(follower_count);
-                update_pod!(graveyard_mapset_count);
-                update_pod!(guest_mapset_count);
-                update_pod!(loved_mapset_count);
-                update_pod!(ranked_mapset_count);
-                update_pod!(scores_first_count);
-                update_pod!(pending_mapset_count);
-            }),
-        }
-    }
-}
+//             update_pod!(follower_count);
+//             update_pod!(graveyard_mapset_count);
+//             update_pod!(guest_mapset_count);
+//             update_pod!(loved_mapset_count);
+//             update_pod!(ranked_mapset_count);
+//             update_pod!(scores_first_count);
+//             update_pod!(pending_mapset_count);
+//         })
+//     }
+// }

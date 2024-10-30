@@ -1,11 +1,8 @@
-use bathbot_cache::Cache;
+use bathbot_cache::bathbot::github_pull_requests::CacheGithubPullRequests;
 use bathbot_model::{PullRequests, PullRequestsAndTags};
 use eyre::{Result, WrapErr};
 
-use crate::{
-    core::{BotMetrics, Context},
-    manager::redis::RedisData,
-};
+use crate::core::{BotMetrics, Context};
 
 #[derive(Copy, Clone)]
 pub struct GithubManager;
@@ -24,33 +21,29 @@ impl GithubManager {
             .wrap_err("Failed to get tags and PRs")
     }
 
-    pub async fn next_prs(self, next_cursor: &str) -> Result<RedisData<PullRequests>> {
-        const EXPIRE: u64 = 1800; // 30 min
+    pub async fn next_prs(self, next_cursor: &str) -> Result<PullRequests> {
         let key = format!("github_prs_{next_cursor}");
 
-        let mut conn = match Context::cache().fetch(&key).await {
-            Ok(Ok(prs)) => {
+        match Context::cache()
+            .fetch::<CacheGithubPullRequests>(&key)
+            .await
+        {
+            Ok(Some(data)) => {
                 BotMetrics::inc_redis_hit("github prs");
 
-                return Ok(RedisData::Archive(prs));
+                return data.deserialize();
             }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
-        let prs = Context::client().github_pull_requests(next_cursor).await?;
-
-        if let Some(ref mut conn) = conn {
-            // TODO: check scratch size
-            if let Err(err) = Cache::store::<_, _, 1024>(conn, &key, &prs, EXPIRE).await {
-                warn!(?err, "Failed to store github pull requests");
-            }
+            Ok(None) => {}
+            Err(err) => warn!("{err:?}"),
         }
 
-        Ok(RedisData::new(prs))
+        let data = Context::client().github_pull_requests(next_cursor).await?;
+        let store_fut = Context::cache().store::<CacheGithubPullRequests>(&key, &data);
+
+        if let Err(err) = store_fut.await {
+            warn!(?err, "Failed to store {key}");
+        }
+
+        Ok(data)
     }
 }

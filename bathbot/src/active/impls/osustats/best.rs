@@ -1,7 +1,10 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
+use bathbot_cache::value::CachedArchive;
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{OsuStatsBestScore, OsuStatsBestScores};
+use bathbot_model::{
+    rkyv_util::time::DateRkyv, ArchivedOsuStatsBestScore, ArchivedOsuStatsBestScores,
+};
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::{HowLongAgoDynamic, DATE_FORMAT},
@@ -10,7 +13,12 @@ use bathbot_util::{
 };
 use eyre::Result;
 use futures::future::BoxFuture;
-use rosu_v2::prelude::GameMode;
+use rkyv::rancor::{Failure, Panic, ResultExt};
+use rosu_v2::{
+    model::Grade,
+    prelude::{GameMode, GameMods},
+};
+use time::OffsetDateTime;
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -33,7 +41,7 @@ use crate::{
 #[derive(PaginationBuilder)]
 pub struct OsuStatsBestPagination {
     #[pagination(per_page = 10, len = "scores.scores.len()")]
-    scores: OsuStatsBestScores,
+    scores: CachedArchive<ArchivedOsuStatsBestScores>,
     mode: GameMode,
     sort: OsuStatsBestSort,
     msg_owner: Id<UserMarker>,
@@ -44,11 +52,9 @@ impl IActiveMessage for OsuStatsBestPagination {
     fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
         let pages = &self.pages;
 
-        let OsuStatsBestScores {
-            start_date,
-            end_date,
-            scores,
-        } = &self.scores;
+        let start_date = DateRkyv::try_deserialize(self.scores.start_date).unwrap();
+        let end_date = DateRkyv::try_deserialize(self.scores.end_date).unwrap();
+        let scores = &self.scores.scores;
 
         let author_text = format!(
             "Top {mode} scores between {start} and {end}:",
@@ -88,6 +94,10 @@ impl IActiveMessage for OsuStatsBestPagination {
         let mut description = String::with_capacity(1024);
 
         for (score, i) in scores.iter().zip(idx + 1..) {
+            // TODO: make ModsFormatter work with archived mods?
+            let mods = rkyv::api::deserialize_using::<GameMods, _, Panic>(&score.mods, &mut ())
+                .always_ok();
+
             let _ = writeln!(
                 description,
                 "**#{i} [{artist} - {title} [{version}]]({OSU_BASE}b/{map_id}) +{mods}**\n\
@@ -97,13 +107,16 @@ impl IActiveMessage for OsuStatsBestPagination {
                 title = score.map.title,
                 version = score.map.version,
                 map_id = score.map.map_id,
-                mods = ModsFormatter::new(&score.mods),
+                mods = ModsFormatter::new(&mods),
                 user = score.user.username,
                 user_id = score.user.user_id,
-                grade = config.grade(score.grade),
-                pp = round(score.pp),
-                acc = round(score.accuracy),
-                combo = ComboFormatter::new(score.max_combo, Some(score.map.max_combo)),
+                grade = config.grade(Grade::from(score.grade)),
+                pp = round(score.pp.to_native()),
+                acc = round(score.accuracy.to_native()),
+                combo = ComboFormatter::new(
+                    score.max_combo.to_native(),
+                    Some(score.map.max_combo.to_native())
+                ),
                 appendix = OrderAppendix::new(score, self.sort),
             );
         }
@@ -136,12 +149,12 @@ impl IActiveMessage for OsuStatsBestPagination {
 }
 
 struct OrderAppendix<'s> {
-    score: &'s OsuStatsBestScore,
+    score: &'s ArchivedOsuStatsBestScore,
     sort: OsuStatsBestSort,
 }
 
 impl<'s> OrderAppendix<'s> {
-    fn new(score: &'s OsuStatsBestScore, sort: OsuStatsBestSort) -> Self {
+    fn new(score: &'s ArchivedOsuStatsBestScore, sort: OsuStatsBestSort) -> Self {
         Self { score, sort }
     }
 }
@@ -156,12 +169,21 @@ impl Display for OrderAppendix<'_> {
                 miss = self.score.count_miss,
                 emote = Emote::Miss
             ),
-            OsuStatsBestSort::Score => write!(f, "`{}`", WithComma::new(self.score.score)),
+            OsuStatsBestSort::Score => {
+                write!(f, "`{}`", WithComma::new(self.score.score.to_native()))
+            }
             OsuStatsBestSort::Accuracy
             | OsuStatsBestSort::Combo
             | OsuStatsBestSort::Date
             | OsuStatsBestSort::Pp => {
-                Display::fmt(&HowLongAgoDynamic::new(&self.score.ended_at), f)
+                let ended_at = self
+                    .score
+                    .ended_at
+                    .try_deserialize::<Failure>()
+                    .ok()
+                    .unwrap_or_else(OffsetDateTime::now_utc);
+
+                Display::fmt(&HowLongAgoDynamic::new(&ended_at), f)
             }
         }
     }

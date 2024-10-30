@@ -426,14 +426,6 @@ impl From<KittenRoleplayCountries> for SnipeCountries {
     }
 }
 
-impl SnipeCountries {
-    pub fn contains(&self, country_code: &str) -> bool {
-        self.country_codes
-            .binary_search_by_key(&country_code, Box::as_ref)
-            .is_ok()
-    }
-}
-
 impl ArchivedSnipeCountries {
     pub fn contains(&self, country_code: &str) -> bool {
         self.country_codes

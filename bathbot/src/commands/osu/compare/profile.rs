@@ -3,7 +3,7 @@ use std::{borrow::Cow, io::Cursor};
 use bathbot_macros::{command, SlashCommand};
 use bathbot_model::{command_fields::GameModeOption, RankAccPeaks, RespektiveUser};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::GENERAL_ISSUE,
     matcher,
     numbers::MinMaxAvg,
     osu::{BonusPP, UserStats},
@@ -31,7 +31,7 @@ use crate::{
     commands::osu::UserExtraction,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, ProfileCompareEmbed},
-    manager::redis::osu::UserArgs,
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
@@ -148,29 +148,29 @@ pub(super) async fn profile(orig: CommandOrigin<'_>, mut args: CompareProfile<'_
 
     let (user1, user2, scores1, scores2) = match tokio::try_join!(fut1, fut2) {
         Ok(((user1, scores1), (user2, scores2))) => (user1, user2, scores1, scores2),
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = "At least one of the players was not found";
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user and scores");
 
             return Err(err);
         }
     };
 
-    if user1.user_id() == user2.user_id() {
+    if user1.user_id == user2.user_id {
         let content = "Give two different users";
 
         return orig.error(content).await;
     }
 
     let content = if scores1.is_empty() {
-        Some(format!("No scores data for user `{}`", user1.username()))
+        Some(format!("No scores data for user `{}`", user1.username))
     } else if scores2.is_empty() {
-        Some(format!("No scores data for user `{}`", user2.username()))
+        Some(format!("No scores data for user `{}`", user2.username))
     } else {
         None
     };
@@ -180,12 +180,14 @@ pub(super) async fn profile(orig: CommandOrigin<'_>, mut args: CompareProfile<'_
     }
 
     let client = Context::client();
-    let thumbnail_fut = get_combined_thumbnail(user1.avatar_url(), user2.avatar_url());
+    let thumbnail_fut =
+        get_combined_thumbnail(user1.avatar_url.as_str(), user2.avatar_url.as_str());
 
-    let score_ranks_fut = client.get_respektive_users([user1.user_id(), user2.user_id()], mode);
+    let score_ranks_fut =
+        client.get_respektive_users([user1.user_id.to_native(), user2.user_id.to_native()], mode);
 
-    let osutrack_fut1 = client.osu_user_rank_acc_peak(user1.user_id(), mode);
-    let osutrack_fut2 = client.osu_user_rank_acc_peak(user2.user_id(), mode);
+    let osutrack_fut1 = client.osu_user_rank_acc_peak(user1.user_id.to_native(), mode);
+    let osutrack_fut2 = client.osu_user_rank_acc_peak(user2.user_id.to_native(), mode);
 
     let (thumbnail_res, score_ranks_res, osutrack_res1, osutrack_res2) =
         tokio::join!(thumbnail_fut, score_ranks_fut, osutrack_fut1, osutrack_fut2);
@@ -218,7 +220,7 @@ pub(super) async fn profile(orig: CommandOrigin<'_>, mut args: CompareProfile<'_
         Ok(peaks) => peaks,
         Err(err) => {
             warn!(
-                user_id = user1.user_id(),
+                user_id = user1.user_id.to_native(),
                 ?mode,
                 ?err,
                 "Failed to get osutrack peaks"
@@ -232,7 +234,7 @@ pub(super) async fn profile(orig: CommandOrigin<'_>, mut args: CompareProfile<'_
         Ok(peaks) => peaks,
         Err(err) => {
             warn!(
-                user_id = user2.user_id(),
+                user_id = user2.user_id.to_native(),
                 ?mode,
                 ?err,
                 "Failed to get osutrack peaks"
@@ -242,10 +244,18 @@ pub(super) async fn profile(orig: CommandOrigin<'_>, mut args: CompareProfile<'_
         }
     };
 
-    let profile_result1 =
-        CompareResult::calc(&scores1, user1.stats(), score_rank_data1, osutrack_peaks1);
-    let profile_result2 =
-        CompareResult::calc(&scores2, user2.stats(), score_rank_data2, osutrack_peaks2);
+    let profile_result1 = CompareResult::calc(
+        &scores1,
+        user1.statistics.as_ref().expect("missing stats"),
+        score_rank_data1,
+        osutrack_peaks1,
+    );
+    let profile_result2 = CompareResult::calc(
+        &scores2,
+        user2.statistics.as_ref().expect("missing stats"),
+        score_rank_data2,
+        osutrack_peaks2,
+    );
 
     // Creating the embed
     let embed_data =
@@ -368,7 +378,7 @@ pub struct CompareResult {
 impl CompareResult {
     fn calc(
         scores: &[Score],
-        stats: impl UserStats,
+        stats: &impl UserStats,
         score_rank_data: Option<RespektiveUser>,
         osutrack_peaks: Option<RankAccPeaks>,
     ) -> Self {

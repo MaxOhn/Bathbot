@@ -45,10 +45,8 @@ impl From<DbGuildConfig> for GuildConfig {
             score_data,
         } = config;
 
-        // SAFETY: The bytes originate from the DB which only provides valid archived
-        // data
-        let authorities = unsafe { Authorities::deserialize(&authorities) };
-        let prefixes = unsafe { Prefixes::deserialize(&prefixes) };
+        let authorities = Authorities::deserialize(&authorities);
+        let prefixes = Prefixes::deserialize(&prefixes);
 
         Self {
             authorities,

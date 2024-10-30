@@ -12,7 +12,7 @@ use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
 use rkyv::{
     with::{DeserializeWith, Map},
-    Deserialize, Infallible,
+    Deserialize,
 };
 use rosu_v2::{
     model::GameMode,
@@ -28,7 +28,7 @@ use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     embeds::{EmbedData, MedalStatsEmbed, StatsMedal},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::UserArgs,
     util::Monthly,
     Context,
 };
@@ -98,12 +98,8 @@ pub(super) async fn stats(orig: CommandOrigin<'_>, args: MedalStats<'_>) -> Resu
         }
     };
 
-    let mut medals = match user {
-        RedisData::Original(ref mut user) => mem::take(&mut user.medals),
-        RedisData::Archive(ref user) => {
-            Map::<MedalCompactRkyv>::deserialize_with(&user.medals, &mut Infallible).unwrap()
-        }
-    };
+    let mut medals =
+        Map::<MedalCompactRkyv>::deserialize_with(&user.medals, &mut Infallible).unwrap();
 
     medals.sort_unstable_by_key(|medal| medal.achieved_at);
 
@@ -116,35 +112,20 @@ pub(super) async fn stats(orig: CommandOrigin<'_>, args: MedalStats<'_>) -> Resu
         }
     };
 
-    let all_medals: HashMap<_, _, IntHasher> = match all_medals {
-        RedisData::Original(all_medals) => all_medals
-            .into_iter()
-            .map(|medal| {
-                (
-                    medal.medal_id,
-                    StatsMedal {
-                        name: medal.name,
-                        group: medal.grouping,
-                        rarity: medal.rarity,
-                    },
-                )
-            })
-            .collect(),
-        RedisData::Archive(all_medals) => all_medals
-            .iter()
-            .map(|medal| {
-                let medal_id = medal.medal_id;
+    let all_medals: HashMap<_, _, IntHasher> = all_medals
+        .iter()
+        .map(|medal| {
+            let medal_id = medal.medal_id;
 
-                let medal = StatsMedal {
-                    name: medal.name.deserialize(&mut Infallible).unwrap(),
-                    group: medal.grouping.deserialize(&mut Infallible).unwrap(),
-                    rarity: medal.rarity,
-                };
+            let medal = StatsMedal {
+                name: medal.name.deserialize(&mut Infallible).unwrap(),
+                group: medal.grouping.deserialize(&mut Infallible).unwrap(),
+                rarity: medal.rarity,
+            };
 
-                (medal_id, medal)
-            })
-            .collect(),
-    };
+            (medal_id, medal)
+        })
+        .collect();
 
     let rarest = medals
         .iter()

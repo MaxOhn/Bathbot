@@ -18,11 +18,15 @@ authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2021"
 
 [workspace.dependencies]
-rosu-mods = { version = "0.1.0", features = ["rkyv"] }
-rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next" }
-# rosu-pp = { path = "../rosu-pp" }
-rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "lazer", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
-# rosu-v2 = { path = "../rosu-v2", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
+eyre = { version = "0.6" }
+redlight = { path = "../redlight", default-features = false, features = ["bb8", "bytecheck", "cold_resume", "metrics"] }
+rkyv = { version = "0.8.8", default-features = false, features = ["bytecheck", "std"] }
+# rosu-mods = { version = "0.1.0", features = ["rkyv"] }
+rosu-mods = { path = "../rosu-mods", features = ["rkyv"] }
+# rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next" }
+rosu-pp = { path = "../rosu-pp" }
+# rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "lazer", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
+rosu-v2 = { path = "../rosu-v2", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
 twilight-gateway = { version = "0.15", default-features = false, features = ["rustls-webpki-roots", "twilight-http", "zlib-stock"] }
 twilight-http = { version = "0.15", default-features = false, features = ["rustls-webpki-roots"] }
 twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "with-help", default-features = false, features = ["derive"] }

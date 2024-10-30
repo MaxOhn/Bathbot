@@ -3,7 +3,7 @@ use std::{
     marker::PhantomData,
 };
 
-use rkyv::Archive;
+use rkyv::{Archive, Serialize};
 use serde::{
     de::{DeserializeSeed, Error as DeError, MapAccess, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
@@ -191,7 +191,7 @@ impl<'de> Deserialize<'de> for OnlyPullRequests {
     }
 }
 
-#[derive(Archive, rkyv::Deserialize, rkyv::Serialize)]
+#[derive(Archive, Serialize, rkyv::Deserialize)]
 pub struct PullRequests {
     pub inner: Vec<PullRequest>,
     pub next_cursor: Box<str>,
@@ -293,11 +293,11 @@ impl<'de> Deserialize<'de> for PullRequests {
         Ok(Self { inner, next_cursor })
     }
 }
-#[derive(Archive, rkyv::Deserialize, rkyv::Serialize)]
+#[derive(Archive, Serialize, rkyv::Deserialize)]
 pub struct PullRequest {
     pub author_name: Box<str>,
     pub id: u64,
-    #[with(DateTimeRkyv)]
+    #[rkyv(with = DateTimeRkyv)]
     pub merged_at: OffsetDateTime,
     pub referenced_issues: Vec<ReferencedIssue>,
     pub title: Box<str>,
@@ -418,7 +418,7 @@ impl<'de> Deserialize<'de> for AuthorLogin {
     }
 }
 
-#[derive(Archive, rkyv::Deserialize, rkyv::Serialize)]
+#[derive(Archive, Serialize, rkyv::Deserialize)]
 pub struct ReferencedIssue {
     pub author_name: Box<str>,
     pub body: Box<str>,

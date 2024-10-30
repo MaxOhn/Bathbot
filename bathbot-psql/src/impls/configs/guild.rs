@@ -1,7 +1,8 @@
 use std::{collections::HashMap, hash::BuildHasher};
 
-use eyre::{Result, WrapErr};
+use eyre::{Report, Result, WrapErr};
 use futures::StreamExt;
+use rkyv::{rancor::BoxedError, ser::Serializer};
 use twilight_model::id::{marker::GuildMarker, Id};
 
 use crate::{
@@ -65,11 +66,19 @@ FROM
             score_data,
         } = config;
 
-        let authorities =
-            rkyv::to_bytes::<_, 1>(authorities).wrap_err("failed to serialize authorities")?;
+        let (authorities, prefixes) = rkyv::util::with_arena(|arena| {
+            let mut authorities_writer = Vec::new();
+            let mut prefixes_writer = Vec::new();
+            let mut serializer = Serializer::new(&mut authorities_writer, arena.acquire(), ());
+            rkyv::api::serialize_using::<_, BoxedError>(authorities, &mut serializer)
+                .wrap_err("Failed to serialize authorities")?;
 
-        let prefixes =
-            rkyv::to_bytes::<_, 32>(prefixes).wrap_err("failed to serialize prefixes")?;
+            serializer.writer = &mut prefixes_writer;
+            rkyv::api::serialize_using::<_, BoxedError>(prefixes, &mut serializer)
+                .wrap_err("Failed to serialize prefixes")?;
+
+            Ok::<_, Report>((authorities_writer, prefixes_writer))
+        })?;
 
         let query = sqlx::query!(
             r#"

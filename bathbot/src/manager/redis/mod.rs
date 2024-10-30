@@ -1,17 +1,26 @@
-use std::{borrow::Cow, fmt::Write};
+use std::{borrow::Cow, fmt::Write, future::Future};
 
-use bathbot_cache::{Cache, CacheSerializer};
+use bathbot_cache::{
+    bathbot::map_diffs::CacheMapDiffs,
+    data::{BathbotRedisData, BathbotRedisSerializer, BathbotRedisValidator},
+    huismetbenen::snipe_countries::CacheSnipeCountries,
+    osekai::{badges::CacheBadges, medals::CacheMedals, ranking::CacheOsekaiRanking},
+    osu::pp_ranking::CachePpRanking,
+    osu_world::country_regions::CacheCountryRegions,
+    osustats::best::CacheOsuStatsBest,
+    value::CachedArchive,
+};
+use bathbot_client::Client;
 use bathbot_model::{
-    rosu_v2::ranking::Rankings, CountryRegions, OsekaiBadge, OsekaiMedal, OsekaiRanking,
+    rosu_v2::ranking::ArchivedRankings, CountryRegions, OsekaiBadge, OsekaiMedal, OsekaiRanking,
     OsuStatsBestScores, OsuStatsBestTimeframe, SnipeCountries,
 };
 use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
-use eyre::{Report, Result};
-use rkyv::{with::With, Serialize};
-use rosu_v2::prelude::{GameMode, OsuError, Rankings as RosuRankings};
+use eyre::{Report, Result, WrapErr};
+use rkyv::{bytecheck::CheckBytes, util::AlignedVec, Archived, Serialize};
+use rosu_v2::prelude::GameMode;
 
-pub use self::data::RedisData;
 use crate::{
     commands::osu::MapOrScore,
     core::{BotMetrics, Context},
@@ -20,9 +29,7 @@ use crate::{
 
 pub mod osu;
 
-mod data;
-
-type RedisResult<T, A = T, E = Report> = Result<RedisData<T, A>, E>;
+type RedisResult<T> = Result<CachedArchive<Archived<T>>>;
 
 #[derive(Copy, Clone)]
 pub struct RedisManager;
@@ -32,97 +39,81 @@ impl RedisManager {
         Self
     }
 
-    pub async fn badges(self) -> RedisResult<Vec<OsekaiBadge>> {
-        const EXPIRE: u64 = 7200;
-        const KEY: &str = "osekai_badges";
+    async fn fetch<T, R, F, U, C>(
+        self,
+        key: &str,
+        metrics_hit: &'static str,
+        request: R,
+        convert: C,
+    ) -> Result<CachedArchive<T::Archived>>
+    where
+        T: BathbotRedisData,
+        R: FnOnce(&'static Client) -> F,
+        F: Future<Output = Result<U>>,
+        C: for<'a> FnOnce(&'a U) -> &'a T::Original,
+    {
+        match Context::cache().fetch::<T>(key).await {
+            Ok(Some(data)) => {
+                BotMetrics::inc_redis_hit(metrics_hit);
 
-        let mut conn = match Context::cache().fetch(KEY).await {
-            Ok(Ok(badges)) => {
-                BotMetrics::inc_redis_hit("Osekai badges");
-
-                return Ok(RedisData::Archive(badges));
+                return Ok(data);
             }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
-        let badges = Context::client().get_osekai_badges().await?;
-
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 65_536>(conn, KEY, &badges, EXPIRE).await {
-                warn!(?err, "Failed to store badges");
-            }
+            Ok(None) => {}
+            Err(err) => warn!("{err:?}"),
         }
 
-        Ok(RedisData::new(badges))
+        let data = request(Context::client()).await?;
+
+        let bytes =
+            T::serialize(convert(&data)).wrap_err_with(|| format!("Failed to serialize {key}"))?;
+
+        let store_fut = Context::cache().store_serialized::<T>(key, bytes.as_slice());
+
+        if let Err(err) = store_fut.await {
+            warn!(?err, "Failed to store {key}");
+        }
+
+        CachedArchive::new(bytes)
+    }
+
+    pub async fn badges(self) -> RedisResult<Vec<OsekaiBadge>> {
+        self.fetch::<CacheBadges, _, _, _, _>(
+            "OSEKAI_BADGES",
+            "Osekai badges",
+            Client::get_osekai_badges,
+            AsRef::as_ref,
+        )
+        .await
     }
 
     pub async fn medals(self) -> RedisResult<Vec<OsekaiMedal>> {
-        const EXPIRE: u64 = 3600;
-        const KEY: &str = "osekai_medals";
-
-        let mut conn = match Context::cache().fetch(KEY).await {
-            Ok(Ok(medals)) => {
-                BotMetrics::inc_redis_hit("Osekai medals");
-
-                return Ok(RedisData::Archive(medals));
-            }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
-        let medals = Context::client().get_osekai_medals().await?;
-
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 16_384>(conn, KEY, &medals, EXPIRE).await {
-                warn!(?err, "Failed to store medals");
-            }
-        }
-
-        Ok(RedisData::new(medals))
+        self.fetch::<CacheMedals, _, _, _, _>(
+            "OSEKAI_MEDALS",
+            "Osekai medals",
+            Client::get_osekai_medals,
+            AsRef::as_ref,
+        )
+        .await
     }
 
     pub async fn osekai_ranking<R>(self) -> RedisResult<Vec<R::Entry>>
     where
         R: OsekaiRanking,
-        <R as OsekaiRanking>::Entry: Serialize<CacheSerializer<65_536>>,
+        R::Entry: for<'a> Serialize<
+            BathbotRedisSerializer<'a>,
+            Archived: CheckBytes<BathbotRedisValidator<'a>>,
+        >,
     {
-        const EXPIRE: u64 = 7200;
+        let mut key = "OSEKAI_RANKING_".to_string();
+        key.push_str(R::FORM);
 
-        let mut key = b"osekai_ranking_".to_vec();
-        key.extend_from_slice(R::FORM.as_bytes());
-
-        let mut conn = match Context::cache().fetch(&key).await {
-            Ok(Ok(ranking)) => {
-                BotMetrics::inc_redis_hit("Osekai ranking");
-
-                return Ok(RedisData::Archive(ranking));
-            }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
-        let ranking = Context::client().get_osekai_ranking::<R>().await?;
-
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 65_536>(conn, &key, &ranking, EXPIRE).await {
-                warn!(?err, "Failed to store osekai ranking");
-            }
-        }
-
-        Ok(RedisData::new(ranking))
+        self.fetch::<CacheOsekaiRanking<R>, _, _, _, _>(
+            &key,
+            "Osekai ranking",
+            Client::get_osekai_ranking::<R>,
+            AsRef::as_ref,
+        )
+        .await
     }
 
     pub async fn pp_ranking(
@@ -130,45 +121,30 @@ impl RedisManager {
         mode: GameMode,
         page: u32,
         country: Option<&str>,
-    ) -> RedisResult<RosuRankings, Rankings, OsuError> {
-        const EXPIRE: u64 = 1800;
-        let mut key = format!("pp_ranking_{}_{page}", mode as u8);
+    ) -> Result<CachedArchive<ArchivedRankings>> {
+        let mut key = format!("PP_RANKING_{}_{page}", mode as u8);
 
         if let Some(country) = country {
             let _ = write!(key, "_{country}");
         }
 
-        let mut conn = match Context::cache().fetch(&key).await {
-            Ok(Ok(ranking)) => {
-                BotMetrics::inc_redis_hit("PP ranking");
+        self.fetch::<CachePpRanking, _, _, _, _>(
+            &key,
+            "PP ranking",
+            |_| async {
+                let ranking_fut = Context::osu().performance_rankings(mode).page(page);
 
-                return Ok(RedisData::Archive(ranking));
-            }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
+                let res = if let Some(country) = country {
+                    ranking_fut.country(country).await
+                } else {
+                    ranking_fut.await
+                };
 
-                None
-            }
-        };
-
-        let ranking_fut = Context::osu().performance_rankings(mode).page(page);
-
-        let ranking = if let Some(country) = country {
-            ranking_fut.country(country).await?
-        } else {
-            ranking_fut.await?
-        };
-
-        if let Some(ref mut conn) = conn {
-            let with = With::<_, Rankings>::cast(&ranking);
-
-            if let Err(err) = Cache::store::<_, _, 32_768>(conn, &key, with, EXPIRE).await {
-                warn!(?err, "Failed to store ranking");
-            }
-        }
-
-        Ok(RedisData::new(ranking))
+                res.map_err(Report::new)
+            },
+            |value| value,
+        )
+        .await
     }
 
     pub async fn osustats_best(
@@ -176,91 +152,37 @@ impl RedisManager {
         timeframe: OsuStatsBestTimeframe,
         mode: GameMode,
     ) -> RedisResult<OsuStatsBestScores> {
-        const EXPIRE: u64 = 3600;
-        let key = format!("osustats_best_{}_{}", timeframe as u8, mode as u8);
+        let key = format!("OSUSTATS_BEST_{}_{}", timeframe as u8, mode as u8);
 
-        let mut conn = match Context::cache().fetch(&key).await {
-            Ok(Ok(scores)) => {
-                BotMetrics::inc_redis_hit("osu!stats best");
-
-                return Ok(RedisData::Archive(scores));
-            }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
-        let scores = Context::client().get_osustats_best(timeframe, mode).await?;
-
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 8192>(conn, &key, &scores, EXPIRE).await {
-                warn!(?err, "Failed to store osustats best");
-            }
-        }
-
-        Ok(RedisData::new(scores))
+        self.fetch::<CacheOsuStatsBest, _, _, _, _>(
+            &key,
+            "osu!stats best",
+            |client| client.get_osustats_best(timeframe, mode),
+            |value| value,
+        )
+        .await
     }
 
     pub async fn snipe_countries(self, mode: GameMode) -> RedisResult<SnipeCountries> {
-        const EXPIRE: u64 = 43_200; // 12 hours
-        let key = format!("snipe_countries_{mode}");
+        let key = format!("SNIPE_COUNTRIES_{mode}");
 
-        let mut conn = match Context::cache().fetch(&key).await {
-            Ok(Ok(countries)) => {
-                BotMetrics::inc_redis_hit("Snipe countries");
-
-                return Ok(RedisData::Archive(countries));
-            }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
-        let countries = Context::client().get_snipe_countries(mode).await?;
-
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 712>(conn, &key, &countries, EXPIRE).await {
-                warn!(?err, "Failed to store snipe countries");
-            }
-        }
-
-        Ok(RedisData::new(countries))
+        self.fetch::<CacheSnipeCountries, _, _, _, _>(
+            &key,
+            "Snipe countries",
+            |client| client.get_snipe_countries(mode),
+            |value| value,
+        )
+        .await
     }
 
     pub async fn country_regions(self) -> RedisResult<CountryRegions> {
-        const EXPIRE: u64 = 43_200; // 12 hours
-        let key = "country_regions";
-
-        let mut conn = match Context::cache().fetch(key).await {
-            Ok(Ok(countries)) => {
-                BotMetrics::inc_redis_hit("Country regions");
-
-                return Ok(RedisData::Archive(countries));
-            }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
-        let country_regions = Context::client().get_country_regions().await?;
-
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 1024>(conn, key, &country_regions, EXPIRE).await
-            {
-                warn!(?err, "Failed to store country regions");
-            }
-        }
-
-        Ok(RedisData::new(country_regions))
+        self.fetch::<CacheCountryRegions, _, _, _, _>(
+            "COUNTRY_REGIONS",
+            "Country regions",
+            Client::get_country_regions,
+            |value| value,
+        )
+        .await
     }
 
     // Mapset difficulty names for the autocomplete option of the compare command
@@ -270,31 +192,29 @@ impl RedisManager {
         map: &Option<Cow<'_, str>>,
         idx: Option<u32>,
     ) -> RedisResult<Vec<MapVersion>> {
-        const EXPIRE: u64 = 30;
+        fn serialize(key: &str, diffs: &[MapVersion]) -> Result<AlignedVec<8>> {
+            CacheMapDiffs::serialize(&diffs).wrap_err_with(|| format!("Failed to serialize {key}"))
+        }
 
         let idx = match idx {
             Some(idx @ 0..=50) => idx.saturating_sub(1) as usize,
             // Invalid index, ignore
-            Some(_) => return Ok(RedisData::new(Vec::new())),
+            Some(_) => return serialize("EMPTY_VEC", &[]).and_then(CachedArchive::new),
             None => 0,
         };
 
         let map_ = map.as_deref().unwrap_or_default();
-        let key = format!("diffs_{}_{idx}_{map_}", command.id);
+        let key = format!("DIFFS_{}_{idx}_{map_}", command.id);
 
-        let mut conn = match Context::cache().fetch(&key).await {
-            Ok(Ok(diffs)) => {
+        match Context::cache().fetch::<CacheMapDiffs>(&key).await {
+            Ok(Some(data)) => {
                 BotMetrics::inc_redis_hit("Beatmap difficulties");
 
-                return Ok(RedisData::Archive(diffs));
+                return Ok(data);
             }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
+            Ok(None) => {}
+            Err(err) => warn!("{err:?}"),
+        }
 
         let map = if let Some(map) = map {
             if let Some(id) = matcher::get_osu_map_id(map)
@@ -306,7 +226,7 @@ impl RedisManager {
                 Some(MapOrScore::Score { mode, id })
             } else {
                 // Invalid map input, ignore
-                return Ok(RedisData::new(Vec::new()));
+                return serialize("EMPTY_VEC", &[]).and_then(CachedArchive::new);
             }
         } else {
             None
@@ -333,12 +253,14 @@ impl RedisManager {
             None => Vec::new(),
         };
 
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 64>(conn, &key, &diffs, EXPIRE).await {
-                warn!(?err, "Failed to store cs diffs");
-            }
+        let bytes = serialize(&key, &diffs)?;
+
+        let store_fut = Context::cache().store_serialized::<CacheMapDiffs>(&key, bytes.as_slice());
+
+        if let Err(err) = store_fut.await {
+            warn!(?err, "Failed to store {key}");
         }
 
-        Ok(RedisData::new(diffs))
+        CachedArchive::new(bytes)
     }
 }

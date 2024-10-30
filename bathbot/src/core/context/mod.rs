@@ -4,9 +4,11 @@ use std::{
     time::Duration,
 };
 
-use bathbot_cache::Cache;
+use bathbot_cache::{
+    bathbot::{guild_shards::CacheGuildShards, miss_analyzer::CacheMissAnalyzerGuilds},
+    Cache,
+};
 use bathbot_client::Client as BathbotClient;
-use bathbot_model::twilight_model::id::IdRkyv;
 use bathbot_psql::{model::configs::GuildConfig, Database};
 use bathbot_util::{IntHasher, MetricsReader};
 use eyre::{Result, WrapErr};
@@ -15,7 +17,6 @@ use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
 use metrics_util::layers::{FanoutBuilder, Layer, PrefixLayer};
 use papaya::HashMap as PapayaMap;
-use rkyv::with::With;
 use rosu_v2::Osu;
 use time::OffsetDateTime;
 use tokio::sync::mpsc::UnboundedSender;
@@ -199,7 +200,16 @@ impl Context {
             .await
             .wrap_err("Failed to create osu client")?;
 
-        let cache = Cache::new(&config.redis_host, config.redis_port, config.redis_db_idx)
+        BotMetrics::init();
+
+        let redis_url = format!(
+            "redis://{host}:{port}/{db_idx}",
+            host = config.redis_host,
+            port = config.redis_port,
+            db_idx = config.redis_db_idx,
+        );
+
+        let cache = Cache::new(&redis_url)
             .await
             .wrap_err("Failed to create redis cache")?;
 
@@ -209,11 +219,10 @@ impl Context {
 
         let resume_data = data
             .cache
-            .defrost()
+            .defrost_with_hasher(true)
             .await
-            .wrap_err("Failed to defrost cache")?;
-
-        BotMetrics::init(&data.cache);
+            .wrap_err("Failed to defrost cache")?
+            .unwrap_or_default();
 
         let client_fut = BathbotClient::new(
             #[cfg(feature = "twitch")]
@@ -444,11 +453,12 @@ impl ContextData {
     }
 
     async fn fetch_guild_shards(cache: &Cache) -> GuildShards {
-        let fetch_fut = cache.fetch::<_, Vec<(With<Id<GuildMarker>, IdRkyv>, u64)>>("guild_shards");
-
-        match fetch_fut.await {
-            Ok(Ok(guild_shards)) => guild_shards.iter().copied().collect(),
-            Ok(Err(_)) => GuildShards::default(),
+        match cache.fetch::<CacheGuildShards>("GUILD_SHARDS").await {
+            Ok(Some(guild_shards)) => guild_shards
+                .iter()
+                .map(|entry| (entry.key.into(), entry.value.to_native()))
+                .collect(),
+            Ok(None) => GuildShards::default(),
             Err(err) => {
                 warn!(?err, "Failed to fetch guild shards, creating default...");
 
@@ -458,14 +468,15 @@ impl ContextData {
     }
 
     async fn fetch_miss_analyzer_guilds(cache: &Cache) -> MissAnalyzerGuilds {
-        let fetch_fut =
-            cache.fetch::<_, Vec<With<Id<GuildMarker>, IdRkyv>>>("miss_analyzer_guilds");
-
-        match fetch_fut.await {
-            Ok(Ok(miss_analyzer_guilds)) => {
-                miss_analyzer_guilds.iter().map(|id| (*id, ())).collect()
-            }
-            Ok(Err(_)) => MissAnalyzerGuilds::default(),
+        match cache
+            .fetch::<CacheMissAnalyzerGuilds>("MISS_ANALYZER_GUILDS")
+            .await
+        {
+            Ok(Some(miss_analyzer_guilds)) => miss_analyzer_guilds
+                .iter()
+                .map(|id| (Id::from(*id), ()))
+                .collect(),
+            Ok(None) => MissAnalyzerGuilds::default(),
             Err(err) => {
                 warn!(
                     ?err,

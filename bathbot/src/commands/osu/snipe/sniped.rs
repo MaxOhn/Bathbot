@@ -26,7 +26,7 @@ use super::{SnipeGameMode, SnipePlayerSniped};
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, SnipedEmbed},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::UserArgs,
     Context,
 };
 

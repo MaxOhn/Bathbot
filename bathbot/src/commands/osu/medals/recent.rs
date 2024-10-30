@@ -9,10 +9,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
-use rkyv::{
-    with::{DeserializeWith, Map},
-    Infallible,
-};
+use rkyv::with::{DeserializeWith, Map};
 use rosu_v2::{
     model::GameMode,
     prelude::{MedalCompact, OsuError},
@@ -25,7 +22,7 @@ use crate::{
     active::{impls::MedalsRecentPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::UserArgs,
     Context,
 };
 
@@ -76,8 +73,8 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
     let user_fut = Context::redis().osu_user(user_args);
     let medals_fut = Context::redis().medals();
 
-    let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
-        (Ok(user), Ok(medals)) => (user, medals.into_original()),
+    let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {
+        (Ok(user), Ok(medals)) => (user, medals),
         (Err(OsuError::NotFound), _) => {
             let content = user_not_found(user_id).await;
 

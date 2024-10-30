@@ -6,13 +6,35 @@ use std::{
 };
 
 use compact_str::CompactString;
+use rkyv::{
+    bytecheck::CheckBytes,
+    collections::util::{Entry, EntryAdapter},
+    rancor::{Fallible, Source},
+    ser::{Allocator, Writer},
+    string::{ArchivedString, StringResolver},
+    vec::{ArchivedVec, VecResolver},
+    with::{ArchiveWith, SerializeWith, With},
+    Archive, Place, Portable, Serialize,
+};
 use serde::{
     de::{Error as DeError, IgnoredAny, MapAccess, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
 };
 
-#[derive(Copy, Clone, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Eq, PartialEq)]
-#[archive(as = "Self")]
+#[derive(
+    Copy,
+    Clone,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Eq,
+    PartialEq,
+    Portable,
+    CheckBytes,
+)]
+#[rkyv(as = Self)]
+#[bytecheck(crate = rkyv::bytecheck)]
+#[repr(transparent)]
 pub struct CountryCode([u8; 2]);
 
 impl CountryCode {
@@ -61,8 +83,79 @@ impl<'de> Deserialize<'de> for CountryCode {
 
 pub type RegionCode = CompactString;
 pub type RegionName = CompactString;
-pub type Regions = HashMap<RegionCode, RegionName>;
-pub type CountryRegions = HashMap<CountryCode, Regions>;
+
+#[derive(Archive, Serialize, Deserialize)]
+#[repr(transparent)]
+#[serde(transparent)]
+pub struct CountryRegions(HashMap<CountryCode, Regions>);
+
+impl ArchivedCountryRegions {
+    pub fn get(&self, country_code: &str) -> Option<&ArchivedRegions> {
+        self.0.get(country_code)
+    }
+}
+
+#[derive(Deserialize)]
+#[repr(transparent)]
+#[serde(transparent)]
+struct Regions(HashMap<RegionCode, RegionName>);
+
+pub type ArchivedRegions = ArchivedVec<Entry<ArchivedString, ArchivedString>>;
+
+impl Archive for Regions {
+    type Archived = ArchivedRegions;
+    type Resolver = VecResolver;
+
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        ArchivedVec::resolve_from_len(self.0.len(), resolver, out);
+    }
+}
+
+impl<S> Serialize<S> for Regions
+where
+    S: Fallible<Error: Source> + Allocator + Writer + ?Sized,
+{
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        struct AsString;
+
+        impl ArchiveWith<CompactString> for AsString {
+            type Archived = ArchivedString;
+            type Resolver = StringResolver;
+
+            fn resolve_with(
+                field: &CompactString,
+                resolver: Self::Resolver,
+                out: Place<Self::Archived>,
+            ) {
+                ArchivedString::resolve_from_str(field, resolver, out);
+            }
+        }
+
+        impl<S> SerializeWith<CompactString, S> for AsString
+        where
+            S: Fallible<Error: Source> + Writer + ?Sized,
+        {
+            fn serialize_with(
+                field: &CompactString,
+                serializer: &mut S,
+            ) -> Result<Self::Resolver, <S as Fallible>::Error> {
+                ArchivedString::serialize_from_str(field, serializer)
+            }
+        }
+
+        type CompactAsString = With<CompactString, AsString>;
+
+        ArchivedVec::serialize_from_iter(
+            self.0.iter().map(|(key, value)| {
+                EntryAdapter::<_, _, CompactAsString, CompactAsString>::new(
+                    CompactAsString::cast(key),
+                    CompactAsString::cast(value),
+                )
+            }),
+            serializer,
+        )
+    }
+}
 
 pub struct OsuWorldUserIds(pub Vec<i32>);
 

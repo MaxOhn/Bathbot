@@ -10,11 +10,11 @@ use crate::{
 
 pub(super) async fn rarity(mut command: InteractionCommand) -> Result<()> {
     let ranking = match Context::redis().osekai_ranking::<Rarity>().await {
-        Ok(ranking) => ranking.into_original(),
+        Ok(ranking) => ranking,
         Err(err) => {
             let _ = command.error(OSEKAI_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached rarity ranking"));
+            return Err(err.wrap_err("Failed to get cached rarity ranking"));
         }
     };
 

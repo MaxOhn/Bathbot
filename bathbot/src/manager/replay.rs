@@ -55,7 +55,7 @@ impl ReplayManager {
         // already, that means the score has no available replay.
         let not_contained = self
             .cache
-            .insert_into_set("__requested_replay_score_ids", score_id)
+            .insert_into_set("__REQUESTED_REPLAY_SCORE_IDS", score_id)
             .await
             .wrap_err("Failed to check whether replay was already requested")?;
 

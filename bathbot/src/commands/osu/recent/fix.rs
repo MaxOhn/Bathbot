@@ -70,7 +70,7 @@ pub(super) async fn fix(orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> 
                     GameMode::Catch => "ctb ",
                     GameMode::Mania => "mania ",
                 },
-                user.username(),
+                user.username,
             );
 
             return orig.error(content).await;
@@ -113,7 +113,7 @@ pub(super) async fn fix(orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> 
             let checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref());
             let map_fut = Context::osu_map().map(score.map_id, checksum);
 
-            let user_args = UserArgsSlim::user_id(user.user_id()).mode(score.mode);
+            let user_args = UserArgsSlim::user_id(user.user_id.to_native()).mode(score.mode);
             let best_fut = Context::osu_scores()
                 .top(legacy_scores)
                 .limit(100)
@@ -135,7 +135,7 @@ pub(super) async fn fix(orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> 
             }
         }
         None => {
-            let username = user.username();
+            let username = user.username.as_str();
 
             let content = format!(
                 "There {verb} only {num} score{plural} in `{username}`'{genitive} recent history.",

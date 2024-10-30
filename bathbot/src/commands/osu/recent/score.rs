@@ -409,7 +409,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
 
     let (user, mut scores) = match scores_res {
         Ok((user, scores)) if scores.is_empty() => {
-            let username = user.username();
+            let username = user.username.as_str();
             let content = format!(
                 "No recent {}plays found for user `{username}`",
                 match mode {
@@ -480,7 +480,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
 
     let Some([score, prev_scores @ ..]) = scores.get(num..) else {
         let len = scores.len();
-        let username = user.username();
+        let username = user.username.as_str();
 
         let content = format!(
             "There {verb} only {len} score{plural} in `{username}`'{genitive} recent history.",
@@ -552,7 +552,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         ),
     };
 
-    let user_id = user.user_id();
+    let user_id = user.user_id.to_native();
     let grade = if score.passed { score.grade } else { Grade::F };
 
     let mut with_miss_analyzer = orig

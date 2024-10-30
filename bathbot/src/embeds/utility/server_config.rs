@@ -1,10 +1,10 @@
 use std::fmt::Write;
 
-use bathbot_cache::model::CachedArchive;
+use bathbot_cache::twilight::guild::CachedGuild;
 use bathbot_macros::EmbedData;
-use bathbot_model::twilight_model::guild::Guild;
 use bathbot_psql::model::configs::{GuildConfig, HideSolutions, ListSize, Retries, ScoreData};
 use bathbot_util::AuthorBuilder;
+use redlight::CachedArchive;
 use twilight_model::channel::message::embed::EmbedField;
 
 use super::config::create_field;
@@ -19,7 +19,11 @@ pub struct ServerConfigEmbed {
 }
 
 impl ServerConfigEmbed {
-    pub fn new(guild: CachedArchive<Guild>, config: GuildConfig, authorities: &[String]) -> Self {
+    pub fn new(
+        guild: CachedArchive<CachedGuild>,
+        config: GuildConfig,
+        authorities: &[String],
+    ) -> Self {
         let mut author = AuthorBuilder::new(guild.name.as_ref());
 
         if let Some(hash) = guild.icon.as_ref() {

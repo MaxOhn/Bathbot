@@ -6,6 +6,7 @@ use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::id::Id;
 
 use crate::{
     active::{impls::RankingPagination, ActiveMessages},
@@ -147,8 +148,8 @@ async fn slash_serverleaderboard(mut command: InteractionCommand) -> Result<()> 
     let guild_id = command.guild_id.unwrap(); // command is only processed in guilds
     let cache = Context::cache();
 
-    let members: Vec<_> = match cache.members(guild_id).await {
-        Ok(members) => members.into_iter().map(|id| id as i64).collect(),
+    let members: Vec<_> = match cache.member_ids(guild_id).await {
+        Ok(members) => members.into_iter().map(|id| id.get() as i64).collect(),
         Err(err) => {
             let _ = command.error(GENERAL_ISSUE).await;
 
@@ -161,7 +162,7 @@ async fn slash_serverleaderboard(mut command: InteractionCommand) -> Result<()> 
         .await
         .ok()
         .flatten()
-        .and_then(|guild| Some((guild.id, *guild.icon.as_ref()?)));
+        .and_then(|guild| Some((Id::from(guild.id), *guild.icon.as_ref()?)));
 
     let author_name_fut = Context::user_config().osu_name(owner);
 

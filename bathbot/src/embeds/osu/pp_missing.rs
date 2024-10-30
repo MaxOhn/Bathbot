@@ -5,7 +5,6 @@ use std::{
     iter,
 };
 
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     numbers::WithComma,
     osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
@@ -13,7 +12,7 @@ use bathbot_util::{
 };
 use rosu_v2::prelude::Score;
 
-use crate::{embeds::EmbedData, manager::redis::RedisData};
+use crate::{embeds::EmbedData, manager::redis::osu::CachedOsuUser, util::CachedUserExt};
 
 fn idx_suffix(idx: usize) -> &'static str {
     match idx % 100 {
@@ -37,16 +36,19 @@ pub struct PpMissingEmbed {
 
 impl PpMissingEmbed {
     pub fn new(
-        user: &RedisData<User>,
+        user: &CachedOsuUser,
         scores: &[Score],
         goal_pp: f32,
         rank: Option<u32>,
         each: Option<f32>,
         amount: Option<u8>,
     ) -> Self {
-        let stats_pp = user.stats().pp();
+        let stats_pp = user
+            .statistics
+            .as_ref()
+            .map_or(0.0, |stats| stats.pp.to_native());
 
-        let username = user.username();
+        let username = user.username.as_str();
 
         let title = format!(
             "What scores is {name} missing to reach {goal_pp}pp?",
@@ -278,7 +280,7 @@ impl PpMissingEmbed {
             author: user.author_builder(),
             description,
             footer,
-            thumbnail: user.avatar_url().to_owned(),
+            thumbnail: user.avatar_url.as_str().to_owned(),
             title,
         }
     }

@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::WithComma, CowUtils, EmbedBuilder,
     FooterBuilder, ModsFormatter, ScoreExt,
@@ -19,17 +18,17 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::NochokeEntry,
-    manager::redis::RedisData,
+    manager::redis::osu::CachedOsuUser,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::GradeFormatter,
-        Emote,
+        CachedUserExt, Emote,
     },
 };
 
 #[derive(PaginationBuilder)]
 pub struct NoChokePagination {
-    user: RedisData<User>,
+    user: CachedOsuUser,
     #[pagination(per_page = 5)]
     entries: Box<[NochokeEntry]>,
     unchoked_pp: f32,
@@ -45,7 +44,11 @@ impl IActiveMessage for NoChokePagination {
         let end_idx = self.entries.len().min(pages.index() + pages.per_page());
         let entries = &self.entries[pages.index()..end_idx];
 
-        let pp_raw = self.user.stats().pp();
+        let pp_raw = self
+            .user
+            .statistics
+            .as_ref()
+            .map_or(0.0, |stats| stats.pp.to_native());
         let pp_diff = (100.0 * (self.unchoked_pp - pp_raw)).round() / 100.0;
         let mut description = String::with_capacity(512);
 
@@ -111,7 +114,7 @@ impl IActiveMessage for NoChokePagination {
             .author(self.user.author_builder())
             .description(description)
             .footer(FooterBuilder::new(footer_text))
-            .thumbnail(self.user.avatar_url())
+            .thumbnail(self.user.avatar_url.as_str())
             .title(title);
 
         BuildPage::new(embed, false)

@@ -27,7 +27,7 @@ use crate::{
     commands::osu::CustomAttrs,
     core::Context,
     embeds::attachment,
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::UserArgs,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         Emote,
@@ -348,8 +348,7 @@ async fn creator_name(map: &BeatmapExtended, mapset: &BeatmapsetExtended) -> Opt
     let args = UserArgs::user_id(map.creator_id, GameMode::Osu);
 
     match Context::redis().osu_user(args).await {
-        Ok(RedisData::Original(user)) => Some(user.username),
-        Ok(RedisData::Archive(user)) => Some(user.username.as_str().into()),
+        Ok(user) => Some(user.username.as_str().into()),
         Err(err) => {
             warn!(?err, "Failed to get user");
 

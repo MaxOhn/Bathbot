@@ -1,4 +1,3 @@
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
@@ -10,19 +9,19 @@ use super::{H, W};
 use crate::{
     commands::osu::{player_snipe_stats, user_not_found},
     core::{commands::CommandOrigin, Context},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{CachedOsuUser, UserArgs, UserArgsError},
 };
 
 pub async fn snipe_count_graph(
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     mode: GameMode,
-) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+) -> Result<Option<(CachedOsuUser, Vec<u8>)>> {
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
             orig.error(content).await?;
 
@@ -36,22 +35,9 @@ pub async fn snipe_count_graph(
         }
     };
 
-    let (country_code, username, user_id) = match &user {
-        RedisData::Original(user) => {
-            let country_code = user.country_code.as_str();
-            let username = user.username.as_str();
-            let user_id = user.user_id;
-
-            (country_code, username, user_id)
-        }
-        RedisData::Archive(user) => {
-            let country_code = user.country_code.as_str();
-            let username = user.username.as_str();
-            let user_id = user.user_id;
-
-            (country_code, username, user_id)
-        }
-    };
+    let country_code = user.country_code.as_str();
+    let username = user.username.as_str();
+    let user_id = user.user_id.to_native();
 
     let (player, history) = if Context::huismetbenen()
         .is_supported(country_code, mode)

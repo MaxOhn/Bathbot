@@ -6,8 +6,8 @@ edition.workspace = true
 
 [dependencies]
 aho-corasick = { version = "1.1.1" }
-bathbot-cache = { path = "../bathbot-cache" }
 bathbot-cards = { path = "../bathbot-cards" }
+bathbot-cache = { path = "../bathbot-cache" }
 bathbot-client = { path = "../bathbot-client" }
 bathbot-macros = { path = "../bathbot-macros" }
 bathbot-model = { path = "../bathbot-model" }
@@ -20,7 +20,7 @@ compact_str = { version = "0.7.1", default-features = false }
 dotenvy = { version = "0.15" }
 enterpolation = { version = "0.2", default-features = false, features = ["std", "bezier", "bspline", "linear"] }
 enum_dispatch = { version = "0.3.11" }
-eyre = { version = "0.6" }
+eyre = { workspace = true }
 flexmap = { git = "https://github.com/MaxOhn/flexmap" }
 futures = { version = "0.3", default-features = false }
 hashbrown = { version = "0.14" }
@@ -39,11 +39,12 @@ plotters-skia = { git = "https://github.com/MaxOhn/plotters-skia", branch = "mai
 priority-queue = { version = "1.0", optional = true }
 radix_trie = { version = "0.2" }
 rand = { version = "0.8" }
-rkyv = { version = "0.7" }
+redlight = { workspace = true }
+rkyv = { workspace = true }
 rosu-pp = { workspace = true }
 rosu-v2 = { workspace = true }
-rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
-# rosu-pp-older = { path = "../../rosu-pp-older" }
+# rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
+rosu-pp-older = { path = "../../rosu-pp-older" }
 # rosu-render = { git = "https://github.com/MaxOhn/rosu-render", branch = "main", default-features = false, features = ["rustls-webpki-roots"] }
 rosu-render = { version = "0.2.1", default-features = false, features = ["rustls-webpki-roots"] }
 serde = { version = "1.0", features = ["derive"] }

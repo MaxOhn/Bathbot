@@ -40,11 +40,11 @@ pub(super) async fn medal_count(
     let (osekai_res, name_res) = tokio::join!(ranking_fut, config_fut);
 
     let mut ranking = match osekai_res {
-        Ok(ranking) => ranking.into_original(),
+        Ok(ranking) => ranking,
         Err(err) => {
             let _ = command.error(OSEKAI_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached medal count ranking"));
+            return Err(err.wrap_err("Failed to get cached medal count ranking"));
         }
     };
 
@@ -68,7 +68,7 @@ pub(super) async fn medal_count(
         .and_then(|name| ranking.iter().position(|e| e.username.as_str() == name));
 
     let pagination = MedalCountPagination::builder()
-        .ranking(ranking.into_boxed_slice())
+        .ranking(ranking)
         .author_idx(author_idx)
         .msg_owner(owner)
         .build();

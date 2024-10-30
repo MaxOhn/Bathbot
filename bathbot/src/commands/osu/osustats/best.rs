@@ -13,7 +13,7 @@ pub(super) async fn recentbest(orig: CommandOrigin<'_>, args: OsuStatsBest) -> R
     let scores_fut = Context::redis().osustats_best(args.timeframe, mode);
 
     let mut scores = match scores_fut.await {
-        Ok(scores) => scores.into_original(),
+        Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(OSUSTATS_API_ISSUE).await;
 
@@ -26,7 +26,8 @@ pub(super) async fn recentbest(orig: CommandOrigin<'_>, args: OsuStatsBest) -> R
     match sort {
         OsuStatsBestSort::Accuracy => scores.scores.sort_unstable_by(|a, b| {
             b.accuracy
-                .total_cmp(&a.accuracy)
+                .to_native()
+                .total_cmp(&a.accuracy.to_native())
                 .then_with(|| a.ended_at.cmp(&b.ended_at))
         }),
         OsuStatsBestSort::Combo => scores.scores.sort_unstable_by(|a, b| {
@@ -46,7 +47,8 @@ pub(super) async fn recentbest(orig: CommandOrigin<'_>, args: OsuStatsBest) -> R
                 .then_with(|| a.ended_at.cmp(&b.ended_at))
         }),
         OsuStatsBestSort::Pp => scores.scores.sort_unstable_by(|a, b| {
-            b.pp.total_cmp(&a.pp)
+            b.pp.to_native()
+                .total_cmp(&a.pp.to_native())
                 .then_with(|| a.ended_at.cmp(&b.ended_at))
         }),
         OsuStatsBestSort::Score => scores.scores.sort_unstable_by(|a, b| {

@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{rosu_v2::user::User, OsuStatsParams, OsuStatsScoresRaw, ScoreSlim};
+use bathbot_model::{OsuStatsParams, OsuStatsScoresRaw, ScoreSlim};
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
@@ -27,16 +27,17 @@ use crate::{
     commands::osu::OsuStatsEntry,
     core::Context,
     embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
-    manager::redis::RedisData,
+    manager::redis::osu::CachedOsuUser,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::grade_emote,
+        CachedUserExt,
     },
 };
 
 #[derive(PaginationBuilder)]
 pub struct OsuStatsScoresPagination {
-    user: RedisData<User>,
+    user: CachedOsuUser,
     #[pagination(per_page = 5, len = "total")]
     entries: BTreeMap<usize, OsuStatsEntry>,
     total: usize,
@@ -158,7 +159,7 @@ impl OsuStatsScoresPagination {
                 .author(self.user.author_builder())
                 .description("No scores with these parameters were found")
                 .footer(FooterBuilder::new("Page 1/1 • Total scores: 0"))
-                .thumbnail(self.user.avatar_url());
+                .thumbnail(self.user.avatar_url.as_str());
 
             return Ok(BuildPage::new(embed, true).content(self.content.clone()));
         }
@@ -210,7 +211,7 @@ impl OsuStatsScoresPagination {
             .author(self.user.author_builder())
             .description(description)
             .footer(footer)
-            .thumbnail(self.user.avatar_url());
+            .thumbnail(self.user.avatar_url.as_str());
 
         Ok(BuildPage::new(embed, true).content(self.content.clone()))
     }

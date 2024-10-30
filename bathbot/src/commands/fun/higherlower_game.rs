@@ -109,10 +109,10 @@ async fn higherlower_leaderboard(
     };
 
     let members: HashSet<_, IntHasher> = Context::cache()
-        .members(guild)
+        .member_ids(guild)
         .await?
         .into_iter()
-        .map(|id| id as i64)
+        .map(|id| id.get() as i64)
         .collect();
 
     scores.retain(|row| members.contains(&row.discord_id));

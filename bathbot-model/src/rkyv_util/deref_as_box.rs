@@ -2,8 +2,9 @@ use std::ops::Deref;
 
 use rkyv::{
     boxed::ArchivedBox,
+    rancor::Fallible,
     with::{ArchiveWith, SerializeWith},
-    ArchiveUnsized, Archived, Fallible, Resolver, SerializeUnsized,
+    ArchiveUnsized, Archived, Place, Resolver, SerializeUnsized,
 };
 
 pub struct DerefAsBox;
@@ -17,14 +18,9 @@ where
     type Resolver = Resolver<Box<V>>;
 
     #[inline]
-    unsafe fn resolve_with(
-        field: &U,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
+    fn resolve_with(field: &U, resolver: Self::Resolver, out: Place<Self::Archived>) {
         let deref: &V = field;
-        ArchivedBox::resolve_from_ref(deref, pos, resolver, out);
+        ArchivedBox::resolve_from_ref(deref, resolver, out);
     }
 }
 

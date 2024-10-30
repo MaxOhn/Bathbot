@@ -19,7 +19,7 @@ use crate::{
     commands::osu::require_link,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::UserArgs,
     util::Monthly,
     Context,
 };

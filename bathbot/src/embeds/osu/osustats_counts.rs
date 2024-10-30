@@ -1,14 +1,16 @@
 use std::fmt::Write;
 
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 
 use crate::{
     embeds::EmbedData,
-    manager::redis::RedisData,
-    util::osu::{TopCount, TopCounts},
+    manager::redis::osu::CachedOsuUser,
+    util::{
+        osu::{TopCount, TopCounts},
+        CachedUserExt,
+    },
 };
 
 pub struct OsuStatsCountsEmbed {
@@ -20,7 +22,7 @@ pub struct OsuStatsCountsEmbed {
 }
 
 impl OsuStatsCountsEmbed {
-    pub fn new(user: &RedisData<User>, mode: GameMode, counts: TopCounts) -> Self {
+    pub fn new(user: &CachedOsuUser, mode: GameMode, counts: TopCounts) -> Self {
         let count_len = counts.count_len();
 
         let footer_timestamp = counts
@@ -52,11 +54,11 @@ impl OsuStatsCountsEmbed {
         Self {
             description,
             author: user.author_builder(),
-            thumbnail: user.avatar_url().to_owned(),
+            thumbnail: user.avatar_url.as_str().to_owned(),
             footer_timestamp,
             title: format!(
                 "In how many top X {mode}map leaderboards is {}?",
-                user.username().cow_escape_markdown()
+                user.username.as_str().cow_escape_markdown()
             ),
         }
     }

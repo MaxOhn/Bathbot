@@ -1,19 +1,20 @@
 use std::{borrow::Cow, iter, mem};
 
+use bathbot_cache::value::CachedArchive;
 use bathbot_macros::command;
 use bathbot_model::{
-    command_fields::GameModeOption, rosu_v2::ranking::Rankings, Countries, Either, RankingEntries,
-    RankingEntry, RankingKind,
+    command_fields::GameModeOption, rosu_v2::ranking::ArchivedRankings, Countries, Either,
+    RankingEntries, RankingEntry, RankingKind,
 };
 use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{CountryCode, GameMode, OsuResult, Rankings as RosuRankings};
+use rosu_v2::prelude::{CountryCode, GameMode, OsuResult};
 
 use super::{RankingPp, RankingScore};
 use crate::{
     active::{impls::RankingPagination, ActiveMessages},
     core::commands::CommandOrigin,
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::UserArgs,
     util::ChannelExt,
     Context,
 };
@@ -66,17 +67,7 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankingPp<'_>) -> Result<(
         None => None,
     };
 
-    let ranking_fut = async {
-        let country = country.as_deref();
-
-        Context::redis()
-            .pp_ranking(mode, 1, country)
-            .await
-            .map(|ranking| match ranking {
-                RedisData::Original(ranking) => Either::Left(ranking),
-                RedisData::Archive(ranking) => Either::Right(ranking.deserialize()),
-            })
-    };
+    let ranking_fut = Context::redis().pp_ranking(mode, 1, country.as_deref());
 
     let author_idx_fut = pp_author_idx(author_id, mode, country.as_ref());
 
@@ -172,7 +163,7 @@ async fn ranking(
     country: Option<CountryCode>,
     kind: OsuRankingKind,
     author_idx: Option<usize>,
-    result: OsuResult<Either<RosuRankings, Rankings>>,
+    result: OsuResult<CachedArchive<ArchivedRankings>>,
 ) -> Result<()> {
     let mut ranking = match result {
         Ok(ranking) => ranking,

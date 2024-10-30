@@ -6,11 +6,10 @@ edition.workspace = true
 
 [dependencies]
 bathbot-model = { path = "../bathbot-model" }
-bb8-redis = { version = "0.15.0" }
-eyre = { version = "0.6" }
-itoa = { version = "1.0" }
-once_cell = { version = "1.0" }
-rkyv = { version = "0.7" }
-tracing = { version = "0.1" }
+bathbot-psql = { path = "../bathbot-psql" }
+bb8-redis = { version = "0.13.1", default-features = false }
+eyre = { workspace = true }
+redlight = { workspace = true }
+rkyv = { workspace = true }
+rosu-v2 = { workspace = true }
 twilight-model = { workspace = true }
-twilight-gateway = { workspace = true }

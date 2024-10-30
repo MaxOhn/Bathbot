@@ -5,7 +5,6 @@ use std::{
 };
 
 use bathbot_macros::{command, HasMods, SlashCommand};
-use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -34,7 +33,7 @@ use crate::{
     active::{impls::LeaderboardPagination, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{
-        redis::{osu::UserArgs, RedisData},
+        redis::osu::{CachedOsuUser, UserArgs, UserArgsError},
         MapError, Mods, OsuMap,
     },
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
@@ -374,8 +373,8 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         .map(|(user, score)| LeaderboardUserScore {
             discord_id: owner,
             score: LeaderboardScore::new(
-                user.user_id(),
-                user.username().into(),
+                user.user_id.to_native(),
+                user.username.as_str().into(),
                 score.score,
                 score.pos,
             ),
@@ -476,7 +475,7 @@ async fn get_user_score(
     mode: GameMode,
     mods: Option<GameModsIntermode>,
     legacy_scores: bool,
-) -> Result<Option<(RedisData<User>, BeatmapUserScore)>> {
+) -> Result<Option<(CachedOsuUser, BeatmapUserScore)>> {
     let Some(user_id) = osu_id else {
         return Ok(None);
     };
@@ -487,10 +486,11 @@ async fn get_user_score(
     let score_fut =
         Context::osu_scores().user_on_map_single(user_id, map_id, mode, mods, legacy_scores);
 
-    match tokio::try_join!(user_fut, score_fut) {
-        Ok(tuple) => Ok(Some(tuple)),
-        Err(OsuError::NotFound) => Ok(None),
-        Err(err) => Err(Report::new(err).wrap_err("Failed to get score or user")),
+    match tokio::join!(user_fut, score_fut) {
+        (Ok(user), Ok(scores)) => Ok(Some((user, scores))),
+        (Err(UserArgsError::Osu(OsuError::NotFound)), _) | (_, Err(OsuError::NotFound)) => Ok(None),
+        (Err(err), _) => Err(Report::new(err).wrap_err("Failed to get user")),
+        (_, Err(err)) => Err(Report::new(err).wrap_err("Failed to get scores")),
     }
 }
 

@@ -92,7 +92,7 @@ async fn process_command<'m>(invoke: Invoke<'m>, msg: &'m Message) -> Result<Pro
     // Does bot have sufficient permissions to send response in a guild?
     let permissions = match (msg.guild_id, Context::cache().current_user().await) {
         (Some(guild), Ok(Some(user))) => {
-            let permissions = check_channel_permissions(user.id, channel, guild).await;
+            let permissions = check_channel_permissions(user.id.into(), channel, guild).await;
 
             if !permissions.contains(Permissions::SEND_MESSAGES) {
                 return Ok(ProcessResult::NoSendPermission);

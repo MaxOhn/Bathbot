@@ -6,10 +6,7 @@ use std::{
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::{command_fields::GameModeOption, embed_builder::SettingsImage};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher, CowUtils,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, CowUtils};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score},
@@ -29,7 +26,7 @@ use crate::{
     },
     commands::utility::{MissAnalyzerCheck, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
@@ -267,30 +264,28 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
 
     let (mapper, user, scores) = match tokio::join!(mapper_fut, scores_fut) {
         (Ok(mapper), Ok((user, scores))) => (mapper, user, scores),
-        (Err(OsuError::NotFound), _) => {
+        (Err(UserArgsError::Osu(OsuError::NotFound)), _) => {
             let content = format!("Mapper with username `{mapper}` was not found");
 
             return orig.error(content).await;
         }
-        (_, Err(OsuError::NotFound)) => {
+        (_, Err(UserArgsError::Osu(OsuError::NotFound))) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         (Err(err), _) | (_, Err(err)) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get mapper, user, or scores");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get mapper, user, or scores");
 
             return Err(err);
         }
     };
 
-    let (mapper_name, mapper_id) = match &mapper {
-        RedisData::Original(mapper) => (mapper.username.as_str(), mapper.user_id),
-        RedisData::Archive(mapper) => (mapper.username.as_str(), mapper.user_id),
-    };
+    let mapper_name = mapper.username.as_str();
+    let mapper_id = mapper.user_id.to_native();
 
-    let username = user.username();
+    let username = user.username.as_str();
     let settings = config.score_embed.unwrap_or_default();
 
     let mut with_render = match (guild_render_button, config.render_button) {

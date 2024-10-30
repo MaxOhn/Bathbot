@@ -3,7 +3,6 @@ use std::iter;
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::{
     command_fields::{GameModeOption, ShowHideOption, TimezoneOption},
-    rosu_v2::user::User,
     Countries,
 };
 use bathbot_psql::model::configs::ScoreData;
@@ -38,8 +37,8 @@ use super::{require_link, user_not_found, SnipeGameMode};
 use crate::{
     core::{commands::CommandOrigin, Context},
     embeds::attachment,
-    manager::redis::{osu::UserArgs, RedisData},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    manager::redis::osu::{CachedOsuUser, UserArgs, UserArgsError},
+    util::{interaction::InteractionCommand, CachedUserExt, InteractionCommandExt},
 };
 
 mod medals;
@@ -354,7 +353,7 @@ async fn top_graph(
     order: GraphTopOrder,
     tz: Option<UtcOffset>,
     legacy_scores: bool,
-) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+) -> Result<Option<(CachedOsuUser, Vec<u8>)>> {
     let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)
@@ -362,7 +361,7 @@ async fn top_graph(
 
     let (user, mut scores) = match scores_fut.await {
         Ok(tuple) => tuple,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
             orig.error(content).await?;
 
@@ -383,27 +382,13 @@ async fn top_graph(
         return Ok(None);
     }
 
-    let (username, country_code, mode) = match &user {
-        RedisData::Original(user) => {
-            let username = user.username.as_str();
-            let country_code = user.country_code.as_str();
-            let mode = user.mode;
-
-            (username, country_code, mode)
-        }
-        RedisData::Archive(user) => {
-            let username = user.username.as_str();
-            let country_code = user.country_code.as_str();
-            let mode = user.mode;
-
-            (username, country_code, mode)
-        }
-    };
+    let username = user.username.as_str();
+    let country_code = user.country_code.as_str();
 
     let caption = format!(
         "{username}'{genitive} top {mode}scores",
         genitive = if username.ends_with('s') { "" } else { "s" },
-        mode = match mode {
+        mode = match user.mode {
             GameMode::Osu => "",
             GameMode::Taiko => "taiko ",
             GameMode::Catch => "ctb ",

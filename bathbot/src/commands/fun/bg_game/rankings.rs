@@ -28,10 +28,10 @@ pub async fn leaderboard(msg: &Message, global: bool) -> Result<()> {
 
     if let Some(guild) = guild.filter(|_| !global) {
         let members: HashSet<_, IntHasher> = cache
-            .members(guild)
+            .member_ids(guild)
             .await?
             .into_iter()
-            .map(|id| id as i64)
+            .map(|id| id.get() as i64)
             .collect();
 
         scores.retain(|row| members.contains(&row.discord_id));

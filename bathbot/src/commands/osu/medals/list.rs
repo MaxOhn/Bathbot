@@ -7,7 +7,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use hashbrown::HashMap;
-use rkyv::{with::DeserializeWith, Infallible};
+use rkyv::with::DeserializeWith;
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
 
@@ -16,7 +16,7 @@ use crate::{
     active::{impls::MedalsListPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{UserArgs, UserArgsError},
     Context,
 };
 
@@ -50,103 +50,65 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
 
     let (mut user, mut osekai_medals, rarities) =
         match tokio::join!(user_fut, medals_fut, ranking_fut) {
-            (Ok(user), Ok(medals), Ok(rarities)) => (user, medals.into_original(), rarities),
-            (Err(OsuError::NotFound), ..) => {
+            (Ok(user), Ok(medals), Ok(rarities)) => (user, medals, rarities),
+            (Err(UserArgsError::Osu(OsuError::NotFound)), ..) => {
                 let content = user_not_found(user_id).await;
 
                 return orig.error(content).await;
             }
             (Err(err), ..) => {
-                let _ = orig.error(OSU_API_ISSUE).await;
-                let report = Report::new(err).wrap_err("failed to get user");
+                let _ = orig.error(GENERAL_ISSUE).await;
+                let report = Report::new(err).wrap_err("Failed to get user");
 
                 return Err(report);
             }
             (_, Err(err), _) | (.., Err(err)) => {
                 let _ = orig.error(OSEKAI_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get cached rarity ranking"));
+                return Err(err.wrap_err("Failed to get cached rarity ranking"));
             }
         };
 
-    let rarities: HashMap<_, _, IntHasher> = match rarities {
-        RedisData::Original(rarities) => rarities
-            .iter()
-            .map(|entry| (entry.medal_id, entry.possession_percent))
-            .collect(),
-        RedisData::Archive(rarities) => rarities
-            .iter()
-            .map(|entry| (entry.medal_id, entry.possession_percent))
-            .collect(),
-    };
+    let rarities: HashMap<_, _, IntHasher> = rarities
+        .iter()
+        .map(|entry| {
+            (
+                entry.medal_id.to_native(),
+                entry.possession_percent.to_native(),
+            )
+        })
+        .collect();
 
     osekai_medals.sort_unstable_by_key(|medal| medal.medal_id);
 
-    let (acquired, mut medals) = match user {
-        RedisData::Original(ref mut user) => {
-            let acquired = (user.medals.len(), osekai_medals.len());
+    let acquired = (user.medals.len(), osekai_medals.len());
 
-            let medals_iter = user.medals.iter().filter_map(|m| {
-                match osekai_medals
-                    .iter()
-                    .position(|m_| m_.medal_id == m.medal_id)
-                {
-                    Some(idx) => {
-                        let entry = MedalEntryList {
-                            medal: osekai_medals.swap_remove(idx),
-                            achieved: m.achieved_at,
-                            rarity: rarities.get(&m.medal_id).copied().unwrap_or(100.0),
-                        };
+    let medals_iter = user.medals.iter().filter_map(|m| {
+        match osekai_medals
+            .iter()
+            .position(|m_| m_.medal_id == m.medal_id)
+        {
+            Some(idx) => {
+                let achieved_res = DateTimeRkyv::try_deserialize(&m.achieved_at);
 
-                        Some(entry)
-                    }
-                    None => {
-                        warn!("Missing medal id {}", m.medal_id);
+                let entry = MedalEntryList {
+                    medal: osekai_medals.swap_remove(idx),
+                    achieved: achieved_res.unwrap(),
+                    rarity: rarities.get(&m.medal_id).copied().unwrap_or(100.0),
+                };
 
-                        None
-                    }
-                }
-            });
+                Some(entry)
+            }
+            None => {
+                warn!("Missing medal id {}", m.medal_id);
 
-            let mut medals = Vec::with_capacity(acquired.0);
-            medals.extend(medals_iter);
-
-            (acquired, medals)
+                None
+            }
         }
-        RedisData::Archive(ref user) => {
-            let acquired = (user.medals.len(), osekai_medals.len());
+    });
 
-            let medals_iter = user.medals.iter().filter_map(|m| {
-                match osekai_medals
-                    .iter()
-                    .position(|m_| m_.medal_id == m.medal_id)
-                {
-                    Some(idx) => {
-                        let achieved_res =
-                            DateTimeRkyv::deserialize_with(&m.achieved_at, &mut Infallible);
-
-                        let entry = MedalEntryList {
-                            medal: osekai_medals.swap_remove(idx),
-                            achieved: achieved_res.unwrap(),
-                            rarity: rarities.get(&m.medal_id).copied().unwrap_or(100.0),
-                        };
-
-                        Some(entry)
-                    }
-                    None => {
-                        warn!("Missing medal id {}", m.medal_id);
-
-                        None
-                    }
-                }
-            });
-
-            let mut medals = Vec::with_capacity(acquired.0);
-            medals.extend(medals_iter);
-
-            (acquired, medals)
-        }
-    };
+    let mut medals = Vec::with_capacity(acquired.0);
+    medals.extend(medals_iter);
 
     if let Some(group) = group {
         medals.retain(|entry| entry.medal.grouping == group);
@@ -185,7 +147,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
         ""
     };
 
-    let name = user.username();
+    let name = user.username.as_str();
 
     let content = match group {
         None => format!("All medals of `{name}` sorted by {reverse_str}{order_str}:",),

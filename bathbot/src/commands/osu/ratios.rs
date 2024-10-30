@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError},
@@ -15,7 +15,7 @@ use super::{require_link, user_not_found};
 use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, RatioEmbed},
-    manager::redis::osu::UserArgs,
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
@@ -114,14 +114,14 @@ async fn ratios(orig: CommandOrigin<'_>, args: Ratios<'_>) -> Result<()> {
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
@@ -130,10 +130,7 @@ async fn ratios(orig: CommandOrigin<'_>, args: Ratios<'_>) -> Result<()> {
     // Accumulate all necessary data
     let embed_data = RatioEmbed::new(&user, scores);
 
-    let content = format!(
-        "Average ratios of `{}`'s top 100 in mania:",
-        user.username()
-    );
+    let content = format!("Average ratios of `{}`'s top 100 in mania:", user.username);
 
     // Creating the embed
     let embed = embed_data.build();

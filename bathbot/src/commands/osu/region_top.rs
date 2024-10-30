@@ -6,7 +6,6 @@ use bathbot_psql::model::osu::{DbScoreBeatmap, DbScoreBeatmapset, DbTopScore, Db
 use bathbot_util::{constants::GENERAL_ISSUE, osu::ModSelection, CowUtils, IntHasher};
 use compact_str::CompactString;
 use eyre::Result;
-use rkyv::collections::ArchivedHashMap;
 use rosu_pp::model::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::{GameMode, GameModsIntermode};
 use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateCommand};
@@ -16,7 +15,6 @@ use crate::{
     active::{impls::RegionTopPagination, ActiveMessages},
     commands::osu::{HasMods, ModsResult, ScoresOrder},
     core::Context,
-    manager::redis::RedisData,
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, IFilterCriteria, ScoresCriteria, Searchable},
@@ -128,22 +126,17 @@ pub async fn slash_regiontop(mut command: InteractionCommand) -> Result<()> {
         .map(|code| CompactString::from(code.as_ref()));
 
     let region = match (country_code.as_deref(), region_opt.as_deref()) {
-        (Some(country_code), Some(region)) => match Context::redis().country_regions().await? {
-            RedisData::Original(ref country_regions) => country_regions
+        (Some(country_code), Some(region)) => {
+            let country_regions = Context::redis().country_regions().await?;
+
+            country_regions
                 .get(country_code)
-                .and_then(|regions| regions.iter().find(|(_, name)| region == name.as_str()))
-                .map(|(code, name)| Region {
-                    code: code.to_owned(),
-                    name: name.to_owned(),
-                }),
-            RedisData::Archive(ref country_regions) => country_regions
-                .get(country_code)
-                .and_then(|regions| regions.iter().find(|(_, name)| region == name.as_str()))
-                .map(|(code, name)| Region {
-                    code: code.as_str().into(),
-                    name: name.as_str().into(),
-                }),
-        },
+                .and_then(|regions| regions.iter().find(|entry| region == entry.value.as_str()))
+                .map(|entry| Region {
+                    code: entry.key.as_str().into(),
+                    name: entry.value.as_str().into(),
+                })
+        }
         _ => None,
     };
 
@@ -635,28 +628,20 @@ async fn handle_autocomplete(
 
     let region = region.cow_to_ascii_lowercase();
 
-    let mut choices = match Context::redis().country_regions().await? {
-        RedisData::Original(country_regions) => {
-            let Some(regions) = country_regions.get(country_code.as_ref()) else {
-                let choices = single_choice("No regions for specified country");
-                command.autocomplete(choices).await?;
+    let country_regions = Context::redis().country_regions().await?;
 
-                return Ok(());
-            };
+    let Some(regions) = country_regions.get(country_code.as_ref()) else {
+        let choices = single_choice("No regions for specified country");
+        command.autocomplete(choices).await?;
 
-            gather_choices(regions, &region)
-        }
-        RedisData::Archive(country_regions) => {
-            let Some(regions) = country_regions.get(country_code.as_ref()) else {
-                let choices = single_choice("No regions for specified country");
-                command.autocomplete(choices).await?;
-
-                return Ok(());
-            };
-
-            gather_choices(regions, &region)
-        }
+        return Ok(());
     };
+
+    let mut choices: Vec<_> = regions
+        .iter()
+        .filter_map(|entry| new_choice(entry.key.as_ref(), entry.value.as_ref(), &region))
+        .take(25)
+        .collect();
 
     choices.sort_unstable_by(|a, b| a.name.cmp(&b.name));
     command.autocomplete(choices).await?;
@@ -672,21 +657,6 @@ fn single_choice(name: &str) -> Vec<CommandOptionChoice> {
     };
 
     vec![choice]
-}
-
-fn gather_choices<Code, Name>(
-    regions: &impl RegionsExt<Code, Name>,
-    region: &str,
-) -> Vec<CommandOptionChoice>
-where
-    Code: AsRef<str>,
-    Name: AsRef<str>,
-{
-    regions
-        .iter()
-        .filter_map(|(code, name)| new_choice(code.as_ref(), name.as_ref(), region))
-        .take(25)
-        .collect()
 }
 
 fn new_choice(code: &str, name: &str, region: &str) -> Option<CommandOptionChoice> {
@@ -707,40 +677,6 @@ fn region_in_code(code: &str, region: &str) -> bool {
         .map_or(code, |(_, suffix)| suffix)
         .cow_to_ascii_lowercase()
         .contains(region)
-}
-
-trait RegionsExt<Code, Name> {
-    type Iter<'a>: Iterator<Item = (&'a Code, &'a Name)>
-    where
-        Code: 'a,
-        Name: 'a,
-        Self: 'a;
-
-    fn iter(&self) -> Self::Iter<'_>;
-}
-
-impl<Code, Name> RegionsExt<Code, Name> for HashMap<Code, Name> {
-    type Iter<'a> = std::collections::hash_map::Iter<'a, Code, Name>
-    where
-        Code: 'a,
-        Name: 'a,
-        Self: 'a;
-
-    fn iter(&self) -> Self::Iter<'_> {
-        self.iter()
-    }
-}
-
-impl<Code, Name> RegionsExt<Code, Name> for ArchivedHashMap<Code, Name> {
-    type Iter<'a> = rkyv::collections::hash_map::Iter<'a, Code, Name>
-    where
-        Code: 'a,
-        Name: 'a,
-        Self: 'a;
-
-    fn iter(&self) -> Self::Iter<'_> {
-        self.iter()
-    }
 }
 
 impl<'q> Searchable<ScoresCriteria<'q>>

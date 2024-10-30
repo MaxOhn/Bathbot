@@ -3,25 +3,21 @@ use std::ops::Deref;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::SlashCommand;
 use bathbot_model::{
-    rkyv_util::time::{DateRkyv, DateTimeRkyv},
-    rosu_v2::user::{ArchivedUser, User, UserHighestRank as UserHighestRankRkyv, UserStatistics},
+    rkyv_util::time::{ArchivedDateTime, DateRkyv},
+    rosu_v2::user::{ArchivedUser, ArchivedUserHighestRank, ArchivedUserStatistics},
 };
 use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
 use eyre::{Report, Result};
 use futures::{future, stream::FuturesUnordered, TryStreamExt};
 use once_cell::sync::OnceCell;
-use rkyv::{
-    with::{DeserializeWith, Map},
-    Archived, Infallible,
-};
-use rosu_v2::prelude::{CountryCode, GameMode, OsuError, UserHighestRank, Username};
+use rosu_v2::prelude::{CountryCode, GameMode, OsuError, Username};
 use time::{OffsetDateTime, Time};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     core::Context,
     embeds::{ClaimNameEmbed, EmbedData},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{CachedOsuUser, UserArgs},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
@@ -114,70 +110,47 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
         .collect::<FuturesUnordered<_>>()
         .try_fold(None, |user: Option<ClaimNameUser>, next| match user {
             Some(mut user) => {
-                let next_stats = next.stats();
+                let next_stats = next.statistics.as_ref().expect("missing stats");
 
                 match user.statistics {
-                    Some(ref mut accum) => accum.playcount += next_stats.playcount(),
+                    Some(ref mut accum) => accum.playcount += next_stats.playcount,
                     None => user.statistics = Some(next_stats.to_owned()),
                 }
 
-                let (next_highest_rank, next_last_visit) = match next {
-                    RedisData::Original(next) => {
-                        let rank = next.highest_rank;
+                let next: &ArchivedUser = &next;
 
-                        let last_playcount = next
-                            .monthly_playcounts
-                            .iter()
-                            .rev()
-                            .find(|count| count.count > 0)
-                            .map(|count| count.start_date.with_time(Time::MIDNIGHT).assume_utc());
+                let rank = next.highest_rank.as_ref();
 
-                        let last_visit = match (next.last_visit, last_playcount) {
-                            (Some(a), Some(b)) => Some(a.max(b)),
-                            (Some(a), _) | (_, Some(a)) => Some(a),
-                            _ => None,
-                        };
+                let last_playcount = next
+                    .monthly_playcounts
+                    .iter()
+                    .rev()
+                    .find(|count| count.count > 0)
+                    .map(|count| {
+                        DateRkyv::try_deserialize(count.start_date)
+                            .unwrap()
+                            .with_time(Time::MIDNIGHT)
+                            .assume_utc()
+                    });
 
-                        (rank, last_visit)
-                    }
-                    RedisData::Archive(next) => {
-                        let next: &Archived<User> = &next;
+                let last_visit = next
+                    .last_visit
+                    .as_ref()
+                    .map(ArchivedDateTime::try_deserialize)
+                    .and_then(Result::ok);
 
-                        let rank = Map::<UserHighestRankRkyv>::deserialize_with(
-                            &next.highest_rank,
-                            &mut Infallible,
-                        )
-                        .unwrap();
-
-                        let last_playcount = next
-                            .monthly_playcounts
-                            .iter()
-                            .rev()
-                            .find(|count| count.count > 0)
-                            .map(|count| {
-                                DateRkyv::deserialize_with(&count.start_date, &mut Infallible)
-                                    .unwrap()
-                                    .with_time(Time::MIDNIGHT)
-                                    .assume_utc()
-                            });
-
-                        let last_visit = next.last_visit.as_ref().map(|time| {
-                            DateTimeRkyv::deserialize_with(time, &mut Infallible).unwrap()
-                        });
-
-                        let last_visit = match (last_visit, last_playcount) {
-                            (Some(a), Some(b)) => Some(a.max(b)),
-                            (Some(a), _) | (_, Some(a)) => Some(a),
-                            _ => None,
-                        };
-
-                        (rank, last_visit)
-                    }
+                let last_visit = match (last_visit, last_playcount) {
+                    (Some(a), Some(b)) => Some(a.max(b)),
+                    (Some(a), _) | (_, Some(a)) => Some(a),
+                    _ => None,
                 };
 
+                let next_highest_rank = rank;
+                let next_last_visit = last_visit;
+
                 match (user.highest_rank.as_mut(), next_highest_rank) {
-                    (Some(curr), Some(next)) if curr.rank > next.rank => *curr = next,
-                    (None, next @ Some(_)) => user.highest_rank = next,
+                    (Some(curr), Some(next)) if curr.rank > next.rank => *curr = next.to_owned(),
+                    (None, next @ Some(_)) => user.highest_rank = next.cloned(),
                     _ => {}
                 }
 
@@ -214,28 +187,11 @@ pub struct ClaimNameUser {
     pub country_code: CountryCode,
     pub has_badges: bool,
     pub has_ranked_mapsets: bool,
-    pub highest_rank: Option<UserHighestRank>,
+    pub highest_rank: Option<ArchivedUserHighestRank>,
     pub last_visit: Option<OffsetDateTime>,
-    pub statistics: Option<UserStatistics>,
+    pub statistics: Option<ArchivedUserStatistics>,
     pub username: Username,
     pub user_id: u32,
-}
-
-impl From<User> for ClaimNameUser {
-    #[inline]
-    fn from(user: User) -> Self {
-        Self {
-            avatar_url: user.avatar_url,
-            country_code: user.country_code,
-            has_badges: !user.badges.is_empty(),
-            has_ranked_mapsets: user.ranked_mapset_count > 0,
-            highest_rank: user.highest_rank,
-            last_visit: user.last_visit,
-            statistics: user.statistics.map(UserStatistics::from),
-            username: user.username,
-            user_id: user.user_id,
-        }
-    }
 }
 
 impl From<&ArchivedUser> for ClaimNameUser {
@@ -246,13 +202,12 @@ impl From<&ArchivedUser> for ClaimNameUser {
             country_code: user.country_code.as_str().into(),
             has_badges: !user.badges.is_empty(),
             has_ranked_mapsets: user.ranked_mapset_count > 0,
-            highest_rank: Map::<UserHighestRankRkyv>::deserialize_with(
-                &user.highest_rank,
-                &mut Infallible,
-            )
-            .unwrap(),
-            last_visit: Map::<DateTimeRkyv>::deserialize_with(&user.last_visit, &mut Infallible)
-                .unwrap(),
+            highest_rank: user.highest_rank.as_ref().cloned(),
+            last_visit: user
+                .last_visit
+                .as_ref()
+                .map(<_>::try_deserialize)
+                .map(Result::ok),
             statistics: user.statistics.as_ref().cloned(),
             username: user.username.as_str().into(),
             user_id: user.user_id,
@@ -260,13 +215,10 @@ impl From<&ArchivedUser> for ClaimNameUser {
     }
 }
 
-impl From<RedisData<User>> for ClaimNameUser {
+impl From<&CachedOsuUser> for ClaimNameUser {
     #[inline]
-    fn from(user: RedisData<User>) -> Self {
-        match user {
-            RedisData::Original(user) => Self::from(user),
-            RedisData::Archive(user) => Self::from(user.deref()),
-        }
+    fn from(user: &CachedOsuUser) -> Self {
+        Self::from(user.deref())
     }
 }
 

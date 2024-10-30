@@ -1,5 +1,6 @@
 use std::{
     fmt::{Debug, Formatter, Result as FmtResult},
+    mem,
     ops::{Deref, DerefMut},
     ptr, slice,
 };
@@ -7,10 +8,15 @@ use std::{
 use arrayvec::{ArrayVec, CapacityError};
 use compact_str::CompactString;
 use rkyv::{
-    from_archived, out_field,
-    rel_ptr::signed_offset,
-    ser::{ScratchSpace, Serializer},
-    Archive, Archived, Deserialize, Fallible, Infallible, Serialize, SerializeUnsized,
+    bytecheck::{CheckBytes, Verify},
+    munge::munge,
+    rancor::{Fallible, Panic, ResultExt, Source},
+    rel_ptr::RelPtr,
+    ser::{Allocator, Writer},
+    string::{ArchivedString, StringResolver},
+    validation::{ArchiveContext, ArchiveContextExt},
+    with::{ArchiveWith, DeserializeWith, SerializeWith, With},
+    Archive, Deserialize, Place, Portable, Serialize, SerializeUnsized,
 };
 
 pub type Prefix = CompactString;
@@ -56,14 +62,10 @@ impl Prefixes {
         self.inner.try_push(prefix)
     }
 
-    /// # Safety
-    ///
-    /// The caller must ensure that the provided bytes are valid archived
-    /// prefixes
-    pub(crate) unsafe fn deserialize(bytes: &[u8]) -> Self {
-        let archived_prefixes = rkyv::archived_root::<Self>(bytes);
+    pub(crate) fn deserialize(bytes: &[u8]) -> Self {
+        let archived_prefixes = rkyv::access::<ArchivedPrefixes, Panic>(bytes).always_ok();
 
-        archived_prefixes.deserialize(&mut Infallible).unwrap()
+        rkyv::api::deserialize_using::<_, _, Panic>(archived_prefixes, &mut ()).always_ok()
     }
 }
 
@@ -102,22 +104,39 @@ impl Extend<Prefix> for Prefixes {
     }
 }
 
+#[derive(CheckBytes, Portable)]
+#[bytecheck(crate = rkyv::bytecheck, verify)]
+#[repr(C)]
 pub struct ArchivedPrefixes {
-    ptr: RelPrefixesPtr,
-    len: Archived<u8>,
+    ptr: RelPtr<<PrefixRkyv as ArchiveWith<Prefix>>::Archived, i8>,
+    len: u8,
 }
 
 impl ArchivedPrefixes {
-    fn as_ptr(&self) -> *const <Prefix as Archive>::Archived {
-        self.ptr.as_ptr()
+    fn as_ptr(&self) -> *const <PrefixRkyv as ArchiveWith<Prefix>>::Archived {
+        unsafe { self.ptr.as_ptr() }
     }
 
     pub fn len(&self) -> usize {
-        from_archived!(self.len) as usize
+        self.len as usize
     }
 
-    fn as_slice(&self) -> &[<Prefix as Archive>::Archived] {
+    fn as_slice(&self) -> &[<PrefixRkyv as ArchiveWith<Prefix>>::Archived] {
         unsafe { slice::from_raw_parts(self.as_ptr(), self.len()) }
+    }
+}
+
+unsafe impl<C> Verify<C> for ArchivedPrefixes
+where
+    ArchivedString: CheckBytes<C>,
+    C: Fallible<Error: Source> + ArchiveContext + ?Sized,
+{
+    fn verify(&self, context: &mut C) -> Result<(), <C as Fallible>::Error> {
+        let ptr = ptr::slice_from_raw_parts(self.ptr.as_ptr_wrapping(), self.len as usize);
+
+        context.in_subtree(ptr, |context| unsafe {
+            <[ArchivedString]>::check_bytes(ptr, context)
+        })
     }
 }
 
@@ -129,73 +148,64 @@ impl Archive for Prefixes {
     type Archived = ArchivedPrefixes;
     type Resolver = PrefixesResolver;
 
-    #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        // The prefixes were already serialized, next:
-
-        // Serialize the relative ptr i.e. the offset to the start of the serialized
-        // prefixes
-        let (fp, fo) = out_field!(out.ptr);
-        RelPrefixesPtr::emplace(pos + fp, resolver.pos as usize, fo);
-
-        // Then serialize the length of the serialized prefixes
-        let (fp, fo) = out_field!(out.len);
-        let len = self.inner.len() as u8;
-        <u8 as Archive>::resolve(&len, pos + fp, (), fo);
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        munge!(let ArchivedPrefixes { ptr, len: out_len } = out);
+        RelPtr::emplace(resolver.pos as usize, ptr);
+        u8::resolve(&(self.inner.len() as u8), (), out_len);
     }
 }
 
-impl<S: Serializer + ScratchSpace + ?Sized> Serialize<S> for Prefixes {
-    #[inline]
+impl<S: Fallible<Error: Source> + Allocator + Writer + ?Sized> Serialize<S> for Prefixes {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, <S as Fallible>::Error> {
-        self.inner
+        fn interprete_as_with(prefixes: &[Prefix]) -> &[With<Prefix, PrefixRkyv>] {
+            // SAFETY: With<T, _> is just T under the hood
+            unsafe { mem::transmute(prefixes) }
+        }
+
+        interprete_as_with(self.inner.as_slice())
             .serialize_unsized(serializer)
             .map(|pos| PrefixesResolver { pos: pos as u8 })
     }
 }
 
-impl<D: Fallible> Deserialize<Prefixes, D> for <Prefixes as Archive>::Archived {
-    #[inline]
+impl<D: Fallible + ?Sized> Deserialize<Prefixes, D> for ArchivedPrefixes {
     fn deserialize(&self, deserializer: &mut D) -> Result<Prefixes, <D as Fallible>::Error> {
         let inner = self
             .as_slice()
             .iter()
-            .map(|item| item.deserialize(deserializer))
+            .map(|item| With::<_, PrefixRkyv>::cast(item).deserialize(deserializer))
             .collect::<Result<_, _>>()?;
 
         Ok(Prefixes { inner })
     }
 }
 
-/// Same as [`rkyv::RelPtr`] but specialized for prefixes
-/// so its size is reduced and generics removed.
-#[derive(Debug)]
-struct RelPrefixesPtr {
-    offset: i8,
-}
-
-impl RelPrefixesPtr {
-    fn base(&self) -> *const u8 {
-        (self as *const Self).cast::<u8>()
-    }
-
-    fn offset(&self) -> isize {
-        self.offset as isize
-    }
-
-    fn as_ptr(&self) -> *const <Prefix as Archive>::Archived {
-        unsafe { self.base().offset(self.offset()).cast() }
-    }
-
-    pub unsafe fn emplace(from: usize, to: usize, out: *mut Self) {
-        let offset = signed_offset(from, to).unwrap();
-        ptr::addr_of_mut!((*out).offset).write(offset as i8);
-    }
-}
-
 impl Debug for Prefixes {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         <PrefixesInner as Debug>::fmt(&self.inner, f)
+    }
+}
+
+struct PrefixRkyv;
+
+impl ArchiveWith<Prefix> for PrefixRkyv {
+    type Archived = ArchivedString;
+    type Resolver = StringResolver;
+
+    fn resolve_with(field: &Prefix, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        ArchivedString::resolve_from_str(field.as_str(), resolver, out);
+    }
+}
+
+impl<S: Fallible<Error: Source> + Writer + ?Sized> SerializeWith<Prefix, S> for PrefixRkyv {
+    fn serialize_with(field: &Prefix, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        ArchivedString::serialize_from_str(field.as_str(), serializer)
+    }
+}
+
+impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, Prefix, D> for PrefixRkyv {
+    fn deserialize_with(field: &ArchivedString, _: &mut D) -> Result<Prefix, D::Error> {
+        Ok(Prefix::from(field.as_str()))
     }
 }
 

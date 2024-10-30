@@ -261,9 +261,18 @@ async fn topif(orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
         .filter_map(|s| s.weight)
         .fold(0.0, |sum, weight| sum + weight.pp);
 
-    let bonus_pp = user.stats().pp() - actual_pp;
+    let bonus_pp = user
+        .statistics
+        .as_ref()
+        .map_or(0.0, |stats| stats.pp - actual_pp);
     let sort = args.sort.unwrap_or_default();
-    let content = get_content(user.username(), mode, &mods, args.query.as_deref(), sort);
+    let content = get_content(
+        user.username.as_str(),
+        mode,
+        &mods,
+        args.query.as_deref(),
+        sort,
+    );
 
     let mut entries = match process_scores(scores, mods, mode, sort, legacy_scores).await {
         Ok(scores) => scores,
@@ -297,7 +306,10 @@ async fn topif(orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
     };
 
     // Accumulate all necessary data
-    let pre_pp = user.stats().pp();
+    let pre_pp = user
+        .statistics
+        .as_ref()
+        .map_or(0.0, |stats| stats.pp.to_native());
 
     let pagination = TopIfPagination::builder()
         .user(user)

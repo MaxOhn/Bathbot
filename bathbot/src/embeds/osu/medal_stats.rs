@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
-use bathbot_model::{rosu_v2::user::User, MedalGroup, OsekaiMedal, MEDAL_GROUPS};
+use bathbot_model::{MedalGroup, OsekaiMedal, MEDAL_GROUPS};
 use bathbot_util::{
     fields, numbers::round, osu::flag_url, AuthorBuilder, FooterBuilder, IntHasher,
 };
@@ -9,7 +9,7 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::MedalCompact;
 use twilight_model::channel::message::embed::EmbedField;
 
-use crate::{embeds::attachment, manager::redis::RedisData};
+use crate::{embeds::attachment, manager::redis::osu::CachedOsuUser};
 
 #[derive(EmbedData)]
 pub struct MedalStatsEmbed {
@@ -21,7 +21,7 @@ pub struct MedalStatsEmbed {
 
 impl MedalStatsEmbed {
     pub fn new(
-        user: &RedisData<User>,
+        user: &CachedOsuUser,
         user_medals: &[MedalCompact],
         medals: &HashMap<u32, StatsMedal, IntHasher>,
         rarest: Option<MedalCompact>,
@@ -110,28 +110,14 @@ impl MedalStatsEmbed {
             });
         }
 
-        let (country_code, username, user_id) = match user {
-            RedisData::Original(user) => {
-                let country_code = user.country_code.as_str();
-                let username = user.username.as_str();
-                let user_id = user.user_id;
+        let author_url = format!(
+            "https://osekai.net/profiles/?user={}&mode=all",
+            user.user_id
+        );
 
-                (country_code, username, user_id)
-            }
-            RedisData::Archive(user) => {
-                let country_code = user.country_code.as_str();
-                let username = user.username.as_str();
-                let user_id = user.user_id;
-
-                (country_code, username, user_id)
-            }
-        };
-
-        let author = AuthorBuilder::new(username)
-            .url(format!(
-                "https://osekai.net/profiles/?user={user_id}&mode=all"
-            ))
-            .icon_url(flag_url(country_code));
+        let author = AuthorBuilder::new(user.username.as_str())
+            .url(author_url)
+            .icon_url(flag_url(user.country_code.as_str()));
 
         let footer = FooterBuilder::new("Check osekai.net for more info");
 

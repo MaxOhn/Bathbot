@@ -1,6 +1,5 @@
 use std::iter;
 
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     numbers::WithComma,
@@ -22,17 +21,17 @@ use crate::{
         user_not_found,
     },
     core::{commands::CommandOrigin, Context},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{CachedOsuUser, UserArgs, UserArgsError},
 };
 
 pub async fn rank_graph(
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     user_args: UserArgs,
-) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+) -> Result<Option<(CachedOsuUser, Vec<u8>)>> {
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
             orig.error(content).await?;
 
@@ -46,12 +45,11 @@ pub async fn rank_graph(
         }
     };
 
-    fn draw_graph(user: &RedisData<User>) -> Result<Option<Vec<u8>>> {
-        let history = match user {
-            RedisData::Original(user) if user.rank_history.is_empty() => return Ok(None),
-            RedisData::Original(user) => user.rank_history.as_ref(),
-            RedisData::Archive(user) if user.rank_history.is_empty() => return Ok(None),
-            RedisData::Archive(user) => user.rank_history.as_ref(),
+    fn draw_graph(user: &CachedOsuUser) -> Result<Option<Vec<u8>>> {
+        let history = if user.rank_history.is_empty() {
+            return Ok(None);
+        } else {
+            user.rank_history.as_slice()
         };
 
         let history_len = history.len();
@@ -63,6 +61,8 @@ pub async fn rank_graph(
         let mut max_idx = 0;
 
         for (i, &rank) in history.iter().enumerate() {
+            let rank = rank.to_native();
+
             if rank == 0 {
                 continue;
             }
@@ -139,7 +139,7 @@ pub async fn rank_graph(
                 .wrap_err("Failed to draw mesh")?;
 
             let data = (0..)
-                .zip(history.iter().map(|rank| -(*rank as i32)))
+                .zip(history.iter().map(|rank| -(rank.to_native() as i32)))
                 .skip_while(|(_, rank)| *rank == 0)
                 .take_while(|(_, rank)| *rank != 0);
 
@@ -197,10 +197,7 @@ pub async fn rank_graph(
     let bytes = match draw_graph(&user) {
         Ok(Some(graph)) => graph,
         Ok(None) => {
-            let content = format!(
-                "`{name}` has no available rank data :(",
-                name = user.username()
-            );
+            let content = format!("`{}` has no available rank data :(", user.username);
 
             orig.error(content).await?;
 

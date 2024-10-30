@@ -33,7 +33,7 @@ impl ClaimNameEmbed {
             let field = EmbedField {
                 inline: true,
                 name: "Total playcount".to_owned(),
-                value: WithComma::new(stats.playcount).to_string(),
+                value: WithComma::new(stats.playcount()).to_string(),
             };
 
             fields.push(field);
@@ -42,7 +42,9 @@ impl ClaimNameEmbed {
         let name = name.cow_to_ascii_lowercase();
         let is_prev_name = user.username.cow_to_ascii_lowercase() != name;
 
-        let field = if let Some(rank @ ..=100) = user.highest_rank.as_ref().map(|h| h.rank) {
+        let field = if let Some(rank @ ..=100) =
+            user.highest_rank.as_ref().map(|h| h.rank.to_native())
+        {
             let value = if is_prev_name {
                 format!(
                     "{} has a different name now but their highest rank (#{rank}) was in the top 100 \
@@ -159,7 +161,7 @@ fn time_to_wait(user: &ClaimNameUser) -> Duration {
     });
 
     let x = match user.statistics {
-        Some(ref stats) if stats.playcount > 0 => stats.playcount as f32,
+        Some(ref stats) if stats.playcount > 0 => stats.playcount.to_native() as f32,
         _ => return Duration::days(6 * 30) - inactive_time,
     };
 

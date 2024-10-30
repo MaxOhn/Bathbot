@@ -1,6 +1,5 @@
 use std::fmt::Write;
 
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     osu::ModSelection,
@@ -16,7 +15,7 @@ use crate::{
     active::{impls::ScoresUserPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found, HasMods, ModsResult},
     core::{commands::CommandOrigin, Context},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{CachedOsuUser, UserArgs},
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, IFilterCriteria, ScoresCriteria},
@@ -149,7 +148,7 @@ pub async fn user_scores(mut command: InteractionCommand, args: UserScores) -> R
         .await
 }
 
-async fn get_user(user_id: &UserId, mode: Option<GameMode>) -> Result<RedisData<User>, OsuError> {
+async fn get_user(user_id: &UserId, mode: Option<GameMode>) -> Result<CachedOsuUser, OsuError> {
     let args = UserArgs::rosu_id(user_id, mode.unwrap_or(GameMode::Osu)).await;
 
     Context::redis().osu_user(args).await

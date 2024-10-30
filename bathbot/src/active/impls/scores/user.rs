@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::osu::{DbScore, DbScoreBeatmap, DbScoreBeatmapset, DbScores};
 use bathbot_util::{
     constants::OSU_BASE,
@@ -27,11 +26,11 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::ScoresOrder,
-    manager::redis::RedisData,
+    manager::redis::osu::CachedOsuUser,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::GradeFormatter,
-        Emote,
+        CachedUserExt, Emote,
     },
 };
 
@@ -39,7 +38,7 @@ use crate::{
 pub struct ScoresUserPagination {
     #[pagination(per_page = 10)]
     scores: DbScores<IntHasher>,
-    user: RedisData<User>,
+    user: CachedOsuUser,
     mode: Option<GameMode>,
     sort: ScoresOrder,
     content: Box<str>,
@@ -52,16 +51,9 @@ impl IActiveMessage for ScoresUserPagination {
         let author = if self.mode.is_some() {
             self.user.author_builder()
         } else {
-            let icon = match self.user {
-                RedisData::Original(ref user) => flag_url(&user.country_code),
-                RedisData::Archive(ref user) => flag_url(&user.country_code),
-            };
-
-            let url = format!("{OSU_BASE}users/{}", self.user.user_id());
-
-            AuthorBuilder::new(self.user.username())
-                .url(url)
-                .icon_url(icon)
+            AuthorBuilder::new(self.user.username.as_str())
+                .url(format!("{OSU_BASE}users/{}", self.user.user_id))
+                .icon_url(flag_url(self.user.country_code.as_str()))
         };
 
         let pages = &self.pages;

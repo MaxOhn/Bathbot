@@ -15,7 +15,7 @@ use twilight_model::channel::message::embed::EmbedField;
 use crate::{
     active::impls::higherlower::state::{mapset_cover, HigherLowerState, H, W},
     core::Context,
-    manager::{redis::RedisData, OsuMapSlim},
+    manager::OsuMapSlim,
     util::{osu::grade_emote, Emote},
 };
 
@@ -66,10 +66,7 @@ impl ScorePp {
             .await
             .wrap_err("Failed to get cached pp ranking")?;
 
-        let player = match ranking {
-            RedisData::Original(mut ranking) => UserCompact::from(ranking.ranking.swap_remove(idx)),
-            RedisData::Archive(ranking) => UserCompact::from(&ranking.ranking[idx]),
-        };
+        let player = UserCompact::from(&ranking.ranking[idx]);
 
         let mut plays = Context::osu()
             .user_scores(player.user_id)
@@ -305,8 +302,8 @@ impl From<&ArchivedRankingsUser> for UserCompact {
             global_rank: user
                 .statistics
                 .as_ref()
-                .map_or(0, |stats| stats.global_rank),
-            user_id: user.user_id,
+                .map_or(0, |stats| stats.global_rank.to_native()),
+            user_id: user.user_id.to_native(),
             username: user.username.as_str().into(),
         }
     }

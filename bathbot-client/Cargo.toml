@@ -9,7 +9,7 @@ base64 = { version = "0.21" }
 bathbot-model = { path = "../bathbot-model" }
 bathbot-util = { path = "../bathbot-util" }
 bytes = { version = "1.0" }
-eyre = { version = "0.6" }
+eyre = { workspace = true }
 http = { version = "0.2" }
 hyper = { version = "0.14", default-features = false }
 hyper-rustls = { version = "0.24.1", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
@@ -18,7 +18,7 @@ leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
 metrics = { version = "0.23.0" }
 rand = { version = "0.8" }
 rosu-v2 = { workspace = true }
-rkyv = { version = "0.7" }
+rkyv = { workspace = true }
 ryu = { version = "1.0.15", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }

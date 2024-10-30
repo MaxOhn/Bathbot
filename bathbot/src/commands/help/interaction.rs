@@ -125,12 +125,30 @@ async fn help_slash_basic(command: InteractionCommand) -> Result<()> {
         value: format!("Try using this [**invite link**]({INVITE_LINK})"),
     };
 
-    let stats = cache.stats();
+    let mut stats = cache.stats();
+
+    let guilds = match stats.guilds().await {
+        Ok(guilds) => guilds,
+        Err(err) => {
+            warn!(?err, "Failed to fetch guild count");
+
+            0
+        }
+    };
+
+    let unavailable_guilds = match stats.unavailable_guilds().await {
+        Ok(unavailable_guilds) => unavailable_guilds,
+        Err(err) => {
+            warn!(?err, "Failed to fetch unavailable guild count");
+
+            0
+        }
+    };
 
     let servers = EmbedField {
         inline: true,
         name: "Servers".to_owned(),
-        value: WithComma::new(stats.guilds + stats.unavailable_guilds).to_string(),
+        value: WithComma::new(guilds + unavailable_guilds).to_string(),
     };
 
     let ctx = Context::get();

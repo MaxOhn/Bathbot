@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
+    constants::{GENERAL_ISSUE, OSU_BASE},
     matcher,
     osu::flag_url,
     AuthorBuilder, EmbedBuilder, MessageBuilder,
@@ -15,7 +15,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::{require_link, user_not_found};
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
@@ -84,37 +84,25 @@ async fn avatar(orig: CommandOrigin<'_>, args: Avatar<'_>) -> Result<()> {
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
     };
+    let author = AuthorBuilder::new(user.username.as_str())
+        .url(format!("{OSU_BASE}u/{}", user.user_id))
+        .icon_url(flag_url(user.country_code.as_str()));
 
-    let embed = match user {
-        RedisData::Original(user) => {
-            let author = AuthorBuilder::new(user.username.into_string())
-                .url(format!("{OSU_BASE}u/{}", user.user_id))
-                .icon_url(flag_url(&user.country_code));
-
-            EmbedBuilder::new().author(author).image(user.avatar_url)
-        }
-        RedisData::Archive(user) => {
-            let author = AuthorBuilder::new(user.username.as_str())
-                .url(format!("{OSU_BASE}u/{}", user.user_id))
-                .icon_url(flag_url(user.country_code.as_str()));
-
-            EmbedBuilder::new()
-                .author(author)
-                .image(user.avatar_url.as_ref())
-        }
-    };
+    let embed = EmbedBuilder::new()
+        .author(author)
+        .image(user.avatar_url.as_str());
 
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(builder).await?;

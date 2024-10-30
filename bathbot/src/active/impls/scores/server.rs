@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::twilight_model::util::ImageHash;
+use bathbot_model::twilight::ImageHashRkyv;
 use bathbot_psql::model::osu::{DbScore, DbScoreBeatmap, DbScoreBeatmapset, DbScoreUser, DbScores};
 use bathbot_util::{
     constants::OSU_BASE,
@@ -42,7 +42,7 @@ pub struct ScoresServerPagination {
     scores: DbScores<IntHasher>,
     mode: Option<GameMode>,
     sort: ScoresOrder,
-    guild_icon: Option<(Id<GuildMarker>, ImageHash)>,
+    guild_icon: Option<(Id<GuildMarker>, ImageHashRkyv)>,
     content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,

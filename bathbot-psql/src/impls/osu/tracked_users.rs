@@ -2,9 +2,10 @@ use std::{hash::BuildHasher, num::NonZeroU64};
 
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
-use rkyv::ser::{
-    serializers::{AlignedSerializer, AllocSerializer},
-    Serializer,
+use rkyv::{
+    rancor::BoxedError,
+    ser::Serializer,
+    with::{ArchiveWith, AsVec, With},
 };
 use rosu_v2::prelude::GameMode;
 
@@ -72,8 +73,14 @@ WHERE
         mode: GameMode,
         channels: &Channels<S>,
     ) -> Result<()> {
-        let channels =
-            rkyv::to_bytes::<_, 256>(channels).wrap_err("failed to serialize channels")?;
+        let channels = rkyv::util::with_arena(|arena| {
+            let mut writer = Vec::new();
+            let mut serializer = Serializer::new(&mut writer, arena.acquire(), ());
+            rkyv::api::serialize_using(With::<_, AsVec>::cast(channels), &mut serializer)?;
+
+            Ok::<_, BoxedError>(writer)
+        })
+        .wrap_err("Failed to serialize channels")?;
 
         let query = sqlx::query!(
             r#"
@@ -131,18 +138,19 @@ WHERE
     where
         S: Default + BuildHasher,
     {
-        let mut tx = self.begin().await.wrap_err("failed to begin transaction")?;
+        let mut tx = self.begin().await.wrap_err("Failed to begin transaction")?;
 
         let mut channels = Channels::with_capacity_and_hasher(1, S::default());
         channels.insert(channel_id, limit);
 
-        let mut ser = AllocSerializer::<52>::default();
+        let mut channels_bytes = rkyv::util::with_arena(|arena| {
+            let mut writer = Vec::new();
+            let mut serializer = Serializer::new(&mut writer, arena.acquire(), ());
+            rkyv::api::serialize_using(With::<_, AsVec>::cast(&channels), &mut serializer)?;
 
-        ser.serialize_value(&channels)
-            .wrap_err("failed to serialize channels")?;
-
-        let (ser, scratch, shared) = ser.into_components();
-        let mut channels_bytes = ser.into_inner();
+            Ok::<_, BoxedError>(writer)
+        })
+        .wrap_err("Failed to serialize channels")?;
 
         let query = sqlx::query!(
             r#"
@@ -162,20 +170,28 @@ SET
             .await
             .wrap_err("failed to fetch one")?;
 
-        let prev_channels = unsafe { rkyv::archived_root::<Channels<S>>(&row.channels) };
+        let prev_channels =
+            rkyv::access::<<AsVec as ArchiveWith<Channels<S>>>::Archived, BoxedError>(
+                &row.channels,
+            )
+            .wrap_err("Failed to validate channels")?;
 
-        if !prev_channels.contains_key(&channel_id) {
-            channels.extend(prev_channels.iter());
+        if !prev_channels.iter().any(|entry| entry.key == channel_id) {
+            channels.extend(
+                prev_channels
+                    .iter()
+                    .map(|entry| (entry.key.to_native(), entry.value)),
+            );
 
             // re-use the previous buffer
-            channels_bytes.clear();
-            let aligned_ser = AlignedSerializer::new(channels_bytes);
-            let mut ser = AllocSerializer::new(aligned_ser, scratch, shared);
+            rkyv::util::with_arena(|arena| {
+                channels_bytes.clear();
+                let mut serializer = Serializer::new(&mut channels_bytes, arena.acquire(), ());
+                rkyv::api::serialize_using(With::<_, AsVec>::cast(&channels), &mut serializer)?;
 
-            ser.serialize_value(&channels)
-                .wrap_err("failed to serialize updated channels")?;
-
-            let channels_bytes = ser.into_serializer().into_inner();
+                Ok::<_, BoxedError>(())
+            })
+            .wrap_err("Failed to serialize updated channels")?;
 
             let query = sqlx::query!(
                 r#"

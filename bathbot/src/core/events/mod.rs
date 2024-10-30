@@ -1,10 +1,10 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use bathbot_cache::model::CachedArchive;
-use bathbot_model::twilight_model::{channel::Channel, guild::Guild};
+use bathbot_cache::twilight::{channel::CachedChannel, guild::CachedGuild};
 use bathbot_util::constants::MISS_ANALYZER_ID;
 use eyre::Result;
 use futures::StreamExt;
+use redlight::CachedArchive;
 use tokio::sync::mpsc::Receiver;
 use twilight_gateway::{error::ReceiveMessageErrorType, stream::ShardEventStream, Event, Shard};
 use twilight_model::{gateway::CloseCode, user::User};
@@ -70,11 +70,11 @@ enum EventLocation {
     Private,
     UncachedGuild,
     UncachedChannel {
-        guild: CachedArchive<Guild>,
+        guild: CachedArchive<CachedGuild>,
     },
     Cached {
-        guild: CachedArchive<Guild>,
-        channel: CachedArchive<Channel>,
+        guild: CachedArchive<CachedGuild>,
+        channel: CachedArchive<CachedChannel>,
     },
 }
 
@@ -89,11 +89,13 @@ impl EventLocation {
 
         let cache = Context::cache();
 
+        // TODO: tokio::join!
+
         let Ok(Some(guild)) = cache.guild(guild_id).await else {
             return Self::UncachedGuild;
         };
 
-        let Ok(Some(channel)) = cache.channel(Some(guild_id), orig.channel_id()).await else {
+        let Ok(Some(channel)) = cache.channel(orig.channel_id()).await else {
             return Self::UncachedChannel { guild };
         };
 
@@ -110,10 +112,7 @@ impl Display for EventLocation {
             EventLocation::UncachedChannel { guild } => {
                 write!(f, "{}:<uncached channel>", guild.name)
             }
-            EventLocation::Cached { guild, channel } => match channel.name.as_ref() {
-                Some(channel_name) => write!(f, "{}:{channel_name}", guild.name),
-                None => write!(f, "{}:<no channel name>", guild.name),
-            },
+            EventLocation::Cached { guild, channel } => write!(f, "{}:{}", guild.name, channel.id),
         }
     }
 }
@@ -132,8 +131,13 @@ pub async fn event_loop(shards: &mut Vec<Shard>, mut reshard_rx: Receiver<()>) {
                  res = stream.next()  => match res {
                     Some((shard, Ok(event))) => {
                         standby.process(&event);
-                        let change = cache.update(&event).await;
-                        BotMetrics::event(&event, change);
+
+                        if let Err(err) = cache.update(&event).await {
+                            let event = event.kind().name().unwrap_or("<unnamed>");
+                            error!(event, ?err, "Failed to update cache");
+                        }
+
+                        BotMetrics::event(&event);
                         let shard_id = shard.id().number();
 
                         tokio::spawn(async move {

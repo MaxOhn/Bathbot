@@ -14,7 +14,7 @@ use bathbot_util::{
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
 use eyre::{Result, WrapErr};
-use rkyv::{Deserialize, Infallible};
+use rkyv::Deserialize;
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 use twilight_interactions::command::AutocompleteValue;
@@ -26,7 +26,6 @@ use twilight_model::{
 use super::{MedalAchieved, MedalInfo_};
 use crate::{
     core::commands::CommandOrigin,
-    manager::redis::RedisData,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -210,32 +209,17 @@ pub async fn handle_autocomplete(command: &InteractionCommand, name: String) -> 
         .await
         .wrap_err("Failed to get cached medals")?;
 
-    let mut choices = Vec::with_capacity(25);
-
-    match medals {
-        RedisData::Original(original) => {
-            for medal in original.iter() {
-                if medal.name.to_ascii_lowercase().starts_with(name) {
-                    choices.push(new_choice(&medal.name));
-
-                    if choices.len() == 25 {
-                        break;
-                    }
-                }
+    let choices = medals
+        .iter()
+        .filter_map(|medal| {
+            if medal.name.to_ascii_lowercase().starts_with(name) {
+                Some(new_choice(&medal.name))
+            } else {
+                None
             }
-        }
-        RedisData::Archive(archived) => {
-            for medal in archived.iter() {
-                if medal.name.to_ascii_lowercase().starts_with(name) {
-                    choices.push(new_choice(&medal.name));
-
-                    if choices.len() == 25 {
-                        break;
-                    }
-                }
-            }
-        }
-    }
+        })
+        .take(25)
+        .collect();
 
     command.autocomplete(choices).await?;
 
@@ -395,25 +379,10 @@ impl MedalEmbed {
 
         let achieved = achieved.map(|achieved| {
             let user = achieved.user;
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
 
-            let (country_code, username, user_id) = match &user {
-                RedisData::Original(user) => {
-                    let country_code = user.country_code.as_str();
-                    let username = user.username.as_str();
-                    let user_id = user.user_id;
-
-                    (country_code, username, user_id)
-                }
-                RedisData::Archive(user) => {
-                    let country_code = user.country_code.as_str();
-                    let username = user.username.as_str();
-                    let user_id = user.user_id;
-
-                    (country_code, username, user_id)
-                }
-            };
-
-            let mut author_url = format!("{OSU_BASE}users/{user_id}");
+            let mut author_url = format!("{OSU_BASE}users/{}", user.user_id);
 
             match medal.restriction {
                 None => {}

@@ -7,7 +7,13 @@ use crate::{
 };
 
 pub async fn cache(command: InteractionCommand) -> Result<()> {
-    let stats = Context::cache().stats();
+    let mut stats = Context::cache().stats();
+
+    let guilds = stats.guilds().await?;
+    let unavailable_guilds = stats.unavailable_guilds().await?;
+    let users = stats.users().await?;
+    let roles = stats.roles().await?;
+    let channels = stats.channels().await?;
 
     let description = format!(
         "Guilds: {guilds}\n\
@@ -15,11 +21,11 @@ pub async fn cache(command: InteractionCommand) -> Result<()> {
         Users: {users}\n\
         Roles: {roles}\n\
         Channels: {channels}",
-        guilds = WithComma::new(stats.guilds),
-        unavailable_guilds = WithComma::new(stats.unavailable_guilds),
-        users = WithComma::new(stats.users),
-        roles = WithComma::new(stats.roles),
-        channels = WithComma::new(stats.channels),
+        guilds = WithComma::new(guilds),
+        unavailable_guilds = WithComma::new(unavailable_guilds),
+        users = WithComma::new(users),
+        roles = WithComma::new(roles),
+        channels = WithComma::new(channels),
     );
 
     let embed = EmbedBuilder::new()

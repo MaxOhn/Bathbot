@@ -3,7 +3,7 @@ use std::fmt::Write;
 use bathbot_macros::command;
 use bathbot_psql::model::configs::{Authorities, GuildConfig};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
-use eyre::Result;
+use eyre::{Report, Result};
 use twilight_model::{
     guild::Permissions,
     id::{marker::RoleMarker, Id},
@@ -97,19 +97,26 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
             {
                 let member_fut = cache.member(guild_id, author_id);
 
-                let member_roles = match member_fut.await {
-                    Ok(Some(member)) => member.roles().to_vec(),
-                    Ok(None) => Vec::new(),
+                let member = match member_fut.await {
+                    Ok(opt) => opt,
                     Err(err) => {
                         let _ = orig.error_callback(GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(Report::new(err));
                     }
                 };
 
-                let still_authority = match cache.roles(guild_id, member_roles).await {
+                let member_roles = member
+                    .as_ref()
+                    .map_or(&[] as &[_], |member| member.roles.as_slice())
+                    .iter()
+                    .copied()
+                    .map(Id::from);
+
+                let still_authority = match cache.roles(member_roles).await {
                     Ok(cached_roles) => cached_roles.into_iter().any(|role| {
-                        role.permissions.contains(Permissions::ADMINISTRATOR)
+                        Permissions::from_bits_truncate(role.permissions.to_native())
+                            .contains(Permissions::ADMINISTRATOR)
                             || roles.iter().any(|&new| new == role.id && new != role_id)
                     }),
                     Err(err) => {
@@ -149,19 +156,26 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
             {
                 let member_fut = cache.member(guild_id, author_id);
 
-                let member_roles = match member_fut.await {
-                    Ok(Some(member)) => member.roles().to_vec(),
-                    Ok(None) => Vec::new(),
+                let member = match member_fut.await {
+                    Ok(opt) => opt,
                     Err(err) => {
                         let _ = orig.error_callback(GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(Report::new(err));
                     }
                 };
 
-                let still_authority = match cache.roles(guild_id, member_roles).await {
+                let member_roles = member
+                    .as_ref()
+                    .map_or(&[] as &[_], |member| member.roles.as_slice())
+                    .iter()
+                    .copied()
+                    .map(Id::from);
+
+                let still_authority = match cache.roles(member_roles).await {
                     Ok(cached_roles) => cached_roles.into_iter().any(|role| {
-                        role.permissions.contains(Permissions::ADMINISTRATOR)
+                        Permissions::from_bits_truncate(role.permissions.to_native())
+                            .contains(Permissions::ADMINISTRATOR)
                             || roles.iter().any(|&new| new == role.id)
                     }),
                     Err(err) => {

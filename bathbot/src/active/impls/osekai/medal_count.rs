@@ -1,10 +1,12 @@
 use std::fmt::Write;
 
+use bathbot_cache::value::CachedArchive;
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{OsekaiMedal, OsekaiUserEntry};
+use bathbot_model::{ArchivedOsekaiUserEntry, OsekaiMedal};
 use bathbot_util::{constants::OSU_BASE, numbers::round, CowUtils, EmbedBuilder, FooterBuilder};
 use eyre::Result;
 use futures::future::BoxFuture;
+use rkyv::vec::ArchivedVec;
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -21,7 +23,7 @@ use crate::{
 #[derive(PaginationBuilder)]
 pub struct MedalCountPagination {
     #[pagination(per_page = 10)]
-    ranking: Box<[OsekaiUserEntry]>,
+    ranking: CachedArchive<ArchivedVec<ArchivedOsekaiUserEntry>>,
     author_idx: Option<usize>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
@@ -59,7 +61,7 @@ impl IActiveMessage for MedalCountPagination {
                 user = entry.username.cow_escape_markdown(),
                 user_id = entry.user_id,
                 count = entry.medal_count,
-                percent = round(entry.completion),
+                percent = round(entry.completion.to_native()),
                 medal = entry.rarest_medal,
             );
         }

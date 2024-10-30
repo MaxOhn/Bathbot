@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{rosu_v2::user::User, OsekaiMedal};
+use bathbot_model::OsekaiMedal;
 use bathbot_util::{
     constants::OSU_BASE, osu::flag_url, AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
 };
@@ -18,13 +18,13 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::{MedalMissingOrder, MedalType},
-    manager::redis::RedisData,
+    manager::redis::osu::CachedOsuUser,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 
 #[derive(PaginationBuilder)]
 pub struct MedalsMissingPagination {
-    user: RedisData<User>,
+    user: CachedOsuUser,
     #[pagination(per_page = 15)]
     medals: Box<[MedalType]>,
     medal_count: (usize, usize),
@@ -85,34 +85,15 @@ impl IActiveMessage for MedalsMissingPagination {
             self.medal_count.0, self.medal_count.1
         ));
 
-        let (country_code, username, user_id, avatar_url) = match self.user {
-            RedisData::Original(ref user) => {
-                let country_code = user.country_code.as_str();
-                let username = user.username.as_str();
-                let user_id = user.user_id;
-                let avatar_url = user.avatar_url.as_ref();
-
-                (country_code, username, user_id, avatar_url)
-            }
-            RedisData::Archive(ref user) => {
-                let country_code = user.country_code.as_str();
-                let username = user.username.as_str();
-                let user_id = user.user_id;
-                let avatar_url = user.avatar_url.as_ref();
-
-                (country_code, username, user_id, avatar_url)
-            }
-        };
-
-        let author = AuthorBuilder::new(username)
-            .url(format!("{OSU_BASE}u/{user_id}"))
-            .icon_url(flag_url(country_code));
+        let author = AuthorBuilder::new(self.user.username.as_str())
+            .url(format!("{OSU_BASE}u/{}", self.user.user_id))
+            .icon_url(flag_url(self.user.country_code.as_str()));
 
         let embed = EmbedBuilder::new()
             .author(author)
             .description(description)
             .footer(footer)
-            .thumbnail(avatar_url)
+            .thumbnail(self.user.avatar_url.as_str())
             .title("Missing medals");
 
         BuildPage::new(embed, false).boxed()

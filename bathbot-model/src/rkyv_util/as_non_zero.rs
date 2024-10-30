@@ -5,8 +5,9 @@ use rkyv::{
         ArchivedOptionNonZeroU16, ArchivedOptionNonZeroU32, ArchivedOptionNonZeroU64,
         ArchivedOptionNonZeroU8,
     },
+    rancor::Fallible,
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Fallible,
+    Place,
 };
 
 pub struct AsNonZero;
@@ -18,12 +19,7 @@ macro_rules! impl_as_non_zero {
             type Resolver = ();
 
             #[inline]
-            unsafe fn resolve_with(
-                field: &Option<$ne>,
-                _: usize,
-                _: Self::Resolver,
-                out: *mut Self::Archived,
-            ) {
+            fn resolve_with(field: &Option<$ne>, _: Self::Resolver, out: Place<Self::Archived>) {
                 let opt = field.and_then(<$nz>::new);
                 <$ar>::resolve_from_option(opt, out);
             }
@@ -45,7 +41,7 @@ macro_rules! impl_as_non_zero {
                 field: &$ar,
                 _: &mut D,
             ) -> Result<Option<$ne>, <D as Fallible>::Error> {
-                Ok(field.as_ref().copied().map(<$nz>::get))
+                Ok(field.as_ref().copied().map(<$nz>::from).map(<$nz>::get))
             }
         }
     };

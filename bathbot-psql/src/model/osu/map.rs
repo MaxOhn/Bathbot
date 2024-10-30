@@ -1,4 +1,4 @@
-use rkyv::{Archive, Deserialize, Serialize};
+use rkyv::{Archive, Serialize};
 use rosu_pp::{
     catch::CatchDifficultyAttributes, mania::ManiaDifficultyAttributes,
     osu::OsuDifficultyAttributes, taiko::TaikoDifficultyAttributes,
@@ -24,7 +24,7 @@ pub enum DbMapFilename {
     Missing,
 }
 
-#[derive(Archive, Deserialize, Serialize)]
+#[derive(Archive, Serialize)]
 pub struct MapVersion {
     pub map_id: i32,
     pub version: String,

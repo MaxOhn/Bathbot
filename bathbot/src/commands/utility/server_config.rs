@@ -2,7 +2,7 @@ use bathbot_macros::{command, SlashCommand};
 use bathbot_model::command_fields::{EnableDisable, ShowHideOption};
 use bathbot_psql::model::configs::{GuildConfig, HideSolutions, ListSize, Retries, ScoreData};
 use bathbot_util::constants::GENERAL_ISSUE;
-use eyre::Result;
+use eyre::{Report, Result};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::RoleMarker, Id};
 
@@ -176,7 +176,7 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
         Err(err) => {
             let _ = command.error(GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(Report::new(err));
         }
     };
 
@@ -247,7 +247,7 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
     let mut authorities = Vec::with_capacity(config.authorities.len());
 
     for &role in config.authorities.iter() {
-        if let Ok(Some(role)) = Context::cache().role(guild_id, role).await {
+        if let Ok(Some(role)) = Context::cache().role(role).await {
             authorities.push(role.name.as_ref().to_owned());
         }
     }

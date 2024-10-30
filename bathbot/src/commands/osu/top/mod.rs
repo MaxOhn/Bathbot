@@ -834,7 +834,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
     };
 
     let post_len = entries.len();
-    let username = user.username();
+    let username = user.username.as_str();
 
     let index = match args.index.as_deref() {
         Some("random" | "?") => (post_len > 0).then(|| thread_rng().gen_range(1..=post_len)),

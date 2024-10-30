@@ -189,7 +189,7 @@ pub(super) async fn scores(orig: CommandOrigin<'_>, args: OsuStatsScores<'_>) ->
         }
     };
 
-    let params = args.into_params(user.username().into(), mode, mods);
+    let params = args.into_params(user.username.as_str().into(), mode, mods);
     let scores_fut = Context::client().get_global_scores(&params);
 
     // Retrieve their top global scores

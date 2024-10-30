@@ -1,7 +1,6 @@
 use std::{cmp::Ordering, convert::identity, fmt::Write};
 
 use bathbot_macros::EmbedData;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE,
     numbers::{round, WithComma},
@@ -13,7 +12,8 @@ use time::OffsetDateTime;
 
 use crate::{
     commands::osu::{FixEntry, FixScore},
-    manager::redis::RedisData,
+    manager::redis::osu::CachedOsuUser,
+    util::CachedUserExt,
 };
 
 #[derive(EmbedData)]
@@ -147,7 +147,7 @@ struct NewPp {
 }
 
 impl NewPp {
-    fn new(pp: f32, user: &RedisData<User>, scores: &[Score], datetime: OffsetDateTime) -> NewPp {
+    fn new(pp: f32, user: &CachedOsuUser, scores: &[Score], datetime: OffsetDateTime) -> NewPp {
         let datetime = datetime.unix_timestamp();
 
         let old_idx = scores
@@ -172,7 +172,10 @@ impl NewPp {
         }
 
         let new_weighted = extracted_pp.accum_weighted();
-        let total = user.stats().pp();
+        let total = user
+            .statistics
+            .as_ref()
+            .map_or(0.0, |stats| stats.pp.to_native());
         let new_total = total - old_weighted + new_weighted;
 
         NewPp {

@@ -6,21 +6,20 @@ use std::{
 
 use bathbot_macros::command;
 use bathbot_model::SnipeScoreParams;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher,
-    osu::ModSelection,
-    CowUtils,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::ModSelection, CowUtils};
 use eyre::{Report, Result};
-use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
+use rosu_v2::{
+    model::GameMode,
+    prelude::{CountryCode, OsuError},
+    request::UserId,
+};
 
 use super::{SnipeGameMode, SnipePlayerList, SnipePlayerListOrder};
 use crate::{
     active::{impls::SnipePlayerListPagination, ActiveMessages},
     commands::osu::{HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::ChannelExt,
     Context,
 };
@@ -137,7 +136,7 @@ pub(super) async fn player_list(orig: CommandOrigin<'_>, args: SnipePlayerList<'
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = match user_id {
                 UserId::Id(user_id) => format!("User with id {user_id} was not found"),
                 UserId::Name(name) => format!("User `{name}` was not found"),
@@ -146,37 +145,20 @@ pub(super) async fn player_list(orig: CommandOrigin<'_>, args: SnipePlayerList<'
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-            return Err(report);
+            return Err(Report::new(err).wrap_err("Failed to get user"));
         }
     };
 
-    let (country_code, username, user_id) = match &user {
-        RedisData::Original(user) => {
-            let country_code = user.country_code.as_str();
-            let username = user.username.as_str();
-            let user_id = user.user_id;
+    let country = user.country_code.as_str();
+    let username = user.username.as_str();
+    let user_id = user.user_id.to_native();
 
-            (country_code, username, user_id)
-        }
-        RedisData::Archive(user) => {
-            let country_code = user.country_code.as_str();
-            let username = user.username.as_str();
-            let user_id = user.user_id;
-
-            (country_code, username, user_id)
-        }
-    };
-
-    let country = if Context::huismetbenen()
-        .is_supported(country_code, mode)
-        .await
-    {
-        country_code.to_owned()
+    let country = if Context::huismetbenen().is_supported(country, mode).await {
+        CountryCode::from(country)
     } else {
-        let content = format!("`{username}`'s country {country_code} is not supported :(");
+        let content = format!("`{username}`'s country {country} is not supported :(");
 
         return orig.error(content).await;
     };

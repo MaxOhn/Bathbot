@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
-use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::OSU_BASE,
@@ -27,16 +26,16 @@ use crate::{
         utility::{ScoreEmbedDataHalf, ScoreEmbedDataWrap},
     },
     embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
-    manager::{redis::RedisData, OsuMap},
+    manager::{redis::osu::CachedOsuUser, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::{GradeFormatter, ScoreFormatter},
-        Emote,
+        CachedUserExt, Emote,
     },
 };
 
 pub struct TopPagination {
-    user: RedisData<User>,
+    user: CachedOsuUser,
     mode: GameMode,
     entries: Box<[ScoreEmbedDataWrap]>,
     sort_by: TopScoreOrder,
@@ -84,7 +83,7 @@ impl TopPagination {
             .author(self.user.author_builder())
             .description(description)
             .footer(FooterBuilder::new(footer_text))
-            .thumbnail(self.user.avatar_url());
+            .thumbnail(self.user.avatar_url.as_str());
 
         BuildPage::new(embed, false).content(self.content.clone())
     }
@@ -230,7 +229,7 @@ impl TopPagination {
             .author(self.user.author_builder())
             .description(description)
             .footer(FooterBuilder::new(footer_text))
-            .thumbnail(self.user.avatar_url());
+            .thumbnail(self.user.avatar_url.as_str());
 
         BuildPage::new(embed, false).content(self.content.clone())
     }
@@ -265,7 +264,7 @@ impl IActiveMessage for TopPagination {
 }
 
 pub struct TopPaginationBuilder {
-    user: Option<RedisData<User>>,
+    user: Option<CachedOsuUser>,
     mode: Option<GameMode>,
     entries: Option<Box<[ScoreEmbedDataWrap]>>,
     sort_by: Option<TopScoreOrder>,
@@ -305,7 +304,7 @@ impl TopPaginationBuilder {
         }
     }
 
-    pub fn user(&mut self, user: RedisData<User>) -> &mut Self {
+    pub fn user(&mut self, user: CachedOsuUser) -> &mut Self {
         self.user = Some(user);
 
         self

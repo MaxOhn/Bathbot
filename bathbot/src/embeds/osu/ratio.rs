@@ -1,14 +1,13 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_macros::EmbedData;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::AuthorBuilder;
 use rosu_v2::{
     model::GameMode,
     prelude::{Grade, Score},
 };
 
-use crate::manager::redis::RedisData;
+use crate::{manager::redis::osu::CachedOsuUser, util::CachedUserExt};
 
 #[derive(EmbedData)]
 pub struct RatioEmbed {
@@ -18,7 +17,7 @@ pub struct RatioEmbed {
 }
 
 impl RatioEmbed {
-    pub fn new(user: &RedisData<User>, scores: Vec<Score>) -> Self {
+    pub fn new(user: &CachedOsuUser, scores: Vec<Score>) -> Self {
         let accs = [0, 90, 95, 97, 99];
         let mut categories: BTreeMap<u8, RatioCategory> = BTreeMap::new();
 
@@ -42,7 +41,7 @@ impl RatioEmbed {
             }
         }
 
-        let thumbnail = user.avatar_url().to_owned();
+        let thumbnail = user.avatar_url.as_str().to_owned();
         let mut description = String::with_capacity(256);
 
         let _ = writeln!(

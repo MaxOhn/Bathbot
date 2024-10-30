@@ -25,8 +25,8 @@ impl Top100Stats {
             return Some(stats);
         }
 
-        let user_id = menu.user.user_id();
-        let mode = menu.user.mode();
+        let user_id = menu.user.user_id.to_native();
+        let mode = menu.user.mode;
         let scores = menu.scores.get(user_id, mode, menu.legacy_scores).await?;
 
         match Self::new(scores).await {

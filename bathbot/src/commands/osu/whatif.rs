@@ -3,7 +3,7 @@ use std::{borrow::Cow, iter};
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::{
-    constants::OSU_API_ISSUE,
+    constants::GENERAL_ISSUE,
     matcher,
     osu::{approx_more_pp, ExtractablePp, PpListUtil},
     MessageBuilder,
@@ -17,7 +17,7 @@ use super::user_not_found;
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, WhatIfEmbed},
-    manager::redis::osu::UserArgs,
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -211,13 +211,13 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
@@ -247,7 +247,10 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
         let max_pp = pps.first().copied().unwrap_or(0.0);
         approx_more_pp(&mut pps, 50);
         let actual = pps.accum_weighted();
-        let total = user.stats().pp();
+        let total = user
+            .statistics
+            .as_ref()
+            .map_or(0.0, |stats| stats.pp.to_native());
         let bonus_pp = (total - actual).max(0.0);
 
         let idx = pps

@@ -502,9 +502,9 @@ pub enum OsuStatsBestTimeframe {
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct OsuStatsBestScores {
-    #[with(DateRkyv)]
+    #[rkyv(with = DateRkyv)]
     pub start_date: Date,
-    #[with(DateRkyv)]
+    #[rkyv(with = DateRkyv)]
     pub end_date: Date,
     pub scores: Box<[OsuStatsBestScore]>,
 }
@@ -583,15 +583,15 @@ impl<'de> Visitor<'de> for ModeAsSeed<Vec<OsuStatsBestScore>> {
 pub struct OsuStatsBestScore {
     pub accuracy: f32,
     pub count_miss: u32,
-    pub mods: GameMods,
     pub max_combo: u32,
-    #[with(DateTimeRkyv)]
-    pub ended_at: OffsetDateTime,
     pub position: u32,
+    pub mods: GameMods,
+    #[rkyv(with = DateTimeRkyv)]
+    pub ended_at: OffsetDateTime,
     pub pp: f32,
-    #[with(GradeRkyv)]
-    pub grade: Grade,
     pub score: u32,
+    #[rkyv(with = GradeRkyv)]
+    pub grade: Grade,
     pub map: OsuStatsBestScoreMap,
     pub user: OsuStatsBestScoreUser,
 }
@@ -653,12 +653,12 @@ pub struct OsuStatsBestScoreMap {
     pub map_id: u32,
     #[serde(rename = "beatmapSetId")]
     pub mapset_id: u32,
+    #[serde(rename = "maxCombo")]
+    pub max_combo: u32,
     pub artist: Box<str>,
     pub title: Box<str>,
     pub version: Box<str>,
     pub creator: Box<str>,
-    #[serde(rename = "maxCombo")]
-    pub max_combo: u32,
 }
 
 #[derive(Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]

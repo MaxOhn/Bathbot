@@ -170,7 +170,7 @@ pub async fn map_scores(mut command: InteractionCommand, args: MapScores) -> Res
 
     let cache = Context::cache();
     let guild_fut = cache.guild(guild_id);
-    let members_fut = cache.members(guild_id);
+    let members_fut = cache.member_ids(guild_id);
     let owner = command.user_id()?;
     let mode_fut = get_mode(args.mode, owner);
 

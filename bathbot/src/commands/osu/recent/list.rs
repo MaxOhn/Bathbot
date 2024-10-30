@@ -380,7 +380,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: RecentList<'_>) -> Resul
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) if scores.is_empty() => {
-            let username = user.username();
+            let username = user.username.as_str();
 
             let content = format!(
                 "No recent {}plays found for user `{username}`",

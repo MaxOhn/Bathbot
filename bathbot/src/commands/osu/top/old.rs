@@ -790,7 +790,10 @@ async fn topold(orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
         .map(|weight| weight.pp)
         .sum();
 
-    let pre_pp = user.stats().pp();
+    let pre_pp = user
+        .statistics
+        .as_ref()
+        .map_or(0.0, |stats| stats.pp.to_native());
     let bonus_pp = pre_pp - actual_pp;
 
     let mut entries = match process_scores(scores, &args).await {
@@ -816,7 +819,7 @@ async fn topold(orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
     });
 
     let adjusted_pp = round(bonus_pp + adjusted_pp);
-    let username = user.username();
+    let username = user.username.as_str();
 
     // Process filter/sorting afterwards
     common.process(&mut entries);

@@ -215,7 +215,7 @@ pub(super) async fn leaderboard(
 
     let (map_id, checksum, user) = match scores_fut.await {
         Ok((user, scores)) if scores.len() < limit => {
-            let username = user.username();
+            let username = user.username.as_str();
 
             let content = format!(
                 "There are only {} many scores in `{username}`'{} recent history.",
@@ -233,7 +233,7 @@ pub(super) async fn leaderboard(
                 (map.map_id, map.checksum, user)
             }
             None => {
-                let username = user.username();
+                let username = user.username.as_str();
 
                 let content = format!(
                     "No recent {}plays found for user `{username}`",
@@ -384,7 +384,7 @@ pub(super) async fn leaderboard(
         .await;
     order.push_content(&mut content);
 
-    let first_place_icon = scores.first().map(|_| user.avatar_url().to_owned());
+    let first_place_icon = scores.first().map(|_| user.avatar_url.as_str().to_owned());
 
     let pagination = LeaderboardPagination::builder()
         .map(map)

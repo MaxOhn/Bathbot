@@ -1,13 +1,12 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     numbers::{round, WithComma},
     AuthorBuilder, CowUtils,
 };
 
-use crate::{commands::osu::WhatIfData, manager::redis::RedisData};
+use crate::{commands::osu::WhatIfData, manager::redis::osu::CachedOsuUser, util::CachedUserExt};
 
 #[derive(EmbedData)]
 pub struct WhatIfEmbed {
@@ -18,24 +17,13 @@ pub struct WhatIfEmbed {
 }
 
 impl WhatIfEmbed {
-    pub fn new(user: &RedisData<User>, pp: f32, data: WhatIfData) -> Self {
-        let (stats_pp, global_rank) = {
-            let stats = user.stats();
+    pub fn new(user: &CachedOsuUser, pp: f32, data: WhatIfData) -> Self {
+        let (stats_pp, global_rank) = user.statistics.as_ref().map_or((0.0, 0), |stats| {
+            (stats.pp.to_native(), stats.global_rank.to_native())
+        });
 
-            (stats.pp(), stats.global_rank())
-        };
-
-        let (username, avatar_url) = match user {
-            RedisData::Original(user) => (
-                user.username.cow_escape_markdown(),
-                user.avatar_url.as_ref(),
-            ),
-            RedisData::Archive(user) => (
-                user.username.cow_escape_markdown(),
-                user.avatar_url.as_ref(),
-            ),
-        };
-
+        let username = user.username.cow_escape_markdown();
+        let avatar_url = user.avatar_url.as_ref();
         let count = data.count();
 
         let title = if count <= 1 {

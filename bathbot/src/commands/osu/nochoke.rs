@@ -3,11 +3,7 @@ use std::borrow::Cow;
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher,
-    osu::calculate_grade,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::calculate_grade};
 use eyre::{Report, Result};
 use rosu_pp::any::DifficultyAttributes;
 use rosu_v2::{
@@ -22,7 +18,10 @@ use super::{require_link, user_not_found};
 use crate::{
     active::{impls::NoChokePagination, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::UserArgs, OsuMap},
+    manager::{
+        redis::osu::{UserArgs, UserArgsError},
+        OsuMap,
+    },
     util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
 };
@@ -239,14 +238,14 @@ async fn nochoke(orig: CommandOrigin<'_>, args: Nochoke<'_>) -> Result<()> {
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
@@ -270,7 +269,10 @@ async fn nochoke(orig: CommandOrigin<'_>, args: Nochoke<'_>) -> Result<()> {
         .zip(0..)
         .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
-    let bonus_pp = user.stats().pp() - actual_pp;
+    let bonus_pp = user
+        .statistics
+        .as_ref()
+        .map_or(0.0, |stats| stats.pp.to_native() - actual_pp);
 
     // Sort by unchoked pp
     entries.sort_unstable_by(|a, b| b.unchoked_pp().total_cmp(&a.unchoked_pp()));
@@ -311,7 +313,7 @@ async fn nochoke(orig: CommandOrigin<'_>, args: Nochoke<'_>) -> Result<()> {
             GameMode::Catch => "ctb ",
             GameMode::Mania => "mania ",
         },
-        name = user.username(),
+        name = user.username,
     );
 
     match filter {

@@ -3,12 +3,9 @@ use std::{
     future::ready,
 };
 
-use bathbot_model::{
-    embed_builder::{
-        ComboValue, EmoteTextValue, HitresultsValue, MapperValue, PpValue, ScoreEmbedSettings,
-        SettingValue, SettingsButtons, SettingsImage, Value,
-    },
-    rosu_v2::user::User,
+use bathbot_model::embed_builder::{
+    ComboValue, EmoteTextValue, HitresultsValue, MapperValue, PpValue, ScoreEmbedSettings,
+    SettingValue, SettingsButtons, SettingsImage, Value,
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::MessageBuilder;
@@ -27,7 +24,7 @@ use crate::{
     active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
     commands::utility::ScoreEmbedDataWrap,
     core::Context,
-    manager::redis::RedisData,
+    manager::redis::osu::CachedOsuUser,
     util::{interaction::InteractionComponent, Authored, Emote},
 };
 
@@ -41,7 +38,7 @@ pub struct ScoreEmbedBuilderActive {
 
 impl ScoreEmbedBuilderActive {
     pub fn new(
-        user: &RedisData<User>,
+        user: &CachedOsuUser,
         data: ScoreEmbedDataWrap,
         settings: ScoreEmbedSettings,
         score_data: ScoreData,
