@@ -180,7 +180,7 @@ impl From<ScoreOrder> for TopScoreOrder {
     "vaxei -dt! combo=1234 sort=length",
     "peppy combo=200..500 grade=B reverse=true"
 )]
-#[aliases("topscores", "toposu", "topstd", "topstandard", "topo", "tops")]
+#[aliases("topscores", "toposu", "topstd", "topstandard", "topo", "tops", "t")]
 #[group(Osu)]
 async fn prefix_top(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(None, args) {
