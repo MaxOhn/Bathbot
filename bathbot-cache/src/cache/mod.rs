@@ -1,3 +1,5 @@
+#![allow(dependency_on_unit_never_type_fallback)] // TODO: remove
+
 use std::fmt::Display;
 
 use bb8_redis::{
