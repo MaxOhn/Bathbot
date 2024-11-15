@@ -7,7 +7,10 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{BgGameScore, EmbedHeader, RankingEntries, RankingEntry, RankingKind};
+use bathbot_model::{
+    rosu_v2::ranking::RankingsRkyv, BgGameScore, EmbedHeader, RankingEntries, RankingEntry,
+    RankingKind,
+};
 use bathbot_util::{
     numbers::{round, WithComma},
     EmbedBuilder,
@@ -279,23 +282,28 @@ impl RankingPagination {
                             entries.extend(iter);
                         }
                         RedisData::Archive(ranking) => {
-                            let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
-                                let country = user.country_code.as_str().into();
+                            let iter = ranking
+                                .deref_with::<RankingsRkyv>()
+                                .ranking
+                                .iter()
+                                .enumerate()
+                                .map(|(i, user)| {
+                                    let country = user.country_code.as_str().into();
 
-                                let pp = user
-                                    .statistics
-                                    .as_ref()
-                                    .map(|stats| stats.pp.round())
-                                    .expect("missing stats");
+                                    let pp = user
+                                        .statistics
+                                        .as_ref()
+                                        .map(|stats| stats.pp.to_native().round())
+                                        .expect("missing stats");
 
-                                let entry = RankingEntry {
-                                    country: Some(country),
-                                    name: user.username.as_str().into(),
-                                    value: pp as u32,
-                                };
+                                    let entry = RankingEntry {
+                                        country: Some(country),
+                                        name: user.username.as_str().into(),
+                                        value: pp as u32,
+                                    };
 
-                                (offset * 50 + i, entry)
-                            });
+                                    (offset * 50 + i, entry)
+                                });
 
                             entries.extend(iter);
                         }
@@ -327,23 +335,28 @@ impl RankingPagination {
                             entries.extend(iter);
                         }
                         RedisData::Archive(ranking) => {
-                            let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
-                                let country = user.country_code.as_str().into();
+                            let iter = ranking
+                                .deref_with::<RankingsRkyv>()
+                                .ranking
+                                .iter()
+                                .enumerate()
+                                .map(|(i, user)| {
+                                    let country = user.country_code.as_str().into();
 
-                                let pp = user
-                                    .statistics
-                                    .as_ref()
-                                    .map(|stats| stats.pp.round())
-                                    .expect("missing stats");
+                                    let pp = user
+                                        .statistics
+                                        .as_ref()
+                                        .map(|stats| stats.pp.to_native().round())
+                                        .expect("missing stats");
 
-                                let entry = RankingEntry {
-                                    country: Some(country),
-                                    name: user.username.as_str().into(),
-                                    value: pp as u32,
-                                };
+                                    let entry = RankingEntry {
+                                        country: Some(country),
+                                        name: user.username.as_str().into(),
+                                        value: pp as u32,
+                                    };
 
-                                (offset * 50 + i, entry)
-                            });
+                                    (offset * 50 + i, entry)
+                                });
 
                             entries.extend(iter);
                         }

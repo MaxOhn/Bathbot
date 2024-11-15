@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use bathbot_psql::model::configs::{GuildConfig, Prefix, DEFAULT_PREFIX};
+use bathbot_psql::model::configs::GuildConfig;
 use eyre::Result;
 use nom::{
     bytes::complete as by,
@@ -16,6 +16,7 @@ use crate::{
         commands::checks::{check_authority, check_channel_permissions},
         BotMetrics, Context,
     },
+    manager::DEFAULT_PREFIX,
     util::ChannelExt,
 };
 
@@ -37,8 +38,7 @@ pub async fn handle_message(msg: Message) {
             config
                 .prefixes
                 .iter()
-                .map(Prefix::as_str)
-                .map(|p| by::tag::<_, _, ()>(p)(content))
+                .map(|p| by::tag::<_, _, ()>(p.as_str())(content))
                 .flat_map(Result::ok)
                 .max_by_key(|(_, p)| p.len())
         };
@@ -92,7 +92,7 @@ async fn process_command<'m>(invoke: Invoke<'m>, msg: &'m Message) -> Result<Pro
     // Does bot have sufficient permissions to send response in a guild?
     let permissions = match (msg.guild_id, Context::cache().current_user().await) {
         (Some(guild), Ok(Some(user))) => {
-            let permissions = check_channel_permissions(user.id, channel, guild).await;
+            let permissions = check_channel_permissions(user.id.to_native(), channel, guild).await;
 
             if !permissions.contains(Permissions::SEND_MESSAGES) {
                 return Ok(ProcessResult::NoSendPermission);

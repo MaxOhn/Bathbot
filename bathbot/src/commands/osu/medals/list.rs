@@ -1,13 +1,13 @@
 use std::cmp::{Ordering, Reverse};
 
-use bathbot_model::{rkyv_util::time::DateTimeRkyv, OsekaiMedal, Rarity};
+use bathbot_model::{OsekaiMedal, Rarity};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     IntHasher,
 };
 use eyre::{Report, Result};
 use hashbrown::HashMap;
-use rkyv::{with::DeserializeWith, Infallible};
+use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
 
@@ -76,7 +76,12 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
             .collect(),
         RedisData::Archive(rarities) => rarities
             .iter()
-            .map(|entry| (entry.medal_id, entry.possession_percent))
+            .map(|entry| {
+                (
+                    entry.medal_id.to_native(),
+                    entry.possession_percent.to_native(),
+                )
+            })
             .collect(),
     };
 
@@ -122,13 +127,15 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
                     .position(|m_| m_.medal_id == m.medal_id)
                 {
                     Some(idx) => {
-                        let achieved_res =
-                            DateTimeRkyv::deserialize_with(&m.achieved_at, &mut Infallible);
+                        let achieved = m.achieved_at.try_deserialize::<Panic>().always_ok();
 
                         let entry = MedalEntryList {
                             medal: osekai_medals.swap_remove(idx),
-                            achieved: achieved_res.unwrap(),
-                            rarity: rarities.get(&m.medal_id).copied().unwrap_or(100.0),
+                            achieved,
+                            rarity: rarities
+                                .get(&m.medal_id.to_native())
+                                .copied()
+                                .unwrap_or(100.0),
                         };
 
                         Some(entry)

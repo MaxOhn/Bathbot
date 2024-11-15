@@ -3,9 +3,8 @@ use std::{
     slice::Iter,
 };
 
-use rosu_v2::{
-    model::{score::LegacyScoreStatistics, Grade},
-    prelude::{GameMod, GameModIntermode, GameMode, GameMods, GameModsIntermode, Score},
+use rosu_v2::prelude::{
+    GameMod, GameModIntermode, GameMode, GameMods, GameModsIntermode, Grade, Score, ScoreStatistics,
 };
 
 use crate::{constants::OSU_BASE, numbers::round};
@@ -439,22 +438,92 @@ impl GradeGameModsData {
 pub fn calculate_grade(
     mode: GameMode,
     mods: &impl GradeGameMods,
-    stats: &LegacyScoreStatistics,
+    stats: &ScoreStatistics,
+    max_stats: Option<&ScoreStatistics>,
 ) -> Grade {
     let mods = GradeGameModsData::new(mods);
 
-    match mode {
-        GameMode::Osu => osu_grade(mods, stats),
-        GameMode::Taiko => taiko_grade(mods, stats),
-        GameMode::Catch => catch_grade(mods, stats),
-        GameMode::Mania => mania_grade(mods, stats),
+    match (mode, max_stats) {
+        (GameMode::Osu, None) => osu_grade_legacy(mods, stats),
+        (GameMode::Osu, Some(max_stats)) => osu_grade(mods, stats, max_stats),
+        (GameMode::Taiko, None) => taiko_grade_legacy(mods, stats),
+        (GameMode::Taiko, Some(max_stats)) => taiko_grade(mods, stats, max_stats),
+        (GameMode::Catch, _) => catch_grade_legacy(mods, stats),
+        (GameMode::Mania, _) => mania_grade_legacy(mods, stats),
     }
 }
 
-fn osu_grade(mods: GradeGameModsData, stats: &LegacyScoreStatistics) -> Grade {
+fn osu_grade(
+    mods: GradeGameModsData,
+    stats: &ScoreStatistics,
+    max_stats: &ScoreStatistics,
+) -> Grade {
+    if stats.great == max_stats.great
+        && stats.large_tick_hit == max_stats.large_tick_hit
+        && stats.slider_tail_hit == max_stats.slider_tail_hit
+    {
+        return if mods.hd || mods.fl {
+            Grade::XH
+        } else {
+            Grade::X
+        };
+    }
+
+    let accuracy = stats.accuracy(GameMode::Osu, max_stats);
+
+    if accuracy >= 95.0 && stats.miss == 0 && stats.large_tick_hit == max_stats.large_tick_hit {
+        if mods.hd || mods.fl || mods.fi {
+            Grade::SH
+        } else {
+            Grade::S
+        }
+    } else if accuracy >= 90.0 {
+        Grade::A
+    } else if accuracy >= 80.0 {
+        Grade::B
+    } else if accuracy >= 70.0 {
+        Grade::C
+    } else {
+        Grade::D
+    }
+}
+
+fn taiko_grade(
+    mods: GradeGameModsData,
+    stats: &ScoreStatistics,
+    max_stats: &ScoreStatistics,
+) -> Grade {
+    if stats.great == max_stats.great {
+        return if mods.hd || mods.fl {
+            Grade::XH
+        } else {
+            Grade::X
+        };
+    }
+
+    let accuracy = stats.accuracy(GameMode::Taiko, max_stats);
+
+    if accuracy >= 95.0 && stats.miss == 0 {
+        if mods.hd || mods.fl || mods.fi {
+            Grade::SH
+        } else {
+            Grade::S
+        }
+    } else if accuracy >= 90.0 {
+        Grade::A
+    } else if accuracy >= 80.0 {
+        Grade::B
+    } else if accuracy >= 70.0 {
+        Grade::C
+    } else {
+        Grade::D
+    }
+}
+
+fn osu_grade_legacy(mods: GradeGameModsData, stats: &ScoreStatistics) -> Grade {
     let passed_objects = stats.total_hits(GameMode::Osu);
 
-    if stats.count_300 == passed_objects {
+    if stats.great == passed_objects {
         return if mods.hd || mods.fl {
             Grade::XH
         } else {
@@ -462,18 +531,18 @@ fn osu_grade(mods: GradeGameModsData, stats: &LegacyScoreStatistics) -> Grade {
         };
     }
 
-    let ratio300 = stats.count_300 as f32 / passed_objects as f32;
-    let ratio50 = stats.count_50 as f32 / passed_objects as f32;
+    let ratio300 = stats.great as f32 / passed_objects as f32;
+    let ratio50 = stats.meh as f32 / passed_objects as f32;
 
-    if ratio300 > 0.9 && ratio50 < 0.01 && stats.count_miss == 0 {
+    if ratio300 > 0.9 && ratio50 < 0.01 && stats.miss == 0 {
         if mods.hd || mods.fl {
             Grade::SH
         } else {
             Grade::S
         }
-    } else if ratio300 > 0.9 || (ratio300 > 0.8 && stats.count_miss == 0) {
+    } else if ratio300 > 0.9 || (ratio300 > 0.8 && stats.miss == 0) {
         Grade::A
-    } else if ratio300 > 0.8 || (ratio300 > 0.7 && stats.count_miss == 0) {
+    } else if ratio300 > 0.8 || (ratio300 > 0.7 && stats.miss == 0) {
         Grade::B
     } else if ratio300 > 0.6 {
         Grade::C
@@ -482,11 +551,10 @@ fn osu_grade(mods: GradeGameModsData, stats: &LegacyScoreStatistics) -> Grade {
     }
 }
 
-fn taiko_grade(mods: GradeGameModsData, stats: &LegacyScoreStatistics) -> Grade {
+fn taiko_grade_legacy(mods: GradeGameModsData, stats: &ScoreStatistics) -> Grade {
     let passed_objects = stats.total_hits(GameMode::Taiko);
-    let count_300 = stats.count_300;
 
-    if count_300 == passed_objects {
+    if stats.great == passed_objects {
         return if mods.hd || mods.fl {
             Grade::XH
         } else {
@@ -494,18 +562,17 @@ fn taiko_grade(mods: GradeGameModsData, stats: &LegacyScoreStatistics) -> Grade 
         };
     }
 
-    let ratio300 = count_300 as f32 / passed_objects as f32;
-    let count_miss = stats.count_miss;
+    let ratio300 = stats.great as f32 / passed_objects as f32;
 
-    if ratio300 > 0.9 && count_miss == 0 {
+    if ratio300 > 0.9 && stats.miss == 0 {
         if mods.hd || mods.fl {
             Grade::SH
         } else {
             Grade::S
         }
-    } else if ratio300 > 0.9 || (ratio300 > 0.8 && count_miss == 0) {
+    } else if ratio300 > 0.9 || (ratio300 > 0.8 && stats.miss == 0) {
         Grade::A
-    } else if ratio300 > 0.8 || (ratio300 > 0.7 && count_miss == 0) {
+    } else if ratio300 > 0.8 || (ratio300 > 0.7 && stats.miss == 0) {
         Grade::B
     } else if ratio300 > 0.6 {
         Grade::C
@@ -514,8 +581,8 @@ fn taiko_grade(mods: GradeGameModsData, stats: &LegacyScoreStatistics) -> Grade 
     }
 }
 
-fn catch_grade(mods: GradeGameModsData, stats: &LegacyScoreStatistics) -> Grade {
-    let acc = stats.accuracy(GameMode::Catch);
+fn catch_grade_legacy(mods: GradeGameModsData, stats: &ScoreStatistics) -> Grade {
+    let acc = stats.legacy_accuracy(GameMode::Catch);
 
     if (100.0 - acc).abs() <= f32::EPSILON {
         if mods.hd || mods.fl {
@@ -540,10 +607,10 @@ fn catch_grade(mods: GradeGameModsData, stats: &LegacyScoreStatistics) -> Grade 
     }
 }
 
-fn mania_grade(mods: GradeGameModsData, stats: &LegacyScoreStatistics) -> Grade {
+fn mania_grade_legacy(mods: GradeGameModsData, stats: &ScoreStatistics) -> Grade {
     let passed_objects = stats.total_hits(GameMode::Mania);
 
-    if stats.count_geki == passed_objects {
+    if stats.perfect == passed_objects {
         return if mods.hd || mods.fl || mods.fi {
             Grade::XH
         } else {
@@ -551,7 +618,7 @@ fn mania_grade(mods: GradeGameModsData, stats: &LegacyScoreStatistics) -> Grade 
         };
     }
 
-    let acc = stats.accuracy(GameMode::Mania);
+    let acc = stats.legacy_accuracy(GameMode::Mania);
 
     if acc > 95.0 {
         if mods.hd || mods.fl || mods.fi {

@@ -2,13 +2,15 @@ use std::{cmp::Ordering, fmt::Write};
 
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::command;
-use bathbot_psql::model::configs::{GuildConfig, Prefix, Prefixes, DEFAULT_PREFIX};
+use bathbot_psql::model::configs::GuildConfig;
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
 use eyre::Result;
 use once_cell::sync::OnceCell;
 use twilight_model::guild::Permissions;
 
-use crate::{core::commands::checks::check_authority, util::ChannelExt, Context};
+use crate::{
+    core::commands::checks::check_authority, manager::DEFAULT_PREFIX, util::ChannelExt, Context,
+};
 
 #[command]
 #[desc("Change my prefixes for a server")]
@@ -74,7 +76,7 @@ async fn prefix_prefix(
         }
     };
 
-    let mut args: Vec<Prefix> = args.take(5).map(Prefix::from).collect();
+    let mut args: Vec<String> = args.take(5).map(String::from).collect();
 
     if args.is_empty() {
         let content = "After the first argument you should specify some prefix(es)";
@@ -99,7 +101,7 @@ async fn prefix_prefix(
         Action::Add => {
             args.retain(|prefix| PrefixValidator::is_valid(prefix));
 
-            let remaining_len = config.prefixes.remaining_capacity();
+            let remaining_len = PREFIX_LIMIT - config.prefixes.len();
 
             if remaining_len == 0 {
                 return UpdateResult::FullCapacity;
@@ -109,9 +111,9 @@ async fn prefix_prefix(
             config.prefixes.extend(args);
 
             config.prefixes.sort_unstable_by(|a, b| {
-                if a.eq(&DEFAULT_PREFIX) {
+                if a == DEFAULT_PREFIX {
                     Ordering::Less
-                } else if b.eq(&DEFAULT_PREFIX) {
+                } else if b == DEFAULT_PREFIX {
                     Ordering::Greater
                 } else {
                     a.cmp(b)
@@ -128,7 +130,7 @@ async fn prefix_prefix(
             }
 
             if config.prefixes.is_empty() {
-                let _ = config.prefixes.try_push(DEFAULT_PREFIX.into());
+                config.prefixes.push(DEFAULT_PREFIX.into());
             }
 
             UpdateResult::Ok
@@ -150,8 +152,7 @@ async fn prefix_prefix(
         }
         Ok(UpdateResult::FullCapacity) => {
             let content = format!(
-                "Cannot add more prefixes, the limit of {} is already reached",
-                Prefixes::LEN
+                "Cannot add more prefixes, the limit of {PREFIX_LIMIT} is already reached",
             );
             msg.error(content).await?;
 
@@ -170,7 +171,7 @@ enum Action {
     Remove,
 }
 
-fn current_prefixes(content: &mut String, prefixes: &[Prefix]) {
+fn current_prefixes(content: &mut String, prefixes: &[String]) {
     content.push_str("Prefixes for this server: ");
     let len = prefixes.iter().map(|p| p.len() + 4).sum();
     content.reserve_exact(len);
@@ -212,3 +213,5 @@ impl PrefixValidator {
 }
 
 static VALIDATOR: OnceCell<AhoCorasick> = OnceCell::new();
+
+const PREFIX_LIMIT: usize = 5;

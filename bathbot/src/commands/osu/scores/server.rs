@@ -76,7 +76,7 @@ pub async fn server_scores(mut command: InteractionCommand, args: ServerScores) 
     let guild_icon = guild_res
         .ok()
         .flatten()
-        .and_then(|guild| Some((guild.id, *guild.icon.as_ref()?)));
+        .and_then(|guild| Some((guild.id.to_native(), *guild.icon.as_ref()?)));
 
     let members: Vec<_> = match members_res {
         Ok(members) => members.into_iter().map(|id| id as i64).collect(),

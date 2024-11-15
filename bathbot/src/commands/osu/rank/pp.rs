@@ -7,7 +7,11 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{command_fields::GameModeOption, rosu_v2::user::User, Countries};
+use bathbot_model::{
+    command_fields::GameModeOption,
+    rosu_v2::{ranking::RankingsRkyv, user::User},
+    Countries,
+};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -190,6 +194,8 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
                     }
                 }
                 RedisData::Archive(rankings) => {
+                    let rankings = rankings.deref_with::<RankingsRkyv>();
+
                     if rankings.ranking.len() <= idx {
                         return insufficient_ranking_entries(orig).await;
                     }
@@ -201,9 +207,12 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
                         global_rank: holder
                             .statistics
                             .as_ref()
-                            .map_or(0, |stats| stats.global_rank),
-                        pp: holder.statistics.as_ref().map_or(0.0, |stats| stats.pp),
-                        user_id: holder.user_id,
+                            .map_or(0, |stats| stats.global_rank.to_native()),
+                        pp: holder
+                            .statistics
+                            .as_ref()
+                            .map_or(0.0, |stats| stats.pp.to_native()),
+                        user_id: holder.user_id.to_native(),
                         username: holder.username.as_str().into(),
                     }
                 }

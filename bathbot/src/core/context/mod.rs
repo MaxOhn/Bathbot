@@ -6,7 +6,7 @@ use std::{
 
 use bathbot_cache::Cache;
 use bathbot_client::Client as BathbotClient;
-use bathbot_model::twilight_model::id::IdRkyv;
+use bathbot_model::twilight::id::IdRkyvMap;
 use bathbot_psql::{model::configs::GuildConfig, Database};
 use bathbot_util::{IntHasher, MetricsReader};
 use eyre::{Result, WrapErr};
@@ -15,8 +15,9 @@ use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
 use metrics_util::layers::{FanoutBuilder, Layer, PrefixLayer};
 use papaya::HashMap as PapayaMap;
-use rkyv::with::With;
+use rkyv::collections::util::Entry;
 use rosu_v2::Osu;
+use shutdown::CacheGuildShards;
 use time::OffsetDateTime;
 use tokio::sync::mpsc::UnboundedSender;
 use twilight_gateway::{
@@ -211,7 +212,8 @@ impl Context {
             .cache
             .defrost()
             .await
-            .wrap_err("Failed to defrost cache")?;
+            .wrap_err("Failed to defrost cache")?
+            .unwrap_or_default();
 
         BotMetrics::init(&data.cache);
 
@@ -444,10 +446,15 @@ impl ContextData {
     }
 
     async fn fetch_guild_shards(cache: &Cache) -> GuildShards {
-        let fetch_fut = cache.fetch::<_, Vec<(With<Id<GuildMarker>, IdRkyv>, u64)>>("guild_shards");
+        let fetch_fut =
+            cache.fetch_with::<_, [(Id<GuildMarker>, u64)], CacheGuildShards>("guild_shards");
 
         match fetch_fut.await {
-            Ok(Ok(guild_shards)) => guild_shards.iter().copied().collect(),
+            Ok(Ok(guild_shards)) => guild_shards
+                .deserialize_into_with::<Vec<Entry<Id<GuildMarker>, u64>>, CacheGuildShards>()
+                .into_iter()
+                .map(|entry| (entry.key, entry.value))
+                .collect(),
             Ok(Err(_)) => GuildShards::default(),
             Err(err) => {
                 warn!(?err, "Failed to fetch guild shards, creating default...");
@@ -459,12 +466,14 @@ impl ContextData {
 
     async fn fetch_miss_analyzer_guilds(cache: &Cache) -> MissAnalyzerGuilds {
         let fetch_fut =
-            cache.fetch::<_, Vec<With<Id<GuildMarker>, IdRkyv>>>("miss_analyzer_guilds");
+            cache.fetch_with::<_, Vec<Id<GuildMarker>>, IdRkyvMap>("miss_analyzer_guilds");
 
         match fetch_fut.await {
-            Ok(Ok(miss_analyzer_guilds)) => {
-                miss_analyzer_guilds.iter().map(|id| (*id, ())).collect()
-            }
+            Ok(Ok(miss_analyzer_guilds)) => miss_analyzer_guilds
+                .deserialize_with::<IdRkyvMap>()
+                .into_iter()
+                .map(|id| (id, ()))
+                .collect(),
             Ok(Err(_)) => MissAnalyzerGuilds::default(),
             Err(err) => {
                 warn!(

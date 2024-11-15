@@ -10,10 +10,7 @@ use bathbot_util::{
 };
 use eyre::Result;
 use futures::future::BoxFuture;
-use rosu_v2::{
-    model::score::LegacyScoreStatistics,
-    prelude::{GameMode, Grade},
-};
+use rosu_v2::prelude::{GameMode, Grade, ScoreStatistics};
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -130,14 +127,16 @@ impl OsuStatsScoresPagination {
                     classic_score: 0,
                     score_id: 0,
                     legacy_id: None,
-                    statistics: LegacyScoreStatistics {
-                        count_geki: score.count_geki,
-                        count_300: score.count300,
-                        count_katu: score.count_katu,
-                        count_100: score.count100,
-                        count_50: score.count50,
-                        count_miss: score.count_miss,
+                    statistics: ScoreStatistics {
+                        perfect: score.count_geki,
+                        great: score.count300,
+                        good: score.count_katu,
+                        ok: score.count100,
+                        meh: score.count50,
+                        miss: score.count_miss,
+                        ..Default::default()
                     },
+                    set_on_lazer: false,
                 };
 
                 let entry = OsuStatsEntry {
@@ -196,7 +195,7 @@ impl OsuStatsScoresPagination {
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),
                 combo = ComboFormatter::new(score.max_combo, Some(*max_combo)),
-                hits = HitResultFormatter::new(score.mode, score.statistics.clone()),
+                hits = HitResultFormatter::new(score.mode, &score.statistics),
                 ago = HowLongAgoDynamic::new(&score.ended_at),
             );
         }

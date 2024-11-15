@@ -182,10 +182,10 @@ impl<'a> Display for ComboFormatter<'a> {
         write!(f, "**{}x**", self.score.combo)?;
 
         if self.mode == GameMode::Mania {
-            let mut ratio = self.score.statistics.count_geki as f32;
+            let mut ratio = self.score.statistics.perfect as f32;
 
-            if self.score.statistics.count_300 > 0 {
-                ratio /= self.score.statistics.count_300 as f32
+            if self.score.statistics.great > 0 {
+                ratio /= self.score.statistics.great as f32
             }
 
             write!(f, " / {ratio:.2}")
@@ -261,7 +261,7 @@ impl Display for ScoreFormatter<'_> {
             mods = ModsFormatter::new(&self.score.mods),
             pp = self.pp,
             acc = self.score.accuracy,
-            miss = MissFormat(self.score.statistics.count_miss),
+            miss = MissFormat(self.score.statistics.miss),
             ago = HowLongAgoDynamic::new(&self.score.ended_at),
         )
     }

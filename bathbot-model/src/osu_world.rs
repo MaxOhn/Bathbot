@@ -6,13 +6,26 @@ use std::{
 };
 
 use compact_str::CompactString;
+use rkyv::{bytecheck::CheckBytes, Portable};
 use serde::{
     de::{Error as DeError, IgnoredAny, MapAccess, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
 };
 
-#[derive(Copy, Clone, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Eq, PartialEq)]
-#[archive(as = "Self")]
+#[derive(
+    Copy,
+    Clone,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Eq,
+    PartialEq,
+    Portable,
+    CheckBytes,
+)]
+#[rkyv(as = Self)]
+#[bytecheck(crate = rkyv::bytecheck)]
+#[repr(C)]
 pub struct CountryCode([u8; 2]);
 
 impl CountryCode {
@@ -63,6 +76,8 @@ pub type RegionCode = CompactString;
 pub type RegionName = CompactString;
 pub type Regions = HashMap<RegionCode, RegionName>;
 pub type CountryRegions = HashMap<CountryCode, Regions>;
+
+pub struct CountryRegionsRkyv;
 
 pub struct OsuWorldUserIds(pub Vec<i32>);
 

@@ -407,7 +407,7 @@ fn author(user: &RedisData<User>, respektive_user: Option<&RespektiveUser>) -> A
             let user_id = user.user_id;
             let mode = user.mode;
 
-            (country_code, user_id, mode)
+            (country_code, user_id.to_native(), mode)
         }
     };
 

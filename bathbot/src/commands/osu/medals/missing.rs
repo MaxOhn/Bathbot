@@ -8,7 +8,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use hashbrown::HashSet;
-use rkyv::{Deserialize, Infallible};
+use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
 use super::{MedalMissing, MedalMissingOrder};
@@ -93,7 +93,11 @@ pub(super) async fn missing(orig: CommandOrigin<'_>, args: MedalMissing<'_>) -> 
             (user.medals.len(), owned)
         }
         RedisData::Archive(user) => {
-            let owned = user.medals.iter().map(|medal| medal.medal_id).collect();
+            let owned = user
+                .medals
+                .iter()
+                .map(|medal| medal.medal_id.to_native())
+                .collect();
 
             (user.medals.len(), owned)
         }
@@ -116,8 +120,10 @@ pub(super) async fn missing(orig: CommandOrigin<'_>, args: MedalMissing<'_>) -> 
 
             let medals = all_medals
                 .iter()
-                .filter(|medal| !owned.contains(&medal.medal_id))
-                .map(|entry| entry.deserialize(&mut Infallible).unwrap())
+                .filter(|medal| !owned.contains(&medal.medal_id.to_native()))
+                .map(|entry| {
+                    rkyv::api::deserialize_using::<_, _, Panic>(entry, &mut ()).always_ok()
+                })
                 .map(MedalType::Medal)
                 .collect();
 

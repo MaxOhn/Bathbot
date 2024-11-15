@@ -161,7 +161,7 @@ async fn slash_serverleaderboard(mut command: InteractionCommand) -> Result<()> 
         .await
         .ok()
         .flatten()
-        .and_then(|guild| Some((guild.id, *guild.icon.as_ref()?)));
+        .and_then(|guild| Some((guild.id.to_native(), *guild.icon.as_ref()?)));
 
     let author_name_fut = Context::user_config().osu_name(owner);
 

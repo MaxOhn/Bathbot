@@ -4,7 +4,10 @@ use std::{
     num::NonZeroU64,
 };
 
-use rkyv::{Deserialize, Infallible};
+use rkyv::{
+    rancor::{Panic, ResultExt},
+    with::{ArchiveWith, AsVec, With},
+};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 
@@ -42,10 +45,15 @@ where
             last_update,
         } = user;
 
-        // SAFETY: The bytes originate from the DB which only provides valid archived
-        // data
-        let archived_channels = unsafe { rkyv::archived_root::<Channels<S>>(&channels) };
-        let channels = archived_channels.deserialize(&mut Infallible).unwrap();
+        let archived_channels =
+            rkyv::access::<<AsVec as ArchiveWith<Channels<S>>>::Archived, Panic>(&channels)
+                .always_ok();
+
+        let channels = rkyv::api::deserialize_using::<_, _, Panic>(
+            With::<_, AsVec>::cast(archived_channels),
+            &mut (),
+        )
+        .always_ok();
 
         let key = TrackedOsuUserKey {
             user_id: user_id as u32,

@@ -1,10 +1,11 @@
-use bathbot_model::twilight_model::{
-    channel::Channel,
-    guild::{Guild, Member, Role},
-    user::{CurrentUser, User},
+use bathbot_model::twilight::{
+    channel::CachedChannel,
+    guild::{CachedGuild, CachedMember, CachedRole},
+    user::{CachedCurrentUser, CachedUser},
 };
 use bb8_redis::redis::AsyncCommands;
 use eyre::{Result, WrapErr};
+use rkyv::{bytecheck::CheckBytes, with::ArchiveWith, Archive};
 use twilight_model::id::{
     marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
     Id,
@@ -12,7 +13,8 @@ use twilight_model::id::{
 
 use crate::{
     key::{RedisKey, ToCacheKey},
-    model::{CacheConnection, CachedArchive},
+    model::{CacheConnection, CachedArchive, ValidatorStrategy},
+    util::AlignedVecRedisArgs,
     Cache,
 };
 
@@ -23,12 +25,37 @@ impl Cache {
     pub async fn fetch<K, T>(&self, key: &K) -> Result<Result<CachedArchive<T>, CacheConnection>>
     where
         K: ToCacheKey + ?Sized,
+        T: for<'a> Archive<Archived: CheckBytes<ValidatorStrategy<'a>>>,
     {
         let mut conn = self.connection().await?;
 
-        conn.get::<_, Option<CachedArchive<T>>>(RedisKey::from(key))
+        conn.get::<_, Option<AlignedVecRedisArgs>>(RedisKey::from(key))
             .await
-            .map(|archived| archived.ok_or(CacheConnection(conn)))
+            .map(|opt| match opt {
+                Some(AlignedVecRedisArgs(bytes)) => Ok(CachedArchive::new(bytes)),
+                None => Err(CacheConnection(conn)),
+            })
+            .wrap_err("Failed to fetch stored data")
+    }
+
+    #[inline]
+    pub async fn fetch_with<K, T, W>(
+        &self,
+        key: &K,
+    ) -> Result<Result<CachedArchive<T>, CacheConnection>>
+    where
+        K: ToCacheKey + ?Sized,
+        T: ?Sized,
+        W: for<'a> ArchiveWith<T, Archived: CheckBytes<ValidatorStrategy<'a>>>,
+    {
+        let mut conn = self.connection().await?;
+
+        conn.get::<_, Option<AlignedVecRedisArgs>>(RedisKey::from(key))
+            .await
+            .map(|opt| match opt {
+                Some(AlignedVecRedisArgs(bytes)) => Ok(CachedArchive::new_with::<W>(bytes)),
+                None => Err(CacheConnection(conn)),
+            })
             .wrap_err("Failed to fetch stored data")
     }
 
@@ -37,29 +64,32 @@ impl Cache {
         &self,
         guild: Option<Id<GuildMarker>>,
         channel: Id<ChannelMarker>,
-    ) -> FetchResult<Channel> {
+    ) -> FetchResult<CachedChannel> {
         self.connection()
             .await?
             .get(RedisKey::channel(guild, channel))
             .await
+            .map(|opt: Option<_>| opt.map(|AlignedVecRedisArgs(bytes)| CachedArchive::new(bytes)))
             .wrap_err("Failed to get stored channel")
     }
 
     #[inline]
-    pub async fn current_user(&self) -> FetchResult<CurrentUser> {
+    pub async fn current_user(&self) -> FetchResult<CachedCurrentUser> {
         self.connection()
             .await?
             .get(RedisKey::current_user())
             .await
+            .map(|opt: Option<_>| opt.map(|AlignedVecRedisArgs(bytes)| CachedArchive::new(bytes)))
             .wrap_err("Failed to get stored current user")
     }
 
     #[inline]
-    pub async fn guild(&self, guild: Id<GuildMarker>) -> FetchResult<Guild> {
+    pub async fn guild(&self, guild: Id<GuildMarker>) -> FetchResult<CachedGuild> {
         self.connection()
             .await?
             .get(RedisKey::guild(guild))
             .await
+            .map(|opt: Option<_>| opt.map(|AlignedVecRedisArgs(bytes)| CachedArchive::new(bytes)))
             .wrap_err("Failed to get stored guild")
     }
 
@@ -77,20 +107,26 @@ impl Cache {
         &self,
         guild: Id<GuildMarker>,
         user: Id<UserMarker>,
-    ) -> FetchResult<Member> {
+    ) -> FetchResult<CachedMember> {
         self.connection()
             .await?
             .get(RedisKey::member(guild, user))
             .await
+            .map(|opt: Option<_>| opt.map(|AlignedVecRedisArgs(bytes)| CachedArchive::new(bytes)))
             .wrap_err("Failed to get stored member")
     }
 
     #[inline]
-    pub async fn role(&self, guild: Id<GuildMarker>, role: Id<RoleMarker>) -> FetchResult<Role> {
+    pub async fn role(
+        &self,
+        guild: Id<GuildMarker>,
+        role: Id<RoleMarker>,
+    ) -> FetchResult<CachedRole> {
         self.connection()
             .await?
             .get(RedisKey::role(guild, role))
             .await
+            .map(|opt: Option<_>| opt.map(|AlignedVecRedisArgs(bytes)| CachedArchive::new(bytes)))
             .wrap_err("Failed to get stored role")
     }
 
@@ -99,7 +135,7 @@ impl Cache {
         &self,
         guild: Id<GuildMarker>,
         roles: I,
-    ) -> Result<Vec<CachedArchive<Role>>>
+    ) -> Result<Vec<CachedArchive<CachedRole>>>
     where
         I: IntoIterator<Item = Id<RoleMarker>>,
     {
@@ -112,15 +148,22 @@ impl Cache {
             .await?
             .mget(keys)
             .await
+            .map(|items: Vec<_>| {
+                items
+                    .into_iter()
+                    .map(|AlignedVecRedisArgs(bytes)| CachedArchive::new(bytes))
+                    .collect()
+            })
             .wrap_err("Failed to get stored roles")
     }
 
     #[inline]
-    pub async fn user(&self, user: Id<UserMarker>) -> FetchResult<User> {
+    pub async fn user(&self, user: Id<UserMarker>) -> FetchResult<CachedUser> {
         self.connection()
             .await?
             .get(RedisKey::user(user))
             .await
+            .map(|opt: Option<_>| opt.map(|AlignedVecRedisArgs(bytes)| CachedArchive::new(bytes)))
             .wrap_err("Failed to get stored user")
     }
 }

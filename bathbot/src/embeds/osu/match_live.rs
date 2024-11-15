@@ -681,7 +681,7 @@ fn prepare_scores(
         let mods = score.mods.to_string();
         let team = score.team as usize;
 
-        let grade = calculate_grade(mode, &score.mods, &score.statistics);
+        let grade = calculate_grade(mode, &score.mods, &score.statistics, None);
 
         sizes.name = sizes.name.max(name.len());
         sizes.combo = sizes.combo.max(combo.len());

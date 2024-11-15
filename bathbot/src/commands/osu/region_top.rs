@@ -1,12 +1,16 @@
 use std::{borrow::Cow, cmp::Reverse, collections::HashMap, convert::identity, fmt::Write, mem};
 
 use bathbot_macros::{HasMods, SlashCommand};
-use bathbot_model::{command_fields::GameModeOption, Countries};
+use bathbot_model::{command_fields::GameModeOption, rkyv_util::DerefAsString, Countries};
 use bathbot_psql::model::osu::{DbScoreBeatmap, DbScoreBeatmapset, DbTopScore, DbTopScores};
 use bathbot_util::{constants::GENERAL_ISSUE, osu::ModSelection, CowUtils, IntHasher};
 use compact_str::CompactString;
 use eyre::Result;
-use rkyv::collections::ArchivedHashMap;
+use rkyv::{
+    collections::swiss_table::{map::Iter, ArchivedHashMap},
+    hash::FxHasher64,
+    with::{Identity, MapKV},
+};
 use rosu_pp::model::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::{GameMode, GameModsIntermode};
 use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateCommand};
@@ -137,6 +141,7 @@ pub async fn slash_regiontop(mut command: InteractionCommand) -> Result<()> {
                     name: name.to_owned(),
                 }),
             RedisData::Archive(ref country_regions) => country_regions
+                .deref_with::<MapKV<Identity, MapKV<DerefAsString, DerefAsString>>>()
                 .get(country_code)
                 .and_then(|regions| regions.iter().find(|(_, name)| region == name.as_str()))
                 .map(|(code, name)| Region {
@@ -333,8 +338,8 @@ impl RegionTopArgs {
         match self.sort {
             ScoresOrder::Acc => scores.scores_mut().sort_unstable_by(|a, b| {
                 b.statistics
-                    .accuracy(mode)
-                    .total_cmp(&a.statistics.accuracy(mode))
+                    .legacy_accuracy(mode)
+                    .total_cmp(&a.statistics.legacy_accuracy(mode))
             }),
             ScoresOrder::Ar => {
                 scores.retain(|score, maps, _| maps.get(&score.map_id).is_some());
@@ -379,8 +384,8 @@ impl RegionTopArgs {
                         GameModsIntermode::from_bits(b.mods).legacy_clock_rate()
                     });
 
-                    let a_bpm = bpms[&a.map_id] * a_clock_rate;
-                    let b_bpm = bpms[&b.map_id] * b_clock_rate;
+                    let a_bpm = bpms[&a.map_id] as f64 * a_clock_rate;
+                    let b_bpm = bpms[&b.map_id] as f64 * b_clock_rate;
 
                     b_bpm.total_cmp(&a_bpm)
                 })
@@ -458,8 +463,8 @@ impl RegionTopArgs {
                         GameModsIntermode::from_bits(b.mods).legacy_clock_rate()
                     });
 
-                    let a_drain = seconds_drain[&a.map_id] as f32 / a_clock_rate;
-                    let b_drain = seconds_drain[&b.map_id] as f32 / b_clock_rate;
+                    let a_drain = seconds_drain[&a.map_id] as f64 / a_clock_rate;
+                    let b_drain = seconds_drain[&b.map_id] as f64 / b_clock_rate;
 
                     b_drain.total_cmp(&a_drain)
                 })
@@ -647,7 +652,10 @@ async fn handle_autocomplete(
             gather_choices(regions, &region)
         }
         RedisData::Archive(country_regions) => {
-            let Some(regions) = country_regions.get(country_code.as_ref()) else {
+            let Some(regions) = country_regions
+                .deref_with::<MapKV<Identity, MapKV<DerefAsString, DerefAsString>>>()
+                .get(country_code.as_ref())
+            else {
                 let choices = single_choice("No regions for specified country");
                 command.autocomplete(choices).await?;
 
@@ -734,7 +742,7 @@ impl<Code, Name> RegionsExt<Code, Name> for HashMap<Code, Name> {
 
 impl<Code, Name> RegionsExt<Code, Name> for ArchivedHashMap<Code, Name> {
     type Iter<'a>
-        = rkyv::collections::hash_map::Iter<'a, Code, Name>
+        = Iter<'a, Code, Name, FxHasher64>
     where
         Code: 'a,
         Name: 'a,

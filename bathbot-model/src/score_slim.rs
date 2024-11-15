@@ -1,8 +1,5 @@
 use bathbot_util::{ScoreExt, ScoreHasEndedAt, ScoreHasMode};
-use rosu_v2::{
-    model::score::LegacyScoreStatistics,
-    prelude::{GameMode, GameMods, Grade, Score},
-};
+use rosu_v2::prelude::{GameMode, GameMods, Grade, Score, ScoreStatistics};
 use time::OffsetDateTime;
 
 #[derive(Clone)]
@@ -19,7 +16,8 @@ pub struct ScoreSlim {
     /// Note that this is the *new* kind of score id
     pub score_id: u64,
     pub legacy_id: Option<u64>,
-    pub statistics: LegacyScoreStatistics,
+    pub statistics: ScoreStatistics,
+    pub set_on_lazer: bool,
 }
 
 impl ScoreSlim {
@@ -36,7 +34,8 @@ impl ScoreSlim {
             classic_score: score.classic_score,
             score_id: score.id,
             legacy_id: score.legacy_score_id,
-            statistics: score.statistics.as_legacy(score.mode),
+            statistics: score.statistics,
+            set_on_lazer: score.set_on_lazer,
         }
     }
 
@@ -52,21 +51,86 @@ impl ScoreSlim {
     }
 }
 
-#[rustfmt::skip]
 impl ScoreExt for ScoreSlim {
-    #[inline] fn count_miss(&self) -> u32 { self.statistics.count_miss }
-    #[inline] fn count_50(&self) -> u32 { self.statistics.count_50 }
-    #[inline] fn count_100(&self) -> u32 { self.statistics.count_100 }
-    #[inline] fn count_300(&self) -> u32 { self.statistics.count_300 }
-    #[inline] fn count_geki(&self) -> u32 { self.statistics.count_geki }
-    #[inline] fn count_katu(&self) -> u32 { self.statistics.count_katu }
-    #[inline] fn max_combo(&self) -> u32 { self.max_combo }
-    #[inline] fn mods(&self) -> &GameMods { &self.mods }
-    #[inline] fn grade(&self) -> Grade { self.grade }
-    #[inline] fn score(&self) -> u32 { self.score }
-    #[inline] fn pp(&self) -> Option<f32> { Some(self.pp) }
-    #[inline] fn accuracy(&self) -> f32 { self.accuracy }
-    #[inline] fn score_id(&self) -> Option<u64> { Some(self.score_id) }
+    #[inline]
+    fn count_miss(&self) -> u32 {
+        self.statistics.miss
+    }
+
+    #[inline]
+    fn count_50(&self) -> u32 {
+        match self.mode {
+            GameMode::Osu | GameMode::Mania => self.statistics.meh,
+            GameMode::Taiko => 0,
+            GameMode::Catch => self.statistics.small_tick_hit.max(self.statistics.meh),
+        }
+    }
+
+    #[inline]
+    fn count_100(&self) -> u32 {
+        match self.mode {
+            GameMode::Osu | GameMode::Taiko | GameMode::Mania => self.statistics.ok,
+            GameMode::Catch => self.statistics.small_tick_hit.max(self.statistics.ok),
+        }
+    }
+
+    #[inline]
+    fn count_300(&self) -> u32 {
+        self.statistics.great
+    }
+
+    #[inline]
+    fn count_geki(&self) -> u32 {
+        match self.mode {
+            GameMode::Osu | GameMode::Taiko | GameMode::Catch => 0,
+            GameMode::Mania => self.statistics.good,
+        }
+    }
+
+    #[inline]
+    fn count_katu(&self) -> u32 {
+        match self.mode {
+            GameMode::Osu => 0,
+            GameMode::Taiko => 0,
+            GameMode::Catch => self.statistics.small_tick_miss.max(self.statistics.good),
+            GameMode::Mania => self.statistics.good,
+        }
+    }
+
+    #[inline]
+    fn max_combo(&self) -> u32 {
+        self.max_combo
+    }
+
+    #[inline]
+    fn mods(&self) -> &GameMods {
+        &self.mods
+    }
+
+    #[inline]
+    fn grade(&self) -> Grade {
+        self.grade
+    }
+
+    #[inline]
+    fn score(&self) -> u32 {
+        self.score
+    }
+
+    #[inline]
+    fn pp(&self) -> Option<f32> {
+        Some(self.pp)
+    }
+
+    #[inline]
+    fn accuracy(&self) -> f32 {
+        self.accuracy
+    }
+
+    #[inline]
+    fn score_id(&self) -> Option<u64> {
+        Some(self.score_id)
+    }
 
     fn is_legacy(&self) -> bool {
         self.legacy_id == Some(self.score_id)

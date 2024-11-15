@@ -59,6 +59,8 @@ impl Skills {
                         n100: score.statistics.ok,
                         n50: score.statistics.meh,
                         misses: score.statistics.miss,
+                        large_tick_hits: score.statistics.large_tick_hit,
+                        slider_end_hits: score.statistics.slider_tail_hit,
                     };
 
                     let Some(mut calc) = OsuPerformance::try_new(attrs.difficulty) else {
@@ -70,7 +72,12 @@ impl Skills {
                         calc = calc.clock_rate(f64::from(clock_rate));
                     }
 
-                    let attrs = calc.mods(score.mods.bits()).state(state).calculate();
+                    let attrs = calc
+                        .mods(score.mods.bits())
+                        .state(state)
+                        .lazer(score.set_on_lazer)
+                        .calculate()
+                        .unwrap();
 
                     let acc_val = attrs.pp_acc / ACC_NERF;
                     let aim_val = attrs.pp_aim / AIM_NERF;
@@ -118,7 +125,11 @@ impl Skills {
                         calc = calc.clock_rate(f64::from(clock_rate));
                     }
 
-                    let attrs = calc.mods(score.mods.bits()).state(state).calculate();
+                    let attrs = calc
+                        .mods(score.mods.bits())
+                        .state(state)
+                        .calculate()
+                        .unwrap();
 
                     let acc_val = attrs.pp_acc / ACC_NERF;
                     let difficulty_val = attrs.pp_difficulty / DIFFICULTY_NERF;
@@ -166,7 +177,11 @@ impl Skills {
                     }
 
                     let od = attrs.od as f64;
-                    let attrs = calc.mods(score.mods.bits()).state(state).calculate();
+                    let attrs = calc
+                        .mods(score.mods.bits())
+                        .state(state)
+                        .calculate()
+                        .unwrap();
 
                     let CatchPerformanceAttributes { difficulty, pp } = attrs;
 
@@ -229,7 +244,11 @@ impl Skills {
                         calc = calc.clock_rate(f64::from(clock_rate));
                     }
 
-                    let attrs = calc.mods(score.mods.bits()).state(state).calculate();
+                    let attrs = calc
+                        .mods(score.mods.bits())
+                        .state(state)
+                        .calculate()
+                        .unwrap();
 
                     let acc_ = score.accuracy as f64;
                     let od = score.map.as_ref().unwrap().od as f64;

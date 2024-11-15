@@ -1,9 +1,16 @@
-use bathbot_model::twilight_model::guild::Member;
+use bathbot_model::twilight::{
+    channel::CachedChannel,
+    guild::{CachedGuild, CachedMember, CachedRole},
+    user::{CachedCurrentUser, CachedUser},
+};
 use bb8_redis::redis::AsyncCommands;
 use eyre::{Report, Result, WrapErr};
 use rkyv::{
-    with::{ArchiveWith, SerializeWith},
-    AlignedVec, Serialize,
+    rancor::{BoxedError, Strategy},
+    ser::{allocator::ArenaHandle, Serializer},
+    util::AlignedVec,
+    with::{ArchiveWith, SerializeWith, With},
+    Serialize,
 };
 use twilight_model::{
     application::interaction::application_command::InteractionMember,
@@ -17,14 +24,15 @@ use twilight_model::{
 use crate::{
     key::{RedisKey, ToCacheKey},
     model::{CacheChange, CacheConnection},
-    serializer::{CacheSerializer, MemberSerializer, MultiSerializer, SingleSerializer},
     util::{AlignedVecRedisArgs, Zipped},
     Cache,
 };
 
+type CacheSerializer<'a> = Serializer<AlignedVec<8>, ArenaHandle<'a>, ()>;
+
 impl Cache {
     /// Serializes a values into bytes and stores them for the given key.
-    pub async fn store<K, T, const N: usize>(
+    pub async fn store<K, T>(
         conn: &mut CacheConnection<'_>,
         key: &K,
         value: &T,
@@ -32,14 +40,20 @@ impl Cache {
     ) -> Result<()>
     where
         K: ToCacheKey + ?Sized,
-        T: Serialize<CacheSerializer<N>>,
+        T: for<'a> Serialize<Strategy<CacheSerializer<'a>, BoxedError>>,
     {
-        let bytes = SingleSerializer::any(value)?;
+        let bytes = rkyv::util::with_arena(|arena| {
+            let mut serializer = Serializer::new(AlignedVec::new(), arena.acquire(), ());
+            rkyv::api::serialize_using::<_, BoxedError>(value, &mut serializer)?;
+
+            Ok::<_, BoxedError>(serializer.into_writer())
+        })
+        .wrap_err("Failed to serialize value")?;
 
         Self::store_raw(conn, key, bytes.as_slice(), expire_seconds).await
     }
 
-    async fn store_raw<K>(
+    pub async fn store_raw<K>(
         CacheConnection(conn): &mut CacheConnection<'_>,
         key: &K,
         bytes: &[u8],
@@ -68,7 +82,7 @@ impl Cache {
     ) -> Result<()>
     where
         K: ToCacheKey + ?Sized,
-        T: Serialize<CacheSerializer<N>>,
+        T: for<'a> Serialize<Strategy<CacheSerializer<'a>, BoxedError>>,
     {
         let mut conn = CacheConnection(self.connection().await?);
 
@@ -104,18 +118,26 @@ impl Cache {
     }
 
     pub(crate) async fn cache_channel(&self, channel: &Channel) -> Result<CacheChange> {
-        let bytes = SingleSerializer::channel(channel)?;
+        let bytes = rkyv::util::with_arena(|arena| {
+            let mut serializer = Serializer::new(AlignedVec::<8>::new(), arena.acquire(), ());
+            let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer);
+            let with = With::<_, CachedChannel>::cast(channel);
+            rkyv::api::serialize_using(with, strategy).wrap_err("Failed to serialize channel")?;
+
+            Ok::<_, Report>(serializer.into_writer())
+        })?;
+
         let mut conn = self.connection().await?;
         let key = RedisKey::from(channel);
 
-        conn.set(key, bytes.as_slice())
+        conn.set::<_, _, ()>(key, bytes.as_slice())
             .await
             .wrap_err("Failed to store channel bytes")?;
 
         if let Some(guild) = channel.guild_id {
             let guild_key = RedisKey::guild_channels(guild);
 
-            conn.sadd(guild_key, channel.id.get())
+            conn.sadd::<_, _, ()>(guild_key, channel.id.get())
                 .await
                 .wrap_err("Failed to add channel as guild channel")?;
         }
@@ -140,31 +162,41 @@ impl Cache {
             return Ok(CacheChange::default());
         }
 
-        // `MultiSerializer` is only ZST on debug - not on release
-        #[allow(clippy::default_constructed_unit_structs)]
-        let mut serializer = MultiSerializer::default();
+        let (channels, channel_ids) = rkyv::util::with_arena(|arena| {
+            let mut serializer = Serializer::new(AlignedVec::<8>::new(), arena.acquire(), ());
 
-        let (channels, channel_ids) = channels
-            .iter()
-            .map(|channel| {
-                serializer.channel(channel).map(|bytes| {
+            channels
+                .iter()
+                .map(move |channel| {
+                    let bytes = {
+                        let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer);
+                        let with = With::<_, CachedChannel>::cast(channel);
+                        rkyv::api::serialize_using(with, strategy)
+                            .wrap_err("Failed to serialize channel")?;
+
+                        let bytes = serializer.writer.as_slice().to_vec();
+                        serializer.writer.clear();
+
+                        bytes
+                    };
+
                     let key = RedisKey::from(channel);
 
-                    ((key, AlignedVecRedisArgs(bytes)), channel.id.get())
+                    Ok::<_, Report>(((key, bytes), channel.id.get()))
                 })
-            })
-            .collect::<Result<Zipped<Vec<_>, Vec<_>>, _>>()?
-            .into_parts();
+                .collect::<Result<Zipped<Vec<_>, Vec<_>>, _>>()
+        })?
+        .into_parts();
 
         let mut conn = self.connection().await?;
 
-        conn.mset(&channels)
+        conn.mset::<_, _, ()>(&channels)
             .await
             .wrap_err("Failed to store channels bytes")?;
 
         let guild_key = RedisKey::guild_channels(guild);
 
-        conn.sadd(guild_key, &channel_ids)
+        conn.sadd::<_, _, ()>(guild_key, &channel_ids)
             .await
             .wrap_err("Failed to add users as guild members")?;
 
@@ -180,11 +212,19 @@ impl Cache {
     }
 
     pub(crate) async fn cache_current_user(&self, user: &CurrentUser) -> Result<()> {
-        let bytes = SingleSerializer::current_user(user)?;
+        let bytes = {
+            let mut serializer = AlignedVec::<8>::new();
+            let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer);
+            let with = With::<_, CachedCurrentUser<'_>>::cast(user);
+            rkyv::api::serialize_using(with, strategy)
+                .wrap_err("Failed to serialize current user")?;
+
+            serializer
+        };
 
         self.connection()
             .await?
-            .set(RedisKey::current_user(), bytes.as_slice())
+            .set::<_, _, ()>(RedisKey::current_user(), bytes.as_slice())
             .await
             .wrap_err("Failed to store current user bytes")?;
 
@@ -199,11 +239,19 @@ impl Cache {
 
         let mut change = channels_change + threads_change + members_change + roles_change;
 
-        let bytes = SingleSerializer::guild(guild)?;
+        let bytes = {
+            let mut serializer = AlignedVec::<8>::new();
+            let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer);
+            let with = With::<_, CachedGuild>::cast(guild);
+            rkyv::api::serialize_using(with, strategy).wrap_err("Failed to serialize guild")?;
+
+            serializer
+        };
+
         let mut conn = self.connection().await?;
         let key = RedisKey::from(guild);
 
-        conn.set(key, bytes.as_slice())
+        conn.set::<_, _, ()>(key, bytes.as_slice())
             .await
             .wrap_err("Failed to store guild bytes")?;
 
@@ -252,16 +300,26 @@ impl Cache {
         user: &User,
     ) -> Result<CacheChange>
     where
-        Member: ArchiveWith<M> + SerializeWith<M, MemberSerializer>,
+        CachedMember: ArchiveWith<M>
+            + for<'a> SerializeWith<
+                M,
+                Strategy<Serializer<AlignedVec<8>, ArenaHandle<'a>, ()>, BoxedError>,
+            >,
     {
         async fn inner(
             cache: &Cache,
             guild: Id<GuildMarker>,
-            member_bytes: AlignedVec,
+            member_bytes: AlignedVec<8>,
             user: &User,
-            mut serializer: MultiSerializer,
         ) -> Result<CacheChange> {
-            let user_bytes = serializer.user(user)?;
+            let user_bytes = {
+                let mut serializer = AlignedVec::<8>::new();
+                let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer);
+                let with = With::<_, CachedUser>::cast(user);
+                rkyv::api::serialize_using(with, strategy).wrap_err("Failed to serialize user")?;
+
+                serializer
+            };
 
             let mut conn = cache.connection().await?;
 
@@ -270,13 +328,13 @@ impl Cache {
                 (RedisKey::user(user.id), user_bytes.as_slice()),
             ];
 
-            conn.mset(items)
+            conn.mset::<_, _, ()>(items)
                 .await
                 .wrap_err("Failed to store member or user bytes")?;
 
             let guild_key = RedisKey::guild_members(guild);
 
-            conn.sadd(guild_key, user.id.get())
+            conn.sadd::<_, _, ()>(guild_key, user.id.get())
                 .await
                 .wrap_err("Failed to add user as guild member")?;
 
@@ -291,11 +349,16 @@ impl Cache {
             })
         }
 
-        #[allow(clippy::default_constructed_unit_structs)]
-        let mut serializer = MultiSerializer::default();
-        let member_bytes = serializer.member(member)?;
+        let member_bytes = rkyv::util::with_arena(|arena| {
+            let mut serializer = Serializer::new(AlignedVec::<8>::new(), arena.acquire(), ());
+            let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer);
+            let with = With::<_, CachedMember>::cast(member);
+            rkyv::api::serialize_using(with, strategy).wrap_err("Failed to serialize member")?;
 
-        inner(self, guild, member_bytes, user, serializer).await
+            Ok::<_, Report>(serializer.into_writer())
+        })?;
+
+        inner(self, guild, member_bytes, user).await
     }
 
     pub(crate) async fn cache_members(
@@ -307,47 +370,67 @@ impl Cache {
             return Ok(CacheChange::default());
         }
 
-        #[allow(clippy::default_constructed_unit_structs)]
-        let mut serializer = MultiSerializer::default();
+        let (zipped_members, users) = rkyv::util::with_arena(|arena| {
+            let mut serializer = Serializer::new(AlignedVec::<8>::new(), arena.acquire(), ());
 
-        let (zipped_members, users) = members
-            .iter()
-            .map(|member| {
-                let user_id = member.user.id;
+            members
+                .iter()
+                .map(move |member| {
+                    let user_id = member.user.id;
 
-                let user = serializer
-                    .user(&member.user)
-                    .map(|bytes| (RedisKey::from(&member.user), AlignedVecRedisArgs(bytes)));
+                    let user = {
+                        let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer.writer);
+                        let with = With::<_, CachedUser>::cast(&member.user);
 
-                let member = serializer.member(member).map(|bytes| {
-                    let key = RedisKey::member(guild, member.user.id);
+                        rkyv::api::serialize_using(with, strategy)
+                            .wrap_err("Failed to serialize user")
+                            .map(|_| {
+                                let bytes = serializer.writer.as_slice().to_vec();
+                                serializer.writer.clear();
 
-                    (key, AlignedVecRedisArgs(bytes))
-                });
+                                (RedisKey::from(&member.user), bytes)
+                            })
+                    };
 
-                match (member, user) {
-                    (Ok(member), Ok(user)) => Ok(((member, user_id.get()), user)),
-                    (Err(e), _) | (_, Err(e)) => Err(e),
-                }
-            })
-            .collect::<Result<Zipped<Zipped<Vec<_>, Vec<_>>, Vec<_>>>>()?
-            .into_parts();
+                    let member = {
+                        let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer);
+                        let with = With::<_, CachedMember>::cast(member);
+
+                        rkyv::api::serialize_using(with, strategy)
+                            .wrap_err("Failed to serialize member")
+                            .map(|_| {
+                                let bytes = serializer.writer.as_slice().to_vec();
+                                serializer.writer.clear();
+                                let key = RedisKey::member(guild, member.user.id);
+
+                                (key, bytes)
+                            })
+                    };
+
+                    match (member, user) {
+                        (Ok(member), Ok(user)) => Ok(((member, user_id.get()), user)),
+                        (Err(e), _) | (_, Err(e)) => Err(e),
+                    }
+                })
+                .collect::<Result<Zipped<Zipped<Vec<_>, Vec<_>>, Vec<_>>>>()
+        })?
+        .into_parts();
 
         let (members, member_ids) = zipped_members.into_parts();
 
         let mut conn = self.connection().await?;
 
-        conn.mset(&members)
+        conn.mset::<_, _, ()>(&members)
             .await
             .wrap_err("Failed to store members bytes")?;
 
-        conn.mset(&users)
+        conn.mset::<_, _, ()>(&users)
             .await
             .wrap_err("Failed to store users bytes")?;
 
         let guild_key = RedisKey::guild_members(guild);
 
-        conn.sadd(guild_key, &member_ids)
+        conn.sadd::<_, _, ()>(guild_key, &member_ids)
             .await
             .wrap_err("Failed to add users as guild members")?;
 
@@ -367,10 +450,18 @@ impl Cache {
 
         let mut conn = self.connection().await?;
 
-        let bytes = SingleSerializer::guild(guild)?;
+        let bytes = {
+            let mut serializer = AlignedVec::<8>::new();
+            let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer);
+            let with = With::<_, CachedGuild>::cast(guild);
+            rkyv::api::serialize_using(with, strategy).wrap_err("Failed to serialize guild")?;
+
+            serializer
+        };
+
         let key = RedisKey::guild(guild.id);
 
-        conn.set(key, bytes.as_slice())
+        conn.set::<_, _, ()>(key, bytes.as_slice())
             .await
             .wrap_err("Failed to store guild bytes")?;
 
@@ -404,17 +495,25 @@ impl Cache {
         guild: Id<GuildMarker>,
         role: &Role,
     ) -> Result<CacheChange> {
-        let bytes = SingleSerializer::role(role)?;
+        let bytes = {
+            let mut serializer = AlignedVec::<8>::new();
+            let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer);
+            let with = With::<_, CachedRole>::cast(role);
+            rkyv::api::serialize_using(with, strategy).wrap_err("Failed to serialize role")?;
+
+            serializer
+        };
+
         let mut conn = self.connection().await?;
         let key = RedisKey::role(guild, role.id);
 
-        conn.set(key, bytes.as_slice())
+        conn.set::<_, _, ()>(key, bytes.as_slice())
             .await
             .wrap_err("Failed to store role bytes")?;
 
         let guild_key = RedisKey::guild_roles(guild);
 
-        conn.sadd(guild_key, role.id.get())
+        conn.sadd::<_, _, ()>(guild_key, role.id.get())
             .await
             .wrap_err("Failed to add role as guild role")?;
 
@@ -437,17 +536,22 @@ impl Cache {
     where
         I: IntoIterator<Item = &'r Role>,
     {
-        #[allow(clippy::default_constructed_unit_structs)]
-        let mut serializer = MultiSerializer::default();
-
         let (roles, role_ids) = roles
             .into_iter()
             .map(|role| {
-                serializer.role(role).map(|bytes| {
-                    let key = RedisKey::role(guild, role.id);
+                let bytes = {
+                    let mut serializer = AlignedVec::<8>::new();
+                    let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer);
+                    let with = With::<_, CachedRole>::cast(role);
+                    rkyv::api::serialize_using(with, strategy)
+                        .wrap_err("Failed to serialize role")?;
 
-                    ((key, AlignedVecRedisArgs(bytes)), role.id.get())
-                })
+                    serializer
+                };
+
+                let key = RedisKey::role(guild, role.id);
+
+                Ok::<_, Report>(((key, AlignedVecRedisArgs(bytes)), role.id.get()))
             })
             .collect::<Result<Zipped<Vec<_>, Vec<_>>, _>>()?
             .into_parts();
@@ -458,13 +562,13 @@ impl Cache {
 
         let mut conn = self.connection().await?;
 
-        conn.mset(&roles)
+        conn.mset::<_, _, ()>(&roles)
             .await
             .wrap_err("Failed to store roles bytes")?;
 
         let guild_key = RedisKey::guild_roles(guild);
 
-        conn.sadd(guild_key, &role_ids)
+        conn.sadd::<_, _, ()>(guild_key, &role_ids)
             .await
             .wrap_err("Failed to add roles as guild roles")?;
 
@@ -495,7 +599,7 @@ impl Cache {
             .wrap_err("Failed to move guild id")?;
 
         let change = if is_moved {
-            conn.del(RedisKey::guild(guild))
+            conn.del::<_, ()>(RedisKey::guild(guild))
                 .await
                 .wrap_err("Failed to delete guild entry")?;
 
@@ -526,10 +630,18 @@ impl Cache {
     pub(crate) async fn cache_user(&self, user: &User) -> Result<CacheChange> {
         let mut conn = self.connection().await?;
 
-        let bytes = SingleSerializer::user(user)?;
+        let bytes = {
+            let mut serializer = AlignedVec::<8>::new();
+            let strategy = Strategy::<_, BoxedError>::wrap(&mut serializer);
+            let with = With::<_, CachedUser>::cast(user);
+            rkyv::api::serialize_using(with, strategy).wrap_err("Failed to serialize user")?;
+
+            serializer
+        };
+
         let key = RedisKey::from(user);
 
-        conn.set(key, bytes.as_slice())
+        conn.set::<_, _, ()>(key, bytes.as_slice())
             .await
             .wrap_err("Failed to store user bytes")?;
 

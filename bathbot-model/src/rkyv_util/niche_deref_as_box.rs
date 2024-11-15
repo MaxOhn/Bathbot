@@ -2,9 +2,10 @@ use std::ops::Deref;
 
 use rkyv::{
     niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
-    ser::Serializer,
+    rancor::Fallible,
+    ser::Writer,
     with::{ArchiveWith, SerializeWith},
-    ArchiveUnsized, ArchivedMetadata, Fallible, SerializeUnsized,
+    ArchiveUnsized, ArchivedMetadata, Place, SerializeUnsized,
 };
 
 pub struct NicheDerefAsBox;
@@ -16,17 +17,12 @@ where
     ArchivedMetadata<V>: Default,
 {
     type Archived = ArchivedOptionBox<V::Archived>;
-    type Resolver = OptionBoxResolver<V::MetadataResolver>;
+    type Resolver = OptionBoxResolver;
 
     #[inline]
-    unsafe fn resolve_with(
-        field: &Option<U>,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
+    fn resolve_with(field: &Option<U>, resolver: Self::Resolver, out: Place<Self::Archived>) {
         let deref: Option<&V> = field.as_deref();
-        ArchivedOptionBox::resolve_from_option(deref, pos, resolver, out);
+        ArchivedOptionBox::resolve_from_option(deref, resolver, out);
     }
 }
 
@@ -34,7 +30,7 @@ impl<S, U, V> SerializeWith<Option<U>, S> for NicheDerefAsBox
 where
     U: Deref<Target = V>,
     V: ArchiveUnsized + SerializeUnsized<S> + ?Sized,
-    S: Serializer + Fallible + ?Sized,
+    S: Writer + Fallible + ?Sized,
     ArchivedMetadata<V>: Default,
 {
     #[inline]

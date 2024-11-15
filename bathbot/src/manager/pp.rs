@@ -12,7 +12,7 @@ use rosu_pp::{
 };
 use rosu_v2::{
     model::mods::GameMods,
-    prelude::{GameMode, Grade, Score},
+    prelude::{GameMode, Grade, Score, ScoreStatistics},
 };
 
 use super::OsuMap;
@@ -70,7 +70,10 @@ impl<'m> PpManager<'m> {
             self.attrs = None;
         }
 
-        map.convert_in_place(mode);
+        // FIXME: This is only fine for now because mania's key mods are the
+        // only mods relevant for conversion and they're available as bitflags
+        // (except for 10K).
+        let _ = map.convert_mut(mode, &self.mods.bits.into());
 
         self
     }
@@ -195,18 +198,8 @@ pub struct ScoreData {
 impl<'s> From<&'s Score> for ScoreData {
     #[inline]
     fn from(score: &'s Score) -> Self {
-        let stats = score.statistics.as_legacy(score.mode);
-
         Self {
-            state: ScoreState {
-                max_combo: score.max_combo,
-                n_geki: stats.count_geki,
-                n_katu: stats.count_katu,
-                n300: stats.count_300,
-                n100: stats.count_100,
-                n50: stats.count_50,
-                misses: stats.count_miss,
-            },
+            state: stats_to_state(score.max_combo, score.mode, &score.statistics),
             mods: Mods::from(&score.mods),
             mode: Some(score.mode),
             partial: !score.passed,
@@ -218,15 +211,7 @@ impl<'s> From<&'s ScoreSlim> for ScoreData {
     #[inline]
     fn from(score: &'s ScoreSlim) -> Self {
         Self {
-            state: ScoreState {
-                max_combo: score.max_combo,
-                n_geki: score.statistics.count_geki,
-                n_katu: score.statistics.count_katu,
-                n300: score.statistics.count_300,
-                n100: score.statistics.count_100,
-                n50: score.statistics.count_50,
-                misses: score.statistics.count_miss,
-            },
+            state: stats_to_state(score.max_combo, score.mode, &score.statistics),
             mods: Mods::from(&score.mods),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
@@ -246,6 +231,8 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
                 n100: score.count100,
                 n50: score.count50,
                 misses: score.count_miss,
+                osu_large_tick_hits: 0,
+                slider_end_hits: 0,
             },
             mods: Mods::from(&score.mods),
             mode: None,
@@ -257,15 +244,7 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
 impl<'s> From<&'s LeaderboardScore> for ScoreData {
     fn from(score: &'s LeaderboardScore) -> Self {
         Self {
-            state: ScoreState {
-                max_combo: score.combo,
-                n_geki: score.statistics.count_geki,
-                n_katu: score.statistics.count_katu,
-                n300: score.statistics.count_300,
-                n100: score.statistics.count_100,
-                n50: score.statistics.count_50,
-                misses: score.statistics.count_miss,
-            },
+            state: stats_to_state(score.combo, score.mode, &score.statistics),
             mods: Mods::from(&score.mods),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
@@ -277,15 +256,7 @@ impl<'s> From<&'s ScoreEmbedDataRaw> for ScoreData {
     #[inline]
     fn from(score: &'s ScoreEmbedDataRaw) -> Self {
         Self {
-            state: ScoreState {
-                max_combo: score.max_combo,
-                n_geki: score.statistics.count_geki,
-                n_katu: score.statistics.count_katu,
-                n300: score.statistics.count_300,
-                n100: score.statistics.count_100,
-                n50: score.statistics.count_50,
-                misses: score.statistics.count_miss,
-            },
+            state: stats_to_state(score.max_combo, score.mode, &score.statistics),
             mods: Mods::from(&score.mods),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
@@ -293,11 +264,63 @@ impl<'s> From<&'s ScoreEmbedDataRaw> for ScoreData {
     }
 }
 
+fn stats_to_state(max_combo: u32, mode: GameMode, stats: &ScoreStatistics) -> ScoreState {
+    let n_geki = match mode {
+        GameMode::Osu | GameMode::Taiko | GameMode::Catch => 0,
+        GameMode::Mania => stats.good,
+    };
+
+    let n_katu = match mode {
+        GameMode::Osu | GameMode::Taiko => 0,
+        GameMode::Catch => stats.small_tick_miss.max(stats.good),
+        GameMode::Mania => stats.good,
+    };
+
+    let n100 = match mode {
+        GameMode::Osu | GameMode::Taiko | GameMode::Mania => stats.ok,
+        GameMode::Catch => stats.large_tick_hit.max(stats.ok),
+    };
+
+    let n50 = match mode {
+        GameMode::Osu | GameMode::Mania => stats.meh,
+        GameMode::Taiko => 0,
+        GameMode::Catch => stats.small_tick_hit.max(stats.meh),
+    };
+
+    let osu_large_tick_hits = match mode {
+        GameMode::Osu => stats.large_tick_hit,
+        GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
+    };
+
+    let slider_end_hits = match mode {
+        GameMode::Osu => {
+            if stats.slider_tail_hit > 0 {
+                stats.slider_tail_hit
+            } else {
+                stats.small_tick_hit
+            }
+        }
+        GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
+    };
+
+    ScoreState {
+        max_combo,
+        osu_large_tick_hits,
+        slider_end_hits,
+        n_geki,
+        n_katu,
+        n300: stats.great,
+        n100,
+        n50,
+        misses: stats.miss,
+    }
+}
+
 /// Mods with an optional custom clock rate.
 #[derive(Copy, Clone, Default, PartialEq)]
 pub struct Mods {
     pub bits: u32,
-    pub clock_rate: Option<f32>,
+    pub clock_rate: Option<f64>,
 }
 
 impl Mods {
@@ -325,6 +348,6 @@ impl Eq for Mods {}
 impl Hash for Mods {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.bits.hash(state);
-        self.clock_rate.map(f32::to_bits).hash(state);
+        self.clock_rate.map(f64::to_bits).hash(state);
     }
 }

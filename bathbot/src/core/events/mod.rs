@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use bathbot_cache::model::CachedArchive;
-use bathbot_model::twilight_model::{channel::Channel, guild::Guild};
+use bathbot_model::twilight::{channel::CachedChannel, guild::CachedGuild};
 use bathbot_util::constants::MISS_ANALYZER_ID;
 use eyre::Result;
 use futures::StreamExt;
@@ -70,11 +70,11 @@ enum EventLocation {
     Private,
     UncachedGuild,
     UncachedChannel {
-        guild: CachedArchive<Guild>,
+        guild: CachedArchive<CachedGuild>,
     },
     Cached {
-        guild: CachedArchive<Guild>,
-        channel: CachedArchive<Channel>,
+        guild: CachedArchive<CachedGuild>,
+        channel: CachedArchive<CachedChannel>,
     },
 }
 
@@ -110,10 +110,7 @@ impl Display for EventLocation {
             EventLocation::UncachedChannel { guild } => {
                 write!(f, "{}:<uncached channel>", guild.name)
             }
-            EventLocation::Cached { guild, channel } => match channel.name.as_ref() {
-                Some(channel_name) => write!(f, "{}:{channel_name}", guild.name),
-                None => write!(f, "{}:<no channel name>", guild.name),
-            },
+            EventLocation::Cached { guild, channel } => write!(f, "{}:{}", guild.name, channel.id),
         }
     }
 }

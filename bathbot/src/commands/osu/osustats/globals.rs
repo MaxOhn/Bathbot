@@ -12,10 +12,7 @@ use bathbot_util::{
     CowUtils,
 };
 use eyre::{Report, Result};
-use rosu_v2::{
-    model::score::LegacyScoreStatistics,
-    prelude::{GameModIntermode, GameMode, Grade, OsuError, Username},
-};
+use rosu_v2::prelude::{GameModIntermode, GameMode, Grade, OsuError, ScoreStatistics, Username};
 
 use super::OsuStatsScores;
 use crate::{
@@ -498,14 +495,16 @@ async fn process_scores(
             classic_score: 0,
             score_id: 0,
             legacy_id: None,
-            statistics: LegacyScoreStatistics {
-                count_geki: score.count_geki,
-                count_300: score.count300,
-                count_katu: score.count_katu,
-                count_100: score.count100,
-                count_50: score.count50,
-                count_miss: score.count_miss,
+            statistics: ScoreStatistics {
+                perfect: score.count_geki,
+                great: score.count300,
+                good: score.count_katu,
+                ok: score.count100,
+                meh: score.count50,
+                miss: score.count_miss,
+                ..Default::default()
             },
+            set_on_lazer: false, // FIXME: how does osustats handle lazer scores?
         };
 
         let entry = OsuStatsEntry {

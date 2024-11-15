@@ -116,7 +116,8 @@ impl IActiveMessage for RegionTopPagination {
                 grade = GradeFormatter::new(score.grade, None, false),
                 pp = round(score.pp),
                 stars = StarsFormatter::new(score.stars),
-                acc = round(score.statistics.accuracy(self.mode)),
+                // FIXME: use non-legacy acc when supported in db schema
+                acc = round(score.statistics.legacy_accuracy(self.mode)),
                 appendix = OrderAppendix::new(self.sort, score, map, mapset),
             );
         }
@@ -190,9 +191,9 @@ impl Display for OrderAppendix<'_> {
             }
             ScoresOrder::Bpm => {
                 let clock_rate = GameModsIntermode::from_bits(self.score.mods).legacy_clock_rate();
-                let bpm = self.map.map_or(0.0, |map| map.bpm) * clock_rate;
+                let bpm = self.map.map_or(0.0, |map| map.bpm) as f64 * clock_rate;
 
-                write!(f, "`{}BPM`", round(bpm))
+                write!(f, "`{}BPM`", round(bpm as f32))
             }
             ScoresOrder::Combo => write!(f, "`{}x`", self.score.max_combo),
             ScoresOrder::Cs => {
@@ -213,7 +214,7 @@ impl Display for OrderAppendix<'_> {
             }
             ScoresOrder::Length => {
                 let clock_rate = GameModsIntermode::from_bits(self.score.mods).legacy_clock_rate();
-                let seconds_drain = self.map.map_or(0, |map| map.seconds_drain) as f32 / clock_rate;
+                let seconds_drain = self.map.map_or(0, |map| map.seconds_drain) as f64 / clock_rate;
 
                 write!(f, "`{}`", SecToMinSec::new(seconds_drain as u32))
             }

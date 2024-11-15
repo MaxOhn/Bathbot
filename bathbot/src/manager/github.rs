@@ -46,7 +46,7 @@ impl GithubManager {
 
         if let Some(ref mut conn) = conn {
             // TODO: check scratch size
-            if let Err(err) = Cache::store::<_, _, 1024>(conn, &key, &prs, EXPIRE).await {
+            if let Err(err) = Cache::store(conn, &key, &prs, EXPIRE).await {
                 warn!(?err, "Failed to store github pull requests");
             }
         }

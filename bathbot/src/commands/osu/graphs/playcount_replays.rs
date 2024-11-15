@@ -1,7 +1,7 @@
 use std::{iter, mem};
 
 use bathbot_model::{
-    rosu_v2::user::{MonthlyCount as MonthlyCountRkyv, User},
+    rosu_v2::user::{MonthlyCountRkyv, User},
     Either,
 };
 use bathbot_util::{
@@ -25,8 +25,8 @@ use plotters::{
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
 use rkyv::{
-    with::{DeserializeWith, Map},
-    Infallible,
+    rancor::{Panic, ResultExt},
+    with::{Map, With},
 };
 use rosu_v2::{
     model::GameMode,
@@ -577,18 +577,20 @@ fn prepare_monthly_counts(
 ) -> (Vec<MonthlyCount>, Vec<MonthlyCount>) {
     let mut playcounts = match user {
         RedisData::Original(user) => mem::take(&mut user.monthly_playcounts),
-        RedisData::Archive(user) => {
-            Map::<MonthlyCountRkyv>::deserialize_with(&user.monthly_playcounts, &mut Infallible)
-                .unwrap()
-        }
+        RedisData::Archive(user) => rkyv::api::deserialize_using::<_, _, Panic>(
+            With::<_, Map<MonthlyCountRkyv>>::cast(&user.monthly_playcounts),
+            &mut (),
+        )
+        .always_ok(),
     };
 
     let mut replays = match user {
         RedisData::Original(user) => mem::take(&mut user.replays_watched_counts),
-        RedisData::Archive(user) => {
-            Map::<MonthlyCountRkyv>::deserialize_with(&user.replays_watched_counts, &mut Infallible)
-                .unwrap()
-        }
+        RedisData::Archive(user) => rkyv::api::deserialize_using::<_, _, Panic>(
+            With::<_, Map<MonthlyCountRkyv>>::cast(&user.replays_watched_counts),
+            &mut (),
+        )
+        .always_ok(),
     };
 
     // Spoof missing months

@@ -1,6 +1,6 @@
 use std::{collections::HashSet, fmt::Write};
 
-use bathbot_psql::model::configs::{GuildConfig, DEFAULT_PREFIX};
+use bathbot_psql::model::configs::GuildConfig;
 use bathbot_util::{
     constants::{BATHBOT_ROADMAP, BATHBOT_WORKSHOP},
     EmbedBuilder, FooterBuilder,
@@ -24,6 +24,7 @@ use crate::{
         },
         Context,
     },
+    manager::DEFAULT_PREFIX,
     util::{interaction::InteractionComponent, Emote},
 };
 

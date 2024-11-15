@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_macros::command;
-use bathbot_psql::model::configs::{GuildConfig, DEFAULT_PREFIX};
+use bathbot_psql::model::configs::GuildConfig;
 use bathbot_util::{
     string_cmp::levenshtein_distance, AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
@@ -19,6 +19,7 @@ use crate::{
         commands::prefix::{PrefixCommand, PrefixCommands},
         Context,
     },
+    manager::DEFAULT_PREFIX,
     util::ChannelExt,
 };
 

@@ -15,11 +15,9 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_pp::any::{DifficultyAttributes, ScoreState};
-use rosu_v2::{
-    model::score::LegacyScoreStatistics,
-    prelude::{
-        BeatmapUserScore, GameMode, GameMods, GameModsIntermode, Grade, OsuError, Score, Username,
-    },
+use rosu_v2::prelude::{
+    BeatmapUserScore, GameMode, GameMods, GameModsIntermode, Grade, OsuError, Score,
+    ScoreStatistics, Username,
 };
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -96,7 +94,7 @@ impl LeaderboardSort {
             Self::Accuracy => scores.sort_by(|a, b| b.accuracy.total_cmp(&a.accuracy)),
             Self::Combo => scores.sort_by_key(|score| Reverse(score.combo)),
             Self::Date => scores.sort_by_key(|score| score.ended_at),
-            Self::Misses => scores.sort_by_key(|score| score.statistics.count_miss),
+            Self::Misses => scores.sort_by_key(|score| score.statistics.miss),
             Self::Pp => {
                 let mut pps = HashMap::with_capacity_and_hasher(scores.len(), IntHasher);
 
@@ -500,7 +498,7 @@ pub struct LeaderboardScore {
     pub pos: usize,
     pub grade: Grade,
     pub accuracy: f32,
-    pub statistics: LegacyScoreStatistics,
+    pub statistics: ScoreStatistics,
     pub mode: GameMode,
     pub mods: GameMods,
     pub combo: u32,
@@ -520,7 +518,7 @@ impl LeaderboardScore {
             is_legacy: score.is_legacy(),
             grade: if score.passed { score.grade } else { Grade::F },
             accuracy: score.accuracy,
-            statistics: score.statistics.as_legacy(score.mode),
+            statistics: score.statistics,
             mode: score.mode,
             mods: score.mods,
             combo: score.max_combo,
@@ -540,14 +538,54 @@ impl LeaderboardScore {
             Entry::Occupied(entry) => {
                 let (attrs, max_pp) = entry.get();
 
+                let n_geki = match self.mode {
+                    GameMode::Osu | GameMode::Taiko | GameMode::Catch => 0,
+                    GameMode::Mania => self.statistics.good,
+                };
+
+                let n_katu = match self.mode {
+                    GameMode::Osu | GameMode::Taiko => 0,
+                    GameMode::Catch => self.statistics.small_tick_miss.max(self.statistics.good),
+                    GameMode::Mania => self.statistics.good,
+                };
+
+                let n100 = match self.mode {
+                    GameMode::Osu | GameMode::Taiko | GameMode::Mania => self.statistics.ok,
+                    GameMode::Catch => self.statistics.large_tick_hit.max(self.statistics.ok),
+                };
+
+                let n50 = match self.mode {
+                    GameMode::Osu | GameMode::Mania => self.statistics.meh,
+                    GameMode::Taiko => 0,
+                    GameMode::Catch => self.statistics.small_tick_hit.max(self.statistics.meh),
+                };
+
+                let osu_large_tick_hits = match self.mode {
+                    GameMode::Osu => self.statistics.large_tick_hit,
+                    GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
+                };
+
+                let slider_end_hits = match self.mode {
+                    GameMode::Osu => {
+                        if self.statistics.slider_tail_hit > 0 {
+                            self.statistics.slider_tail_hit
+                        } else {
+                            self.statistics.small_tick_hit
+                        }
+                    }
+                    GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
+                };
+
                 let state = ScoreState {
                     max_combo: self.combo,
-                    n_geki: self.statistics.count_geki,
-                    n_katu: self.statistics.count_katu,
-                    n300: self.statistics.count_300,
-                    n100: self.statistics.count_100,
-                    n50: self.statistics.count_50,
-                    misses: self.statistics.count_miss,
+                    n_geki,
+                    n_katu,
+                    n300: self.statistics.great,
+                    n100,
+                    n50,
+                    misses: self.statistics.miss,
+                    osu_large_tick_hits,
+                    slider_end_hits,
                 };
 
                 let mut pp_calc = attrs.to_owned().performance().mods(mods.bits).state(state);

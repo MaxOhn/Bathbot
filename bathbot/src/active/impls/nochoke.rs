@@ -61,8 +61,8 @@ impl IActiveMessage for NoChokePagination {
             } = entry;
 
             let misses = match unchoked {
-                Some(_) => MissFormat::Misses(original_score.statistics.count_miss),
-                None => match original_score.statistics.count_miss {
+                Some(_) => MissFormat::Misses(original_score.statistics.miss),
+                None => match original_score.statistics.miss {
                     0 => MissFormat::None,
                     _ => MissFormat::Skipped,
                 },

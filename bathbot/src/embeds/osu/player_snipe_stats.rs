@@ -93,10 +93,7 @@ impl PlayerSnipeStatsEmbed {
                     acc = round(oldest_score.accuracy),
                     combo = ComboFormatter::new(oldest_score.max_combo, Some(max_combo)),
                     pp = PpFormatter::new(Some(pp), Some(max_pp)),
-                    hits = HitResultFormatter::new(
-                        GameMode::Osu,
-                        oldest_score.statistics.as_legacy(GameMode::Osu)
-                    ),
+                    hits = HitResultFormatter::new(GameMode::Osu, &oldest_score.statistics),
                     ago = HowLongAgoDynamic::new(&oldest_score.ended_at)
                 );
 
@@ -144,7 +141,7 @@ impl PlayerSnipeStatsEmbed {
                 let country_code = user.country_code.as_str();
                 let avatar_url = user.avatar_url.as_ref();
 
-                (user_id, country_code, avatar_url)
+                (user_id.to_native(), country_code, avatar_url)
             }
         };
 

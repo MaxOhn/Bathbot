@@ -663,8 +663,8 @@ async fn process_scores(
                 let a_map = maps.get(&a.map_id).expect("missing map");
                 let b_map = maps.get(&b.map_id).expect("missing map");
 
-                let a_len = a_map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
-                let b_len = b_map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
+                let a_len = a_map.seconds_drain() as f64 / a.score.mods.clock_rate().unwrap_or(1.0);
+                let b_len = b_map.seconds_drain() as f64 / b.score.mods.clock_rate().unwrap_or(1.0);
 
                 b_len
                     .partial_cmp(&a_len)
@@ -699,14 +699,14 @@ async fn process_scores(
         Some(ScoreOrder::Misses) => entries.sort_by(|a, b| {
             b.score
                 .statistics
-                .count_miss
-                .cmp(&a.score.statistics.count_miss)
+                .miss
+                .cmp(&a.score.statistics.miss)
                 .then_with(|| {
                     let hits_a = a.score.total_hits();
                     let hits_b = b.score.total_hits();
 
-                    let ratio_a = a.score.statistics.count_miss as f32 / hits_a as f32;
-                    let ratio_b = b.score.statistics.count_miss as f32 / hits_b as f32;
+                    let ratio_a = a.score.statistics.miss as f32 / hits_a as f32;
+                    let ratio_b = b.score.statistics.miss as f32 / hits_b as f32;
 
                     ratio_b
                         .partial_cmp(&ratio_a)

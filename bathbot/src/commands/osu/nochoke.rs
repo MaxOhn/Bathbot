@@ -11,8 +11,7 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rosu_pp::any::DifficultyAttributes;
 use rosu_v2::{
-    model::score::LegacyScoreStatistics,
-    prelude::{GameMode, GameMods, Grade, OsuError, Score},
+    prelude::{GameMode, GameMods, Grade, OsuError, Score, ScoreStatistics},
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -371,26 +370,34 @@ impl NochokeEntry {
     pub fn unchoked_accuracy(&self) -> f32 {
         self.unchoked
             .as_ref()
-            .map_or(self.original_score.accuracy, |unchoked| {
-                unchoked.statistics.accuracy(self.original_score.mode)
+            .map(|unchoked| match unchoked.max_statistics {
+                Some(ref max_stats) => unchoked
+                    .statistics
+                    .accuracy(self.original_score.mode, max_stats),
+                None => unchoked
+                    .statistics
+                    .legacy_accuracy(self.original_score.mode),
             })
+            .unwrap_or(self.original_score.accuracy)
     }
 }
 
 pub struct Unchoked {
     pub grade: Grade,
     pub pp: f32,
-    pub statistics: LegacyScoreStatistics,
+    pub statistics: ScoreStatistics,
+    pub max_statistics: Option<ScoreStatistics>,
 }
 
 impl Unchoked {
     fn new(if_fc: IfFc, mods: &GameMods, mode: GameMode) -> Self {
-        let grade = calculate_grade(mode, mods, &if_fc.statistics);
+        let grade = calculate_grade(mode, mods, &if_fc.statistics, if_fc.max_statistics.as_ref());
 
         Self {
             grade,
             pp: if_fc.pp,
             statistics: if_fc.statistics,
+            max_statistics: if_fc.max_statistics,
         }
     }
 }
@@ -433,7 +440,7 @@ async fn process_scores(
         };
 
         let score = ScoreSlim::new(score, pp);
-        let too_many_misses = score.statistics.count_miss > miss_limit;
+        let too_many_misses = score.statistics.miss > miss_limit;
 
         let unchoked = match version {
             NochokeVersion::Unchoke if too_many_misses => None,
@@ -467,62 +474,90 @@ async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
     let attrs = calc.difficulty().await;
 
     let stats = match attrs {
-        DifficultyAttributes::Osu(_) if score.statistics.count_300 != total_hits => {
-            LegacyScoreStatistics {
-                count_geki: 0,
-                count_300: total_hits,
-                count_katu: 0,
-                count_100: 0,
-                count_50: 0,
-                count_miss: 0,
+        DifficultyAttributes::Osu(attrs) if score.statistics.great != total_hits => {
+            ScoreStatistics {
+                great: total_hits,
+                slider_tail_hit: attrs.n_sliders,
+                large_tick_hit: attrs.n_slider_ticks,
+                ..Default::default()
             }
         }
-        DifficultyAttributes::Taiko(_) if score.statistics.count_miss > 0 => {
-            LegacyScoreStatistics {
-                count_geki: 0,
-                count_300: map.n_circles() as u32,
-                count_katu: 0,
-                count_100: 0,
-                count_50: 0,
-                count_miss: 0,
-            }
-        }
+        DifficultyAttributes::Taiko(_) if score.statistics.miss > 0 => ScoreStatistics {
+            great: map.n_circles() as u32,
+            ..Default::default()
+        },
         DifficultyAttributes::Catch(attrs) if (100.0 - score.accuracy).abs() > f32::EPSILON => {
-            LegacyScoreStatistics {
-                count_geki: 0,
-                count_300: attrs.n_fruits,
-                count_katu: 0,
-                count_100: attrs.n_droplets,
-                count_50: attrs.n_tiny_droplets,
-                count_miss: 0,
+            ScoreStatistics {
+                great: attrs.n_fruits,
+                ok: attrs.n_droplets,
+                meh: attrs.n_tiny_droplets,
+                ..Default::default()
             }
         }
-        DifficultyAttributes::Mania(_) if score.statistics.count_geki != total_hits => {
-            LegacyScoreStatistics {
-                count_geki: total_hits,
-                count_300: 0,
-                count_katu: 0,
-                count_100: 0,
-                count_50: 0,
-                count_miss: 0,
+        DifficultyAttributes::Mania(_) if score.statistics.perfect != total_hits => {
+            ScoreStatistics {
+                perfect: total_hits,
+                ..Default::default()
             }
         }
         _ => score.statistics.clone(), // Nothing to unchoke
     };
 
-    let grade = calculate_grade(score.mode, &score.mods, &stats);
+    let max_stats = score.set_on_lazer.then(|| stats.clone());
+
+    let grade = calculate_grade(score.mode, &score.mods, &stats, max_stats.as_ref());
+
+    let n_geki = match score.mode {
+        GameMode::Osu | GameMode::Taiko | GameMode::Catch => 0,
+        GameMode::Mania => stats.good,
+    };
+
+    let n_katu = match score.mode {
+        GameMode::Osu | GameMode::Taiko => 0,
+        GameMode::Catch => stats.small_tick_miss.max(stats.good),
+        GameMode::Mania => stats.good,
+    };
+
+    let n100 = match score.mode {
+        GameMode::Osu | GameMode::Taiko | GameMode::Mania => stats.ok,
+        GameMode::Catch => stats.large_tick_hit.max(stats.ok),
+    };
+
+    let n50 = match score.mode {
+        GameMode::Osu | GameMode::Mania => stats.meh,
+        GameMode::Taiko => 0,
+        GameMode::Catch => stats.small_tick_hit.max(stats.meh),
+    };
+
+    let large_tick_hits = match score.mode {
+        GameMode::Osu => stats.large_tick_hit,
+        GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
+    };
+
+    let slider_end_hits = match score.mode {
+        GameMode::Osu => {
+            if stats.slider_tail_hit > 0 {
+                stats.slider_tail_hit
+            } else {
+                stats.small_tick_hit
+            }
+        }
+        GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
+    };
 
     let pp = attrs
         .to_owned()
         .performance()
         .mods(score.mods.bits())
         .clock_rate(score.mods.clock_rate().unwrap_or(1.0) as f64)
-        .n_geki(stats.count_geki)
-        .n300(stats.count_300)
-        .n_katu(stats.count_katu)
-        .n100(stats.count_100)
-        .n50(stats.count_50)
+        .n_geki(n_geki)
+        .n300(stats.perfect)
+        .n_katu(n_katu)
+        .n100(n100)
+        .n50(n50)
         .misses(0)
+        .large_tick_hits(large_tick_hits)
+        .n_slider_ends(slider_end_hits)
         .calculate()
         .pp() as f32;
 
@@ -530,5 +565,6 @@ async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
         grade,
         pp,
         statistics: stats,
+        max_statistics: max_stats,
     }
 }

@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use bathbot_macros::command;
+use bathbot_model::twilight::id::ArchivedId;
 use bathbot_psql::model::configs::{Authorities, GuildConfig};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
 use eyre::Result;
@@ -98,7 +99,12 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
                 let member_fut = cache.member(guild_id, author_id);
 
                 let member_roles = match member_fut.await {
-                    Ok(Some(member)) => member.roles().to_vec(),
+                    Ok(Some(member)) => member
+                        .roles
+                        .iter()
+                        .copied()
+                        .map(ArchivedId::to_native)
+                        .collect(),
                     Ok(None) => Vec::new(),
                     Err(err) => {
                         let _ = orig.error_callback(GENERAL_ISSUE).await;
@@ -109,7 +115,8 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
 
                 let still_authority = match cache.roles(guild_id, member_roles).await {
                     Ok(cached_roles) => cached_roles.into_iter().any(|role| {
-                        role.permissions.contains(Permissions::ADMINISTRATOR)
+                        Permissions::from_bits_truncate(role.permissions.to_native())
+                            .contains(Permissions::ADMINISTRATOR)
                             || roles.iter().any(|&new| new == role.id && new != role_id)
                     }),
                     Err(err) => {
@@ -150,7 +157,12 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
                 let member_fut = cache.member(guild_id, author_id);
 
                 let member_roles = match member_fut.await {
-                    Ok(Some(member)) => member.roles().to_vec(),
+                    Ok(Some(member)) => member
+                        .roles
+                        .iter()
+                        .copied()
+                        .map(ArchivedId::to_native)
+                        .collect(),
                     Ok(None) => Vec::new(),
                     Err(err) => {
                         let _ = orig.error_callback(GENERAL_ISSUE).await;
@@ -161,7 +173,8 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
 
                 let still_authority = match cache.roles(guild_id, member_roles).await {
                     Ok(cached_roles) => cached_roles.into_iter().any(|role| {
-                        role.permissions.contains(Permissions::ADMINISTRATOR)
+                        Permissions::from_bits_truncate(role.permissions.to_native())
+                            .contains(Permissions::ADMINISTRATOR)
                             || roles.iter().any(|&new| new == role.id)
                     }),
                     Err(err) => {

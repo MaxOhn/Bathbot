@@ -100,7 +100,7 @@ impl IActiveMessage for MedalsMissingPagination {
                 let user_id = user.user_id;
                 let avatar_url = user.avatar_url.as_ref();
 
-                (country_code, username, user_id, avatar_url)
+                (country_code, username, user_id.to_native(), avatar_url)
             }
         };
 
