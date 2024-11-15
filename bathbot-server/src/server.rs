@@ -10,7 +10,7 @@ use axum::{
 use eyre::Result;
 use hyper::Request;
 use tokio::sync::oneshot::{channel, Receiver, Sender};
-use tower_http::{services::ServeDir, trace::TraceLayer};
+use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 use tracing::Span;
 
 use crate::{
@@ -88,6 +88,7 @@ impl Server {
             .route("/guild_count", get(get_guild_count))
             .nest("/auth", Self::auth_app(website_path))
             .route("/osudirect/:mapset_id", get(redirect_osudirect))
+            .layer(CorsLayer::permissive())
             .layer(middleware::from_fn_with_state(state, track_metrics))
             .layer(trace)
     }

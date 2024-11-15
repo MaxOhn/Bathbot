@@ -78,14 +78,14 @@ impl AuthenticationStandby {
         self.current_state.fetch_add(1, Ordering::SeqCst)
     }
 
-    pub(super) fn process_osu(&self, user: UserExtended, id: u8) {
-        if let Some(tx) = self.osu.lock(&id).remove() {
+    pub(super) fn process_osu(&self, user: UserExtended, state: u8) {
+        if let Some(tx) = self.osu.lock(&state).remove() {
             let _ = tx.send(user);
         }
     }
 
-    pub(super) fn process_twitch(&self, user: TwitchUser, id: u8) {
-        if let Some(tx) = self.twitch.lock(&id).remove() {
+    pub(super) fn process_twitch(&self, user: TwitchUser, state: u8) {
+        if let Some(tx) = self.twitch.lock(&state).remove() {
             let _ = tx.send(user);
         }
     }
