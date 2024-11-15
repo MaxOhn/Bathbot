@@ -720,7 +720,8 @@ trait RegionsExt<Code, Name> {
 }
 
 impl<Code, Name> RegionsExt<Code, Name> for HashMap<Code, Name> {
-    type Iter<'a> = std::collections::hash_map::Iter<'a, Code, Name>
+    type Iter<'a>
+        = std::collections::hash_map::Iter<'a, Code, Name>
     where
         Code: 'a,
         Name: 'a,
@@ -732,7 +733,8 @@ impl<Code, Name> RegionsExt<Code, Name> for HashMap<Code, Name> {
 }
 
 impl<Code, Name> RegionsExt<Code, Name> for ArchivedHashMap<Code, Name> {
-    type Iter<'a> = rkyv::collections::hash_map::Iter<'a, Code, Name>
+    type Iter<'a>
+        = rkyv::collections::hash_map::Iter<'a, Code, Name>
     where
         Code: 'a,
         Name: 'a,
