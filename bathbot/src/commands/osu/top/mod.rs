@@ -218,7 +218,7 @@ async fn prefix_top(msg: &Message, args: Args<'_>) -> Result<()> {
     "vaxei -dt! combo=1234 sort=length",
     "peppy combo=200..500 grade=B reverse=true"
 )]
-#[alias("topm")]
+#[alias("topm", "tm")]
 #[group(Mania)]
 async fn prefix_topmania(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Mania), args) {
@@ -256,7 +256,7 @@ async fn prefix_topmania(msg: &Message, args: Args<'_>) -> Result<()> {
     "vaxei -dt! combo=1234 sort=length",
     "peppy combo=200..500 grade=B reverse=true"
 )]
-#[alias("topt")]
+#[alias("topt", "tt")]
 #[group(Taiko)]
 async fn prefix_toptaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Taiko), args) {
@@ -294,7 +294,7 @@ async fn prefix_toptaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     "vaxei -dt! combo=1234 sort=length",
     "peppy combo=200..500 grade=B reverse=true"
 )]
-#[alias("topc", "topcatch", "topcatchthebeat")]
+#[alias("topc", "topcatch", "topcatchthebeat", "tc")]
 #[group(Catch)]
 async fn prefix_topctb(msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Catch), args) {
