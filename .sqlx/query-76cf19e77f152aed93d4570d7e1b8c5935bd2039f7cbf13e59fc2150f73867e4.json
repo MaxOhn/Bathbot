@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT \n  stamina, \n  rhythm, \n  color, \n  peak, \n  hit_window, \n  stars, \n  max_combo, \n  is_convert \nFROM \n  osu_map_difficulty_taiko \nWHERE \n  map_id = $1 \n  AND mods = $2",
+  "query": "\nSELECT \n  stamina, \n  rhythm, \n  color, \n  peak, \n  great_hit_window, \n  ok_hit_window, \n  mono_stamina_factor, \n  stars, \n  max_combo, \n  is_convert \nFROM \n  osu_map_difficulty_taiko \nWHERE \n  map_id = $1 \n  AND mods = $2",
   "describe": {
     "columns": [
       {
@@ -25,21 +25,31 @@
       },
       {
         "ordinal": 4,
-        "name": "hit_window",
+        "name": "great_hit_window",
         "type_info": "Float8"
       },
       {
         "ordinal": 5,
-        "name": "stars",
+        "name": "ok_hit_window",
         "type_info": "Float8"
       },
       {
         "ordinal": 6,
+        "name": "mono_stamina_factor",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 7,
+        "name": "stars",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 8,
         "name": "max_combo",
         "type_info": "Int4"
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "is_convert",
         "type_info": "Bool"
       }
@@ -58,8 +68,10 @@
       false,
       false,
       false,
+      false,
+      false,
       false
     ]
   },
-  "hash": "44dde60b02dbe73c71fb6bef76773db969b9fbd7a1c09f88e431f406dd352640"
+  "hash": "76cf19e77f152aed93d4570d7e1b8c5935bd2039f7cbf13e59fc2150f73867e4"
 }

@@ -16,7 +16,7 @@
       {
         "ordinal": 2,
         "name": "prefixes",
-        "type_info": "Bytea"
+        "type_info": "Jsonb"
       },
       {
         "ordinal": 3,

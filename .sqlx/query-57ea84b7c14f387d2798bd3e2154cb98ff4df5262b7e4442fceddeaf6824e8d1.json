@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT \n  stars, \n  hit_window, \n  n_objects, \n  max_combo, \n  is_convert \nFROM \n  osu_map_difficulty_mania \nWHERE \n  map_id = $1 \n  AND mods = $2",
+  "query": "\nSELECT \n  stars, \n  hit_window, \n  n_objects, \n  n_hold_notes, \n  max_combo, \n  is_convert \nFROM \n  osu_map_difficulty_mania \nWHERE \n  map_id = $1 \n  AND mods = $2",
   "describe": {
     "columns": [
       {
@@ -20,11 +20,16 @@
       },
       {
         "ordinal": 3,
-        "name": "max_combo",
+        "name": "n_hold_notes",
         "type_info": "Int4"
       },
       {
         "ordinal": 4,
+        "name": "max_combo",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
         "name": "is_convert",
         "type_info": "Bool"
       }
@@ -40,8 +45,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "afa104842011afcbaa313e87f35a6528e90a7b2223749b838642f36fc3073d4c"
+  "hash": "57ea84b7c14f387d2798bd3e2154cb98ff4df5262b7e4442fceddeaf6824e8d1"
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT \n  aim, \n  speed, \n  flashlight, \n  slider_factor, \n  speed_note_count, \n  ar, \n  od, \n  hp, \n  n_circles, \n  n_sliders, \n  n_spinners, \n  stars, \n  max_combo \nFROM \n  osu_map_difficulty \nWHERE \n  map_id = $1 \n  AND mods = $2",
+  "query": "\nSELECT \n  aim, \n  speed, \n  flashlight, \n  slider_factor, \n  speed_note_count, \n  aim_difficult_strain_count, \n  speed_difficult_strain_count, \n  ar, \n  od, \n  hp, \n  n_circles, \n  n_sliders, \n  n_slider_ticks, \n  n_spinners, \n  stars, \n  max_combo \nFROM \n  osu_map_difficulty \nWHERE \n  map_id = $1 \n  AND mods = $2",
   "describe": {
     "columns": [
       {
@@ -30,41 +30,56 @@
       },
       {
         "ordinal": 5,
-        "name": "ar",
+        "name": "aim_difficult_strain_count",
         "type_info": "Float8"
       },
       {
         "ordinal": 6,
-        "name": "od",
+        "name": "speed_difficult_strain_count",
         "type_info": "Float8"
       },
       {
         "ordinal": 7,
-        "name": "hp",
+        "name": "ar",
         "type_info": "Float8"
       },
       {
         "ordinal": 8,
+        "name": "od",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 9,
+        "name": "hp",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 10,
         "name": "n_circles",
         "type_info": "Int4"
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "n_sliders",
         "type_info": "Int4"
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
+        "name": "n_slider_ticks",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 13,
         "name": "n_spinners",
         "type_info": "Int4"
       },
       {
-        "ordinal": 11,
+        "ordinal": 14,
         "name": "stars",
         "type_info": "Float8"
       },
       {
-        "ordinal": 12,
+        "ordinal": 15,
         "name": "max_combo",
         "type_info": "Int4"
       }
@@ -88,8 +103,11 @@
       false,
       false,
       false,
+      false,
+      false,
+      false,
       false
     ]
   },
-  "hash": "0e8fbc5bb4ad1733919064231a804c3e16815a07fa33fd2ab9801cc0de0cc362"
+  "hash": "9448ee5107acd6a69c12d0661e9acd080f9e208c43f169b7a71058537a5fec7b"
 }
