@@ -29,6 +29,7 @@ impl<'a> ArchiveWith<Role> for CachedRole<'a> {
     type Archived = ArchivedCachedRole<'a>;
     type Resolver = CachedRoleResolver<'a>;
 
+    #[allow(clippy::unit_arg)]
     fn resolve_with(role: &Role, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedCachedRole { id, name, permissions } = out);
         IdRkyv::resolve_with(&role.id, resolver.id, id);

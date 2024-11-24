@@ -15,7 +15,7 @@ mod scores;
 mod top;
 
 fn try_update_len(length: &mut OptionalRange<f32>, op: Operator, value: &str) -> bool {
-    let Ok(len) = value.trim_end_matches(&['m', 's', 'h']).parse::<f32>() else {
+    let Ok(len) = value.trim_end_matches(['m', 's', 'h']).parse::<f32>() else {
         return false;
     };
 

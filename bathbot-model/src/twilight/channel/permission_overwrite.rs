@@ -28,13 +28,11 @@ pub struct PermissionOverwriteTypeRkyv;
 
 impl PermissionOverwriteTypeRkyv {
     pub fn deserialize(archived: u8) -> PermissionOverwriteType {
-        let overwrite_type = match archived {
+        match archived {
             0 => PermissionOverwriteType::Member,
             1 => PermissionOverwriteType::Role,
             other => PermissionOverwriteType::Unknown(other),
-        };
-
-        overwrite_type
+        }
     }
 }
 

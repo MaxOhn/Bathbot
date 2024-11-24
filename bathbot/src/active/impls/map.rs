@@ -142,12 +142,12 @@ impl MapPagination {
         let map_attrs = rosu_map
             .attributes()
             .mods(mod_bits)
-            .clock_rate(clock_rate as f64)
+            .clock_rate(clock_rate)
             .build();
 
         let mut attrs = Difficulty::new()
             .mods(mod_bits)
-            .clock_rate(clock_rate as f64)
+            .clock_rate(clock_rate)
             .calculate(&rosu_map);
 
         let stars = attrs.stars();
@@ -159,7 +159,7 @@ impl MapPagination {
                 .performance()
                 .mods(mod_bits)
                 .accuracy(acc as f64)
-                .clock_rate(clock_rate as f64)
+                .clock_rate(clock_rate)
                 .calculate();
 
             let pp = pp_result.pp();

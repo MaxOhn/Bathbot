@@ -32,7 +32,11 @@ pub struct SimulateData {
 
 impl SimulateData {
     pub(super) fn simulate(&mut self, map: &SimulateMap) -> SimulateValues {
-        let mods = self.mods.as_ref().map_or(0, GameMods::bits);
+        let mods = self
+            .mods
+            .as_ref()
+            .map_or_else(GameMods::default, GameMods::to_owned);
+        let mod_bits = mods.bits();
 
         if let Some(new_bpm) = self.bpm.filter(|_| self.clock_rate.is_none()) {
             let old_bpm = map.bpm();
@@ -98,7 +102,7 @@ impl SimulateData {
             ) => {{
                 let map = $map;
                 let arg = simulate!(@MAP map $( .$arg() )?);
-                let mut calc = $( $calc:: )* new(arg).mods(mods);
+                let mut calc = $( $calc:: )* new(arg).mods(mod_bits);
 
                 $(
                     if let Some(value) = self.$this_field {
@@ -119,7 +123,7 @@ impl SimulateData {
 
                 let max_pp = $( $calc:: )* new(max_new!($max_new))
                     $( . $max_post (attrs.difficulty) )?
-                    .mods(mods)
+                    .mods(mod_bits)
                     .calculate()
                     .pp;
 
@@ -137,7 +141,7 @@ impl SimulateData {
             ) => {{
                 let map = $map;
                 let arg = simulate!(@MAP map $( .$arg() )?);
-                let mut calc = $( $calc:: )* new(arg).mods(mods);
+                let mut calc = $( $calc:: )* new(arg).mods(mods.clone());
 
                 $(
                     if let Some(value) = self.$this_field {

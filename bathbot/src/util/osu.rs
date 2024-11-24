@@ -712,7 +712,7 @@ impl Display for MapInfo<'_> {
             .or_else(|| self.mods.and_then(GameMods::clock_rate));
 
         if let Some(clock_rate) = clock_rate {
-            builder = builder.clock_rate(f64::from(clock_rate));
+            builder = builder.clock_rate(clock_rate);
         }
 
         let mods_bits = mods.bits();

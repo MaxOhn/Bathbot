@@ -69,7 +69,7 @@ impl Skills {
 
                     // Account for Daycore mod which has no bits
                     if let Some(clock_rate) = score.mods.clock_rate() {
-                        calc = calc.clock_rate(f64::from(clock_rate));
+                        calc = calc.clock_rate(clock_rate);
                     }
 
                     let attrs = calc
@@ -122,7 +122,7 @@ impl Skills {
 
                     // Account for Daycore mod which has no bits
                     if let Some(clock_rate) = score.mods.clock_rate() {
-                        calc = calc.clock_rate(f64::from(clock_rate));
+                        calc = calc.clock_rate(clock_rate);
                     }
 
                     let attrs = calc
@@ -173,7 +173,7 @@ impl Skills {
 
                     // Account for Daycore mod which has no bits
                     if let Some(clock_rate) = score.mods.clock_rate() {
-                        calc = calc.clock_rate(f64::from(clock_rate));
+                        calc = calc.clock_rate(clock_rate);
                     }
 
                     let od = attrs.od as f64;
@@ -241,7 +241,7 @@ impl Skills {
 
                     // Account for Daycore mod which has no bits
                     if let Some(clock_rate) = score.mods.clock_rate() {
-                        calc = calc.clock_rate(f64::from(clock_rate));
+                        calc = calc.clock_rate(clock_rate);
                     }
 
                     let attrs = calc

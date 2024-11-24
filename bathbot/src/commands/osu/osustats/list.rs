@@ -106,6 +106,7 @@ pub(super) async fn players(orig: CommandOrigin<'_>, mut args: OsuStatsPlayers<'
         .await
 }
 
+#[allow(clippy::doc_lazy_continuation)]
 /// Explicit binary search
 /// 1 -> 10 -> 5
 ///   <: 3

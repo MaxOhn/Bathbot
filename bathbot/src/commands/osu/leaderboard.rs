@@ -591,7 +591,7 @@ impl LeaderboardScore {
                 let mut pp_calc = attrs.to_owned().performance().mods(mods.bits).state(state);
 
                 if let Some(clock_rate) = mods.clock_rate {
-                    pp_calc = pp_calc.clock_rate(f64::from(clock_rate));
+                    pp_calc = pp_calc.clock_rate(clock_rate);
                 }
 
                 let pp = pp_calc.calculate().pp() as f32;

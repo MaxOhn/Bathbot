@@ -142,7 +142,7 @@ impl<'m> PpManager<'m> {
         let mut calc = Difficulty::new().mods(self.mods.bits);
 
         if let Some(clock_rate) = self.mods.clock_rate {
-            calc = calc.clock_rate(f64::from(clock_rate));
+            calc = calc.clock_rate(clock_rate);
         }
 
         if let Some(state) = self.state.as_ref().filter(|_| self.partial) {
@@ -173,7 +173,7 @@ impl<'m> PpManager<'m> {
             .mods(self.mods.bits);
 
         if let Some(clock_rate) = self.mods.clock_rate {
-            calc = calc.clock_rate(f64::from(clock_rate));
+            calc = calc.clock_rate(clock_rate);
         }
 
         if let Some(state) = self.state.take() {

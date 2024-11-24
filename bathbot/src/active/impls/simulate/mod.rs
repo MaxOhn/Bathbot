@@ -470,7 +470,6 @@ impl SimulateComponents {
 
     async fn handle_topold_menu(
         &mut self,
-
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let Some(version) = component.data.values.first() else {
@@ -643,6 +642,10 @@ impl SimulateComponents {
                 self.data.attrs.hp = parse_attr(&*modal, "sim_hp");
                 self.data.attrs.od = parse_attr(&*modal, "sim_od");
             }
+            "sim_speed_adjustments" => {
+                self.data.clock_rate = parse_attr(&*modal, "sim_clock_rate");
+                self.data.bpm = parse_attr(&*modal, "sim_bpm");
+            }
             other => warn!(name = %other, ?modal, "Unknown simulate modal"),
         }
 
@@ -728,7 +731,7 @@ impl SimulateMap {
                 let mut builder = map.attributes();
 
                 if let Some(clock_rate) = clock_rate.or_else(|| mods.clock_rate()) {
-                    builder = builder.clock_rate(f64::from(clock_rate));
+                    builder = builder.clock_rate(clock_rate);
                 }
 
                 // Technically probably not necessary since users cannot input

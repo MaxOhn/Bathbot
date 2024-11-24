@@ -549,7 +549,7 @@ async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
         .to_owned()
         .performance()
         .mods(score.mods.bits())
-        .clock_rate(score.mods.clock_rate().unwrap_or(1.0) as f64)
+        .clock_rate(score.mods.clock_rate().unwrap_or(1.0))
         .n_geki(n_geki)
         .n300(stats.perfect)
         .n_katu(n_katu)

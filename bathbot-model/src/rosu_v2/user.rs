@@ -131,6 +131,7 @@ impl ArchiveWith<UserExtended> for User {
     type Archived = ArchivedUser;
     type Resolver = UserResolver;
 
+    #[allow(clippy::unit_arg)]
     fn resolve_with(user: &UserExtended, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedUser {
             avatar_url,
@@ -402,6 +403,7 @@ impl ArchiveWith<UserStatistics> for UserStatisticsRkyv {
     type Archived = ArchivedUserStatistics;
     type Resolver = UserStatisticsRkyvResolver;
 
+    #[allow(clippy::unit_arg)]
     fn resolve_with(stats: &UserStatistics, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedUserStatistics {
             grade_counts,

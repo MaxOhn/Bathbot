@@ -89,6 +89,7 @@ impl Archive for SessionEntry<'_> {
     type Archived = ArchivedSessionEntry;
     type Resolver = SessionEntryResolver;
 
+    #[allow(clippy::unit_arg)]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(
             let ArchivedSessionEntry {

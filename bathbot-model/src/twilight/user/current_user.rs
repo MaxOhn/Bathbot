@@ -30,6 +30,7 @@ impl<'a> ArchiveWith<CurrentUser> for CachedCurrentUser<'a> {
     type Archived = ArchivedCachedCurrentUser<'a>;
     type Resolver = CachedCurrentUserResolver<'a>;
 
+    #[allow(clippy::unit_arg)]
     fn resolve_with(user: &CurrentUser, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedCachedCurrentUser { avatar, id, name } = out);
         Map::<ImageHashRkyv>::resolve_with(&user.avatar, resolver.avatar, avatar);

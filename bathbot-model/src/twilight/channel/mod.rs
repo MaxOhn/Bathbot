@@ -34,6 +34,7 @@ impl ArchiveWith<Channel> for CachedChannel {
     type Archived = ArchivedCachedChannel;
     type Resolver = CachedChannelResolver;
 
+    #[allow(clippy::unit_arg)]
     fn resolve_with(channel: &Channel, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedCachedChannel { guild_id, id, permission_overwrites } = out);
         IdRkyvMap::resolve_with(&channel.guild_id, resolver.guild_id, guild_id);
