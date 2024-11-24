@@ -65,7 +65,8 @@ pub enum TopOld<'a> {
     - 2021: [High AR nerf, NF & SO buff, speed & acc adjustment](https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates)\n\
     - 2021: [Diff spike nerf, AR buff, FL-AR adjust](https://osu.ppy.sh/home/news/2021-07-27-performance-points-star-rating-updates)\n\
     - 2021: [Rhythm buff, slider buff, FL skill](https://osu.ppy.sh/home/news/2021-11-09-performance-points-star-rating-updates)\n\
-    - 2022: [Aim buff, doubletap detection improvement, low AR nerf, FL adjustments](https://osu.ppy.sh/home/news/2022-09-30-changes-to-osu-sr-and-pp)"
+    - 2022: [Aim buff, doubletap detection improvement, low AR nerf, FL adjustments](https://osu.ppy.sh/home/news/2022-09-30-changes-to-osu-sr-and-pp)\n
+    - 2024: [Combo scale removal, improved rhythm complexity, slider pp](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 pub struct TopOldOsu<'a> {
     #[command(desc = "Choose which version should replace the current pp system")]
@@ -177,7 +178,8 @@ impl TryFrom<i32> for TopOldOsuVersion {
     help = "The osu!taiko pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating)\n\
-    - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)"
+    - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)\n
+    - 2024: [TL-tap consideration, acc scale adjust, mod adjusts](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 pub struct TopOldTaiko<'a> {
     #[command(desc = "Choose which version should replace the current pp system")]
@@ -259,7 +261,8 @@ impl TryFrom<i32> for TopOldTaikoVersion {
     desc = "How current osu!ctb top plays would look like in old pp systems",
     help = "The osu!ctb pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
-    - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)"
+    - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)\n
+    - 2024: [NF buff](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 pub struct TopOldCatch<'a> {
     #[command(desc = "Choose which version should replace the current pp system")]
@@ -333,7 +336,8 @@ impl TryFrom<i32> for TopOldCatchVersion {
     help = "The osu!mania pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2018: [ppv2](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
-    - 2022: [Accuracy based PP](https://osu.ppy.sh/home/news/2022-10-09-changes-to-osu-mania-sr-and-pp)"
+    - 2022: [Accuracy based PP](https://osu.ppy.sh/home/news/2022-10-09-changes-to-osu-mania-sr-and-pp)\n
+    - 2024: [Adjusted LN value scaling](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 pub struct TopOldMania<'a> {
     #[command(desc = "Choose which version should replace the current pp system")]
@@ -426,7 +430,8 @@ pub async fn slash_topold(mut command: InteractionCommand) -> Result<()> {
     - 2021: [High AR nerf, NF & SO buff, speed & acc adjustment](https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates)\n\
     - 2021: [Diff spike nerf, AR buff, FL-AR adjust](https://osu.ppy.sh/home/news/2021-07-27-performance-points-star-rating-updates)\n\
     - 2021: [Rhythm buff, slider buff, FL skill](https://osu.ppy.sh/home/news/2021-11-09-performance-points-star-rating-updates)\n\
-    - 2022: [Aim buff, doubletap detection improvement, low AR nerf, FL adjustments](https://osu.ppy.sh/home/news/2022-09-30-changes-to-osu-sr-and-pp)"
+    - 2022: [Aim buff, doubletap detection improvement, low AR nerf, FL adjustments](https://osu.ppy.sh/home/news/2022-09-30-changes-to-osu-sr-and-pp)\n
+    - 2024: [Combo scale removal, improved rhythm complexity, slider pp](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2015")]
@@ -452,7 +457,8 @@ async fn prefix_topold(msg: &Message, args: Args<'_>) -> Result<()> {
     The osu!mania pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2018: [ppv2](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
-    - 2022: [Accuracy based PP](https://osu.ppy.sh/home/news/2022-10-09-changes-to-osu-mania-sr-and-pp)"
+    - 2022: [Accuracy based PP](https://osu.ppy.sh/home/news/2022-10-09-changes-to-osu-mania-sr-and-pp)\n
+    - 2024: [Adjusted LN value scaling](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2015")]
@@ -478,7 +484,8 @@ async fn prefix_topoldmania(msg: &Message, args: Args<'_>) -> Result<()> {
     The osu!taiko pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating)\n\
-    - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)"
+    - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)\n
+    - 2024: [TL-tap consideration, acc scale adjust, mod adjusts](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2015")]
@@ -503,7 +510,8 @@ async fn prefix_topoldtaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!ctb pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
-    - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)"
+    - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)\n
+    - 2024: [NF buff](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2019")]
