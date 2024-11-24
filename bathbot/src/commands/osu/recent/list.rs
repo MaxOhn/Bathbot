@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     cmp::{Ordering, Reverse},
-    collections::{hash_map::Entry, HashMap},
+    collections::HashMap,
     fmt::Write,
 };
 
@@ -18,7 +18,6 @@ use bathbot_util::{
     CowUtils, IntHasher,
 };
 use eyre::{Report, Result};
-use rosu_pp::any::DifficultyAttributes;
 use rosu_v2::{
     prelude::{GameMode, Grade, OsuError, Score},
     request::UserId,
@@ -29,7 +28,7 @@ use crate::{
     active::{impls::RecentListPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::UserArgs, Mods, OsuMap},
+    manager::{redis::osu::UserArgs, OsuMap},
     util::{
         query::{IFilterCriteria, RegularCriteria, Searchable},
         ChannelExt,
@@ -540,9 +539,6 @@ async fn process_scores(
         maps.values_mut().for_each(|map| map.convert_mut(mode));
     }
 
-    let mut attrs_map: HashMap<(u32, Mods), DifficultyAttributes> =
-        HashMap::with_capacity(maps.len());
-
     let scores = scores
         .into_iter()
         .enumerate()
@@ -553,23 +549,9 @@ async fn process_scores(
             continue;
         };
 
-        let mods = Mods::from(&score.mods);
+        let mods = score.mods.clone();
         let mut calc = Context::pp(map).mode(score.mode).mods(mods);
-
-        let attrs = match attrs_map.entry((score.map_id, mods)) {
-            Entry::Occupied(e) => {
-                calc.attributes(e.get().to_owned());
-
-                &*e.into_mut()
-            }
-            Entry::Vacant(e) => {
-                let attrs = calc.difficulty().await;
-                e.insert(attrs.to_owned());
-
-                attrs
-            }
-        };
-
+        let attrs = calc.difficulty().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo();
 

@@ -901,7 +901,7 @@ impl<'m> PpAttrs<'m> {
         grade: Grade,
         pp: Option<f32>,
     ) -> Self {
-        let mut calc = Context::pp(map).mode(mode).mods(mods);
+        let mut calc = Context::pp(map).mode(mode).mods(mods.to_owned());
         let attrs = calc.performance().await;
 
         let max_pp = pp

@@ -519,7 +519,7 @@ async fn process_scores(
             };
         }
 
-        let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
+        let mut calc = Context::pp(&map).mode(score.mode).mods(score.mods.clone());
         let attrs = calc.performance().await;
 
         let old_pp = score.pp.expect("missing pp");

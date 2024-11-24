@@ -1,8 +1,4 @@
-use std::{
-    borrow::Cow,
-    cmp::Reverse,
-    collections::{hash_map::Entry, HashMap},
-};
+use std::{borrow::Cow, cmp::Reverse, collections::HashMap};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_model::rosu_v2::user::User;
@@ -14,7 +10,6 @@ use bathbot_util::{
     IntHasher, ScoreExt,
 };
 use eyre::{Report, Result};
-use rosu_pp::any::{DifficultyAttributes, ScoreState};
 use rosu_v2::prelude::{
     BeatmapUserScore, GameMode, GameMods, GameModsIntermode, Grade, OsuError, Score,
     ScoreStatistics, Username,
@@ -80,16 +75,8 @@ pub enum LeaderboardSort {
     Score,
 }
 
-pub type AttrMap = HashMap<Mods, (DifficultyAttributes, f32)>;
-
 impl LeaderboardSort {
-    pub async fn sort(
-        self,
-        scores: &mut [LeaderboardScore],
-        map: &OsuMap,
-        attr_map: &mut AttrMap,
-        score_data: ScoreData,
-    ) {
+    pub async fn sort(self, scores: &mut [LeaderboardScore], map: &OsuMap, score_data: ScoreData) {
         match self {
             Self::Accuracy => scores.sort_by(|a, b| b.accuracy.total_cmp(&a.accuracy)),
             Self::Combo => scores.sort_by_key(|score| Reverse(score.combo)),
@@ -98,8 +85,8 @@ impl LeaderboardSort {
             Self::Pp => {
                 let mut pps = HashMap::with_capacity_and_hasher(scores.len(), IntHasher);
 
-                for score in scores.iter() {
-                    let (pp, _) = score.pp(map, attr_map).await;
+                for score in scores.iter_mut() {
+                    let pp = score.pp(map).await.pp;
                     pps.insert(score.pos, pp);
                 }
 
@@ -310,11 +297,13 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         Some(ModSelection::Exclude(_)) | None => None,
     };
 
-    let mods_bits = specify_mods.as_ref().map_or(0, GameModsIntermode::bits);
+    let mods_ = specify_mods
+        .as_ref()
+        .map_or_else(GameModsIntermode::default, GameModsIntermode::to_owned);
 
     let mode = map.mode();
 
-    let mut calc = Context::pp(&map).mode(mode).mods(Mods::new(mods_bits));
+    let mut calc = Context::pp(&map).mode(mode).mods(Mods::new(mods_));
     let attrs_fut = calc.performance();
 
     const SCORE_COUNT: usize = 100;
@@ -410,13 +399,7 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
     let stars = attrs.stars() as f32;
     let max_combo = attrs.max_combo();
 
-    // Not storing `attrs` here in case mods (potentially with clock rate) were
-    // specified
-    let mut attr_map = HashMap::default();
-
-    args.sort
-        .sort(&mut scores, &map, &mut attr_map, score_data)
-        .await;
+    args.sort.sort(&mut scores, &map, score_data).await;
     args.sort.push_content(&mut content);
 
     let first_place_icon = scores.first().and_then(|s| avatar_urls.remove(&s.score_id));
@@ -426,7 +409,6 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         .scores(scores.into_boxed_slice())
         .stars(stars)
         .max_combo(max_combo)
-        .attr_map(attr_map)
         .author_data(user_score)
         .first_place_icon(first_place_icon)
         .score_data(score_data)
@@ -507,6 +489,7 @@ pub struct LeaderboardScore {
     pub ended_at: OffsetDateTime,
     pub score_id: u64,
     pub is_legacy: bool,
+    pub pps: Option<PpData>,
 }
 
 impl LeaderboardScore {
@@ -526,88 +509,29 @@ impl LeaderboardScore {
             classic_score: score.classic_score,
             ended_at: score.ended_at,
             score_id: score.id,
+            pps: None,
         }
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct PpData {
+    pub pp: f32,
+    pub max: f32,
+}
+
 impl LeaderboardScore {
-    pub async fn pp(&self, map: &OsuMap, attr_map: &mut AttrMap) -> (f32, f32) {
-        let mods = Mods::from(&self.mods);
-
-        match attr_map.entry(mods) {
-            Entry::Occupied(entry) => {
-                let (attrs, max_pp) = entry.get();
-
-                let n_geki = match self.mode {
-                    GameMode::Osu | GameMode::Taiko | GameMode::Catch => 0,
-                    GameMode::Mania => self.statistics.good,
-                };
-
-                let n_katu = match self.mode {
-                    GameMode::Osu | GameMode::Taiko => 0,
-                    GameMode::Catch => self.statistics.small_tick_miss.max(self.statistics.good),
-                    GameMode::Mania => self.statistics.good,
-                };
-
-                let n100 = match self.mode {
-                    GameMode::Osu | GameMode::Taiko | GameMode::Mania => self.statistics.ok,
-                    GameMode::Catch => self.statistics.large_tick_hit.max(self.statistics.ok),
-                };
-
-                let n50 = match self.mode {
-                    GameMode::Osu | GameMode::Mania => self.statistics.meh,
-                    GameMode::Taiko => 0,
-                    GameMode::Catch => self.statistics.small_tick_hit.max(self.statistics.meh),
-                };
-
-                let osu_large_tick_hits = match self.mode {
-                    GameMode::Osu => self.statistics.large_tick_hit,
-                    GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
-                };
-
-                let slider_end_hits = match self.mode {
-                    GameMode::Osu => {
-                        if self.statistics.slider_tail_hit > 0 {
-                            self.statistics.slider_tail_hit
-                        } else {
-                            self.statistics.small_tick_hit
-                        }
-                    }
-                    GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
-                };
-
-                let state = ScoreState {
-                    max_combo: self.combo,
-                    n_geki,
-                    n_katu,
-                    n300: self.statistics.great,
-                    n100,
-                    n50,
-                    misses: self.statistics.miss,
-                    osu_large_tick_hits,
-                    slider_end_hits,
-                };
-
-                let mut pp_calc = attrs.to_owned().performance().mods(mods.bits).state(state);
-
-                if let Some(clock_rate) = mods.clock_rate {
-                    pp_calc = pp_calc.clock_rate(clock_rate);
-                }
-
-                let pp = pp_calc.calculate().pp() as f32;
-
-                (pp, *max_pp)
-            }
-            Entry::Vacant(entry) => {
-                let mut calc = Context::pp(map).mode(self.mode).mods(mods);
-                let attrs = calc.performance().await;
-                let max_pp = attrs.pp() as f32;
-                let pp = calc.score(self).performance().await.pp() as f32;
-                entry.insert((attrs.into(), max_pp));
-
-                (pp, max_pp)
-            }
+    pub async fn pp(&mut self, map: &OsuMap) -> PpData {
+        if let Some(pps) = self.pps {
+            return pps;
         }
+
+        let mut calc = Context::pp(map).mode(self.mode).mods(self.mods.clone());
+        let attrs = calc.performance().await;
+        let max_pp = attrs.pp() as f32;
+        let pp = calc.score(&*self).performance().await.pp() as f32;
+
+        *self.pps.insert(PpData { pp, max: max_pp })
     }
 }
 

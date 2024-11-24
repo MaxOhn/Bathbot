@@ -90,7 +90,7 @@ impl SnipeDifferencePagination {
                             .await
                             .wrap_err("Failed to get pp map")?;
 
-                        let stars = Context::pp_parsed(&map, score.map_id, GameMode::Osu)
+                        let stars = Context::pp_parsed(&map, GameMode::Osu)
                             .difficulty()
                             .await
                             .stars();

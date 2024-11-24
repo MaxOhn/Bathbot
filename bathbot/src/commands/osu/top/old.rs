@@ -938,7 +938,7 @@ async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<Top
         async fn use_current_system(score: &Score, map: &OsuMap) -> (f32, f32, f32, u32) {
             let attrs = Context::pp(map)
                 .mode(score.mode)
-                .mods(&score.mods)
+                .mods(score.mods.clone())
                 .performance()
                 .await;
 

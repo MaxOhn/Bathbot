@@ -63,7 +63,7 @@ impl PlayerSnipeStatsEmbed {
             }];
 
             if let Some((oldest_score, oldest_map)) = oldest {
-                let mut calc = Context::pp(oldest_map).mods(&oldest_score.mods);
+                let mut calc = Context::pp(oldest_map).mods(oldest_score.mods.clone());
 
                 let attrs = calc.performance().await;
                 let stars = attrs.stars() as f32;

@@ -92,7 +92,7 @@ impl ScorePp {
 
         let map_manager = Context::osu_map();
         let map_fut = map_manager.map_slim(play.map_id);
-        let attrs_fut = map_manager.difficulty(play.map_id, play.mode, &play.mods);
+        let attrs_fut = map_manager.difficulty(play.map_id, play.mode, play.mods.clone());
 
         let (map_res, attrs_res) = tokio::join!(map_fut, attrs_fut);
 

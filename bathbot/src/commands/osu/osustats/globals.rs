@@ -467,7 +467,7 @@ async fn process_scores(
         let map_opt = maps.remove(&score.map.map_id);
         let Some(map) = map_opt else { continue };
 
-        let mut calc = Context::pp(&map).mode(mode).mods(&score.mods);
+        let mut calc = Context::pp(&map).mode(mode).mods(score.mods.clone());
         let attrs = calc.performance().await;
 
         let pp = match score.pp {

@@ -32,8 +32,8 @@ impl Context {
         PpManager::new(map)
     }
 
-    pub fn pp_parsed(map: &Beatmap, map_id: u32, mode: GameMode) -> PpManager<'_> {
-        PpManager::from_parsed(map, map_id).mode(mode)
+    pub fn pp_parsed(map: &Beatmap, mode: GameMode) -> PpManager<'_> {
+        PpManager::from_parsed(map).mode(mode)
     }
 
     pub fn approx() -> ApproxManager {

@@ -426,7 +426,7 @@ async fn process_scores(
 
         let attrs = Context::pp(&map)
             .mode(score.mode)
-            .mods(&score.mods)
+            .mods(score.mods.clone())
             .performance()
             .await;
 
@@ -470,7 +470,7 @@ async fn process_scores(
 
 async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
     let total_hits = score.total_hits();
-    let mut calc = Context::pp(map).mode(score.mode).mods(&score.mods);
+    let mut calc = Context::pp(map).mode(score.mode).mods(score.mods.clone());
     let attrs = calc.difficulty().await;
 
     let stats = match attrs {

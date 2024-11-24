@@ -450,7 +450,7 @@ pub struct IfFc {
 impl IfFc {
     pub async fn new(score: &ScoreSlim, map: &OsuMap) -> Option<Self> {
         let mode = score.mode;
-        let mut calc = Context::pp(map).mods(&score.mods).mode(score.mode);
+        let mut calc = Context::pp(map).mods(score.mods.clone()).mode(score.mode);
         let attrs = calc.difficulty().await;
 
         if score.is_fc(mode, attrs.max_combo()) {
