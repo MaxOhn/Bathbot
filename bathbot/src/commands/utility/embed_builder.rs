@@ -637,7 +637,7 @@ impl TwitchData {
         }
 
         if let Some(clock_rate) = score.mods.clock_rate() {
-            map_len /= f64::from(clock_rate);
+            map_len /= clock_rate;
         }
 
         score.ended_at - std::time::Duration::from_secs(map_len as u64 + 3)

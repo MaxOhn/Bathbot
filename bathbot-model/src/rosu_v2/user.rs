@@ -88,7 +88,7 @@ impl From<MonthlyCountRkyv> for MonthlyCount {
     }
 }
 
-#[derive(Archive, Serialize)]
+#[derive(Clone, Archive, Serialize)]
 pub struct User {
     pub avatar_url: Box<str>,
     #[rkyv(with = DerefAsString)]
