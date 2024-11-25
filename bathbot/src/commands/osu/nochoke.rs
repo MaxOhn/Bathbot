@@ -478,7 +478,7 @@ async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
             ScoreStatistics {
                 great: total_hits,
                 slider_tail_hit: attrs.n_sliders,
-                large_tick_hit: attrs.n_slider_ticks,
+                large_tick_hit: attrs.n_large_ticks,
                 ..Default::default()
             }
         }

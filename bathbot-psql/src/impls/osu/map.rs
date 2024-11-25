@@ -251,7 +251,7 @@ SELECT
   hp, 
   n_circles, 
   n_sliders, 
-  n_slider_ticks, 
+  n_large_ticks, 
   n_spinners, 
   stars, 
   max_combo 
@@ -615,7 +615,7 @@ WHERE
                 hp,
                 n_circles,
                 n_sliders,
-                n_slider_ticks,
+                n_large_ticks,
                 n_spinners,
                 stars,
                 max_combo,
@@ -625,7 +625,7 @@ INSERT INTO osu_map_difficulty (
   map_id, mods, aim, speed, flashlight, 
   slider_factor, speed_note_count, aim_difficult_strain_count, 
   speed_difficult_strain_count, ar, od, hp, n_circles, 
-  n_sliders, n_slider_ticks, n_spinners, stars, max_combo
+  n_sliders, n_large_ticks, n_spinners, stars, max_combo
 ) 
 VALUES 
   (
@@ -646,7 +646,7 @@ SET
   hp = $12, 
   n_circles = $13, 
   n_sliders = $14, 
-  n_slider_ticks = $15, 
+  n_large_ticks = $15, 
   n_spinners = $16, 
   stars = $17, 
   max_combo = $18"#,
@@ -664,7 +664,7 @@ SET
                 hp,
                 *n_circles as i32,
                 *n_sliders as i32,
-                *n_slider_ticks as i32,
+                *n_large_ticks as i32,
                 *n_spinners as i32,
                 stars,
                 *max_combo as i32

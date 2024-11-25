@@ -69,7 +69,7 @@ attr_struct!(DbOsuDifficultyAttributes => OsuDifficultyAttributes {
     hp: f64,
     n_circles: i32 as u32,
     n_sliders: i32 as u32,
-    n_slider_ticks: i32 as u32,
+    n_large_ticks: i32 as u32,
     n_spinners: i32 as u32,
     stars: f64,
     max_combo: i32 as u32,

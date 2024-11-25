@@ -489,7 +489,7 @@ impl IfFc {
                 statistics.meh = n50;
                 statistics.miss = 0;
                 statistics.slider_tail_hit = attrs.difficulty.n_sliders;
-                statistics.large_tick_hit = attrs.difficulty.n_slider_ticks;
+                statistics.large_tick_hit = attrs.difficulty.n_large_ticks;
 
                 (attrs.pp as f32, statistics)
             }
@@ -563,7 +563,7 @@ impl IfFc {
                 DifficultyAttributes::Osu(attrs) => ScoreStatistics {
                     great: total_hits,
                     slider_tail_hit: attrs.n_sliders,
-                    large_tick_hit: attrs.n_slider_ticks,
+                    large_tick_hit: attrs.n_large_ticks,
                     ..Default::default()
                 },
                 DifficultyAttributes::Taiko(_) => ScoreStatistics {

@@ -34,7 +34,7 @@ impl ScoreState {
                             .calculate_for_mode::<rosu_pp::osu::Osu>(map)
                             .ok()
                     })
-                    .map(|attrs| (attrs.n_slider_ticks, attrs.n_sliders))
+                    .map(|attrs| (attrs.n_large_ticks, attrs.n_sliders))
                     .unwrap_or((0, 0));
 
                 let max_stats = ScoreStatistics {

@@ -284,7 +284,7 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     n_slider_ends: n_slider_ends,
-                    large_tick_hits: n_large_ticks,
+                    n_large_ticks: n_large_ticks,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 }?
