@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT \n  aim, \n  speed, \n  flashlight, \n  slider_factor, \n  speed_note_count, \n  aim_difficult_strain_count, \n  speed_difficult_strain_count, \n  ar, \n  od, \n  hp, \n  n_circles, \n  n_sliders, \n  n_slider_ticks, \n  n_spinners, \n  stars, \n  max_combo \nFROM \n  osu_map_difficulty \nWHERE \n  map_id = $1 \n  AND mods = $2",
+  "query": "\nSELECT \n  aim, \n  speed, \n  flashlight, \n  slider_factor, \n  speed_note_count, \n  aim_difficult_strain_count, \n  speed_difficult_strain_count, \n  ar, \n  od, \n  hp, \n  n_circles, \n  n_sliders, \n  n_large_ticks, \n  n_spinners, \n  stars, \n  max_combo \nFROM \n  osu_map_difficulty \nWHERE \n  map_id = $1 \n  AND mods = $2",
   "describe": {
     "columns": [
       {
@@ -65,7 +65,7 @@
       },
       {
         "ordinal": 12,
-        "name": "n_slider_ticks",
+        "name": "n_large_ticks",
         "type_info": "Int4"
       },
       {
@@ -109,5 +109,5 @@
       false
     ]
   },
-  "hash": "9448ee5107acd6a69c12d0661e9acd080f9e208c43f169b7a71058537a5fec7b"
+  "hash": "7054a986665153ba7f49f7ebd0c1e210688e395b97788bfbaa52a5c7e6c78d81"
 }
