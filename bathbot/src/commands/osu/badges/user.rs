@@ -5,7 +5,10 @@ use bathbot_util::{
     MessageBuilder,
 };
 use eyre::{Report, Result};
-use rkyv::{Deserialize, Infallible};
+use rkyv::{
+    rancor::{Panic, ResultExt},
+    rend::u32_le,
+};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
 use super::BadgesUser;
@@ -71,8 +74,8 @@ pub(super) async fn user(orig: CommandOrigin<'_>, args: BadgesUser) -> Result<()
         }
         RedisData::Archive(badges) => badges
             .iter()
-            .filter(|badge| badge.users.contains(&user_id_raw))
-            .map(|badge| badge.deserialize(&mut Infallible).unwrap())
+            .filter(|badge| badge.users.contains(&u32_le::from_native(user_id_raw)))
+            .map(|badge| rkyv::api::deserialize_using::<_, _, Panic>(badge, &mut ()).always_ok())
             .collect(),
     };
 

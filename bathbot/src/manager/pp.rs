@@ -1,7 +1,4 @@
-use std::{
-    borrow::Cow,
-    hash::{Hash, Hasher},
-};
+use std::borrow::Cow;
 
 use bathbot_model::{OsuStatsScore, ScoreSlim};
 use eyre::Result;
@@ -12,19 +9,15 @@ use rosu_pp::{
 };
 use rosu_v2::{
     model::mods::GameMods,
-    prelude::{GameMode, Grade, Score},
+    prelude::{GameMode, Grade, Score, ScoreStatistics},
 };
 
 use super::OsuMap;
-use crate::{
-    commands::{osu::LeaderboardScore, utility::ScoreEmbedDataRaw},
-    core::Context,
-};
+use crate::commands::{osu::LeaderboardScore, utility::ScoreEmbedDataRaw};
 
 #[derive(Clone)]
 pub struct PpManager<'m> {
     map: Cow<'m, Beatmap>,
-    map_id: u32,
     attrs: Option<DifficultyAttributes>,
     mods: Mods,
     state: Option<ScoreState>,
@@ -33,24 +26,17 @@ pub struct PpManager<'m> {
 
 impl<'m> PpManager<'m> {
     pub fn new(map: &'m OsuMap) -> Self {
-        Self::from_parsed(&map.pp_map, map.map_id())
+        Self::from_parsed(&map.pp_map)
     }
 
-    pub fn from_parsed(map: &'m Beatmap, map_id: u32) -> Self {
+    pub fn from_parsed(map: &'m Beatmap) -> Self {
         Self {
             map: Cow::Borrowed(map),
-            map_id,
             attrs: None,
             mods: Mods::default(),
             state: None,
             partial: false,
         }
-    }
-
-    /// Use the given attributes. Be sure they match they match the map and
-    /// mods!
-    pub fn attributes(&mut self, attrs: DifficultyAttributes) {
-        self.attrs = Some(attrs);
     }
 
     pub fn mode(mut self, mode: GameMode) -> Self {
@@ -70,7 +56,7 @@ impl<'m> PpManager<'m> {
             self.attrs = None;
         }
 
-        map.convert_in_place(mode);
+        let _ = map.convert_mut(mode, &self.mods.inner);
 
         self
     }
@@ -112,15 +98,18 @@ impl<'m> PpManager<'m> {
     }
 
     async fn lookup_attrs(&self) -> Result<Option<DifficultyAttributes>> {
-        if self.mods.clock_rate.is_some() {
-            return Ok(None);
-        }
+        // TODO: consider custom mod parameters
+        Ok(None)
 
-        let mode = GameMode::from(self.map.mode as u8);
+        // if self.mods.clock_rate.is_some() {
+        //     return Ok(None);
+        // }
 
-        Context::psql()
-            .select_map_difficulty_attrs(self.map_id, mode, self.mods.bits)
-            .await
+        // let mode = GameMode::from(self.map.mode as u8);
+
+        // Context::psql()
+        //     .select_map_difficulty_attrs(self.map_id, mode, self.mods.bits)
+        //     .await
     }
 
     /// Calculate difficulty attributes
@@ -136,10 +125,10 @@ impl<'m> PpManager<'m> {
             }
         }
 
-        let mut calc = Difficulty::new().mods(self.mods.bits);
+        let mut calc = Difficulty::new().mods(self.mods.inner.clone());
 
         if let Some(clock_rate) = self.mods.clock_rate {
-            calc = calc.clock_rate(f64::from(clock_rate));
+            calc = calc.clock_rate(clock_rate);
         }
 
         if let Some(state) = self.state.as_ref().filter(|_| self.partial) {
@@ -148,14 +137,16 @@ impl<'m> PpManager<'m> {
 
         let attrs = calc.calculate(&self.map);
 
-        if !self.partial && self.mods.clock_rate.is_none() {
-            let upsert_fut =
-                Context::psql().upsert_map_difficulty(self.map_id, self.mods.bits, &attrs);
+        // TODO: store calculated attributes
+        // if !self.partial && self.mods.clock_rate.is_none() {
+        //     let upsert_fut =
+        //         Context::psql().upsert_map_difficulty(self.map_id, self.mods.bits,
+        // &attrs);
 
-            if let Err(err) = upsert_fut.await {
-                warn!(?err, "Failed to upsert difficulty attrs");
-            }
-        }
+        //     if let Err(err) = upsert_fut.await {
+        //         warn!(?err, "Failed to upsert difficulty attrs");
+        //     }
+        // }
 
         self.attrs.insert(attrs)
     }
@@ -167,10 +158,10 @@ impl<'m> PpManager<'m> {
             .await
             .to_owned()
             .performance()
-            .mods(self.mods.bits);
+            .mods(self.mods.inner.clone());
 
         if let Some(clock_rate) = self.mods.clock_rate {
-            calc = calc.clock_rate(f64::from(clock_rate));
+            calc = calc.clock_rate(clock_rate);
         }
 
         if let Some(state) = self.state.take() {
@@ -195,19 +186,9 @@ pub struct ScoreData {
 impl<'s> From<&'s Score> for ScoreData {
     #[inline]
     fn from(score: &'s Score) -> Self {
-        let stats = score.statistics.as_legacy(score.mode);
-
         Self {
-            state: ScoreState {
-                max_combo: score.max_combo,
-                n_geki: stats.count_geki,
-                n_katu: stats.count_katu,
-                n300: stats.count_300,
-                n100: stats.count_100,
-                n50: stats.count_50,
-                misses: stats.count_miss,
-            },
-            mods: Mods::from(&score.mods),
+            state: stats_to_state(score.max_combo, score.mode, &score.statistics),
+            mods: Mods::new(score.mods.clone()),
             mode: Some(score.mode),
             partial: !score.passed,
         }
@@ -218,16 +199,8 @@ impl<'s> From<&'s ScoreSlim> for ScoreData {
     #[inline]
     fn from(score: &'s ScoreSlim) -> Self {
         Self {
-            state: ScoreState {
-                max_combo: score.max_combo,
-                n_geki: score.statistics.count_geki,
-                n_katu: score.statistics.count_katu,
-                n300: score.statistics.count_300,
-                n100: score.statistics.count_100,
-                n50: score.statistics.count_50,
-                misses: score.statistics.count_miss,
-            },
-            mods: Mods::from(&score.mods),
+            state: stats_to_state(score.max_combo, score.mode, &score.statistics),
+            mods: Mods::new(score.mods.clone()),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
         }
@@ -246,8 +219,10 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
                 n100: score.count100,
                 n50: score.count50,
                 misses: score.count_miss,
+                osu_large_tick_hits: 0,
+                slider_end_hits: 0,
             },
-            mods: Mods::from(&score.mods),
+            mods: Mods::new(score.mods.clone()),
             mode: None,
             partial: score.grade == Grade::F,
         }
@@ -257,16 +232,8 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
 impl<'s> From<&'s LeaderboardScore> for ScoreData {
     fn from(score: &'s LeaderboardScore) -> Self {
         Self {
-            state: ScoreState {
-                max_combo: score.combo,
-                n_geki: score.statistics.count_geki,
-                n_katu: score.statistics.count_katu,
-                n300: score.statistics.count_300,
-                n100: score.statistics.count_100,
-                n50: score.statistics.count_50,
-                misses: score.statistics.count_miss,
-            },
-            mods: Mods::from(&score.mods),
+            state: stats_to_state(score.combo, score.mode, &score.statistics),
+            mods: Mods::new(score.mods.clone()),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
         }
@@ -277,54 +244,85 @@ impl<'s> From<&'s ScoreEmbedDataRaw> for ScoreData {
     #[inline]
     fn from(score: &'s ScoreEmbedDataRaw) -> Self {
         Self {
-            state: ScoreState {
-                max_combo: score.max_combo,
-                n_geki: score.statistics.count_geki,
-                n_katu: score.statistics.count_katu,
-                n300: score.statistics.count_300,
-                n100: score.statistics.count_100,
-                n50: score.statistics.count_50,
-                misses: score.statistics.count_miss,
-            },
-            mods: Mods::from(&score.mods),
+            state: stats_to_state(score.max_combo, score.mode, &score.statistics),
+            mods: Mods::new(score.mods.clone()),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
         }
     }
 }
 
+fn stats_to_state(max_combo: u32, mode: GameMode, stats: &ScoreStatistics) -> ScoreState {
+    let n_geki = match mode {
+        GameMode::Osu | GameMode::Taiko | GameMode::Catch => 0,
+        GameMode::Mania => stats.good,
+    };
+
+    let n_katu = match mode {
+        GameMode::Osu | GameMode::Taiko => 0,
+        GameMode::Catch => stats.small_tick_miss.max(stats.good),
+        GameMode::Mania => stats.good,
+    };
+
+    let n100 = match mode {
+        GameMode::Osu | GameMode::Taiko | GameMode::Mania => stats.ok,
+        GameMode::Catch => stats.large_tick_hit.max(stats.ok),
+    };
+
+    let n50 = match mode {
+        GameMode::Osu | GameMode::Mania => stats.meh,
+        GameMode::Taiko => 0,
+        GameMode::Catch => stats.small_tick_hit.max(stats.meh),
+    };
+
+    let osu_large_tick_hits = match mode {
+        GameMode::Osu => stats.large_tick_hit,
+        GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
+    };
+
+    let slider_end_hits = match mode {
+        GameMode::Osu => {
+            if stats.slider_tail_hit > 0 {
+                stats.slider_tail_hit
+            } else {
+                stats.small_tick_hit
+            }
+        }
+        GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
+    };
+
+    ScoreState {
+        max_combo,
+        osu_large_tick_hits,
+        slider_end_hits,
+        n_geki,
+        n_katu,
+        n300: stats.great,
+        n100,
+        n50,
+        misses: stats.miss,
+    }
+}
+
 /// Mods with an optional custom clock rate.
-#[derive(Copy, Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq)]
 pub struct Mods {
-    pub bits: u32,
-    pub clock_rate: Option<f32>,
+    pub inner: rosu_pp::GameMods,
+    pub clock_rate: Option<f64>,
 }
 
 impl Mods {
     /// Create new [`Mods`] without a custom clock rate.
-    pub fn new(bits: u32) -> Self {
+    pub fn new(mods: impl Into<rosu_pp::GameMods>) -> Self {
         Self {
-            bits,
+            inner: mods.into(),
             clock_rate: None,
         }
     }
 }
 
-impl From<&GameMods> for Mods {
-    fn from(mods: &GameMods) -> Self {
-        Self {
-            bits: mods.bits(),
-            clock_rate: mods.clock_rate(),
-        }
-    }
-}
-
-// Little iffy due to the contained f32 but required to be usable as HashMap key
-impl Eq for Mods {}
-
-impl Hash for Mods {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.bits.hash(state);
-        self.clock_rate.map(f32::to_bits).hash(state);
+impl From<GameMods> for Mods {
+    fn from(mods: GameMods) -> Self {
+        Self::new(mods)
     }
 }

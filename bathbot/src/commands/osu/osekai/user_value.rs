@@ -6,6 +6,12 @@ use bathbot_model::{
 };
 use bathbot_util::constants::OSEKAI_ISSUE;
 use eyre::Result;
+use rkyv::{
+    bytecheck::CheckBytes,
+    rancor::{Panic, Strategy},
+    validation::{archive::ArchiveValidator, Validator},
+    Archive,
+};
 use rosu_v2::prelude::Username;
 
 use crate::{
@@ -18,6 +24,8 @@ use crate::{
 pub(super) async fn count<R>(command: InteractionCommand, country: Option<String>) -> Result<()>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<usize>>,
+    <R as OsekaiRanking>::Entry:
+        for<'a> Archive<Archived: CheckBytes<Strategy<Validator<ArchiveValidator<'a>, ()>, Panic>>>,
 {
     let country_code = match country {
         Some(country) => {
@@ -72,6 +80,8 @@ where
 pub(super) async fn pp<R>(command: InteractionCommand, country: Option<String>) -> Result<()>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<u32>>,
+    <R as OsekaiRanking>::Entry:
+        for<'a> Archive<Archived: CheckBytes<Strategy<Validator<ArchiveValidator<'a>, ()>, Panic>>>,
 {
     let country_code = match country {
         Some(country) => {
@@ -142,7 +152,7 @@ fn prepare_amount_users(
             .iter()
             .filter(archived_filter)
             .map(|entry| RankingEntry {
-                value: entry.value() as u64,
+                value: entry.value().to_native() as u64,
                 name: entry.username.as_str().into(),
                 country: Some(entry.country_code.as_str().into()),
             })
@@ -171,7 +181,7 @@ fn prepare_pp_users(
             .iter()
             .filter(archived_filter)
             .map(|entry| RankingEntry {
-                value: entry.value(),
+                value: entry.value().to_native(),
                 name: entry.username.as_str().into(),
                 country: Some(entry.country_code.as_str().into()),
             })

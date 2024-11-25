@@ -17,7 +17,7 @@ mod match_live;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, LegacyScoreStatistics};
+use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, ScoreStatistics};
 
 #[cfg(feature = "matchlive")]
 pub use self::match_live::*;
@@ -138,38 +138,49 @@ impl Display for KeyFormatter<'_> {
 }
 
 #[derive(Clone)]
-pub struct HitResultFormatter {
+pub struct HitResultFormatter<'a> {
     mode: GameMode,
-    stats: LegacyScoreStatistics,
+    stats: &'a ScoreStatistics,
 }
 
-impl HitResultFormatter {
-    pub fn new(mode: GameMode, stats: LegacyScoreStatistics) -> Self {
+impl<'a> HitResultFormatter<'a> {
+    pub fn new(mode: GameMode, stats: &'a ScoreStatistics) -> Self {
         Self { mode, stats }
     }
 }
 
-impl Display for HitResultFormatter {
+impl Display for HitResultFormatter<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.write_str("{")?;
 
         if self.mode == GameMode::Mania {
-            write!(f, "{}/", self.stats.count_geki)?;
+            write!(f, "{}/", self.stats.perfect)?;
         }
 
-        write!(f, "{}/", self.stats.count_300)?;
+        write!(f, "{}/", self.stats.great)?;
 
         if self.mode == GameMode::Mania {
-            write!(f, "{}/", self.stats.count_katu)?;
+            write!(f, "{}/", self.stats.good)?;
         }
 
-        write!(f, "{}/", self.stats.count_100)?;
+        let n100 = match self.mode {
+            GameMode::Osu | GameMode::Taiko | GameMode::Mania => self.stats.ok,
+            GameMode::Catch => self.stats.ok.max(self.stats.large_tick_hit),
+        };
+
+        write!(f, "{n100}/")?;
 
         if self.mode != GameMode::Taiko {
-            write!(f, "{}/", self.stats.count_50)?;
+            let n50 = match self.mode {
+                GameMode::Osu | GameMode::Mania => self.stats.meh,
+                GameMode::Catch => self.stats.meh.max(self.stats.small_tick_hit),
+                GameMode::Taiko => unreachable!(),
+            };
+
+            write!(f, "{n50}/")?;
         }
 
-        write!(f, "{}}}", self.stats.count_miss)
+        write!(f, "{}}}", self.stats.miss)
     }
 }

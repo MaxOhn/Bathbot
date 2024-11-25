@@ -8,7 +8,7 @@ use eyre::{Report, Result};
 use rosu_pp::model::beatmap::BeatmapAttributes;
 use rosu_v2::{
     model::{GameMode, Grade},
-    prelude::{GameModIntermode, GameMods, LegacyScoreStatistics, RankStatus, Score},
+    prelude::{GameModIntermode, GameMods, RankStatus, Score, ScoreStatistics},
 };
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -209,7 +209,7 @@ async fn exec(
 
     // Adjusting hitresults to better showcase the "Ratio" value
     if let ScoreEmbedDataStatus::Full(ref mut data) = data.inner {
-        data.score.statistics.count_geki = 480;
+        data.score.statistics.perfect = 480;
     }
 
     let active_msg = ScoreEmbedBuilderActive::new(&user, data, settings, score_data, msg_owner);
@@ -637,7 +637,7 @@ impl TwitchData {
         }
 
         if let Some(clock_rate) = score.mods.clock_rate() {
-            map_len /= f64::from(clock_rate);
+            map_len /= clock_rate;
         }
 
         score.ended_at - std::time::Duration::from_secs(map_len as u64 + 3)
@@ -711,7 +711,7 @@ pub struct ScoreEmbedDataRaw {
     pub classic_score: u32,
     pub score_id: u64,
     pub legacy_id: Option<u64>,
-    pub statistics: LegacyScoreStatistics,
+    pub statistics: ScoreStatistics,
     pub has_replay: bool,
 }
 
@@ -747,7 +747,7 @@ impl ScoreEmbedDataRaw {
             classic_score: score.classic_score,
             score_id: score.id,
             legacy_id: score.legacy_score_id,
-            statistics: score.statistics.as_legacy(score.mode),
+            statistics: score.statistics,
             has_replay: score.replay,
         }
     }
@@ -789,6 +789,7 @@ impl ScoreEmbedDataRaw {
             score_id: self.score_id,
             legacy_id: self.legacy_id,
             statistics: self.statistics,
+            set_on_lazer: false,
         };
 
         let global_idx_fut = async {
@@ -900,7 +901,7 @@ impl<'m> PpAttrs<'m> {
         grade: Grade,
         pp: Option<f32>,
     ) -> Self {
-        let mut calc = Context::pp(map).mode(mode).mods(mods);
+        let mut calc = Context::pp(map).mode(mode).mods(mods.to_owned());
         let attrs = calc.performance().await;
 
         let max_pp = pp
@@ -984,7 +985,7 @@ impl<'q> Searchable<TopCriteria<'q>> for ScoreEmbedDataHalf {
         let mut matches = true;
 
         matches &= criteria.combo.contains(self.score.max_combo);
-        matches &= criteria.miss.contains(self.score.statistics.count_miss);
+        matches &= criteria.miss.contains(self.score.statistics.miss);
         matches &= criteria.score.contains(self.score.score);
         matches &= criteria.date.contains(self.score.ended_at.date());
         matches &= criteria.stars.contains(self.stars);

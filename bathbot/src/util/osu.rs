@@ -26,14 +26,8 @@ use rosu_pp::{
     taiko::TaikoPerformance,
 };
 use rosu_v2::{
-    model::mods::{
-        generated_mods::{
-            DifficultyAdjustCatch, DifficultyAdjustMania, DifficultyAdjustOsu,
-            DifficultyAdjustTaiko,
-        },
-        GameMod, GameMods,
-    },
-    prelude::{GameModIntermode, GameMode, Grade, LegacyScoreStatistics, RankStatus, Score},
+    model::mods::GameMods,
+    prelude::{GameModIntermode, GameMode, Grade, RankStatus, Score, ScoreStatistics},
 };
 use time::OffsetDateTime;
 
@@ -258,7 +252,7 @@ impl TopCounts {
 
         let top1s = match user {
             RedisData::Original(user) => user.scores_first_count,
-            RedisData::Archive(user) => user.scores_first_count,
+            RedisData::Archive(user) => user.scores_first_count.to_native(),
         };
 
         let top1s = WithComma::new(top1s).to_string().into();
@@ -448,14 +442,15 @@ impl<'a> IntoIterator for &'a TopCounts {
 
 #[derive(Clone)]
 pub struct IfFc {
-    pub statistics: LegacyScoreStatistics,
+    pub statistics: ScoreStatistics,
+    pub max_statistics: Option<ScoreStatistics>,
     pub pp: f32,
 }
 
 impl IfFc {
     pub async fn new(score: &ScoreSlim, map: &OsuMap) -> Option<Self> {
         let mode = score.mode;
-        let mut calc = Context::pp(map).mods(&score.mods).mode(score.mode);
+        let mut calc = Context::pp(map).mods(score.mods.clone()).mode(score.mode);
         let attrs = calc.difficulty().await;
 
         if score.is_fc(mode, attrs.max_combo()) {
@@ -468,83 +463,77 @@ impl IfFc {
         let (pp, statistics) = match attrs {
             DifficultyAttributes::Osu(attrs) => {
                 let total_objects = map.n_objects();
-                let passed_objects =
-                    stats.count_300 + stats.count_100 + stats.count_50 + stats.count_miss;
+                let passed_objects = stats.great + stats.ok + stats.meh + stats.miss;
 
-                let mut n300 = stats.count_300 + total_objects.saturating_sub(passed_objects);
+                let mut n300 = stats.great + total_objects.saturating_sub(passed_objects);
 
-                let count_hits = total_objects - stats.count_miss;
+                let count_hits = total_objects - stats.miss;
                 let ratio = 1.0 - (n300 as f32 / count_hits as f32);
-                let new100s = (ratio * stats.count_miss as f32).ceil() as u32;
+                let new100s = (ratio * stats.miss as f32).ceil() as u32;
 
-                n300 += stats.count_miss.saturating_sub(new100s);
-                let n100 = stats.count_100 + new100s;
-                let n50 = stats.count_50;
+                n300 += stats.miss.saturating_sub(new100s);
+                let n100 = stats.ok + new100s;
+                let n50 = stats.meh;
 
                 let attrs = OsuPerformance::from(attrs.to_owned())
                     .mods(mods)
                     .n300(n300)
                     .n100(n100)
                     .n50(n50)
-                    .calculate();
+                    .calculate()
+                    .unwrap();
 
-                let statistics = LegacyScoreStatistics {
-                    count_300: n300,
-                    count_100: n100,
-                    count_50: n50,
-                    count_geki: stats.count_geki,
-                    count_katu: stats.count_katu,
-                    count_miss: 0,
-                };
+                let mut statistics = stats.clone();
+                statistics.great = n300;
+                statistics.ok = n100;
+                statistics.meh = n50;
+                statistics.miss = 0;
+                statistics.slider_tail_hit = attrs.difficulty.n_sliders;
+                statistics.large_tick_hit = attrs.difficulty.n_large_ticks;
 
                 (attrs.pp as f32, statistics)
             }
             DifficultyAttributes::Taiko(attrs) => {
                 let total_objects = map.n_circles();
-                let passed_objects =
-                    (stats.count_300 + stats.count_100 + stats.count_miss) as usize;
+                let passed_objects = (stats.great + stats.ok + stats.miss) as usize;
 
-                let mut n300 =
-                    stats.count_300 as usize + total_objects.saturating_sub(passed_objects);
+                let mut n300 = stats.great as usize + total_objects.saturating_sub(passed_objects);
 
-                let count_hits = total_objects - stats.count_miss as usize;
+                let count_hits = total_objects - stats.miss as usize;
                 let ratio = 1.0 - (n300 as f32 / count_hits as f32);
-                let new100s = (ratio * stats.count_miss as f32).ceil() as u32;
+                let new100s = (ratio * stats.miss as f32).ceil() as u32;
 
-                n300 += stats.count_miss.saturating_sub(new100s) as usize;
-                let n100 = (stats.count_100 + new100s) as usize;
+                n300 += stats.miss.saturating_sub(new100s) as usize;
+                let n100 = (stats.ok + new100s) as usize;
 
                 let acc = 100.0 * (2 * n300 + n100) as f32 / (2 * total_objects) as f32;
 
                 let attrs = TaikoPerformance::from(attrs.to_owned())
                     .mods(mods)
                     .accuracy(acc as f64)
-                    .calculate();
+                    .calculate()
+                    .unwrap();
 
-                let statistics = LegacyScoreStatistics {
-                    count_300: n300 as u32,
-                    count_100: n100 as u32,
-                    count_geki: stats.count_geki,
-                    count_katu: stats.count_katu,
-                    count_50: stats.count_50,
-                    count_miss: 0,
-                };
+                let mut statistics = stats.clone();
+                statistics.great = n300 as u32;
+                statistics.ok = n100 as u32;
+                statistics.miss = 0;
 
                 (attrs.pp as f32, statistics)
             }
             DifficultyAttributes::Catch(attrs) => {
                 let total_objects = attrs.max_combo();
-                let passed_objects = stats.count_300 + stats.count_100 + stats.count_miss;
+                let passed_objects = stats.great + stats.ok + stats.miss;
 
                 let missing = total_objects - passed_objects;
                 let missing_fruits =
-                    missing.saturating_sub(attrs.n_droplets.saturating_sub(stats.count_100));
+                    missing.saturating_sub(attrs.n_droplets.saturating_sub(stats.ok));
 
                 let missing_droplets = missing - missing_fruits;
 
-                let n_fruits = stats.count_300 + missing_fruits;
-                let n_droplets = stats.count_100 + missing_droplets;
-                let n_tiny_droplet_misses = stats.count_katu;
+                let n_fruits = stats.great + missing_fruits;
+                let n_droplets = stats.ok + missing_droplets;
+                let n_tiny_droplet_misses = stats.small_tick_miss.max(stats.good);
                 let n_tiny_droplets = attrs.n_tiny_droplets.saturating_sub(n_tiny_droplet_misses);
 
                 let attrs = CatchPerformance::from(attrs.to_owned())
@@ -553,23 +542,52 @@ impl IfFc {
                     .droplets(n_droplets)
                     .tiny_droplets(n_tiny_droplets)
                     .tiny_droplet_misses(n_tiny_droplet_misses)
-                    .calculate();
+                    .calculate()
+                    .unwrap();
 
-                let statistics = LegacyScoreStatistics {
-                    count_300: n_fruits,
-                    count_100: n_droplets,
-                    count_50: n_tiny_droplets,
-                    count_geki: stats.count_geki,
-                    count_katu: stats.count_katu,
-                    count_miss: 0,
-                };
+                let mut statistics = stats.clone();
+                statistics.great = n_fruits;
+                statistics.ok = n_droplets;
+                statistics.meh = n_tiny_droplets;
+                statistics.miss = 0;
 
                 (attrs.pp as f32, statistics)
             }
             DifficultyAttributes::Mania(_) => return None,
         };
 
-        Some(Self { statistics, pp })
+        let max_statistics = score.set_on_lazer.then(|| {
+            let total_hits = score.total_hits();
+
+            match attrs {
+                DifficultyAttributes::Osu(attrs) => ScoreStatistics {
+                    great: total_hits,
+                    slider_tail_hit: attrs.n_sliders,
+                    large_tick_hit: attrs.n_large_ticks,
+                    ..Default::default()
+                },
+                DifficultyAttributes::Taiko(_) => ScoreStatistics {
+                    great: map.n_circles() as u32,
+                    ..Default::default()
+                },
+                DifficultyAttributes::Catch(attrs) => ScoreStatistics {
+                    great: attrs.n_fruits,
+                    ok: attrs.n_droplets,
+                    meh: attrs.n_tiny_droplets,
+                    ..Default::default()
+                },
+                DifficultyAttributes::Mania(_) => ScoreStatistics {
+                    perfect: total_hits,
+                    ..Default::default()
+                },
+            }
+        });
+
+        Some(Self {
+            statistics,
+            max_statistics,
+            pp,
+        })
     }
 }
 
@@ -633,7 +651,7 @@ pub struct MapInfo<'a> {
     map: &'a OsuMap,
     stars: f32,
     mods: Option<&'a GameMods>,
-    clock_rate: Option<f32>,
+    clock_rate: Option<f64>,
 }
 
 impl<'a> MapInfo<'a> {
@@ -652,7 +670,7 @@ impl<'a> MapInfo<'a> {
         self
     }
 
-    pub fn clock_rate(&mut self, clock_rate: Option<f32>) -> &mut Self {
+    pub fn clock_rate(&mut self, clock_rate: Option<f64>) -> &mut Self {
         self.clock_rate = clock_rate;
 
         self
@@ -685,7 +703,7 @@ impl<'a> MapInfo<'a> {
 
 impl Display for MapInfo<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let mods = self.mods.map_or(0, GameMods::bits);
+        let mods = self.mods.map(GameMods::to_owned).unwrap_or_default();
 
         let mut builder = self.map.attributes();
 
@@ -694,98 +712,10 @@ impl Display for MapInfo<'_> {
             .or_else(|| self.mods.and_then(GameMods::clock_rate));
 
         if let Some(clock_rate) = clock_rate {
-            builder = builder.clock_rate(f64::from(clock_rate));
+            builder = builder.clock_rate(clock_rate);
         }
 
-        // TODO: remove this, rosu-pp does that now
-        if let Some(mods) = self.mods {
-            for gamemod in mods.iter() {
-                match gamemod {
-                    GameMod::DifficultyAdjustOsu(m) => {
-                        let DifficultyAdjustOsu {
-                            circle_size,
-                            approach_rate,
-                            drain_rate,
-                            overall_difficulty,
-                            ..
-                        } = m;
-
-                        if let Some(cs) = circle_size {
-                            builder = builder.cs(*cs, false);
-                        }
-
-                        if let Some(ar) = approach_rate {
-                            builder = builder.ar(*ar, false);
-                        }
-
-                        if let Some(hp) = drain_rate {
-                            builder = builder.hp(*hp, false);
-                        }
-
-                        if let Some(od) = overall_difficulty {
-                            builder = builder.od(*od, false);
-                        }
-                    }
-                    GameMod::DifficultyAdjustTaiko(m) => {
-                        let DifficultyAdjustTaiko {
-                            drain_rate,
-                            overall_difficulty,
-                            ..
-                        } = m;
-
-                        if let Some(hp) = drain_rate {
-                            builder = builder.hp(*hp, false);
-                        }
-
-                        if let Some(od) = overall_difficulty {
-                            builder = builder.od(*od, false);
-                        }
-                    }
-                    GameMod::DifficultyAdjustCatch(m) => {
-                        let DifficultyAdjustCatch {
-                            circle_size,
-                            approach_rate,
-                            drain_rate,
-                            overall_difficulty,
-                            ..
-                        } = m;
-
-                        if let Some(cs) = circle_size {
-                            builder = builder.cs(*cs, false);
-                        }
-
-                        if let Some(ar) = approach_rate {
-                            builder = builder.ar(*ar, false);
-                        }
-
-                        if let Some(hp) = drain_rate {
-                            builder = builder.hp(*hp, false);
-                        }
-
-                        if let Some(od) = overall_difficulty {
-                            builder = builder.od(*od, false);
-                        }
-                    }
-                    GameMod::DifficultyAdjustMania(m) => {
-                        let DifficultyAdjustMania {
-                            drain_rate,
-                            overall_difficulty,
-                            ..
-                        } = m;
-
-                        if let Some(hp) = drain_rate {
-                            builder = builder.hp(*hp, false);
-                        }
-
-                        if let Some(od) = overall_difficulty {
-                            builder = builder.od(*od, false);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-
+        let mods_bits = mods.bits();
         let attrs = builder.mods(mods).build();
 
         let clock_rate = attrs.clock_rate;
@@ -800,7 +730,7 @@ impl Display for MapInfo<'_> {
         }
 
         let (cs_key, cs_value) = if self.map.mode() == GameMode::Mania {
-            ("Keys", Self::keys(mods, attrs.cs as f32))
+            ("Keys", Self::keys(mods_bits, attrs.cs as f32))
         } else {
             ("CS", round(attrs.cs as f32))
         };

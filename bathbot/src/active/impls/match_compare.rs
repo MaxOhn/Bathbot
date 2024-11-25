@@ -10,8 +10,8 @@ use bathbot_util::{
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_v2::prelude::{
-    Beatmap, GameMode, GameModsIntermode, Grade, MatchEvent, MatchGame, MatchScore, OsuMatch, Team,
-    Username,
+    Beatmap, GameMode, GameModsIntermode, Grade, MatchEvent, MatchGame, MatchScore, OsuMatch,
+    ScoreStatistics, Team, Username,
 };
 use twilight_model::{
     channel::message::Component,
@@ -468,8 +468,18 @@ pub struct MatchCompareScore {
 
 impl MatchCompareScore {
     fn new(score: MatchScore, mode: GameMode) -> Self {
+        let stats = ScoreStatistics {
+            perfect: score.statistics.count_geki,
+            great: score.statistics.count_300,
+            good: score.statistics.count_katu,
+            ok: score.statistics.count_100,
+            meh: score.statistics.count_50,
+            miss: score.statistics.count_miss,
+            ..Default::default()
+        };
+
         Self {
-            grade: calculate_grade(mode, &score.mods, &score.statistics),
+            grade: calculate_grade(mode, &score.mods, &stats, None),
             user_id: score.user_id,
             mods: score.mods,
             acc: score.accuracy,

@@ -18,8 +18,7 @@ mod user_stats;
 pub mod command_fields;
 pub mod embed_builder;
 pub mod rosu_v2;
-pub mod twilight_gateway;
-pub mod twilight_model;
+pub mod twilight;
 
 pub mod rkyv_util;
 

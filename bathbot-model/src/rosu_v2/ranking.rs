@@ -1,54 +1,28 @@
-use rkyv::{
-    with::{ArchiveWith, Map, Niche},
-    Archive, Deserialize,
-};
-use rkyv_with::ArchiveWith;
-use rosu_v2::{
-    model::{
-        ranking::Rankings as RosuRankings,
-        user::{User as RosuUser, UserStatistics as RosuUserStatistics},
-    },
-    prelude::{CountryCode, Username},
-};
+use rkyv::{with::Map, Archive, Serialize};
+use rosu_v2::prelude::{CountryCode, Rankings, User, UserStatistics, Username};
 
-use super::user::UserStatistics;
-use crate::rkyv_util::{DerefAsBox, DerefAsString, NicheDerefAsBox};
+use super::user::UserStatisticsRkyv;
+use crate::rkyv_util::{DerefAsString, NicheDerefAsBox};
 
-#[derive(Archive, ArchiveWith, Deserialize)]
-#[archive_with(from(RosuRankings))]
-pub struct Rankings {
-    #[archive_with(from(Vec<RosuUser>), via(Map<RankingsUser>))]
-    pub ranking: Vec<RankingsUser>,
+#[derive(Archive, Serialize)]
+#[rkyv(remote = Rankings, archived = ArchivedRankings)]
+pub struct RankingsRkyv {
+    #[rkyv(with = Map<RankingsUserRkyv>)]
+    pub ranking: Vec<User>,
     pub total: u32,
 }
 
-#[derive(Archive, ArchiveWith, Deserialize)]
-#[archive_with(from(RosuUser))]
-pub struct RankingsUser {
-    #[archive_with(from(String), via(DerefAsBox))]
-    pub avatar_url: Box<str>,
-    #[with(DerefAsString)]
+#[derive(Archive, Serialize)]
+#[rkyv(remote = User, archived = ArchivedRankingsUser)]
+pub struct RankingsUserRkyv {
+    pub avatar_url: String,
+    #[rkyv(with = DerefAsString)]
     pub country_code: CountryCode,
-    #[with(Niche)]
-    #[archive_with(from(Option<String>), via(NicheDerefAsBox))]
-    pub country: Option<Box<str>>,
+    #[rkyv(with = NicheDerefAsBox)]
+    pub country: Option<String>,
     pub user_id: u32,
-    #[with(DerefAsString)]
+    #[rkyv(with = DerefAsString)]
     pub username: Username,
-    #[archive_with(from(Option<RosuUserStatistics>), via(Map<UserStatistics>))]
+    #[rkyv(with = Map<UserStatisticsRkyv>)]
     pub statistics: Option<UserStatistics>,
-}
-
-impl From<RosuUser> for RankingsUser {
-    #[inline]
-    fn from(user: RosuUser) -> Self {
-        Self {
-            avatar_url: user.avatar_url.into_boxed_str(),
-            country_code: user.country_code,
-            country: user.country.map(String::into_boxed_str),
-            user_id: user.user_id,
-            username: user.username,
-            statistics: user.statistics.map(UserStatistics::from),
-        }
-    }
 }

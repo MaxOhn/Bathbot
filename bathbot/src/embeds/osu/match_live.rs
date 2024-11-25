@@ -10,7 +10,7 @@ use bathbot_util::{
     constants::{DESCRIPTION_SIZE, OSU_BASE},
     datetime::SecToMinSec,
     numbers::{round, WithComma},
-    osu::calculate_grade,
+    osu::calculate_legacy_grade,
     CowUtils, EmbedBuilder, FooterBuilder,
 };
 use rosu_v2::prelude::{
@@ -681,7 +681,7 @@ fn prepare_scores(
         let mods = score.mods.to_string();
         let team = score.team as usize;
 
-        let grade = calculate_grade(mode, &score.mods, &score.statistics);
+        let grade = calculate_legacy_grade(mode, &score.mods, &score.statistics);
 
         sizes.name = sizes.name.max(name.len());
         sizes.combo = sizes.combo.max(combo.len());

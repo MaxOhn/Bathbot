@@ -1,10 +1,12 @@
-use super::{list_size::ListSize, Authorities, HideSolutions, Prefixes, Retries, ScoreData};
+use sqlx::types::JsonValue;
+
+use super::{list_size::ListSize, Authorities, HideSolutions, Retries, ScoreData};
 
 pub struct DbGuildConfig {
     pub guild_id: i64,
     pub authorities: Vec<u8>,
     pub list_size: Option<i16>,
-    pub prefixes: Vec<u8>,
+    pub prefixes: JsonValue,
     pub retries: Option<i16>,
     pub osu_track_limit: Option<i16>,
     pub allow_songs: Option<bool>,
@@ -18,7 +20,7 @@ pub struct DbGuildConfig {
 pub struct GuildConfig {
     pub authorities: Authorities,
     pub list_size: Option<ListSize>,
-    pub prefixes: Prefixes,
+    pub prefixes: Vec<String>,
     pub retries: Option<Retries>,
     pub track_limit: Option<u8>,
     pub allow_songs: Option<bool>,
@@ -45,10 +47,19 @@ impl From<DbGuildConfig> for GuildConfig {
             score_data,
         } = config;
 
-        // SAFETY: The bytes originate from the DB which only provides valid archived
-        // data
-        let authorities = unsafe { Authorities::deserialize(&authorities) };
-        let prefixes = unsafe { Prefixes::deserialize(&prefixes) };
+        let authorities = Authorities::deserialize(&authorities);
+
+        let prefixes = if let JsonValue::Array(array) = prefixes {
+            array
+                .into_iter()
+                .map(|value| match value {
+                    JsonValue::String(prefix) => prefix,
+                    _ => unreachable!(),
+                })
+                .collect()
+        } else {
+            unreachable!()
+        };
 
         Self {
             authorities,

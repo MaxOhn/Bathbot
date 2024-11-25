@@ -1,11 +1,14 @@
-use bathbot_model::twilight_model::id::IdRkyv;
+use bathbot_model::twilight::id::{ArchivedId, IdRkyv, IdRkyvMap};
 use eyre::{Result, WrapErr};
 use futures::stream::StreamExt;
 use rkyv::{
-    ser::{serializers::AllocSerializer, Serializer},
-    vec::ArchivedVec,
-    with::With,
-    Archive,
+    collections::util::{Entry, EntryAdapter},
+    primitive::ArchivedU64,
+    rancor::{BoxedError, Fallible, Strategy},
+    ser::{Allocator, Serializer, Writer, WriterExt},
+    vec::{ArchivedVec, VecResolver},
+    with::{ArchiveWith, DeserializeWith, SerializeWith, With},
+    Archived, Place, Serialize,
 };
 use twilight_gateway::Shard;
 use twilight_model::id::{marker::GuildMarker, Id};
@@ -94,86 +97,110 @@ impl Context {
     /// Serialize guild shards and store them in redis for 240 seconds
     #[cold]
     async fn store_guild_shards(&self, store_duration: u64) -> Result<usize> {
-        let mut serializer = AllocSerializer::<0>::default();
+        let guild_shards: Vec<_> = self
+            .guild_shards()
+            .pin()
+            .iter()
+            .map(|(guild, shard)| (*guild, *shard))
+            .collect();
 
-        // Will be serialized as ArchivedVec
-        let guild_shards = self.guild_shards().pin();
         let len = guild_shards.len();
 
-        // Serialize data
-        for (guild, shard) in guild_shards.iter() {
-            serializer
-                .serialize_value(With::<_, IdRkyv>::cast(guild))
-                .wrap_err("Failed to serialize guild")?;
+        let bytes = rkyv::util::with_arena(|arena| {
+            let wrap = With::<Original, CacheGuildShards>::cast(&guild_shards);
+            let mut serializer = Serializer::new(Vec::new(), arena.acquire(), ());
+            let resolver = wrap.serialize(Strategy::<_, BoxedError>::wrap(&mut serializer))?;
+            WriterExt::<BoxedError>::align_for::<Archived<With<Original, CacheGuildShards>>>(
+                &mut serializer,
+            )?;
 
-            serializer
-                .serialize_value(shard)
-                .wrap_err("Failed to serialize shard")?;
-        }
+            // SAFETY: A proper resolver is being used and the serializer has been
+            // aligned
+            unsafe { WriterExt::<BoxedError>::resolve_aligned(&mut serializer, wrap, resolver)? };
 
-        type ArchivedData =
-            ArchivedVec<(<With<Id<GuildMarker>, IdRkyv> as Archive>::Archived, u64)>;
+            Ok::<_, BoxedError>(serializer.into_writer())
+        })
+        .wrap_err("Failed to serialize guild shards")?;
 
-        // Align buffer
-        serializer
-            .align_for::<ArchivedData>()
-            .wrap_err("Failed to align serializer")?;
-
-        Self::finalize_store_as_vec(serializer, len, "guild_shards", store_duration).await
-    }
-
-    #[cold]
-    async fn store_miss_analyzer_guilds(store_duration: u64) -> Result<usize> {
-        let mut serializer = AllocSerializer::<0>::default();
-
-        // Will be serialized as ArchivedVec
-        let miss_analyzer_guilds = Self::miss_analyzer_guilds().pin();
-        let len = miss_analyzer_guilds.len();
-
-        // Serialize data
-        for guild in miss_analyzer_guilds.keys() {
-            serializer
-                .serialize_value(With::<_, IdRkyv>::cast(guild))
-                .wrap_err("Failed to serialize guild")?;
-        }
-
-        type ArchivedData = ArchivedVec<<With<Id<GuildMarker>, IdRkyv> as Archive>::Archived>;
-
-        // Align buffer
-        serializer
-            .align_for::<ArchivedData>()
-            .wrap_err("Failed to align serializer")?;
-
-        Self::finalize_store_as_vec(serializer, len, "miss_analyzer_guilds", store_duration).await
-    }
-
-    // Does not include serializer alignment to avoid generics
-    async fn finalize_store_as_vec<const N: usize>(
-        mut serializer: AllocSerializer<N>,
-        len: usize,
-        key: &str,
-        duration: u64,
-    ) -> Result<usize> {
-        // Serialize relative pointer
-        for byte in (-(serializer.pos() as i32)).to_le_bytes() {
-            serializer
-                .serialize_value(&byte)
-                .wrap_err("Failed to serialize rel ptr")?;
-        }
-
-        // Serialize length
-        serializer
-            .serialize_value(&len)
-            .wrap_err("Failed to serialize length")?;
-
-        let bytes = serializer.into_serializer().into_inner();
-
-        // Store bytes
-        Context::cache()
-            .store_new_raw(key, &bytes, duration)
+        Self::cache()
+            .store_new_raw("guild_shards", &bytes, store_duration)
             .await
             .wrap_err("Failed to store in redis")?;
 
         Ok(len)
+    }
+
+    #[cold]
+    async fn store_miss_analyzer_guilds(store_duration: u64) -> Result<usize> {
+        let miss_analyzer_guilds: Vec<_> =
+            Self::miss_analyzer_guilds().pin().keys().copied().collect();
+
+        let len = miss_analyzer_guilds.len();
+
+        let bytes = rkyv::util::with_arena(|arena| {
+            let slice = miss_analyzer_guilds.as_slice();
+            let wrap = With::<&[Id<GuildMarker>], IdRkyvMap>::cast(&slice);
+            let mut serializer = Serializer::new(Vec::new(), arena.acquire(), ());
+            let resolver = wrap.serialize(Strategy::<_, BoxedError>::wrap(&mut serializer))?;
+            WriterExt::<BoxedError>::align_for::<Archived<With<&[Id<GuildMarker>], IdRkyvMap>>>(
+                &mut serializer,
+            )?;
+
+            // SAFETY: A proper resolver is being used and the serializer has been
+            // aligned
+            unsafe { WriterExt::<BoxedError>::resolve_aligned(&mut serializer, wrap, resolver)? };
+
+            Ok::<_, BoxedError>(serializer.into_writer())
+        })
+        .wrap_err("Failed to serialize miss analyzer guilds")?;
+
+        Self::cache()
+            .store_new_raw("miss_analyzer_guilds", &bytes, store_duration)
+            .await?;
+
+        Ok(len)
+    }
+}
+
+// TODO: clean this up
+pub struct CacheGuildShards;
+
+type Original = [(Id<GuildMarker>, u64)];
+type ArchivedCacheGuildShards = ArchivedVec<Entry<ArchivedId<GuildMarker>, ArchivedU64>>;
+
+impl ArchiveWith<Original> for CacheGuildShards {
+    type Archived = ArchivedCacheGuildShards;
+    type Resolver = VecResolver;
+
+    fn resolve_with(field: &Original, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        ArchivedVec::resolve_from_len(field.len(), resolver, out);
+    }
+}
+
+impl<S: Fallible + Allocator + Writer + ?Sized> SerializeWith<Original, S> for CacheGuildShards {
+    fn serialize_with(field: &Original, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        let iter = field.iter().map(|(guild, shard)| {
+            EntryAdapter::<_, _, With<_, IdRkyv>, u64>::new(With::<_, IdRkyv>::cast(guild), shard)
+        });
+
+        ArchivedVec::serialize_from_iter(iter, serializer)
+    }
+}
+
+impl<D: Fallible + ?Sized>
+    DeserializeWith<ArchivedCacheGuildShards, Vec<Entry<Id<GuildMarker>, u64>>, D>
+    for CacheGuildShards
+{
+    fn deserialize_with(
+        field: &ArchivedCacheGuildShards,
+        _: &mut D,
+    ) -> Result<Vec<Entry<Id<GuildMarker>, u64>>, D::Error> {
+        Ok(field
+            .iter()
+            .map(|entry| Entry {
+                key: entry.key.to_native(),
+                value: entry.value.to_native(),
+            })
+            .collect())
     }
 }

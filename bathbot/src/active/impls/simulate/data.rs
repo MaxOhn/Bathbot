@@ -18,23 +18,30 @@ pub struct SimulateData {
     pub n100: Option<u32>,
     pub n50: Option<u32>,
     pub n_miss: Option<u32>,
+    pub n_slider_ends: Option<u32>,
+    pub n_large_ticks: Option<u32>,
     pub combo: Option<u32>,
     pub score: Option<u32>,
     pub bpm: Option<f32>,
-    pub clock_rate: Option<f32>,
+    pub clock_rate: Option<f64>,
     pub version: TopOldVersion,
     pub attrs: SimulateAttributes,
     pub max_combo: u32,
+    pub set_on_lazer: bool,
 }
 
 impl SimulateData {
     pub(super) fn simulate(&mut self, map: &SimulateMap) -> SimulateValues {
-        let mods = self.mods.as_ref().map_or(0, GameMods::bits);
+        let mods = self
+            .mods
+            .as_ref()
+            .map_or_else(GameMods::default, GameMods::to_owned);
+        let mod_bits = mods.bits();
 
         if let Some(new_bpm) = self.bpm.filter(|_| self.clock_rate.is_none()) {
             let old_bpm = map.bpm();
 
-            self.clock_rate = Some(new_bpm / old_bpm);
+            self.clock_rate = Some((new_bpm / old_bpm) as f64);
         }
 
         // not the cleanest macro...
@@ -42,7 +49,7 @@ impl SimulateData {
             (
                 rosu_pp_older $( :: $calc:ident )+ {
                     $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
-                }
+                } $( $convert_tt:tt )? // `!` if calculation is infallible, otherwise `?`
             ) => {
                 simulate! {
                     rosu_pp_older $( :: $calc)* {
@@ -51,12 +58,13 @@ impl SimulateData {
                     map: map.pp_map();
                     max_new: map;
                     max_post: attributes;
+                    $( $convert_tt )?
                 }
             };
             (
                 rosu_pp $( :: $calc:ident )+ {
                     $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
-                }
+                }!
             ) => {
                 simulate! {
                     rosu_pp $( :: $calc)* {
@@ -65,6 +73,21 @@ impl SimulateData {
                     map: map.pp_map().unchecked_as_converted();
                     arg: as_owned();
                     max_new: attrs;
+                    !
+                }
+            };
+            (
+                rosu_pp $( :: $calc:ident )+ {
+                    $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
+                }?
+            ) => {
+                simulate! {
+                    rosu_pp $( :: $calc)* {
+                        $( $calc_method: $this_field $( as $ty )? ,)*
+                    };
+                    map: map.pp_map();
+                    max_new: attrs;
+                    ?
                 }
             };
             (
@@ -75,10 +98,11 @@ impl SimulateData {
                 $( arg: $arg:ident(); )?
                 max_new: $max_new:tt;
                 $( max_post: $max_post:ident; )?
+                !
             ) => {{
                 let map = $map;
                 let arg = simulate!(@MAP map $( .$arg() )?);
-                let mut calc = $( $calc:: )* new(arg).mods(mods);
+                let mut calc = $( $calc:: )* new(arg).mods(mod_bits);
 
                 $(
                     if let Some(value) = self.$this_field {
@@ -98,9 +122,49 @@ impl SimulateData {
                 }
 
                 let max_pp = $( $calc:: )* new(max_new!($max_new))
-                    $( . $max_post (attrs) )?
+                    $( . $max_post (attrs.difficulty) )?
+                    .mods(mod_bits)
+                    .calculate()
+                    .pp;
+
+                (stars, pp, max_pp)
+            }};
+            (
+                $( $calc:ident )::+ {
+                    $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
+                };
+                map: $map:expr;
+                $( arg: $arg:ident(); )?
+                max_new: $max_new:tt;
+                $( max_post: $max_post:ident; )?
+                ?
+            ) => {{
+                let map = $map;
+                let arg = simulate!(@MAP map $( .$arg() )?);
+                let mut calc = $( $calc:: )* new(arg).mods(mods.clone());
+
+                $(
+                    if let Some(value) = self.$this_field {
+                        calc = calc.$calc_method(value $( as $ty )?);
+                    }
+                )*
+
+                let attrs = calc.calculate().unwrap();
+
+                let pp = attrs.pp;
+                let stars = attrs.difficulty.stars;
+
+                #[allow(unused_macro_rules)]
+                macro_rules! max_new {
+                    (attrs) => { attrs };
+                    (map) => { map };
+                }
+
+                let max_pp = $( $calc:: )* new(max_new!($max_new))
+                    $( . $max_post (attrs.difficulty) )?
                     .mods(mods)
                     .calculate()
+                    .unwrap()
                     .pp;
 
                 (stars, pp, max_pp)
@@ -119,7 +183,7 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }
+                }!
             },
             TopOldVersion::Osu(TopOldOsuVersion::July14February15) => simulate! {
                 rosu_pp_older::osu_2014_july::OsuPP {
@@ -129,7 +193,7 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }
+                }!
             },
             TopOldVersion::Osu(TopOldOsuVersion::February15April15) => simulate! {
                 rosu_pp_older::osu_2015_february::OsuPP {
@@ -139,7 +203,7 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }
+                }!
             },
             TopOldVersion::Osu(TopOldOsuVersion::April15May18) => simulate! {
                 rosu_pp_older::osu_2015_april::OsuPP {
@@ -149,7 +213,7 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }
+                }!
             },
             TopOldVersion::Osu(TopOldOsuVersion::May18February19) => simulate! {
                 rosu_pp_older::osu_2018::OsuPP {
@@ -159,7 +223,7 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }
+                }!
             },
             TopOldVersion::Osu(TopOldOsuVersion::February19January21) => simulate! {
                 rosu_pp_older::osu_2019::OsuPP {
@@ -169,7 +233,7 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }
+                }!
             },
             TopOldVersion::Osu(TopOldOsuVersion::January21July21) => simulate! {
                 rosu_pp_older::osu_2021_january::OsuPP {
@@ -179,7 +243,7 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }
+                }!
             },
             TopOldVersion::Osu(TopOldOsuVersion::July21November21) => simulate! {
                 rosu_pp_older::osu_2021_july::OsuPP {
@@ -189,7 +253,7 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }
+                }!
             },
             TopOldVersion::Osu(TopOldOsuVersion::November21September22) => simulate! {
                 rosu_pp_older::osu_2021_november::OsuPP {
@@ -199,10 +263,10 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc as f64,
-                }
+                }!
             },
-            TopOldVersion::Osu(TopOldOsuVersion::September22Now) => simulate! {
-                rosu_pp::osu::OsuPerformance {
+            TopOldVersion::Osu(TopOldOsuVersion::September22October24) => simulate! {
+                rosu_pp_older::osu_2022::OsuPP {
                     combo: combo,
                     n300: n300,
                     n100: n100,
@@ -210,7 +274,20 @@ impl SimulateData {
                     misses: n_miss,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }
+                }!
+            },
+            TopOldVersion::Osu(TopOldOsuVersion::October24Now) => simulate! {
+                rosu_pp::osu::OsuPerformance {
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
+                    n_slider_ends: n_slider_ends,
+                    n_large_ticks: n_large_ticks,
+                    clock_rate: clock_rate as f64,
+                    accuracy: acc as f64,
+                }?
             },
             TopOldVersion::Taiko(TopOldTaikoVersion::March14September20) => simulate! {
                 rosu_pp_older::taiko_ppv1::TaikoPP {
@@ -219,7 +296,7 @@ impl SimulateData {
                     n100: n100,
                     misses: n_miss,
                     accuracy: acc,
-                }
+                }!
             },
             TopOldVersion::Taiko(TopOldTaikoVersion::September20September22) => simulate! {
                 rosu_pp_older::taiko_2020::TaikoPP {
@@ -228,9 +305,19 @@ impl SimulateData {
                     n100: n100,
                     misses: n_miss,
                     accuracy: acc as f64,
-                }
+                }!
             },
-            TopOldVersion::Taiko(TopOldTaikoVersion::September22Now) => simulate! {
+            TopOldVersion::Taiko(TopOldTaikoVersion::September22October24) => simulate! {
+                rosu_pp_older::taiko_2022::TaikoPP {
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    misses: n_miss,
+                    clock_rate: clock_rate as f64,
+                    accuracy: acc as f64,
+                }!
+            },
+            TopOldVersion::Taiko(TopOldTaikoVersion::October24Now) => simulate! {
                 rosu_pp::taiko::TaikoPerformance {
                     combo: combo,
                     n300: n300,
@@ -238,7 +325,7 @@ impl SimulateData {
                     misses: n_miss,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }
+                }?
             },
             TopOldVersion::Catch(TopOldCatchVersion::March14May20) => simulate! {
                 rosu_pp_older::fruits_ppv1::FruitsPP {
@@ -249,9 +336,21 @@ impl SimulateData {
                     misses: n_miss,
                     tiny_droplet_misses: n_katu,
                     accuracy: acc,
-                }
+                }!
             },
-            TopOldVersion::Catch(TopOldCatchVersion::May20Now) => simulate! {
+            TopOldVersion::Catch(TopOldCatchVersion::May20October24) => simulate! {
+                rosu_pp_older::fruits_2022::FruitsPP {
+                    combo: combo,
+                    fruits: n300,
+                    droplets: n100,
+                    tiny_droplets: n50,
+                    misses: n_miss,
+                    tiny_droplet_misses: n_katu,
+                    clock_rate: clock_rate as f64,
+                    accuracy: acc as f64,
+                }!
+            },
+            TopOldVersion::Catch(TopOldCatchVersion::October24Now) => simulate! {
                 rosu_pp::catch::CatchPerformance {
                     combo: combo,
                     fruits: n300,
@@ -261,20 +360,32 @@ impl SimulateData {
                     tiny_droplet_misses: n_katu,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }
+                }?
             },
             TopOldVersion::Mania(TopOldManiaVersion::March14May18) => simulate! {
                 rosu_pp_older::mania_ppv1::ManiaPP {
                     score: score,
                     accuracy: acc,
-                }
+                }!
             },
             TopOldVersion::Mania(TopOldManiaVersion::May18October22) => simulate! {
                 rosu_pp_older::mania_2018::ManiaPP {
                     score: score,
-                }
+                }!
             },
-            TopOldVersion::Mania(TopOldManiaVersion::October22Now) => simulate! {
+            TopOldVersion::Mania(TopOldManiaVersion::October22October24) => simulate! {
+                rosu_pp_older::mania_2022::ManiaPP {
+                    n320: n_geki,
+                    n200: n_katu,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
+                    clock_rate: clock_rate as f64,
+                    accuracy: acc as f64,
+                }!
+            },
+            TopOldVersion::Mania(TopOldManiaVersion::October24Now) => simulate! {
                 rosu_pp::mania::ManiaPerformance {
                     n320: n_geki,
                     n200: n_katu,
@@ -284,7 +395,7 @@ impl SimulateData {
                     misses: n_miss,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }
+                }?
             },
         };
 
@@ -300,7 +411,9 @@ impl SimulateData {
             ScoreState::Mania(ref state)
                 if matches!(
                     self.version,
-                    TopOldVersion::Mania(TopOldManiaVersion::October22Now)
+                    TopOldVersion::Mania(
+                        TopOldManiaVersion::October22October24 | TopOldManiaVersion::October24Now
+                    )
                 ) =>
             {
                 match state.n300 {
@@ -316,10 +429,15 @@ impl SimulateData {
             .filter(|_| {
                 matches!(
                     self.version,
-                    TopOldVersion::Osu(TopOldOsuVersion::September22Now)
-                        | TopOldVersion::Taiko(TopOldTaikoVersion::September22Now)
-                        | TopOldVersion::Catch(TopOldCatchVersion::May20Now)
-                        | TopOldVersion::Mania(TopOldManiaVersion::October22Now)
+                    TopOldVersion::Osu(
+                        TopOldOsuVersion::September22October24 | TopOldOsuVersion::October24Now
+                    ) | TopOldVersion::Taiko(
+                        TopOldTaikoVersion::September22October24 | TopOldTaikoVersion::October24Now
+                    ) | TopOldVersion::Catch(
+                        TopOldCatchVersion::May20October24 | TopOldCatchVersion::October24Now
+                    ) | TopOldVersion::Mania(
+                        TopOldManiaVersion::October22October24 | TopOldManiaVersion::October24Now
+                    )
                 )
             })
             .or_else(|| {
@@ -334,7 +452,12 @@ impl SimulateData {
                 StateOrScore::State(state)
             }
             state @ ScoreState::Mania(_)
-                if self.version == TopOldVersion::Mania(TopOldManiaVersion::October22Now) =>
+                if matches!(
+                    self.version,
+                    TopOldVersion::Mania(
+                        TopOldManiaVersion::October22October24 | TopOldManiaVersion::October24Now
+                    )
+                ) =>
             {
                 StateOrScore::State(state)
             }
@@ -397,7 +520,7 @@ pub(super) struct SimulateValues {
     pub stars: f32,
     pub pp: f32,
     pub max_pp: f32,
-    pub clock_rate: Option<f32>,
+    pub clock_rate: Option<f64>,
     pub combo_ratio: ComboOrRatio,
     pub score_state: StateOrScore,
 }

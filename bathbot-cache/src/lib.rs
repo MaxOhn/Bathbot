@@ -1,8 +1,7 @@
-pub use self::{cache::Cache, key::ToCacheKey, serializer::CacheSerializer};
+pub use self::{cache::Cache, key::ToCacheKey};
 
 pub mod model;
 
 mod cache;
 mod key;
-mod serializer;
 mod util;

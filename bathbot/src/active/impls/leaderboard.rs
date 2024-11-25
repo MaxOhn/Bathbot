@@ -19,7 +19,7 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    commands::osu::{AttrMap, LeaderboardScore, LeaderboardUserScore},
+    commands::osu::{LeaderboardScore, LeaderboardUserScore},
     embeds::PpFormatter,
     manager::OsuMap,
     util::{
@@ -36,7 +36,6 @@ pub struct LeaderboardPagination {
     scores: Box<[LeaderboardScore]>,
     stars: f32,
     max_combo: u32,
-    attr_map: AttrMap,
     author_data: Option<LeaderboardUserScore>,
     first_place_icon: Option<String>,
     score_data: ScoreData,
@@ -97,13 +96,12 @@ impl LeaderboardPagination {
 
         let mut description = String::with_capacity(1024);
 
-        for score in self.scores[start_idx..end_idx].iter() {
+        for score in self.scores[start_idx..end_idx].iter_mut() {
             let found_author = Some(score.user_id) == author_name;
 
             let fmt_fut = ScoreFormatter::new(
                 score,
                 found_author,
-                &mut self.attr_map,
                 &self.map,
                 self.max_combo,
                 self.score_data,
@@ -114,15 +112,14 @@ impl LeaderboardPagination {
 
         if let Some(score) = self
             .author_data
-            .as_ref()
+            .as_mut()
             .filter(|score| !(start_idx + 1..=end_idx).contains(&score.score.pos))
         {
             let _ = writeln!(description, "\n__**<@{}>'s score:**__", score.discord_id);
 
             let fmt_fut = ScoreFormatter::new(
-                &score.score,
+                &mut score.score,
                 false,
-                &mut self.attr_map,
                 &self.map,
                 self.max_combo,
                 self.score_data,
@@ -182,10 +179,10 @@ impl<'a> Display for ComboFormatter<'a> {
         write!(f, "**{}x**", self.score.combo)?;
 
         if self.mode == GameMode::Mania {
-            let mut ratio = self.score.statistics.count_geki as f32;
+            let mut ratio = self.score.statistics.perfect as f32;
 
-            if self.score.statistics.count_300 > 0 {
-                ratio /= self.score.statistics.count_300 as f32
+            if self.score.statistics.great > 0 {
+                ratio /= self.score.statistics.great as f32
             }
 
             write!(f, " / {ratio:.2}")
@@ -218,15 +215,14 @@ struct ScoreFormatter<'a> {
 
 impl<'a> ScoreFormatter<'a> {
     async fn new(
-        score: &'a LeaderboardScore,
+        score: &'a mut LeaderboardScore,
         found_author: bool,
-        attr_map: &mut AttrMap,
         map: &OsuMap,
         max_combo: u32,
         score_data: ScoreData,
     ) -> ScoreFormatter<'a> {
-        let (pp, max_pp) = score.pp(map, attr_map).await;
-        let pp = PpFormatter::new(Some(pp), Some(max_pp));
+        let pps = score.pp(map).await;
+        let pp = PpFormatter::new(Some(pps.pp), Some(pps.max));
         let combo = ComboFormatter::new(score, max_combo, map.mode());
 
         Self {
@@ -261,7 +257,7 @@ impl Display for ScoreFormatter<'_> {
             mods = ModsFormatter::new(&self.score.mods),
             pp = self.pp,
             acc = self.score.accuracy,
-            miss = MissFormat(self.score.statistics.count_miss),
+            miss = MissFormat(self.score.statistics.miss),
             ago = HowLongAgoDynamic::new(&self.score.ended_at),
         )
     }

@@ -1,15 +1,23 @@
 use std::{borrow::Cow, fmt::Write};
 
-use bathbot_cache::{Cache, CacheSerializer};
+use bathbot_cache::Cache;
 use bathbot_model::{
-    rosu_v2::ranking::Rankings, CountryRegions, OsekaiBadge, OsekaiMedal, OsekaiRanking,
-    OsuStatsBestScores, OsuStatsBestTimeframe, SnipeCountries,
+    rkyv_util::DerefAsString, rosu_v2::ranking::RankingsRkyv, CountryRegions, OsekaiBadge,
+    OsekaiMedal, OsekaiRanking, OsuStatsBestScores, OsuStatsBestTimeframe, SnipeCountries,
 };
 use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
 use eyre::{Report, Result};
-use rkyv::{with::With, Serialize};
-use rosu_v2::prelude::{GameMode, OsuError, Rankings as RosuRankings};
+use rkyv::{
+    bytecheck::CheckBytes,
+    rancor::{BoxedError, Panic, Strategy},
+    ser::{allocator::ArenaHandle, Serializer},
+    util::AlignedVec,
+    validation::{archive::ArchiveValidator, Validator},
+    with::{Identity, MapKV, With},
+    Archive, Serialize,
+};
+use rosu_v2::prelude::{GameMode, OsuError, Rankings};
 
 pub use self::data::RedisData;
 use crate::{
@@ -53,7 +61,7 @@ impl RedisManager {
         let badges = Context::client().get_osekai_badges().await?;
 
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 65_536>(conn, KEY, &badges, EXPIRE).await {
+            if let Err(err) = Cache::store(conn, KEY, &badges, EXPIRE).await {
                 warn!(?err, "Failed to store badges");
             }
         }
@@ -82,7 +90,7 @@ impl RedisManager {
         let medals = Context::client().get_osekai_medals().await?;
 
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 16_384>(conn, KEY, &medals, EXPIRE).await {
+            if let Err(err) = Cache::store(conn, KEY, &medals, EXPIRE).await {
                 warn!(?err, "Failed to store medals");
             }
         }
@@ -93,7 +101,10 @@ impl RedisManager {
     pub async fn osekai_ranking<R>(self) -> RedisResult<Vec<R::Entry>>
     where
         R: OsekaiRanking,
-        <R as OsekaiRanking>::Entry: Serialize<CacheSerializer<65_536>>,
+        <R as OsekaiRanking>::Entry: for<'a> Serialize<Strategy<Serializer<AlignedVec<8>, ArenaHandle<'a>, ()>, BoxedError>>
+            + for<'a> Archive<
+                Archived: CheckBytes<Strategy<Validator<ArchiveValidator<'a>, ()>, Panic>>,
+            >,
     {
         const EXPIRE: u64 = 7200;
 
@@ -117,7 +128,7 @@ impl RedisManager {
         let ranking = Context::client().get_osekai_ranking::<R>().await?;
 
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 65_536>(conn, &key, &ranking, EXPIRE).await {
+            if let Err(err) = Cache::store(conn, &key, &ranking, EXPIRE).await {
                 warn!(?err, "Failed to store osekai ranking");
             }
         }
@@ -130,7 +141,7 @@ impl RedisManager {
         mode: GameMode,
         page: u32,
         country: Option<&str>,
-    ) -> RedisResult<RosuRankings, Rankings, OsuError> {
+    ) -> RedisResult<Rankings, Rankings, OsuError> {
         const EXPIRE: u64 = 1800;
         let mut key = format!("pp_ranking_{}_{page}", mode as u8);
 
@@ -138,7 +149,10 @@ impl RedisManager {
             let _ = write!(key, "_{country}");
         }
 
-        let mut conn = match Context::cache().fetch(&key).await {
+        let mut conn = match Context::cache()
+            .fetch_with::<_, _, RankingsRkyv>(&key)
+            .await
+        {
             Ok(Ok(ranking)) => {
                 BotMetrics::inc_redis_hit("PP ranking");
 
@@ -161,9 +175,9 @@ impl RedisManager {
         };
 
         if let Some(ref mut conn) = conn {
-            let with = With::<_, Rankings>::cast(&ranking);
+            let with = With::<_, RankingsRkyv>::cast(&ranking);
 
-            if let Err(err) = Cache::store::<_, _, 32_768>(conn, &key, with, EXPIRE).await {
+            if let Err(err) = Cache::store(conn, &key, with, EXPIRE).await {
                 warn!(?err, "Failed to store ranking");
             }
         }
@@ -196,7 +210,7 @@ impl RedisManager {
         let scores = Context::client().get_osustats_best(timeframe, mode).await?;
 
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 8192>(conn, &key, &scores, EXPIRE).await {
+            if let Err(err) = Cache::store(conn, &key, &scores, EXPIRE).await {
                 warn!(?err, "Failed to store osustats best");
             }
         }
@@ -225,7 +239,7 @@ impl RedisManager {
         let countries = Context::client().get_snipe_countries(mode).await?;
 
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 712>(conn, &key, &countries, EXPIRE).await {
+            if let Err(err) = Cache::store(conn, &key, &countries, EXPIRE).await {
                 warn!(?err, "Failed to store snipe countries");
             }
         }
@@ -237,7 +251,10 @@ impl RedisManager {
         const EXPIRE: u64 = 43_200; // 12 hours
         let key = "country_regions";
 
-        let mut conn = match Context::cache().fetch(key).await {
+        let mut conn = match Context::cache()
+            .fetch_with::<_, _, MapKV<Identity, MapKV<DerefAsString, DerefAsString>>>(key)
+            .await
+        {
             Ok(Ok(countries)) => {
                 BotMetrics::inc_redis_hit("Country regions");
 
@@ -254,9 +271,24 @@ impl RedisManager {
         let country_regions = Context::client().get_country_regions().await?;
 
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 1024>(conn, key, &country_regions, EXPIRE).await
-            {
-                warn!(?err, "Failed to store country regions");
+            let bytes_res = rkyv::util::with_arena(|arena| {
+                let wrap = With::<_, MapKV<Identity, MapKV<DerefAsString, DerefAsString>>>::cast(
+                    &country_regions,
+                );
+
+                let mut serializer = Serializer::new(Vec::new(), arena.acquire(), ());
+                rkyv::api::serialize_using::<_, BoxedError>(wrap, &mut serializer)?;
+
+                Ok::<_, BoxedError>(serializer.into_writer())
+            });
+
+            match bytes_res {
+                Ok(bytes) => {
+                    if let Err(err) = Cache::store_raw(conn, key, &bytes, EXPIRE).await {
+                        warn!(?err, "Failed to store country regions");
+                    }
+                }
+                Err(err) => warn!(?err, "Failed to serialize country regions"),
             }
         }
 
@@ -334,7 +366,7 @@ impl RedisManager {
         };
 
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store::<_, _, 64>(conn, &key, &diffs, EXPIRE).await {
+            if let Err(err) = Cache::store(conn, &key, &diffs, EXPIRE).await {
                 warn!(?err, "Failed to store cs diffs");
             }
         }

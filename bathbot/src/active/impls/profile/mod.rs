@@ -1,10 +1,6 @@
 use std::fmt::{Display, Write};
 
-use bathbot_model::{
-    rkyv_util::time::DateTimeRkyv,
-    rosu_v2::user::{User, UserHighestRank},
-    RankAccPeaks,
-};
+use bathbot_model::{rosu_v2::user::User, RankAccPeaks};
 use bathbot_util::{
     datetime::{HowLongAgoText, SecToMinSec, NAIVE_DATETIME_FORMAT},
     fields,
@@ -14,13 +10,10 @@ use bathbot_util::{
 };
 use eyre::Result;
 use futures::future::BoxFuture;
-use rkyv::{
-    with::{DeserializeWith, Map},
-    Infallible,
-};
+use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::prelude::{
     GameModIntermode, GameMode, GameModsIntermode, Grade, Score,
-    UserHighestRank as RosuUserHighestRank,
+    UserHighestRank as RosuUserHighestRank, UserKudosu,
 };
 use time::UtcOffset;
 use twilight_model::{
@@ -224,9 +217,10 @@ impl ProfileMenu {
             RedisData::Archive(ref user) => {
                 let mode = user.mode;
                 let medals = user.medals.len();
-                let highest_rank =
-                    Map::<UserHighestRank>::deserialize_with(&user.highest_rank, &mut Infallible)
-                        .unwrap();
+                let highest_rank = user
+                    .highest_rank
+                    .as_ref()
+                    .map(|highest_rank| highest_rank.try_deserialize::<Panic>().always_ok());
 
                 (mode, medals, highest_rank)
             }
@@ -362,16 +356,17 @@ impl ProfileMenu {
                 let badges = user.badges.len();
                 let scores_first_count = user.scores_first_count;
 
-                let highest_rank =
-                    Map::<UserHighestRank>::deserialize_with(&user.highest_rank, &mut Infallible)
-                        .unwrap();
+                let highest_rank = user
+                    .highest_rank
+                    .as_ref()
+                    .map(|highest_rank| highest_rank.try_deserialize::<Panic>().always_ok());
 
                 (
                     highest_rank,
                     medals,
-                    follower_count,
+                    follower_count.to_native(),
                     badges,
-                    scores_first_count,
+                    scores_first_count.to_native(),
                 )
             }
         };
@@ -885,18 +880,21 @@ impl ProfileMenu {
                 let pending_count = user.pending_mapset_count;
                 let graveyard_count = user.graveyard_mapset_count;
                 let guest_count = user.guest_mapset_count;
-                let kudosu = user.kudosu;
+                let kudosu = UserKudosu {
+                    available: user.kudosu.available.to_native(),
+                    total: user.kudosu.total.to_native(),
+                };
                 let mapping_followers = user.mapping_follower_count;
 
                 (
                     mode,
-                    ranked_count,
-                    loved_count,
-                    pending_count,
-                    graveyard_count,
-                    guest_count,
+                    ranked_count.to_native(),
+                    loved_count.to_native(),
+                    pending_count.to_native(),
+                    graveyard_count.to_native(),
+                    guest_count.to_native(),
                     kudosu,
-                    mapping_followers,
+                    mapping_followers.to_native(),
                 )
             }
         };
@@ -999,9 +997,7 @@ impl ProfileMenu {
     fn footer(&self) -> FooterBuilder {
         let mut join_date = match self.user {
             RedisData::Original(ref user) => user.join_date,
-            RedisData::Archive(ref user) => {
-                DateTimeRkyv::deserialize_with(&user.join_date, &mut Infallible).unwrap()
-            }
+            RedisData::Archive(ref user) => user.join_date.try_deserialize::<Panic>().always_ok(),
         };
 
         if let Some(tz) = self.tz {

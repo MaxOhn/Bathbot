@@ -6,7 +6,7 @@ pub use self::{
     bookmarks::BookmarkManager,
     games::GameManager,
     github::GithubManager,
-    guild_config::GuildConfigManager,
+    guild_config::{GuildConfigManager, DEFAULT_PREFIX},
     huismetbenen_country::HuismetbenenCountryManager,
     osu_map::{MapError, MapManager, OsuMap, OsuMapSlim},
     osu_scores::ScoresManager,

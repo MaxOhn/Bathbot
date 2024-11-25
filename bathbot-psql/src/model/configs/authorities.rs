@@ -6,9 +6,11 @@ use std::{
 };
 
 use rkyv::{
-    ser::{ScratchSpace, Serializer},
+    rancor::{Fallible, Panic, ResultExt},
+    rend::NonZeroU64_le,
+    ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
+    Archive, Archived, Deserialize, Place, Serialize,
 };
 use smallvec::SmallVec;
 use twilight_model::id::{marker::RoleMarker, Id};
@@ -34,14 +36,10 @@ impl Authorities {
         self.inner.retain(f);
     }
 
-    /// # Safety
-    ///
-    /// The caller must ensure that the provided bytes are valid archived
-    /// authorities
-    pub(crate) unsafe fn deserialize(bytes: &[u8]) -> Self {
-        let archived_authorities = rkyv::archived_root::<Self>(bytes);
+    pub(crate) fn deserialize(bytes: &[u8]) -> Self {
+        let archived_authorities = rkyv::access::<Archived<Self>, Panic>(bytes).always_ok();
 
-        archived_authorities.deserialize(&mut Infallible).unwrap()
+        rkyv::api::deserialize_using::<_, _, Panic>(archived_authorities, &mut ()).always_ok()
     }
 }
 
@@ -74,14 +72,12 @@ impl Archive for Authorities {
     type Archived = Archived<Vec<NonZeroU64>>;
     type Resolver = VecResolver;
 
-    #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        ArchivedVec::resolve_from_len(self.inner.len(), pos, resolver, out);
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        ArchivedVec::resolve_from_len(self.inner.len(), resolver, out);
     }
 }
 
-impl<S: Serializer + ScratchSpace + ?Sized> Serialize<S> for Authorities {
-    #[inline]
+impl<S: Fallible + Allocator + Writer + ?Sized> Serialize<S> for Authorities {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, <S as Fallible>::Error> {
         fn interprete_as_u64s<T>(ids: &[Id<T>]) -> &[NonZeroU64] {
             // SAFETY: Id<T> is just NonZeroU64 under the hood
@@ -92,10 +88,9 @@ impl<S: Serializer + ScratchSpace + ?Sized> Serialize<S> for Authorities {
     }
 }
 
-impl<D: Fallible> Deserialize<Authorities, D> for <Authorities as Archive>::Archived {
-    #[inline]
+impl<D: Fallible + ?Sized> Deserialize<Authorities, D> for ArchivedVec<NonZeroU64_le> {
     fn deserialize(&self, _: &mut D) -> Result<Authorities, <D as Fallible>::Error> {
-        fn interprete_as_ids<T>(ids: &[NonZeroU64]) -> &[Id<T>] {
+        fn interprete_as_ids<T>(ids: &[NonZeroU64_le]) -> &[Id<T>] {
             // SAFETY: Id<T> is just NonZeroU64 under the hood
             unsafe { mem::transmute(ids) }
         }

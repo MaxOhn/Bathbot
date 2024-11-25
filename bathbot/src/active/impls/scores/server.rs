@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::twilight_model::util::ImageHash;
+use bathbot_model::twilight::util::ImageHashRkyv;
 use bathbot_psql::model::osu::{DbScore, DbScoreBeatmap, DbScoreBeatmapset, DbScoreUser, DbScores};
 use bathbot_util::{
     constants::OSU_BASE,
@@ -42,7 +42,7 @@ pub struct ScoresServerPagination {
     scores: DbScores<IntHasher>,
     mode: Option<GameMode>,
     sort: ScoresOrder,
-    guild_icon: Option<(Id<GuildMarker>, ImageHash)>,
+    guild_icon: Option<(Id<GuildMarker>, ImageHashRkyv)>,
     content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
@@ -210,7 +210,7 @@ impl Display for OrderAppendix<'_> {
             }
             ScoresOrder::Bpm => {
                 let clock_rate = GameModsIntermode::from_bits(self.score.mods).legacy_clock_rate();
-                let bpm = self.map.map_or(0.0, |map| map.bpm) * clock_rate;
+                let bpm = self.map.map_or(0.0, |map| map.bpm) * clock_rate as f32;
 
                 write!(f, "`{}BPM`", round(bpm))
             }
@@ -233,7 +233,7 @@ impl Display for OrderAppendix<'_> {
             }
             ScoresOrder::Length => {
                 let clock_rate = GameModsIntermode::from_bits(self.score.mods).legacy_clock_rate();
-                let seconds_drain = self.map.map_or(0, |map| map.seconds_drain) as f32 / clock_rate;
+                let seconds_drain = self.map.map_or(0, |map| map.seconds_drain) as f64 / clock_rate;
 
                 write!(f, "`{}`", SecToMinSec::new(seconds_drain as u32))
             }

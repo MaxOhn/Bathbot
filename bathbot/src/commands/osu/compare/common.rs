@@ -7,7 +7,7 @@ use bathbot_util::{
     matcher, IntHasher,
 };
 use eyre::{Report, Result};
-use rkyv::{Deserialize, Infallible};
+use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score, Username},
     request::UserId,
@@ -398,8 +398,9 @@ impl CommonUser {
             },
             RedisData::Archive(user) => Self {
                 name: user.username.as_str().into(),
-                avatar_url: user.avatar_url.deserialize(&mut Infallible).unwrap(),
-                user_id: user.user_id,
+                avatar_url: rkyv::api::deserialize_using::<_, _, Panic>(&user.avatar_url, &mut ())
+                    .always_ok(),
+                user_id: user.user_id.to_native(),
             },
         }
     }

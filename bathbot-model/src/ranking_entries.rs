@@ -6,7 +6,7 @@ use time::OffsetDateTime;
 use twilight_model::id::{marker::GuildMarker, Id};
 
 use crate::{
-    twilight_model::util::ImageHash, BgGameScore, HlGameScore, HlVersion, UserModeStatsColumn,
+    twilight::util::ImageHashRkyv, BgGameScore, HlGameScore, HlVersion, UserModeStatsColumn,
     UserStatsColumn, UserStatsEntries, UserStatsEntry,
 };
 
@@ -214,7 +214,7 @@ pub enum RankingKind {
         mode: GameMode,
     },
     UserStats {
-        guild_icon: Option<(Id<GuildMarker>, ImageHash)>,
+        guild_icon: Option<(Id<GuildMarker>, ImageHashRkyv)>,
         kind: UserStatsKind,
     },
 }

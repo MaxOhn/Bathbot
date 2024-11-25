@@ -10,7 +10,7 @@ bb8-redis = { version = "0.15.0" }
 eyre = { version = "0.6" }
 itoa = { version = "1.0" }
 once_cell = { version = "1.0" }
-rkyv = { version = "0.7" }
+rkyv = { workspace = true }
 tracing = { version = "0.1" }
 twilight-model = { workspace = true }
 twilight-gateway = { workspace = true }

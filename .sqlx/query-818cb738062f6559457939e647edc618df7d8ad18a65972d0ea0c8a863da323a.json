@@ -7,7 +7,7 @@
       "Left": [
         "Int8",
         "Bytea",
-        "Bytea",
+        "Jsonb",
         "Bool",
         "Int2",
         "Int2",

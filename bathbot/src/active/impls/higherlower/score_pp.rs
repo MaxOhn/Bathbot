@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use bathbot_model::rosu_v2::ranking::ArchivedRankingsUser;
+use bathbot_model::rosu_v2::ranking::{ArchivedRankingsUser, RankingsRkyv};
 use bathbot_util::{
     constants::OSU_BASE,
     numbers::{round, WithComma},
@@ -68,7 +68,9 @@ impl ScorePp {
 
         let player = match ranking {
             RedisData::Original(mut ranking) => UserCompact::from(ranking.ranking.swap_remove(idx)),
-            RedisData::Archive(ranking) => UserCompact::from(&ranking.ranking[idx]),
+            RedisData::Archive(ranking) => {
+                UserCompact::from(&ranking.deref_with::<RankingsRkyv>().ranking[idx])
+            }
         };
 
         let mut plays = Context::osu()
@@ -90,7 +92,7 @@ impl ScorePp {
 
         let map_manager = Context::osu_map();
         let map_fut = map_manager.map_slim(play.map_id);
-        let attrs_fut = map_manager.difficulty(play.map_id, play.mode, &play.mods);
+        let attrs_fut = map_manager.difficulty(play.map_id, play.mode, play.mods.clone());
 
         let (map_res, attrs_res) = tokio::join!(map_fut, attrs_fut);
 
@@ -305,8 +307,8 @@ impl From<&ArchivedRankingsUser> for UserCompact {
             global_rank: user
                 .statistics
                 .as_ref()
-                .map_or(0, |stats| stats.global_rank),
-            user_id: user.user_id,
+                .map_or(0, |stats| stats.global_rank.to_native()),
+            user_id: user.user_id.to_native(),
             username: user.username.as_str().into(),
         }
     }

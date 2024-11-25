@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Write};
+use std::{borrow::Cow, fmt::Write, mem, str::FromStr};
 
 use bathbot_util::{
     constants::OSU_BASE,
@@ -58,6 +58,7 @@ mod top_old;
 pub struct SimulateComponents {
     map: SimulateMap,
     data: SimulateData,
+    defer: bool,
     msg_owner: Id<UserMarker>,
 }
 
@@ -164,20 +165,30 @@ impl IActiveMessage for SimulateComponents {
                 (Some(score), None, None)
             }
             StateOrScore::State(state) => {
-                let (mode, stats) = state.into_parts();
+                let map = self.data.set_on_lazer.then_some(self.map.pp_map());
 
-                grade = calculate_grade(mode, mods.as_ref(), &stats);
+                let (mode, stats, max_stats) = state.into_parts(map);
+                let mods = mods.as_ref();
+
+                let max_stats_opt = self.data.set_on_lazer.then_some(&max_stats);
+                grade = calculate_grade(mode, mods, &stats, max_stats_opt);
+
+                let acc = if self.data.set_on_lazer {
+                    stats.accuracy(mode, &max_stats)
+                } else {
+                    stats.legacy_accuracy(mode)
+                };
 
                 let acc = EmbedField {
                     inline: true,
                     name: "Acc".to_owned(),
-                    value: format!("{}%", round(stats.accuracy(mode))),
+                    value: format!("{}%", round(acc)),
                 };
 
                 let hits = EmbedField {
                     inline: true,
                     name: "Hits".to_owned(),
-                    value: HitResultFormatter::new(mode, stats).to_string(),
+                    value: HitResultFormatter::new(mode, &stats).to_string(),
                 };
 
                 (None, Some(acc), Some(hits))
@@ -261,17 +272,17 @@ impl IActiveMessage for SimulateComponents {
         }
 
         let content = "Simulated score:";
+        let defer = mem::replace(&mut self.defer, true);
 
-        BuildPage::new(embed, true).content(content).boxed()
+        BuildPage::new(embed, defer).content(content).boxed()
     }
 
     fn build_components(&self) -> Vec<Component> {
-        self.data.version.components()
+        self.data.version.components(self.data.set_on_lazer)
     }
 
     fn handle_component<'a>(
         &'a mut self,
-
         component: &'a mut InteractionComponent,
     ) -> BoxFuture<'a, ComponentResult> {
         let user_id = match component.user_id() {
@@ -347,6 +358,39 @@ impl IActiveMessage for SimulateComponents {
 
                 ModalBuilder::new("sim_miss", "Specify the amount of misses").input(input)
             }
+            "sim_lazer" => {
+                self.data.set_on_lazer = true;
+                self.defer = false;
+
+                return ComponentResult::BuildPage.boxed();
+            }
+            "sim_stable" => {
+                self.data.set_on_lazer = false;
+                self.data.n_slider_ends = None;
+                self.data.n_large_ticks = None;
+                self.defer = false;
+
+                return ComponentResult::BuildPage.boxed();
+            }
+            "sim_slider_ends" => {
+                let input = TextInputBuilder::new("sim_slider_ends", "Amount of slider end hits")
+                    .placeholder("Integer")
+                    .required(false);
+
+                ModalBuilder::new("sim_slider_ends", "Specify the amount of slider end hits")
+                    .input(input)
+            }
+            "sim_large_ticks" => {
+                let input = TextInputBuilder::new(
+                    "sim_large_ticks",
+                    "Amount of large tick hits (ticks & reverses)",
+                )
+                .placeholder("Integer")
+                .required(false);
+
+                ModalBuilder::new("sim_large_ticks", "Specify the amount of large tick hits")
+                    .input(input)
+            }
             "sim_score" => {
                 let input = TextInputBuilder::new("sim_score", "Score")
                     .placeholder("Integer")
@@ -420,12 +464,12 @@ impl SimulateComponents {
             map,
             data,
             msg_owner,
+            defer: true,
         }
     }
 
     async fn handle_topold_menu(
         &mut self,
-
         component: &mut InteractionComponent,
     ) -> ComponentResult {
         let Some(version) = component.data.values.first() else {
@@ -574,15 +618,33 @@ impl SimulateComponents {
                 }
                 None => self.data.score = None,
             },
-            "sim_speed_adjustments" => {
-                self.data.clock_rate = parse_attr(&*modal, "sim_clock_rate");
-                self.data.bpm = parse_attr(&*modal, "sim_bpm");
-            }
+            "sim_slider_ends" => match input.map(str::parse) {
+                Some(Ok(value)) => self.data.n_slider_ends = Some(value),
+                Some(Err(_)) => {
+                    debug!(input, "Failed to parse simulate slider ends");
+
+                    return Ok(());
+                }
+                None => self.data.n_slider_ends = None,
+            },
+            "sim_large_ticks" => match input.map(str::parse) {
+                Some(Ok(value)) => self.data.n_large_ticks = Some(value),
+                Some(Err(_)) => {
+                    debug!(input, "Failed to parse simulate large ticks");
+
+                    return Ok(());
+                }
+                None => self.data.n_large_ticks = None,
+            },
             "sim_attrs" => {
                 self.data.attrs.ar = parse_attr(&*modal, "sim_ar");
                 self.data.attrs.cs = parse_attr(&*modal, "sim_cs");
                 self.data.attrs.hp = parse_attr(&*modal, "sim_hp");
                 self.data.attrs.od = parse_attr(&*modal, "sim_od");
+            }
+            "sim_speed_adjustments" => {
+                self.data.clock_rate = parse_attr(&*modal, "sim_clock_rate");
+                self.data.bpm = parse_attr(&*modal, "sim_bpm");
             }
             other => warn!(name = %other, ?modal, "Unknown simulate modal"),
         }
@@ -595,7 +657,7 @@ impl SimulateComponents {
     }
 }
 
-fn parse_attr(modal: &InteractionModal, component_id: &str) -> Option<f32> {
+fn parse_attr<T: FromStr>(modal: &InteractionModal, component_id: &str) -> Option<T> {
     modal
         .data
         .components
@@ -655,7 +717,7 @@ impl SimulateMap {
         }
     }
 
-    pub fn map_info(&self, stars: f32, mods: &GameMods, clock_rate: Option<f32>) -> String {
+    pub fn map_info(&self, stars: f32, mods: &GameMods, clock_rate: Option<f64>) -> String {
         match self {
             Self::Full(map) => {
                 let mut map_info = MapInfo::new(map, stars);
@@ -669,7 +731,7 @@ impl SimulateMap {
                 let mut builder = map.attributes();
 
                 if let Some(clock_rate) = clock_rate.or_else(|| mods.clock_rate()) {
-                    builder = builder.clock_rate(f64::from(clock_rate));
+                    builder = builder.clock_rate(clock_rate);
                 }
 
                 // Technically probably not necessary since users cannot input
@@ -687,19 +749,19 @@ impl SimulateMap {
                             } = m;
 
                             if let Some(cs) = circle_size {
-                                builder = builder.cs(*cs, false);
+                                builder = builder.cs(*cs as f32, false);
                             }
 
                             if let Some(ar) = approach_rate {
-                                builder = builder.ar(*ar, false);
+                                builder = builder.ar(*ar as f32, false);
                             }
 
                             if let Some(hp) = drain_rate {
-                                builder = builder.hp(*hp, false);
+                                builder = builder.hp(*hp as f32, false);
                             }
 
                             if let Some(od) = overall_difficulty {
-                                builder = builder.od(*od, false);
+                                builder = builder.od(*od as f32, false);
                             }
                         }
                         GameMod::DifficultyAdjustTaiko(m) => {
@@ -710,11 +772,11 @@ impl SimulateMap {
                             } = m;
 
                             if let Some(hp) = drain_rate {
-                                builder = builder.hp(*hp, false);
+                                builder = builder.hp(*hp as f32, false);
                             }
 
                             if let Some(od) = overall_difficulty {
-                                builder = builder.od(*od, false);
+                                builder = builder.od(*od as f32, false);
                             }
                         }
                         GameMod::DifficultyAdjustCatch(m) => {
@@ -727,19 +789,19 @@ impl SimulateMap {
                             } = m;
 
                             if let Some(cs) = circle_size {
-                                builder = builder.cs(*cs, false);
+                                builder = builder.cs(*cs as f32, false);
                             }
 
                             if let Some(ar) = approach_rate {
-                                builder = builder.ar(*ar, false);
+                                builder = builder.ar(*ar as f32, false);
                             }
 
                             if let Some(hp) = drain_rate {
-                                builder = builder.hp(*hp, false);
+                                builder = builder.hp(*hp as f32, false);
                             }
 
                             if let Some(od) = overall_difficulty {
-                                builder = builder.od(*od, false);
+                                builder = builder.od(*od as f32, false);
                             }
                         }
                         GameMod::DifficultyAdjustMania(m) => {
@@ -750,11 +812,11 @@ impl SimulateMap {
                             } = m;
 
                             if let Some(hp) = drain_rate {
-                                builder = builder.hp(*hp, false);
+                                builder = builder.hp(*hp as f32, false);
                             }
 
                             if let Some(od) = overall_difficulty {
-                                builder = builder.od(*od, false);
+                                builder = builder.od(*od as f32, false);
                             }
                         }
                         _ => {}

@@ -174,8 +174,8 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
                 .await
                 .wrap_err("failed to get pp map")?;
 
-            let difficulty = Context::pp_parsed(&map, score.map_id, mode)
-                .mods(&score.mods)
+            let difficulty = Context::pp_parsed(&map, mode)
+                .mods(score.mods.clone())
                 .difficulty()
                 .await
                 .to_owned();

@@ -5,6 +5,7 @@ use std::borrow::Cow;
 
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
+use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::MapIdType};
 use eyre::Result;
 use rosu_v2::prelude::{GameMode, GameModsIntermode};
@@ -52,7 +53,7 @@ pub struct Simulate<'m> {
     #[command(min_value = 0.0, max_value = 100.0, desc = "Specify an accuracy")]
     acc: Option<f32>,
     #[command(desc = "Specify a custom clock rate that overwrites mods")]
-    clock_rate: Option<f32>,
+    clock_rate: Option<f64>,
     #[command(desc = "Specify a BPM value instead of a clock rate")]
     bpm: Option<f32>,
     #[command(desc = "Specify the amount of 300s")]
@@ -63,6 +64,12 @@ pub struct Simulate<'m> {
     n50: Option<u32>,
     #[command(desc = "Specify misses")]
     misses: Option<u32>,
+    #[command(desc = "Whether the score is set on lazer or stable")]
+    lazer: Option<bool>,
+    #[command(desc = "Specify the amount of slider end hits")]
+    slider_end_hits: Option<u32>,
+    #[command(desc = "Specify the amount of large tick hits")]
+    large_tick_hits: Option<u32>,
     #[command(desc = "Specify gekis i.e. n320 in mania")]
     geki: Option<u32>,
     #[command(desc = "Specify katus i.e. tiny droplet misses in catch and n200 in mania")]
@@ -90,8 +97,11 @@ pub async fn slash_simulate(mut command: InteractionCommand) -> Result<()> {
 }
 
 async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()> {
+    let owner = orig.user_id()?;
+    let config = Context::user_config().with_osu_id(owner).await?;
+
     let map = args.map.take();
-    let mode = args.mode;
+    let mode = args.mode.or(config.mode);
 
     let Some(map) = prepare_map(&orig, map, mode).await? else {
         return Ok(());
@@ -100,10 +110,10 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
     let mode = map.mode();
 
     let version = match mode {
-        GameMode::Osu => TopOldVersion::Osu(TopOldOsuVersion::September22Now),
-        GameMode::Taiko => TopOldVersion::Taiko(TopOldTaikoVersion::September22Now),
-        GameMode::Catch => TopOldVersion::Catch(TopOldCatchVersion::May20Now),
-        GameMode::Mania => TopOldVersion::Mania(TopOldManiaVersion::October22Now),
+        GameMode::Osu => TopOldVersion::Osu(TopOldOsuVersion::October24Now),
+        GameMode::Taiko => TopOldVersion::Taiko(TopOldTaikoVersion::October24Now),
+        GameMode::Catch => TopOldVersion::Catch(TopOldCatchVersion::October24Now),
+        GameMode::Mania => TopOldVersion::Mania(TopOldManiaVersion::October24Now),
     };
 
     let max_combo = match map {
@@ -121,6 +131,20 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
         }
     };
 
+    let set_on_lazer = match args.set_on_lazer {
+        Some(lazer) => lazer,
+        None => !match config.score_data {
+            Some(score_data) => score_data.is_legacy(),
+            None => match orig.guild_id() {
+                Some(guild_id) => Context::guild_config()
+                    .peek(guild_id, |config| config.score_data)
+                    .await
+                    .map_or(false, ScoreData::is_legacy),
+                None => false,
+            },
+        },
+    };
+
     let simulate_data = SimulateData {
         mods,
         acc: args.acc,
@@ -130,6 +154,9 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
         n100: args.n100,
         n50: args.n50,
         n_miss: args.misses,
+        set_on_lazer,
+        n_slider_ends: args.slider_end_hits,
+        n_large_ticks: args.large_tick_hits,
         combo: args.combo,
         clock_rate: args.clock_rate,
         bpm: args.bpm,
@@ -144,7 +171,7 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
         max_combo,
     };
 
-    let active = SimulateComponents::new(map, simulate_data, orig.user_id()?);
+    let active = SimulateComponents::new(map, simulate_data, owner);
 
     ActiveMessages::builder(active)
         .start_by_update(true)
@@ -398,11 +425,14 @@ struct SimulateArgs {
     combo: Option<u32>,
     acc: Option<f32>,
     bpm: Option<f32>,
-    clock_rate: Option<f32>,
+    clock_rate: Option<f64>,
     n300: Option<u32>,
     n100: Option<u32>,
     n50: Option<u32>,
     misses: Option<u32>,
+    set_on_lazer: Option<bool>,
+    slider_end_hits: Option<u32>,
+    large_tick_hits: Option<u32>,
     geki: Option<u32>,
     katu: Option<u32>,
     ar: Option<f32>,
@@ -451,7 +481,7 @@ impl SimulateArgs {
                 SimulateArg::Acc(val) => simulate.acc = Some(val.clamp(0.0, 100.0)),
                 SimulateArg::Bpm(val) => simulate.bpm = Some(val),
                 SimulateArg::Combo(val) => simulate.combo = Some(val),
-                SimulateArg::ClockRate(val) => simulate.clock_rate = Some(val),
+                SimulateArg::ClockRate(val) => simulate.clock_rate = Some(val as f64),
                 SimulateArg::N300(val) => simulate.n300 = Some(val),
                 SimulateArg::N100(val) => simulate.n100 = Some(val),
                 SimulateArg::N50(val) => simulate.n50 = Some(val),
@@ -511,6 +541,9 @@ impl SimulateArgs {
             n100: simulate.n100,
             n50: simulate.n50,
             misses: simulate.misses,
+            set_on_lazer: simulate.lazer,
+            slider_end_hits: simulate.slider_end_hits,
+            large_tick_hits: simulate.large_tick_hits,
             geki: simulate.geki,
             katu: simulate.katu,
             ar: simulate.ar,

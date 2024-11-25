@@ -6,7 +6,7 @@ use axum::{
     response::Html,
 };
 use eyre::Report;
-use rosu_v2::Osu;
+use rosu_v2::{prelude::Scopes, Osu};
 
 use super::{AuthError, Params, RenderData, RenderDataKind, RenderDataStatus};
 use crate::state::AppState;
@@ -54,7 +54,7 @@ async fn auth(
     let osu = Osu::builder()
         .client_id(state.osu_client_id)
         .client_secret(&*state.osu_client_secret)
-        .with_authorization(params.code, &*redirect)
+        .with_authorization(params.code, &*redirect, Scopes::Identify)
         .build()
         .await
         .map_err(AuthError::OsuAuthClient)?;

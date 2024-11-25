@@ -77,7 +77,7 @@ impl IActiveMessage for TopIfPagination {
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),
                 combo = ComboFormatter::new(score.max_combo, Some(*max_combo)),
-                hits = HitResultFormatter::new(self.mode, score.statistics.clone()),
+                hits = HitResultFormatter::new(self.mode, &score.statistics),
                 ago = HowLongAgoDynamic::new(&score.ended_at)
             );
         }

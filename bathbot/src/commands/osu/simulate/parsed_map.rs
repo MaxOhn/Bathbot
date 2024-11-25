@@ -47,7 +47,8 @@ impl AttachedSimulateMap {
         };
 
         if let Some(mode) = mode {
-            pp_map.convert_in_place((mode as u8).into());
+            // TODO: use mods
+            let _ = pp_map.convert_mut((mode as u8).into(), &Default::default());
         }
 
         let max_combo = Difficulty::new().calculate(&pp_map).max_combo();

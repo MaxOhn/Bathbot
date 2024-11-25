@@ -337,7 +337,7 @@ impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
         let mut matches = true;
 
         matches &= criteria.combo.contains(self.score.max_combo);
-        matches &= criteria.miss.contains(self.score.statistics.count_miss);
+        matches &= criteria.miss.contains(self.score.statistics.miss);
         matches &= criteria.score.contains(self.score.score);
         matches &= criteria.date.contains(self.score.ended_at.date());
         matches &= criteria.stars.contains(self.stars);
@@ -519,7 +519,7 @@ async fn process_scores(
             };
         }
 
-        let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
+        let mut calc = Context::pp(&map).mode(score.mode).mods(score.mods.clone());
         let attrs = calc.performance().await;
 
         let old_pp = score.pp.expect("missing pp");

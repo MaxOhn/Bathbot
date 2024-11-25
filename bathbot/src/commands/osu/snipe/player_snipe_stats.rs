@@ -154,7 +154,7 @@ pub(super) async fn player_stats(
             let username = user.username.as_str();
             let user_id = user.user_id;
 
-            (country_code, username, user_id)
+            (country_code, username, user_id.to_native())
         }
     };
 

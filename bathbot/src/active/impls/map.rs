@@ -104,11 +104,11 @@ impl MapPagination {
 
         let mut seconds_total = map.seconds_total;
         let mut seconds_drain = map.seconds_drain;
-        let mut bpm = map.bpm;
+        let mut bpm = map.bpm as f64;
 
         let clock_rate = self.mods.legacy_clock_rate();
-        seconds_total = (seconds_total as f32 / clock_rate) as u32;
-        seconds_drain = (seconds_drain as f32 / clock_rate) as u32;
+        seconds_total = (seconds_total as f64 / clock_rate) as u32;
+        seconds_drain = (seconds_drain as f64 / clock_rate) as u32;
         bpm *= clock_rate;
 
         let mut info_value = String::with_capacity(128);
@@ -142,12 +142,12 @@ impl MapPagination {
         let map_attrs = rosu_map
             .attributes()
             .mods(mod_bits)
-            .clock_rate(clock_rate as f64)
+            .clock_rate(clock_rate)
             .build();
 
         let mut attrs = Difficulty::new()
             .mods(mod_bits)
-            .clock_rate(clock_rate as f64)
+            .clock_rate(clock_rate)
             .calculate(&rosu_map);
 
         let stars = attrs.stars();
@@ -159,7 +159,7 @@ impl MapPagination {
                 .performance()
                 .mods(mod_bits)
                 .accuracy(acc as f64)
-                .clock_rate(clock_rate as f64)
+                .clock_rate(clock_rate)
                 .calculate();
 
             let pp = pp_result.pp();
@@ -222,7 +222,7 @@ impl MapPagination {
         let _ = write!(
             info_value,
             "BPM: `{}` Objects: `{}`\nCS: `{}` AR: `{}` OD: `{}` HP: `{}` Spinners: `{}`",
-            round(bpm),
+            round(bpm as f32),
             map.count_circles + map.count_sliders + map.count_spinners,
             round(map_attrs.cs as f32),
             round(map_attrs.ar as f32),

@@ -1,6 +1,7 @@
 use rkyv::{
+    rancor::Fallible,
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Archive, Archived, Deserialize, Fallible, Resolver, Serialize,
+    Archive, Archived, Deserialize, Place, Resolver, Serialize,
 };
 
 pub struct UnwrapOrDefault;
@@ -10,15 +11,10 @@ impl<T: Archive + Default> ArchiveWith<Option<T>> for UnwrapOrDefault {
     type Resolver = Resolver<T>;
 
     #[inline]
-    unsafe fn resolve_with(
-        field: &Option<T>,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
+    fn resolve_with(field: &Option<T>, resolver: Self::Resolver, out: Place<Self::Archived>) {
         match field {
-            Some(value) => Archive::resolve(value, pos, resolver, out),
-            None => Archive::resolve(&T::default(), pos, resolver, out),
+            Some(value) => Archive::resolve(value, resolver, out),
+            None => Archive::resolve(&T::default(), resolver, out),
         }
     }
 }
@@ -29,10 +25,7 @@ where
     S: Fallible + ?Sized,
 {
     #[inline]
-    fn serialize_with(
-        field: &Option<T>,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, <S as rkyv::Fallible>::Error> {
+    fn serialize_with(field: &Option<T>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         match field {
             Some(value) => Serialize::serialize(value, serializer),
             None => Serialize::serialize(&T::default(), serializer),
@@ -47,10 +40,7 @@ where
     D: Fallible + ?Sized,
 {
     #[inline]
-    fn deserialize_with(
-        field: &Archived<T>,
-        deserializer: &mut D,
-    ) -> Result<T, <D as Fallible>::Error> {
+    fn deserialize_with(field: &Archived<T>, deserializer: &mut D) -> Result<T, D::Error> {
         field.deserialize(deserializer)
     }
 }

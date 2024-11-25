@@ -1,10 +1,11 @@
 use std::ops::Deref;
 
 use rkyv::{
-    ser::Serializer,
+    rancor::{Fallible, Source},
+    ser::Writer,
     string::{ArchivedString, StringResolver},
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Fallible,
+    Place,
 };
 
 pub struct DerefAsString;
@@ -17,26 +18,18 @@ where
     type Resolver = StringResolver;
 
     #[inline]
-    unsafe fn resolve_with(
-        field: &T,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
-        ArchivedString::resolve_from_str(field, pos, resolver, out);
+    fn resolve_with(field: &T, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        ArchivedString::resolve_from_str(field, resolver, out);
     }
 }
 
 impl<S, T> SerializeWith<T, S> for DerefAsString
 where
-    S: Serializer + Fallible + ?Sized,
+    S: Writer + Fallible<Error: Source> + ?Sized,
     T: Deref<Target = str>,
 {
     #[inline]
-    fn serialize_with(
-        field: &T,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, <S as rkyv::Fallible>::Error> {
+    fn serialize_with(field: &T, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(field, serializer)
     }
 }
@@ -47,7 +40,7 @@ where
     D: Fallible + ?Sized,
 {
     #[inline]
-    fn deserialize_with(field: &ArchivedString, _: &mut D) -> Result<T, <D as Fallible>::Error> {
+    fn deserialize_with(field: &ArchivedString, _: &mut D) -> Result<T, D::Error> {
         Ok(T::from(field.as_str()))
     }
 }

@@ -39,7 +39,7 @@ plotters-skia = { git = "https://github.com/MaxOhn/plotters-skia", branch = "mai
 priority-queue = { version = "1.0", optional = true }
 radix_trie = { version = "0.2" }
 rand = { version = "0.8" }
-rkyv = { version = "0.7" }
+rkyv = { workspace = true }
 rosu-pp = { workspace = true }
 rosu-v2 = { workspace = true }
 rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }

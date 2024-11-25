@@ -145,7 +145,10 @@ impl SnipePlayerListPagination {
             let map = self.maps.get(&score.map_id).expect("missing map");
             let mods = score.mods.as_ref().map(Cow::Borrowed).unwrap_or_default();
 
-            let max_attrs = Context::pp(map).mods(mods.as_ref()).performance().await;
+            let max_attrs = Context::pp(map)
+                .mods(mods.clone().into_owned())
+                .performance()
+                .await;
             let max_pp = max_attrs.pp() as f32;
             let max_combo = max_attrs.max_combo();
             let count_miss = score.count_miss.unwrap_or(0);

@@ -655,7 +655,7 @@ async fn process_scores(
     let mut entries = Vec::<ScoreEmbedData>::with_capacity(scores.len());
 
     for score in scores {
-        let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
+        let mut calc = Context::pp(&map).mode(score.mode).mods(score.mods.clone());
         let attrs = calc.performance().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo();
@@ -718,14 +718,14 @@ async fn process_scores(
         ScoreOrder::Misses => entries.sort_unstable_by(|a, b| {
             b.score
                 .statistics
-                .count_miss
-                .cmp(&a.score.statistics.count_miss)
+                .miss
+                .cmp(&a.score.statistics.miss)
                 .then_with(|| {
                     let hits_a = a.score.total_hits();
                     let hits_b = b.score.total_hits();
 
-                    let ratio_a = a.score.statistics.count_miss as f32 / hits_a as f32;
-                    let ratio_b = b.score.statistics.count_miss as f32 / hits_b as f32;
+                    let ratio_a = a.score.statistics.miss as f32 / hits_a as f32;
+                    let ratio_b = b.score.statistics.miss as f32 / hits_b as f32;
 
                     ratio_b
                         .partial_cmp(&ratio_a)
@@ -852,7 +852,7 @@ async fn compare_from_score(
         None
     };
 
-    let mut calc = Context::pp(&map).mode(score.mode).mods(&score.mods);
+    let mut calc = Context::pp(&map).mode(score.mode).mods(score.mods.clone());
     let attrs = calc.performance().await;
 
     let max_pp = score

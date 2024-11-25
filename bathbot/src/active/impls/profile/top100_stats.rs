@@ -76,7 +76,7 @@ impl Top100Stats {
                 .and_then(|map| maps.get(&map.map_id))
                 .expect("missing map");
 
-            let mut calc = Context::pp(map).mode(score.mode).mods(&score.mods);
+            let mut calc = Context::pp(map).mode(score.mode).mods(score.mods.clone());
 
             let stars = calc.difficulty().await.stars();
             this.stars.add(stars);
@@ -91,7 +91,7 @@ impl Top100Stats {
             let map_attrs = map
                 .attributes()
                 .mods(score.mods.bits())
-                .clock_rate(score.mods.clock_rate().unwrap_or(1.0) as f64)
+                .clock_rate(score.mods.clock_rate().unwrap_or(1.0))
                 .build();
 
             this.ar.add(map_attrs.ar);

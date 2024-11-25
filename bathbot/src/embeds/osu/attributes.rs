@@ -71,7 +71,7 @@ impl AttributesEmbed {
 
         let ms = match kind {
             AttributeKind::Ar => Some(attrs.hit_windows.ar),
-            AttributeKind::Od => Some(attrs.hit_windows.od),
+            AttributeKind::Od => Some(attrs.hit_windows.od_great),
             AttributeKind::Cs | AttributeKind::Hp => None,
         };
 

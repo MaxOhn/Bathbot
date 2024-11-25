@@ -65,7 +65,8 @@ pub enum TopOld<'a> {
     - 2021: [High AR nerf, NF & SO buff, speed & acc adjustment](https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates)\n\
     - 2021: [Diff spike nerf, AR buff, FL-AR adjust](https://osu.ppy.sh/home/news/2021-07-27-performance-points-star-rating-updates)\n\
     - 2021: [Rhythm buff, slider buff, FL skill](https://osu.ppy.sh/home/news/2021-11-09-performance-points-star-rating-updates)\n\
-    - 2022: [Aim buff, doubletap detection improvement, low AR nerf, FL adjustments](https://osu.ppy.sh/home/news/2022-09-30-changes-to-osu-sr-and-pp)"
+    - 2022: [Aim buff, doubletap detection improvement, low AR nerf, FL adjustments](https://osu.ppy.sh/home/news/2022-09-30-changes-to-osu-sr-and-pp)\n
+    - 2024: [Combo scale removal, improved rhythm complexity, slider pp](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 pub struct TopOldOsu<'a> {
     #[command(desc = "Choose which version should replace the current pp system")]
@@ -131,8 +132,13 @@ pub enum TopOldOsuVersion {
         value = "november21_september22"
     )]
     November21September22,
-    #[option(name = "September 2022 - Now", value = "september22_now")]
-    September22Now,
+    #[option(
+        name = "September 2022 - October 2024",
+        value = "september22_october24"
+    )]
+    September22October24,
+    #[option(name = "October 2024 - Now", value = "october24_now")]
+    October24Now,
 }
 
 impl TryFrom<i32> for TopOldOsuVersion {
@@ -157,9 +163,10 @@ impl TryFrom<i32> for TopOldOsuVersion {
             2019..=2020 | 19..=20 => Ok(Self::February19January21),
             2021 | 21 => Ok(Self::July21November21),
             2022 | 22 => Ok(Self::November21September22),
+            2023 | 23 => Ok(Self::September22October24),
             i32::MIN..=2006 => Err("osu! was not a thing until september 2007.\n\
                 The first available pp system is from 2014."),
-            _ => Ok(Self::September22Now),
+            _ => Ok(Self::October24Now),
         }
     }
 }
@@ -171,7 +178,8 @@ impl TryFrom<i32> for TopOldOsuVersion {
     help = "The osu!taiko pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating)\n\
-    - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)"
+    - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)\n
+    - 2024: [TL-tap consideration, acc scale adjust, mod adjusts](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 pub struct TopOldTaiko<'a> {
     #[command(desc = "Choose which version should replace the current pp system")]
@@ -223,8 +231,13 @@ pub enum TopOldTaikoVersion {
         value = "september20_september22"
     )]
     September20September22,
-    #[option(name = "September 2022 - Now", value = "september22_now")]
-    September22Now,
+    #[option(
+        name = "September 2022 - October 2024",
+        value = "september22_october24"
+    )]
+    September22October24,
+    #[option(name = "October 2024 - Now", value = "october24_now")]
+    October24Now,
 }
 
 impl TryFrom<i32> for TopOldTaikoVersion {
@@ -234,9 +247,10 @@ impl TryFrom<i32> for TopOldTaikoVersion {
         match year {
             2014..=2019 | 14..=19 => Ok(Self::March14September20),
             2020..=2022 | 20..=22 => Ok(Self::September20September22),
+            2023 | 23 => Ok(Self::September22October24),
             i32::MIN..=2013 => Err("taiko pp were not a thing until march 2014. \
                 I think? Don't quote me on that :^)"),
-            _ => Ok(Self::September22Now),
+            _ => Ok(Self::October24Now),
         }
     }
 }
@@ -247,7 +261,8 @@ impl TryFrom<i32> for TopOldTaikoVersion {
     desc = "How current osu!ctb top plays would look like in old pp systems",
     help = "The osu!ctb pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
-    - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)"
+    - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)\n
+    - 2024: [NF buff](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 pub struct TopOldCatch<'a> {
     #[command(desc = "Choose which version should replace the current pp system")]
@@ -294,8 +309,10 @@ pub struct TopOldCatch<'a> {
 pub enum TopOldCatchVersion {
     #[option(name = "March 2014 - May 2020", value = "march14_may20")]
     March14May20,
-    #[option(name = "May 2020 - Now", value = "may20_now")]
-    May20Now,
+    #[option(name = "May 2020 - October 2024", value = "may20_october24")]
+    May20October24,
+    #[option(name = "October 2024 - Now", value = "october24_now")]
+    October24Now,
 }
 
 impl TryFrom<i32> for TopOldCatchVersion {
@@ -304,9 +321,10 @@ impl TryFrom<i32> for TopOldCatchVersion {
     fn try_from(year: i32) -> Result<Self, Self::Error> {
         match year {
             2014..=2019 | 14..=19 => Ok(Self::March14May20),
+            2023 | 23 => Ok(Self::May20October24),
             i32::MIN..=2013 => Err("ctb pp were not a thing until march 2014. \
                 I think? Don't quote me on that :^)"),
-            _ => Ok(Self::May20Now),
+            _ => Ok(Self::October24Now),
         }
     }
 }
@@ -318,7 +336,8 @@ impl TryFrom<i32> for TopOldCatchVersion {
     help = "The osu!mania pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2018: [ppv2](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
-    - 2022: [Accuracy based PP](https://osu.ppy.sh/home/news/2022-10-09-changes-to-osu-mania-sr-and-pp)"
+    - 2022: [Accuracy based PP](https://osu.ppy.sh/home/news/2022-10-09-changes-to-osu-mania-sr-and-pp)\n
+    - 2024: [Adjusted LN value scaling](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 pub struct TopOldMania<'a> {
     #[command(desc = "Choose which version should replace the current pp system")]
@@ -367,8 +386,10 @@ pub enum TopOldManiaVersion {
     March14May18,
     #[option(name = "May 2018 - October 2022", value = "may18_october22")]
     May18October22,
-    #[option(name = "October 2022 - Now", value = "october22_now")]
-    October22Now,
+    #[option(name = "October 2022 - October 2024", value = "october22_october24")]
+    October22October24,
+    #[option(name = "October 2024 - Now", value = "october24_now")]
+    October24Now,
 }
 
 impl TryFrom<i32> for TopOldManiaVersion {
@@ -378,9 +399,10 @@ impl TryFrom<i32> for TopOldManiaVersion {
         match year {
             2014..=2018 | 14..=18 => Ok(Self::March14May18),
             2019..=2022 | 19..=22 => Ok(Self::May18October22),
+            2023 | 23 => Ok(Self::October22October24),
             i32::MIN..=2013 => Err("mania pp were not a thing until march 2014. \
                 I think? Don't quote me on that :^)"),
-            _ => Ok(Self::October22Now),
+            _ => Ok(Self::October24Now),
         }
     }
 }
@@ -408,7 +430,8 @@ pub async fn slash_topold(mut command: InteractionCommand) -> Result<()> {
     - 2021: [High AR nerf, NF & SO buff, speed & acc adjustment](https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates)\n\
     - 2021: [Diff spike nerf, AR buff, FL-AR adjust](https://osu.ppy.sh/home/news/2021-07-27-performance-points-star-rating-updates)\n\
     - 2021: [Rhythm buff, slider buff, FL skill](https://osu.ppy.sh/home/news/2021-11-09-performance-points-star-rating-updates)\n\
-    - 2022: [Aim buff, doubletap detection improvement, low AR nerf, FL adjustments](https://osu.ppy.sh/home/news/2022-09-30-changes-to-osu-sr-and-pp)"
+    - 2022: [Aim buff, doubletap detection improvement, low AR nerf, FL adjustments](https://osu.ppy.sh/home/news/2022-09-30-changes-to-osu-sr-and-pp)\n
+    - 2024: [Combo scale removal, improved rhythm complexity, slider pp](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2015")]
@@ -434,7 +457,8 @@ async fn prefix_topold(msg: &Message, args: Args<'_>) -> Result<()> {
     The osu!mania pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2018: [ppv2](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
-    - 2022: [Accuracy based PP](https://osu.ppy.sh/home/news/2022-10-09-changes-to-osu-mania-sr-and-pp)"
+    - 2022: [Accuracy based PP](https://osu.ppy.sh/home/news/2022-10-09-changes-to-osu-mania-sr-and-pp)\n
+    - 2024: [Adjusted LN value scaling](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2015")]
@@ -460,7 +484,8 @@ async fn prefix_topoldmania(msg: &Message, args: Args<'_>) -> Result<()> {
     The osu!taiko pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating)\n\
-    - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)"
+    - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)\n
+    - 2024: [TL-tap consideration, acc scale adjust, mod adjusts](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2015")]
@@ -485,7 +510,8 @@ async fn prefix_topoldtaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!ctb pp history looks roughly like this:\n\
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
-    - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)"
+    - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)\n
+    - 2024: [NF buff](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2019")]
@@ -600,23 +626,29 @@ impl<'m> TopOld<'m> {
                 TopOldOsuVersion::November21September22 => {
                     "between november 2021 and september 2022"
                 }
-                TopOldOsuVersion::September22Now => "since september 2022",
+                TopOldOsuVersion::September22October24 => "between september 2022 and october 2024",
+                TopOldOsuVersion::October24Now => "since october 2024",
             },
             TopOld::Taiko(t) => match t.version {
                 TopOldTaikoVersion::March14September20 => "between march 2014 and september 2020",
                 TopOldTaikoVersion::September20September22 => {
                     "between september 2020 and september 2022"
                 }
-                TopOldTaikoVersion::September22Now => "since september 2022",
+                TopOldTaikoVersion::September22October24 => {
+                    "between september 2022 and october 2024"
+                }
+                TopOldTaikoVersion::October24Now => "since october 2024",
             },
             TopOld::Catch(c) => match c.version {
                 TopOldCatchVersion::March14May20 => "between march 2014 and may 2020",
-                TopOldCatchVersion::May20Now => "since may 2020",
+                TopOldCatchVersion::May20October24 => "between may 2020 and october 2024",
+                TopOldCatchVersion::October24Now => "since october 2024",
             },
             TopOld::Mania(m) => match m.version {
                 TopOldManiaVersion::March14May18 => "between march 2014 and may 2018",
                 TopOldManiaVersion::May18October22 => "between may 2018 and october 2022",
-                TopOldManiaVersion::October22Now => "since october 2022",
+                TopOldManiaVersion::October22October24 => "between october 2022 and october 2024",
+                TopOldManiaVersion::October24Now => "since october 2024",
             },
         }
     }
@@ -632,7 +664,7 @@ macro_rules! pp_std {
 
         let attrs = $version::OsuPP::new($rosu_map)
             .mods($mods)
-            .attributes(max_pp_res)
+            .attributes(max_pp_res.difficulty)
             .n300(stats.count_300)
             .n100(stats.count_100)
             .n50(stats.count_50)
@@ -642,32 +674,6 @@ macro_rules! pp_std {
 
         let pp = attrs.pp as f32;
         let max_combo = attrs.max_combo() as u32;
-
-        (pp, max_pp, stars, max_combo)
-    }};
-}
-
-macro_rules! pp_ctb {
-    ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
-        let max_pp_res = $version::FruitsPP::new($rosu_map).mods($mods).calculate();
-
-        let max_pp = max_pp_res.pp as f32;
-        let stars = max_pp_res.difficulty.stars as f32;
-        let stats = $score.statistics.as_legacy(GameMode::Catch);
-
-        let attrs = $version::FruitsPP::new($rosu_map)
-            .mods($mods)
-            .attributes(max_pp_res)
-            .fruits(stats.count_300)
-            .droplets(stats.count_100)
-            .tiny_droplets(stats.count_50)
-            .tiny_droplet_misses(stats.count_katu)
-            .misses(stats.count_miss)
-            .combo($score.max_combo)
-            .calculate();
-
-        let pp = attrs.pp as f32;
-        let max_combo = attrs.max_combo();
 
         (pp, max_pp, stars, max_combo)
     }};
@@ -683,11 +689,63 @@ macro_rules! pp_tko {
 
         let attrs = $version::TaikoPP::new($rosu_map)
             .mods($mods)
-            .attributes(max_pp_res)
+            .attributes(max_pp_res.difficulty)
             .n300(stats.count_300)
             .n100(stats.count_100)
             .misses(stats.count_miss)
             .combo($score.max_combo)
+            .calculate();
+
+        let pp = attrs.pp as f32;
+        let max_combo = attrs.max_combo();
+
+        (pp, max_pp, stars, max_combo)
+    }};
+}
+
+macro_rules! pp_ctb {
+    ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
+        let max_pp_res = $version::FruitsPP::new($rosu_map).mods($mods).calculate();
+
+        let max_pp = max_pp_res.pp as f32;
+        let stars = max_pp_res.difficulty.stars as f32;
+        let stats = $score.statistics.as_legacy(GameMode::Catch);
+
+        let attrs = $version::FruitsPP::new($rosu_map)
+            .mods($mods)
+            .attributes(max_pp_res.difficulty)
+            .fruits(stats.count_300)
+            .droplets(stats.count_100)
+            .tiny_droplets(stats.count_50)
+            .tiny_droplet_misses(stats.count_katu)
+            .misses(stats.count_miss)
+            .combo($score.max_combo)
+            .calculate();
+
+        let pp = attrs.pp as f32;
+        let max_combo = attrs.max_combo();
+
+        (pp, max_pp, stars, max_combo)
+    }};
+}
+
+macro_rules! pp_mna {
+    ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
+        let max_pp_res = $version::ManiaPP::new($rosu_map).mods($mods).calculate();
+
+        let max_pp = max_pp_res.pp as f32;
+        let stars = max_pp_res.difficulty.stars as f32;
+        let stats = $score.statistics.as_legacy(GameMode::Mania);
+
+        let attrs = $version::ManiaPP::new($rosu_map)
+            .mods($mods)
+            .attributes(max_pp_res.difficulty)
+            .n320(stats.count_geki)
+            .n300(stats.count_300)
+            .n200(stats.count_katu)
+            .n100(stats.count_100)
+            .n50(stats.count_50)
+            .misses(stats.count_miss)
             .calculate();
 
         let pp = attrs.pp as f32;
@@ -888,7 +946,7 @@ async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<Top
         async fn use_current_system(score: &Score, map: &OsuMap) -> (f32, f32, f32, u32) {
             let attrs = Context::pp(map)
                 .mode(score.mode)
-                .mods(&score.mods)
+                .mods(score.mods.clone())
                 .performance()
                 .await;
 
@@ -920,7 +978,8 @@ async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<Top
                 TopOldOsuVersion::November21September22 => {
                     pp_std!(osu_2021_november, rosu_map, score, mods)
                 }
-                TopOldOsuVersion::September22Now => use_current_system(&score, &map).await,
+                TopOldOsuVersion::September22October24 => pp_std!(osu_2022, rosu_map, score, mods),
+                TopOldOsuVersion::October24Now => use_current_system(&score, &map).await,
             },
             TopOld::Taiko(t) => match t.version {
                 TopOldTaikoVersion::March14September20 => {
@@ -929,11 +988,17 @@ async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<Top
                 TopOldTaikoVersion::September20September22 => {
                     pp_tko!(taiko_2020, rosu_map, score, mods)
                 }
-                TopOldTaikoVersion::September22Now => use_current_system(&score, &map).await,
+                TopOldTaikoVersion::September22October24 => {
+                    pp_tko!(taiko_2022, rosu_map, score, mods)
+                }
+                TopOldTaikoVersion::October24Now => use_current_system(&score, &map).await,
             },
             TopOld::Catch(c) => match c.version {
                 TopOldCatchVersion::March14May20 => pp_ctb!(fruits_ppv1, rosu_map, score, mods),
-                TopOldCatchVersion::May20Now => use_current_system(&score, &map).await,
+                TopOldCatchVersion::May20October24 => {
+                    pp_ctb!(fruits_2022, rosu_map, score, mods)
+                }
+                TopOldCatchVersion::October24Now => use_current_system(&score, &map).await,
             },
             TopOld::Mania(m) => match m.version {
                 TopOldManiaVersion::March14May18 => {
@@ -971,7 +1036,10 @@ async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<Top
 
                     (pp, max_pp, stars, max_combo)
                 }
-                TopOldManiaVersion::October22Now => use_current_system(&score, &map).await,
+                TopOldManiaVersion::October22October24 => {
+                    pp_mna!(mania_2022, rosu_map, score, mods)
+                }
+                TopOldManiaVersion::October24Now => use_current_system(&score, &map).await,
             },
         };
 

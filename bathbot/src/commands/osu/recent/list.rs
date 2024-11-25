@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     cmp::{Ordering, Reverse},
-    collections::{hash_map::Entry, HashMap},
+    collections::HashMap,
     fmt::Write,
 };
 
@@ -18,7 +18,6 @@ use bathbot_util::{
     CowUtils, IntHasher,
 };
 use eyre::{Report, Result};
-use rosu_pp::any::DifficultyAttributes;
 use rosu_v2::{
     prelude::{GameMode, Grade, OsuError, Score},
     request::UserId,
@@ -29,7 +28,7 @@ use crate::{
     active::{impls::RecentListPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::UserArgs, Mods, OsuMap},
+    manager::{redis::osu::UserArgs, OsuMap},
     util::{
         query::{IFilterCriteria, RegularCriteria, Searchable},
         ChannelExt,
@@ -540,9 +539,6 @@ async fn process_scores(
         maps.values_mut().for_each(|map| map.convert_mut(mode));
     }
 
-    let mut attrs_map: HashMap<(u32, Mods), DifficultyAttributes> =
-        HashMap::with_capacity(maps.len());
-
     let scores = scores
         .into_iter()
         .enumerate()
@@ -553,23 +549,9 @@ async fn process_scores(
             continue;
         };
 
-        let mods = Mods::from(&score.mods);
+        let mods = score.mods.clone();
         let mut calc = Context::pp(map).mode(score.mode).mods(mods);
-
-        let attrs = match attrs_map.entry((score.map_id, mods)) {
-            Entry::Occupied(e) => {
-                calc.attributes(e.get().to_owned());
-
-                &*e.into_mut()
-            }
-            Entry::Vacant(e) => {
-                let attrs = calc.difficulty().await;
-                e.insert(attrs.to_owned());
-
-                attrs
-            }
-        };
-
+        let attrs = calc.difficulty().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo();
 
@@ -663,8 +645,8 @@ async fn process_scores(
                 let a_map = maps.get(&a.map_id).expect("missing map");
                 let b_map = maps.get(&b.map_id).expect("missing map");
 
-                let a_len = a_map.seconds_drain() as f32 / a.score.mods.clock_rate().unwrap_or(1.0);
-                let b_len = b_map.seconds_drain() as f32 / b.score.mods.clock_rate().unwrap_or(1.0);
+                let a_len = a_map.seconds_drain() as f64 / a.score.mods.clock_rate().unwrap_or(1.0);
+                let b_len = b_map.seconds_drain() as f64 / b.score.mods.clock_rate().unwrap_or(1.0);
 
                 b_len
                     .partial_cmp(&a_len)
@@ -699,14 +681,14 @@ async fn process_scores(
         Some(ScoreOrder::Misses) => entries.sort_by(|a, b| {
             b.score
                 .statistics
-                .count_miss
-                .cmp(&a.score.statistics.count_miss)
+                .miss
+                .cmp(&a.score.statistics.miss)
                 .then_with(|| {
                     let hits_a = a.score.total_hits();
                     let hits_b = b.score.total_hits();
 
-                    let ratio_a = a.score.statistics.count_miss as f32 / hits_a as f32;
-                    let ratio_b = b.score.statistics.count_miss as f32 / hits_b as f32;
+                    let ratio_a = a.score.statistics.miss as f32 / hits_a as f32;
+                    let ratio_b = b.score.statistics.miss as f32 / hits_b as f32;
 
                     ratio_b
                         .partial_cmp(&ratio_a)

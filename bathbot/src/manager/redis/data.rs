@@ -1,5 +1,10 @@
 use bathbot_cache::model::CachedArchive;
-use rkyv::{Archive, Archived, Deserialize, Infallible};
+use rkyv::{
+    bytecheck::CheckBytes,
+    rancor::{Panic, Strategy},
+    validation::{archive::ArchiveValidator, Validator},
+    Archive, Archived, Deserialize,
+};
 
 #[derive(Clone)]
 pub enum RedisData<O, A = O> {
@@ -16,12 +21,13 @@ impl<O, A> RedisData<O, A> {
 impl<O, A> RedisData<O, A>
 where
     A: Archive,
-    Archived<A>: Deserialize<O, Infallible>,
+    Archived<A>: Deserialize<O, Strategy<(), Panic>>
+        + for<'a> CheckBytes<Strategy<Validator<ArchiveValidator<'a>, ()>, Panic>>,
 {
     pub fn into_original(self) -> O {
         match self {
             RedisData::Original(data) => data,
-            RedisData::Archive(data) => data.deserialize(),
+            RedisData::Archive(data) => data.deserialize_into(),
         }
     }
 }

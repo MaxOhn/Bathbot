@@ -244,11 +244,14 @@ SELECT
   flashlight, 
   slider_factor, 
   speed_note_count, 
+  aim_difficult_strain_count, 
+  speed_difficult_strain_count, 
   ar, 
   od, 
   hp, 
   n_circles, 
   n_sliders, 
+  n_large_ticks, 
   n_spinners, 
   stars, 
   max_combo 
@@ -273,7 +276,9 @@ SELECT
   rhythm, 
   color, 
   peak, 
-  hit_window, 
+  great_hit_window, 
+  ok_hit_window, 
+  mono_stamina_factor, 
   stars, 
   max_combo, 
   is_convert 
@@ -320,6 +325,7 @@ SELECT
   stars, 
   hit_window, 
   n_objects, 
+  n_hold_notes, 
   max_combo, 
   is_convert 
 FROM 
@@ -602,11 +608,14 @@ WHERE
                 flashlight,
                 slider_factor,
                 speed_note_count,
+                aim_difficult_strain_count,
+                speed_difficult_strain_count,
                 ar,
                 od,
                 hp,
                 n_circles,
                 n_sliders,
+                n_large_ticks,
                 n_spinners,
                 stars,
                 max_combo,
@@ -614,14 +623,14 @@ WHERE
                 r#"
 INSERT INTO osu_map_difficulty (
   map_id, mods, aim, speed, flashlight, 
-  slider_factor, speed_note_count, 
-  ar, od, hp, n_circles, n_sliders, n_spinners, 
-  stars, max_combo
+  slider_factor, speed_note_count, aim_difficult_strain_count, 
+  speed_difficult_strain_count, ar, od, hp, n_circles, 
+  n_sliders, n_large_ticks, n_spinners, stars, max_combo
 ) 
 VALUES 
   (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
-    $11, $12, $13, $14, $15
+    $11, $12, $13, $14, $15, $16, $17, $18
   ) ON CONFLICT (map_id, mods) DO 
 UPDATE 
 SET 
@@ -630,14 +639,17 @@ SET
   flashlight = $5, 
   slider_factor = $6, 
   speed_note_count = $7, 
-  ar = $8, 
-  od = $9, 
-  hp = $10, 
-  n_circles = $11, 
-  n_sliders = $12, 
-  n_spinners = $13, 
-  stars = $14, 
-  max_combo = $15"#,
+  aim_difficult_strain_count = $8, 
+  speed_difficult_strain_count = $9, 
+  ar = $10, 
+  od = $11, 
+  hp = $12, 
+  n_circles = $13, 
+  n_sliders = $14, 
+  n_large_ticks = $15, 
+  n_spinners = $16, 
+  stars = $17, 
+  max_combo = $18"#,
                 map_id as i32,
                 mods as i32,
                 aim,
@@ -645,11 +657,14 @@ SET
                 flashlight,
                 slider_factor,
                 speed_note_count,
+                aim_difficult_strain_count,
+                speed_difficult_strain_count,
                 ar,
                 od,
                 hp,
                 *n_circles as i32,
                 *n_sliders as i32,
+                *n_large_ticks as i32,
                 *n_spinners as i32,
                 stars,
                 *max_combo as i32
@@ -659,7 +674,9 @@ SET
                 rhythm,
                 color,
                 peak,
-                hit_window,
+                great_hit_window,
+                ok_hit_window,
+                mono_stamina_factor,
                 stars,
                 max_combo,
                 is_convert,
@@ -667,27 +684,33 @@ SET
                 r#"
 INSERT INTO osu_map_difficulty_taiko (
   map_id, mods, stamina, rhythm, color, 
-  peak, hit_window, stars, max_combo, is_convert
+  peak, great_hit_window, ok_hit_window, 
+  mono_stamina_factor, stars, max_combo, 
+  is_convert
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (map_id, mods) DO 
+  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) ON CONFLICT (map_id, mods) DO 
 UPDATE 
 SET 
   stamina = $3, 
   rhythm = $4, 
   color = $5, 
   peak = $6, 
-  hit_window = $7, 
-  stars = $8, 
-  max_combo = $9, 
-  is_convert = $10"#,
+  great_hit_window = $7, 
+  ok_hit_window = $8, 
+  mono_stamina_factor = $9, 
+  stars = $10, 
+  max_combo = $11, 
+  is_convert = $12"#,
                 map_id as i32,
                 mods as i32,
                 stamina,
                 rhythm,
                 color,
                 peak,
-                hit_window,
+                great_hit_window,
+                ok_hit_window,
+                mono_stamina_factor,
                 stars,
                 *max_combo as i32,
                 is_convert,
@@ -728,28 +751,31 @@ SET
                 stars,
                 hit_window,
                 n_objects,
+                n_hold_notes,
                 max_combo,
                 is_convert,
             }) => sqlx::query!(
                 r#"
 INSERT INTO osu_map_difficulty_mania (
   map_id, mods, stars, hit_window, n_objects, 
-  max_combo, is_convert
+  n_hold_notes, max_combo, is_convert
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (map_id, mods) DO 
+  ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (map_id, mods) DO 
 UPDATE 
 SET 
   stars = $3, 
   hit_window = $4, 
   n_objects = $5, 
-  max_combo = $6, 
-  is_convert = $7"#,
+  n_hold_notes = $6, 
+  max_combo = $7, 
+  is_convert = $8"#,
                 map_id as i32,
                 mods as i32,
                 stars,
                 hit_window,
                 *n_objects as i32,
+                *n_hold_notes as i32,
                 *max_combo as i32,
                 is_convert,
             ),

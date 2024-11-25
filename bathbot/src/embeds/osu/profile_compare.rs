@@ -7,7 +7,6 @@ use std::{
 
 use bathbot_macros::EmbedData;
 use bathbot_model::{
-    rkyv_util::time::DateTimeRkyv,
     rosu_v2::user::{StatsWrapper, User},
     RankAccPeaks,
 };
@@ -15,7 +14,7 @@ use bathbot_util::{
     datetime::{SecToMinSec, DATE_FORMAT},
     numbers::{AbbreviatedScore, WithComma},
 };
-use rkyv::{with::DeserializeWith, Infallible};
+use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 
@@ -727,19 +726,24 @@ impl<'u> UserData<'u> {
                 badges: user.badges.len(),
             },
             RedisData::Archive(user) => Self {
-                stats: StatsWrapper::Right(user.statistics.as_ref().expect("missing statistics")),
+                stats: StatsWrapper::Right(
+                    rkyv::api::deserialize_using::<_, _, Panic>(
+                        user.statistics.as_ref().expect("missing statistics"),
+                        &mut (),
+                    )
+                    .always_ok(),
+                ),
                 username: user.username.as_str(),
-                join_date: DateTimeRkyv::deserialize_with(&user.join_date, &mut Infallible)
-                    .unwrap(),
-                follower_count: user.follower_count,
+                join_date: user.join_date.try_deserialize::<Panic>().always_ok(),
+                follower_count: user.follower_count.to_native(),
                 highest_rank: user
                     .highest_rank
                     .as_ref()
-                    .map(|peak| cmp::min(peak.rank, osutrack_peak)),
+                    .map(|peak| cmp::min(peak.rank.to_native(), osutrack_peak)),
                 monthly_playcounts_peak: user
                     .monthly_playcounts
                     .iter()
-                    .map(|date_count| date_count.count)
+                    .map(|date_count| date_count.count.to_native())
                     .max()
                     .unwrap_or(0),
                 medals: user.medals.len(),

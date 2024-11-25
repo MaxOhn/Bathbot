@@ -250,7 +250,7 @@ impl<'s> MissFormat<'s> {
 impl Display for MissFormat<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let miss = self.score.statistics.count_miss;
+        let miss = self.score.statistics.miss;
 
         if miss > 0 || !self.score.is_fc(self.mode, self.max_combo) {
             write!(f, "{miss}{}", Emote::Miss)

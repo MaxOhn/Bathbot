@@ -25,7 +25,8 @@ pub enum TopOldVersion {
 impl TopOldVersion {
     pub fn from_menu_str(s: &str) -> Option<Self> {
         let version = match s {
-            "sim_osu_september22_now" => Self::Osu(TopOldOsuVersion::September22Now),
+            "sim_osu_october24_now" => Self::Osu(TopOldOsuVersion::October24Now),
+            "sim_osu_september22_october24" => Self::Osu(TopOldOsuVersion::September22October24),
             "sim_osu_november21_september22" => Self::Osu(TopOldOsuVersion::November21September22),
             "sim_osu_july21_november21" => Self::Osu(TopOldOsuVersion::July21November21),
             "sim_osu_january21_july21" => Self::Osu(TopOldOsuVersion::January21July21),
@@ -35,14 +36,19 @@ impl TopOldVersion {
             "sim_osu_february15_april15" => Self::Osu(TopOldOsuVersion::February15April15),
             "sim_osu_july14_february15" => Self::Osu(TopOldOsuVersion::July14February15),
             "sim_osu_may14_july14" => Self::Osu(TopOldOsuVersion::May14July14),
-            "sim_taiko_september22_now" => Self::Taiko(TopOldTaikoVersion::September22Now),
+            "sim_taiko_october24_now" => Self::Taiko(TopOldTaikoVersion::October24Now),
+            "sim_taiko_september22_october24" => {
+                Self::Taiko(TopOldTaikoVersion::September22October24)
+            }
             "sim_taiko_september20_september22" => {
                 Self::Taiko(TopOldTaikoVersion::September20September22)
             }
             "sim_taiko_march14_september20" => Self::Taiko(TopOldTaikoVersion::March14September20),
-            "sim_catch_may20_now" => Self::Catch(TopOldCatchVersion::May20Now),
+            "sim_catch_october24_now" => Self::Catch(TopOldCatchVersion::October24Now),
+            "sim_catch_may20_october24" => Self::Catch(TopOldCatchVersion::May20October24),
             "sim_catch_march14_may20" => Self::Catch(TopOldCatchVersion::March14May20),
-            "sim_mania_october22_now" => Self::Mania(TopOldManiaVersion::October22Now),
+            "sim_mania_october24_now" => Self::Mania(TopOldManiaVersion::October24Now),
+            "sim_mania_october22_october24" => Self::Mania(TopOldManiaVersion::October22October24),
             "sim_mania_may18_october22" => Self::Mania(TopOldManiaVersion::May18October22),
             "sim_mania_march14_may18" => Self::Mania(TopOldManiaVersion::March14May18),
             _ => return None,
@@ -51,7 +57,7 @@ impl TopOldVersion {
         Some(version)
     }
 
-    pub fn components(self) -> Vec<Component> {
+    pub fn components(self, set_on_lazer: bool) -> Vec<Component> {
         macro_rules! versions {
                 ( $( $label:literal, $value:literal, $version:ident = $ty:ident :: $variant:ident ;)* ) => {
                     vec![
@@ -81,7 +87,7 @@ impl TopOldVersion {
             };
         }
 
-        let (upper, bottom, version) = match self {
+        let (upper, middle, bottom, version) = match self {
             Self::Osu(version) => {
                 let mods = button!("sim_mods", "Mods", Primary);
                 let combo = button!("sim_combo", "Combo", Primary);
@@ -93,9 +99,12 @@ impl TopOldVersion {
                     Component::Button(acc),
                 ];
 
-                if let TopOldOsuVersion::September22Now = version {
-                    let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
-                    upper.push(Component::Button(clock_rate));
+                match version {
+                    TopOldOsuVersion::September22October24 | TopOldOsuVersion::October24Now => {
+                        let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
+                        upper.push(Component::Button(clock_rate));
+                    }
+                    _ => {}
                 }
 
                 let attrs = button!("sim_attrs", "Attributes", Primary);
@@ -106,15 +115,43 @@ impl TopOldVersion {
                 let n50 = button!("sim_n50", "n50", Secondary);
                 let n_miss = button!("sim_miss", "Misses", Danger);
 
-                let bottom = vec![
+                let lazer = Button {
+                    disabled: set_on_lazer,
+                    ..button!("sim_lazer", "Lazer", Primary)
+                };
+
+                let stable = Button {
+                    disabled: !set_on_lazer,
+                    ..button!("sim_stable", "Stable", Primary)
+                };
+
+                let n_slider_ends = Button {
+                    disabled: !set_on_lazer,
+                    ..button!("sim_slider_ends", "Slider ends", Secondary)
+                };
+
+                let n_large_ticks = Button {
+                    disabled: !set_on_lazer,
+                    ..button!("sim_large_ticks", "Large ticks", Secondary)
+                };
+
+                let middle = vec![
                     Component::Button(n300),
                     Component::Button(n100),
                     Component::Button(n50),
                     Component::Button(n_miss),
                 ];
 
+                let bottom = vec![
+                    Component::Button(n_slider_ends),
+                    Component::Button(n_large_ticks),
+                    Component::Button(lazer),
+                    Component::Button(stable),
+                ];
+
                 let options = versions![
-                    "September 2022 - Now", "sim_osu_september22_now", version = TopOldOsuVersion::September22Now;
+                    "October 2024 - Now", "sim_osu_october24_now", version = TopOldOsuVersion::October24Now;
+                    "September 2022 - October 2024", "sim_osu_september22_october24", version = TopOldOsuVersion::September22October24;
                     "November 2021 - September 2022", "sim_osu_november21_september22", version = TopOldOsuVersion::November21September22;
                     "July 2021 - November 2021", "sim_osu_july21_november21", version = TopOldOsuVersion::July21November21;
                     "January 2021 - July 2021", "sim_osu_january21_july21", version = TopOldOsuVersion::January21July21;
@@ -135,7 +172,12 @@ impl TopOldVersion {
                     placeholder: None,
                 };
 
-                (upper, Some(bottom), Component::SelectMenu(version))
+                (
+                    upper,
+                    Some(middle),
+                    Some(bottom),
+                    Component::SelectMenu(version),
+                )
             }
             Self::Taiko(version) => {
                 let mods = button!("sim_mods", "Mods", Primary);
@@ -148,9 +190,12 @@ impl TopOldVersion {
                     Component::Button(acc),
                 ];
 
-                if let TopOldTaikoVersion::September22Now = version {
-                    let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
-                    upper.push(Component::Button(clock_rate));
+                match version {
+                    TopOldTaikoVersion::September22October24 | TopOldTaikoVersion::October24Now => {
+                        let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
+                        upper.push(Component::Button(clock_rate));
+                    }
+                    _ => {}
                 }
 
                 let attrs = button!("sim_attrs", "Attributes", Primary);
@@ -167,7 +212,8 @@ impl TopOldVersion {
                 ];
 
                 let options = versions![
-                    "September 2022 - Now", "sim_taiko_september22_now", version = TopOldTaikoVersion::September22Now;
+                    "October 2024 - Now", "sim_taiko_october24_now", version = TopOldTaikoVersion::October24Now;
+                    "September 2022 - October 2024", "sim_taiko_september22_october24", version = TopOldTaikoVersion::September22October24;
                     "September 2020 - September 2022","sim_taiko_september20_september22", version = TopOldTaikoVersion::September20September22;
                     "March 2014 - September 2020", "sim_taiko_march14_september20", version = TopOldTaikoVersion::March14September20;
                 ];
@@ -181,7 +227,7 @@ impl TopOldVersion {
                     placeholder: None,
                 };
 
-                (upper, Some(bottom), Component::SelectMenu(version))
+                (upper, Some(bottom), None, Component::SelectMenu(version))
             }
             Self::Catch(version) => {
                 let mods = button!("sim_mods", "Mods", Primary);
@@ -194,9 +240,12 @@ impl TopOldVersion {
                     Component::Button(acc),
                 ];
 
-                if let TopOldCatchVersion::May20Now = version {
-                    let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
-                    upper.push(Component::Button(clock_rate));
+                match version {
+                    TopOldCatchVersion::May20October24 | TopOldCatchVersion::October24Now => {
+                        let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
+                        upper.push(Component::Button(clock_rate));
+                    }
+                    _ => {}
                 }
 
                 let attrs = button!("sim_attrs", "Attributes", Primary);
@@ -217,7 +266,8 @@ impl TopOldVersion {
                 ];
 
                 let options = versions![
-                    "May 2020 - Now", "sim_catch_may20_now", version = TopOldCatchVersion::May20Now;
+                    "October 2024 - Now", "sim_catch_october24_now", version = TopOldCatchVersion::October24Now;
+                    "May 2020 - October 2024", "sim_catch_may20_october24", version = TopOldCatchVersion::May20October24;
                     "March 2014 - May 2020", "sim_catch_march14_may20", version = TopOldCatchVersion::March14May20;
                 ];
 
@@ -230,7 +280,7 @@ impl TopOldVersion {
                     placeholder: None,
                 };
 
-                (upper, Some(bottom), Component::SelectMenu(version))
+                (upper, Some(bottom), None, Component::SelectMenu(version))
             }
             Self::Mania(version) => {
                 let (upper, bottom) = match version {
@@ -247,7 +297,7 @@ impl TopOldVersion {
 
                         (upper, None)
                     }
-                    TopOldManiaVersion::October22Now => {
+                    TopOldManiaVersion::October22October24 | TopOldManiaVersion::October24Now => {
                         let mods = button!("sim_mods", "Mods", Primary);
                         let acc = button!("sim_acc", "Accuracy", Primary);
                         let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
@@ -281,7 +331,8 @@ impl TopOldVersion {
                 };
 
                 let options = versions![
-                    "October 2022 - Now", "sim_mania_october22_now", version = TopOldManiaVersion::October22Now;
+                    "October 2024 - Now", "sim_mania_october24_now", version = TopOldManiaVersion::October24Now;
+                    "October 2022 - October 2024", "sim_mania_october22_october24", version = TopOldManiaVersion::October22October24;
                     "May 2018 - October 2022", "sim_mania_may18_october22", version = TopOldManiaVersion::May18October22;
                     "March 2014 - May 2018", "sim_mania_march14_may18", version = TopOldManiaVersion::March14May18;
                 ];
@@ -295,7 +346,7 @@ impl TopOldVersion {
                     placeholder: None,
                 };
 
-                (upper, bottom, Component::SelectMenu(version))
+                (upper, bottom, None, Component::SelectMenu(version))
             }
         };
 
@@ -304,10 +355,20 @@ impl TopOldVersion {
             components: vec![version],
         });
 
-        match bottom.map(|components| ActionRow { components }) {
-            Some(bottom) => vec![upper, Component::ActionRow(bottom), version],
-            None => vec![upper, version],
+        let mut components = Vec::new();
+        components.push(upper);
+
+        if let Some(middle) = middle {
+            components.push(Component::ActionRow(ActionRow { components: middle }));
         }
+
+        if let Some(bottom) = bottom {
+            components.push(Component::ActionRow(ActionRow { components: bottom }));
+        }
+
+        components.push(version);
+
+        components
     }
 
     pub(super) fn generate_hitresults(self, map: &Beatmap, data: &SimulateData) -> ScoreState {
@@ -341,6 +402,14 @@ impl TopOldVersion {
             calc = calc.misses(n_miss);
         }
 
+        if let Some(n_slider_ends) = data.n_slider_ends {
+            calc = calc.n_slider_ends(n_slider_ends);
+        }
+
+        if let Some(n_large_ticks) = data.n_large_ticks {
+            calc = calc.large_tick_hits(n_large_ticks);
+        }
+
         let state = calc.generate_state();
 
         match self {
@@ -350,6 +419,8 @@ impl TopOldVersion {
                 n100: state.n100,
                 n50: state.n50,
                 misses: state.misses,
+                large_tick_hits: state.osu_large_tick_hits,
+                slider_end_hits: state.slider_end_hits,
             }),
             Self::Taiko(_) => ScoreState::Taiko(TaikoScoreState {
                 max_combo: state.max_combo,
@@ -400,7 +471,10 @@ impl Display for TopOldVersion {
                     TopOldOsuVersion::November21September22 => {
                         f.write_str("november 2021 - september 2022")
                     }
-                    TopOldOsuVersion::September22Now => f.write_str("september 2022 - now"),
+                    TopOldOsuVersion::September22October24 => {
+                        f.write_str("september 2022 - october 2024")
+                    }
+                    TopOldOsuVersion::October24Now => f.write_str("october 2024 - now"),
                 }
             }
             Self::Taiko(version) => {
@@ -413,7 +487,10 @@ impl Display for TopOldVersion {
                     TopOldTaikoVersion::September20September22 => {
                         f.write_str("september 2020 - september 2022")
                     }
-                    TopOldTaikoVersion::September22Now => f.write_str("september 2022 - now"),
+                    TopOldTaikoVersion::September22October24 => {
+                        f.write_str("september 2022 - october 2024")
+                    }
+                    TopOldTaikoVersion::October24Now => f.write_str("october 2024 - now"),
                 }
             }
             Self::Catch(version) => {
@@ -421,7 +498,8 @@ impl Display for TopOldVersion {
 
                 match version {
                     TopOldCatchVersion::March14May20 => f.write_str("march 2014 - may 2020"),
-                    TopOldCatchVersion::May20Now => f.write_str("may 2020 - now"),
+                    TopOldCatchVersion::May20October24 => f.write_str("may 2020 - october 2024"),
+                    TopOldCatchVersion::October24Now => f.write_str("october 2024 - now"),
                 }
             }
             Self::Mania(version) => {
@@ -430,7 +508,10 @@ impl Display for TopOldVersion {
                 match version {
                     TopOldManiaVersion::March14May18 => f.write_str("march 2014 - may 2018"),
                     TopOldManiaVersion::May18October22 => f.write_str("may 2018 - october 2022"),
-                    TopOldManiaVersion::October22Now => f.write_str("october 2022 - now"),
+                    TopOldManiaVersion::October22October24 => {
+                        f.write_str("october 2022 - october 2024")
+                    }
+                    TopOldManiaVersion::October24Now => f.write_str("october 2024 - now"),
                 }
             }
         }

@@ -502,9 +502,9 @@ pub enum OsuStatsBestTimeframe {
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct OsuStatsBestScores {
-    #[with(DateRkyv)]
+    #[rkyv(with = DateRkyv)]
     pub start_date: Date,
-    #[with(DateRkyv)]
+    #[rkyv(with = DateRkyv)]
     pub end_date: Date,
     pub scores: Box<[OsuStatsBestScore]>,
 }
@@ -585,11 +585,11 @@ pub struct OsuStatsBestScore {
     pub count_miss: u32,
     pub mods: GameMods,
     pub max_combo: u32,
-    #[with(DateTimeRkyv)]
+    #[rkyv(with = DateTimeRkyv)]
     pub ended_at: OffsetDateTime,
     pub position: u32,
     pub pp: f32,
-    #[with(GradeRkyv)]
+    #[rkyv(with = GradeRkyv)]
     pub grade: Grade,
     pub score: u32,
     pub map: OsuStatsBestScoreMap,

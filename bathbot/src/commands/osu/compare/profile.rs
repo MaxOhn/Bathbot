@@ -397,12 +397,12 @@ impl CompareResult {
                 let map = score.map.as_ref().unwrap();
 
                 let seconds_drain = if let Some(clock_rate) = score.mods.clock_rate() {
-                    map.seconds_drain as f32 / clock_rate
+                    map.seconds_drain as f64 / clock_rate
                 } else {
-                    map.seconds_drain as f32
+                    map.seconds_drain as f64
                 };
 
-                map_len.add(seconds_drain);
+                map_len.add(seconds_drain as f32);
 
                 hits += score.total_hits() - score.statistics.miss;
                 misses += score.statistics.miss;

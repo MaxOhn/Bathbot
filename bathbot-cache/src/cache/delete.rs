@@ -17,12 +17,12 @@ impl Cache {
     ) -> Result<CacheChange> {
         let mut conn = self.connection().await?;
 
-        conn.del(RedisKey::channel(guild, channel))
+        conn.del::<_, ()>(RedisKey::channel(guild, channel))
             .await
             .wrap_err("Failed to delete channel entry")?;
 
         if let Some(guild) = guild {
-            conn.srem(RedisKey::guild_channels(guild), channel.get())
+            conn.srem::<_, _, ()>(RedisKey::guild_channels(guild), channel.get())
                 .await
                 .wrap_err("Failed to remove channel as guild channel")?;
         }
@@ -41,7 +41,7 @@ impl Cache {
     pub(crate) async fn delete_guild(&self, guild: Id<GuildMarker>) -> Result<CacheChange> {
         let mut conn = self.connection().await?;
 
-        conn.del(RedisKey::guild(guild))
+        conn.del::<_, ()>(RedisKey::guild(guild))
             .await
             .wrap_err("Failed to delete guild entry")?;
 
@@ -93,7 +93,9 @@ impl Cache {
                 .chain(iter::once(guild_key))
                 .collect();
 
-            conn.del(&redis_keys).await.wrap_err("Failed del")?;
+            conn.del::<_, ()>(&redis_keys)
+                .await
+                .wrap_err("Failed del")?;
 
             Ok(())
         }
@@ -146,11 +148,11 @@ impl Cache {
 
         let key = RedisKey::member(guild, user);
 
-        conn.del(key)
+        conn.del::<_, ()>(key)
             .await
             .wrap_err("Failed to delete member entry")?;
 
-        conn.srem(RedisKey::guild_members(guild), user.get())
+        conn.srem::<_, _, ()>(RedisKey::guild_members(guild), user.get())
             .await
             .wrap_err("Failed to remove guild member entry")?;
 
@@ -169,11 +171,11 @@ impl Cache {
     ) -> Result<CacheChange> {
         let mut conn = self.connection().await?;
 
-        conn.del(RedisKey::role(guild, role))
+        conn.del::<_, ()>(RedisKey::role(guild, role))
             .await
             .wrap_err("Failed to delete role entry")?;
 
-        conn.srem(RedisKey::guild_roles(guild), role.get())
+        conn.srem::<_, _, ()>(RedisKey::guild_roles(guild), role.get())
             .await
             .wrap_err("Failed to remove role as guild role")?;
 

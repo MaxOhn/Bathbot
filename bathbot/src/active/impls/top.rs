@@ -117,7 +117,7 @@ impl TopPagination {
                 pp = round(score.pp),
                 acc = round(score.accuracy),
                 combo = score.max_combo,
-                miss = MissFormat(score.statistics.count_miss),
+                miss = MissFormat(score.statistics.miss),
                 mods = ModsFormatter::new(&score.mods),
                 appendix = OrderAppendix::new(self.sort_by, entry, map.ranked_date(),  true, self.score_data),
             );
@@ -156,9 +156,9 @@ impl TopPagination {
                 acc = round(score.accuracy),
                 // currently ignoring classic scoring, should it be considered for mania?
                 score = ScoreFormat(score.score),
-                n320 = stats.count_geki,
-                n300 = stats.count_300,
-                miss = stats.count_miss,
+                n320 = stats.perfect,
+                n300 = stats.great,
+                miss = stats.miss,
                 mods = ModsFormatter::new(&score.mods),
                 appendix =
                     OrderAppendix::new(self.sort_by, entry, map.ranked_date(), true, self.score_data),
@@ -206,7 +206,7 @@ impl TopPagination {
                 acc = round(score.accuracy),
                 score = ScoreFormatter::new(score, self.score_data),
                 combo = ComboFormatter::new(score.max_combo, Some(*max_combo)),
-                hits = HitResultFormatter::new(score.mode, score.statistics.clone()),
+                hits = HitResultFormatter::new(score.mode, &score.statistics),
                 appendix = OrderAppendix::new(
                     self.sort_by,
                     entry,
@@ -550,13 +550,17 @@ impl Display for OrderAppendix<'_> {
             TopScoreOrder::Bpm => {
                 let clock_rate = self.entry.score.mods.clock_rate().unwrap_or(1.0);
 
-                write!(f, "`{}bpm`", round(self.entry.map.bpm() * clock_rate))
+                write!(
+                    f,
+                    "`{}bpm`",
+                    round(self.entry.map.bpm() * clock_rate as f32)
+                )
             }
             TopScoreOrder::Cs => write!(f, "`CS {}`", round(self.entry.cs() as f32)),
             TopScoreOrder::Length => {
                 let clock_rate = self.entry.score.mods.clock_rate().unwrap_or(1.0);
 
-                let secs = (self.entry.map.seconds_drain() as f32 / clock_rate) as u32;
+                let secs = (self.entry.map.seconds_drain() as f64 / clock_rate) as u32;
 
                 write!(f, "`{}:{:0>2}`", secs / 60, secs % 60)
             }

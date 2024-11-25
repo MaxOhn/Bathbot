@@ -1072,26 +1072,21 @@ fn write_value(
                 HitresultsValue::Full => write!(
                     writer,
                     "{}",
-                    HitResultFormatter::new(data.score.mode, data.score.statistics.clone())
+                    HitResultFormatter::new(data.score.mode, &data.score.statistics)
                 ),
                 HitresultsValue::OnlyMisses if value.y < SettingValue::FOOTER_Y => {
-                    write!(
-                        writer,
-                        "{}{}",
-                        data.score.statistics.count_miss,
-                        Emote::Miss
-                    )
+                    write!(writer, "{}{}", data.score.statistics.miss, Emote::Miss)
                 }
                 HitresultsValue::OnlyMisses => {
-                    write!(writer, "{} miss", data.score.statistics.count_miss)
+                    write!(writer, "{} miss", data.score.statistics.miss)
                 }
             };
         }
         Value::Ratio => {
-            let mut ratio = data.score.statistics.count_geki as f32;
+            let mut ratio = data.score.statistics.perfect as f32;
 
-            let against: u8 = if data.score.statistics.count_300 > 0 {
-                ratio /= data.score.statistics.count_300 as f32;
+            let against: u8 = if data.score.statistics.great > 0 {
+                ratio /= data.score.statistics.great as f32;
 
                 1
             } else {

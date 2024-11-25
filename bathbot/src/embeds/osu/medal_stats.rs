@@ -123,7 +123,7 @@ impl MedalStatsEmbed {
                 let username = user.username.as_str();
                 let user_id = user.user_id;
 
-                (country_code, username, user_id)
+                (country_code, username, user_id.to_native())
             }
         };
 

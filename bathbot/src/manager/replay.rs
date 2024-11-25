@@ -1,18 +1,12 @@
-use std::{
-    borrow::Cow,
-    fmt::{Display, Formatter, Result as FmtResult},
-};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use bathbot_cache::Cache as BathbotCache;
 use bathbot_client::Client as BathbotClient;
-use bathbot_model::{Either, ScoreSlim};
+use bathbot_model::ScoreSlim;
 use bathbot_psql::{model::render::DbRenderOptions, Database};
 use eyre::{Result, WrapErr};
 use rosu_render::model::{RenderOptions, RenderResolution, RenderSkinOption, Skin, SkinInfo};
-use rosu_v2::{
-    model::score::LegacyScoreStatistics,
-    prelude::{GameMode, Score, ScoreStatistics},
-};
+use rosu_v2::prelude::{GameMode, Score, ScoreStatistics};
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -461,10 +455,10 @@ impl<'s> ReplayScore<'s> {
         }
     }
 
-    fn statistics(&self) -> Either<&LegacyScoreStatistics, &ScoreStatistics> {
+    fn statistics(&self) -> &ScoreStatistics {
         match &self.inner {
-            ReplayScoreInner::Owned(score) => Either::Left(&score.statistics),
-            ReplayScoreInner::Borrowed { score, .. } => Either::Right(&score.statistics),
+            ReplayScoreInner::Owned(score) => &score.statistics,
+            ReplayScoreInner::Borrowed { score, .. } => &score.statistics,
         }
     }
 
@@ -509,7 +503,7 @@ pub struct OwnedReplayScore {
     mode: GameMode,
     ended_at: OffsetDateTime,
     map_checksum: Box<str>,
-    statistics: LegacyScoreStatistics,
+    statistics: ScoreStatistics,
     score: u32,
     max_combo: u16,
     perfect: bool,
@@ -544,7 +538,8 @@ fn complete_replay(score: &ReplayScore<'_>, raw_replay: &[u8], username: &str) -
 
     let mut bytes_written = 0;
 
-    bytes_written += encode_byte(&mut replay, score.mode() as u8);
+    let mode = score.mode();
+    bytes_written += encode_byte(&mut replay, mode as u8);
     bytes_written += encode_int(&mut replay, game_version(score.ended_at().date()));
 
     let map_md5 = score.map_checksum();
@@ -555,17 +550,36 @@ fn complete_replay(score: &ReplayScore<'_>, raw_replay: &[u8], username: &str) -
     let replay_md5 = String::new();
     bytes_written += encode_string(&mut replay, &replay_md5);
 
-    let stats = match score.statistics() {
-        Either::Left(stats) => Cow::Borrowed(stats),
-        Either::Right(stats) => Cow::Owned(stats.as_legacy(score.mode())),
+    let stats = score.statistics();
+
+    let n100 = match mode {
+        GameMode::Osu | GameMode::Taiko | GameMode::Mania => stats.ok,
+        GameMode::Catch => stats.ok.max(stats.large_tick_hit),
     };
 
-    bytes_written += encode_short(&mut replay, stats.count_300 as u16);
-    bytes_written += encode_short(&mut replay, stats.count_100 as u16);
-    bytes_written += encode_short(&mut replay, stats.count_50 as u16);
-    bytes_written += encode_short(&mut replay, stats.count_geki as u16);
-    bytes_written += encode_short(&mut replay, stats.count_katu as u16);
-    bytes_written += encode_short(&mut replay, stats.count_miss as u16);
+    let n50 = match mode {
+        GameMode::Osu | GameMode::Mania => stats.meh,
+        GameMode::Taiko => 0,
+        GameMode::Catch => stats.small_tick_hit.max(stats.meh),
+    };
+
+    let n_geki = match mode {
+        GameMode::Osu | GameMode::Taiko | GameMode::Catch => 0,
+        GameMode::Mania => stats.perfect,
+    };
+
+    let n_katu = match mode {
+        GameMode::Osu | GameMode::Taiko => 0,
+        GameMode::Catch => stats.small_tick_miss.max(stats.good),
+        GameMode::Mania => stats.good,
+    };
+
+    bytes_written += encode_short(&mut replay, stats.great as u16);
+    bytes_written += encode_short(&mut replay, n100 as u16);
+    bytes_written += encode_short(&mut replay, n50 as u16);
+    bytes_written += encode_short(&mut replay, n_geki as u16);
+    bytes_written += encode_short(&mut replay, n_katu as u16);
+    bytes_written += encode_short(&mut replay, stats.miss as u16);
 
     bytes_written += encode_int(&mut replay, score.score());
 

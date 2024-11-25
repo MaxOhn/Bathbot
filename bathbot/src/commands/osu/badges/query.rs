@@ -7,7 +7,7 @@ use bathbot_util::{
     CowUtils,
 };
 use eyre::{Result, WrapErr};
-use rkyv::{Deserialize, Infallible};
+use rkyv::rancor::{Panic, ResultExt};
 use twilight_interactions::command::AutocompleteValue;
 use twilight_model::application::command::{CommandOptionChoice, CommandOptionChoiceValue};
 
@@ -87,7 +87,9 @@ pub(super) async fn query(mut command: InteractionCommand, args: BadgesQuery_) -
                     }
                 }
             })
-            .filter_map(|badge| badge?.deserialize(&mut Infallible).ok())
+            .filter_map(|badge| {
+                Some(rkyv::api::deserialize_using::<_, _, Panic>(badge?, &mut ()).always_ok())
+            })
             .collect(),
     };
 

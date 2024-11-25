@@ -4,16 +4,14 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{
-    rkyv_util::time::DateTimeRkyv, rosu_v2::user::User, MedalGroup, OsekaiMedal, Rarity,
-};
+use bathbot_model::{rosu_v2::user::User, MedalGroup, OsekaiMedal, Rarity};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     matcher, IntHasher,
 };
 use eyre::{Report, Result};
 use hashbrown::HashMap;
-use rkyv::{with::DeserializeWith, Infallible};
+use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{
     model::GameMode,
     prelude::{OsuError, Username},
@@ -257,7 +255,12 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
                                 .collect(),
                             RedisData::Archive(rarities) => rarities
                                 .iter()
-                                .map(|entry| (entry.medal_id, entry.possession_percent))
+                                .map(|entry| {
+                                    (
+                                        entry.medal_id.to_native(),
+                                        entry.possession_percent.to_native(),
+                                    )
+                                })
                                 .collect(),
                         };
 
@@ -348,10 +351,9 @@ fn extract_medals(user: &RedisData<User>) -> HashMap<u32, OffsetDateTime, IntHas
             .medals
             .iter()
             .map(|medal| {
-                let achieved_at =
-                    DateTimeRkyv::deserialize_with(&medal.achieved_at, &mut Infallible).unwrap();
+                let achieved_at = medal.achieved_at.try_deserialize::<Panic>().always_ok();
 
-                (medal.medal_id, achieved_at)
+                (medal.medal_id.to_native(), achieved_at)
             })
             .collect(),
     }

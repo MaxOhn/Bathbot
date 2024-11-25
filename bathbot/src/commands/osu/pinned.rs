@@ -451,9 +451,9 @@ async fn process_scores(
         }
         Some(ScoreOrder::Length) => {
             entries.sort_by(|a, b| {
-                let a_len = a.get_half().map.seconds_drain() as f32
+                let a_len = a.get_half().map.seconds_drain() as f64
                     / a.get_half().score.mods.clock_rate().unwrap_or(1.0);
-                let b_len = b.get_half().map.seconds_drain() as f32
+                let b_len = b.get_half().map.seconds_drain() as f64
                     / b.get_half().score.mods.clock_rate().unwrap_or(1.0);
 
                 b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
@@ -465,14 +465,14 @@ async fn process_scores(
 
             b.score
                 .statistics
-                .count_miss
-                .cmp(&a.score.statistics.count_miss)
+                .miss
+                .cmp(&a.score.statistics.miss)
                 .then_with(|| {
                     let hits_a = a.score.total_hits();
                     let hits_b = b.score.total_hits();
 
-                    let ratio_a = a.score.statistics.count_miss as f32 / hits_a as f32;
-                    let ratio_b = b.score.statistics.count_miss as f32 / hits_b as f32;
+                    let ratio_a = a.score.statistics.miss as f32 / hits_a as f32;
+                    let ratio_b = b.score.statistics.miss as f32 / hits_b as f32;
 
                     ratio_b
                         .partial_cmp(&ratio_a)

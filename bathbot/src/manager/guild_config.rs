@@ -1,13 +1,12 @@
-use bathbot_psql::{
-    model::configs::{GuildConfig, Prefix, DEFAULT_PREFIX},
-    Database,
-};
+use bathbot_psql::{model::configs::GuildConfig, Database};
 use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use papaya::HashMap as PapayaMap;
 use twilight_model::id::{marker::GuildMarker, Id};
 
 type GuildConfigs = PapayaMap<Id<GuildMarker>, GuildConfig, IntHasher>;
+
+pub const DEFAULT_PREFIX: &str = "<";
 
 #[derive(Copy, Clone)]
 pub struct GuildConfigManager {
@@ -43,7 +42,7 @@ impl GuildConfigManager {
         res
     }
 
-    pub async fn first_prefix(self, guild_id: Option<Id<GuildMarker>>) -> Prefix {
+    pub async fn first_prefix(self, guild_id: Option<Id<GuildMarker>>) -> String {
         let prefix_opt = match guild_id {
             Some(guild_id) => {
                 self.peek(guild_id, |config| config.prefixes.first().cloned())

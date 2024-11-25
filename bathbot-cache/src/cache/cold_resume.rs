@@ -1,25 +1,30 @@
-use std::{collections::HashMap, hash::BuildHasher};
+use std::{collections::HashMap, convert::Infallible, hash::BuildHasher};
 
-use bathbot_model::twilight_gateway::SessionsRkyv;
+use bathbot_model::twilight::session::{ArchivedSessions, SessionsRkyv};
 use bb8_redis::redis::{aio::ConnectionLike, AsyncCommands, Cmd};
 use eyre::{Result, WrapErr};
-use rkyv::with::With;
+use rkyv::{
+    rancor::{BoxedError, Panic, ResultExt},
+    util::AlignedVec,
+    with::With,
+};
 use tracing::info;
 use twilight_gateway::Session;
 
-use crate::{key::RedisKey, model::CachedArchive, Cache};
+use crate::{key::RedisKey, Cache};
 
 const STORE_DURATION: u64 = 240;
 
 impl Cache {
-    pub async fn freeze<S>(&self, resume_data: &HashMap<u64, Session, S>) -> Result<()> {
-        let resume_data = With::<_, SessionsRkyv>::cast(resume_data);
-        let bytes =
-            rkyv::to_bytes::<_, 128>(resume_data).wrap_err("Failed to serialize resume data")?;
+    pub async fn freeze<S>(&self, sessions: &HashMap<u64, Session, S>) -> Result<()> {
+        let sessions = With::<_, SessionsRkyv>::cast(sessions);
+
+        let bytes = rkyv::api::high::to_bytes_in::<_, BoxedError>(sessions, AlignedVec::<8>::new())
+            .wrap_err("Failed to serialize sessions")?;
 
         self.connection()
             .await?
-            .set_ex(RedisKey::resume_data(), bytes.as_slice(), STORE_DURATION)
+            .set_ex::<_, _, ()>(RedisKey::resume_data(), bytes.as_slice(), STORE_DURATION)
             .await
             .wrap_err("Failed to store resume data bytes")?;
 
@@ -28,29 +33,36 @@ impl Cache {
         Ok(())
     }
 
-    pub async fn defrost<S: BuildHasher + Default>(&self) -> Result<HashMap<u64, Session, S>> {
+    pub async fn defrost<S: BuildHasher + Default>(
+        &self,
+    ) -> Result<Option<HashMap<u64, Session, S>>> {
         let mut conn = self.connection().await?;
 
-        let resume_data_opt: Option<CachedArchive<HashMap<u64, Session, S>>> = conn
+        let bytes: Vec<u8> = conn
             .get(RedisKey::resume_data())
             .await
             .wrap_err("Failed to get stored resume data")?;
 
-        if let Some(resume_data) = resume_data_opt {
-            info!("Successfully defrosted cache");
+        if bytes.is_empty() {
+            info!("Sessions not found; flushing redis database");
 
-            return Ok(resume_data.deserialize_with::<SessionsRkyv>());
+            let mut cmd = Cmd::new();
+            cmd.arg("FLUSHDB");
+
+            conn.req_packed_command(&cmd)
+                .await
+                .wrap_err("Failed to flush redis entries")?;
+
+            return Ok(None);
         }
 
-        let mut cmd = Cmd::new();
-        cmd.arg("FLUSHDB");
+        let archived = rkyv::access::<ArchivedSessions, Panic>(&bytes).always_ok();
 
-        conn.req_packed_command(&cmd)
-            .await
-            .wrap_err("Failed to flush redis entries")?;
+        let sessions = rkyv::api::deserialize_using::<_, _, Infallible>(
+            With::<_, SessionsRkyv>::cast(archived),
+            &mut (),
+        );
 
-        info!("Empty resume data, starting with fresh cache");
-
-        Ok(HashMap::with_hasher(S::default()))
+        Ok(Some(sessions.always_ok()))
     }
 }

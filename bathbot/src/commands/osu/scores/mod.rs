@@ -449,8 +449,8 @@ fn process_scores(
                     .entry(b.mods)
                     .or_insert_with(|| GameModsIntermode::from_bits(b.mods).legacy_clock_rate());
 
-                let a_bpm = bpms[&a.map_id] * a_clock_rate;
-                let b_bpm = bpms[&b.map_id] * b_clock_rate;
+                let a_bpm = bpms[&a.map_id] as f64 * a_clock_rate;
+                let b_bpm = bpms[&b.map_id] as f64 * b_clock_rate;
 
                 b_bpm.total_cmp(&a_bpm)
             })
@@ -528,8 +528,8 @@ fn process_scores(
                     .entry(b.mods)
                     .or_insert_with(|| GameModsIntermode::from_bits(b.mods).legacy_clock_rate());
 
-                let a_drain = seconds_drain[&a.map_id] as f32 / a_clock_rate;
-                let b_drain = seconds_drain[&b.map_id] as f32 / b_clock_rate;
+                let a_drain = seconds_drain[&a.map_id] as f64 / a_clock_rate;
+                let b_drain = seconds_drain[&b.map_id] as f64 / b_clock_rate;
 
                 b_drain.total_cmp(&a_drain)
             })

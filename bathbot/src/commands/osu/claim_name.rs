@@ -3,16 +3,16 @@ use std::ops::Deref;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::SlashCommand;
 use bathbot_model::{
-    rkyv_util::time::{DateRkyv, DateTimeRkyv},
-    rosu_v2::user::{ArchivedUser, User, UserHighestRank as UserHighestRankRkyv, UserStatistics},
+    rkyv_util::time::DateRkyv,
+    rosu_v2::user::{ArchivedUser, User, UserStatisticsRkyv},
 };
 use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
 use eyre::{Report, Result};
 use futures::{future, stream::FuturesUnordered, TryStreamExt};
 use once_cell::sync::OnceCell;
 use rkyv::{
-    with::{DeserializeWith, Map},
-    Archived, Infallible,
+    rancor::{Panic, ResultExt},
+    Archived,
 };
 use rosu_v2::prelude::{CountryCode, GameMode, OsuError, UserHighestRank, Username};
 use time::{OffsetDateTime, Time};
@@ -143,11 +143,16 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
                     RedisData::Archive(next) => {
                         let next: &Archived<User> = &next;
 
-                        let rank = Map::<UserHighestRankRkyv>::deserialize_with(
-                            &next.highest_rank,
-                            &mut Infallible,
-                        )
-                        .unwrap();
+                        let rank = next
+                            .highest_rank
+                            .as_ref()
+                            .map(|highest_rank| UserHighestRank {
+                                rank: highest_rank.rank.to_native(),
+                                updated_at: highest_rank
+                                    .updated_at
+                                    .try_deserialize::<Panic>()
+                                    .always_ok(),
+                            });
 
                         let last_playcount = next
                             .monthly_playcounts
@@ -155,15 +160,16 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
                             .rev()
                             .find(|count| count.count > 0)
                             .map(|count| {
-                                DateRkyv::deserialize_with(&count.start_date, &mut Infallible)
+                                DateRkyv::try_deserialize(count.start_date)
                                     .unwrap()
                                     .with_time(Time::MIDNIGHT)
                                     .assume_utc()
                             });
 
-                        let last_visit = next.last_visit.as_ref().map(|time| {
-                            DateTimeRkyv::deserialize_with(time, &mut Infallible).unwrap()
-                        });
+                        let last_visit = next
+                            .last_visit
+                            .as_ref()
+                            .map(|time| time.try_deserialize::<Panic>().always_ok());
 
                         let last_visit = match (last_visit, last_playcount) {
                             (Some(a), Some(b)) => Some(a.max(b)),
@@ -216,7 +222,7 @@ pub struct ClaimNameUser {
     pub has_ranked_mapsets: bool,
     pub highest_rank: Option<UserHighestRank>,
     pub last_visit: Option<OffsetDateTime>,
-    pub statistics: Option<UserStatistics>,
+    pub statistics: Option<UserStatisticsRkyv>,
     pub username: Username,
     pub user_id: u32,
 }
@@ -231,7 +237,7 @@ impl From<User> for ClaimNameUser {
             has_ranked_mapsets: user.ranked_mapset_count > 0,
             highest_rank: user.highest_rank,
             last_visit: user.last_visit,
-            statistics: user.statistics.map(UserStatistics::from),
+            statistics: user.statistics.as_ref().map(UserStatisticsRkyv::from),
             username: user.username,
             user_id: user.user_id,
         }
@@ -246,16 +252,25 @@ impl From<&ArchivedUser> for ClaimNameUser {
             country_code: user.country_code.as_str().into(),
             has_badges: !user.badges.is_empty(),
             has_ranked_mapsets: user.ranked_mapset_count > 0,
-            highest_rank: Map::<UserHighestRankRkyv>::deserialize_with(
-                &user.highest_rank,
-                &mut Infallible,
-            )
-            .unwrap(),
-            last_visit: Map::<DateTimeRkyv>::deserialize_with(&user.last_visit, &mut Infallible)
-                .unwrap(),
-            statistics: user.statistics.as_ref().cloned(),
+            highest_rank: user
+                .highest_rank
+                .as_ref()
+                .map(|highest_rank| UserHighestRank {
+                    rank: highest_rank.rank.to_native(),
+                    updated_at: highest_rank
+                        .updated_at
+                        .try_deserialize::<Panic>()
+                        .always_ok(),
+                }),
+            last_visit: user
+                .last_visit
+                .as_ref()
+                .map(|time| time.try_deserialize::<Panic>().always_ok()),
+            statistics: user.statistics.as_ref().map(|stats| {
+                rkyv::api::deserialize_using::<_, _, Panic>(stats, &mut ()).always_ok()
+            }),
             username: user.username.as_str().into(),
-            user_id: user.user_id,
+            user_id: user.user_id.to_native(),
         }
     }
 }

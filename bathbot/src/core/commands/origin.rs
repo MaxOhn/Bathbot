@@ -214,6 +214,7 @@ impl<'d> From<&'d mut InteractionCommand> for CommandOrigin<'d> {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum OwnedCommandOrigin {
     Message {
         msg: Id<MessageMarker>,

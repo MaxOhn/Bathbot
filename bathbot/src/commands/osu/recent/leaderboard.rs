@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use bathbot_macros::command;
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::{
@@ -334,8 +332,8 @@ pub(super) async fn leaderboard(
 
     let mods_ = match specify_mods {
         Some(mods) => Mods {
-            bits: mods.bits(),
             clock_rate: Some(mods.legacy_clock_rate()),
+            inner: mods.into(),
         },
         None => Mods::default(),
     };
@@ -374,14 +372,8 @@ pub(super) async fn leaderboard(
     let stars = attrs.stars() as f32;
     let max_combo = attrs.max_combo();
 
-    // Not storing `attrs` here in case mods (potentially with clock rate) were
-    // specified
-    let mut attr_map = HashMap::default();
-
     let order = args.sort.unwrap_or_default();
-    order
-        .sort(&mut scores, &map, &mut attr_map, score_data)
-        .await;
+    order.sort(&mut scores, &map, score_data).await;
     order.push_content(&mut content);
 
     let first_place_icon = scores.first().map(|_| user.avatar_url().to_owned());
@@ -391,7 +383,6 @@ pub(super) async fn leaderboard(
         .scores(scores.into_boxed_slice())
         .stars(stars)
         .max_combo(max_combo)
-        .attr_map(attr_map)
         .author_data(user_score)
         .first_place_icon(first_place_icon)
         .score_data(score_data)

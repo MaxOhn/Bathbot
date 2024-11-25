@@ -1116,6 +1116,7 @@ FROM
 
             for score in chunk {
                 let Score {
+                    set_on_lazer: _, // TODO: probably want to use this
                     classic_score: _,
                     ranked: _,
                     preserve: _,

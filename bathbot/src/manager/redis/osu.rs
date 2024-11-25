@@ -1,9 +1,17 @@
 use std::borrow::Cow;
 
 use bathbot_cache::Cache;
-use bathbot_model::rosu_v2::user::{ArchivedUserHighestRank, StatsWrapper, User};
+use bathbot_model::{
+    rkyv_util::time::ArchivedDateTime,
+    rosu_v2::user::{ArchivedUser, ArchivedUserHighestRank, StatsWrapper, User},
+};
 use bathbot_util::{
     constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder, CowUtils,
+};
+use rkyv::{
+    munge::munge,
+    option::ArchivedOption,
+    rancor::{Panic, ResultExt},
 };
 use rosu_v2::{
     prelude::{GameMode, OsuError, User as RosuUser},
@@ -173,7 +181,7 @@ impl RedisManager {
 
         if let Some(ref mut conn) = conn {
             // Cache users for 10 minutes
-            if let Err(err) = Cache::store::<_, _, 64>(conn, &key, &user, EXPIRE).await {
+            if let Err(err) = Cache::store(conn, &key, &user, EXPIRE).await {
                 warn!(?err, "Failed to store user");
             }
         }
@@ -229,7 +237,7 @@ impl RedisData<User> {
     pub fn user_id(&self) -> u32 {
         match self {
             RedisData::Original(user) => user.user_id,
-            RedisData::Archive(user) => user.user_id,
+            RedisData::Archive(user) => user.user_id.to_native(),
         }
     }
 
@@ -257,7 +265,13 @@ impl RedisData<User> {
     pub fn stats(&self) -> StatsWrapper<'_> {
         let stats_opt = match self {
             RedisData::Original(user) => user.statistics.as_ref().map(StatsWrapper::Left),
-            RedisData::Archive(user) => user.statistics.as_ref().map(StatsWrapper::Right),
+            RedisData::Archive(user) => user
+                .statistics
+                .as_ref()
+                .map(|stats| {
+                    rkyv::api::deserialize_using::<_, _, Panic>(stats, &mut ()).always_ok()
+                })
+                .map(StatsWrapper::Right),
         };
 
         stats_opt.expect("missing statistics")
@@ -289,8 +303,8 @@ impl RedisData<User> {
                 let text = format!(
                     "{name}: {pp}pp (#{global} {country_code}{national})",
                     name = user.username,
-                    pp = WithComma::new(stats.pp),
-                    global = WithComma::new(stats.global_rank),
+                    pp = WithComma::new(stats.pp.to_native()),
+                    global = WithComma::new(stats.global_rank.to_native()),
                     national = stats.country_rank
                 );
 
@@ -346,11 +360,11 @@ impl RedisData<User> {
                 }
 
                 if let Some(graveyard_mapset_count) = graveyard_mapset_count {
-                    user_.graveyard_mapset_count = graveyard_mapset_count
+                    user_.graveyard_mapset_count = graveyard_mapset_count;
                 }
 
                 if let Some(guest_mapset_count) = guest_mapset_count {
-                    user_.guest_mapset_count = guest_mapset_count
+                    user_.guest_mapset_count = guest_mapset_count;
                 }
 
                 if let highest_rank @ Some(_) = highest_rank {
@@ -362,7 +376,7 @@ impl RedisData<User> {
                 }
 
                 if let Some(monthly_playcounts) = monthly_playcounts {
-                    user_.monthly_playcounts = monthly_playcounts
+                    user_.monthly_playcounts = monthly_playcounts;
                 }
 
                 if let Some(rank_history) = rank_history {
@@ -393,73 +407,61 @@ impl RedisData<User> {
                     user_.statistics = statistics;
                 }
             }
-            RedisData::Archive(user_) => user_.mutate(|mut archived| {
-                if let Some(last_visit) = user.last_visit {
-                    // SAFETY: The modified option will keep its variant and
-                    // i128 is Unpin.
-                    let last_visit_ = unsafe {
-                        archived
-                            .as_mut()
-                            .map_unchecked_mut(|user| &mut user.last_visit)
-                    };
+            RedisData::Archive(user_) => user_.mutate(|archived| {
+                munge!(let ArchivedUser {
+                    last_visit: last_visit_seal,
+                    highest_rank: highest_rank_seal,
+                    follower_count: follower_count_seal,
+                    graveyard_mapset_count: graveyard_mapset_count_seal,
+                    guest_mapset_count: guest_mapset_count_seal,
+                    loved_mapset_count: loved_mapset_count_seal,
+                    ranked_mapset_count: ranked_mapset_count_seal,
+                    scores_first_count: scores_first_count_seal,
+                    pending_mapset_count: pending_mapset_count_seal,
+                    statistics: statistics_seal,
+                    ..
+                } = archived);
 
-                    if let Some(last_visit_) = last_visit_.as_pin_mut() {
-                        *last_visit_.get_mut() = last_visit.unix_timestamp_nanos();
+                if let Some(last_visit) = user.last_visit {
+                    if let Some(last_visit_seal) = ArchivedOption::as_seal(last_visit_seal) {
+                        *last_visit_seal.unseal() = ArchivedDateTime::new(last_visit);
                     }
                 }
 
                 if let Some(stats) = user.statistics {
-                    // SAFETY: The modified option will keep its variant and
-                    // UserStatistics is Unpin.
-                    let stats_ = unsafe {
-                        archived
-                            .as_mut()
-                            .map_unchecked_mut(|user| &mut user.statistics)
-                    };
-
-                    if let Some(stats_) = stats_.as_pin_mut() {
-                        *stats_.get_mut() = stats.into();
+                    if let Some(stats_seal) = ArchivedOption::as_seal(statistics_seal) {
+                        // SAFETY: We neither move fields nor write uninitialized bytes
+                        unsafe { *stats_seal.unseal_unchecked() = stats.into() };
                     }
                 }
 
                 if let Some(highest_rank) = user.highest_rank {
-                    // SAFETY: The modified option will keep its variant and
-                    // ArchivedUserHighestRank is Unpin.
-                    let highest_rank_ = unsafe {
-                        archived
-                            .as_mut()
-                            .map_unchecked_mut(|user| &mut user.highest_rank)
-                    };
-
-                    if let Some(highest_rank_) = highest_rank_.as_pin_mut() {
-                        *highest_rank_.get_mut() = ArchivedUserHighestRank {
-                            rank: highest_rank.rank,
-                            updated_at: highest_rank.updated_at.unix_timestamp_nanos(),
+                    if let Some(highest_rank_seal) = ArchivedOption::as_seal(highest_rank_seal) {
+                        // SAFETY: We neither move fields nor write uninitialized bytes
+                        unsafe {
+                            *highest_rank_seal.unseal_unchecked() = ArchivedUserHighestRank {
+                                rank: highest_rank.rank.into(),
+                                updated_at: ArchivedDateTime::new(highest_rank.updated_at),
+                            }
                         };
                     }
                 }
 
                 macro_rules! update_pod {
-                    ( $field:ident ) => {
+                    ( $field:ident: $seal:ident ) => {
                         if let Some($field) = user.$field {
-                            // SAFETY: The modified option will keep its variant and
-                            // POD is Unpin.
-                            let field = unsafe {
-                                archived.as_mut().map_unchecked_mut(|user| &mut user.$field)
-                            };
-
-                            *field.get_mut() = $field;
+                            *$seal.unseal() = $field.into();
                         }
                     };
                 }
 
-                update_pod!(follower_count);
-                update_pod!(graveyard_mapset_count);
-                update_pod!(guest_mapset_count);
-                update_pod!(loved_mapset_count);
-                update_pod!(ranked_mapset_count);
-                update_pod!(scores_first_count);
-                update_pod!(pending_mapset_count);
+                update_pod!(follower_count: follower_count_seal);
+                update_pod!(graveyard_mapset_count: graveyard_mapset_count_seal);
+                update_pod!(guest_mapset_count: guest_mapset_count_seal);
+                update_pod!(loved_mapset_count: loved_mapset_count_seal);
+                update_pod!(ranked_mapset_count: ranked_mapset_count_seal);
+                update_pod!(scores_first_count: scores_first_count_seal);
+                update_pod!(pending_mapset_count: pending_mapset_count_seal);
             }),
         }
     }

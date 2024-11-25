@@ -1,11 +1,15 @@
+use std::ops::Deref;
+
 use bathbot_util::constants::OSUSTATS_API_ISSUE;
 use eyre::Result;
+use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::prelude::GameMode;
 
 use super::{OsuStatsBest, OsuStatsBestSort};
 use crate::{
     active::{impls::OsuStatsBestPagination, ActiveMessages},
     core::{commands::CommandOrigin, Context},
+    manager::redis::RedisData,
 };
 
 pub(super) async fn recentbest(orig: CommandOrigin<'_>, args: OsuStatsBest) -> Result<()> {
@@ -13,7 +17,12 @@ pub(super) async fn recentbest(orig: CommandOrigin<'_>, args: OsuStatsBest) -> R
     let scores_fut = Context::redis().osustats_best(args.timeframe, mode);
 
     let mut scores = match scores_fut.await {
-        Ok(scores) => scores.into_original(),
+        Ok(scores) => match scores {
+            RedisData::Original(data) => data,
+            RedisData::Archive(data) => {
+                rkyv::api::deserialize_using::<_, _, Panic>(data.deref(), &mut ()).always_ok()
+            }
+        },
         Err(err) => {
             let _ = orig.error(OSUSTATS_API_ISSUE).await;
 

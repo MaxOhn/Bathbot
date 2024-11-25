@@ -14,7 +14,7 @@ use bathbot_util::{
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
 use eyre::{Result, WrapErr};
-use rkyv::{Deserialize, Infallible};
+use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 use twilight_interactions::command::AutocompleteValue;
@@ -96,7 +96,9 @@ pub(super) async fn info(orig: CommandOrigin<'_>, args: MedalInfo_<'_>) -> Resul
                 .iter()
                 .position(|m| m.name.to_ascii_lowercase() == name)
             {
-                Some(idx) => archived[idx].deserialize(&mut Infallible).unwrap(),
+                Some(idx) => {
+                    rkyv::api::deserialize_using::<_, _, Panic>(&archived[idx], &mut ()).always_ok()
+                }
                 None => return no_medal(&orig, name.as_ref(), medals).await,
             }
         }
@@ -409,7 +411,7 @@ impl MedalEmbed {
                     let username = user.username.as_str();
                     let user_id = user.user_id;
 
-                    (country_code, username, user_id)
+                    (country_code, username, user_id.to_native())
                 }
             };
 

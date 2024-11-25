@@ -9,9 +9,8 @@ use std::{
 use eyre::{Result, WrapErr};
 use form_urlencoded::Serializer as FormSerializer;
 use rkyv::{
-    string::ArchivedString,
-    with::{Niche, Raw},
-    Archive, Deserialize as RkyvDeserialize, Serialize,
+    bytecheck::CheckBytes, string::ArchivedString, with::Niche, Archive, Archived,
+    Deserialize as RkyvDeserialize, Portable, Serialize,
 };
 use rosu_v2::{
     model::GameMode,
@@ -206,6 +205,11 @@ pub struct OsekaiComment {
 pub struct OsekaiMedal {
     #[serde(rename = "MedalID")]
     pub medal_id: u32,
+    #[serde(rename = "ModeOrder")]
+    pub mode_order: u32,
+    pub ordering: u32,
+    #[serde(rename = "Rarity")]
+    pub rarity: f32,
     pub name: Box<str>,
     #[serde(rename = "Link")]
     pub icon_url: Box<str>,
@@ -213,16 +217,11 @@ pub struct OsekaiMedal {
     #[serde(deserialize_with = "osekai_mode")]
     pub restriction: Option<GameMode>,
     pub grouping: MedalGroup,
-    #[with(Niche)]
+    #[rkyv(with = Niche)]
     solution: Option<Box<str>>,
-    #[with(Niche)]
+    #[rkyv(with = Niche)]
     #[serde(deserialize_with = "medal_mods")]
     pub mods: Option<Box<str>>,
-    #[serde(rename = "ModeOrder")]
-    pub mode_order: u32,
-    pub ordering: u32,
-    #[serde(rename = "Rarity")]
-    pub rarity: f32,
 }
 
 pub static MEDAL_GROUPS: [MedalGroup; 8] = [
@@ -535,23 +534,26 @@ fn osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>, D::E
 }
 
 #[derive(Archive, Debug, RkyvDeserialize, Serialize)]
-#[archive(as = "ArchivedOsekaiRankingEntry<T>")]
+#[rkyv(as = ArchivedOsekaiRankingEntry<T>)]
 pub struct OsekaiRankingEntry<T: Archive> {
     pub country: Box<str>,
-    #[with(DerefAsString)]
+    #[rkyv(with = DerefAsString)]
     pub country_code: CountryCode,
     pub rank: u32,
     pub user_id: u32,
-    #[with(DerefAsString)]
+    #[rkyv(with = DerefAsString)]
     pub username: Username,
     value: ValueWrapper<T>,
 }
 
+#[derive(Portable, CheckBytes)]
+#[bytecheck(crate = rkyv::bytecheck)]
+#[repr(C)]
 pub struct ArchivedOsekaiRankingEntry<T: Archive> {
     pub country: <Box<str> as Archive>::Archived,
     pub country_code: ArchivedString,
-    pub rank: u32,
-    pub user_id: u32,
+    pub rank: Archived<u32>,
+    pub user_id: Archived<u32>,
     pub username: ArchivedString,
     value: <ValueWrapper<T> as Archive>::Archived,
 }
@@ -572,8 +574,10 @@ where
     }
 }
 
-#[derive(Archive, Copy, Clone, RkyvDeserialize, Serialize)]
-#[archive(as = "ValueWrapper<T::Archived>")]
+#[derive(Archive, Copy, Clone, RkyvDeserialize, Serialize, Portable, CheckBytes)]
+#[rkyv(as = ValueWrapper<T::Archived>)]
+#[bytecheck(crate = rkyv::bytecheck)]
+#[repr(C)]
 pub struct ValueWrapper<T>(T);
 
 impl<T: Debug> Debug for ValueWrapper<T> {
@@ -725,10 +729,10 @@ pub struct OsekaiUserEntry {
     #[serde(with = "deser::u32_string")]
     pub rank: u32,
     #[serde(rename = "countrycode")]
-    #[with(DerefAsString)]
+    #[rkyv(with = DerefAsString)]
     pub country_code: CountryCode,
     pub country: Box<str>,
-    #[with(DerefAsString)]
+    #[rkyv(with = DerefAsString)]
     pub username: Username,
     #[serde(rename = "medalCount", with = "deser::u32_string")]
     pub medal_count: u32,
@@ -762,7 +766,7 @@ pub struct OsekaiRarityEntry {
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
 pub struct OsekaiBadge {
     #[serde(with = "deser::date")]
-    #[with(DateRkyv)]
+    #[rkyv(with = DateRkyv)]
     pub awarded_at: Date,
     pub description: Box<str>,
     #[serde(rename = "id", with = "deser::u32_string")]
@@ -770,7 +774,6 @@ pub struct OsekaiBadge {
     pub image_url: Box<str>,
     pub name: Box<str>,
     #[serde(deserialize_with = "string_of_vec_of_u32s")]
-    #[with(Raw)]
     pub users: Vec<u32>,
 }
 

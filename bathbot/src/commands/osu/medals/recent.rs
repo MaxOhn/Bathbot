@@ -1,7 +1,7 @@
 use std::{cmp::Reverse, collections::HashMap, mem};
 
 use bathbot_macros::command;
-use bathbot_model::rosu_v2::user::{MedalCompact as MedalCompactRkyv, User};
+use bathbot_model::rosu_v2::user::{MedalCompactRkyv, User};
 use bathbot_psql::model::configs::HideSolutions;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
@@ -10,8 +10,8 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
 use rkyv::{
-    with::{DeserializeWith, Map},
-    Infallible,
+    rancor::{Panic, ResultExt},
+    with::{Map, With},
 };
 use rosu_v2::{
     model::GameMode,
@@ -98,9 +98,11 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
 
     let mut user_medals = match user {
         RedisData::Original(ref mut user) => mem::take(&mut user.medals),
-        RedisData::Archive(ref user) => {
-            Map::<MedalCompactRkyv>::deserialize_with(&user.medals, &mut Infallible).unwrap()
-        }
+        RedisData::Archive(ref user) => rkyv::api::deserialize_using::<_, _, Panic>(
+            With::<_, Map<MedalCompactRkyv>>::cast(&user.medals),
+            &mut (),
+        )
+        .always_ok(),
     };
 
     if user_medals.is_empty() {

@@ -1,4 +1,4 @@
-use std::iter;
+use std::{borrow::Cow, iter};
 
 use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
@@ -13,6 +13,7 @@ use plotters::{
 };
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
+use rkyv::rend::u32_le;
 use rosu_v2::{prelude::OsuError, request::UserId};
 use skia_safe::{surfaces, EncodedImageFormat};
 
@@ -49,9 +50,16 @@ pub async fn rank_graph(
     fn draw_graph(user: &RedisData<User>) -> Result<Option<Vec<u8>>> {
         let history = match user {
             RedisData::Original(user) if user.rank_history.is_empty() => return Ok(None),
-            RedisData::Original(user) => user.rank_history.as_ref(),
+            RedisData::Original(user) => Cow::Borrowed(user.rank_history.as_ref()),
             RedisData::Archive(user) if user.rank_history.is_empty() => return Ok(None),
-            RedisData::Archive(user) => user.rank_history.as_ref(),
+            RedisData::Archive(user) => Cow::Owned(
+                user.rank_history
+                    .as_ref()
+                    .iter()
+                    .copied()
+                    .map(u32_le::to_native)
+                    .collect(),
+            ),
         };
 
         let history_len = history.len();

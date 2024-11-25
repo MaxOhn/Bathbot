@@ -4,7 +4,11 @@ use bathbot_client::ClientError;
 use bathbot_psql::model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapFilename, MapVersion};
 use bathbot_util::{ExponentialBackoff, IntHasher};
 use eyre::{ContextCompat, Report, WrapErr};
-use rosu_pp::{any::DifficultyAttributes, model::beatmap::BeatmapAttributesBuilder, Beatmap};
+use rosu_pp::{
+    any::DifficultyAttributes,
+    model::{beatmap::BeatmapAttributesBuilder, mode::GameMode as MapMode},
+    Beatmap,
+};
 use rosu_v2::prelude::{BeatmapsetExtended, GameMode, OsuError, RankStatus};
 use thiserror::Error;
 use time::OffsetDateTime;
@@ -80,18 +84,19 @@ impl MapManager {
             mode: GameMode,
             mods: Mods,
         ) -> Result<DifficultyAttributes> {
-            if mods.clock_rate.is_none() {
-                let attrs_fut =
-                    Context::psql().select_map_difficulty_attrs(map_id, mode, mods.bits);
+            // TODO: fetch attributes with custom parameters from database
+            // if mods.clock_rate.is_none() {
+            //     let attrs_fut =
+            //         Context::psql().select_map_difficulty_attrs(map_id, mode, mods.bits);
 
-                if let Some(attrs) = attrs_fut.await.wrap_err("Failed to get attributes")? {
-                    return Ok(attrs);
-                }
-            }
+            //     if let Some(attrs) = attrs_fut.await.wrap_err("Failed to get
+            // attributes")? {         return Ok(attrs);
+            //     }
+            // }
 
             let map = this.pp_map(map_id).await.wrap_err("Failed to get pp map")?;
 
-            let attrs = PpManager::from_parsed(&map, map_id)
+            let attrs = PpManager::from_parsed(&map)
                 .mode(mode)
                 .mods(mods)
                 .difficulty()
@@ -553,7 +558,15 @@ impl OsuMap {
     }
 
     pub fn convert_mut(&mut self, mode: GameMode) {
-        self.pp_map.convert_in_place((mode as u8).into());
+        let mode = match mode {
+            GameMode::Osu => MapMode::Osu,
+            GameMode::Taiko => MapMode::Taiko,
+            GameMode::Catch => MapMode::Catch,
+            GameMode::Mania => MapMode::Mania,
+        };
+
+        // FIXME: use mods
+        let _ = self.pp_map.convert_mut(mode, &Default::default());
     }
 
     pub fn convert(mut self, mode: GameMode) -> Self {
