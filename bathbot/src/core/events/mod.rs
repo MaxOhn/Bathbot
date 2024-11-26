@@ -108,9 +108,9 @@ impl Display for EventLocation {
             EventLocation::Private => f.write_str("Private"),
             EventLocation::UncachedGuild => f.write_str("<uncached guild>"),
             EventLocation::UncachedChannel { guild } => {
-                write!(f, "{}:<uncached channel>", guild.name)
+                write!(f, "{}:<uncached channel>", guild.id)
             }
-            EventLocation::Cached { guild, channel } => write!(f, "{}:{}", guild.name, channel.id),
+            EventLocation::Cached { guild, channel } => write!(f, "{}:{}", guild.id, channel.id),
         }
     }
 }
