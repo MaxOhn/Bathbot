@@ -7,6 +7,8 @@ pub(crate) async fn refresh_materialized_views(pool: PgPool) {
     const DAY: Duration = Duration::from_secs(24 * 3600);
 
     let mut interval = tokio::time::interval(DAY);
+    interval.tick().await;
+    interval.reset_after(DAY / 2);
 
     loop {
         interval.tick().await;
