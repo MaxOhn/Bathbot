@@ -975,7 +975,7 @@ fn write_value(
                 write!(
                     writer,
                     "{}",
-                    GradeFormatter::new(data.score.grade, data.score.legacy_id, true),
+                    GradeFormatter::new(data.score.grade, Some(data.score.score_id), false),
                 )
             };
 
