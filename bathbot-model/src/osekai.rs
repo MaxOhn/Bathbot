@@ -164,7 +164,7 @@ pub struct OsekaiMap {
     pub map_id: u32,
     #[serde(rename = "Beatmapset_ID")]
     pub mapset_id: u32,
-    #[serde(rename = "Gamemode")]
+    #[serde(rename = "Gamemode", deserialize_with = "osekai_mode")]
     pub mode: GameMode,
     #[serde(rename = "Difficulty_Rating")]
     pub stars: f32,
@@ -207,7 +207,7 @@ pub struct OsekaiMedal {
     #[serde(rename = "Link")]
     icon_url_suffix: Box<str>,
     pub description: Box<str>,
-    #[serde(rename = "Gamemode", deserialize_with = "osekai_mode")]
+    #[serde(rename = "Gamemode", deserialize_with = "maybe_osekai_mode")]
     pub mode: Option<GameMode>,
     pub grouping: MedalGroup,
     #[rkyv(with = Niche)]
@@ -485,7 +485,11 @@ fn medal_mods<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Box<str>>, D::Er
     <Option<Box<str>> as Deserialize>::deserialize(d).map(|opt| opt.filter(|mods| !mods.is_empty()))
 }
 
-fn osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>, D::Error> {
+fn osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<GameMode, D::Error> {
+    maybe_osekai_mode(d)?.ok_or_else(|| Error::custom("missing mode"))
+}
+
+fn maybe_osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>, D::Error> {
     struct OsekaiModeVisitor;
 
     impl<'de> Visitor<'de> for OsekaiModeVisitor {
@@ -772,7 +776,7 @@ pub struct OsekaiRarityEntry {
     pub description: Box<str>,
     #[serde(rename = "possessionRate", with = "deser::f32_string")]
     pub possession_percent: f32,
-    #[serde(rename = "gameMode", deserialize_with = "osekai_mode")]
+    #[serde(rename = "gameMode", deserialize_with = "maybe_osekai_mode")]
     pub mode: Option<GameMode>,
 }
 
