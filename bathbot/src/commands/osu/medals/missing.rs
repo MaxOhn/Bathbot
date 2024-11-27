@@ -156,7 +156,9 @@ pub(super) async fn missing(orig: CommandOrigin<'_>, args: MedalMissing<'_>) -> 
             a.group().cmp(&b.group()).then_with(|| match (a, b) {
                 (MedalType::Group(_), MedalType::Medal(_)) => Ordering::Less,
                 (MedalType::Medal(_), MedalType::Group(_)) => Ordering::Greater,
-                (MedalType::Medal(a), MedalType::Medal(b)) => b.rarity.total_cmp(&a.rarity),
+                (MedalType::Medal(a), MedalType::Medal(b)) => {
+                    b.rarity.unwrap_or(0.0).total_cmp(&a.rarity.unwrap_or(0.0))
+                }
                 (MedalType::Group(_), MedalType::Group(_)) => unreachable!(),
             })
         }),

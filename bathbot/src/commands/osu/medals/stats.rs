@@ -127,7 +127,7 @@ pub(super) async fn stats(orig: CommandOrigin<'_>, args: MedalStats<'_>) -> Resu
                     StatsMedal {
                         name: medal.name,
                         group: medal.grouping,
-                        rarity: medal.rarity,
+                        rarity: medal.rarity.unwrap_or(0.0),
                     },
                 )
             })
@@ -141,7 +141,7 @@ pub(super) async fn stats(orig: CommandOrigin<'_>, args: MedalStats<'_>) -> Resu
                     name: medal.name.as_ref().into(),
                     group: rkyv::api::deserialize_using::<_, _, Panic>(&medal.grouping, &mut ())
                         .always_ok(),
-                    rarity: medal.rarity.to_native(),
+                    rarity: medal.rarity.as_ref().map_or(0.0, |n| n.to_native()),
                 };
 
                 (medal_id.to_native(), medal)

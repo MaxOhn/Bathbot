@@ -152,70 +152,63 @@ define_ranking! {
     "subscribers"
 }
 
-#[derive(Deserialize)]
-pub struct OsekaiMaps(pub Option<Vec<OsekaiMap>>);
-
 #[derive(Clone, Debug, Deserialize)]
 pub struct OsekaiMap {
-    #[serde(rename = "Artist")]
+    #[serde(rename = "Song_Artist")]
     pub artist: Box<str>,
-    #[serde(rename = "Mapper")]
+    #[serde(rename = "Mapper_Name")]
     pub creator: Username,
-    #[serde(rename = "MapperID")]
+    #[serde(rename = "Mapper_ID")]
     pub creator_id: u32,
-    #[serde(rename = "BeatmapID")]
+    #[serde(rename = "Beatmap_ID")]
     pub map_id: u32,
-    #[serde(rename = "MapsetID")]
+    #[serde(rename = "Beatmapset_ID")]
     pub mapset_id: u32,
-    #[serde(rename = "MedalName")]
-    pub medal_name: Box<str>,
     #[serde(rename = "Gamemode")]
     pub mode: GameMode,
-    #[serde(rename = "Difficulty")]
+    #[serde(rename = "Difficulty_Rating")]
     pub stars: f32,
-    #[serde(rename = "SongTitle")]
+    #[serde(rename = "Song_Title")]
     pub title: Box<str>,
-    #[serde(rename = "DifficultyName")]
+    #[serde(rename = "Difficulty_Name")]
     pub version: Box<str>,
-    #[serde(rename = "VoteSum", with = "deser::u32_string")]
-    pub vote_sum: u32,
+    #[serde(rename = "VoteCount")]
+    pub vote_count: u32,
 }
-
-#[derive(Deserialize)]
-pub struct OsekaiComments(pub Option<Vec<OsekaiComment>>);
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct OsekaiComment {
     #[serde(rename = "ID")]
     pub comment_id: u32,
-    #[serde(rename = "PostText")]
+    #[serde(rename = "Text")]
     pub content: Box<str>,
-    #[serde(rename = "Parent")]
-    pub parent_id: u32,
-    #[serde(rename = "UserID")]
+    // By default osekai only sends top-level comments so parent_id is always
+    // null
+    // #[serde(rename = "Parent_Comment_ID")]
+    // pub parent_id: Option<u32>,
+    #[serde(rename = "User_ID")]
     pub user_id: u32,
     #[serde(rename = "Username")]
     pub username: Username,
-    #[serde(rename = "VoteSum", with = "deser::u32_string")]
-    pub vote_sum: u32,
+    #[serde(rename = "VoteCount")]
+    pub vote_count: u32,
 }
 
 #[derive(Archive, Clone, Debug, Deserialize, RkyvDeserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct OsekaiMedal {
-    #[serde(rename = "MedalID")]
+    #[serde(rename = "Medal_ID", with = "deser::u32_string")]
     pub medal_id: u32,
-    #[serde(rename = "ModeOrder")]
-    pub mode_order: u32,
+    #[serde(with = "deser::u32_string")]
     pub ordering: u32,
-    #[serde(rename = "Rarity")]
-    pub rarity: f32,
+    #[serde(rename = "Frequency")]
+    pub rarity: Option<f32>,
     pub name: Box<str>,
     #[serde(rename = "Link")]
-    pub icon_url: Box<str>,
+    icon_url_suffix: Box<str>,
     pub description: Box<str>,
-    #[serde(deserialize_with = "osekai_mode")]
-    pub restriction: Option<GameMode>,
+    #[serde(rename = "Gamemode", deserialize_with = "osekai_mode")]
+    pub mode: Option<GameMode>,
     pub grouping: MedalGroup,
     #[rkyv(with = Niche)]
     solution: Option<Box<str>>,
@@ -418,6 +411,26 @@ impl OsekaiMedal {
 
     fn grouping_order(&self) -> u32 {
         self.grouping.order()
+    }
+
+    pub fn icon_url(&self) -> OsekaiMedalIconUrl<'_> {
+        OsekaiMedalIconUrl {
+            filename: self.icon_url_suffix.as_ref(),
+        }
+    }
+}
+
+pub struct OsekaiMedalIconUrl<'a> {
+    filename: &'a str,
+}
+
+impl Display for OsekaiMedalIconUrl<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(
+            f,
+            "https://inex.osekai.net/assets/osu/web/{}",
+            self.filename
+        )
     }
 }
 
@@ -795,4 +808,11 @@ pub struct OsekaiBadgeOwner {
     pub user_id: u32,
     #[serde(rename = "name")]
     pub username: Username,
+}
+
+#[derive(Deserialize)]
+pub struct OsekaiInex<T> {
+    // pub success: bool,
+    // pub message: String,
+    pub content: T,
 }
