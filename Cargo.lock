@@ -217,7 +217,7 @@ dependencies = [
  "rosu-pp",
  "rosu-v2",
  "skia-safe",
- "thiserror",
+ "thiserror 1.0.61",
 ]
 
 [[package]]
@@ -241,7 +241,7 @@ dependencies = [
  "ryu",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.61",
  "time",
  "tokio",
  "tracing",
@@ -276,7 +276,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
- "thiserror",
+ "thiserror 1.0.61",
  "time",
  "twilight-gateway",
  "twilight-interactions",
@@ -324,7 +324,7 @@ dependencies = [
  "rosu-v2",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.61",
  "tokio",
  "tower",
  "tower-http",
@@ -378,7 +378,7 @@ dependencies = [
  "serde_json",
  "skia-safe",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.61",
  "time",
  "tokio",
  "tokio-stream",
@@ -1225,7 +1225,7 @@ dependencies = [
  "pest_derive",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.61",
 ]
 
 [[package]]
@@ -1651,7 +1651,7 @@ dependencies = [
  "metrics",
  "metrics-util",
  "quanta",
- "thiserror",
+ "thiserror 1.0.61",
 ]
 
 [[package]]
@@ -1943,7 +1943,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd53dff83f26735fdc1ca837098ccf133605d794cdae66acfc2bfac3ec809d95"
 dependencies = [
  "memchr",
- "thiserror",
+ "thiserror 1.0.61",
  "ucd-trie",
 ]
 
@@ -2299,7 +2299,7 @@ checksum = "bd283d9651eeda4b2a83a43c1c91b266c40fd76ecd39a50a8c630ae69dc72891"
 dependencies = [
  "getrandom",
  "libredox",
- "thiserror",
+ "thiserror 1.0.61",
 ]
 
 [[package]]
@@ -2452,9 +2452,9 @@ dependencies = [
 
 [[package]]
 name = "rosu-render"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc502f25517937b217f6339989ae6d5916c79d89980bb0ccad23c3703371fbf3"
+checksum = "649bf2a4b74744842edd8f173a1d23bf8c921050203937e1d473fdba2c359ece"
 dependencies = [
  "bytes",
  "form_urlencoded",
@@ -2470,7 +2470,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
- "thiserror",
+ "thiserror 2.0.3",
  "time",
  "tokio",
  "tokio-tungstenite 0.20.1",
@@ -2496,7 +2496,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "smallstr",
- "thiserror",
+ "thiserror 1.0.61",
  "time",
  "tokio",
  "tracing",
@@ -3028,7 +3028,7 @@ dependencies = [
  "sha2",
  "smallvec",
  "sqlformat",
- "thiserror",
+ "thiserror 1.0.61",
  "time",
  "tokio",
  "tokio-stream",
@@ -3113,7 +3113,7 @@ dependencies = [
  "smallvec",
  "sqlx-core",
  "stringprep",
- "thiserror",
+ "thiserror 1.0.61",
  "time",
  "tracing",
  "whoami",
@@ -3152,7 +3152,7 @@ dependencies = [
  "smallvec",
  "sqlx-core",
  "stringprep",
- "thiserror",
+ "thiserror 1.0.61",
  "time",
  "tracing",
  "whoami",
@@ -3262,7 +3262,16 @@ version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c546c80d6be4bc6a00c0f01730c08df82eaa7a7a61f11d656526506112cc1709"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 1.0.61",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c006c85c7651b3cf2ada4584faa36773bd07bac24acfb39f3c431b36d7e667aa"
+dependencies = [
+ "thiserror-impl 2.0.3",
 ]
 
 [[package]]
@@ -3270,6 +3279,17 @@ name = "thiserror-impl"
 version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46c3384250002a6d5af4d114f2845d37b57521033f30d5c3f46c4d70e1197533"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3552,7 +3572,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3566e8ce28cc0a3fe42519fc80e6b4c943cc4c8cef275620eb8dac2d3d4e06cf"
 dependencies = [
  "crossbeam-channel",
- "thiserror",
+ "thiserror 1.0.61",
  "time",
  "tracing-subscriber",
 ]
@@ -3634,7 +3654,7 @@ dependencies = [
  "rand",
  "rustls 0.20.9",
  "sha1",
- "thiserror",
+ "thiserror 1.0.61",
  "url",
  "utf-8",
  "webpki",
@@ -3655,7 +3675,7 @@ dependencies = [
  "rand",
  "rustls 0.21.12",
  "sha1",
- "thiserror",
+ "thiserror 1.0.61",
  "url",
  "utf-8",
 ]
