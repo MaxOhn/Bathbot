@@ -443,6 +443,9 @@ fn strain_values(map: &PpMap, mods: GameMods) -> Result<GraphStrains> {
                 .wrap_err("Failed to build rhythm curve")?;
             strains.stamina = create_curve(mem::take(&mut strains.stamina))
                 .wrap_err("Failed to build stamina curve")?;
+            strains.single_color_stamina =
+                create_curve(mem::take(&mut strains.single_color_stamina))
+                    .wrap_err("Failed to build single color stamina curve")?;
         }
         Strains::Catch(strains) => {
             strains.movement = create_curve(mem::take(&mut strains.movement))
@@ -493,7 +496,10 @@ pub async fn map_strain_graph(map: &PpMap, mods: GameMods, cover_url: &str) -> R
             .iter()
             .zip(strains.rhythm.iter())
             .zip(strains.stamina.iter())
-            .fold(0.0_f64, |max, ((a, b), c)| max.max(*a).max(*b).max(*c)),
+            .zip(strains.single_color_stamina.iter())
+            .fold(0.0_f64, |max, (((a, b), c), d)| {
+                max.max(*a).max(*b).max(*c).max(*d)
+            }),
         Strains::Catch(strains) => strains
             .movement
             .iter()
@@ -692,6 +698,7 @@ fn draw_mode_strains(
         }
         Strains::Taiko(strains) => {
             draw_line!("Stamina", strains.stamina, RED);
+            draw_line!("Stamina (Single color)", strains.single_color_stamina, BLUE);
             draw_line!("Color", strains.color, YELLOW);
             draw_line!("Rhythm", strains.rhythm, CYAN);
         }
