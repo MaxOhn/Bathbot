@@ -515,7 +515,7 @@ impl OngoingRender {
     }
 
     pub async fn await_render_url(mut self) {
-        const MINUTE: Duration = Duration::from_secs(60);
+        const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60 * 24);
         const INTERVAL: Duration = Duration::from_secs(5);
 
         let mut last_update = Instant::now();
@@ -590,7 +590,7 @@ impl OngoingRender {
 
                     return;
                 },
-                _ = tokio::time::sleep(MINUTE) => {
+                _ = tokio::time::sleep(TIMEOUT_DURATION) => {
                     let content = "Timeout while waiting for o!rdr updates, \
                         there was probably a network issue.";
 
