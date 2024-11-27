@@ -1,9 +1,8 @@
 use bathbot_model::{
-    OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments, OsekaiMap, OsekaiMaps,
-    OsekaiMedal, OsekaiRanking, OsekaiRankingEntries,
+    OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiInex, OsekaiMap, OsekaiMedal,
+    OsekaiRanking, OsekaiRankingEntries,
 };
 use eyre::{Result, WrapErr};
-use itoa::Buffer as IntBuffer;
 
 use crate::{multipart::Multipart, site::Site, Client};
 
@@ -34,59 +33,45 @@ impl Client {
 
     /// Don't use this; use `RedisManager::medals` instead.
     pub async fn get_osekai_medals(&self) -> Result<Vec<OsekaiMedal>> {
-        let url = "https://osekai.net/medals/api/medals.php";
+        let url = "https://inex.osekai.net/api/medals/get_all";
 
-        let mut form = Multipart::new();
-        form.push_text("strSearch", "");
+        let bytes = self.make_get_request(url, Site::Osekai).await?;
 
-        let bytes = self
-            .make_multipart_post_request(url, Site::Osekai, form)
-            .await?;
+        serde_json::from_slice::<OsekaiInex<Vec<OsekaiMedal>>>(&bytes)
+            .map(|inex| inex.content)
+            .wrap_err_with(|| {
+                let body = String::from_utf8_lossy(&bytes);
 
-        serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
-
-            format!("Failed to deserialize osekai medals: {body}")
-        })
+                format!("Failed to deserialize osekai medals: {body}")
+            })
     }
 
-    pub async fn get_osekai_beatmaps(&self, medal_name: &str) -> Result<Vec<OsekaiMap>> {
-        let url = "https://osekai.net/medals/api/beatmaps.php";
-        let mut form = Multipart::new();
-        form.push_text("strSearch", medal_name);
+    pub async fn get_osekai_beatmaps(&self, medal_id: u32) -> Result<Vec<OsekaiMap>> {
+        let url = format!("https://inex.osekai.net/api/medals/{medal_id}/beatmaps");
 
-        let bytes = self
-            .make_multipart_post_request(url, Site::Osekai, form)
-            .await?;
+        let bytes = self.make_get_request(url, Site::Osekai).await?;
 
-        let maps: OsekaiMaps = serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
+        serde_json::from_slice::<OsekaiInex<Vec<OsekaiMap>>>(&bytes)
+            .map(|inex| inex.content)
+            .wrap_err_with(|| {
+                let body = String::from_utf8_lossy(&bytes);
 
-            format!("failed to deserialize osekai maps: {body}")
-        })?;
-
-        Ok(maps.0.unwrap_or_default())
+                format!("failed to deserialize osekai maps: {body}")
+            })
     }
 
     pub async fn get_osekai_comments(&self, medal_id: u32) -> Result<Vec<OsekaiComment>> {
-        let url = "https://osekai.net/global/api/comment_system.php";
+        let url = format!("https://inex.osekai.net/api/comments/Medals_Data/{medal_id}/get");
 
-        let mut buf = IntBuffer::new();
-        let mut form = Multipart::new();
-        form.push_int("strMedalID", medal_id, &mut buf)
-            .push_text("bGetComments", "true");
+        let bytes = self.make_get_request(url, Site::Osekai).await?;
 
-        let bytes = self
-            .make_multipart_post_request(url, Site::Osekai, form)
-            .await?;
+        serde_json::from_slice::<OsekaiInex<Vec<OsekaiComment>>>(&bytes)
+            .map(|inex| inex.content)
+            .wrap_err_with(|| {
+                let body = String::from_utf8_lossy(&bytes);
 
-        let comments: OsekaiComments = serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
-
-            format!("failed to deserialize osekai comments: {body}")
-        })?;
-
-        Ok(comments.0.unwrap_or_default())
+                format!("failed to deserialize osekai comments: {body}")
+            })
     }
 
     /// Don't use this; use `RedisManager::osekai_ranking` instead.

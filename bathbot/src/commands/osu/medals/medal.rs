@@ -105,7 +105,7 @@ pub(super) async fn info(orig: CommandOrigin<'_>, args: MedalInfo_<'_>) -> Resul
     };
 
     let client = Context::client();
-    let map_fut = client.get_osekai_beatmaps(&medal.name);
+    let map_fut = client.get_osekai_beatmaps(medal.medal_id);
     let comment_fut = client.get_osekai_comments(medal.medal_id);
 
     let (mut maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
@@ -119,15 +119,14 @@ pub(super) async fn info(orig: CommandOrigin<'_>, args: MedalInfo_<'_>) -> Resul
 
     let top_comment = comments
         .into_iter()
-        .filter(|comment| comment.parent_id == 0)
-        .max_by_key(|comment| comment.vote_sum)
-        .filter(|comment| comment.vote_sum > 0);
+        .max_by_key(|comment| comment.vote_count)
+        .filter(|comment| comment.vote_count > 0);
 
     // Remove all dups
     maps.sort_unstable_by_key(|map| Reverse(map.map_id));
     maps.dedup_by_key(|map| map.map_id);
 
-    maps.sort_unstable_by_key(|map| Reverse(map.vote_sum));
+    maps.sort_unstable_by_key(|map| Reverse(map.vote_count));
 
     let hide_solution = match orig.guild_id() {
         Some(guild) => {
@@ -298,11 +297,11 @@ impl MedalEmbed {
             mode_mods.push_str("||");
         }
 
-        if medal.restriction.is_none() && medal.mods.is_none() {
+        if medal.mode.is_none() && medal.mods.is_none() {
             // Padded to not make the potential spoiler too obvious
             mode_mods.push_str("Any      ");
         } else {
-            if let Some(mode) = medal.restriction {
+            if let Some(mode) = medal.mode {
                 let _ = write!(mode_mods, "{mode}");
             } else {
                 mode_mods.push_str("Any");
@@ -322,7 +321,7 @@ impl MedalEmbed {
         }
 
         fields![fields {
-            "Rarity", format!("{:.2}%", medal.rarity), true;
+            "Rarity", format!("{:.2}%", medal.rarity.unwrap_or(0.0)), true;
             "Mode • Mods", mode_mods, true;
             "Group", medal.grouping.to_string(), true;
         }];
@@ -337,7 +336,7 @@ impl MedalEmbed {
                     title,
                     version,
                     map_id,
-                    vote_sum,
+                    vote_count: vote_sum,
                     ..
                 } = map;
 
@@ -368,7 +367,7 @@ impl MedalEmbed {
             let OsekaiComment {
                 content,
                 username,
-                vote_sum,
+                vote_count: vote_sum,
                 ..
             } = comment;
 
@@ -384,7 +383,7 @@ impl MedalEmbed {
         }
 
         let title = medal.name.as_ref().to_owned();
-        let thumbnail = medal.icon_url.as_ref().to_owned();
+        let thumbnail = medal.icon_url().to_string();
 
         let url = match medal.url() {
             Ok(url) => url,
@@ -417,7 +416,7 @@ impl MedalEmbed {
 
             let mut author_url = format!("{OSU_BASE}users/{user_id}");
 
-            match medal.restriction {
+            match medal.mode {
                 None => {}
                 Some(GameMode::Osu) => author_url.push_str("/osu"),
                 Some(GameMode::Taiko) => author_url.push_str("/taiko"),
