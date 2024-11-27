@@ -33,6 +33,7 @@ impl TourneyBadges {
             || badge.starts_with("aspire")
             || badge.starts_with("assessment")
             || badge.starts_with("beatmap")
+            || badge.starts_with("community choice")
             || badge.starts_with("contrib")
             || badge.starts_with("centurion mapper")
             || badge.starts_with("elite")
