@@ -3,6 +3,7 @@ use std::{collections::HashMap, hash::BuildHasher};
 use eyre::{Report, Result, WrapErr};
 use futures::StreamExt;
 use rkyv::{rancor::BoxedError, ser::Serializer};
+use sqlx::types::Json;
 use twilight_model::id::{marker::GuildMarker, Id};
 
 use crate::{
@@ -37,7 +38,7 @@ FROM
         );
 
         let mut rows = query.fetch(self);
-        let mut configs = HashMap::with_capacity_and_hasher(30_000, S::default());
+        let mut configs = HashMap::with_capacity_and_hasher(50_000, S::default());
 
         while let Some(row_res) = rows.next().await {
             let row = row_res.wrap_err("failed to get next")?;
@@ -66,18 +67,13 @@ FROM
             score_data,
         } = config;
 
-        let (authorities, prefixes) = rkyv::util::with_arena(|arena| {
-            let mut authorities_writer = Vec::new();
-            let mut prefixes_writer = Vec::new();
-            let mut serializer = Serializer::new(&mut authorities_writer, arena.acquire(), ());
+        let authorities = rkyv::util::with_arena(|arena| {
+            let mut writer = Vec::new();
+            let mut serializer = Serializer::new(&mut writer, arena.acquire(), ());
             rkyv::api::serialize_using::<_, BoxedError>(authorities, &mut serializer)
                 .wrap_err("Failed to serialize authorities")?;
 
-            serializer.writer = &mut prefixes_writer;
-            rkyv::api::serialize_using::<_, BoxedError>(prefixes, &mut serializer)
-                .wrap_err("Failed to serialize prefixes")?;
-
-            Ok::<_, Report>((authorities_writer, prefixes_writer))
+            Ok::<_, Report>(writer)
         })?;
 
         let query = sqlx::query!(
@@ -107,7 +103,7 @@ SET
   score_data = $11"#,
             guild_id.get() as i64,
             &authorities as &[u8],
-            &prefixes as &[u8],
+            Json(prefixes) as _,
             *allow_songs,
             retries.map(i16::from),
             track_limit.map(|limit| limit as i16),
@@ -121,7 +117,7 @@ SET
         query
             .execute(self)
             .await
-            .wrap_err("failed to execute query")?;
+            .wrap_err("Failed to execute query")?;
 
         debug!(guild_id = guild_id.get(), "Inserted GuildConfig into DB");
 

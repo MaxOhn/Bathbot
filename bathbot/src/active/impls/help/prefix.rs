@@ -24,7 +24,6 @@ use crate::{
         },
         Context,
     },
-    manager::DEFAULT_PREFIX,
     util::{interaction::InteractionComponent, Emote},
 };
 
@@ -222,7 +221,7 @@ impl HelpPrefixMenu {
                 let prefixes = &config.prefixes;
 
                 if let Some(prefix) = prefixes.first().cloned() {
-                    if prefix == DEFAULT_PREFIX && prefixes.len() == 1 {
+                    if prefix == GuildConfig::DEFAULT_PREFIX && prefixes.len() == 1 {
                         (None, prefix)
                     } else {
                         let prefix_iter = prefixes.iter().skip(1);
@@ -236,18 +235,28 @@ impl HelpPrefixMenu {
                         (Some(prefixes_str), prefix)
                     }
                 } else {
-                    (None, DEFAULT_PREFIX.into())
+                    (None, GuildConfig::DEFAULT_PREFIX.into())
                 }
             };
 
             Context::guild_config().peek(guild_id, f).await
         } else {
-            (None, DEFAULT_PREFIX.into())
+            (None, GuildConfig::DEFAULT_PREFIX.into())
         };
 
         let prefix_desc = custom_prefix.map_or_else(
-            || format!("Prefix: `{DEFAULT_PREFIX}` (none required in DMs)"),
-            |p| format!("Server prefix: {p}\nDM prefix: `{DEFAULT_PREFIX}` or none at all"),
+            || {
+                format!(
+                    "Prefix: `{}` (none required in DMs)",
+                    GuildConfig::DEFAULT_PREFIX
+                )
+            },
+            |p| {
+                format!(
+                    "Server prefix: {p}\nDM prefix: `{}` or none at all",
+                    GuildConfig::DEFAULT_PREFIX
+                )
+            },
         );
 
         let link = InteractionCommands::get_command("link").map_or_else(

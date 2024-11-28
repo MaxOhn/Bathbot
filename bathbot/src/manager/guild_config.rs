@@ -6,8 +6,6 @@ use twilight_model::id::{marker::GuildMarker, Id};
 
 type GuildConfigs = PapayaMap<Id<GuildMarker>, GuildConfig, IntHasher>;
 
-pub const DEFAULT_PREFIX: &str = "<";
-
 #[derive(Copy, Clone)]
 pub struct GuildConfigManager {
     psql: &'static Database,
@@ -29,6 +27,8 @@ impl GuildConfigManager {
         F: FnOnce(&GuildConfig) -> O,
     {
         if let Some(config) = self.guild_configs.pin().get(&guild_id) {
+            debug!("found config");
+
             return f(config);
         }
 
@@ -51,7 +51,7 @@ impl GuildConfigManager {
             None => None,
         };
 
-        prefix_opt.unwrap_or_else(|| DEFAULT_PREFIX.into())
+        prefix_opt.unwrap_or_else(|| GuildConfig::DEFAULT_PREFIX.to_owned())
     }
 
     pub async fn update<F, O>(self, guild_id: Id<GuildMarker>, f: F) -> Result<O>
