@@ -49,7 +49,6 @@ impl SimulateData {
                 $( $calc:ident )::+ {
                     $( $calc_fn:ident: $this_field:ident $( as $ty:ty )? ,)+
                 } => {
-                    map: $map:expr,
                     mods: $mods:expr,
                     max_new: $max_new:tt,
                     $( with_diff: $with_diff:tt, )?
@@ -57,7 +56,7 @@ impl SimulateData {
                     $( fallible: $fallible:tt, )?
                 }
             ) => {{
-                let map = $map;
+                let map = map.pp_map();
                 let mut calc = $( $calc:: )* new(map).mods($mods);
                 $( calc = simulate!(@WITH_LAZER $with_lazer calc); )?
 
@@ -119,7 +118,6 @@ impl SimulateData {
                     misses: n_miss,
                     accuracy: acc,
                 } => {
-                    map: { map.pp_map() },
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -134,7 +132,6 @@ impl SimulateData {
                     misses: n_miss,
                     accuracy: acc,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -149,7 +146,6 @@ impl SimulateData {
                     misses: n_miss,
                     accuracy: acc,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -164,7 +160,6 @@ impl SimulateData {
                     misses: n_miss,
                     accuracy: acc,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -179,7 +174,6 @@ impl SimulateData {
                     misses: n_miss,
                     accuracy: acc,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -194,7 +188,6 @@ impl SimulateData {
                     misses: n_miss,
                     accuracy: acc,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -209,7 +202,6 @@ impl SimulateData {
                     misses: n_miss,
                     accuracy: acc,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -224,7 +216,6 @@ impl SimulateData {
                     misses: n_miss,
                     accuracy: acc,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -239,7 +230,6 @@ impl SimulateData {
                     misses: n_miss,
                     accuracy: acc as f64,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -255,7 +245,6 @@ impl SimulateData {
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -273,7 +262,6 @@ impl SimulateData {
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 } => {
-                    map: map.pp_map(),
                     mods: mods.clone(),
                     max_new: attrs,
                     with_lazer: true,
@@ -288,7 +276,6 @@ impl SimulateData {
                     misses: n_miss,
                     accuracy: acc,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -302,7 +289,6 @@ impl SimulateData {
                     misses: n_miss,
                     accuracy: acc as f64,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -317,7 +303,6 @@ impl SimulateData {
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -332,7 +317,6 @@ impl SimulateData {
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 } => {
-                    map: map.pp_map(),
                     mods: mods.clone(),
                     max_new: attrs,
                     fallible: true,
@@ -348,7 +332,6 @@ impl SimulateData {
                     tiny_droplet_misses: n_katu,
                     accuracy: acc,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -365,7 +348,6 @@ impl SimulateData {
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -382,7 +364,6 @@ impl SimulateData {
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 } => {
-                    map: map.pp_map(),
                     mods: mods.clone(),
                     max_new: attrs,
                     fallible: true,
@@ -393,7 +374,6 @@ impl SimulateData {
                     score: score,
                     accuracy: acc,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -403,7 +383,6 @@ impl SimulateData {
                 rosu_pp_older::mania_2018::ManiaPP {
                     score: score,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -420,7 +399,6 @@ impl SimulateData {
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 } => {
-                    map: map.pp_map(),
                     mods: mod_bits,
                     max_new: map,
                     with_diff: true,
@@ -437,7 +415,6 @@ impl SimulateData {
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
                 } => {
-                    map: map.pp_map(),
                     mods: mods.clone(),
                     max_new: attrs,
                     fallible: true,
