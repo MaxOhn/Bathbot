@@ -88,11 +88,7 @@ impl Top100Stats {
 
             this.pp.add(pp);
 
-            let map_attrs = map
-                .attributes()
-                .mods(score.mods.bits())
-                .clock_rate(score.mods.clock_rate().unwrap_or(1.0))
-                .build();
+            let map_attrs = map.attributes().mods(score.mods.clone()).build();
 
             this.ar.add(map_attrs.ar);
             this.cs.add(map_attrs.cs);

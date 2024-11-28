@@ -27,8 +27,6 @@ impl GuildConfigManager {
         F: FnOnce(&GuildConfig) -> O,
     {
         if let Some(config) = self.guild_configs.pin().get(&guild_id) {
-            debug!("found config");
-
             return f(config);
         }
 

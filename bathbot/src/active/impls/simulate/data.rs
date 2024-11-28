@@ -44,133 +44,68 @@ impl SimulateData {
             self.clock_rate = Some((new_bpm / old_bpm) as f64);
         }
 
-        // not the cleanest macro...
         macro_rules! simulate {
             (
-                rosu_pp_older $( :: $calc:ident )+ {
-                    $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
-                } $( $convert_tt:tt )? // `!` if calculation is infallible, otherwise `?`
-            ) => {
-                simulate! {
-                    rosu_pp_older $( :: $calc)* {
-                        $( $calc_method: $this_field $( as $ty )? ,)*
-                    };
-                    map: map.pp_map();
-                    max_new: map;
-                    max_post: attributes;
-                    $( $convert_tt )?
-                }
-            };
-            (
-                rosu_pp $( :: $calc:ident )+ {
-                    $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
-                }!
-            ) => {
-                simulate! {
-                    rosu_pp $( :: $calc)* {
-                        $( $calc_method: $this_field $( as $ty )? ,)*
-                    };
-                    map: map.pp_map().unchecked_as_converted();
-                    arg: as_owned();
-                    max_new: attrs;
-                    !
-                }
-            };
-            (
-                rosu_pp $( :: $calc:ident )+ {
-                    $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
-                }?
-            ) => {
-                simulate! {
-                    rosu_pp $( :: $calc)* {
-                        $( $calc_method: $this_field $( as $ty )? ,)*
-                    };
-                    map: map.pp_map();
-                    max_new: attrs;
-                    ?
-                }
-            };
-            (
                 $( $calc:ident )::+ {
-                    $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
-                };
-                map: $map:expr;
-                $( arg: $arg:ident(); )?
-                max_new: $max_new:tt;
-                $( max_post: $max_post:ident; )?
-                !
+                    $( $calc_fn:ident: $this_field:ident $( as $ty:ty )? ,)+
+                } => {
+                    map: $map:expr,
+                    mods: $mods:expr,
+                    max_new: $max_new:tt,
+                    $( with_diff: $with_diff:tt, )?
+                    $( with_lazer: $with_lazer:tt, )?
+                    $( fallible: $fallible:tt, )?
+                }
             ) => {{
                 let map = $map;
-                let arg = simulate!(@MAP map $( .$arg() )?);
-                let mut calc = $( $calc:: )* new(arg).mods(mod_bits);
+                let mut calc = $( $calc:: )* new(map).mods($mods);
+                $( calc = simulate!(@WITH_LAZER $with_lazer calc); )?
 
                 $(
                     if let Some(value) = self.$this_field {
-                        calc = calc.$calc_method(value $( as $ty )?);
+                        calc = calc.$calc_fn(value $( as $ty )?);
                     }
                 )*
 
                 let attrs = calc.calculate();
+                $( let attrs = simulate!(@UNWRAP $fallible attrs); )?
 
                 let pp = attrs.pp;
                 let stars = attrs.difficulty.stars;
 
-                #[allow(unused_macro_rules)]
-                macro_rules! max_new {
-                    (attrs) => { attrs };
-                    (map) => { map };
-                }
+                let max_new = simulate!(@MAX_NEW $max_new attrs map);
 
-                let max_pp = $( $calc:: )* new(max_new!($max_new))
-                    $( . $max_post (attrs.difficulty) )?
-                    .mods(mod_bits)
-                    .calculate()
-                    .pp;
+                #[allow(unused_mut)]
+                let mut max_calc = $( $calc:: )* new(max_new).mods($mods);
 
-                (stars, pp, max_pp)
-            }};
-            (
-                $( $calc:ident )::+ {
-                    $( $calc_method:ident: $this_field:ident $( as $ty:ty )? ,)+
-                };
-                map: $map:expr;
-                $( arg: $arg:ident(); )?
-                max_new: $max_new:tt;
-                $( max_post: $max_post:ident; )?
-                ?
-            ) => {{
-                let map = $map;
-                let arg = simulate!(@MAP map $( .$arg() )?);
-                let mut calc = $( $calc:: )* new(arg).mods(mods.clone());
+                $( max_calc = simulate!(@WITH_DIFF $with_diff max_calc attrs); )?
+                $( max_calc = simulate!(@WITH_LAZER $with_lazer max_calc); )?
 
-                $(
-                    if let Some(value) = self.$this_field {
-                        calc = calc.$calc_method(value $( as $ty )?);
-                    }
-                )*
-
-                let attrs = calc.calculate().unwrap();
-
-                let pp = attrs.pp;
-                let stars = attrs.difficulty.stars;
-
-                #[allow(unused_macro_rules)]
-                macro_rules! max_new {
-                    (attrs) => { attrs };
-                    (map) => { map };
-                }
-
-                let max_pp = $( $calc:: )* new(max_new!($max_new))
-                    $( . $max_post (attrs.difficulty) )?
-                    .mods(mods)
-                    .calculate()
-                    .unwrap()
-                    .pp;
+                let attrs = max_calc.calculate();
+                $( let attrs = simulate!(@UNWRAP $fallible attrs); )?
+                let max_pp = attrs.pp;
 
                 (stars, pp, max_pp)
             }};
-            (@MAP $map:ident $( .$fn:ident() )? ) => {
-                $map $( .$fn() )?
+            ( @WITH_LAZER true $calc:ident ) => { $calc.lazer(self.set_on_lazer) };
+            ( @WITH_LAZER false $calc:ident ) => { $calc };
+            ( @WITH_LAZER $( $other:tt )* ) => {
+                compile_error!(concat!("with_lazer must be bool; got `", $( stringify!($other) ),*, "`"))
+            };
+            ( @UNWRAP true $attrs:ident ) => { $attrs.unwrap() };
+            ( @UNWRAP false $attrs:ident ) => { $attrs };
+            ( @UNWRAP $( $other:tt )* ) => {
+                compile_error!(concat!("fallible must be bool; got `", $( stringify!($other) ),*, "`"))
+            };
+            ( @MAX_NEW attrs $attrs:ident $map:ident ) => { $attrs };
+            ( @MAX_NEW map $attrs:ident $map:ident ) => { $map };
+            ( @MAX_NEW $( $other:tt )* ) => {
+                compile_error!(concat!("max_new must be `attrs` or `map`; got `", $( stringify!($other) ),*, "`"))
+            };
+            ( @WITH_DIFF true $calc:ident $attrs:ident ) => { $calc.attributes($attrs.difficulty) };
+            ( @WITH_DIFF false $calc:ident $attrs:ident ) => { $calc };
+            ( @WITH_DIFF $( $other:tt )* ) => {
+                compile_error!(concat!("with_diff must be bool; got `", $( stringify!($other) ),*, "`"))
             };
         }
 
@@ -183,7 +118,12 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }!
+                } => {
+                    map: { map.pp_map() },
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Osu(TopOldOsuVersion::July14February15) => simulate! {
                 rosu_pp_older::osu_2014_july::OsuPP {
@@ -193,7 +133,12 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Osu(TopOldOsuVersion::February15April15) => simulate! {
                 rosu_pp_older::osu_2015_february::OsuPP {
@@ -203,7 +148,12 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Osu(TopOldOsuVersion::April15May18) => simulate! {
                 rosu_pp_older::osu_2015_april::OsuPP {
@@ -213,7 +163,12 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Osu(TopOldOsuVersion::May18February19) => simulate! {
                 rosu_pp_older::osu_2018::OsuPP {
@@ -223,7 +178,12 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Osu(TopOldOsuVersion::February19January21) => simulate! {
                 rosu_pp_older::osu_2019::OsuPP {
@@ -233,7 +193,12 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Osu(TopOldOsuVersion::January21July21) => simulate! {
                 rosu_pp_older::osu_2021_january::OsuPP {
@@ -243,7 +208,12 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Osu(TopOldOsuVersion::July21November21) => simulate! {
                 rosu_pp_older::osu_2021_july::OsuPP {
@@ -253,7 +223,12 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Osu(TopOldOsuVersion::November21September22) => simulate! {
                 rosu_pp_older::osu_2021_november::OsuPP {
@@ -263,7 +238,12 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     accuracy: acc as f64,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Osu(TopOldOsuVersion::September22October24) => simulate! {
                 rosu_pp_older::osu_2022::OsuPP {
@@ -274,7 +254,12 @@ impl SimulateData {
                     misses: n_miss,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Osu(TopOldOsuVersion::October24Now) => simulate! {
                 rosu_pp::osu::OsuPerformance {
@@ -287,7 +272,13 @@ impl SimulateData {
                     n_large_ticks: n_large_ticks,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }?
+                } => {
+                    map: map.pp_map(),
+                    mods: mods.clone(),
+                    max_new: attrs,
+                    with_lazer: true,
+                    fallible: true,
+                }
             },
             TopOldVersion::Taiko(TopOldTaikoVersion::March14September20) => simulate! {
                 rosu_pp_older::taiko_ppv1::TaikoPP {
@@ -296,7 +287,12 @@ impl SimulateData {
                     n100: n100,
                     misses: n_miss,
                     accuracy: acc,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Taiko(TopOldTaikoVersion::September20September22) => simulate! {
                 rosu_pp_older::taiko_2020::TaikoPP {
@@ -305,7 +301,12 @@ impl SimulateData {
                     n100: n100,
                     misses: n_miss,
                     accuracy: acc as f64,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Taiko(TopOldTaikoVersion::September22October24) => simulate! {
                 rosu_pp_older::taiko_2022::TaikoPP {
@@ -315,7 +316,12 @@ impl SimulateData {
                     misses: n_miss,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Taiko(TopOldTaikoVersion::October24Now) => simulate! {
                 rosu_pp::taiko::TaikoPerformance {
@@ -325,7 +331,12 @@ impl SimulateData {
                     misses: n_miss,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }?
+                } => {
+                    map: map.pp_map(),
+                    mods: mods.clone(),
+                    max_new: attrs,
+                    fallible: true,
+                }
             },
             TopOldVersion::Catch(TopOldCatchVersion::March14May20) => simulate! {
                 rosu_pp_older::fruits_ppv1::FruitsPP {
@@ -336,7 +347,12 @@ impl SimulateData {
                     misses: n_miss,
                     tiny_droplet_misses: n_katu,
                     accuracy: acc,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Catch(TopOldCatchVersion::May20October24) => simulate! {
                 rosu_pp_older::fruits_2022::FruitsPP {
@@ -348,7 +364,12 @@ impl SimulateData {
                     tiny_droplet_misses: n_katu,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Catch(TopOldCatchVersion::October24Now) => simulate! {
                 rosu_pp::catch::CatchPerformance {
@@ -360,18 +381,33 @@ impl SimulateData {
                     tiny_droplet_misses: n_katu,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }?
+                } => {
+                    map: map.pp_map(),
+                    mods: mods.clone(),
+                    max_new: attrs,
+                    fallible: true,
+                }
             },
             TopOldVersion::Mania(TopOldManiaVersion::March14May18) => simulate! {
                 rosu_pp_older::mania_ppv1::ManiaPP {
                     score: score,
                     accuracy: acc,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Mania(TopOldManiaVersion::May18October22) => simulate! {
                 rosu_pp_older::mania_2018::ManiaPP {
                     score: score,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Mania(TopOldManiaVersion::October22October24) => simulate! {
                 rosu_pp_older::mania_2022::ManiaPP {
@@ -383,7 +419,12 @@ impl SimulateData {
                     misses: n_miss,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }!
+                } => {
+                    map: map.pp_map(),
+                    mods: mod_bits,
+                    max_new: map,
+                    with_diff: true,
+                }
             },
             TopOldVersion::Mania(TopOldManiaVersion::October24Now) => simulate! {
                 rosu_pp::mania::ManiaPerformance {
@@ -395,7 +436,12 @@ impl SimulateData {
                     misses: n_miss,
                     clock_rate: clock_rate as f64,
                     accuracy: acc as f64,
-                }?
+                } => {
+                    map: map.pp_map(),
+                    mods: mods.clone(),
+                    max_new: attrs,
+                    fallible: true,
+                }
             },
         };
 

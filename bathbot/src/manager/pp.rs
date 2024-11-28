@@ -22,6 +22,7 @@ pub struct PpManager<'m> {
     mods: Mods,
     state: Option<ScoreState>,
     partial: bool,
+    lazer: bool,
 }
 
 impl<'m> PpManager<'m> {
@@ -36,7 +37,14 @@ impl<'m> PpManager<'m> {
             mods: Mods::default(),
             state: None,
             partial: false,
+            lazer: true,
         }
+    }
+
+    pub fn lazer(mut self, lazer: bool) -> Self {
+        self.lazer = lazer;
+
+        self
     }
 
     pub fn mode(mut self, mode: GameMode) -> Self {
@@ -82,10 +90,12 @@ impl<'m> PpManager<'m> {
                 mods,
                 mode,
                 partial,
+                lazer,
             } = score;
 
             manager.state = Some(state);
             manager.partial = partial;
+            manager.lazer = lazer;
 
             if let Some(mode) = mode {
                 manager = manager.mode(mode);
@@ -125,7 +135,9 @@ impl<'m> PpManager<'m> {
             }
         }
 
-        let mut calc = Difficulty::new().mods(self.mods.inner.clone());
+        let mut calc = Difficulty::new()
+            .mods(self.mods.inner.clone())
+            .lazer(self.lazer);
 
         if let Some(clock_rate) = self.mods.clock_rate {
             calc = calc.clock_rate(clock_rate);
@@ -158,7 +170,8 @@ impl<'m> PpManager<'m> {
             .await
             .to_owned()
             .performance()
-            .mods(self.mods.inner.clone());
+            .mods(self.mods.inner.clone())
+            .lazer(self.lazer);
 
         if let Some(clock_rate) = self.mods.clock_rate {
             calc = calc.clock_rate(clock_rate);
@@ -181,6 +194,7 @@ pub struct ScoreData {
     mods: Mods,
     mode: Option<GameMode>,
     partial: bool,
+    lazer: bool,
 }
 
 impl<'s> From<&'s Score> for ScoreData {
@@ -191,6 +205,7 @@ impl<'s> From<&'s Score> for ScoreData {
             mods: Mods::new(score.mods.clone()),
             mode: Some(score.mode),
             partial: !score.passed,
+            lazer: score.set_on_lazer,
         }
     }
 }
@@ -203,6 +218,7 @@ impl<'s> From<&'s ScoreSlim> for ScoreData {
             mods: Mods::new(score.mods.clone()),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
+            lazer: score.set_on_lazer,
         }
     }
 }
@@ -225,6 +241,7 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
             mods: Mods::new(score.mods.clone()),
             mode: None,
             partial: score.grade == Grade::F,
+            lazer: false,
         }
     }
 }
@@ -236,6 +253,7 @@ impl<'s> From<&'s LeaderboardScore> for ScoreData {
             mods: Mods::new(score.mods.clone()),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
+            lazer: !score.is_legacy,
         }
     }
 }
@@ -248,6 +266,7 @@ impl<'s> From<&'s ScoreEmbedDataRaw> for ScoreData {
             mods: Mods::new(score.mods.clone()),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
+            lazer: !score.legacy_scores,
         }
     }
 }

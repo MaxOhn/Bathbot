@@ -425,6 +425,7 @@ async fn process_scores(
         map = map.convert(score.mode);
 
         let attrs = Context::pp(&map)
+            .lazer(score.set_on_lazer)
             .mode(score.mode)
             .mods(score.mods.clone())
             .performance()
@@ -548,7 +549,8 @@ async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
     let pp = attrs
         .to_owned()
         .performance()
-        .mods(score.mods.bits())
+        .lazer(score.set_on_lazer)
+        .mods(score.mods.clone())
         .clock_rate(score.mods.clock_rate().unwrap_or(1.0))
         .n_geki(n_geki)
         .n300(stats.perfect)

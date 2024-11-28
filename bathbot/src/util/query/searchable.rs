@@ -150,7 +150,7 @@ impl Searchable<RC<'_>> for Score {
                 .cs(map.cs, false)
                 .hp(map.hp, false)
                 .od(map.od, false)
-                .mods(self.mods.bits())
+                .mods(self.mods.clone())
                 .mode((map.mode as u8).into(), map.convert)
                 .build();
 
@@ -215,7 +215,7 @@ impl Searchable<RC<'_>> for (&'_ ScoreSlim, &'_ OsuMap) {
 
         let mut matches = true;
 
-        let attrs = map.attributes().mods(score.mods.bits()).build();
+        let attrs = map.attributes().mods(score.mods.clone()).build();
 
         let clock_rate = attrs.clock_rate as f32;
         let len = map.seconds_drain() as f32 / clock_rate;
