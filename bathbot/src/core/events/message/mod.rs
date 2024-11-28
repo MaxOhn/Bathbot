@@ -16,7 +16,6 @@ use crate::{
         commands::checks::{check_authority, check_channel_permissions},
         BotMetrics, Context,
     },
-    manager::DEFAULT_PREFIX,
     util::ChannelExt,
 };
 
@@ -45,7 +44,7 @@ pub async fn handle_message(msg: Message) {
 
         Context::guild_config().peek(guild_id, f).await
     } else {
-        recognize::<_, _, (), _>(opt(by::tag(DEFAULT_PREFIX)))(content).ok()
+        recognize::<_, _, (), _>(opt(by::tag(GuildConfig::DEFAULT_PREFIX)))(content).ok()
     };
 
     let Some((content, _)) = prefix_opt else {

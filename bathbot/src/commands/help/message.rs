@@ -19,7 +19,6 @@ use crate::{
         commands::prefix::{PrefixCommand, PrefixCommands},
         Context,
     },
-    manager::DEFAULT_PREFIX,
     util::ChannelExt,
 };
 
@@ -79,7 +78,7 @@ async fn command_help(
     let prefix = guild_config
         .as_ref()
         .and_then(|config| config.prefixes.first().cloned())
-        .unwrap_or_else(|| DEFAULT_PREFIX.into());
+        .unwrap_or_else(|| GuildConfig::DEFAULT_PREFIX.to_owned());
 
     let mut fields = Vec::new();
 

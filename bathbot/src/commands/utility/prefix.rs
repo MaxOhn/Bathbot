@@ -8,9 +8,7 @@ use eyre::Result;
 use once_cell::sync::OnceCell;
 use twilight_model::guild::Permissions;
 
-use crate::{
-    core::commands::checks::check_authority, manager::DEFAULT_PREFIX, util::ChannelExt, Context,
-};
+use crate::{core::commands::checks::check_authority, util::ChannelExt, Context};
 
 #[command]
 #[desc("Change my prefixes for a server")]
@@ -111,9 +109,9 @@ async fn prefix_prefix(
             config.prefixes.extend(args);
 
             config.prefixes.sort_unstable_by(|a, b| {
-                if a == DEFAULT_PREFIX {
+                if a == GuildConfig::DEFAULT_PREFIX {
                     Ordering::Less
-                } else if b == DEFAULT_PREFIX {
+                } else if b == GuildConfig::DEFAULT_PREFIX {
                     Ordering::Greater
                 } else {
                     a.cmp(b)
@@ -130,7 +128,7 @@ async fn prefix_prefix(
             }
 
             if config.prefixes.is_empty() {
-                config.prefixes.push(DEFAULT_PREFIX.into());
+                config.prefixes.push(GuildConfig::DEFAULT_PREFIX.into());
             }
 
             UpdateResult::Ok

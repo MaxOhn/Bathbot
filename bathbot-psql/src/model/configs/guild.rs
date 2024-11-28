@@ -16,7 +16,7 @@ pub struct DbGuildConfig {
     pub score_data: Option<i16>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct GuildConfig {
     pub authorities: Authorities,
     pub list_size: Option<ListSize>,
@@ -28,6 +28,27 @@ pub struct GuildConfig {
     pub allow_custom_skins: Option<bool>,
     pub hide_medal_solution: Option<HideSolutions>,
     pub score_data: Option<ScoreData>,
+}
+
+impl GuildConfig {
+    pub const DEFAULT_PREFIX: &str = "<";
+}
+
+impl Default for GuildConfig {
+    fn default() -> Self {
+        Self {
+            authorities: Default::default(),
+            list_size: Default::default(),
+            prefixes: vec![Self::DEFAULT_PREFIX.to_owned()],
+            retries: Default::default(),
+            track_limit: Default::default(),
+            allow_songs: Default::default(),
+            render_button: Default::default(),
+            allow_custom_skins: Default::default(),
+            hide_medal_solution: Default::default(),
+            score_data: Default::default(),
+        }
+    }
 }
 
 impl From<DbGuildConfig> for GuildConfig {
