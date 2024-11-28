@@ -19,7 +19,7 @@ impl AttributesEmbed {
         mods: GameModsIntermode,
         clock_rate: Option<f32>,
     ) -> Self {
-        let mut builder = BeatmapAttributesBuilder::default().mods(mods.bits());
+        let mut builder = BeatmapAttributesBuilder::default().mods(&mods);
 
         builder = match kind {
             AttributeKind::Ar => builder.ar(value, false),

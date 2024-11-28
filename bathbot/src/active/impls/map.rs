@@ -121,8 +121,6 @@ impl MapPagination {
 
         let mut rosu_map = map_res.wrap_err("Failed to get pp map")?;
 
-        let mod_bits = self.mods.bits();
-
         if let Some(ar_) = self.attrs.ar {
             rosu_map.ar = ar_ as f32;
         }
@@ -141,12 +139,12 @@ impl MapPagination {
 
         let map_attrs = rosu_map
             .attributes()
-            .mods(mod_bits)
+            .mods(&self.mods)
             .clock_rate(clock_rate)
             .build();
 
         let mut attrs = Difficulty::new()
-            .mods(mod_bits)
+            .mods(&self.mods)
             .clock_rate(clock_rate)
             .calculate(&rosu_map);
 
@@ -157,7 +155,7 @@ impl MapPagination {
         for &acc in ACCS.iter() {
             let pp_result = attrs
                 .performance()
-                .mods(mod_bits)
+                .mods(&self.mods)
                 .accuracy(acc as f64)
                 .clock_rate(clock_rate)
                 .calculate();

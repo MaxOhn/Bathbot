@@ -351,7 +351,7 @@ impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
             matches &= criteria.ranked_date.contains(datetime.date());
         }
 
-        let attrs = self.map.attributes().mods(self.score.mods.bits()).build();
+        let attrs = self.map.attributes().mods(self.score.mods.clone()).build();
 
         matches &= criteria.ar.contains(attrs.ar as f32);
         matches &= criteria.cs.contains(attrs.cs as f32);
@@ -522,13 +522,17 @@ async fn process_scores(
         let mut calc = Context::pp(&map).mode(score.mode).mods(score.mods.clone());
         let attrs = calc.performance().await;
 
-        let old_pp = score.pp.expect("missing pp");
+        let old_pp = score.pp.unwrap_or(0.0);
 
         let new_pp = if changed {
             calc.score(&score).performance().await.pp() as f32
         } else {
             old_pp
         };
+
+        if i == 10 {
+            debug!("[{:?}] {old_pp} -> {new_pp}", score.mods)
+        }
 
         let entry = TopIfEntry {
             original_idx: i,

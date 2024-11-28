@@ -2423,9 +2423,9 @@ checksum = "21de4f8c5cd2738e1c9a2ed477aad2579dacd5acf3845d80738fcec160d0bd8a"
 
 [[package]]
 name = "rosu-mods"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a0fb1475e860c987673e8abc1df5d23f22c4e1ae62e9459e656cff4d82f603b"
+checksum = "65892bec4e81b3931f3c0b3a646feff0daa78b22dff2b45b157c642f1be14b04"
 dependencies = [
  "paste",
  "rkyv",

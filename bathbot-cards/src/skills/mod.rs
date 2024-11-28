@@ -73,7 +73,7 @@ impl Skills {
                     }
 
                     let attrs = calc
-                        .mods(score.mods.bits())
+                        .mods(score.mods.clone())
                         .state(state)
                         .lazer(score.set_on_lazer)
                         .calculate()
@@ -126,7 +126,7 @@ impl Skills {
                     }
 
                     let attrs = calc
-                        .mods(score.mods.bits())
+                        .mods(score.mods.clone())
                         .state(state)
                         .calculate()
                         .unwrap();
@@ -178,7 +178,7 @@ impl Skills {
 
                     let od = attrs.od as f64;
                     let attrs = calc
-                        .mods(score.mods.bits())
+                        .mods(score.mods.clone())
                         .state(state)
                         .calculate()
                         .unwrap();
@@ -245,7 +245,7 @@ impl Skills {
                     }
 
                     let attrs = calc
-                        .mods(score.mods.bits())
+                        .mods(score.mods.clone())
                         .state(state)
                         .calculate()
                         .unwrap();

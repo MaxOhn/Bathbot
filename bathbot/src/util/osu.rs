@@ -449,15 +449,17 @@ pub struct IfFc {
 
 impl IfFc {
     pub async fn new(score: &ScoreSlim, map: &OsuMap) -> Option<Self> {
-        let mode = score.mode;
-        let mut calc = Context::pp(map).mods(score.mods.clone()).mode(score.mode);
+        let mut calc = Context::pp(map)
+            .mods(score.mods.clone())
+            .mode(score.mode)
+            .lazer(score.set_on_lazer);
+
         let attrs = calc.difficulty().await;
 
-        if score.is_fc(mode, attrs.max_combo()) {
+        if score.is_fc(score.mode, attrs.max_combo()) {
             return None;
         }
 
-        let mods = score.mods.bits();
         let stats = &score.statistics;
 
         let (pp, statistics) = match attrs {
@@ -476,7 +478,8 @@ impl IfFc {
                 let n50 = stats.meh;
 
                 let attrs = OsuPerformance::from(attrs.to_owned())
-                    .mods(mods)
+                    .lazer(score.set_on_lazer)
+                    .mods(score.mods.clone())
                     .n300(n300)
                     .n100(n100)
                     .n50(n50)
@@ -509,7 +512,7 @@ impl IfFc {
                 let acc = 100.0 * (2 * n300 + n100) as f32 / (2 * total_objects) as f32;
 
                 let attrs = TaikoPerformance::from(attrs.to_owned())
-                    .mods(mods)
+                    .mods(score.mods.clone())
                     .accuracy(acc as f64)
                     .calculate()
                     .unwrap();
@@ -537,7 +540,7 @@ impl IfFc {
                 let n_tiny_droplets = attrs.n_tiny_droplets.saturating_sub(n_tiny_droplet_misses);
 
                 let attrs = CatchPerformance::from(attrs.to_owned())
-                    .mods(mods)
+                    .mods(score.mods.clone())
                     .fruits(n_fruits)
                     .droplets(n_droplets)
                     .tiny_droplets(n_tiny_droplets)
