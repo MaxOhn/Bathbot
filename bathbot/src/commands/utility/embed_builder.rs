@@ -693,6 +693,7 @@ pub struct ScoreEmbedDataRaw {
     pub user_id: u32,
     pub map_id: u32,
     pub checksum: Option<String>,
+    pub set_on_lazer: bool,
     pub legacy_scores: bool,
     pub with_render: bool,
     pub miss_analyzer_check: MissAnalyzerCheck,
@@ -749,6 +750,7 @@ impl ScoreEmbedDataRaw {
             legacy_id: score.legacy_score_id,
             statistics: score.statistics,
             has_replay: score.replay,
+            set_on_lazer: score.set_on_lazer,
         }
     }
 
@@ -789,7 +791,7 @@ impl ScoreEmbedDataRaw {
             score_id: self.score_id,
             legacy_id: self.legacy_id,
             statistics: self.statistics,
-            set_on_lazer: false,
+            set_on_lazer: self.set_on_lazer,
         };
 
         let global_idx_fut = async {

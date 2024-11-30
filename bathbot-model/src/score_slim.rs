@@ -58,6 +58,13 @@ impl ScoreExt for ScoreSlim {
     }
 
     #[inline]
+    fn count_large_tick_miss(&self) -> u32 {
+        // Possibly incorrect because it's sometimes not set but we don't have
+        // the max statistics at this point so this is the best we can do
+        self.statistics.large_tick_miss
+    }
+
+    #[inline]
     fn count_50(&self) -> u32 {
         match self.mode {
             GameMode::Osu | GameMode::Mania => self.statistics.meh,
@@ -132,6 +139,7 @@ impl ScoreExt for ScoreSlim {
         Some(self.score_id)
     }
 
+    #[inline]
     fn is_legacy(&self) -> bool {
         self.legacy_id == Some(self.score_id)
     }

@@ -403,7 +403,9 @@ impl TopOldVersion {
         }
 
         if let Some(n_slider_ends) = data.n_slider_ends {
-            calc = calc.n_slider_ends(n_slider_ends);
+            calc = calc
+                .slider_end_hits(n_slider_ends)
+                .small_tick_hits(n_slider_ends);
         }
 
         if let Some(n_large_ticks) = data.n_large_ticks {
@@ -420,6 +422,7 @@ impl TopOldVersion {
                 n50: state.n50,
                 misses: state.misses,
                 large_tick_hits: state.osu_large_tick_hits,
+                small_tick_hits: state.osu_small_tick_hits,
                 slider_end_hits: state.slider_end_hits,
             }),
             Self::Taiko(_) => ScoreState::Taiko(TaikoScoreState {

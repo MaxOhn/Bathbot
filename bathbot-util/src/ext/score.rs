@@ -4,6 +4,7 @@ use time::OffsetDateTime;
 pub trait ScoreExt {
     // Required to implement
     fn count_miss(&self) -> u32;
+    fn count_large_tick_miss(&self) -> u32;
     fn count_50(&self) -> u32;
     fn count_100(&self) -> u32;
     fn count_300(&self) -> u32;
@@ -51,6 +52,7 @@ pub trait ScoreExt {
     fn is_fc(&self, mode: GameMode, max_combo: u32) -> bool {
         match mode {
             _ if self.count_miss() > 0 || self.grade() == Grade::F => false,
+            GameMode::Osu if self.count_large_tick_miss() > 0 => false,
             // Allow 1 missed sliderend per 500 combo
             GameMode::Osu => self.max_combo() >= (max_combo - (max_combo / 500).max(4)),
             GameMode::Taiko | GameMode::Mania => true,
@@ -63,6 +65,13 @@ pub trait ScoreExt {
 impl ScoreExt for Score {
     fn count_miss(&self) -> u32 {
         self.statistics.miss
+    }
+
+    fn count_large_tick_miss(&self) -> u32 {
+        // Could also use `Statistics::large_tick_miss` but sometimes they might
+        // not be set correctly so using the hit difference should be more
+        // reliable
+        self.maximum_statistics.large_tick_hit.saturating_sub(self.statistics.large_tick_hit)
     }
 
     fn count_50(&self) -> u32 {

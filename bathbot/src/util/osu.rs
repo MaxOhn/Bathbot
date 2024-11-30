@@ -477,12 +477,17 @@ impl IfFc {
                 let n100 = stats.ok + new100s;
                 let n50 = stats.meh;
 
+                let classic = score.mods.contains_intermode(GameModIntermode::Classic);
+
                 let attrs = OsuPerformance::from(attrs.to_owned())
                     .lazer(score.set_on_lazer)
                     .mods(score.mods.clone())
                     .n300(n300)
                     .n100(n100)
                     .n50(n50)
+                    .slider_end_hits(score.statistics.slider_tail_hit)
+                    .small_tick_hits(score.statistics.small_tick_hit)
+                    // no large tick misses allowed for fc so we can omit that
                     .calculate()
                     .unwrap();
 
@@ -491,8 +496,14 @@ impl IfFc {
                 statistics.ok = n100;
                 statistics.meh = n50;
                 statistics.miss = 0;
-                statistics.slider_tail_hit = attrs.difficulty.n_sliders;
                 statistics.large_tick_hit = attrs.difficulty.n_large_ticks;
+                statistics.large_tick_miss = 0;
+
+                if classic {
+                    statistics.slider_tail_hit = attrs.difficulty.n_sliders;
+                } else {
+                    statistics.small_tick_hit = attrs.difficulty.n_sliders;
+                }
 
                 (attrs.pp as f32, statistics)
             }
@@ -565,8 +576,9 @@ impl IfFc {
             match attrs {
                 DifficultyAttributes::Osu(attrs) => ScoreStatistics {
                     great: total_hits,
-                    slider_tail_hit: attrs.n_sliders,
                     large_tick_hit: attrs.n_large_ticks,
+                    small_tick_hit: attrs.n_sliders,
+                    slider_tail_hit: attrs.n_sliders,
                     ..Default::default()
                 },
                 DifficultyAttributes::Taiko(_) => ScoreStatistics {

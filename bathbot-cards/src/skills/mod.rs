@@ -60,6 +60,7 @@ impl Skills {
                         n50: score.statistics.meh,
                         misses: score.statistics.miss,
                         large_tick_hits: score.statistics.large_tick_hit,
+                        small_tick_hits: score.statistics.small_tick_hit,
                         slider_end_hits: score.statistics.slider_tail_hit,
                     };
 

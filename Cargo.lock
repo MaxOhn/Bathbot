@@ -2435,7 +2435,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp"
 version = "1.1.0"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=main#76b013ad2afba6d62997c9e589a19421017b0b3b"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=main#5fb739153fbf875254b76c92084af6854ca10270"
 dependencies = [
  "rosu-map",
  "rosu-mods",
@@ -2444,7 +2444,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp-older"
 version = "0.2.0"
-source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#e7688b936ed9cfe218d12d9283b2127063800e30"
+source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#61cff1a43c9a6916d732d9c78e20ef75060eca35"
 dependencies = [
  "rosu-map",
  "rosu-pp",
