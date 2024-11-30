@@ -267,7 +267,7 @@ impl<'s> From<&'s ScoreEmbedDataRaw> for ScoreData {
             mods: Mods::new(score.mods.clone()),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
-            lazer: !score.legacy_scores,
+            lazer: score.set_on_lazer,
         }
     }
 }

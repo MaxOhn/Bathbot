@@ -288,7 +288,15 @@ impl ScoreEmbedDataWrap {
             stars,
             max_combo,
             max_pp,
-        } = PpAttrs::new(&map, score.mode, &score.mods, score.grade, score.pp).await;
+        } = PpAttrs::new(
+            &map,
+            score.mode,
+            &score.mods,
+            score.grade,
+            score.set_on_lazer,
+            score.pp,
+        )
+        .await;
 
         let pp = match score.pp {
             Some(pp) => pp,
@@ -430,7 +438,15 @@ impl ScoreEmbedDataHalf {
             stars,
             max_combo,
             max_pp,
-        } = PpAttrs::new(&map, score.mode, &score.mods, score.grade, score.pp).await;
+        } = PpAttrs::new(
+            &map,
+            score.mode,
+            &score.mods,
+            score.grade,
+            score.set_on_lazer,
+            score.pp,
+        )
+        .await;
 
         let pp = match score.pp {
             Some(pp) => pp,
@@ -771,7 +787,15 @@ impl ScoreEmbedDataRaw {
             stars,
             max_combo,
             max_pp,
-        } = PpAttrs::new(&map, self.mode, &self.mods, self.grade, self.pp).await;
+        } = PpAttrs::new(
+            &map,
+            self.mode,
+            &self.mods,
+            self.grade,
+            self.set_on_lazer,
+            self.pp,
+        )
+        .await;
 
         let pp = match self.pp {
             Some(pp) => pp,
@@ -901,9 +925,14 @@ impl<'m> PpAttrs<'m> {
         mode: GameMode,
         mods: &GameMods,
         grade: Grade,
+        lazer: bool,
         pp: Option<f32>,
     ) -> Self {
-        let mut calc = Context::pp(map).mode(mode).mods(mods.to_owned());
+        let mut calc = Context::pp(map)
+            .mode(mode)
+            .mods(mods.to_owned())
+            .lazer(lazer);
+
         let attrs = calc.performance().await;
 
         let max_pp = pp
