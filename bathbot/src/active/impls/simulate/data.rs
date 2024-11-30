@@ -418,6 +418,7 @@ impl SimulateData {
                 } => {
                     mods: mods.clone(),
                     max_new: attrs,
+                    with_lazer: true,
                     fallible: true,
                 }
             },

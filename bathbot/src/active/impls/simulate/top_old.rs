@@ -283,7 +283,7 @@ impl TopOldVersion {
                 (upper, Some(bottom), None, Component::SelectMenu(version))
             }
             Self::Mania(version) => {
-                let (upper, bottom) = match version {
+                let (upper, middle, bottom) = match version {
                     TopOldManiaVersion::March14May18 | TopOldManiaVersion::May18October22 => {
                         let mods = button!("sim_mods", "Mods", Primary);
                         let score = button!("sim_score", "Score", Primary);
@@ -295,7 +295,7 @@ impl TopOldVersion {
                             Component::Button(attrs),
                         ];
 
-                        (upper, None)
+                        (upper, None, None)
                     }
                     TopOldManiaVersion::October22October24 | TopOldManiaVersion::October24Now => {
                         let mods = button!("sim_mods", "Mods", Primary);
@@ -318,7 +318,7 @@ impl TopOldVersion {
                         let n100 = button!("sim_n100", "n100", Secondary);
                         let n50 = button!("sim_n50", "n50", Secondary);
 
-                        let bottom = vec![
+                        let middle = vec![
                             Component::Button(n320),
                             Component::Button(n300),
                             Component::Button(n200),
@@ -326,7 +326,22 @@ impl TopOldVersion {
                             Component::Button(n50),
                         ];
 
-                        (upper, Some(bottom))
+                        let bottom = if let TopOldManiaVersion::October24Now = version {
+                            Some(vec![
+                                Component::Button(Button {
+                                    disabled: set_on_lazer,
+                                    ..button!("sim_lazer", "Lazer", Primary)
+                                }),
+                                Component::Button(Button {
+                                    disabled: !set_on_lazer,
+                                    ..button!("sim_stable", "Stable", Primary)
+                                }),
+                            ])
+                        } else {
+                            None
+                        };
+
+                        (upper, Some(middle), bottom)
                     }
                 };
 
@@ -346,7 +361,7 @@ impl TopOldVersion {
                     placeholder: None,
                 };
 
-                (upper, bottom, None, Component::SelectMenu(version))
+                (upper, middle, bottom, Component::SelectMenu(version))
             }
         };
 
@@ -372,7 +387,7 @@ impl TopOldVersion {
     }
 
     pub(super) fn generate_hitresults(self, map: &Beatmap, data: &SimulateData) -> ScoreState {
-        let mut calc = Performance::new(map);
+        let mut calc = Performance::new(map).lazer(data.set_on_lazer);
 
         if let Some(acc) = data.acc {
             calc = calc.accuracy(acc as f64);
