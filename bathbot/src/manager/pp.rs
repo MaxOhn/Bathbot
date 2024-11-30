@@ -236,6 +236,7 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
                 n50: score.count50,
                 misses: score.count_miss,
                 osu_large_tick_hits: 0,
+                osu_small_tick_hits: 0,
                 slider_end_hits: 0,
             },
             mods: Mods::new(score.mods.clone()),
@@ -266,7 +267,7 @@ impl<'s> From<&'s ScoreEmbedDataRaw> for ScoreData {
             mods: Mods::new(score.mods.clone()),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
-            lazer: !score.legacy_scores,
+            lazer: score.set_on_lazer,
         }
     }
 }
@@ -299,20 +300,20 @@ fn stats_to_state(max_combo: u32, mode: GameMode, stats: &ScoreStatistics) -> Sc
         GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
     };
 
+    let osu_small_tick_hits = match mode {
+        GameMode::Osu => stats.small_tick_hit,
+        GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
+    };
+
     let slider_end_hits = match mode {
-        GameMode::Osu => {
-            if stats.slider_tail_hit > 0 {
-                stats.slider_tail_hit
-            } else {
-                stats.small_tick_hit
-            }
-        }
+        GameMode::Osu => stats.slider_tail_hit,
         GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
     };
 
     ScoreState {
         max_combo,
         osu_large_tick_hits,
+        osu_small_tick_hits,
         slider_end_hits,
         n_geki,
         n_katu,

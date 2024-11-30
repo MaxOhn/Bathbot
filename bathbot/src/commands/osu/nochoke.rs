@@ -479,6 +479,7 @@ async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
             ScoreStatistics {
                 great: total_hits,
                 slider_tail_hit: attrs.n_sliders,
+                small_tick_hit: attrs.n_sliders,
                 large_tick_hit: attrs.n_large_ticks,
                 ..Default::default()
             }
@@ -535,6 +536,11 @@ async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
         GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
     };
 
+    let small_tick_hits = match score.mode {
+        GameMode::Osu => stats.small_tick_hit,
+        GameMode::Taiko | GameMode::Catch | GameMode::Mania => 0,
+    };
+
     let slider_end_hits = match score.mode {
         GameMode::Osu => {
             if stats.slider_tail_hit > 0 {
@@ -559,7 +565,8 @@ async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
         .n50(n50)
         .misses(0)
         .large_tick_hits(large_tick_hits)
-        .n_slider_ends(slider_end_hits)
+        .small_tick_hits(small_tick_hits)
+        .slider_end_hits(slider_end_hits)
         .calculate()
         .pp() as f32;
 

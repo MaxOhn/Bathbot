@@ -288,7 +288,15 @@ impl ScoreEmbedDataWrap {
             stars,
             max_combo,
             max_pp,
-        } = PpAttrs::new(&map, score.mode, &score.mods, score.grade, score.pp).await;
+        } = PpAttrs::new(
+            &map,
+            score.mode,
+            &score.mods,
+            score.grade,
+            score.set_on_lazer,
+            score.pp,
+        )
+        .await;
 
         let pp = match score.pp {
             Some(pp) => pp,
@@ -430,7 +438,15 @@ impl ScoreEmbedDataHalf {
             stars,
             max_combo,
             max_pp,
-        } = PpAttrs::new(&map, score.mode, &score.mods, score.grade, score.pp).await;
+        } = PpAttrs::new(
+            &map,
+            score.mode,
+            &score.mods,
+            score.grade,
+            score.set_on_lazer,
+            score.pp,
+        )
+        .await;
 
         let pp = match score.pp {
             Some(pp) => pp,
@@ -693,6 +709,7 @@ pub struct ScoreEmbedDataRaw {
     pub user_id: u32,
     pub map_id: u32,
     pub checksum: Option<String>,
+    pub set_on_lazer: bool,
     pub legacy_scores: bool,
     pub with_render: bool,
     pub miss_analyzer_check: MissAnalyzerCheck,
@@ -749,6 +766,7 @@ impl ScoreEmbedDataRaw {
             legacy_id: score.legacy_score_id,
             statistics: score.statistics,
             has_replay: score.replay,
+            set_on_lazer: score.set_on_lazer,
         }
     }
 
@@ -769,7 +787,15 @@ impl ScoreEmbedDataRaw {
             stars,
             max_combo,
             max_pp,
-        } = PpAttrs::new(&map, self.mode, &self.mods, self.grade, self.pp).await;
+        } = PpAttrs::new(
+            &map,
+            self.mode,
+            &self.mods,
+            self.grade,
+            self.set_on_lazer,
+            self.pp,
+        )
+        .await;
 
         let pp = match self.pp {
             Some(pp) => pp,
@@ -789,7 +815,7 @@ impl ScoreEmbedDataRaw {
             score_id: self.score_id,
             legacy_id: self.legacy_id,
             statistics: self.statistics,
-            set_on_lazer: false,
+            set_on_lazer: self.set_on_lazer,
         };
 
         let global_idx_fut = async {
@@ -899,9 +925,14 @@ impl<'m> PpAttrs<'m> {
         mode: GameMode,
         mods: &GameMods,
         grade: Grade,
+        lazer: bool,
         pp: Option<f32>,
     ) -> Self {
-        let mut calc = Context::pp(map).mode(mode).mods(mods.to_owned());
+        let mut calc = Context::pp(map)
+            .mode(mode)
+            .mods(mods.to_owned())
+            .lazer(lazer);
+
         let attrs = calc.performance().await;
 
         let max_pp = pp

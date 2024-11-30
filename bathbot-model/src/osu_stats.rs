@@ -283,6 +283,7 @@ impl<'de> Visitor<'de> for ModeAsSeed<GameMods> {
 #[rustfmt::skip]
 impl ScoreExt for OsuStatsScore {
     #[inline] fn count_miss(&self) -> u32 { self.count_miss }
+    #[inline] fn count_large_tick_miss(&self) -> u32 { 0 }
     #[inline] fn count_50(&self) -> u32 { self.count50 }
     #[inline] fn count_100(&self) -> u32 { self.count100 }
     #[inline] fn count_300(&self) -> u32 { self.count300 }
@@ -296,6 +297,7 @@ impl ScoreExt for OsuStatsScore {
     #[inline] fn accuracy(&self) -> f32 { self.accuracy }
     #[inline] fn score_id(&self) -> Option<u64> { None }
     #[inline] fn is_legacy(&self) -> bool { false }
+
 }
 
 #[rustfmt::skip]
