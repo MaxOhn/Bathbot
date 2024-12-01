@@ -711,15 +711,6 @@ fn apply_settings(
             }
             (_, Value::Ratio, _) if hide_ratio() => {
                 if prev.y == curr.y {
-                    if !(ValueKind::from_setting(prev) == ValueKind::MapRankedDate
-                        && data.map.ranked_date().is_none())
-                    {
-                        // Regular values skip the separator if Ratio came before
-                        // which is wrong is Ratio is not the first value of the
-                        // row so we account for that here.
-                        let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
-                        writer.push_str(sep);
-                    }
                 } else if curr.y == SettingValue::FOOTER_Y {
                     writer = &mut footer_text;
                 } else if prev.y == 0 {
@@ -759,7 +750,6 @@ fn apply_settings(
 
                 if prev.y == curr.y {
                     match &prev.inner {
-                        Value::Ratio if hide_ratio() => {}
                         Value::MapRankedDate if data.map.ranked_date().is_none() => {}
                         _ => {
                             let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
@@ -880,7 +870,6 @@ fn apply_settings(
                 }
                 _ => {
                     match prev.map(|value| &value.inner) {
-                        Some(Value::Ratio) if hide_ratio() => {}
                         Some(Value::MapRankedDate) if data.map.ranked_date().is_none() => {}
                         _ => {
                             let sep = if last.y == 0 { SEP_NAME } else { SEP_VALUE };
