@@ -25,11 +25,15 @@ pub enum SimulateArg {
     Geki(u32),
     Katu(u32),
     Miss(u32),
+    SliderEnds(u32),
+    LargeTicks(u32),
+    SmallTicks(u32),
     Mods(GameModsIntermode),
     Ar(f32),
     Cs(f32),
     Hp(f32),
     Od(f32),
+    Lazer(bool),
 }
 
 impl SimulateArg {
@@ -50,6 +54,15 @@ impl SimulateArg {
             Some("cs") => parse_cs(rest).map(SimulateArg::Cs),
             Some("hp") => parse_hp(rest).map(SimulateArg::Hp),
             Some("od") => parse_od(rest).map(SimulateArg::Od),
+            Some("slider_ends" | "sliderends") => {
+                parse_slider_ends(rest).map(SimulateArg::SliderEnds)
+            }
+            Some("largeticks") => parse_large_ticks(rest).map(SimulateArg::LargeTicks),
+            Some("smallticks") => parse_small_ticks(rest).map(SimulateArg::SmallTicks),
+            Some("lazer") => parse_lazer(rest, ParseError::Lazer).map(SimulateArg::Lazer),
+            Some("stable") => parse_lazer(rest, ParseError::Stable)
+                .map(<bool as std::ops::Not>::not)
+                .map(SimulateArg::Lazer),
             Some(key) => {
                 let (sub_n, _) = opt::<_, _, NomError<_>, _>(ch::char('n'))(key)
                     .map_err(|_| ParseError::Nom(input))?;
@@ -107,7 +120,24 @@ fn parse_any(input: &str) -> Result<SimulateArg, ParseError<'_>> {
                 let geki = map(recognize_geki, |_| SimulateArg::Geki(n));
                 let katu = map(recognize_katu, |_| SimulateArg::Katu(n));
                 let miss = map(recognize_miss, |_| SimulateArg::Miss(n));
-                let options = (acc, combo, clock_rate, n300, n100, n50, geki, katu, miss);
+                let slider_ends = map(recognize_slider_ends, |_| SimulateArg::SliderEnds(n));
+                let large_ticks = map(recognize_large_ticks, |_| SimulateArg::LargeTicks(n));
+                let small_ticks = map(recognize_small_ticks, |_| SimulateArg::SmallTicks(n));
+
+                let options = (
+                    acc,
+                    combo,
+                    clock_rate,
+                    n300,
+                    n100,
+                    n50,
+                    geki,
+                    katu,
+                    miss,
+                    slider_ends,
+                    large_ticks,
+                    small_ticks,
+                );
 
                 all_consuming(alt(options))(rest)
             }
@@ -138,6 +168,25 @@ where
     all_consuming(terminated(num::float, opt(suffix)))(input)
 }
 
+fn parse_bool<'i>(input: &'i str) -> IResult<&'i str, bool> {
+    let options = (
+        terminated(by::tag("t"), opt(by::tag("rue"))),
+        terminated(by::tag("f"), opt(by::tag("alse"))),
+        by::tag("1"),
+        by::tag("0"),
+    );
+
+    let (rest, b) = all_consuming(alt(options))(input)?;
+
+    let b = match b {
+        "1" | "t" | "true" => true,
+        "0" | "f" | "false" => false,
+        _ => unreachable!(),
+    };
+
+    Ok((rest, b))
+}
+
 macro_rules! parse_arg {
     ( $( $fn:ident -> $ty:ty: $parse:ident, $recognize:ident $( or $x:literal )?, $err:ident; )* ) => {
         $(
@@ -165,6 +214,9 @@ parse_arg! {
     parse_miss -> u32: parse_int, recognize_miss or 'x', Miss;
     parse_geki -> u32: parse_int, recognize_geki or 'x', Geki;
     parse_katu -> u32: parse_int, recognize_katu or 'x', Katu;
+    parse_slider_ends -> u32: parse_int, recognize_slider_ends or 'x', SliderEnds;
+    parse_large_ticks -> u32: parse_int, recognize_large_ticks or 'x', LargeTicks;
+    parse_small_ticks -> u32: parse_int, recognize_small_ticks or 'x', SmallTicks;
 }
 
 macro_rules! parse_attr_arg {
@@ -185,6 +237,10 @@ parse_attr_arg! {
     parse_hp: Hp;
     parse_od: Od;
     parse_bpm: Bpm;
+}
+
+fn parse_lazer<'a>(input: &'a str, err: ParseError<'a>) -> Result<bool, ParseError<'a>> {
+    parse_bool(input).map(|(_, val)| val).map_err(|_| err)
 }
 
 fn is_some<T>(opt: Option<T>) -> bool {
@@ -280,6 +336,18 @@ fn recognize_miss(input: &str) -> IResult<&str, &str> {
     ))(input)
 }
 
+fn recognize_slider_ends(input: &str) -> IResult<&str, &str> {
+    recognize(preceded(opt(ch::char('x')), by::tag("sliderends")))(input)
+}
+
+fn recognize_large_ticks(input: &str) -> IResult<&str, &str> {
+    recognize(preceded(opt(ch::char('x')), by::tag("largeticks")))(input)
+}
+
+fn recognize_small_ticks(input: &str) -> IResult<&str, &str> {
+    recognize(preceded(opt(ch::char('x')), by::tag("smallticks")))(input)
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParseError<'s> {
     Acc,
@@ -292,11 +360,16 @@ pub enum ParseError<'s> {
     Geki,
     Katu,
     Miss,
+    SliderEnds,
+    LargeTicks,
+    SmallTicks,
     Mods,
     Ar,
     Cs,
     Hp,
     Od,
+    Lazer,
+    Stable,
     Nom(&'s str),
     Unknown(&'s str),
 }
@@ -319,10 +392,16 @@ impl ParseError<'_> {
             Self::Cs => "Failed to parsed CS, must be a number".into(),
             Self::Hp => "Failed to parsed HP, must be a number".into(),
             Self::Od => "Failed to parsed OD, must be a number".into(),
+            Self::SliderEnds => "Failed to parse slider ends, must be a number".into(),
+            Self::LargeTicks => "Failed to parse large ticks, must be a number".into(),
+            Self::SmallTicks => "Failed to parse small ticks, must be a number".into(),
+            Self::Lazer => "Failed to parse lazer, must be a boolean".into(),
+            Self::Stable => "Failed to parse stable, must be a boolean".into(),
             Self::Nom(input) => format!("Failed to parse argument `{input}`").into(),
             Self::Unknown(input) => format!(
-                "Unknown key `{input}`. Must be `mods`, `acc`, `bpm`, `combo`, `clockrate`, \
-                `n300`, `n100`, `n50`, `miss`, `geki`, `katu`, `ar`, `cs`, `hp`, or `od`"
+                "Unknown key `{input}`. Must be `mods`, `lazer`, `stable`, `acc`, `bpm`, \
+                `combo`, `clockrate`, `n300`, `n100`, `n50`, `miss`, `geki`, `katu`, \
+                `sliderends`, `largeticks`, `smallticks`, `ar`, `cs`, `hp`, or `od`"
             )
             .into(),
         }
@@ -476,6 +555,34 @@ mod tests {
     }
 
     #[test]
+    fn slider_ends() {
+        assert_eq!(
+            SimulateArg::parse("sliderends=123"),
+            Ok(SimulateArg::SliderEnds(123))
+        );
+        assert_eq!(
+            SimulateArg::parse("sliderends=123x"),
+            Ok(SimulateArg::SliderEnds(123))
+        );
+        assert_eq!(
+            SimulateArg::parse("sliderends=123sliderends"),
+            Ok(SimulateArg::SliderEnds(123))
+        );
+        assert_eq!(
+            SimulateArg::parse("123xsliderends"),
+            Ok(SimulateArg::SliderEnds(123))
+        );
+        assert_eq!(
+            SimulateArg::parse("123sliderends"),
+            Ok(SimulateArg::SliderEnds(123))
+        );
+        assert_eq!(
+            SimulateArg::parse("sliderends=123x100"),
+            Err(ParseError::SliderEnds)
+        );
+    }
+
+    #[test]
     fn misses() {
         assert_eq!(
             SimulateArg::parse("misses=123xmisses"),
@@ -489,6 +596,21 @@ mod tests {
             Ok(SimulateArg::Miss(123))
         );
         assert_eq!(SimulateArg::parse("m=123x100"), Err(ParseError::Miss));
+    }
+
+    #[test]
+    fn lazer() {
+        assert_eq!(
+            SimulateArg::parse("lazer=true"),
+            Ok(SimulateArg::Lazer(true))
+        );
+        assert_eq!(SimulateArg::parse("lazer=f"), Ok(SimulateArg::Lazer(false)));
+        assert_eq!(SimulateArg::parse("lazer=1"), Ok(SimulateArg::Lazer(true)));
+        assert_eq!(
+            SimulateArg::parse("stable=false"),
+            Ok(SimulateArg::Lazer(true))
+        );
+        assert_eq!(SimulateArg::parse("stable=123"), Err(ParseError::Stable));
     }
 
     #[test]

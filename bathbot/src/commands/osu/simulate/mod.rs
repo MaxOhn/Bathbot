@@ -196,11 +196,15 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
     - misses: `miss=[integer]` or `[integer]m`\n\
     - gekis (n320): `gekis=[integer]` or `[integer]xgeki`\n\
     - katus (n200 / tiny droplet misses): `katus=[integer]` or `[integer]xkatu`\n\
+    - slider ends: `sliderends=[integer]` or `[integer]xsliderends`\n\
+    - large ticks: `largeticks=[integer]` or `[integer]xlargeticks`\n\
+    - small ticks: `smallticks=[integer]` or `[integer]xsmallticks`\n\
     - mods: `mods=[mod acronym]` or `+[mod acronym]`\n\
     - ar: `ar=[number]` or `ar[number]`\n\
     - cs: `cs=[number]` or `cs[number]`\n\
     - hp: `hp=[number]` or `hp[number]`\n\
-    - od: `od=[number]` or `od[number]`"
+    - od: `od=[number]` or `od[number]`\n\
+    - lazer: `lazer=[bool]` or `stable=[bool]`"
 )]
 #[usage(
     "[map url / map id] [+mods] [acc%] [combox] [clockrate*] \
@@ -325,7 +329,8 @@ async fn prefix_simulatectb(
     - ar: `ar=[number]` or `ar[number]`\n\
     - cs: `cs=[number]` or `cs[number]`\n\
     - hp: `hp=[number]` or `hp[number]`\n\
-    - od: `od=[number]` or `od[number]`"
+    - od: `od=[number]` or `od[number]`\n\
+    - lazer: `lazer=[bool]` or `stable=[bool]`"
 )]
 #[usage(
     "[map url / map id] [+mods] [acc%] [combox] [clockrate*] \
@@ -488,11 +493,16 @@ impl SimulateArgs {
                 SimulateArg::Geki(val) => simulate.geki = Some(val),
                 SimulateArg::Katu(val) => simulate.katu = Some(val),
                 SimulateArg::Miss(val) => simulate.misses = Some(val),
+                SimulateArg::SliderEnds(val) | SimulateArg::SmallTicks(val) => {
+                    simulate.slider_end_hits = Some(val)
+                }
+                SimulateArg::LargeTicks(val) => simulate.large_tick_hits = Some(val),
                 SimulateArg::Mods(val) => simulate.mods = Some(val),
                 SimulateArg::Ar(val) => simulate.ar = Some(val),
                 SimulateArg::Cs(val) => simulate.cs = Some(val),
                 SimulateArg::Hp(val) => simulate.hp = Some(val),
                 SimulateArg::Od(val) => simulate.od = Some(val),
+                SimulateArg::Lazer(val) => simulate.set_on_lazer = Some(val),
             }
         }
 
