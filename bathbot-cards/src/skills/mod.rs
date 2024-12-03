@@ -64,16 +64,8 @@ impl Skills {
                         slider_end_hits: score.statistics.slider_tail_hit,
                     };
 
-                    let Some(mut calc) = OsuPerformance::try_new(attrs.difficulty) else {
-                        unreachable!()
-                    };
-
-                    // Account for Daycore mod which has no bits
-                    if let Some(clock_rate) = score.mods.clock_rate() {
-                        calc = calc.clock_rate(clock_rate);
-                    }
-
-                    let attrs = calc
+                    let attrs = OsuPerformance::try_new(attrs.difficulty)
+                        .unwrap()
                         .mods(score.mods.clone())
                         .state(state)
                         .lazer(score.set_on_lazer)
@@ -117,16 +109,8 @@ impl Skills {
                         misses: score.statistics.miss,
                     };
 
-                    let Some(mut calc) = TaikoPerformance::try_new(attrs.difficulty) else {
-                        unreachable!()
-                    };
-
-                    // Account for Daycore mod which has no bits
-                    if let Some(clock_rate) = score.mods.clock_rate() {
-                        calc = calc.clock_rate(clock_rate);
-                    }
-
-                    let attrs = calc
+                    let attrs = TaikoPerformance::try_new(attrs.difficulty)
+                        .unwrap()
                         .mods(score.mods.clone())
                         .state(state)
                         .calculate()
@@ -168,17 +152,10 @@ impl Skills {
                         misses: score.statistics.miss,
                     };
 
-                    let Some(mut calc) = CatchPerformance::try_new(attrs.difficulty) else {
-                        unreachable!();
-                    };
-
-                    // Account for Daycore mod which has no bits
-                    if let Some(clock_rate) = score.mods.clock_rate() {
-                        calc = calc.clock_rate(clock_rate);
-                    }
-
                     let od = attrs.od as f64;
-                    let attrs = calc
+
+                    let attrs = CatchPerformance::try_new(attrs.difficulty)
+                        .unwrap()
                         .mods(score.mods.clone())
                         .state(state)
                         .calculate()
@@ -236,17 +213,10 @@ impl Skills {
                         misses: score.statistics.miss,
                     };
 
-                    let Some(mut calc) = ManiaPerformance::try_new(attrs.difficulty) else {
-                        unreachable!()
-                    };
-
-                    // Account for Daycore mod which has no bits
-                    if let Some(clock_rate) = score.mods.clock_rate() {
-                        calc = calc.clock_rate(clock_rate);
-                    }
-
-                    let attrs = calc
+                    let attrs = ManiaPerformance::try_new(attrs.difficulty)
+                        .unwrap()
                         .mods(score.mods.clone())
+                        .lazer(score.set_on_lazer)
                         .state(state)
                         .calculate()
                         .unwrap();

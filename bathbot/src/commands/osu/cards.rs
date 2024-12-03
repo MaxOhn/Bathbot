@@ -172,9 +172,10 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
             let map = Context::osu_map()
                 .pp_map(score.map_id)
                 .await
-                .wrap_err("failed to get pp map")?;
+                .wrap_err("Failed to get pp map")?;
 
             let difficulty = Context::pp_parsed(&map, mode)
+                .lazer(score.set_on_lazer)
                 .mods(score.mods.clone())
                 .difficulty()
                 .await
