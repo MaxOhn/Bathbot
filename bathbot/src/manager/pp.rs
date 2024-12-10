@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use bathbot_model::{OsuStatsScore, ScoreSlim};
-use eyre::Result;
 use rosu_pp::{
     any::{DifficultyAttributes, PerformanceAttributes, ScoreState},
     model::mode::GameMode as Mode,
@@ -107,31 +106,11 @@ impl<'m> PpManager<'m> {
         inner(self, score.into())
     }
 
-    async fn lookup_attrs(&self) -> Result<Option<DifficultyAttributes>> {
-        // TODO: consider custom mod parameters
-        Ok(None)
-
-        // if self.mods.clock_rate.is_some() {
-        //     return Ok(None);
-        // }
-
-        // let mode = GameMode::from(self.map.mode as u8);
-
-        // Context::psql()
-        //     .select_map_difficulty_attrs(self.map_id, mode, self.mods.bits)
-        //     .await
-    }
-
     /// Calculate difficulty attributes
     pub async fn difficulty(&mut self) -> &DifficultyAttributes {
         if !self.partial {
-            match self.attrs {
-                Some(ref attrs) => return attrs,
-                None => match self.lookup_attrs().await {
-                    Ok(Some(attrs)) => return self.attrs.insert(attrs),
-                    Ok(None) => {}
-                    Err(err) => warn!(?err, "Failed to get difficulty attributes"),
-                },
+            if let Some(ref attrs) = self.attrs {
+                return attrs;
             }
         }
 
@@ -147,20 +126,7 @@ impl<'m> PpManager<'m> {
             calc = calc.passed_objects(state.total_hits(self.map.mode));
         }
 
-        let attrs = calc.calculate(&self.map);
-
-        // TODO: store calculated attributes
-        // if !self.partial && self.mods.clock_rate.is_none() {
-        //     let upsert_fut =
-        //         Context::psql().upsert_map_difficulty(self.map_id, self.mods.bits,
-        // &attrs);
-
-        //     if let Err(err) = upsert_fut.await {
-        //         warn!(?err, "Failed to upsert difficulty attrs");
-        //     }
-        // }
-
-        self.attrs.insert(attrs)
+        self.attrs.insert(calc.calculate(&self.map))
     }
 
     /// Calculate performance attributes
