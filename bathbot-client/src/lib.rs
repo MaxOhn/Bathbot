@@ -15,7 +15,6 @@ mod osekai;
 mod osu;
 mod osustats;
 mod osutrack;
-mod osuworld;
 mod respektive;
 mod site;
 mod snipe;

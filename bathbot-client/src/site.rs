@@ -15,7 +15,6 @@ pub enum Site {
     OsuReplay,
     OsuStats,
     OsuTrack,
-    OsuWorld,
     Respektive,
     Twitch,
 }
@@ -37,7 +36,6 @@ impl Site {
             Self::OsuReplay => "OsuReplay",
             Self::OsuStats => "OsuStats",
             Self::OsuTrack => "OsuTrack",
-            Self::OsuWorld => "OsuWorld",
             Self::Respektive => "Respektive",
             Self::Twitch => "Twitch",
         }

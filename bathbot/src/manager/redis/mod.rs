@@ -2,8 +2,8 @@ use std::{borrow::Cow, fmt::Write};
 
 use bathbot_cache::Cache;
 use bathbot_model::{
-    rkyv_util::DerefAsString, rosu_v2::ranking::RankingsRkyv, CountryRegions, OsekaiBadge,
-    OsekaiMedal, OsekaiRanking, OsuStatsBestScores, OsuStatsBestTimeframe, SnipeCountries,
+    rosu_v2::ranking::RankingsRkyv, OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuStatsBestScores,
+    OsuStatsBestTimeframe, SnipeCountries,
 };
 use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
@@ -14,7 +14,7 @@ use rkyv::{
     ser::{allocator::ArenaHandle, Serializer},
     util::AlignedVec,
     validation::{archive::ArchiveValidator, Validator},
-    with::{Identity, MapKV, With},
+    with::With,
     Archive, Serialize,
 };
 use rosu_v2::prelude::{GameMode, OsuError, Rankings};
@@ -245,54 +245,6 @@ impl RedisManager {
         }
 
         Ok(RedisData::new(countries))
-    }
-
-    pub async fn country_regions(self) -> RedisResult<CountryRegions> {
-        const EXPIRE: u64 = 43_200; // 12 hours
-        let key = "country_regions";
-
-        let mut conn = match Context::cache()
-            .fetch_with::<_, _, MapKV<Identity, MapKV<DerefAsString, DerefAsString>>>(key)
-            .await
-        {
-            Ok(Ok(countries)) => {
-                BotMetrics::inc_redis_hit("Country regions");
-
-                return Ok(RedisData::Archive(countries));
-            }
-            Ok(Err(conn)) => Some(conn),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
-        let country_regions = Context::client().get_country_regions().await?;
-
-        if let Some(ref mut conn) = conn {
-            let bytes_res = rkyv::util::with_arena(|arena| {
-                let wrap = With::<_, MapKV<Identity, MapKV<DerefAsString, DerefAsString>>>::cast(
-                    &country_regions,
-                );
-
-                let mut serializer = Serializer::new(Vec::new(), arena.acquire(), ());
-                rkyv::api::serialize_using::<_, BoxedError>(wrap, &mut serializer)?;
-
-                Ok::<_, BoxedError>(serializer.into_writer())
-            });
-
-            match bytes_res {
-                Ok(bytes) => {
-                    if let Err(err) = Cache::store_raw(conn, key, &bytes, EXPIRE).await {
-                        warn!(?err, "Failed to store country regions");
-                    }
-                }
-                Err(err) => warn!(?err, "Failed to serialize country regions"),
-            }
-        }
-
-        Ok(RedisData::new(country_regions))
     }
 
     // Mapset difficulty names for the autocomplete option of the compare command

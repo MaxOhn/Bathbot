@@ -209,7 +209,7 @@ WHERE
         query
             .execute(executor)
             .await
-            .wrap_err("failed to execute query")?;
+            .wrap_err("Failed to execute query")?;
 
         Ok(())
     }

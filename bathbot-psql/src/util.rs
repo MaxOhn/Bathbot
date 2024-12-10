@@ -1,4 +1,4 @@
-use rosu_v2::prelude::{GameMode, Genre, Grade, Language, RankStatus};
+use rosu_v2::prelude::{GameMode, Genre, Language, RankStatus};
 
 pub fn parse_mode(mode: i16) -> GameMode {
     match mode {
@@ -6,21 +6,6 @@ pub fn parse_mode(mode: i16) -> GameMode {
         1 => GameMode::Taiko,
         2 => GameMode::Catch,
         3 => GameMode::Mania,
-        _ => unreachable!(),
-    }
-}
-
-pub fn parse_grade(grade: i16) -> Grade {
-    match grade {
-        0 => Grade::F,
-        1 => Grade::D,
-        2 => Grade::C,
-        3 => Grade::B,
-        4 => Grade::A,
-        5 => Grade::S,
-        6 => Grade::SH,
-        7 => Grade::X,
-        8 => Grade::XH,
         _ => unreachable!(),
     }
 }
