@@ -866,7 +866,6 @@ WHERE
             .wrap_err("Failed to execute osu_user_mode_stats query")?;
 
         Self::delete_osu_username(&mut *conn, user_id).await?;
-        Self::delete_scores_by_user_id(&mut *conn, user_id).await?;
 
         Ok(())
     }

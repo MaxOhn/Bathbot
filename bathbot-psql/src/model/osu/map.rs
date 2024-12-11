@@ -1,8 +1,4 @@
 use rkyv::{Archive, Deserialize, Serialize};
-use rosu_pp::{
-    catch::CatchDifficultyAttributes, mania::ManiaDifficultyAttributes,
-    osu::OsuDifficultyAttributes, taiko::TaikoDifficultyAttributes,
-};
 
 #[derive(Clone)]
 pub struct DbBeatmap {
@@ -29,79 +25,3 @@ pub struct MapVersion {
     pub map_id: i32,
     pub version: String,
 }
-
-macro_rules! attr_struct {
-    (
-        $from:ident => $to:ident {
-            $( $field:ident: $ty:ty $( as $to_ty:ty )?, )*
-        }
-    ) => {
-        pub(crate) struct $from {
-            $( pub(crate) $field: $ty, )*
-        }
-
-        impl From<$from> for $to {
-            #[inline]
-            fn from(attrs: $from) -> Self {
-                let $from {
-                    $( $field, )*
-                } = attrs;
-
-                #[allow(clippy::redundant_field_names)]
-                Self {
-                    $( $field: $field $( as $to_ty )?, )*
-                }
-            }
-        }
-    };
-}
-
-attr_struct!(DbOsuDifficultyAttributes => OsuDifficultyAttributes {
-    aim: f64,
-    speed: f64,
-    flashlight: f64,
-    slider_factor: f64,
-    speed_note_count: f64,
-    aim_difficult_strain_count: f64,
-    speed_difficult_strain_count: f64,
-    ar: f64,
-    od: f64,
-    hp: f64,
-    n_circles: i32 as u32,
-    n_sliders: i32 as u32,
-    n_large_ticks: i32 as u32,
-    n_spinners: i32 as u32,
-    stars: f64,
-    max_combo: i32 as u32,
-});
-
-attr_struct!(DbTaikoDifficultyAttributes => TaikoDifficultyAttributes {
-    stamina: f64,
-    rhythm: f64,
-    color: f64,
-    peak: f64,
-    great_hit_window: f64,
-    ok_hit_window: f64,
-    mono_stamina_factor: f64,
-    stars: f64,
-    max_combo: i32 as u32,
-    is_convert: bool,
-});
-
-attr_struct!(DbCatchDifficultyAttributes => CatchDifficultyAttributes {
-    stars: f64,
-    ar: f64,
-    n_fruits: i32 as u32,
-    n_droplets: i32 as u32,
-    n_tiny_droplets: i32 as u32,
-    is_convert: bool,
-});
-
-attr_struct!(DbManiaDifficultyAttributes => ManiaDifficultyAttributes {
-    stars: f64,
-    hit_window: f64,
-    n_objects: i32 as u32,
-    n_hold_notes: i32 as u32,
-    max_combo: i32 as u32,
-    is_convert: bool,
-});

@@ -1,8 +1,6 @@
 use std::fmt::{Debug, Write};
 
-pub use self::{
-    bookmark::BookmarkCriteria, regular::RegularCriteria, scores::ScoresCriteria, top::TopCriteria,
-};
+pub use self::{bookmark::BookmarkCriteria, regular::RegularCriteria, top::TopCriteria};
 use super::{
     operator::Operator,
     optional::{OptionalRange, OptionalText},
@@ -11,7 +9,6 @@ use super::{
 
 mod bookmark;
 mod regular;
-mod scores;
 mod top;
 
 fn try_update_len(length: &mut OptionalRange<f32>, op: Operator, value: &str) -> bool {

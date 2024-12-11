@@ -1,12 +1,10 @@
 use std::slice;
 
 use bathbot_model::rosu_v2::user::User;
-use bathbot_psql::model::osu::{DbScores, DbScoresBuilder, DbTopScores};
-use bathbot_util::{osu::ModSelection, IntHasher};
 use eyre::{Result, WrapErr};
 use rosu_v2::{
     model::score::BeatmapUserScore,
-    prelude::{GameMode, GameModsIntermode, Grade, OsuError, Score},
+    prelude::{GameMode, GameModsIntermode, OsuError, Score},
     OsuResult,
 };
 
@@ -22,74 +20,6 @@ pub struct ScoresManager;
 impl ScoresManager {
     pub fn new() -> Self {
         Self
-    }
-
-    fn scores_builder<'a>(
-        mode: Option<GameMode>,
-        mods: Option<&ModSelection>,
-        country_code: Option<&'a str>,
-        map_id: Option<u32>,
-        grade: Option<Grade>,
-    ) -> DbScoresBuilder<'a> {
-        let mut builder = DbScoresBuilder::new();
-
-        if let Some(mode) = mode {
-            builder.mode(mode);
-        }
-
-        if let Some(country_code) = country_code {
-            builder.country_code(country_code);
-        }
-
-        if let Some(map_id) = map_id {
-            builder.map_id(map_id as i32);
-        }
-
-        if let Some(grade) = grade {
-            builder.grade(grade);
-        }
-
-        if let Some(mods) = mods {
-            match mods {
-                ModSelection::Include(mods) => builder.mods_include(mods.bits() as i32),
-                ModSelection::Exclude(mods) => builder.mods_exclude(mods.bits() as i32),
-                ModSelection::Exact(mods) => builder.mods_exact(mods.bits() as i32),
-            };
-        }
-
-        builder
-    }
-
-    #[allow(clippy::wrong_self_convention)]
-    pub async fn from_discord_ids(
-        self,
-        users: &[i64],
-        mode: Option<GameMode>,
-        mods: Option<&ModSelection>,
-        country_code: Option<&str>,
-        map_id: Option<u32>,
-        grade: Option<Grade>,
-    ) -> Result<DbScores<IntHasher>> {
-        Self::scores_builder(mode, mods, country_code, map_id, grade)
-            .build_discord(Context::psql(), users)
-            .await
-            .wrap_err("Failed to select scores")
-    }
-
-    #[allow(clippy::wrong_self_convention)]
-    pub async fn from_osu_ids(
-        self,
-        users: &[i32],
-        mode: Option<GameMode>,
-        mods: Option<&ModSelection>,
-        country_code: Option<&str>,
-        map_id: Option<u32>,
-        grade: Option<Grade>,
-    ) -> Result<DbScores<IntHasher>> {
-        Self::scores_builder(mode, mods, country_code, map_id, grade)
-            .build_osu(Context::psql(), users)
-            .await
-            .wrap_err("Failed to select scores")
     }
 
     pub async fn map_leaderboard(
@@ -145,18 +75,6 @@ impl ScoresManager {
         Ok(score)
     }
 
-    pub async fn db_top_scores(
-        self,
-        mode: GameMode,
-        user_ids: Option<&[i32]>,
-        country_code: Option<&str>,
-    ) -> Result<DbTopScores<IntHasher>> {
-        Context::psql()
-            .select_top100_scores(mode, country_code, user_ids)
-            .await
-            .wrap_err("Failed to fetch top scores")
-    }
-
     pub fn top(self, legacy_scores: bool) -> ScoreArgs {
         ScoreArgs {
             manager: self,
@@ -193,7 +111,7 @@ impl ScoresManager {
     }
 
     async fn store(self, scores: &[Score]) {
-        if let Err(err) = Context::psql().insert_scores(scores).await {
+        if let Err(err) = Context::psql().insert_scores_mapsets(scores).await {
             warn!(?err, "Failed to store scores");
         }
     }

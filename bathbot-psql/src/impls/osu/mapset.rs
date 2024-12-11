@@ -56,7 +56,7 @@ WHERE
     }
 
     pub async fn upsert_beatmapset(&self, mapset: &BeatmapsetExtended) -> Result<()> {
-        let mut tx = self.begin().await.wrap_err("failed to begin transaction")?;
+        let mut tx = self.begin().await.wrap_err("Failed to begin transaction")?;
 
         let query = sqlx::query!(
             r#"
@@ -110,7 +110,7 @@ SET
         query
             .execute(&mut *tx)
             .await
-            .wrap_err("failed to execute query")?;
+            .wrap_err("Failed to execute query")?;
 
         if let Some(ref maps) = mapset.maps {
             // In case maps were changed to the point they even got different
@@ -126,7 +126,13 @@ SET
             }
         }
 
-        tx.commit().await.wrap_err("failed to commit transaction")?;
+        tx.commit().await.wrap_err("Failed to commit transaction")?;
+
+        debug!(
+            mapset_id = mapset.mapset_id,
+            with_maps = mapset.maps.is_some(),
+            "Upserted mapset",
+        );
 
         Ok(())
     }
@@ -209,7 +215,7 @@ WHERE
         query
             .execute(executor)
             .await
-            .wrap_err("failed to execute query")?;
+            .wrap_err("Failed to execute query")?;
 
         Ok(())
     }

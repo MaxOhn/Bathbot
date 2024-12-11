@@ -2,18 +2,11 @@ use std::{collections::HashMap, hash::BuildHasher};
 
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
-use rosu_pp::{
-    any::DifficultyAttributes, catch::CatchDifficultyAttributes, mania::ManiaDifficultyAttributes,
-    osu::OsuDifficultyAttributes, taiko::TaikoDifficultyAttributes,
-};
-use rosu_v2::prelude::{BeatmapExtended, GameMode};
+use rosu_v2::prelude::BeatmapExtended;
 use sqlx::{Postgres, Transaction};
 
 use crate::{
-    model::osu::{
-        DbBeatmap, DbBeatmapset, DbCatchDifficultyAttributes, DbManiaDifficultyAttributes,
-        DbMapFilename, DbOsuDifficultyAttributes, DbTaikoDifficultyAttributes, MapVersion,
-    },
+    model::osu::{DbBeatmap, DbBeatmapset, DbMapFilename, MapVersion},
     Database,
 };
 
@@ -225,125 +218,49 @@ FROM
             maps.insert(map.map_id, (map, mapset, filepath));
         }
 
+        // TODO: remove after fixing https://github.com/MaxOhn/Bathbot/issues/849
+        {
+            struct DebugMaps<'a, S> {
+                maps: &'a HashMap<i32, (DbBeatmap, DbBeatmapset, DbMapFilename), S>,
+                checksums: &'a HashMap<i32, Option<&'a str>, S>,
+            }
+
+            impl<'a, S> DebugMaps<'a, S> {
+                fn new(
+                    maps: &'a HashMap<i32, (DbBeatmap, DbBeatmapset, DbMapFilename), S>,
+                    checksums: &'a HashMap<i32, Option<&'a str>, S>,
+                ) -> Self {
+                    Self { maps, checksums }
+                }
+            }
+
+            impl<S: std::hash::BuildHasher> std::fmt::Display for DebugMaps<'_, S> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    let iter = self.maps.iter().map(|(map_id, (.., filename))| {
+                        let filename = match filename {
+                            DbMapFilename::Present(_) => "Present",
+                            DbMapFilename::ChecksumMismatch => "ChecksumMismatch",
+                            DbMapFilename::Missing => "Missing",
+                        };
+
+                        let checksum = self
+                            .checksums
+                            .get(map_id)
+                            .and_then(Option::as_ref)
+                            .copied()
+                            .unwrap_or("None");
+
+                        (*map_id, (filename, checksum))
+                    });
+
+                    f.debug_map().entries(iter).finish()
+                }
+            }
+
+            debug!(checksums = %DebugMaps::new(&maps, maps_id_checksum), "Found maps");
+        }
+
         Ok(maps)
-    }
-
-    pub async fn select_map_difficulty_attrs(
-        &self,
-        map_id: u32,
-        mode: GameMode,
-        mods: u32,
-    ) -> Result<Option<DifficultyAttributes>> {
-        let attrs = match mode {
-            GameMode::Osu => sqlx::query_as!(
-                DbOsuDifficultyAttributes,
-                r#"
-SELECT 
-  aim, 
-  speed, 
-  flashlight, 
-  slider_factor, 
-  speed_note_count, 
-  aim_difficult_strain_count, 
-  speed_difficult_strain_count, 
-  ar, 
-  od, 
-  hp, 
-  n_circles, 
-  n_sliders, 
-  n_large_ticks, 
-  n_spinners, 
-  stars, 
-  max_combo 
-FROM 
-  osu_map_difficulty 
-WHERE 
-  map_id = $1 
-  AND mods = $2"#,
-                map_id as i32,
-                mods as i32
-            )
-            .fetch_optional(self)
-            .await
-            .wrap_err("failed to fetch optional osu difficulty")?
-            .map(OsuDifficultyAttributes::from)
-            .map(DifficultyAttributes::Osu),
-            GameMode::Taiko => sqlx::query_as!(
-                DbTaikoDifficultyAttributes,
-                r#"
-SELECT 
-  stamina, 
-  rhythm, 
-  color, 
-  peak, 
-  great_hit_window, 
-  ok_hit_window, 
-  mono_stamina_factor, 
-  stars, 
-  max_combo, 
-  is_convert 
-FROM 
-  osu_map_difficulty_taiko 
-WHERE 
-  map_id = $1 
-  AND mods = $2"#,
-                map_id as i32,
-                mods as i32
-            )
-            .fetch_optional(self)
-            .await
-            .wrap_err("failed to fetch optional taiko difficulty")?
-            .map(TaikoDifficultyAttributes::from)
-            .map(DifficultyAttributes::Taiko),
-            GameMode::Catch => sqlx::query_as!(
-                DbCatchDifficultyAttributes,
-                r#"
-SELECT 
-  stars, 
-  ar, 
-  n_fruits, 
-  n_droplets, 
-  n_tiny_droplets, 
-  is_convert 
-FROM 
-  osu_map_difficulty_catch 
-WHERE 
-  map_id = $1 
-  AND mods = $2"#,
-                map_id as i32,
-                mods as i32
-            )
-            .fetch_optional(self)
-            .await
-            .wrap_err("failed to fetch optional catch difficulty")?
-            .map(CatchDifficultyAttributes::from)
-            .map(DifficultyAttributes::Catch),
-            GameMode::Mania => sqlx::query_as!(
-                DbManiaDifficultyAttributes,
-                r#"
-SELECT 
-  stars, 
-  hit_window, 
-  n_objects, 
-  n_hold_notes, 
-  max_combo, 
-  is_convert 
-FROM 
-  osu_map_difficulty_mania 
-WHERE 
-  map_id = $1 
-  AND mods = $2"#,
-                map_id as i32,
-                mods as i32
-            )
-            .fetch_optional(self)
-            .await
-            .wrap_err("failed to fetch optional mania difficulty")?
-            .map(ManiaDifficultyAttributes::from)
-            .map(DifficultyAttributes::Mania),
-        };
-
-        Ok(attrs)
     }
 
     pub async fn select_beatmap_file(&self, map_id: u32) -> Result<Option<Box<str>>> {
@@ -523,19 +440,18 @@ FROM
             map.mode as i16,
         );
 
-        // None if both map_id and checksum were the same i.e. no change
+        // `None` if both map_id and checksum were the same i.e. no change
         let row_opt = query
             .fetch_optional(&mut **tx)
             .await
-            .wrap_err("failed to fetch optional")?;
+            .wrap_err("Failed to fetch optional")?;
 
         let updated = row_opt
             .and_then(|row| row.inserted)
             .map_or(false, |inserted| !inserted);
 
         // Either new entry or different checksum
-        // => map has changed so we should delete its attributes
-        //    and all maps of its mapset
+        // => map has changed so we should delete all maps of its mapset
         if updated {
             let query = sqlx::query!(
                 r#"
@@ -549,242 +465,8 @@ WHERE
             query
                 .execute(&mut **tx)
                 .await
-                .wrap_err("failed to delete from osu_map_files")?;
-
-            let query = match map.mode {
-                GameMode::Osu => sqlx::query!(
-                    r#"
-DELETE FROM 
-  osu_map_difficulty 
-WHERE 
-  map_id = $1"#,
-                    map.map_id as i32
-                ),
-                GameMode::Taiko => sqlx::query!(
-                    r#"
-DELETE FROM 
-  osu_map_difficulty_taiko 
-WHERE 
-  map_id = $1"#,
-                    map.map_id as i32
-                ),
-                GameMode::Catch => sqlx::query!(
-                    r#"
-DELETE FROM 
-  osu_map_difficulty_catch 
-WHERE 
-  map_id = $1"#,
-                    map.map_id as i32
-                ),
-                GameMode::Mania => sqlx::query!(
-                    r#"
-DELETE FROM 
-  osu_map_difficulty_mania 
-WHERE 
-  map_id = $1"#,
-                    map.map_id as i32
-                ),
-            };
-
-            query
-                .execute(&mut **tx)
-                .await
-                .wrap_err("failed to delete from map difficulty")?;
+                .wrap_err("Failed to delete from osu_map_files")?;
         }
-
-        Ok(())
-    }
-
-    pub async fn upsert_map_difficulty(
-        &self,
-        map_id: u32,
-        mods: u32,
-        attrs: &DifficultyAttributes,
-    ) -> Result<()> {
-        let query = match attrs {
-            DifficultyAttributes::Osu(OsuDifficultyAttributes {
-                aim,
-                speed,
-                flashlight,
-                slider_factor,
-                speed_note_count,
-                aim_difficult_strain_count,
-                speed_difficult_strain_count,
-                ar,
-                od,
-                hp,
-                n_circles,
-                n_sliders,
-                n_large_ticks,
-                n_spinners,
-                stars,
-                max_combo,
-            }) => sqlx::query!(
-                r#"
-INSERT INTO osu_map_difficulty (
-  map_id, mods, aim, speed, flashlight, 
-  slider_factor, speed_note_count, aim_difficult_strain_count, 
-  speed_difficult_strain_count, ar, od, hp, n_circles, 
-  n_sliders, n_large_ticks, n_spinners, stars, max_combo
-) 
-VALUES 
-  (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
-    $11, $12, $13, $14, $15, $16, $17, $18
-  ) ON CONFLICT (map_id, mods) DO 
-UPDATE 
-SET 
-  aim = $3, 
-  speed = $4, 
-  flashlight = $5, 
-  slider_factor = $6, 
-  speed_note_count = $7, 
-  aim_difficult_strain_count = $8, 
-  speed_difficult_strain_count = $9, 
-  ar = $10, 
-  od = $11, 
-  hp = $12, 
-  n_circles = $13, 
-  n_sliders = $14, 
-  n_large_ticks = $15, 
-  n_spinners = $16, 
-  stars = $17, 
-  max_combo = $18"#,
-                map_id as i32,
-                mods as i32,
-                aim,
-                speed,
-                flashlight,
-                slider_factor,
-                speed_note_count,
-                aim_difficult_strain_count,
-                speed_difficult_strain_count,
-                ar,
-                od,
-                hp,
-                *n_circles as i32,
-                *n_sliders as i32,
-                *n_large_ticks as i32,
-                *n_spinners as i32,
-                stars,
-                *max_combo as i32
-            ),
-            DifficultyAttributes::Taiko(TaikoDifficultyAttributes {
-                stamina,
-                rhythm,
-                color,
-                peak,
-                great_hit_window,
-                ok_hit_window,
-                mono_stamina_factor,
-                stars,
-                max_combo,
-                is_convert,
-            }) => sqlx::query!(
-                r#"
-INSERT INTO osu_map_difficulty_taiko (
-  map_id, mods, stamina, rhythm, color, 
-  peak, great_hit_window, ok_hit_window, 
-  mono_stamina_factor, stars, max_combo, 
-  is_convert
-) 
-VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) ON CONFLICT (map_id, mods) DO 
-UPDATE 
-SET 
-  stamina = $3, 
-  rhythm = $4, 
-  color = $5, 
-  peak = $6, 
-  great_hit_window = $7, 
-  ok_hit_window = $8, 
-  mono_stamina_factor = $9, 
-  stars = $10, 
-  max_combo = $11, 
-  is_convert = $12"#,
-                map_id as i32,
-                mods as i32,
-                stamina,
-                rhythm,
-                color,
-                peak,
-                great_hit_window,
-                ok_hit_window,
-                mono_stamina_factor,
-                stars,
-                *max_combo as i32,
-                is_convert,
-            ),
-            DifficultyAttributes::Catch(CatchDifficultyAttributes {
-                stars,
-                ar,
-                n_fruits,
-                n_droplets,
-                n_tiny_droplets,
-                is_convert,
-            }) => sqlx::query!(
-                r#"
-INSERT INTO osu_map_difficulty_catch (
-  map_id, mods, stars, ar, n_fruits, n_droplets, 
-  n_tiny_droplets, is_convert
-) 
-VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (map_id, mods) DO 
-UPDATE 
-SET 
-  stars = $3, 
-  ar = $4, 
-  n_fruits = $5, 
-  n_droplets = $6, 
-  n_tiny_droplets = $7, 
-  is_convert = $8"#,
-                map_id as i32,
-                mods as i32,
-                stars,
-                ar,
-                *n_fruits as i32,
-                *n_droplets as i32,
-                *n_tiny_droplets as i32,
-                is_convert,
-            ),
-            DifficultyAttributes::Mania(ManiaDifficultyAttributes {
-                stars,
-                hit_window,
-                n_objects,
-                n_hold_notes,
-                max_combo,
-                is_convert,
-            }) => sqlx::query!(
-                r#"
-INSERT INTO osu_map_difficulty_mania (
-  map_id, mods, stars, hit_window, n_objects, 
-  n_hold_notes, max_combo, is_convert
-) 
-VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (map_id, mods) DO 
-UPDATE 
-SET 
-  stars = $3, 
-  hit_window = $4, 
-  n_objects = $5, 
-  n_hold_notes = $6, 
-  max_combo = $7, 
-  is_convert = $8"#,
-                map_id as i32,
-                mods as i32,
-                stars,
-                hit_window,
-                *n_objects as i32,
-                *n_hold_notes as i32,
-                *max_combo as i32,
-                is_convert,
-            ),
-        };
-
-        query
-            .execute(self)
-            .await
-            .wrap_err("failed to execute query")?;
 
         Ok(())
     }

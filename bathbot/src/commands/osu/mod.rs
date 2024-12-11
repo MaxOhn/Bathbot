@@ -72,7 +72,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 pub use self::{
     badges::*, claim_name::*, compare::*, fix::*, graphs::*, leaderboard::*, map::*, map_search::*,
     match_compare::*, match_costs::*, medals::*, nochoke::*, osustats::*, profile::*, recent::*,
-    region_top::*, render::*, scores::*, simulate::*, snipe::*, top::*, whatif::*,
+    render::*, simulate::*, snipe::*, top::*, whatif::*,
 };
 use crate::{
     core::commands::{interaction::InteractionCommands, CommandOrigin},
@@ -107,9 +107,7 @@ mod rank;
 mod ranking;
 mod ratios;
 mod recent;
-mod region_top;
 mod render;
-mod scores;
 mod serverleaderboard;
 mod simulate;
 mod snipe;
