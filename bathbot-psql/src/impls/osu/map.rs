@@ -218,6 +218,48 @@ FROM
             maps.insert(map.map_id, (map, mapset, filepath));
         }
 
+        // TODO: remove after fixing https://github.com/MaxOhn/Bathbot/issues/849
+        {
+            struct DebugMaps<'a, S> {
+                maps: &'a HashMap<i32, (DbBeatmap, DbBeatmapset, DbMapFilename), S>,
+                checksums: &'a HashMap<i32, Option<&'a str>, S>,
+            }
+
+            impl<'a, S> DebugMaps<'a, S> {
+                fn new(
+                    maps: &'a HashMap<i32, (DbBeatmap, DbBeatmapset, DbMapFilename), S>,
+                    checksums: &'a HashMap<i32, Option<&'a str>, S>,
+                ) -> Self {
+                    Self { maps, checksums }
+                }
+            }
+
+            impl<S: std::hash::BuildHasher> std::fmt::Display for DebugMaps<'_, S> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    let iter = self.maps.iter().map(|(map_id, (.., filename))| {
+                        let filename = match filename {
+                            DbMapFilename::Present(_) => "Present",
+                            DbMapFilename::ChecksumMismatch => "ChecksumMismatch",
+                            DbMapFilename::Missing => "Missing",
+                        };
+
+                        let checksum = self
+                            .checksums
+                            .get(map_id)
+                            .and_then(Option::as_ref)
+                            .copied()
+                            .unwrap_or("None");
+
+                        (*map_id, (filename, checksum))
+                    });
+
+                    f.debug_map().entries(iter).finish()
+                }
+            }
+
+            debug!(checksums = %DebugMaps::new(&maps, maps_id_checksum), "Found maps");
+        }
+
         Ok(maps)
     }
 
@@ -398,7 +440,7 @@ FROM
             map.mode as i16,
         );
 
-        // None if both map_id and checksum were the same i.e. no change
+        // `None` if both map_id and checksum were the same i.e. no change
         let row_opt = query
             .fetch_optional(&mut **tx)
             .await

@@ -55,6 +55,15 @@ async fn async_main() -> Result<()> {
     BotConfig::init().context("failed to initialize config")?;
     Countries::init();
 
+    {
+        // Making sure logging works as expected
+        error!("error");
+        info!("info");
+        warn!("warn");
+        debug!("debug");
+        trace!("trace");
+    }
+
     let (member_tx, mut member_rx) = mpsc::unbounded_channel();
 
     let res = Context::init(member_tx.clone())
