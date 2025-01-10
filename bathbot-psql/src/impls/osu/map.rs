@@ -178,7 +178,7 @@ FROM
         let mut maps = HashMap::with_capacity_and_hasher(map_ids.len(), S::default());
 
         while let Some(row_res) = rows.next().await {
-            let row = row_res.wrap_err("failed to fetch next")?;
+            let row = row_res.wrap_err("Failed to fetch next")?;
 
             let map = DbBeatmap {
                 map_id: row.map_id,
@@ -216,48 +216,6 @@ FROM
             };
 
             maps.insert(map.map_id, (map, mapset, filepath));
-        }
-
-        // TODO: remove after fixing https://github.com/MaxOhn/Bathbot/issues/849
-        {
-            struct DebugMaps<'a, S> {
-                maps: &'a HashMap<i32, (DbBeatmap, DbBeatmapset, DbMapFilename), S>,
-                checksums: &'a HashMap<i32, Option<&'a str>, S>,
-            }
-
-            impl<'a, S> DebugMaps<'a, S> {
-                fn new(
-                    maps: &'a HashMap<i32, (DbBeatmap, DbBeatmapset, DbMapFilename), S>,
-                    checksums: &'a HashMap<i32, Option<&'a str>, S>,
-                ) -> Self {
-                    Self { maps, checksums }
-                }
-            }
-
-            impl<S: std::hash::BuildHasher> std::fmt::Display for DebugMaps<'_, S> {
-                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    let iter = self.maps.iter().map(|(map_id, (.., filename))| {
-                        let filename = match filename {
-                            DbMapFilename::Present(_) => "Present",
-                            DbMapFilename::ChecksumMismatch => "ChecksumMismatch",
-                            DbMapFilename::Missing => "Missing",
-                        };
-
-                        let checksum = self
-                            .checksums
-                            .get(map_id)
-                            .and_then(Option::as_ref)
-                            .copied()
-                            .unwrap_or("None");
-
-                        (*map_id, (filename, checksum))
-                    });
-
-                    f.debug_map().entries(iter).finish()
-                }
-            }
-
-            debug!(checksums = %DebugMaps::new(&maps, maps_id_checksum), "Found maps");
         }
 
         Ok(maps)
@@ -359,34 +317,44 @@ SET
     pub(super) async fn delete_beatmaps_of_beatmapset(
         tx: &mut Transaction<'_, Postgres>,
         mapset_id: u32,
-    ) -> Result<()> {
+    ) -> Result<HashMap<i32, Box<str>>> {
         let query = sqlx::query!(
-            r#"DELETE FROM osu_maps WHERE mapset_id = $1"#,
+            r#"
+DELETE FROM
+  osu_maps
+WHERE
+  mapset_id = $1
+RETURNING
+  map_id, checksum"#,
             mapset_id as i32
         );
 
-        query
-            .execute(&mut **tx)
-            .await
-            .wrap_err("Failed to execute query")?;
+        let mut rows = query.fetch(&mut **tx);
+        let mut checksums = HashMap::new();
 
-        Ok(())
+        while let Some(row) = rows.next().await {
+            let row = row.wrap_err("Failed to fetch next")?;
+            checksums.insert(row.map_id, row.checksum.into_boxed_str());
+        }
+
+        debug!("Deleted {} maps of mapset {mapset_id}", checksums.len());
+
+        Ok(checksums)
     }
 
     pub(super) async fn upsert_beatmap(
         tx: &mut Transaction<'_, Postgres>,
         map: &BeatmapExtended,
+        old_checksum: Option<&str>,
     ) -> Result<()> {
-        let checksum = match map.checksum {
-            Some(ref checksum) => checksum,
-            None => {
-                warn!("Beatmap must contain checksum to be inserted into DB");
+        let Some(ref checksum) = map.checksum else {
+            warn!("Beatmap must contain checksum to be inserted into DB");
 
-                return Ok(());
-            }
+            return Ok(());
         };
 
-        // https://stackoverflow.com/questions/39058213/differentiate-inserted-and-updated-rows-in-upsert-using-system-columns
+        // `upsert_beatmap` is only called after `delete_beatmaps_of_beatmapset`
+        // so we never need to update on conflict
         let query = sqlx::query!(
             r#"
 INSERT INTO osu_maps (
@@ -399,29 +367,7 @@ VALUES
   (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
     $11, $12, $13, $14, $15, $16
-  ) ON CONFLICT (map_id) DO 
-UPDATE 
-SET 
-  mapset_id = $2, 
-  user_id = $3, 
-  checksum = $4, 
-  map_version = $5, 
-  seconds_total = $6, 
-  seconds_drain = $7, 
-  count_circles = $8, 
-  count_sliders = $9, 
-  count_spinners = $10, 
-  hp = $11, 
-  cs = $12, 
-  od = $13, 
-  ar = $14, 
-  bpm = $15, 
-  gamemode = $16, 
-  last_update = NOW() 
-WHERE 
-  osu_maps.checksum IS DISTINCT 
-FROM 
-  EXCLUDED.checksum RETURNING (xmax = 0) AS inserted"#,
+  ) ON CONFLICT (map_id) DO NOTHING"#,
             map.map_id as i32,
             map.mapset_id as i32,
             map.creator_id as i32,
@@ -440,19 +386,12 @@ FROM
             map.mode as i16,
         );
 
-        // `None` if both map_id and checksum were the same i.e. no change
-        let row_opt = query
-            .fetch_optional(&mut **tx)
+        query
+            .execute(&mut **tx)
             .await
-            .wrap_err("Failed to fetch optional")?;
+            .wrap_err("Failed to execute query")?;
 
-        let updated = row_opt
-            .and_then(|row| row.inserted)
-            .map_or(false, |inserted| !inserted);
-
-        // Either new entry or different checksum
-        // => map has changed so we should delete all maps of its mapset
-        if updated {
+        if old_checksum.is_some_and(|old| old != checksum) {
             let query = sqlx::query!(
                 r#"
 DELETE FROM 
