@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{Beatmapset, BeatmapsetExtended};
 use sqlx::{Executor, Postgres};
@@ -114,13 +116,17 @@ SET
 
         if let Some(ref maps) = mapset.maps {
             // In case maps were changed to the point they even got different
-            // map ids, we delete all maps of the mapset first.
-            Self::delete_beatmaps_of_beatmapset(&mut tx, mapset.mapset_id)
+            // map ids, we delete all maps of the mapset first. Checksums are
+            // collected so that we can check afterwards if the map's .osu file
+            // needs to be updated.
+            let old_checksums = Self::delete_beatmaps_of_beatmapset(&mut tx, mapset.mapset_id)
                 .await
                 .wrap_err("Failed to delete maps")?;
 
             for map in maps {
-                Self::upsert_beatmap(&mut tx, map)
+                let old_checksum = old_checksums.get(&(map.map_id as i32)).map(Deref::deref);
+
+                Self::upsert_beatmap(&mut tx, map, old_checksum)
                     .await
                     .wrap_err("Failed to insert map")?;
             }
@@ -130,7 +136,7 @@ SET
 
         debug!(
             mapset_id = mapset.mapset_id,
-            with_maps = mapset.maps.is_some(),
+            map_count = mapset.maps.as_ref().map(Vec::len),
             "Upserted mapset",
         );
 

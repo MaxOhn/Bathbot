@@ -84,16 +84,6 @@ impl MapManager {
             mode: GameMode,
             mods: Mods,
         ) -> Result<DifficultyAttributes> {
-            // TODO: fetch attributes with custom parameters from database
-            // if mods.clock_rate.is_none() {
-            //     let attrs_fut =
-            //         Context::psql().select_map_difficulty_attrs(map_id, mode, mods.bits);
-
-            //     if let Some(attrs) = attrs_fut.await.wrap_err("Failed to get
-            // attributes")? {         return Ok(attrs);
-            //     }
-            // }
-
             let map = this.pp_map(map_id).await.wrap_err("Failed to get pp map")?;
 
             let attrs = PpManager::from_parsed(&map)

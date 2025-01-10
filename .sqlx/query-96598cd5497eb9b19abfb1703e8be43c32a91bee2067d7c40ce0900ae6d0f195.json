@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nDELETE FROM\n  osu_maps\nWHERE\n  mapset_id = $1\nRETURNING\n  map_id, checksum",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "checksum",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "96598cd5497eb9b19abfb1703e8be43c32a91bee2067d7c40ce0900ae6d0f195"
+}
