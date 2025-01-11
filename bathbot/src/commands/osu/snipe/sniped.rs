@@ -370,7 +370,7 @@ impl<'a> SnipedWeeksCoord<'a> {
     }
 }
 
-impl<'a> Ranged for SnipedWeeksCoord<'a> {
+impl Ranged for SnipedWeeksCoord<'_> {
     type FormatOption = DefaultFormatting;
     type ValueType = Date;
 
@@ -420,7 +420,7 @@ impl<'a> Ranged for SnipedWeeksCoord<'a> {
     }
 }
 
-impl<'a> DiscreteRanged for SnipedWeeksCoord<'a> {
+impl DiscreteRanged for SnipedWeeksCoord<'_> {
     fn size(&self) -> usize {
         self.weeks.len()
     }

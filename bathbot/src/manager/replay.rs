@@ -99,11 +99,7 @@ impl ReplayManager {
         }
     }
 
-    pub async fn set_settings<'a>(
-        self,
-        user: Id<UserMarker>,
-        settings: &ReplaySettings,
-    ) -> Result<()> {
+    pub async fn set_settings(self, user: Id<UserMarker>, settings: &ReplaySettings) -> Result<()> {
         let db_options = DbRenderOptions::from(settings);
 
         self.psql

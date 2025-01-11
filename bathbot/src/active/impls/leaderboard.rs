@@ -173,7 +173,7 @@ impl<'a> ComboFormatter<'a> {
     }
 }
 
-impl<'a> Display for ComboFormatter<'a> {
+impl Display for ComboFormatter<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "**{}x**", self.score.combo)?;

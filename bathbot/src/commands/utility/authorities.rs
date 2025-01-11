@@ -94,7 +94,7 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
                 || cache
                     .guild(guild_id)
                     .await?
-                    .map_or(false, |guild| guild.owner_id == author_id))
+                    .is_some_and(|guild| guild.owner_id == author_id))
             {
                 let member_fut = cache.member(guild_id, author_id);
 
@@ -152,7 +152,7 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
                 || cache
                     .guild(guild_id)
                     .await?
-                    .map_or(false, |guild| guild.owner_id == author_id))
+                    .is_some_and(|guild| guild.owner_id == author_id))
             {
                 let member_fut = cache.member(guild_id, author_id);
 

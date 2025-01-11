@@ -17,7 +17,7 @@ struct RenderData<'n> {
     kind: RenderDataKind,
 }
 
-impl<'n> Serialize for RenderData<'n> {
+impl Serialize for RenderData<'_> {
     #[inline]
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         let mut map = s.serialize_map(Some(3))?;
@@ -40,7 +40,7 @@ enum RenderDataStatus<'s> {
     Error { msg: &'s str },
 }
 
-impl<'n> Serialize for RenderDataStatus<'n> {
+impl Serialize for RenderDataStatus<'_> {
     #[inline]
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         let text = match self {

@@ -151,7 +151,7 @@ fn remove_pages_field(fields: &mut FieldsNamed) -> Result<(), Error> {
         return Err(Error::new_spanned(fields, "must have fields"));
     };
 
-    let valid_name = last.ident.as_ref().map_or(false, |ident| ident == "pages");
+    let valid_name = last.ident.as_ref().is_some_and(|ident| ident == "pages");
 
     let valid_ty = matches!(
         last.ty,

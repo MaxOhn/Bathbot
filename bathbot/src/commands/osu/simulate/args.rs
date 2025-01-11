@@ -168,7 +168,7 @@ where
     all_consuming(terminated(num::float, opt(suffix)))(input)
 }
 
-fn parse_bool<'i>(input: &'i str) -> IResult<&'i str, bool> {
+fn parse_bool(input: &str) -> IResult<&str, bool> {
     let options = (
         terminated(by::tag("t"), opt(by::tag("rue"))),
         terminated(by::tag("f"), opt(by::tag("alse"))),

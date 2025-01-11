@@ -54,7 +54,7 @@ impl<'a, Status> BathbotCard<'a, Status> {
     }
 }
 
-impl<'a> BathbotCard<'a, UserNext> {
+impl BathbotCard<'_, UserNext> {
     pub fn new<S>(mode: GameMode, scores: &[Score], maps: Maps<S>, legacy_scores: bool) -> Self
     where
         S: BuildHasher,

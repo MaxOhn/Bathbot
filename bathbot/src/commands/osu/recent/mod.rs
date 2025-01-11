@@ -140,7 +140,7 @@ pub struct RecentBest {
     size: Option<ListSize>,
 }
 
-impl<'a> TryFrom<RecentBest> for TopArgs<'a> {
+impl TryFrom<RecentBest> for TopArgs<'_> {
     type Error = &'static str;
 
     fn try_from(args: RecentBest) -> Result<Self, Self::Error> {

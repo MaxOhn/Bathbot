@@ -50,7 +50,7 @@ pub(super) mod f32_string {
 
     pub(super) struct F32String;
 
-    impl<'de> Visitor<'de> for F32String {
+    impl Visitor<'_> for F32String {
         type Value = f32;
 
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -103,7 +103,7 @@ pub(super) mod u32_string {
 
     pub(super) struct U32String;
 
-    impl<'de> Visitor<'de> for U32String {
+    impl Visitor<'_> for U32String {
         type Value = u32;
 
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -137,7 +137,7 @@ pub(super) mod naive_datetime {
 
     pub(super) struct NaiveDateTimeVisitor;
 
-    impl<'de> Visitor<'de> for NaiveDateTimeVisitor {
+    impl Visitor<'_> for NaiveDateTimeVisitor {
         type Value = OffsetDateTime;
 
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -207,7 +207,7 @@ pub(super) mod datetime_rfc3339 {
 
     struct DateTimeVisitor;
 
-    impl<'de> Visitor<'de> for DateTimeVisitor {
+    impl Visitor<'_> for DateTimeVisitor {
         type Value = OffsetDateTime;
 
         #[inline]
@@ -233,7 +233,7 @@ pub(super) mod datetime_rfc2822 {
 
     struct DateTimeVisitor;
 
-    impl<'de> Visitor<'de> for DateTimeVisitor {
+    impl Visitor<'_> for DateTimeVisitor {
         type Value = OffsetDateTime;
 
         #[inline]
@@ -259,7 +259,7 @@ pub(super) mod date {
 
     pub(super) struct DateVisitor;
 
-    impl<'de> Visitor<'de> for DateVisitor {
+    impl Visitor<'_> for DateVisitor {
         type Value = Date;
 
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

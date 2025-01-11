@@ -558,7 +558,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
     let mut with_miss_analyzer = orig
         .guild_id()
         .as_ref()
-        .map_or(false, Context::has_miss_analyzer);
+        .is_some_and(Context::has_miss_analyzer);
 
     let mut with_render = match (guild_render_button, config.render_button) {
         (None | Some(true), None) => true,

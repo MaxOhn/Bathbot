@@ -128,9 +128,9 @@ fn process_bookmarks(
             matches &= criteria.bpm.contains(bookmark.bpm);
 
             matches &= criteria.insert_date.contains(bookmark.insert_date.date());
-            matches &= bookmark.ranked_date.map_or(false, |datetime| {
-                criteria.ranked_date.contains(datetime.date())
-            });
+            matches &= bookmark
+                .ranked_date
+                .is_some_and(|datetime| criteria.ranked_date.contains(datetime.date()));
 
             let version = bookmark.version.cow_to_ascii_lowercase();
             matches &= criteria.version.matches(&version);

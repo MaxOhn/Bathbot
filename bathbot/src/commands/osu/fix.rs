@@ -220,7 +220,7 @@ async fn fix(orig: CommandOrigin<'_>, args: FixArgs<'_>) -> Result<()> {
             Some(guild_id) => Context::guild_config()
                 .peek(guild_id, |config| config.score_data)
                 .await
-                .map_or(false, ScoreData::is_legacy),
+                .is_some_and(ScoreData::is_legacy),
             None => false,
         },
     };

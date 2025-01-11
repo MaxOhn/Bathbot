@@ -29,7 +29,7 @@ impl Database {
     }
 }
 
-impl<'d, 'p> Executor<'p> for &'d Database {
+impl<'p> Executor<'p> for &Database {
     type Database = Postgres;
 
     #[inline]

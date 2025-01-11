@@ -235,7 +235,7 @@ impl<'de> Visitor<'de> for ModeAsSeed<Vec<OsuStatsScore>> {
     }
 }
 
-impl<'de> Visitor<'de> for ModeAsSeed<GameMods> {
+impl Visitor<'_> for ModeAsSeed<GameMods> {
     type Value = GameMods;
 
     fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {

@@ -205,7 +205,7 @@ impl<'de> Deserialize<'de> for PullRequests {
             seq: &'s mut Vec<T>,
         }
 
-        impl<'de, 's, T: Deserialize<'de>> Visitor<'de> for PullRequestsVisitor<'s, T> {
+        impl<'de, T: Deserialize<'de>> Visitor<'de> for PullRequestsVisitor<'_, T> {
             type Value = NextCursor;
 
             fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
@@ -574,7 +574,7 @@ struct OnlyNodesVisitor<'s, T> {
     seq: &'s mut Vec<T>,
 }
 
-impl<'de, 's, T: Deserialize<'de>> Visitor<'de> for OnlyNodesVisitor<'s, T> {
+impl<'de, T: Deserialize<'de>> Visitor<'de> for OnlyNodesVisitor<'_, T> {
     type Value = ();
 
     fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
@@ -606,7 +606,7 @@ struct NodesSeqVisitor<'s, T> {
     seq: &'s mut Vec<T>,
 }
 
-impl<'de, 's, T: Deserialize<'de>> DeserializeSeed<'de> for NodesSeqVisitor<'s, T> {
+impl<'de, T: Deserialize<'de>> DeserializeSeed<'de> for NodesSeqVisitor<'_, T> {
     type Value = ();
 
     fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
@@ -614,7 +614,7 @@ impl<'de, 's, T: Deserialize<'de>> DeserializeSeed<'de> for NodesSeqVisitor<'s, 
     }
 }
 
-impl<'de, 's, T: Deserialize<'de>> Visitor<'de> for NodesSeqVisitor<'s, T> {
+impl<'de, T: Deserialize<'de>> Visitor<'de> for NodesSeqVisitor<'_, T> {
     type Value = ();
 
     fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {

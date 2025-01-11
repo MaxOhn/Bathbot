@@ -91,7 +91,7 @@ impl<N> OptionalRange<N> {
     {
         value
             .parse()
-            .map_or(false, |value| self.try_update_value(op, value, tolerance))
+            .is_ok_and(|value| self.try_update_value(op, value, tolerance))
     }
 
     pub fn try_update_value<T>(&mut self, op: Operator, value: N, tolerance: T) -> bool
@@ -124,9 +124,8 @@ impl<N> OptionalRange<N> {
 
 impl OptionalRange<Date> {
     pub fn try_update_date(&mut self, op: Operator, value: &str) -> bool {
-        Date::parse(value, &DATE_FORMAT).map_or(false, |date| {
-            self.try_update_value(op, date, Duration::ZERO)
-        })
+        Date::parse(value, &DATE_FORMAT)
+            .is_ok_and(|date| self.try_update_value(op, date, Duration::ZERO))
     }
 }
 

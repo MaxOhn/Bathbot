@@ -80,7 +80,7 @@ impl Client {
         fn decode_base64<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Box<[u8]>>, D::Error> {
             struct RawReplayVisitor;
 
-            impl<'de> Visitor<'de> for RawReplayVisitor {
+            impl Visitor<'_> for RawReplayVisitor {
                 type Value = Box<[u8]>;
 
                 fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {

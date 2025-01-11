@@ -314,7 +314,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
 
 struct SnipeModsVisitor;
 
-impl<'de> Visitor<'de> for SnipeModsVisitor {
+impl Visitor<'_> for SnipeModsVisitor {
     type Value = GameMods;
 
     fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
