@@ -44,9 +44,9 @@ impl Skills {
                 let mut speed = 0.0;
                 let mut weight_sum = 0.0;
 
-                const ACC_NERF: f64 = 1.3;
-                const AIM_NERF: f64 = 2.6;
-                const SPEED_NERF: f64 = 2.4;
+                const ACC_NERF: f64 = 1.1;
+                const AIM_NERF: f64 = 3.7;
+                const SPEED_NERF: f64 = 2.5;
 
                 for (i, score) in scores.iter().enumerate() {
                     let Some(attrs) = maps.remove(&score.map_id) else {
@@ -95,7 +95,7 @@ impl Skills {
                 let mut weight_sum = 0.0;
 
                 const ACC_NERF: f64 = 1.15;
-                const DIFFICULTY_NERF: f64 = 2.8;
+                const DIFFICULTY_NERF: f64 = 3.1;
 
                 for (i, score) in scores.iter().enumerate() {
                     let Some(attrs) = maps.remove(&score.map_id) else {
@@ -135,8 +135,8 @@ impl Skills {
                 let mut movement = 0.0;
                 let mut weight_sum = 0.0;
 
-                const ACC_BUFF: f64 = 2.0;
-                const MOVEMENT_NERF: f64 = 4.7;
+                const ACC_BUFF: f64 = 1.7;
+                const MOVEMENT_NERF: f64 = 5.1;
 
                 for (i, score) in scores.iter().enumerate() {
                     let Some(attrs) = maps.remove(&score.map_id) else {
@@ -197,7 +197,7 @@ impl Skills {
                 let mut weight_sum = 0.0;
 
                 const ACC_BUFF: f64 = 2.1;
-                const DIFFICULTY_NERF: f64 = 0.6;
+                const DIFFICULTY_NERF: f64 = 5.0;
 
                 for (i, score) in scores.iter().enumerate() {
                     let Some(attrs) = maps.remove(&score.map_id) else {
