@@ -42,7 +42,7 @@ use crate::{
         ActiveMessages,
     },
     commands::{
-        osu::{map_strain_graph, require_link, HasMods, ModsResult},
+        osu::{map_strain_graph, require_link, user_not_found, HasMods, ModsResult},
         utility::{ScoreEmbedData, ScoreEmbedDataPersonalBest},
     },
     core::commands::{
@@ -173,7 +173,7 @@ pub struct CompareScore_<'a> {
 
 pub enum MapOrScore {
     Map(MapIdType),
-    Score { id: u64, mode: GameMode },
+    Score { id: u64, mode: Option<GameMode> },
 }
 
 #[derive(HasMods, HasName)]
@@ -201,8 +201,8 @@ impl<'m> CompareScoreArgs<'m> {
                 .or_else(|| matcher::get_osu_mapset_id(arg).map(MapIdType::Set))
             {
                 map = Some(MapOrScore::Map(id));
-            } else if let Some((mode, id)) = matcher::get_osu_score_id(arg) {
-                map = Some(MapOrScore::Score { mode, id })
+            } else if let Some((id, mode)) = matcher::get_osu_score_id(arg) {
+                map = Some(MapOrScore::Score { id, mode })
             } else if matcher::get_mods(arg).is_some() {
                 mods = Some(arg.into());
             } else if let Some(id) = matcher::get_mention_user(arg) {
@@ -237,8 +237,8 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
                 .or_else(|| matcher::get_osu_mapset_id(&arg).map(MapIdType::Set))
             {
                 Some(MapOrScore::Map(id))
-            } else if let Some((mode, id)) = matcher::get_osu_score_id(&arg) {
-                Some(MapOrScore::Score { mode, id })
+            } else if let Some((id, mode)) = matcher::get_osu_score_id(&arg) {
+                Some(MapOrScore::Score { id, mode })
             } else {
                 let content =
                     "Failed to parse map url. Be sure you specify a valid map id or url to a map.";
@@ -297,7 +297,7 @@ async fn prefix_compare(
     if let Some(msg) = reply {
         if let Some(id) = Context::find_map_id_in_msg(msg).await {
             args.map = Some(MapOrScore::Map(id));
-        } else if let Some((mode, id)) = matcher::get_osu_score_id(&msg.content) {
+        } else if let Some((id, mode)) = matcher::get_osu_score_id(&msg.content) {
             args.map = Some(MapOrScore::Score { id, mode });
         }
     }
@@ -757,20 +757,41 @@ async fn process_scores(
 async fn compare_from_score(
     orig: CommandOrigin<'_>,
     score_id: u64,
-    mode: GameMode,
+    mode: Option<GameMode>,
     settings: ScoreEmbedSettings,
     score_data: ScoreData,
 ) -> Result<()> {
-    let mut score = match Context::osu().score(score_id).mode(mode).await {
+    let mut score_fut = Context::osu().score(score_id);
+
+    if let Some(mode) = mode {
+        score_fut = score_fut.mode(mode);
+    }
+
+    let mut score = match score_fut.await {
         Ok(score) => score,
+        Err(OsuError::NotFound) => {
+            let content = format!(
+                "A{mode}score with id {score_id} does not exists",
+                mode = match mode {
+                    None => " ",
+                    Some(GameMode::Osu) => "n osu! ",
+                    Some(GameMode::Taiko) => " taiko ",
+                    Some(GameMode::Catch) => " catch ",
+                    Some(GameMode::Mania) => " mania ",
+                }
+            );
+
+            return orig.error(content).await;
+        }
         Err(err) => {
             let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get score");
+            let err = Report::new(err).wrap_err("Failed to get score");
 
             return Err(err);
         }
     };
 
+    let mode = score.mode;
     let legacy_scores = score_data.is_legacy();
 
     let map = score.map.take().expect("missing map");
@@ -791,6 +812,11 @@ async fn compare_from_score(
 
     let user = match user_res {
         Ok(user) => user,
+        Err(OsuError::NotFound) => {
+            let content = user_not_found(score.user_id.into()).await;
+
+            return orig.error(content).await;
+        }
         Err(err) => {
             let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get user");

@@ -88,23 +88,23 @@ pub fn get_osu_mapset_id(msg: &str) -> Option<u32> {
         .and_then(|c| c.as_str().parse().ok())
 }
 
-pub fn get_osu_score_id(msg: &str) -> Option<(GameMode, u64)> {
+pub fn get_osu_score_id(msg: &str) -> Option<(u64, Option<GameMode>)> {
     OSU_SCORE_URL_MATCHER
         .get()
         .captures(msg)
-        .and_then(|c| c.get(1).zip(c.get(2)))
-        .and_then(|(mode, id)| {
-            let mode = match mode.as_str() {
+        .and_then(|c| c.get(2).map(|x| (x, c.get(1))))
+        .and_then(|(id, mode)| {
+            let mode = mode.map(|mode| match mode.as_str() {
                 "osu" => GameMode::Osu,
                 "taiko" => GameMode::Taiko,
                 "fruits" => GameMode::Catch,
                 "mania" => GameMode::Mania,
-                _ => return None,
-            };
+                _ => unreachable!(),
+            });
 
             let id = id.as_str().parse().ok()?;
 
-            Some((mode, id))
+            Some((id, mode))
         })
 }
 
@@ -178,13 +178,13 @@ define_regex! {
     ROLE_ID_MATCHER: r"<@&(\d+)>";
     MENTION_MATCHER: r"<@!?(\d+)>";
 
-    OSU_URL_USER_MATCHER: r"^https://osu.ppy.sh/u(?:sers)?/(?:(\d+)|(\w+))$";
+    OSU_URL_USER_MATCHER: r"^https://osu\.ppy\.sh/u(?:sers)?/(?:(\d+)|(\w+))$";
 
-    OSU_URL_MAP_NEW_MATCHER: r"https://osu.ppy.sh/beatmapsets/(\d+)(?:(?:/?#(?:osu|mania|taiko|fruits)|<#\d+>)/(\d+))?";
-    OSU_URL_MAP_OLD_MATCHER: r"https://osu.ppy.sh/b(?:eatmaps)?/(\d+)";
-    OSU_URL_MAPSET_OLD_MATCHER: r"https://osu.ppy.sh/s/(\d+)";
+    OSU_URL_MAP_NEW_MATCHER: r"https://osu\.ppy\.sh/beatmapsets/(\d+)(?:(?:/?#(?:osu|mania|taiko|fruits)|<#\d+>)/(\d+))?";
+    OSU_URL_MAP_OLD_MATCHER: r"https://osu\.ppy\.sh/b(?:eatmaps)?/(\d+)";
+    OSU_URL_MAPSET_OLD_MATCHER: r"https://osu\.ppy\.sh/s/(\d+)";
 
-    OSU_URL_MATCH_MATCHER: r"https://osu.ppy.sh/(?:community/matches|mp)/(\d+)";
+    OSU_URL_MATCH_MATCHER: r"https://osu\.ppy\.sh/(?:community/matches|mp)/(\d+)";
 
     MOD_PLUS_MATCHER: r"^\+(\w+)!?$";
     MOD_MINUS_MATCHER: r"^-(\w+)!$";
@@ -195,7 +195,7 @@ define_regex! {
 
     SEVEN_TWO_SEVEN: "(?P<num>7[.,]?2[.,]?7)";
 
-    OSU_SCORE_URL_MATCHER: r"https://osu.ppy.sh/scores/(osu|taiko|mania|fruits)/(\d+)";
+    OSU_SCORE_URL_MATCHER: r"https://osu\.ppy\.sh/scores/(?:(osu|taiko|mania|fruits)/)?(\d+)";
 
     APPROVED_SKIN_SITE: r"^https://(?:(?:www\.)?(?:drive\.google\.com|dropbox\.com|mega\.nz|mediafire\.com|(?:gist\.)?github\.com)/.*$|(?:skins\.osuck\.net/skins|osu\.ppy\.sh/community/forums/topics)/\d+.*|link.issou.best/skin/\d+$)";
 

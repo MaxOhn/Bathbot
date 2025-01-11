@@ -286,8 +286,8 @@ impl RedisManager {
                 .or_else(|| matcher::get_osu_mapset_id(map).map(MapIdType::Set))
             {
                 Some(MapOrScore::Map(id))
-            } else if let Some((mode, id)) = matcher::get_osu_score_id(map) {
-                Some(MapOrScore::Score { mode, id })
+            } else if let Some((id, mode)) = matcher::get_osu_score_id(map) {
+                Some(MapOrScore::Score { id, mode })
             } else {
                 // Invalid map input, ignore
                 return Ok(RedisData::new(Vec::new()));
@@ -298,11 +298,18 @@ impl RedisManager {
 
         let map_id = match map {
             Some(MapOrScore::Map(id)) => Some(id),
-            Some(MapOrScore::Score { id, mode }) => match Context::osu().score(id).mode(mode).await
-            {
-                Ok(score) => Some(MapIdType::Map(score.map_id)),
-                Err(err) => return Err(Report::new(err).wrap_err("Failed to get score")),
-            },
+            Some(MapOrScore::Score { id, mode }) => {
+                let mut score_fut = Context::osu().score(id);
+
+                if let Some(mode) = mode {
+                    score_fut = score_fut.mode(mode);
+                }
+
+                match score_fut.await {
+                    Ok(score) => Some(MapIdType::Map(score.map_id)),
+                    Err(err) => return Err(Report::new(err).wrap_err("Failed to get score")),
+                }
+            }
             None => match Context::retrieve_channel_history(command.channel_id).await {
                 Ok(msgs) => Context::find_map_id_in_msgs(&msgs, idx).await,
                 Err(err) => return Err(err.wrap_err("Failed to retrieve channel history")),

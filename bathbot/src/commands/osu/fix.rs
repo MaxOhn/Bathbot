@@ -75,7 +75,7 @@ struct FixArgs<'a> {
 
 enum MapOrScore {
     Map(MapIdType),
-    Score { id: u64, mode: GameMode },
+    Score { id: u64, mode: Option<GameMode> },
 }
 
 impl<'m> FixArgs<'m> {
@@ -93,8 +93,8 @@ impl<'m> FixArgs<'m> {
         if let Some(reply) = reply {
             if let Some(id) = Context::find_map_id_in_msg(reply).await {
                 id_ = Some(MapOrScore::Map(id));
-            } else if let Some((mode, id)) = matcher::get_osu_score_id(&reply.content) {
-                id_ = Some(MapOrScore::Score { mode, id });
+            } else if let Some((id, mode)) = matcher::get_osu_score_id(&reply.content) {
+                id_ = Some(MapOrScore::Score { id, mode });
             }
         }
 
@@ -104,8 +104,8 @@ impl<'m> FixArgs<'m> {
                 .or_else(|| matcher::get_osu_mapset_id(arg).map(MapIdType::Set))
             {
                 id_ = Some(MapOrScore::Map(id));
-            } else if let Some((mode, id)) = matcher::get_osu_score_id(arg) {
-                id_ = Some(MapOrScore::Score { mode, id });
+            } else if let Some((id, mode)) = matcher::get_osu_score_id(arg) {
+                id_ = Some(MapOrScore::Score { id, mode });
             } else if matcher::get_mods(arg).is_some() {
                 mods = Some(arg.into());
             } else if let Some(id) = matcher::get_mention_user(arg) {
@@ -135,8 +135,8 @@ impl<'a> TryFrom<Fix<'a>> for FixArgs<'a> {
                     .or_else(|| matcher::get_osu_mapset_id(&map).map(MapIdType::Set))
                 {
                     Some(MapOrScore::Map(id))
-                } else if let Some((mode, id)) = matcher::get_osu_score_id(&map) {
-                    Some(MapOrScore::Score { mode, id })
+                } else if let Some((id, mode)) = matcher::get_osu_score_id(&map) {
+                    Some(MapOrScore::Score { id, mode })
                 } else {
                     return Err(
                         "Failed to parse map url. Be sure you specify a valid map id or url to a map.",
@@ -436,39 +436,45 @@ async fn request_by_map(
 async fn request_by_score(
     orig: &CommandOrigin<'_>,
     score_id: u64,
-    mode: GameMode,
+    mode: Option<GameMode>,
     user_id: UserId,
     legacy_scores: bool,
 ) -> ScoreResult {
-    let score_fut = Context::osu().score(score_id).mode(mode);
-    let user_args = UserArgs::rosu_id(&user_id, mode).await;
-    let user_fut = Context::redis().osu_user(user_args);
+    let mut score_fut = Context::osu().score(score_id);
 
-    let (user, score) = match tokio::join!(user_fut, score_fut) {
-        (Ok(user), Ok(score)) => (user, score),
-        (Err(OsuError::NotFound), _) => {
-            let content = user_not_found(user_id).await;
+    if let Some(mode) = mode {
+        score_fut = score_fut.mode(mode);
+    }
+
+    let score = match score_fut.await {
+        Ok(score) => score,
+        Err(OsuError::NotFound) => {
+            let content = format!(
+                "A{mode}score with id {score_id} does not exists",
+                mode = match mode {
+                    None => " ",
+                    Some(GameMode::Osu) => "n osu! ",
+                    Some(GameMode::Taiko) => " taiko ",
+                    Some(GameMode::Catch) => " catch ",
+                    Some(GameMode::Mania) => " mania ",
+                }
+            );
 
             return match orig.error(content).await {
                 Ok(_) => ScoreResult::Done,
                 Err(err) => ScoreResult::Error(err),
             };
         }
-        (_, Err(OsuError::NotFound)) => {
-            let content = format!("A score with id {score_id} does not exists");
-
-            return match orig.error(content).await {
-                Ok(_) => ScoreResult::Done,
-                Err(err) => ScoreResult::Error(err),
-            };
-        }
-        (Err(err), _) | (_, Err(err)) => {
+        Err(err) => {
             let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("Failed to get score");
 
             return ScoreResult::Error(err);
         }
     };
+
+    let user_args = UserArgs::rosu_id(&user_id, score.mode).await;
+    let user_fut = Context::redis().osu_user(user_args);
 
     let map = score.map.as_ref().expect("missing map");
     let map_id = score.map_id;
@@ -480,9 +486,17 @@ async fn request_by_score(
         .limit(100)
         .exec(user_args);
 
-    let (map, top) = match tokio::join!(map_fut, best_fut) {
-        (Ok(map), Ok(best)) => (map, best),
-        (Err(MapError::NotFound), _) => {
+    let (user, map, top) = match tokio::join!(user_fut, map_fut, best_fut) {
+        (Ok(user), Ok(map), Ok(best)) => (user, map, best),
+        (Err(OsuError::NotFound), ..) => {
+            let content = user_not_found(user_id).await;
+
+            return match orig.error(content).await {
+                Ok(_) => ScoreResult::Done,
+                Err(err) => ScoreResult::Error(err),
+            };
+        }
+        (_, Err(MapError::NotFound), _) => {
             let content = format!("There is no map with id {map_id}");
 
             return match orig.error(content).await {
@@ -490,14 +504,20 @@ async fn request_by_score(
                 Err(err) => ScoreResult::Error(err),
             };
         }
-        (Err(MapError::Report(err)), _) => {
+        (_, Err(MapError::Report(err)), _) => {
             let _ = orig.error(GENERAL_ISSUE).await;
 
             return ScoreResult::Error(err);
         }
-        (_, Err(err)) => {
+        (Err(err), ..) => {
             let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get top scores");
+            let err = Report::new(err).wrap_err("Failed to get user");
+
+            return ScoreResult::Error(err);
+        }
+        (.., Err(err)) => {
+            let _ = orig.error(OSU_API_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get top scores");
 
             return ScoreResult::Error(err);
         }
