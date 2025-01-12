@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use bathbot_macros::{command, SlashCommand};
 use bathbot_model::{command_fields::ThreadChannel, Effects};
 use bathbot_psql::model::games::DbMapTagsParams;
@@ -10,6 +12,7 @@ use rosu_v2::prelude::GameMode;
 use twilight_http::{api_error::ApiError, error::ErrorType};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
+    application::command::permissions::CommandPermissionType,
     channel::{thread::AutoArchiveDuration, ChannelType},
     guild::Permissions,
 };
@@ -20,6 +23,7 @@ use crate::{
         impls::{BackgroundGame, BackgroundGameSetup},
         ActiveMessages,
     },
+    core::commands::interaction::InteractionCommands,
     util::{
         interaction::InteractionCommand, Authored, ChannelExt, CheckPermissions,
         InteractionCommandExt,
@@ -159,7 +163,86 @@ impl Default for GameDifficulty {
     }
 }
 
+/// When users install the bot as an app, they can use the command even if it's
+/// disabled in a guild. This function makes sure that the command is not
+/// disabled.
+async fn check_bg_guild_permission(command: &InteractionCommand) -> ControlFlow<&'static str> {
+    let Some((guild_id, member)) = command.guild_id().zip(command.member.as_ref()) else {
+        debug!("Passed bg guild permission check due to missing guild id or member");
+
+        return ControlFlow::Continue(());
+    };
+
+    let Some(cmd) = InteractionCommands::get_command("bg") else {
+        warn!("Passed bg guild permission check due to missing `bg` interaction command");
+
+        return ControlFlow::Continue(());
+    };
+
+    let client = Context::interaction();
+    let command_id = cmd.id();
+
+    let permissions = match client.command_permissions(guild_id, command_id).await {
+        Ok(res) => match res.model().await {
+            Ok(res) => res.permissions,
+            Err(err) => {
+                error!(%guild_id, %command_id, ?err, "Failed to receive bg command permissions");
+
+                return ControlFlow::Continue(());
+            }
+        },
+        Err(err) => {
+            error!(%guild_id, %command_id, ?err, "Failed to request bg command permissions");
+
+            return ControlFlow::Continue(());
+        }
+    };
+
+    permissions
+        .into_iter()
+        .find_map(|permission| {
+            if permission.permission {
+                return None;
+            }
+
+            match permission.id {
+                CommandPermissionType::Channel(channel_id) => {
+                    if channel_id == command.channel_id() {
+                        return Some("The command is disabled in this channel");
+                    }
+                }
+                CommandPermissionType::Role(role_id) => {
+                    if role_id == guild_id.cast() {
+                        return Some("The command is disabled in this server");
+                    } else if member.roles.contains(&role_id) {
+                        return Some("You are not allowed to use this command");
+                    }
+                }
+                CommandPermissionType::User(id) => {
+                    let Ok(user_id) = command.user_id() else {
+                        warn!("Missing user id for bg permission check");
+
+                        return None;
+                    };
+
+                    if id == user_id {
+                        return Some("You are not allowed to use this command");
+                    }
+                }
+            }
+
+            None
+        })
+        .map_or(ControlFlow::Continue(()), ControlFlow::Break)
+}
+
 async fn slash_bg(mut command: InteractionCommand) -> Result<()> {
+    if let ControlFlow::Break(msg) = check_bg_guild_permission(&command).await {
+        command.error_callback(msg).await?;
+
+        return Ok(());
+    }
+
     let Bg {
         difficulty,
         mode,
