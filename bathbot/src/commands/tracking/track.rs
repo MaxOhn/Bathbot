@@ -1,14 +1,16 @@
+use std::fmt::Write;
+
 use bathbot_macros::command;
-use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
+use bathbot_util::{constants::OSU_API_ISSUE, fields, EmbedBuilder, FooterBuilder, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
-use time::OffsetDateTime;
 
 use super::TrackArgs;
 use crate::{
     core::commands::CommandOrigin,
-    embeds::{EmbedData, TrackEmbed},
-    util::ChannelExt,
+    manager::redis::osu::UserArgsSlim,
+    tracking::{OsuTracking, TrackEntryParams},
+    util::{ChannelExt, Emote},
     Context,
 };
 
@@ -16,8 +18,13 @@ pub(super) async fn track(orig: CommandOrigin<'_>, args: TrackArgs) -> Result<()
     let TrackArgs {
         name,
         mode,
-        limit,
         mut more_names,
+        min_index,
+        max_index,
+        min_pp,
+        max_pp,
+        min_combo_percent,
+        max_combo_percent,
     } = args;
 
     more_names.push(name);
@@ -28,27 +35,10 @@ pub(super) async fn track(orig: CommandOrigin<'_>, args: TrackArgs) -> Result<()
         return orig.error(content).await;
     }
 
-    let limit = match limit {
-        Some(limit @ 1..=100) => limit,
-        Some(_) => {
-            let content = "The given limit must be between 1 and 100";
-
-            return orig.error(content).await;
-        }
-        None => {
-            let guild = orig.guild_id().unwrap();
-
-            Context::guild_config()
-                .peek(guild, |config| config.track_limit)
-                .await
-                .unwrap_or(50)
-        }
-    };
-
     let mode = mode.unwrap_or(GameMode::Osu);
 
     let users = match super::get_names(&more_names, mode).await {
-        Ok(map) => map,
+        Ok(users) => users,
         Err((OsuError::NotFound, name)) => {
             let content = format!("User `{name}` was not found");
 
@@ -56,38 +46,99 @@ pub(super) async fn track(orig: CommandOrigin<'_>, args: TrackArgs) -> Result<()
         }
         Err((err, _)) => {
             let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get names");
+            let err = Report::new(err).wrap_err("Failed to get names");
 
             return Err(err);
         }
     };
 
+    let params = TrackEntryParams::new()
+        .with_index(min_index, max_index)
+        .with_pp(min_pp, max_pp)
+        .with_combo_percent(min_combo_percent, max_combo_percent);
+
     let channel = orig.channel_id();
     let mut success = Vec::with_capacity(users.len());
     let mut failure = Vec::new();
-    let tracking = Context::tracking();
 
     for (username, user_id) in users {
-        let add_fut = tracking.add(user_id, mode, OffsetDateTime::now_utc(), channel, limit);
+        let require = match OsuTracking::add_user(user_id, mode, channel, params).await {
+            Ok(Some(require)) => require,
+            Ok(None) => {
+                success.push(username);
 
-        match add_fut.await {
-            Ok(true) => success.push(username),
-            Ok(false) => failure.push(username),
+                continue;
+            }
             Err(err) => {
-                warn!(?err, "Failed to add tracked entry");
+                warn!(?err, "Failed to track osu user");
+                failure.push(username);
 
-                let embed = TrackEmbed::new(mode, success, failure, Some(username), limit).build();
+                continue;
+            }
+        };
 
-                let builder = MessageBuilder::new().embed(embed);
-                orig.create_message(builder).await?;
+        let user_args = UserArgsSlim::user_id(user_id).mode(mode);
+        let scores_fut = Context::osu_scores().top(false).limit(100).exec(user_args);
 
-                return Ok(());
+        match scores_fut.await {
+            Ok(scores) => match require.callback(&scores).await {
+                Ok(()) => success.push(username),
+                Err(err) => {
+                    warn!(?err, "Failed to track osu user");
+                    failure.push(username);
+                }
+            },
+            Err(err) => {
+                warn!(?err, "Failed to request top scores to add for tracking");
+                failure.push(username);
             }
         }
     }
 
-    let embed = TrackEmbed::new(mode, success, failure, None, limit);
-    let builder = MessageBuilder::new().embed(embed.build());
+    let mut fields = Vec::with_capacity(3);
+    let mut iter = success.iter();
+
+    if let Some(name) = iter.next() {
+        let mut value = String::new();
+        let _ = write!(value, "`{name}`");
+
+        for name in iter {
+            let _ = write!(value, ", `{name}`");
+        }
+
+        fields![fields { "Now tracking:".to_owned(), value, false }];
+    }
+
+    let mut iter = failure.iter();
+
+    if let Some(name) = iter.next() {
+        let mut value = String::new();
+        let _ = write!(value, "`{name}`");
+
+        for name in iter {
+            let _ = write!(value, ", `{name}`");
+        }
+
+        fields![fields { "Failed to track:".to_owned(), value, false }];
+    }
+
+    let value = format!(
+        "`Index: {index}` | `PP: {pp}pp` | `Combo percent: {combo_percent}%`",
+        index = params.index(),
+        pp = params.pp(),
+        combo_percent = params.combo_percent(),
+    );
+
+    fields![fields { "Parameters:".to_owned(), value, false }];
+
+    let footer = FooterBuilder::new("").icon_url(Emote::from(mode).url());
+
+    let embed = EmbedBuilder::new()
+        .fields(fields)
+        .footer(footer)
+        .title("Top score tracking");
+
+    let builder = MessageBuilder::new().embed(embed);
     orig.create_message(builder).await?;
 
     Ok(())

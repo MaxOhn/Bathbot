@@ -1,16 +1,13 @@
+use std::fmt::Write;
+
 use bathbot_macros::command;
-use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
+use bathbot_util::{constants::OSU_API_ISSUE, EmbedBuilder, MessageBuilder};
 use eyre::{Report, Result};
 use hashbrown::HashSet;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
+use rosu_v2::prelude::{GameMode, OsuError};
 
 use super::TrackArgs;
-use crate::{
-    core::commands::CommandOrigin,
-    embeds::{EmbedData, UntrackEmbed},
-    util::ChannelExt,
-    Context,
-};
+use crate::{core::commands::CommandOrigin, tracking::OsuTracking, util::ChannelExt};
 
 #[command]
 #[desc("Untrack user top scores in a channel")]
@@ -67,33 +64,31 @@ pub(super) async fn untrack(orig: CommandOrigin<'_>, args: TrackArgs) -> Result<
 
     let channel = orig.channel_id();
     let mut success = HashSet::with_capacity(users.len());
-    let tracking = Context::tracking();
 
     for (username, user_id) in users {
-        let remove_fut = tracking.remove_user(user_id, mode, channel);
-
-        match remove_fut.await {
-            Ok(_) => success.insert(username),
-            Err(err) => {
-                warn!(?err, "Failed to remove tracked entry");
-
-                return send_message(orig, Some(&username), success).await;
-            }
-        };
+        OsuTracking::remove_user(user_id, mode, channel).await;
+        success.insert(username);
     }
 
-    send_message(orig, None, success).await?;
+    let mut description = String::new();
+    description.push_str("Removed in this channel: ");
 
-    Ok(())
-}
+    let mut iter = success.iter();
 
-async fn send_message(
-    orig: CommandOrigin<'_>,
-    name: Option<&Username>,
-    success: HashSet<Username>,
-) -> Result<()> {
-    let success = success.into_iter().collect();
-    let embed = UntrackEmbed::new(success, name).build();
+    if let Some(name) = iter.next() {
+        let _ = write!(description, "`{name}`");
+
+        for name in iter {
+            let _ = write!(description, ", `{name}`");
+        }
+    } else {
+        description.push_str("None");
+    }
+
+    let embed = EmbedBuilder::new()
+        .title("Top score tracking")
+        .description(description);
+
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(builder).await?;
 

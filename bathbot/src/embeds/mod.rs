@@ -1,14 +1,9 @@
 use bathbot_util::EmbedBuilder;
 
-#[cfg(feature = "osutracking")]
-pub use self::tracking::*;
 pub use self::{osu::*, utility::*};
 
 mod osu;
 mod utility;
-
-#[cfg(feature = "osutracking")]
-mod tracking;
 
 pub trait EmbedData {
     fn build(self) -> EmbedBuilder;

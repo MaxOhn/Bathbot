@@ -20,9 +20,17 @@ impl Context {
     pub async fn shutdown(shards: &mut [Shard]) {
         let this = Self::get();
 
-        // Disable tracking while preparing shutdown
-        #[cfg(feature = "osutracking")]
-        Context::tracking().set_stop_tracking(true);
+        let scores_ws_disconnect = match this.scores_ws_disconnect.lock().unwrap().take() {
+            Some(mut disconnect) => match disconnect.tx.take() {
+                Some(tx) => {
+                    let _: Result<_, _> = tx.send(());
+
+                    disconnect.rx.take()
+                }
+                None => None,
+            },
+            None => None,
+        };
 
         // Prevent non-minimized msgs from getting minimized
         this.active_msgs.clear().await;
@@ -38,6 +46,10 @@ impl Context {
 
         if let Some(ordr) = Context::ordr() {
             ordr.disconnect();
+        }
+
+        if let Some(rx) = scores_ws_disconnect {
+            let _: Result<_, _> = rx.await;
         }
 
         let resume_data = Self::down_resumable(shards).await;

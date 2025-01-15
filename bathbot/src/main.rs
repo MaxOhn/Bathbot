@@ -97,12 +97,6 @@ async fn async_main() -> Result<()> {
         tokio::spawn(tracking::twitch_tracking_loop());
     }
 
-    #[cfg(feature = "osutracking")]
-    {
-        // Spawn osu tracking worker
-        tokio::spawn(tracking::osu_tracking_loop());
-    }
-
     #[cfg(feature = "matchlive")]
     {
         // Spawn osu match ticker worker

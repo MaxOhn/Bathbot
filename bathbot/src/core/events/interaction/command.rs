@@ -88,6 +88,16 @@ async fn pre_process_command(
         return Ok(Some(ProcessResult::NoOwner));
     }
 
+    // Only in guilds?
+    // Using `dm_permission = false` used to be sufficient but apparently
+    // that's no longer the case.
+    if slash.flags.only_guilds() && command.guild_id.is_none() {
+        let content = "That command is only available in servers";
+        command.error_callback(content).await?;
+
+        return Ok(Some(ProcessResult::NoDM));
+    }
+
     // Ratelimited?
     if let Some(bucket) = slash.bucket {
         if let Some(cooldown) = Context::check_ratelimit(user_id, bucket) {

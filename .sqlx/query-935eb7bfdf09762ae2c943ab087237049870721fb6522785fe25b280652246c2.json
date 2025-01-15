@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO guild_configs (\n  guild_id, authorities, prefixes, allow_songs, \n  retries, list_size, \n  render_button, allow_custom_skins, \n  hide_medal_solution, score_data\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\nON CONFLICT\n  (guild_id)\nDO \n  UPDATE \nSET \n  authorities = $2, \n  prefixes = $3, \n  allow_songs = $4, \n  retries = $5, \n  list_size = $6, \n  render_button = $7, \n  allow_custom_skins = $8, \n  hide_medal_solution = $9, \n  score_data = $10",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Bytea",
+        "Jsonb",
+        "Bool",
+        "Int2",
+        "Int2",
+        "Bool",
+        "Bool",
+        "Int2",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "935eb7bfdf09762ae2c943ab087237049870721fb6522785fe25b280652246c2"
+}

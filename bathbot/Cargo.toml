@@ -23,6 +23,7 @@ enum_dispatch = { version = "0.3.11" }
 eyre = { version = "0.6" }
 flexmap = { git = "https://github.com/MaxOhn/flexmap" }
 futures = { version = "0.3", default-features = false }
+futures-util = { version = "0.3.31" }
 hashbrown = { version = "0.14" }
 image = { version = "0.24", default-features = false, features = ["gif", "png"] }
 leaky-bucket-lite = { version = "0.5", default-features = false, features = ["tokio"] }
@@ -36,7 +37,6 @@ papaya = { version = "0.1.2" }
 plotters = { version = "0.3", default-features = false, features = ["ttf", "image", "line_series", "area_series", "histogram", "point_series"] }
 plotters-backend = { version = "0.3" }
 plotters-skia = { git = "https://github.com/MaxOhn/plotters-skia", branch = "main" }
-priority-queue = { version = "1.0", optional = true }
 radix_trie = { version = "0.2" }
 rand = { version = "0.8" }
 rkyv = { workspace = true }
@@ -54,6 +54,7 @@ thiserror = { version = "1.0.50" }
 time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = { version = "0.1", default-features = false }
+tokio-tungstenite = { version = "0.26.1", features = ["rustls-tls-webpki-roots"] }
 tracing = { version = "0.1" }
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "smallvec", "std", "time", "tracing-log"] }
@@ -66,11 +67,10 @@ url = { version = "2.4", default-features = false }
 
 [features]
 default = []
-full = ["global_slash", "matchlive", "notify_osutrack", "osutracking", "server", "twitch", "twitchtracking"]
+full = ["global_slash", "matchlive", "notify_osutrack", "server", "twitch", "twitchtracking"]
 
 global_slash = []
 matchlive = []
-osutracking = ["priority-queue"]
 server = ["bathbot-server", "twitch"]
 twitch = ["bathbot-client/twitch"]
 twitchtracking = ["twitch"]

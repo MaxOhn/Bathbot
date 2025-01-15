@@ -1,0 +1,74 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nWITH pps AS (\n  SELECT\n    user_id,\n    gamemode,\n    pp as last_pp\n  FROM\n    osu_users_100th_pp\n  AS\n    pps\n)\nSELECT\n  *\nFROM\n  tracked_osu_users\nJOIN\n  pps\nUSING (user_id, gamemode)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "gamemode",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "min_index",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 4,
+        "name": "max_index",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 5,
+        "name": "min_pp",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 6,
+        "name": "max_pp",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 7,
+        "name": "min_combo_percent",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 8,
+        "name": "max_combo_percent",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 9,
+        "name": "last_pp",
+        "type_info": "Float4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "4cbdfd9da0efc1f3ad5459c455792d555ce088ebea8628894c3ad95ee9e2c4f0"
+}

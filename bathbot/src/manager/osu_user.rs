@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_model::{RankingEntries, UserModeStatsColumn, UserStatsColumn};
 use bathbot_psql::Database;
@@ -43,14 +43,13 @@ impl OsuUserManager {
             .wrap_err("Failed to get usernames")
     }
 
-    #[cfg(feature = "osutracking")]
     pub async fn ids(&self, names: &[String]) -> Result<HashMap<Username, u32>> {
         let escaped_names = if names.iter().any(|name| name.contains('_')) {
             let names: Vec<_> = names.iter().map(|name| name.replace('_', r"\_")).collect();
 
-            std::borrow::Cow::Owned(names)
+            Cow::Owned(names)
         } else {
-            std::borrow::Cow::Borrowed(names)
+            Cow::Borrowed(names)
         };
 
         self.psql
@@ -94,7 +93,7 @@ impl OsuUserManager {
 
     pub async fn remove_stats_and_scores(self, user_id: u32) -> Result<()> {
         self.psql
-            .delete_osu_user_stats_and_scores(user_id)
+            .delete_osu_user_stats(user_id)
             .await
             .wrap_err("Failed to delete osu user data")
     }

@@ -23,11 +23,6 @@ impl Context {
         OsuUserManager::new()
     }
 
-    #[cfg(feature = "osutracking")]
-    pub fn osu_tracking() -> crate::manager::OsuTrackingManager<'static> {
-        crate::manager::OsuTrackingManager::new(Context::psql())
-    }
-
     pub fn pp(map: &OsuMap) -> PpManager<'_> {
         PpManager::new(map)
     }

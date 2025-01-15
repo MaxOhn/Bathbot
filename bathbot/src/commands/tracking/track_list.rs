@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 use bathbot_macros::command;
-use bathbot_psql::model::osu::TrackedOsuUserKey;
-use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
+use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Username},
@@ -11,16 +10,18 @@ use rosu_v2::{
 use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{
+    active::{impls::TrackListPagination, ActiveMessages},
     core::commands::CommandOrigin,
-    embeds::{EmbedData, TrackListEmbed},
     manager::redis::osu::UserArgs,
+    tracking::{OsuTracking, TrackEntryParams},
     Context,
 };
 
 pub struct TracklistUserEntry {
     pub name: Username,
+    pub user_id: u32,
     pub mode: GameMode,
-    pub limit: u8,
+    pub params: TrackEntryParams,
 }
 
 #[command]
@@ -34,9 +35,17 @@ async fn prefix_tracklist(msg: &Message) -> Result<()> {
 
 pub async fn tracklist(orig: CommandOrigin<'_>) -> Result<()> {
     let channel_id = orig.channel_id();
-    let tracked = Context::tracking().list(channel_id).await;
 
-    let mut users = match get_users(orig.channel_id(), tracked).await {
+    let entries = match OsuTracking::tracked_users_in_channel(channel_id).await {
+        Ok(entries) => entries,
+        Err(err) => {
+            let _ = orig.error(GENERAL_ISSUE).await;
+
+            return Err(err.wrap_err("Failed to get tracked users"));
+        }
+    };
+
+    let mut users = match get_users(orig.channel_id(), entries).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(OSU_API_ISSUE).await;
@@ -51,28 +60,25 @@ pub async fn tracklist(orig: CommandOrigin<'_>) -> Result<()> {
             .then(a.name.cmp(&b.name))
     });
 
-    let embeds = TrackListEmbed::new(users);
+    let pagination = TrackListPagination::builder()
+        .entries(users.into_boxed_slice())
+        .msg_owner(orig.user_id()?)
+        .build();
 
-    if embeds.is_empty() {
-        let content = "No tracked users in this channel";
-        let builder = MessageBuilder::new().embed(content);
-        orig.create_message(builder).await?;
-    } else {
-        for embed_data in embeds {
-            let embed = embed_data.build();
-            let builder = MessageBuilder::new().embed(embed);
-            orig.create_message(builder).await?;
-        }
-    }
-
-    Ok(())
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(orig)
+        .await
 }
 
 async fn get_users(
     channel: Id<ChannelMarker>,
-    tracked: Vec<(TrackedOsuUserKey, u8)>,
+    tracked: Vec<(u32, GameMode, TrackEntryParams)>,
 ) -> OsuResult<Vec<TracklistUserEntry>> {
-    let user_ids: Vec<_> = tracked.iter().map(|(key, ..)| key.user_id as i32).collect();
+    let user_ids: Vec<_> = tracked
+        .iter()
+        .map(|(user_id, ..)| *user_id as i32)
+        .collect();
 
     // Get all names that are stored in the DB
     let stored_names = match Context::osu_user().names(&user_ids).await {
@@ -87,12 +93,13 @@ async fn get_users(
     let mut users = Vec::with_capacity(tracked.len());
 
     // Get all missing names from the api
-    for (TrackedOsuUserKey { user_id, mode }, limit) in tracked {
+    for (user_id, mode, params) in tracked {
         let entry = match stored_names.get(&user_id) {
             Some(name) => TracklistUserEntry {
                 name: name.to_owned(),
+                user_id,
                 mode,
-                limit,
+                params,
             },
             None => {
                 let user_args = UserArgs::user_id(user_id, mode);
@@ -100,15 +107,12 @@ async fn get_users(
                 match Context::redis().osu_user(user_args).await {
                     Ok(user) => TracklistUserEntry {
                         name: user.username().into(),
+                        user_id,
                         mode,
-                        limit,
+                        params,
                     },
                     Err(OsuError::NotFound) => {
-                        let remove_fut = Context::tracking().remove_user(user_id, None, channel);
-
-                        if let Err(err) = remove_fut.await {
-                            warn!(user_id, ?err, "Failed to remove unknown user from tracking");
-                        }
+                        OsuTracking::remove_user(user_id, None, channel).await;
 
                         continue;
                     }

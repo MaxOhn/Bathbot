@@ -1,219 +1,191 @@
-use std::{hash::BuildHasher, num::NonZeroU64};
-
 use eyre::{Result, WrapErr};
-use futures::StreamExt;
-use rkyv::{
-    rancor::BoxedError,
-    ser::Serializer,
-    with::{ArchiveWith, AsVec, With},
-};
 use rosu_v2::prelude::GameMode;
 
 use crate::{
-    model::osu::{Channels, DbTrackedOsuUser, TrackedOsuUserKey, TrackedOsuUserValue},
+    model::osu::{DbTrackedOsuUser, DbTrackedOsuUserInChannel},
     Database,
 };
 
 impl Database {
-    pub async fn select_tracked_osu_users<S>(
-        &self,
-    ) -> Result<Vec<(TrackedOsuUserKey, TrackedOsuUserValue<S>)>>
-    where
-        S: Default + BuildHasher,
-    {
+    pub async fn select_tracked_osu_users(&self) -> Result<Vec<DbTrackedOsuUser>> {
         let query = sqlx::query_as!(
             DbTrackedOsuUser,
             r#"
-SELECT 
-  user_id, 
-  gamemode, 
-  channels, 
-  last_update 
-FROM 
-  tracked_osu_users"#
-        );
-
-        let mut rows = query.fetch(self);
-        let mut tracks = Vec::with_capacity(16_000);
-
-        while let Some(row_res) = rows.next().await {
-            let row = row_res.wrap_err("failed to fetch next")?;
-            let (key, value) = row.into();
-            tracks.push((key, value));
-        }
-
-        Ok(tracks)
-    }
-
-    pub async fn update_tracked_osu_user_date(&self, user_id: u32, mode: GameMode) -> Result<()> {
-        let query = sqlx::query!(
-            r#"
-UPDATE
+WITH pps AS (
+  SELECT
+    user_id,
+    gamemode,
+    pp as last_pp
+  FROM
+    osu_users_100th_pp
+  AS
+    pps
+)
+SELECT
+  *
+FROM
   tracked_osu_users
-SET
-  last_update = NOW()
-WHERE
-  user_id = $1
-  AND gamemode = $2"#,
-            user_id as i32,
-            mode as i16,
+JOIN
+  pps
+USING (user_id, gamemode)"#
         );
 
-        query
-            .execute(self)
-            .await
-            .wrap_err("failed to execute query")?;
-
-        Ok(())
+        query.fetch_all(self).await.wrap_err("Failed to fetch all")
     }
 
-    pub async fn update_tracked_osu_user_channels<S>(
+    pub async fn select_tracked_osu_users_channel(
         &self,
-        user_id: u32,
-        mode: GameMode,
-        channels: &Channels<S>,
+        channel_id: u64,
+    ) -> Result<Vec<DbTrackedOsuUserInChannel>> {
+        let query = sqlx::query_as!(
+            DbTrackedOsuUserInChannel,
+            r#"
+SELECT
+  user_id,
+  gamemode,
+  min_index,
+  max_index,
+  min_pp,
+  max_pp,
+  min_combo_percent,
+  max_combo_percent
+FROM
+  tracked_osu_users
+WHERE
+  channel_id = $1"#,
+            channel_id as i64
+        );
+
+        query.fetch_all(self).await.wrap_err("Failed to fetch all")
+    }
+
+    pub async fn upsert_tracked_osu_user(
+        &self,
+        user: &DbTrackedOsuUserInChannel,
+        channel_id: u64,
     ) -> Result<()> {
-        let channels = rkyv::util::with_arena(|arena| {
-            let mut writer = Vec::new();
-            let mut serializer = Serializer::new(&mut writer, arena.acquire(), ());
-            rkyv::api::serialize_using(With::<_, AsVec>::cast(channels), &mut serializer)?;
-
-            Ok::<_, BoxedError>(writer)
-        })
-        .wrap_err("Failed to serialize channels")?;
-
         let query = sqlx::query!(
             r#"
-UPDATE 
-  tracked_osu_users 
-SET 
-  channels = $3 
-WHERE 
-  user_id = $1 
-  AND gamemode = $2"#,
-            user_id as i32,
-            mode as i16,
-            &channels as &[u8],
+INSERT INTO tracked_osu_users (
+  user_id, gamemode, channel_id, min_index, max_index,
+  min_pp, max_pp, min_combo_percent, max_combo_percent
+)
+VALUES
+  ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+ON CONFLICT
+  (user_id, gamemode, channel_id)
+DO
+  UPDATE
+SET
+    min_index = $4,
+    max_index = $5,
+    min_pp = $6,
+    max_pp = $7,
+    min_combo_percent = $8,
+    max_combo_percent = $9"#,
+            user.user_id,
+            user.gamemode,
+            channel_id as i64,
+            user.min_index,
+            user.max_index,
+            user.min_pp,
+            user.max_pp,
+            user.min_combo_percent,
+            user.max_combo_percent,
         );
 
         query
             .execute(self)
             .await
-            .wrap_err("failed to execute query")?;
+            .wrap_err("Failed to execute query")?;
 
         Ok(())
     }
 
-    pub async fn delete_tracked_osu_user_by_mode(
+    pub async fn upsert_tracked_last_pp(
         &self,
         user_id: u32,
         mode: GameMode,
+        pp: f32,
+    ) -> Result<()> {
+        let query = sqlx::query!(
+            r#"
+INSERT INTO
+  osu_users_100th_pp(user_id, gamemode, pp)
+VALUES
+  ($1, $2, $3)
+ON CONFLICT
+  (user_id, gamemode)
+DO
+  UPDATE
+SET
+  pp = $3"#,
+            user_id as i32,
+            mode as i16,
+            pp
+        );
+
+        query
+            .execute(self)
+            .await
+            .wrap_err("Failed to execute query")?;
+
+        Ok(())
+    }
+
+    pub async fn delete_tracked_osu_user(
+        &self,
+        user_id: u32,
+        mode: Option<GameMode>,
+        channel_id: u64,
     ) -> Result<()> {
         let query = sqlx::query!(
             r#"
 DELETE FROM 
-  tracked_osu_users 
-WHERE 
-  user_id = $1 
-  AND gamemode = $2"#,
+  tracked_osu_users
+WHERE
+  user_id = $1
+  AND ($2::INT2 is NULL OR gamemode = $2)
+  AND channel_id = $3"#,
             user_id as i32,
-            mode as i16,
+            mode.map(|mode| mode as i16),
+            channel_id as i64
         );
+
+        // Note: We're never deleting from `osu_users_100th_pp` out of
+        //       lazyness but that should be fine.
 
         query
             .execute(self)
             .await
-            .wrap_err("failed to execute query")?;
+            .wrap_err("Failed to execute query")?;
 
         Ok(())
     }
 
-    pub async fn insert_osu_tracking<S>(
+    pub async fn delete_tracked_osu_channel(
         &self,
-        user_id: u32,
-        mode: GameMode,
-        channel_id: NonZeroU64,
-        limit: u8,
-    ) -> Result<()>
-    where
-        S: Default + BuildHasher,
-    {
-        let mut tx = self.begin().await.wrap_err("failed to begin transaction")?;
-
-        let mut channels = Channels::with_capacity_and_hasher(1, S::default());
-        channels.insert(channel_id, limit);
-
-        let mut channels_bytes = rkyv::util::with_arena(|arena| {
-            let mut writer = Vec::new();
-            let mut serializer = Serializer::new(&mut writer, arena.acquire(), ());
-            rkyv::api::serialize_using(With::<_, AsVec>::cast(&channels), &mut serializer)?;
-
-            Ok::<_, BoxedError>(writer)
-        })
-        .wrap_err("Failed to serialize channels")?;
-
+        channel_id: u64,
+        mode: Option<GameMode>,
+    ) -> Result<()> {
         let query = sqlx::query!(
             r#"
-INSERT INTO tracked_osu_users (user_id, gamemode, channels) 
-VALUES 
-  ($1, $2, $3) ON CONFLICT (user_id, gamemode) DO 
-UPDATE 
-SET 
-  last_update = NOW() RETURNING channels"#,
-            user_id as i32,
-            mode as i16,
-            &channels_bytes as &[u8],
+DELETE FROM 
+  tracked_osu_users
+WHERE 
+  channel_id = $1
+  AND ($2::INT2 IS NULL OR gamemode = $2)"#,
+            channel_id as i64,
+            mode.map(|mode| mode as i16) as _,
         );
 
-        let row = query
-            .fetch_one(&mut *tx)
+        // Note: We're never deleting from `osu_users_100th_pp` out of
+        //       lazyness but that should be fine.
+
+        query
+            .execute(self)
             .await
-            .wrap_err("failed to fetch one")?;
-
-        let prev_channels =
-            rkyv::access::<<AsVec as ArchiveWith<Channels<S>>>::Archived, BoxedError>(
-                &row.channels,
-            )
-            .wrap_err("Failed to validate channels")?;
-
-        if !prev_channels.iter().any(|entry| entry.key == channel_id) {
-            channels.extend(
-                prev_channels
-                    .iter()
-                    .map(|entry| (entry.key.to_native(), entry.value)),
-            );
-
-            // re-use the previous buffer
-            rkyv::util::with_arena(|arena| {
-                channels_bytes.clear();
-                let mut serializer = Serializer::new(&mut channels_bytes, arena.acquire(), ());
-                rkyv::api::serialize_using(With::<_, AsVec>::cast(&channels), &mut serializer)?;
-
-                Ok::<_, BoxedError>(())
-            })
-            .wrap_err("Failed to serialize updated channels")?;
-
-            let query = sqlx::query!(
-                r#"
-UPDATE 
-  tracked_osu_users 
-SET 
-  channels = $3 
-WHERE 
-  user_id = $1 
-  AND gamemode = $2"#,
-                user_id as i32,
-                mode as i16,
-                &channels_bytes as &[u8],
-            );
-
-            query
-                .execute(&mut *tx)
-                .await
-                .wrap_err("failed to execute query")?;
-        }
-
-        tx.commit().await.wrap_err("failed to commit transaction")?;
+            .wrap_err("Failed to execute query")?;
 
         Ok(())
     }
