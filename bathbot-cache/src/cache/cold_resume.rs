@@ -17,6 +17,8 @@ const STORE_DURATION: u64 = 240;
 
 impl Cache {
     pub async fn freeze<S>(&self, sessions: &HashMap<u64, Session, S>) -> Result<()> {
+        info!(len = sessions.len(), "Freezing sessions...");
+
         let sessions = With::<_, SessionsRkyv>::cast(sessions);
 
         let bytes = rkyv::api::high::to_bytes_in::<_, BoxedError>(sessions, AlignedVec::<8>::new())

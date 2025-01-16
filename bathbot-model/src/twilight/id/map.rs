@@ -303,3 +303,31 @@ impl<D: Fallible + ?Sized, T> DeserializeWith<ArchivedVec<ArchivedId<T>>, Box<[I
             .map(Vec::into_boxed_slice)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rkyv::rancor::{Panic, Strategy};
+    use twilight_model::id::marker::GuildMarker;
+
+    use super::*;
+
+    #[test]
+    fn id_rkyv_map() {
+        type GuildId = Id<GuildMarker>;
+        type Wrap<'a> = With<&'a [GuildId], IdRkyvMap>;
+
+        let ids = vec![GuildId::new(1), Id::new(2), Id::new(3)];
+        let slice = ids.as_slice();
+        let with = Wrap::cast(&slice);
+
+        let bytes = rkyv::to_bytes::<Panic>(with).unwrap();
+        let archived =
+            rkyv::access::<<IdRkyvMap as ArchiveWith<&[GuildId]>>::Archived, Panic>(&bytes)
+                .unwrap();
+        let mut deserializer = ();
+        let strategy = Strategy::<_, Panic>::wrap(&mut deserializer);
+        let deserialized: Vec<GuildId> = IdRkyvMap::deserialize_with(archived, strategy).unwrap();
+
+        assert_eq!(ids, deserialized);
+    }
+}

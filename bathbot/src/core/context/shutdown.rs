@@ -45,6 +45,7 @@ impl Context {
         }
 
         if let Some(ordr) = Context::ordr() {
+            info!("Disconnecting from ordr");
             ordr.disconnect();
         }
 
@@ -69,6 +70,8 @@ impl Context {
             Ok(len) => info!("Stored {len} miss analyzer guilds"),
             Err(err) => error!(?err, "Failed to store miss analyzer guilds"),
         }
+
+        info!("Finished shutdown routine");
     }
 
     /// Notify all active bg games that they'll be aborted due to a bot restart
@@ -90,7 +93,7 @@ impl Context {
 
         let mut count = 0;
 
-        let content = "I'll abort this game because I'm about to reboot, \
+        let content = "The game will be aborted because I'm about to reboot, \
             you can start a new game again in just a moment...";
 
         for (channel, game) in active_games {
@@ -117,6 +120,7 @@ impl Context {
             .collect();
 
         let len = guild_shards.len();
+        info!(len, "Storing guild shards...");
 
         let bytes = rkyv::util::with_arena(|arena| {
             let wrap = With::<Original, CacheGuildShards>::cast(&guild_shards);
@@ -148,6 +152,7 @@ impl Context {
             Self::miss_analyzer_guilds().pin().keys().copied().collect();
 
         let len = miss_analyzer_guilds.len();
+        info!(len, "Storing miss analyzer guilds...");
 
         let bytes = rkyv::util::with_arena(|arena| {
             let slice = miss_analyzer_guilds.as_slice();
