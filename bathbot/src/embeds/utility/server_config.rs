@@ -65,8 +65,7 @@ impl ServerConfigEmbed {
             }
         }
 
-        let track_limit = config.track_limit.unwrap_or(50);
-        let _ = writeln!(description, "\nDefault track limit: {track_limit}\n```");
+        description.push_str("\n```");
 
         let fields = vec![
             create_field(

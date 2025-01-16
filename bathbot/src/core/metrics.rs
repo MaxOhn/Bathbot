@@ -5,6 +5,7 @@ use metrics::{
     counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram, SharedString,
     Unit,
 };
+use rosu_v2::model::GameMode;
 use twilight_gateway::Event;
 
 const GATEWAY_EVENTS: &str = "gateway_events";
@@ -12,6 +13,7 @@ const COMMANDS_PROCESS_TIME: &str = "commands_process_time";
 const COMMAND_ERRORS: &str = "command_errors";
 const CACHE_ENTRIES: &str = "cache_entries";
 const REDIS_CACHE_HITS: &str = "redis_cache_hits";
+const OSU_TRACKING_HIT: &str = "osu_tracking_hit";
 
 pub struct BotMetrics;
 
@@ -73,13 +75,18 @@ impl BotMetrics {
         sub: impl Into<SharedString>,
         duration: Duration,
     ) {
-        histogram!(COMMANDS_PROCESS_TIME,
+        histogram!(
+            COMMANDS_PROCESS_TIME,
             "kind" => "slash",
             "name" => name,
             "group" => group,
             "sub" => sub
         )
         .record(duration);
+    }
+
+    pub fn osu_tracking_hit(mode: GameMode) {
+        counter!(OSU_TRACKING_HIT, "mode" => mode.as_str()).increment(1);
     }
 
     pub fn inc_redis_hit(kind: impl Into<SharedString>) {

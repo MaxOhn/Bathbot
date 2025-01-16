@@ -8,7 +8,6 @@ pub struct DbGuildConfig {
     pub list_size: Option<i16>,
     pub prefixes: JsonValue,
     pub retries: Option<i16>,
-    pub osu_track_limit: Option<i16>,
     pub allow_songs: Option<bool>,
     pub render_button: Option<bool>,
     pub allow_custom_skins: Option<bool>,
@@ -22,7 +21,6 @@ pub struct GuildConfig {
     pub list_size: Option<ListSize>,
     pub prefixes: Vec<String>,
     pub retries: Option<Retries>,
-    pub track_limit: Option<u8>,
     pub allow_songs: Option<bool>,
     pub render_button: Option<bool>,
     pub allow_custom_skins: Option<bool>,
@@ -41,7 +39,6 @@ impl Default for GuildConfig {
             list_size: Default::default(),
             prefixes: vec![Self::DEFAULT_PREFIX.to_owned()],
             retries: Default::default(),
-            track_limit: Default::default(),
             allow_songs: Default::default(),
             render_button: Default::default(),
             allow_custom_skins: Default::default(),
@@ -60,7 +57,6 @@ impl From<DbGuildConfig> for GuildConfig {
             list_size,
             prefixes,
             retries,
-            osu_track_limit,
             allow_songs,
             render_button,
             allow_custom_skins,
@@ -70,24 +66,23 @@ impl From<DbGuildConfig> for GuildConfig {
 
         let authorities = Authorities::deserialize(&authorities);
 
-        let prefixes = if let JsonValue::Array(array) = prefixes {
-            array
-                .into_iter()
-                .map(|value| match value {
-                    JsonValue::String(prefix) => prefix,
-                    _ => unreachable!(),
-                })
-                .collect()
-        } else {
+        let JsonValue::Array(array) = prefixes else {
             unreachable!()
         };
+
+        let prefixes = array
+            .into_iter()
+            .map(|value| match value {
+                JsonValue::String(prefix) => prefix,
+                _ => unreachable!(),
+            })
+            .collect();
 
         Self {
             authorities,
             list_size: list_size.map(ListSize::try_from).and_then(Result::ok),
             prefixes,
             retries: retries.map(Retries::try_from).and_then(Result::ok),
-            track_limit: osu_track_limit.map(|limit| limit as u8),
             allow_songs,
             render_button,
             allow_custom_skins,

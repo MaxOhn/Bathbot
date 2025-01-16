@@ -1,53 +1,72 @@
-use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder};
+use bathbot_util::{fields, EmbedBuilder, MessageBuilder};
 use eyre::Result;
-use twilight_model::channel::message::embed::EmbedField;
+use metrics::Key;
+use rosu_v2::model::GameMode;
 
 use crate::{
+    core::Context,
+    tracking::OsuTracking,
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
 };
 
 pub async fn trackingstats(command: InteractionCommand) -> Result<()> {
-    let stats = Context::tracking().stats().await;
+    let modes_str = [
+        GameMode::Osu,
+        GameMode::Taiko,
+        GameMode::Catch,
+        GameMode::Mania,
+    ]
+    .map(GameMode::as_str);
 
-    let mut fields = vec![
-        EmbedField {
-            name: "Currently tracking".to_owned(),
-            value: stats.tracking.to_string(),
-            inline: true,
-        },
-        EmbedField {
-            name: "Interval per user".to_owned(),
-            value: format!("{}s", stats.interval),
-            inline: true,
-        },
-        EmbedField {
-            name: "Min interval".to_owned(),
-            value: format!("{}s", stats.wait_interval),
-            inline: true,
-        },
-        EmbedField {
-            name: "Milliseconds per user".to_owned(),
-            value: format!("{}ms", stats.ms_per_track),
-            inline: true,
-        },
+    let key = Key::from_name("bathbot.osu_tracking_hit");
+    let mut mode_hits = [0; 4];
+
+    Context::get().metrics.collect_counters(&key, |key, value| {
+        for label in key.labels() {
+            if label.key() != "mode" {
+                continue;
+            }
+
+            let label_value = label.value();
+
+            let opt = modes_str
+                .iter()
+                .zip(mode_hits.iter_mut())
+                .find(|(&mode, _)| mode == label_value);
+
+            let Some((_, count)) = opt else { return };
+            *count += value;
+        }
+    });
+
+    let [hits_osu, hits_taiko, hits_catch, hits_mania] = mode_hits;
+    let hits = format!(
+        "`osu!: {hits_osu}` • `osu!taiko: {hits_taiko}` • \
+        `osu!catch: {hits_catch}` • `osu!mania: {hits_mania}`"
+    );
+
+    let stats = OsuTracking::stats();
+
+    let counts = format!(
+        "`Total entries: {}` • `Unique users: {}` • `Channels: {}`\n\
+        `osu!: {}` • `osu!taiko: {}` • `osu!catch: {}` • `osu!mania: {}`",
+        stats.total,
+        stats.unique_users,
+        stats.channels,
+        stats.count_osu,
+        stats.count_taiko,
+        stats.count_catch,
+        stats.count_mania,
+    );
+
+    let fields = fields![
+        "Hits since reboot".to_owned(), hits, false;
+        "Counts".to_owned(), counts, false;
     ];
 
-    if let Some(entry) = stats.next_pop {
-        fields.push(EmbedField {
-            name: "Next pop".to_owned(),
-            value: format!("{} | {}", entry.user_id, entry.mode),
-            inline: true,
-        });
-    }
-
-    let title = format!("Tracked users: {} | queue: {}", stats.users, stats.queue);
-
     let embed = EmbedBuilder::new()
-        .footer(FooterBuilder::new("Last pop"))
-        .timestamp(stats.last_pop)
-        .title(title)
-        .fields(fields);
+        .fields(fields)
+        .title("Tracking statistics:");
 
     let builder = MessageBuilder::new().embed(embed);
     command.callback(builder, false).await?;

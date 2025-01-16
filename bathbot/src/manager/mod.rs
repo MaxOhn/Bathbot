@@ -1,5 +1,3 @@
-#[cfg(feature = "osutracking")]
-pub use self::osu_tracking::OsuTrackingManager;
 #[cfg(feature = "twitch")]
 pub use self::twitch::TwitchManager;
 pub use self::{
@@ -31,9 +29,6 @@ mod pp;
 mod rank_pp_approx;
 mod replay;
 mod user_config;
-
-#[cfg(feature = "osutracking")]
-mod osu_tracking;
 
 #[cfg(feature = "twitch")]
 mod twitch;

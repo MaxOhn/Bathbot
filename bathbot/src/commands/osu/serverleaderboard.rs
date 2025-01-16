@@ -31,6 +31,7 @@ use crate::{
     Try using any command that retrieves the user, e.g. `/profile`, in order to cache them.\n\
     - Members of this server are not stored as such. Maybe let bade know :eyes:"
 )]
+#[flags(ONLY_GUILDS)]
 pub enum ServerLeaderboard {
     #[command(name = "all_modes")]
     AllModes(ServerLeaderboardAllModes),

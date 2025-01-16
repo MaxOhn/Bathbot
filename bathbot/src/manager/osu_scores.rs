@@ -221,17 +221,7 @@ impl ScoreArgs {
         };
 
         let scores_clone = Box::from(scores.as_slice());
-
-        tokio::spawn(async move {
-            // Store scores in database
-            self.manager.store(&scores_clone).await;
-
-            // Pass scores to tracking check
-            #[cfg(feature = "osutracking")]
-            if let ScoreKind::Top { .. } = self.kind {
-                crate::tracking::process_osu_tracking(&scores_clone, None).await
-            }
-        });
+        tokio::spawn(async move { self.manager.store(&scores_clone).await });
 
         Ok(scores)
     }

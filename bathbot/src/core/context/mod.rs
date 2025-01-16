@@ -45,7 +45,7 @@ use super::{
 };
 use crate::{
     active::{impls::BackgroundGame, ActiveMessages},
-    tracking::Ordr,
+    tracking::{Ordr, OsuTracking, ScoresWebSocket, ScoresWebSocketDisconnect},
 };
 
 mod games;
@@ -84,6 +84,8 @@ pub struct Context {
     /// Keeps track of the amount of times content was added to a usual bot
     /// response to remind users about the new /builder command.
     pub builder_notices: StdMutexMap<Id<UserMarker>, usize, IntHasher>,
+    /// Notify the scores websocket when it should initiate a disconnect
+    scores_ws_disconnect: Mutex<Option<ScoresWebSocketDisconnect>>,
 }
 
 impl Context {
@@ -126,8 +128,7 @@ impl Context {
         &Self::get().clients.psql
     }
 
-    #[cfg(feature = "osutracking")]
-    pub fn tracking() -> &'static crate::tracking::OsuTracking {
+    pub fn tracking() -> &'static OsuTracking {
         &Self::get().data.osu_tracking
     }
 
@@ -276,6 +277,7 @@ impl Context {
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
             active_msgs: ActiveMessages::new(),
+            scores_ws_disconnect: Mutex::new(None),
             start_time,
             metrics: reader,
             builder_notices: StdMutexMap::default(),
@@ -284,6 +286,15 @@ impl Context {
         if CONTEXT.set(Box::new(ctx)).is_err() {
             panic!("must init Context only once");
         }
+
+        // Some websocket functionality relies on `Context::get` being
+        // available so we should connect only after setting the context.
+        match ScoresWebSocket::connect().await {
+            Ok(disconnect) => {
+                *Self::get().scores_ws_disconnect.lock().unwrap() = Some(disconnect);
+            }
+            Err(err) => warn!(?err, "Failed to connect scores websocket"),
+        };
 
         Ok((
             shards,
@@ -385,13 +396,12 @@ struct ContextData {
     games: Games,
     #[cfg(feature = "matchlive")]
     matchlive: crate::matchlive::MatchLiveChannels,
-    #[cfg(feature = "osutracking")]
-    osu_tracking: crate::tracking::OsuTracking,
     #[cfg(feature = "twitchtracking")]
-    tracked_streams: TrackedStreams, // read-heavy
-    guild_configs: GuildConfigs,              // read-heavy
-    guild_shards: GuildShards,                // necessary to request members for a guild
-    miss_analyzer_guilds: MissAnalyzerGuilds, // read-heavy
+    tracked_streams: TrackedStreams,
+    osu_tracking: OsuTracking,
+    guild_configs: GuildConfigs,
+    guild_shards: GuildShards,
+    miss_analyzer_guilds: MissAnalyzerGuilds,
     osutrack_user_notif_timestamps: OsuTrackUserNotifTimestamps,
     #[cfg(feature = "twitch")]
     online_twitch_streams: crate::tracking::OnlineTwitchStreams,
@@ -404,18 +414,26 @@ impl ContextData {
         application_id: Id<ApplicationMarker>,
     ) -> Result<Self> {
         #[cfg(feature = "twitchtracking")]
-        let (guild_configs_res, tracked_streams_res, guild_shards, miss_analyzer_guilds) = tokio::join!(
+        let (
+            guild_configs_res,
+            tracked_streams_res,
+            guild_shards,
+            miss_analyzer_guilds,
+            osu_tracking,
+        ) = tokio::join!(
             psql.select_guild_configs::<IntHasher>(),
             psql.select_tracked_twitch_streams::<IntHasher>(),
             Self::fetch_guild_shards(&cache),
             Self::fetch_miss_analyzer_guilds(&cache),
+            OsuTracking::new(psql),
         );
 
         #[cfg(not(feature = "twitchtracking"))]
-        let (guild_configs_res, guild_shards, miss_analyzer_guilds) = tokio::join!(
+        let (guild_configs_res, guild_shards, miss_analyzer_guilds, osu_tracking) = tokio::join!(
             psql.select_guild_configs::<IntHasher>(),
             Self::fetch_guild_shards(&cache),
             Self::fetch_miss_analyzer_guilds(&cache),
+            OsuTracking::new(psql)
         );
 
         Ok(Self {
@@ -429,15 +447,12 @@ impl ContextData {
                 .wrap_err("Failed to get tracked streams")?
                 .into_iter()
                 .collect(),
+            osu_tracking: osu_tracking.wrap_err("Failed to create osu! tracking")?,
             application_id,
             games: Games::new(),
             guild_shards,
             #[cfg(feature = "matchlive")]
             matchlive: crate::matchlive::MatchLiveChannels::new(),
-            #[cfg(feature = "osutracking")]
-            osu_tracking: crate::tracking::OsuTracking::new(psql)
-                .await
-                .wrap_err("Failed to create osu tracking")?,
             miss_analyzer_guilds,
             osutrack_user_notif_timestamps: OsuTrackUserNotifTimestamps::default(),
             #[cfg(feature = "twitch")]

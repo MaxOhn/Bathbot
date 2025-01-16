@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT\n  user_id,\n  gamemode,\n  min_index,\n  max_index,\n  min_pp,\n  max_pp,\n  min_combo_percent,\n  max_combo_percent\nFROM\n  tracked_osu_users\nWHERE\n  channel_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "gamemode",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 2,
+        "name": "min_index",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 3,
+        "name": "max_index",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 4,
+        "name": "min_pp",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 5,
+        "name": "max_pp",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 6,
+        "name": "min_combo_percent",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 7,
+        "name": "max_combo_percent",
+        "type_info": "Float4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b376479448f2ff14b7c6e41babdc571aee46db423c84b3315c0e0c50c9ddb51f"
+}

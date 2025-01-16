@@ -29,7 +29,7 @@ use self::{
         RecentListPagination, RenderSettingsActive, ScoreEmbedBuilderActive, SettingsImport,
         SimulateComponents, SingleScorePagination, SkinsPagination, SlashCommandsPagination,
         SnipeCountryListPagination, SnipeDifferencePagination, SnipePlayerListPagination,
-        TopIfPagination, TopPagination,
+        TopIfPagination, TopPagination, TrackListPagination,
     },
     response::ActiveResponse,
 };
@@ -93,6 +93,7 @@ pub enum ActiveMessage {
     SnipePlayerListPagination,
     TopPagination,
     TopIfPagination,
+    TrackListPagination,
 }
 
 struct FullActiveMessage {
@@ -423,7 +424,6 @@ impl BuildPage {
         self
     }
 
-    #[cfg(feature = "osutracking")]
     pub fn into_embed(self) -> EmbedBuilder {
         self.embed
     }

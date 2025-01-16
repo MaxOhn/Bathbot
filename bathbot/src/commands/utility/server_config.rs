@@ -19,7 +19,7 @@ use crate::{
     dm_permission = false,
     desc = "Adjust configurations or authority roles for this server"
 )]
-#[flags(AUTHORITY, SKIP_DEFER)]
+#[flags(AUTHORITY, SKIP_DEFER, ONLY_GUILDS)]
 pub enum ServerConfig {
     #[command(name = "authorities")]
     Authorities(ServerConfigAuthorities),
@@ -104,14 +104,6 @@ pub struct ServerConfigEdit {
     )]
     retries: Option<Retries>,
     #[command(
-        min_value = 1,
-        max_value = 100,
-        desc = "Specify the default track limit for osu! top scores",
-        help = "Specify the default track limit for tracking user's osu! top scores.\n\
-        The value must be between 1 and 100, defaults to 50."
-    )]
-    track_limit: Option<i64>,
-    #[command(
         desc = "Should the recent command include a render button?",
         help = "Should the `recent` command include a render button?\n\
         The button would be a shortcut for the `/render` command.\n\
@@ -142,7 +134,6 @@ impl ServerConfigEdit {
             song_commands,
             list_embeds,
             retries,
-            track_limit,
             render_button,
             allow_custom_skins,
             hide_medal_solutions,
@@ -152,7 +143,6 @@ impl ServerConfigEdit {
         song_commands.is_some()
             || list_embeds.is_some()
             || retries.is_some()
-            || track_limit.is_some()
             || render_button.is_some()
             || allow_custom_skins.is_some()
             || hide_medal_solutions.is_some()
@@ -193,7 +183,6 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
                 list_embeds,
                 retries,
                 song_commands,
-                track_limit,
                 render_button,
                 allow_custom_skins,
                 hide_medal_solutions,
@@ -206,10 +195,6 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
 
             if let Some(retries) = retries {
                 config.retries = Some(retries);
-            }
-
-            if let Some(limit) = track_limit {
-                config.track_limit = Some(limit as u8);
             }
 
             if let Some(with_lyrics) = song_commands {

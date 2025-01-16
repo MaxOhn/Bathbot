@@ -831,7 +831,7 @@ SET
         Ok(())
     }
 
-    pub async fn delete_osu_user_stats_and_scores(&self, user_id: u32) -> Result<()> {
+    pub async fn delete_osu_user_stats(&self, user_id: u32) -> Result<()> {
         let mut conn = self
             .acquire()
             .await

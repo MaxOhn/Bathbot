@@ -1,9 +1,9 @@
 use bathbot_macros::command;
-use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
+use bathbot_util::MessageBuilder;
 use eyre::Result;
 use rosu_v2::model::GameMode;
 
-use crate::{core::commands::CommandOrigin, util::ChannelExt, Context};
+use crate::{core::commands::CommandOrigin, tracking::OsuTracking, util::ChannelExt};
 
 #[command]
 #[desc("Untrack all users in a channel")]
@@ -39,20 +39,11 @@ async fn prefix_untrackall(msg: &Message, mut args: Args<'_>) -> Result<()> {
 pub async fn untrackall(orig: CommandOrigin<'_>, mode: Option<GameMode>) -> Result<()> {
     let channel_id = orig.channel_id();
 
-    let remove_fut = Context::tracking().remove_channel(channel_id, mode);
+    OsuTracking::remove_channel(channel_id, mode).await;
 
-    match remove_fut.await {
-        Ok(amount) => {
-            let content = format!("Untracked {amount} users in this channel");
-            let builder = MessageBuilder::new().embed(content);
-            orig.create_message(builder).await?;
+    let content = "Untracked all users in this channel";
+    let builder = MessageBuilder::new().embed(content);
+    orig.create_message(builder).await?;
 
-            Ok(())
-        }
-        Err(err) => {
-            let _ = orig.error(GENERAL_ISSUE).await;
-
-            Err(err.wrap_err("failed to remove channel from osu tracking"))
-        }
-    }
+    Ok(())
 }

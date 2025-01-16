@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO tracked_osu_users (\n  user_id, gamemode, channel_id, min_index, max_index,\n  min_pp, max_pp, min_combo_percent, max_combo_percent\n)\nVALUES\n  ($1, $2, $3, $4, $5, $6, $7, $8, $9)\nON CONFLICT\n  (user_id, gamemode, channel_id)\nDO\n  UPDATE\nSET\n    min_index = $4,\n    max_index = $5,\n    min_pp = $6,\n    max_pp = $7,\n    min_combo_percent = $8,\n    max_combo_percent = $9",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int2",
+        "Int8",
+        "Int2",
+        "Int2",
+        "Float4",
+        "Float4",
+        "Float4",
+        "Float4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4dd4fce1ba302fc2ddb754e2641d433a666678ea629969637e021ae54366885a"
+}

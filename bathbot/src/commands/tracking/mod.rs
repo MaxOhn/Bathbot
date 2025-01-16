@@ -21,11 +21,7 @@ mod untrack;
 mod untrack_all;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(
-    name = "track",
-    dm_permission = false,
-    desc = "Track top score updates for players"
-)]
+#[command(name = "track", desc = "Track top score updates for players")]
 #[flags(AUTHORITY)]
 pub enum Track {
     #[command(name = "add")]
@@ -51,12 +47,31 @@ pub struct TrackAdd {
     #[command(
         min_value = 1,
         max_value = 100,
-        desc = "Between 1-100, default 50, notify on updates of the user's top X scores",
-        help = "If not specified, updates in the user's top50 will trigger notification messages.\n\
-        Instead of the top50, this `limit` option allows to adjust the maximum index within \
-        the top scores.\nThe value must be between 1 and 100."
+        desc = "Scores must be at least in the top X (1-100; default 1)"
     )]
-    limit: Option<u8>,
+    min_index: Option<u8>,
+    #[command(
+        min_value = 1,
+        max_value = 100,
+        desc = "Scores must be at most in the top X (1-100; default 100)"
+    )]
+    max_index: Option<u8>,
+    #[command(min_value = 0.0, desc = "Scores must have at least X pp (default 0.0)")]
+    min_pp: Option<f32>,
+    #[command(min_value = 0.0, desc = "Scores must have at most X pp")]
+    max_pp: Option<f32>,
+    #[command(
+        min_value = 0.0,
+        max_value = 100.0,
+        desc = "Scores must have at least X max combo percent (0-100; default 0)"
+    )]
+    min_combo_percent: Option<f32>,
+    #[command(
+        min_value = 0.0,
+        max_value = 100.0,
+        desc = "Scores must have at most X max combo percent (0-100; default 100)"
+    )]
+    max_combo_percent: Option<f32>,
     #[command(desc = "Specify a second username")]
     name2: Option<String>,
     #[command(desc = "Specify a third username")]
@@ -81,18 +96,18 @@ pub enum TrackRemove {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "user", desc = "Untrack specific users in a channel")]
+#[command(name = "user", desc = "Untrack a specific user in a channel")]
 pub struct TrackRemoveUser {
     #[command(desc = "Choose a username to be untracked")]
     name: String,
-    #[command(desc = "Specify a mode for the tracked users")]
+    #[command(desc = "Specify an optional mode for the tracked user")]
     mode: Option<GameModeOption>,
 }
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "all", desc = "Untrack all users in a channel")]
 pub struct TrackRemoveAll {
-    #[command(desc = "Specify a mode for the tracked users")]
+    #[command(desc = "Specify an optional mode for the tracked users")]
     mode: Option<GameModeOption>,
 }
 
@@ -148,7 +163,12 @@ async fn get_names(
 struct TrackArgs {
     mode: Option<GameMode>,
     name: String,
-    limit: Option<u8>,
+    min_index: Option<u8>,
+    max_index: Option<u8>,
+    min_pp: Option<f32>,
+    max_pp: Option<f32>,
+    min_combo_percent: Option<f32>,
+    max_combo_percent: Option<f32>,
     more_names: Vec<String>,
 }
 
@@ -157,7 +177,7 @@ impl TrackArgs {
         let mut name = None;
         let mut more_names = Vec::new();
 
-        let mut limit = match args.num {
+        let mut min_index = match args.num {
             ArgsNum::Value(n) => Some(n.min(100) as u8),
             ArgsNum::Random | ArgsNum::None => None,
         };
@@ -169,7 +189,7 @@ impl TrackArgs {
 
                 match key {
                     "limit" | "l" => match value.parse() {
-                        Ok(num) => limit = Some(num),
+                        Ok(num) => min_index = Some(num),
                         Err(_) => {
                             let content = "Failed to parse `limit`. Must be either an integer.";
 
@@ -198,7 +218,12 @@ impl TrackArgs {
 
         let args = Self {
             name,
-            limit,
+            min_index,
+            max_index: None,
+            min_pp: None,
+            max_pp: None,
+            min_combo_percent: None,
+            max_combo_percent: None,
             more_names,
             mode,
         };
@@ -212,7 +237,12 @@ impl From<TrackAdd> for TrackArgs {
         let TrackAdd {
             name,
             mode,
-            limit,
+            min_index,
+            max_index,
+            min_pp,
+            max_pp,
+            min_combo_percent,
+            max_combo_percent,
             name2,
             name3,
             name4,
@@ -240,8 +270,13 @@ impl From<TrackAdd> for TrackArgs {
         Self {
             mode: Some(mode.into()),
             name,
-            limit,
             more_names,
+            min_index,
+            max_index,
+            min_pp,
+            max_pp,
+            min_combo_percent,
+            max_combo_percent,
         }
     }
 }
@@ -253,8 +288,13 @@ impl From<TrackRemoveUser> for TrackArgs {
         Self {
             mode: mode.map(GameMode::from),
             name,
-            limit: None,
             more_names: Vec::new(),
+            min_index: None,
+            max_index: None,
+            min_pp: None,
+            max_pp: None,
+            min_combo_percent: None,
+            max_combo_percent: None,
         }
     }
 }

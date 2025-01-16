@@ -27,7 +27,6 @@ SELECT
   prefixes,
   allow_songs,
   retries,
-  osu_track_limit,
   list_size, 
   render_button, 
   allow_custom_skins, 
@@ -59,7 +58,6 @@ FROM
             list_size,
             prefixes,
             retries,
-            track_limit,
             allow_songs,
             render_button,
             allow_custom_skins,
@@ -80,33 +78,31 @@ FROM
             r#"
 INSERT INTO guild_configs (
   guild_id, authorities, prefixes, allow_songs, 
-  retries, osu_track_limit, list_size, 
+  retries, list_size, 
   render_button, allow_custom_skins, 
   hide_medal_solution, score_data
 ) 
 VALUES 
-  (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
-    $11
-  ) ON CONFLICT (guild_id) DO 
-UPDATE 
+  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+ON CONFLICT
+  (guild_id)
+DO 
+  UPDATE 
 SET 
   authorities = $2, 
   prefixes = $3, 
   allow_songs = $4, 
   retries = $5, 
-  osu_track_limit = $6, 
-  list_size = $7, 
-  render_button = $8, 
-  allow_custom_skins = $9, 
-  hide_medal_solution = $10, 
-  score_data = $11"#,
+  list_size = $6, 
+  render_button = $7, 
+  allow_custom_skins = $8, 
+  hide_medal_solution = $9, 
+  score_data = $10"#,
             guild_id.get() as i64,
             &authorities as &[u8],
             Json(prefixes) as _,
             *allow_songs,
             retries.map(i16::from),
-            track_limit.map(|limit| limit as i16),
             list_size.map(i16::from),
             *render_button,
             *allow_custom_skins,

@@ -6,10 +6,6 @@ use twilight_model::channel::Attachment;
 
 pub use self::reshard::RESHARD_TX;
 use self::{add_bg::*, cache::*, request_members::*};
-#[cfg(feature = "osutracking")]
-use self::{tracking_interval::*, tracking_stats::*};
-#[cfg(feature = "osutracking")]
-use crate::tracking::default_tracking_interval;
 use crate::{
     commands::owner::reshard::reshard,
     util::{interaction::InteractionCommand, InteractionCommandExt},
@@ -19,11 +15,6 @@ mod add_bg;
 mod cache;
 mod request_members;
 mod reshard;
-
-#[cfg(feature = "osutracking")]
-mod tracking_interval;
-
-#[cfg(feature = "osutracking")]
 mod tracking_stats;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -39,7 +30,6 @@ pub enum Owner {
     RequestMembers(OwnerRequestMembers),
     #[command(name = "reshard")]
     Reshard(OwnerReshard),
-    #[cfg(feature = "osutracking")]
     #[command(name = "tracking")]
     Tracking(OwnerTracking),
 }
@@ -71,35 +61,16 @@ pub struct OwnerRequestMembers {
 #[command(name = "reshard", desc = "Reshard the gateway")]
 pub struct OwnerReshard;
 
-#[cfg(feature = "osutracking")]
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "tracking", desc = "Stuff about osu!tracking")]
 pub enum OwnerTracking {
-    #[command(name = "interval")]
-    Interval(OwnerTrackingInterval),
     #[command(name = "stats")]
     Stats(OwnerTrackingStats),
-    #[command(name = "toggle")]
-    Toggle(OwnerTrackingToggle),
 }
 
-#[cfg(feature = "osutracking")]
-#[derive(CommandModel, CreateCommand)]
-#[command(name = "interval", desc = "Adjust the tracking interval")]
-pub struct OwnerTrackingInterval {
-    #[command(desc = "Specify the interval in seconds, defaults to 9000")]
-    number: Option<i64>,
-}
-
-#[cfg(feature = "osutracking")]
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "stats", desc = "Display tracking stats")]
 pub struct OwnerTrackingStats;
-
-#[cfg(feature = "osutracking")]
-#[derive(CommandModel, CreateCommand)]
-#[command(name = "toggle", desc = "Enable or disable tracking")]
-pub struct OwnerTrackingToggle;
 
 async fn slash_owner(mut command: InteractionCommand) -> Result<()> {
     match Owner::from_interaction(command.input_data())? {
@@ -107,26 +78,6 @@ async fn slash_owner(mut command: InteractionCommand) -> Result<()> {
         Owner::Cache(_) => cache(command).await,
         Owner::RequestMembers(args) => request_members(command, &args.guild_id).await,
         Owner::Reshard(_) => reshard(command).await,
-        #[cfg(feature = "osutracking")]
-        Owner::Tracking(OwnerTracking::Interval(interval)) => {
-            let secs = interval
-                .number
-                .unwrap_or_else(|| default_tracking_interval().whole_seconds());
-
-            trackinginterval(command, secs).await
-        }
-        #[cfg(feature = "osutracking")]
-        Owner::Tracking(OwnerTracking::Stats(_)) => trackingstats(command).await,
-        #[cfg(feature = "osutracking")]
-        Owner::Tracking(OwnerTracking::Toggle(_)) => {
-            let tracking = crate::core::Context::tracking();
-            tracking.toggle_tracking();
-            let current = tracking.stop_tracking();
-            let content = format!("Tracking toggle: {current} -> {}", !current);
-            let builder = bathbot_util::MessageBuilder::new().embed(content);
-            command.callback(builder, false).await?;
-
-            Ok(())
-        }
+        Owner::Tracking(OwnerTracking::Stats(_)) => tracking_stats::trackingstats(command).await,
     }
 }
