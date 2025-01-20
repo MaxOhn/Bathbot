@@ -73,7 +73,7 @@ impl OsuTracking {
 
         let (last_pp, last_updated) = entry.last_entry();
 
-        if last_pp > pp && score.ended_at > last_updated {
+        if last_pp > pp && last_updated >= score.ended_at {
             return;
         }
 
