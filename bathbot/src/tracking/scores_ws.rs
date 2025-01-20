@@ -104,7 +104,7 @@ impl ScoresWebSocket {
                 }
             };
 
-            OsuTracking::process_score(score);
+            OsuTracking::process_score(score).await;
         }
     }
 

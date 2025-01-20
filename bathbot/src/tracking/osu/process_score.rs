@@ -79,9 +79,9 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
     let combo_percent = max_combo.map(|max| 100.0 * combo as f32 / max as f32);
 
     let http = Context::http();
-    let guard = entry.guard_channels();
+    let channels = entry.channels().await;
 
-    for (channel_id, params) in entry.iter_channels(&guard) {
+    for (channel_id, params) in channels.iter() {
         if !params.matches(idx, pp, combo_percent) {
             continue;
         }

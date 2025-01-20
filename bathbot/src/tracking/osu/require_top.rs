@@ -58,11 +58,7 @@ impl RequireTopScores {
 impl Drop for RequireTopScores {
     fn drop(&mut self) {
         if !self.called_back {
-            error!("must use `RequireTopScores::callback`");
-
-            if let Some(user) = OsuTracking::users().pin().get(&self.user_id()) {
-                user.clear(self.mode());
-            }
+            panic!("must use `RequireTopScores::callback`");
         }
     }
 }

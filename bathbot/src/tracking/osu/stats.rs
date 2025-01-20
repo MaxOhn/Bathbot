@@ -16,12 +16,12 @@ pub struct OsuTrackingStats {
 }
 
 impl OsuTrackingStats {
-    pub(super) fn new() -> Self {
+    pub(super) async fn new() -> Self {
         let mut modes_count = [0; 4];
         let mut total = 0;
         let mut channels = HashSet::with_hasher(IntHasher);
 
-        let users = OsuTracking::users().pin();
+        let users = OsuTracking::users().pin_owned();
         let unique_users = users.len();
 
         for (_, entry) in users.iter() {
@@ -33,19 +33,14 @@ impl OsuTrackingStats {
             ];
 
             for mode in MODES {
-                let Some(user) = entry.get(mode) else {
+                let Some(user) = entry.get(mode).await else {
                     continue;
                 };
 
                 total += 1;
                 modes_count[mode as usize] += 1;
 
-                let channels_guard = user.guard_channels();
-                let iter = user
-                    .iter_channels(&channels_guard)
-                    .map(|(channel_id, _)| *channel_id);
-
-                channels.extend(iter);
+                channels.extend(user.channels().await.keys().copied());
             }
         }
 

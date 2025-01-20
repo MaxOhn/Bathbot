@@ -45,7 +45,7 @@ pub async fn trackingstats(command: InteractionCommand) -> Result<()> {
         `osu!catch: {hits_catch}` • `osu!mania: {hits_mania}`"
     );
 
-    let stats = OsuTracking::stats();
+    let stats = OsuTracking::stats().await;
 
     let counts = format!(
         "`Total entries: {}` • `Unique users: {}` • `Channels: {}`\n\
