@@ -201,7 +201,7 @@ pub struct OsekaiMedal {
     pub medal_id: u32,
     #[serde(with = "deser::u32_string")]
     pub ordering: u32,
-    #[serde(rename = "Frequency")]
+    #[serde(rename = "Frequency", with = "deser::option_f32_string")]
     pub rarity: Option<f32>,
     pub name: Box<str>,
     #[serde(rename = "Link")]

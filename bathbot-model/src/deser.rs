@@ -57,6 +57,14 @@ pub(super) mod f32_string {
             f.write_str("a string containing an f32")
         }
 
+        fn visit_f32<E: Error>(self, v: f32) -> Result<Self::Value, E> {
+            Ok(v)
+        }
+
+        fn visit_f64<E: Error>(self, v: f64) -> Result<Self::Value, E> {
+            Ok(v as f32)
+        }
+
         #[inline]
         fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
             v.parse()
@@ -108,6 +116,10 @@ pub(super) mod u32_string {
 
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.write_str("a string containing a u32")
+        }
+
+        fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+            Ok(v as u32)
         }
 
         #[inline]
