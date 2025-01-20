@@ -1,3 +1,5 @@
+use time::OffsetDateTime;
+
 pub struct DbTrackedOsuUser {
     pub user_id: i32,
     pub gamemode: i16,
@@ -9,6 +11,7 @@ pub struct DbTrackedOsuUser {
     pub min_combo_percent: Option<f32>,
     pub max_combo_percent: Option<f32>,
     pub last_pp: f32,
+    pub last_updated: OffsetDateTime,
 }
 
 pub struct DbTrackedOsuUserInChannel {

@@ -1,0 +1,1 @@
+ALTER TABLE osu_users_100th_pp ADD COLUMN last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW();

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO\n  osu_users_100th_pp(user_id, gamemode, pp, last_updated)\nVALUES\n  ($1, $2, $3, $4)\nON CONFLICT\n  (user_id, gamemode)\nDO\n  UPDATE\nSET\n  pp = $3,\n  last_updated = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int2",
+        "Float4",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1f0002253b4c59c13821419714e32e9ec53a8a9e687e9b801140d2e21aa60dfa"
+}

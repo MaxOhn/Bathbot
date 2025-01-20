@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nWITH pps AS (\n  SELECT\n    user_id,\n    gamemode,\n    pp as last_pp\n  FROM\n    osu_users_100th_pp\n  AS\n    pps\n)\nSELECT\n  *\nFROM\n  tracked_osu_users\nJOIN\n  pps\nUSING (user_id, gamemode)",
+  "query": "\nWITH pps AS (\n  SELECT\n    user_id,\n    gamemode,\n    pp as last_pp,\n    last_updated\n  FROM\n    osu_users_100th_pp\n  AS\n    pps\n)\nSELECT\n  *\nFROM\n  tracked_osu_users\nJOIN\n  pps\nUSING (user_id, gamemode)",
   "describe": {
     "columns": [
       {
@@ -52,6 +52,11 @@
         "ordinal": 9,
         "name": "last_pp",
         "type_info": "Float4"
+      },
+      {
+        "ordinal": 10,
+        "name": "last_updated",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -67,8 +72,9 @@
       true,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "4cbdfd9da0efc1f3ad5459c455792d555ce088ebea8628894c3ad95ee9e2c4f0"
+  "hash": "0530845213db6938c1dbef3c70a4789cc06c18d876fd28bebad7e5019dd990e7"
 }
