@@ -3,7 +3,7 @@ use std::{
     num::NonZeroU64,
     ops::Not,
     sync::{
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicI64, AtomicU32, Ordering},
         Arc,
     },
 };
@@ -11,6 +11,7 @@ use std::{
 use bathbot_psql::model::osu::DbTrackedOsuUser;
 use bathbot_util::IntHasher;
 use rosu_v2::{model::GameMode, prelude::Score};
+use time::OffsetDateTime;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use super::TrackEntryParams;
@@ -22,6 +23,8 @@ type Channels = HashMap<NonZeroU64, TrackEntryParams, IntHasher>;
 pub struct TrackEntry {
     /// Bits of the 100th score's pp value
     last_pp: AtomicU32,
+    /// Unix timestamp of the last update
+    last_updated: AtomicI64,
     channels: RwLock<Channels>,
 }
 
@@ -31,8 +34,20 @@ impl TrackEntry {
     }
 
     /// Pp value of the 100th top score
-    pub fn last_pp(&self) -> f32 {
-        f32::from_bits(self.last_pp.load(Ordering::SeqCst))
+    pub fn last_entry(&self) -> (f32, OffsetDateTime) {
+        let pp = f32::from_bits(self.last_pp.load(Ordering::SeqCst));
+
+        let last_updated =
+            match OffsetDateTime::from_unix_timestamp(self.last_updated.load(Ordering::SeqCst)) {
+                Ok(datetime) => datetime,
+                Err(err) => {
+                    warn!(?err, "Invalid timestamp for datetime");
+
+                    OffsetDateTime::now_utc()
+                }
+            };
+
+        (pp, last_updated)
     }
 
     async fn is_empty(&self) -> bool {
@@ -59,8 +74,9 @@ impl TrackEntry {
             .and_then(|score| score.pp)
             .unwrap_or(0.0);
 
-        self.store_last_pp(pp);
-        let upsert_fut = Context::psql().upsert_tracked_last_pp(user_id, mode, pp);
+        let now = OffsetDateTime::now_utc();
+        self.store_last_pp(pp, now);
+        let upsert_fut = Context::psql().upsert_tracked_last_pp(user_id, mode, pp, now);
 
         if let Err(err) = upsert_fut.await {
             error!(
@@ -73,12 +89,14 @@ impl TrackEntry {
         }
     }
 
-    fn store_last_pp(&self, pp: f32) {
+    fn store_last_pp(&self, pp: f32, datetime: OffsetDateTime) {
         self.last_pp.store(pp.to_bits(), Ordering::SeqCst);
+        self.last_updated
+            .store(datetime.unix_timestamp(), Ordering::SeqCst);
     }
 
     async fn insert(&self, user: DbTrackedOsuUser) {
-        self.store_last_pp(user.last_pp);
+        self.store_last_pp(user.last_pp, user.last_updated);
 
         let Some(channel_id) = NonZeroU64::new(user.channel_id as u64) else {
             return;

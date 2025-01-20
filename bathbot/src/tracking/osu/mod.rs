@@ -71,7 +71,9 @@ impl OsuTracking {
             return;
         };
 
-        if entry.last_pp() > pp {
+        let (last_pp, last_updated) = entry.last_entry();
+
+        if last_pp > pp && score.ended_at > last_updated {
             return;
         }
 

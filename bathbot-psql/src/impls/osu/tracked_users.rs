@@ -1,5 +1,6 @@
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
+use time::OffsetDateTime;
 
 use crate::{
     model::osu::{DbTrackedOsuUser, DbTrackedOsuUserInChannel},
@@ -15,7 +16,8 @@ WITH pps AS (
   SELECT
     user_id,
     gamemode,
-    pp as last_pp
+    pp as last_pp,
+    last_updated
   FROM
     osu_users_100th_pp
   AS
@@ -107,22 +109,25 @@ SET
         user_id: u32,
         mode: GameMode,
         pp: f32,
+        now: OffsetDateTime,
     ) -> Result<()> {
         let query = sqlx::query!(
             r#"
 INSERT INTO
-  osu_users_100th_pp(user_id, gamemode, pp)
+  osu_users_100th_pp(user_id, gamemode, pp, last_updated)
 VALUES
-  ($1, $2, $3)
+  ($1, $2, $3, $4)
 ON CONFLICT
   (user_id, gamemode)
 DO
   UPDATE
 SET
-  pp = $3"#,
+  pp = $3,
+  last_updated = $4"#,
             user_id as i32,
             mode as i16,
-            pp
+            pp,
+            now,
         );
 
         query
