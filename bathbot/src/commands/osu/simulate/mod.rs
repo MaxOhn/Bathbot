@@ -11,7 +11,7 @@ use eyre::Result;
 use rosu_v2::prelude::{GameMode, GameModsIntermode};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    channel::{message::MessageType, Attachment, Message},
+    channel::{Attachment, Message},
     guild::Permissions,
 };
 
@@ -31,7 +31,7 @@ use crate::{
         Context,
     },
     manager::MapError,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, osu::MapOrScore, InteractionCommandExt},
 };
 
 #[derive(CreateCommand, CommandModel, Default, HasMods, SlashCommand)]
@@ -452,18 +452,15 @@ impl SimulateArgs {
         msg: &Message,
         args: Args<'_>,
     ) -> Result<Self, Cow<'static, str>> {
-        let reply = msg
-            .referenced_message
-            .as_deref()
-            .filter(|_| msg.kind == MessageType::Reply);
-
-        let mut map = None;
-
-        if let Some(reply) = reply {
-            if let Some(id) = Context::find_map_id_in_msg(reply).await {
-                map = Some(SimulateMapArg::Id(id));
+        let map = match MapOrScore::find_in_msg(msg).await {
+            Some(MapOrScore::Map(id)) => Some(SimulateMapArg::Id(id)),
+            Some(MapOrScore::Score { .. }) => {
+                return Err(Cow::Borrowed(
+                    "This command does not (yet) accept score urls as argument",
+                ))
             }
-        }
+            None => None,
+        };
 
         let mut simulate = Self {
             mode,

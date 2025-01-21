@@ -21,9 +21,8 @@ use rosu_v2::prelude::{GameMode, OsuError, Rankings};
 
 pub use self::data::RedisData;
 use crate::{
-    commands::osu::MapOrScore,
     core::{BotMetrics, Context},
-    util::interaction::InteractionCommand,
+    util::{interaction::InteractionCommand, osu::MapOrScore},
 };
 
 pub mod osu;

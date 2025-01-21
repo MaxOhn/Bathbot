@@ -13,7 +13,9 @@ use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::SecToMinSec,
+    matcher,
     numbers::{round, WithComma},
+    osu::MapIdType,
     MessageOrigin, ModsFormatter, ScoreExt,
 };
 use eyre::{Result, WrapErr};
@@ -30,6 +32,7 @@ use rosu_v2::{
     prelude::{GameModIntermode, GameMode, Grade, RankStatus, Score, ScoreStatistics},
 };
 use time::OffsetDateTime;
+use twilight_model::channel::{message::MessageType, Message};
 
 use crate::{
     core::{BotConfig, Context},
@@ -867,5 +870,54 @@ impl PersonalBestIndex {
             }
             PersonalBestIndex::NotTop100 => None,
         }
+    }
+}
+
+pub enum MapOrScore {
+    Map(MapIdType),
+    Score { id: u64, mode: Option<GameMode> },
+}
+
+impl MapOrScore {
+    /// Try finding the [`MapOrScore`] in the message itself, the message it
+    /// replied to, or the forwarded message.
+    pub async fn find_in_msg(msg: &Message) -> Option<Self> {
+        async fn inner(msg: &Message, depth: usize) -> Option<MapOrScore> {
+            if depth > 5 {
+                return None;
+            }
+
+            if let Some(id) = Context::find_map_id_in_msg(msg).await {
+                return Some(MapOrScore::Map(id));
+            } else if let Some((id, mode)) = matcher::get_osu_score_id(&msg.content) {
+                return Some(MapOrScore::Score { id, mode });
+            }
+
+            let reply = msg
+                .referenced_message
+                .as_deref()
+                .filter(|_| msg.kind == MessageType::Reply);
+
+            if let Some(msg) = reply {
+                if let opt @ Some(_) = Box::pin(inner(msg, depth + 1)).await {
+                    return opt;
+                }
+            }
+
+            let forwarded = msg.reference.as_ref()?;
+            let (channel_id, msg_id) = forwarded.channel_id.zip(forwarded.message_id)?;
+
+            let msg = Context::http()
+                .message(channel_id, msg_id)
+                .await
+                .ok()?
+                .model()
+                .await
+                .ok()?;
+
+            Box::pin(inner(&msg, depth + 1)).await
+        }
+
+        inner(msg, 0).await
     }
 }
