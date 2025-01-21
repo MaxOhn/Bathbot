@@ -42,6 +42,8 @@ pub enum ServerConfigAuthorities {
     Add(ServerConfigAuthoritiesAdd),
     #[command(name = "remove")]
     Remove(ServerConfigAuthoritiesRemove),
+    #[command(name = "remove_all")]
+    RemoveAll(ServerConfigAuthoritiesRemoveAll),
     #[command(name = "list")]
     List(ServerConfigAuthoritiesList),
 }
@@ -52,6 +54,7 @@ impl From<ServerConfigAuthorities> for AuthorityCommandKind {
         match args {
             ServerConfigAuthorities::Add(args) => Self::Add(args.role),
             ServerConfigAuthorities::Remove(args) => Self::Remove(args.role),
+            ServerConfigAuthorities::RemoveAll(_) => Self::RemoveAll,
             ServerConfigAuthorities::List(_) => Self::List,
         }
     }
@@ -80,6 +83,15 @@ pub struct ServerConfigAuthoritiesRemove {
     #[command(desc = "Specify the role that should gain authority status")]
     role: Id<RoleMarker>,
 }
+
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "remove_all",
+    desc = "Remove authority status from all roles",
+    help = "Remove authority status from all roles.\n\
+    You can only use this if you have the admin permission."
+)]
+pub struct ServerConfigAuthoritiesRemoveAll;
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "list", desc = "Display all current authority roles")]

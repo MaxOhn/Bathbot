@@ -128,7 +128,7 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
 
                 if !still_authority {
                     let content = "You cannot set authority roles to something \
-                                that would make you lose authority status.";
+                        that would make you lose authority status.";
 
                     return orig.error_callback(content).await;
                 }
@@ -143,6 +143,67 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
             }
 
             "Successfully removed authority role. Authority roles now are: ".to_owned()
+        }
+        AuthorityCommandKind::RemoveAll => {
+            let author_id = orig.user_id()?;
+
+            // Make sure the author has the admin permission
+            if !(author_id == BotConfig::get().owner
+                || cache
+                    .guild(guild_id)
+                    .await?
+                    .is_some_and(|guild| guild.owner_id == author_id))
+            {
+                let member_fut = cache.member(guild_id, author_id);
+
+                let member_roles = match member_fut.await {
+                    Ok(Some(member)) => member
+                        .roles
+                        .iter()
+                        .copied()
+                        .map(ArchivedId::to_native)
+                        .collect(),
+                    Ok(None) => Vec::new(),
+                    Err(err) => {
+                        let _ = orig.error_callback(GENERAL_ISSUE).await;
+
+                        return Err(err);
+                    }
+                };
+
+                let has_admin = match cache.roles(guild_id, member_roles).await {
+                    Ok(cached_roles) => cached_roles.into_iter().any(|role| {
+                        Permissions::from_bits_truncate(role.permissions.to_native())
+                            .contains(Permissions::ADMINISTRATOR)
+                    }),
+                    Err(err) => {
+                        let _ = orig.error_callback(GENERAL_ISSUE).await;
+
+                        return Err(err);
+                    }
+                };
+
+                if !has_admin {
+                    let content = "You cannot set authority roles to something \
+                        that would make you lose authority status.";
+
+                    return orig.error_callback(content).await;
+                }
+            }
+
+            let f = |config: &mut GuildConfig| config.authorities.clear();
+
+            if let Err(err) = Context::guild_config().update(guild_id, f).await {
+                let _ = orig.error_callback(GENERAL_ISSUE).await;
+
+                return Err(err.wrap_err("Failed to update guild config"));
+            }
+
+            let content = "Successfully removed all authority roles";
+            let builder = MessageBuilder::new().embed(content);
+            orig.callback(builder).await?;
+
+            return Ok(());
         }
         AuthorityCommandKind::Replace(roles) => {
             let author_id = orig.user_id()?;
@@ -234,6 +295,7 @@ pub enum AuthorityCommandKind {
     Add(Id<RoleMarker>),
     List,
     Remove(Id<RoleMarker>),
+    RemoveAll,
     Replace(Vec<Id<RoleMarker>>),
 }
 

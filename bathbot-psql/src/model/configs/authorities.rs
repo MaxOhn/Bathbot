@@ -36,6 +36,10 @@ impl Authorities {
         self.inner.retain(f);
     }
 
+    pub fn clear(&mut self) {
+        self.inner.clear();
+    }
+
     pub(crate) fn deserialize(bytes: &[u8]) -> Self {
         let archived_authorities = rkyv::access::<Archived<Self>, Panic>(bytes).always_ok();
 
