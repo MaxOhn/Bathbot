@@ -282,7 +282,10 @@ async fn prefix_compare(
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let mut args = CompareScoreArgs::args(args);
-    args.map = MapOrScore::find_in_msg(msg).await;
+
+    if args.map.is_none() {
+        args.map = MapOrScore::find_in_msg(msg).await;
+    }
 
     score(CommandOrigin::from_msg(msg, permissions), args).await
 }
