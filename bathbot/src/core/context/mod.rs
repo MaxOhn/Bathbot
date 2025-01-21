@@ -14,7 +14,7 @@ use flexmap::{std::StdMutexMap, tokio::TokioRwLockMap};
 use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use hashbrown::HashSet;
 use metrics_util::layers::{FanoutBuilder, Layer, PrefixLayer};
-use papaya::HashMap as PapayaMap;
+use papaya::{HashMap as PapayaMap, HashSet as PapayaSet};
 use rkyv::collections::util::Entry;
 use rosu_v2::Osu;
 use shutdown::CacheGuildShards;
@@ -61,7 +61,6 @@ mod matchlive;
 #[cfg(feature = "twitchtracking")]
 mod twitch;
 
-type PapayaSet<K, S> = PapayaMap<K, (), S>; // TODO: await native support for sets
 type GuildShards = PapayaMap<Id<GuildMarker>, u64>;
 type GuildConfigs = PapayaMap<Id<GuildMarker>, GuildConfig, IntHasher>;
 type MissAnalyzerGuilds = PapayaSet<Id<GuildMarker>, IntHasher>;
@@ -146,7 +145,7 @@ impl Context {
     }
 
     pub fn has_miss_analyzer(guild: &Id<GuildMarker>) -> bool {
-        Self::miss_analyzer_guilds().pin().contains_key(guild)
+        Self::miss_analyzer_guilds().pin().contains(guild)
     }
 
     #[cfg(feature = "twitch")]
@@ -487,7 +486,6 @@ impl ContextData {
             Ok(Ok(miss_analyzer_guilds)) => miss_analyzer_guilds
                 .deserialize_with::<IdRkyvMap>()
                 .into_iter()
-                .map(|id| (id, ()))
                 .collect(),
             Ok(Err(_)) => MissAnalyzerGuilds::default(),
             Err(err) => {

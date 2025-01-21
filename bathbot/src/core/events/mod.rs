@@ -221,14 +221,14 @@ async fn handle_event(event: Event, shard_id: u64) -> Result<()> {
         }
         Event::InteractionCreate(e) => handle_interaction(e.0).await,
         Event::MemberAdd(e) if e.member.user.id == MISS_ANALYZER_ID => {
-            Context::miss_analyzer_guilds().pin().insert(e.guild_id, ());
+            Context::miss_analyzer_guilds().pin().insert(e.guild_id);
         }
         Event::MemberChunk(e) => {
             if e.members
                 .iter()
                 .any(|member| member.user.id == MISS_ANALYZER_ID)
             {
-                Context::miss_analyzer_guilds().pin().insert(e.guild_id, ());
+                Context::miss_analyzer_guilds().pin().insert(e.guild_id);
             }
         }
         Event::MemberRemove(e) if e.user.id == MISS_ANALYZER_ID => {

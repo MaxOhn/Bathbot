@@ -148,8 +148,13 @@ impl Context {
 
     #[cold]
     async fn store_miss_analyzer_guilds(store_duration: u64) -> Result<usize> {
+        info!(
+            "[DEBUG] Miss analyzer guilds: {}",
+            Self::miss_analyzer_guilds().len()
+        );
+
         let miss_analyzer_guilds: Vec<_> =
-            Self::miss_analyzer_guilds().pin().keys().copied().collect();
+            Self::miss_analyzer_guilds().pin().iter().copied().collect();
 
         let len = miss_analyzer_guilds.len();
         info!(len, "Storing miss analyzer guilds...");
