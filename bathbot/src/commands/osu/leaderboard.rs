@@ -146,12 +146,16 @@ impl<'m> LeaderboardArgs<'m> {
             }
         }
 
-        match MapOrScore::find_in_msg(msg).await {
-            Some(MapOrScore::Map(id)) => map = Some(id),
-            Some(MapOrScore::Score { .. }) => {
-                return Err("This command does not (yet) accept score urls as argument".to_owned())
+        if map.is_none() {
+            match MapOrScore::find_in_msg(msg).await {
+                Some(MapOrScore::Map(id)) => map = Some(id),
+                Some(MapOrScore::Score { .. }) => {
+                    return Err(
+                        "This command does not (yet) accept score urls as argument".to_owned()
+                    )
+                }
+                None => {}
             }
-            None => {}
         }
 
         let sort = LeaderboardSort::default();
