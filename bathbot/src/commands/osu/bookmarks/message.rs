@@ -12,7 +12,7 @@ use twilight_model::channel::Message;
 use crate::{
     active::{impls::BookmarksPagination, ActiveMessages},
     core::Context,
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
+    util::{interaction::InteractionCommand, osu::MapOrScore, Authored, InteractionCommandExt},
 };
 
 #[msg_command(name = "Bookmark map", flags(EPHEMERAL))]
@@ -29,11 +29,21 @@ async fn bookmark_map(mut command: InteractionCommand) -> Result<()> {
         return Err(eyre!("Missing resolved message"));
     };
 
-    let map_id = match Context::find_map_id_in_msg(msg).await {
-        Some(MapIdType::Map(map_id)) => map_id,
-        Some(MapIdType::Set(mapset_id)) => {
+    let map_id = match MapOrScore::find_in_msg(msg).await {
+        Some(MapOrScore::Map(MapIdType::Map(map_id))) => map_id,
+        Some(MapOrScore::Map(MapIdType::Set(mapset_id))) => {
             let content = format!(
                 "I found the mapset id {mapset_id} in [this message]({url}) but I need a map id",
+                url = MessageUrl::new(msg)
+            );
+
+            command.error(content).await?;
+
+            return Ok(());
+        }
+        Some(MapOrScore::Score { .. }) => {
+            let content = format!(
+                "I found a score id in [this message]({url}) but I need a map id",
                 url = MessageUrl::new(msg)
             );
 

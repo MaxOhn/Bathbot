@@ -15,7 +15,7 @@ use rosu_v2::{
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    channel::{message::MessageType, Message},
+    channel::Message,
     guild::Permissions,
     id::{marker::UserMarker, Id},
 };
@@ -31,7 +31,11 @@ use crate::{
         },
         MapError, OsuMap,
     },
-    util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
+    util::{
+        interaction::InteractionCommand,
+        osu::{IfFc, MapOrScore},
+        InteractionCommandExt,
+    },
     Context,
 };
 
@@ -73,30 +77,13 @@ struct FixArgs<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-enum MapOrScore {
-    Map(MapIdType),
-    Score { id: u64, mode: Option<GameMode> },
-}
-
 impl<'m> FixArgs<'m> {
     async fn args(msg: &Message, args: Args<'m>) -> FixArgs<'m> {
         let mut name = None;
         let mut discord = None;
-        let mut id_ = None;
         let mut mods = None;
 
-        let reply = msg
-            .referenced_message
-            .as_deref()
-            .filter(|_| msg.kind == MessageType::Reply);
-
-        if let Some(reply) = reply {
-            if let Some(id) = Context::find_map_id_in_msg(reply).await {
-                id_ = Some(MapOrScore::Map(id));
-            } else if let Some((id, mode)) = matcher::get_osu_score_id(&reply.content) {
-                id_ = Some(MapOrScore::Score { id, mode });
-            }
-        }
+        let mut id_ = MapOrScore::find_in_msg(msg).await;
 
         for arg in args.take(3) {
             if let Some(id) = matcher::get_osu_map_id(arg)

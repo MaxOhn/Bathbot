@@ -30,7 +30,6 @@ use rosu_v2::{
 use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateCommand};
 use twilight_model::{
     application::command::{CommandOptionChoice, CommandOptionChoiceValue},
-    channel::message::MessageType,
     guild::Permissions,
     id::{marker::UserMarker, Id},
 };
@@ -58,7 +57,7 @@ use crate::{
     },
     util::{
         interaction::InteractionCommand,
-        osu::{IfFc, PersonalBestIndex},
+        osu::{IfFc, MapOrScore, PersonalBestIndex},
         InteractionCommandExt,
     },
     Context,
@@ -169,11 +168,6 @@ pub struct CompareScore_<'a> {
         Only works on users who have used the `/link` command."
     )]
     discord: Option<Id<UserMarker>>,
-}
-
-pub enum MapOrScore {
-    Map(MapIdType),
-    Score { id: u64, mode: Option<GameMode> },
 }
 
 #[derive(HasMods, HasName)]
@@ -288,19 +282,7 @@ async fn prefix_compare(
     permissions: Option<Permissions>,
 ) -> Result<()> {
     let mut args = CompareScoreArgs::args(args);
-
-    let reply = msg
-        .referenced_message
-        .as_deref()
-        .filter(|_| msg.kind == MessageType::Reply);
-
-    if let Some(msg) = reply {
-        if let Some(id) = Context::find_map_id_in_msg(msg).await {
-            args.map = Some(MapOrScore::Map(id));
-        } else if let Some((id, mode)) = matcher::get_osu_score_id(&msg.content) {
-            args.map = Some(MapOrScore::Score { id, mode });
-        }
-    }
+    args.map = MapOrScore::find_in_msg(msg).await;
 
     score(CommandOrigin::from_msg(msg, permissions), args).await
 }

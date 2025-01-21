@@ -17,7 +17,7 @@ use rosu_v2::prelude::{
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
-    channel::{message::MessageType, Message},
+    channel::Message,
     guild::Permissions,
     id::{marker::UserMarker, Id},
 };
@@ -30,7 +30,7 @@ use crate::{
         redis::{osu::UserArgs, RedisData},
         MapError, Mods, OsuMap,
     },
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
+    util::{interaction::InteractionCommand, osu::MapOrScore, ChannelExt, InteractionCommandExt},
     Context,
 };
 
@@ -146,15 +146,12 @@ impl<'m> LeaderboardArgs<'m> {
             }
         }
 
-        let reply = msg
-            .referenced_message
-            .as_deref()
-            .filter(|_| msg.kind == MessageType::Reply);
-
-        if let Some(reply) = reply {
-            if let Some(id) = Context::find_map_id_in_msg(reply).await {
-                map = Some(id);
+        match MapOrScore::find_in_msg(msg).await {
+            Some(MapOrScore::Map(id)) => map = Some(id),
+            Some(MapOrScore::Score { .. }) => {
+                return Err("This command does not (yet) accept score urls as argument".to_owned())
             }
+            None => {}
         }
 
         let sort = LeaderboardSort::default();

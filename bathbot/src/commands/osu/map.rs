@@ -14,16 +14,13 @@ use rosu_pp::{any::Strains, Beatmap as PpMap, Difficulty};
 use rosu_v2::prelude::{GameMode, GameMods, GameModsIntermode, OsuError};
 use skia_safe::{surfaces, BlendMode, EncodedImageFormat};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    channel::{message::MessageType, Message},
-    guild::Permissions,
-};
+use twilight_model::{channel::Message, guild::Permissions};
 
 use super::{BitMapElement, HasMods, ModsResult};
 use crate::{
     active::{impls::MapPagination, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
+    util::{interaction::InteractionCommand, osu::MapOrScore, ChannelExt, InteractionCommandExt},
     Context,
 };
 
@@ -140,15 +137,12 @@ impl<'m> MapArgs<'m> {
             }
         }
 
-        let reply = msg
-            .referenced_message
-            .as_deref()
-            .filter(|_| msg.kind == MessageType::Reply);
-
-        if let Some(reply) = reply {
-            if let Some(id) = Context::find_map_id_in_msg(reply).await {
-                map = Some(id);
+        match MapOrScore::find_in_msg(msg).await {
+            Some(MapOrScore::Map(id)) => map = Some(id),
+            Some(MapOrScore::Score { .. }) => {
+                return Err("This command does not (yet) accept score urls as argument".to_owned())
             }
+            None => {}
         }
 
         Ok(Self {
