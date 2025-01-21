@@ -75,8 +75,8 @@ impl TrackEntryParams {
 
     pub const fn matches(&self, idx: u8, pp: f32, combo_percent: Option<f32>) -> bool {
         self.index.contains(idx)
-            || self.pp.contains(pp)
-            || match combo_percent {
+            && self.pp.contains(pp)
+            && match combo_percent {
                 // Manual `Option::is_some_and` to preserve const-ness
                 Some(percent) => self.combo_percent.contains(percent),
                 None => false,
