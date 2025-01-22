@@ -1,13 +1,16 @@
 use std::fmt::Write;
 
 use bathbot_macros::command;
-use bathbot_util::{constants::OSU_API_ISSUE, EmbedBuilder, MessageBuilder};
+use bathbot_util::{constants::GENERAL_ISSUE, EmbedBuilder, MessageBuilder};
 use eyre::{Report, Result};
 use hashbrown::HashSet;
 use rosu_v2::prelude::{GameMode, OsuError};
 
 use super::TrackArgs;
-use crate::{core::commands::CommandOrigin, tracking::OsuTracking, util::ChannelExt};
+use crate::{
+    core::commands::CommandOrigin, manager::redis::osu::UserArgsError, tracking::OsuTracking,
+    util::ChannelExt,
+};
 
 #[command]
 #[desc("Untrack user top scores in a channel")]
@@ -49,13 +52,13 @@ pub(super) async fn untrack(orig: CommandOrigin<'_>, args: TrackArgs) -> Result<
 
     let users = match super::get_names(&more_names, mode.unwrap_or(GameMode::Osu)).await {
         Ok(map) => map,
-        Err((OsuError::NotFound, name)) => {
+        Err((UserArgsError::Osu(OsuError::NotFound), name)) => {
             let content = format!("User `{name}` was not found");
 
             return orig.error(content).await;
         }
         Err((err, _)) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("failed to get names");
 
             return Err(err);

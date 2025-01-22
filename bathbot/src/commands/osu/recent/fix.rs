@@ -16,7 +16,7 @@ use crate::{
     commands::osu::{require_link, user_not_found, FixEntry, FixScore},
     core::{commands::CommandOrigin, Context},
     embeds::{EmbedData, FixScoreEmbed},
-    manager::redis::osu::{UserArgs, UserArgsSlim},
+    manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
     util::osu::IfFc,
 };
 
@@ -70,20 +70,20 @@ pub(super) async fn fix(orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> 
                     GameMode::Catch => "ctb ",
                     GameMode::Mania => "mania ",
                 },
-                user.username(),
+                user.username.as_str(),
             );
 
             return orig.error(content).await;
         }
         Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
@@ -113,7 +113,7 @@ pub(super) async fn fix(orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> 
             let checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref());
             let map_fut = Context::osu_map().map(score.map_id, checksum);
 
-            let user_args = UserArgsSlim::user_id(user.user_id()).mode(score.mode);
+            let user_args = UserArgsSlim::user_id(user.user_id.to_native()).mode(score.mode);
             let best_fut = Context::osu_scores()
                 .top(legacy_scores)
                 .limit(100)
@@ -135,7 +135,7 @@ pub(super) async fn fix(orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> 
             }
         }
         None => {
-            let username = user.username();
+            let username = user.username.as_str();
 
             let content = format!(
                 "There {verb} only {num} score{plural} in `{username}`'{genitive} recent history.",

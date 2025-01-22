@@ -1,7 +1,6 @@
 use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
@@ -23,16 +22,17 @@ use crate::{
     },
     commands::osu::TopIfEntry,
     embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
-    manager::redis::RedisData,
+    manager::redis::osu::CachedUser,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::GradeFormatter,
+        CachedUserExt,
     },
 };
 
 #[derive(PaginationBuilder)]
 pub struct TopIfPagination {
-    user: RedisData<User>,
+    user: CachedUser,
     #[pagination(per_page = 5)]
     entries: Box<[TopIfEntry]>,
     mode: GameMode,
@@ -106,7 +106,7 @@ impl IActiveMessage for TopIfPagination {
             .author(self.user.author_builder())
             .description(description)
             .footer(FooterBuilder::new(footer_text))
-            .thumbnail(self.user.avatar_url())
+            .thumbnail(self.user.avatar_url.as_ref())
             .title(title);
 
         BuildPage::new(embed, false)

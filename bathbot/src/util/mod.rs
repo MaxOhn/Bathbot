@@ -5,6 +5,7 @@ pub use self::{
     monthly::Monthly,
 };
 
+pub mod cached_archive;
 pub mod interaction;
 pub mod osu;
 pub mod query;

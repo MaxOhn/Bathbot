@@ -1,9 +1,9 @@
-use std::{borrow::Cow, mem};
+use std::borrow::Cow;
 
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::MedalCompactRkyv;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
     matcher, IntHasher, MessageBuilder,
 };
 use eyre::{ContextCompat, Report, Result, WrapErr};
@@ -28,7 +28,10 @@ use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     embeds::{EmbedData, MedalStatsEmbed, StatsMedal},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::{
+        osu::{UserArgs, UserArgsError},
+        RedisData,
+    },
     util::Monthly,
     Context,
 };
@@ -79,9 +82,9 @@ pub(super) async fn stats(orig: CommandOrigin<'_>, args: MedalStats<'_>) -> Resu
     let user_fut = Context::redis().osu_user(user_args);
     let medals_fut = Context::redis().medals();
 
-    let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
+    let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {
         (Ok(user), Ok(medals)) => (user, medals),
-        (Err(OsuError::NotFound), _) => {
+        (Err(UserArgsError::Osu(OsuError::NotFound)), _) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
@@ -92,20 +95,17 @@ pub(super) async fn stats(orig: CommandOrigin<'_>, args: MedalStats<'_>) -> Resu
             return Err(err.wrap_err("Failed to get cached medals"));
         }
         (Err(err), _) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get user"));
         }
     };
 
-    let mut medals = match user {
-        RedisData::Original(ref mut user) => mem::take(&mut user.medals),
-        RedisData::Archive(ref user) => rkyv::api::deserialize_using::<_, _, Panic>(
-            With::<_, Map<MedalCompactRkyv>>::cast(&user.medals),
-            &mut (),
-        )
-        .always_ok(),
-    };
+    let mut medals = rkyv::api::deserialize_using::<_, _, Panic>(
+        With::<_, Map<MedalCompactRkyv>>::cast(&user.medals),
+        &mut (),
+    )
+    .always_ok();
 
     medals.sort_unstable_by_key(|medal| medal.achieved_at);
 

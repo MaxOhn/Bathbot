@@ -1,17 +1,12 @@
 use std::{borrow::Cow, cmp::Ordering, collections::HashMap, fmt::Write, iter};
 
 use bathbot_macros::{command, SlashCommand};
-use bathbot_model::{command_fields::GameModeOption, rosu_v2::user::User};
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher, IntHasher,
-};
+use bathbot_model::command_fields::GameModeOption;
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher};
 use eyre::{Report, Result};
-use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score, Username},
     request::UserId,
-    OsuResult,
 };
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -25,7 +20,7 @@ use crate::{
     active::{impls::CompareTopPagination, ActiveMessages},
     commands::osu::{user_not_found, UserExtraction},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
     Context,
 };
@@ -204,19 +199,19 @@ pub(super) async fn top(orig: CommandOrigin<'_>, mut args: CompareTop<'_>) -> Re
 
     let (user1, scores1, user2, scores2) = match tokio::join!(fut1, fut2) {
         (Ok((user1, scores1)), Ok((user2, scores2))) => (user1, scores1, user2, scores2),
-        (Err(OsuError::NotFound), _) => {
+        (Err(UserArgsError::Osu(OsuError::NotFound)), _) => {
             let content = user_not_found(user_id1).await;
 
             return orig.error(content).await;
         }
-        (_, Err(OsuError::NotFound)) => {
+        (_, Err(UserArgsError::Osu(OsuError::NotFound))) => {
             let content = user_not_found(user_id2).await;
 
             return orig.error(content).await;
         }
         (Err(err), _) | (_, Err(err)) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get scores");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get scores");
 
             return Err(err);
         }
@@ -334,7 +329,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, mut args: CompareTop<'_>) -> Re
 async fn get_user_and_scores(
     user_id: &UserId,
     mode: GameMode,
-) -> OsuResult<(RedisData<User>, Vec<Score>)> {
+) -> Result<(CachedUser, Vec<Score>), UserArgsError> {
     let args = UserArgs::rosu_id(user_id, mode).await;
 
     Context::osu_scores()
@@ -389,19 +384,11 @@ pub struct CommonUser {
 }
 
 impl CommonUser {
-    fn new(user: RedisData<User>) -> Self {
-        match user {
-            RedisData::Original(user) => Self {
-                name: user.username,
-                avatar_url: user.avatar_url,
-                user_id: user.user_id,
-            },
-            RedisData::Archive(user) => Self {
-                name: user.username.as_str().into(),
-                avatar_url: rkyv::api::deserialize_using::<_, _, Panic>(&user.avatar_url, &mut ())
-                    .always_ok(),
-                user_id: user.user_id.to_native(),
-            },
+    fn new(user: CachedUser) -> Self {
+        Self {
+            name: user.username.as_str().into(),
+            avatar_url: Box::from(user.avatar_url.as_ref()),
+            user_id: user.user_id.to_native(),
         }
     }
 }

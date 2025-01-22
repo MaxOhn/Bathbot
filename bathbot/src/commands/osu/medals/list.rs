@@ -2,7 +2,7 @@ use std::cmp::{Ordering, Reverse};
 
 use bathbot_model::{OsekaiMedal, Rarity};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
     IntHasher,
 };
 use eyre::{Report, Result};
@@ -16,7 +16,10 @@ use crate::{
     active::{impls::MedalsListPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::{
+        osu::{UserArgs, UserArgsError},
+        RedisData,
+    },
     Context,
 };
 
@@ -48,26 +51,26 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
     let medals_fut = Context::redis().medals();
     let ranking_fut = Context::redis().osekai_ranking::<Rarity>();
 
-    let (mut user, mut osekai_medals, rarities) =
-        match tokio::join!(user_fut, medals_fut, ranking_fut) {
-            (Ok(user), Ok(medals), Ok(rarities)) => (user, medals.into_original(), rarities),
-            (Err(OsuError::NotFound), ..) => {
-                let content = user_not_found(user_id).await;
+    let (user, mut osekai_medals, rarities) = match tokio::join!(user_fut, medals_fut, ranking_fut)
+    {
+        (Ok(user), Ok(medals), Ok(rarities)) => (user, medals.into_original(), rarities),
+        (Err(UserArgsError::Osu(OsuError::NotFound)), ..) => {
+            let content = user_not_found(user_id).await;
 
-                return orig.error(content).await;
-            }
-            (Err(err), ..) => {
-                let _ = orig.error(OSU_API_ISSUE).await;
-                let report = Report::new(err).wrap_err("failed to get user");
+            return orig.error(content).await;
+        }
+        (Err(err), ..) => {
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let report = Report::new(err).wrap_err("Failed to get user");
 
-                return Err(report);
-            }
-            (_, Err(err), _) | (.., Err(err)) => {
-                let _ = orig.error(OSEKAI_ISSUE).await;
+            return Err(report);
+        }
+        (_, Err(err), _) | (.., Err(err)) => {
+            let _ = orig.error(OSEKAI_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get cached rarity ranking"));
-            }
-        };
+            return Err(err.wrap_err("failed to get cached rarity ranking"));
+        }
+    };
 
     let rarities: HashMap<_, _, IntHasher> = match rarities {
         RedisData::Original(rarities) => rarities
@@ -87,73 +90,37 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
 
     osekai_medals.sort_unstable_by_key(|medal| medal.medal_id);
 
-    let (acquired, mut medals) = match user {
-        RedisData::Original(ref mut user) => {
-            let acquired = (user.medals.len(), osekai_medals.len());
+    let acquired = (user.medals.len(), osekai_medals.len());
 
-            let medals_iter = user.medals.iter().filter_map(|m| {
-                match osekai_medals
-                    .iter()
-                    .position(|m_| m_.medal_id == m.medal_id)
-                {
-                    Some(idx) => {
-                        let entry = MedalEntryList {
-                            medal: osekai_medals.swap_remove(idx),
-                            achieved: m.achieved_at,
-                            rarity: rarities.get(&m.medal_id).copied().unwrap_or(100.0),
-                        };
+    let medals_iter = user.medals.iter().filter_map(|m| {
+        match osekai_medals
+            .iter()
+            .position(|m_| m_.medal_id == m.medal_id)
+        {
+            Some(idx) => {
+                let achieved = m.achieved_at.try_deserialize::<Panic>().always_ok();
 
-                        Some(entry)
-                    }
-                    None => {
-                        warn!("Missing medal id {}", m.medal_id);
+                let entry = MedalEntryList {
+                    medal: osekai_medals.swap_remove(idx),
+                    achieved,
+                    rarity: rarities
+                        .get(&m.medal_id.to_native())
+                        .copied()
+                        .unwrap_or(100.0),
+                };
 
-                        None
-                    }
-                }
-            });
+                Some(entry)
+            }
+            None => {
+                warn!("Missing medal id {}", m.medal_id);
 
-            let mut medals = Vec::with_capacity(acquired.0);
-            medals.extend(medals_iter);
-
-            (acquired, medals)
+                None
+            }
         }
-        RedisData::Archive(ref user) => {
-            let acquired = (user.medals.len(), osekai_medals.len());
+    });
 
-            let medals_iter = user.medals.iter().filter_map(|m| {
-                match osekai_medals
-                    .iter()
-                    .position(|m_| m_.medal_id == m.medal_id)
-                {
-                    Some(idx) => {
-                        let achieved = m.achieved_at.try_deserialize::<Panic>().always_ok();
-
-                        let entry = MedalEntryList {
-                            medal: osekai_medals.swap_remove(idx),
-                            achieved,
-                            rarity: rarities
-                                .get(&m.medal_id.to_native())
-                                .copied()
-                                .unwrap_or(100.0),
-                        };
-
-                        Some(entry)
-                    }
-                    None => {
-                        warn!("Missing medal id {}", m.medal_id);
-
-                        None
-                    }
-                }
-            });
-
-            let mut medals = Vec::with_capacity(acquired.0);
-            medals.extend(medals_iter);
-
-            (acquired, medals)
-        }
-    };
+    let mut medals = Vec::with_capacity(acquired.0);
+    medals.extend(medals_iter);
 
     if let Some(group) = group {
         medals.retain(|entry| entry.medal.grouping == group);
@@ -192,7 +159,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
         ""
     };
 
-    let name = user.username();
+    let name = user.username.as_str();
 
     let content = match group {
         None => format!("All medals of `{name}` sorted by {reverse_str}{order_str}:",),

@@ -3,14 +3,10 @@ use std::iter;
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::{
     command_fields::{GameModeOption, ShowHideOption, TimezoneOption},
-    rosu_v2::user::User,
     Countries,
 };
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    EmbedBuilder, MessageBuilder,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, EmbedBuilder, MessageBuilder};
 use eyre::{Report, Result, WrapErr};
 use image::{DynamicImage, GenericImageView};
 use plotters::element::{Drawable, PointCollection};
@@ -38,8 +34,8 @@ use super::{require_link, user_not_found, SnipeGameMode};
 use crate::{
     core::{commands::CommandOrigin, Context},
     embeds::attachment,
-    manager::redis::{osu::UserArgs, RedisData},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
+    util::{interaction::InteractionCommand, CachedUserExt, InteractionCommandExt},
 };
 
 mod medals;
@@ -354,7 +350,7 @@ async fn top_graph(
     order: GraphTopOrder,
     tz: Option<UtcOffset>,
     legacy_scores: bool,
-) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+) -> Result<Option<(CachedUser, Vec<u8>)>> {
     let scores_fut = Context::osu_scores()
         .top(legacy_scores)
         .limit(100)
@@ -362,15 +358,15 @@ async fn top_graph(
 
     let (user, mut scores) = match scores_fut.await {
         Ok(tuple) => tuple,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
             orig.error(content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
@@ -383,22 +379,9 @@ async fn top_graph(
         return Ok(None);
     }
 
-    let (username, country_code, mode) = match &user {
-        RedisData::Original(user) => {
-            let username = user.username.as_str();
-            let country_code = user.country_code.as_str();
-            let mode = user.mode;
-
-            (username, country_code, mode)
-        }
-        RedisData::Archive(user) => {
-            let username = user.username.as_str();
-            let country_code = user.country_code.as_str();
-            let mode = user.mode;
-
-            (username, country_code, mode)
-        }
-    };
+    let username = user.username.as_str();
+    let country_code = user.country_code.as_str();
+    let mode = user.mode;
 
     let caption = format!(
         "{username}'{genitive} top {mode}scores",

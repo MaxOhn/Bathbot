@@ -5,7 +5,7 @@ use bathbot_macros::{HasName, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
     datetime::DATE_FORMAT,
     osu::flag_url_size,
     EmbedBuilder, IntHasher, MessageBuilder,
@@ -21,8 +21,11 @@ use super::{require_link, user_not_found};
 use crate::{
     core::{commands::CommandOrigin, BotConfig, Context},
     embeds::attachment,
-    manager::redis::{osu::UserArgs, RedisData},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    manager::redis::{
+        osu::{UserArgs, UserArgsError},
+        RedisData,
+    },
+    util::{interaction::InteractionCommand, CachedUserExt, InteractionCommandExt},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]
@@ -141,14 +144,14 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
 
             (user, scores, medals_len)
         }
-        (Err(OsuError::NotFound), _) => {
+        (Err(UserArgsError::Osu(OsuError::NotFound)), _) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         (Err(err), _) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
@@ -193,8 +196,8 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
         .await?;
 
     let client = Context::client();
-    let pfp_fut = client.get_avatar(user.avatar_url());
-    let flag_url = flag_url_size(user.country_code(), 70);
+    let pfp_fut = client.get_avatar(user.avatar_url.as_ref());
+    let flag_url = flag_url_size(user.country_code.as_str(), 70);
     let flag_fut = client.get_flag(&flag_url);
 
     let (pfp, flag) = match tokio::join!(pfp_fut, flag_fut) {
@@ -211,12 +214,9 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
         }
     };
 
-    let stats = user.stats();
+    let stats = user.statistics.as_ref().expect("missing stats");
 
-    let medals = match user {
-        RedisData::Original(ref user) => user.medals.len(),
-        RedisData::Archive(ref user) => user.medals.len(),
-    };
+    let medals = user.medals.len();
 
     let today = OffsetDateTime::now_utc()
         .date()
@@ -224,8 +224,11 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
         .unwrap();
 
     let card_res = BathbotCard::new(mode, &scores, maps, legacy_scores)
-        .user(user.username(), stats.level().float())
-        .ranks(stats.global_rank(), stats.country_rank())
+        .user(user.username.as_str(), stats.level.float())
+        .ranks(
+            stats.global_rank.to_native(),
+            stats.country_rank.to_native(),
+        )
         .medals(medals as u32, total_medals as u32)
         .bytes(&pfp, &flag)
         .date(&today)

@@ -59,6 +59,10 @@ impl<T: ?Sized> CachedArchive<T> {
             phantom: PhantomData,
         }
     }
+
+    pub fn into_bytes(self) -> AlignedVec<8> {
+        self.bytes
+    }
 }
 
 impl<T: Archive + ?Sized> Deref for CachedArchive<T> {

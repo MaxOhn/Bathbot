@@ -1,11 +1,10 @@
 use std::{collections::BTreeMap, fmt::Write, iter, mem};
 
 use bathbot_macros::EmbedData;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{numbers::WithComma, AuthorBuilder, IntHasher};
 use hashbrown::HashSet;
 
-use crate::manager::redis::RedisData;
+use crate::{manager::redis::osu::CachedUser, util::CachedUserExt};
 
 #[derive(EmbedData)]
 pub struct BWSEmbed {
@@ -23,13 +22,18 @@ struct BadgeEntry {
 
 impl BWSEmbed {
     pub fn new(
-        user: &RedisData<User>,
+        user: &CachedUser,
         badges_curr: usize,
         badges_min: usize,
         badges_max: usize,
         rank: Option<u32>,
     ) -> Self {
-        let global_rank = user.stats().global_rank();
+        let global_rank = user
+            .statistics
+            .as_ref()
+            .expect("missing stats")
+            .global_rank
+            .to_native();
 
         let dist_badges = badges_max - badges_min;
         let step_dist = 2;
@@ -177,7 +181,7 @@ impl BWSEmbed {
             title,
             description,
             author: user.author_builder(),
-            thumbnail: user.avatar_url().to_owned(),
+            thumbnail: user.avatar_url.as_ref().to_owned(),
         }
     }
 }

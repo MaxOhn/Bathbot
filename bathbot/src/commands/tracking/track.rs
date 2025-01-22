@@ -1,14 +1,14 @@
 use std::fmt::Write;
 
 use bathbot_macros::command;
-use bathbot_util::{constants::OSU_API_ISSUE, fields, EmbedBuilder, FooterBuilder, MessageBuilder};
+use bathbot_util::{constants::GENERAL_ISSUE, fields, EmbedBuilder, FooterBuilder, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
 
 use super::TrackArgs;
 use crate::{
     core::commands::CommandOrigin,
-    manager::redis::osu::UserArgsSlim,
+    manager::redis::osu::{UserArgsError, UserArgsSlim},
     tracking::{OsuTracking, TrackEntryParams},
     util::{ChannelExt, Emote},
     Context,
@@ -39,13 +39,13 @@ pub(super) async fn track(orig: CommandOrigin<'_>, args: TrackArgs) -> Result<()
 
     let users = match super::get_names(&more_names, mode).await {
         Ok(users) => users,
-        Err((OsuError::NotFound, name)) => {
+        Err((UserArgsError::Osu(OsuError::NotFound), name)) => {
             let content = format!("User `{name}` was not found");
 
             return orig.error(content).await;
         }
         Err((err, _)) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get names");
 
             return Err(err);

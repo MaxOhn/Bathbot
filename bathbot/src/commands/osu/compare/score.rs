@@ -50,7 +50,7 @@ use crate::{
     },
     manager::{
         redis::{
-            osu::{UserArgs, UserArgsSlim},
+            osu::{UserArgs, UserArgsError, UserArgsSlim},
             RedisData,
         },
         MapError,
@@ -458,8 +458,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
             tokio::join!(user_fut, score_fut)
         }
         UserArgs::User { user, mode } => {
-            let args = UserArgsSlim::user_id(user.user_id).mode(mode);
-            let user = RedisData::Original(*user);
+            let args = UserArgsSlim::user_id(user.user_id.to_native()).mode(mode);
             let score_res = Context::osu_scores()
                 .user_on_map(map_id, legacy_scores)
                 .exec(args)
@@ -472,7 +471,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
 
     let (user, mut scores) = match (user_res, score_res) {
         (Ok(user), Ok(scores)) => (user, scores),
-        (Err(OsuError::NotFound), _) => {
+        (Err(UserArgsError::Osu(OsuError::NotFound)), _) => {
             let content = match user_id {
                 UserId::Id(user_id) => format!("User with id {user_id} was not found"),
                 UserId::Name(name) => format!("User `{name}` was not found"),
@@ -485,15 +484,21 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
 
             return orig.error(content).await;
         }
-        (Err(err), _) | (_, Err(err)) => {
+        (Err(err), _) => {
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
+
+            return Err(err);
+        }
+        (_, Err(err)) => {
             let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("Failed to get scores");
 
             return Err(err);
         }
     };
 
-    let user_args = UserArgsSlim::user_id(user.user_id()).mode(mode);
+    let user_args = UserArgsSlim::user_id(user.user_id.to_native()).mode(mode);
     let scores_manager = Context::osu_scores();
     let pinned_fut = scores_manager
         .clone()
@@ -521,7 +526,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
             map.status(),
             RankStatus::Ranked | RankStatus::Approved | RankStatus::Loved | RankStatus::Qualified
         ) {
-            let user_args = UserArgsSlim::user_id(user.user_id()).mode(mode);
+            let user_args = UserArgsSlim::user_id(user.user_id.to_native()).mode(mode);
             let fut = scores_manager.top(legacy_scores).limit(100).exec(user_args);
 
             Some(fut.await)
@@ -569,7 +574,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
 
     let process_fut = process_scores(
         map_id,
-        user.user_id(),
+        user.user_id.to_native(),
         scores,
         personal.as_deref(),
         globals.as_deref(),
@@ -797,20 +802,20 @@ async fn compare_from_score(
 
     let user = match user_res {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(score.user_id.into()).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
     };
 
-    let user_id = user.user_id();
+    let user_id = user.user_id.to_native();
 
     let map = match map_res {
         Ok(map) => map,

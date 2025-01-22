@@ -1,13 +1,7 @@
-use std::{iter, mem};
+use std::iter;
 
-use bathbot_model::{
-    rosu_v2::user::{MonthlyCountRkyv, User},
-    Either,
-};
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    MessageBuilder,
-};
+use bathbot_model::rosu_v2::user::MonthlyCountRkyv;
+use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use bitflags::bitflags;
 use bytes::Bytes;
 use eyre::{ContextCompat, Report, Result, WrapErr};
@@ -40,7 +34,7 @@ use super::{BitMapElement, H, W};
 use crate::{
     commands::osu::user_not_found,
     core::{commands::CommandOrigin, Context},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::Monthly,
 };
 
@@ -48,20 +42,20 @@ pub async fn playcount_replays_graph(
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     flags: ProfileGraphFlags,
-) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+) -> Result<Option<(CachedUser, Vec<u8>)>> {
     let user_args = UserArgs::rosu_id(&user_id, GameMode::Osu).await;
 
     let mut user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
             orig.error(content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
@@ -77,7 +71,7 @@ pub async fn playcount_replays_graph(
         Ok(GraphResult::NotEnoughDatapoints) => {
             let content = format!(
                 "`{}` does not have enough playcount data points",
-                user.username()
+                user.username.as_str()
             );
 
             let builder = MessageBuilder::new().embed(content);
@@ -86,7 +80,7 @@ pub async fn playcount_replays_graph(
             return Ok(None);
         }
         Ok(GraphResult::NoBadges) => {
-            let content = format!("`{}` does not have any badges", user.username());
+            let content = format!("`{}` does not have any badges", user.username.as_str());
             let builder = MessageBuilder::new().embed(content);
             orig.create_message(builder).await?;
 
@@ -133,7 +127,7 @@ impl Default for ProfileGraphFlags {
 }
 
 pub struct ProfileGraphParams<'l> {
-    user: &'l mut RedisData<User>,
+    user: &'l mut CachedUser,
     w: u32,
     h: u32,
     flags: ProfileGraphFlags,
@@ -143,7 +137,7 @@ impl<'l> ProfileGraphParams<'l> {
     const H: u32 = 350;
     const W: u32 = 1350;
 
-    pub fn new(user: &'l mut RedisData<User>) -> Self {
+    pub fn new(user: &'l mut CachedUser) -> Self {
         Self {
             user,
             w: Self::W,
@@ -175,38 +169,21 @@ type Area<'b> = DrawingArea<SkiaBackend<'b>, Shift>;
 type Chart<'a, 'b> = ChartContext<'a, SkiaBackend<'b>, Cartesian2d<Monthly<Date>, RangedCoordi32>>;
 
 // Request all badge images if required
-async fn gather_badges(user: &mut RedisData<User>, flags: ProfileGraphFlags) -> Result<Vec<Bytes>> {
-    let badges = match user {
-        RedisData::Original(user) => Either::Left(user.badges.as_slice()),
-        RedisData::Archive(user) => Either::Right(user.badges.as_slice()),
-    };
+async fn gather_badges(user: &mut CachedUser, flags: ProfileGraphFlags) -> Result<Vec<Bytes>> {
+    let badges = user.badges.as_slice();
 
-    let is_empty = matches!(badges, Either::Left([]) | Either::Right([]));
-
-    if is_empty || !flags.badges() {
+    if badges.is_empty() || !flags.badges() {
         return Ok(Vec::new());
     }
 
     let client = Context::client();
 
-    match badges {
-        Either::Left(badges) => {
-            badges
-                .iter()
-                .map(|badge| client.get_badge(&badge.image_url))
-                .collect::<FuturesUnordered<_>>()
-                .try_collect()
-                .await
-        }
-        Either::Right(badges) => {
-            badges
-                .iter()
-                .map(|badge| client.get_badge(&badge.image_url))
-                .collect::<FuturesUnordered<_>>()
-                .try_collect()
-                .await
-        }
-    }
+    badges
+        .iter()
+        .map(|badge| client.get_badge(&badge.image_url))
+        .collect::<FuturesUnordered<_>>()
+        .try_collect()
+        .await
 }
 
 async fn graphs(params: ProfileGraphParams<'_>) -> Result<GraphResult> {
@@ -572,26 +549,20 @@ fn first_last_max(counts: &[MonthlyCount]) -> (Date, Date, i32) {
 }
 
 fn prepare_monthly_counts(
-    user: &mut RedisData<User>,
+    user: &mut CachedUser,
     flags: ProfileGraphFlags,
 ) -> (Vec<MonthlyCount>, Vec<MonthlyCount>) {
-    let mut playcounts = match user {
-        RedisData::Original(user) => mem::take(&mut user.monthly_playcounts),
-        RedisData::Archive(user) => rkyv::api::deserialize_using::<_, _, Panic>(
-            With::<_, Map<MonthlyCountRkyv>>::cast(&user.monthly_playcounts),
-            &mut (),
-        )
-        .always_ok(),
-    };
+    let mut playcounts = rkyv::api::deserialize_using::<_, _, Panic>(
+        With::<_, Map<MonthlyCountRkyv>>::cast(&user.monthly_playcounts),
+        &mut (),
+    )
+    .always_ok();
 
-    let mut replays = match user {
-        RedisData::Original(user) => mem::take(&mut user.replays_watched_counts),
-        RedisData::Archive(user) => rkyv::api::deserialize_using::<_, _, Panic>(
-            With::<_, Map<MonthlyCountRkyv>>::cast(&user.replays_watched_counts),
-            &mut (),
-        )
-        .always_ok(),
-    };
+    let mut replays = rkyv::api::deserialize_using::<_, _, Panic>(
+        With::<_, Map<MonthlyCountRkyv>>::cast(&user.replays_watched_counts),
+        &mut (),
+    )
+    .always_ok();
 
     // Spoof missing months
     if flags.playcount() {

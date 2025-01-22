@@ -7,11 +7,7 @@ use bathbot_model::{
 };
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher,
-    numbers::round,
-    osu::ModSelection,
-    CowUtils,
+    constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection, CowUtils,
 };
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
@@ -36,7 +32,7 @@ use crate::{
         MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::osu::UserArgs,
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{
         interaction::InteractionCommand,
         query::{IFilterCriteria, Searchable, TopCriteria},
@@ -796,14 +792,14 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
@@ -834,7 +830,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
     };
 
     let post_len = entries.len();
-    let username = user.username();
+    let username = user.username.as_str();
 
     let index = match args.index.as_deref() {
         Some("random" | "?") => (post_len > 0).then(|| thread_rng().gen_range(1..=post_len)),

@@ -10,8 +10,8 @@ pub(super) struct Top100Mappers;
 impl Top100Mappers {
     pub(super) async fn prepare(menu: &mut ProfileMenu) -> Option<Vec<MapperEntry<'_>>> {
         let mut entries: Vec<_> = {
-            let user_id = menu.user.user_id();
-            let mode = menu.user.mode();
+            let user_id = menu.user.user_id.to_native();
+            let mode = menu.user.mode;
             let scores = menu.scores.get(user_id, mode, menu.legacy_scores).await?;
             let mut entries = HashMap::with_capacity_and_hasher(32, IntHasher);
 

@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
-use bathbot_model::{rosu_v2::user::User, ScoreSlim};
+use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -25,10 +25,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, FixScoreEmbed},
     manager::{
-        redis::{
-            osu::{UserArgs, UserArgsSlim},
-            RedisData,
-        },
+        redis::osu::{CachedUser, UserArgs, UserArgsError, UserArgsSlim},
         MapError, OsuMap,
     },
     util::{
@@ -278,7 +275,7 @@ enum ScoreResult {
 }
 
 pub struct FixEntry {
-    pub user: RedisData<User>,
+    pub user: CachedUser,
     pub map: OsuMap,
     pub score: Option<FixScore>,
 }
@@ -328,20 +325,20 @@ async fn request_by_map(
             tokio::join!(user_fut, scores_fut)
         }
         UserArgs::User { user, .. } => {
-            let args = UserArgsSlim::user_id(user.user_id).mode(map.mode());
+            let args = UserArgsSlim::user_id(user.user_id.to_native()).mode(map.mode());
             let scores_res = Context::osu_scores()
                 .user_on_map(map_id, legacy_scores)
                 .exec(args)
                 .await;
 
-            (Ok(RedisData::Original(*user)), scores_res)
+            (Ok(user), scores_res)
         }
         UserArgs::Err(err) => (Err(err), Ok(Vec::new())),
     };
 
     let user = match user_res {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return match orig.error(content).await {
@@ -350,7 +347,7 @@ async fn request_by_map(
             };
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let wrap = "Failed to get user";
 
             return ScoreResult::Error(Report::new(err).wrap_err(wrap));
@@ -380,7 +377,7 @@ async fn request_by_map(
 
     let score = match score_opt {
         Some(score) => {
-            let user_args = UserArgsSlim::user_id(user.user_id()).mode(score.mode);
+            let user_args = UserArgsSlim::user_id(user.user_id.to_native()).mode(score.mode);
 
             let top_fut = Context::osu_scores()
                 .top(legacy_scores)
@@ -475,7 +472,7 @@ async fn request_by_score(
 
     let (user, map, top) = match tokio::join!(user_fut, map_fut, best_fut) {
         (Ok(user), Ok(map), Ok(best)) => (user, map, best),
-        (Err(OsuError::NotFound), ..) => {
+        (Err(UserArgsError::Osu(OsuError::NotFound)), ..) => {
             let content = user_not_found(user_id).await;
 
             return match orig.error(content).await {
@@ -497,7 +494,7 @@ async fn request_by_score(
             return ScoreResult::Error(err);
         }
         (Err(err), ..) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return ScoreResult::Error(err);

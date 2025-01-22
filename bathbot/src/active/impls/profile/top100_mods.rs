@@ -13,8 +13,8 @@ pub(super) struct Top100Mods {
 
 impl Top100Mods {
     pub(super) async fn prepare(menu: &mut ProfileMenu) -> Option<Self> {
-        let user_id = menu.user.user_id();
-        let mode = menu.user.mode();
+        let user_id = menu.user.user_id.to_native();
+        let mode = menu.user.mode;
 
         menu.scores
             .get(user_id, mode, menu.legacy_scores)

@@ -1,12 +1,13 @@
-use std::ops::Deref;
-
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::SlashCommand;
 use bathbot_model::{
     rkyv_util::time::DateRkyv,
-    rosu_v2::user::{ArchivedUser, User, UserStatisticsRkyv},
+    rosu_v2::user::{User, UserStatisticsRkyv},
 };
-use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    MessageBuilder,
+};
 use eyre::{Report, Result};
 use futures::{future, stream::FuturesUnordered, TryStreamExt};
 use once_cell::sync::OnceCell;
@@ -21,7 +22,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use crate::{
     core::Context,
     embeds::{ClaimNameEmbed, EmbedData},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
@@ -79,8 +80,8 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
 
     let user_id = match UserArgs::username(&name, GameMode::Osu).await {
         UserArgs::Args(args) => args.user_id,
-        UserArgs::User { user, .. } => user.user_id,
-        UserArgs::Err(OsuError::NotFound) => {
+        UserArgs::User { user, .. } => user.user_id.to_native(),
+        UserArgs::Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = if ClaimNameValidator::is_valid(&name) {
                 format!("User `{name}` was not found, the name should be available to claim")
             } else {
@@ -93,7 +94,7 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
             return Ok(());
         }
         UserArgs::Err(err) => {
-            let _ = command.error(OSU_API_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
@@ -114,71 +115,53 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
         .collect::<FuturesUnordered<_>>()
         .try_fold(None, |user: Option<ClaimNameUser>, next| match user {
             Some(mut user) => {
-                let next_stats = next.stats();
+                let next_stats = next
+                    .statistics
+                    .as_ref()
+                    .map(|stats| {
+                        rkyv::api::deserialize_using::<_, _, Panic>(stats, &mut ()).always_ok()
+                    })
+                    .expect("missing stats");
 
                 match user.statistics {
-                    Some(ref mut accum) => accum.playcount += next_stats.playcount(),
-                    None => user.statistics = Some(next_stats.to_owned()),
+                    Some(ref mut accum) => accum.playcount += next_stats.playcount,
+                    None => user.statistics = Some(next_stats),
                 }
 
-                let (next_highest_rank, next_last_visit) = match next {
-                    RedisData::Original(next) => {
-                        let rank = next.highest_rank;
+                let next: &Archived<User> = &next;
 
-                        let last_playcount = next
-                            .monthly_playcounts
-                            .iter()
-                            .rev()
-                            .find(|count| count.count > 0)
-                            .map(|count| count.start_date.with_time(Time::MIDNIGHT).assume_utc());
+                let next_highest_rank =
+                    next.highest_rank
+                        .as_ref()
+                        .map(|highest_rank| UserHighestRank {
+                            rank: highest_rank.rank.to_native(),
+                            updated_at: highest_rank
+                                .updated_at
+                                .try_deserialize::<Panic>()
+                                .always_ok(),
+                        });
 
-                        let last_visit = match (next.last_visit, last_playcount) {
-                            (Some(a), Some(b)) => Some(a.max(b)),
-                            (Some(a), _) | (_, Some(a)) => Some(a),
-                            _ => None,
-                        };
+                let last_playcount = next
+                    .monthly_playcounts
+                    .iter()
+                    .rev()
+                    .find(|count| count.count > 0)
+                    .map(|count| {
+                        DateRkyv::try_deserialize(count.start_date)
+                            .unwrap()
+                            .with_time(Time::MIDNIGHT)
+                            .assume_utc()
+                    });
 
-                        (rank, last_visit)
-                    }
-                    RedisData::Archive(next) => {
-                        let next: &Archived<User> = &next;
+                let last_visit = next
+                    .last_visit
+                    .as_ref()
+                    .map(|time| time.try_deserialize::<Panic>().always_ok());
 
-                        let rank = next
-                            .highest_rank
-                            .as_ref()
-                            .map(|highest_rank| UserHighestRank {
-                                rank: highest_rank.rank.to_native(),
-                                updated_at: highest_rank
-                                    .updated_at
-                                    .try_deserialize::<Panic>()
-                                    .always_ok(),
-                            });
-
-                        let last_playcount = next
-                            .monthly_playcounts
-                            .iter()
-                            .rev()
-                            .find(|count| count.count > 0)
-                            .map(|count| {
-                                DateRkyv::try_deserialize(count.start_date)
-                                    .unwrap()
-                                    .with_time(Time::MIDNIGHT)
-                                    .assume_utc()
-                            });
-
-                        let last_visit = next
-                            .last_visit
-                            .as_ref()
-                            .map(|time| time.try_deserialize::<Panic>().always_ok());
-
-                        let last_visit = match (last_visit, last_playcount) {
-                            (Some(a), Some(b)) => Some(a.max(b)),
-                            (Some(a), _) | (_, Some(a)) => Some(a),
-                            _ => None,
-                        };
-
-                        (rank, last_visit)
-                    }
+                let next_last_visit = match (last_visit, last_playcount) {
+                    (Some(a), Some(b)) => Some(a.max(b)),
+                    (Some(a), _) | (_, Some(a)) => Some(a),
+                    _ => None,
                 };
 
                 match (user.highest_rank.as_mut(), next_highest_rank) {
@@ -244,9 +227,8 @@ impl From<User> for ClaimNameUser {
     }
 }
 
-impl From<&ArchivedUser> for ClaimNameUser {
-    #[inline]
-    fn from(user: &ArchivedUser) -> Self {
+impl From<CachedUser> for ClaimNameUser {
+    fn from(user: CachedUser) -> Self {
         Self {
             avatar_url: user.avatar_url.as_ref().into(),
             country_code: user.country_code.as_str().into(),
@@ -271,16 +253,6 @@ impl From<&ArchivedUser> for ClaimNameUser {
             }),
             username: user.username.as_str().into(),
             user_id: user.user_id.to_native(),
-        }
-    }
-}
-
-impl From<RedisData<User>> for ClaimNameUser {
-    #[inline]
-    fn from(user: RedisData<User>) -> Self {
-        match user {
-            RedisData::Original(user) => Self::from(user),
-            RedisData::Archive(user) => Self::from(user.deref()),
         }
     }
 }

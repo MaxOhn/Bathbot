@@ -1,7 +1,6 @@
 use std::{borrow::Cow, cmp::Reverse, collections::HashMap};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
-use bathbot_model::rosu_v2::user::User;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -27,7 +26,7 @@ use crate::{
     active::{impls::LeaderboardPagination, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
     manager::{
-        redis::{osu::UserArgs, RedisData},
+        redis::osu::{CachedUser, UserArgs, UserArgsError},
         MapError, Mods, OsuMap,
     },
     util::{interaction::InteractionCommand, osu::MapOrScore, ChannelExt, InteractionCommandExt},
@@ -336,7 +335,7 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
             .map(|(i, mut score)| {
                 let username = match score.user.take() {
                     Some(user) => {
-                        avatar_urls.insert(score.id, user.avatar_url);
+                        avatar_urls.insert(score.id, user.avatar_url.into_boxed_str());
 
                         user.username
                     }
@@ -362,8 +361,8 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         .map(|(user, score)| LeaderboardUserScore {
             discord_id: owner,
             score: LeaderboardScore::new(
-                user.user_id(),
-                user.username().into(),
+                user.user_id.to_native(),
+                user.username.as_str().into(),
                 score.score,
                 score.pos,
             ),
@@ -457,7 +456,7 @@ async fn get_user_score(
     mode: GameMode,
     mods: Option<GameModsIntermode>,
     legacy_scores: bool,
-) -> Result<Option<(RedisData<User>, BeatmapUserScore)>> {
+) -> Result<Option<(CachedUser, BeatmapUserScore)>> {
     let Some(user_id) = osu_id else {
         return Ok(None);
     };
@@ -468,11 +467,21 @@ async fn get_user_score(
     let score_fut =
         Context::osu_scores().user_on_map_single(user_id, map_id, mode, mods, legacy_scores);
 
-    match tokio::try_join!(user_fut, score_fut) {
-        Ok(tuple) => Ok(Some(tuple)),
-        Err(OsuError::NotFound) => Ok(None),
-        Err(err) => Err(Report::new(err).wrap_err("Failed to get score or user")),
-    }
+    let (user_res, score_res) = tokio::join!(user_fut, score_fut);
+
+    let user = match user_res {
+        Ok(user) => user,
+        Err(UserArgsError::Osu(OsuError::NotFound)) => return Ok(None),
+        Err(err) => return Err(Report::new(err).wrap_err("Failed to get user")),
+    };
+
+    let score = match score_res {
+        Ok(score) => score,
+        Err(OsuError::NotFound) => return Ok(None),
+        Err(err) => return Err(Report::new(err).wrap_err("Failed to get score")),
+    };
+
+    Ok(Some((user, score)))
 }
 
 pub struct LeaderboardScore {

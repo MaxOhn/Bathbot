@@ -1,8 +1,4 @@
-use bathbot_model::rosu_v2::user::User;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    MessageBuilder,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
@@ -10,48 +6,35 @@ use super::{H, W};
 use crate::{
     commands::osu::{sniped, user_not_found},
     core::{commands::CommandOrigin, Context},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };
 
 pub async fn sniped_graph(
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     mode: GameMode,
-) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+) -> Result<Option<(CachedUser, Vec<u8>)>> {
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
             orig.error(content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
     };
 
-    let (country_code, username, user_id) = match &user {
-        RedisData::Original(user) => {
-            let country_code = user.country_code.as_str();
-            let username = user.username.as_str();
-            let user_id = user.user_id;
-
-            (country_code, username, user_id)
-        }
-        RedisData::Archive(user) => {
-            let country_code = user.country_code.as_str();
-            let username = user.username.as_str();
-            let user_id = user.user_id;
-
-            (country_code, username, user_id.to_native())
-        }
-    };
+    let country_code = user.country_code.as_str();
+    let username = user.username.as_str();
+    let user_id = user.user_id.to_native();
 
     let (mut sniper, mut snipee) = if Context::huismetbenen()
         .is_supported(country_code, mode)

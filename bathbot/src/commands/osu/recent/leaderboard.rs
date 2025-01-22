@@ -19,7 +19,10 @@ use crate::{
         require_link, user_not_found, HasMods, LeaderboardScore, LeaderboardUserScore, ModsResult,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::UserArgs, Mods},
+    manager::{
+        redis::osu::{UserArgs, UserArgsError},
+        Mods,
+    },
     Context,
 };
 
@@ -213,7 +216,7 @@ pub(super) async fn leaderboard(
 
     let (map_id, checksum, user) = match scores_fut.await {
         Ok((user, scores)) if scores.len() < limit => {
-            let username = user.username();
+            let username = user.username.as_str();
 
             let content = format!(
                 "There are only {} many scores in `{username}`'{} recent history.",
@@ -231,7 +234,7 @@ pub(super) async fn leaderboard(
                 (map.map_id, map.checksum, user)
             }
             None => {
-                let username = user.username();
+                let username = user.username.as_str();
 
                 let content = format!(
                     "No recent {}plays found for user `{username}`",
@@ -246,13 +249,13 @@ pub(super) async fn leaderboard(
                 return orig.error(content).await;
             }
         },
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get scores");
 
             return Err(err);
@@ -376,7 +379,7 @@ pub(super) async fn leaderboard(
     order.sort(&mut scores, &map, score_data).await;
     order.push_content(&mut content);
 
-    let first_place_icon = scores.first().map(|_| user.avatar_url().to_owned());
+    let first_place_icon = scores.first().map(|_| Box::from(user.avatar_url.as_ref()));
 
     let pagination = LeaderboardPagination::builder()
         .map(map)

@@ -1,7 +1,6 @@
 use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{constants::OSU_BASE, CowUtils, EmbedBuilder, FooterBuilder};
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -16,13 +15,16 @@ use crate::{
         pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
     },
-    manager::redis::RedisData,
-    util::interaction::{InteractionComponent, InteractionModal},
+    manager::redis::osu::CachedUser,
+    util::{
+        interaction::{InteractionComponent, InteractionModal},
+        CachedUserExt,
+    },
 };
 
 #[derive(PaginationBuilder)]
 pub struct MostPlayedPagination {
-    user: RedisData<User>,
+    user: CachedUser,
     #[pagination(per_page = 10)]
     maps: Box<[MostPlayedMap]>,
     msg_owner: Id<UserMarker>,
@@ -61,7 +63,7 @@ impl IActiveMessage for MostPlayedPagination {
             .author(self.user.author_builder())
             .description(description)
             .footer(FooterBuilder::new(footer_text))
-            .thumbnail(self.user.avatar_url())
+            .thumbnail(self.user.avatar_url.as_ref())
             .title("Most played maps:");
 
         BuildPage::new(embed, false).boxed()

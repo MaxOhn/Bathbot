@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{embed_builder::ScoreEmbedSettings, rosu_v2::user::User, ScoreSlim};
+use bathbot_model::{embed_builder::ScoreEmbedSettings, ScoreSlim};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, CowUtils, EmbedBuilder,
@@ -22,17 +22,17 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::utility::ScoreEmbedData,
-    manager::{redis::RedisData, OsuMap},
+    manager::{redis::osu::CachedUser, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::GradeFormatter,
-        Emote,
+        CachedUserExt, Emote,
     },
 };
 
 #[derive(PaginationBuilder)]
 pub struct CompareScoresPagination {
-    user: RedisData<User>,
+    user: CachedUser,
     map: OsuMap,
     settings: ScoreEmbedSettings,
     #[pagination(per_page = 10)]

@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
-use bathbot_model::{rosu_v2::user::User, SnipePlayer};
+use bathbot_model::SnipePlayer;
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
@@ -16,8 +16,8 @@ use twilight_model::channel::message::embed::EmbedField;
 use crate::{
     core::Context,
     embeds::{attachment, osu},
-    manager::{redis::RedisData, OsuMap},
-    util::osu::GradeCompletionFormatter,
+    manager::{redis::osu::CachedUser, OsuMap},
+    util::{osu::GradeCompletionFormatter, CachedUserExt},
 };
 
 #[derive(EmbedData)]
@@ -34,7 +34,7 @@ pub struct PlayerSnipeStatsEmbed {
 
 impl PlayerSnipeStatsEmbed {
     pub async fn new(
-        user: &RedisData<User>,
+        user: &CachedUser,
         player: SnipePlayer,
         oldest: Option<&(Score, OsuMap)>,
     ) -> Self {
@@ -128,22 +128,9 @@ impl PlayerSnipeStatsEmbed {
             (description, fields)
         };
 
-        let (user_id, country_code, avatar_url) = match user {
-            RedisData::Original(user) => {
-                let user_id = user.user_id;
-                let country_code = user.country_code.as_str();
-                let avatar_url = user.avatar_url.as_ref();
-
-                (user_id, country_code, avatar_url)
-            }
-            RedisData::Archive(user) => {
-                let user_id = user.user_id;
-                let country_code = user.country_code.as_str();
-                let avatar_url = user.avatar_url.as_ref();
-
-                (user_id.to_native(), country_code, avatar_url)
-            }
-        };
+        let user_id = user.user_id.to_native();
+        let country_code = user.country_code.as_str();
+        let avatar_url = user.avatar_url.as_ref();
 
         let url = match oldest.map_or(GameMode::Osu, |(score, _)| score.mode) {
             GameMode::Osu => format!(

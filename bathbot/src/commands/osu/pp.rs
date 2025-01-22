@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
-use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -12,7 +12,7 @@ use super::user_not_found;
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, PpMissingEmbed},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -206,13 +206,13 @@ async fn pp(orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<()> {
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
@@ -221,16 +221,10 @@ async fn pp(orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<()> {
 
     let target_pp = match pp {
         PpValue::Raw(value) => value,
-        PpValue::Delta(value) => match user {
-            RedisData::Original(ref user) => user
-                .statistics
-                .as_ref()
-                .map_or(value, |stats| stats.pp + value),
-            RedisData::Archive(ref user) => user
-                .statistics
-                .as_ref()
-                .map_or(value, |stats| stats.pp + value),
-        },
+        PpValue::Delta(value) => user
+            .statistics
+            .as_ref()
+            .map_or(value, |stats| stats.pp + value),
     };
 
     let rank = match Context::approx().rank(target_pp, mode).await {

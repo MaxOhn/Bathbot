@@ -1,10 +1,10 @@
-use std::{cmp::Reverse, collections::HashMap, mem};
+use std::{cmp::Reverse, collections::HashMap};
 
 use bathbot_macros::command;
-use bathbot_model::rosu_v2::user::{MedalCompactRkyv, User};
+use bathbot_model::rosu_v2::user::MedalCompactRkyv;
 use bathbot_psql::model::configs::HideSolutions;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
     matcher, IntHasher, MessageBuilder,
 };
 use eyre::{Report, Result};
@@ -25,7 +25,7 @@ use crate::{
     active::{impls::MedalsRecentPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     Context,
 };
 
@@ -76,16 +76,16 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
     let user_fut = Context::redis().osu_user(user_args);
     let medals_fut = Context::redis().medals();
 
-    let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
+    let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {
         (Ok(user), Ok(medals)) => (user, medals.into_original()),
-        (Err(OsuError::NotFound), _) => {
+        (Err(UserArgsError::Osu(OsuError::NotFound)), _) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         (Err(err), _) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let report = Report::new(err).wrap_err("Failed to get user");
 
             return Err(report);
         }
@@ -96,17 +96,17 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
         }
     };
 
-    let mut user_medals = match user {
-        RedisData::Original(ref mut user) => mem::take(&mut user.medals),
-        RedisData::Archive(ref user) => rkyv::api::deserialize_using::<_, _, Panic>(
-            With::<_, Map<MedalCompactRkyv>>::cast(&user.medals),
-            &mut (),
-        )
-        .always_ok(),
-    };
+    let mut user_medals = rkyv::api::deserialize_using::<_, _, Panic>(
+        With::<_, Map<MedalCompactRkyv>>::cast(&user.medals),
+        &mut (),
+    )
+    .always_ok();
 
     if user_medals.is_empty() {
-        let content = format!("`{}` has not achieved any medals yet :(", user.username());
+        let content = format!(
+            "`{}` has not achieved any medals yet :(",
+            user.username.as_str()
+        );
         let builder = MessageBuilder::new().embed(content);
         orig.create_message(builder).await?;
 
@@ -143,7 +143,7 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
         None => {
             let content = format!(
                 "`{}` only has {} medals, cannot show medal #{index}",
-                user.username(),
+                user.username.as_str(),
                 user_medals.len(),
                 index = index + 1,
             );
@@ -210,7 +210,7 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
 }
 
 pub struct MedalAchieved<'u> {
-    pub user: &'u RedisData<User>,
+    pub user: &'u CachedUser,
     pub achieved_at: OffsetDateTime,
     pub index: usize,
     pub medal_count: usize,

@@ -1,10 +1,6 @@
-use std::{borrow::Cow, iter};
+use std::iter;
 
-use bathbot_model::rosu_v2::user::User;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    numbers::WithComma,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, numbers::WithComma};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::{
     prelude::{ChartBuilder, Circle, IntoDrawingArea, SeriesLabelPosition},
@@ -23,46 +19,44 @@ use crate::{
         user_not_found,
     },
     core::{commands::CommandOrigin, Context},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };
 
 pub async fn rank_graph(
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     user_args: UserArgs,
-) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+) -> Result<Option<(CachedUser, Vec<u8>)>> {
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
             orig.error(content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
     };
 
-    fn draw_graph(user: &RedisData<User>) -> Result<Option<Vec<u8>>> {
-        let history = match user {
-            RedisData::Original(user) if user.rank_history.is_empty() => return Ok(None),
-            RedisData::Original(user) => Cow::Borrowed(user.rank_history.as_ref()),
-            RedisData::Archive(user) if user.rank_history.is_empty() => return Ok(None),
-            RedisData::Archive(user) => Cow::Owned(
-                user.rank_history
-                    .as_ref()
-                    .iter()
-                    .copied()
-                    .map(u32_le::to_native)
-                    .collect(),
-            ),
-        };
+    fn draw_graph(user: &CachedUser) -> Result<Option<Vec<u8>>> {
+        if user.rank_history.is_empty() {
+            return Ok(None);
+        }
 
-        let history_len = history.len();
+        let history_len = user.rank_history.len();
+
+        let history: Vec<_> = user
+            .rank_history
+            .as_ref()
+            .iter()
+            .copied()
+            .map(u32_le::to_native)
+            .collect();
 
         let mut min = u32::MAX;
         let mut max = 0;
@@ -207,7 +201,7 @@ pub async fn rank_graph(
         Ok(None) => {
             let content = format!(
                 "`{name}` has no available rank data :(",
-                name = user.username()
+                name = user.username.as_str()
             );
 
             orig.error(content).await?;

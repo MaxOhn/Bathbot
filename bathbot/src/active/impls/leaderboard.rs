@@ -37,7 +37,7 @@ pub struct LeaderboardPagination {
     stars: f32,
     max_combo: u32,
     author_data: Option<LeaderboardUserScore>,
-    first_place_icon: Option<String>,
+    first_place_icon: Option<Box<str>>,
     score_data: ScoreData,
     content: Box<str>,
     msg_owner: Id<UserMarker>,

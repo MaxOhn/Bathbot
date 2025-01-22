@@ -33,10 +33,7 @@ use crate::{
         MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
     },
     core::commands::CommandOrigin,
-    manager::redis::{
-        osu::{UserArgs, UserArgsSlim},
-        RedisData,
-    },
+    manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
     util::{
         interaction::InteractionCommand,
         osu::PersonalBestIndex,
@@ -164,16 +161,16 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
     let (user_args, user_opt) = match UserArgs::rosu_id(&user_id, mode).await {
         UserArgs::Args(args) => (args, None),
         UserArgs::User { user, mode } => (
-            UserArgsSlim::user_id(user.user_id).mode(mode),
-            Some(RedisData::Original(*user)),
+            UserArgsSlim::user_id(user.user_id.to_native()).mode(mode),
+            Some(user),
         ),
-        UserArgs::Err(OsuError::NotFound) => {
+        UserArgs::Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         UserArgs::Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
@@ -213,16 +210,28 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
         }
     };
 
-    let (pinned, top100, user) = match tokio::try_join!(pinned_fut, top100_fut, user_fut) {
-        Ok((pinned, top100, user)) => (pinned, top100, user.or(user_opt).expect("missing user")),
-        Err(OsuError::NotFound) => {
+    let (pinned_res, top100_res, user_res) = tokio::join!(pinned_fut, top100_fut, user_fut);
+
+    let (pinned, top100, user) = match (pinned_res, top100_res, user_res) {
+        (Ok(pinned), Ok(top100), Ok(user)) => {
+            (pinned, top100, user.or(user_opt).expect("missing user"))
+        }
+        (Err(OsuError::NotFound), ..)
+        | (_, Err(OsuError::NotFound), _)
+        | (.., Err(UserArgsError::Osu(OsuError::NotFound))) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
-        Err(err) => {
+        (Err(err), ..) | (_, Err(err), _) | (.., Err(UserArgsError::Osu(err))) => {
             let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user or prepare scores");
+
+            return Err(err);
+        }
+        (.., Err(err)) => {
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
@@ -265,7 +274,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
     };
 
     let post_len = entries.len();
-    let username = user.username();
+    let username = user.username.as_str();
 
     let index = match args.index.as_deref() {
         Some("random" | "?") => (post_len > 0).then(|| thread_rng().gen_range(1..=post_len)),

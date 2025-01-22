@@ -5,7 +5,7 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{rosu_v2::user::User, SnipeScore, SnipeScoreParams};
+use bathbot_model::{SnipeScore, SnipeScoreParams};
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
@@ -26,16 +26,16 @@ use crate::{
     },
     core::Context,
     embeds::PpFormatter,
-    manager::{redis::RedisData, OsuMap},
+    manager::{redis::osu::CachedUser, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        Emote,
+        CachedUserExt, Emote,
     },
 };
 
 #[derive(PaginationBuilder)]
 pub struct SnipePlayerListPagination {
-    user: RedisData<User>,
+    user: CachedUser,
     #[pagination(per_page = 5, len = "total")]
     scores: BTreeMap<usize, SnipeScore>,
     maps: HashMap<u32, OsuMap, IntHasher>,
@@ -130,7 +130,7 @@ impl SnipePlayerListPagination {
                 .author(self.user.author_builder())
                 .description("No scores were found")
                 .footer(FooterBuilder::new("Page 1/1 • Total #1 scores: 0"))
-                .thumbnail(self.user.avatar_url());
+                .thumbnail(self.user.avatar_url.as_ref());
 
             return Ok(BuildPage::new(embed, true).content(self.content.clone()));
         }
@@ -190,7 +190,7 @@ impl SnipePlayerListPagination {
             .author(self.user.author_builder())
             .description(description)
             .footer(footer)
-            .thumbnail(self.user.avatar_url());
+            .thumbnail(self.user.avatar_url.as_ref());
 
         Ok(BuildPage::new(embed, true).content(self.content.clone()))
     }

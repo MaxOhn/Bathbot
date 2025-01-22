@@ -3,16 +3,13 @@ use std::collections::HashMap;
 use bathbot_macros::command;
 use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
 use eyre::{Report, Result};
-use rosu_v2::{
-    prelude::{GameMode, OsuError, Username},
-    OsuResult,
-};
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{
     active::{impls::TrackListPagination, ActiveMessages},
     core::commands::CommandOrigin,
-    manager::redis::osu::UserArgs,
+    manager::redis::osu::{UserArgs, UserArgsError},
     tracking::{OsuTracking, TrackEntryParams},
     Context,
 };
@@ -74,7 +71,7 @@ pub async fn tracklist(orig: CommandOrigin<'_>) -> Result<()> {
 async fn get_users(
     channel: Id<ChannelMarker>,
     tracked: Vec<(u32, GameMode, TrackEntryParams)>,
-) -> OsuResult<Vec<TracklistUserEntry>> {
+) -> Result<Vec<TracklistUserEntry>, UserArgsError> {
     let user_ids: Vec<_> = tracked
         .iter()
         .map(|(user_id, ..)| *user_id as i32)
@@ -106,12 +103,12 @@ async fn get_users(
 
                 match Context::redis().osu_user(user_args).await {
                     Ok(user) => TracklistUserEntry {
-                        name: user.username().into(),
+                        name: user.username.as_str().into(),
                         user_id,
                         mode,
                         params,
                     },
-                    Err(OsuError::NotFound) => {
+                    Err(UserArgsError::Osu(OsuError::NotFound)) => {
                         OsuTracking::remove_user(user_id, None, channel).await;
 
                         continue;

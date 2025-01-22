@@ -397,22 +397,9 @@ impl MedalEmbed {
         let achieved = achieved.map(|achieved| {
             let user = achieved.user;
 
-            let (country_code, username, user_id) = match &user {
-                RedisData::Original(user) => {
-                    let country_code = user.country_code.as_str();
-                    let username = user.username.as_str();
-                    let user_id = user.user_id;
-
-                    (country_code, username, user_id)
-                }
-                RedisData::Archive(user) => {
-                    let country_code = user.country_code.as_str();
-                    let username = user.username.as_str();
-                    let user_id = user.user_id;
-
-                    (country_code, username, user_id.to_native())
-                }
-            };
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
+            let user_id = user.user_id.to_native();
 
             let mut author_url = format!("{OSU_BASE}users/{user_id}");
 
