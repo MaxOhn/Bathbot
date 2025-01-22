@@ -57,6 +57,7 @@ impl CachedUserExt for CachedUser {
                 rank_history: _,
                 replays_watched_counts: _,
                 medals: _,
+                daily_challenge: _,
             } = seal);
 
             if let Some(last_visit) = user.last_visit {
