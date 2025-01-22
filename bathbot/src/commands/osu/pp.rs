@@ -2,10 +2,7 @@ use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    matcher, MessageBuilder,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -15,10 +12,7 @@ use super::user_not_found;
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, PpMissingEmbed},
-    manager::redis::{
-        osu::{UserArgs, UserArgsError},
-        
-    },
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };

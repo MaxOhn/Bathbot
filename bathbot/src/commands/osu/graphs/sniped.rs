@@ -1,7 +1,4 @@
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    MessageBuilder,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
@@ -9,9 +6,7 @@ use super::{H, W};
 use crate::{
     commands::osu::{sniped, user_not_found},
     core::{commands::CommandOrigin, Context},
-    manager::redis::{
-        osu::{CachedUser, UserArgs, UserArgsError},
-    },
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };
 
 pub async fn sniped_graph(

@@ -17,7 +17,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::MedalEntryList,
-    manager::redis::{ osu::CachedUser},
+    manager::redis::osu::CachedUser,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 

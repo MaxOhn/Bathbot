@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
-use bathbot_model::{ScoreSlim};
+use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -25,10 +25,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, FixScoreEmbed},
     manager::{
-        redis::{
-            osu::{CachedUser, UserArgs, UserArgsError, UserArgsSlim},
-            
-        },
+        redis::osu::{CachedUser, UserArgs, UserArgsError, UserArgsSlim},
         MapError, OsuMap,
     },
     util::{

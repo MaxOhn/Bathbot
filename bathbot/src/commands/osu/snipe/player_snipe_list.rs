@@ -6,12 +6,7 @@ use std::{
 
 use bathbot_macros::command;
 use bathbot_model::SnipeScoreParams;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    matcher,
-    osu::ModSelection,
-    CowUtils,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::ModSelection, CowUtils};
 use eyre::{Report, Result};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
@@ -20,7 +15,7 @@ use crate::{
     active::{impls::SnipePlayerListPagination, ActiveMessages},
     commands::osu::{HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{osu::{UserArgs, UserArgsError}, },
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::ChannelExt,
     Context,
 };
@@ -152,7 +147,6 @@ pub(super) async fn player_list(orig: CommandOrigin<'_>, args: SnipePlayerList<'
             return Err(report);
         }
     };
-
 
     let country_code = user.country_code.as_str();
     let username = user.username.as_str();

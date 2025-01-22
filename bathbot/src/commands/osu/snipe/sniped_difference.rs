@@ -1,10 +1,7 @@
 use std::{cmp::Reverse, collections::HashMap};
 
 use bathbot_macros::command;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    matcher, IntHasher, MessageBuilder,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::{Duration, OffsetDateTime};
@@ -13,10 +10,7 @@ use super::{SnipeGameMode, SnipePlayerGain, SnipePlayerLoss};
 use crate::{
     active::{impls::SnipeDifferencePagination, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{
-        osu::{UserArgs, UserArgsError},
-        
-    },
+    manager::redis::osu::{UserArgs, UserArgsError},
     Context,
 };
 

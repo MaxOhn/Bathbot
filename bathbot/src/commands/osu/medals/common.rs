@@ -4,9 +4,9 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{ MedalGroup, OsekaiMedal, Rarity};
+use bathbot_model::{MedalGroup, OsekaiMedal, Rarity};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, },
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
     matcher, IntHasher,
 };
 use eyre::{Report, Result};

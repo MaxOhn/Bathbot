@@ -20,10 +20,11 @@ use crate::{
     },
     commands::osu::RecentListEntry,
     embeds::{ComboFormatter, KeyFormatter, PpFormatter},
-    manager::{ redis::osu::CachedUser, OsuMap},
+    manager::{redis::osu::CachedUser, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::GradeCompletionFormatter, CachedUserExt,
+        osu::GradeCompletionFormatter,
+        CachedUserExt,
     },
 };
 

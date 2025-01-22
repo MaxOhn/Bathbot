@@ -4,11 +4,7 @@ use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::{command_fields::GameModeOption, ScoreSlim};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    matcher,
-    numbers::round,
-    osu::ModSelection,
-    CowUtils,
+    constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection, CowUtils,
 };
 use eyre::{Report, Result};
 use rosu_v2::{
@@ -22,7 +18,10 @@ use crate::{
     active::{impls::TopIfPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::{UserArgs, UserArgsError}, OsuMap},
+    manager::{
+        redis::osu::{UserArgs, UserArgsError},
+        OsuMap,
+    },
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
@@ -261,9 +260,21 @@ async fn topif(orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
         .filter_map(|s| s.weight)
         .fold(0.0, |sum, weight| sum + weight.pp);
 
-    let bonus_pp = user.statistics.as_ref().expect("missing stats").pp.to_native() - actual_pp;
+    let bonus_pp = user
+        .statistics
+        .as_ref()
+        .expect("missing stats")
+        .pp
+        .to_native()
+        - actual_pp;
     let sort = args.sort.unwrap_or_default();
-    let content = get_content(user.username.as_str(), mode, &mods, args.query.as_deref(), sort);
+    let content = get_content(
+        user.username.as_str(),
+        mode,
+        &mods,
+        args.query.as_deref(),
+        sort,
+    );
 
     let mut entries = match process_scores(scores, mods, mode, sort, legacy_scores).await {
         Ok(scores) => scores,
@@ -297,7 +308,12 @@ async fn topif(orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
     };
 
     // Accumulate all necessary data
-    let pre_pp = user.statistics.as_ref().expect("missing stats").pp.to_native();
+    let pre_pp = user
+        .statistics
+        .as_ref()
+        .expect("missing stats")
+        .pp
+        .to_native();
 
     let pagination = TopIfPagination::builder()
         .user(user)

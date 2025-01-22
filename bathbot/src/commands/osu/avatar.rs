@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE,  OSU_BASE},
+    constants::{GENERAL_ISSUE, OSU_BASE},
     matcher,
     osu::flag_url,
     AuthorBuilder, EmbedBuilder, MessageBuilder,
@@ -15,10 +15,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use super::{require_link, user_not_found};
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{
-        osu::{UserArgs, UserArgsError},
-        
-    },
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };

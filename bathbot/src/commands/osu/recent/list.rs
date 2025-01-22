@@ -11,12 +11,7 @@ use bathbot_model::{
     ScoreSlim,
 };
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    matcher,
-    osu::ModSelection,
-    CowUtils, IntHasher,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::ModSelection, CowUtils, IntHasher};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, Grade, OsuError, Score},
@@ -28,7 +23,10 @@ use crate::{
     active::{impls::RecentListPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::{UserArgs, UserArgsError}, OsuMap},
+    manager::{
+        redis::osu::{UserArgs, UserArgsError},
+        OsuMap,
+    },
     util::{
         query::{IFilterCriteria, RegularCriteria, Searchable},
         ChannelExt,

@@ -6,10 +6,7 @@ use bathbot_model::{
     embed_builder::SettingsImage,
 };
 use bathbot_psql::model::configs::{GuildConfig, Retries, ScoreData};
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    matcher, CowUtils, MessageOrigin,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, CowUtils, MessageOrigin};
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
 use rosu_v2::{

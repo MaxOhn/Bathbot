@@ -16,7 +16,10 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     manager::redis::osu::CachedUser,
-    util::{interaction::{InteractionComponent, InteractionModal}, CachedUserExt},
+    util::{
+        interaction::{InteractionComponent, InteractionModal},
+        CachedUserExt,
+    },
 };
 
 #[derive(PaginationBuilder)]

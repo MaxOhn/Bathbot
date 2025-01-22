@@ -3,10 +3,7 @@ use std::borrow::Cow;
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    matcher, CowUtils, MessageOrigin,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, CowUtils, MessageOrigin};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError},

@@ -3,12 +3,7 @@ use std::{borrow::Cow, cmp::Ordering};
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    matcher,
-    numbers::round,
-    osu::ModSelection,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection};
 use eyre::{Report, Result};
 use rosu_pp_older::*;
 use rosu_v2::{

@@ -5,7 +5,7 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{ SnipeRecent};
+use bathbot_model::SnipeRecent;
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, CowUtils, EmbedBuilder,
     FooterBuilder, IntHasher,
@@ -27,7 +27,10 @@ use crate::{
     core::Context,
     embeds::ModsFormatter,
     manager::redis::osu::CachedUser,
-    util::{interaction::{InteractionComponent, InteractionModal}, CachedUserExt},
+    util::{
+        interaction::{InteractionComponent, InteractionModal},
+        CachedUserExt,
+    },
 };
 
 #[derive(PaginationBuilder)]

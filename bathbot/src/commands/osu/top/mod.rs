@@ -7,11 +7,7 @@ use bathbot_model::{
 };
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    matcher,
-    numbers::round,
-    osu::ModSelection,
-    CowUtils,
+    constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection, CowUtils,
 };
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};

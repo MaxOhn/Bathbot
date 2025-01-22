@@ -6,10 +6,7 @@ use std::{
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::{command_fields::GameModeOption, embed_builder::SettingsImage};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    matcher, CowUtils,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, CowUtils};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score},
@@ -29,10 +26,7 @@ use crate::{
     },
     commands::utility::{MissAnalyzerCheck, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{
-        osu::{UserArgs, UserArgsError},
-        
-    },
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };

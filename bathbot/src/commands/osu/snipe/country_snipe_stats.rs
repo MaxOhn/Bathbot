@@ -2,10 +2,7 @@ use std::{borrow::Cow, cmp::Ordering::Equal};
 
 use bathbot_macros::command;
 use bathbot_model::{Countries, SnipeCountryListOrder, SnipeCountryPlayer};
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    MessageBuilder,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
@@ -22,7 +19,7 @@ use crate::{
     commands::osu::user_not_found,
     core::commands::CommandOrigin,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
-    manager::redis::{osu::{UserArgs, UserArgsError}, },
+    manager::redis::osu::{UserArgs, UserArgsError},
     Context,
 };
 

@@ -24,7 +24,9 @@ use crate::{
     commands::utility::ScoreEmbedData,
     manager::{redis::osu::CachedUser, OsuMap},
     util::{
-        interaction::{InteractionComponent, InteractionModal}, osu::GradeFormatter, CachedUserExt, Emote
+        interaction::{InteractionComponent, InteractionModal},
+        osu::GradeFormatter,
+        CachedUserExt, Emote,
     },
 };
 

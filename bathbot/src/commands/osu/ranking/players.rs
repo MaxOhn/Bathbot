@@ -88,12 +88,24 @@ async fn pp_author_idx(
             let idx = match country {
                 Some(code) => {
                     if user.country_code.as_str() == code.as_str() {
-                        Some(user.statistics.as_ref().expect("missing stats").country_rank.to_native())
+                        Some(
+                            user.statistics
+                                .as_ref()
+                                .expect("missing stats")
+                                .country_rank
+                                .to_native(),
+                        )
                     } else {
                         None
                     }
                 }
-                None => Some(user.statistics.as_ref().expect("missing stats").global_rank.to_native()),
+                None => Some(
+                    user.statistics
+                        .as_ref()
+                        .expect("missing stats")
+                        .global_rank
+                        .to_native(),
+                ),
             };
 
             idx.filter(|n| (1..=10_000).contains(n))

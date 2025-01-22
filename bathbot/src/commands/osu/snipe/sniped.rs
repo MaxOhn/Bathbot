@@ -2,11 +2,7 @@ use std::ops;
 
 use bathbot_macros::command;
 use bathbot_model::SnipedWeek;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    datetime::DATE_FORMAT,
-    matcher, MessageBuilder,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, datetime::DATE_FORMAT, matcher, MessageBuilder};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::{
     coord::{
@@ -26,10 +22,7 @@ use super::{SnipeGameMode, SnipePlayerSniped};
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, SnipedEmbed},
-    manager::redis::{
-        osu::{UserArgs, UserArgsError},
-        
-    },
+    manager::redis::osu::{UserArgs, UserArgsError},
     Context,
 };
 

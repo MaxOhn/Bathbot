@@ -3,11 +3,9 @@ use std::{
     future::ready,
 };
 
-use bathbot_model::{
-    embed_builder::{
-        ComboValue, EmoteTextValue, HitresultsValue, MapperValue, PpValue, ScoreEmbedSettings,
-        SettingValue, SettingsButtons, SettingsImage, Value,
-    },
+use bathbot_model::embed_builder::{
+    ComboValue, EmoteTextValue, HitresultsValue, MapperValue, PpValue, ScoreEmbedSettings,
+    SettingValue, SettingsButtons, SettingsImage, Value,
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::MessageBuilder;

@@ -3,11 +3,7 @@ use std::borrow::Cow;
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, },
-    matcher,
-    osu::calculate_grade,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::calculate_grade};
 use eyre::{Report, Result};
 use rosu_pp::any::DifficultyAttributes;
 use rosu_v2::{
@@ -21,7 +17,10 @@ use super::{require_link, user_not_found};
 use crate::{
     active::{impls::NoChokePagination, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::{UserArgs, UserArgsError}, OsuMap},
+    manager::{
+        redis::osu::{UserArgs, UserArgsError},
+        OsuMap,
+    },
     util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
 };
@@ -269,7 +268,13 @@ async fn nochoke(orig: CommandOrigin<'_>, args: Nochoke<'_>) -> Result<()> {
         .zip(0..)
         .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
-    let bonus_pp = user.statistics.as_ref().expect("missing stats").pp.to_native() - actual_pp;
+    let bonus_pp = user
+        .statistics
+        .as_ref()
+        .expect("missing stats")
+        .pp
+        .to_native()
+        - actual_pp;
 
     // Sort by unchoked pp
     entries.sort_unstable_by(|a, b| b.unchoked_pp().total_cmp(&a.unchoked_pp()));

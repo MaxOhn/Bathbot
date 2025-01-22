@@ -19,7 +19,7 @@ use crate::{
     commands::osu::require_link,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
-    manager::redis::{osu::{UserArgs, UserArgsError}, },
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::Monthly,
     Context,
 };
@@ -140,7 +140,6 @@ pub(super) async fn player_stats(
             return Err(report);
         }
     };
-
 
     let country_code = user.country_code.as_str();
     let username = user.username.as_str();

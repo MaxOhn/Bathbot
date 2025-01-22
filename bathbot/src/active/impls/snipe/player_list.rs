@@ -5,7 +5,7 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{ SnipeScore, SnipeScoreParams};
+use bathbot_model::{SnipeScore, SnipeScoreParams};
 use bathbot_util::{
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
@@ -28,7 +28,8 @@ use crate::{
     embeds::PpFormatter,
     manager::{redis::osu::CachedUser, OsuMap},
     util::{
-        interaction::{InteractionComponent, InteractionModal}, CachedUserExt, Emote
+        interaction::{InteractionComponent, InteractionModal},
+        CachedUserExt, Emote,
     },
 };
 

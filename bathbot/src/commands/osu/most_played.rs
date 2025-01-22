@@ -97,7 +97,9 @@ async fn mostplayed(orig: CommandOrigin<'_>, args: MostPlayed<'_>) -> Result<()>
         }
     };
 
-    let maps_fut = Context::osu().user_most_played(user.user_id.to_native()).limit(100);
+    let maps_fut = Context::osu()
+        .user_most_played(user.user_id.to_native())
+        .limit(100);
 
     let maps = match maps_fut.await {
         Ok(maps) => maps,
