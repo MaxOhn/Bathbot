@@ -33,14 +33,17 @@ impl OsuTrackingStats {
             ];
 
             for mode in MODES {
-                let Some(user) = entry.get(mode).await else {
+                let user = entry.get_unchecked(mode);
+                let channels_guard = user.channels().await;
+
+                if channels_guard.is_empty() {
                     continue;
-                };
+                }
 
                 total += 1;
                 modes_count[mode as usize] += 1;
 
-                channels.extend(user.channels().await.keys().copied());
+                channels.extend(channels_guard.keys().copied());
             }
         }
 

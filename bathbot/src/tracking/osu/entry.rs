@@ -36,16 +36,16 @@ impl TrackEntry {
     /// Pp value of the 100th top score
     pub fn last_entry(&self) -> (f32, OffsetDateTime) {
         let pp = f32::from_bits(self.last_pp.load(Ordering::SeqCst));
+        let timestamp = self.last_updated.load(Ordering::SeqCst);
 
-        let last_updated =
-            match OffsetDateTime::from_unix_timestamp(self.last_updated.load(Ordering::SeqCst)) {
-                Ok(datetime) => datetime,
-                Err(err) => {
-                    warn!(?err, "Invalid timestamp for datetime");
+        let last_updated = match OffsetDateTime::from_unix_timestamp(timestamp) {
+            Ok(datetime) => datetime,
+            Err(err) => {
+                warn!(?err, "Invalid timestamp for datetime");
 
-                    OffsetDateTime::now_utc()
-                }
-            };
+                OffsetDateTime::now_utc()
+            }
+        };
 
         (pp, last_updated)
     }
@@ -124,6 +124,11 @@ impl TrackedUser {
         let entry = &self.modes[mode as usize];
 
         entry.is_empty().await.not().then(|| Arc::clone(entry))
+    }
+
+    /// Same as [`TrackedUser::get`] but does *not* perform emptyness check
+    pub fn get_unchecked(&self, mode: GameMode) -> Arc<TrackEntry> {
+        Arc::clone(&self.modes[mode as usize])
     }
 
     pub async fn is_empty(&self) -> bool {
