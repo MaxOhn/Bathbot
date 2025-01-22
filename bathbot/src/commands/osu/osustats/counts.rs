@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::{
-    constants::{OSUSTATS_API_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
     matcher, MessageBuilder,
 };
 use eyre::{Report, Result};
@@ -16,7 +16,7 @@ use crate::{
     commands::osu::user_not_found,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, OsuStatsCountsEmbed},
-    manager::redis::osu::UserArgs,
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, osu::TopCounts, InteractionCommandExt},
     Context,
 };
@@ -157,14 +157,14 @@ pub(super) async fn count(orig: CommandOrigin<'_>, args: OsuStatsCount<'_>) -> R
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }

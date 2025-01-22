@@ -1,7 +1,7 @@
 use std::collections::{hash_map::Entry, HashMap};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{rosu_v2::user::User, OsekaiMedal};
+use bathbot_model::OsekaiMedal;
 use bathbot_psql::model::configs::HideSolutions;
 use bathbot_util::IntHasher;
 use eyre::Result;
@@ -18,13 +18,13 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::{MedalAchieved, MedalEmbed},
-    manager::redis::RedisData,
+    manager::redis::osu::CachedUser,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 
 #[derive(PaginationBuilder)]
 pub struct MedalsRecentPagination {
-    user: RedisData<User>,
+    user: CachedUser,
     medals: HashMap<u32, OsekaiMedal, IntHasher>,
     #[pagination(per_page = 1)]
     achieved_medals: Box<[MedalCompact]>,

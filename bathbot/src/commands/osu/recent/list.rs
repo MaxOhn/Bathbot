@@ -12,7 +12,7 @@ use bathbot_model::{
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, },
     matcher,
     osu::ModSelection,
     CowUtils, IntHasher,
@@ -28,7 +28,7 @@ use crate::{
     active::{impls::RecentListPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::UserArgs, OsuMap},
+    manager::{redis::osu::{UserArgs, UserArgsError}, OsuMap},
     util::{
         query::{IFilterCriteria, RegularCriteria, Searchable},
         ChannelExt,
@@ -379,7 +379,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: RecentList<'_>) -> Resul
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) if scores.is_empty() => {
-            let username = user.username();
+            let username = user.username.as_str();
 
             let content = format!(
                 "No recent {}plays found for user `{username}`",
@@ -394,13 +394,13 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: RecentList<'_>) -> Resul
             return orig.error(content).await;
         }
         Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);

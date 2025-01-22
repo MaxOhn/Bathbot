@@ -7,11 +7,7 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{
-    command_fields::GameModeOption,
-    rosu_v2::{ranking::RankingsRkyv, user::User},
-    Countries,
-};
+use bathbot_model::{command_fields::GameModeOption, rosu_v2::ranking::RankingsRkyv, Countries};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -28,10 +24,10 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::PersonalBestIndexFormatter,
     manager::redis::{
-        osu::{UserArgs, UserArgsSlim},
+        osu::{CachedUser, UserArgs, UserArgsError, UserArgsSlim},
         RedisData,
     },
-    util::ChannelExt,
+    util::{CachedUserExt, ChannelExt},
     Context,
 };
 
@@ -75,13 +71,13 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
 
     let mut user = match user_fut.await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get user"));
         }
@@ -90,7 +86,12 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
     let rank_or_holder = match rank_value {
         RankValue::Delta(delta) => RankOrHolder::Rank(cmp::max(
             1,
-            user.stats().global_rank().saturating_sub(delta),
+            user.statistics
+                .as_ref()
+                .expect("missing stats")
+                .global_rank
+                .to_native()
+                .saturating_sub(delta),
         )),
         RankValue::Raw(rank) => RankOrHolder::Rank(rank),
         RankValue::Name(name) => {
@@ -100,22 +101,32 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
             match Context::redis().osu_user(user_args).await {
                 Ok(target_user) => {
                     let rank_holder = RankHolder {
-                        country_code: target_user.country_code().into(),
-                        global_rank: target_user.stats().global_rank(),
-                        pp: target_user.stats().pp(),
-                        user_id: target_user.user_id(),
-                        username: target_user.username().into(),
+                        country_code: target_user.country_code.as_str().into(),
+                        global_rank: target_user
+                            .statistics
+                            .as_ref()
+                            .expect("missing stats")
+                            .global_rank
+                            .to_native(),
+                        pp: target_user
+                            .statistics
+                            .as_ref()
+                            .expect("missing stats")
+                            .pp
+                            .to_native(),
+                        user_id: target_user.user_id.to_native(),
+                        username: target_user.username.as_str().into(),
                     };
 
                     RankOrHolder::Holder(rank_holder)
                 }
-                Err(OsuError::NotFound) => {
+                Err(UserArgsError::Osu(OsuError::NotFound)) => {
                     let content = user_not_found(user_id).await;
 
                     return orig.error(content).await;
                 }
                 Err(err) => {
-                    let _ = orig.error(OSU_API_ISSUE).await;
+                    let _ = orig.error(GENERAL_ISSUE).await;
 
                     return Err(Report::new(err).wrap_err("Failed to get target user"));
                 }
@@ -176,7 +187,7 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
                     let pp = holder.statistics.as_ref().map_or(0.0, |stats| stats.pp);
                     let user_id = holder.user_id;
 
-                    let (username, country_code) = if user_id == user.user_id() {
+                    let (username, country_code) = if user_id == user.user_id.to_native() {
                         let tuple = (holder.username.clone(), holder.country_code.clone());
                         user.update(holder);
 
@@ -251,7 +262,7 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
     let scores = if rank_data.with_scores() {
         let user = rank_data.user();
 
-        let user_args = UserArgsSlim::user_id(user.user_id()).mode(mode);
+        let user_args = UserArgsSlim::user_id(user.user_id.to_native()).mode(mode);
         let scores_fut = Context::osu_scores()
             // making sure to retrieve potential lazer top scores as well;
             // no need to retrieve it via user/guild config
@@ -285,7 +296,7 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
     let embed = EmbedBuilder::new()
         .author(user.author_builder())
         .description(description)
-        .thumbnail(user.avatar_url())
+        .thumbnail(user.avatar_url.as_ref())
         .title(title);
 
     let builder = MessageBuilder::new().embed(embed);
@@ -600,22 +611,22 @@ enum RankMultipleScores {
 
 enum RankData {
     Sub10k {
-        user: RedisData<User>,
+        user: CachedUser,
         rank: u32,
         country: Option<CountryCode>,
         rank_holder: RankHolder,
     },
     Sub10kExact {
-        user: RedisData<User>,
+        user: CachedUser,
         rank_holder: RankHolder,
     },
     Over10kApprox {
-        user: RedisData<User>,
+        user: CachedUser,
         rank: u32,
         required_pp: f32,
     },
     Over10kExact {
-        user: RedisData<User>,
+        user: CachedUser,
         rank_holder: RankHolder,
     },
 }
@@ -642,19 +653,27 @@ fn idx_suffix(idx: usize) -> &'static str {
 
 impl RankData {
     fn with_scores(&self) -> bool {
+        let user_pp = |user: &CachedUser| {
+            user.statistics
+                .as_ref()
+                .expect("missing stats")
+                .pp
+                .to_native()
+        };
+
         match self {
             Self::Sub10k {
                 user, rank_holder, ..
-            } => user.stats().pp() < rank_holder.pp,
-            Self::Sub10kExact { user, rank_holder } => user.stats().pp() < rank_holder.pp,
+            } => user_pp(user) < rank_holder.pp,
+            Self::Sub10kExact { user, rank_holder } => user_pp(user) < rank_holder.pp,
             Self::Over10kApprox {
                 user, required_pp, ..
-            } => user.stats().pp() < *required_pp,
-            Self::Over10kExact { user, rank_holder } => user.stats().pp() < rank_holder.pp,
+            } => user_pp(user) < *required_pp,
+            Self::Over10kExact { user, rank_holder } => user_pp(user) < rank_holder.pp,
         }
     }
 
-    fn user(&self) -> &RedisData<User> {
+    fn user(&self) -> &CachedUser {
         match self {
             Self::Sub10k { user, .. } => user,
             Self::Sub10kExact { user, .. } => user,
@@ -673,7 +692,7 @@ impl RankData {
             } => {
                 format!(
                     "How many pp is {username} missing to reach rank {country}{rank}?",
-                    username = user.username().cow_escape_markdown(),
+                    username = user.username.as_str().cow_escape_markdown(),
                     country = country.as_ref().map(|code| code.as_str()).unwrap_or("#"),
                 )
             }
@@ -683,7 +702,7 @@ impl RankData {
                 format!(
                     "How many pp is {username} missing to reach \
                     {holder_name}'{genitiv} rank #{rank}?",
-                    username = user.username().cow_escape_markdown(),
+                    username = user.username.as_str().cow_escape_markdown(),
                     genitiv = if holder_name.ends_with('s') { "" } else { "s" },
                     rank = rank_holder.global_rank,
                 )
@@ -694,7 +713,7 @@ impl RankData {
                 format!(
                     "How many pp is {username} missing to reach \
                     {holder_name}'{genitiv} rank #{rank}?",
-                    username = user.username().cow_escape_markdown(),
+                    username = user.username.as_str().cow_escape_markdown(),
                     genitiv = if holder_name.ends_with('s') { "" } else { "s" },
                     rank = WithComma::new(rank_holder.global_rank),
                 )
@@ -702,7 +721,7 @@ impl RankData {
             RankData::Over10kApprox { user, rank, .. } => {
                 format!(
                     "How many pp is {username} missing to reach rank #{rank}?",
-                    username = user.username().cow_escape_markdown(),
+                    username = user.username.as_str().cow_escape_markdown(),
                     rank = WithComma::new(*rank),
                 )
             }
@@ -772,15 +791,20 @@ impl RankData {
     }
 
     fn description_sub_10k(
-        user: &RedisData<User>,
+        user: &CachedUser,
         prefix: &str,
         rank_holder: &RankHolder,
         scores: Option<&[Score]>,
         multiple: RankMultipleScores,
     ) -> String {
-        let username = user.username().cow_escape_markdown();
-        let user_id = user.user_id();
-        let user_pp = user.stats().pp();
+        let username = user.username.as_str().cow_escape_markdown();
+        let user_id = user.user_id.to_native();
+        let user_pp = user
+            .statistics
+            .as_ref()
+            .expect("missing stats")
+            .pp
+            .to_native();
         let rank = rank_holder.global_rank;
         let rank_holder_pp = rank_holder.pp;
 
@@ -984,7 +1008,7 @@ impl RankData {
     }
 
     fn description_over_10k(
-        user: &RedisData<User>,
+        user: &CachedUser,
         prefix: &str,
         maybe_approx: &str,
         required_pp: f32,
@@ -992,8 +1016,13 @@ impl RankData {
         scores: Option<&[Score]>,
         multiple: RankMultipleScores,
     ) -> String {
-        let username = user.username().cow_escape_markdown();
-        let user_pp = user.stats().pp();
+        let username = user.username.as_str().cow_escape_markdown();
+        let user_pp = user
+            .statistics
+            .as_ref()
+            .expect("missing stats")
+            .pp
+            .to_native();
 
         if user_pp > required_pp {
             return format!(

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use bathbot_util::{
-    constants::{AVATAR_URL, GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    constants::{AVATAR_URL, GENERAL_ISSUE, OSEKAI_ISSUE},
     MessageBuilder,
 };
 use eyre::{Report, Result};
@@ -16,7 +16,10 @@ use crate::{
     active::{impls::BadgesPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::{commands::CommandOrigin, Context},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::{
+        osu::{UserArgs, UserArgsError},
+        RedisData,
+    },
     util::osu::get_combined_thumbnail,
 };
 
@@ -39,19 +42,22 @@ pub(super) async fn user(orig: CommandOrigin<'_>, args: BadgesUser) -> Result<()
     let user_args_fut = UserArgs::rosu_id(&user_id, GameMode::Osu);
     let badges_fut = Context::redis().badges();
 
-    let (user_args_res, badges_res) = tokio::join!(user_args_fut, badges_fut);
+    let (user_args, badges_res) = tokio::join!(user_args_fut, badges_fut);
 
-    let (user_id_raw, user_id) = match user_args_res {
+    let (user_id_raw, user_id) = match user_args {
         UserArgs::Args(args) => (args.user_id, user_id),
-        UserArgs::User { user, .. } => (user.user_id, UserId::Name(user.username)),
-        UserArgs::Err(OsuError::NotFound) => {
+        UserArgs::User { user, .. } => (
+            user.user_id.to_native(),
+            UserId::Name(user.username.as_str().into()),
+        ),
+        UserArgs::Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         UserArgs::Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
@@ -62,7 +68,7 @@ pub(super) async fn user(orig: CommandOrigin<'_>, args: BadgesUser) -> Result<()
         Err(err) => {
             let _ = orig.error(OSEKAI_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get badges"));
+            return Err(err.wrap_err("Failed to get badges"));
         }
     };
 

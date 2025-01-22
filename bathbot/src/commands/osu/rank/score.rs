@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp, fmt::Write, iter};
 
 use bathbot_macros::command;
-use bathbot_model::{command_fields::GameModeOption, rosu_v2::user::User, RespektiveUser};
+use bathbot_model::{command_fields::GameModeOption, RespektiveUser};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
     matcher,
@@ -16,8 +16,8 @@ use super::{RankScore, RankValue};
 use crate::{
     commands::osu::user_not_found,
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{osu::UserArgs, RedisData},
-    util::ChannelExt,
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
+    util::{CachedUserExt, ChannelExt},
     Context,
 };
 
@@ -158,13 +158,13 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
 
     let mut user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get user"));
         }
@@ -175,7 +175,8 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
 
     let rank = match rank_value {
         RankValue::Delta(delta) => {
-            let user_fut = Context::client().get_respektive_users(iter::once(user.user_id()), mode);
+            let user_fut =
+                Context::client().get_respektive_users(iter::once(user.user_id.to_native()), mode);
 
             let curr_rank = match user_fut
                 .await
@@ -187,7 +188,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
                         "Failed to get score rank data for user `{}`.\n\
                         In order for delta input to work, \
                         the user must be at least top 10k in the score ranking.",
-                        user.username()
+                        user.username.as_str()
                     );
 
                     return orig.error(content).await;
@@ -209,19 +210,24 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
             let user_id = match Context::redis().osu_user(user_args).await {
                 Ok(user) => {
                     rank_holder = Some(RankHolder {
-                        ranked_score: user.stats().ranked_score(),
-                        username: user.username().into(),
+                        ranked_score: user
+                            .statistics
+                            .as_ref()
+                            .expect("missing stats")
+                            .ranked_score
+                            .to_native(),
+                        username: user.username.as_str().into(),
                     });
 
-                    user.user_id()
+                    user.user_id.to_native()
                 }
-                Err(OsuError::NotFound) => {
+                Err(UserArgsError::Osu(OsuError::NotFound)) => {
                     let content = user_not_found(UserId::from(name)).await;
 
                     return orig.error(content).await;
                 }
                 Err(err) => {
-                    let _ = orig.error(OSU_API_ISSUE).await;
+                    let _ = orig.error(GENERAL_ISSUE).await;
 
                     return Err(Report::new(err).wrap_err("Failed to get target user"));
                 }
@@ -280,7 +286,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
                 // In case the given rank belongs to the user itself,
                 // might as well update user data in case it was previously
                 // cached.
-                let username = if user_.user_id == user.user_id() {
+                let username = if user_.user_id == user.user_id.to_native() {
                     let username = user_.username.clone();
                     user.update(user_);
 
@@ -308,7 +314,8 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
         }
     };
 
-    let rank_fut = Context::client().get_respektive_users(iter::once(user.user_id()), mode);
+    let rank_fut =
+        Context::client().get_respektive_users(iter::once(user.user_id.to_native()), mode);
 
     let respektive_user = match rank_fut.await {
         Ok(mut iter) => iter.next().flatten(),
@@ -319,7 +326,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
         }
     };
 
-    let username = user.username().cow_escape_markdown();
+    let username = user.username.as_str().cow_escape_markdown();
 
     let title = if reach_name {
         let holder_name = rank_holder.username.as_str();
@@ -333,7 +340,12 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
         format!("How much ranked score is {username} missing to reach rank #{rank}?")
     };
 
-    let user_score = user.stats().ranked_score();
+    let user_score = user
+        .statistics
+        .as_ref()
+        .expect("missing stats")
+        .ranked_score
+        .to_native();
     let rank_holder_score = rank_holder.ranked_score;
 
     let mut description = if reach_name {
@@ -367,7 +379,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankScore<'_>) -> Resul
     let embed = EmbedBuilder::new()
         .author(author(&user, respektive_user.as_ref()))
         .description(description)
-        .thumbnail(user.avatar_url().to_owned())
+        .thumbnail(user.avatar_url.as_ref().to_owned())
         .title(title);
 
     let builder = MessageBuilder::new().embed(embed);
@@ -381,35 +393,28 @@ struct RankHolder {
     username: Username,
 }
 
-fn author(user: &RedisData<User>, respektive_user: Option<&RespektiveUser>) -> AuthorBuilder {
+fn author(user: &CachedUser, respektive_user: Option<&RespektiveUser>) -> AuthorBuilder {
     let rank = respektive_user.and_then(|user| user.rank);
 
     let mut text = format!(
         "{username}: {score}",
-        username = user.username(),
-        score = WithComma::new(user.stats().ranked_score()),
+        username = user.username.as_str(),
+        score = WithComma::new(
+            user.statistics
+                .as_ref()
+                .expect("missing stats")
+                .ranked_score
+                .to_native()
+        ),
     );
 
     if let Some(rank) = rank {
         let _ = write!(text, " (#{})", WithComma::new(rank.get()));
     }
 
-    let (country_code, user_id, mode) = match user {
-        RedisData::Original(user) => {
-            let country_code = user.country_code.as_str();
-            let user_id = user.user_id;
-            let mode = user.mode;
-
-            (country_code, user_id, mode)
-        }
-        RedisData::Archive(user) => {
-            let country_code = user.country_code.as_str();
-            let user_id = user.user_id;
-            let mode = user.mode;
-
-            (country_code, user_id.to_native(), mode)
-        }
-    };
+    let country_code = user.country_code.as_str();
+    let user_id = user.user_id.to_native();
+    let mode = user.mode;
 
     let url = format!("{OSU_BASE}users/{user_id}/{mode}");
     let icon = flag_url(country_code);

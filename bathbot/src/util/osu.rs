@@ -8,7 +8,7 @@ use std::{
     mem::MaybeUninit,
 };
 
-use bathbot_model::{rosu_v2::user::User, OsuStatsParams, ScoreSlim};
+use bathbot_model::{OsuStatsParams, ScoreSlim};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::OSU_BASE,
@@ -36,7 +36,7 @@ use twilight_model::channel::{message::MessageType, Message};
 
 use crate::{
     core::{BotConfig, Context},
-    manager::{redis::RedisData, OsuMap},
+    manager::{redis::osu::CachedUser, OsuMap},
 };
 
 pub fn grade_emote(grade: Grade) -> &'static str {
@@ -188,11 +188,11 @@ impl TopCounts {
         self.top100s.len()
     }
 
-    pub async fn request(user: &RedisData<User>, mode: GameMode) -> Result<Self> {
+    pub async fn request(user: &CachedUser, mode: GameMode) -> Result<Self> {
         Self::request_osustats(user, mode).await
     }
 
-    async fn request_osustats(user: &RedisData<User>, mode: GameMode) -> Result<Self> {
+    async fn request_osustats(user: &CachedUser, mode: GameMode) -> Result<Self> {
         let mut counts = [
             MaybeUninit::uninit(),
             MaybeUninit::uninit(),
@@ -201,7 +201,7 @@ impl TopCounts {
             MaybeUninit::uninit(),
         ];
 
-        let mut params = OsuStatsParams::new(user.username());
+        let mut params = OsuStatsParams::new(user.username.as_str());
         params.mode(mode);
         let mut params_clone = params.clone();
         let mut get_amount = true;
@@ -253,12 +253,9 @@ impl TopCounts {
             }
         }
 
-        let top1s = match user {
-            RedisData::Original(user) => user.scores_first_count,
-            RedisData::Archive(user) => user.scores_first_count.to_native(),
-        };
-
-        let top1s = WithComma::new(top1s).to_string().into();
+        let top1s = WithComma::new(user.scores_first_count.to_native())
+            .to_string()
+            .into();
 
         let [top100s, top50s, top25s, top15s, top8s] = counts;
 

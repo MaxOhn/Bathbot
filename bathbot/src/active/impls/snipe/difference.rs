@@ -5,7 +5,7 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{rosu_v2::user::User, SnipeRecent};
+use bathbot_model::{ SnipeRecent};
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, CowUtils, EmbedBuilder,
     FooterBuilder, IntHasher,
@@ -26,13 +26,13 @@ use crate::{
     commands::osu::Difference,
     core::Context,
     embeds::ModsFormatter,
-    manager::redis::RedisData,
-    util::interaction::{InteractionComponent, InteractionModal},
+    manager::redis::osu::CachedUser,
+    util::{interaction::{InteractionComponent, InteractionModal}, CachedUserExt},
 };
 
 #[derive(PaginationBuilder)]
 pub struct SnipeDifferencePagination {
-    user: RedisData<User>,
+    user: CachedUser,
     diff: Difference,
     #[pagination(per_page = 10)]
     scores: Box<[SnipeRecent]>,
@@ -167,7 +167,7 @@ impl SnipeDifferencePagination {
             .author(self.user.author_builder())
             .description(description)
             .footer(footer)
-            .thumbnail(self.user.avatar_url())
+            .thumbnail(self.user.avatar_url.as_ref())
             .title(title);
 
         Ok(BuildPage::new(embed, true))

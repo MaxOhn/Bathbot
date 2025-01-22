@@ -1,9 +1,9 @@
 use bathbot_macros::EmbedData;
-use bathbot_model::{rosu_v2::user::User, SnipedWeek};
+use bathbot_model::SnipedWeek;
 use bathbot_util::{fields, AuthorBuilder};
 use twilight_model::channel::message::embed::EmbedField;
 
-use crate::{embeds::attachment, manager::redis::RedisData};
+use crate::{embeds::attachment, manager::redis::osu::CachedUser, util::CachedUserExt};
 
 #[derive(EmbedData)]
 pub struct SnipedEmbed {
@@ -16,11 +16,11 @@ pub struct SnipedEmbed {
 }
 
 impl SnipedEmbed {
-    pub fn new(user: &RedisData<User>, sniper: Vec<SnipedWeek>, snipee: Vec<SnipedWeek>) -> Self {
-        let thumbnail = user.avatar_url().to_owned();
+    pub fn new(user: &CachedUser, sniper: Vec<SnipedWeek>, snipee: Vec<SnipedWeek>) -> Self {
+        let thumbnail = user.avatar_url.as_ref().to_owned();
         let author = user.author_builder();
         let title = "National snipe scores of the last 8 weeks";
-        let username = user.username();
+        let username = user.username.as_str();
 
         if sniper.is_empty() && snipee.is_empty() {
             let description =

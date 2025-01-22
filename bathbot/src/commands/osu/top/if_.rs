@@ -4,7 +4,7 @@ use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::{command_fields::GameModeOption, ScoreSlim};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, },
     matcher,
     numbers::round,
     osu::ModSelection,
@@ -22,7 +22,7 @@ use crate::{
     active::{impls::TopIfPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::UserArgs, OsuMap},
+    manager::{redis::osu::{UserArgs, UserArgsError}, OsuMap},
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
@@ -242,14 +242,14 @@ async fn topif(orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
@@ -261,9 +261,9 @@ async fn topif(orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
         .filter_map(|s| s.weight)
         .fold(0.0, |sum, weight| sum + weight.pp);
 
-    let bonus_pp = user.stats().pp() - actual_pp;
+    let bonus_pp = user.statistics.as_ref().expect("missing stats").pp.to_native() - actual_pp;
     let sort = args.sort.unwrap_or_default();
-    let content = get_content(user.username(), mode, &mods, args.query.as_deref(), sort);
+    let content = get_content(user.username.as_str(), mode, &mods, args.query.as_deref(), sort);
 
     let mut entries = match process_scores(scores, mods, mode, sort, legacy_scores).await {
         Ok(scores) => scores,
@@ -297,7 +297,7 @@ async fn topif(orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
     };
 
     // Accumulate all necessary data
-    let pre_pp = user.stats().pp();
+    let pre_pp = user.statistics.as_ref().expect("missing stats").pp.to_native();
 
     let pagination = TopIfPagination::builder()
         .user(user)

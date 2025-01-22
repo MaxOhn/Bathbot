@@ -7,7 +7,7 @@ use bathbot_model::{
 };
 use bathbot_psql::model::configs::{GuildConfig, Retries, ScoreData};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, },
     matcher, CowUtils, MessageOrigin,
 };
 use eyre::{Report, Result};
@@ -33,7 +33,7 @@ use crate::{
         utility::{MissAnalyzerCheck, ScoreEmbedDataWrap},
     },
     core::commands::{interaction::InteractionCommands, prefix::Args, CommandOrigin},
-    manager::redis::osu::{UserArgs, UserArgsSlim},
+    manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
     util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
     Context,
 };
@@ -409,7 +409,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
 
     let (user, mut scores) = match scores_res {
         Ok((user, scores)) if scores.is_empty() => {
-            let username = user.username();
+            let username = user.username.as_str();
             let content = format!(
                 "No recent {}plays found for user `{username}`",
                 match mode {
@@ -423,14 +423,14 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
             return orig.error(content).await;
         }
         Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
@@ -480,7 +480,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
 
     let Some([score, prev_scores @ ..]) = scores.get(num..) else {
         let len = scores.len();
-        let username = user.username();
+        let username = user.username.as_str();
 
         let content = format!(
             "There {verb} only {len} score{plural} in `{username}`'{genitive} recent history.",
@@ -552,7 +552,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         ),
     };
 
-    let user_id = user.user_id();
+    let user_id = user.user_id.to_native();
     let grade = if score.passed { score.grade } else { Grade::F };
 
     let mut with_miss_analyzer = orig

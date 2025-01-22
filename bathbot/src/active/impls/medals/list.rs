@@ -1,7 +1,6 @@
 use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE, osu::flag_url, AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
 };
@@ -18,13 +17,13 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     commands::osu::MedalEntryList,
-    manager::redis::RedisData,
+    manager::redis::{ osu::CachedUser},
     util::interaction::{InteractionComponent, InteractionModal},
 };
 
 #[derive(PaginationBuilder)]
 pub struct MedalsListPagination {
-    user: RedisData<User>,
+    user: CachedUser,
     acquired: (usize, usize),
     #[pagination(per_page = 10)]
     medals: Box<[MedalEntryList]>,
@@ -73,24 +72,10 @@ impl IActiveMessage for MedalsListPagination {
             self.acquired.0, self.acquired.1
         ));
 
-        let (country_code, username, user_id, avatar_url) = match self.user {
-            RedisData::Original(ref user) => {
-                let country_code = user.country_code.as_str();
-                let username = user.username.as_str();
-                let user_id = user.user_id;
-                let avatar_url = user.avatar_url.as_ref();
-
-                (country_code, username, user_id, avatar_url)
-            }
-            RedisData::Archive(ref user) => {
-                let country_code = user.country_code.as_str();
-                let username = user.username.as_str();
-                let user_id = user.user_id;
-                let avatar_url = user.avatar_url.as_ref();
-
-                (country_code, username, user_id.to_native(), avatar_url)
-            }
-        };
+        let country_code = self.user.country_code.as_str();
+        let username = self.user.username.as_str();
+        let user_id = self.user.user_id.to_native();
+        let avatar_url = self.user.avatar_url.as_ref();
 
         let author = AuthorBuilder::new(username)
             .url(format!("{OSU_BASE}u/{user_id}"))

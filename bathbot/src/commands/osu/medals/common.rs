@@ -4,9 +4,9 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{rosu_v2::user::User, MedalGroup, OsekaiMedal, Rarity};
+use bathbot_model::{ MedalGroup, OsekaiMedal, Rarity};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, },
     matcher, IntHasher,
 };
 use eyre::{Report, Result};
@@ -24,7 +24,10 @@ use crate::{
     active::{impls::MedalsCommonPagination, ActiveMessages},
     commands::osu::UserExtraction,
     core::commands::CommandOrigin,
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::{
+        osu::{CachedUser, UserArgs, UserArgsError},
+        RedisData,
+    },
     util::osu::get_combined_thumbnail,
     Context,
 };
@@ -136,15 +139,16 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
 
     let (user1, user2) = match (user_res1, user_res2) {
         (Ok(user1), Ok(user2)) => (user1, user2),
-        (Err(OsuError::NotFound), _) | (_, Err(OsuError::NotFound)) => {
+        (Err(UserArgsError::Osu(OsuError::NotFound)), _)
+        | (_, Err(UserArgsError::Osu(OsuError::NotFound))) => {
             let content = "At least one of the users was not found";
 
             return orig.error(content).await;
         }
         (Err(err), _) | (_, Err(err)) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-            return Err(Report::new(err).wrap_err("failed to get user"));
+            return Err(Report::new(err).wrap_err("Failed to get user"));
         }
     };
 
@@ -157,7 +161,7 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
         }
     };
 
-    if user1.user_id() == user2.user_id() {
+    if user1.user_id == user2.user_id {
         let content = "Give two different users";
 
         return orig.error(content).await;
@@ -296,7 +300,7 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
         }
     }
 
-    let urls = [user1.avatar_url(), user2.avatar_url()];
+    let urls = [user1.avatar_url.as_ref(), user2.avatar_url.as_ref()];
 
     let thumbnail = match get_combined_thumbnail(urls, 2, None).await {
         Ok(thumbnail) => Some(thumbnail),
@@ -307,15 +311,8 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
         }
     };
 
-    let username1 = match user1 {
-        RedisData::Original(user) => user.username,
-        RedisData::Archive(user) => user.username.as_str().into(),
-    };
-
-    let username2 = match user2 {
-        RedisData::Original(user) => user.username,
-        RedisData::Archive(user) => user.username.as_str().into(),
-    };
+    let username1 = user1.username.as_str().into();
+    let username2 = user2.username.as_str().into();
 
     let user1 = MedalsCommonUser::new(username1, winner1);
     let user2 = MedalsCommonUser::new(username2, winner2);
@@ -340,23 +337,15 @@ pub struct MedalEntryCommon {
     pub achieved2: Option<OffsetDateTime>,
 }
 
-fn extract_medals(user: &RedisData<User>) -> HashMap<u32, OffsetDateTime, IntHasher> {
-    match user {
-        RedisData::Original(user) => user
-            .medals
-            .iter()
-            .map(|medal| (medal.medal_id, medal.achieved_at))
-            .collect(),
-        RedisData::Archive(user) => user
-            .medals
-            .iter()
-            .map(|medal| {
-                let achieved_at = medal.achieved_at.try_deserialize::<Panic>().always_ok();
+fn extract_medals(user: &CachedUser) -> HashMap<u32, OffsetDateTime, IntHasher> {
+    user.medals
+        .iter()
+        .map(|medal| {
+            let achieved_at = medal.achieved_at.try_deserialize::<Panic>().always_ok();
 
-                (medal.medal_id.to_native(), achieved_at)
-            })
-            .collect(),
-    }
+            (medal.medal_id.to_native(), achieved_at)
+        })
+        .collect()
 }
 
 pub struct MedalsCommonUser {

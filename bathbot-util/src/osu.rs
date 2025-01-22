@@ -312,7 +312,7 @@ impl BonusPP {
         self.avg_y += self.ys[idx] * weight;
     }
 
-    pub fn calculate(self, stats: impl UserStats) -> f32 {
+    pub fn calculate(self, stats: &impl UserStats) -> f32 {
         fn inner(bonus_pp: BonusPP, stats_pp: f32, grade_counts_sum: i32, playcount: u32) -> f32 {
             let BonusPP {
                 mut pp,

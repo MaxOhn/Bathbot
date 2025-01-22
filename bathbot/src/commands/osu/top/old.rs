@@ -4,7 +4,7 @@ use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, },
     matcher,
     numbers::round,
     osu::ModSelection,
@@ -24,7 +24,10 @@ use crate::{
     active::{impls::TopIfPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found, HasMods, ModsResult, TopIfScoreOrder},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::UserArgs, OsuMap},
+    manager::{
+        redis::osu::{UserArgs, UserArgsError},
+        OsuMap,
+    },
     util::{
         interaction::InteractionCommand,
         query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
@@ -828,14 +831,14 @@ async fn topold(orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
 
     let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user or scores");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user or scores");
 
             return Err(err);
         }
@@ -848,7 +851,12 @@ async fn topold(orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
         .map(|weight| weight.pp)
         .sum();
 
-    let pre_pp = user.stats().pp();
+    let pre_pp = user
+        .statistics
+        .as_ref()
+        .expect("missing stats")
+        .pp
+        .to_native();
     let bonus_pp = pre_pp - actual_pp;
 
     let mut entries = match process_scores(scores, &args).await {
@@ -874,7 +882,7 @@ async fn topold(orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
     });
 
     let adjusted_pp = round(bonus_pp + adjusted_pp);
-    let username = user.username();
+    let username = user.username.as_str();
 
     // Process filter/sorting afterwards
     common.process(&mut entries);

@@ -1,7 +1,6 @@
 use std::{collections::HashMap, fmt::Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::rosu_v2::user::User;
 use bathbot_util::{
     constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, CowUtils, EmbedBuilder,
     FooterBuilder, IntHasher,
@@ -21,16 +20,16 @@ use crate::{
     },
     commands::osu::RecentListEntry,
     embeds::{ComboFormatter, KeyFormatter, PpFormatter},
-    manager::{redis::RedisData, OsuMap},
+    manager::{ redis::osu::CachedUser, OsuMap},
     util::{
         interaction::{InteractionComponent, InteractionModal},
-        osu::GradeCompletionFormatter,
+        osu::GradeCompletionFormatter, CachedUserExt,
     },
 };
 
 #[derive(PaginationBuilder)]
 pub struct RecentListPagination {
-    user: RedisData<User>,
+    user: CachedUser,
     #[pagination(per_page = 10)]
     entries: Box<[RecentListEntry]>,
     maps: HashMap<u32, OsuMap, IntHasher>,
@@ -67,7 +66,7 @@ impl IActiveMessage for RecentListPagination {
                 description,
                 "**#{i} {grade}\t[{title} [{version}]]({OSU_BASE}b/{map_id})** [{stars:.2}★]",
                 i = *idx + 1,
-                grade = GradeCompletionFormatter::new(score, self.user.mode(), map.n_objects()),
+                grade = GradeCompletionFormatter::new(score, self.user.mode, map.n_objects()),
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 map_id = map.map_id(),
@@ -101,7 +100,7 @@ impl IActiveMessage for RecentListPagination {
             .author(self.user.author_builder())
             .description(description)
             .footer(FooterBuilder::new(footer_text))
-            .thumbnail(self.user.avatar_url())
+            .thumbnail(self.user.avatar_url.as_ref())
             .title("List of recent scores:");
 
         BuildPage::new(embed, false)

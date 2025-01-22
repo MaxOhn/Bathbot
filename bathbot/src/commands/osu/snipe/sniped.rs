@@ -3,7 +3,7 @@ use std::ops;
 use bathbot_macros::command;
 use bathbot_model::SnipedWeek;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, },
     datetime::DATE_FORMAT,
     matcher, MessageBuilder,
 };
@@ -26,7 +26,10 @@ use super::{SnipeGameMode, SnipePlayerSniped};
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, SnipedEmbed},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::{
+        osu::{UserArgs, UserArgsError},
+        
+    },
     Context,
 };
 
@@ -102,7 +105,7 @@ pub(super) async fn player_sniped(
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = match user_id {
                 UserId::Id(user_id) => format!("User with id {user_id} was not found"),
                 UserId::Name(name) => format!("User `{name}` was not found"),
@@ -111,8 +114,8 @@ pub(super) async fn player_sniped(
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
@@ -120,18 +123,9 @@ pub(super) async fn player_sniped(
 
     let client = Context::client();
 
-    let (user_id, username, country_code) = match &user {
-        RedisData::Original(user) => (
-            user.user_id,
-            user.username.as_str(),
-            user.country_code.as_str(),
-        ),
-        RedisData::Archive(user) => (
-            user.user_id.to_native(),
-            user.username.as_str(),
-            user.country_code.as_str(),
-        ),
-    };
+    let user_id = user.user_id.to_native();
+    let username = user.username.as_str();
+    let country_code = user.country_code.as_str();
 
     let (mut sniper, mut snipee) = if Context::huismetbenen()
         .is_supported(country_code, mode)

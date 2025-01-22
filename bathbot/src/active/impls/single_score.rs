@@ -1,11 +1,8 @@
 use std::{borrow::Cow, fmt::Write, time::Duration};
 
-use bathbot_model::{
-    embed_builder::{
-        EmoteTextValue, HitresultsValue, MapperValue, ScoreEmbedSettings, SettingValue,
-        SettingsImage, Value,
-    },
-    rosu_v2::user::User,
+use bathbot_model::embed_builder::{
+    EmoteTextValue, HitresultsValue, MapperValue, ScoreEmbedSettings, SettingValue, SettingsImage,
+    Value,
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
@@ -47,11 +44,11 @@ use crate::{
     },
     core::{buckets::BucketName, Context},
     embeds::{attachment, HitResultFormatter},
-    manager::{redis::RedisData, OwnedReplayScore, ReplayScore},
+    manager::{redis::osu::CachedUser, OwnedReplayScore, ReplayScore},
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::{GradeFormatter, ScoreFormatter},
-        Authored, Emote, MessageExt,
+        Authored, CachedUserExt, Emote, MessageExt,
     },
 };
 
@@ -71,7 +68,7 @@ impl SingleScorePagination {
     pub const IMAGE_NAME: &'static str = "map_graph.png";
 
     pub fn new(
-        user: &RedisData<User>,
+        user: &CachedUser,
         scores: Box<[ScoreEmbedDataWrap]>,
         settings: ScoreEmbedSettings,
         score_data: ScoreData,
@@ -84,7 +81,7 @@ impl SingleScorePagination {
             settings,
             scores,
             score_data,
-            username: Box::from(user.username()),
+            username: Box::from(user.username.as_ref()),
             msg_owner,
             pages,
             author: user.author_builder(),

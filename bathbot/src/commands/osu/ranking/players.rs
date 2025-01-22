@@ -87,13 +87,13 @@ async fn pp_author_idx(
         Ok(user) => {
             let idx = match country {
                 Some(code) => {
-                    if user.country_code() == code.as_str() {
-                        Some(user.stats().country_rank())
+                    if user.country_code.as_str() == code.as_str() {
+                        Some(user.statistics.as_ref().expect("missing stats").country_rank.to_native())
                     } else {
                         None
                     }
                 }
-                None => Some(user.stats().global_rank()),
+                None => Some(user.statistics.as_ref().expect("missing stats").global_rank.to_native()),
             };
 
             idx.filter(|n| (1..=10_000).contains(n))

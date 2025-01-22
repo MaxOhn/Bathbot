@@ -1,11 +1,8 @@
 use std::{slice, sync::Arc};
 
-use bathbot_model::{
-    embed_builder::{
-        ComboValue, HitresultsValue, ScoreEmbedSettings, SettingValue, SettingsButtons,
-        SettingsImage, Value,
-    },
-    rosu_v2::user::User,
+use bathbot_model::embed_builder::{
+    ComboValue, HitresultsValue, ScoreEmbedSettings, SettingValue, SettingsButtons, SettingsImage,
+    Value,
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{constants::UNKNOWN_CHANNEL, EmbedBuilder};
@@ -22,10 +19,7 @@ use crate::{
     commands::utility::ScoreEmbedDataWrap,
     core::{BotMetrics, Context},
     manager::{
-        redis::{
-            osu::{UserArgs, UserArgsSlim},
-            RedisData,
-        },
+        redis::osu::{CachedUser, UserArgs, UserArgsSlim},
         OsuMap,
     },
 };
@@ -42,12 +36,22 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
 
     let (user, tops, map) = match tokio::join!(user_fut, tops_fut, map_fut) {
         (Ok(user), Ok(scores), Ok(map)) => (user, scores, map),
-        (Err(err), ..) | (_, Err(err), _) => {
+        (Err(err), ..) => {
             warn!(
                 user_id = score.user_id,
                 mode = ?score.mode,
                 ?err,
-                "Failed to get user or top scores for tracking"
+                "Failed to get user for tracking"
+            );
+
+            return;
+        }
+        (_, Err(err), _) => {
+            warn!(
+                user_id = score.user_id,
+                mode = ?score.mode,
+                ?err,
+                "Failed to get top scores for tracking"
             );
 
             return;
@@ -121,7 +125,7 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
 }
 
 async fn embed_builder(
-    user: &RedisData<User>,
+    user: &CachedUser,
     score: Score,
     map: OsuMap,
     idx: usize,

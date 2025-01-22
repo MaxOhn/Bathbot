@@ -1,6 +1,6 @@
 use std::fmt::{Display, Write};
 
-use bathbot_model::{rosu_v2::user::User, RankAccPeaks};
+use bathbot_model::RankAccPeaks;
 use bathbot_util::{
     datetime::{HowLongAgoText, SecToMinSec, NAIVE_DATETIME_FORMAT},
     fields,
@@ -33,8 +33,11 @@ use self::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::osu::ProfileKind,
-    manager::redis::RedisData,
-    util::{interaction::InteractionComponent, osu::grade_emote, Authored, ComponentExt, Emote},
+    manager::redis::osu::CachedUser,
+    util::{
+        interaction::InteractionComponent, osu::grade_emote, Authored, CachedUserExt, ComponentExt,
+        Emote,
+    },
 };
 
 mod availability;
@@ -43,7 +46,7 @@ mod top100_mods;
 mod top100_stats;
 
 pub struct ProfileMenu {
-    user: RedisData<User>,
+    user: CachedUser,
     discord_id: Option<Id<UserMarker>>,
     tz: Option<UtcOffset>,
     legacy_scores: bool,
@@ -177,7 +180,7 @@ impl IActiveMessage for ProfileMenu {
 impl ProfileMenu {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        user: RedisData<User>,
+        user: CachedUser,
         discord_id: Option<Id<UserMarker>>,
         tz: Option<UtcOffset>,
         osutrack_peaks: Option<RankAccPeaks>,
@@ -204,41 +207,29 @@ impl ProfileMenu {
     }
 
     async fn compact(&mut self) -> Result<BuildPage> {
-        let user_id = self.user.user_id();
+        let user_id = self.user.user_id.to_native();
 
-        let (mode, medals, mut highest_rank) = match self.user {
-            RedisData::Original(ref user) => {
-                let mode = user.mode;
-                let medals = user.medals.len();
-                let highest_rank = user.highest_rank.as_ref().cloned();
-
-                (mode, medals, highest_rank)
-            }
-            RedisData::Archive(ref user) => {
-                let mode = user.mode;
-                let medals = user.medals.len();
-                let highest_rank = user
-                    .highest_rank
-                    .as_ref()
-                    .map(|highest_rank| highest_rank.try_deserialize::<Panic>().always_ok());
-
-                (mode, medals, highest_rank)
-            }
-        };
+        let mode = self.user.mode;
+        let medals = self.user.medals.len();
+        let mut highest_rank = self
+            .user
+            .highest_rank
+            .as_ref()
+            .map(|highest_rank| highest_rank.try_deserialize::<Panic>().always_ok());
 
         self.consider_osutrack_peaks(&mut highest_rank);
         let skin_url = self.skin_url.get(user_id).await;
-        let stats = self.user.stats();
+        let stats = self.user.statistics.as_ref().expect("missing stats");
 
         let mut description = format!(
             "Accuracy: [`{acc:.2}%`]({origin} \"{acc}\") • Level: `{level:.2}`\n\
             Playcount: `{playcount}` (`{playtime} hrs`)\n\
             {mode} • Medals: `{medals}`",
-            acc = stats.accuracy(),
+            acc = stats.accuracy.to_native(),
             origin = self.origin,
-            level = stats.level().float(),
-            playcount = WithComma::new(stats.playcount()),
-            playtime = stats.playtime() / 60 / 60,
+            level = stats.level.float(),
+            playcount = WithComma::new(stats.playcount.to_native()),
+            playtime = stats.playtime.to_native() / 60 / 60,
             mode = Emote::from(mode),
         );
 
@@ -263,18 +254,16 @@ impl ProfileMenu {
             .author(self.user.author_builder())
             .description(description)
             .footer(self.footer())
-            .thumbnail(self.user.avatar_url());
+            .thumbnail(self.user.avatar_url.as_ref());
 
         Ok(BuildPage::new(embed, true))
     }
 
     async fn user_stats(&mut self) -> Result<BuildPage> {
-        let user_id = self.user.user_id();
-        let mode = self.user.mode();
+        let user_id = self.user.user_id.to_native();
+        let mode = self.user.mode;
 
-        let scores_fut = self
-            .scores
-            .get(self.user.user_id(), self.user.mode(), self.legacy_scores);
+        let scores_fut = self.scores.get(user_id, mode, self.legacy_scores);
         let score_rank_fut = self.score_rank.get(user_id, mode);
 
         let (scores_opt, score_rank_opt) = tokio::join!(scores_fut, score_rank_fut);
@@ -294,7 +283,7 @@ impl ProfileMenu {
                     }
                 }
 
-                let pp = bonus_pp.calculate(self.user.stats());
+                let pp = bonus_pp.calculate(self.user.statistics.as_ref().expect("missing stats"));
 
                 format!("{pp:.2}pp")
             }
@@ -331,45 +320,18 @@ impl ProfileMenu {
             None => ("-".to_string(), "-".to_string()),
         };
 
-        let stats = self.user.stats().to_owned();
+        let stats = self.user.statistics.as_ref().expect("missing stats");
 
-        let (mut highest_rank, medals, follower_count, badges, scores_first_count) = match self.user
-        {
-            RedisData::Original(ref user) => {
-                let medals = user.medals.len();
-                let follower_count = user.follower_count;
-                let highest_rank = user.highest_rank.as_ref().cloned();
-                let badges = user.badges.len();
-                let scores_first_count = user.scores_first_count;
+        let medals = self.user.medals.len();
+        let follower_count = self.user.follower_count;
+        let badges = self.user.badges.len();
+        let scores_first_count = self.user.scores_first_count;
 
-                (
-                    highest_rank,
-                    medals,
-                    follower_count,
-                    badges,
-                    scores_first_count,
-                )
-            }
-            RedisData::Archive(ref user) => {
-                let medals = user.medals.len();
-                let follower_count = user.follower_count;
-                let badges = user.badges.len();
-                let scores_first_count = user.scores_first_count;
-
-                let highest_rank = user
-                    .highest_rank
-                    .as_ref()
-                    .map(|highest_rank| highest_rank.try_deserialize::<Panic>().always_ok());
-
-                (
-                    highest_rank,
-                    medals,
-                    follower_count.to_native(),
-                    badges,
-                    scores_first_count.to_native(),
-                )
-            }
-        };
+        let mut highest_rank = self
+            .user
+            .highest_rank
+            .as_ref()
+            .map(|highest_rank| highest_rank.try_deserialize::<Panic>().always_ok());
 
         let mut description = format!("__**{mode} User statistics", mode = Emote::from(mode));
 
@@ -377,7 +339,8 @@ impl ProfileMenu {
             let _ = write!(description, " for <@{discord_id}>");
         }
 
-        let hits_per_play = stats.total_hits as f32 / stats.playcount as f32;
+        let hits_per_play =
+            stats.total_hits.to_native() as f32 / stats.playcount.to_native() as f32;
 
         description.push_str(":**__");
 
@@ -436,17 +399,19 @@ impl ProfileMenu {
 
         let playcount_value = format!(
             "{} / {} hrs",
-            WithComma::new(stats.playcount),
+            WithComma::new(stats.playcount.to_native()),
             stats.playtime / 60 / 60
         );
 
         // https://github.com/ppy/osu-web/blob/0a41b13acf5f47bb0d2b08bab42a9646b7ab5821/app/Models/UserStatistics/Model.php#L84
-        let recommended_stars = if stats.pp.abs() <= f32::EPSILON {
+        let recommended_stars = if stats.pp.to_native().abs() <= f32::EPSILON {
             1.0
         } else {
             match mode {
-                GameMode::Osu | GameMode::Catch | GameMode::Mania => stats.pp.powf(0.4) * 0.195,
-                GameMode::Taiko => stats.pp.powf(0.35) * 0.27,
+                GameMode::Osu | GameMode::Catch | GameMode::Mania => {
+                    stats.pp.to_native().powf(0.4) * 0.195
+                }
+                GameMode::Taiko => stats.pp.to_native().powf(0.35) * 0.27,
             }
         };
 
@@ -454,25 +419,25 @@ impl ProfileMenu {
             "Peak rank", peak_rank, true;
             "Top score PP", top_score_pp, true;
             "Level", format!("{:.2}", stats.level.float()), true;
-            "Total score", WithComma::new(stats.total_score).to_string(), true;
-            "Total hits", WithComma::new(stats.total_hits).to_string(), true;
+            "Total score", WithComma::new(stats.total_score.to_native()).to_string(), true;
+            "Total hits", WithComma::new(stats.total_hits.to_native()).to_string(), true;
             "Bonus PP", bonus_pp, true;
-            "Ranked score", WithComma::new(stats.ranked_score).to_string(), true;
+            "Ranked score", WithComma::new(stats.ranked_score.to_native()).to_string(), true;
             "Peak score rank", peak_score_rank, true;
             "Score rank", score_rank, true;
             "Hits per play", WithComma::new(hits_per_play).to_string(), true;
             "Peak accuracy", peak_acc, true;
             "Accuracy", format!("[{acc:.2}%]({origin} \"{acc}%\")", acc = stats.accuracy, origin = self.origin), true;
             "Recommended", format!("{}★", round(recommended_stars)), true;
-            "Max combo", WithComma::new(stats.max_combo).to_string(), true;
+            "Max combo", WithComma::new(stats.max_combo.to_native()).to_string(), true;
             "Medals", medals.to_string(), true;
             "Combined grades", combined_grades_value, true;
             "First places", scores_first_count.to_string(), true;
             "Badges", badges.to_string(), true;
             "Grades", grades_value, false;
             "Play count / time", playcount_value, true;
-            "Replays watched", WithComma::new(stats.replays_watched).to_string(), true;
-            "Followers", WithComma::new(follower_count).to_string(), true;
+            "Replays watched", WithComma::new(stats.replays_watched.to_native()).to_string(), true;
+            "Followers", WithComma::new(follower_count.to_native()).to_string(), true;
         ];
 
         let embed = EmbedBuilder::new()
@@ -480,13 +445,13 @@ impl ProfileMenu {
             .description(description)
             .fields(fields)
             .footer(self.footer())
-            .thumbnail(self.user.avatar_url());
+            .thumbnail(self.user.avatar_url.as_ref());
 
         Ok(BuildPage::new(embed, true))
     }
 
     async fn top100_stats(&mut self) -> Result<BuildPage> {
-        let mode = self.user.mode();
+        let mode = self.user.mode;
         let mut description = String::with_capacity(1024);
 
         let _ = write!(
@@ -663,13 +628,13 @@ impl ProfileMenu {
         let embed = EmbedBuilder::new()
             .author(self.user.author_builder())
             .description(description)
-            .thumbnail(self.user.avatar_url());
+            .thumbnail(self.user.avatar_url.as_ref());
 
         Ok(BuildPage::new(embed, true))
     }
 
     async fn top100_mods(&mut self) -> Result<BuildPage> {
-        let mode = self.user.mode();
+        let mode = self.user.mode;
         let mut description = format!("__**{mode} Top100 mods", mode = Emote::from(mode));
 
         if let Some(discord_id) = self.discord_id {
@@ -766,7 +731,7 @@ impl ProfileMenu {
             .author(self.user.author_builder())
             .description(description)
             .fields(fields)
-            .thumbnail(self.user.avatar_url());
+            .thumbnail(self.user.avatar_url.as_ref());
 
         Ok(BuildPage::new(embed, true))
     }
@@ -774,7 +739,7 @@ impl ProfileMenu {
     async fn top100_mappers(&mut self) -> Result<BuildPage> {
         let mut description = format!(
             "__**{mode} Top100 mappers",
-            mode = Emote::from(self.user.mode()),
+            mode = Emote::from(self.user.mode),
         );
 
         if let Some(discord_id) = self.discord_id {
@@ -834,7 +799,7 @@ impl ProfileMenu {
         let embed = EmbedBuilder::new()
             .author(self.user.author_builder())
             .description(description)
-            .thumbnail(self.user.avatar_url());
+            .thumbnail(self.user.avatar_url.as_ref());
 
         Ok(BuildPage::new(embed, true))
     }
@@ -842,62 +807,17 @@ impl ProfileMenu {
     async fn mapper_stats(&mut self) -> Result<BuildPage> {
         let own_maps_in_top100 = self.own_maps_in_top100().await;
 
-        let (
-            mode,
-            ranked_count,
-            loved_count,
-            pending_count,
-            graveyard_count,
-            guest_count,
-            kudosu,
-            mapping_followers,
-        ) = match self.user {
-            RedisData::Original(ref user) => {
-                let mode = user.mode;
-                let ranked_count = user.ranked_mapset_count;
-                let loved_count = user.loved_mapset_count;
-                let pending_count = user.pending_mapset_count;
-                let graveyard_count = user.graveyard_mapset_count;
-                let guest_count = user.guest_mapset_count;
-                let kudosu = user.kudosu;
-                let mapping_followers = user.mapping_follower_count;
-
-                (
-                    mode,
-                    ranked_count,
-                    loved_count,
-                    pending_count,
-                    graveyard_count,
-                    guest_count,
-                    kudosu,
-                    mapping_followers,
-                )
-            }
-            RedisData::Archive(ref user) => {
-                let mode = user.mode;
-                let ranked_count = user.ranked_mapset_count;
-                let loved_count = user.loved_mapset_count;
-                let pending_count = user.pending_mapset_count;
-                let graveyard_count = user.graveyard_mapset_count;
-                let guest_count = user.guest_mapset_count;
-                let kudosu = UserKudosu {
-                    available: user.kudosu.available.to_native(),
-                    total: user.kudosu.total.to_native(),
-                };
-                let mapping_followers = user.mapping_follower_count;
-
-                (
-                    mode,
-                    ranked_count.to_native(),
-                    loved_count.to_native(),
-                    pending_count.to_native(),
-                    graveyard_count.to_native(),
-                    guest_count.to_native(),
-                    kudosu,
-                    mapping_followers.to_native(),
-                )
-            }
+        let mode = self.user.mode;
+        let ranked_count = self.user.ranked_mapset_count.to_native();
+        let loved_count = self.user.loved_mapset_count.to_native();
+        let pending_count = self.user.pending_mapset_count.to_native();
+        let graveyard_count = self.user.graveyard_mapset_count.to_native();
+        let guest_count = self.user.guest_mapset_count.to_native();
+        let kudosu = UserKudosu {
+            available: self.user.kudosu.available.to_native(),
+            total: self.user.kudosu.total.to_native(),
         };
+        let mapping_followers = self.user.mapping_follower_count.to_native();
 
         let mut description = format!("__**{mode} Mapper statistics", mode = Emote::from(mode));
 
@@ -945,14 +865,14 @@ impl ProfileMenu {
             .author(self.user.author_builder())
             .description(description)
             .fields(fields)
-            .thumbnail(self.user.avatar_url());
+            .thumbnail(self.user.avatar_url.as_ref());
 
         Ok(BuildPage::new(embed, true))
     }
 
     async fn own_maps_in_top100(&mut self) -> Option<usize> {
-        let user_id = self.user.user_id();
-        let mode = self.user.mode();
+        let user_id = self.user.user_id.to_native();
+        let mode = self.user.mode;
         let scores = self.scores.get(user_id, mode, self.legacy_scores).await?;
 
         let count = scores.iter().fold(0, |count, score| {
@@ -995,10 +915,7 @@ impl ProfileMenu {
     }
 
     fn footer(&self) -> FooterBuilder {
-        let mut join_date = match self.user {
-            RedisData::Original(ref user) => user.join_date,
-            RedisData::Archive(ref user) => user.join_date.try_deserialize::<Panic>().always_ok(),
-        };
+        let mut join_date = self.user.join_date.try_deserialize::<Panic>().always_ok();
 
         if let Some(tz) = self.tz {
             join_date = join_date.to_offset(tz);

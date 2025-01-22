@@ -3,7 +3,7 @@ use std::{borrow::Cow, cmp::Ordering::Equal};
 use bathbot_macros::command;
 use bathbot_model::{Countries, SnipeCountryListOrder, SnipeCountryPlayer};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, },
     MessageBuilder,
 };
 use eyre::{ContextCompat, Report, Result, WrapErr};
@@ -22,7 +22,7 @@ use crate::{
     commands::osu::user_not_found,
     core::commands::CommandOrigin,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::{osu::{UserArgs, UserArgsError}, },
     Context,
 };
 
@@ -140,23 +140,20 @@ pub(super) async fn country_stats(
 
                 let user = match Context::redis().osu_user(user_args).await {
                     Ok(user) => user,
-                    Err(OsuError::NotFound) => {
+                    Err(UserArgsError::Osu(OsuError::NotFound)) => {
                         let content = user_not_found(UserId::Id(user_id)).await;
 
                         return orig.error(content).await;
                     }
                     Err(err) => {
-                        let _ = orig.error(OSU_API_ISSUE).await;
+                        let _ = orig.error(GENERAL_ISSUE).await;
                         let err = Report::new(err).wrap_err("Failed to get user");
 
                         return Err(err);
                     }
                 };
 
-                match &user {
-                    RedisData::Original(user) => user.country_code.as_str().into(),
-                    RedisData::Archive(user) => user.country_code.as_str().into(),
-                }
+                user.country_code.as_str().into()
             }
             None => {
                 let content = "Since you're not linked, you must specify a country (code)";

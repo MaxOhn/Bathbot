@@ -2,7 +2,7 @@ use std::{borrow::Cow, mem};
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, },
     matcher, MessageBuilder, TourneyBadges,
 };
 use eyre::{Report, Result};
@@ -14,7 +14,10 @@ use super::{require_link, user_not_found};
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{BWSEmbed, EmbedData},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::{
+        osu::{UserArgs, UserArgsError},
+        
+    },
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -161,31 +164,20 @@ async fn bws(orig: CommandOrigin<'_>, args: Bws<'_>) -> Result<()> {
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
-            let err = Report::new(err).wrap_err("failed to get user");
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
     };
 
-    let badges_curr = match user {
-        RedisData::Original(ref user) => {
-            let badges = user.badges.iter().map(|badge| &badge.description);
-
-            TourneyBadges::count(badges)
-        }
-        RedisData::Archive(ref user) => {
-            let badges = user.badges.iter().map(|badge| &badge.description);
-
-            TourneyBadges::count(badges)
-        }
-    };
+    let badges_curr = TourneyBadges::count(user.badges.iter().map(|badge| &badge.description));
 
     let (badges_min, badges_max) = match badges {
         Some(num) => {

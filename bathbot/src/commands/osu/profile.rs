@@ -4,7 +4,7 @@ use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, },
     matcher, CowUtils, MessageOrigin,
 };
 use eyre::{Report, Result};
@@ -19,7 +19,7 @@ use super::{require_link, user_not_found};
 use crate::{
     active::{impls::ProfileMenu, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::osu::UserArgs,
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -217,20 +217,20 @@ async fn profile(orig: CommandOrigin<'_>, args: Profile<'_>) -> Result<()> {
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
     };
 
-    let user_id = user.user_id();
+    let user_id = user.user_id.to_native();
     let peaks_fut = Context::client().osu_user_rank_acc_peak(user_id, mode);
     let user_id_fut = Context::user_config().discord_from_osu_id(user_id);
 

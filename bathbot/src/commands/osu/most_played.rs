@@ -14,7 +14,7 @@ use super::{require_link, user_not_found};
 use crate::{
     active::{impls::MostPlayedPagination, ActiveMessages},
     core::commands::CommandOrigin,
-    manager::redis::osu::UserArgs,
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
@@ -84,20 +84,20 @@ async fn mostplayed(orig: CommandOrigin<'_>, args: MostPlayed<'_>) -> Result<()>
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
     };
 
-    let maps_fut = Context::osu().user_most_played(user.user_id()).limit(100);
+    let maps_fut = Context::osu().user_most_played(user.user_id.to_native()).limit(100);
 
     let maps = match maps_fut.await {
         Ok(maps) => maps,

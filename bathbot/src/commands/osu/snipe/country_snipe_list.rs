@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use bathbot_macros::command;
 use bathbot_model::{Countries, SnipeCountryListOrder};
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, },
     CowUtils,
 };
 use eyre::{Report, Result};
@@ -18,7 +18,7 @@ use crate::{
     active::{impls::SnipeCountryListPagination, ActiveMessages},
     commands::osu::user_not_found,
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::{osu::{UserArgs, UserArgsError}, },
     util::ChannelExt,
     Context,
 };
@@ -144,14 +144,14 @@ pub(super) async fn country_list(
 
                     match Context::redis().osu_user(user_args).await {
                         Ok(user) => (Some(user), mode),
-                        Err(OsuError::NotFound) => {
+                        Err(UserArgsError::Osu(OsuError::NotFound)) => {
                             let content = user_not_found(UserId::Id(user_id)).await;
 
                             return orig.error(content).await;
                         }
                         Err(err) => {
-                            let _ = orig.error(OSU_API_ISSUE).await;
-                            let err = Report::new(err).wrap_err("failed to get user");
+                            let _ = orig.error(GENERAL_ISSUE).await;
+                            let err = Report::new(err).wrap_err("Failed to get user");
 
                             return Err(err);
                         }
@@ -179,8 +179,7 @@ pub(super) async fn country_list(
             }
         },
         None => match &osu_user {
-            Some(RedisData::Original(user)) => user.country_code.as_str().into(),
-            Some(RedisData::Archive(user)) => user.country_code.as_str().into(),
+            Some(user) => user.country_code.as_str().into(),
             None => {
                 let content = "Since you're not linked, you must specify a country (code)";
 
@@ -216,7 +215,7 @@ pub(super) async fn country_list(
 
     // Try to find author in list
     let author_idx = osu_user.as_ref().and_then(|user| {
-        let author_name = user.username();
+        let author_name = user.username.as_str();
 
         players
             .iter()

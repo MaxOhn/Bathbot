@@ -1,6 +1,5 @@
 use std::slice;
 
-use bathbot_model::rosu_v2::user::User;
 use eyre::{Result, WrapErr};
 use rosu_v2::{
     model::score::BeatmapUserScore,
@@ -8,10 +7,7 @@ use rosu_v2::{
     OsuResult,
 };
 
-use super::redis::{
-    osu::{UserArgs, UserArgsSlim},
-    RedisData,
-};
+use super::redis::osu::{CachedUser, UserArgs, UserArgsError, UserArgsSlim};
 use crate::core::Context;
 
 #[derive(Clone)]
@@ -229,17 +225,18 @@ impl ScoreArgs {
     pub async fn exec_with_user(
         self,
         user_args: UserArgs,
-    ) -> OsuResult<(RedisData<User>, Vec<Score>)> {
+    ) -> Result<(CachedUser, Vec<Score>), UserArgsError> {
         match user_args {
             UserArgs::Args(args) => {
                 let user_fut = Context::redis().osu_user_from_args(args);
                 let score_fut = self.exec(args);
 
-                tokio::try_join!(user_fut, score_fut)
+                let (user_res, score_res) = tokio::join!(user_fut, score_fut);
+
+                Ok((user_res?, score_res?))
             }
             UserArgs::User { user, mode } => {
-                let args = UserArgsSlim::user_id(user.user_id).mode(mode);
-                let user = RedisData::Original(*user);
+                let args = UserArgsSlim::user_id(user.user_id.to_native()).mode(mode);
                 let scores = self.exec(args).await?;
 
                 Ok((user, scores))

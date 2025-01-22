@@ -6,7 +6,7 @@ use bathbot_model::{
     OsuStatsScoresRaw, ScoreSlim,
 };
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
     matcher,
     osu::ModSelection,
     CowUtils,
@@ -19,7 +19,10 @@ use crate::{
     active::{impls::OsuStatsScoresPagination, ActiveMessages},
     commands::osu::{user_not_found, HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::{redis::osu::UserArgs, OsuMap},
+    manager::{
+        redis::osu::{UserArgs, UserArgsError},
+        OsuMap,
+    },
     util::ChannelExt,
     Context,
 };
@@ -173,20 +176,20 @@ pub(super) async fn scores(orig: CommandOrigin<'_>, args: OsuStatsScores<'_>) ->
     // Retrieve user
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
 
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
     };
 
-    let params = args.into_params(user.username().into(), mode, mods);
+    let params = args.into_params(user.username.as_str().into(), mode, mods);
     let scores_fut = Context::client().get_global_scores(&params);
 
     // Retrieve their top global scores

@@ -4,13 +4,13 @@ use bathbot_macros::SlashCommand;
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::CowUtils;
 use eyre::Result;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
+use rosu_v2::prelude::{GameMode, Username};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
 use crate::{
     core::commands::prefix::{Args, ArgsNum},
-    manager::redis::osu::UserArgs,
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
@@ -132,7 +132,7 @@ async fn slash_track(mut command: InteractionCommand) -> Result<()> {
 async fn get_names(
     names: &[String],
     mode: GameMode,
-) -> Result<HashMap<Username, u32>, (OsuError, Cow<'_, str>)> {
+) -> Result<HashMap<Username, u32>, (UserArgsError, Cow<'_, str>)> {
     let mut entries = match Context::osu_user().ids(names).await {
         Ok(names) => names,
         Err(err) => {
@@ -150,7 +150,9 @@ async fn get_names(
                 let args = UserArgs::username(name.as_ref(), mode).await;
 
                 match Context::redis().osu_user(args).await {
-                    Ok(user) => entries.insert(user.username().into(), user.user_id()),
+                    Ok(user) => {
+                        entries.insert(user.username.as_str().into(), user.user_id.to_native())
+                    }
                     Err(err) => return Err((err, name)),
                 };
             }

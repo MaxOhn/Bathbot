@@ -8,7 +8,6 @@ use bathbot_model::{
         ComboValue, EmoteTextValue, HitresultsValue, MapperValue, PpValue, ScoreEmbedSettings,
         SettingValue, SettingsButtons, SettingsImage, Value,
     },
-    rosu_v2::user::User,
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::MessageBuilder;
@@ -27,7 +26,7 @@ use crate::{
     active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
     commands::utility::ScoreEmbedDataWrap,
     core::Context,
-    manager::redis::RedisData,
+    manager::redis::osu::CachedUser,
     util::{interaction::InteractionComponent, Authored, Emote},
 };
 
@@ -41,7 +40,7 @@ pub struct ScoreEmbedBuilderActive {
 
 impl ScoreEmbedBuilderActive {
     pub fn new(
-        user: &RedisData<User>,
+        user: &CachedUser,
         data: ScoreEmbedDataWrap,
         settings: ScoreEmbedSettings,
         score_data: ScoreData,

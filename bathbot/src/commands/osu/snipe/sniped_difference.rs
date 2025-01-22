@@ -2,7 +2,7 @@ use std::{cmp::Reverse, collections::HashMap};
 
 use bathbot_macros::command;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    constants::{GENERAL_ISSUE, },
     matcher, IntHasher, MessageBuilder,
 };
 use eyre::{Report, Result};
@@ -13,7 +13,10 @@ use super::{SnipeGameMode, SnipePlayerGain, SnipePlayerLoss};
 use crate::{
     active::{impls::SnipeDifferencePagination, ActiveMessages},
     core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::{
+        osu::{UserArgs, UserArgsError},
+        
+    },
     Context,
 };
 
@@ -177,7 +180,7 @@ async fn sniped_diff(
 
     let user = match Context::redis().osu_user(user_args).await {
         Ok(user) => user,
-        Err(OsuError::NotFound) => {
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = match user_id {
                 UserId::Id(user_id) => format!("User with id {user_id} was not found"),
                 UserId::Name(name) => format!("User `{name}` was not found"),
@@ -186,29 +189,16 @@ async fn sniped_diff(
             return orig.error(content).await;
         }
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
     };
 
-    let (country_code, username, user_id) = match &user {
-        RedisData::Original(user) => {
-            let country_code = user.country_code.as_str();
-            let username = user.username.as_str();
-            let user_id = user.user_id;
-
-            (country_code, username, user_id)
-        }
-        RedisData::Archive(user) => {
-            let country_code = user.country_code.as_str();
-            let username = user.username.as_str();
-            let user_id = user.user_id;
-
-            (country_code, username, user_id.to_native())
-        }
-    };
+    let country_code = user.country_code.as_str();
+    let username = user.username.as_str();
+    let user_id = user.user_id.to_native();
 
     if !Context::huismetbenen()
         .is_supported(country_code, mode)
