@@ -87,6 +87,7 @@ mod bws;
 mod cards;
 mod claim_name;
 mod compare;
+mod daily_challenge;
 mod fix;
 mod graphs;
 mod leaderboard;
