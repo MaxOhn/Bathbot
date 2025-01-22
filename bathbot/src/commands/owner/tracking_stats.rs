@@ -10,6 +10,8 @@ use crate::{
 };
 
 pub async fn trackingstats(command: InteractionCommand) -> Result<()> {
+    command.defer(false).await?;
+
     let modes_str = [
         GameMode::Osu,
         GameMode::Taiko,
@@ -69,7 +71,7 @@ pub async fn trackingstats(command: InteractionCommand) -> Result<()> {
         .title("Tracking statistics:");
 
     let builder = MessageBuilder::new().embed(embed);
-    command.callback(builder, false).await?;
+    command.update(builder).await?;
 
     Ok(())
 }
