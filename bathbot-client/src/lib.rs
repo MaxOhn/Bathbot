@@ -15,6 +15,7 @@ mod osekai;
 mod osu;
 mod osustats;
 mod osutrack;
+mod relax;
 mod respektive;
 mod site;
 mod snipe;
