@@ -11,7 +11,7 @@ use rkyv::{
     with::{ArchiveWith, InlineAsBox, Map, SerializeWith},
     Archive, Deserialize, Place, Serialize,
 };
-use rosu_v2::prelude::{CountryCode, GameMode, Username};
+use rosu_v2::prelude::{CountryCode, DailyChallengeUserStatistics, GameMode, Username};
 use time::{Date, OffsetDateTime};
 
 use crate::{
@@ -71,6 +71,23 @@ impl From<MedalCompactRkyv> for MedalCompact {
     }
 }
 
+#[derive(Archive, Serialize)]
+#[rkyv(remote = DailyChallengeUserStatistics, archived = ArchivedDailyChallengeUserStatistics)]
+pub struct DailyChallengeUserStatisticsRkyv {
+    pub daily_streak_best: u32,
+    pub daily_streak_current: u32,
+    #[rkyv(with = Map<DateTimeRkyv>)]
+    pub last_update: Option<OffsetDateTime>,
+    #[rkyv(with = Map<DateTimeRkyv>)]
+    pub last_weekly_streak: Option<OffsetDateTime>,
+    pub playcount: u32,
+    pub top_10p_placements: u32,
+    pub top_50p_placements: u32,
+    pub user_id: u32,
+    pub weekly_streak_best: u32,
+    pub weekly_streak_current: u32,
+}
+
 #[derive(Archive, Serialize, Deserialize)]
 #[rkyv(remote = MonthlyCount, archived = ArchivedMonthlyCount)]
 pub struct MonthlyCountRkyv {
@@ -125,6 +142,8 @@ pub struct User {
     pub pending_mapset_count: u32,
     #[rkyv(with = Map<MedalCompactRkyv>)]
     pub medals: Vec<MedalCompact>,
+    #[rkyv(with = DailyChallengeUserStatisticsRkyv)]
+    pub daily_challenge: DailyChallengeUserStatistics,
 }
 
 impl ArchiveWith<UserExtended> for User {
@@ -156,7 +175,8 @@ impl ArchiveWith<UserExtended> for User {
             rank_history,
             replays_watched_counts,
             statistics,
-            medals
+            medals,
+            daily_challenge,
         } = out);
 
         DerefAsBox::resolve_with(&user.avatar_url, resolver.avatar_url, avatar_url);
@@ -230,6 +250,11 @@ impl ArchiveWith<UserExtended> for User {
         );
         Map::<UserStatisticsRkyv>::resolve_with(&user.statistics, resolver.statistics, statistics);
         MapUnwrapOrDefault::<MedalCompactRkyv>::resolve_with(&user.medals, resolver.medals, medals);
+        DailyChallengeUserStatisticsRkyv::resolve_with(
+            &user.daily_challenge_stats,
+            resolver.daily_challenge,
+            daily_challenge,
+        );
     }
 }
 
@@ -297,6 +322,10 @@ impl<S: Fallible<Error: Source> + Writer + Allocator + ?Sized> SerializeWith<Use
                 &user.medals,
                 serializer,
             )?,
+            daily_challenge: DailyChallengeUserStatisticsRkyv::serialize_with(
+                &user.daily_challenge_stats,
+                serializer,
+            )?,
         })
     }
 }
@@ -329,6 +358,7 @@ impl From<UserExtended> for User {
             replays_watched_counts: user.replays_watched_counts.unwrap_or_default(),
             statistics: user.statistics,
             medals: user.medals.unwrap_or_default(),
+            daily_challenge: user.daily_challenge_stats,
         }
     }
 }
