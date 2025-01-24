@@ -82,10 +82,12 @@ Best    | {:^daily_len$} | {:^6}
         datetime.day() == OffsetDateTime::now_utc().day()
     });
 
+    let footer = format!("Played today: {}", if played_today { '✅' } else { '❌' });
+
     let embed = EmbedBuilder::new()
         .author(user.author_builder())
         .fields(fields)
-        .footer(FooterBuilder::new(format!("Played today: {played_today}")))
+        .footer(FooterBuilder::new(footer))
         .thumbnail(user.avatar_url.as_ref());
 
     let builder = MessageBuilder::new().embed(embed);
