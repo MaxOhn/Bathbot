@@ -49,12 +49,7 @@ pub enum Recent<'a> {
     To add a timestamp to a twitch VOD, be sure you linked yourself to a twitch account via `/config`."
 )]
 pub struct RecentScore<'a> {
-    #[command(
-        desc = "Specify a gamemode",
-        help = "Specify a gamemode.\n\
-        For mania the combo will be displayed as `[ combo / ratio ]` \
-        with ratio being `n320/n300`."
-    )]
+    #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
