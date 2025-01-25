@@ -118,6 +118,13 @@ impl TitleDescriptions {
                     nomod += 1;
                     continue;
                 }
+            } else if score.mods.contains_intermode(GameModIntermode::TouchDevice) {
+                // IDEA: TD-specific title (Grass-touching?)
+
+                if score.mods.len() == 1 {
+                    nomod += 1;
+                    continue;
+                }
             } else if score.mods.is_empty() {
                 nomod += 1;
                 continue;
