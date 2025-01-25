@@ -18,10 +18,10 @@ impl Context {
             .limit(50)
             .unwrap()
             .await
-            .wrap_err("failed to request channel messages")?
+            .wrap_err("Failed to request channel messages")?
             .models()
             .await
-            .wrap_err("failed to deserialize channel messages")
+            .wrap_err("Failed to receive channel messages")
     }
 
     pub async fn find_map_id_in_msgs(msgs: &[Message], idx: usize) -> Option<MapIdType> {
@@ -44,18 +44,21 @@ impl Context {
     }
 
     pub async fn find_map_id_in_msg(msg: &Message) -> Option<MapIdType> {
-        if msg.content.chars().all(|c| c.is_numeric()) {
-            return Self::find_map_id_in_embeds(&msg.embeds).await;
+        if let id @ Some(_) = Self::find_map_id_in_content(&msg.content) {
+            id
+        } else {
+            Self::find_map_id_in_embeds(&msg.embeds).await
+        }
+    }
+
+    fn find_map_id_in_content(content: &str) -> Option<MapIdType> {
+        if content.chars().all(char::is_numeric) {
+            return None;
         }
 
-        let opt = matcher::get_osu_map_id(&msg.content)
+        matcher::get_osu_map_id(content)
             .map(MapIdType::Map)
-            .or_else(|| matcher::get_osu_mapset_id(&msg.content).map(MapIdType::Set));
-
-        match opt {
-            id @ Some(_) => id,
-            None => Self::find_map_id_in_embeds(&msg.embeds).await,
-        }
+            .or_else(|| matcher::get_osu_mapset_id(content).map(MapIdType::Set))
     }
 
     pub async fn find_map_id_in_embeds(embeds: &[Embed]) -> Option<MapIdType> {
@@ -81,6 +84,13 @@ impl Context {
                         .as_deref()
                         .and_then(matcher::get_osu_mapset_id)
                         .map(MapIdType::Set)
+                })
+                .or_else(|| {
+                    embed
+                        .description
+                        .as_deref()
+                        .and_then(matcher::get_single_osu_map_id)
+                        .map(MapIdType::Map)
                 })
         });
 

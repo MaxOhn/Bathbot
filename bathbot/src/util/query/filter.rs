@@ -30,7 +30,7 @@ impl<'q, F: IFilterCriteria<'q>> FilterCriteria<F> {
         let mut inner = F::default();
         let mut removed = 0;
 
-        for capture in QUERY_SYNTAX_REGEX.get().captures_iter(query) {
+        for capture in QUERY_SYNTAX_REGEX.captures_iter(query) {
             let Some(key_match) = capture.name("key") else {
                 continue;
             };
