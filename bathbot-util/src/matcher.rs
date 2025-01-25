@@ -1,5 +1,6 @@
-use std::{borrow::Cow, sync::OnceLock};
+use std::{borrow::Cow, sync::LazyLock};
 
+use regex::Regex;
 use rosu_v2::prelude::{GameMode, GameModsIntermode, UserId as OsuUserId};
 use twilight_model::id::{
     marker::{RoleMarker, UserMarker},
@@ -9,11 +10,11 @@ use twilight_model::id::{
 use super::osu::ModSelection;
 
 pub fn is_approved_skin_site(url: &str) -> bool {
-    APPROVED_SKIN_SITE.get().is_match(url)
+    APPROVED_SKIN_SITE.is_match(url)
 }
 
 pub fn is_custom_emote(msg: &str) -> bool {
-    EMOJI_MATCHER.get().is_match(msg)
+    EMOJI_MATCHER.is_match(msg)
 }
 
 enum MentionType {
@@ -39,8 +40,8 @@ fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
     }
 
     let captures = match mention_type {
-        MentionType::Role => ROLE_ID_MATCHER.get().captures(msg),
-        MentionType::User => MENTION_MATCHER.get().captures(msg),
+        MentionType::Role => ROLE_ID_MATCHER.captures(msg),
+        MentionType::User => MENTION_MATCHER.captures(msg),
     };
 
     captures
@@ -50,7 +51,7 @@ fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
 
 #[allow(dead_code)]
 pub fn get_osu_user_id(msg: &str) -> Option<OsuUserId> {
-    OSU_URL_USER_MATCHER.get().captures(msg).and_then(|c| {
+    OSU_URL_USER_MATCHER.captures(msg).and_then(|c| {
         c.get(1)
             .and_then(|m| m.as_str().parse().ok())
             .map(OsuUserId::Id)
@@ -63,13 +64,10 @@ pub fn get_osu_map_id(msg: &str) -> Option<u32> {
         return Some(id);
     }
 
-    let matcher = if let Some(c) = OSU_URL_MAP_OLD_MATCHER.get().captures(msg) {
+    let matcher = if let Some(c) = OSU_URL_MAP_OLD_MATCHER.captures(msg) {
         c.get(1)
     } else {
-        OSU_URL_MAP_NEW_MATCHER
-            .get()
-            .captures(msg)
-            .and_then(|c| c.get(2))
+        OSU_URL_MAP_NEW_MATCHER.captures(msg).and_then(|c| c.get(2))
     };
 
     matcher.and_then(|c| c.as_str().parse().ok())
@@ -81,16 +79,14 @@ pub fn get_osu_mapset_id(msg: &str) -> Option<u32> {
     }
 
     OSU_URL_MAPSET_OLD_MATCHER
-        .get()
         .captures(msg)
-        .or_else(|| OSU_URL_MAP_NEW_MATCHER.get().captures(msg))
+        .or_else(|| OSU_URL_MAP_NEW_MATCHER.captures(msg))
         .and_then(|c| c.get(1))
         .and_then(|c| c.as_str().parse().ok())
 }
 
 pub fn get_osu_score_id(msg: &str) -> Option<(u64, Option<GameMode>)> {
     OSU_SCORE_URL_MATCHER
-        .get()
         .captures(msg)
         .and_then(|c| c.get(2).map(|x| (x, c.get(1))))
         .and_then(|(id, mode)| {
@@ -114,14 +110,13 @@ pub fn get_osu_match_id(msg: &str) -> Option<u32> {
     }
 
     OSU_URL_MATCH_MATCHER
-        .get()
         .captures(msg)
         .and_then(|c| c.get(1))
         .and_then(|c| c.as_str().parse::<u32>().ok())
 }
 
 pub fn get_mods(msg: &str) -> Option<ModSelection> {
-    let selection = if let Some(captures) = MOD_PLUS_MATCHER.get().captures(msg) {
+    let selection = if let Some(captures) = MOD_PLUS_MATCHER.captures(msg) {
         let mods = GameModsIntermode::try_from_acronyms(captures.get(1)?.as_str())?;
 
         if msg.ends_with('!') {
@@ -129,7 +124,7 @@ pub fn get_mods(msg: &str) -> Option<ModSelection> {
         } else {
             ModSelection::Include(mods)
         }
-    } else if let Some(captures) = MOD_MINUS_MATCHER.get().captures(msg) {
+    } else if let Some(captures) = MOD_MINUS_MATCHER.captures(msg) {
         let mods = GameModsIntermode::try_from_acronyms(captures.get(1)?.as_str())?;
 
         ModSelection::Exclude(mods)
@@ -142,35 +137,19 @@ pub fn get_mods(msg: &str) -> Option<ModSelection> {
 
 #[allow(dead_code)]
 pub fn is_hit_results(msg: &str) -> bool {
-    HIT_RESULTS_MATCHER.get().is_match(msg)
+    HIT_RESULTS_MATCHER.is_match(msg)
 }
 
 pub fn highlight_funny_numeral(content: &str) -> Cow<'_, str> {
-    SEVEN_TWO_SEVEN.get().replace_all(content, "__${num}__")
-}
-
-pub struct Regex {
-    regex: &'static str,
-    once: OnceLock<regex::Regex>,
-}
-
-impl Regex {
-    const fn new(regex: &'static str) -> Self {
-        Self {
-            regex,
-            once: OnceLock::new(),
-        }
-    }
-
-    pub fn get(&self) -> &regex::Regex {
-        self.once
-            .get_or_init(|| regex::Regex::new(self.regex).unwrap())
-    }
+    SEVEN_TWO_SEVEN.replace_all(content, "__${num}__")
 }
 
 macro_rules! define_regex {
     ( $( $vis:vis $name:ident: $pat:literal; )* ) => {
-        $( $vis static $name: Regex = Regex::new($pat); )*
+        $(
+            $vis static $name: LazyLock<Regex> =
+                LazyLock::new(|| Regex::new($pat).unwrap());
+        )*
     }
 }
 
