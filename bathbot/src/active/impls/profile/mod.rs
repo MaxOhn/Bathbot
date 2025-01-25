@@ -5,7 +5,7 @@ use bathbot_util::{
     datetime::{HowLongAgoText, SecToMinSec, NAIVE_DATETIME_FORMAT},
     fields,
     numbers::{round, MinMaxAvg, Number, WithComma},
-    osu::BonusPP,
+    osu::{total_score_to_reach_level, BonusPP},
     EmbedBuilder, FooterBuilder, MessageOrigin,
 };
 use eyre::Result;
@@ -217,17 +217,21 @@ impl ProfileMenu {
             .as_ref()
             .map(|highest_rank| highest_rank.try_deserialize::<Panic>().always_ok());
 
+        let stats = self.user.statistics.as_ref().expect("missing stats");
+        let level = stats.level.float();
+        let missing_score = missing_score_for_levelup(level, stats.total_score.to_native());
+
         self.consider_osutrack_peaks(&mut highest_rank);
         let skin_url = self.skin_url.get(user_id).await;
-        let stats = self.user.statistics.as_ref().expect("missing stats");
 
         let mut description = format!(
-            "Accuracy: [`{acc:.2}%`]({origin} \"{acc}\") • Level: `{level:.2}`\n\
+            "Accuracy: [`{acc:.2}%`]({origin} \"{acc}\") • \
+            Level: [`{level:.2}`]({origin} \"Total score until next level: {missing_score}\")\n\
             Playcount: `{playcount}` (`{playtime} hrs`)\n\
             {mode} • Medals: `{medals}`",
             acc = stats.accuracy.to_native(),
             origin = self.origin,
-            level = stats.level.float(),
+            missing_score = WithComma::new(missing_score),
             playcount = WithComma::new(stats.playcount.to_native()),
             playtime = stats.playtime.to_native() / 60 / 60,
             mode = Emote::from(mode),
@@ -272,6 +276,16 @@ impl ProfileMenu {
             Some([_score @ Score { pp: Some(pp), .. }, ..]) => format!("{pp:.2}pp"),
             Some(_) | None => "-".to_string(),
         };
+
+        let stats = self.user.statistics.as_ref().expect("missing stats");
+        let level = stats.level.float();
+        let missing_score = missing_score_for_levelup(level, stats.total_score.to_native());
+
+        let level = format!(
+            "[{level:.2}]({origin} \"Total score until next level: {missing_score}\")",
+            origin = self.origin,
+            missing_score = WithComma::new(missing_score),
+        );
 
         let bonus_pp = match scores_opt {
             Some(scores) => {
@@ -319,8 +333,6 @@ impl ProfileMenu {
             }
             None => ("-".to_string(), "-".to_string()),
         };
-
-        let stats = self.user.statistics.as_ref().expect("missing stats");
 
         let medals = self.user.medals.len();
         let follower_count = self.user.follower_count;
@@ -418,7 +430,7 @@ impl ProfileMenu {
         let fields = fields![
             "Peak rank", peak_rank, true;
             "Top score PP", top_score_pp, true;
-            "Level", format!("{:.2}", stats.level.float()), true;
+            "Level", level, true;
             "Total score", WithComma::new(stats.total_score.to_native()).to_string(), true;
             "Total hits", WithComma::new(stats.total_hits.to_native()).to_string(), true;
             "Bonus PP", bonus_pp, true;
@@ -945,4 +957,8 @@ impl HasLen for GameModIntermode {
     fn len(&self) -> usize {
         1
     }
+}
+
+fn missing_score_for_levelup(level: f32, total_score: u64) -> u64 {
+    total_score_to_reach_level(level.ceil() as u32).saturating_sub(total_score)
 }
