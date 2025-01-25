@@ -73,6 +73,8 @@ pub struct CompareScore<'a> {
         desc = "Specify a difficulty name of the map's mapset"
     )]
     difficulty: Option<String>,
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
     #[command(desc = "Choose how the scores should be ordered")]
     sort: Option<ScoreOrder>,
     #[command(
@@ -110,6 +112,7 @@ pub struct CompareScoreAutocomplete<'a> {
     pub name: Option<Cow<'a, str>>,
     pub map: Option<Cow<'a, str>>,
     pub difficulty: AutocompleteValue<String>,
+    pub mode: Option<GameModeOption>,
     pub sort: Option<ScoreOrder>,
     pub mods: Option<Cow<'a, str>>,
     pub index: Option<u32>,

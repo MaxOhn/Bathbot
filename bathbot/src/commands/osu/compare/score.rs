@@ -5,6 +5,7 @@ use std::{
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::{
+    command_fields::GameModeOption,
     embed_builder::{ScoreEmbedSettings, SettingsImage},
     ScoreSlim,
 };
@@ -85,6 +86,8 @@ pub struct Cs<'a> {
         desc = "Specify a difficulty name of the map's mapset"
     )]
     difficulty: Option<String>,
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
     #[command(desc = "Choose how the scores should be ordered")]
     sort: Option<ScoreOrder>,
     #[command(
@@ -139,6 +142,8 @@ pub struct CompareScore_<'a> {
         desc = "Specify a difficulty name of the map's mapset"
     )]
     difficulty: Option<String>,
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
     #[command(desc = "Choose how the scores should be ordered")]
     sort: Option<ScoreOrder>,
     #[command(
@@ -175,6 +180,7 @@ pub(super) struct CompareScoreArgs<'a> {
     name: Option<Cow<'a, str>>,
     map: Option<MapOrScore>,
     difficulty: Option<String>,
+    mode: Option<GameMode>,
     sort: Option<ScoreOrder>,
     mods: Option<Cow<'a, str>>,
     discord: Option<Id<UserMarker>>,
@@ -182,7 +188,7 @@ pub(super) struct CompareScoreArgs<'a> {
 }
 
 impl<'m> CompareScoreArgs<'m> {
-    fn args(args: Args<'m>) -> Self {
+    fn args(args: Args<'m>, mode: Option<GameMode>) -> Self {
         let mut name = None;
         let mut discord = None;
         let mut map = None;
@@ -210,6 +216,7 @@ impl<'m> CompareScoreArgs<'m> {
             name,
             map,
             difficulty: None,
+            mode,
             sort: None,
             mods,
             discord,
@@ -252,6 +259,7 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
             name: args.name,
             map,
             difficulty,
+            mode: args.mode.map(GameMode::from),
             sort: args.sort,
             mods: args.mods,
             discord: args.discord,
@@ -281,7 +289,106 @@ async fn prefix_compare(
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    let mut args = CompareScoreArgs::args(args);
+    let mut args = CompareScoreArgs::args(args, None);
+
+    if args.map.is_none() {
+        args.map = MapOrScore::find_in_msg(msg).await;
+    }
+
+    score(CommandOrigin::from_msg(msg, permissions), args).await
+}
+
+#[command]
+#[desc("Compare a player's score on a taiko map")]
+#[help(
+    "Display a user's scores on a given taiko map.\n\
+     If mods are specified, only the score with those mods will be shown.\n\
+     If no map is given, I will choose the last map \
+     I can find in the embeds of this channel."
+)]
+#[usage("[username] [map url / map id] [+mods]")]
+#[examples(
+    "badewanne3",
+    "badewanne3 2240404 +eznc",
+    "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
+)]
+#[aliases("ct", "scoretaiko", "scorestaiko", "gaptaiko")]
+#[group(Taiko)]
+async fn prefix_comparetaiko(
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let mut args = CompareScoreArgs::args(args, Some(GameMode::Taiko));
+
+    if args.map.is_none() {
+        args.map = MapOrScore::find_in_msg(msg).await;
+    }
+
+    score(CommandOrigin::from_msg(msg, permissions), args).await
+}
+
+#[command]
+#[desc("Compare a player's score on a catch map")]
+#[help(
+    "Display a user's scores on a given catch map.\n\
+     If mods are specified, only the score with those mods will be shown.\n\
+     If no map is given, I will choose the last map \
+     I can find in the embeds of this channel."
+)]
+#[usage("[username] [map url / map id] [+mods]")]
+#[examples(
+    "badewanne3",
+    "badewanne3 2240404 +eznc",
+    "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
+)]
+#[aliases(
+    "cc",
+    "scorectb",
+    "scorecatch",
+    "scoresctb",
+    "scorescatch",
+    "gapctb",
+    "gapcatch",
+    "comparecatch"
+)]
+#[group(Catch)]
+async fn prefix_comparectb(
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let mut args = CompareScoreArgs::args(args, Some(GameMode::Catch));
+
+    if args.map.is_none() {
+        args.map = MapOrScore::find_in_msg(msg).await;
+    }
+
+    score(CommandOrigin::from_msg(msg, permissions), args).await
+}
+
+#[command]
+#[desc("Compare a player's score on a mania map")]
+#[help(
+    "Display a user's scores on a given mania map.\n\
+     If mods are specified, only the score with those mods will be shown.\n\
+     If no map is given, I will choose the last map \
+     I can find in the embeds of this channel."
+)]
+#[usage("[username] [map url / map id] [+mods]")]
+#[examples(
+    "badewanne3",
+    "badewanne3 2240404 +eznc",
+    "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
+)]
+#[aliases("cm", "scoremania", "scoresmania", "gapmania")]
+#[group(Mania)]
+async fn prefix_comparemania(
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let mut args = CompareScoreArgs::args(args, Some(GameMode::Mania));
 
     if args.map.is_none() {
         args.map = MapOrScore::find_in_msg(msg).await;
@@ -364,6 +471,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
         map,
         index,
         difficulty,
+        mode,
         ..
     } = args;
 
@@ -429,7 +537,13 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
 
     // Retrieving the beatmap
     let map = match Context::osu_map().map(map_id, None).await {
-        Ok(map) => map,
+        Ok(mut map) => {
+            if let Some(mode) = mode {
+                map.convert_mut(mode);
+            }
+
+            map
+        }
         Err(MapError::NotFound) => {
             let content = format!(
                 "Could not find beatmap with id `{map_id}`. \
