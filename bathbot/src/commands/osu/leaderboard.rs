@@ -1,6 +1,7 @@
 use std::{borrow::Cow, cmp::Reverse, collections::HashMap};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
+use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -49,6 +50,8 @@ pub struct Leaderboard<'a> {
         e.g. `hdhr` or `+hdhr!`, and filter out all scores that don't match those mods."
     )]
     mods: Option<Cow<'a, str>>,
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
     #[command(
         desc = "Choose how the scores should be ordered",
         help = "Choose how the scores should be ordered, defaults to `score`.\n\
@@ -119,11 +122,16 @@ impl LeaderboardSort {
 struct LeaderboardArgs<'a> {
     map: Option<MapIdType>,
     mods: Option<Cow<'a, str>>,
+    mode: Option<GameMode>,
     sort: LeaderboardSort,
 }
 
 impl<'m> LeaderboardArgs<'m> {
-    async fn args(msg: &Message, args: Args<'m>) -> Result<LeaderboardArgs<'m>, String> {
+    async fn args(
+        msg: &Message,
+        args: Args<'m>,
+        mode: Option<GameMode>,
+    ) -> Result<LeaderboardArgs<'m>, String> {
         let mut map = None;
         let mut mods = None;
 
@@ -159,7 +167,12 @@ impl<'m> LeaderboardArgs<'m> {
 
         let sort = LeaderboardSort::default();
 
-        Ok(Self { map, mods, sort })
+        Ok(Self {
+            map,
+            mods,
+            mode,
+            sort,
+        })
     }
 }
 
@@ -186,6 +199,7 @@ impl<'a> TryFrom<Leaderboard<'a>> for LeaderboardArgs<'a> {
         Ok(Self {
             map,
             mods: args.mods,
+            mode: args.mode.map(GameMode::from),
             sort: args.sort.unwrap_or_default(),
         })
     }
@@ -208,7 +222,88 @@ async fn prefix_leaderboard(
     args: Args<'_>,
     permissions: Option<Permissions>,
 ) -> Result<()> {
-    match LeaderboardArgs::args(msg, args).await {
+    match LeaderboardArgs::args(msg, args, None).await {
+        Ok(args) => leaderboard(CommandOrigin::from_msg(msg, permissions), args).await,
+        Err(content) => {
+            msg.error(content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display the global leaderboard of a taiko map")]
+#[help(
+    "Display the global leaderboard of a given taiko map.\n\
+    If no map is given, I will choose the last map \
+    I can find in the embeds of this channel.\n\
+    Mods can be specified."
+)]
+#[usage("[map url / map id] [mods]")]
+#[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
+#[alias("lbt")]
+#[group(Taiko)]
+async fn prefix_leaderboardtaiko(
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    match LeaderboardArgs::args(msg, args, Some(GameMode::Taiko)).await {
+        Ok(args) => leaderboard(CommandOrigin::from_msg(msg, permissions), args).await,
+        Err(content) => {
+            msg.error(content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display the global leaderboard of a catch map")]
+#[help(
+    "Display the global leaderboard of a given catch map.\n\
+    If no map is given, I will choose the last map \
+    I can find in the embeds of this channel.\n\
+    Mods can be specified."
+)]
+#[usage("[map url / map id] [mods]")]
+#[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
+#[alias("lbc", "leaderboardcatch")]
+#[group(Catch)]
+async fn prefix_leaderboardctb(
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    match LeaderboardArgs::args(msg, args, Some(GameMode::Catch)).await {
+        Ok(args) => leaderboard(CommandOrigin::from_msg(msg, permissions), args).await,
+        Err(content) => {
+            msg.error(content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display the global leaderboard of a mania map")]
+#[help(
+    "Display the global leaderboard of a given mania map.\n\
+    If no map is given, I will choose the last map \
+    I can find in the embeds of this channel.\n\
+    Mods can be specified."
+)]
+#[usage("[map url / map id] [mods]")]
+#[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
+#[alias("lbm")]
+#[group(Mania)]
+async fn prefix_leaderboardmania(
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    match LeaderboardArgs::args(msg, args, Some(GameMode::Mania)).await {
         Ok(args) => leaderboard(CommandOrigin::from_msg(msg, permissions), args).await,
         Err(content) => {
             msg.error(content).await?;
@@ -261,7 +356,13 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
 
     // Retrieving the beatmap
     let map = match Context::osu_map().map(map_id, None).await {
-        Ok(map) => map,
+        Ok(mut map) => {
+            if let Some(mode) = args.mode {
+                map.convert_mut(mode);
+            }
+
+            map
+        }
         Err(MapError::NotFound) => {
             let content = format!(
                 "Could not find beatmap with id `{map_id}`. \
@@ -319,7 +420,7 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
     let user_fut = get_user_score(
         config.osu,
         map_id,
-        map.mode(),
+        mode,
         specify_mods.clone(),
         legacy_scores,
     );
