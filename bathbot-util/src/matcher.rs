@@ -73,6 +73,15 @@ pub fn get_osu_map_id(msg: &str) -> Option<u32> {
     matcher.and_then(|c| c.as_str().parse().ok())
 }
 
+pub fn get_single_osu_map_id(msg: &str) -> Option<u32> {
+    let count_old = OSU_URL_MAP_OLD_MATCHER.find_iter(msg).count();
+    let count_new = OSU_URL_MAP_NEW_MATCHER.find_iter(msg).count();
+
+    (count_old + count_new == 1)
+        .then(|| get_osu_map_id(msg))
+        .flatten()
+}
+
 pub fn get_osu_mapset_id(msg: &str) -> Option<u32> {
     if let Some(id) = msg.parse().ok().filter(|_| !msg.starts_with('+')) {
         return Some(id);

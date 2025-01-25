@@ -85,6 +85,13 @@ impl Context {
                         .and_then(matcher::get_osu_mapset_id)
                         .map(MapIdType::Set)
                 })
+                .or_else(|| {
+                    embed
+                        .description
+                        .as_deref()
+                        .and_then(matcher::get_single_osu_map_id)
+                        .map(MapIdType::Map)
+                })
         });
 
         if opt.is_some() {
