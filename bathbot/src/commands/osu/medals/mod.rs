@@ -234,6 +234,8 @@ pub struct MedalRecent<'a> {
     name: Option<Cow<'a, str>>,
     #[command(desc = "Specify an index e.g. 1 = most recent or `random`")]
     index: Option<Cow<'a, str>>,
+    #[command(desc = "Only show medals of this group")]
+    group: Option<MedalGroup>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \

@@ -113,6 +113,15 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
         return Ok(());
     }
 
+    if let Some(group) = args.group {
+        user_medals.retain(|medal| {
+            all_medals
+                .iter()
+                .find(|m| m.medal_id == medal.medal_id)
+                .is_some_and(|medal| medal.grouping == group)
+        });
+    }
+
     user_medals.sort_unstable_by_key(|medal| Reverse(medal.achieved_at));
 
     let index = match args.index.as_deref() {
