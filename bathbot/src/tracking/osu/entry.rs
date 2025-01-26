@@ -24,7 +24,7 @@ pub struct TrackEntry {
     /// Bits of the 100th score's pp value
     last_pp: AtomicU32,
     /// Unix timestamp of the last update
-    last_updated: AtomicI64,
+    last_ended_at: AtomicI64,
     channels: RwLock<Channels>,
 }
 
@@ -36,7 +36,7 @@ impl TrackEntry {
     /// Pp value of the 100th top score
     pub fn last_entry(&self) -> (f32, OffsetDateTime) {
         let pp = f32::from_bits(self.last_pp.load(Ordering::SeqCst));
-        let timestamp = self.last_updated.load(Ordering::SeqCst);
+        let timestamp = self.last_ended_at.load(Ordering::SeqCst);
 
         let last_updated = match OffsetDateTime::from_unix_timestamp(timestamp) {
             Ok(datetime) => datetime,
@@ -74,9 +74,14 @@ impl TrackEntry {
             .and_then(|score| score.pp)
             .unwrap_or(0.0);
 
-        let now = OffsetDateTime::now_utc();
-        self.store_last_pp(pp, now);
-        let upsert_fut = Context::psql().upsert_tracked_last_pp(user_id, mode, pp, now);
+        let last_ended_at = top_scores
+            .iter()
+            .map(|score| score.ended_at)
+            .max()
+            .unwrap_or_else(OffsetDateTime::now_utc);
+
+        self.store_last_pp(pp, last_ended_at);
+        let upsert_fut = Context::psql().upsert_tracked_last_pp(user_id, mode, pp, last_ended_at);
 
         if let Err(err) = upsert_fut.await {
             error!(
@@ -89,10 +94,10 @@ impl TrackEntry {
         }
     }
 
-    fn store_last_pp(&self, pp: f32, datetime: OffsetDateTime) {
+    fn store_last_pp(&self, pp: f32, ended_at: OffsetDateTime) {
         self.last_pp.store(pp.to_bits(), Ordering::SeqCst);
-        self.last_updated
-            .store(datetime.unix_timestamp(), Ordering::SeqCst);
+        self.last_ended_at
+            .store(ended_at.unix_timestamp(), Ordering::SeqCst);
     }
 
     async fn insert(&self, user: DbTrackedOsuUser) {

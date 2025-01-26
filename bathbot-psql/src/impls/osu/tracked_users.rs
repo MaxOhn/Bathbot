@@ -109,7 +109,7 @@ SET
         user_id: u32,
         mode: GameMode,
         pp: f32,
-        now: OffsetDateTime,
+        last_updated: OffsetDateTime,
     ) -> Result<()> {
         let query = sqlx::query!(
             r#"
@@ -127,7 +127,7 @@ SET
             user_id as i32,
             mode as i16,
             pp,
-            now,
+            last_updated,
         );
 
         query
