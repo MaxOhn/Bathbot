@@ -151,9 +151,14 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
         }) => (*medal_id, *achieved_at),
         None => {
             let content = format!(
-                "`{}` only has {} medals, cannot show medal #{index}",
+                "`{}` only has {} medals{filtered}, cannot show medal #{index}",
                 user.username.as_str(),
                 user_medals.len(),
+                filtered = if args.group.is_some() {
+                    " of that group"
+                } else {
+                    ""
+                },
                 index = index + 1,
             );
 
