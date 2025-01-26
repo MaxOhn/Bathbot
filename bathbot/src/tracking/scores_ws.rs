@@ -80,6 +80,10 @@ impl ScoresWebSocket {
     }
 
     async fn read(stream: &mut WebSocket) {
+        const STORE_AT_INDEX: usize = 1050;
+
+        let mut index = 0;
+
         while let Some(res) = stream.next().await {
             let bytes = match res {
                 Ok(Message::Binary(bytes)) => bytes,
@@ -98,11 +102,21 @@ impl ScoresWebSocket {
             let score: Score = match serde_json::from_slice(&bytes) {
                 Ok(score) => score,
                 Err(err) => {
-                    warn!(?err, "Failed to deserialize websocket message");
+                    warn!(?err, ?bytes, "Failed to deserialize websocket message");
 
                     continue;
                 }
             };
+
+            index += 1;
+
+            // Let's make things more robust by storing a resume id
+            // continuously so that unexpected crashes which prevent the
+            // disconnect routine don't ruin the next boot-up.
+            if index == STORE_AT_INDEX {
+                index = 0;
+                Self::store_resume_id(score.id);
+            }
 
             OsuTracking::process_score(score).await;
         }
@@ -132,6 +146,10 @@ impl ScoresWebSocket {
             return warn!(?data, "Expected score id as disconnect response");
         };
 
+        Self::store_resume_id(score_id);
+    }
+
+    fn store_resume_id(score_id: u64) {
         if let Err(err) = fs::write(Self::RESUME_ID_PATH, score_id.to_string().as_bytes()) {
             error!(?err, "Failed to store score id");
         }
