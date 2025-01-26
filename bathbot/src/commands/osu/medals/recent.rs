@@ -113,6 +113,15 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
         return Ok(());
     }
 
+    if let Some(group) = args.group {
+        user_medals.retain(|medal| {
+            all_medals
+                .iter()
+                .find(|m| m.medal_id == medal.medal_id)
+                .is_some_and(|medal| medal.grouping == group)
+        });
+    }
+
     user_medals.sort_unstable_by_key(|medal| Reverse(medal.achieved_at));
 
     let index = match args.index.as_deref() {
@@ -142,9 +151,14 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
         }) => (*medal_id, *achieved_at),
         None => {
             let content = format!(
-                "`{}` only has {} medals, cannot show medal #{index}",
+                "`{}` only has {} medals{filtered}, cannot show medal #{index}",
                 user.username.as_str(),
                 user_medals.len(),
+                filtered = if args.group.is_some() {
+                    " of that group"
+                } else {
+                    ""
+                },
                 index = index + 1,
             );
 
