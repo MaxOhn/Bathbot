@@ -84,6 +84,10 @@ impl ScoresWebSocket {
 
         let mut index = 0;
 
+        // Give the bot some time to boot-up before processing scores
+        let delay = Duration::from_secs(30);
+        tokio::time::sleep(delay).await;
+
         while let Some(res) = stream.next().await {
             let bytes = match res {
                 Ok(Message::Binary(bytes)) => bytes,
