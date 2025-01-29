@@ -163,7 +163,9 @@ impl Skills {
 
                     let CatchPerformanceAttributes { difficulty, pp } = attrs;
 
-                    let acc_ = score.accuracy as f64;
+                    // Values get messy for tiny accuracies so let's cap it
+                    // by the arbitrary value 10.
+                    let acc_ = score.accuracy.max(10.0) as f64;
 
                     let n_objects = (difficulty.n_fruits
                         + difficulty.n_droplets
