@@ -21,7 +21,7 @@ impl OsuTrackingStats {
         let mut total = 0;
         let mut channels = HashSet::with_hasher(IntHasher);
 
-        let users = OsuTracking::users().pin();
+        let users = OsuTracking::users().read().unwrap();
         let unique_users = users.len();
 
         for (_, entry) in users.iter() {

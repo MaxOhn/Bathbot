@@ -42,7 +42,8 @@ impl RequireTopScores {
         let mode = self.mode();
 
         let entry_opt = OsuTracking::users()
-            .pin()
+            .read()
+            .unwrap()
             .get(&user_id)
             .map(|user| user.get(mode));
 

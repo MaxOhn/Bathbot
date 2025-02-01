@@ -1,14 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::RwLock};
 
 use bathbot_psql::Database;
 use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
-use papaya::HashMap as PapayaMap;
-use require_top::RequireTopScores;
 use rosu_v2::{model::GameMode, prelude::Score};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
-use self::entry::TrackedUser;
+use self::{entry::TrackedUser, require_top::RequireTopScores};
 pub use self::{params::TrackEntryParams, stats::OsuTrackingStats};
 use crate::core::Context;
 
@@ -18,7 +16,7 @@ mod process_score;
 mod require_top;
 mod stats;
 
-type TrackedUsers = PapayaMap<u32, TrackedUser, IntHasher>;
+type TrackedUsers = RwLock<HashMap<u32, TrackedUser, IntHasher>>;
 
 pub struct OsuTracking {
     users: TrackedUsers,
@@ -33,17 +31,15 @@ impl OsuTracking {
             .await
             .wrap_err("Failed to fetch tracked users")?;
 
-        // Populate a regular `HashMap` first and collect it into a `PapayaMap`
-        // afterwards so we don't have any initial concurrency overhead.
         let mut users = HashMap::<u32, TrackedUser, IntHasher>::default();
 
         for user in data {
             users.entry(user.user_id as u32).or_default().insert(user);
         }
 
-        let users = users.into_iter().collect();
-
-        Ok(Self { users })
+        Ok(Self {
+            users: RwLock::new(users),
+        })
     }
 
     pub fn stats() -> OsuTrackingStats {
@@ -58,7 +54,8 @@ impl OsuTracking {
         let Some(pp) = score.pp else { return };
 
         let entry_opt = Self::users()
-            .pin()
+            .read()
+            .unwrap()
             .get(&score.user_id)
             .and_then(|user| user.try_get(score.mode));
 
@@ -78,7 +75,7 @@ impl OsuTracking {
     pub async fn remove_channel(channel: Id<ChannelMarker>, mode: Option<GameMode>) {
         let channel_id = channel.into_nonzero();
 
-        for user in Self::users().pin().values() {
+        for user in Self::users().read().unwrap().values() {
             // If the user is no longer tracked in any channel we still keep
             // the user entry so we don't need to perform a write-op. This
             // should be fine since user entries are small so we won't flood
@@ -95,7 +92,7 @@ impl OsuTracking {
     }
 
     pub async fn remove_user(user_id: u32, mode: Option<GameMode>, channel: Id<ChannelMarker>) {
-        if let Some(user) = Self::users().pin().get(&user_id) {
+        if let Some(user) = Self::users().read().unwrap().get(&user_id) {
             user.remove_channel(channel.into_nonzero(), mode);
         }
 
@@ -116,8 +113,10 @@ impl OsuTracking {
         let entry = params.into_db_entry(user_id, mode);
 
         let user_entry = Self::users()
-            .pin()
-            .get_or_insert_with(user_id, TrackedUser::default)
+            .write()
+            .unwrap()
+            .entry(user_id)
+            .or_default()
             .get(mode);
 
         let channel_id = channel.into_nonzero();
