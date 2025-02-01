@@ -38,11 +38,7 @@ impl OsuTracking {
         let mut users = HashMap::<u32, TrackedUser, IntHasher>::default();
 
         for user in data {
-            users
-                .entry(user.user_id as u32)
-                .or_default()
-                .insert(user)
-                .await;
+            users.entry(user.user_id as u32).or_default().insert(user);
         }
 
         let users = users.into_iter().collect();
@@ -50,24 +46,24 @@ impl OsuTracking {
         Ok(Self { users })
     }
 
-    pub async fn stats() -> OsuTrackingStats {
-        OsuTrackingStats::new().await
+    pub fn stats() -> OsuTrackingStats {
+        OsuTrackingStats::new()
     }
 
     fn users() -> &'static TrackedUsers {
         &Context::tracking().users
     }
 
-    pub(super) async fn process_score(score: Score) {
+    pub(super) fn process_score(score: Score) {
         let Some(pp) = score.pp else { return };
 
-        let pin = Self::users().pin_owned();
+        let pin = Self::users().pin();
 
         let Some(user) = pin.get(&score.user_id) else {
             return;
         };
 
-        let Some(entry) = user.get(score.mode).await else {
+        let Some(entry) = user.get(score.mode) else {
             return;
         };
 
@@ -85,10 +81,10 @@ impl OsuTracking {
 
         let mut to_remove = HashSet::with_hasher(IntHasher);
 
-        for (user_id, user) in Self::users().pin_owned().iter() {
-            user.remove_channel(channel_id, mode).await;
+        for (user_id, user) in Self::users().pin().iter() {
+            user.remove_channel(channel_id, mode);
 
-            if user.is_empty().await {
+            if user.is_empty() {
                 to_remove.insert(*user_id);
             }
         }
@@ -105,8 +101,8 @@ impl OsuTracking {
     }
 
     pub async fn remove_user(user_id: u32, mode: Option<GameMode>, channel: Id<ChannelMarker>) {
-        if let Some(user) = Self::users().pin_owned().get(&user_id) {
-            user.remove_channel(channel.into_nonzero(), mode).await;
+        if let Some(user) = Self::users().pin().get(&user_id) {
+            user.remove_channel(channel.into_nonzero(), mode);
         }
 
         let delete_fut = Context::psql().delete_tracked_osu_user(user_id, mode, channel.get());
@@ -126,11 +122,11 @@ impl OsuTracking {
         let entry = params.into_db_entry(user_id, mode);
 
         {
-            let pin = Self::users().pin_owned();
+            let pin = Self::users().pin();
             let user = pin.get_or_insert_with(user_id, TrackedUser::default);
 
             let channel_id = channel.into_nonzero();
-            user.add(mode, channel_id, params).await;
+            user.add(mode, channel_id, params);
 
             if user.needs_last_pp(mode) {
                 return Ok(Some(RequireTopScores::new(entry, channel.get())));

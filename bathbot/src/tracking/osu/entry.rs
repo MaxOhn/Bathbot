@@ -4,7 +4,7 @@ use std::{
     ops::Not,
     sync::{
         atomic::{AtomicI64, AtomicU32, Ordering},
-        Arc,
+        Arc, RwLock, RwLockReadGuard,
     },
 };
 
@@ -12,7 +12,6 @@ use bathbot_psql::model::osu::DbTrackedOsuUser;
 use bathbot_util::IntHasher;
 use rosu_v2::{model::GameMode, prelude::Score};
 use time::OffsetDateTime;
-use tokio::sync::{RwLock, RwLockReadGuard};
 
 use super::TrackEntryParams;
 use crate::core::Context;
@@ -29,8 +28,8 @@ pub struct TrackEntry {
 }
 
 impl TrackEntry {
-    pub async fn channels(&self) -> RwLockReadGuard<'_, Channels> {
-        self.channels.read().await
+    pub fn channels(&self) -> RwLockReadGuard<'_, Channels> {
+        self.channels.read().unwrap()
     }
 
     /// Pp value of the 100th top score
@@ -50,16 +49,16 @@ impl TrackEntry {
         (pp, last_updated)
     }
 
-    async fn is_empty(&self) -> bool {
-        self.channels.read().await.is_empty()
+    fn is_empty(&self) -> bool {
+        self.channels.read().unwrap().is_empty()
     }
 
-    async fn remove_channel(&self, channel_id: NonZeroU64) {
-        self.channels.write().await.remove(&channel_id);
+    fn remove_channel(&self, channel_id: NonZeroU64) {
+        self.channels.write().unwrap().remove(&channel_id);
     }
 
-    async fn add(&self, channel_id: NonZeroU64, params: TrackEntryParams) {
-        self.channels.write().await.insert(channel_id, params);
+    fn add(&self, channel_id: NonZeroU64, params: TrackEntryParams) {
+        self.channels.write().unwrap().insert(channel_id, params);
     }
 
     fn needs_last_pp(&self) -> bool {
@@ -100,7 +99,7 @@ impl TrackEntry {
             .store(ended_at.unix_timestamp(), Ordering::SeqCst);
     }
 
-    async fn insert(&self, user: DbTrackedOsuUser) {
+    fn insert(&self, user: DbTrackedOsuUser) {
         self.store_last_pp(user.last_pp, user.last_updated);
 
         let Some(channel_id) = NonZeroU64::new(user.channel_id as u64) else {
@@ -115,7 +114,7 @@ impl TrackEntry {
             .with_pp(user.min_pp, user.max_pp)
             .with_combo_percent(user.min_combo_percent, user.max_combo_percent);
 
-        self.channels.write().await.insert(channel_id, params);
+        self.channels.write().unwrap().insert(channel_id, params);
     }
 }
 
@@ -125,10 +124,10 @@ pub struct TrackedUser {
 }
 
 impl TrackedUser {
-    pub async fn get(&self, mode: GameMode) -> Option<Arc<TrackEntry>> {
+    pub fn get(&self, mode: GameMode) -> Option<Arc<TrackEntry>> {
         let entry = &self.modes[mode as usize];
 
-        entry.is_empty().await.not().then(|| Arc::clone(entry))
+        entry.is_empty().not().then(|| Arc::clone(entry))
     }
 
     /// Same as [`TrackedUser::get`] but does *not* perform emptyness check
@@ -136,9 +135,9 @@ impl TrackedUser {
         Arc::clone(&self.modes[mode as usize])
     }
 
-    pub async fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         for entry in self.modes.iter() {
-            if !entry.is_empty().await {
+            if !entry.is_empty() {
                 return false;
             }
         }
@@ -146,33 +145,27 @@ impl TrackedUser {
         true
     }
 
-    pub async fn remove_channel(&self, channel_id: NonZeroU64, mode: Option<GameMode>) {
+    pub fn remove_channel(&self, channel_id: NonZeroU64, mode: Option<GameMode>) {
         if let Some(mode) = mode {
-            if let Some(entry) = self.get(mode).await {
-                entry.remove_channel(channel_id).await;
+            if let Some(entry) = self.get(mode) {
+                entry.remove_channel(channel_id);
             }
         } else {
             for entry in self.modes.iter() {
-                entry.remove_channel(channel_id).await;
+                entry.remove_channel(channel_id);
             }
         }
     }
 
-    pub async fn add(&self, mode: GameMode, channel_id: NonZeroU64, params: TrackEntryParams) {
-        self.modes[mode as usize].add(channel_id, params).await;
+    pub fn add(&self, mode: GameMode, channel_id: NonZeroU64, params: TrackEntryParams) {
+        self.modes[mode as usize].add(channel_id, params);
     }
 
     pub fn needs_last_pp(&self, mode: GameMode) -> bool {
         self.modes[mode as usize].needs_last_pp()
     }
 
-    pub async fn insert_last_pp(&self, user_id: u32, mode: GameMode, top_scores: &[Score]) {
-        self.modes[mode as usize]
-            .insert_last_pp(user_id, mode, top_scores)
-            .await
-    }
-
-    pub async fn insert(&self, user: DbTrackedOsuUser) {
-        self.modes[user.gamemode as usize].insert(user).await;
+    pub fn insert(&self, user: DbTrackedOsuUser) {
+        self.modes[user.gamemode as usize].insert(user);
     }
 }

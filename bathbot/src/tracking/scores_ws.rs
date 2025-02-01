@@ -122,7 +122,7 @@ impl ScoresWebSocket {
                 Self::store_resume_id(score.id);
             }
 
-            OsuTracking::process_score(score).await;
+            OsuTracking::process_score(score);
         }
     }
 

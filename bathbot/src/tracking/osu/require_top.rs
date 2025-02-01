@@ -39,9 +39,15 @@ impl RequireTopScores {
     /// `top_scores` needs to be the user's top scores for the [`GameMode`].
     pub async fn callback(mut self, top_scores: &[Score]) -> Result<()> {
         let user_id = self.user_id();
+        let mode = self.mode();
 
-        if let Some(user) = OsuTracking::users().pin_owned().get(&user_id) {
-            user.insert_last_pp(user_id, self.mode(), top_scores).await;
+        let entry_opt = OsuTracking::users()
+            .pin()
+            .get(&user_id)
+            .map(|user| user.get_unchecked(mode));
+
+        if let Some(entry) = entry_opt {
+            entry.insert_last_pp(user_id, mode, top_scores).await;
         }
 
         Context::psql()

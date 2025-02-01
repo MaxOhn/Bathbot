@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use bathbot_util::{fields, EmbedBuilder, MessageBuilder};
 use eyre::Result;
 use metrics::Key;
@@ -14,13 +12,7 @@ use crate::{
 pub async fn trackingstats(command: InteractionCommand) -> Result<()> {
     command.defer(false).await?;
 
-    let timeout = Duration::from_secs(30);
-
-    let Ok(stats) = tokio::time::timeout(timeout, OsuTracking::stats()).await else {
-        command.error("Timed out, try again later").await?;
-
-        return Ok(());
-    };
+    let stats = OsuTracking::stats();
 
     let modes_str = [
         GameMode::Osu,
