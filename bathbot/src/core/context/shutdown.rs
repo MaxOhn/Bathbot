@@ -148,16 +148,14 @@ impl Context {
 
     #[cold]
     async fn store_miss_analyzer_guilds(store_duration: u64) -> Result<usize> {
-        info!(
-            "[DEBUG] Miss analyzer guilds: {}",
-            Self::miss_analyzer_guilds().len()
-        );
+        info!("Storing miss analyzer guilds...");
 
-        let miss_analyzer_guilds: Vec<_> =
-            Self::miss_analyzer_guilds().pin().iter().copied().collect();
-
-        let len = miss_analyzer_guilds.len();
-        info!(len, "Storing miss analyzer guilds...");
+        let miss_analyzer_guilds: Vec<_> = Self::miss_analyzer_guilds()
+            .read()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect();
 
         let bytes = rkyv::util::with_arena(|arena| {
             let slice = miss_analyzer_guilds.as_slice();
@@ -180,7 +178,7 @@ impl Context {
             .store_new_raw("miss_analyzer_guilds", &bytes, store_duration)
             .await?;
 
-        Ok(len)
+        Ok(miss_analyzer_guilds.len())
     }
 }
 

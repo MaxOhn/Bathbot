@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex, OnceLock, RwLock},
     time::Duration,
 };
@@ -12,9 +12,8 @@ use bathbot_util::{IntHasher, MetricsReader};
 use eyre::{Result, WrapErr};
 use flexmap::{std::StdMutexMap, tokio::TokioRwLockMap};
 use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
-use hashbrown::HashSet;
 use metrics_util::layers::{FanoutBuilder, Layer, PrefixLayer};
-use papaya::{HashMap as PapayaMap, HashSet as PapayaSet};
+use papaya::HashMap as PapayaMap;
 use rkyv::collections::util::Entry;
 use rosu_v2::Osu;
 use shutdown::CacheGuildShards;
@@ -63,7 +62,7 @@ mod twitch;
 
 type GuildShards = PapayaMap<Id<GuildMarker>, u64>;
 type GuildConfigs = PapayaMap<Id<GuildMarker>, GuildConfig, IntHasher>;
-type MissAnalyzerGuilds = PapayaSet<Id<GuildMarker>, IntHasher>;
+type MissAnalyzerGuilds = RwLock<HashSet<Id<GuildMarker>, IntHasher>>;
 
 #[cfg(feature = "twitchtracking")]
 type TrackedStreams = PapayaMap<u64, Vec<Id<ChannelMarker>>, IntHasher>;
@@ -145,7 +144,7 @@ impl Context {
     }
 
     pub fn has_miss_analyzer(guild: &Id<GuildMarker>) -> bool {
-        Self::miss_analyzer_guilds().pin().contains(guild)
+        Self::miss_analyzer_guilds().read().unwrap().contains(guild)
     }
 
     #[cfg(feature = "twitch")]
@@ -483,10 +482,12 @@ impl ContextData {
             cache.fetch_with::<_, Vec<Id<GuildMarker>>, IdRkyvMap>("miss_analyzer_guilds");
 
         match fetch_fut.await {
-            Ok(Ok(miss_analyzer_guilds)) => miss_analyzer_guilds
-                .deserialize_with::<IdRkyvMap>()
-                .into_iter()
-                .collect(),
+            Ok(Ok(miss_analyzer_guilds)) => RwLock::new(
+                miss_analyzer_guilds
+                    .deserialize_with::<IdRkyvMap>()
+                    .into_iter()
+                    .collect(),
+            ),
             Ok(Err(_)) => MissAnalyzerGuilds::default(),
             Err(err) => {
                 warn!(
