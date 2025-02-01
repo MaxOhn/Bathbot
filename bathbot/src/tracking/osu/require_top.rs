@@ -44,7 +44,7 @@ impl RequireTopScores {
         let entry_opt = OsuTracking::users()
             .pin()
             .get(&user_id)
-            .map(|user| user.get_unchecked(mode));
+            .map(|user| user.get(mode));
 
         if let Some(entry) = entry_opt {
             entry.insert_last_pp(user_id, mode, top_scores).await;

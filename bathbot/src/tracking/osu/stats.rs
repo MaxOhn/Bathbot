@@ -33,7 +33,7 @@ impl OsuTrackingStats {
             ];
 
             for mode in MODES {
-                let user = entry.get_unchecked(mode);
+                let user = entry.get(mode);
                 let channels_guard = user.channels();
 
                 if channels_guard.is_empty() {

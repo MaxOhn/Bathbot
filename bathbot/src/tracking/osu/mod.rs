@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use bathbot_psql::Database;
 use bathbot_util::IntHasher;
@@ -57,13 +57,12 @@ impl OsuTracking {
     pub(super) fn process_score(score: Score) {
         let Some(pp) = score.pp else { return };
 
-        let pin = Self::users().pin();
+        let entry_opt = Self::users()
+            .pin()
+            .get(&score.user_id)
+            .and_then(|user| user.try_get(score.mode));
 
-        let Some(user) = pin.get(&score.user_id) else {
-            return;
-        };
-
-        let Some(entry) = user.get(score.mode) else {
+        let Some(entry) = entry_opt else {
             return;
         };
 
@@ -79,19 +78,14 @@ impl OsuTracking {
     pub async fn remove_channel(channel: Id<ChannelMarker>, mode: Option<GameMode>) {
         let channel_id = channel.into_nonzero();
 
-        let mut to_remove = HashSet::with_hasher(IntHasher);
-
-        for (user_id, user) in Self::users().pin().iter() {
+        for user in Self::users().pin().values() {
+            // If the user is no longer tracked in any channel we still keep
+            // the user entry so we don't need to perform a write-op. This
+            // should be fine since user entries are small so we won't flood
+            // the memory and the user entry won't contain channels so there's
+            // no overhead to processing scores either.
             user.remove_channel(channel_id, mode);
-
-            if user.is_empty() {
-                to_remove.insert(*user_id);
-            }
         }
-
-        Self::users()
-            .pin()
-            .retain(|user_id, _| !to_remove.contains(user_id));
 
         let delete_fut = Context::psql().delete_tracked_osu_channel(channel.get(), mode);
 
@@ -121,16 +115,16 @@ impl OsuTracking {
     ) -> Result<Option<RequireTopScores>> {
         let entry = params.into_db_entry(user_id, mode);
 
-        {
-            let pin = Self::users().pin();
-            let user = pin.get_or_insert_with(user_id, TrackedUser::default);
+        let user_entry = Self::users()
+            .pin()
+            .get_or_insert_with(user_id, TrackedUser::default)
+            .get(mode);
 
-            let channel_id = channel.into_nonzero();
-            user.add(mode, channel_id, params);
+        let channel_id = channel.into_nonzero();
+        user_entry.add(channel_id, params);
 
-            if user.needs_last_pp(mode) {
-                return Ok(Some(RequireTopScores::new(entry, channel.get())));
-            }
+        if user_entry.needs_last_pp() {
+            return Ok(Some(RequireTopScores::new(entry, channel.get())));
         }
 
         Context::psql()

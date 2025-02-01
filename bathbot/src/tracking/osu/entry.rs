@@ -57,11 +57,11 @@ impl TrackEntry {
         self.channels.write().unwrap().remove(&channel_id);
     }
 
-    fn add(&self, channel_id: NonZeroU64, params: TrackEntryParams) {
+    pub fn add(&self, channel_id: NonZeroU64, params: TrackEntryParams) {
         self.channels.write().unwrap().insert(channel_id, params);
     }
 
-    fn needs_last_pp(&self) -> bool {
+    pub fn needs_last_pp(&self) -> bool {
         self.last_pp.load(Ordering::SeqCst) == 0
     }
 
@@ -124,30 +124,22 @@ pub struct TrackedUser {
 }
 
 impl TrackedUser {
-    pub fn get(&self, mode: GameMode) -> Option<Arc<TrackEntry>> {
+    /// Returns a user's [`TrackEntry`] if they're tracked in at least one
+    /// channel for the [`GameMode`].
+    pub fn try_get(&self, mode: GameMode) -> Option<Arc<TrackEntry>> {
         let entry = &self.modes[mode as usize];
 
         entry.is_empty().not().then(|| Arc::clone(entry))
     }
 
-    /// Same as [`TrackedUser::get`] but does *not* perform emptyness check
-    pub fn get_unchecked(&self, mode: GameMode) -> Arc<TrackEntry> {
+    /// Returns a user's [`TrackEntry`] for the [`GameMode`].
+    pub fn get(&self, mode: GameMode) -> Arc<TrackEntry> {
         Arc::clone(&self.modes[mode as usize])
-    }
-
-    pub fn is_empty(&self) -> bool {
-        for entry in self.modes.iter() {
-            if !entry.is_empty() {
-                return false;
-            }
-        }
-
-        true
     }
 
     pub fn remove_channel(&self, channel_id: NonZeroU64, mode: Option<GameMode>) {
         if let Some(mode) = mode {
-            if let Some(entry) = self.get(mode) {
+            if let Some(entry) = self.try_get(mode) {
                 entry.remove_channel(channel_id);
             }
         } else {
@@ -155,14 +147,6 @@ impl TrackedUser {
                 entry.remove_channel(channel_id);
             }
         }
-    }
-
-    pub fn add(&self, mode: GameMode, channel_id: NonZeroU64, params: TrackEntryParams) {
-        self.modes[mode as usize].add(channel_id, params);
-    }
-
-    pub fn needs_last_pp(&self, mode: GameMode) -> bool {
-        self.modes[mode as usize].needs_last_pp()
     }
 
     pub fn insert(&self, user: DbTrackedOsuUser) {
