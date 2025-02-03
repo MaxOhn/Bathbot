@@ -1,65 +1,42 @@
 use eyre::{Result, WrapErr};
-use twilight_http::{
-    request::{Request, RequestBuilder},
-    routing::Route,
-};
-use twilight_model::application::command::Command as TwilightCommand;
+use twilight_model::{application::command::Command, oauth::ApplicationIntegrationType};
 
 use super::Context;
-use crate::core::{
-    commands::interaction::twilight_command::{Command, IntegrationType, InteractionContextType},
-    BotConfig,
-};
+use crate::core::BotConfig;
 
 impl Context {
-    pub async fn set_global_commands(mut cmds: Vec<Command>) -> Result<Vec<TwilightCommand>> {
-        let route = Route::SetGlobalCommands {
-            application_id: Self::get().data.application_id.get(),
-        };
+    #[cold]
+    pub async fn set_global_commands(mut cmds: Vec<Command>) -> Result<Vec<Command>> {
+        let integrations = vec![
+            ApplicationIntegrationType::GuildInstall,
+            ApplicationIntegrationType::UserInstall,
+        ];
 
-        add_integrations_and_contexts(&mut cmds);
+        for cmd in cmds.iter_mut() {
+            if cmd.integration_types.is_none() {
+                cmd.integration_types = Some(integrations.clone());
+            } else {
+                warn!(command = cmd.name, "Command integrations already set");
+            }
+        }
 
-        send_command_request(route, &cmds).await
+        Context::interaction()
+            .set_global_commands(&cmds)
+            .await
+            .wrap_err("Failed to set commands")?
+            .models()
+            .await
+            .wrap_err("Failed to deserialize commands")
     }
 
-    pub async fn set_guild_commands(mut cmds: Vec<Command>) -> Result<Vec<TwilightCommand>> {
-        let route = Route::SetGuildCommands {
-            application_id: Self::get().data.application_id.get(),
-            guild_id: BotConfig::get().dev_guild.get(),
-        };
-
-        add_integrations_and_contexts(&mut cmds);
-
-        send_command_request(route, &cmds).await
+    #[cold]
+    pub async fn set_guild_commands(cmds: Vec<Command>) -> Result<Vec<Command>> {
+        Context::interaction()
+            .set_guild_commands(BotConfig::get().dev_guild, &cmds)
+            .await
+            .wrap_err("Failed to set commands")?
+            .models()
+            .await
+            .wrap_err("Failed to deserialize commands")
     }
-}
-
-fn add_integrations_and_contexts(cmds: &mut [Command]) {
-    let mut integrations = vec![IntegrationType::GuildInstall];
-    let mut contexts = vec![InteractionContextType::Guild, InteractionContextType::BotDm];
-
-    if std::env::args().all(|arg| arg != "--no-user-installs") {
-        integrations.push(IntegrationType::UserInstall);
-        contexts.push(InteractionContextType::PrivateChannel);
-    };
-
-    for cmd in cmds {
-        cmd.integration_types.extend_from_slice(&integrations);
-        cmd.contexts.extend_from_slice(&contexts);
-    }
-}
-
-async fn send_command_request(route: Route<'_>, cmds: &[Command]) -> Result<Vec<TwilightCommand>> {
-    let req = Request::builder(&route)
-        .json(&cmds)
-        .map(RequestBuilder::build)
-        .wrap_err("Failed to build command request")?;
-
-    Context::http()
-        .request(req)
-        .await
-        .wrap_err("Failed to set commands")?
-        .models()
-        .await
-        .wrap_err("Failed to deserialize commands")
 }

@@ -47,18 +47,14 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
         let mut req = Context::http().update_message(self.1, self.0);
 
         if let Some(ref content) = builder.content {
-            req = req
-                .content(Some(content.as_ref()))
-                .expect("invalid content");
+            req = req.content(Some(content.as_ref()));
         }
 
         let embed = builder.embed.build();
-        req = req.embeds(embed.as_option_slice()).expect("invalid embed");
+        req = req.embeds(embed.as_option_slice());
 
         if let Some(ref components) = builder.components {
-            req = req
-                .components(Some(components))
-                .expect("invalid components");
+            req = req.components(Some(components));
         }
 
         Some(req.into_future())
@@ -76,17 +72,17 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
         let mut req = Context::http().create_message(self.1).reply(self.0);
 
         if let Some(ref content) = builder.content {
-            req = req.content(content.as_ref()).expect("invalid content");
+            req = req.content(content.as_ref());
         }
 
         let embed = builder.embed.build();
 
         if let Some(slice) = embed.as_option_slice() {
-            req = req.embeds(slice).expect("invalid embed");
+            req = req.embeds(slice);
         }
 
         if let Some(components) = builder.components.as_deref() {
-            req = req.components(components).expect("invalid components");
+            req = req.components(components);
         }
 
         match builder.attachment.as_ref().filter(|_| {
@@ -94,10 +90,7 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
                 permissions.contains(Permissions::ATTACH_FILES)
             })
         }) {
-            Some(attachment) => req
-                .attachments(slice::from_ref(attachment))
-                .unwrap()
-                .into_future(),
+            Some(attachment) => req.attachments(slice::from_ref(attachment)).into_future(),
             None => req.into_future(),
         }
     }

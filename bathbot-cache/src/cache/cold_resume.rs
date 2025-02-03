@@ -16,7 +16,7 @@ use crate::{key::RedisKey, Cache};
 const STORE_DURATION: u64 = 240;
 
 impl Cache {
-    pub async fn freeze<S>(&self, sessions: &HashMap<u64, Session, S>) -> Result<()> {
+    pub async fn freeze<S>(&self, sessions: &HashMap<u32, Session, S>) -> Result<()> {
         info!(len = sessions.len(), "Freezing sessions...");
 
         let sessions = With::<_, SessionsRkyv>::cast(sessions);
@@ -37,7 +37,7 @@ impl Cache {
 
     pub async fn defrost<S: BuildHasher + Default>(
         &self,
-    ) -> Result<Option<HashMap<u64, Session, S>>> {
+    ) -> Result<Option<HashMap<u32, Session, S>>> {
         let mut conn = self.connection().await?;
 
         let bytes: Vec<u8> = conn

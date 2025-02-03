@@ -5,7 +5,7 @@ use std::{
 
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
-    channel::message::ReactionType,
+    channel::message::EmojiReactionType,
     id::{marker::EmojiMarker, Id},
 };
 
@@ -37,10 +37,10 @@ pub enum Emote {
 }
 
 impl Emote {
-    pub fn reaction_type(self) -> ReactionType {
+    pub fn reaction_type(self) -> EmojiReactionType {
         let CustomEmote { id, name } = BotConfig::get().emote(self);
 
-        ReactionType::Custom {
+        EmojiReactionType::Custom {
             animated: false,
             id: *id,
             name: Some(name.as_ref().to_owned()),

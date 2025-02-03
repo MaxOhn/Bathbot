@@ -5,12 +5,11 @@ use futures::Future;
 use linkme::distributed_slice;
 use once_cell::sync::OnceCell;
 use radix_trie::{iter::Keys, Trie, TrieCommon};
+use twilight_model::application::command::Command;
 
 pub use self::command::{InteractionCommandKind, MessageCommand, SlashCommand};
-use self::twilight_command::Command;
 
 mod command;
-pub mod twilight_command;
 
 #[distributed_slice]
 pub static __SLASH_COMMANDS: [SlashCommand] = [..];
@@ -68,7 +67,7 @@ impl InteractionCommands {
             .map(|sub| sub.keys().copied())
     }
 
-    pub fn set_ids(commands: &[twilight_model::application::command::Command]) {
+    pub fn set_ids(commands: &[Command]) {
         let this = Self::get();
 
         for cmd in commands {

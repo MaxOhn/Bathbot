@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use bathbot_util::{EmbedBuilder, MessageBuilder};
 use eyre::Result;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::broadcast::Sender;
 
 use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
 
@@ -13,7 +13,6 @@ pub async fn reshard(command: InteractionCommand) -> Result<()> {
         .get()
         .expect("RESHARD_TX has not been initialized")
         .send(())
-        .await
         .expect("RESHARD_RX has been dropped");
 
     let embed = EmbedBuilder::new().description("Reshard message has been sent");

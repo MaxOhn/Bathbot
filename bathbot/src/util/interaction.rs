@@ -31,7 +31,7 @@ pub struct InteractionCommand {
 pub struct InteractionComponent {
     pub permissions: Option<Permissions>,
     pub channel_id: Id<ChannelMarker>,
-    pub data: MessageComponentInteractionData,
+    pub data: Box<MessageComponentInteractionData>,
     pub guild_id: Option<Id<GuildMarker>>,
     pub id: Id<InteractionMarker>,
     pub member: Option<PartialMember>,

@@ -303,7 +303,6 @@ async fn slash_bg(mut command: InteractionCommand) -> Result<()> {
 
         let create_fut = Context::http()
             .create_thread(channel, &thread_name, kind)
-            .unwrap()
             .auto_archive_duration(archive_dur);
 
         match create_fut.await {

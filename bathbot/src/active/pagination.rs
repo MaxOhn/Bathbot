@@ -75,6 +75,7 @@ impl Pages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let single_step_back = Button {
@@ -84,6 +85,7 @@ impl Pages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let jump_custom = Button {
@@ -93,6 +95,7 @@ impl Pages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let single_step = Button {
@@ -102,6 +105,7 @@ impl Pages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let jump_end = Button {
@@ -111,6 +115,7 @@ impl Pages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let components = vec![

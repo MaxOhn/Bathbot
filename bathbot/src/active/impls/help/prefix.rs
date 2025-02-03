@@ -9,8 +9,8 @@ use eyre::Result;
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, SelectMenu, SelectMenuOption},
-        Component, ReactionType,
+        component::{ActionRow, SelectMenu, SelectMenuOption, SelectMenuType},
+        Component, EmojiReactionType,
     },
     id::{marker::GuildMarker, Id},
 };
@@ -76,7 +76,7 @@ impl IActiveMessage for HelpPrefixMenu {
             SelectMenuOption {
                 default: self.current_group.is_none(),
                 description: None,
-                emoji: Some(ReactionType::Unicode {
+                emoji: Some(EmojiReactionType::Unicode {
                     name: "🛁".to_owned(),
                 }),
                 label: "General".to_owned(),
@@ -134,7 +134,7 @@ impl IActiveMessage for HelpPrefixMenu {
             SelectMenuOption {
                 default: matches!(self.current_group, Some(PrefixCommandGroup::Games)),
                 description: None,
-                emoji: Some(ReactionType::Unicode {
+                emoji: Some(EmojiReactionType::Unicode {
                     name: "🎮".to_owned(),
                 }),
                 label: "Games".to_owned(),
@@ -143,7 +143,7 @@ impl IActiveMessage for HelpPrefixMenu {
             SelectMenuOption {
                 default: matches!(self.current_group, Some(PrefixCommandGroup::Utility)),
                 description: None,
-                emoji: Some(ReactionType::Unicode {
+                emoji: Some(EmojiReactionType::Unicode {
                     name: "🛠️".to_owned(),
                 }),
                 label: "Utility".to_owned(),
@@ -152,7 +152,7 @@ impl IActiveMessage for HelpPrefixMenu {
             SelectMenuOption {
                 default: matches!(self.current_group, Some(PrefixCommandGroup::Songs)),
                 description: None,
-                emoji: Some(ReactionType::Unicode {
+                emoji: Some(EmojiReactionType::Unicode {
                     name: "🎵".to_owned(),
                 }),
                 label: "Songs".to_owned(),
@@ -165,8 +165,11 @@ impl IActiveMessage for HelpPrefixMenu {
             disabled: false,
             max_values: Some(1),
             min_values: Some(1),
-            options,
+            options: Some(options),
             placeholder: None,
+            channel_types: None,
+            default_values: None,
+            kind: SelectMenuType::Text,
         };
 
         let category_row = ActionRow {

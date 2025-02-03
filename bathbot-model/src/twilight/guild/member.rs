@@ -7,7 +7,7 @@ use rkyv::{
     Archive, Deserialize, Place, Serialize,
 };
 use twilight_model::{
-    application::interaction::application_command::InteractionMember,
+    application::interaction::InteractionMember,
     gateway::payload::incoming::MemberUpdate,
     guild::{Member, PartialMember},
     id::{marker::RoleMarker, Id},

@@ -34,6 +34,14 @@ pub fn impl_cmd(attrs: CommandAttrs, fun: CommandFun) -> Result<TokenStream> {
 
     let path = quote!(crate::core::commands::interaction::MessageCommand);
 
+    let contexts = if dm_permission.is_some_and(|lit| !lit.value) {
+        quote!(Some(vec![
+            ::twilight_model::application::command::InteractionContextType::Guild
+        ]))
+    } else {
+        quote!(None)
+    };
+
     let tokens = quote! {
         #[linkme::distributed_slice(crate::core::commands::interaction::__MSG_COMMANDS)]
         pub static #static_name: #path = #path {
@@ -44,13 +52,15 @@ pub fn impl_cmd(attrs: CommandAttrs, fun: CommandFun) -> Result<TokenStream> {
             id: std::sync::OnceLock::new(),
         };
 
-        fn #create() -> crate::core::commands::interaction::twilight_command::Command {
-            crate::core::commands::interaction::twilight_command::Command {
+        fn #create() -> ::twilight_model::application::command::Command {
+            // Supressing the deprecation warning for `dm_permission`
+            #[allow(deprecated)]
+            ::twilight_model::application::command::Command {
                 application_id: None,
                 default_member_permissions: None,
                 description: String::new(),
                 description_localizations: None,
-                dm_permission: #dm_permission,
+                dm_permission: None,
                 guild_id: None,
                 id: None,
                 kind: ::twilight_model::application::command::CommandType::Message,
@@ -59,8 +69,8 @@ pub fn impl_cmd(attrs: CommandAttrs, fun: CommandFun) -> Result<TokenStream> {
                 nsfw: None,
                 options: Vec::new(),
                 version: ::twilight_model::id::Id::new(1),
-                integration_types: Vec::new(),
-                contexts: Vec::new(),
+                integration_types: None,
+                contexts: #contexts,
             }
         }
 

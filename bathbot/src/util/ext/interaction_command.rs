@@ -175,21 +175,17 @@ impl InteractionToken<'_> {
         let mut req = client.update_response(self.0);
 
         if let Some(ref content) = builder.content {
-            req = req
-                .content(Some(content.as_ref()))
-                .expect("invalid content");
+            req = req.content(Some(content.as_ref()));
         }
 
         let embed = builder.embed.build();
 
         if let Some(embeds) = embed.as_option_slice() {
-            req = req.embeds(Some(embeds)).expect("invalid embed");
+            req = req.embeds(Some(embeds));
         }
 
         if let Some(ref components) = builder.components {
-            req = req
-                .components(Some(components))
-                .expect("invalid components");
+            req = req.components(Some(components));
         }
 
         if let Some(attachment) = builder.attachment.as_ref().filter(|_| {
@@ -197,9 +193,7 @@ impl InteractionToken<'_> {
                 permissions.contains(Permissions::ATTACH_FILES)
             })
         }) {
-            req = req
-                .attachments(slice::from_ref(attachment))
-                .expect("invalid attachments");
+            req = req.attachments(slice::from_ref(attachment));
         }
 
         req.into_future()

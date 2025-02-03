@@ -5,7 +5,7 @@ use rosu_pp::{
     Beatmap, Performance,
 };
 use twilight_model::channel::message::{
-    component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
+    component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
     Component,
 };
 
@@ -83,6 +83,7 @@ impl TopOldVersion {
                     label: Some($label.to_owned()),
                     style: ButtonStyle::$style,
                     url: None,
+                    sku_id: None,
                 }
             };
         }
@@ -168,8 +169,11 @@ impl TopOldVersion {
                     disabled: false,
                     max_values: None,
                     min_values: None,
-                    options,
+                    options: Some(options),
                     placeholder: None,
+                    channel_types: None,
+                    default_values: None,
+                    kind: SelectMenuType::Text,
                 };
 
                 (
@@ -223,8 +227,11 @@ impl TopOldVersion {
                     disabled: false,
                     max_values: None,
                     min_values: None,
-                    options,
+                    options: Some(options),
                     placeholder: None,
+                    channel_types: None,
+                    default_values: None,
+                    kind: SelectMenuType::Text,
                 };
 
                 (upper, Some(bottom), None, Component::SelectMenu(version))
@@ -276,8 +283,11 @@ impl TopOldVersion {
                     disabled: false,
                     max_values: None,
                     min_values: None,
-                    options,
+                    options: Some(options),
                     placeholder: None,
+                    channel_types: None,
+                    default_values: None,
+                    kind: SelectMenuType::Text,
                 };
 
                 (upper, Some(bottom), None, Component::SelectMenu(version))
@@ -357,8 +367,11 @@ impl TopOldVersion {
                     disabled: false,
                     max_values: None,
                     min_values: None,
-                    options,
+                    options: Some(options),
                     placeholder: None,
+                    channel_types: None,
+                    default_values: None,
+                    kind: SelectMenuType::Text,
                 };
 
                 (upper, middle, bottom, Component::SelectMenu(version))

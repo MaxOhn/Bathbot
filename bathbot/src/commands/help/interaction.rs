@@ -12,7 +12,7 @@ use eyre::{ContextCompat, Result};
 use metrics::Key;
 use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateCommand};
 use twilight_model::{
-    application::command::{CommandOptionChoice, CommandOptionChoiceValue},
+    application::command::{Command, CommandOptionChoice, CommandOptionChoiceValue},
     channel::message::embed::EmbedField,
 };
 
@@ -20,9 +20,7 @@ use super::failed_message_content;
 use crate::{
     active::{impls::HelpInteractionCommand, ActiveMessages},
     core::{
-        commands::interaction::{
-            twilight_command::Command, InteractionCommandKind, InteractionCommands,
-        },
+        commands::interaction::{InteractionCommandKind, InteractionCommands},
         Context,
     },
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},

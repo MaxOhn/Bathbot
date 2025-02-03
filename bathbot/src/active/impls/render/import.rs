@@ -13,7 +13,7 @@ use rosu_render::model::{RenderOptions, RenderSkinOption};
 use twilight_model::{
     channel::message::{
         component::{ActionRow, Button, ButtonStyle, TextInputStyle},
-        Component, ReactionType,
+        Component, EmojiReactionType,
     },
     id::{marker::UserMarker, Id},
 };
@@ -236,12 +236,13 @@ impl IActiveMessage for SettingsImport {
                 let import = Button {
                     custom_id: Some("import".to_owned()),
                     disabled: false,
-                    emoji: Some(ReactionType::Unicode {
+                    emoji: Some(EmojiReactionType::Unicode {
                         name: "📋".to_owned(),
                     }),
                     label: Some("Paste settings".to_owned()),
                     style: ButtonStyle::Success,
                     url: None,
+                    sku_id: None,
                 };
 
                 let row = ActionRow {

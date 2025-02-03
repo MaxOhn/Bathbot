@@ -6,7 +6,7 @@ use eyre::{Report, Result, WrapErr};
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
+        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
         embed::EmbedField,
         Component,
     },
@@ -261,6 +261,7 @@ impl ChangelogPages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let single_step_back = Button {
@@ -270,6 +271,7 @@ impl ChangelogPages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let single_step = Button {
@@ -279,6 +281,7 @@ impl ChangelogPages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let jump_end = Button {
@@ -288,6 +291,7 @@ impl ChangelogPages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let buttons = vec![
@@ -315,8 +319,11 @@ impl ChangelogPages {
             disabled: false,
             max_values: None,
             min_values: None,
-            options,
+            options: Some(options),
             placeholder: None,
+            channel_types: None,
+            default_values: None,
+            kind: SelectMenuType::Text,
         };
 
         let menu = vec![Component::SelectMenu(menu)];

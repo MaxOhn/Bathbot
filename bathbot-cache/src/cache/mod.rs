@@ -9,7 +9,9 @@ use bb8_redis::{
 use eyre::{Result, WrapErr};
 use tracing::error;
 use twilight_gateway::Event;
-use twilight_model::application::interaction::InteractionData;
+use twilight_model::{
+    application::interaction::InteractionData, gateway::payload::incoming::GuildCreate,
+};
 
 use crate::model::{CacheChange, CacheStats, CacheStatsInternal};
 
@@ -49,9 +51,14 @@ impl Cache {
                 Event::ChannelCreate(e) => cache.cache_channel(e).await?,
                 Event::ChannelDelete(e) => cache.delete_channel(e.guild_id, e.id).await?,
                 Event::ChannelUpdate(e) => cache.cache_channel(e).await?,
-                Event::GuildCreate(e) => cache.cache_guild(e).await?,
+                Event::GuildCreate(e) => match &**e {
+                    GuildCreate::Available(guild) => cache.cache_guild(guild).await?,
+                    GuildCreate::Unavailable(guild) => {
+                        cache.cache_unavailable_guild(guild.id).await?
+                    }
+                },
                 Event::GuildDelete(e) => {
-                    if e.unavailable {
+                    if e.unavailable == Some(true) {
                         cache.cache_unavailable_guild(e.id).await?
                     } else {
                         cache.delete_guild(e.id).await?
@@ -102,13 +109,7 @@ impl Cache {
                     }
                     _ => cache.cache_user(&e.author).await?,
                 },
-                Event::MessageUpdate(e) => {
-                    if let Some(ref user) = e.author {
-                        cache.cache_user(user).await?
-                    } else {
-                        return Ok(None);
-                    }
-                }
+                Event::MessageUpdate(e) => cache.cache_user(&e.author).await?,
                 Event::Ready(e) => {
                     cache.cache_current_user(&e.user).await?;
 
