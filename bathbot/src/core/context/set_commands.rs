@@ -1,5 +1,8 @@
 use eyre::{Result, WrapErr};
-use twilight_model::{application::command::Command, oauth::ApplicationIntegrationType};
+use twilight_model::{
+    application::{command::Command, interaction::InteractionContextType},
+    oauth::ApplicationIntegrationType,
+};
 
 use super::Context;
 use crate::core::BotConfig;
@@ -17,6 +20,23 @@ impl Context {
                 cmd.integration_types = Some(integrations.clone());
             } else {
                 warn!(command = cmd.name, "Command integrations already set");
+            }
+
+            #[allow(deprecated)]
+            let contexts = if cmd.dm_permission == Some(false) {
+                vec![InteractionContextType::Guild]
+            } else {
+                vec![
+                    InteractionContextType::Guild,
+                    InteractionContextType::BotDm,
+                    InteractionContextType::PrivateChannel,
+                ]
+            };
+
+            if cmd.contexts.is_none() {
+                cmd.contexts = Some(contexts);
+            } else {
+                warn!(command = cmd.name, "Command contexts already set");
             }
         }
 
