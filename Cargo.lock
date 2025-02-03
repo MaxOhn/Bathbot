@@ -46,12 +46,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c6cb57a04249c6480766f7f7cef5467412af1490f8d1e243141daddada3264f"
 
 [[package]]
-name = "arrayvec"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
-
-[[package]]
 name = "assert_float_eq"
 version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -254,7 +248,6 @@ version = "3.17.0"
 dependencies = [
  "bathbot-util",
  "bitflags 1.3.2",
- "compact_str",
  "eyre",
  "form_urlencoded",
  "http 0.2.12",
@@ -277,15 +270,12 @@ dependencies = [
 name = "bathbot-psql"
 version = "3.17.0"
 dependencies = [
- "arrayvec",
  "bathbot-model",
- "compact_str",
  "dotenvy",
  "eyre",
  "futures",
  "ptr_meta 0.1.4",
  "rkyv",
- "rosu-pp",
  "rosu-v2",
  "smallvec",
  "sqlx",
@@ -336,7 +326,6 @@ dependencies = [
  "bathbot-util",
  "bitflags 1.3.2",
  "bytes",
- "compact_str",
  "dotenvy",
  "enterpolation",
  "enum_dispatch",
@@ -515,15 +504,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "325918d6fe32f23b19878fe4b34794ae41fc19ddbe53b10571a4874d44ffd39b"
 
 [[package]]
-name = "castaway"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0abae9be0aaf9ea96a3b1b8b1b55c602ca751eba1b1500220cea4ecbafe7c0d5"
-dependencies = [
- "rustversion",
-]
-
-[[package]]
 name = "cc"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -573,20 +553,6 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tokio-util",
-]
-
-[[package]]
-name = "compact_str"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f86b9c4c00838774a6d902ef931eff7470720c51d90c2e32cfe15dc304737b3f"
-dependencies = [
- "castaway",
- "cfg-if",
- "itoa",
- "ryu",
- "serde",
- "static_assertions",
 ]
 
 [[package]]
@@ -3226,12 +3192,6 @@ dependencies = [
  "url",
  "urlencoding",
 ]
-
-[[package]]
-name = "static_assertions"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stringprep"
