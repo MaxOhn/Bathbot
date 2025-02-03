@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{fmt::Write, slice};
 
 use bathbot_model::TwitchUser;
 use bathbot_util::{
@@ -139,43 +139,39 @@ pub async fn twitch_tracking_loop() {
 
 async fn send_notif(embed: EmbedBuilder, channel: Id<ChannelMarker>) {
     let embed = embed.build();
+    let msg_fut = Context::http()
+        .create_message(channel)
+        .embeds(slice::from_ref(&embed));
 
-    match Context::http().create_message(channel).embeds(&[embed]) {
-        Ok(msg_fut) => {
-            if let Err(err) = msg_fut.await {
-                if let ErrorType::Response { error, .. } = err.kind() {
-                    match error {
-                        ApiError::General(GeneralApiError {
-                            code: UNKNOWN_CHANNEL,
-                            ..
-                        }) => {
-                            if let Err(err) = Context::twitch().untrack_all(channel).await {
-                                warn!(
-                                    %channel,
-                                    ?err,
-                                    "Failed to remove stream tracks from unknown channel"
-                                );
-                            } else {
-                                debug!("Removed twitch tracking of unknown channel {channel}");
-                            }
-                        }
-                        err => warn!(
+    if let Err(err) = msg_fut.await {
+        if let ErrorType::Response { error, .. } = err.kind() {
+            match error {
+                ApiError::General(GeneralApiError {
+                    code: UNKNOWN_CHANNEL,
+                    ..
+                }) => {
+                    if let Err(err) = Context::twitch().untrack_all(channel).await {
+                        warn!(
                             %channel,
                             ?err,
-                            "Error from API while sending twitch notif"
-                        ),
+                            "Failed to remove stream tracks from unknown channel"
+                        );
+                    } else {
+                        debug!("Removed twitch tracking of unknown channel {channel}");
                     }
-                } else {
-                    warn!(
-                        %channel,
-                        ?err,
-                        "Error while sending twitch notif"
-                    );
                 }
+                err => warn!(
+                    %channel,
+                    ?err,
+                    "Error from API while sending twitch notif"
+                ),
             }
-        }
-        Err(err) => {
-            warn!(?err, "Invalid embed for twitch notif");
+        } else {
+            warn!(
+                %channel,
+                ?err,
+                "Error while sending twitch notif"
+            );
         }
     }
 }

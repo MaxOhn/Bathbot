@@ -161,7 +161,6 @@ async fn matchlive(orig: CommandOrigin<'_>, args: MatchliveAdd<'_>) -> Result<()
 
         let create_fut = Context::http()
             .create_thread(channel, &thread_name, kind)
-            .unwrap()
             .auto_archive_duration(archive_dur);
 
         match create_fut.await {

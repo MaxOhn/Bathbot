@@ -30,10 +30,7 @@ pub async fn send_match_messages(
 
     let http = Context::http();
 
-    let mut last_msg_fut = http
-        .create_message(channel)
-        .embeds(slice::from_ref(&last))
-        .wrap_err("Failed to create last match live msg")?;
+    let mut last_msg_fut = http.create_message(channel).embeds(slice::from_ref(&last));
 
     if embeds.len() <= EMBED_LIMIT {
         let mut interval = interval(Duration::from_millis(250));
@@ -43,21 +40,13 @@ pub async fn send_match_messages(
             let embed = embed.as_embed();
             interval.tick().await;
 
-            match http.create_message(channel).embeds(&[embed]) {
-                Ok(msg_fut) => {
-                    if let Err(err) = msg_fut.await {
-                        warn!(?err, "Failed to send match live embed");
-                    }
-                }
-                Err(err) => {
-                    warn!(?err, "Failed to create match live msg");
-                }
+            if let Err(err) = http.create_message(channel).embeds(&[embed]).await {
+                warn!(?err, "Failed to send match live embed");
             }
         }
     } else {
         last_msg_fut = last_msg_fut
-            .content("The match has been going too long for me to send all previous messages.")
-            .unwrap();
+            .content("The match has been going too long for me to send all previous messages.");
     }
 
     let last_msg = last_msg_fut
