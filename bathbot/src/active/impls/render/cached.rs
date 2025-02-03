@@ -320,6 +320,7 @@ impl IActiveMessage for CachedRender {
             label: Some("Send link".to_owned()),
             style: ButtonStyle::Success,
             url: None,
+            sku_id: None,
         };
 
         let render_anyway = Button {
@@ -329,6 +330,7 @@ impl IActiveMessage for CachedRender {
             label: Some("Render anyways".to_owned()),
             style: ButtonStyle::Danger,
             url: None,
+            sku_id: None,
         };
 
         let components = vec![

@@ -11,17 +11,15 @@ use bathbot_psql::{model::configs::GuildConfig, Database};
 use bathbot_util::{IntHasher, MetricsReader};
 use eyre::{Result, WrapErr};
 use flexmap::{std::StdMutexMap, tokio::TokioRwLockMap};
-use futures::{future, stream::FuturesUnordered, FutureExt, StreamExt};
 use metrics_util::layers::{FanoutBuilder, Layer, PrefixLayer};
 use papaya::HashMap as PapayaMap;
 use rkyv::collections::util::Entry;
 use rosu_v2::Osu;
 use shutdown::CacheGuildShards;
 use time::OffsetDateTime;
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::{mpsc::UnboundedSender, Mutex as TokioMutex};
 use twilight_gateway::{
-    stream, CloseFrame, Config, ConfigBuilder, EventTypeFlags, Intents, MessageSender, Session,
-    Shard, ShardId,
+    CloseFrame, ConfigBuilder, Intents, MessageSender, Session, Shard, ShardId,
 };
 use twilight_http::{client::InteractionClient, Client};
 use twilight_model::{
@@ -60,7 +58,7 @@ mod matchlive;
 #[cfg(feature = "twitchtracking")]
 mod twitch;
 
-type GuildShards = PapayaMap<Id<GuildMarker>, u64>;
+type GuildShards = PapayaMap<Id<GuildMarker>, u32>;
 type GuildConfigs = PapayaMap<Id<GuildMarker>, GuildConfig, IntHasher>;
 type MissAnalyzerGuilds = RwLock<HashSet<Id<GuildMarker>, IntHasher>>;
 
@@ -71,7 +69,7 @@ static CONTEXT: OnceLock<Box<Context>> = OnceLock::new();
 
 pub struct Context {
     pub buckets: Buckets,
-    pub shard_senders: RwLock<HashMap<u64, MessageSender>>,
+    pub shard_senders: RwLock<HashMap<u32, MessageSender, IntHasher>>,
     pub member_requests: MemberRequests,
     pub active_msgs: ActiveMessages,
     pub start_time: OffsetDateTime,
@@ -152,7 +150,7 @@ impl Context {
         &Self::get().data.online_twitch_streams
     }
 
-    pub async fn init(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Result<ContextResult> {
+    pub async fn init(tx: UnboundedSender<(Id<GuildMarker>, u32)>) -> Result<ContextResult> {
         let (_prometheus, reader) = {
             const DEFAULT_BUCKETS: [f64; 10] =
                 [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0];
@@ -241,14 +239,21 @@ impl Context {
             }
         };
 
-        let shards = discord_gateway(config, &http, resume_data)
+        let shards_iter = discord_gateway(config, &http, resume_data)
             .await
             .wrap_err("Failed to create discord gateway shards")?;
 
-        let shard_senders: HashMap<_, _> = shards
-            .iter()
-            .map(|shard| (shard.id().number(), shard.sender()))
-            .collect();
+        let mut shard_senders = HashMap::default();
+        let mut shards = Vec::new();
+
+        for shard in shards_iter {
+            {
+                let guard = shard.lock().await;
+                shard_senders.insert(guard.id().number(), guard.sender());
+            }
+
+            shards.push(shard);
+        }
 
         let shard_senders = RwLock::new(shard_senders);
 
@@ -314,42 +319,50 @@ impl Context {
         (ratelimit > 0).then_some(ratelimit)
     }
 
-    pub async fn down_resumable(shards: &mut [Shard]) -> HashMap<u64, Session, IntHasher> {
+    pub fn down_resumable(shards: &[Shard]) -> HashMap<u32, Session, IntHasher> {
         shards
-            .iter_mut()
-            .map(|shard| {
-                let shard_id = shard.id().number();
+            .iter()
+            .filter_map(|shard| {
+                shard.close(CloseFrame::RESUME);
 
                 shard
-                    .close(CloseFrame::RESUME)
-                    .map(move |res| (shard_id, res))
-            })
-            .collect::<FuturesUnordered<_>>()
-            .filter_map(|(shard_id, res)| match res {
-                Ok(opt) => future::ready(opt.map(|session| (shard_id, session))),
-                Err(err) => {
-                    warn!(shard_id, ?err, "Failed to close shard");
-
-                    future::ready(None)
-                }
+                    .session()
+                    .map(|session| (shard.id().number(), session.clone()))
             })
             .collect()
-            .await
     }
 
-    pub async fn reshard(shards: &mut Vec<Shard>) -> Result<()> {
+    pub async fn reshard(shards: &mut Vec<Arc<TokioMutex<Shard>>>) -> Result<()> {
         info!("Resharding...");
 
-        *shards = discord_gateway(BotConfig::get(), Context::http(), HashMap::default())
+        {
+            // Tell the current shards to close
+            let unlocked = Context::get().shard_senders.read().unwrap();
+
+            for sender in unlocked.values() {
+                let _: Result<_, _> = sender.close(CloseFrame::NORMAL);
+            }
+        }
+
+        // Creating new shards
+        let shards_iter = discord_gateway(BotConfig::get(), Context::http(), HashMap::default())
             .await
             .wrap_err("Failed to create new shards for resharding")?;
 
-        let mut unlocked = Context::get().shard_senders.write().unwrap();
+        shards.clear();
+        let mut senders = HashMap::default();
 
-        *unlocked = shards
-            .iter()
-            .map(|shard| (shard.id().number(), shard.sender()))
-            .collect();
+        for shard in shards_iter {
+            {
+                let guard = shard.lock().await;
+                senders.insert(guard.id().number(), guard.sender());
+            }
+
+            shards.push(shard);
+        }
+
+        // Storing shard senders
+        *Context::get().shard_senders.write().unwrap() = senders;
 
         info!("Finished resharding");
 
@@ -357,19 +370,21 @@ impl Context {
     }
 }
 
+type Shards = Vec<Arc<TokioMutex<Shard>>>;
+
 #[cfg(not(feature = "server"))]
-pub type ContextResult = (Vec<Shard>,);
+pub type ContextResult = (Shards,);
 
 #[cfg(feature = "server")]
-pub type ContextResult = (Vec<Shard>, tokio::sync::oneshot::Sender<()>);
+pub type ContextResult = (Shards, tokio::sync::oneshot::Sender<()>);
 
 pub struct MemberRequests {
-    pub tx: UnboundedSender<(Id<GuildMarker>, u64)>,
+    pub tx: UnboundedSender<(Id<GuildMarker>, u32)>,
     pub pending_guilds: Mutex<HashSet<Id<GuildMarker>, IntHasher>>,
 }
 
 impl MemberRequests {
-    fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Self {
+    fn new(tx: UnboundedSender<(Id<GuildMarker>, u32)>) -> Self {
         Self {
             tx,
             pending_guilds: Mutex::new(HashSet::default()),
@@ -460,11 +475,11 @@ impl ContextData {
 
     async fn fetch_guild_shards(cache: &Cache) -> GuildShards {
         let fetch_fut =
-            cache.fetch_with::<_, [(Id<GuildMarker>, u64)], CacheGuildShards>("guild_shards");
+            cache.fetch_with::<_, [(Id<GuildMarker>, u32)], CacheGuildShards>("guild_shards");
 
         match fetch_fut.await {
             Ok(Ok(guild_shards)) => guild_shards
-                .deserialize_into_with::<Vec<Entry<Id<GuildMarker>, u64>>, CacheGuildShards>()
+                .deserialize_into_with::<Vec<Entry<Id<GuildMarker>, u32>>, CacheGuildShards>()
                 .into_iter()
                 .map(|entry| (entry.key, entry.value))
                 .collect(),
@@ -551,37 +566,13 @@ async fn discord_http(config: &BotConfig) -> Result<(Arc<Client>, Id<Application
 async fn discord_gateway(
     config: &BotConfig,
     http: &Client,
-    resume_data: HashMap<u64, Session, IntHasher>,
-) -> Result<Vec<Shard>> {
+    resume_data: HashMap<u32, Session, IntHasher>,
+) -> Result<impl ExactSizeIterator<Item = Arc<TokioMutex<Shard>>>> {
     let intents = Intents::GUILDS
         | Intents::GUILD_MEMBERS
         | Intents::GUILD_MESSAGES
         | Intents::DIRECT_MESSAGES
         | Intents::MESSAGE_CONTENT;
-
-    let event_types = EventTypeFlags::CHANNEL_CREATE
-        | EventTypeFlags::CHANNEL_DELETE
-        | EventTypeFlags::CHANNEL_UPDATE
-        | EventTypeFlags::GUILD_CREATE
-        | EventTypeFlags::GUILD_DELETE
-        | EventTypeFlags::GUILD_UPDATE
-        | EventTypeFlags::INTERACTION_CREATE
-        | EventTypeFlags::MEMBER_ADD
-        | EventTypeFlags::MEMBER_REMOVE
-        | EventTypeFlags::MEMBER_UPDATE
-        | EventTypeFlags::MEMBER_CHUNK
-        | EventTypeFlags::MESSAGE_CREATE
-        | EventTypeFlags::MESSAGE_DELETE
-        | EventTypeFlags::MESSAGE_DELETE_BULK
-        | EventTypeFlags::READY
-        | EventTypeFlags::ROLE_CREATE
-        | EventTypeFlags::ROLE_DELETE
-        | EventTypeFlags::ROLE_UPDATE
-        | EventTypeFlags::THREAD_CREATE
-        | EventTypeFlags::THREAD_DELETE
-        | EventTypeFlags::THREAD_UPDATE
-        | EventTypeFlags::UNAVAILABLE_GUILD
-        | EventTypeFlags::USER_UPDATE;
 
     let activity = MinimalActivity {
         kind: ActivityType::Playing,
@@ -592,22 +583,22 @@ async fn discord_gateway(
     let presence =
         UpdatePresencePayload::new([activity.into()], false, None, Status::Online).unwrap();
 
-    let config = Config::builder(config.tokens.discord.to_string(), intents)
-        .event_types(event_types)
-        // .large_threshold(250) // requires presence intent to have an effect
+    let config = ConfigBuilder::new(config.tokens.discord.to_string(), intents)
         .presence(presence)
         .build();
 
-    let config_callback =
-        |shard_id: ShardId, builder: ConfigBuilder| match resume_data.get(&shard_id.number()) {
-            Some(session) => builder.session(session.to_owned()).build(),
-            None => builder.build(),
-        };
+    let config_callback = move |shard_id: ShardId, builder: ConfigBuilder| match resume_data
+        .get(&shard_id.number())
+    {
+        Some(session) => builder.session(session.to_owned()).build(),
+        None => builder.build(),
+    };
 
-    stream::create_recommended(http, config, config_callback)
+    let shards = twilight_gateway::create_recommended(http, config, config_callback)
         .await
-        .map(Iterator::collect)
-        .wrap_err("Failed to create recommended shards")
+        .wrap_err("Failed to create recommended shards")?;
+
+    Ok(shards.map(TokioMutex::new).map(Arc::new))
 }
 
 #[cfg(feature = "server")]

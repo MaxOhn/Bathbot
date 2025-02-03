@@ -15,14 +15,14 @@ mod util;
 #[cfg(feature = "matchlive")]
 mod matchlive;
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use bathbot_model::Countries;
 use eyre::{Report, Result, WrapErr};
 use tokio::{
     runtime::Builder as RuntimeBuilder,
     signal,
-    sync::mpsc,
+    sync::{broadcast, mpsc},
     time::{self, MissedTickBehavior},
 };
 use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
@@ -153,7 +153,7 @@ async fn async_main() -> Result<()> {
         }
     });
 
-    let (reshard_tx, reshard_rx) = mpsc::channel(1);
+    let (reshard_tx, reshard_rx) = broadcast::channel(1);
 
     RESHARD_TX
         .set(reshard_tx)
@@ -172,8 +172,17 @@ async fn async_main() -> Result<()> {
         error!("Failed to send shutdown message to server");
     }
 
+    let shards: Vec<_> = shards
+        .into_iter()
+        .map(|shard| {
+            Arc::into_inner(shard)
+                .expect("exactly one strong reference")
+                .into_inner()
+        })
+        .collect();
+
     tokio::select! {
-        _ = Context::shutdown(&mut shards) => info!("Shutting down"),
+        _ = Context::shutdown(&shards) => info!("Shutting down"),
         res = signal::ctrl_c() => match res {
             Ok(_) => info!("Forcing shutdown"),
             Err(err) => error!(?err, "Failed to await second Ctrl+C"),

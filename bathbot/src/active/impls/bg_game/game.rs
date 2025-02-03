@@ -222,10 +222,7 @@ pub async fn game_loop(
                 };
 
                 // Send message
-                let msg_fut = Context::http()
-                    .create_message(channel)
-                    .content(&content)
-                    .unwrap();
+                let msg_fut = Context::http().create_message(channel).content(&content);
 
                 if let Err(err) = msg_fut.await {
                     warn!(?err, "Error while sending msg for correct artist");

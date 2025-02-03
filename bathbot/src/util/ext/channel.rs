@@ -34,17 +34,17 @@ impl ChannelExt for Id<ChannelMarker> {
         let mut req = Context::http().create_message(*self);
 
         if let Some(ref content) = builder.content {
-            req = req.content(content.as_ref()).expect("invalid content");
+            req = req.content(content.as_ref());
         }
 
         let embed = builder.embed.build();
 
         if let Some(slice) = embed.as_option_slice() {
-            req = req.embeds(slice).expect("invalid embed");
+            req = req.embeds(slice);
         }
 
         if let Some(components) = builder.components.as_deref() {
-            req = req.components(components).expect("invalid components");
+            req = req.components(components);
         }
 
         match builder.attachment.as_ref().filter(|_| {
@@ -52,10 +52,7 @@ impl ChannelExt for Id<ChannelMarker> {
                 permissions.contains(Permissions::ATTACH_FILES)
             })
         }) {
-            Some(attachment) => req
-                .attachments(slice::from_ref(attachment))
-                .unwrap()
-                .into_future(),
+            Some(attachment) => req.attachments(slice::from_ref(attachment)).into_future(),
             None => req.into_future(),
         }
     }
@@ -66,7 +63,6 @@ impl ChannelExt for Id<ChannelMarker> {
         Context::http()
             .create_message(*self)
             .embeds(&[embed])
-            .expect("invalid embed")
             .into_future()
     }
 
@@ -74,7 +70,6 @@ impl ChannelExt for Id<ChannelMarker> {
         Context::http()
             .create_message(*self)
             .content(content)
-            .expect("invalid content")
             .into_future()
     }
 }

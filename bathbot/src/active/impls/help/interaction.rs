@@ -1,11 +1,13 @@
+use std::borrow::Cow;
+
 use bathbot_util::{EmbedBuilder, FooterBuilder};
 use eyre::Result;
 use futures::future::{ready, BoxFuture};
-use twilight_interactions::command::{ApplicationCommandData, CommandOptionExt};
+use twilight_interactions::command::{ApplicationCommandData, CommandOptionExtended};
 use twilight_model::{
-    application::command::CommandOptionType,
+    application::command::{Command, CommandOptionType},
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
+        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
         embed::EmbedField,
         Component,
     },
@@ -14,9 +16,7 @@ use twilight_model::{
 
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
-    core::commands::interaction::{
-        twilight_command::Command, InteractionCommandKind, InteractionCommands,
-    },
+    core::commands::interaction::{InteractionCommandKind, InteractionCommands},
     util::{interaction::InteractionComponent, Authored},
 };
 
@@ -87,9 +87,9 @@ impl IActiveMessage for HelpInteractionCommand {
 
         let options: Vec<_> = options
             .into_iter()
-            .filter_map(|option| match option.inner.kind {
+            .filter_map(|option| match option.kind {
                 CommandOptionType::SubCommand | CommandOptionType::SubCommandGroup => {
-                    Some((option.inner.name, option.inner.description))
+                    Some((option.name, option.description))
                 }
                 _ => None,
             })
@@ -110,8 +110,11 @@ impl IActiveMessage for HelpInteractionCommand {
                 disabled: false,
                 max_values: None,
                 min_values: None,
-                options,
+                options: Some(options),
                 placeholder: Some("Select a subcommand".to_owned()),
+                channel_types: None,
+                default_values: None,
+                kind: SelectMenuType::Text,
             };
 
             let row = ActionRow {
@@ -128,6 +131,7 @@ impl IActiveMessage for HelpInteractionCommand {
             label: Some("Back".to_owned()),
             style: ButtonStyle::Danger,
             url: None,
+            sku_id: None,
         };
 
         let button_row = ActionRow {
@@ -212,24 +216,27 @@ impl HelpInteractionCommand {
     }
 }
 
-fn option_fields(children: Vec<CommandOptionExt>) -> Vec<EmbedField> {
+fn option_fields(children: Vec<CommandOptionExtended>) -> Vec<EmbedField> {
     children
         .into_iter()
         .filter_map(|child| {
             if matches!(
-                child.inner.kind,
+                child.kind,
                 CommandOptionType::SubCommand | CommandOptionType::SubCommandGroup
             ) {
                 return None;
             }
 
-            let mut name = child.inner.name;
+            let mut name = child.name;
 
-            if child.inner.required.unwrap_or(false) {
+            if child.required.unwrap_or(false) {
                 name.push_str(" (required)");
             }
 
-            let value = child.help.unwrap_or(child.inner.description);
+            let value = child
+                .help
+                .map(ToString::to_string)
+                .unwrap_or(child.description);
 
             let field = EmbedField {
                 inline: value.len() <= 40,
@@ -247,12 +254,12 @@ enum EitherCommand {
         command: InteractionCommandKind,
         used: bool,
     },
-    Option(Box<CommandOptionExt>),
+    Option(Box<CommandOptionExtended>),
 }
 
 struct CommandIter {
     curr: EitherCommand,
-    next: Option<CommandOptionExt>,
+    next: Option<CommandOptionExtended>,
 }
 
 enum CommandIterStatus {
@@ -288,10 +295,10 @@ impl CommandIter {
         let options = match &mut self.next {
             Some(option) => {
                 if matches!(
-                    option.inner.kind,
+                    option.kind,
                     CommandOptionType::SubCommand | CommandOptionType::SubCommandGroup
                 ) {
-                    option.inner.options.take().unwrap_or_default()
+                    option.options.take().unwrap_or_default()
                 } else {
                     return CommandIterStatus::DoneOrInvalidName;
                 }
@@ -327,10 +334,10 @@ impl CommandIter {
                 }
                 EitherCommand::Option(option) => {
                     if matches!(
-                        option.inner.kind,
+                        option.kind,
                         CommandOptionType::SubCommand | CommandOptionType::SubCommandGroup
                     ) {
-                        option.inner.options.take().unwrap_or_default()
+                        option.options.take().unwrap_or_default()
                     } else {
                         return CommandIterStatus::DoneOrInvalidName;
                     }
@@ -338,7 +345,7 @@ impl CommandIter {
             },
         };
 
-        let Some(next) = options.into_iter().find(|o| o.inner.name == name) else {
+        let Some(next) = options.into_iter().find(|o| o.name == name) else {
             return CommandIterStatus::DoneOrInvalidName;
         };
 
@@ -355,9 +362,9 @@ impl CommandIter {
 }
 
 struct CommandParts {
-    help: String,
+    help: Cow<'static, str>,
     root: bool,
-    options: Vec<CommandOptionExt>,
+    options: Vec<CommandOptionExtended>,
 }
 
 impl From<InteractionCommandKind> for CommandParts {
@@ -373,7 +380,7 @@ impl From<InteractionCommandKind> for CommandParts {
                 } = (command.create)();
 
                 Self {
-                    help: help.unwrap_or(description),
+                    help: help.map_or(Cow::Owned(description), Cow::Borrowed),
                     root: true,
                     options,
                 }
@@ -382,7 +389,7 @@ impl From<InteractionCommandKind> for CommandParts {
                 let Command { description, .. } = (command.create)();
 
                 Self {
-                    help: description,
+                    help: Cow::Owned(description),
                     root: true,
                     options: Vec::new(),
                 }
@@ -391,13 +398,15 @@ impl From<InteractionCommandKind> for CommandParts {
     }
 }
 
-impl From<CommandOptionExt> for CommandParts {
+impl From<CommandOptionExtended> for CommandParts {
     #[inline]
-    fn from(option: CommandOptionExt) -> Self {
+    fn from(option: CommandOptionExtended) -> Self {
         Self {
-            help: option.help.unwrap_or(option.inner.description),
+            help: option
+                .help
+                .map_or(Cow::Owned(option.description), Cow::Borrowed),
             root: false,
-            options: option.inner.options.unwrap_or_default(),
+            options: option.options.unwrap_or_default(),
         }
     }
 }

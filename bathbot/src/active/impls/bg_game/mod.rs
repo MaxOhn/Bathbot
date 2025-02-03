@@ -6,7 +6,7 @@ use futures::future::BoxFuture;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
+        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
         Component,
     },
     id::{
@@ -179,8 +179,11 @@ impl IActiveMessage for BackgroundGameSetup {
             disabled: false,
             max_values: Some(include_options.len() as u8),
             min_values: Some(0),
-            options: include_options,
+            options: Some(include_options),
             placeholder: Some("Select which tags should be included".to_owned()),
+            channel_types: None,
+            default_values: None,
+            kind: SelectMenuType::Text,
         };
 
         let include_row = ActionRow {
@@ -194,8 +197,11 @@ impl IActiveMessage for BackgroundGameSetup {
             disabled: false,
             max_values: Some(exclude_options.len() as u8),
             min_values: Some(0),
-            options: exclude_options,
+            options: Some(exclude_options),
             placeholder: Some("Select which tags should be excluded".to_owned()),
+            channel_types: None,
+            default_values: None,
+            kind: SelectMenuType::Text,
         };
 
         let exclude_row = ActionRow {
@@ -252,8 +258,11 @@ impl IActiveMessage for BackgroundGameSetup {
             disabled: false,
             max_values: Some(effects.len() as u8),
             min_values: Some(0),
-            options: effects,
+            options: Some(effects),
             placeholder: Some("Modify images through effects".to_owned()),
+            channel_types: None,
+            default_values: None,
+            kind: SelectMenuType::Text,
         };
 
         let effects_row = ActionRow {
@@ -267,6 +276,7 @@ impl IActiveMessage for BackgroundGameSetup {
             label: Some("Start".to_owned()),
             style: ButtonStyle::Success,
             url: None,
+            sku_id: None,
         };
 
         let cancel_button = Button {
@@ -276,6 +286,7 @@ impl IActiveMessage for BackgroundGameSetup {
             label: Some("Cancel".to_owned()),
             style: ButtonStyle::Danger,
             url: None,
+            sku_id: None,
         };
 
         let button_row = ActionRow {

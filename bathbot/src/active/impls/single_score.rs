@@ -23,7 +23,7 @@ use time::OffsetDateTime;
 use twilight_model::{
     channel::message::{
         component::{ActionRow, Button, ButtonStyle},
-        Component, ReactionType,
+        Component, EmojiReactionType,
     },
     guild::Permissions,
     id::{
@@ -456,6 +456,7 @@ impl IActiveMessage for SingleScorePagination {
                     label: Some("Miss analyzer".to_owned()),
                     style: ButtonStyle::Primary,
                     url: None,
+                    sku_id: None,
                 }));
             }
 
@@ -463,12 +464,13 @@ impl IActiveMessage for SingleScorePagination {
                 components.push(Component::Button(Button {
                     custom_id: Some("render".to_owned()),
                     disabled: false,
-                    emoji: Some(ReactionType::Unicode {
+                    emoji: Some(EmojiReactionType::Unicode {
                         name: "🎥".to_owned(),
                     }),
                     label: Some("Render".to_owned()),
                     style: ButtonStyle::Primary,
                     url: None,
+                    sku_id: None,
                 }));
             }
 

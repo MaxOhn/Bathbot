@@ -13,7 +13,7 @@ use rkyv::{
     Serialize,
 };
 use twilight_model::{
-    application::interaction::application_command::InteractionMember,
+    application::interaction::InteractionMember,
     channel::Channel,
     gateway::payload::incoming::MemberUpdate,
     guild::{Guild, Member as TwMember, PartialGuild, PartialMember, Role},

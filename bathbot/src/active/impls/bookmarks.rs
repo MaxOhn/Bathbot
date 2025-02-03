@@ -330,6 +330,7 @@ impl IActiveMessage for BookmarksPagination {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let single_step_back = Button {
@@ -339,6 +340,7 @@ impl IActiveMessage for BookmarksPagination {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let remove = if self.confirm_remove.is_some_and(identity) {
@@ -349,6 +351,7 @@ impl IActiveMessage for BookmarksPagination {
                 label: Some("Confirm remove".to_owned()),
                 style: ButtonStyle::Danger,
                 url: None,
+                sku_id: None,
             }
         } else {
             Button {
@@ -358,6 +361,7 @@ impl IActiveMessage for BookmarksPagination {
                 label: Some("Remove".to_owned()),
                 style: ButtonStyle::Danger,
                 url: None,
+                sku_id: None,
             }
         };
 
@@ -368,6 +372,7 @@ impl IActiveMessage for BookmarksPagination {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let jump_end = Button {
@@ -377,6 +382,7 @@ impl IActiveMessage for BookmarksPagination {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let components = vec![
@@ -420,7 +426,6 @@ impl IActiveMessage for BookmarksPagination {
             Context::interaction()
                 .update_response(&self.token)
                 .components(Some(&[]))
-                .expect("invalid components")
                 .await
                 .map(|_| ())
                 .wrap_err("Failed to update on bookmark timeout")

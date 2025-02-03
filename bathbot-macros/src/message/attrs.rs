@@ -4,14 +4,11 @@ use syn::{
     Error, Expr, ExprLit, Lit, LitBool, LitStr, Meta, Result, Token,
 };
 
-use crate::{
-    flags::Flags,
-    util::{AsOption, PunctuatedExt},
-};
+use crate::{flags::Flags, util::PunctuatedExt};
 
 pub struct CommandAttrs {
     pub name: LitStr,
-    pub dm_permission: AsOption<LitBool>,
+    pub dm_permission: Option<LitBool>,
     pub flags: Flags,
 }
 
@@ -66,7 +63,7 @@ impl Parse for CommandAttrs {
         Ok(Self {
             name: attr_name
                 .ok_or_else(|| Error::new(Span::call_site(), "must specify `name = \"...\"`"))?,
-            dm_permission: AsOption(dm_permission),
+            dm_permission,
             flags: flags.unwrap_or_default(),
         })
     }

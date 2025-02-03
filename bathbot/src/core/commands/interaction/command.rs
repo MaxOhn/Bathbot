@@ -4,9 +4,12 @@ use std::{
 };
 
 use twilight_interactions::command::ApplicationCommandData;
-use twilight_model::id::{marker::CommandMarker, Id};
+use twilight_model::{
+    application::command::Command,
+    id::{marker::CommandMarker, Id},
+};
 
-use super::{twilight_command::Command, CommandResult};
+use super::CommandResult;
 use crate::{
     core::{buckets::BucketName, commands::flags::CommandFlags},
     util::interaction::InteractionCommand,
@@ -73,6 +76,7 @@ pub struct CommandMention<'n> {
 impl Display for CommandMention<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let Self { id, name } = self;
+
         write!(f, "</{name}:{id}>")
     }
 }

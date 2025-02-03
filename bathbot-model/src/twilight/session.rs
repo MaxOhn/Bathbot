@@ -11,7 +11,7 @@ use rkyv::{
 };
 use twilight_gateway::Session;
 
-type Sessions<H> = HashMap<u64, Session, H>;
+type Sessions<H> = HashMap<u32, Session, H>;
 
 pub struct SessionsRkyv;
 
@@ -41,16 +41,16 @@ where
     }
 }
 
-impl<H, D> DeserializeWith<ArchivedSessions, HashMap<u64, Session, H>, D> for SessionsRkyv
+impl<H, D> DeserializeWith<ArchivedSessions, HashMap<u32, Session, H>, D> for SessionsRkyv
 where
-    Archived<u64>: Deserialize<u64, D>,
+    Archived<u32>: Deserialize<u32, D>,
     D: Fallible + ?Sized,
     H: Default + BuildHasher,
 {
     fn deserialize_with(
         archived: &ArchivedSessions,
         _: &mut D,
-    ) -> Result<HashMap<u64, Session, H>, D::Error> {
+    ) -> Result<HashMap<u32, Session, H>, D::Error> {
         let mut result = HashMap::with_capacity_and_hasher(archived.len(), H::default());
 
         for entry in archived.iter() {
@@ -65,7 +65,7 @@ where
 }
 
 struct SessionEntry<'a> {
-    shard_id: u64,
+    shard_id: u32,
     session_id: &'a str,
     session_sequence: u64,
 }
@@ -74,13 +74,13 @@ struct SessionEntry<'a> {
 #[bytecheck(crate = rkyv::bytecheck)]
 #[repr(C)]
 pub struct ArchivedSessionEntry {
-    pub shard_id: Archived<u64>,
+    pub shard_id: Archived<u32>,
     pub session_id: Archived<Box<str>>,
     pub session_sequence: Archived<u64>,
 }
 
 struct SessionEntryResolver {
-    shard_id: Resolver<u64>,
+    shard_id: Resolver<u32>,
     session_id: Resolver<Box<str>>,
     session_sequence: Resolver<u64>,
 }

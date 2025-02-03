@@ -16,7 +16,6 @@ impl Context {
         Context::http()
             .channel_messages(channel_id)
             .limit(50)
-            .unwrap()
             .await
             .wrap_err("Failed to request channel messages")?
             .models()

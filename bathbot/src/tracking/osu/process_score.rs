@@ -97,16 +97,8 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
     for channel_id in channels {
         let channel = Id::new(channel_id.get());
 
-        let err = match http.create_message(channel).embeds(embeds) {
-            Ok(msg_fut) => match msg_fut.await {
-                Ok(_) => continue,
-                Err(err) => err,
-            },
-            Err(err) => {
-                warn!(?err, "Invalid embed for osu notif");
-
-                break;
-            }
+        let Err(err) = http.create_message(channel).embeds(embeds).await else {
+            continue;
         };
 
         let TwilightErrorType::Response { error, .. } = err.kind() else {

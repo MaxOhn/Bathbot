@@ -14,7 +14,7 @@ use twilight_model::{
     channel::message::{
         component::{ActionRow, Button, ButtonStyle},
         embed::EmbedField,
-        Component, ReactionType,
+        Component, EmojiReactionType,
     },
     id::{marker::UserMarker, Id},
 };
@@ -352,6 +352,7 @@ impl HigherLowerGame {
             label: Some("Higher".to_owned()),
             style: ButtonStyle::Success,
             url: None,
+            sku_id: None,
         };
 
         let lower = Button {
@@ -361,6 +362,7 @@ impl HigherLowerGame {
             label: Some("Lower".to_owned()),
             style: ButtonStyle::Danger,
             url: None,
+            sku_id: None,
         };
 
         let next = Button {
@@ -370,17 +372,19 @@ impl HigherLowerGame {
             label: Some("Next".to_owned()),
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let retry = Button {
             custom_id: Some("try_again_button".to_owned()),
             disabled: !matches!(self.buttons, ButtonState::TryAgain { .. }),
-            emoji: Some(ReactionType::Unicode {
+            emoji: Some(EmojiReactionType::Unicode {
                 name: "🔁".to_owned(),
             }),
             label: Some("Try Again".to_owned()),
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         [higher, lower, next, retry]

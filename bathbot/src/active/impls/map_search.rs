@@ -395,6 +395,7 @@ impl MapSearchPages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let single_step_back = Button {
@@ -404,6 +405,7 @@ impl MapSearchPages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let single_step = Button {
@@ -413,6 +415,7 @@ impl MapSearchPages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let jump_end = Button {
@@ -422,6 +425,7 @@ impl MapSearchPages {
             label: None,
             style: ButtonStyle::Secondary,
             url: None,
+            sku_id: None,
         };
 
         let components = vec![

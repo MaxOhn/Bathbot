@@ -18,7 +18,7 @@ use rosu_v2::prelude::{
 use time::UtcOffset;
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, SelectMenu, SelectMenuOption},
+        component::{ActionRow, SelectMenu, SelectMenuOption, SelectMenuType},
         Component,
     },
     id::{marker::UserMarker, Id},
@@ -124,8 +124,11 @@ impl IActiveMessage for ProfileMenu {
             disabled: false,
             max_values: None,
             min_values: None,
-            options,
+            options: Some(options),
             placeholder: None,
+            channel_types: None,
+            default_values: None,
+            kind: SelectMenuType::Text,
         };
 
         let components = vec![Component::SelectMenu(menu)];

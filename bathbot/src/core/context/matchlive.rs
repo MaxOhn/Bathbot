@@ -210,18 +210,9 @@ impl Context {
                             let embed = Some(data.as_embed());
 
                             // Update the last message
-                            let update_result = http
+                            let update_fut = http
                                 .update_message(*id, *msg_id)
                                 .embeds(embed.as_ref().map(slice::from_ref));
-
-                            let update_fut = match update_result {
-                                Ok(update_fut) => update_fut,
-                                Err(err) => {
-                                    warn!(?err, "Failed to build msg update");
-
-                                    continue;
-                                }
-                            };
 
                             if let Err(err) = update_fut.await {
                                 warn!(?err, "Failed to update msg");

@@ -18,7 +18,7 @@ use futures::future::BoxFuture;
 use rosu_render::model::{RenderOptions, RenderSkinOption};
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
+        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
         Component,
     },
     id::{marker::UserMarker, Id},
@@ -534,8 +534,11 @@ impl IActiveMessage for RenderSettingsActive {
             disabled: false,
             max_values: None,
             min_values: None,
-            options: group_options,
+            options: Some(group_options),
             placeholder: Some("Select a settings group".to_owned()),
+            channel_types: None,
+            default_values: None,
+            kind: SelectMenuType::Text,
         };
 
         let edit_options = self.group.edit_options();
@@ -545,8 +548,11 @@ impl IActiveMessage for RenderSettingsActive {
             disabled: false,
             max_values: None,
             min_values: None,
-            options: edit_options,
+            options: Some(edit_options),
             placeholder: Some("Select a value to modify from this group".to_owned()),
+            channel_types: None,
+            default_values: None,
+            kind: SelectMenuType::Text,
         };
 
         let group_menu = ActionRow {

@@ -3,7 +3,7 @@ use eyre::{Result, WrapErr};
 use futures::stream::StreamExt;
 use rkyv::{
     collections::util::{Entry, EntryAdapter},
-    primitive::ArchivedU64,
+    primitive::ArchivedU32,
     rancor::{BoxedError, Fallible, Strategy},
     ser::{Allocator, Serializer, Writer, WriterExt},
     vec::{ArchivedVec, VecResolver},
@@ -17,7 +17,7 @@ use crate::{util::ChannelExt, Context};
 
 impl Context {
     #[cold]
-    pub async fn shutdown(shards: &mut [Shard]) {
+    pub async fn shutdown(shards: &[Shard]) {
         let this = Self::get();
 
         let scores_ws_disconnect = match this.scores_ws_disconnect.lock().unwrap().take() {
@@ -53,7 +53,7 @@ impl Context {
             let _: Result<_, _> = rx.await;
         }
 
-        let resume_data = Self::down_resumable(shards).await;
+        let resume_data = Self::down_resumable(shards);
 
         if let Err(err) = Context::cache().freeze(&resume_data).await {
             error!(?err, "Failed to freeze cache");
@@ -185,8 +185,8 @@ impl Context {
 // TODO: clean this up
 pub struct CacheGuildShards;
 
-type Original = [(Id<GuildMarker>, u64)];
-type ArchivedCacheGuildShards = ArchivedVec<Entry<ArchivedId<GuildMarker>, ArchivedU64>>;
+type Original = [(Id<GuildMarker>, u32)];
+type ArchivedCacheGuildShards = ArchivedVec<Entry<ArchivedId<GuildMarker>, ArchivedU32>>;
 
 impl ArchiveWith<Original> for CacheGuildShards {
     type Archived = ArchivedCacheGuildShards;
@@ -200,7 +200,7 @@ impl ArchiveWith<Original> for CacheGuildShards {
 impl<S: Fallible + Allocator + Writer + ?Sized> SerializeWith<Original, S> for CacheGuildShards {
     fn serialize_with(field: &Original, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         let iter = field.iter().map(|(guild, shard)| {
-            EntryAdapter::<_, _, With<_, IdRkyv>, u64>::new(With::<_, IdRkyv>::cast(guild), shard)
+            EntryAdapter::<_, _, With<_, IdRkyv>, u32>::new(With::<_, IdRkyv>::cast(guild), shard)
         });
 
         ArchivedVec::serialize_from_iter(iter, serializer)
@@ -208,13 +208,13 @@ impl<S: Fallible + Allocator + Writer + ?Sized> SerializeWith<Original, S> for C
 }
 
 impl<D: Fallible + ?Sized>
-    DeserializeWith<ArchivedCacheGuildShards, Vec<Entry<Id<GuildMarker>, u64>>, D>
+    DeserializeWith<ArchivedCacheGuildShards, Vec<Entry<Id<GuildMarker>, u32>>, D>
     for CacheGuildShards
 {
     fn deserialize_with(
         field: &ArchivedCacheGuildShards,
         _: &mut D,
-    ) -> Result<Vec<Entry<Id<GuildMarker>, u64>>, D::Error> {
+    ) -> Result<Vec<Entry<Id<GuildMarker>, u32>>, D::Error> {
         Ok(field
             .iter()
             .map(|entry| Entry {

@@ -72,18 +72,14 @@ impl ComponentExt for InteractionComponent {
         let mut req = client.update_response(&self.token);
 
         if let Some(ref content) = builder.content {
-            req = req
-                .content(Some(content.as_ref()))
-                .expect("invalid content");
+            req = req.content(Some(content.as_ref()));
         }
 
         let embed = builder.embed.build();
-        req = req.embeds(embed.as_option_slice()).expect("invalid embed");
+        req = req.embeds(embed.as_option_slice());
 
         if let Some(ref components) = builder.components {
-            req = req
-                .components(Some(components))
-                .expect("invalid components");
+            req = req.components(Some(components));
         }
 
         if let Some(attachment) = builder.attachment.as_ref().filter(|_| {
@@ -91,9 +87,7 @@ impl ComponentExt for InteractionComponent {
                 permissions.contains(Permissions::ATTACH_FILES)
             })
         }) {
-            req = req
-                .attachments(slice::from_ref(attachment))
-                .expect("invalid attachments");
+            req = req.attachments(slice::from_ref(attachment));
         }
 
         req.into_future()

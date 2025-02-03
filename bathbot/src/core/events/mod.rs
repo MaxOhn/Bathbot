@@ -1,13 +1,18 @@
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult},
+    sync::Arc,
+};
 
 use bathbot_cache::model::CachedArchive;
 use bathbot_model::twilight::{channel::CachedChannel, guild::CachedGuild};
 use bathbot_util::constants::MISS_ANALYZER_ID;
 use eyre::Result;
-use futures::StreamExt;
-use tokio::sync::mpsc::Receiver;
-use twilight_gateway::{error::ReceiveMessageErrorType, stream::ShardEventStream, Event, Shard};
-use twilight_model::{gateway::CloseCode, user::User};
+use tokio::{
+    sync::{broadcast::Receiver, Mutex},
+    task::JoinSet,
+};
+use twilight_gateway::{Event, EventTypeFlags, Shard, StreamExt as _};
+use twilight_model::user::User;
 
 use self::{interaction::handle_interaction, message::handle_message};
 use super::{buckets::BucketName, BotMetrics, Context};
@@ -115,147 +120,156 @@ impl Display for EventLocation {
     }
 }
 
-pub async fn event_loop(shards: &mut Vec<Shard>, mut reshard_rx: Receiver<()>) {
-    let standby = Context::standby();
-    let cache = Context::cache();
+const EVENT_FLAGS: EventTypeFlags = EventTypeFlags::CHANNEL_CREATE
+    .union(EventTypeFlags::CHANNEL_DELETE)
+    .union(EventTypeFlags::CHANNEL_UPDATE)
+    .union(EventTypeFlags::GUILD_CREATE)
+    .union(EventTypeFlags::GUILD_DELETE)
+    .union(EventTypeFlags::GUILD_UPDATE)
+    .union(EventTypeFlags::INTERACTION_CREATE)
+    .union(EventTypeFlags::MEMBER_ADD)
+    .union(EventTypeFlags::MEMBER_REMOVE)
+    .union(EventTypeFlags::MEMBER_UPDATE)
+    .union(EventTypeFlags::MEMBER_CHUNK)
+    .union(EventTypeFlags::MESSAGE_CREATE)
+    .union(EventTypeFlags::MESSAGE_DELETE)
+    .union(EventTypeFlags::MESSAGE_DELETE_BULK)
+    .union(EventTypeFlags::READY)
+    .union(EventTypeFlags::ROLE_CREATE)
+    .union(EventTypeFlags::ROLE_DELETE)
+    .union(EventTypeFlags::ROLE_UPDATE)
+    .union(EventTypeFlags::THREAD_CREATE)
+    .union(EventTypeFlags::THREAD_DELETE)
+    .union(EventTypeFlags::THREAD_UPDATE)
+    .union(EventTypeFlags::UNAVAILABLE_GUILD)
+    .union(EventTypeFlags::USER_UPDATE);
 
-    // restarts event loop in case the bot was instructed to reshard
-    'reshard_loop: loop {
-        let mut stream = ShardEventStream::new(shards.iter_mut());
+pub async fn event_loop(shards: &mut Vec<Arc<Mutex<Shard>>>, mut reshard_rx: Receiver<()>) {
+    loop {
+        let mut set = JoinSet::new();
 
-        // actual event loop
-        'event_loop: loop {
-            let err = tokio::select!(
-                 res = stream.next()  => match res {
-                    Some((shard, Ok(event))) => {
-                        standby.process(&event);
-                        let change = cache.update(&event).await;
-                        BotMetrics::event(&event, change);
-                        let shard_id = shard.id().number();
+        for shard in shards.iter() {
+            set.spawn(runner(Arc::clone(shard), reshard_rx.resubscribe()));
+        }
 
-                        tokio::spawn(async move {
-                            if let Err(err) = handle_event(event, shard_id).await {
-                                error!(?err, "Failed to handle event");
-                            }
-                        });
+        while set.join_next().await.is_some() {}
 
-                        continue 'event_loop;
-                    }
-                    Some((_, Err(err))) => Some(err),
-                    None => return,
-                },
-                _ = reshard_rx.recv() => None,
-            );
+        if let Err(err) = Context::reshard(shards).await {
+            return error!("{err:?}");
+        }
 
-            let mut is_fatal = false;
-            let mut must_reshard = true;
-
-            if let Some(err) = err {
-                error!(%err, "Event error");
-
-                // cannot be handled inside the previous `match` due to NLL
-                // https://github.com/rust-lang/rust/issues/43234
-                is_fatal = err.is_fatal();
-
-                must_reshard = matches!(
-                    err.kind(),
-                    ReceiveMessageErrorType::FatallyClosed {
-                        close_code: CloseCode::ShardingRequired
-                    }
-                );
-            }
-
-            if must_reshard {
-                drop(stream);
-
-                if let Err(err) = Context::reshard(shards).await {
-                    return error!("{err:?}");
-                }
-
-                continue 'reshard_loop;
-            } else if is_fatal {
-                return;
-            }
+        while !reshard_rx.is_empty() {
+            let _: Result<_, _> = reshard_rx.recv().await;
         }
     }
 }
 
-async fn handle_event(event: Event, shard_id: u64) -> Result<()> {
-    match event {
-        Event::GatewayClose(Some(frame)) => {
-            warn!(
-                shard_id,
-                reason = frame.reason.as_ref(),
-                code = frame.code,
-                "Received closing frame"
-            )
-        }
-        Event::GatewayClose(None) => {
-            warn!(shard_id, "Received closing frame")
-        }
-        Event::GatewayInvalidateSession(true) => {
-            warn!(
-                shard_id,
-                "Gateway has invalidated session but its reconnectable"
-            )
-        }
-        Event::GatewayInvalidateSession(false) => {
-            warn!(shard_id, "Gateway has invalidated session")
-        }
-        Event::GatewayReconnect => {
-            info!(shard_id, "Gateway requested shard to reconnect")
-        }
-        Event::GuildCreate(e) => {
-            let ctx = Context::get();
+async fn runner(shard: Arc<Mutex<Shard>>, mut reshard_rx: Receiver<()>) {
+    let standby = Context::standby();
+    let cache = Context::cache();
+    let mut shard = shard.lock().await;
+    let shard_id = shard.id().number();
 
-            ctx.guild_shards().pin().insert(e.id, shard_id);
-            ctx.member_requests
-                .pending_guilds
-                .lock()
-                .unwrap()
-                .insert(e.id);
+    loop {
+        tokio::select!(
+             res = shard.next_event(EVENT_FLAGS)  => match res {
+                Some(Ok(event)) => {
+                    standby.process(&event);
+                    let change = cache.update(&event).await;
+                    BotMetrics::event(&event, change);
+                    tokio::spawn(handle_event(event, shard_id));
+                }
+                Some(Err(err)) => error!(?err, "Event error"),
+                None => return,
+            },
+            _ = reshard_rx.recv() => return,
+        );
+    }
+}
 
-            if let Err(err) = ctx.member_requests.tx.send((e.id, shard_id)) {
-                warn!(?err, "Failed to forward member request");
+async fn handle_event(event: Event, shard_id: u32) {
+    async fn inner(event: Event, shard_id: u32) -> Result<()> {
+        match event {
+            Event::GatewayClose(Some(frame)) => {
+                warn!(
+                    shard_id,
+                    reason = frame.reason.as_ref(),
+                    code = frame.code,
+                    "Received closing frame"
+                )
             }
-        }
-        Event::InteractionCreate(e) => handle_interaction(e.0).await,
-        Event::MemberAdd(e) if e.member.user.id == MISS_ANALYZER_ID => {
-            Context::miss_analyzer_guilds()
-                .write()
-                .unwrap()
-                .insert(e.guild_id);
-        }
-        Event::MemberChunk(e) => {
-            if e.members
-                .iter()
-                .any(|member| member.user.id == MISS_ANALYZER_ID)
-            {
+            Event::GatewayClose(None) => {
+                warn!(shard_id, "Received closing frame")
+            }
+            Event::GatewayInvalidateSession(true) => {
+                warn!(
+                    shard_id,
+                    "Gateway has invalidated session but its reconnectable"
+                )
+            }
+            Event::GatewayInvalidateSession(false) => {
+                warn!(shard_id, "Gateway has invalidated session")
+            }
+            Event::GatewayReconnect => {
+                info!(shard_id, "Gateway requested shard to reconnect")
+            }
+            Event::GuildCreate(e) => {
+                let guild_id = e.id();
+                let ctx = Context::get();
+
+                ctx.guild_shards().pin().insert(guild_id, shard_id);
+                ctx.member_requests
+                    .pending_guilds
+                    .lock()
+                    .unwrap()
+                    .insert(guild_id);
+
+                if let Err(err) = ctx.member_requests.tx.send((guild_id, shard_id)) {
+                    warn!(?err, "Failed to forward member request");
+                }
+            }
+            Event::InteractionCreate(e) => handle_interaction(e.0).await,
+            Event::MemberAdd(e) if e.member.user.id == MISS_ANALYZER_ID => {
                 Context::miss_analyzer_guilds()
                     .write()
                     .unwrap()
                     .insert(e.guild_id);
             }
-        }
-        Event::MemberRemove(e) if e.user.id == MISS_ANALYZER_ID => {
-            Context::miss_analyzer_guilds()
-                .write()
-                .unwrap()
-                .remove(&e.guild_id);
-        }
-        Event::MessageCreate(msg) => handle_message(msg.0).await,
-        Event::MessageDelete(e) => {
-            Context::get().active_msgs.remove(e.id).await;
-        }
-        Event::MessageDeleteBulk(msgs) => {
-            for id in msgs.ids.into_iter() {
-                Context::get().active_msgs.remove(id).await;
+            Event::MemberChunk(e) => {
+                if e.members
+                    .iter()
+                    .any(|member| member.user.id == MISS_ANALYZER_ID)
+                {
+                    Context::miss_analyzer_guilds()
+                        .write()
+                        .unwrap()
+                        .insert(e.guild_id);
+                }
             }
+            Event::MemberRemove(e) if e.user.id == MISS_ANALYZER_ID => {
+                Context::miss_analyzer_guilds()
+                    .write()
+                    .unwrap()
+                    .remove(&e.guild_id);
+            }
+            Event::MessageCreate(msg) => handle_message(msg.0).await,
+            Event::MessageDelete(e) => {
+                Context::get().active_msgs.remove(e.id).await;
+            }
+            Event::MessageDeleteBulk(msgs) => {
+                for id in msgs.ids.into_iter() {
+                    Context::get().active_msgs.remove(id).await;
+                }
+            }
+            Event::Ready(_) => info!(shard_id, "Shard is ready"),
+            Event::Resumed => info!(shard_id, "Shard is resumed"),
+            _ => {}
         }
-        Event::Ready(_) => info!(shard_id, "Shard is ready"),
-        Event::Resumed => info!(shard_id, "Shard is resumed"),
-        _ => {}
+
+        Ok(())
     }
 
-    Ok(())
+    if let Err(err) = inner(event, shard_id).await {
+        error!(?err, "Failed to handle event");
+    }
 }

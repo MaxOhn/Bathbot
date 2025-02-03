@@ -13,8 +13,8 @@ use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
-        Component, ReactionType,
+        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
+        Component, EmojiReactionType,
     },
     id::{marker::UserMarker, Id},
 };
@@ -731,12 +731,15 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                 disabled: false,
                 max_values: None,
                 min_values: None,
-                options: vec![
+                options: Some(vec![
                     section_option!("Score data", "score_data", ScoreData),
                     section_option!("Image", "image", Image),
                     section_option!("Buttons", "buttons", Buttons),
-                ],
+                ]),
                 placeholder: Some("Choose an embed section".to_owned()),
+                channel_types: None,
+                default_values: None,
+                kind: SelectMenuType::Text,
             })],
         })];
 
@@ -749,7 +752,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         disabled: false,
                         max_values: None,
                         min_values: None,
-                        options: vec![
+                        options: Some(vec![
                             kind_option!("Artist", "artist", Artist),
                             kind_option!("Grade", "grade", Grade),
                             kind_option!("Mods", "mods", Mods),
@@ -788,8 +791,11 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 value: "ranked_date".to_owned(),
                             },
                             kind_option!("Mapper", "mapper", Mapper),
-                        ],
+                        ]),
                         placeholder: Some("Select a value to display".to_owned()),
+                        channel_types: None,
+                        default_values: None,
+                        kind: SelectMenuType::Text,
                     })],
                 }));
 
@@ -808,6 +814,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 label: Some("Show".to_owned()),
                                 style: ButtonStyle::Primary,
                                 url: None,
+                                sku_id: None,
                             }),
                             Component::Button(Button {
                                 custom_id: Some("embed_builder_hide_button".to_owned()),
@@ -816,6 +823,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 label: Some("Hide".to_owned()),
                                 style: ButtonStyle::Primary,
                                 url: None,
+                                sku_id: None,
                             }),
                             Component::Button(Button {
                                 custom_id: Some("embed_builder_reset_button".to_owned()),
@@ -824,6 +832,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 label: Some("Reset all".to_owned()),
                                 style: ButtonStyle::Danger,
                                 url: None,
+                                sku_id: None,
                             }),
                         ],
                     })
@@ -872,42 +881,46 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             Component::Button(Button {
                                 custom_id: Some("embed_builder_value_left".to_owned()),
                                 disabled: disable_left,
-                                emoji: Some(ReactionType::Unicode {
+                                emoji: Some(EmojiReactionType::Unicode {
                                     name: "◀️".to_owned(),
                                 }),
                                 label: Some("Left".to_owned()),
                                 style: ButtonStyle::Success,
                                 url: None,
+                                sku_id: None,
                             }),
                             Component::Button(Button {
                                 custom_id: Some("embed_builder_value_up".to_owned()),
                                 disabled: disable_up,
-                                emoji: Some(ReactionType::Unicode {
+                                emoji: Some(EmojiReactionType::Unicode {
                                     name: "🔼".to_owned(),
                                 }),
                                 label: Some("Up".to_owned()),
                                 style: ButtonStyle::Success,
                                 url: None,
+                                sku_id: None,
                             }),
                             Component::Button(Button {
                                 custom_id: Some("embed_builder_value_down".to_owned()),
                                 disabled: disable_down,
-                                emoji: Some(ReactionType::Unicode {
+                                emoji: Some(EmojiReactionType::Unicode {
                                     name: "🔽".to_owned(),
                                 }),
                                 label: Some("Down".to_owned()),
                                 style: ButtonStyle::Success,
                                 url: None,
+                                sku_id: None,
                             }),
                             Component::Button(Button {
                                 custom_id: Some("embed_builder_value_right".to_owned()),
                                 disabled: disable_right,
-                                emoji: Some(ReactionType::Unicode {
+                                emoji: Some(EmojiReactionType::Unicode {
                                     name: "▶️".to_owned(),
                                 }),
                                 label: Some("Right".to_owned()),
                                 style: ButtonStyle::Success,
                                 url: None,
+                                sku_id: None,
                             }),
                         ],
                     })
@@ -932,6 +945,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Show".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_hide_artist_button".to_owned()),
@@ -940,6 +954,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Hide".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_reset_button".to_owned()),
@@ -948,6 +963,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Reset all".to_owned()),
                                     style: ButtonStyle::Danger,
                                     url: None,
+                                    sku_id: None,
                                 }),
                             ],
                         }));
@@ -990,7 +1006,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 disabled: idx.is_none(),
                                 max_values: None,
                                 min_values: None,
-                                options: vec![
+                                options: Some(vec![
                                     SelectMenuOption {
                                         default: !(pp.max || pp.if_fc),
                                         description: None,
@@ -1028,8 +1044,11 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                         label: "Show score pp, max pp & if-FC pp".to_owned(),
                                         value: "all".to_owned(),
                                     },
-                                ],
+                                ]),
                                 placeholder: Some("Only show score pp".to_owned()),
+                                channel_types: None,
+                                default_values: None,
+                                kind: SelectMenuType::Text,
                             })],
                         }));
 
@@ -1061,8 +1080,11 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 disabled: idx.is_none(),
                                 max_values: Some(combo_options.len() as u8),
                                 min_values: Some(0),
-                                options: combo_options,
+                                options: Some(combo_options),
                                 placeholder: Some("Only show score combo".to_owned()),
+                                channel_types: None,
+                                default_values: None,
+                                kind: SelectMenuType::Text,
                             })],
                         }));
 
@@ -1090,6 +1112,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Full".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_hitresults_misses".to_owned()),
@@ -1101,6 +1124,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Only misses".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                             ],
                         }));
@@ -1126,6 +1150,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Show in title".to_owned()),
                                     style: ButtonStyle::Secondary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_hide_sr_title".to_owned()),
@@ -1134,6 +1159,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Hide in title".to_owned()),
                                     style: ButtonStyle::Secondary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_show_button".to_owned()),
@@ -1142,6 +1168,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Show as value".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_hide_button".to_owned()),
@@ -1150,6 +1177,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Hide value".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_reset_button".to_owned()),
@@ -1158,6 +1186,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Reset all".to_owned()),
                                     style: ButtonStyle::Danger,
                                     url: None,
+                                    sku_id: None,
                                 }),
                             ],
                         }));
@@ -1206,6 +1235,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Emote".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_bpm_text".to_owned()),
@@ -1217,6 +1247,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Text".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                             ],
                         }));
@@ -1245,6 +1276,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Emote".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_objects_text".to_owned()),
@@ -1256,6 +1288,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Text".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                             ],
                         }));
@@ -1284,6 +1317,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Emote".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_sliders_text".to_owned()),
@@ -1295,6 +1329,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Text".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                             ],
                         }));
@@ -1323,6 +1358,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Emote".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                                 Component::Button(Button {
                                     custom_id: Some("embed_builder_spinners_text".to_owned()),
@@ -1334,6 +1370,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                     label: Some("Text".to_owned()),
                                     style: ButtonStyle::Primary,
                                     url: None,
+                                    sku_id: None,
                                 }),
                             ],
                         }));
@@ -1373,8 +1410,11 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 disabled: idx.is_none(),
                                 max_values: Some(mapper_options.len() as u8),
                                 min_values: Some(0),
-                                options: mapper_options,
+                                options: Some(mapper_options),
                                 placeholder: Some("Hide mapset status".to_owned()),
+                                channel_types: None,
+                                default_values: None,
+                                kind: SelectMenuType::Text,
                             })],
                         }));
 
@@ -1422,8 +1462,11 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         disabled: false,
                         max_values: None,
                         min_values: None,
-                        options,
+                        options: Some(options),
                         placeholder: None,
+                        channel_types: None,
+                        default_values: None,
+                        kind: SelectMenuType::Text,
                     })],
                 }));
             }
@@ -1460,8 +1503,11 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         disabled: false,
                         max_values: Some(options.len() as u8),
                         min_values: Some(0),
-                        options,
+                        options: Some(options),
                         placeholder: Some("Hide buttons".to_owned()),
+                        channel_types: None,
+                        default_values: None,
+                        kind: SelectMenuType::Text,
                     })],
                 }));
             }
