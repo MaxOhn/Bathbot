@@ -2,12 +2,13 @@ use std::fmt::Result as FmtResult;
 
 use bathbot_util::datetime::NAIVE_DATETIME_FORMAT;
 use time::format_description::FormatItem;
-use tracing::{Event, Subscriber};
+use tracing::{level_filters::LevelFilter, Event, Subscriber};
 use tracing_appender::{
     non_blocking::{NonBlocking, WorkerGuard},
     rolling,
 };
 use tracing_subscriber::{
+    filter::Targets,
     fmt::{
         format::Writer,
         time::{FormatTime, UtcTime},
@@ -19,7 +20,7 @@ use tracing_subscriber::{
     EnvFilter, Layer as _,
 };
 
-pub fn init() -> WorkerGuard {
+pub fn init() -> Box<[WorkerGuard]> {
     let stdout_filter: EnvFilter = "bathbot=debug,sqlx=warn,info".parse().unwrap();
 
     let stdout_layer = Layer::default()
@@ -27,7 +28,7 @@ pub fn init() -> WorkerGuard {
         .with_filter(stdout_filter);
 
     let file_appender = rolling::daily("./logs", "bathbot.log");
-    let (file_writer, guard) = NonBlocking::new(file_appender);
+    let (file_writer, file_guard) = NonBlocking::new(file_appender);
 
     let file_filter = match EnvFilter::try_from_default_env() {
         Ok(filter) => filter,
@@ -35,13 +36,24 @@ pub fn init() -> WorkerGuard {
     };
 
     let file_layer = Layer::default()
-        .event_format(FileEventFormat::default())
+        .event_format(FileEventFormat::<true>::default())
         .with_writer(file_writer)
         .with_filter(file_filter);
+
+    let tracking_appender = rolling::daily("./logs", "tracking.log");
+    let (tracking_writer, tracking_guard) = NonBlocking::new(tracking_appender);
+
+    let tracking_filter = Targets::new().with_target("tracking", LevelFilter::INFO);
+
+    let tracking_layer = Layer::default()
+        .event_format(FileEventFormat::<false>::default())
+        .with_writer(tracking_writer)
+        .with_filter(tracking_filter);
 
     tracing_subscriber::registry()
         .with(stdout_layer)
         .with(file_layer)
+        .with(tracking_layer)
         .init();
 
     let default_panic_hook = std::panic::take_hook();
@@ -64,7 +76,7 @@ pub fn init() -> WorkerGuard {
         default_panic_hook(panic_info);
     }));
 
-    guard
+    vec![file_guard, tracking_guard].into_boxed_slice()
 }
 
 struct StdoutEventFormat {
@@ -101,11 +113,11 @@ where
     }
 }
 
-struct FileEventFormat {
+struct FileEventFormat<const WITH_FILE: bool> {
     timer: UtcTime<&'static [FormatItem<'static>]>,
 }
 
-impl Default for FileEventFormat {
+impl<const WITH_FILE: bool> Default for FileEventFormat<WITH_FILE> {
     fn default() -> Self {
         Self {
             timer: UtcTime::new(NAIVE_DATETIME_FORMAT),
@@ -113,7 +125,7 @@ impl Default for FileEventFormat {
     }
 }
 
-impl<S, N> FormatEvent<S, N> for FileEventFormat
+impl<S, N, const WITH_FILE: bool> FormatEvent<S, N> for FileEventFormat<WITH_FILE>
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
     N: for<'a> FormatFields<'a> + 'static,
@@ -129,11 +141,13 @@ where
 
         write!(writer, " {:>5} ", metadata.level())?;
 
-        match (metadata.file(), metadata.line()) {
-            (Some(file), Some(line)) => write!(writer, "[{file}:{line}] ")?,
-            (Some(file), None) => write!(writer, "[{file}:?] ")?,
-            (None, Some(line)) => write!(writer, "[?:{line}] ")?,
-            (None, None) => {}
+        if WITH_FILE {
+            match (metadata.file(), metadata.line()) {
+                (Some(file), Some(line)) => write!(writer, "[{file}:{line}] ")?,
+                (Some(file), None) => write!(writer, "[{file}:?] ")?,
+                (None, Some(line)) => write!(writer, "[?:{line}] ")?,
+                (None, None) => {}
+            }
         }
 
         ctx.field_format().format_fields(writer.by_ref(), event)?;

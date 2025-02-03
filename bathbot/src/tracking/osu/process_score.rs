@@ -76,11 +76,23 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
     BotMetrics::osu_tracking_hit(score.mode);
 
     let combo = score.max_combo;
+    let user_id = score.user_id;
+    let score_id = score.id;
     let (builder, max_combo) = embed_builder(&user, score, map, idx).await;
     let idx = idx as u8 + 1;
     let embed = builder.build();
     let embeds = slice::from_ref(&embed);
     let combo_percent = max_combo.map(|max| 100.0 * combo as f32 / max as f32);
+
+    info!(
+        target: "tracking",
+        user = user_id,
+        score_id,
+        idx,
+        pp,
+        combo_percent,
+        "New top score",
+    );
 
     let http = Context::http();
 

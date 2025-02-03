@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::RwLock};
 
 use bathbot_psql::Database;
-use bathbot_util::IntHasher;
+use bathbot_util::{datetime::NAIVE_DATETIME_FORMAT, IntHasher};
 use eyre::{Result, WrapErr};
 use rosu_v2::{model::GameMode, prelude::Score};
 use twilight_model::id::{marker::ChannelMarker, Id};
@@ -64,6 +64,16 @@ impl OsuTracking {
         };
 
         let (last_pp, last_updated) = entry.last_entry();
+
+        info!(
+            target: "tracking",
+            user = score.user_id,
+            score_id = score.id,
+            pp,
+            ended_at = %score.ended_at.format(NAIVE_DATETIME_FORMAT).unwrap(),
+            last_pp,
+            last_ended_at = %last_updated.format(NAIVE_DATETIME_FORMAT).unwrap(),
+        );
 
         if last_pp > pp && last_updated >= score.ended_at {
             return;
