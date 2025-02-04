@@ -18,7 +18,7 @@ rkyv = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 serde_urlencoded = { version = "0.7.1", default-features = false }
-thiserror = { version = "1.0" }
+thiserror = { workspace = true }
 time = { version = "0.3", features = ["parsing"] }
 twilight-gateway = { workspace = true }
 twilight-interactions = { workspace = true }

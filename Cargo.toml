@@ -26,6 +26,7 @@ rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "main" }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "lazer", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
 # rosu-v2 = { path = "../rosu-v2", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
 skia-safe = { version = "0.81.0" }
+thiserror = { version = "2.0.11" }
 twilight-gateway = { version = "0.16", default-features = false, features = ["rustls-webpki-roots", "rustls-ring", "twilight-http", "zlib-stock"] }
 twilight-http = { version = "0.16", default-features = false, features = ["rustls-webpki-roots", "rustls-ring"] }
 twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "with-help-16", default-features = false, features = ["derive"] }

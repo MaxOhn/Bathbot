@@ -22,7 +22,7 @@ rkyv = { workspace =  true }
 ryu = { version = "1.0.15", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
-thiserror = { version = "1.0" }
+thiserror = { workspace = true }
 time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "parking_lot", "rt-multi-thread", "signal", "sync", "time"] }
 tracing = { version = "0.1" }
