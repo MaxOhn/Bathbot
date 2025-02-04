@@ -48,7 +48,7 @@ rosu-render = { version = "0.3.0", default-features = false, features = ["rustls
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 smallvec = { version = "1.0" }
-skia-safe = { version = "0.66.2" }
+skia-safe = { workspace = true }
 thiserror = { version = "1.0.50" }
 time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time"] }

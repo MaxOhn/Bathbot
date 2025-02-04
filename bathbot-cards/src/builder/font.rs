@@ -1,4 +1,4 @@
-use skia_safe::{font_style::Slant, Data, Font, Typeface};
+use skia_safe::{font_style::Slant, Font, FontMgr};
 
 use crate::{error::FontError, font::FontData};
 
@@ -13,9 +13,9 @@ impl FontBuilder {
     ) -> Result<Font, FontError> {
         let font_data = data.get(weight.into(), slant);
 
-        // SAFETY: `self.font_data` outlives `Data`
-        let data = unsafe { Data::new_bytes(font_data) };
-        let typeface = Typeface::from_data(data, None).ok_or(FontError::Typeface)?;
+        let typeface = FontMgr::new()
+            .new_from_data(font_data, None)
+            .ok_or(FontError::Typeface)?;
 
         Ok(Font::new(typeface, Some(size)))
     }

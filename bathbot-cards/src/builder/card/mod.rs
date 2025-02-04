@@ -13,12 +13,12 @@ pub(crate) const H: i32 = 1260;
 pub(crate) const W: i32 = 980;
 
 pub(crate) struct CardBuilder<'c> {
-    canvas: &'c mut Canvas,
+    canvas: &'c Canvas,
     int_buf: Buffer,
 }
 
 impl<'a> CardBuilder<'a> {
-    pub(crate) fn new(canvas: &'a mut Canvas) -> Self {
+    pub(crate) fn new(canvas: &'a Canvas) -> Self {
         Self {
             canvas,
             int_buf: Buffer::new(),
