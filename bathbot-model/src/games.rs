@@ -25,6 +25,7 @@ pub enum HlVersion {
 }
 
 bitflags::bitflags! {
+    #[derive(Copy, Clone)]
     pub struct MapsetTags: u32 {
         const Farm =      1 << 0;
         const Streams =   1 << 1;
@@ -76,6 +77,7 @@ impl FromStr for MapsetTags {
 }
 
 bitflags::bitflags! {
+    #[derive(Copy, Clone)]
     pub struct Effects: u8 {
         const Blur           = 1 << 0;
         const Contrast       = 1 << 1;
@@ -86,66 +88,25 @@ bitflags::bitflags! {
     }
 }
 
-pub struct IntoIter<F> {
-    flags: F,
-    shift: usize,
-}
-
 macro_rules! bitflag_impls {
     ($ty:ident, $size:literal) => {
         impl $ty {
             pub fn join(self, separator: impl Display) -> String {
-                let mut iter = self.into_iter();
+                let mut iter = self.iter_names();
 
-                let first_flag = match iter.next() {
-                    Some(first_flag) => first_flag,
-                    None => return "None".to_owned(),
+                let Some((first_flag, _)) = iter.next() else {
+                    return "None".to_owned();
                 };
 
                 let size = self.bits().count_ones() as usize;
                 let mut result = String::with_capacity(size * 6);
-                let _ = write!(result, "{first_flag:?}");
+                let _ = write!(result, "{first_flag}");
 
-                for element in iter {
-                    let _ = write!(result, "{separator}{element:?}");
+                for (element, _) in iter {
+                    let _ = write!(result, "{separator}{element}");
                 }
 
                 result
-            }
-        }
-
-        impl Iterator for IntoIter<$ty> {
-            type Item = $ty;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                if self.flags.is_empty() {
-                    None
-                } else {
-                    loop {
-                        if self.shift == $size {
-                            return None;
-                        }
-
-                        let bit = 1 << self.shift;
-                        self.shift += 1;
-
-                        if self.flags.bits() & bit != 0 {
-                            return $ty::from_bits(bit);
-                        }
-                    }
-                }
-            }
-        }
-
-        impl IntoIterator for $ty {
-            type IntoIter = IntoIter<$ty>;
-            type Item = $ty;
-
-            fn into_iter(self) -> IntoIter<$ty> {
-                IntoIter {
-                    flags: self,
-                    shift: 0,
-                }
             }
         }
     };

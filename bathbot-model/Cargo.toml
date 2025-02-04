@@ -6,7 +6,7 @@ edition.workspace = true
 
 [dependencies]
 bathbot-util = { path = "../bathbot-util" }
-bitflags = { version = "1.0" }
+bitflags = { workspace = true }
 form_urlencoded = { version = "1.2.0", default-features = false, features = ["std"] }
 eyre = { version = "0.6" }
 http = { version = "0.2" }

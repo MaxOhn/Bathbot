@@ -14,7 +14,7 @@ bathbot-model = { path = "../bathbot-model" }
 bathbot-psql = { path = "../bathbot-psql" }
 bathbot-server = { path = "../bathbot-server", optional = true }
 bathbot-util = { path = "../bathbot-util" }
-bitflags = { version = "1.0" }
+bitflags = { workspace = true }
 bytes = { version = "1.0" }
 dotenvy = { version = "0.15" }
 enterpolation = { version = "0.2", default-features = false, features = ["std", "bezier", "bspline", "linear"] }

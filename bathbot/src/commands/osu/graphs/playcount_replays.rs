@@ -98,6 +98,7 @@ pub async fn playcount_replays_graph(
 }
 
 bitflags! {
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub struct ProfileGraphFlags: u8 {
         const BADGES    = 1 << 0;
         const PLAYCOUNT = 1 << 1;

@@ -36,8 +36,6 @@ impl ToTokens for Flags {
             sum.extend(bit)
         }
 
-        tokens.extend(
-            quote!(unsafe { crate::core::commands::CommandFlags::from_bits_unchecked(#sum) }),
-        );
+        tokens.extend(quote!(crate::core::commands::CommandFlags::from_bits_retain(#sum)));
     }
 }
