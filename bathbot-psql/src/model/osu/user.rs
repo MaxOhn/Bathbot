@@ -1,8 +1,5 @@
 use bathbot_model::{UserModeStatsColumn, UserStatsColumn};
-use sqlx::{
-    database::HasValueRef, error::BoxDynError, postgres::PgTypeInfo, Decode, FromRow, Postgres,
-    Type,
-};
+use sqlx::{error::BoxDynError, postgres::PgTypeInfo, Database, Decode, FromRow, Postgres, Type};
 
 struct DbCountryCode {
     inner: [u8; 2],
@@ -10,7 +7,7 @@ struct DbCountryCode {
 
 impl<'r> Decode<'r, Postgres> for DbCountryCode {
     #[inline]
-    fn decode(value: <Postgres as HasValueRef<'r>>::ValueRef) -> Result<Self, BoxDynError> {
+    fn decode(value: <Postgres as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
         let value = <&str as Decode<Postgres>>::decode(value)?;
         let inner = value.as_bytes().try_into()?;
 

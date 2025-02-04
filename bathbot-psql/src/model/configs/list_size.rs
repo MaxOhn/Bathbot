@@ -40,8 +40,29 @@ impl TryFrom<i16> for ListSize {
 
 impl<'q> Encode<'q, Postgres> for ListSize {
     #[inline]
-    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
+    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> Result<IsNull, BoxDynError> {
         <i16 as Encode<'q, Postgres>>::encode(*self as i16, buf)
+    }
+
+    fn encode(
+        self,
+        buf: &mut <Postgres as sqlx::Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError>
+    where
+        Self: Sized,
+    {
+        self.encode_by_ref(buf)
+    }
+
+    fn produces(&self) -> Option<<Postgres as sqlx::Database>::TypeInfo> {
+        // `produces` is inherently a hook to allow database drivers to produce
+        // value-dependent type information; if the driver doesn't need this, it
+        // can leave this as `None`
+        None
+    }
+
+    fn size_hint(&self) -> usize {
+        std::mem::size_of_val(self)
     }
 }
 
