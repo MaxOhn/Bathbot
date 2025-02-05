@@ -19,7 +19,7 @@ impl FromRedisValue for AlignedVecRedisArgs {
     #[inline]
     fn from_redis_value(v: &Value) -> RedisResult<Self> {
         match v {
-            Value::Data(data) => {
+            Value::BulkString(data) => {
                 let mut bytes = AlignedVec::new();
                 bytes.reserve_exact(data.len());
                 bytes.extend_from_slice(data);
@@ -29,7 +29,7 @@ impl FromRedisValue for AlignedVecRedisArgs {
             _ => Err(RedisError::from((
                 ErrorKind::TypeError,
                 "Response was of incompatible type",
-                "Response type not byte list compatible".to_owned(),
+                format!("Response type not AlignedVec-compatible (response was {v:?})"),
             ))),
         }
     }
