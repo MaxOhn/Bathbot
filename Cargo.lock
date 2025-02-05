@@ -338,7 +338,6 @@ dependencies = [
  "flexmap",
  "futures",
  "futures-util",
- "hashbrown 0.14.5",
  "image",
  "leaky-bucket-lite",
  "linkme",

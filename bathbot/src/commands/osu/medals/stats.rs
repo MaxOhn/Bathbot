@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::MedalCompactRkyv;
@@ -7,7 +7,6 @@ use bathbot_util::{
     matcher, IntHasher, MessageBuilder,
 };
 use eyre::{ContextCompat, Report, Result, WrapErr};
-use hashbrown::HashMap;
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
 use rkyv::{

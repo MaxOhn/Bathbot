@@ -1,9 +1,8 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use bathbot_model::{RankingEntries, RankingEntry, RankingKind};
 use bathbot_util::{constants::GENERAL_ISSUE, IntHasher};
 use eyre::Result;
-use hashbrown::HashSet;
 use twilight_model::{channel::Message, id::Id};
 
 use crate::{

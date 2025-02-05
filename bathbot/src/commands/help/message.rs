@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Write};
+use std::{collections::{BTreeMap, HashSet}, fmt::Write};
 
 use bathbot_macros::command;
 use bathbot_psql::model::configs::GuildConfig;
@@ -6,7 +6,6 @@ use bathbot_util::{
     string_cmp::levenshtein_distance, AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
 use eyre::Result;
-use hashbrown::HashSet;
 use twilight_model::{
     channel::message::{embed::EmbedField, Message},
     guild::Permissions,

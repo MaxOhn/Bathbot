@@ -1,11 +1,13 @@
-use std::fmt::{Display, Formatter, Result as FmtResult, Write};
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter, Result as FmtResult, Write},
+};
 
 use bathbot_macros::EmbedData;
 use bathbot_model::{MedalGroup, OsekaiMedal, MEDAL_GROUPS};
 use bathbot_util::{
     fields, numbers::round, osu::flag_url, AuthorBuilder, FooterBuilder, IntHasher,
 };
-use hashbrown::HashMap;
 use rosu_v2::prelude::MedalCompact;
 use twilight_model::channel::message::embed::EmbedField;
 

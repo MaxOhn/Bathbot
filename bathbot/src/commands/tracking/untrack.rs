@@ -1,9 +1,8 @@
-use std::fmt::Write;
+use std::{collections::HashSet, fmt::Write};
 
 use bathbot_macros::command;
 use bathbot_util::{constants::GENERAL_ISSUE, EmbedBuilder, MessageBuilder};
 use eyre::{Report, Result};
-use hashbrown::HashSet;
 use rosu_v2::prelude::{GameMode, OsuError};
 
 use super::TrackArgs;

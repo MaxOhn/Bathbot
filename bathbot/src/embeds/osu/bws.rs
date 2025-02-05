@@ -1,8 +1,11 @@
-use std::{collections::BTreeMap, fmt::Write, iter, mem};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fmt::Write,
+    iter, mem,
+};
 
 use bathbot_macros::EmbedData;
 use bathbot_util::{numbers::WithComma, AuthorBuilder, IntHasher};
-use hashbrown::HashSet;
 
 use crate::{manager::redis::osu::CachedUser, util::CachedUserExt};
 

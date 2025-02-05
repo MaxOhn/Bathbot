@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    cmp::{Ordering, Reverse},
+    cmp::{Ordering, Reverse}, collections::HashMap,
 };
 
 use bathbot_macros::command;
@@ -10,7 +10,6 @@ use bathbot_util::{
     matcher, IntHasher,
 };
 use eyre::{Report, Result};
-use hashbrown::HashMap;
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{
     model::GameMode,

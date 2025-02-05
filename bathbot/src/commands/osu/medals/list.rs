@@ -1,4 +1,4 @@
-use std::cmp::{Ordering, Reverse};
+use std::{cmp::{Ordering, Reverse}, collections::HashMap};
 
 use bathbot_model::{OsekaiMedal, Rarity};
 use bathbot_util::{
@@ -6,7 +6,6 @@ use bathbot_util::{
     IntHasher,
 };
 use eyre::{Report, Result};
-use hashbrown::HashMap;
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::OffsetDateTime;

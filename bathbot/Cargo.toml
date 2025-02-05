@@ -23,7 +23,6 @@ eyre = { version = "0.6" }
 flexmap = { git = "https://github.com/MaxOhn/flexmap" }
 futures = { version = "0.3", default-features = false }
 futures-util = { version = "0.3.31" }
-hashbrown = { version = "0.14" }
 image = { version = "0.24", default-features = false, features = ["gif", "png"] }
 leaky-bucket-lite = { version = "0.5", default-features = false, features = ["tokio"] }
 linkme = { version = "0.3.15" }

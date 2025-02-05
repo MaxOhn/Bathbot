@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering};
+use std::{borrow::Cow, cmp::Ordering, collections::HashSet};
 
 use bathbot_macros::command;
 use bathbot_model::{MedalGroup, OsekaiMedal, MEDAL_GROUPS};
@@ -7,7 +7,6 @@ use bathbot_util::{
     matcher, IntHasher,
 };
 use eyre::{Report, Result};
-use hashbrown::HashSet;
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
