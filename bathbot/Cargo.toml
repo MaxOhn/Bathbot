@@ -43,7 +43,7 @@ rosu-v2 = { workspace = true }
 rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
 # rosu-pp-older = { path = "../../rosu-pp-older" }
 # rosu-render = { git = "https://github.com/MaxOhn/rosu-render", branch = "main", default-features = false, features = ["rustls-webpki-roots"] }
-rosu-render = { version = "0.3.0", default-features = false, features = ["rustls-webpki-roots"] }
+rosu-render = { version = "0.4.0", default-features = false, features = ["rustls-webpki-roots"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 smallvec = { version = "1.0" }
