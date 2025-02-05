@@ -15,7 +15,7 @@ hyper = { version = "0.14", default-features = false }
 hyper-rustls = { version = "0.24.1", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
 itoa = { version = "1.0.9", default-features = false }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
-metrics = { version = "0.23.0" }
+metrics = { workspace = true }
 rand = { version = "0.8" }
 rosu-v2 = { workspace = true }
 rkyv = { workspace =  true }

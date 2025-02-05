@@ -27,9 +27,9 @@ hashbrown = { version = "0.14" }
 image = { version = "0.24", default-features = false, features = ["gif", "png"] }
 leaky-bucket-lite = { version = "0.5", default-features = false, features = ["tokio"] }
 linkme = { version = "0.3.15" }
-metrics = { version = "0.23.0" }
-metrics-exporter-prometheus = { version = "0.15.1", default-features = false }
-metrics-util = { version = "0.17.0" }
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+metrics-util = { workspace = true }
 nom = { version = "7.1.3" }
 once_cell = { version = "1.0" }
 papaya = { version = "0.1.2" }

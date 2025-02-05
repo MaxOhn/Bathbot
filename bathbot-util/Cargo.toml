@@ -5,8 +5,8 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
-metrics = { version = "0.23.0" }
-metrics-util = { version = "0.17.0" }
+metrics = { workspace = true }
+metrics-util = { workspace = true }
 regex = { version = "1.0" }
 rosu-v2 = { workspace = true }
 time = { version = "0.3", features = ["parsing"] }
