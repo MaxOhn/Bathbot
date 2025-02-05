@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use eyre::Result;
 use futures::{future::BoxFuture, stream::BoxStream};
 use sqlx::{
@@ -13,7 +15,9 @@ pub struct Database {
 
 impl Database {
     pub fn new(uri: &str) -> Result<Self> {
-        let pool = PgPoolOptions::new().connect_lazy(uri)?;
+        let pool = PgPoolOptions::new()
+            .acquire_slow_threshold(Duration::from_secs(10))
+            .connect_lazy(uri)?;
 
         Ok(Self { pool })
     }
