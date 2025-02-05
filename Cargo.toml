@@ -19,6 +19,11 @@ edition = "2021"
 
 [workspace.dependencies]
 bitflags = { version = "2.8.0" }
+http = { version = "1.2.0" }
+http-body-util = { version = "0.1.2" }
+hyper = { version = "1.6.0", default-features = false }
+hyper-rustls = { version = "0.27.5", default-features = false, features = ["http2", "tls12", "webpki-roots"] }
+hyper-util = { version = "0.1.10", default-features = false, features = ["client", "client-legacy", "http2", "tokio"] }
 metrics = { version = "0.24.1" }
 metrics-exporter-prometheus = { version = "0.16.2", default-features = false }
 metrics-util = { version = "0.19.0" }
@@ -28,6 +33,7 @@ rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "main" }
 # rosu-pp = { path = "../rosu-pp" }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "lazer", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
 # rosu-v2 = { path = "../rosu-v2", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
+rustls = { version = "0.23.20", default-features = false, features = ["std", "tls12"] }
 skia-safe = { version = "0.81.0" }
 thiserror = { version = "2.0.11" }
 twilight-gateway = { version = "0.16", default-features = false, features = ["rustls-webpki-roots", "rustls-ring", "twilight-http", "zlib-stock"] }

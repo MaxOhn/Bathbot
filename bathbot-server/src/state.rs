@@ -1,20 +1,22 @@
 use std::{path::PathBuf, sync::Arc};
 
+use axum::body::Bytes;
 use bathbot_util::MetricsReader;
 use eyre::{Result, WrapErr};
 use handlebars::Handlebars;
-use hyper::{
-    client::{connect::dns::GaiResolver, HttpConnector},
-    Body, Client,
-};
+use http_body_util::Empty;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use hyper_util::{
+    client::legacy::{connect::HttpConnector, Builder, Client as HyperClient},
+    rt::TokioExecutor,
+};
 use metrics::describe_histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
 
 use crate::standby::AuthenticationStandby;
 
 pub struct AppState {
-    pub client: Client<HttpsConnector<HttpConnector<GaiResolver>>, Body>,
+    pub client: HyperClient<HttpsConnector<HttpConnector>, Empty<Bytes>>,
     pub handlebars: Handlebars<'static>,
     pub prometheus: PrometheusHandle,
     pub metrics_reader: MetricsReader,
@@ -50,11 +52,18 @@ impl AppStateBuilder {
             redirect_base,
         } = self;
 
-        let connector = HttpsConnectorBuilder::new()
-            .with_webpki_roots()
-            .https_or_http()
-            .enable_http1()
+        let crypto_provider = rustls::crypto::ring::default_provider();
+
+        let https = HttpsConnectorBuilder::new()
+            .with_provider_and_webpki_roots(crypto_provider)
+            .wrap_err("Failed to configure https connector")?
+            .https_only()
+            .enable_http2()
             .build();
+
+        let client = Builder::new(TokioExecutor::new())
+            .http2_only(true)
+            .build(https);
 
         let mut handlebars = Handlebars::new();
         let mut path = website_path.clone();
@@ -72,7 +81,7 @@ impl AppStateBuilder {
         );
 
         let state = AppState {
-            client: Client::builder().build(connector),
+            client,
             handlebars,
             prometheus,
             metrics_reader,

@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use axum::{
     http::StatusCode,
@@ -9,7 +9,10 @@ use axum::{
 };
 use eyre::Result;
 use hyper::Request;
-use tokio::sync::oneshot::{channel, Receiver, Sender};
+use tokio::{
+    net::TcpListener,
+    sync::oneshot::{channel, Receiver, Sender},
+};
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 use tracing::Span;
 
@@ -57,11 +60,16 @@ impl Server {
         let state = Arc::new(state);
         let app = Self::bathbot_app(website_path, Arc::clone(&state));
 
-        let server = axum::Server::bind(&([0, 0, 0, 0], port).into())
-            .serve(app.with_state(state).into_make_service())
-            .with_graceful_shutdown(async {
-                let _ = shutdown_rx.await;
-            });
+        let addr = SocketAddr::from(([0, 0, 0, 0], port));
+
+        let listener = match TcpListener::bind(addr).await {
+            Ok(listener) => listener,
+            Err(err) => return error!(?err, "Failed to create listener"),
+        };
+
+        let server = axum::serve(listener, app.with_state(state)).with_graceful_shutdown(async {
+            let _ = shutdown_rx.await;
+        });
 
         info!("Running server...");
 
@@ -87,7 +95,7 @@ impl Server {
             .route("/metrics", get(get_metrics))
             .route("/guild_count", get(get_guild_count))
             .nest("/auth", Self::auth_app(website_path))
-            .route("/osudirect/:mapset_id", get(redirect_osudirect))
+            .route("/osudirect/{mapset_id}", get(redirect_osudirect))
             .layer(CorsLayer::permissive())
             .layer(middleware::from_fn_with_state(state, track_metrics))
             .layer(trace)

@@ -4,25 +4,23 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use bathbot_util::constants::OSU_BASE;
 use bytes::Bytes;
 use eyre::{Report, Result, WrapErr};
-use http::{header::USER_AGENT, Method, Request, Response};
-use hyper::Body;
+use http::response::Parts;
+use hyper::{header::USER_AGENT, Request};
 use serde::{
     de::{Error as DeError, Visitor},
     Deserialize, Deserializer,
 };
 
-use crate::{Client, ClientError, Site, MY_USER_AGENT};
+use crate::{client::Body, Client, ClientError, Site, MY_USER_AGENT};
 
 impl Client {
-    pub async fn check_skin_url(&self, url: &str) -> Result<Response<Body>, ClientError> {
+    pub async fn check_skin_url(&self, url: &str) -> Result<Parts, ClientError> {
         trace!("HEAD request of url {url}");
 
-        let req = Request::builder()
-            .uri(url)
-            .method(Method::HEAD)
+        let req = Request::head(url)
             .header(USER_AGENT, MY_USER_AGENT)
-            .body(Body::empty())
-            .wrap_err("failed to build HEAD request")?;
+            .body(Body::default())
+            .wrap_err("Failed to build HEAD request")?;
 
         let response = self
             .client
@@ -33,9 +31,11 @@ impl Client {
         let status = response.status();
 
         if (200..=299).contains(&status.as_u16()) {
-            Ok(response)
+            let (parts, _) = response.into_parts();
+
+            Ok(parts)
         } else {
-            Err(eyre!("failed with status code {status} when requesting url {url}").into())
+            Err(eyre!("Failed with status code {status} when requesting url {url}").into())
         }
     }
 

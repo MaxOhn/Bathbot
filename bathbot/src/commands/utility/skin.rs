@@ -293,8 +293,8 @@ impl SkinValidation {
             return Self::Invalid(Reason::InvalidUrl);
         }
 
-        let (parts, _) = match Context::client().check_skin_url(skin_url).await {
-            Ok(res) => res.into_parts(),
+        let parts = match Context::client().check_skin_url(skin_url).await {
+            Ok(parts) => parts,
             Err(err) => return Self::Err(err.into()),
         };
 

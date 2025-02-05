@@ -9,7 +9,7 @@ bathbot-util = { path = "../bathbot-util" }
 bitflags = { workspace = true }
 form_urlencoded = { version = "1.2.0", default-features = false, features = ["std"] }
 eyre = { version = "0.6" }
-http = { version = "0.2" }
+http = { workspace = true }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
 once_cell = { version = "1.0" }
 rosu-mods = { workspace = true }
@@ -18,7 +18,6 @@ rkyv = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 serde_urlencoded = { version = "0.7.1", default-features = false }
-thiserror = { workspace = true }
 time = { version = "0.3", features = ["parsing"] }
 twilight-gateway = { workspace = true }
 twilight-interactions = { workspace = true }

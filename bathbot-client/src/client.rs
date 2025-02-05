@@ -2,22 +2,24 @@ use std::time::Instant;
 
 use bytes::Bytes;
 use eyre::{Result, WrapErr};
-use http::{
-    header::{AUTHORIZATION, CONTENT_LENGTH},
-    Response,
-};
+use http_body_util::{BodyExt, Collected, Full};
 use hyper::{
-    client::{connect::dns::GaiResolver, Client as HyperClient, HttpConnector},
-    header::{CONTENT_TYPE, USER_AGENT},
-    Body, Error as HyperError, Method, Request,
+    body::Incoming,
+    header::{AUTHORIZATION, CONTENT_LENGTH, CONTENT_TYPE, USER_AGENT},
+    Method, Request, Response,
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use hyper_util::{
+    client::legacy::{connect::HttpConnector, Builder, Client as HyperClient, Error as HyperError},
+    rt::TokioExecutor,
+};
 use leaky_bucket_lite::LeakyBucket;
 use tokio::time::Duration;
 
 use crate::{metrics::ClientMetrics, multipart::Multipart, ClientError, Site, MY_USER_AGENT};
 
-pub(crate) type InnerClient = HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>;
+pub(crate) type InnerClient = HyperClient<HttpsConnector<HttpConnector>, Body>;
+pub(crate) type Body = Full<Bytes>;
 
 pub struct Client {
     pub(crate) client: InnerClient,
@@ -34,13 +36,17 @@ impl Client {
     ) -> Result<Self> {
         ClientMetrics::init();
 
-        let connector = HttpsConnectorBuilder::new()
-            .with_webpki_roots()
-            .https_or_http()
+        let crypto_provider = rustls::crypto::ring::default_provider();
+
+        let https = HttpsConnectorBuilder::new()
+            .with_provider_and_webpki_roots(crypto_provider)
+            .wrap_err("Failed to configure https connector")?
+            .https_only()
             .enable_http1()
+            .enable_http2()
             .build();
 
-        let client = HyperClient::builder().build(connector);
+        let client = Builder::new(TokioExecutor::new()).build(https);
 
         #[cfg(feature = "twitch")]
         let twitch = Self::get_twitch_token(&client, twitch_client_id, twitch_token)
@@ -127,7 +133,7 @@ impl Client {
         };
 
         let req = req
-            .body(Body::empty())
+            .body(Body::default())
             .wrap_err("failed to build GET request")?;
 
         let (response, start) = self
@@ -222,15 +228,18 @@ impl Client {
     }
 
     pub(crate) async fn error_for_status(
-        response: Response<Body>,
+        response: Response<Incoming>,
         url: &str,
     ) -> Result<Bytes, ClientError> {
         let status = response.status();
 
         match status.as_u16() {
-            200..=299 => hyper::body::to_bytes(response.into_body())
+            200..=299 => response
+                .into_body()
+                .collect()
                 .await
-                .wrap_err("Failed to extract response bytes")
+                .map(Collected::to_bytes)
+                .wrap_err("Failed to collect response bytes")
                 .map_err(ClientError::Report),
             400 => Err(ClientError::BadRequest),
             404 => Err(ClientError::NotFound),
@@ -243,7 +252,7 @@ impl Client {
         &self,
         req: Request<Body>,
         site: Site,
-    ) -> Result<(Response<Body>, Instant), HyperError> {
+    ) -> Result<(Response<Incoming>, Instant), HyperError> {
         self.ratelimit(site).await;
 
         let start = Instant::now();

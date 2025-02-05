@@ -25,7 +25,7 @@ pub enum AuthError {
     #[error("failed to build twitch request")]
     TwitchRequest(#[from] axum::http::Error),
     #[error("failed to receive twitch response")]
-    TwitchResponse(#[source] hyper::Error),
+    TwitchResponse(#[source] hyper_util::client::legacy::Error),
 }
 
 impl AuthError {

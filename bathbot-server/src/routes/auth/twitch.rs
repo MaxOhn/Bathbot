@@ -8,7 +8,8 @@ use axum::{
 use bathbot_model::{TwitchDataList, TwitchOAuthToken, TwitchUser};
 use bathbot_util::constants::{TWITCH_OAUTH, TWITCH_USERS_ENDPOINT};
 use eyre::Report;
-use hyper::{header::AUTHORIZATION, Body, Request};
+use http_body_util::{BodyExt, Collected, Empty};
+use hyper::{header::AUTHORIZATION, Request};
 
 use super::{AuthError, Params, RenderData, RenderDataKind, RenderDataStatus};
 use crate::state::AppState;
@@ -59,7 +60,7 @@ pub async fn auth(
         redirect_base = state.redirect_base,
     );
 
-    let token_req = Request::post(req_uri).body(Body::empty())?;
+    let token_req = Request::post(req_uri).body(Empty::new())?;
 
     let response = state
         .client
@@ -67,8 +68,11 @@ pub async fn auth(
         .await
         .map_err(AuthError::TwitchResponse)?;
 
-    let bytes = hyper::body::to_bytes(response.into_body())
+    let bytes = response
+        .into_body()
+        .collect()
         .await
+        .map(Collected::to_bytes)
         .map_err(AuthError::ResponseBytes)?;
 
     let token: TwitchOAuthToken =
@@ -78,7 +82,7 @@ pub async fn auth(
         .header(AUTHORIZATION, format!("Bearer {token}"))
         .header("Client-ID", &*state.twitch_client_id);
 
-    let user_req = req_builder.body(Body::empty())?;
+    let user_req = req_builder.body(Empty::new())?;
 
     let response = state
         .client
@@ -86,8 +90,11 @@ pub async fn auth(
         .await
         .map_err(AuthError::TwitchResponse)?;
 
-    let bytes = hyper::body::to_bytes(response.into_body())
+    let bytes = response
+        .into_body()
+        .collect()
         .await
+        .map(Collected::to_bytes)
         .map_err(AuthError::ResponseBytes)?;
 
     let user = serde_json::from_slice::<TwitchDataList<TwitchUser>>(&bytes)

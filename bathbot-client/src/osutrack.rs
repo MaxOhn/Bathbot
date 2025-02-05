@@ -2,11 +2,10 @@ use std::time::Instant;
 
 use bathbot_model::RankAccPeaks;
 use eyre::{Report, Result, WrapErr};
-use http::{header::USER_AGENT, Method, Request};
-use hyper::Body;
+use hyper::{header::USER_AGENT, Request};
 use rosu_v2::model::GameMode;
 
-use crate::{metrics::ClientMetrics, site::Site, Client, ClientError, MY_USER_AGENT};
+use crate::{client::Body, metrics::ClientMetrics, site::Site, Client, ClientError, MY_USER_AGENT};
 
 impl Client {
     pub async fn osu_user_rank_acc_peak(
@@ -41,11 +40,9 @@ impl Client {
 
         trace!("POST request to url {url}");
 
-        let req = Request::builder()
-            .method(Method::POST)
-            .uri(&url)
+        let req = Request::post(&url)
             .header(USER_AGENT, MY_USER_AGENT)
-            .body(Body::empty())
+            .body(Body::default())
             .wrap_err("Failed to build POST request")?;
 
         let start = Instant::now();

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use http::StatusCode;
+use hyper::StatusCode;
 use metrics::{counter, describe_counter, describe_histogram, histogram};
 
 use crate::site::Site;

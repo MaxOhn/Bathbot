@@ -1,10 +1,10 @@
 use std::time::Instant;
 
-use axum::{extract::MatchedPath, middleware::Next, response::Response};
+use axum::{body::Body, extract::MatchedPath, middleware::Next, response::Response};
 use hyper::Request;
 use metrics::histogram;
 
-pub async fn track_metrics<B>(req: Request<B>, next: Next<B>) -> Response {
+pub async fn track_metrics(req: Request<Body>, next: Next) -> Response {
     let path = match req.extensions().get::<MatchedPath>() {
         Some(matched_path) => matched_path.as_str().to_owned(),
         None => req.uri().path().to_owned(),

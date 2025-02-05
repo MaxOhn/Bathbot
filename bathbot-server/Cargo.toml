@@ -5,22 +5,25 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
-axum = { version = "0.6", default-features = false, features = ["http1", "json", "macros", "matched-path", "query", "tokio"] }
+axum = { version = "0.8.1", default-features = false, features = ["http2", "json", "macros", "matched-path", "query", "tokio"] }
 bathbot-model = { path = "../bathbot-model" }
 bathbot-util = { path = "../bathbot-util" }
 eyre = { version = "0.6" }
 flexmap = { git = "https://github.com/MaxOhn/flexmap" }
 futures = { version = "0.3", default-features = false }
 handlebars = { version = "6.3.0" }
-hyper = { version = "0.14", default-features = false, features = ["server"] }
-hyper-rustls = { version = "0.24.1", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
+hyper = { workspace = true, features = ["server"] }
+http-body-util = { workspace = true }
+hyper-rustls = { workspace = true }
+hyper-util = { workspace = true }
 metrics = { workspace = true }
 metrics-exporter-prometheus = { workspace = true }
 rosu-v2 = { workspace = true }
+rustls = { workspace = true }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = { version = "1.0" }
 thiserror = { workspace = true }
 tokio = { version = "1.0", default-features = false, features = ["sync"] }
-tower = { version = "0.4", default-features = false }
-tower-http = { version = "0.4.4", features = ["cors", "fs", "trace"] }
+tower = { version = "0.5.2", default-features = false }
+tower-http = { version = "0.6.2", features = ["cors", "fs", "trace"] }
 tracing = { version = "0.1" }
