@@ -2,12 +2,12 @@ use std::{borrow::Cow, fmt::Write};
 
 use bathbot_cache::Cache;
 use bathbot_model::{
-    rosu_v2::ranking::RankingsRkyv, OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuStatsBestScores,
-    OsuStatsBestTimeframe, SnipeCountries,
+    rosu_v2::ranking::RankingsRkyv, ArchivedOsuStatsBestScores, OsekaiBadge, OsekaiMedal,
+    OsekaiRanking, OsuStatsBestScores, OsuStatsBestTimeframe, SnipeCountries,
 };
 use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
-use eyre::{Report, Result};
+use eyre::{Report, Result, WrapErr};
 use rkyv::{
     bytecheck::CheckBytes,
     rancor::{BoxedError, Panic, Strategy},
@@ -22,7 +22,11 @@ use rosu_v2::prelude::{GameMode, OsuError, Rankings};
 pub use self::data::RedisData;
 use crate::{
     core::{BotMetrics, Context},
-    util::{interaction::InteractionCommand, osu::MapOrScore},
+    util::{
+        cached_archive::{serialize_using_arena, CachedArchive},
+        interaction::InteractionCommand,
+        osu::MapOrScore,
+    },
 };
 
 pub mod osu;
@@ -188,15 +192,15 @@ impl RedisManager {
         self,
         timeframe: OsuStatsBestTimeframe,
         mode: GameMode,
-    ) -> RedisResult<OsuStatsBestScores> {
+    ) -> Result<CachedArchive<ArchivedOsuStatsBestScores>> {
         const EXPIRE: u64 = 3600;
         let key = format!("osustats_best_{}_{}", timeframe as u8, mode as u8);
 
-        let mut conn = match Context::cache().fetch(&key).await {
+        let mut conn = match Context::cache().fetch::<_, OsuStatsBestScores>(&key).await {
             Ok(Ok(scores)) => {
                 BotMetrics::inc_redis_hit("osu!stats best");
 
-                return Ok(RedisData::Archive(scores));
+                return CachedArchive::new(scores.into_bytes()).wrap_err("Failed validation");
             }
             Ok(Err(conn)) => Some(conn),
             Err(err) => {
@@ -208,13 +212,16 @@ impl RedisManager {
 
         let scores = Context::client().get_osustats_best(timeframe, mode).await?;
 
+        let bytes = serialize_using_arena(&scores)
+            .wrap_err_with(|| format!("Failed to serialize key {key}"))?;
+
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store(conn, &key, &scores, EXPIRE).await {
+            if let Err(err) = Cache::store_raw(conn, &key, bytes.as_slice(), EXPIRE).await {
                 warn!(?err, "Failed to store osustats best");
             }
         }
 
-        Ok(RedisData::new(scores))
+        CachedArchive::new(bytes).wrap_err("Failed validation")
     }
 
     pub async fn snipe_countries(self, mode: GameMode) -> RedisResult<SnipeCountries> {

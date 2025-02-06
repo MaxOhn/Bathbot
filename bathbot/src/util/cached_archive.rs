@@ -70,6 +70,18 @@ impl<T: Portable> CachedArchive<T> {
 type BathbotRedisSerializer<'a> =
     Strategy<Serializer<AlignedVec<8>, ArenaHandle<'a>, ()>, BoxedError>;
 
+pub fn serialize_using_arena<T>(data: &T) -> Result<AlignedVec<8>, BoxedError>
+where
+    T: for<'a> Serialize<BathbotRedisSerializer<'a>>,
+{
+    rkyv::util::with_arena(|arena| {
+        let mut serializer = Serializer::new(AlignedVec::new(), arena.acquire(), ());
+        rkyv::api::serialize_using(data, Strategy::<_, BoxedError>::wrap(&mut serializer))?;
+
+        Ok(serializer.into_writer())
+    })
+}
+
 pub fn serialize_using_arena_and_with<T, W>(data: &T) -> Result<AlignedVec<8>, BoxedError>
 where
     T: ?Sized,
