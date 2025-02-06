@@ -725,7 +725,7 @@ pub struct ScoreEmbedDataRaw {
     pub mods: GameMods,
     pub pp: Option<f32>,
     pub score: u32,
-    pub classic_score: u32,
+    pub classic_score: u64,
     pub score_id: u64,
     pub legacy_id: Option<u64>,
     pub statistics: ScoreStatistics,

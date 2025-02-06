@@ -146,14 +146,14 @@ impl Display for GradeFormatter {
 
 #[derive(Copy, Clone)]
 pub struct ScoreFormatter {
-    score: u32,
+    score: u64,
 }
 
 impl ScoreFormatter {
     pub fn new(score: &ScoreSlim, score_data: ScoreData) -> Self {
         let score = match score_data {
-            ScoreData::Stable | ScoreData::Lazer => score.score,
-            ScoreData::LazerWithClassicScoring if score.classic_score == 0 => score.score,
+            ScoreData::Stable | ScoreData::Lazer => score.score as u64,
+            ScoreData::LazerWithClassicScoring if score.classic_score == 0 => score.score as u64,
             ScoreData::LazerWithClassicScoring => score.classic_score,
         };
 

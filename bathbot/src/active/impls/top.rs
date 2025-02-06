@@ -571,9 +571,9 @@ impl Display for OrderAppendix<'_> {
             },
             TopScoreOrder::Score if self.condensed && self.entry.map.mode() != GameMode::Mania => {
                 let score = match self.score_data {
-                    ScoreData::Stable | ScoreData::Lazer => self.entry.score.score,
+                    ScoreData::Stable | ScoreData::Lazer => self.entry.score.score as u64,
                     ScoreData::LazerWithClassicScoring if self.entry.score.classic_score == 0 => {
-                        self.entry.score.score
+                        self.entry.score.score as u64
                     }
                     ScoreData::LazerWithClassicScoring => self.entry.score.classic_score,
                 };

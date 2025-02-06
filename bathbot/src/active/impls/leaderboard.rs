@@ -238,8 +238,10 @@ impl<'a> ScoreFormatter<'a> {
 impl Display for ScoreFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let score = match self.score_data {
-            ScoreData::Stable | ScoreData::Lazer => self.score.score,
-            ScoreData::LazerWithClassicScoring if self.score.classic_score == 0 => self.score.score,
+            ScoreData::Stable | ScoreData::Lazer => self.score.score as u64,
+            ScoreData::LazerWithClassicScoring if self.score.classic_score == 0 => {
+                self.score.score as u64
+            }
             ScoreData::LazerWithClassicScoring => self.score.classic_score,
         };
 

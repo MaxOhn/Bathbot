@@ -596,7 +596,7 @@ pub struct LeaderboardScore {
     pub mods: GameMods,
     pub combo: u32,
     pub score: u32,
-    pub classic_score: u32,
+    pub classic_score: u64,
     pub ended_at: OffsetDateTime,
     pub score_id: u64,
     pub is_legacy: bool,

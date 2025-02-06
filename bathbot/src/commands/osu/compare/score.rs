@@ -48,7 +48,7 @@ use crate::{
     },
     manager::{
         redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
-        MapError,
+        MapError, OsuMap,
     },
     util::{
         interaction::InteractionCommand,
@@ -681,7 +681,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
     let process_fut = process_scores(
-        map_id,
+        &map,
         user.user_id.to_native(),
         scores,
         personal.as_deref(),
@@ -739,7 +739,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
 
 #[allow(clippy::too_many_arguments)]
 async fn process_scores(
-    map_id: u32,
+    map: &OsuMap,
     user_id: u32,
     scores: Vec<Score>,
     top100: Option<&[Score]>,
@@ -748,8 +748,6 @@ async fn process_scores(
     score_data: ScoreData,
     origin: &MessageOrigin,
 ) -> Result<Box<[ScoreEmbedData]>> {
-    let map = Context::osu_map().map(map_id, None).await?;
-
     let mut entries = Vec::<ScoreEmbedData>::with_capacity(scores.len());
 
     for score in scores {
@@ -772,7 +770,7 @@ async fn process_scores(
         let if_fc_pp = IfFc::new(&score, &map).await.map(|if_fc| if_fc.pp);
 
         let pb_idx = top100.and_then(|top100| {
-            let pb_idx = PersonalBestIndex::new(&score, map_id, map.status(), top100);
+            let pb_idx = PersonalBestIndex::new(&score, map.map_id(), map.status(), top100);
 
             ScoreEmbedDataPersonalBest::try_new(pb_idx, origin)
         });

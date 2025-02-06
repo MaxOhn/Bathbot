@@ -12,7 +12,7 @@ pub struct ScoreSlim {
     pub mods: GameMods,
     pub pp: f32,
     pub score: u32,
-    pub classic_score: u32,
+    pub classic_score: u64,
     /// Note that this is the *new* kind of score id
     pub score_id: u64,
     pub legacy_id: Option<u64>,
