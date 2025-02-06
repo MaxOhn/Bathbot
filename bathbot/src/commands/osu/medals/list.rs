@@ -1,12 +1,15 @@
-use std::{cmp::{Ordering, Reverse}, collections::HashMap};
+use std::{
+    cmp::{Ordering, Reverse},
+    collections::HashMap,
+};
 
 use bathbot_model::{OsekaiMedal, Rarity};
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
-    IntHasher,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, IntHasher};
 use eyre::{Report, Result};
-use rkyv::rancor::{Panic, ResultExt};
+use rkyv::{
+    rancor::{Panic, ResultExt},
+    vec::ArchivedVec,
+};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
 
@@ -15,10 +18,7 @@ use crate::{
     active::{impls::MedalsListPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
-    manager::redis::{
-        osu::{UserArgs, UserArgsError},
-        RedisData,
-    },
+    manager::redis::osu::{UserArgs, UserArgsError},
     Context,
 };
 
@@ -50,9 +50,18 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
     let medals_fut = Context::redis().medals();
     let ranking_fut = Context::redis().osekai_ranking::<Rarity>();
 
-    let (user, mut osekai_medals, rarities) = match tokio::join!(user_fut, medals_fut, ranking_fut)
-    {
-        (Ok(user), Ok(medals), Ok(rarities)) => (user, medals.into_original(), rarities),
+    let (user, osekai_medals, rarities) = match tokio::join!(user_fut, medals_fut, ranking_fut) {
+        (Ok(user), Ok(mut medals), Ok(rarities)) => {
+            medals.mutate(|medals| {
+                let medals = ArchivedVec::as_slice_seal(medals);
+                // SAFETY: We just sort; no nefarious moving or writing going on
+                let medals = unsafe { medals.unseal_unchecked() };
+
+                medals.sort_unstable_by_key(|medal| medal.medal_id);
+            });
+
+            (user, medals, rarities)
+        }
         (Err(UserArgsError::Osu(OsuError::NotFound)), ..) => {
             let content = user_not_found(user_id).await;
 
@@ -65,29 +74,21 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
             return Err(report);
         }
         (_, Err(err), _) | (.., Err(err)) => {
-            let _ = orig.error(OSEKAI_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached rarity ranking"));
+            return Err(Report::new(err).wrap_err("Failed to get cached rarity ranking"));
         }
     };
 
-    let rarities: HashMap<_, _, IntHasher> = match rarities {
-        RedisData::Original(rarities) => rarities
-            .iter()
-            .map(|entry| (entry.medal_id, entry.possession_percent))
-            .collect(),
-        RedisData::Archive(rarities) => rarities
-            .iter()
-            .map(|entry| {
-                (
-                    entry.medal_id.to_native(),
-                    entry.possession_percent.to_native(),
-                )
-            })
-            .collect(),
-    };
-
-    osekai_medals.sort_unstable_by_key(|medal| medal.medal_id);
+    let rarities: HashMap<_, _, IntHasher> = rarities
+        .iter()
+        .map(|entry| {
+            (
+                entry.medal_id.to_native(),
+                entry.possession_percent.to_native(),
+            )
+        })
+        .collect();
 
     let acquired = (user.medals.len(), osekai_medals.len());
 
@@ -100,7 +101,11 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
                 let achieved = m.achieved_at.try_deserialize::<Panic>().always_ok();
 
                 let entry = MedalEntryList {
-                    medal: osekai_medals.swap_remove(idx),
+                    medal: rkyv::api::deserialize_using::<_, _, Panic>(
+                        &osekai_medals[idx],
+                        &mut (),
+                    )
+                    .always_ok(),
                     achieved,
                     rarity: rarities
                         .get(&m.medal_id.to_native())

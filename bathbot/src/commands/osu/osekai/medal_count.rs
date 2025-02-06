@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use bathbot_model::{Countries, MedalCount};
-use bathbot_util::constants::OSEKAI_ISSUE;
-use eyre::Result;
+use bathbot_model::{Countries, MedalCount, OsekaiUserEntry};
+use bathbot_util::constants::GENERAL_ISSUE;
+use eyre::{Report, Result};
 
 use super::OsekaiMedalCount;
 use crate::{
@@ -40,11 +40,11 @@ pub(super) async fn medal_count(
     let (osekai_res, name_res) = tokio::join!(ranking_fut, config_fut);
 
     let mut ranking = match osekai_res {
-        Ok(ranking) => ranking.into_original(),
+        Ok(ranking) => ranking.try_deserialize::<Vec<OsekaiUserEntry>>().unwrap(),
         Err(err) => {
-            let _ = command.error(OSEKAI_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached medal count ranking"));
+            return Err(Report::new(err).wrap_err("Failed to get cached medal count ranking"));
         }
     };
 

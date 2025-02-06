@@ -117,8 +117,7 @@ impl ChangelogTagPages {
                     let mut next_prs = Context::github()
                         .next_prs(next_cursor)
                         .await
-                        .wrap_err("Failed to get next pull requests")?
-                        .into_original();
+                        .wrap_err("Failed to get next pull requests")?;
 
                     *next_cursor = next_prs.next_cursor;
                     pull_requests.append(&mut next_prs.inner);

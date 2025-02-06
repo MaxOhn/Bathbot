@@ -6,14 +6,14 @@ use std::{
 
 use bathbot_cache::Cache;
 use bathbot_client::Client as BathbotClient;
-use bathbot_model::twilight::id::IdRkyvMap;
+use bathbot_model::twilight::id::{ArchivedId, IdRkyvMap};
 use bathbot_psql::{model::configs::GuildConfig, Database};
 use bathbot_util::{IntHasher, MetricsReader};
 use eyre::{Result, WrapErr};
 use flexmap::{std::StdMutexMap, tokio::TokioRwLockMap};
 use metrics_util::layers::{FanoutBuilder, Layer, PrefixLayer};
 use papaya::HashMap as PapayaMap;
-use rkyv::collections::util::Entry;
+use rkyv::{vec::ArchivedVec, with::ArchiveWith};
 use rosu_v2::Osu;
 use shutdown::CacheGuildShards;
 use time::OffsetDateTime;
@@ -474,12 +474,15 @@ impl ContextData {
     }
 
     async fn fetch_guild_shards(cache: &Cache) -> GuildShards {
-        let fetch_fut =
-            cache.fetch_with::<_, [(Id<GuildMarker>, u32)], CacheGuildShards>("guild_shards");
+        let fetch_fut = cache
+            .fetch::<_, <CacheGuildShards as ArchiveWith<[(Id<GuildMarker>, u32)]>>::Archived>(
+                "guild_shards",
+            );
 
         match fetch_fut.await {
             Ok(Ok(guild_shards)) => guild_shards
-                .deserialize_into_with::<Vec<Entry<Id<GuildMarker>, u32>>, CacheGuildShards>()
+                .deserialize_with::<CacheGuildShards, _>()
+                .unwrap()
                 .into_iter()
                 .map(|entry| (entry.key, entry.value))
                 .collect(),
@@ -494,12 +497,13 @@ impl ContextData {
 
     async fn fetch_miss_analyzer_guilds(cache: &Cache) -> MissAnalyzerGuilds {
         let fetch_fut =
-            cache.fetch_with::<_, Vec<Id<GuildMarker>>, IdRkyvMap>("miss_analyzer_guilds");
+            cache.fetch::<_, ArchivedVec<ArchivedId<GuildMarker>>>("miss_analyzer_guilds");
 
         match fetch_fut.await {
             Ok(Ok(miss_analyzer_guilds)) => RwLock::new(
                 miss_analyzer_guilds
-                    .deserialize_with::<IdRkyvMap>()
+                    .deserialize_with::<IdRkyvMap, Vec<_>>()
+                    .unwrap()
                     .into_iter()
                     .collect(),
             ),

@@ -241,7 +241,12 @@ pub static MEDAL_GROUPS: [MedalGroup; 8] = [
     PartialOrd,
     RkyvDeserialize,
     Serialize,
+    Portable,
+    CheckBytes,
 )]
+#[rkyv(as = Self)]
+#[bytecheck(crate = rkyv::bytecheck)]
+#[repr(u8)]
 pub enum MedalGroup {
     #[option(name = "Skill & Dedication", value = "skill_dedication")]
     SkillDedication,
@@ -260,6 +265,7 @@ pub enum MedalGroup {
     #[option(name = "Mod Introduction", value = "mod_intro")]
     ModIntroduction,
 }
+
 impl FromStr for MedalGroup {
     type Err = ();
 
@@ -317,41 +323,15 @@ impl<'de> Deserialize<'de> for MedalGroup {
     }
 }
 
-impl OsekaiMedal {
-    const BASE_URL: &'static str = "https://osekai.net/medals?";
-
+impl ArchivedOsekaiMedal {
     /// Returns a properly encoded medal url to osekai.
     pub fn url(&self) -> Result<String> {
-        Self::name_to_url(self.name.as_ref())
+        OsekaiMedal::name_to_url(self.name.as_ref())
     }
 
-    pub fn name_to_url(name: &str) -> Result<String> {
-        let mut url = String::with_capacity(Self::BASE_URL.len() + "medal".len() + 1 + name.len());
-        url.push_str(Self::BASE_URL);
-
-        #[derive(serde::Serialize)]
-        struct MedalUrlQuery<'a> {
-            medal: &'a str,
-        }
-
-        let query = MedalUrlQuery { medal: name };
-        let mut form_serializer = FormSerializer::for_suffix(&mut url, Self::BASE_URL.len());
-        let url_serializer = UrlSerializer::new(&mut form_serializer);
-
-        query
-            .serialize(url_serializer)
-            .wrap_err("Failed to encode medal url")?;
-
-        Ok(url)
-    }
-
-    /// Returns a backup url in case [`OsekaiMedal::url`] fails.
+    /// Returns a backup url in case [`ArchivedOsekaiMedal::url`] fails.
     pub fn backup_url(&self) -> String {
-        Self::backup_name_to_url(self.name.as_ref())
-    }
-
-    pub fn backup_name_to_url(name: &str) -> String {
-        format!("{}medal={name}", Self::BASE_URL)
+        OsekaiMedal::backup_name_to_url(self.name.as_ref())
     }
 
     /// Returns the solution of the medal, if available.
@@ -409,14 +389,52 @@ impl OsekaiMedal {
         Some(res)
     }
 
-    fn grouping_order(&self) -> u32 {
-        self.grouping.order()
-    }
-
     pub fn icon_url(&self) -> OsekaiMedalIconUrl<'_> {
         OsekaiMedalIconUrl {
             filename: self.icon_url_suffix.as_ref(),
         }
+    }
+}
+
+impl OsekaiMedal {
+    const BASE_URL: &'static str = "https://osekai.net/medals?";
+
+    /// Returns a properly encoded medal url to osekai.
+    pub fn url(&self) -> Result<String> {
+        Self::name_to_url(self.name.as_ref())
+    }
+
+    /// Returns a backup url in case [`OsekaiMedal::url`] fails.
+    pub fn backup_url(&self) -> String {
+        Self::backup_name_to_url(self.name.as_ref())
+    }
+
+    pub fn backup_name_to_url(name: &str) -> String {
+        format!("{}medal={name}", Self::BASE_URL)
+    }
+
+    pub fn name_to_url(name: &str) -> Result<String> {
+        let mut url = String::with_capacity(Self::BASE_URL.len() + "medal".len() + 1 + name.len());
+        url.push_str(Self::BASE_URL);
+
+        #[derive(serde::Serialize)]
+        struct MedalUrlQuery<'a> {
+            medal: &'a str,
+        }
+
+        let query = MedalUrlQuery { medal: name };
+        let mut form_serializer = FormSerializer::for_suffix(&mut url, Self::BASE_URL.len());
+        let url_serializer = UrlSerializer::new(&mut form_serializer);
+
+        query
+            .serialize(url_serializer)
+            .wrap_err("Failed to encode medal url")?;
+
+        Ok(url)
+    }
+
+    fn grouping_order(&self) -> u32 {
+        self.grouping.order()
     }
 }
 

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use bathbot_model::rosu_v2::ranking::{ArchivedRankingsUser, RankingsRkyv};
+use bathbot_model::rosu_v2::ranking::ArchivedRankingsUser;
 use bathbot_util::{
     constants::OSU_BASE,
     numbers::{round, WithComma},
@@ -15,7 +15,7 @@ use twilight_model::channel::message::embed::EmbedField;
 use crate::{
     active::impls::higherlower::state::{mapset_cover, HigherLowerState, H, W},
     core::Context,
-    manager::{redis::RedisData, OsuMapSlim},
+    manager::OsuMapSlim,
     util::{osu::grade_emote, Emote},
 };
 
@@ -66,12 +66,7 @@ impl ScorePp {
             .await
             .wrap_err("Failed to get cached pp ranking")?;
 
-        let player = match ranking {
-            RedisData::Original(mut ranking) => UserCompact::from(ranking.ranking.swap_remove(idx)),
-            RedisData::Archive(ranking) => {
-                UserCompact::from(&ranking.deref_with::<RankingsRkyv>().ranking[idx])
-            }
-        };
+        let player = UserCompact::from(&ranking.ranking[idx]);
 
         let mut plays = Context::osu()
             .user_scores(player.user_id)

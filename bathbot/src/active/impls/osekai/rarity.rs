@@ -1,10 +1,12 @@
 use std::fmt::Write;
 
+use bathbot_cache::model::CachedArchive;
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{OsekaiMedal, OsekaiRarityEntry};
+use bathbot_model::{ArchivedOsekaiRarityEntry, OsekaiMedal};
 use bathbot_util::{numbers::round, EmbedBuilder, FooterBuilder};
 use eyre::Result;
 use futures::future::BoxFuture;
+use rkyv::vec::ArchivedVec;
 use twilight_model::{
     channel::message::Component,
     id::{marker::UserMarker, Id},
@@ -21,7 +23,7 @@ use crate::{
 #[derive(PaginationBuilder)]
 pub struct MedalRarityPagination {
     #[pagination(per_page = 15)]
-    ranking: Box<[OsekaiRarityEntry]>,
+    ranking: CachedArchive<ArchivedVec<ArchivedOsekaiRarityEntry>>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -51,7 +53,7 @@ impl IActiveMessage for MedalRarityPagination {
                 description,
                 "**#{i} [{medal}]({url} \"{description}\")**: `{rarity}%`",
                 medal = entry.medal_name,
-                rarity = round(entry.possession_percent),
+                rarity = round(entry.possession_percent.to_native()),
                 description = entry.description,
             );
         }

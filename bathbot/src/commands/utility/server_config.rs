@@ -2,7 +2,7 @@ use bathbot_macros::{command, SlashCommand};
 use bathbot_model::command_fields::{EnableDisable, ShowHideOption};
 use bathbot_psql::model::configs::{GuildConfig, HideSolutions, ListSize, Retries, ScoreData};
 use bathbot_util::constants::GENERAL_ISSUE;
-use eyre::Result;
+use eyre::{Report, Result};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::RoleMarker, Id};
 
@@ -178,7 +178,7 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
         Err(err) => {
             let _ = command.error(GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(Report::new(err));
         }
     };
 

@@ -16,10 +16,7 @@ use crate::{
     active::{impls::BadgesPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::{commands::CommandOrigin, Context},
-    manager::redis::{
-        osu::{UserArgs, UserArgsError},
-        RedisData,
-    },
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::osu::get_combined_thumbnail,
 };
 
@@ -68,22 +65,15 @@ pub(super) async fn user(orig: CommandOrigin<'_>, args: BadgesUser) -> Result<()
         Err(err) => {
             let _ = orig.error(OSEKAI_ISSUE).await;
 
-            return Err(err.wrap_err("Failed to get badges"));
+            return Err(Report::new(err).wrap_err("Failed to get badges"));
         }
     };
 
-    let mut badges = match badges {
-        RedisData::Original(mut badges) => {
-            badges.retain(|badge| badge.users.contains(&user_id_raw));
-
-            badges
-        }
-        RedisData::Archive(badges) => badges
-            .iter()
-            .filter(|badge| badge.users.contains(&u32_le::from_native(user_id_raw)))
-            .map(|badge| rkyv::api::deserialize_using::<_, _, Panic>(badge, &mut ()).always_ok())
-            .collect(),
-    };
+    let mut badges: Vec<_> = badges
+        .iter()
+        .filter(|badge| badge.users.contains(&u32_le::from_native(user_id_raw)))
+        .map(|badge| rkyv::api::deserialize_using::<_, _, Panic>(badge, &mut ()).always_ok())
+        .collect();
 
     args.sort.unwrap_or_default().apply(&mut badges);
 

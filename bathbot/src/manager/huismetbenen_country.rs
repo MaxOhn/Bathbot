@@ -1,7 +1,7 @@
 use bathbot_util::CowUtils;
 use rosu_v2::model::GameMode;
 
-use super::redis::{RedisData, RedisManager};
+use super::redis::RedisManager;
 
 #[derive(Copy, Clone)]
 pub struct HuismetbenenCountryManager;
@@ -16,8 +16,7 @@ impl HuismetbenenCountryManager {
         let country_code = country_code.cow_to_ascii_uppercase();
 
         match RedisManager::new().snipe_countries(mode).await {
-            Ok(RedisData::Original(countries)) => countries.contains(country_code.as_ref()),
-            Ok(RedisData::Archive(countries)) => countries.contains(country_code.as_ref()),
+            Ok(countries) => countries.contains(country_code.as_ref()),
             Err(err) => {
                 warn!(
                     country_code = country_code.as_ref(),

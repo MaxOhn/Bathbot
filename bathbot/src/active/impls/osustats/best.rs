@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
+use bathbot_cache::model::CachedArchive;
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{
     rkyv_util::time::DateRkyv, ArchivedOsuStatsBestScore, ArchivedOsuStatsBestScores,
@@ -31,7 +32,6 @@ use crate::{
     core::BotConfig,
     embeds::ComboFormatter,
     util::{
-        cached_archive::CachedArchive,
         interaction::{InteractionComponent, InteractionModal},
         Emote,
     },

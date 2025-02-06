@@ -1,19 +1,16 @@
 use std::borrow::Cow;
 
-use bathbot_cache::Cache;
+use bathbot_cache::{model::CachedArchive, util::serialize::serialize_using_arena_and_with, Cache};
 use bathbot_model::rosu_v2::user::{ArchivedUser, User};
 use bathbot_util::CowUtils;
-use eyre::{Report, WrapErr};
+use rkyv::rancor::BoxedError;
 use rosu_v2::{
     prelude::{GameMode, OsuError, UserExtended},
     request::UserId,
 };
 
 use super::RedisManager;
-use crate::{
-    core::{BotMetrics, Context},
-    util::cached_archive::{serialize_using_arena_and_with, CachedArchive},
-};
+use crate::core::{BotMetrics, Context};
 
 pub type CachedUser = CachedArchive<ArchivedUser>;
 
@@ -26,12 +23,16 @@ pub enum UserArgs {
 
 #[derive(Debug, thiserror::Error)]
 pub enum UserArgsError {
-    #[error("osu error")]
+    #[error("osu! error")]
     Osu(#[from] OsuError),
-    #[error("serialization error")]
-    Serialization(#[source] Report),
-    #[error("validation error")]
-    Validation(#[source] Report),
+    #[error("Failed to serialize data; {user:?}")]
+    Serialization {
+        #[source]
+        source: BoxedError,
+        user: Box<UserExtended>,
+    },
+    #[error("Failed to validate data")]
+    Validation(#[source] BoxedError),
 }
 
 impl UserArgs {
@@ -86,7 +87,12 @@ impl UserArgs {
                 Ok(archived) => archived,
                 Err(err) => return Self::Err(UserArgsError::Validation(err)),
             },
-            Err(err) => return Self::Err(UserArgsError::Serialization(Report::new(err))),
+            Err(source) => {
+                return Self::Err(UserArgsError::Serialization {
+                    source,
+                    user: Box::new(user),
+                })
+            }
         };
 
         tokio::spawn(async move {
@@ -149,15 +155,15 @@ impl RedisManager {
         let UserArgsSlim { user_id, mode } = args;
         let key = Self::osu_user_key(user_id, mode);
 
-        let mut conn = match Context::cache().fetch::<_, User>(&key).await {
+        let mut conn = match Context::cache().fetch(&key).await {
             Ok(Ok(user)) => {
                 BotMetrics::inc_redis_hit("osu! user");
 
-                return CachedUser::new(user.into_bytes()).map_err(UserArgsError::Validation);
+                return Ok(user);
             }
             Ok(Err(conn)) => Some(conn),
             Err(err) => {
-                warn!("{err:?}");
+                warn!(?err, "Failed to fetch osu! user");
 
                 None
             }
@@ -179,13 +185,19 @@ impl RedisManager {
 
         user.mode = mode;
 
-        let bytes = serialize_using_arena_and_with::<_, User>(&user)
-            .wrap_err_with(|| format!("Failed to serialize key {key}"))
-            .map_err(UserArgsError::Serialization)?;
+        let bytes = match serialize_using_arena_and_with::<_, User>(&user) {
+            Ok(bytes) => bytes,
+            Err(source) => {
+                return Err(UserArgsError::Serialization {
+                    source,
+                    user: Box::new(user),
+                })
+            }
+        };
 
         if let Some(ref mut conn) = conn {
             // Cache users for 10 minutes
-            if let Err(err) = Cache::store_raw(conn, &key, bytes.as_slice(), EXPIRE).await {
+            if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
                 warn!(?err, "Failed to store user");
             }
         }
@@ -203,7 +215,7 @@ impl RedisManager {
     pub async fn osu_user_from_archived(self, user: CachedUser, mode: GameMode) -> CachedUser {
         let key = Self::osu_user_key(user.user_id.to_native(), mode);
         let bytes = user.as_bytes();
-        let store_fut = Context::cache().store_new_raw(&key, bytes, EXPIRE);
+        let store_fut = Context::cache().store_new(&key, bytes, EXPIRE);
 
         if let Err(err) = store_fut.await {
             warn!(?err, "Failed to store key {key}");

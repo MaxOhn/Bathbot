@@ -4,17 +4,17 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{MedalGroup, OsekaiComment, OsekaiMap, OsekaiMedal};
+use bathbot_model::{ArchivedOsekaiMedal, MedalGroup, OsekaiComment, OsekaiMap};
 use bathbot_psql::model::configs::HideSolutions;
 use bathbot_util::{
-    constants::{FIELD_VALUE_SIZE, OSEKAI_ISSUE, OSU_BASE},
+    constants::{FIELD_VALUE_SIZE, GENERAL_ISSUE, OSEKAI_ISSUE, OSU_BASE},
     fields,
     osu::flag_url,
     string_cmp::levenshtein_similarity,
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
-use eyre::{Result, WrapErr};
-use rkyv::rancor::{Panic, ResultExt};
+use eyre::{Report, Result, WrapErr};
+use rkyv::{rend::f32_le, vec::ArchivedVec};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 use twilight_interactions::command::AutocompleteValue;
@@ -26,7 +26,6 @@ use twilight_model::{
 use super::{MedalAchieved, MedalInfo_};
 use crate::{
     core::commands::CommandOrigin,
-    manager::redis::RedisData,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
@@ -61,12 +60,12 @@ async fn prefix_medal(msg: &Message, args: Args<'_>) -> Result<()> {
 pub(super) async fn info(orig: CommandOrigin<'_>, args: MedalInfo_<'_>) -> Result<()> {
     let MedalInfo_ { name } = args;
 
-    let mut medals = match Context::redis().medals().await {
+    let medals = match Context::redis().medals().await {
         Ok(medals) => medals,
         Err(err) => {
-            let _ = orig.error(OSEKAI_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached medals"));
+            return Err(Report::new(err).wrap_err("Failed to get cached medals"));
         }
     };
 
@@ -83,30 +82,17 @@ pub(super) async fn info(orig: CommandOrigin<'_>, args: MedalInfo_<'_>) -> Resul
 
     let name = name.cow_to_ascii_lowercase();
 
-    let medal = match medals {
-        RedisData::Original(ref mut original) => match original
-            .iter()
-            .position(|m| m.name.to_ascii_lowercase() == name)
-        {
-            Some(idx) => original.swap_remove(idx),
-            None => return no_medal(&orig, name.as_ref(), medals).await,
-        },
-        RedisData::Archive(ref archived) => {
-            match archived
-                .iter()
-                .position(|m| m.name.to_ascii_lowercase() == name)
-            {
-                Some(idx) => {
-                    rkyv::api::deserialize_using::<_, _, Panic>(&archived[idx], &mut ()).always_ok()
-                }
-                None => return no_medal(&orig, name.as_ref(), medals).await,
-            }
-        }
+    let medal = match medals
+        .iter()
+        .position(|m| m.name.to_ascii_lowercase() == name)
+    {
+        Some(idx) => &medals[idx],
+        None => return no_medal(&orig, name.as_ref(), &medals).await,
     };
 
     let client = Context::client();
-    let map_fut = client.get_osekai_beatmaps(medal.medal_id);
-    let comment_fut = client.get_osekai_comments(medal.medal_id);
+    let map_fut = client.get_osekai_beatmaps(medal.medal_id.to_native());
+    let comment_fut = client.get_osekai_comments(medal.medal_id.to_native());
 
     let (mut maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
         Ok((maps, comments)) => (maps, comments),
@@ -139,7 +125,7 @@ pub(super) async fn info(orig: CommandOrigin<'_>, args: MedalInfo_<'_>) -> Resul
         None => HideSolutions::ShowAll,
     };
 
-    let embed_data = MedalEmbed::new(&medal, None, maps, top_comment, hide_solution);
+    let embed_data = MedalEmbed::new(medal, None, maps, top_comment, hide_solution);
     let embed = embed_data.maximized();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(builder).await?;
@@ -152,26 +138,16 @@ const SIMILARITY_THRESHOLD: f32 = 0.6;
 async fn no_medal(
     orig: &CommandOrigin<'_>,
     name: &str,
-    medals: RedisData<Vec<OsekaiMedal>>,
+    medals: &ArchivedVec<ArchivedOsekaiMedal>,
 ) -> Result<()> {
-    let mut medals: Vec<_> = match medals {
-        RedisData::Original(original) => original
-            .iter()
-            .map(|medal| {
-                let medal = medal.name.to_ascii_lowercase();
+    let mut medals: Vec<_> = medals
+        .iter()
+        .map(|medal| {
+            let medal = medal.name.to_ascii_lowercase();
 
-                (levenshtein_similarity(name, &medal), medal)
-            })
-            .collect(),
-        RedisData::Archive(archived) => archived
-            .iter()
-            .map(|medal| {
-                let medal = medal.name.to_ascii_lowercase();
-
-                (levenshtein_similarity(name, &medal), medal)
-            })
-            .collect(),
-    };
+            (levenshtein_similarity(name, &medal), medal)
+        })
+        .collect();
 
     medals.sort_unstable_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap_or(Ordering::Equal));
 
@@ -213,27 +189,12 @@ pub async fn handle_autocomplete(command: &InteractionCommand, name: String) -> 
 
     let mut choices = Vec::with_capacity(25);
 
-    match medals {
-        RedisData::Original(original) => {
-            for medal in original.iter() {
-                if medal.name.to_ascii_lowercase().starts_with(name) {
-                    choices.push(new_choice(&medal.name));
+    for medal in medals.iter() {
+        if medal.name.to_ascii_lowercase().starts_with(name) {
+            choices.push(new_choice(&medal.name));
 
-                    if choices.len() == 25 {
-                        break;
-                    }
-                }
-            }
-        }
-        RedisData::Archive(archived) => {
-            for medal in archived.iter() {
-                if medal.name.to_ascii_lowercase().starts_with(name) {
-                    choices.push(new_choice(&medal.name));
-
-                    if choices.len() == 25 {
-                        break;
-                    }
-                }
+            if choices.len() == 25 {
+                break;
             }
         }
     }
@@ -262,7 +223,7 @@ pub struct MedalEmbed {
 
 impl MedalEmbed {
     pub fn new(
-        medal: &OsekaiMedal,
+        medal: &ArchivedOsekaiMedal,
         achieved: Option<MedalAchieved<'_>>,
         maps: Vec<OsekaiMap>,
         comment: Option<OsekaiComment>,
@@ -301,7 +262,7 @@ impl MedalEmbed {
             // Padded to not make the potential spoiler too obvious
             mode_mods.push_str("Any      ");
         } else {
-            if let Some(mode) = medal.mode {
+            if let Some(mode) = medal.mode.as_ref() {
                 let _ = write!(mode_mods, "{mode}");
             } else {
                 mode_mods.push_str("Any");
@@ -320,8 +281,14 @@ impl MedalEmbed {
             mode_mods.push_str("||");
         }
 
+        let rarity = medal
+            .rarity
+            .as_ref()
+            .copied()
+            .map_or(0.0, f32_le::to_native);
+
         fields![fields {
-            "Rarity", format!("{:.2}%", medal.rarity.unwrap_or(0.0)), true;
+            "Rarity", format!("{rarity:.2}%"), true;
             "Mode • Mods", mode_mods, true;
             "Group", medal.grouping.to_string(), true;
         }];
@@ -403,7 +370,7 @@ impl MedalEmbed {
 
             let mut author_url = format!("{OSU_BASE}users/{user_id}");
 
-            match medal.mode {
+            match medal.mode.as_ref() {
                 None => {}
                 Some(GameMode::Osu) => author_url.push_str("/osu"),
                 Some(GameMode::Taiko) => author_url.push_str("/taiko"),

@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_cache::model::CachedArchive;
-use bathbot_model::twilight::{channel::CachedChannel, guild::CachedGuild};
+use bathbot_model::twilight::{channel::ArchivedCachedChannel, guild::ArchivedCachedGuild};
 use bathbot_util::constants::MISS_ANALYZER_ID;
 use eyre::Result;
 use tokio::{
@@ -75,11 +75,11 @@ enum EventLocation {
     Private,
     UncachedGuild,
     UncachedChannel {
-        guild: CachedArchive<CachedGuild>,
+        guild: CachedArchive<ArchivedCachedGuild>,
     },
     Cached {
-        guild: CachedArchive<CachedGuild>,
-        channel: CachedArchive<CachedChannel>,
+        guild: CachedArchive<ArchivedCachedGuild>,
+        channel: CachedArchive<ArchivedCachedChannel>,
     },
 }
 

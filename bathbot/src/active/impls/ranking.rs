@@ -7,10 +7,7 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{
-    rosu_v2::ranking::RankingsRkyv, BgGameScore, EmbedHeader, RankingEntries, RankingEntry,
-    RankingKind,
-};
+use bathbot_model::{BgGameScore, EmbedHeader, RankingEntries, RankingEntry, RankingKind};
 use bathbot_util::{
     numbers::{round, WithComma},
     EmbedBuilder,
@@ -29,7 +26,6 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
     },
     core::Context,
-    manager::redis::RedisData,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 
@@ -266,48 +262,25 @@ impl RankingPagination {
                         unreachable!()
                     };
 
-                    match ranking {
-                        RedisData::Original(ranking) => {
-                            let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
-                                let entry = RankingEntry {
-                                    country: Some(user.country_code),
-                                    name: user.username,
-                                    value: user.statistics.expect("missing stats").pp.round()
-                                        as u32,
-                                };
+                    let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
+                        let country = user.country_code.as_str().into();
 
-                                (offset * 50 + i, entry)
-                            });
+                        let pp = user
+                            .statistics
+                            .as_ref()
+                            .map(|stats| stats.pp.to_native().round())
+                            .expect("missing stats");
 
-                            entries.extend(iter);
-                        }
-                        RedisData::Archive(ranking) => {
-                            let iter = ranking
-                                .deref_with::<RankingsRkyv>()
-                                .ranking
-                                .iter()
-                                .enumerate()
-                                .map(|(i, user)| {
-                                    let country = user.country_code.as_str().into();
+                        let entry = RankingEntry {
+                            country: Some(country),
+                            name: user.username.as_str().into(),
+                            value: pp as u32,
+                        };
 
-                                    let pp = user
-                                        .statistics
-                                        .as_ref()
-                                        .map(|stats| stats.pp.to_native().round())
-                                        .expect("missing stats");
+                        (offset * 50 + i, entry)
+                    });
 
-                                    let entry = RankingEntry {
-                                        country: Some(country),
-                                        name: user.username.as_str().into(),
-                                        value: pp as u32,
-                                    };
-
-                                    (offset * 50 + i, entry)
-                                });
-
-                            entries.extend(iter);
-                        }
-                    }
+                    entries.extend(iter);
                 }
                 RankingKind::PpGlobal { mode } => {
                     let ranking = Context::redis()
@@ -319,48 +292,25 @@ impl RankingPagination {
                         unreachable!()
                     };
 
-                    match ranking {
-                        RedisData::Original(ranking) => {
-                            let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
-                                let entry = RankingEntry {
-                                    country: Some(user.country_code),
-                                    name: user.username,
-                                    value: user.statistics.expect("missing stats").pp.round()
-                                        as u32,
-                                };
+                    let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
+                        let country = user.country_code.as_str().into();
 
-                                (offset * 50 + i, entry)
-                            });
+                        let pp = user
+                            .statistics
+                            .as_ref()
+                            .map(|stats| stats.pp.to_native().round())
+                            .expect("missing stats");
 
-                            entries.extend(iter);
-                        }
-                        RedisData::Archive(ranking) => {
-                            let iter = ranking
-                                .deref_with::<RankingsRkyv>()
-                                .ranking
-                                .iter()
-                                .enumerate()
-                                .map(|(i, user)| {
-                                    let country = user.country_code.as_str().into();
+                        let entry = RankingEntry {
+                            country: Some(country),
+                            name: user.username.as_str().into(),
+                            value: pp as u32,
+                        };
 
-                                    let pp = user
-                                        .statistics
-                                        .as_ref()
-                                        .map(|stats| stats.pp.to_native().round())
-                                        .expect("missing stats");
+                        (offset * 50 + i, entry)
+                    });
 
-                                    let entry = RankingEntry {
-                                        country: Some(country),
-                                        name: user.username.as_str().into(),
-                                        value: pp as u32,
-                                    };
-
-                                    (offset * 50 + i, entry)
-                                });
-
-                            entries.extend(iter);
-                        }
-                    }
+                    entries.extend(iter);
                 }
                 RankingKind::RankedScore { mode } => {
                     let ranking = Context::osu()

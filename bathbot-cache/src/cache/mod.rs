@@ -1,7 +1,8 @@
 use std::fmt::Display;
 
 use bb8_redis::{
-    bb8::{Pool, PooledConnection},
+    bb8::{Pool, PooledConnection, RunError},
+    redis::RedisError,
     RedisConnectionManager,
 };
 use eyre::{Result, WrapErr};
@@ -11,6 +12,7 @@ use twilight_model::{
     application::interaction::InteractionData, gateway::payload::incoming::GuildCreate,
 };
 
+pub use self::fetch::FetchError;
 use crate::model::{CacheChange, CacheStats, CacheStatsInternal};
 
 mod cold_resume;
@@ -153,10 +155,9 @@ impl Cache {
         self.stats.get()
     }
 
-    pub(crate) async fn connection(&self) -> Result<PooledConnection<RedisConnectionManager>> {
-        self.redis
-            .get()
-            .await
-            .wrap_err("Failed to get redis connection")
+    pub(crate) async fn connection(
+        &self,
+    ) -> Result<PooledConnection<RedisConnectionManager>, RunError<RedisError>> {
+        self.redis.get().await
     }
 }

@@ -1,14 +1,12 @@
 use std::{
     borrow::Cow,
-    cmp::{Ordering, Reverse}, collections::HashMap,
+    cmp::{Ordering, Reverse},
+    collections::HashMap,
 };
 
 use bathbot_macros::command;
 use bathbot_model::{MedalGroup, OsekaiMedal, Rarity};
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
-    matcher, IntHasher,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher};
 use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{
@@ -23,10 +21,7 @@ use crate::{
     active::{impls::MedalsCommonPagination, ActiveMessages},
     commands::osu::UserExtraction,
     core::commands::CommandOrigin,
-    manager::redis::{
-        osu::{CachedUser, UserArgs, UserArgsError},
-        RedisData,
-    },
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::osu::get_combined_thumbnail,
     Context,
 };
@@ -151,12 +146,12 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
         }
     };
 
-    let mut all_medals = match all_medals_res {
-        Ok(medals) => medals.into_original(),
+    let all_medals = match all_medals_res {
+        Ok(medals) => medals,
         Err(err) => {
-            let _ = orig.error(OSEKAI_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached medals"));
+            return Err(Report::new(err).wrap_err("Failed to get cached medals"));
         }
     };
 
@@ -178,7 +173,8 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
                 let achieved2 = medals2.remove(&medal_id);
 
                 let entry = MedalEntryCommon {
-                    medal: all_medals.swap_remove(idx),
+                    medal: rkyv::api::deserialize_using::<_, _, Panic>(&all_medals[idx], &mut ())
+                        .always_ok(),
                     achieved1: Some(achieved1),
                     achieved2,
                 };
@@ -193,7 +189,8 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
         match all_medals.iter().position(|m| m.medal_id == medal_id) {
             Some(idx) => {
                 let entry = MedalEntryCommon {
-                    medal: all_medals.swap_remove(idx),
+                    medal: rkyv::api::deserialize_using::<_, _, Panic>(&all_medals[idx], &mut ())
+                        .always_ok(),
                     achieved1: None,
                     achieved2: Some(achieved2),
                 };
@@ -251,21 +248,15 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
             if !medals.is_empty() {
                 match Context::redis().osekai_ranking::<Rarity>().await {
                     Ok(rarities) => {
-                        let rarities: HashMap<_, _, IntHasher> = match rarities {
-                            RedisData::Original(rarities) => rarities
-                                .into_iter()
-                                .map(|entry| (entry.medal_id, entry.possession_percent))
-                                .collect(),
-                            RedisData::Archive(rarities) => rarities
-                                .iter()
-                                .map(|entry| {
-                                    (
-                                        entry.medal_id.to_native(),
-                                        entry.possession_percent.to_native(),
-                                    )
-                                })
-                                .collect(),
-                        };
+                        let rarities: HashMap<_, _, IntHasher> = rarities
+                            .iter()
+                            .map(|entry| {
+                                (
+                                    entry.medal_id.to_native(),
+                                    entry.possession_percent.to_native(),
+                                )
+                            })
+                            .collect();
 
                         medals.sort_unstable_by(|a, b| {
                             let rarity1 = rarities.get(&a.medal.medal_id).copied().unwrap_or(100.0);
@@ -275,9 +266,11 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
                         });
                     }
                     Err(err) => {
-                        let _ = orig.error(OSEKAI_ISSUE).await;
+                        let _ = orig.error(GENERAL_ISSUE).await;
 
-                        return Err(err.wrap_err("failed to get cached rarity ranking"));
+                        return Err(
+                            Report::new(err).wrap_err("Failed to get cached rarity ranking")
+                        );
                     }
                 }
             }

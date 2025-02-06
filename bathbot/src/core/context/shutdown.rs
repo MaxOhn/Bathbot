@@ -1,14 +1,15 @@
+use bathbot_cache::util::serialize::serialize_using_arena_and_with;
 use bathbot_model::twilight::id::{ArchivedId, IdRkyv, IdRkyvMap};
 use eyre::{Result, WrapErr};
 use futures::stream::StreamExt;
 use rkyv::{
     collections::util::{Entry, EntryAdapter},
     primitive::ArchivedU32,
-    rancor::{BoxedError, Fallible, Strategy},
-    ser::{Allocator, Serializer, Writer, WriterExt},
+    rancor::Fallible,
+    ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, DeserializeWith, SerializeWith, With},
-    Archived, Place, Serialize,
+    Place,
 };
 use twilight_gateway::Shard;
 use twilight_model::id::{marker::GuildMarker, Id};
@@ -122,24 +123,11 @@ impl Context {
         let len = guild_shards.len();
         info!(len, "Storing guild shards...");
 
-        let bytes = rkyv::util::with_arena(|arena| {
-            let wrap = With::<Original, CacheGuildShards>::cast(&guild_shards);
-            let mut serializer = Serializer::new(Vec::new(), arena.acquire(), ());
-            let resolver = wrap.serialize(Strategy::<_, BoxedError>::wrap(&mut serializer))?;
-            WriterExt::<BoxedError>::align_for::<Archived<With<Original, CacheGuildShards>>>(
-                &mut serializer,
-            )?;
-
-            // SAFETY: A proper resolver is being used and the serializer has been
-            // aligned
-            unsafe { WriterExt::<BoxedError>::resolve_aligned(&mut serializer, wrap, resolver)? };
-
-            Ok::<_, BoxedError>(serializer.into_writer())
-        })
-        .wrap_err("Failed to serialize guild shards")?;
+        let bytes = serialize_using_arena_and_with::<_, CacheGuildShards>(&guild_shards)
+            .wrap_err("Failed to serialize guild shards")?;
 
         Self::cache()
-            .store_new_raw("guild_shards", &bytes, store_duration)
+            .store_new("guild_shards", &bytes, store_duration)
             .await
             .wrap_err("Failed to store in redis")?;
 
@@ -157,25 +145,12 @@ impl Context {
             .copied()
             .collect();
 
-        let bytes = rkyv::util::with_arena(|arena| {
-            let slice = miss_analyzer_guilds.as_slice();
-            let wrap = With::<&[Id<GuildMarker>], IdRkyvMap>::cast(&slice);
-            let mut serializer = Serializer::new(Vec::new(), arena.acquire(), ());
-            let resolver = wrap.serialize(Strategy::<_, BoxedError>::wrap(&mut serializer))?;
-            WriterExt::<BoxedError>::align_for::<Archived<With<&[Id<GuildMarker>], IdRkyvMap>>>(
-                &mut serializer,
-            )?;
-
-            // SAFETY: A proper resolver is being used and the serializer has been
-            // aligned
-            unsafe { WriterExt::<BoxedError>::resolve_aligned(&mut serializer, wrap, resolver)? };
-
-            Ok::<_, BoxedError>(serializer.into_writer())
-        })
-        .wrap_err("Failed to serialize miss analyzer guilds")?;
+        let bytes =
+            serialize_using_arena_and_with::<_, IdRkyvMap>(&miss_analyzer_guilds.as_slice())
+                .wrap_err("Failed to serialize miss analyzer guilds")?;
 
         Self::cache()
-            .store_new_raw("miss_analyzer_guilds", &bytes, store_duration)
+            .store_new("miss_analyzer_guilds", &bytes, store_duration)
             .await?;
 
         Ok(miss_analyzer_guilds.len())

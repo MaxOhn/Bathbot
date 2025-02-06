@@ -1,11 +1,13 @@
 use std::collections::{hash_map::Entry, HashMap};
 
+use bathbot_cache::model::CachedArchive;
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::OsekaiMedal;
+use bathbot_model::ArchivedOsekaiMedal;
 use bathbot_psql::model::configs::HideSolutions;
 use bathbot_util::IntHasher;
 use eyre::Result;
 use futures::future::{ready, BoxFuture};
+use rkyv::vec::ArchivedVec;
 use rosu_v2::prelude::MedalCompact;
 use twilight_model::{
     channel::message::Component,
@@ -25,7 +27,7 @@ use crate::{
 #[derive(PaginationBuilder)]
 pub struct MedalsRecentPagination {
     user: CachedUser,
-    medals: HashMap<u32, OsekaiMedal, IntHasher>,
+    medals: CachedArchive<ArchivedVec<ArchivedOsekaiMedal>>,
     #[pagination(per_page = 1)]
     achieved_medals: Box<[MedalCompact]>,
     embeds: HashMap<usize, MedalEmbed, IntHasher>,
@@ -44,9 +46,12 @@ impl IActiveMessage for MedalsRecentPagination {
             Entry::Vacant(e) => {
                 let achieved = &self.achieved_medals[idx];
 
-                let (medal, achieved_at) = match self.medals.get_mut(&achieved.medal_id) {
-                    Some(medal) => (medal, achieved.achieved_at),
-                    None => {
+                let (medal, achieved_at) = match self
+                    .medals
+                    .binary_search_by_key(&achieved.medal_id, |medal| medal.medal_id.to_native())
+                {
+                    Ok(idx) => (&self.medals[idx], achieved.achieved_at),
+                    Err(_) => {
                         let err = eyre!("No medal with id {}", achieved.medal_id);
 
                         return Box::pin(ready(Err(err)));
