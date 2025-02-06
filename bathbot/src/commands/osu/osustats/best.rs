@@ -1,6 +1,6 @@
 use bathbot_model::ArchivedOsuStatsBestScores;
-use bathbot_util::constants::OSUSTATS_API_ISSUE;
-use eyre::Result;
+use bathbot_util::constants::GENERAL_ISSUE;
+use eyre::{Report, Result};
 use rkyv::{
     boxed::ArchivedBox,
     munge::munge,
@@ -21,9 +21,9 @@ pub(super) async fn recentbest(orig: CommandOrigin<'_>, args: OsuStatsBest) -> R
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(err) => {
-            let _ = orig.error(OSUSTATS_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(Report::new(err));
         }
     };
 

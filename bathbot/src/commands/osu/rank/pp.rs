@@ -7,7 +7,7 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{command_fields::GameModeOption, rosu_v2::ranking::RankingsRkyv, Countries};
+use bathbot_model::{command_fields::GameModeOption, Countries};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -23,10 +23,7 @@ use crate::{
     commands::osu::user_not_found,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::PersonalBestIndexFormatter,
-    manager::redis::{
-        osu::{CachedUser, UserArgs, UserArgsError, UserArgsSlim},
-        RedisData,
-    },
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError, UserArgsSlim},
     util::{CachedUserExt, ChannelExt},
     Context,
 };
@@ -69,7 +66,7 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let user_fut = Context::redis().osu_user(user_args);
 
-    let mut user = match user_fut.await {
+    let user = match user_fut.await {
         Ok(user) => user,
         Err(UserArgsError::Osu(OsuError::NotFound)) => {
             let content = user_not_found(user_id).await;
@@ -156,13 +153,8 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
 
             let rankings = match rankings_fut.await {
                 Ok(rankings) => rankings,
-                Err(OsuError::NotFound) => {
-                    let content = user_not_found(user_id).await;
-
-                    return orig.error(content).await;
-                }
                 Err(err) => {
-                    let _ = orig.error(OSU_API_ISSUE).await;
+                    let _ = orig.error(GENERAL_ISSUE).await;
 
                     return Err(Report::new(err).wrap_err("Failed to get user"));
                 }
@@ -170,63 +162,24 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
 
             let idx = ((rank + 49) % 50) as usize;
 
-            let rank_holder = match rankings {
-                RedisData::Original(mut rankings) => {
-                    if rankings.ranking.len() <= idx {
-                        return insufficient_ranking_entries(orig).await;
-                    }
+            if rankings.ranking.len() <= idx {
+                return insufficient_ranking_entries(orig).await;
+            }
 
-                    let holder = rankings.ranking.swap_remove(idx);
+            let holder = &rankings.ranking[idx];
 
-                    let global_rank = holder
-                        .statistics
-                        .as_ref()
-                        .and_then(|stats| stats.global_rank)
-                        .unwrap_or(0);
-
-                    let pp = holder.statistics.as_ref().map_or(0.0, |stats| stats.pp);
-                    let user_id = holder.user_id;
-
-                    let (username, country_code) = if user_id == user.user_id.to_native() {
-                        let tuple = (holder.username.clone(), holder.country_code.clone());
-                        user.update(holder);
-
-                        tuple
-                    } else {
-                        (holder.username, holder.country_code)
-                    };
-
-                    RankHolder {
-                        country_code,
-                        global_rank,
-                        pp,
-                        user_id,
-                        username,
-                    }
-                }
-                RedisData::Archive(rankings) => {
-                    let rankings = rankings.deref_with::<RankingsRkyv>();
-
-                    if rankings.ranking.len() <= idx {
-                        return insufficient_ranking_entries(orig).await;
-                    }
-
-                    let holder = &rankings.ranking[idx];
-
-                    RankHolder {
-                        country_code: holder.country_code.as_str().into(),
-                        global_rank: holder
-                            .statistics
-                            .as_ref()
-                            .map_or(0, |stats| stats.global_rank.to_native()),
-                        pp: holder
-                            .statistics
-                            .as_ref()
-                            .map_or(0.0, |stats| stats.pp.to_native()),
-                        user_id: holder.user_id.to_native(),
-                        username: holder.username.as_str().into(),
-                    }
-                }
+            let rank_holder = RankHolder {
+                country_code: holder.country_code.as_str().into(),
+                global_rank: holder
+                    .statistics
+                    .as_ref()
+                    .map_or(0, |stats| stats.global_rank.to_native()),
+                pp: holder
+                    .statistics
+                    .as_ref()
+                    .map_or(0.0, |stats| stats.pp.to_native()),
+                user_id: holder.user_id.to_native(),
+                username: holder.username.as_str().into(),
             };
 
             RankData::Sub10k {

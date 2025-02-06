@@ -1,6 +1,6 @@
 use bathbot_model::Rarity;
-use bathbot_util::constants::OSEKAI_ISSUE;
-use eyre::Result;
+use bathbot_util::constants::GENERAL_ISSUE;
+use eyre::{Report, Result};
 
 use crate::{
     active::{impls::MedalRarityPagination, ActiveMessages},
@@ -10,16 +10,16 @@ use crate::{
 
 pub(super) async fn rarity(mut command: InteractionCommand) -> Result<()> {
     let ranking = match Context::redis().osekai_ranking::<Rarity>().await {
-        Ok(ranking) => ranking.into_original(),
+        Ok(ranking) => ranking,
         Err(err) => {
-            let _ = command.error(OSEKAI_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached rarity ranking"));
+            return Err(Report::new(err).wrap_err("Failed to get cached rarity ranking"));
         }
     };
 
     let pagination = MedalRarityPagination::builder()
-        .ranking(ranking.into_boxed_slice())
+        .ranking(ranking)
         .msg_owner(command.user_id()?)
         .build();
 

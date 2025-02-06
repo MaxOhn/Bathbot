@@ -1,11 +1,14 @@
-use std::{fmt::Write, slice};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Write,
+    slice,
+};
 
 use bathbot_model::TwitchUser;
 use bathbot_util::{
     constants::{TWITCH_BASE, UNKNOWN_CHANNEL},
     AuthorBuilder, EmbedBuilder, IntHasher,
 };
-use hashbrown::{HashMap, HashSet};
 use rand::Rng;
 use tokio::time::{interval, Duration};
 use twilight_http::{

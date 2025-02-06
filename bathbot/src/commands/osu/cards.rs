@@ -21,10 +21,7 @@ use super::{require_link, user_not_found};
 use crate::{
     core::{commands::CommandOrigin, BotConfig, Context},
     embeds::attachment,
-    manager::redis::{
-        osu::{UserArgs, UserArgsError},
-        RedisData,
-    },
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, CachedUserExt, InteractionCommandExt},
 };
 
@@ -136,14 +133,7 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
     let medals_fut = Context::redis().medals();
 
     let (user, scores, total_medals) = match tokio::join!(scores_fut, medals_fut) {
-        (Ok((user, scores)), Ok(medals)) => {
-            let medals_len = match medals {
-                RedisData::Original(medals) => medals.len(),
-                RedisData::Archive(medals) => medals.len(),
-            };
-
-            (user, scores, medals_len)
-        }
+        (Ok((user, scores)), Ok(medals)) => (user, scores, medals.len()),
         (Err(UserArgsError::Osu(OsuError::NotFound)), _) => {
             let content = user_not_found(user_id).await;
 
@@ -158,7 +148,7 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
         (_, Err(err)) => {
             let _ = orig.error(OSEKAI_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached medals"));
+            return Err(Report::new(err).wrap_err("Failed to get cached medals"));
         }
     };
 

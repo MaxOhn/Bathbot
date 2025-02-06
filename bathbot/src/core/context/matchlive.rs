@@ -1,6 +1,5 @@
-use std::slice;
+use std::{collections::hash_map::Entry, slice};
 
-use hashbrown::hash_map::Entry;
 use rosu_v2::prelude::{MatchEvent, OsuError};
 use tokio::time::{interval, Duration};
 use twilight_model::id::{marker::ChannelMarker, Id};
@@ -38,7 +37,7 @@ impl Context {
         let capped = match_live
             .channel_count
             .get(&channel)
-            .map_or(false, |count| *count >= 3);
+            .is_some_and(|count| *count >= 3);
 
         // Return early if channel is already tracking three channels
         if capped {

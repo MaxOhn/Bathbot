@@ -1,19 +1,20 @@
-use std::{borrow::Cow, iter, mem};
+use std::{borrow::Cow, iter};
 
+use bathbot_cache::model::CachedArchive;
 use bathbot_macros::command;
 use bathbot_model::{
-    command_fields::GameModeOption, rosu_v2::ranking::RankingsRkyv, Countries, RankingEntries,
+    command_fields::GameModeOption, rosu_v2::ranking::ArchivedRankings, Countries, RankingEntries,
     RankingEntry, RankingKind,
 };
-use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
+use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::{Report, Result};
-use rosu_v2::prelude::{CountryCode, GameMode, OsuResult, Rankings as RosuRankings};
+use rosu_v2::prelude::{CountryCode, GameMode, Rankings};
 
 use super::{RankingPp, RankingScore};
 use crate::{
     active::{impls::RankingPagination, ActiveMessages},
     core::commands::CommandOrigin,
-    manager::redis::{osu::UserArgs, RedisData},
+    manager::redis::{osu::UserArgs, RedisError},
     util::ChannelExt,
     Context,
 };
@@ -71,9 +72,9 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankingPp<'_>) -> Result<(
     let author_idx_fut = pp_author_idx(author_id, mode, country.as_ref());
 
     let (ranking_res, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
-    let kind = OsuRankingKind::Performance;
+    let ranking_res = ranking_res.map(Ranking::Performance);
 
-    ranking(orig, mode, country, kind, author_idx, ranking_res).await
+    ranking(orig, mode, country, author_idx, ranking_res).await
 }
 
 async fn pp_author_idx(
@@ -162,125 +163,40 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankingScore) -> Result
     };
 
     let (ranking_res, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
-    let ranking_res = ranking_res.map(RedisData::Original);
-    let kind = OsuRankingKind::Score;
 
-    ranking(orig, mode, None, kind, author_idx, ranking_res).await
+    let ranking_res = ranking_res
+        .map(Ranking::Score)
+        .map_err(Report::new)
+        .map_err(RedisError::Acquire);
+
+    ranking(orig, mode, None, author_idx, ranking_res).await
 }
 
 async fn ranking(
     orig: CommandOrigin<'_>,
     mode: GameMode,
     country: Option<CountryCode>,
-    kind: OsuRankingKind,
     author_idx: Option<usize>,
-    result: OsuResult<RedisData<RosuRankings>>,
+    result: Result<Ranking, RedisError>,
 ) -> Result<()> {
-    let mut ranking = match result {
+    let ranking = match result {
         Ok(ranking) => ranking,
         Err(err) => {
-            let _ = orig.error(OSU_API_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-            return Err(Report::new(err).wrap_err("failed to get ranking"));
+            return Err(Report::new(err).wrap_err("Failed to get ranking"));
         }
     };
 
     let country = country.map(|code| {
-        let name = match ranking {
-            RedisData::Original(ref mut ranking) => ranking
-                .ranking
-                .get_mut(0)
-                .and_then(|user| mem::take(&mut user.country))
-                .map(String::into_boxed_str),
-            RedisData::Archive(ref ranking) => ranking
-                .deref_with::<RankingsRkyv>()
-                .ranking
-                .first()
-                .and_then(|user| user.country.as_deref())
-                .map(Box::from),
-        };
+        let name = ranking
+            .country_name()
+            .unwrap_or_else(|| Box::from(code.as_str()));
 
-        (name.unwrap_or_else(|| Box::from(code.as_str())), code)
+        (name, code)
     });
 
-    let total = match ranking {
-        RedisData::Original(ref ranking) => ranking.total as usize,
-        RedisData::Archive(ref ranking) => {
-            ranking.deref_with::<RankingsRkyv>().total.to_native() as usize
-        }
-    };
-
-    let entries = match kind {
-        OsuRankingKind::Performance => {
-            let entries = match ranking {
-                RedisData::Original(ranking) => ranking
-                    .ranking
-                    .into_iter()
-                    .map(|user| RankingEntry {
-                        country: Some(user.country_code),
-                        name: user.username,
-                        value: user.statistics.as_ref().expect("missing stats").pp.round() as u32,
-                    })
-                    .enumerate()
-                    .collect(),
-                RedisData::Archive(ranking) => ranking
-                    .deref_with::<RankingsRkyv>()
-                    .ranking
-                    .iter()
-                    .map(|user| RankingEntry {
-                        country: Some(user.country_code.as_str().into()),
-                        name: user.username.as_str().into(),
-                        value: user
-                            .statistics
-                            .as_ref()
-                            .expect("missing stats")
-                            .pp
-                            .to_native()
-                            .round() as u32,
-                    })
-                    .enumerate()
-                    .collect(),
-            };
-
-            RankingEntries::PpU32(entries)
-        }
-        OsuRankingKind::Score => {
-            let entries = match ranking {
-                RedisData::Original(ranking) => ranking
-                    .ranking
-                    .into_iter()
-                    .map(|user| RankingEntry {
-                        country: Some(user.country_code),
-                        name: user.username,
-                        value: user
-                            .statistics
-                            .as_ref()
-                            .expect("missing stats")
-                            .ranked_score,
-                    })
-                    .enumerate()
-                    .collect(),
-                RedisData::Archive(ranking) => ranking
-                    .deref_with::<RankingsRkyv>()
-                    .ranking
-                    .iter()
-                    .map(|user| RankingEntry {
-                        country: Some(user.country_code.as_str().into()),
-                        name: user.username.as_str().into(),
-                        value: user
-                            .statistics
-                            .as_ref()
-                            .expect("missing stats")
-                            .ranked_score
-                            .to_native(),
-                    })
-                    .enumerate()
-                    .collect(),
-            };
-
-            RankingEntries::Amount(entries)
-        }
-    };
+    let total = ranking.total();
 
     let ranking_kind = if let Some((name, code)) = country {
         RankingKind::PpCountry {
@@ -288,11 +204,11 @@ async fn ranking(
             country_code: code,
             country: name,
         }
-    } else if kind == OsuRankingKind::Performance {
-        RankingKind::PpGlobal { mode }
     } else {
-        RankingKind::RankedScore { mode }
+        ranking.kind(mode)
     };
+
+    let entries = ranking.entries();
 
     let pagination = RankingPagination::builder()
         .entries(entries)
@@ -307,6 +223,85 @@ async fn ranking(
         .start_by_update(true)
         .begin(orig)
         .await
+}
+
+enum Ranking {
+    Performance(CachedArchive<ArchivedRankings>),
+    Score(Rankings),
+}
+
+impl Ranking {
+    fn country_name(&self) -> Option<Box<str>> {
+        let name = match self {
+            Ranking::Performance(ranking) => ranking
+                .ranking
+                .first()
+                .and_then(|user| user.country.as_deref()),
+            Ranking::Score(ranking) => ranking
+                .ranking
+                .first()
+                .and_then(|user| user.country.as_deref()),
+        };
+
+        name.map(Box::from)
+    }
+
+    fn total(&self) -> usize {
+        match self {
+            Ranking::Performance(ranking) => ranking.total.to_native() as usize,
+            Ranking::Score(ranking) => ranking.total as usize,
+        }
+    }
+
+    fn kind(&self, mode: GameMode) -> RankingKind {
+        match self {
+            Ranking::Performance(_) => RankingKind::PpGlobal { mode },
+            Ranking::Score(_) => RankingKind::RankedScore { mode },
+        }
+    }
+
+    fn entries(self) -> RankingEntries {
+        match self {
+            Ranking::Performance(ranking) => {
+                let entries = ranking
+                    .ranking
+                    .iter()
+                    .map(|user| RankingEntry {
+                        country: Some(user.country_code.as_str().into()),
+                        name: user.username.as_str().into(),
+                        value: user
+                            .statistics
+                            .as_ref()
+                            .expect("missing stats")
+                            .pp
+                            .to_native()
+                            .round() as u32,
+                    })
+                    .enumerate()
+                    .collect();
+
+                RankingEntries::PpU32(entries)
+            }
+            Ranking::Score(ranking) => {
+                let entries = ranking
+                    .ranking
+                    .into_iter()
+                    .map(|user| RankingEntry {
+                        country: Some(user.country_code),
+                        name: user.username,
+                        value: user
+                            .statistics
+                            .as_ref()
+                            .expect("missing stats")
+                            .ranked_score,
+                    })
+                    .enumerate()
+                    .collect();
+
+                RankingEntries::Amount(entries)
+            }
+        }
+    }
 }
 
 #[command]
@@ -459,10 +454,4 @@ pub async fn prefix_rankedscorerankingtaiko(msg: &Message) -> Result<()> {
 #[group(Catch)]
 pub async fn prefix_rankedscorerankingctb(msg: &Message) -> Result<()> {
     score(msg.into(), Some(GameModeOption::Catch).into()).await
-}
-
-#[derive(Eq, PartialEq)]
-pub enum OsuRankingKind {
-    Performance,
-    Score,
 }

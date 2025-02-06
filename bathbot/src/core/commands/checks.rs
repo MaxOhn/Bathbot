@@ -3,7 +3,7 @@ use std::fmt::Write;
 use bathbot_cache::model::CachedArchive;
 use bathbot_model::twilight::{
     channel::{ArchivedPermissionOverwrite, PermissionOverwriteTypeRkyv},
-    guild::CachedMember,
+    guild::ArchivedCachedMember,
     id::ArchivedId,
 };
 use eyre::{ContextCompat, Result};
@@ -219,7 +219,7 @@ fn text_channel_permissions(
 }
 
 pub enum RolesLookup {
-    Found(CachedArchive<CachedMember>),
+    Found(CachedArchive<ArchivedCachedMember>),
     NotChecked,
     NotFound,
 }

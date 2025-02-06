@@ -11,6 +11,7 @@ eyre = { version = "0.6" }
 itoa = { version = "1.0" }
 once_cell = { version = "1.0" }
 rkyv = { workspace = true }
+thiserror = { workspace = true }
 tracing = { version = "0.1" }
 twilight-model = { workspace = true }
 twilight-gateway = { workspace = true }

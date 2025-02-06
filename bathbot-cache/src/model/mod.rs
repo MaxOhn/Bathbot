@@ -1,9 +1,9 @@
+pub(crate) use self::stats::CacheStatsInternal;
 pub use self::{
-    archive::CachedArchive,
+    archive::{CachedArchive, ValidatorStrategy},
     connection::CacheConnection,
     stats::{CacheChange, CacheStats},
 };
-pub(crate) use self::{archive::ValidatorStrategy, stats::CacheStatsInternal};
 
 mod archive;
 mod connection;

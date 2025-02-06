@@ -16,7 +16,7 @@ impl Client {
         serde_json::from_slice(&bytes).wrap_err_with(|| {
             let body = String::from_utf8_lossy(&bytes);
 
-            format!("failed to deserialize osekai badges: {body}")
+            format!("Failed to deserialize: {body}")
         })
     }
 
@@ -27,7 +27,7 @@ impl Client {
         serde_json::from_slice(&bytes).wrap_err_with(|| {
             let body = String::from_utf8_lossy(&bytes);
 
-            format!("failed to deserialize osekai badge owners: {body}")
+            format!("Failed to deserialize: {body}")
         })
     }
 
@@ -42,7 +42,7 @@ impl Client {
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
-                format!("Failed to deserialize osekai medals: {body}")
+                format!("Failed to deserialize: {body}")
             })
     }
 
@@ -56,7 +56,7 @@ impl Client {
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
-                format!("failed to deserialize osekai maps: {body}")
+                format!("Failed to deserialize: {body}")
             })
     }
 
@@ -70,7 +70,7 @@ impl Client {
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
-                format!("failed to deserialize osekai comments: {body}")
+                format!("Failed to deserialize: {body}")
             })
     }
 
@@ -90,7 +90,7 @@ impl Client {
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
-                format!("failed to deserialize Osekai {}: {body}", R::FORM)
+                format!("Failed to deserialize: {body}")
             })
     }
 }

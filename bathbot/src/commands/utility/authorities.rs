@@ -4,7 +4,7 @@ use bathbot_macros::command;
 use bathbot_model::twilight::id::ArchivedId;
 use bathbot_psql::model::configs::{Authorities, GuildConfig};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
-use eyre::Result;
+use eyre::{Report, Result};
 use twilight_model::{
     guild::Permissions,
     id::{marker::RoleMarker, Id},
@@ -109,7 +109,7 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
                     Err(err) => {
                         let _ = orig.error_callback(GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(Report::new(err));
                     }
                 };
 
@@ -122,7 +122,7 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
                     Err(err) => {
                         let _ = orig.error_callback(GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(Report::new(err));
                     }
                 };
 
@@ -167,7 +167,7 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
                     Err(err) => {
                         let _ = orig.error_callback(GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(Report::new(err));
                     }
                 };
 
@@ -179,7 +179,7 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
                     Err(err) => {
                         let _ = orig.error_callback(GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(Report::new(err));
                     }
                 };
 
@@ -228,7 +228,7 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
                     Err(err) => {
                         let _ = orig.error_callback(GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(Report::new(err));
                     }
                 };
 
@@ -241,7 +241,7 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
                     Err(err) => {
                         let _ = orig.error_callback(GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(Report::new(err));
                     }
                 };
 

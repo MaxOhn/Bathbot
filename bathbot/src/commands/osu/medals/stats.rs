@@ -2,10 +2,7 @@ use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::MedalCompactRkyv;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
-    matcher, IntHasher, MessageBuilder,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher, MessageBuilder};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
@@ -27,10 +24,7 @@ use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     embeds::{EmbedData, MedalStatsEmbed, StatsMedal},
-    manager::redis::{
-        osu::{UserArgs, UserArgsError},
-        RedisData,
-    },
+    manager::redis::osu::{UserArgs, UserArgsError},
     util::Monthly,
     Context,
 };
@@ -89,9 +83,9 @@ pub(super) async fn stats(orig: CommandOrigin<'_>, args: MedalStats<'_>) -> Resu
             return orig.error(content).await;
         }
         (_, Err(err)) => {
-            let _ = orig.error(OSEKAI_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("Failed to get cached medals"));
+            return Err(Report::new(err).wrap_err("Failed to get cached medals"));
         }
         (Err(err), _) => {
             let _ = orig.error(GENERAL_ISSUE).await;
@@ -117,36 +111,21 @@ pub(super) async fn stats(orig: CommandOrigin<'_>, args: MedalStats<'_>) -> Resu
         }
     };
 
-    let all_medals: HashMap<_, _, IntHasher> = match all_medals {
-        RedisData::Original(all_medals) => all_medals
-            .into_iter()
-            .map(|medal| {
-                (
-                    medal.medal_id,
-                    StatsMedal {
-                        name: medal.name,
-                        group: medal.grouping,
-                        rarity: medal.rarity.unwrap_or(0.0),
-                    },
-                )
-            })
-            .collect(),
-        RedisData::Archive(all_medals) => all_medals
-            .iter()
-            .map(|medal| {
-                let medal_id = medal.medal_id;
+    let all_medals: HashMap<_, _, IntHasher> = all_medals
+        .iter()
+        .map(|medal| {
+            let medal_id = medal.medal_id;
 
-                let medal = StatsMedal {
-                    name: medal.name.as_ref().into(),
-                    group: rkyv::api::deserialize_using::<_, _, Panic>(&medal.grouping, &mut ())
-                        .always_ok(),
-                    rarity: medal.rarity.as_ref().map_or(0.0, |n| n.to_native()),
-                };
+            let medal = StatsMedal {
+                name: medal.name.as_ref().into(),
+                group: rkyv::api::deserialize_using::<_, _, Panic>(&medal.grouping, &mut ())
+                    .always_ok(),
+                rarity: medal.rarity.as_ref().map_or(0.0, |n| n.to_native()),
+            };
 
-                (medal_id.to_native(), medal)
-            })
-            .collect(),
-    };
+            (medal_id.to_native(), medal)
+        })
+        .collect();
 
     let rarest = medals
         .iter()

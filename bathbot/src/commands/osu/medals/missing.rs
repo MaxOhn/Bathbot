@@ -2,10 +2,7 @@ use std::{borrow::Cow, cmp::Ordering, collections::HashSet};
 
 use bathbot_macros::command;
 use bathbot_model::{MedalGroup, OsekaiMedal, MEDAL_GROUPS};
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
-    matcher, IntHasher,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher};
 use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
@@ -15,10 +12,7 @@ use crate::{
     active::{impls::MedalsMissingPagination, ActiveMessages},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
-    manager::redis::{
-        osu::{UserArgs, UserArgsError},
-        RedisData,
-    },
+    manager::redis::osu::{UserArgs, UserArgsError},
     Context,
 };
 
@@ -76,9 +70,9 @@ pub(super) async fn missing(orig: CommandOrigin<'_>, args: MedalMissing<'_>) -> 
             return orig.error(content).await;
         }
         (_, Err(err)) => {
-            let _ = orig.error(OSEKAI_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached medals"));
+            return Err(Report::new(err).wrap_err("Failed to get cached medals"));
         }
         (Err(err), _) => {
             let _ = orig.error(GENERAL_ISSUE).await;
@@ -96,33 +90,14 @@ pub(super) async fn missing(orig: CommandOrigin<'_>, args: MedalMissing<'_>) -> 
         .map(|medal| medal.medal_id.to_native())
         .collect();
 
-    let (medal_count, mut medals): (_, Vec<_>) = match all_medals {
-        RedisData::Original(all_medals) => {
-            let medal_count = (all_medals.len() - user_medals_count, all_medals.len());
+    let medal_count = (all_medals.len() - user_medals_count, all_medals.len());
 
-            let medals = all_medals
-                .into_iter()
-                .filter(|medal| !owned.contains(&medal.medal_id))
-                .map(MedalType::Medal)
-                .collect();
-
-            (medal_count, medals)
-        }
-        RedisData::Archive(all_medals) => {
-            let medal_count = (all_medals.len() - user_medals_count, all_medals.len());
-
-            let medals = all_medals
-                .iter()
-                .filter(|medal| !owned.contains(&medal.medal_id.to_native()))
-                .map(|entry| {
-                    rkyv::api::deserialize_using::<_, _, Panic>(entry, &mut ()).always_ok()
-                })
-                .map(MedalType::Medal)
-                .collect();
-
-            (medal_count, medals)
-        }
-    };
+    let mut medals: Vec<_> = all_medals
+        .iter()
+        .filter(|medal| !owned.contains(&medal.medal_id.to_native()))
+        .map(|entry| rkyv::api::deserialize_using::<_, _, Panic>(entry, &mut ()).always_ok())
+        .map(MedalType::Medal)
+        .collect();
 
     medals.extend(MEDAL_GROUPS.iter().copied().map(MedalType::Group));
 

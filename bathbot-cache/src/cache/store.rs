@@ -10,7 +10,6 @@ use rkyv::{
     ser::{allocator::ArenaHandle, Serializer},
     util::AlignedVec,
     with::{ArchiveWith, SerializeWith, With},
-    Serialize,
 };
 use twilight_model::{
     application::interaction::InteractionMember,
@@ -28,32 +27,10 @@ use crate::{
     Cache,
 };
 
-type CacheSerializer<'a> = Serializer<AlignedVec<8>, ArenaHandle<'a>, ()>;
-
 impl Cache {
-    /// Serializes a values into bytes and stores them for the given key.
-    pub async fn store<K, T>(
-        conn: &mut CacheConnection<'_>,
-        key: &K,
-        value: &T,
-        expire_seconds: u64,
-    ) -> Result<()>
-    where
-        K: ToCacheKey + ?Sized,
-        T: for<'a> Serialize<Strategy<CacheSerializer<'a>, BoxedError>>,
-    {
-        let bytes = rkyv::util::with_arena(|arena| {
-            let mut serializer = Serializer::new(AlignedVec::new(), arena.acquire(), ());
-            rkyv::api::serialize_using::<_, BoxedError>(value, &mut serializer)?;
-
-            Ok::<_, BoxedError>(serializer.into_writer())
-        })
-        .wrap_err("Failed to serialize value")?;
-
-        Self::store_raw(conn, key, bytes.as_slice(), expire_seconds).await
-    }
-
-    pub async fn store_raw<K>(
+    /// Store bytes through a connection that was previously acquired by
+    /// [`Cache::fetch`].
+    pub async fn store<K>(
         CacheConnection(conn): &mut CacheConnection<'_>,
         key: &K,
         bytes: &[u8],
@@ -69,33 +46,14 @@ impl Cache {
             .map_err(Report::new)
     }
 
-    /// Serializes a values into bytes, opens a new connection, and stores the
-    /// bytes for the given key.
-    ///
-    /// **Note**: `Cache::store` should always be preferred if `Cache::fetch`
-    /// was called beforehand.
-    pub async fn store_new<K, T, const N: usize>(
-        &self,
-        key: &K,
-        value: &T,
-        expire_seconds: u64,
-    ) -> Result<()>
-    where
-        K: ToCacheKey + ?Sized,
-        T: for<'a> Serialize<Strategy<CacheSerializer<'a>, BoxedError>>,
-    {
-        let mut conn = CacheConnection(self.connection().await?);
-
-        Self::store(&mut conn, key, value, expire_seconds).await
-    }
-
-    pub async fn store_new_raw<K>(&self, key: &K, bytes: &[u8], expire_seconds: u64) -> Result<()>
+    /// Store bytes through a new connection.
+    pub async fn store_new<K>(&self, key: &K, bytes: &[u8], expire_seconds: u64) -> Result<()>
     where
         K: ToCacheKey + ?Sized,
     {
         let mut conn = CacheConnection(self.connection().await?);
 
-        Self::store_raw(&mut conn, key, bytes, expire_seconds).await
+        Self::store(&mut conn, key, bytes, expire_seconds).await
     }
 
     /// Insert a value into a set.

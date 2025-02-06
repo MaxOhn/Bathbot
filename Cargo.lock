@@ -184,6 +184,7 @@ dependencies = [
  "itoa",
  "once_cell",
  "rkyv",
+ "thiserror 2.0.11",
  "tracing",
  "twilight-gateway",
  "twilight-model",

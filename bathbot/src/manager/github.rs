@@ -1,11 +1,9 @@
-use bathbot_cache::Cache;
-use bathbot_model::{PullRequests, PullRequestsAndTags};
-use eyre::{Result, WrapErr};
+use bathbot_cache::{util::serialize::serialize_using_arena, Cache};
+use bathbot_model::{ArchivedPullRequests, PullRequests, PullRequestsAndTags};
+use eyre::{Report, Result, WrapErr};
 
-use crate::{
-    core::{BotMetrics, Context},
-    manager::redis::RedisData,
-};
+use super::redis::RedisError;
+use crate::core::{BotMetrics, Context};
 
 #[derive(Copy, Clone)]
 pub struct GithubManager;
@@ -24,19 +22,22 @@ impl GithubManager {
             .wrap_err("Failed to get tags and PRs")
     }
 
-    pub async fn next_prs(self, next_cursor: &str) -> Result<RedisData<PullRequests>> {
+    pub async fn next_prs(self, next_cursor: &str) -> Result<PullRequests> {
         const EXPIRE: u64 = 1800; // 30 min
         let key = format!("github_prs_{next_cursor}");
 
-        let mut conn = match Context::cache().fetch(&key).await {
+        let mut conn = match Context::cache()
+            .fetch::<_, ArchivedPullRequests>(&key)
+            .await
+        {
             Ok(Ok(prs)) => {
                 BotMetrics::inc_redis_hit("github prs");
 
-                return Ok(RedisData::Archive(prs));
+                return prs.try_deserialize().map_err(Report::new);
             }
             Ok(Err(conn)) => Some(conn),
             Err(err) => {
-                warn!("{err:?}");
+                warn!(?err, "Failed to fetch github prs");
 
                 None
             }
@@ -45,11 +46,13 @@ impl GithubManager {
         let prs = Context::client().github_pull_requests(next_cursor).await?;
 
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store(conn, &key, &prs, EXPIRE).await {
-                warn!(?err, "Failed to store github pull requests");
+            let bytes = serialize_using_arena(&prs).map_err(RedisError::Serialization)?;
+
+            if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
+                warn!(?err, "Failed to store github prs");
             }
         }
 
-        Ok(RedisData::new(prs))
+        Ok(prs)
     }
 }

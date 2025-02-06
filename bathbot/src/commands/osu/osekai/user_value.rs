@@ -4,19 +4,19 @@ use bathbot_model::{
     ArchivedOsekaiRankingEntry, Countries, OsekaiRanking, OsekaiRankingEntry, RankingEntries,
     RankingEntry, RankingKind,
 };
-use bathbot_util::constants::OSEKAI_ISSUE;
-use eyre::Result;
+use bathbot_util::constants::GENERAL_ISSUE;
+use eyre::{Report, Result};
 use rkyv::{
     bytecheck::CheckBytes,
     rancor::{Panic, Strategy},
     validation::{archive::ArchiveValidator, Validator},
+    vec::ArchivedVec,
     Archive,
 };
 use rosu_v2::prelude::Username;
 
 use crate::{
     active::{impls::RankingPagination, ActiveMessages},
-    manager::redis::RedisData,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
@@ -54,21 +54,20 @@ where
     let ranking = match osekai_res {
         Ok(ranking) => ranking,
         Err(err) => {
-            let _ = command.error(OSEKAI_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached osekai ranking"));
+            return Err(Report::new(err).wrap_err("Failed to get cached osekai ranking"));
         }
     };
 
     let entries = if let Some(code) = country_code {
         let code = code.to_ascii_uppercase();
-        let original_filter = |entry: &&OsekaiRankingEntry<usize>| entry.country_code == code;
         let archived_filter =
             |entry: &&ArchivedOsekaiRankingEntry<usize>| entry.country_code == code;
 
-        prepare_amount_users(&ranking, original_filter, archived_filter)
+        prepare_amount_users(&ranking, archived_filter)
     } else {
-        prepare_amount_users(&ranking, |_| true, |_| true)
+        prepare_amount_users(&ranking, |_| true)
     };
 
     let entries = RankingEntries::Amount(entries);
@@ -110,20 +109,19 @@ where
     let ranking = match osekai_res {
         Ok(ranking) => ranking,
         Err(err) => {
-            let _ = command.error(OSEKAI_ISSUE).await;
+            let _ = command.error(GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached osekai ranking"));
+            return Err(Report::new(err).wrap_err("Failed to get cached osekai ranking"));
         }
     };
 
     let entries = if let Some(code) = country_code {
         let code = code.to_ascii_uppercase();
-        let original_filter = |entry: &&OsekaiRankingEntry<u32>| entry.country_code == code;
         let archived_filter = |entry: &&ArchivedOsekaiRankingEntry<u32>| entry.country_code == code;
 
-        prepare_pp_users(&ranking, original_filter, archived_filter)
+        prepare_pp_users(&ranking, archived_filter)
     } else {
-        prepare_pp_users(&ranking, |_| true, |_| true)
+        prepare_pp_users(&ranking, |_| true)
     };
 
     let entries = RankingEntries::PpU32(entries);
@@ -133,61 +131,35 @@ where
 }
 
 fn prepare_amount_users(
-    ranking: &RedisData<Vec<OsekaiRankingEntry<usize>>>,
-    original_filter: impl Fn(&&OsekaiRankingEntry<usize>) -> bool,
+    ranking: &ArchivedVec<ArchivedOsekaiRankingEntry<usize>>,
     archived_filter: impl Fn(&&ArchivedOsekaiRankingEntry<usize>) -> bool,
 ) -> BTreeMap<usize, RankingEntry<u64>> {
-    match ranking {
-        RedisData::Original(ranking) => ranking
-            .iter()
-            .filter(original_filter)
-            .map(|entry| RankingEntry {
-                value: entry.value() as u64,
-                name: entry.username.clone(),
-                country: Some(entry.country_code.clone()),
-            })
-            .enumerate()
-            .collect(),
-        RedisData::Archive(ranking) => ranking
-            .iter()
-            .filter(archived_filter)
-            .map(|entry| RankingEntry {
-                value: entry.value().to_native() as u64,
-                name: entry.username.as_str().into(),
-                country: Some(entry.country_code.as_str().into()),
-            })
-            .enumerate()
-            .collect(),
-    }
+    ranking
+        .iter()
+        .filter(archived_filter)
+        .map(|entry| RankingEntry {
+            value: entry.value().to_native() as u64,
+            name: entry.username.as_str().into(),
+            country: Some(entry.country_code.as_str().into()),
+        })
+        .enumerate()
+        .collect()
 }
 
 fn prepare_pp_users(
-    ranking: &RedisData<Vec<OsekaiRankingEntry<u32>>>,
-    original_filter: impl Fn(&&OsekaiRankingEntry<u32>) -> bool,
+    ranking: &ArchivedVec<ArchivedOsekaiRankingEntry<u32>>,
     archived_filter: impl Fn(&&ArchivedOsekaiRankingEntry<u32>) -> bool,
 ) -> BTreeMap<usize, RankingEntry<u32>> {
-    match ranking {
-        RedisData::Original(ranking) => ranking
-            .iter()
-            .filter(original_filter)
-            .map(|entry| RankingEntry {
-                value: entry.value(),
-                name: entry.username.clone(),
-                country: Some(entry.country_code.clone()),
-            })
-            .enumerate()
-            .collect(),
-        RedisData::Archive(ranking) => ranking
-            .iter()
-            .filter(archived_filter)
-            .map(|entry| RankingEntry {
-                value: entry.value().to_native(),
-                name: entry.username.as_str().into(),
-                country: Some(entry.country_code.as_str().into()),
-            })
-            .enumerate()
-            .collect(),
-    }
+    ranking
+        .iter()
+        .filter(archived_filter)
+        .map(|entry| RankingEntry {
+            value: entry.value().to_native(),
+            name: entry.username.as_str().into(),
+            country: Some(entry.country_code.as_str().into()),
+        })
+        .enumerate()
+        .collect()
 }
 
 async fn send_response(

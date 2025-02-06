@@ -1,5 +1,6 @@
+use std::collections::HashMap;
+
 use bathbot_util::IntHasher;
-use hashbrown::HashMap;
 use rosu_v2::prelude::OsuMatch;
 use smallvec::SmallVec;
 use tokio::sync::Mutex;

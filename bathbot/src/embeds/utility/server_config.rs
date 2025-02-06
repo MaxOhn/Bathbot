@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use bathbot_cache::model::CachedArchive;
 use bathbot_macros::EmbedData;
-use bathbot_model::twilight::guild::CachedGuild;
+use bathbot_model::twilight::guild::ArchivedCachedGuild;
 use bathbot_psql::model::configs::{GuildConfig, HideSolutions, ListSize, Retries, ScoreData};
 use bathbot_util::AuthorBuilder;
 use twilight_model::channel::message::embed::EmbedField;
@@ -20,7 +20,7 @@ pub struct ServerConfigEmbed {
 
 impl ServerConfigEmbed {
     pub fn new(
-        guild: CachedArchive<CachedGuild>,
+        guild: CachedArchive<ArchivedCachedGuild>,
         config: GuildConfig,
         authorities: &[String],
     ) -> Self {

@@ -3,14 +3,12 @@ use std::{cmp::Reverse, collections::HashMap};
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::MedalCompactRkyv;
 use bathbot_psql::model::configs::HideSolutions;
-use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
-    matcher, IntHasher, MessageBuilder,
-};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher, MessageBuilder};
 use eyre::{Report, Result};
 use rand::{thread_rng, Rng};
 use rkyv::{
     rancor::{Panic, ResultExt},
+    vec::ArchivedVec,
     with::{Map, With},
 };
 use rosu_v2::{
@@ -77,7 +75,17 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
     let medals_fut = Context::redis().medals();
 
     let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {
-        (Ok(user), Ok(medals)) => (user, medals.into_original()),
+        (Ok(user), Ok(mut medals)) => {
+            medals.mutate(|medals| {
+                let medals = ArchivedVec::as_slice_seal(medals);
+                // SAFETY: We just sort; no nefarious moving or writing going on
+                let medals = unsafe { medals.unseal_unchecked() };
+
+                medals.sort_unstable_by_key(|medal| medal.medal_id);
+            });
+
+            (user, medals)
+        }
         (Err(UserArgsError::Osu(OsuError::NotFound)), _) => {
             let content = user_not_found(user_id).await;
 
@@ -90,9 +98,9 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
             return Err(report);
         }
         (_, Err(err)) => {
-            let _ = orig.error(OSEKAI_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached medals"));
+            return Err(Report::new(err).wrap_err("Failed to get cached medals"));
         }
     };
 
@@ -116,9 +124,8 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
     if let Some(group) = args.group {
         user_medals.retain(|medal| {
             all_medals
-                .iter()
-                .find(|m| m.medal_id == medal.medal_id)
-                .is_some_and(|medal| medal.grouping == group)
+                .binary_search_by_key(&medal.medal_id, |medal| medal.medal_id.to_native())
+                .is_ok_and(|idx| all_medals[idx].grouping == group)
         });
     }
 
@@ -166,9 +173,10 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
         }
     };
 
-    let medal = match all_medals.iter().position(|m| m.medal_id == medal_id) {
-        Some(idx) => &all_medals[idx],
-        None => {
+    let medal = match all_medals.binary_search_by_key(&medal_id, |medal| medal.medal_id.to_native())
+    {
+        Ok(idx) => &all_medals[idx],
+        Err(_) => {
             let _ = orig.error(GENERAL_ISSUE).await;
 
             bail!("No medal with id `{medal_id}`");
@@ -197,11 +205,6 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
 
     let embed_data = MedalEmbed::new(medal, Some(achieved), Vec::new(), None, hide_solutions);
 
-    let medals = all_medals
-        .into_iter()
-        .map(|medal| (medal.medal_id, medal))
-        .collect();
-
     let mut embeds = HashMap::with_hasher(IntHasher);
     embeds.insert(index, embed_data);
 
@@ -209,7 +212,7 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
         .user(user)
         .achieved_medals(user_medals.into_boxed_slice())
         .embeds(embeds)
-        .medals(medals)
+        .medals(all_medals)
         .hide_solutions(hide_solutions)
         .content(content)
         .msg_owner(owner)
