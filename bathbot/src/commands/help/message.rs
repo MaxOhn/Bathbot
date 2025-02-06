@@ -1,4 +1,7 @@
-use std::{collections::{BTreeMap, HashSet}, fmt::Write};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fmt::Write,
+};
 
 use bathbot_macros::command;
 use bathbot_psql::model::configs::GuildConfig;
