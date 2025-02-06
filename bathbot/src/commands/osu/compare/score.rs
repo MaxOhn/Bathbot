@@ -9,10 +9,7 @@ use bathbot_model::{
     embed_builder::{ScoreEmbedSettings, SettingsImage},
     ScoreSlim,
 };
-use bathbot_psql::model::{
-    configs::ScoreData,
-    osu::{ArchivedMapVersion, MapVersion},
-};
+use bathbot_psql::model::{configs::ScoreData, osu::ArchivedMapVersion};
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
@@ -50,10 +47,7 @@ use crate::{
         CommandOrigin,
     },
     manager::{
-        redis::{
-            osu::{UserArgs, UserArgsError, UserArgsSlim},
-            RedisData,
-        },
+        redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
         MapError,
     },
     util::{
@@ -1064,44 +1058,28 @@ async fn handle_autocomplete(
         .map(CowUtils::cow_to_ascii_lowercase)
         .unwrap_or_default();
 
-    let choices = match diffs {
-        RedisData::Original(diffs) => diffs
-            .into_iter()
-            .filter_map(|MapVersion { map_id, version }| {
-                let lowercase = version.cow_to_ascii_lowercase();
+    let choices = diffs
+        .map(|diffs| {
+            diffs
+                .iter()
+                .filter_map(|ArchivedMapVersion { map_id, version }| {
+                    let lowercase = version.cow_to_ascii_lowercase();
 
-                if !lowercase.contains(&*diff) {
-                    return None;
-                }
+                    if !lowercase.contains(&*diff) {
+                        return None;
+                    }
 
-                Some(CommandOptionChoice {
-                    name: version,
-                    name_localizations: None,
-                    // Discord requires these as strings
-                    value: CommandOptionChoiceValue::String(map_id.to_string()),
+                    Some(CommandOptionChoice {
+                        name: version.as_str().to_owned(),
+                        name_localizations: None,
+                        // Discord requires these as strings
+                        value: CommandOptionChoiceValue::String(map_id.to_string()),
+                    })
                 })
-            })
-            .take(25)
-            .collect(),
-        RedisData::Archive(diffs) => diffs
-            .iter()
-            .filter_map(|ArchivedMapVersion { map_id, version }| {
-                let lowercase = version.cow_to_ascii_lowercase();
-
-                if !lowercase.contains(&*diff) {
-                    return None;
-                }
-
-                Some(CommandOptionChoice {
-                    name: version.as_str().to_owned(),
-                    name_localizations: None,
-                    // Discord requires these as strings
-                    value: CommandOptionChoiceValue::String(map_id.to_string()),
-                })
-            })
-            .take(25)
-            .collect(),
-    };
+                .take(25)
+                .collect()
+        })
+        .unwrap_or_default();
 
     command.autocomplete(choices).await?;
 

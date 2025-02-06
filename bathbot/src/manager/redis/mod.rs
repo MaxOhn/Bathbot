@@ -5,7 +5,7 @@ use bathbot_model::{
     rosu_v2::ranking::RankingsRkyv, ArchivedOsuStatsBestScores, OsekaiBadge, OsekaiMedal,
     OsekaiRanking, OsuStatsBestScores, OsuStatsBestTimeframe, SnipeCountries,
 };
-use bathbot_psql::model::osu::MapVersion;
+use bathbot_psql::model::osu::{ArchivedMapVersion, MapVersion};
 use bathbot_util::{matcher, osu::MapIdType};
 use eyre::{Report, Result, WrapErr};
 use rkyv::{
@@ -14,6 +14,7 @@ use rkyv::{
     ser::{allocator::ArenaHandle, Serializer},
     util::AlignedVec,
     validation::{archive::ArchiveValidator, Validator},
+    vec::ArchivedVec,
     with::With,
     Archive, Serialize,
 };
@@ -259,24 +260,26 @@ impl RedisManager {
         command: &InteractionCommand,
         map: &Option<Cow<'_, str>>,
         idx: Option<u32>,
-    ) -> RedisResult<Vec<MapVersion>> {
+    ) -> Result<Option<CachedArchive<ArchivedVec<ArchivedMapVersion>>>> {
         const EXPIRE: u64 = 30;
 
         let idx = match idx {
             Some(idx @ 0..=50) => idx.saturating_sub(1) as usize,
             // Invalid index, ignore
-            Some(_) => return Ok(RedisData::new(Vec::new())),
+            Some(_) => return Ok(None),
             None => 0,
         };
 
         let map_ = map.as_deref().unwrap_or_default();
         let key = format!("diffs_{}_{idx}_{map_}", command.id);
 
-        let mut conn = match Context::cache().fetch(&key).await {
+        let mut conn = match Context::cache().fetch::<_, Vec<MapVersion>>(&key).await {
             Ok(Ok(diffs)) => {
                 BotMetrics::inc_redis_hit("Beatmap difficulties");
 
-                return Ok(RedisData::Archive(diffs));
+                return CachedArchive::new(diffs.into_bytes())
+                    .map(Some)
+                    .wrap_err("Failed validation");
             }
             Ok(Err(conn)) => Some(conn),
             Err(err) => {
@@ -296,7 +299,7 @@ impl RedisManager {
                 Some(MapOrScore::Score { id, mode })
             } else {
                 // Invalid map input, ignore
-                return Ok(RedisData::new(Vec::new()));
+                return Ok(None);
             }
         } else {
             None
@@ -330,12 +333,17 @@ impl RedisManager {
             None => Vec::new(),
         };
 
+        let bytes = serialize_using_arena(&diffs)
+            .wrap_err_with(|| format!("Failed to serialize key {key}"))?;
+
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store(conn, &key, &diffs, EXPIRE).await {
+            if let Err(err) = Cache::store_raw(conn, &key, bytes.as_slice(), EXPIRE).await {
                 warn!(?err, "Failed to store cs diffs");
             }
         }
 
-        Ok(RedisData::new(diffs))
+        CachedArchive::new(bytes)
+            .map(Some)
+            .wrap_err("Failed validation")
     }
 }
