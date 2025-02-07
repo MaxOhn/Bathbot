@@ -20,7 +20,7 @@ use twilight_model::id::{
 use crate::{
     active::{impls::ScoreEmbedBuilderActive, ActiveMessages},
     core::Context,
-    manager::{redis::osu::UserArgsSlim, MapError, OsuMap, OwnedReplayScore, PpManager},
+    manager::{redis::osu::UserArgsSlim, MapError, OsuMap, PpManager},
     util::{
         interaction::InteractionCommand,
         osu::{IfFc, PersonalBestIndex},
@@ -255,7 +255,6 @@ impl ScoreEmbedDataWrap {
     pub async fn new_half(
         score: Score,
         map: OsuMap,
-        checksum: Option<String>,
         pb_idx: Option<ScoreEmbedDataPersonalBest>,
         legacy_scores: bool,
         with_render: bool,
@@ -266,7 +265,6 @@ impl ScoreEmbedDataWrap {
                 ScoreEmbedDataHalf::new(
                     score,
                     map,
-                    checksum,
                     pb_idx,
                     legacy_scores,
                     with_render,
@@ -314,7 +312,7 @@ impl ScoreEmbedDataWrap {
                 stars,
                 max_combo,
                 max_pp,
-                replay: None,
+                replay_score_id: None,
                 miss_analyzer: None,
                 pb_idx: Some(ScoreEmbedDataPersonalBest::from_index(pb_idx)),
                 global_idx,
@@ -408,7 +406,6 @@ impl ScoreEmbedDataStatus {
 
 pub struct ScoreEmbedDataHalf {
     pub user_id: u32,
-    pub checksum: Option<String>,
     pub score: ScoreSlim,
     pub map: OsuMap,
     pub stars: f32,
@@ -425,7 +422,6 @@ impl ScoreEmbedDataHalf {
     pub async fn new(
         score: Score,
         map: OsuMap,
-        checksum: Option<String>,
         pb_idx: Option<ScoreEmbedDataPersonalBest>,
         legacy_scores: bool,
         with_render: bool,
@@ -457,7 +453,6 @@ impl ScoreEmbedDataHalf {
 
         Self {
             user_id,
-            checksum,
             score,
             map,
             stars,
@@ -535,12 +530,8 @@ impl ScoreEmbedDataHalf {
 
         let if_fc_pp = if_fc.map(|if_fc| if_fc.pp);
 
-        let replay = if self.with_render {
-            self.checksum
-                .map(String::into_boxed_str)
-                .and_then(|checksum| {
-                    OwnedReplayScore::try_from_slim(&self.score, self.max_combo, checksum)
-                })
+        let replay_score_id = if self.with_render {
+            Some(self.score.score_id)
         } else {
             None
         };
@@ -551,7 +542,7 @@ impl ScoreEmbedDataHalf {
             stars: self.stars,
             max_combo: self.max_combo,
             max_pp: self.max_pp,
-            replay,
+            replay_score_id,
             miss_analyzer,
             pb_idx: self.pb_idx,
             global_idx,
@@ -588,7 +579,7 @@ pub struct ScoreEmbedData {
     pub stars: f32,
     pub max_combo: u32,
     pub max_pp: f32,
-    pub replay: Option<OwnedReplayScore>,
+    pub replay_score_id: Option<u64>,
     pub miss_analyzer: Option<MissAnalyzerData>,
     pub pb_idx: Option<ScoreEmbedDataPersonalBest>,
     pub global_idx: Option<usize>,
@@ -881,10 +872,8 @@ impl ScoreEmbedDataRaw {
 
         let if_fc_pp = if_fc.map(|if_fc| if_fc.pp);
 
-        let replay = if self.with_render && self.has_replay {
-            self.checksum
-                .map(String::into_boxed_str)
-                .and_then(|checksum| OwnedReplayScore::try_from_slim(&score, max_combo, checksum))
+        let replay_score_id = if self.with_render && self.has_replay {
+            Some(score.score_id)
         } else {
             None
         };
@@ -901,7 +890,7 @@ impl ScoreEmbedDataRaw {
             stars,
             max_combo,
             max_pp,
-            replay,
+            replay_score_id,
             miss_analyzer,
             pb_idx,
             global_idx,

@@ -158,12 +158,6 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.21.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
-
-[[package]]
-name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
@@ -205,7 +199,6 @@ dependencies = [
 name = "bathbot-client"
 version = "3.17.1"
 dependencies = [
- "base64 0.21.7",
  "bathbot-model",
  "bathbot-util",
  "bytes",
@@ -1873,7 +1866,7 @@ version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd7399781913e5393588a8d8c6a2867bf85fb38eaf2502fdce465aad2dc6f034"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "indexmap",
  "metrics",
  "metrics-util",
@@ -3241,7 +3234,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4560278f0e00ce64938540546f59f590d60beee33fffbd3b9cd47851e5fff233"
 dependencies = [
  "atoi",
- "base64 0.22.1",
+ "base64",
  "bitflags 2.8.0",
  "byteorder",
  "bytes",
@@ -3284,7 +3277,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5b98a57f363ed6764d5b3a12bfedf62f07aa16e1856a7ddc2a0bb190a959613"
 dependencies = [
  "atoi",
- "base64 0.22.1",
+ "base64",
  "bitflags 2.8.0",
  "byteorder",
  "crc",
@@ -3612,7 +3605,7 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8db988691af99fe6f957c1faa50b2fbaed8cbeb25662ac73083481bc10a511c0"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "bytes",
  "fastrand",
  "futures-core",

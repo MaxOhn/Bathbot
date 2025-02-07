@@ -26,7 +26,7 @@ pub struct Client {
     #[cfg(feature = "twitch")]
     twitch: bathbot_model::TwitchData,
     github_auth: Box<str>,
-    ratelimiters: [LeakyBucket; 17],
+    ratelimiters: [LeakyBucket; 16],
 }
 
 impl Client {
@@ -76,17 +76,11 @@ impl Client {
             ratelimiter(10), // OsuBadge
             ratelimiter(2),  // OsuMapFile
             ratelimiter(10), // OsuMapsetCover
-            LeakyBucket::builder() // OsuReplay, allows 6 per minute
-                .max(10)
-                .tokens(10)
-                .refill_interval(Duration::from_secs(7))
-                .refill_amount(1)
-                .build(),
-            ratelimiter(2), // OsuStats
-            ratelimiter(2), // OsuTrack
-            ratelimiter(2), // OsuWorld
-            ratelimiter(1), // Respektive
-            ratelimiter(5), // Twitch
+            ratelimiter(2),  // OsuStats
+            ratelimiter(2),  // OsuTrack
+            ratelimiter(2),  // OsuWorld
+            ratelimiter(1),  // Respektive
+            ratelimiter(5),  // Twitch
         ];
 
         Ok(Self {

@@ -1,15 +1,8 @@
-use std::fmt::{Formatter, Result as FmtResult};
-
-use base64::{engine::general_purpose::STANDARD, Engine};
 use bathbot_util::constants::OSU_BASE;
 use bytes::Bytes;
 use eyre::{Report, Result, WrapErr};
 use http::response::Parts;
 use hyper::{header::USER_AGENT, Request};
-use serde::{
-    de::{Error as DeError, Visitor},
-    Deserialize, Deserializer,
-};
 
 use crate::{client::Body, Client, ClientError, Site, MY_USER_AGENT};
 
@@ -68,46 +61,5 @@ impl Client {
         let url = format!("{OSU_BASE}osu/{map_id}");
 
         self.make_get_request(&url, Site::OsuMapFile).await
-    }
-
-    pub async fn get_raw_osu_replay(&self, key: &str, score_id: u64) -> Result<Option<Box<[u8]>>> {
-        #[derive(Deserialize)]
-        struct RawReplayBody {
-            #[serde(default, rename = "content", deserialize_with = "decode_base64")]
-            decoded: Option<Box<[u8]>>,
-        }
-
-        fn decode_base64<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Box<[u8]>>, D::Error> {
-            struct RawReplayVisitor;
-
-            impl Visitor<'_> for RawReplayVisitor {
-                type Value = Box<[u8]>;
-
-                fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-                    f.write_str("a base64 encoded string")
-                }
-
-                fn visit_str<E: DeError>(self, v: &str) -> Result<Self::Value, E> {
-                    STANDARD
-                        .decode(v)
-                        .map(Vec::into_boxed_slice)
-                        .map_err(|e| DeError::custom(format!("Failed to decode base64: {e}")))
-                }
-            }
-
-            d.deserialize_str(RawReplayVisitor).map(Some)
-        }
-
-        let url = format!("https://osu.ppy.sh/api/get_replay?k={key}&s={score_id}");
-
-        let bytes = self.make_get_request(url, Site::OsuReplay).await?;
-
-        let RawReplayBody { decoded } = serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
-
-            format!("Failed to deserialize replay body: {body}")
-        })?;
-
-        Ok(decoded)
     }
 }

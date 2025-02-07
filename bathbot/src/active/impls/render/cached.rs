@@ -6,7 +6,8 @@ use bathbot_util::{
 };
 use eyre::{Report, Result, WrapErr};
 use futures::future::BoxFuture;
-use rosu_v2::prelude::GameMode;
+use rosu_render::{client::error::ApiError as OrdrApiError, ClientError as OrdrError};
+use rosu_v2::error::OsuError;
 use twilight_model::{
     channel::message::{
         component::{ActionRow, Button, ButtonStyle},
@@ -19,77 +20,21 @@ use crate::{
     active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
     commands::osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
     core::{buckets::BucketName, Context},
-    manager::{OwnedReplayScore, ReplayScore},
+    manager::ReplayError,
     util::{interaction::InteractionComponent, Authored, ComponentExt, MessageExt},
 };
 
 pub struct CachedRender {
-    data: CachedRenderData,
+    score_id: u64,
     video_url: Box<str>,
     msg_owner: Id<UserMarker>,
     done: bool,
 }
 
-pub enum CachedRenderData {
-    Replay {
-        replay: ReplayOrScoreId,
-        username: Box<str>,
-    },
-    ScoreId(u64),
-}
-
-pub enum ReplayOrScoreId {
-    Replay(OwnedReplayScore),
-    ScoreId(u64),
-}
-
-impl ReplayOrScoreId {
-    fn is_replay(&self) -> bool {
-        matches!(self, Self::Replay(_))
-    }
-
-    fn take(&mut self) -> Option<OwnedReplayScore> {
-        if let Self::Replay(replay) = self {
-            let score_id = replay.score_id;
-
-            let Self::Replay(replay) = mem::replace(self, Self::ScoreId(score_id)) else {
-                unreachable!()
-            };
-
-            Some(replay)
-        } else {
-            None
-        }
-    }
-
-    fn score_id(&self) -> u64 {
-        match self {
-            ReplayOrScoreId::Replay(replay) => replay.score_id,
-            ReplayOrScoreId::ScoreId(score_id) => *score_id,
-        }
-    }
-}
-
-impl CachedRenderData {
-    pub fn new_replay(replay: OwnedReplayScore, username: Box<str>) -> Self {
-        Self::Replay {
-            replay: ReplayOrScoreId::Replay(replay),
-            username,
-        }
-    }
-
-    fn score_id(&self) -> u64 {
-        match self {
-            CachedRenderData::Replay { replay, .. } => replay.score_id(),
-            CachedRenderData::ScoreId(score_id) => *score_id,
-        }
-    }
-}
-
 impl CachedRender {
-    pub fn new(data: CachedRenderData, video_url: Box<str>, msg_owner: Id<UserMarker>) -> Self {
+    pub fn new(score_id: u64, video_url: Box<str>, msg_owner: Id<UserMarker>) -> Self {
         Self {
-            data,
+            score_id,
             video_url,
             msg_owner,
             done: false,
@@ -135,77 +80,16 @@ impl CachedRender {
                 .wrap_err("Failed to reply for render cooldown error");
         }
 
-        let score_id = self.data.score_id();
+        let mut status = RenderStatus::new_preparing_replay();
+        let builder = status.as_message().components(Vec::new());
+        component.callback(builder).await?;
+        self.done = true;
 
-        let (mut status, (replay_res, settings_res)) = match &mut self.data {
-            CachedRenderData::Replay {
-                replay, username, ..
-            } if replay.is_replay() => {
-                let status = RenderStatus::new_preparing_replay();
-                let builder = status.as_message().components(Vec::new());
-                component.callback(builder).await?;
-                self.done = true;
+        let replay_manager = Context::replay();
+        let replay_fut = replay_manager.get_replay(self.score_id);
+        let settings_fut = replay_manager.get_settings(owner);
 
-                let replay_manager = Context::replay();
-                let score = ReplayScore::from(replay.take().expect("missing replay score"));
-                let replay_fut = replay_manager.get_replay(&score, username);
-                let settings_fut = replay_manager.get_settings(owner);
-
-                (status, tokio::join!(replay_fut, settings_fut))
-            }
-            CachedRenderData::ScoreId(_) | CachedRenderData::Replay { .. } => {
-                let mut status = RenderStatus::new_requesting_score();
-                let builder = status.as_message().components(Vec::new());
-                component.callback(builder).await?;
-                self.done = true;
-                let score_fut = Context::osu().score(score_id).mode(GameMode::Osu);
-
-                let score = match score_fut.await {
-                    Ok(score) => score,
-                    Err(err) => {
-                        let embed = EmbedBuilder::new().color_red().description(OSU_API_ISSUE);
-                        let builder = MessageBuilder::new().embed(embed);
-                        let _ = component.update(builder).await;
-
-                        return Err(Report::new(err).wrap_err("Failed to get score"));
-                    }
-                };
-
-                let Some(replay_score) = ReplayScore::try_from_score(&score) else {
-                    let content = "Failed to prepare the replay";
-                    let embed = EmbedBuilder::new().color_red().description(content);
-                    let builder = MessageBuilder::new().embed(embed);
-                    component.update(builder).await?;
-
-                    return Ok(());
-                };
-
-                if score.legacy_score_id.is_none() {
-                    let content = "Scores on osu!lazer currently cannot be rendered :(";
-                    let embed = EmbedBuilder::new().color_red().description(content);
-                    let builder = MessageBuilder::new().embed(embed);
-                    component.update(builder).await?;
-
-                    return Ok(());
-                };
-
-                let username = score
-                    .user
-                    .as_ref()
-                    .map(|user| user.username.as_str())
-                    .unwrap_or_default();
-
-                // Just a status update, no need to propagate an error
-                status.set(RenderStatusInner::PreparingReplay);
-                let _ = component.update(status.as_message()).await;
-
-                let replay_manager = Context::replay();
-                let replay_fut = replay_manager.get_replay(&replay_score, username);
-                let settings_fut = replay_manager.get_settings(owner);
-
-                (status, tokio::join!(replay_fut, settings_fut))
-            }
-        };
+        let (replay_res, settings_res) = tokio::join!(replay_fut, settings_fut);
 
         let replay = match replay_res {
             Ok(Some(replay)) => replay,
@@ -220,11 +104,26 @@ impl CachedRender {
                 return Ok(());
             }
             Err(err) => {
-                let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
+                let (content, err) = match err {
+                    ReplayError::AlreadyRequestedCheck(err) => (
+                        GENERAL_ISSUE,
+                        Some(err.wrap_err(ReplayError::ALREADY_REQUESTED_TEXT)),
+                    ),
+                    ReplayError::Osu(OsuError::NotFound) => ("Found no score with that id", None),
+                    ReplayError::Osu(err) => (
+                        OSU_API_ISSUE,
+                        Some(Report::new(err).wrap_err("Failed to get replay")),
+                    ),
+                };
+
+                let embed = EmbedBuilder::new().color_red().description(content);
                 let builder = MessageBuilder::new().embed(embed);
                 let _ = component.update(builder).await;
 
-                return Err(err.wrap_err("Failed to get replay"));
+                return match err {
+                    Some(err) => Err(err),
+                    None => return Ok(()),
+                };
             }
         };
 
@@ -263,16 +162,38 @@ impl CachedRender {
         let render = match render_fut.await {
             Ok(render) => render,
             Err(err) => {
-                let embed = EmbedBuilder::new().color_red().description(ORDR_ISSUE);
+                let (content, err) = match err {
+                    OrdrError::Response {
+                        error:
+                            OrdrApiError {
+                                code: Some(code), ..
+                            },
+                        ..
+                    } => (
+                        format!("Error code {int} from o!rdr: {code}", int = code.to_u8()),
+                        None,
+                    ),
+                    err => (ORDR_ISSUE.to_owned(), Some(err)),
+                };
+
+                let embed = EmbedBuilder::new().color_red().description(content);
                 let builder = MessageBuilder::new().embed(embed);
                 let _ = component.update(builder).await;
 
-                return Err(Report::new(err).wrap_err("Failed to commission render"));
+                return match err {
+                    Some(err) => Err(Report::new(err).wrap_err("Failed to commission render")),
+                    None => return Ok(()),
+                };
             }
         };
 
-        let ongoing_fut =
-            OngoingRender::new(render.render_id, &*component, status, Some(score_id), owner);
+        let ongoing_fut = OngoingRender::new(
+            render.render_id,
+            &*component,
+            status,
+            Some(self.score_id),
+            owner,
+        );
 
         tokio::spawn(ongoing_fut.await.await_render_url());
 

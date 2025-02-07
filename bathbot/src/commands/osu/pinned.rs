@@ -401,16 +401,9 @@ async fn process_scores(
 
         map.convert_mut(score.mode);
 
-        let map_checksum = score
-            .map
-            .as_ref()
-            .filter(|_| score.replay)
-            .and_then(|map| map.checksum.clone());
-
         let mut half = ScoreEmbedDataHalf::new(
             score,
             map,
-            map_checksum,
             None,
             legacy_scores,
             with_render,
