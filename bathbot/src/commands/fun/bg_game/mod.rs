@@ -9,7 +9,7 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
-use twilight_http::{api_error::ApiError, error::ErrorType};
+use twilight_http::{api_error::ApiError, error::ErrorType, response::StatusCode};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::command::permissions::CommandPermissionType,
@@ -36,7 +36,6 @@ mod hint;
 mod rankings;
 mod skip;
 mod stop;
-// mod tags; // TODO
 
 #[command]
 #[desc("Play the background guessing game, use `/bg` to start")]
@@ -191,6 +190,19 @@ async fn check_bg_guild_permission(command: &InteractionCommand) -> ControlFlow<
                 return ControlFlow::Continue(());
             }
         },
+        Err(err)
+            if matches!(
+                err.kind(),
+                ErrorType::Response {
+                    status: StatusCode::NOT_FOUND,
+                    ..
+                }
+            ) =>
+        {
+            debug!(%guild_id, %command_id, "No bg command permissions configured");
+
+            return ControlFlow::Continue(());
+        }
         Err(err) => {
             error!(%guild_id, %command_id, ?err, "Failed to request bg command permissions");
 
