@@ -532,11 +532,8 @@ impl ScoreEmbedDataHalf {
 
         let if_fc_pp = if_fc.map(|if_fc| if_fc.pp);
 
-        let replay_score_id = if self.with_render {
-            Some(self.score.score_id)
-        } else {
-            None
-        };
+        let replay_score_id =
+            (self.with_render && !self.score.is_legacy).then_some(self.score.score_id);
 
         ScoreEmbedData {
             score: self.score,
@@ -877,11 +874,8 @@ impl ScoreEmbedDataRaw {
 
         let if_fc_pp = if_fc.map(|if_fc| if_fc.pp);
 
-        let replay_score_id = if self.with_render && self.has_replay {
-            Some(score.score_id)
-        } else {
-            None
-        };
+        let replay_score_id =
+            (self.with_render && self.has_replay && !self.is_legacy).then_some(score.score_id);
 
         let pb_idx = self
             .top100
