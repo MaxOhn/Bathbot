@@ -10,12 +10,10 @@ use bathbot_util::{
 };
 use eyre::{Report, Result, WrapErr};
 use rosu_render::{
-    client::error::{
-        ApiError as OrdrApiError, ClientError as OrdrError, ErrorCode as OrdrErrorCode,
-    },
+    client::error::{ApiError as OrdrApiError, ClientError as OrdrError},
     model::RenderDone,
 };
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::error::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::Attachment,
@@ -24,11 +22,11 @@ use twilight_model::{
 
 use crate::{
     active::{
-        impls::{CachedRender, CachedRenderData, RenderSettingsActive, SettingsImport},
+        impls::{CachedRender, RenderSettingsActive, SettingsImport},
         ActiveMessages,
     },
     core::{buckets::BucketName, commands::OwnedCommandOrigin, Context},
-    manager::{ReplayScore, ReplaySettings},
+    manager::{ReplayError, ReplaySettings},
     tracking::OrdrReceivers,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
 };
@@ -173,19 +171,6 @@ async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Res
 
     let render = match render_fut.await {
         Ok(render) => render,
-        Err(OrdrError::Response {
-            error:
-                OrdrApiError {
-                    code: Some(OrdrErrorCode::InvalidGameMode),
-                    ..
-                },
-            ..
-        }) => {
-            let content = "I can only render osu!standard scores";
-            command.error(content).await?;
-
-            return Ok(());
-        }
         Err(err) => {
             return match err {
                 OrdrError::Response {
@@ -226,8 +211,7 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
     // Check if the score id has already been rendered
     match Context::replay().get_video_url(score_id).await {
         Ok(Some(video_url)) => {
-            let data = CachedRenderData::ScoreId(score_id);
-            let cached = CachedRender::new(data, video_url, owner);
+            let cached = CachedRender::new(score_id, video_url, owner);
 
             return ActiveMessages::builder(cached)
                 .start_by_update(true)
@@ -250,47 +234,12 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
     let mut status = RenderStatus::new_requesting_score();
     command.update(status.as_message()).await?;
 
-    let score = match Context::osu().score(score_id).mode(GameMode::Osu).await {
-        Ok(score) => score,
-        Err(OsuError::NotFound) => {
-            let content = "Found no osu!standard score with that id";
-            command.error(content).await?;
-
-            return Ok(());
-        }
-        Err(err) => {
-            let _ = command.error(OSU_API_ISSUE).await;
-
-            return Err(Report::new(err).wrap_err("Failed to get score"));
-        }
-    };
-
-    let Some(replay_score) = ReplayScore::try_from_score(&score) else {
-        let content = "Failed to prepare the replay";
-        command.error(content).await?;
-
-        return Ok(());
-    };
-
-    let Some(score_id) = score.legacy_score_id else {
-        let content = "Scores on osu!lazer currently cannot be rendered :(";
-        command.error(content).await?;
-
-        return Ok(());
-    };
-
-    let username = score
-        .user
-        .as_ref()
-        .map(|user| user.username.as_str())
-        .unwrap_or_default();
-
     // Just a status update, no need to propagate an error
     status.set(RenderStatusInner::PreparingReplay);
     let _ = command.update(status.as_message()).await;
 
     let replay_manager = Context::replay();
-    let replay_fut = replay_manager.get_replay(&replay_score, username);
+    let replay_fut = replay_manager.get_replay(score_id);
     let settings_fut = replay_manager.get_settings(owner);
 
     let (replay_res, settings_res) = tokio::join!(replay_fut, settings_fut);
@@ -303,10 +252,21 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
 
             return Ok(());
         }
-        Err(err) => {
+        Err(ReplayError::Osu(OsuError::NotFound)) => {
+            let content = "Found no score with that id";
+            command.error(content).await?;
+
+            return Ok(());
+        }
+        Err(ReplayError::Osu(err)) => {
+            let _ = command.error(OSU_API_ISSUE).await;
+
+            return Err(Report::new(err).wrap_err("Failed to get replay"));
+        }
+        Err(ReplayError::AlreadyRequestedCheck(err)) => {
             let _ = command.error(GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("Failed to get replay"));
+            return Err(err.wrap_err(ReplayError::ALREADY_REQUESTED_TEXT));
         }
     };
 
@@ -342,6 +302,17 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
 
     let render = match render_fut.await {
         Ok(render) => render,
+        Err(OrdrError::Response {
+            error: OrdrApiError {
+                code: Some(code), ..
+            },
+            ..
+        }) => {
+            let content = format!("Error code {int} from o!rdr: {code}", int = code.to_u8());
+            command.error(content).await?;
+
+            return Ok(());
+        }
         Err(err) => {
             let _ = command.error(ORDR_ISSUE).await;
 

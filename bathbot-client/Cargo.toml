@@ -5,7 +5,6 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
-base64 = { version = "0.21" }
 bathbot-model = { path = "../bathbot-model" }
 bathbot-util = { path = "../bathbot-util" }
 bytes = { version = "1.0" }

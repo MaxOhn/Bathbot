@@ -751,7 +751,7 @@ async fn process_scores(
     let mut entries = Vec::<ScoreEmbedData>::with_capacity(scores.len());
 
     for score in scores {
-        let mut calc = Context::pp(&map).mode(score.mode).mods(score.mods.clone());
+        let mut calc = Context::pp(map).mode(score.mode).mods(score.mods.clone());
         let attrs = calc.performance().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo();
@@ -767,7 +767,7 @@ async fn process_scores(
         };
 
         let score = ScoreSlim::new(score, pp);
-        let if_fc_pp = IfFc::new(&score, &map).await.map(|if_fc| if_fc.pp);
+        let if_fc_pp = IfFc::new(&score, map).await.map(|if_fc| if_fc.pp);
 
         let pb_idx = top100.and_then(|top100| {
             let pb_idx = PersonalBestIndex::new(&score, map.map_id(), map.status(), top100);
@@ -788,7 +788,7 @@ async fn process_scores(
             stars,
             max_combo,
             max_pp,
-            replay: None,
+            replay_score_id: None,
             miss_analyzer: None,
             pb_idx,
             global_idx,
@@ -1010,7 +1010,7 @@ async fn compare_from_score(
         stars: attrs.stars() as f32,
         max_combo: attrs.max_combo(),
         max_pp,
-        replay: None,
+        replay_score_id: None,
         miss_analyzer: None,
         pb_idx,
         global_idx,

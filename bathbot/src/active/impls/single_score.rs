@@ -6,7 +6,7 @@ use bathbot_model::embed_builder::{
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_BASE},
+    constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE, OSU_BASE},
     datetime::{HowLongAgoDynamic, HowLongAgoText, SecToMinSec, SHORT_NAIVE_DATETIME_FORMAT},
     fields,
     numbers::round,
@@ -15,7 +15,9 @@ use bathbot_util::{
 use eyre::{Report, Result};
 use futures::future::BoxFuture;
 use rosu_pp::model::beatmap::BeatmapAttributes;
+use rosu_render::{client::error::ApiError as OrdrApiError, ClientError as OrdrError};
 use rosu_v2::{
+    error::OsuError,
     model::{GameMode, Grade},
     prelude::RankStatus,
 };
@@ -34,7 +36,7 @@ use twilight_model::{
 
 use crate::{
     active::{
-        impls::{embed_builder::ValueKind, CachedRender, CachedRenderData},
+        impls::{embed_builder::ValueKind, CachedRender},
         pagination::{async_handle_pagination_component, handle_pagination_modal, Pages},
         ActiveMessages, BuildPage, ComponentResult, IActiveMessage,
     },
@@ -44,7 +46,7 @@ use crate::{
     },
     core::{buckets::BucketName, Context},
     embeds::{attachment, HitResultFormatter},
-    manager::{redis::osu::CachedUser, OwnedReplayScore, ReplayScore},
+    manager::{redis::osu::CachedUser, ReplayError},
     util::{
         interaction::{InteractionComponent, InteractionModal},
         osu::{GradeFormatter, ScoreFormatter},
@@ -56,7 +58,6 @@ pub struct SingleScorePagination {
     pub settings: ScoreEmbedSettings,
     scores: Box<[ScoreEmbedDataWrap]>,
     score_data: ScoreData,
-    username: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 
@@ -81,7 +82,6 @@ impl SingleScorePagination {
             settings,
             scores,
             score_data,
-            username: Box::from(user.username.as_ref()),
             msg_owner,
             pages,
             author: user.author_builder(),
@@ -220,7 +220,7 @@ impl SingleScorePagination {
             Err(err) => return ComponentResult::Err(err),
         };
 
-        let Some(replay) = data.replay.take() else {
+        let Some(score_id) = data.replay_score_id.take() else {
             return ComponentResult::Err(eyre!("Unexpected render component"));
         };
 
@@ -230,15 +230,13 @@ impl SingleScorePagination {
         };
 
         // Check if the score id has already been rendered
-        match Context::replay().get_video_url(replay.score_id).await {
+        match Context::replay().get_video_url(score_id).await {
             Ok(Some(video_url)) => {
                 let channel_id = component.message.channel_id;
-                let username = self.username.clone();
 
                 // Spawn in new task so that we're sure to callback the component in time
                 tokio::spawn(async move {
-                    let data = CachedRenderData::new_replay(replay, username);
-                    let cached = CachedRender::new(data, video_url, owner);
+                    let cached = CachedRender::new(score_id, video_url, owner);
                     let begin_fut = ActiveMessages::builder(cached).begin(channel_id);
 
                     if let Err(err) = begin_fut.await {
@@ -254,18 +252,15 @@ impl SingleScorePagination {
 
         if let Some(cooldown) = Context::check_ratelimit(owner, BucketName::Render) {
             // Put the replay back so that the button can still be used
-            data.replay = Some(replay);
+            data.replay_score_id = Some(score_id);
 
             return self.render_cooldown_response(component, cooldown).await;
         }
 
-        let username = self.username.clone();
-
         tokio::spawn(Self::render_response(
             (component.message.id, component.message.channel_id),
             component.permissions,
-            replay,
-            username,
+            score_id,
             owner,
             component.guild_id,
         ));
@@ -301,14 +296,11 @@ impl SingleScorePagination {
     async fn render_response(
         orig: (Id<MessageMarker>, Id<ChannelMarker>),
         permissions: Option<Permissions>,
-        replay: OwnedReplayScore,
-        username: Box<str>,
+        score_id: u64,
         owner: Id<UserMarker>,
         guild: Option<Id<GuildMarker>>,
     ) {
-        let score_id = replay.score_id;
         let mut status = RenderStatus::new_preparing_replay();
-        let score = ReplayScore::from(replay);
 
         let msg = match orig.reply(status.as_message(), permissions).await {
             Ok(response) => match response.model().await {
@@ -325,7 +317,7 @@ impl SingleScorePagination {
         }
 
         let replay_manager = Context::replay();
-        let replay_fut = replay_manager.get_replay(&score, &username);
+        let replay_fut = replay_manager.get_replay(score_id);
         let settings_fut = replay_manager.get_settings(owner);
 
         let (replay_res, settings_res) = tokio::join!(replay_fut, settings_fut);
@@ -347,14 +339,28 @@ impl SingleScorePagination {
                 };
             }
             Err(err) => {
-                let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
+                let content = match err {
+                    ReplayError::AlreadyRequestedCheck(err) => {
+                        error!(?err, "{}", ReplayError::ALREADY_REQUESTED_TEXT);
+
+                        GENERAL_ISSUE
+                    }
+                    ReplayError::Osu(OsuError::NotFound) => "Found no score with that id",
+                    ReplayError::Osu(err) => {
+                        error!(err = ?Report::new(err), "Failed to get replay");
+
+                        OSU_API_ISSUE
+                    }
+                };
+
+                let embed = EmbedBuilder::new().color_red().description(content);
                 let builder = MessageBuilder::new().embed(embed);
 
                 if let Some(update_fut) = msg.update(builder, permissions) {
                     let _ = update_fut.await;
                 }
 
-                return error!(?err, "Failed to get replay");
+                return;
             }
         };
 
@@ -398,14 +404,29 @@ impl SingleScorePagination {
         let render = match render_fut.await {
             Ok(render) => render,
             Err(err) => {
-                let embed = EmbedBuilder::new().color_red().description(ORDR_ISSUE);
+                let content = match err {
+                    OrdrError::Response {
+                        error:
+                            OrdrApiError {
+                                code: Some(code), ..
+                            },
+                        ..
+                    } => format!("Error code {int} from o!rdr: {code}", int = code.to_u8()),
+                    err => {
+                        error!(?err, "Failed to commission render");
+
+                        ORDR_ISSUE.to_owned()
+                    }
+                };
+
+                let embed = EmbedBuilder::new().color_red().description(content);
                 let builder = MessageBuilder::new().embed(embed);
 
                 if let Some(update_fut) = msg.update(builder, permissions) {
                     let _ = update_fut.await;
                 }
 
-                return error!(?err, "Failed to commission render");
+                return;
             }
         };
 
@@ -445,7 +466,7 @@ impl IActiveMessage for SingleScorePagination {
             .try_get()
             .expect("score data not yet expanded");
 
-        if score.miss_analyzer.is_some() || score.replay.is_some() {
+        if score.miss_analyzer.is_some() || score.replay_score_id.is_some() {
             let mut components = Vec::with_capacity(2);
 
             if score.miss_analyzer.is_some() {
@@ -460,7 +481,7 @@ impl IActiveMessage for SingleScorePagination {
                 }));
             }
 
-            if score.replay.is_some() {
+            if score.replay_score_id.is_some() {
                 components.push(Component::Button(Button {
                     custom_id: Some("render".to_owned()),
                     disabled: false,

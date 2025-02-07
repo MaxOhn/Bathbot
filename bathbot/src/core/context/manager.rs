@@ -51,7 +51,7 @@ impl Context {
     pub fn replay() -> ReplayManager {
         let ctx = Self::get();
 
-        ReplayManager::new(&ctx.clients.psql, &ctx.clients.custom, &ctx.data.cache)
+        ReplayManager::new(&ctx.clients.psql, &ctx.clients.osu, &ctx.data.cache)
     }
 
     pub fn github() -> GithubManager {

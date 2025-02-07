@@ -11,7 +11,7 @@ pub use self::{
     osu_user::OsuUserManager,
     pp::{Mods, PpManager},
     rank_pp_approx::ApproxManager,
-    replay::{OwnedReplayScore, ReplayManager, ReplayScore, ReplaySettings},
+    replay::{ReplayError, ReplayManager, ReplaySettings},
     user_config::UserConfigManager,
 };
 

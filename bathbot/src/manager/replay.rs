@@ -1,44 +1,25 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use bathbot_cache::Cache as BathbotCache;
-use bathbot_client::Client as BathbotClient;
-use bathbot_model::ScoreSlim;
 use bathbot_psql::{model::render::DbRenderOptions, Database};
-use eyre::{Result, WrapErr};
+use eyre::{Report, Result, WrapErr};
 use rosu_render::model::{RenderOptions, RenderResolution, RenderSkinOption, Skin, SkinInfo};
-use rosu_v2::prelude::{GameMode, Score, ScoreStatistics};
-use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
+use rosu_v2::{error::OsuError, Osu};
 use twilight_model::id::{marker::UserMarker, Id};
-
-use crate::core::BotConfig;
 
 #[derive(Copy, Clone)]
 pub struct ReplayManager {
     psql: &'static Database,
-    client: &'static BathbotClient,
+    osu: &'static Osu,
     cache: &'static BathbotCache,
 }
 
 impl ReplayManager {
-    pub fn new(
-        psql: &'static Database,
-        client: &'static BathbotClient,
-        cache: &'static BathbotCache,
-    ) -> Self {
-        Self {
-            psql,
-            client,
-            cache,
-        }
+    pub fn new(psql: &'static Database, osu: &'static Osu, cache: &'static BathbotCache) -> Self {
+        Self { psql, osu, cache }
     }
 
-    pub async fn get_replay(
-        self,
-        score: &ReplayScore<'_>,
-        username: &str,
-    ) -> Result<Option<Box<[u8]>>> {
-        let score_id = score.score_id();
-
+    pub async fn get_replay(self, score_id: u64) -> Result<Option<Box<[u8]>>, ReplayError> {
         match self.psql.select_osu_replay(score_id).await {
             Ok(Some(replay)) => return Ok(Some(replay)),
             Ok(None) => {}
@@ -51,31 +32,23 @@ impl ReplayManager {
             .cache
             .insert_into_set("__requested_replay_score_ids", score_id)
             .await
-            .wrap_err("Failed to check whether replay was already requested")?;
+            .map_err(ReplayError::AlreadyRequestedCheck)?;
 
         if !not_contained {
             return Ok(None);
         }
 
-        let key = BotConfig::get().tokens.osu_key.as_ref();
-
-        let raw_replay_opt = self
-            .client
-            .get_raw_osu_replay(key, score_id)
+        let replay = self
+            .osu
+            .replay_raw(score_id)
             .await
-            .wrap_err("Failed to request replay")?;
-
-        let Some(raw_replay) = raw_replay_opt else {
-            return Ok(None);
-        };
-
-        let replay = complete_replay(score, &raw_replay, username);
+            .map_err(ReplayError::Osu)?;
 
         if let Err(err) = self.psql.insert_osu_replay(score_id, &replay).await {
             warn!(?err, "Failed to insert replay into DB");
         }
 
-        Ok(Some(replay))
+        Ok(Some(replay.into_boxed_slice()))
     }
 
     pub async fn get_settings(self, user: Id<UserMarker>) -> Result<ReplaySettings> {
@@ -121,6 +94,15 @@ impl ReplayManager {
             .await
             .wrap_err("Failed to store replay video url")
     }
+}
+
+pub enum ReplayError {
+    Osu(OsuError),
+    AlreadyRequestedCheck(Report),
+}
+
+impl ReplayError {
+    pub const ALREADY_REQUESTED_TEXT: &str = "Failed to check whether replay was already requested";
 }
 
 #[derive(Default)]
@@ -390,300 +372,4 @@ impl From<&ReplaySettings> for DbRenderOptions {
             ignore_fail: options.ignore_fail,
         }
     }
-}
-
-pub struct ReplayScore<'s> {
-    // Hide inner enum so that the Borrowed variant cannot be constructed outside
-    // and thus is certain to be validated when constructed through methods.
-    inner: ReplayScoreInner<'s>,
-}
-
-impl From<OwnedReplayScore> for ReplayScore<'_> {
-    fn from(score: OwnedReplayScore) -> Self {
-        Self {
-            inner: ReplayScoreInner::Owned(score),
-        }
-    }
-}
-
-enum ReplayScoreInner<'s> {
-    Owned(OwnedReplayScore),
-    Borrowed { score_id: u64, score: &'s Score },
-}
-
-impl<'s> ReplayScore<'s> {
-    /// Constructs a [`ReplayScore`]
-    ///
-    /// Returns `None` if `score` had no map checksum or legacy score id.
-    pub fn try_from_score(score: &'s Score) -> Option<Self> {
-        score
-            .map
-            .as_ref()
-            .zip(score.legacy_score_id)
-            .filter(|(map, _)| map.checksum.is_some())
-            .map(|(_, score_id)| Self {
-                inner: ReplayScoreInner::Borrowed { score_id, score },
-            })
-    }
-
-    fn mode(&self) -> GameMode {
-        match &self.inner {
-            ReplayScoreInner::Owned(score) => score.mode,
-            ReplayScoreInner::Borrowed { score, .. } => score.mode,
-        }
-    }
-
-    fn ended_at(&self) -> OffsetDateTime {
-        match &self.inner {
-            ReplayScoreInner::Owned(score) => score.ended_at,
-            ReplayScoreInner::Borrowed { score, .. } => score.ended_at,
-        }
-    }
-
-    fn map_checksum(&self) -> &str {
-        match &self.inner {
-            ReplayScoreInner::Owned(score) => score.map_checksum.as_ref(),
-            ReplayScoreInner::Borrowed { score, .. } => score
-                .map
-                .as_ref()
-                .and_then(|map| map.checksum.as_deref())
-                .expect("missing map checksum"),
-        }
-    }
-
-    fn statistics(&self) -> &ScoreStatistics {
-        match &self.inner {
-            ReplayScoreInner::Owned(score) => &score.statistics,
-            ReplayScoreInner::Borrowed { score, .. } => &score.statistics,
-        }
-    }
-
-    fn score(&self) -> u32 {
-        match &self.inner {
-            ReplayScoreInner::Owned(score) => score.score,
-            ReplayScoreInner::Borrowed { score, .. } => score.score,
-        }
-    }
-
-    fn max_combo(&self) -> u16 {
-        match &self.inner {
-            ReplayScoreInner::Owned(score) => score.max_combo,
-            ReplayScoreInner::Borrowed { score, .. } => score.max_combo as u16,
-        }
-    }
-
-    fn perfect(&self) -> bool {
-        match &self.inner {
-            ReplayScoreInner::Owned(score) => score.perfect,
-            ReplayScoreInner::Borrowed { score, .. } => score.legacy_perfect == Some(true),
-        }
-    }
-
-    fn mods(&self) -> u32 {
-        match &self.inner {
-            ReplayScoreInner::Owned(score) => score.mods,
-            ReplayScoreInner::Borrowed { score, .. } => score.mods.bits(),
-        }
-    }
-
-    fn score_id(&self) -> u64 {
-        match &self.inner {
-            ReplayScoreInner::Owned(score) => score.score_id,
-            ReplayScoreInner::Borrowed { score_id, .. } => *score_id,
-        }
-    }
-}
-
-pub struct OwnedReplayScore {
-    pub score_id: u64,
-    mode: GameMode,
-    ended_at: OffsetDateTime,
-    map_checksum: Box<str>,
-    statistics: ScoreStatistics,
-    score: u32,
-    max_combo: u16,
-    perfect: bool,
-    mods: u32,
-}
-
-impl OwnedReplayScore {
-    pub fn try_from_slim(
-        score: &ScoreSlim,
-        max_combo: u32,
-        map_checksum: impl Into<Box<str>>,
-    ) -> Option<Self> {
-        let score_id = score.legacy_id?;
-
-        Some(Self {
-            score_id,
-            mode: score.mode,
-            ended_at: score.ended_at,
-            map_checksum: map_checksum.into(),
-            statistics: score.statistics.clone(),
-            score: score.score,
-            max_combo: score.max_combo as u16,
-            perfect: max_combo == score.max_combo,
-            mods: score.mods.bits(),
-        })
-    }
-}
-
-// https://osu.ppy.sh/wiki/en/Client/File_formats/Osr_%28file_format%29
-fn complete_replay(score: &ReplayScore<'_>, raw_replay: &[u8], username: &str) -> Box<[u8]> {
-    let mut replay = Vec::with_capacity(128 + raw_replay.len());
-
-    let mut bytes_written = 0;
-
-    let mode = score.mode();
-    bytes_written += encode_byte(&mut replay, mode as u8);
-    bytes_written += encode_int(&mut replay, game_version(score.ended_at().date()));
-
-    let map_md5 = score.map_checksum();
-    bytes_written += encode_string(&mut replay, map_md5);
-
-    bytes_written += encode_string(&mut replay, username);
-
-    let replay_md5 = String::new();
-    bytes_written += encode_string(&mut replay, &replay_md5);
-
-    let stats = score.statistics();
-
-    let n100 = match mode {
-        GameMode::Osu | GameMode::Taiko | GameMode::Mania => stats.ok,
-        GameMode::Catch => stats.ok.max(stats.large_tick_hit),
-    };
-
-    let n50 = match mode {
-        GameMode::Osu | GameMode::Mania => stats.meh,
-        GameMode::Taiko => 0,
-        GameMode::Catch => stats.small_tick_hit.max(stats.meh),
-    };
-
-    let n_geki = match mode {
-        GameMode::Osu | GameMode::Taiko | GameMode::Catch => 0,
-        GameMode::Mania => stats.perfect,
-    };
-
-    let n_katu = match mode {
-        GameMode::Osu | GameMode::Taiko => 0,
-        GameMode::Catch => stats.small_tick_miss.max(stats.good),
-        GameMode::Mania => stats.good,
-    };
-
-    bytes_written += encode_short(&mut replay, stats.great as u16);
-    bytes_written += encode_short(&mut replay, n100 as u16);
-    bytes_written += encode_short(&mut replay, n50 as u16);
-    bytes_written += encode_short(&mut replay, n_geki as u16);
-    bytes_written += encode_short(&mut replay, n_katu as u16);
-    bytes_written += encode_short(&mut replay, stats.miss as u16);
-
-    bytes_written += encode_int(&mut replay, score.score());
-
-    bytes_written += encode_short(&mut replay, score.max_combo());
-
-    bytes_written += encode_byte(&mut replay, score.perfect() as u8);
-
-    bytes_written += encode_int(&mut replay, score.mods());
-
-    let lifebar = String::new();
-    bytes_written += encode_string(&mut replay, &lifebar);
-
-    bytes_written += encode_datetime(&mut replay, score.ended_at());
-
-    bytes_written += encode_int(&mut replay, raw_replay.len() as u32);
-    replay.extend_from_slice(raw_replay);
-
-    bytes_written += encode_long(&mut replay, score.score_id());
-
-    if bytes_written > 128 {
-        warn!(bytes_written, "Wrote more bytes than initial allocation");
-    }
-
-    replay.into_boxed_slice()
-}
-
-fn encode_byte(bytes: &mut Vec<u8>, byte: u8) -> usize {
-    bytes.push(byte);
-
-    1
-}
-
-fn encode_short(bytes: &mut Vec<u8>, short: u16) -> usize {
-    bytes.extend_from_slice(&short.to_le_bytes());
-
-    2
-}
-
-fn encode_int(bytes: &mut Vec<u8>, int: u32) -> usize {
-    bytes.extend_from_slice(&int.to_le_bytes());
-
-    4
-}
-
-fn encode_long(bytes: &mut Vec<u8>, long: u64) -> usize {
-    bytes.extend_from_slice(&long.to_le_bytes());
-
-    8
-}
-
-fn encode_string(bytes: &mut Vec<u8>, s: &str) -> usize {
-    if s.is_empty() {
-        bytes.push(0x00); // "no string"
-
-        1
-    } else {
-        bytes.push(0x0b); // "string incoming"
-        let len = encode_leb128(bytes, s.len());
-        bytes.extend_from_slice(s.as_bytes());
-
-        1 + len + s.len()
-    }
-}
-
-// https://en.wikipedia.org/wiki/LEB128
-fn encode_leb128(bytes: &mut Vec<u8>, mut n: usize) -> usize {
-    let mut bytes_written = 0;
-
-    loop {
-        let mut byte = ((n & u8::MAX as usize) as u8) & !(1 << 7);
-        n >>= 7;
-
-        if n != 0 {
-            byte |= 1 << 7;
-        }
-
-        bytes.push(byte);
-        bytes_written += 1;
-
-        if n == 0 {
-            return bytes_written;
-        }
-    }
-}
-
-// https://docs.microsoft.com/en-us/dotnet/api/system.datetime.ticks?redirectedfrom=MSDN&view=net-6.0#System_DateTime_Ticks
-fn encode_datetime(bytes: &mut Vec<u8>, datetime: OffsetDateTime) -> usize {
-    let orig_date = Date::from_ordinal_date(1, 1).unwrap();
-    let orig_time = Time::from_hms(0, 0, 0).unwrap();
-
-    let orig = PrimitiveDateTime::new(orig_date, orig_time).assume_utc();
-
-    let orig_nanos = orig.unix_timestamp_nanos();
-    let this_nanos = datetime.unix_timestamp_nanos();
-
-    let long = (this_nanos - orig_nanos) / 100;
-
-    encode_long(bytes, long as u64)
-}
-
-fn game_version(date: Date) -> u32 {
-    let mut version = date.year() as u32;
-    version *= 100;
-
-    version += date.month() as u32;
-    version *= 100;
-
-    version += date.day() as u32;
-
-    version
 }

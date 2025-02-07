@@ -993,18 +993,11 @@ async fn process_scores(
 
         map = map.convert(score.mode);
 
-        let map_checksum = score
-            .map
-            .as_ref()
-            .filter(|_| score.replay)
-            .and_then(|map| map.checksum.clone());
-
         let pb_idx = Some(ScoreEmbedDataPersonalBest::from_index(i));
 
         let half = ScoreEmbedDataHalf::new(
             score,
             map,
-            map_checksum,
             pb_idx,
             legacy_scores,
             with_render,
