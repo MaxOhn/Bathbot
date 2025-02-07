@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use bathbot_macros::SlashCommand;
 use bathbot_model::{embed_builder::ScoreEmbedSettings, ScoreSlim};
@@ -32,6 +32,7 @@ use crate::{
 const USER_ID: u32 = 2;
 const MAP_ID: u32 = 197337;
 const MODE: GameMode = GameMode::Osu;
+const MISS_ANALYZER_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "builder", desc = "Build your own score embed format")]
@@ -512,13 +513,18 @@ impl ScoreEmbedDataHalf {
 
             debug!(score_id, "Sending score id to miss analyzer");
 
-            match Context::client()
-                .miss_analyzer_score_request(guild_id.get(), score_id)
-                .await
-            {
-                Ok(wants_button) => wants_button.then_some(MissAnalyzerData { score_id }),
-                Err(err) => {
+            let miss_analyzer_fut =
+                Context::client().miss_analyzer_score_request(guild_id.get(), score_id);
+
+            match tokio::time::timeout(MISS_ANALYZER_TIMEOUT, miss_analyzer_fut).await {
+                Ok(Ok(wants_button)) => wants_button.then_some(MissAnalyzerData { score_id }),
+                Ok(Err(err)) => {
                     warn!(?err, "Failed to send score id to miss analyzer");
+
+                    None
+                }
+                Err(_) => {
+                    warn!("Miss analyzer request timed out");
 
                     None
                 }
@@ -854,13 +860,18 @@ impl ScoreEmbedDataRaw {
 
             debug!(score_id, "Sending score id to miss analyzer");
 
-            match Context::client()
-                .miss_analyzer_score_request(guild_id.get(), score_id)
-                .await
-            {
-                Ok(wants_button) => wants_button.then_some(MissAnalyzerData { score_id }),
-                Err(err) => {
+            let miss_analyzer_fut =
+                Context::client().miss_analyzer_score_request(guild_id.get(), score_id);
+
+            match tokio::time::timeout(MISS_ANALYZER_TIMEOUT, miss_analyzer_fut).await {
+                Ok(Ok(wants_button)) => wants_button.then_some(MissAnalyzerData { score_id }),
+                Ok(Err(err)) => {
                     warn!(?err, "Failed to send score id to miss analyzer");
+
+                    None
+                }
+                Err(_) => {
+                    warn!("Miss analyzer request timed out");
 
                     None
                 }
