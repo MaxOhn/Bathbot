@@ -41,7 +41,7 @@ impl Client {
         let https = HttpsConnectorBuilder::new()
             .with_provider_and_webpki_roots(crypto_provider)
             .wrap_err("Failed to configure https connector")?
-            .https_only()
+            .https_or_http()
             .enable_http1()
             .enable_http2()
             .build();

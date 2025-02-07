@@ -13,9 +13,11 @@ pub struct ScoreSlim {
     pub pp: f32,
     pub score: u32,
     pub classic_score: u64,
-    /// Note that this is the *new* kind of score id
+    /// Note that this is the *new* kind of score id, except when a score was
+    /// set on stable and was requested as legacy data, i.e. if the `is_legacy`
+    /// field is `true`.
     pub score_id: u64,
-    pub legacy_id: Option<u64>,
+    pub is_legacy: bool,
     pub statistics: ScoreStatistics,
     pub set_on_lazer: bool,
 }
@@ -33,7 +35,7 @@ impl ScoreSlim {
             score: score.score,
             classic_score: score.classic_score,
             score_id: score.id,
-            legacy_id: score.legacy_score_id,
+            is_legacy: score.legacy_score_id == Some(score.id),
             statistics: score.statistics,
             set_on_lazer: score.set_on_lazer,
         }
@@ -141,7 +143,7 @@ impl ScoreExt for ScoreSlim {
 
     #[inline]
     fn is_legacy(&self) -> bool {
-        self.legacy_id == Some(self.score_id)
+        self.is_legacy
     }
 }
 

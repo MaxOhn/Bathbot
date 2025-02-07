@@ -497,7 +497,6 @@ async fn process_scores(
             score: score.score,
             classic_score: 0,
             score_id: 0,
-            legacy_id: None,
             statistics: ScoreStatistics {
                 perfect: score.count_geki,
                 great: score.count300,
@@ -508,6 +507,7 @@ async fn process_scores(
                 ..Default::default()
             },
             set_on_lazer: false, // FIXME: how does osustats handle lazer scores?
+            is_legacy: true,
         };
 
         let entry = OsuStatsEntry {

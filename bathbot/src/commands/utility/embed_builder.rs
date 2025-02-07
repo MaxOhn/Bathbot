@@ -503,10 +503,12 @@ impl ScoreEmbedDataHalf {
         };
 
         let miss_analyzer_fut = async {
-            let (score_id, guild_id) = self
-                .score
-                .legacy_id
-                .zip(self.miss_analyzer_check.guild_id)?;
+            let guild_id = self
+                .miss_analyzer_check
+                .guild_id
+                .filter(|_| !self.score.is_legacy)?;
+
+            let score_id = self.score.score_id;
 
             debug!(score_id, "Sending score id to miss analyzer");
 
@@ -718,7 +720,8 @@ pub struct ScoreEmbedDataRaw {
     pub score: u32,
     pub classic_score: u64,
     pub score_id: u64,
-    pub legacy_id: Option<u64>,
+    /// See [`ScoreSlim::is_legacy`]
+    pub is_legacy: bool,
     pub statistics: ScoreStatistics,
     pub has_replay: bool,
 }
@@ -754,7 +757,7 @@ impl ScoreEmbedDataRaw {
             score: score.score,
             classic_score: score.classic_score,
             score_id: score.id,
-            legacy_id: score.legacy_score_id,
+            is_legacy: score.legacy_score_id == Some(score.id),
             statistics: score.statistics,
             has_replay: score.replay,
             set_on_lazer: score.set_on_lazer,
@@ -804,7 +807,7 @@ impl ScoreEmbedDataRaw {
             score: self.score,
             classic_score: self.classic_score,
             score_id: self.score_id,
-            legacy_id: self.legacy_id,
+            is_legacy: self.is_legacy,
             statistics: self.statistics,
             set_on_lazer: self.set_on_lazer,
         };
@@ -845,10 +848,12 @@ impl ScoreEmbedDataRaw {
         };
 
         let miss_analyzer_fut = async {
-            let (score_id, guild_id) = score
-                .legacy_id
-                .zip(self.miss_analyzer_check.guild_id)
-                .filter(|_| self.has_replay)?;
+            let guild_id = self
+                .miss_analyzer_check
+                .guild_id
+                .filter(|_| self.has_replay && !self.is_legacy)?;
+
+            let score_id = self.score_id;
 
             debug!(score_id, "Sending score id to miss analyzer");
 

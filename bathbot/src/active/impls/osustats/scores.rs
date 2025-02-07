@@ -127,7 +127,6 @@ impl OsuStatsScoresPagination {
                     score: score.score,
                     classic_score: 0,
                     score_id: 0,
-                    legacy_id: None,
                     statistics: ScoreStatistics {
                         perfect: score.count_geki,
                         great: score.count300,
@@ -138,6 +137,7 @@ impl OsuStatsScoresPagination {
                         ..Default::default()
                     },
                     set_on_lazer: false,
+                    is_legacy: true,
                 };
 
                 let entry = OsuStatsEntry {
