@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nUPDATE\n  osu_mapsets\nSET\n  user_id = bulk.user_id,\n  artist = bulk.artist,\n  title = bulk.title,\n  creator = bulk.creator,\n  source = bulk.source,\n  video = bulk.video,\n  rank_status = bulk.rank_status,\n  thumbnail = bulk.thumbnail,\n  cover = bulk.cover,\n  last_update = NOW()\nFROM\n  UNNEST(\n    $1::INT4[], $2::VARCHAR[], $3::VARCHAR[], $4::VARCHAR[],\n    $5::VARCHAR[], $6::BOOL[], $7::INT2[], $8::VARCHAR[],\n    $9::VARCHAR[], $10::INT4[]\n  ) AS bulk(\n    user_id, artist, title, creator, source, video,\n    rank_status, thumbnail, cover, mapset_id\n  )\nWHERE\n  osu_mapsets.mapset_id = bulk.mapset_id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "VarcharArray",
+        "VarcharArray",
+        "VarcharArray",
+        "VarcharArray",
+        "BoolArray",
+        "Int2Array",
+        "VarcharArray",
+        "VarcharArray",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e8420a97191f72ebf8978f38d3d71ecbd0901081ac009738b58a91418bc708bb"
+}

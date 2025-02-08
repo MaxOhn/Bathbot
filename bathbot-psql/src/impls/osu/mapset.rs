@@ -177,34 +177,29 @@ SET
 
         let query = sqlx::query!(
             r#"
-UPDATE 
-  osu_mapsets 
-SET 
-  user_id = bulk.user_id, 
-  artist = bulk.artist, 
-  title = bulk.title, 
-  creator = bulk.creator, 
-  source = bulk.source, 
-  video = bulk.video, 
-  rank_status = bulk.rank_status, 
-  thumbnail = bulk.thumbnail, 
-  cover = bulk.cover, 
-  last_update = NOW() 
-FROM 
-  (
-    SELECT
-      *
-    FROM
-      UNNEST(
-        $1::INT4[], $2::VARCHAR[], $3::VARCHAR[], $4::VARCHAR[], 
-        $5::VARCHAR[], $6::BOOL[], $7::INT2[], $8::VARCHAR[], 
-        $9::VARCHAR[], $10::INT4[]
-      ) AS t(
-        user_id, artist, title, creator, source, video, 
-        rank_status, thumbnail, cover, mapset_id
-      )
-  ) AS bulk
-WHERE 
+UPDATE
+  osu_mapsets
+SET
+  user_id = bulk.user_id,
+  artist = bulk.artist,
+  title = bulk.title,
+  creator = bulk.creator,
+  source = bulk.source,
+  video = bulk.video,
+  rank_status = bulk.rank_status,
+  thumbnail = bulk.thumbnail,
+  cover = bulk.cover,
+  last_update = NOW()
+FROM
+  UNNEST(
+    $1::INT4[], $2::VARCHAR[], $3::VARCHAR[], $4::VARCHAR[],
+    $5::VARCHAR[], $6::BOOL[], $7::INT2[], $8::VARCHAR[],
+    $9::VARCHAR[], $10::INT4[]
+  ) AS bulk(
+    user_id, artist, title, creator, source, video,
+    rank_status, thumbnail, cover, mapset_id
+  )
+WHERE
   osu_mapsets.mapset_id = bulk.mapset_id"#,
             &vec_creator_id,
             &vec_artist as _,
