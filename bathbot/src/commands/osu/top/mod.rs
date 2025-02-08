@@ -816,7 +816,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
     with_render &= settings.buttons.render
         && mode == GameMode::Osu
         && orig.has_permission_to(Permissions::SEND_MESSAGES)
-        && Context::ordr().is_some();
+        && Context::ordr_available();
 
     let pre_len = scores.len();
 

@@ -154,7 +154,6 @@ impl CachedRender {
         let skin = settings.skin(allow_custom_skins);
 
         let render_fut = Context::ordr()
-            .expect("ordr unavailable")
             .client()
             .render_with_replay_file(&replay, RENDERER_NAME, &skin.skin)
             .options(settings.options());

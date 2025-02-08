@@ -116,8 +116,22 @@ impl Context {
         &Self::get().clients.custom
     }
 
-    pub fn ordr() -> Option<&'static Ordr> {
+    pub fn ordr_available() -> bool {
+        Self::get().clients.ordr.is_some()
+    }
+
+    pub fn try_ordr() -> Option<&'static Ordr> {
         Self::get().clients.ordr.as_deref()
+    }
+
+    /// Panics if ordr is not available
+    #[track_caller]
+    pub fn ordr() -> &'static Ordr {
+        Self::get()
+            .clients
+            .ordr
+            .as_deref()
+            .expect("ordr unavailable")
     }
 
     pub fn psql() -> &'static Database {

@@ -45,7 +45,7 @@ impl Context {
             info!("Stopped match tracking in {count} channels");
         }
 
-        if let Some(ordr) = Context::ordr() {
+        if let Some(ordr) = Context::try_ordr() {
             info!("Disconnecting from ordr");
             ordr.disconnect();
         }

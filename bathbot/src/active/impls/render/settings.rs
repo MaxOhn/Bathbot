@@ -323,13 +323,7 @@ impl RenderSettingsActive {
 
                 // We're not simply propagating errors because the modal must be deferred
                 // already so we need to respond properly
-                match Context::ordr()
-                    .expect("ordr unavailable")
-                    .client()
-                    .skin_list()
-                    .search(input)
-                    .await
-                {
+                match Context::ordr().client().skin_list().search(input).await {
                     Ok(mut skin_list) => {
                         let skin_opt =
                             (!skin_list.skins.is_empty()).then(|| skin_list.skins.swap_remove(0));
@@ -355,12 +349,7 @@ impl RenderSettingsActive {
                     modal.defer().await.wrap_err("Failed to defer modal")?;
                     deferred = true;
 
-                    match Context::ordr()
-                        .expect("ordr unavailable")
-                        .client()
-                        .custom_skin_info(id)
-                        .await
-                    {
+                    match Context::ordr().client().custom_skin_info(id).await {
                         Ok(info) => self.settings.custom_skin(id, info),
                         Err(err) => {
                             warn!(?err, "Failed to search for custom skin `{input}`");

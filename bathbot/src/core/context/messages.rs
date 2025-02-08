@@ -118,7 +118,7 @@ impl Context {
                 continue;
             };
 
-            let Some(ordr) = Context::ordr() else {
+            let Some(ordr) = Context::try_ordr() else {
                 continue;
             };
 

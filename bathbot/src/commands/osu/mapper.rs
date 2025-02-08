@@ -297,7 +297,7 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
     with_render &= settings.buttons.render
         && mode == GameMode::Osu
         && orig.has_permission_to(Permissions::SEND_MESSAGES)
-        && Context::ordr().is_some();
+        && Context::ordr_available();
 
     let entries =
         match process_scores(scores, mapper_id, args.sort, with_render, legacy_scores).await {

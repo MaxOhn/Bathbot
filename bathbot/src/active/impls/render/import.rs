@@ -110,7 +110,7 @@ impl SettingsImport {
         };
 
         let user = modal.user_id()?;
-        let ordr = Context::ordr().expect("ordr unavailable").client();
+        let ordr = Context::ordr().client();
 
         let settings = match skin {
             RenderSkinOption::Official { ref name } => {

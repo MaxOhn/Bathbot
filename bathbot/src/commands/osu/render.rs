@@ -99,7 +99,7 @@ pub struct RenderSettingsCopy {
 pub struct RenderSettingsDefault;
 
 pub async fn slash_render(mut command: InteractionCommand) -> Result<()> {
-    if Context::ordr().is_none() {
+    if !Context::ordr_available() {
         command
             .error_callback("Rendering is currently unavailable")
             .await?;
@@ -164,7 +164,6 @@ async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Res
     let skin = settings.skin(allow_custom_skins);
 
     let render_fut = Context::ordr()
-        .expect("ordr unavailable")
         .client()
         .render_with_replay_url(&replay.url, RENDERER_NAME, &skin.skin)
         .options(settings.options());
@@ -295,7 +294,6 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
     let skin = settings.skin(allow_custom_skins);
 
     let render_fut = Context::ordr()
-        .expect("ordr unavailable")
         .client()
         .render_with_replay_file(&replay, RENDERER_NAME, &skin.skin)
         .options(settings.options());
@@ -475,10 +473,7 @@ impl OngoingRender {
         Self {
             orig: orig.into(),
             render_id,
-            receivers: Context::ordr()
-                .expect("ordr unavailable")
-                .subscribe_render_id(render_id)
-                .await,
+            receivers: Context::ordr().subscribe_render_id(render_id).await,
             status,
             score_id,
             msg_owner,
@@ -539,7 +534,7 @@ impl OngoingRender {
                         warn!(?err, "Failed to update message");
                     }
 
-                    Context::ordr().expect("ordr unavailable").unsubscribe_render_id(render_id).await;
+                    Context::ordr().unsubscribe_render_id(render_id).await;
 
                     return;
                 },
@@ -557,7 +552,7 @@ impl OngoingRender {
                         warn!(?err, "Failed to update message");
                     }
 
-                    Context::ordr().expect("ordr unavailable").unsubscribe_render_id(failed.render_id).await;
+                    Context::ordr().unsubscribe_render_id(failed.render_id).await;
 
                     return;
                 },
@@ -569,7 +564,7 @@ impl OngoingRender {
                         warn!(?err, "Failed to update message");
                     }
 
-                    Context::ordr().expect("ordr unavailable").unsubscribe_render_id(self.render_id).await;
+                    Context::ordr().unsubscribe_render_id(self.render_id).await;
 
                     return;
                 },
