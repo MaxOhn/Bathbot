@@ -415,6 +415,7 @@ pub struct ScoreEmbedDataHalf {
     pub pb_idx: Option<ScoreEmbedDataPersonalBest>,
     pub legacy_scores: bool,
     pub with_render: bool,
+    pub has_replay: bool,
     pub miss_analyzer_check: MissAnalyzerCheck,
     pub original_idx: Option<usize>,
 }
@@ -450,6 +451,7 @@ impl ScoreEmbedDataHalf {
             None => calc.score(&score).performance().await.pp() as f32,
         };
 
+        let has_replay = score.has_replay;
         let score = ScoreSlim::new(score, pp);
 
         Self {
@@ -462,6 +464,7 @@ impl ScoreEmbedDataHalf {
             pb_idx,
             legacy_scores,
             with_render,
+            has_replay,
             miss_analyzer_check,
             original_idx: None,
         }
@@ -538,8 +541,8 @@ impl ScoreEmbedDataHalf {
 
         let if_fc_pp = if_fc.map(|if_fc| if_fc.pp);
 
-        let replay_score_id =
-            (self.with_render && !self.score.is_legacy).then_some(self.score.score_id);
+        let replay_score_id = (self.with_render && self.has_replay && !self.score.is_legacy)
+            .then_some(self.score.score_id);
 
         ScoreEmbedData {
             score: self.score,
