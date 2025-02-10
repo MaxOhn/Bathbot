@@ -114,7 +114,11 @@ impl TopPagination {
                 stars = round(*stars),
                 grade = GradeFormatter::new(score.grade, Some(score.score_id), score.is_legacy()),
                 pp = round(score.pp),
-                acc = round(score.accuracy),
+                acc = if self.sort_by == TopScoreOrder::Acc {
+                    round_5(score.accuracy)
+                } else {
+                    round(score.accuracy)
+                },
                 combo = score.max_combo,
                 miss = MissFormat(score.statistics.miss),
                 mods = ModsFormatter::new(&score.mods),
@@ -152,7 +156,11 @@ impl TopPagination {
                 stars = round(*stars),
                 grade = GradeFormatter::new(score.grade, Some(score.score_id), score.is_legacy()),
                 pp = round(score.pp),
-                acc = round(score.accuracy),
+                acc = if self.sort_by == TopScoreOrder::Acc {
+                    round_5(score.accuracy)
+                } else {
+                    round(score.accuracy)
+                },
                 // currently ignoring classic scoring, should it be considered for mania?
                 score = ScoreFormat(score.score),
                 n320 = stats.perfect,
@@ -202,7 +210,11 @@ impl TopPagination {
                 mods = ModsFormatter::new(&score.mods),
                 grade = GradeFormatter::new(score.grade, Some(score.score_id), score.is_legacy()),
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
-                acc = round(score.accuracy),
+                acc = if self.sort_by == TopScoreOrder::Acc {
+                    round_5(score.accuracy)
+                } else {
+                    round(score.accuracy)
+                },
                 score = ScoreFormatter::new(score, self.score_data),
                 combo = ComboFormatter::new(score.max_combo, Some(*max_combo)),
                 hits = HitResultFormatter::new(score.mode, &score.statistics),
@@ -595,4 +607,10 @@ impl Display for OrderAppendix<'_> {
             | TopScoreOrder::Stars => HowLongAgoDynamic::new(&self.entry.score.ended_at).fmt(f),
         }
     }
+}
+
+/// Round with five decimal places as opposed to [`round`] which shows two
+/// decimal places.
+pub fn round_5(n: f32) -> f32 {
+    (100_000.0 * n).round() / 100_000.0
 }
