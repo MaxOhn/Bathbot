@@ -81,6 +81,10 @@ pub enum TopIfScoreOrder {
     Pp,
     #[option(name = "PP delta", value = "pp_delta")]
     PpDelta,
+    #[option(name = "PP gain", value = "pp_gain")]
+    PpGain,
+    #[option(name = "PP loss", value = "pp_loss")]
+    PpLoss,
     #[option(name = "Stars", value = "stars")]
     Stars,
 }
@@ -343,8 +347,12 @@ pub struct TopIfEntry {
 }
 
 impl TopIfEntry {
+    pub fn pp_diff(&self) -> f32 {
+        self.score.pp - self.old_pp
+    }
+
     pub fn pp_delta(&self) -> f32 {
-        (self.score.pp - self.old_pp).abs()
+        self.pp_diff().abs()
     }
 }
 
@@ -570,6 +578,16 @@ async fn process_scores(
                 .total_cmp(&a.pp_delta())
                 .then_with(|| b.score.pp.total_cmp(&a.score.pp))
         }),
+        TopIfScoreOrder::PpGain => entries.sort_unstable_by(|a, b| {
+            b.pp_diff()
+                .total_cmp(&a.pp_diff())
+                .then_with(|| b.score.pp.total_cmp(&a.score.pp))
+        }),
+        TopIfScoreOrder::PpLoss => entries.sort_unstable_by(|a, b| {
+            a.pp_diff()
+                .total_cmp(&b.pp_diff())
+                .then_with(|| b.score.pp.total_cmp(&a.score.pp))
+        }),
         TopIfScoreOrder::Stars => entries.sort_unstable_by(|a, b| {
             b.stars
                 .total_cmp(&a.stars)
@@ -642,6 +660,8 @@ fn get_content(
     let sort_str = match sort {
         TopIfScoreOrder::Pp => "New PP",
         TopIfScoreOrder::PpDelta => "PP delta",
+        TopIfScoreOrder::PpGain => "PP gain",
+        TopIfScoreOrder::PpLoss => "PP loss",
         TopIfScoreOrder::Stars => "New stars",
     };
 

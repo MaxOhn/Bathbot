@@ -900,6 +900,8 @@ async fn topold(orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
         let sort_str = match sort {
             TopIfScoreOrder::Pp => "Old PP",
             TopIfScoreOrder::PpDelta => "PP delta",
+            TopIfScoreOrder::PpGain => "PP gain",
+            TopIfScoreOrder::PpLoss => "PP loss",
             TopIfScoreOrder::Stars => "Old stars",
         };
 
@@ -1128,6 +1130,8 @@ impl CommonArgs<'_> {
             TopIfScoreOrder::PpDelta => {
                 entries.sort_by(|a, b| b.pp_delta().total_cmp(&a.pp_delta()))
             }
+            TopIfScoreOrder::PpGain => entries.sort_by(|a, b| b.pp_diff().total_cmp(&a.pp_diff())),
+            TopIfScoreOrder::PpLoss => entries.sort_by(|a, b| a.pp_diff().total_cmp(&b.pp_diff())),
             TopIfScoreOrder::Stars => entries.sort_unstable_by(|a, b| b.stars.total_cmp(&a.stars)),
         }
 
