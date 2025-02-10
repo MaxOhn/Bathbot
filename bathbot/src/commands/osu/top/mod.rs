@@ -104,17 +104,17 @@ pub struct Top {
 pub enum TopScoreOrder {
     #[option(name = "Accuracy", value = "acc")]
     Acc,
-    #[option(name = "Approach Rate", value = "ar")]
+    #[option(name = "Approach Rate (AR)", value = "ar")]
     Ar,
     #[option(name = "BPM", value = "bpm")]
     Bpm,
     #[option(name = "Combo", value = "combo")]
     Combo,
-    #[option(name = "Circle Size", value = "cs")]
+    #[option(name = "Circle Size (CS)", value = "cs")]
     Cs,
     #[option(name = "Date", value = "date")]
     Date,
-    #[option(name = "Drain Rate", value = "hp")]
+    #[option(name = "Drain Rate (HP)", value = "hp")]
     Hp,
     #[option(name = "Length", value = "len")]
     Length,
@@ -122,7 +122,7 @@ pub enum TopScoreOrder {
     RankedDate,
     #[option(name = "Misses", value = "miss")]
     Misses,
-    #[option(name = "Overall Difficulty", value = "od")]
+    #[option(name = "Overall Difficulty (OD)", value = "od")]
     Od,
     #[default]
     #[option(name = "PP", value = "pp")]
