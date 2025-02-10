@@ -466,7 +466,7 @@ pub struct OsuStatsListParams {
     pub rank_max: usize,
 }
 
-#[derive(Copy, Clone, CreateOption, CommandOption, Debug)]
+#[derive(Copy, Clone, CreateOption, CommandOption, Debug, PartialEq, Eq)]
 pub enum OsuStatsScoresOrder {
     #[option(name = "Accuracy", value = "acc")]
     Acc = 3,

@@ -290,6 +290,13 @@ impl<'m> OsuStatsScores<'m> {
     ) -> OsuStatsParams {
         let mut params = OsuStatsParams::new(username);
 
+        let order = self.sort.unwrap_or_default();
+        let mut descending = self.reverse.map_or(true, bool::not);
+
+        if order == OsuStatsScoresOrder::Rank {
+            descending = !descending;
+        }
+
         params
             .mode(mode)
             .page(1)
@@ -297,8 +304,8 @@ impl<'m> OsuStatsScores<'m> {
             .max_rank(self.max_rank.unwrap_or(Self::MAX_RANK) as usize)
             .min_acc(self.min_acc.unwrap_or(0.0))
             .max_acc(self.max_acc.unwrap_or(100.0))
-            .order(self.sort.unwrap_or_default())
-            .descending(self.reverse.map_or(true, bool::not));
+            .order(order)
+            .descending(descending);
 
         if let Some(mods) = mods {
             params.mods(mods);
