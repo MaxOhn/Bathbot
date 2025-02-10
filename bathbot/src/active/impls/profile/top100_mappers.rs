@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_util::IntHasher;
 use rosu_v2::prelude::Username;
@@ -43,7 +43,8 @@ impl Top100Mappers {
             .map(|(id, (count, pp))| MapperEntry {
                 name: mapper_names
                     .get(&id)
-                    .map_or("<unknown name>", Username::as_str),
+                    .map(Username::as_str)
+                    .map_or_else(|| format!("<user {id}>").into(), Cow::Borrowed),
                 pp,
                 count,
             })
@@ -54,7 +55,7 @@ impl Top100Mappers {
 }
 
 pub(super) struct MapperEntry<'n> {
-    pub name: &'n str,
+    pub name: Cow<'n, str>,
     pub pp: f32,
     pub count: u8,
 }

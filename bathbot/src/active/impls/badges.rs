@@ -82,7 +82,7 @@ impl BadgesPagination {
             let _ = if owner.username.is_empty() {
                 writeln!(
                     owners_str,
-                    ":pirate_flag: [<unknown user>]({OSU_BASE}u/{user_id})",
+                    ":pirate_flag: [<user {user_id}>]({OSU_BASE}u/{user_id})",
                     user_id = owner.user_id
                 )
             } else {
