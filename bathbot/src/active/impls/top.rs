@@ -602,6 +602,7 @@ impl Display for OrderAppendix<'_> {
             | TopScoreOrder::Combo
             | TopScoreOrder::Date
             | TopScoreOrder::Misses
+            | TopScoreOrder::ModsCount
             | TopScoreOrder::Pp
             | TopScoreOrder::Score
             | TopScoreOrder::Stars => HowLongAgoDynamic::new(&self.entry.score.ended_at).fmt(f),

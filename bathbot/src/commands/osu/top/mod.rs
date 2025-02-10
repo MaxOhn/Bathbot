@@ -122,6 +122,8 @@ pub enum TopScoreOrder {
     RankedDate,
     #[option(name = "Misses", value = "miss")]
     Misses,
+    #[option(name = "Mods count", value = "mods_count")]
+    ModsCount,
     #[option(name = "Overall Difficulty (OD)", value = "od")]
     Od,
     #[default]
@@ -143,6 +145,7 @@ impl From<ScoreOrder> for TopScoreOrder {
             ScoreOrder::Date => Self::Date,
             ScoreOrder::Length => Self::Length,
             ScoreOrder::Misses => Self::Misses,
+            ScoreOrder::ModsCount => Self::ModsCount,
             ScoreOrder::Pp => Self::Pp,
             ScoreOrder::RankedDate => Self::RankedDate,
             ScoreOrder::Score => Self::Score,
@@ -1080,6 +1083,9 @@ async fn process_scores(
                         .then_with(|| hits_b.cmp(&hits_a))
                 })
         }),
+        TopScoreOrder::ModsCount => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.mods.len()))
+        }
         TopScoreOrder::Od => {
             entries.sort_by(|a, b| b.get_half().od().total_cmp(&a.get_half().od()))
         }
@@ -1188,6 +1194,9 @@ fn write_content(
             TopScoreOrder::Misses => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}miss count:")
             }
+            TopScoreOrder::ModsCount => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}amount of mods:")
+            }
             TopScoreOrder::Od => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}OD:")
             }
@@ -1223,6 +1232,7 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
         TopScoreOrder::Hp => content.push_str("`Order: HP"),
         TopScoreOrder::Length => content.push_str("`Order: Length"),
         TopScoreOrder::Misses => content.push_str("`Order: Miss count"),
+        TopScoreOrder::ModsCount => content.push_str("`Order: Amount of mods"),
         TopScoreOrder::Od => content.push_str("`Order: OD"),
         TopScoreOrder::Pp => content.push_str("`Order: Pp"),
         TopScoreOrder::RankedDate => content.push_str("`Order: Ranked date"),
