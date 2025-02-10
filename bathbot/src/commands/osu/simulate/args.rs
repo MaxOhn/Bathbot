@@ -1,5 +1,6 @@
 use std::{borrow::Cow, str::FromStr};
 
+use bathbot_util::CowUtils;
 use nom::{
     branch::alt,
     bytes::complete as by,
@@ -37,8 +38,10 @@ pub enum SimulateArg {
 }
 
 impl SimulateArg {
-    pub fn parse(input: &str) -> Result<Self, ParseError<'_>> {
-        let (rest, key_opt) = parse_key(input).map_err(|_| ParseError::Nom(input))?;
+    pub fn parse(input: &str) -> Result<Self, ParseError> {
+        let input = input.cow_to_ascii_lowercase();
+
+        let (rest, key_opt) = parse_key(&input).map_err(|_| ParseError::nom(&input))?;
 
         match key_opt {
             None => parse_any(rest),
@@ -65,13 +68,13 @@ impl SimulateArg {
                 .map(SimulateArg::Lazer),
             Some(key) => {
                 let (sub_n, _) = opt::<_, _, NomError<_>, _>(ch::char('n'))(key)
-                    .map_err(|_| ParseError::Nom(input))?;
+                    .map_err(|_| ParseError::nom(&input))?;
 
                 match sub_n {
                     "miss" | "m" | "misses" => parse_miss(rest).map(SimulateArg::Miss),
                     "geki" | "gekis" | "320" => parse_geki(rest).map(SimulateArg::Geki),
                     "katu" | "katus" | "200" => parse_katu(rest).map(SimulateArg::Katu),
-                    _ => Err(ParseError::Unknown(key)),
+                    _ => Err(ParseError::unknown(key)),
                 }
             }
         }
@@ -82,7 +85,7 @@ fn parse_key(input: &str) -> IResult<&str, Option<&str>> {
     opt(terminated(ch::alphanumeric1, ch::char('=')))(input)
 }
 
-fn parse_any(input: &str) -> Result<SimulateArg, ParseError<'_>> {
+fn parse_any(input: &str) -> Result<SimulateArg, ParseError> {
     fn inner(input: &str) -> IResult<&str, SimulateArg> {
         enum ParseAny {
             Float(f32),
@@ -151,7 +154,7 @@ fn parse_any(input: &str) -> Result<SimulateArg, ParseError<'_>> {
 
     inner(input)
         .map(|(_, val)| val)
-        .map_err(|_| ParseError::Nom(input))
+        .map_err(|_| ParseError::nom(input))
 }
 
 fn parse_int<'i, F>(input: &'i str, suffix: F) -> IResult<&'i str, u32>
@@ -190,7 +193,7 @@ fn parse_bool(input: &str) -> IResult<&str, bool> {
 macro_rules! parse_arg {
     ( $( $fn:ident -> $ty:ty: $parse:ident, $recognize:ident $( or $x:literal )?, $err:ident; )* ) => {
         $(
-            fn $fn(input: &str) -> Result<$ty, ParseError<'_>> {
+            fn $fn(input: &str) -> Result<$ty, ParseError> {
                 let recognize = alt((
                     map($recognize, |_| ()),
                     $( map(ch::char($x), |_| ()) )?
@@ -222,7 +225,7 @@ parse_arg! {
 macro_rules! parse_attr_arg {
     ( $( $fn:ident: $err:ident; ) *) => {
         $(
-            fn $fn(input: &str) -> Result<f32, ParseError<'_>> {
+            fn $fn(input: &str) -> Result<f32, ParseError> {
                 parse_float(input, success(()))
                     .map(|(_, val)| val)
                     .map_err(|_| ParseError::$err)
@@ -239,7 +242,7 @@ parse_attr_arg! {
     parse_bpm: Bpm;
 }
 
-fn parse_lazer<'a>(input: &'a str, err: ParseError<'a>) -> Result<bool, ParseError<'a>> {
+fn parse_lazer(input: &str, err: ParseError) -> Result<bool, ParseError> {
     parse_bool(input).map(|(_, val)| val).map_err(|_| err)
 }
 
@@ -257,7 +260,7 @@ fn parse_mods_force_prefix(input: &str) -> IResult<&str, GameModsIntermode> {
     }
 }
 
-fn parse_mods(input: &str) -> Result<GameModsIntermode, ParseError<'_>> {
+fn parse_mods(input: &str) -> Result<GameModsIntermode, ParseError> {
     let (_, (prefixed, mods, suffixed)) = parse_mods_raw(input).map_err(|_| ParseError::Mods)?;
 
     if prefixed || !suffixed {
@@ -349,7 +352,7 @@ fn recognize_small_ticks(input: &str) -> IResult<&str, &str> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ParseError<'s> {
+pub enum ParseError {
     Acc,
     Bpm,
     Combo,
@@ -370,11 +373,23 @@ pub enum ParseError<'s> {
     Od,
     Lazer,
     Stable,
-    Nom(&'s str),
-    Unknown(&'s str),
+    Nom(String),
+    Unknown(String),
 }
 
-impl ParseError<'_> {
+impl ParseError {
+    fn nom(input: &str) -> Self {
+        Self::Nom(format!("Failed to parse argument `{input}`"))
+    }
+
+    fn unknown(input: &str) -> Self {
+        Self::Unknown(format!(
+            "Unknown key `{input}`. Must be `mods`, `lazer`, `stable`, `acc`, `bpm`, \
+            `combo`, `clockrate`, `n300`, `n100`, `n50`, `miss`, `geki`, `katu`, \
+            `sliderends`, `largeticks`, `smallticks`, `ar`, `cs`, `hp`, or `od`"
+        ))
+    }
+
     pub fn into_str(self) -> Cow<'static, str> {
         match self {
             Self::Acc => "Failed to parse accuracy, must be a number".into(),
@@ -397,13 +412,7 @@ impl ParseError<'_> {
             Self::SmallTicks => "Failed to parse small ticks, must be a number".into(),
             Self::Lazer => "Failed to parse lazer, must be a boolean".into(),
             Self::Stable => "Failed to parse stable, must be a boolean".into(),
-            Self::Nom(input) => format!("Failed to parse argument `{input}`").into(),
-            Self::Unknown(input) => format!(
-                "Unknown key `{input}`. Must be `mods`, `lazer`, `stable`, `acc`, `bpm`, \
-                `combo`, `clockrate`, `n300`, `n100`, `n50`, `miss`, `geki`, `katu`, \
-                `sliderends`, `largeticks`, `smallticks`, `ar`, `cs`, `hp`, or `od`"
-            )
-            .into(),
+            Self::Nom(err) | Self::Unknown(err) => err.into(),
         }
     }
 }
@@ -647,8 +656,17 @@ mod tests {
         assert_eq!(SimulateArg::parse("mods=+hdr!"), Err(ParseError::Mods));
         assert_eq!(SimulateArg::parse("mods=-hdhr!"), Err(ParseError::Mods));
         assert_eq!(SimulateArg::parse("mods=hdhr!"), Err(ParseError::Mods));
-        assert_eq!(SimulateArg::parse("-hdhr!"), Err(ParseError::Nom("-hdhr!")));
-        assert_eq!(SimulateArg::parse("-hdhr"), Err(ParseError::Nom("-hdhr")));
-        assert_eq!(SimulateArg::parse("hdhr!"), Err(ParseError::Nom("hdhr!")));
+        assert!(matches!(
+            SimulateArg::parse("-hdhr!"),
+            Err(ParseError::Nom(err)) if err.contains("`-hdhr!`")
+        ));
+        assert!(matches!(
+            SimulateArg::parse("-hdhr"),
+            Err(ParseError::Nom(err)) if err.contains("`-hdhr`")
+        ));
+        assert!(matches!(
+            SimulateArg::parse("hdhr!"),
+            Err(ParseError::Nom(err)) if err.contains("`hdhr!`")
+        ));
     }
 }

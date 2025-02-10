@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::MapIdType, CowUtils};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::MapIdType};
 use eyre::Result;
 use rosu_v2::prelude::{GameMode, GameModsIntermode};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -479,9 +479,7 @@ impl SimulateArgs {
                 continue;
             }
 
-            let arg = arg.cow_to_ascii_lowercase();
-
-            match SimulateArg::parse(&arg).map_err(ParseError::into_str)? {
+            match SimulateArg::parse(arg).map_err(ParseError::into_str)? {
                 SimulateArg::Acc(val) => simulate.acc = Some(val.clamp(0.0, 100.0)),
                 SimulateArg::Bpm(val) => simulate.bpm = Some(val),
                 SimulateArg::Combo(val) => simulate.combo = Some(val),
