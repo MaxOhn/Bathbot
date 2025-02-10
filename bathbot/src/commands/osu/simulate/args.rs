@@ -430,6 +430,15 @@ mod tests {
     }
 
     #[test]
+    fn approach_rate() {
+        assert_eq!(SimulateArg::parse("ar=9.4"), Ok(SimulateArg::Ar(9.4)));
+        assert_eq!(SimulateArg::parse("aR=8.2"), Ok(SimulateArg::Ar(8.2)));
+        assert_eq!(SimulateArg::parse("ar0"), Ok(SimulateArg::Ar(0.0)));
+        assert_eq!(SimulateArg::parse("AR10"), Ok(SimulateArg::Ar(10.0)));
+        assert_eq!(SimulateArg::parse("ar=123x"), Err(ParseError::Ar));
+    }
+
+    #[test]
     fn combo() {
         assert_eq!(
             SimulateArg::parse("combo=123x"),
