@@ -440,7 +440,7 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
 
                         user.username
                     }
-                    None => "<unknown user>".into(),
+                    None => format!("<user {}>", score.user_id).into(),
                 };
 
                 LeaderboardScore::new(score.user_id, username, score, i + 1)

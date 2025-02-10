@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashMap, fmt::Write, time::Duration};
+use std::{borrow::Cow, cmp, collections::HashMap, fmt::Write, time::Duration};
 
 use bathbot_util::{
     constants::{DESCRIPTION_SIZE, OSU_BASE},
@@ -302,7 +302,6 @@ impl MatchCostPagination {
 
 const FULL_FOOTER: &str =
     "matchcost = (performance * participation * mods) + tiebreaker | average score";
-const UNKNOWN_NAME: &str = "<unknown name>";
 
 #[derive(Default)]
 struct Lengths {
@@ -325,10 +324,14 @@ impl Lengths {
             self.index = cmp::max(self.index, buf.len());
 
             buf.clear();
-            let username = users
-                .get(&entry.user_id)
-                .map_or(UNKNOWN_NAME, |user| user.username.as_str());
-            buf.push_str(username);
+            let username = users.get(&entry.user_id).map(|user| user.username.as_str());
+
+            if let Some(name) = username {
+                buf.push_str(name);
+            } else {
+                let _ = write!(buf, "<user {}>", entry.user_id);
+            }
+
             self.name = cmp::max(self.name, buf.len());
 
             buf.clear();
@@ -387,9 +390,10 @@ fn fmt_compact(
             description,
             "` [`{name:<name_len$}`]({OSU_BASE}u/{user_id}) \
                 `{match_cost:0<4?}`{medal}",
-            name = users
-                .get(&entry.user_id)
-                .map_or(UNKNOWN_NAME, |user| user.username.as_str()),
+            name = users.get(&entry.user_id).map_or_else(
+                || format!("<user {}>", entry.user_id).into(),
+                |user| Cow::Borrowed(user.username.as_str())
+            ),
             name_len = lengths.name,
             user_id = entry.user_id,
             match_cost = round(entry.match_cost),
@@ -421,9 +425,10 @@ fn fmt_full(
             `{match_cost:0<4} = ({performance:>performance_len$} * \
             {participation:^participation_len$} * {mods:^mods_len$}) + \
             {tiebreaker:^tiebreaker_len$}` `{avg_score:>avg_score_len$}`",
-            name = users
-                .get(&entry.user_id)
-                .map_or(UNKNOWN_NAME, |user| user.username.as_str()),
+            name = users.get(&entry.user_id).map_or_else(
+                || format!("<user {}>", entry.user_id).into(),
+                |user| Cow::Borrowed(user.username.as_str())
+            ),
             name_len = lengths.name,
             user_id = entry.user_id,
             match_cost = round(entry.match_cost),

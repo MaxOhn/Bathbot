@@ -223,10 +223,10 @@ impl Client {
                                 total += 1;
                                 unique.insert(user_id);
 
-                                let username = score
-                                    .sniper
-                                    .as_ref()
-                                    .map_or_else(|| "<unknown name>".into(), Username::clone);
+                                let username = score.sniper.as_ref().map_or_else(
+                                    || format!("<user {}>", score.sniper_id).into(),
+                                    Username::clone,
+                                );
 
                                 players
                                     .entry(user_id)

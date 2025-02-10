@@ -137,8 +137,8 @@ impl SnipeDifferencePagination {
                     ),
                     None => write!(
                         description,
-                        "Sniped by [<unknown user>]({OSU_BASE}u/{})",
-                        score.sniper_id
+                        "Sniped by [<user {user_id}>]({OSU_BASE}u/{user_id})",
+                        user_id = score.sniper_id,
                     ),
                 },
             };

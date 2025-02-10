@@ -307,7 +307,10 @@ pub(super) async fn leaderboard(
 
                 LeaderboardScore::new(
                     score.user_id,
-                    user.map_or_else(|| "<unknown user>".into(), |user| user.username),
+                    user.map_or_else(
+                        || format!("<user {}>", score.user_id).into(),
+                        |user| user.username,
+                    ),
                     score,
                     i + 1,
                 )
