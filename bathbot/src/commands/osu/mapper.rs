@@ -506,6 +506,9 @@ async fn process_scores(
                         .then_with(|| hits_b.cmp(&hits_a))
                 })
         }),
+        Some(ScoreOrder::ModsCount) => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.mods.len()))
+        }
         Some(ScoreOrder::Pp) => entries.sort_by(|a, b| {
             b.get_half()
                 .score

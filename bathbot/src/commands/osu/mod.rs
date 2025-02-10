@@ -195,6 +195,8 @@ pub enum ScoreOrder {
     Length,
     #[option(name = "Misses", value = "misses")]
     Misses,
+    #[option(name = "Mods count", value = "mods_count")]
+    ModsCount,
     #[option(name = "PP", value = "pp")]
     Pp,
     #[option(name = "Map ranked date", value = "ranked_date")]

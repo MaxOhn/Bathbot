@@ -482,6 +482,9 @@ async fn process_scores(
                         .then_with(|| hits_b.cmp(&hits_a))
                 })
         }),
+        Some(ScoreOrder::ModsCount) => {
+            entries.sort_by_key(|entry| Reverse(entry.get_half().score.mods.len()))
+        }
         Some(ScoreOrder::Pp) => entries.sort_by(|a, b| {
             b.get_half()
                 .score
@@ -539,6 +542,9 @@ fn write_content(
             ScoreOrder::Misses => {
                 format!("`{name}`'{genitive} pinned scores sorted by {reverse}miss count:")
             }
+            ScoreOrder::ModsCount => {
+                format!("`{name}`'{genitive} pinned scores sorted by {reverse}amount of mods:")
+            }
             ScoreOrder::Pp => format!("`{name}`'{genitive} pinned scores sorted by {reverse}pp"),
             ScoreOrder::RankedDate => {
                 format!("`{name}`'{genitive} pinned scores sorted by {reverse}ranked date:")
@@ -571,6 +577,7 @@ fn content_with_condition(args: &Pinned, amount: usize, mods: Option<&ModSelecti
         Some(ScoreOrder::Date) => content.push_str("`Order: Date"),
         Some(ScoreOrder::Length) => content.push_str("`Order: Length"),
         Some(ScoreOrder::Misses) => content.push_str("`Order: Miss count"),
+        Some(ScoreOrder::ModsCount) => content.push_str("`Order: Amount of mods"),
         Some(ScoreOrder::Pp) => content.push_str("`Order: Pp"),
         Some(ScoreOrder::RankedDate) => content.push_str("`Order: Ranked date"),
         Some(ScoreOrder::Score) => content.push_str("`Order: Score"),
