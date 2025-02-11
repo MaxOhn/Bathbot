@@ -27,19 +27,18 @@ impl CachedUserExt for CachedUser {
             global = WithComma::new(stats.global_rank.to_native()),
         );
 
-        // Arguably showing the value *always* is a little much so best we only
-        // show it in some cases.
-        // Also, apparently neither iOS nor android manage to show the unicode
-        // arrow characters so we need to limit visibility further.
+        // Arguably showing the value *always* is a little much so it's
+        // probably best we only show it in some cases.
         if with_rank_change {
             if let Some(rank_change) = self.rank_change_since_30_days() {
-                // alternatively '🡩' and '🡫'
+                // Alternatively '🡩' and '🡫' or '⭜' and '⭝' but they don't
+                // show properly on mobile and/or linux :(
                 match rank_change.cmp(&0) {
                     Ordering::Greater => {
-                        let _ = write!(text, " ⭝{rank_change}");
+                        let _ = write!(text, " ⬇{rank_change}");
                     }
                     Ordering::Less => {
-                        let _ = write!(text, " ⭜{}", -rank_change);
+                        let _ = write!(text, " ⬆{}", -rank_change);
                     }
                     Ordering::Equal => {}
                 }
