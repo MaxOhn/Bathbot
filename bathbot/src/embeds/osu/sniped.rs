@@ -18,7 +18,7 @@ pub struct SnipedEmbed {
 impl SnipedEmbed {
     pub fn new(user: &CachedUser, sniper: Vec<SnipedWeek>, snipee: Vec<SnipedWeek>) -> Self {
         let thumbnail = user.avatar_url.as_ref().to_owned();
-        let author = user.author_builder();
+        let author = user.author_builder(false);
         let title = "National snipe scores of the last 8 weeks";
         let username = user.username.as_str();
 

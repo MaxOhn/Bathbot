@@ -247,7 +247,7 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
     let description = rank_data.description(scores.as_deref(), multiple);
 
     let embed = EmbedBuilder::new()
-        .author(user.author_builder())
+        .author(user.author_builder(false))
         .description(description)
         .thumbnail(user.avatar_url.as_ref())
         .title(title);

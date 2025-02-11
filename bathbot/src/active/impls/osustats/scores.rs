@@ -155,7 +155,7 @@ impl OsuStatsScoresPagination {
 
         if self.entries.is_empty() {
             let embed = EmbedBuilder::new()
-                .author(self.user.author_builder())
+                .author(self.user.author_builder(false))
                 .description("No scores with these parameters were found")
                 .footer(FooterBuilder::new("Page 1/1 • Total scores: 0"))
                 .thumbnail(self.user.avatar_url.as_ref());
@@ -207,7 +207,7 @@ impl OsuStatsScoresPagination {
         ));
 
         let embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
+            .author(self.user.author_builder(false))
             .description(description)
             .footer(footer)
             .thumbnail(self.user.avatar_url.as_ref());

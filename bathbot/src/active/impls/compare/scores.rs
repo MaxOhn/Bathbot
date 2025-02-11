@@ -78,7 +78,7 @@ impl IActiveMessage for CompareScoresPagination {
         );
 
         let mut embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
+            .author(self.user.author_builder(false))
             .footer(footer)
             .title(title)
             .url(format!("{OSU_BASE}b/{}", self.map.map_id()));

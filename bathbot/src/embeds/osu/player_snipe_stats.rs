@@ -147,7 +147,7 @@ impl PlayerSnipeStatsEmbed {
             fields,
             description,
             footer: FooterBuilder::new(footer_text),
-            author: user.author_builder(),
+            author: user.author_builder(false),
             title: "National #1 statistics",
             image: attachment("stats_graph.png"),
             thumbnail: avatar_url.to_owned(),

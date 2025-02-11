@@ -85,7 +85,7 @@ Best    | {:^daily_len$} | {:^6}
     let footer = format!("Played today: {}", if played_today { '✅' } else { '❌' });
 
     let embed = EmbedBuilder::new()
-        .author(user.author_builder())
+        .author(user.author_builder(false))
         .fields(fields)
         .footer(FooterBuilder::new(footer))
         .thumbnail(user.avatar_url.as_ref());

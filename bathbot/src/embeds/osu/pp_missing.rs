@@ -279,7 +279,7 @@ impl PpMissingEmbed {
         });
 
         Self {
-            author: user.author_builder(),
+            author: user.author_builder(false),
             description,
             footer,
             thumbnail: user.avatar_url.as_ref().to_owned(),

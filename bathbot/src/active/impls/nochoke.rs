@@ -114,7 +114,7 @@ impl IActiveMessage for NoChokePagination {
         }
 
         let embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
+            .author(self.user.author_builder(false))
             .description(description)
             .footer(FooterBuilder::new(footer_text))
             .thumbnail(self.user.avatar_url.as_ref())

@@ -121,7 +121,7 @@ impl WhatIfEmbed {
         };
 
         Self {
-            author: user.author_builder(),
+            author: user.author_builder(false),
             description,
             thumbnail: avatar_url.to_owned(),
             title,
