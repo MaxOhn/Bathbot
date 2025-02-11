@@ -220,7 +220,7 @@ impl<'s> From<&'s LeaderboardScore> for ScoreData {
             mods: Mods::new(score.mods.clone()),
             mode: Some(score.mode),
             partial: score.grade == Grade::F,
-            lazer: !score.is_legacy,
+            lazer: score.set_on_lazer,
         }
     }
 }

@@ -600,6 +600,7 @@ pub struct LeaderboardScore {
     pub ended_at: OffsetDateTime,
     pub score_id: u64,
     pub is_legacy: bool,
+    pub set_on_lazer: bool,
     pub pps: Option<PpData>,
 }
 
@@ -610,6 +611,7 @@ impl LeaderboardScore {
             username,
             pos,
             is_legacy: score.is_legacy(),
+            set_on_lazer: score.set_on_lazer,
             grade: if score.passed { score.grade } else { Grade::F },
             accuracy: score.accuracy,
             statistics: score.statistics,
@@ -637,7 +639,11 @@ impl LeaderboardScore {
             return pps;
         }
 
-        let mut calc = Context::pp(map).mode(self.mode).mods(self.mods.clone());
+        let mut calc = Context::pp(map)
+            .mode(self.mode)
+            .mods(self.mods.clone())
+            .lazer(self.set_on_lazer);
+
         let attrs = calc.performance().await;
         let max_pp = attrs.pp() as f32;
         let pp = calc.score(&*self).performance().await.pp() as f32;
