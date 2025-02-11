@@ -12,6 +12,7 @@ use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use skia_safe::{surfaces, EncodedImageFormat};
+use time::OffsetDateTime;
 
 use crate::{
     commands::osu::{
@@ -94,15 +95,15 @@ fn draw_graph(user: Option<&RespektiveUser>) -> Result<Option<Vec<u8>>> {
 
     let history_len = rank_history.len();
 
-    let history: Vec<_> = rank_history.iter().rev().map(|entry| entry.rank).collect();
-
     let mut min = u32::MAX;
     let mut max = 0;
 
     let mut min_idx = 0;
     let mut max_idx = 0;
 
-    for (i, &rank) in history.iter().enumerate() {
+    for (i, entry) in rank_history.iter().rev().enumerate() {
+        let Some(rank) = entry.rank else { continue };
+
         if rank == 0 {
             continue;
         }
@@ -160,15 +161,22 @@ fn draw_graph(user: Option<&RespektiveUser>) -> Result<Option<Vec<u8>>> {
             .y_label_area_size(y_label_area_size)
             .margin(10)
             .margin_left(6)
-            .build_cartesian_2d(0_u32..history_len.saturating_sub(1) as u32, min..max)
+            .build_cartesian_2d(0_i32..history_len.saturating_sub(1) as i32, min..max)
             .wrap_err("Failed to build chart")?;
+
+        let now = OffsetDateTime::now_utc();
+
+        let oldest = rank_history
+            .last()
+            .map(|entry| (now - entry.date).whole_days() as i32)
+            .unwrap_or(90);
 
         chart
             .configure_mesh()
             .disable_y_mesh()
             .x_labels(20)
             .x_desc("Days ago")
-            .x_label_formatter(&|x| format!("{}", 90 - *x))
+            .x_label_formatter(&|x| format!("{}", oldest - *x))
             .y_label_formatter(&|y| format!("{}", -*y))
             .y_desc("Rank")
             .label_style(("sans-serif", 15, &WHITE))
@@ -178,33 +186,35 @@ fn draw_graph(user: Option<&RespektiveUser>) -> Result<Option<Vec<u8>>> {
             .draw()
             .wrap_err("Failed to draw mesh")?;
 
-        let data = (0..)
-            .zip(history.iter().map(|rank| -(*rank as i32)))
-            .skip_while(|(_, rank)| *rank == 0)
-            .take_while(|(_, rank)| *rank != 0);
+        let data = rank_history.iter().filter_map(|entry| {
+            let rank = entry.rank?;
+            let whole_days = (now - entry.date).whole_days() as i32;
+
+            Some((oldest - whole_days, -(rank as i32)))
+        });
 
         let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
         let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
         let series = AreaSeries::new(data, min, area_style).border_style(border_style);
         chart.draw_series(series).wrap_err("Failed to draw area")?;
 
-        let max_coords = (min_idx as u32, max);
-        let circle = Circle::new(max_coords, 9_u32, style(GREEN).stroke_width(2));
+        let max_coords = (min_idx as i32, max);
+        let circle = Circle::new(max_coords, 9_i32, style(GREEN).stroke_width(2));
 
         chart
             .draw_series(iter::once(circle))
             .wrap_err("Failed to draw max circle")?
             .label(format!("Peak: #{}", WithComma::new(-max)))
-            .legend(|(x, y)| Circle::new((x, y), 5_u32, style(GREEN).stroke_width(2)));
+            .legend(|(x, y)| Circle::new((x, y), 5_i32, style(GREEN).stroke_width(2)));
 
-        let min_coords = (max_idx as u32, min);
-        let circle = Circle::new(min_coords, 9_u32, style(RED).stroke_width(2));
+        let min_coords = (max_idx as i32, min);
+        let circle = Circle::new(min_coords, 9_i32, style(RED).stroke_width(2));
 
         chart
             .draw_series(iter::once(circle))
             .wrap_err("Failed to draw min circle")?
             .label(format!("Worst: #{}", WithComma::new(-min)))
-            .legend(|(x, y)| Circle::new((x, y), 5_u32, style(RED).stroke_width(2)));
+            .legend(|(x, y)| Circle::new((x, y), 5_i32, style(RED).stroke_width(2)));
 
         let position = if min_idx <= 70 {
             SeriesLabelPosition::UpperRight

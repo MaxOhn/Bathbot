@@ -22,7 +22,7 @@ pub struct RespektiveUser {
 
 #[derive(Deserialize, Debug)]
 pub struct RankHistoryEntry {
-    pub rank: u32,
+    pub rank: Option<u32>,
     #[serde(with = "datetime_rfc3339")]
     pub date: OffsetDateTime,
 }
