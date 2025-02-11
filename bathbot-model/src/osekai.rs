@@ -215,6 +215,21 @@ pub struct OsekaiMedal {
     #[rkyv(with = Niche)]
     #[serde(deserialize_with = "medal_mods")]
     pub mods: Option<Box<str>>,
+    #[serde(rename = "Supports_Lazer", deserialize_with = "stringified_bool_int")]
+    pub supports_lazer: bool,
+    #[serde(rename = "Supports_Stable", deserialize_with = "stringified_bool_int")]
+    pub supports_stable: bool,
+}
+
+pub fn stringified_bool_int<'de, D: Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
+    match <&str as Deserialize>::deserialize(d)? {
+        "0" => Ok(false),
+        "1" => Ok(true),
+        other => Err(Error::invalid_value(
+            Unexpected::Str(other),
+            &r#""0" or "1""#,
+        )),
+    }
 }
 
 pub static MEDAL_GROUPS: [MedalGroup; 8] = [

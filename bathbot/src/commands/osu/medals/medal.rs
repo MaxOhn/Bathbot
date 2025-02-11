@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     cmp::{Ordering, Reverse},
     fmt::Write,
 };
@@ -126,7 +127,7 @@ pub(super) async fn info(orig: CommandOrigin<'_>, args: MedalInfo_<'_>) -> Resul
     };
 
     let embed_data = MedalEmbed::new(medal, None, maps, top_comment, hide_solution);
-    let embed = embed_data.maximized();
+    let embed = embed_data.finish();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(builder).await?;
 
@@ -221,6 +222,8 @@ pub struct MedalEmbed {
     url: String,
 }
 
+const SPOILER: &str = "||";
+
 impl MedalEmbed {
     pub fn new(
         medal: &ArchivedOsekaiMedal,
@@ -229,10 +232,6 @@ impl MedalEmbed {
         comment: Option<OsekaiComment>,
         hide_solution: HideSolutions,
     ) -> Self {
-        let mut fields = Vec::with_capacity(7);
-
-        fields![fields { "Description", medal.description.as_ref().to_owned(), false }];
-
         let as_spoiler = match hide_solution {
             HideSolutions::ShowAll => false,
             HideSolutions::HideHushHush => matches!(
@@ -242,20 +241,21 @@ impl MedalEmbed {
             HideSolutions::HideAll => true,
         };
 
-        if let Some(solution) = medal.solution().filter(|s| !s.is_empty()) {
-            let solution = if as_spoiler {
-                format!("||{solution}||")
-            } else {
-                solution.into_owned()
-            };
+        let solution = medal
+            .solution()
+            .filter(|s| !s.is_empty())
+            .unwrap_or(Cow::Borrowed("Not yet solved                      "));
 
-            fields![fields { "Solution", solution, false }];
-        }
+        let solution = if as_spoiler {
+            format!("{SPOILER}{solution}{SPOILER}")
+        } else {
+            solution.into_owned()
+        };
 
         let mut mode_mods = String::with_capacity(16);
 
         if as_spoiler {
-            mode_mods.push_str("||");
+            mode_mods.push_str(SPOILER);
         }
 
         if medal.mode.is_none() && medal.mods.is_none() {
@@ -278,7 +278,7 @@ impl MedalEmbed {
         }
 
         if as_spoiler {
-            mode_mods.push_str("||");
+            mode_mods.push_str(SPOILER);
         }
 
         let rarity = medal
@@ -287,11 +287,31 @@ impl MedalEmbed {
             .copied()
             .map_or(0.0, f32_le::to_native);
 
-        fields![fields {
-            "Rarity", format!("{rarity:.2}%"), true;
-            "Mode • Mods", mode_mods, true;
+        let mut availability = String::new();
+
+        if as_spoiler {
+            availability.push_str(SPOILER);
+        }
+
+        availability.push_str(match (medal.supports_lazer, medal.supports_stable) {
+            (true, true) => "Lazer & Stable",
+            (true, false) => "Lazer-only",
+            (false, true) => "Stable-only",
+            (false, false) => "Neither lazer nor stable",
+        });
+
+        if as_spoiler {
+            availability.push_str(SPOILER);
+        }
+
+        let mut fields = fields![
+            "Description", medal.description.as_ref().to_owned(), false;
             "Group", medal.grouping.to_string(), true;
-        }];
+            "Rarity", format!("{rarity:.2}%"), true;
+            "Solution", solution, false;
+            "Mode • Mods", mode_mods, true;
+            "Availability", availability, true;
+        ];
 
         if !(maps.is_empty() || as_spoiler) {
             let len = maps.len();
@@ -400,13 +420,7 @@ impl MedalEmbed {
         }
     }
 
-    pub fn minimized(mut self) -> EmbedBuilder {
-        self.fields.truncate(5);
-
-        self.maximized()
-    }
-
-    pub fn maximized(self) -> EmbedBuilder {
+    pub fn finish(self) -> EmbedBuilder {
         let builder = EmbedBuilder::new()
             .fields(self.fields)
             .thumbnail(self.thumbnail)
