@@ -751,7 +751,11 @@ async fn process_scores(
     let mut entries = Vec::<ScoreEmbedData>::with_capacity(scores.len());
 
     for score in scores {
-        let mut calc = Context::pp(map).mode(score.mode).mods(score.mods.clone());
+        let mut calc = Context::pp(map)
+            .mode(score.mode)
+            .mods(score.mods.clone())
+            .lazer(score.set_on_lazer);
+
         let attrs = calc.performance().await;
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo();
