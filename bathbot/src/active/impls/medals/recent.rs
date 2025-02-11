@@ -72,7 +72,7 @@ impl IActiveMessage for MedalsRecentPagination {
             }
         };
 
-        BuildPage::new(embed.minimized(), false)
+        BuildPage::new(embed.finish(), false)
             .content(self.content)
             .boxed()
     }
