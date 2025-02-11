@@ -1,14 +1,13 @@
 use crate::{site::Site, Client};
-use bathbot_model::{RelaxScore, RelaxStatsResponse, RelaxUser};
+use bathbot_model::{RelaxPlayersDataResponse, RelaxScore, RelaxStatsResponse, RelaxUser};
+use bathbot_util::constants::RELAX_API;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::CountryCode;
-
-const BASE_URL: &str = "https://rx.stanr.info/api";
 
 impl Client {
     /// GET relax score leaderboard (a.k.a. highest pp relax scores)
     pub async fn get_relax_score_leaderboard(&self) -> Result<Vec<RelaxScore>> {
-        let url = format!("{}/scores", BASE_URL);
+        let url = format!("{}/scores", RELAX_API);
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -21,7 +20,7 @@ impl Client {
 
     /// GET relax scores set within the last 24 hours
     pub async fn get_relax_recent_scores(&self) -> Result<Vec<RelaxScore>> {
-        let url = format!("{}/scores/recent", BASE_URL);
+        let url = format!("{}/scores/recent", RELAX_API);
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -34,7 +33,7 @@ impl Client {
 
     /// GET relax score by its ID
     pub async fn get_relax_scores(&self, user_id: u32) -> Result<Vec<RelaxScore>> {
-        let url = format!("{}/scores/{}", BASE_URL, user_id);
+        let url = format!("{}/scores/{}", RELAX_API, user_id);
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -55,7 +54,7 @@ impl Client {
         country_code: Option<CountryCode>,
         search: Option<String>,
     ) -> Result<Vec<RelaxUser>> {
-        let mut url = format!("{}/players", BASE_URL);
+        let mut url = format!("{}/players", RELAX_API);
 
         if let Some(p) = page {
             url.push_str(&format!("page={p}&"));
@@ -79,8 +78,9 @@ impl Client {
     }
 
     /// GET Relax player by osu! ID
-    pub async fn get_relax_player(&self, id: u32) -> Result<RelaxUser> {
-        let url = format!("{}/players/{}", BASE_URL, id);
+    pub async fn get_relax_player(&self, id: u32) -> Result<RelaxPlayersDataResponse> {
+        let url = format!("{}/players/{}", RELAX_API, id);
+        debug!(url);
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -93,7 +93,7 @@ impl Client {
 
     /// GET all relax scores set by a player
     pub async fn get_relax_player_scores(&self, id: u32) -> Result<Vec<RelaxScore>> {
-        let url = format!("{}/players/{}/scores", BASE_URL, id);
+        let url = format!("{}/players/{}/scores", RELAX_API, id);
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -106,7 +106,7 @@ impl Client {
 
     /// GET all relax scores set by a player within the past 24 hours
     pub async fn get_relax_recent_player_scores(&self, id: u32) -> Result<Vec<RelaxScore>> {
-        let url = format!("{}/players/{}/scores/recent", BASE_URL, id);
+        let url = format!("{}/players/{}/scores/recent", RELAX_API, id);
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -118,7 +118,7 @@ impl Client {
     }
 
     pub async fn get_relax_statistics(&self) -> Result<RelaxStatsResponse> {
-        let url = format!("{}/stats", BASE_URL);
+        let url = format!("{}/stats", RELAX_API);
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 

@@ -13,7 +13,9 @@ pub const OSU_BASE: &str = "https://osu.ppy.sh/";
 /// FIXME: Endpoint is sometimes wrong so avoid using it, see issue #426
 pub const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
 pub const AVATAR_URL: &str = "https://a.ppy.sh/";
-pub const HUISMETBENEN: &str = "https://api.snipe.huismetbenen.nl/";
+pub const HUISMETBENEN: &str = "https://api.huismetbenen.nl/";
+pub const RELAX_API: &str = "https://rx.stanr.info/api";
+pub const RELAX: &str = "https://rx.stanr.info";
 
 // twitch
 pub const TWITCH_BASE: &str = "https://www.twitch.tv/";

@@ -60,6 +60,7 @@ mod profile;
 mod ranking;
 mod ranking_countries;
 mod recent_list;
+pub(crate) mod relax;
 mod render;
 mod simulate;
 mod single_score;

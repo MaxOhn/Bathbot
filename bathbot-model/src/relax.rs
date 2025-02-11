@@ -57,18 +57,18 @@ pub struct RelaxScore {
 #[derive(Debug, Deserialize)]
 pub struct RelaxUser {
     #[serde(rename = "id")]
-    id: u32,
+    pub id: u32,
     #[serde(rename = "countryCode")]
-    country_code: Option<String>,
+    pub country_code: Option<String>,
     #[serde(rename = "username")]
-    username: Option<String>,
+    pub username: Option<String>,
     #[serde(rename = "totalPp")]
-    total_pp: Option<f64>,
+    pub total_pp: Option<f64>,
     #[serde(rename = "totalAccuracy")]
-    total_accuracy: Option<f64>,
+    pub total_accuracy: Option<f64>,
     // Make date-time
     #[serde(rename = "updatedAt")]
-    updated_at: Option<String>,
+    pub updated_at: Option<String>,
 }
 #[derive(Debug, Deserialize)]
 pub struct RelaxBeatmap {
@@ -195,20 +195,23 @@ pub struct RelaxStatsResponse {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxPlayersDataResponse {
-    id: u32,
-    country_code: Option<String>,
-    username: Option<String>,
-    total_pp: Option<f64>,
-    total_accuracy: Option<f64>,
+    pub id: u32,
+    pub country_code: Option<String>,
+    pub username: Option<String>,
+    pub total_pp: Option<f64>,
+    pub total_accuracy: Option<f64>,
     // TODO: Make date-time
-    updated_at: Option<String>,
-    rank: Option<u32>,
-    country_rank: Option<u32>,
-    playcount: u32,
-    count_ss: u32,
-    count_s: u32,
-    count_a: u32,
-    playcounts_per_month: Vec<Option<RelaxPlaycountPerMonth>>,
+    pub updated_at: Option<String>,
+    pub rank: Option<u32>,
+    pub country_rank: Option<u32>,
+    pub playcount: u32,
+    #[serde(rename = "countSS")]
+    pub count_ss: u32,
+    #[serde(rename = "countS")]
+    pub count_s: u32,
+    #[serde(rename = "countA")]
+    pub count_a: u32,
+    pub playcounts_per_month: Vec<Option<RelaxPlaycountPerMonth>>,
 }
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
