@@ -17,6 +17,14 @@ pub struct RespektiveUser {
     pub rank: Option<NonZeroU32>,
     pub user_id: u32,
     pub rank_highest: Option<RespektiveUserRankHighest>,
+    pub rank_history: Option<Vec<RankHistoryEntry>>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RankHistoryEntry {
+    pub rank: u32,
+    #[serde(with = "datetime_rfc3339")]
+    pub date: OffsetDateTime,
 }
 
 pub struct RespektiveUsers {
