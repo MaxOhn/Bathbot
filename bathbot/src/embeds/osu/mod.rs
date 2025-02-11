@@ -1,5 +1,4 @@
 mod attributes;
-mod bws;
 mod claim_name;
 mod country_snipe_stats;
 mod fix_score;
@@ -22,7 +21,7 @@ use rosu_v2::prelude::{GameModIntermode, GameMode, GameMods, ScoreStatistics};
 #[cfg(feature = "matchlive")]
 pub use self::match_live::*;
 pub use self::{
-    attributes::*, bws::*, claim_name::*, country_snipe_stats::*, fix_score::*, medal_stats::*,
+    attributes::*, claim_name::*, country_snipe_stats::*, fix_score::*, medal_stats::*,
     osustats_counts::*, player_snipe_stats::*, pp_missing::*, profile_compare::*, ratio::*,
     sniped::*, whatif::*,
 };
