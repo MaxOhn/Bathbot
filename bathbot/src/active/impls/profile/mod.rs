@@ -258,7 +258,7 @@ impl ProfileMenu {
         }
 
         let embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
+            .author(self.user.author_builder(true))
             .description(description)
             .footer(self.footer())
             .thumbnail(self.user.avatar_url.as_ref());
@@ -456,7 +456,7 @@ impl ProfileMenu {
         ];
 
         let embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
+            .author(self.user.author_builder(true))
             .description(description)
             .fields(fields)
             .footer(self.footer())
@@ -641,7 +641,7 @@ impl ProfileMenu {
         };
 
         let embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
+            .author(self.user.author_builder(true))
             .description(description)
             .thumbnail(self.user.avatar_url.as_ref());
 
@@ -743,7 +743,7 @@ impl ProfileMenu {
         };
 
         let embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
+            .author(self.user.author_builder(true))
             .description(description)
             .fields(fields)
             .thumbnail(self.user.avatar_url.as_ref());
@@ -812,7 +812,7 @@ impl ProfileMenu {
         }
 
         let embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
+            .author(self.user.author_builder(true))
             .description(description)
             .thumbnail(self.user.avatar_url.as_ref());
 
@@ -877,7 +877,7 @@ impl ProfileMenu {
         }
 
         let embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
+            .author(self.user.author_builder(true))
             .description(description)
             .fields(fields)
             .thumbnail(self.user.avatar_url.as_ref());

@@ -374,7 +374,7 @@ async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
     };
 
     let embed = EmbedBuilder::new()
-        .author(user.author_builder())
+        .author(user.author_builder(false))
         .image(attachment("graph.png"));
 
     let builder = MessageBuilder::new()

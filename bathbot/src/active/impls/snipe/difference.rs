@@ -167,7 +167,7 @@ impl SnipeDifferencePagination {
         ));
 
         let embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
+            .author(self.user.author_builder(false))
             .description(description)
             .footer(footer)
             .thumbnail(self.user.avatar_url.as_ref())

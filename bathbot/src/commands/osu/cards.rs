@@ -235,7 +235,7 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
     };
 
     let embed = EmbedBuilder::new()
-        .author(user.author_builder())
+        .author(user.author_builder(false))
         .image(attachment("card.png"));
 
     let builder = MessageBuilder::new()

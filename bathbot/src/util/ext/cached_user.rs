@@ -1,3 +1,5 @@
+use std::{cmp::Ordering, fmt::Write};
+
 use bathbot_model::{
     rkyv_util::time::ArchivedDateTime,
     rosu_v2::user::{ArchivedUser, ArchivedUserHighestRank},
@@ -8,27 +10,63 @@ use rkyv::{munge::munge, option::ArchivedOption};
 use crate::manager::redis::osu::CachedUser;
 
 pub trait CachedUserExt {
-    fn author_builder(&self) -> AuthorBuilder;
+    fn author_builder(&self, with_rank_change: bool) -> AuthorBuilder;
+    fn rank_change_since_30_days(&self) -> Option<i32>;
     fn update(&mut self, user: rosu_v2::model::user::User);
 }
 
 impl CachedUserExt for CachedUser {
-    fn author_builder(&self) -> AuthorBuilder {
+    fn author_builder(&self, with_rank_change: bool) -> AuthorBuilder {
         let stats = self.statistics.as_ref().expect("missing stats");
         let country_code = self.country_code.as_str();
 
-        let text = format!(
-            "{name}: {pp}pp (#{global} {country_code}{national})",
+        let mut text = format!(
+            "{name}: {pp}pp (#{global}",
             name = self.username,
             pp = WithComma::new(stats.pp.to_native()),
             global = WithComma::new(stats.global_rank.to_native()),
-            national = stats.country_rank
+        );
+
+        // Arguably showing the value *always* is a little much so it's
+        // probably best we only show it in some cases.
+        if with_rank_change {
+            if let Some(rank_change) = self.rank_change_since_30_days() {
+                // Alternatively '🡩' and '🡫' or '⭜' and '⭝' but they don't
+                // show properly on mobile and/or linux :(
+                match rank_change.cmp(&0) {
+                    Ordering::Greater => {
+                        let _ = write!(text, " ⬇{rank_change}");
+                    }
+                    Ordering::Less => {
+                        let _ = write!(text, " ⬆{}", -rank_change);
+                    }
+                    Ordering::Equal => {}
+                }
+            }
+        }
+
+        let _ = write!(
+            text,
+            " {country_code}{national})",
+            national = stats.country_rank,
         );
 
         let url = format!("{OSU_BASE}users/{}/{}", self.user_id, self.mode);
         let icon = flag_url(country_code);
 
         AuthorBuilder::new(text).url(url).icon_url(icon)
+    }
+
+    fn rank_change_since_30_days(&self) -> Option<i32> {
+        let prev = self
+            .rank_history
+            .as_ref()
+            .get(self.rank_history.len().checked_sub(30)?)?
+            .to_native() as i32;
+
+        let curr = self.rank_history.last()?.to_native() as i32;
+
+        (curr > 0 && prev > 0).then_some(curr - prev)
     }
 
     fn update(&mut self, user: rosu_v2::model::user::User) {

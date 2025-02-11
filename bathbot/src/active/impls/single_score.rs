@@ -84,7 +84,7 @@ impl SingleScorePagination {
             score_data,
             msg_owner,
             pages,
-            author: user.author_builder(),
+            author: user.author_builder(false),
             content,
         }
     }

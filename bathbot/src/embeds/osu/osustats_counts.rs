@@ -53,7 +53,7 @@ impl OsuStatsCountsEmbed {
 
         Self {
             description,
-            author: user.author_builder(),
+            author: user.author_builder(false),
             thumbnail: user.avatar_url.as_ref().to_owned(),
             footer_timestamp,
             title: format!(

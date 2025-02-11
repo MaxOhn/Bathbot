@@ -29,7 +29,7 @@ impl FixScoreEmbed {
     pub fn new(entry: &FixEntry, mods: Option<GameModsIntermode>) -> Self {
         let FixEntry { user, map, score } = entry;
 
-        let author = user.author_builder();
+        let author = user.author_builder(false);
         let url = format!("{OSU_BASE}b/{}", map.map_id());
         let thumbnail = map.thumbnail().to_owned();
 

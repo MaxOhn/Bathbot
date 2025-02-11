@@ -127,7 +127,7 @@ impl SnipePlayerListPagination {
 
         if self.scores.is_empty() {
             let embed = EmbedBuilder::new()
-                .author(self.user.author_builder())
+                .author(self.user.author_builder(false))
                 .description("No scores were found")
                 .footer(FooterBuilder::new("Page 1/1 • Total #1 scores: 0"))
                 .thumbnail(self.user.avatar_url.as_ref());
@@ -187,7 +187,7 @@ impl SnipePlayerListPagination {
         ));
 
         let embed = EmbedBuilder::new()
-            .author(self.user.author_builder())
+            .author(self.user.author_builder(false))
             .description(description)
             .footer(footer)
             .thumbnail(self.user.avatar_url.as_ref());

@@ -78,7 +78,7 @@ impl RatioEmbed {
         Self {
             description,
             thumbnail,
-            author: user.author_builder(),
+            author: user.author_builder(false),
         }
     }
 }
