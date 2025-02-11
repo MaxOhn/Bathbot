@@ -393,7 +393,7 @@ struct RankHolder {
     username: Username,
 }
 
-fn author(user: &CachedUser, respektive_user: Option<&RespektiveUser>) -> AuthorBuilder {
+pub fn author(user: &CachedUser, respektive_user: Option<&RespektiveUser>) -> AuthorBuilder {
     let rank = respektive_user.and_then(|user| user.rank);
 
     let mut text = format!(

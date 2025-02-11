@@ -16,6 +16,7 @@ use rosu_v2::{
     prelude::{GameMode, OsuError},
     request::UserId,
 };
+use score_rank::score_rank_graph;
 use time::UtcOffset;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -41,6 +42,7 @@ use crate::{
 mod medals;
 mod playcount_replays;
 mod rank;
+mod score_rank;
 mod snipe_count;
 mod sniped;
 mod top_date;
@@ -56,6 +58,8 @@ pub enum Graph {
     PlaycountReplays(GraphPlaycountReplays),
     #[command(name = "rank")]
     Rank(GraphRank),
+    #[command(name = "score_rank")]
+    ScoreRank(GraphScoreRank),
     #[command(name = "sniped")]
     Sniped(GraphSniped),
     #[command(name = "snipe_count")]
@@ -104,6 +108,25 @@ pub struct GraphPlaycountReplays {
 #[derive(CommandModel, CreateCommand, HasName)]
 #[command(name = "rank", desc = "Display a user's rank progression over time")]
 pub struct GraphRank {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
+    #[command(desc = "Specify a username")]
+    name: Option<String>,
+    #[command(
+        desc = "Specify a linked discord user",
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(
+    name = "score_rank",
+    desc = "Display a user's score rank progression over time"
+)]
+pub struct GraphScoreRank {
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
@@ -257,7 +280,30 @@ async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
 
             rank_graph(&orig, user_id, user_args)
                 .await
-                .wrap_err("failed to create rank graph")?
+                .wrap_err("Failed to create rank graph")?
+        }
+        Graph::ScoreRank(args) => {
+            let (user_id, mode) = user_id_mode!(orig, args);
+
+            let tuple_option = score_rank_graph(&orig, user_id, mode)
+                .await
+                .wrap_err("Failed to create score rank graph")?;
+
+            let Some((author, graph)) = tuple_option else {
+                return Ok(());
+            };
+
+            let embed = EmbedBuilder::new()
+                .author(author)
+                .image(attachment("graph.png"));
+
+            let builder = MessageBuilder::new()
+                .embed(embed)
+                .attachment("graph.png", graph);
+
+            orig.create_message(builder).await?;
+
+            return Ok(());
         }
         Graph::Sniped(args) => {
             let (user_id, mode) = user_id_mode!(orig, args);
