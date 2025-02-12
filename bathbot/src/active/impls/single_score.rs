@@ -1,4 +1,9 @@
-use std::{borrow::Cow, fmt::Write, time::Duration};
+use std::{
+    borrow::Cow,
+    cmp::Ordering,
+    fmt::{Display, Formatter, Result as FmtResult, Write},
+    time::Duration,
+};
 
 use bathbot_model::embed_builder::{
     EmoteTextValue, HitresultsValue, MapperValue, ScoreEmbedSettings, SettingValue, SettingsImage,
@@ -19,7 +24,7 @@ use rosu_render::{client::error::ApiError as OrdrApiError, ClientError as OrdrEr
 use rosu_v2::{
     error::OsuError,
     model::{GameMode, Grade},
-    prelude::RankStatus,
+    prelude::{GameMod, GameMods, RankStatus},
 };
 use time::OffsetDateTime;
 use twilight_model::{
@@ -579,13 +584,15 @@ fn apply_settings(
                 writer.push('*');
             }
 
-            let _ = match first.inner {
-                Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
-                Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
-                Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
-                Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
+            let fmt = match first.inner {
+                Value::Ar => MapAttribute::AR.fmt(data, &map_attrs),
+                Value::Cs => MapAttribute::CS.fmt(data, &map_attrs),
+                Value::Hp => MapAttribute::HP.fmt(data, &map_attrs),
+                Value::Od => MapAttribute::OD.fmt(data, &map_attrs),
                 _ => unreachable!(),
             };
+
+            let _ = write!(writer, "{fmt}");
 
             if mark_idx == MarkIndex::Some(0) {
                 writer.push('*');
@@ -651,13 +658,15 @@ fn apply_settings(
                     writer.push('*');
                 }
 
-                let _ = match curr.inner {
-                    Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
-                    Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
-                    Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
-                    Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
+                let fmt = match curr.inner {
+                    Value::Ar => MapAttribute::AR.fmt(data, &map_attrs),
+                    Value::Cs => MapAttribute::CS.fmt(data, &map_attrs),
+                    Value::Hp => MapAttribute::HP.fmt(data, &map_attrs),
+                    Value::Od => MapAttribute::OD.fmt(data, &map_attrs),
                     _ => unreachable!(),
                 };
+
+                let _ = write!(writer, "{fmt}");
 
                 if mark_idx == MarkIndex::Some(i) {
                     writer.push('*');
@@ -674,13 +683,15 @@ fn apply_settings(
                     writer.push('*');
                 }
 
-                let _ = match curr.inner {
-                    Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
-                    Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
-                    Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
-                    Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
+                let fmt = match curr.inner {
+                    Value::Ar => MapAttribute::AR.fmt(data, &map_attrs),
+                    Value::Cs => MapAttribute::CS.fmt(data, &map_attrs),
+                    Value::Hp => MapAttribute::HP.fmt(data, &map_attrs),
+                    Value::Od => MapAttribute::OD.fmt(data, &map_attrs),
                     _ => unreachable!(),
                 };
+
+                let _ = write!(writer, "{fmt}");
 
                 if mark_idx == MarkIndex::Some(i) {
                     writer.push('*');
@@ -714,13 +725,15 @@ fn apply_settings(
                     writer.push('*');
                 }
 
-                let _ = match curr.inner {
-                    Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
-                    Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
-                    Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
-                    Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
+                let fmt = match curr.inner {
+                    Value::Ar => MapAttribute::AR.fmt(data, &map_attrs),
+                    Value::Cs => MapAttribute::CS.fmt(data, &map_attrs),
+                    Value::Hp => MapAttribute::HP.fmt(data, &map_attrs),
+                    Value::Od => MapAttribute::OD.fmt(data, &map_attrs),
                     _ => unreachable!(),
                 };
+
+                let _ = write!(writer, "{fmt}");
 
                 if mark_idx == MarkIndex::Some(i) {
                     writer.push('*');
@@ -1125,15 +1138,15 @@ fn write_value(
                 writer.push('`');
             }
 
-            let mut write = |name, value| write!(writer, "{name}: {}", round(value as f32));
-
-            let _ = match &value.inner {
-                Value::Ar => write("AR", map_attrs.ar),
-                Value::Cs => write("CS", map_attrs.cs),
-                Value::Hp => write("HP", map_attrs.hp),
-                Value::Od => write("OD", map_attrs.od),
+            let fmt = match &value.inner {
+                Value::Ar => MapAttribute::AR.fmt(data, map_attrs),
+                Value::Cs => MapAttribute::CS.fmt(data, map_attrs),
+                Value::Hp => MapAttribute::HP.fmt(data, map_attrs),
+                Value::Od => MapAttribute::OD.fmt(data, map_attrs),
                 _ => unreachable!(),
             };
+
+            let _ = write!(writer, "{fmt}");
 
             if value.y < SettingValue::FOOTER_Y {
                 writer.push('`');
@@ -1234,4 +1247,139 @@ fn write_value(
             };
         }
     }
+}
+
+struct MapAttributeFormatter<'a> {
+    map_attr: MapAttribute,
+    data: &'a ScoreEmbedData,
+    value: f64,
+}
+
+impl<'a> MapAttributeFormatter<'a> {
+    fn new(data: &'a ScoreEmbedData, map_attr: MapAttribute, value: f64) -> Self {
+        Self {
+            map_attr,
+            data,
+            value,
+        }
+    }
+}
+
+impl Display for MapAttributeFormatter<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let map_attr_str = match self.map_attr {
+            MapAttribute::AR => "AR",
+            MapAttribute::CS => "CS",
+            MapAttribute::HP => "HP",
+            MapAttribute::OD => "OD",
+        };
+
+        write!(f, "{map_attr_str}: {}", round(self.value as f32))?;
+
+        let mods = &self.data.score.mods;
+
+        if !self.map_attr.is_difficulty_adjusted(mods) {
+            return Ok(());
+        }
+
+        let alt_mods: GameMods = self
+            .data
+            .score
+            .mods
+            .iter()
+            .filter_map(|m| match m {
+                GameMod::DifficultyAdjustOsu(_)
+                | GameMod::DifficultyAdjustTaiko(_)
+                | GameMod::DifficultyAdjustCatch(_)
+                | GameMod::DifficultyAdjustMania(_) => None,
+                _ => Some(m.to_owned()),
+            })
+            .collect();
+
+        let map_attrs = self.data.map.attributes().mods(alt_mods).build();
+        let alt_value = self.map_attr.get_value(&map_attrs);
+
+        let symbol = match self.value.partial_cmp(&alt_value) {
+            Some(Ordering::Less) => "⬇",
+            Some(Ordering::Greater) => "⬆",
+            None | Some(Ordering::Equal) => return Ok(()),
+        };
+
+        f.write_str(symbol)
+    }
+}
+
+#[derive(Copy, Clone)]
+enum MapAttribute {
+    AR,
+    CS,
+    HP,
+    OD,
+}
+
+impl MapAttribute {
+    fn fmt<'a>(
+        self,
+        data: &'a ScoreEmbedData,
+        attrs: &BeatmapAttributes,
+    ) -> MapAttributeFormatter<'a> {
+        MapAttributeFormatter::new(data, self, self.get_value(attrs))
+    }
+
+    fn get_value(self, attrs: &BeatmapAttributes) -> f64 {
+        match self {
+            MapAttribute::AR => attrs.ar,
+            MapAttribute::CS => attrs.cs,
+            MapAttribute::HP => attrs.hp,
+            MapAttribute::OD => attrs.od,
+        }
+    }
+}
+
+macro_rules! impl_is_difficulty_adjusted {
+    ( $(
+        $mod_variant:ident {
+            $( $self_variant:ident: $field:ident, )+
+        },
+    )+ ) => {
+        impl MapAttribute {
+            fn is_difficulty_adjusted(self, mods: &GameMods) -> bool {
+                mods.iter().any(|m| {
+                    match m {
+                        $(
+                            GameMod::$mod_variant(m) => match self {
+                                $( Self::$self_variant => m.$field.is_some(), )*
+                                #[allow(unreachable_patterns)]
+                                _ => false,
+                            },
+                        )*
+                        _ => false,
+                    }
+                })
+            }
+        }
+    };
+}
+
+impl_is_difficulty_adjusted! {
+    DifficultyAdjustOsu {
+        AR: approach_rate,
+        CS: circle_size,
+        HP: drain_rate,
+        OD: overall_difficulty,
+    },
+    DifficultyAdjustTaiko {
+        HP: drain_rate,
+        OD: overall_difficulty,
+    },
+    DifficultyAdjustCatch {
+        AR: approach_rate,
+        CS: circle_size,
+        HP: drain_rate,
+        OD: overall_difficulty,
+    },
+    DifficultyAdjustMania {
+        HP: drain_rate,
+        OD: overall_difficulty,
+    },
 }
