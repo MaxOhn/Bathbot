@@ -5,7 +5,7 @@ use std::{
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::{
-    command_fields::GameModeOption,
+    command_fields::{GameModeOption, GradeOption},
     embed_builder::{ScoreEmbedSettings, SettingsImage},
     ScoreSlim,
 };
@@ -104,6 +104,8 @@ pub struct Cs<'a> {
         desc = "While checking the channel history, I will choose the index-th map I can find"
     )]
     index: Option<u32>,
+    #[command(desc = "Consider only scores with this grade")]
+    grade: Option<GradeOption>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -160,6 +162,8 @@ pub struct CompareScore_<'a> {
         desc = "While checking the channel history, I will choose the index-th map I can find"
     )]
     index: Option<u32>,
+    #[command(desc = "Consider only scores with this grade")]
+    grade: Option<GradeOption>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -179,6 +183,7 @@ pub(super) struct CompareScoreArgs<'a> {
     mods: Option<Cow<'a, str>>,
     discord: Option<Id<UserMarker>>,
     index: Option<u32>,
+    grade: Option<Grade>,
 }
 
 impl<'m> CompareScoreArgs<'m> {
@@ -218,6 +223,7 @@ impl<'m> CompareScoreArgs<'m> {
                 ArgsNum::Value(n) => Some(n),
                 ArgsNum::Random | ArgsNum::None => None,
             },
+            grade: None,
         }
     }
 }
@@ -258,6 +264,7 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
             mods: args.mods,
             discord: args.discord,
             index: args.index,
+            grade: args.grade.map(Grade::from),
         })
     }
 }
@@ -466,6 +473,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
         index,
         difficulty,
         mode,
+        grade,
         ..
     } = args;
 
@@ -673,6 +681,10 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
         }
         None => None,
     };
+
+    if let Some(grade) = grade {
+        scores.retain(|score| score.grade.eq_letter(grade));
+    }
 
     if let Some(ref selection) = mods {
         selection.filter_scores(&mut scores);

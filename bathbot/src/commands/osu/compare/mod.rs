@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use bathbot_macros::SlashCommand;
-use bathbot_model::command_fields::GameModeOption;
+use bathbot_model::command_fields::{GameModeOption, GradeOption};
 use eyre::Result;
 use twilight_interactions::command::{
     AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
@@ -97,6 +97,8 @@ pub struct CompareScore<'a> {
         desc = "While checking the channel history, I will choose the index-th map I can find"
     )]
     index: Option<u32>,
+    #[command(desc = "Consider only scores with this grade")]
+    grade: Option<GradeOption>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -116,6 +118,7 @@ pub struct CompareScoreAutocomplete<'a> {
     pub sort: Option<ScoreOrder>,
     pub mods: Option<Cow<'a, str>>,
     pub index: Option<u32>,
+    pub grade: Option<GradeOption>,
     pub discord: Option<Id<UserMarker>>,
 }
 
