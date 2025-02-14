@@ -453,10 +453,14 @@ impl Display for AmountWithNegative<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if self.inner.abs() < 1_000_000_000 {
             Display::fmt(&WithComma::new(*self.inner), f)
-        } else {
+        } else if self.inner.abs() < 1_000_000_000_000 {
             let score = (self.inner / 10_000_000) as f32 / 100.0;
 
             write!(f, "{score:.2} bn")
+        } else {
+            let score = (self.inner / 10_000_000_000) as f32 / 100.0;
+
+            write!(f, "{score:.2} tn")
         }
     }
 }
