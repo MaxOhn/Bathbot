@@ -1,4 +1,4 @@
-use std::{slice, sync::Arc};
+use std::{slice, sync::Arc, time::Duration};
 
 use bathbot_model::embed_builder::{
     ComboValue, HitresultsValue, ScoreEmbedSettings, SettingValue, SettingsButtons, SettingsImage,
@@ -6,6 +6,7 @@ use bathbot_model::embed_builder::{
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{constants::UNKNOWN_CHANNEL, EmbedBuilder};
+use rand::Rng;
 use rosu_v2::{model::GameMode, prelude::Score};
 use twilight_http::{
     api_error::{ApiError, GeneralApiError},
@@ -27,6 +28,11 @@ use crate::{
 #[instrument(target = "tracking", skip_all)]
 pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
     let Some(pp) = score.pp else { return };
+
+    // Add delay to improve chances that the score was processed fully and will
+    // appear in the user's top100 scores. The jitter in the delay should
+    // improve db & api congestion.
+    tokio::time::sleep(jitter()).await;
 
     let user_id = score.user_id;
     let score_id = score.id;
@@ -141,6 +147,11 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
 
         OsuTracking::remove_channel(channel, None).await;
     }
+}
+
+/// Random [`Duration`] between 30s and 60s
+fn jitter() -> Duration {
+    rand::thread_rng().gen_range(Duration::from_secs(30)..Duration::from_secs(60))
 }
 
 async fn embed_builder(
