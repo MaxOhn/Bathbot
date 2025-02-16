@@ -21,7 +21,7 @@ use tracing_subscriber::{
 };
 
 pub fn init() -> Box<[WorkerGuard]> {
-    let stdout_filter: EnvFilter = "bathbot=debug,sqlx=warn,info".parse().unwrap();
+    let stdout_filter: EnvFilter = "bathbot=debug,sqlx=warn,tracking=off,info".parse().unwrap();
 
     let stdout_layer = Layer::default()
         .event_format(StdoutEventFormat::default())
@@ -38,7 +38,7 @@ pub fn init() -> Box<[WorkerGuard]> {
     let file_layer = Layer::default()
         .event_format(FileEventFormat::<true>::default())
         .with_writer(file_writer)
-        .with_filter(file_filter);
+        .with_filter(file_filter.add_directive("tracking=off".parse().unwrap()));
 
     let tracking_appender = rolling::daily("./logs", "tracking.log");
     let (tracking_writer, tracking_guard) = NonBlocking::new(tracking_appender);
