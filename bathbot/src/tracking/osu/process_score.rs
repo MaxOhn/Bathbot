@@ -24,60 +24,70 @@ use crate::{
     },
 };
 
+#[instrument(target = "tracking", skip_all)]
 pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
     let Some(pp) = score.pp else { return };
 
-    let user_args = UserArgsSlim::user_id(score.user_id).mode(score.mode);
+    let user_id = score.user_id;
+    let score_id = score.id;
+    let map_id = score.map_id;
+    let mode = score.mode;
+
+    let user_args = UserArgsSlim::user_id(user_id).mode(mode);
     let user_fut = Context::redis().osu_user(UserArgs::Args(user_args));
     let tops_fut = Context::osu_scores().top(false).limit(100).exec(user_args);
 
     let checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref());
-    let map_fut = Context::osu_map().map(score.map_id, checksum);
+    let map_fut = Context::osu_map().map(map_id, checksum);
 
     let (user, tops, map) = match tokio::join!(user_fut, tops_fut, map_fut) {
         (Ok(user), Ok(scores), Ok(map)) => (user, scores, map),
         (Err(err), ..) => {
-            warn!(
-                user_id = score.user_id,
-                mode = ?score.mode,
-                ?err,
-                "Failed to get user for tracking"
-            );
+            warn!(user = user_id, ?mode, score_id, ?err, "Failed to get user");
 
             return;
         }
         (_, Err(err), _) => {
             warn!(
-                user_id = score.user_id,
-                mode = ?score.mode,
+                user = user_id,
+                ?mode,
+                score_id,
                 ?err,
-                "Failed to get top scores for tracking"
+                "Failed to get top scores"
             );
 
             return;
         }
         (.., Err(err)) => {
             warn!(
-                map_id = score.map_id,
+                map = map_id,
+                user = user_id,
+                score_id,
                 ?err,
-                "Failed to get map for tracking"
+                "Failed to get map"
             );
 
             return;
         }
     };
 
-    entry.insert_last_pp(score.user_id, score.mode, &tops).await;
+    entry.insert_last_pp(user_id, mode, &tops).await;
 
-    let Some(idx) = tops.iter().position(|s| s.id == score.id) else {
+    let Some(idx) = tops.iter().position(|s| s.id == score_id) else {
+        info!(
+            user = user_id,
+            map = map_id,
+            score_id,
+            pp,
+            "Not in top scores",
+        );
+
         return;
     };
 
     BotMetrics::osu_tracking_hit(score.mode);
 
     let combo = score.max_combo;
-    let user_id = score.user_id;
-    let score_id = score.id;
     let (builder, max_combo) = embed_builder(&user, score, map, idx).await;
     let idx = idx as u8 + 1;
     let embed = builder.build();
@@ -85,8 +95,8 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
     let combo_percent = max_combo.map(|max| 100.0 * combo as f32 / max as f32);
 
     info!(
-        target: "tracking",
         user = user_id,
+        map = map_id,
         score_id,
         idx,
         pp,
@@ -114,7 +124,7 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
         };
 
         let TwilightErrorType::Response { error, .. } = err.kind() else {
-            warn!(%channel, ?err, "Error while sending osu notif");
+            warn!(%channel, ?err, "Error while sending notif");
 
             continue;
         };
@@ -124,7 +134,7 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
             ..
         }) = error
         else {
-            warn!(%channel, ?error, "Error from API while sending osu notif");
+            warn!(%channel, ?error, "Error from API while sending notif");
 
             continue;
         };
