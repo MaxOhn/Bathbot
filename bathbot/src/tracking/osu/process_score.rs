@@ -25,7 +25,6 @@ use crate::{
     },
 };
 
-#[instrument(target = "tracking", skip_all)]
 pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
     let Some(pp) = score.pp else { return };
 
@@ -49,12 +48,12 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
     let (user, tops, map) = match tokio::join!(user_fut, tops_fut, map_fut) {
         (Ok(user), Ok(scores), Ok(map)) => (user, scores, map),
         (Err(err), ..) => {
-            warn!(user = user_id, ?mode, score_id, ?err, "Failed to get user");
+            log!(warn: user = user_id, ?mode, score_id, ?err, "Failed to get user");
 
             return;
         }
         (_, Err(err), _) => {
-            warn!(
+            log!(warn:
                 user = user_id,
                 ?mode,
                 score_id,
@@ -65,7 +64,7 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
             return;
         }
         (.., Err(err)) => {
-            warn!(
+            log!(warn:
                 map = map_id,
                 user = user_id,
                 score_id,
@@ -80,7 +79,7 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
     entry.insert_last_pp(user_id, mode, &tops).await;
 
     let Some(idx) = tops.iter().position(|s| s.id == score_id) else {
-        info!(
+        log!(info:
             user = user_id,
             map = map_id,
             score_id,
@@ -100,7 +99,7 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
     let embeds = slice::from_ref(&embed);
     let combo_percent = max_combo.map(|max| 100.0 * combo as f32 / max as f32);
 
-    info!(
+    log!(info:
         user = user_id,
         map = map_id,
         score_id,
@@ -130,7 +129,7 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
         };
 
         let TwilightErrorType::Response { error, .. } = err.kind() else {
-            warn!(%channel, ?err, "Error while sending notif");
+            log!(warn: %channel, ?err, "Error while sending notif");
 
             continue;
         };
@@ -140,7 +139,7 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
             ..
         }) = error
         else {
-            warn!(%channel, ?error, "Error from API while sending notif");
+            log!(warn: %channel, ?error, "Error from API while sending notif");
 
             continue;
         };

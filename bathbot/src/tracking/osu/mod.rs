@@ -1,3 +1,10 @@
+/// Logs an event and sets its target to `"tracking"`.
+macro_rules! log {
+    ( $level:ident: $( $arg:tt )* ) => {
+        tracing::$level!(target: "tracking", $( $arg )*);
+    };
+}
+
 use std::{collections::HashMap, sync::RwLock};
 
 use bathbot_psql::Database;
@@ -65,8 +72,7 @@ impl OsuTracking {
 
         let (last_pp, last_updated) = entry.last_entry();
 
-        info!(
-            target: "tracking",
+        log!(info:
             user = score.user_id,
             score_id = score.id,
             pp,
