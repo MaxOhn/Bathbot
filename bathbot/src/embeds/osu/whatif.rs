@@ -112,7 +112,9 @@ impl WhatIfEmbed {
                     d.push('.');
                 }
 
-                if pp > max_pp * 2.0 {
+                // Arbitrary value 30, surely everyone can get that without
+                // being banned :p
+                if pp > max_pp * 2.0 && pp > 30.0 {
                     d.push_str("\nThey'd probably also get banned :^)");
                 }
 
