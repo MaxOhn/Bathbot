@@ -81,7 +81,7 @@ impl OsuTracking {
             last_ended_at = %last_updated.format(NAIVE_DATETIME_FORMAT).unwrap(),
         );
 
-        if last_pp > pp && last_updated >= score.ended_at {
+        if last_pp > pp || last_updated >= score.ended_at {
             return;
         }
 
