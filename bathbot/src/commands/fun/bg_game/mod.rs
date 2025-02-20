@@ -261,9 +261,9 @@ async fn slash_bg(mut command: InteractionCommand) -> Result<()> {
         thread,
     } = Bg::from_interaction(command.input_data())?;
 
-    let can_view_channel = command.permissions.map_or(true, |permissions| {
-        permissions.contains(Permissions::VIEW_CHANNEL)
-    });
+    let can_view_channel = command
+        .permissions
+        .is_none_or(|permissions| permissions.contains(Permissions::VIEW_CHANNEL));
 
     if !can_view_channel {
         let content = r#"I'm lacking the "View Channel" permission in this channel"#;
@@ -297,9 +297,9 @@ async fn slash_bg(mut command: InteractionCommand) -> Result<()> {
             return Ok(());
         }
 
-        let can_send_msgs = command.permissions.map_or(true, |permissions| {
-            permissions.contains(Permissions::SEND_MESSAGES_IN_THREADS)
-        });
+        let can_send_msgs = command
+            .permissions
+            .is_none_or(|permissions| permissions.contains(Permissions::SEND_MESSAGES_IN_THREADS));
 
         if !can_send_msgs {
             let content =
@@ -346,9 +346,9 @@ async fn slash_bg(mut command: InteractionCommand) -> Result<()> {
             }
         }
     } else {
-        let can_send_msgs = command.permissions.map_or(true, |permissions| {
-            permissions.contains(Permissions::SEND_MESSAGES)
-        });
+        let can_send_msgs = command
+            .permissions
+            .is_none_or(|permissions| permissions.contains(Permissions::SEND_MESSAGES));
 
         if !can_send_msgs {
             let content = r#"I'm lacking the "Send Messages" permission in this channel"#;

@@ -19,7 +19,7 @@ pub trait CheckPermissions {
     }
 
     fn has_permission_to(&self, permission: Permissions) -> bool {
-        self.permissions().map_or(true, |p| p.contains(permission))
+        self.permissions().is_none_or(|p| p.contains(permission))
     }
 }
 

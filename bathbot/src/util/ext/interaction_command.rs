@@ -189,9 +189,7 @@ impl InteractionToken<'_> {
         }
 
         if let Some(attachment) = builder.attachment.as_ref().filter(|_| {
-            permissions.map_or(true, |permissions| {
-                permissions.contains(Permissions::ATTACH_FILES)
-            })
+            permissions.is_none_or(|permissions| permissions.contains(Permissions::ATTACH_FILES))
         }) {
             req = req.attachments(slice::from_ref(attachment));
         }

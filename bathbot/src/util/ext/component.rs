@@ -31,9 +31,8 @@ impl ComponentExt for InteractionComponent {
         let attachments = builder
             .attachment
             .filter(|_| {
-                self.permissions.map_or(true, |permissions| {
-                    permissions.contains(Permissions::ATTACH_FILES)
-                })
+                self.permissions
+                    .is_none_or(|permissions| permissions.contains(Permissions::ATTACH_FILES))
             })
             .map(|attachment| vec![attachment]);
 
@@ -83,9 +82,8 @@ impl ComponentExt for InteractionComponent {
         }
 
         if let Some(attachment) = builder.attachment.as_ref().filter(|_| {
-            self.permissions.map_or(true, |permissions| {
-                permissions.contains(Permissions::ATTACH_FILES)
-            })
+            self.permissions
+                .is_none_or(|permissions| permissions.contains(Permissions::ATTACH_FILES))
         }) {
             req = req.attachments(slice::from_ref(attachment));
         }

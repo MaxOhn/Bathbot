@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Not};
 
 use bathbot_macros::{command, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
@@ -536,7 +536,7 @@ impl Search {
             .map(BeatmapsetSearchSort::from)
             .unwrap_or_default();
 
-        let descending = self.reverse.map_or(true, |r| !r);
+        let descending = self.reverse.is_none_or(bool::not);
 
         let mut search_fut = osu
             .beatmapset_search()

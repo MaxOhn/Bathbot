@@ -17,9 +17,8 @@ pub async fn bigger(msg: &Message, permissions: Option<Permissions>) -> Result<(
         return Ok(());
     }
 
-    let can_attach_files = permissions.map_or(true, |permissions| {
-        permissions.contains(Permissions::ATTACH_FILES)
-    });
+    let can_attach_files =
+        permissions.is_none_or(|permissions| permissions.contains(Permissions::ATTACH_FILES));
 
     if !can_attach_files {
         let content = "I'm lacking the permission to attach files";

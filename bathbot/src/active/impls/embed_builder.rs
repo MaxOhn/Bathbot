@@ -1661,7 +1661,7 @@ fn disable_hide(settings: &ScoreEmbedSettings, idx: usize) -> bool {
     match settings.values.get(idx) {
         Some(value) => match value.y {
             // disable hide button if first row has only one value
-            0 => settings.values.get(1).map_or(true, |value| value.y != 0),
+            0 => settings.values.get(1).is_none_or(|value| value.y != 0),
             _ => false,
         },
         None => true,

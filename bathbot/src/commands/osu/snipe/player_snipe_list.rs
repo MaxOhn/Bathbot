@@ -2,6 +2,7 @@ use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap},
     fmt::Write,
+    ops::Not,
 };
 
 use bathbot_macros::command;
@@ -165,7 +166,7 @@ pub(super) async fn player_list(orig: CommandOrigin<'_>, args: SnipePlayerList<'
 
     let params = SnipeScoreParams::new(user_id, &country, mode)
         .order(args.sort.unwrap_or_default())
-        .descending(args.reverse.map_or(true, |b| !b))
+        .descending(args.reverse.is_none_or(bool::not))
         .mods(mods);
 
     let client = Context::client();

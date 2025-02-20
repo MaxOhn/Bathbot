@@ -35,9 +35,8 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
         builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> Option<ResponseFuture<Message>> {
-        let can_view_channel = permissions.map_or(true, |permissions| {
-            permissions.contains(Permissions::VIEW_CHANNEL)
-        });
+        let can_view_channel =
+            permissions.is_none_or(|permissions| permissions.contains(Permissions::VIEW_CHANNEL));
 
         // Lacking permission to edit the message
         if !can_view_channel {
@@ -86,9 +85,7 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
         }
 
         match builder.attachment.as_ref().filter(|_| {
-            permissions.map_or(true, |permissions| {
-                permissions.contains(Permissions::ATTACH_FILES)
-            })
+            permissions.is_none_or(|permissions| permissions.contains(Permissions::ATTACH_FILES))
         }) {
             Some(attachment) => req.attachments(slice::from_ref(attachment)).into_future(),
             None => req.into_future(),

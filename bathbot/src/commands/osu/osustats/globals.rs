@@ -291,7 +291,7 @@ impl<'m> OsuStatsScores<'m> {
         let mut params = OsuStatsParams::new(username);
 
         let order = self.sort.unwrap_or_default();
-        let mut descending = self.reverse.map_or(true, bool::not);
+        let mut descending = self.reverse.is_none_or(bool::not);
 
         if order == OsuStatsScoresOrder::Rank {
             descending = !descending;

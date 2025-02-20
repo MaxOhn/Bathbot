@@ -808,7 +808,7 @@ impl PersonalBestIndex {
             } else if let Some((idx, _)) = top100
                 .iter()
                 .enumerate()
-                .skip_while(|(_, top)| top.pp.map_or(true, |pp| pp < score.pp))
+                .skip_while(|(_, top)| top.pp.is_none_or(|pp| pp < score.pp))
                 .take_while(|(_, top)| top.pp.is_some_and(|pp| pp <= score.pp))
                 .find(|(_, top)| score.is_eq(*top))
             {
