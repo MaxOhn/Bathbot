@@ -10,8 +10,8 @@ use bathbot_util::{
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_v2::prelude::{
-    Beatmap, GameMode, GameModsIntermode, Grade, MatchEvent, MatchGame, MatchScore, OsuMatch,
-    ScoreStatistics, Team, Username,
+    Beatmap, GameMode, GameModsIntermode, Grade, MatchEvent, MatchGame, MatchScore, MatchTeam,
+    OsuMatch, ScoreStatistics, Username,
 };
 use twilight_model::{
     channel::message::Component,
@@ -232,14 +232,14 @@ impl MatchComparePagination {
 
     fn team_scores(map: &CommonMap, match1: &str, match2: &str) -> String {
         struct TeamScore<'n> {
-            team: Team,
+            team: MatchTeam,
             name: &'n str,
             score: u32,
         }
 
         let mut scores = Vec::new();
 
-        for team in [Team::Blue, Team::Red] {
+        for team in [MatchTeam::Blue, MatchTeam::Red] {
             if map.match1_scores[team as usize] > 0 {
                 scores.push(TeamScore {
                     team,
@@ -271,7 +271,7 @@ impl MatchComparePagination {
                 "**#{i}** `{score}` :{team}_circle:\n\
                 {name}",
                 score = WithComma::new(score.score),
-                team = if score.team == Team::Blue {
+                team = if score.team == MatchTeam::Blue {
                     "blue"
                 } else {
                     "red"
@@ -353,9 +353,9 @@ impl MatchComparePagination {
             );
 
             match score.team {
-                Team::None => {}
-                Team::Blue => value.push_str(" :blue_circle:"),
-                Team::Red => value.push_str(" :red_circle:"),
+                MatchTeam::None => {}
+                MatchTeam::Blue => value.push_str(" :blue_circle:"),
+                MatchTeam::Red => value.push_str(" :red_circle:"),
             }
 
             value.push('\n');
@@ -463,7 +463,7 @@ pub struct MatchCompareScore {
     pub acc: f32,
     pub combo: u32,
     pub score: u32,
-    pub team: Team,
+    pub team: MatchTeam,
 }
 
 impl MatchCompareScore {
@@ -543,7 +543,7 @@ struct EmbedScore<'n> {
     grade: Grade,
     combo: Box<str>,
     score_str: Box<str>,
-    team: Team,
+    team: MatchTeam,
 }
 
 #[derive(Default)]
