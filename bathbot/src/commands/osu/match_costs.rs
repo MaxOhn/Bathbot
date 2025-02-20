@@ -11,7 +11,7 @@ use eyre::{Report, Result};
 use rosu_v2::{
     model::mods::GameModsIntermode,
     prelude::{
-        GameModIntermode, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, User,
+        GameModIntermode, MatchGame, MatchTeam, Osu, OsuError, OsuMatch, OsuResult, TeamType, User,
     },
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -355,11 +355,11 @@ pub fn process_match(
         .map_or_else(Box::default, |user| Box::from(user.avatar_url.as_str()));
 
     if games[0].team_type == TeamType::TeamVS {
-        let mut blue = TeamResult::new(teams_win_count.get(Team::Blue));
-        let mut red = TeamResult::new(teams_win_count.get(Team::Red));
+        let mut blue = TeamResult::new(teams_win_count.get(MatchTeam::Blue));
+        let mut red = TeamResult::new(teams_win_count.get(MatchTeam::Red));
 
         for (&user_id, entry) in match_costs.iter() {
-            let Some(team @ (Team::Blue | Team::Red)) = users_team.get(user_id) else {
+            let Some(team @ (MatchTeam::Blue | MatchTeam::Red)) = users_team.get(user_id) else {
                 continue;
             };
 
@@ -374,9 +374,9 @@ pub fn process_match(
             };
 
             match team {
-                Team::Blue => blue.players.push(entry),
-                Team::Red => red.players.push(entry),
-                Team::None => unreachable!(),
+                MatchTeam::Blue => blue.players.push(entry),
+                MatchTeam::Red => red.players.push(entry),
+                MatchTeam::None => unreachable!(),
             }
         }
 
@@ -525,15 +525,15 @@ struct PerformanceCost {
 /// If a user has played in multiple teams, only the first one is stored.
 #[derive(Default)]
 struct UsersTeam {
-    entries: HashMap<u32, Team, IntHasher>,
+    entries: HashMap<u32, MatchTeam, IntHasher>,
 }
 
 impl UsersTeam {
-    fn update(&mut self, user_id: u32, team: Team) {
+    fn update(&mut self, user_id: u32, team: MatchTeam) {
         self.entries.entry(user_id).or_insert(team);
     }
 
-    fn get(&self, user_id: u32) -> Option<Team> {
+    fn get(&self, user_id: u32) -> Option<MatchTeam> {
         self.entries.get(&user_id).copied()
     }
 }
@@ -541,44 +541,45 @@ impl UsersTeam {
 /// The score sum of all users in a team.
 #[derive(Default)]
 struct TeamsScore {
-    entries: HashMap<Team, u32, IntHasher>,
+    entries: HashMap<MatchTeam, u32, IntHasher>,
 }
 
 impl TeamsScore {
-    fn update(&mut self, team: Team, score: u32) {
+    fn update(&mut self, team: MatchTeam, score: u32) {
         *self.entries.entry(team).or_default() += score;
     }
 
-    fn winner(&self) -> Team {
+    fn winner(&self) -> MatchTeam {
         self.entries
             .iter()
             .max_by_key(|(_, score)| **score)
-            .map_or(Team::None, |(team, _)| *team)
+            .map_or(MatchTeam::None, |(team, _)| *team)
     }
 }
 
 /// The amount of games that a team won because it had more total score.
 #[derive(Default)]
 struct TeamsWinCount {
-    entries: HashMap<Team, u32, IntHasher>,
+    entries: HashMap<MatchTeam, u32, IntHasher>,
 }
 
 impl TeamsWinCount {
-    fn add_win(&mut self, team: Team) {
+    fn add_win(&mut self, team: MatchTeam) {
         *self.entries.entry(team).or_default() += 1;
     }
 
     fn diff(&self) -> u32 {
-        if let (Some(blue), Some(red)) =
-            (self.entries.get(&Team::Blue), self.entries.get(&Team::Red))
-        {
+        if let (Some(blue), Some(red)) = (
+            self.entries.get(&MatchTeam::Blue),
+            self.entries.get(&MatchTeam::Red),
+        ) {
             blue.abs_diff(*red)
         } else {
             0
         }
     }
 
-    fn get(&self, team: Team) -> u32 {
+    fn get(&self, team: MatchTeam) -> u32 {
         self.entries.get(&team).copied().unwrap_or(0)
     }
 }

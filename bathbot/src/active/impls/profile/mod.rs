@@ -2,6 +2,7 @@ use std::fmt::{Display, Write};
 
 use bathbot_model::RankAccPeaks;
 use bathbot_util::{
+    constants::OSU_BASE,
     datetime::{HowLongAgoText, SecToMinSec, NAIVE_DATETIME_FORMAT},
     fields,
     numbers::{round, MinMaxAvg, Number, WithComma},
@@ -212,7 +213,6 @@ impl ProfileMenu {
     async fn compact(&mut self) -> Result<BuildPage> {
         let user_id = self.user.user_id.to_native();
 
-        let mode = self.user.mode;
         let medals = self.user.medals.len();
         let mut highest_rank = self
             .user
@@ -231,14 +231,22 @@ impl ProfileMenu {
             "Accuracy: [`{acc:.2}%`]({origin} \"{acc}\") • \
             Level: [`{level:.2}`]({origin} \"Total score until next level: {missing_score}\")\n\
             Playcount: `{playcount}` (`{playtime} hrs`)\n\
-            {mode} • Medals: `{medals}`",
+            Medals: `{medals}`",
             acc = stats.accuracy.to_native(),
             origin = self.origin,
             missing_score = WithComma::new(missing_score),
             playcount = WithComma::new(stats.playcount.to_native()),
             playtime = stats.playtime.to_native() / 60 / 60,
-            mode = Emote::from(mode),
         );
+
+        if let Some(team) = self.user.team.as_ref() {
+            let _ = write!(
+                description,
+                " • Team [{name}]({OSU_BASE}teams/{id})",
+                name = team.short_name.as_str(),
+                id = team.id.to_native(),
+            );
+        }
 
         if let Some(skin_url) = skin_url {
             let skin_tooltip = skin_url.trim_start_matches("https://");
@@ -348,7 +356,7 @@ impl ProfileMenu {
             .as_ref()
             .map(|highest_rank| highest_rank.try_deserialize::<Panic>().always_ok());
 
-        let mut description = format!("__**{mode} User statistics", mode = Emote::from(mode));
+        let mut description = "__**User statistics".to_owned();
 
         if let Some(discord_id) = self.discord_id {
             let _ = write!(description, " for <@{discord_id}>");
@@ -942,7 +950,7 @@ impl ProfileMenu {
             HowLongAgoText::new(&join_date),
         );
 
-        FooterBuilder::new(text)
+        FooterBuilder::new(text).icon_url(Emote::from(self.user.mode).url())
     }
 }
 

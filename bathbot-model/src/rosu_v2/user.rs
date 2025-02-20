@@ -1,6 +1,6 @@
 use ::rosu_v2::model::user::{
-    Badge, GradeCounts, MedalCompact, MonthlyCount, UserExtended, UserHighestRank, UserKudosu,
-    UserLevel, UserStatistics,
+    Badge, GradeCounts, MedalCompact, MonthlyCount, Team, UserExtended, UserHighestRank,
+    UserKudosu, UserLevel, UserStatistics,
 };
 use bathbot_util::osu::UserStats;
 use rkyv::{
@@ -105,6 +105,14 @@ impl From<MonthlyCountRkyv> for MonthlyCount {
     }
 }
 
+#[derive(Archive, Serialize)]
+#[rkyv(remote = Team, archived = ArchivedTeam, resolver = TeamResolver)]
+pub struct TeamRkyv {
+    pub id: u32,
+    pub name: String,
+    pub short_name: String,
+}
+
 #[derive(Clone, Archive, Serialize)]
 pub struct User {
     pub avatar_url: Box<str>,
@@ -144,6 +152,8 @@ pub struct User {
     pub medals: Vec<MedalCompact>,
     #[rkyv(with = DailyChallengeUserStatisticsRkyv)]
     pub daily_challenge: DailyChallengeUserStatistics,
+    #[rkyv(with = Map<TeamRkyv>)]
+    pub team: Option<Team>,
 }
 
 impl ArchiveWith<UserExtended> for User {
@@ -177,6 +187,7 @@ impl ArchiveWith<UserExtended> for User {
             statistics,
             medals,
             daily_challenge,
+            team,
         } = out);
 
         DerefAsBox::resolve_with(&user.avatar_url, resolver.avatar_url, avatar_url);
@@ -255,6 +266,7 @@ impl ArchiveWith<UserExtended> for User {
             resolver.daily_challenge,
             daily_challenge,
         );
+        Map::<TeamRkyv>::resolve_with(&user.team, resolver.team, team);
     }
 }
 
@@ -326,6 +338,7 @@ impl<S: Fallible<Error: Source> + Writer + Allocator + ?Sized> SerializeWith<Use
                 &user.daily_challenge_stats,
                 serializer,
             )?,
+            team: Map::<TeamRkyv>::serialize_with(&user.team, serializer)?,
         })
     }
 }
@@ -359,6 +372,7 @@ impl From<UserExtended> for User {
             statistics: user.statistics,
             medals: user.medals.unwrap_or_default(),
             daily_challenge: user.daily_challenge_stats,
+            team: user.team,
         }
     }
 }
