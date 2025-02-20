@@ -2,7 +2,12 @@ use rkyv::{Archive, Deserialize, Serialize};
 use rosu_v2::model::Grade;
 
 #[derive(Archive, Serialize, Deserialize)]
-#[rkyv(remote = Grade, archived = ArchivedGrade, resolver = GradeResolver, derive(Copy, Clone))]
+#[rkyv(
+    remote = Grade,
+    archived = ArchivedGrade,
+    resolver = GradeResolver,
+    derive(Copy, Clone),
+)]
 pub enum GradeRkyv {
     F,
     D,

@@ -1,6 +1,7 @@
 use rkyv::{
     bytecheck::CheckBytes,
     munge::munge,
+    niche::niching::Niching,
     rancor::{Fallible, Source},
     rend::u64_le,
     traits::NoUndef,
@@ -11,7 +12,7 @@ use time::{error::ComponentRange, Date, OffsetDateTime};
 
 pub struct DateTimeRkyv;
 
-#[derive(Copy, Clone, CheckBytes, Portable)]
+#[derive(Copy, Clone, CheckBytes, Portable, PartialEq, Eq)]
 #[bytecheck(crate = rkyv::bytecheck)]
 #[repr(C)]
 pub struct ArchivedDateTime {
@@ -24,7 +25,7 @@ pub struct ArchivedDateTime {
 unsafe impl NoUndef for ArchivedDateTime {}
 
 impl ArchivedDateTime {
-    pub fn new(datetime: OffsetDateTime) -> Self {
+    pub const fn new(datetime: OffsetDateTime) -> Self {
         let unix_timestamp_nanos = datetime.unix_timestamp_nanos();
 
         Self {
@@ -70,6 +71,16 @@ impl<D: Fallible<Error: Source>> DeserializeWith<ArchivedDateTime, OffsetDateTim
         _: &mut D,
     ) -> Result<OffsetDateTime, D::Error> {
         archived.try_deserialize()
+    }
+}
+
+impl Niching<ArchivedDateTime> for DateTimeRkyv {
+    unsafe fn is_niched(niched: *const ArchivedDateTime) -> bool {
+        unsafe { *niched == ArchivedDateTime::new(OffsetDateTime::UNIX_EPOCH) }
+    }
+
+    fn resolve_niched(out: Place<ArchivedDateTime>) {
+        Self::resolve_with(&OffsetDateTime::UNIX_EPOCH, (), out);
     }
 }
 

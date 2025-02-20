@@ -9,8 +9,11 @@ use std::{
 use eyre::{Result, WrapErr};
 use form_urlencoded::Serializer as FormSerializer;
 use rkyv::{
-    bytecheck::CheckBytes, string::ArchivedString, with::Niche, Archive, Archived,
-    Deserialize as RkyvDeserialize, Portable, Serialize,
+    bytecheck::CheckBytes,
+    niche::niching::{NaN, Null},
+    string::ArchivedString,
+    with::NicheInto,
+    Archive, Archived, Deserialize as RkyvDeserialize, Portable, Serialize,
 };
 use rosu_v2::{
     model::GameMode,
@@ -27,6 +30,7 @@ use twilight_interactions::command::{CommandOption, CreateOption};
 use super::deser;
 use crate::{
     rkyv_util::{time::DateRkyv, DerefAsString},
+    rosu_v2::mode::GameModeNiche,
     RankingKind,
 };
 
@@ -202,18 +206,20 @@ pub struct OsekaiMedal {
     #[serde(with = "deser::u32_string")]
     pub ordering: u32,
     #[serde(rename = "Frequency", with = "deser::option_f32_string")]
+    #[rkyv(with = NicheInto<NaN>)]
     pub rarity: Option<f32>,
     pub name: Box<str>,
     #[serde(rename = "Link")]
     icon_url_suffix: Box<str>,
     pub description: Box<str>,
     #[serde(rename = "Gamemode", deserialize_with = "maybe_osekai_mode")]
+    #[rkyv(with = NicheInto<GameModeNiche>)]
     pub mode: Option<GameMode>,
     pub grouping: MedalGroup,
-    #[rkyv(with = Niche)]
+    #[rkyv(with = NicheInto<Null>)]
     solution: Option<Box<str>>,
-    #[rkyv(with = Niche)]
     #[serde(deserialize_with = "medal_mods")]
+    #[rkyv(with = NicheInto<Null>)]
     pub mods: Option<Box<str>>,
     #[serde(rename = "Supports_Lazer", deserialize_with = "stringified_bool_int")]
     pub supports_lazer: bool,
@@ -810,6 +816,7 @@ pub struct OsekaiRarityEntry {
     #[serde(rename = "possessionRate", with = "deser::f32_string")]
     pub possession_percent: f32,
     #[serde(rename = "gameMode", deserialize_with = "maybe_osekai_mode")]
+    #[rkyv(with = NicheInto<GameModeNiche>)]
     pub mode: Option<GameMode>,
 }
 

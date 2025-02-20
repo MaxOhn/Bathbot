@@ -5,10 +5,11 @@ use ::rosu_v2::model::user::{
 use bathbot_util::osu::UserStats;
 use rkyv::{
     munge::munge,
+    niche::niching::{NaN, Niching},
     rancor::{Fallible, Source},
     rend::u32_le,
     ser::{Allocator, Writer},
-    with::{ArchiveWith, InlineAsBox, Map, SerializeWith},
+    with::{ArchiveWith, InlineAsBox, Map, MapNiche, SerializeWith},
     Archive, Deserialize, Place, Serialize,
 };
 use rosu_v2::prelude::{CountryCode, DailyChallengeUserStatistics, GameMode, Username};
@@ -72,13 +73,16 @@ impl From<MedalCompactRkyv> for MedalCompact {
 }
 
 #[derive(Archive, Serialize)]
-#[rkyv(remote = DailyChallengeUserStatistics, archived = ArchivedDailyChallengeUserStatistics)]
+#[rkyv(
+    remote = DailyChallengeUserStatistics,
+    archived = ArchivedDailyChallengeUserStatistics,
+)]
 pub struct DailyChallengeUserStatisticsRkyv {
     pub daily_streak_best: u32,
     pub daily_streak_current: u32,
-    #[rkyv(with = Map<DateTimeRkyv>)]
+    #[rkyv(with = MapNiche<DateTimeRkyv, DateTimeRkyv>)]
     pub last_update: Option<OffsetDateTime>,
-    #[rkyv(with = Map<DateTimeRkyv>)]
+    #[rkyv(with = MapNiche<DateTimeRkyv, DateTimeRkyv>)]
     pub last_weekly_streak: Option<OffsetDateTime>,
     pub playcount: u32,
     pub top_10p_placements: u32,
@@ -113,6 +117,17 @@ pub struct TeamRkyv {
     pub short_name: String,
 }
 
+impl Niching<ArchivedTeam> for TeamRkyv {
+    unsafe fn is_niched(niched: *const ArchivedTeam) -> bool {
+        unsafe { (*niched).id == 0 }
+    }
+
+    fn resolve_niched(out: Place<ArchivedTeam>) {
+        munge!(let ArchivedTeam { id, .. } = out);
+        0_u32.resolve((), id);
+    }
+}
+
 #[derive(Clone, Archive, Serialize)]
 pub struct User {
     pub avatar_url: Box<str>,
@@ -122,7 +137,7 @@ pub struct User {
     pub join_date: OffsetDateTime,
     #[rkyv(with = UserKudosuRkyv)]
     pub kudosu: UserKudosu,
-    #[rkyv(with = Map<DateTimeRkyv>)]
+    #[rkyv(with = MapNiche<DateTimeRkyv, DateTimeRkyv>)]
     pub last_visit: Option<OffsetDateTime>,
     pub mode: GameMode,
     pub user_id: u32,
@@ -134,7 +149,7 @@ pub struct User {
     pub follower_count: u32,
     pub graveyard_mapset_count: u32,
     pub guest_mapset_count: u32,
-    #[rkyv(with = Map<UserHighestRankRkyv>)]
+    #[rkyv(with = MapNiche<UserHighestRankRkyv, DateTimeRkyv>)]
     pub highest_rank: Option<UserHighestRank>,
     pub loved_mapset_count: u32,
     pub mapping_follower_count: u32,
@@ -145,14 +160,14 @@ pub struct User {
     #[rkyv(with = Map<MonthlyCountRkyv>)]
     pub replays_watched_counts: Vec<MonthlyCount>,
     pub scores_first_count: u32,
-    #[rkyv(with = Map<UserStatisticsRkyv>)]
+    #[rkyv(with = MapNiche<UserStatisticsRkyv, NaN>)]
     pub statistics: Option<UserStatistics>,
     pub pending_mapset_count: u32,
     #[rkyv(with = Map<MedalCompactRkyv>)]
     pub medals: Vec<MedalCompact>,
     #[rkyv(with = DailyChallengeUserStatisticsRkyv)]
     pub daily_challenge: DailyChallengeUserStatistics,
-    #[rkyv(with = Map<TeamRkyv>)]
+    #[rkyv(with = MapNiche<TeamRkyv, TeamRkyv>)]
     pub team: Option<Team>,
 }
 
@@ -194,7 +209,11 @@ impl ArchiveWith<UserExtended> for User {
         DerefAsString::resolve_with(&user.country_code, resolver.country_code, country_code);
         DateTimeRkyv::resolve_with(&user.join_date, resolver.join_date, join_date);
         UserKudosuRkyv::resolve_with(&user.kudosu, resolver.kudosu, kudosu);
-        Map::<DateTimeRkyv>::resolve_with(&user.last_visit, resolver.last_visit, last_visit);
+        MapNiche::<DateTimeRkyv, DateTimeRkyv>::resolve_with(
+            &user.last_visit,
+            resolver.last_visit,
+            last_visit,
+        );
         user.mode.resolve(resolver.mode, mode);
         user.user_id.resolve(resolver.user_id, user_id);
         DerefAsString::resolve_with(&user.username, resolver.username, username);
@@ -214,7 +233,7 @@ impl ArchiveWith<UserExtended> for User {
             resolver.guest_mapset_count,
             guest_mapset_count,
         );
-        Map::<UserHighestRankRkyv>::resolve_with(
+        MapNiche::<UserHighestRankRkyv, DateTimeRkyv>::resolve_with(
             &user.highest_rank,
             resolver.highest_rank,
             highest_rank,
@@ -259,14 +278,18 @@ impl ArchiveWith<UserExtended> for User {
             resolver.replays_watched_counts,
             replays_watched_counts,
         );
-        Map::<UserStatisticsRkyv>::resolve_with(&user.statistics, resolver.statistics, statistics);
+        MapNiche::<UserStatisticsRkyv, NaN>::resolve_with(
+            &user.statistics,
+            resolver.statistics,
+            statistics,
+        );
         MapUnwrapOrDefault::<MedalCompactRkyv>::resolve_with(&user.medals, resolver.medals, medals);
         DailyChallengeUserStatisticsRkyv::resolve_with(
             &user.daily_challenge_stats,
             resolver.daily_challenge,
             daily_challenge,
         );
-        Map::<TeamRkyv>::resolve_with(&user.team, resolver.team, team);
+        MapNiche::<TeamRkyv, TeamRkyv>::resolve_with(&user.team, resolver.team, team);
     }
 }
 
@@ -279,12 +302,15 @@ impl<S: Fallible<Error: Source> + Writer + Allocator + ?Sized> SerializeWith<Use
             country_code: DerefAsString::serialize_with(&user.country_code, serializer)?,
             join_date: DateTimeRkyv::serialize_with(&user.join_date, serializer)?,
             kudosu: UserKudosuRkyv::serialize_with(&user.kudosu, serializer)?,
-            last_visit: Map::<DateTimeRkyv>::serialize_with(&user.last_visit, serializer)?,
+            last_visit: MapNiche::<DateTimeRkyv, DateTimeRkyv>::serialize_with(
+                &user.last_visit,
+                serializer,
+            )?,
             mode: user.mode.serialize(serializer)?,
             user_id: user.user_id.serialize(serializer)?,
             username: DerefAsString::serialize_with(&user.username, serializer)?,
             badges: MapUnwrapOrDefault::<BadgeRkyv>::serialize_with(&user.badges, serializer)?,
-            highest_rank: Map::<UserHighestRankRkyv>::serialize_with(
+            highest_rank: MapNiche::<UserHighestRankRkyv, DateTimeRkyv>::serialize_with(
                 &user.highest_rank,
                 serializer,
             )?,
@@ -329,7 +355,10 @@ impl<S: Fallible<Error: Source> + Writer + Allocator + ?Sized> SerializeWith<Use
                 &user.replays_watched_counts,
                 serializer,
             )?,
-            statistics: Map::<UserStatisticsRkyv>::serialize_with(&user.statistics, serializer)?,
+            statistics: MapNiche::<UserStatisticsRkyv, NaN>::serialize_with(
+                &user.statistics,
+                serializer,
+            )?,
             medals: MapUnwrapOrDefault::<MedalCompactRkyv>::serialize_with(
                 &user.medals,
                 serializer,
@@ -338,7 +367,7 @@ impl<S: Fallible<Error: Source> + Writer + Allocator + ?Sized> SerializeWith<Use
                 &user.daily_challenge_stats,
                 serializer,
             )?,
-            team: Map::<TeamRkyv>::serialize_with(&user.team, serializer)?,
+            team: MapNiche::<TeamRkyv, TeamRkyv>::serialize_with(&user.team, serializer)?,
         })
     }
 }
@@ -381,7 +410,7 @@ impl From<UserExtended> for User {
 #[rkyv(remote = UserHighestRank, archived = ArchivedUserHighestRank, derive(Clone))]
 pub struct UserHighestRankRkyv {
     pub rank: u32,
-    #[rkyv(with = DateTimeRkyv)]
+    #[rkyv(with = DateTimeRkyv, niche = DateTimeRkyv)]
     pub updated_at: OffsetDateTime,
 }
 
@@ -430,6 +459,7 @@ pub struct UserStatisticsRkyv {
     pub grade_counts: GradeCounts,
     #[rkyv(with = UserLevelRkyv)]
     pub level: UserLevel,
+    #[rkyv(niche = NaN)]
     pub accuracy: f32,
     pub country_rank: u32,
     pub global_rank: u32,

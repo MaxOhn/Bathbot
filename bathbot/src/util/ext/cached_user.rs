@@ -5,7 +5,7 @@ use bathbot_model::{
     rosu_v2::user::{ArchivedUser, ArchivedUserHighestRank},
 };
 use bathbot_util::{constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder};
-use rkyv::{munge::munge, option::ArchivedOption};
+use rkyv::{munge::munge, niche::niched_option::NichedOption};
 
 use crate::manager::redis::osu::CachedUser;
 
@@ -100,20 +100,20 @@ impl CachedUserExt for CachedUser {
             } = seal);
 
             if let Some(last_visit) = user.last_visit {
-                if let Some(last_visit_seal) = ArchivedOption::as_seal(last_visit_seal) {
+                if let Some(last_visit_seal) = NichedOption::as_seal(last_visit_seal) {
                     *last_visit_seal.unseal() = ArchivedDateTime::new(last_visit);
                 }
             }
 
             if let Some(stats) = user.statistics {
-                if let Some(stats_seal) = ArchivedOption::as_seal(statistics_seal) {
+                if let Some(stats_seal) = NichedOption::as_seal(statistics_seal) {
                     // SAFETY: We neither move fields nor write uninitialized bytes
                     unsafe { *stats_seal.unseal_unchecked() = stats.into() };
                 }
             }
 
             if let Some(highest_rank) = user.highest_rank {
-                if let Some(highest_rank_seal) = ArchivedOption::as_seal(highest_rank_seal) {
+                if let Some(highest_rank_seal) = NichedOption::as_seal(highest_rank_seal) {
                     // SAFETY: We neither move fields nor write uninitialized bytes
                     unsafe {
                         *highest_rank_seal.unseal_unchecked() = ArchivedUserHighestRank {

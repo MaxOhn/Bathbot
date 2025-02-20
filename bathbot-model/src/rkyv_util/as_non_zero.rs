@@ -1,27 +1,24 @@
 use std::num::{NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8};
 
 use rkyv::{
-    niche::option_nonzero::{
-        ArchivedOptionNonZeroU16, ArchivedOptionNonZeroU32, ArchivedOptionNonZeroU64,
-        ArchivedOptionNonZeroU8,
-    },
+    niche::{niched_option::NichedOption, niching::Zero},
     rancor::Fallible,
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Place,
+    Archived, Place,
 };
 
 pub struct AsNonZero;
 
 macro_rules! impl_as_non_zero {
-    ($ar:ty, $nz:ty, $ne:ty) => {
+    ($nz:ty, $ne:ty) => {
         impl ArchiveWith<Option<$ne>> for AsNonZero {
-            type Archived = $ar;
+            type Archived = NichedOption<Archived<$nz>, Zero>;
             type Resolver = ();
 
             #[inline]
             fn resolve_with(field: &Option<$ne>, _: Self::Resolver, out: Place<Self::Archived>) {
                 let opt = field.and_then(<$nz>::new);
-                <$ar>::resolve_from_option(opt, out);
+                NichedOption::resolve_from_option(opt.as_ref(), Some(()), out);
             }
         }
 
@@ -35,10 +32,12 @@ macro_rules! impl_as_non_zero {
             }
         }
 
-        impl<D: Fallible + ?Sized> DeserializeWith<$ar, Option<$ne>, D> for AsNonZero {
+        impl<D: Fallible + ?Sized>
+            DeserializeWith<NichedOption<Archived<$nz>, Zero>, Option<$ne>, D> for AsNonZero
+        {
             #[inline]
             fn deserialize_with(
-                field: &$ar,
+                field: &NichedOption<Archived<$nz>, Zero>,
                 _: &mut D,
             ) -> Result<Option<$ne>, <D as Fallible>::Error> {
                 Ok(field.as_ref().copied().map(<$nz>::from).map(<$nz>::get))
@@ -47,7 +46,7 @@ macro_rules! impl_as_non_zero {
     };
 }
 
-impl_as_non_zero!(ArchivedOptionNonZeroU8, NonZeroU8, u8);
-impl_as_non_zero!(ArchivedOptionNonZeroU16, NonZeroU16, u16);
-impl_as_non_zero!(ArchivedOptionNonZeroU32, NonZeroU32, u32);
-impl_as_non_zero!(ArchivedOptionNonZeroU64, NonZeroU64, u64);
+impl_as_non_zero!(NonZeroU8, u8);
+impl_as_non_zero!(NonZeroU16, u16);
+impl_as_non_zero!(NonZeroU32, u32);
+impl_as_non_zero!(NonZeroU64, u64);

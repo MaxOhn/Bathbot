@@ -1,4 +1,8 @@
-use rkyv::{with::Map, Archive, Serialize};
+use rkyv::{
+    niche::niching::NaN,
+    with::{Map, MapNiche},
+    Archive, Serialize,
+};
 use rosu_v2::prelude::{CountryCode, Rankings, User, UserStatistics, Username};
 
 use super::user::UserStatisticsRkyv;
@@ -23,6 +27,6 @@ pub struct RankingsUserRkyv {
     pub user_id: u32,
     #[rkyv(with = DerefAsString)]
     pub username: Username,
-    #[rkyv(with = Map<UserStatisticsRkyv>)]
+    #[rkyv(with = MapNiche<UserStatisticsRkyv, NaN>)]
     pub statistics: Option<UserStatistics>,
 }
