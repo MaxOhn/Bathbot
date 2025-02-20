@@ -13,7 +13,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "3.17.5"
+version = "3.17.6"
 authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2021"
 
