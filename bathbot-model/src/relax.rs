@@ -1,112 +1,68 @@
 #![allow(dead_code)]
+use crate::deser::{datetime_rfc3339, option_datetime_rfc3339};
 use serde::Deserialize;
+use time::OffsetDateTime;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RelaxScore {
-    #[serde(rename = "id")]
     id: u64,
-    #[serde(rename = "userId")]
     user_id: u32,
-    #[serde(rename = "user")]
     user: RelaxUser,
-    #[serde(rename = "beatmapId")]
     beatmap_id: u32,
-    #[serde(rename = "beatmap")]
     beatmap: RelaxBeatmap,
-    #[serde(rename = "grade")]
     grade: RelaxGrade,
-    #[serde(rename = "accuracy")]
     accuracy: f64,
-    #[serde(rename = "combo")]
     combo: u32,
-    #[serde(rename = "mods")]
     mods: Option<String>,
-
-    // Make date-time
-    #[serde(rename = "date")]
-    date: String,
-    #[serde(rename = "totalScore")]
+    #[serde(with = "datetime_rfc3339")]
+    date: OffsetDateTime,
     total_score: u32,
-    #[serde(rename = "count50")]
     count_50: u32,
-    #[serde(rename = "count100")]
     count_100: u32,
-    #[serde(rename = "count300")]
     count_300: u32,
-    #[serde(rename = "countMiss")]
     count_miss: u32,
-    #[serde(rename = "spinnerBonus")]
     spinner_bonus: Option<u32>,
-    #[serde(rename = "spinnerSpins")]
     spinner_spins: Option<u32>,
-    #[serde(rename = "legacySliderEnds")]
     legacy_slider_ends: Option<u32>,
-    #[serde(rename = "sliderTicks")]
     slider_ticks: Option<u32>,
-    #[serde(rename = "sliderEnds")]
     slider_ends: Option<u32>,
-    #[serde(rename = "legacySliderEndMisses")]
     legacy_slider_end_misses: Option<u32>,
-    #[serde(rename = "sliderTickMisses")]
     slider_tick_misses: Option<u32>,
-    #[serde(rename = "pp")]
     pp: Option<f64>,
-    #[serde(rename = "isBest")]
     is_best: bool,
 }
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RelaxUser {
-    #[serde(rename = "id")]
     pub id: u32,
-    #[serde(rename = "countryCode")]
     pub country_code: Option<String>,
-    #[serde(rename = "username")]
     pub username: Option<String>,
-    #[serde(rename = "totalPp")]
     pub total_pp: Option<f64>,
-    #[serde(rename = "totalAccuracy")]
     pub total_accuracy: Option<f64>,
-    // Make date-time
-    #[serde(rename = "updatedAt")]
-    pub updated_at: Option<String>,
+    #[serde(with = "option_datetime_rfc3339")]
+    pub updated_at: Option<OffsetDateTime>,
 }
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RelaxBeatmap {
-    #[serde(rename = "id")]
     id: u32,
-    #[serde(rename = "artist")]
     artist: Option<String>,
-    #[serde(rename = "title")]
     title: Option<String>,
-    #[serde(rename = "creatorId")]
     creator_id: u32,
-    #[serde(rename = "beatmapSetId")]
     beatmap_set_id: u32,
-    #[serde(rename = "difficultyName")]
     difficulty_name: Option<String>,
-    #[serde(rename = "approachRate")]
     approach_rate: f64,
-    #[serde(rename = "overallDifficulty")]
     overall_difficulty: f64,
-    #[serde(rename = "circleSize")]
     circle_size: f64,
-    #[serde(rename = "healthDrain")]
     health_drain: f64,
-    #[serde(rename = "beatsPerMinute")]
     beats_per_minute: f64,
-    #[serde(rename = "circles")]
     circles: u32,
-    #[serde(rename = "sliders")]
     sliders: u32,
-    #[serde(rename = "spinners")]
     spinners: u32,
-    #[serde(rename = "starRatingNormal")]
     star_rating_normal: f64,
-    #[serde(rename = "starRating")]
     star_rating: Option<f64>,
-    #[serde(rename = "status")]
     status: RelaxBeatmapStatus,
-    #[serde(rename = "maxCombo")]
     max_combo: u32,
 }
 

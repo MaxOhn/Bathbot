@@ -217,7 +217,7 @@ pub(super) mod datetime_rfc3339 {
         d.deserialize_str(DateTimeVisitor)
     }
 
-    struct DateTimeVisitor;
+    pub(crate) struct DateTimeVisitor;
 
     impl Visitor<'_> for DateTimeVisitor {
         type Value = OffsetDateTime;
@@ -230,6 +230,40 @@ pub(super) mod datetime_rfc3339 {
         #[inline]
         fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
             OffsetDateTime::parse(v, &Rfc3339).map_err(Error::custom)
+        }
+    }
+}
+pub(super) mod option_datetime_rfc3339 {
+    use super::{datetime_rfc3339::DateTimeVisitor, *};
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        d: D,
+    ) -> Result<Option<OffsetDateTime>, D::Error> {
+        d.deserialize_option(OptionDateTimeVisitor)
+    }
+
+    struct OptionDateTimeVisitor;
+
+    impl<'de> Visitor<'de> for OptionDateTimeVisitor {
+        type Value = Option<OffsetDateTime>;
+
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("an optional RFC3339 datetime string ending on `Z`")
+        }
+
+        #[inline]
+        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+            d.deserialize_str(DateTimeVisitor).map(Some)
+        }
+
+        #[inline]
+        fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+            self.visit_unit()
+        }
+
+        #[inline]
+        fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
         }
     }
 }
