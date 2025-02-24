@@ -587,7 +587,7 @@ fn content_with_condition(args: &Pinned, amount: usize, mods: Option<&ModSelecti
 
     if args.reverse.unwrap_or(false) {
         content.push_str(" (reverse)`");
-    } else {
+    } else if !content.is_empty() {
         content.push('`');
     }
 
