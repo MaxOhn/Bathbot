@@ -1,5 +1,5 @@
 use itoa::{Buffer as IntBuffer, Integer};
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{Rng, distributions::Alphanumeric};
 use ryu::{Buffer as FloatBuffer, Float};
 
 const BOUNDARY_LEN: usize = 8;

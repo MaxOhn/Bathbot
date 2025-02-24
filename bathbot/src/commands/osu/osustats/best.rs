@@ -10,8 +10,8 @@ use rosu_v2::prelude::GameMode;
 
 use super::{OsuStatsBest, OsuStatsBestSort};
 use crate::{
-    active::{impls::OsuStatsBestPagination, ActiveMessages},
-    core::{commands::CommandOrigin, Context},
+    active::{ActiveMessages, impls::OsuStatsBestPagination},
+    core::{Context, commands::CommandOrigin},
 };
 
 pub(super) async fn recentbest(orig: CommandOrigin<'_>, args: OsuStatsBest) -> Result<()> {

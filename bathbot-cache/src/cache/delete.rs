@@ -1,13 +1,13 @@
 use std::iter;
 
-use bb8_redis::{bb8::PooledConnection, redis::AsyncCommands, RedisConnectionManager};
+use bb8_redis::{RedisConnectionManager, bb8::PooledConnection, redis::AsyncCommands};
 use eyre::{Result, WrapErr};
 use twilight_model::id::{
-    marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
     Id,
+    marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
 };
 
-use crate::{key::RedisKey, model::CacheChange, Cache};
+use crate::{Cache, key::RedisKey, model::CacheChange};
 
 impl Cache {
     pub(crate) async fn delete_channel(

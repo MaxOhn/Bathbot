@@ -2,11 +2,11 @@ use std::collections::BTreeMap;
 
 use bathbot_macros::SlashCommand;
 use bathbot_util::{
+    CowUtils, EmbedBuilder, MessageBuilder,
     constants::{BATHBOT_GITHUB, BATHBOT_ROADMAP, BATHBOT_WORKSHOP, INVITE_LINK, KOFI},
     datetime::HowLongAgoDynamic,
     numbers::WithComma,
     string_cmp::levenshtein_distance,
-    CowUtils, EmbedBuilder, MessageBuilder,
 };
 use eyre::{ContextCompat, Result};
 use metrics::Key;
@@ -18,12 +18,12 @@ use twilight_model::{
 
 use super::failed_message_content;
 use crate::{
-    active::{impls::HelpInteractionCommand, ActiveMessages},
+    active::{ActiveMessages, impls::HelpInteractionCommand},
     core::{
-        commands::interaction::{InteractionCommandKind, InteractionCommands},
         Context,
+        commands::interaction::{InteractionCommandKind, InteractionCommands},
     },
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CreateCommand, SlashCommand)]

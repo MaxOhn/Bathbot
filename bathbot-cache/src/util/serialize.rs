@@ -1,9 +1,9 @@
 use rkyv::{
+    Archived, Serialize,
     rancor::{BoxedError, Strategy},
-    ser::{allocator::ArenaHandle, Serializer, WriterExt},
+    ser::{Serializer, WriterExt, allocator::ArenaHandle},
     util::AlignedVec,
     with::With,
-    Archived, Serialize,
 };
 
 pub type SerializerStrategy<'a> =

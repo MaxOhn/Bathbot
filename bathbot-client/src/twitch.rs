@@ -25,11 +25,11 @@ impl Client {
         use bathbot_model::TwitchData;
         use bathbot_util::constants::TWITCH_OAUTH;
         use hyper::{
-            header::{CONTENT_LENGTH, CONTENT_TYPE, USER_AGENT},
             Request,
+            header::{CONTENT_LENGTH, CONTENT_TYPE, USER_AGENT},
         };
 
-        use crate::{multipart::Multipart, MY_USER_AGENT};
+        use crate::{MY_USER_AGENT, multipart::Multipart};
 
         let mut form = Multipart::new();
 

@@ -1,23 +1,23 @@
 use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_util::{constants::OSU_BASE, EmbedBuilder, FooterBuilder};
+use bathbot_util::{EmbedBuilder, FooterBuilder, constants::OSU_BASE};
 use eyre::Result;
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::tracking::TracklistUserEntry,
     util::{
-        interaction::{InteractionComponent, InteractionModal},
         Emote,
+        interaction::{InteractionComponent, InteractionModal},
     },
 };
 

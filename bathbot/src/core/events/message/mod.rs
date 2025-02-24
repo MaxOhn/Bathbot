@@ -12,9 +12,9 @@ use self::parse::*;
 use super::{EventKind, ProcessResult};
 use crate::{
     core::{
+        BotMetrics, Context,
         buckets::BucketName,
         commands::checks::{check_authority, check_channel_permissions},
-        BotMetrics, Context,
     },
     util::ChannelExt,
 };

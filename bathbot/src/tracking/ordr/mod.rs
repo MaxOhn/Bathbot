@@ -7,9 +7,9 @@ use bathbot_util::IntHasher;
 use eyre::{Report, Result, WrapErr};
 use flexmap::tokio::TokioRwLockMap;
 use rosu_render::{
+    OrdrClient, OrdrWebsocket,
     model::{RenderDone, RenderFailed, RenderProgress, Verification},
     websocket::event::RawEvent,
-    OrdrClient, OrdrWebsocket,
 };
 use tokio::sync::{mpsc, oneshot};
 

@@ -4,11 +4,11 @@ use futures::StreamExt;
 use rosu_v2::prelude::GameMode;
 use sqlx::types::Json;
 use time::UtcOffset;
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::{
-    model::configs::{DbSkinEntry, DbUserConfig, OsuUserId, SkinEntry, UserConfig},
     Database,
+    model::configs::{DbSkinEntry, DbUserConfig, OsuUserId, SkinEntry, UserConfig},
 };
 
 impl Database {

@@ -5,23 +5,23 @@ use std::{
     iter, mem,
 };
 
-use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_macros::{HasName, SlashCommand, command};
 use bathbot_util::{
-    constants::GENERAL_ISSUE, matcher, numbers::WithComma, EmbedBuilder, IntHasher, MessageBuilder,
-    TourneyBadges,
+    EmbedBuilder, IntHasher, MessageBuilder, TourneyBadges, constants::GENERAL_ISSUE, matcher,
+    numbers::WithComma,
 };
 use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
-    util::{interaction::InteractionCommand, CachedUserExt, ChannelExt, InteractionCommandExt},
     Context,
+    core::commands::{CommandOrigin, prefix::Args},
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
+    util::{CachedUserExt, ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
@@ -324,18 +324,26 @@ fn bws_embed(
 
             for (rank, bwss) in bwss {
                 let _ = writeln!(
-                content,
-                " {:>rank_len$} | {ansi_left}{:^len1$}{reset} | {:^len2$} | {ansi_right}{:^len3$}{reset}",
-                format!("#{rank}"),
-                bwss[0],
-                bwss[1],
-                bwss[2],
-                len1 = max[0],
-                len2 = max[1],
-                len3 = max[2],
-                ansi_left = if rank == global_rank && badges_curr == badges[0].count { yellow } else { reset },
-                ansi_right = if rank == global_rank && badges_curr == badges[2].count { yellow } else { reset },
-            );
+                    content,
+                    " {:>rank_len$} | {ansi_left}{:^len1$}{reset} | {:^len2$} | {ansi_right}{:^len3$}{reset}",
+                    format!("#{rank}"),
+                    bwss[0],
+                    bwss[1],
+                    bwss[2],
+                    len1 = max[0],
+                    len2 = max[1],
+                    len3 = max[2],
+                    ansi_left = if rank == global_rank && badges_curr == badges[0].count {
+                        yellow
+                    } else {
+                        reset
+                    },
+                    ansi_right = if rank == global_rank && badges_curr == badges[2].count {
+                        yellow
+                    } else {
+                        reset
+                    },
+                );
             }
 
             content.push_str("```");
@@ -365,11 +373,19 @@ fn bws_embed(
             );
 
             let _ = writeln!(
-            content,
-            "   BWS | {ansi_left}{bws1:^len1$}{reset} | {bws2:^len2$} | {ansi_right}{bws3:^len3$}{reset}\n```",
-            ansi_left = if badges_curr == badges[0].count { yellow } else { reset },
-            ansi_right = if badges_curr == badges[2].count { yellow } else { reset },
-        );
+                content,
+                "   BWS | {ansi_left}{bws1:^len1$}{reset} | {bws2:^len2$} | {ansi_right}{bws3:^len3$}{reset}\n```",
+                ansi_left = if badges_curr == badges[0].count {
+                    yellow
+                } else {
+                    reset
+                },
+                ansi_right = if badges_curr == badges[2].count {
+                    yellow
+                } else {
+                    reset
+                },
+            );
 
             content
         }

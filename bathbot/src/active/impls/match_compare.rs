@@ -1,11 +1,11 @@
 use std::{borrow::Cow, cmp::Reverse, collections::HashMap, fmt::Write, mem};
 
 use bathbot_util::{
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher,
     constants::OSU_BASE,
     fields,
-    numbers::{round, WithComma},
+    numbers::{WithComma, round},
     osu::calculate_grade,
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -15,13 +15,13 @@ use rosu_v2::prelude::{
 };
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::MatchCompareComparison,
     util::{

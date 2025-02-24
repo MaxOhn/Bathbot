@@ -1,21 +1,21 @@
 use std::{borrow::Cow, future::IntoFuture, mem, slice};
 
 use bathbot_util::{EmbedBuilder, MessageBuilder};
-use twilight_http::response::{marker::EmptyBody, ResponseFuture};
+use twilight_http::response::{ResponseFuture, marker::EmptyBody};
 use twilight_interactions::command::CommandInputData;
 use twilight_model::{
     application::{
         command::{CommandOptionChoice, CommandType},
         interaction::application_command::CommandOptionValue,
     },
-    channel::{message::MessageFlags, Message},
+    channel::{Message, message::MessageFlags},
     guild::Permissions,
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
 use crate::{
     core::Context,
-    util::{interaction::InteractionCommand, CheckPermissions},
+    util::{CheckPermissions, interaction::InteractionCommand},
 };
 
 pub trait InteractionCommandExt {

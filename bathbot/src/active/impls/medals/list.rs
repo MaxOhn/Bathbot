@@ -2,19 +2,19 @@ use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
-    constants::OSU_BASE, osu::flag_url, AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, constants::OSU_BASE, osu::flag_url,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::MedalEntryList,
     manager::redis::osu::CachedUser,

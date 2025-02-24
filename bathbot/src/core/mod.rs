@@ -1,7 +1,7 @@
 pub use self::{
     config::BotConfig,
     context::Context,
-    events::{event_loop, EventKind},
+    events::{EventKind, event_loop},
     metrics::BotMetrics,
 };
 

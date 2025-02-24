@@ -1,12 +1,12 @@
 use bathbot_model::embed_builder::ScoreEmbedSettings;
 use bathbot_psql::{
-    model::configs::{OsuUserId, SkinEntry, UserConfig},
     Database,
+    model::configs::{OsuUserId, SkinEntry, UserConfig},
 };
 use bathbot_util::CowUtils;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMode, Username};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::core::Context;
 

@@ -7,8 +7,8 @@ use twilight_model::{
     channel::Message,
     guild::{PartialMember, Permissions},
     id::{
-        marker::{ChannelMarker, GuildMarker, InteractionMarker},
         Id,
+        marker::{ChannelMarker, GuildMarker, InteractionMarker},
     },
     user::User,
 };

@@ -1,6 +1,6 @@
 use std::{borrow::Cow, cmp::Ordering};
 
-use bathbot_macros::{command, HasMods, HasName, SlashCommand};
+use bathbot_macros::{HasMods, HasName, SlashCommand, command};
 use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection};
@@ -12,23 +12,23 @@ use rosu_v2::{
 };
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use super::TopIfEntry;
 use crate::{
-    active::{impls::TopIfPagination, ActiveMessages},
-    commands::osu::{require_link, user_not_found, HasMods, ModsResult, TopIfScoreOrder},
-    core::commands::{prefix::Args, CommandOrigin},
+    Context,
+    active::{ActiveMessages, impls::TopIfPagination},
+    commands::osu::{HasMods, ModsResult, TopIfScoreOrder, require_link, user_not_found},
+    core::commands::{CommandOrigin, prefix::Args},
     manager::{
-        redis::osu::{UserArgs, UserArgsError},
         OsuMap,
+        redis::osu::{UserArgs, UserArgsError},
     },
     util::{
+        ChannelExt, InteractionCommandExt,
         interaction::InteractionCommand,
         query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
-        ChannelExt, InteractionCommandExt,
     },
-    Context,
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

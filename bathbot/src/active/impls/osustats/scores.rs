@@ -3,32 +3,32 @@ use std::{collections::BTreeMap, fmt::Write};
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{OsuStatsParams, OsuStatsScoresRaw, ScoreSlim};
 use bathbot_util::{
+    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter,
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
-    numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter,
+    numbers::{WithComma, round},
 };
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_v2::prelude::{GameMode, Grade, ScoreStatistics};
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::OsuStatsEntry,
     core::Context,
     embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
     manager::redis::osu::CachedUser,
     util::{
+        CachedUserExt,
         interaction::{InteractionComponent, InteractionModal},
         osu::grade_emote,
-        CachedUserExt,
     },
 };
 

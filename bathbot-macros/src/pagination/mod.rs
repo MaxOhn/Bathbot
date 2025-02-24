@@ -1,9 +1,9 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    parse_quote, parse_quote_spanned, spanned::Spanned, Data, DataStruct, DeriveInput, Error, Expr,
-    Field, FieldMutability, FieldValue, Fields, FieldsNamed, GenericArgument, Lit, LitInt, Member,
-    Meta, PathArguments, Type, Visibility,
+    Data, DataStruct, DeriveInput, Error, Expr, Field, FieldMutability, FieldValue, Fields,
+    FieldsNamed, GenericArgument, Lit, LitInt, Member, Meta, PathArguments, Type, Visibility,
+    parse_quote, parse_quote_spanned, spanned::Spanned,
 };
 
 pub(super) fn impl_derive(input: DeriveInput) -> Result<TokenStream, Error> {

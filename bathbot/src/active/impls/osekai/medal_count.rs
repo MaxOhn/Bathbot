@@ -2,18 +2,18 @@ use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{OsekaiMedal, OsekaiUserEntry};
-use bathbot_util::{constants::OSU_BASE, numbers::round, CowUtils, EmbedBuilder, FooterBuilder};
+use bathbot_util::{CowUtils, EmbedBuilder, FooterBuilder, constants::OSU_BASE, numbers::round};
 use eyre::Result;
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     util::interaction::{InteractionComponent, InteractionModal},
 };
@@ -48,14 +48,17 @@ impl IActiveMessage for MedalCountPagination {
                 }
             };
 
-            let _ =
-                writeln!(
+            let _ = writeln!(
                 description,
                 "**{i}.** :flag_{country}: [{author}**{user}**{author}]({OSU_BASE}u/{user_id}): \
                 `{count}` (`{percent}%`) ▸ [{medal}]({medal_url})",
                 i = idx + 1,
                 country = entry.country_code.to_ascii_lowercase(),
-                author = if self.author_idx == Some(idx) { "__" } else { "" },
+                author = if self.author_idx == Some(idx) {
+                    "__"
+                } else {
+                    ""
+                },
                 user = entry.username.cow_escape_markdown(),
                 user_id = entry.user_id,
                 count = entry.medal_count,

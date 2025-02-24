@@ -1,6 +1,6 @@
 use rosu_pp::{
-    catch::CatchScoreState, mania::ManiaScoreState, osu::OsuScoreState, taiko::TaikoScoreState,
-    Beatmap, Difficulty,
+    Beatmap, Difficulty, catch::CatchScoreState, mania::ManiaScoreState, osu::OsuScoreState,
+    taiko::TaikoScoreState,
 };
 use rosu_v2::prelude::{GameMode, ScoreStatistics};
 

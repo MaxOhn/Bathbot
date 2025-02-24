@@ -3,12 +3,12 @@ use std::{cmp::Ordering, fmt::Write};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::command;
 use bathbot_psql::model::configs::GuildConfig;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::Result;
 use once_cell::sync::OnceCell;
 use twilight_model::guild::Permissions;
 
-use crate::{core::commands::checks::check_authority, util::ChannelExt, Context};
+use crate::{Context, core::commands::checks::check_authority, util::ChannelExt};
 
 #[command]
 #[desc("Change my prefixes for a server")]

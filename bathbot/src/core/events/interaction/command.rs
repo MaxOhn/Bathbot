@@ -4,14 +4,14 @@ use eyre::Result;
 
 use crate::{
     core::{
+        BotConfig, BotMetrics, Context,
         commands::{
             checks::check_authority,
             interaction::{InteractionCommandKind, InteractionCommands, SlashCommand},
         },
         events::{EventKind, ProcessResult},
-        BotConfig, BotMetrics, Context,
     },
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub async fn handle_command(mut command: InteractionCommand) {

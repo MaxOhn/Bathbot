@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use bathbot_model::ScoreSlim;
 use bathbot_psql::model::osu::{DbBeatmap, DbBeatmapset};
 use bathbot_util::CowUtils;
-use rosu_pp::{model::beatmap::BeatmapAttributesBuilder, Beatmap as Map};
+use rosu_pp::{Beatmap as Map, model::beatmap::BeatmapAttributesBuilder};
 use rosu_v2::prelude::{
     BeatmapExtended, BeatmapsetExtended, GameModIntermode, GameMode, GameMods, Score,
 };

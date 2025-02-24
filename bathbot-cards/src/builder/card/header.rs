@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use rosu_v2::model::GameMode;
-use skia_safe::{font_style::Slant, scalar, Data, Image, RRect, Rect, TextBlobBuilder, Vector};
+use skia_safe::{Data, Image, RRect, Rect, TextBlobBuilder, Vector, font_style::Slant, scalar};
 
 use super::W;
 use crate::{

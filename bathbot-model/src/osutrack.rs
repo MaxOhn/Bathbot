@@ -60,7 +60,7 @@ impl<'de> de::Deserialize<'de> for MaybeRankAccPeaks {
                                 de::Unexpected::Str(key),
                                 &"best_global_rank, best_rank_timestamp, \
                                 best_accuracy, best_acc_timestamp",
-                            ))
+                            ));
                         }
                     }
                 }

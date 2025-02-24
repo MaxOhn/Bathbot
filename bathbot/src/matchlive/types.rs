@@ -5,8 +5,8 @@ use rosu_v2::prelude::OsuMatch;
 use smallvec::SmallVec;
 use tokio::sync::Mutex;
 use twilight_model::id::{
-    marker::{ChannelMarker, MessageMarker},
     Id,
+    marker::{ChannelMarker, MessageMarker},
 };
 
 use crate::embeds::{MatchLiveEmbed, MatchLiveEmbeds};

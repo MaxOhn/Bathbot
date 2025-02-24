@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use bathbot_util::{modal::ModalBuilder, EmbedBuilder, IntHasher, MessageBuilder};
+use bathbot_util::{EmbedBuilder, IntHasher, MessageBuilder, modal::ModalBuilder};
 use enum_dispatch::enum_dispatch;
 use eyre::{Report, Result, WrapErr};
 use flexmap::tokio::TokioMutexMap;
@@ -11,7 +11,7 @@ use futures::future::BoxFuture;
 use tokio::sync::watch::Sender;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::MessageMarker, Id},
+    id::{Id, marker::MessageMarker},
 };
 
 pub use self::origin::ActiveMessageOriginError;
@@ -36,8 +36,8 @@ use self::{
 use crate::{
     core::{BotMetrics, Context, EventKind},
     util::{
-        interaction::{InteractionComponent, InteractionModal},
         ComponentExt, ModalExt,
+        interaction::{InteractionComponent, InteractionModal},
     },
 };
 

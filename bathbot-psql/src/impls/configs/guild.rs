@@ -4,11 +4,11 @@ use eyre::{Report, Result, WrapErr};
 use futures::StreamExt;
 use rkyv::{rancor::BoxedError, ser::Serializer};
 use sqlx::types::Json;
-use twilight_model::id::{marker::GuildMarker, Id};
+use twilight_model::id::{Id, marker::GuildMarker};
 
 use crate::{
-    model::configs::{DbGuildConfig, GuildConfig},
     Database,
+    model::configs::{DbGuildConfig, GuildConfig},
 };
 
 impl Database {

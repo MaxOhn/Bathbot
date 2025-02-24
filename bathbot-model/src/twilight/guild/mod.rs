@@ -2,17 +2,17 @@ mod member;
 mod role;
 
 use rkyv::{
+    Archive, Deserialize, Place, Serialize,
     munge::munge,
     rancor::Fallible,
     ser::Writer,
     with::{ArchiveWith, Map, SerializeWith},
-    Archive, Deserialize, Place, Serialize,
 };
 use twilight_model::{
     guild::{Guild, PartialGuild, Permissions},
     id::{
-        marker::{GuildMarker, UserMarker},
         Id,
+        marker::{GuildMarker, UserMarker},
     },
     util::ImageHash,
 };

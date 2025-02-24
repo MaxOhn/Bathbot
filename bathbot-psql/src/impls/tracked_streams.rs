@@ -1,11 +1,11 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     hash::BuildHasher,
 };
 
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
-use twilight_model::id::{marker::ChannelMarker, Id};
+use twilight_model::id::{Id, marker::ChannelMarker};
 
 use crate::database::Database;
 

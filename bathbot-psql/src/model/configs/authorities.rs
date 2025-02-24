@@ -6,14 +6,14 @@ use std::{
 };
 
 use rkyv::{
+    Archive, Archived, Deserialize, Place, Serialize,
     rancor::{Fallible, Panic, ResultExt},
     rend::NonZeroU64_le,
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, Place, Serialize,
 };
 use smallvec::SmallVec;
-use twilight_model::id::{marker::RoleMarker, Id};
+use twilight_model::id::{Id, marker::RoleMarker};
 
 pub type Authority = Id<RoleMarker>;
 

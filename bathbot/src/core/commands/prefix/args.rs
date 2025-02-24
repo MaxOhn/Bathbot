@@ -1,11 +1,11 @@
 use nom::{
+    Err as NomErr, IResult,
     branch::alt,
     bytes::complete as by,
     character::complete as ch,
-    combinator::{iterator, map_opt, ParserIterator},
+    combinator::{ParserIterator, iterator, map_opt},
     error::Error as NomError,
     sequence::{delimited, terminated},
-    Err as NomErr, IResult,
 };
 
 type ItemError<'m> = NomError<&'m str>;

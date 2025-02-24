@@ -2,12 +2,12 @@ use std::fmt::{Display, Write};
 
 use bathbot_model::RankAccPeaks;
 use bathbot_util::{
-    constants::OSU_BASE,
-    datetime::{HowLongAgoText, SecToMinSec, NAIVE_DATETIME_FORMAT},
-    fields,
-    numbers::{round, MinMaxAvg, Number, WithComma},
-    osu::{total_score_to_reach_level, BonusPP},
     EmbedBuilder, FooterBuilder, MessageOrigin,
+    constants::OSU_BASE,
+    datetime::{HowLongAgoText, NAIVE_DATETIME_FORMAT, SecToMinSec},
+    fields,
+    numbers::{MinMaxAvg, Number, WithComma, round},
+    osu::{BonusPP, total_score_to_reach_level},
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -19,10 +19,10 @@ use rosu_v2::prelude::{
 use time::UtcOffset;
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, SelectMenu, SelectMenuOption, SelectMenuType},
         Component,
+        component::{ActionRow, SelectMenu, SelectMenuOption, SelectMenuType},
     },
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use self::{
@@ -36,8 +36,8 @@ use crate::{
     commands::osu::ProfileKind,
     manager::redis::osu::CachedUser,
     util::{
-        interaction::InteractionComponent, osu::grade_emote, Authored, CachedUserExt, ComponentExt,
-        Emote,
+        Authored, CachedUserExt, ComponentExt, Emote, interaction::InteractionComponent,
+        osu::grade_emote,
     },
 };
 

@@ -8,8 +8,8 @@ use twilight_model::{
 
 use super::footer::IntoFooterBuilder;
 use crate::{
-    constants::{DARK_GREEN, RED},
     AuthorBuilder, FooterBuilder,
+    constants::{DARK_GREEN, RED},
 };
 
 #[derive(Clone, Default)]

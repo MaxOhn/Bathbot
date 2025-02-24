@@ -1,7 +1,7 @@
 use std::{fmt, fmt::Write};
 
 use http::HeaderValue;
-use serde::{de::Error, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de::Error};
 use time::{Duration, OffsetDateTime};
 
 fn str_to_u64<'de, D: Deserializer<'de>>(d: D) -> Result<u64, D::Error> {

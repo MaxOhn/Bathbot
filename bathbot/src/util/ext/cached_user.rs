@@ -4,7 +4,7 @@ use bathbot_model::{
     rkyv_util::time::ArchivedDateTime,
     rosu_v2::user::{ArchivedUser, ArchivedUserHighestRank},
 };
-use bathbot_util::{constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder};
+use bathbot_util::{AuthorBuilder, constants::OSU_BASE, numbers::WithComma, osu::flag_url};
 use rkyv::{munge::munge, niche::niched_option::NichedOption};
 
 use crate::manager::redis::osu::CachedUser;

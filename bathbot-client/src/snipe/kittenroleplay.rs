@@ -10,7 +10,7 @@ use bathbot_util::osu::ModSelection;
 use eyre::{Report, Result, WrapErr};
 use rosu_v2::model::GameMode;
 
-use crate::{site::Site, Client, ClientError};
+use crate::{Client, ClientError, site::Site};
 
 pub async fn get_snipe_player(
     client: &Client,

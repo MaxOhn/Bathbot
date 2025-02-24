@@ -8,14 +8,14 @@ use bathbot_model::twilight::{channel::ArchivedCachedChannel, guild::ArchivedCac
 use bathbot_util::constants::MISS_ANALYZER_ID;
 use eyre::Result;
 use tokio::{
-    sync::{broadcast::Receiver, Mutex},
+    sync::{Mutex, broadcast::Receiver},
     task::JoinSet,
 };
 use twilight_gateway::{Event, EventTypeFlags, Shard, StreamExt as _};
 use twilight_model::user::User;
 
 use self::{interaction::handle_interaction, message::handle_message};
-use super::{buckets::BucketName, BotMetrics, Context};
+use super::{BotMetrics, Context, buckets::BucketName};
 use crate::util::Authored;
 
 mod interaction;

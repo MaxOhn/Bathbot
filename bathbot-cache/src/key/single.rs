@@ -2,8 +2,8 @@ use std::borrow::Cow;
 
 use itoa::Buffer;
 use twilight_model::id::{
-    marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
     Id,
+    marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
 };
 
 #[derive(Clone, Debug)]

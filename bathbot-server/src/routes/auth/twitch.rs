@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{rejection::QueryRejection, Query, State},
+    extract::{Query, State, rejection::QueryRejection},
     http::StatusCode,
     response::Html,
 };
@@ -9,7 +9,7 @@ use bathbot_model::{TwitchDataList, TwitchOAuthToken, TwitchUser};
 use bathbot_util::constants::{TWITCH_OAUTH, TWITCH_USERS_ENDPOINT};
 use eyre::Report;
 use http_body_util::{BodyExt, Collected, Empty};
-use hyper::{header::AUTHORIZATION, Request};
+use hyper::{Request, header::AUTHORIZATION};
 
 use super::{AuthError, Params, RenderData, RenderDataKind, RenderDataStatus};
 use crate::state::AppState;

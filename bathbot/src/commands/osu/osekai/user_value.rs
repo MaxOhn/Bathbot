@@ -7,18 +7,18 @@ use bathbot_model::{
 use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::{Report, Result};
 use rkyv::{
+    Archive,
     bytecheck::CheckBytes,
     rancor::{Panic, Strategy},
-    validation::{archive::ArchiveValidator, Validator},
+    validation::{Validator, archive::ArchiveValidator},
     vec::ArchivedVec,
-    Archive,
 };
 use rosu_v2::prelude::Username;
 
 use crate::{
-    active::{impls::RankingPagination, ActiveMessages},
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
+    active::{ActiveMessages, impls::RankingPagination},
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub(super) async fn count<R>(command: InteractionCommand, country: Option<String>) -> Result<()>

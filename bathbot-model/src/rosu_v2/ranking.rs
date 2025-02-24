@@ -1,7 +1,7 @@
 use rkyv::{
+    Archive, Serialize,
     niche::niching::NaN,
     with::{Map, MapNiche},
-    Archive, Serialize,
 };
 use rosu_v2::prelude::{CountryCode, Rankings, User, UserStatistics, Username};
 

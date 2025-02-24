@@ -1,12 +1,12 @@
 use rkyv::{
+    Archive, Place, Serialize,
     munge::munge,
     rancor::{Fallible, Source},
     ser::Writer,
     with::{ArchiveWith, Map, SerializeWith},
-    Archive, Place, Serialize,
 };
 use twilight_model::{
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
     user::CurrentUser,
     util::ImageHash,
 };

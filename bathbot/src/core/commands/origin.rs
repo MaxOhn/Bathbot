@@ -5,16 +5,16 @@ use twilight_model::{
     channel::Message,
     guild::Permissions,
     id::{
-        marker::{ChannelMarker, GuildMarker, MessageMarker, UserMarker},
         Id,
+        marker::{ChannelMarker, GuildMarker, MessageMarker, UserMarker},
     },
 };
 
 use crate::{
     core::Context,
     util::{
-        interaction::{InteractionCommand, InteractionComponent},
         Authored, ChannelExt, InteractionCommandExt, MessageExt,
+        interaction::{InteractionCommand, InteractionComponent},
     },
 };
 

@@ -1,4 +1,4 @@
-use bathbot_cache::{util::serialize::serialize_using_arena, Cache};
+use bathbot_cache::{Cache, util::serialize::serialize_using_arena};
 use bathbot_model::{ArchivedPullRequests, PullRequests, PullRequestsAndTags};
 use eyre::{Report, Result, WrapErr};
 

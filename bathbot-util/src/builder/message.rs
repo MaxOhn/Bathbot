@@ -1,7 +1,7 @@
 use std::{borrow::Cow, slice};
 
 use twilight_model::{
-    channel::message::{embed::Embed, Component},
+    channel::message::{Component, embed::Embed},
     http::attachment::Attachment,
 };
 

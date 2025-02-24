@@ -6,9 +6,9 @@ use std::{
 };
 
 use bathbot_macros::EmbedData;
-use bathbot_model::{rosu_v2::user::ArchivedUserStatistics, RankAccPeaks};
+use bathbot_model::{RankAccPeaks, rosu_v2::user::ArchivedUserStatistics};
 use bathbot_util::{
-    datetime::{SecToMinSec, DATE_FORMAT},
+    datetime::{DATE_FORMAT, SecToMinSec},
     numbers::{AbbreviatedScore, WithComma},
 };
 use rkyv::rancor::{Panic, ResultExt};

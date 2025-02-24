@@ -4,7 +4,7 @@ use rosu_pp::{Beatmap, Difficulty};
 use rosu_v2::prelude::GameMode;
 use twilight_model::channel::Attachment;
 
-use crate::core::{commands::CommandOrigin, Context};
+use crate::core::{Context, commands::CommandOrigin};
 
 pub struct AttachedSimulateMap {
     pub pp_map: Beatmap,

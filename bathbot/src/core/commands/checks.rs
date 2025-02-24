@@ -12,8 +12,8 @@ use twilight_model::{
     channel::permission_overwrite::PermissionOverwriteType,
     guild::Permissions,
     id::{
-        marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
         Id,
+        marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
     },
 };
 
@@ -98,7 +98,7 @@ pub async fn check_guild_permissions(
 
     match cache.guild(guild).await {
         Ok(Some(guild)) if guild.owner_id == user => {
-            return (Permissions::all(), RolesLookup::NotChecked)
+            return (Permissions::all(), RolesLookup::NotChecked);
         }
         Ok(Some(_)) => {}
         Ok(None) => return (Permissions::empty(), RolesLookup::NotChecked),

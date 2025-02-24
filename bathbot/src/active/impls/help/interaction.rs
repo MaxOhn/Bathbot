@@ -2,22 +2,22 @@ use std::borrow::Cow;
 
 use bathbot_util::{EmbedBuilder, FooterBuilder};
 use eyre::Result;
-use futures::future::{ready, BoxFuture};
+use futures::future::{BoxFuture, ready};
 use twilight_interactions::command::{ApplicationCommandData, CommandOptionExtended};
 use twilight_model::{
     application::command::{Command, CommandOptionType},
     channel::message::{
+        Component,
         component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
         embed::EmbedField,
-        Component,
     },
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     core::commands::interaction::{InteractionCommandKind, InteractionCommands},
-    util::{interaction::InteractionComponent, Authored},
+    util::{Authored, interaction::InteractionComponent},
 };
 
 const AUTHORITY_STATUS: &str =

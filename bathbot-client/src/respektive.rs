@@ -4,7 +4,7 @@ use bathbot_model::{RespektiveUser, RespektiveUsers};
 use eyre::{Result, WrapErr};
 use rosu_v2::model::GameMode;
 
-use crate::{site::Site, Client};
+use crate::{Client, site::Site};
 
 impl Client {
     pub async fn get_respektive_users(

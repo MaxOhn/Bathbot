@@ -1,4 +1,4 @@
-use bathbot_util::{constants::GENERAL_ISSUE, fields, EmbedBuilder, FooterBuilder, MessageBuilder};
+use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder, constants::GENERAL_ISSUE, fields};
 use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
@@ -7,9 +7,9 @@ use time::OffsetDateTime;
 use super::DailyChallengeUser;
 use crate::{
     commands::osu::{require_link, user_not_found},
-    core::{commands::CommandOrigin, Context},
+    core::{Context, commands::CommandOrigin},
     manager::redis::osu::{UserArgs, UserArgsError},
-    util::{interaction::InteractionCommand, Authored, CachedUserExt, InteractionCommandExt},
+    util::{Authored, CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub(super) async fn user(mut command: InteractionCommand, user: DailyChallengeUser) -> Result<()> {

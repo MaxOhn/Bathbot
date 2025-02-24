@@ -8,18 +8,18 @@ use bb8_redis::{
     redis::{AsyncCommands, RedisError},
 };
 use eyre::{Report, WrapErr};
-use rkyv::{bytecheck::CheckBytes, rancor::BoxedError, Portable};
+use rkyv::{Portable, bytecheck::CheckBytes, rancor::BoxedError};
 use thiserror::Error as ThisError;
 use twilight_model::id::{
-    marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
     Id,
+    marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
 };
 
 use crate::{
+    Cache,
     key::{RedisKey, ToCacheKey},
     model::{CacheConnection, CachedArchive, ValidatorStrategy},
     util::AlignedVecRedisArgs,
-    Cache,
 };
 
 type FetchResult<T> = Result<Option<CachedArchive<T>>, FetchError>;

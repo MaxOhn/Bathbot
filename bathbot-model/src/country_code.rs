@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fmt::{Display, Formatter, Result as FmtResult},
 };
 

@@ -3,8 +3,8 @@ use std::{
     num::NonZeroU64,
     ops::Not,
     sync::{
-        atomic::{AtomicI64, AtomicU32, Ordering},
         Arc, RwLock, RwLockReadGuard,
+        atomic::{AtomicI64, AtomicU32, Ordering},
     },
 };
 

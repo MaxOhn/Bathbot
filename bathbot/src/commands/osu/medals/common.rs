@@ -6,7 +6,7 @@ use std::{
 
 use bathbot_macros::command;
 use bathbot_model::{MedalGroup, OsekaiMedal, Rarity};
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher};
+use bathbot_util::{IntHasher, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{
@@ -18,12 +18,12 @@ use time::OffsetDateTime;
 
 use super::{MedalCommon, MedalCommonFilter, MedalCommonOrder};
 use crate::{
-    active::{impls::MedalsCommonPagination, ActiveMessages},
+    Context,
+    active::{ActiveMessages, impls::MedalsCommonPagination},
     commands::osu::UserExtraction,
     core::commands::CommandOrigin,
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::osu::get_combined_thumbnail,
-    Context,
 };
 
 #[command]

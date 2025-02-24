@@ -8,7 +8,7 @@ pub use self::reshard::RESHARD_TX;
 use self::{add_bg::*, cache::*, request_members::*};
 use crate::{
     commands::owner::reshard::reshard,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 mod add_bg;

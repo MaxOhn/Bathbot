@@ -1,7 +1,7 @@
 use std::{cmp::Reverse, collections::HashMap, fmt::Write};
 
 use bathbot_macros::command;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher, MessageBuilder};
+use bathbot_util::{IntHasher, MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::{
     model::GameMode,
@@ -9,13 +9,13 @@ use rosu_v2::{
     request::UserId,
 };
 
-use super::{CompareMostPlayed, AT_LEAST_ONE};
+use super::{AT_LEAST_ONE, CompareMostPlayed};
 use crate::{
-    active::{impls::CompareMostPlayedPagination, ActiveMessages},
-    commands::osu::{user_not_found, UserExtraction},
+    Context,
+    active::{ActiveMessages, impls::CompareMostPlayedPagination},
+    commands::osu::{UserExtraction, user_not_found},
     core::commands::CommandOrigin,
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
-    Context,
 };
 
 #[command]

@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::MedalCompactRkyv;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher, MessageBuilder};
+use bathbot_util::{IntHasher, MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
@@ -15,18 +15,18 @@ use rosu_v2::{
     prelude::{MedalCompact, OsuError},
     request::UserId,
 };
-use skia_safe::{surfaces, EncodedImageFormat};
+use skia_safe::{EncodedImageFormat, surfaces};
 use time::OffsetDateTime;
 use twilight_model::guild::Permissions;
 
 use super::MedalStats;
 use crate::{
+    Context,
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     embeds::{EmbedData, MedalStatsEmbed, StatsMedal},
     manager::redis::osu::{UserArgs, UserArgsError},
     util::Monthly,
-    Context,
 };
 
 #[command]

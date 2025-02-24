@@ -5,13 +5,13 @@ use bathbot_model::{SnipeCountryListOrder, SnipePlayerListOrder};
 use eyre::Result;
 use rosu_v2::model::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 pub use self::{
     country_snipe_list::*, country_snipe_stats::*, player_snipe_list::*, player_snipe_stats::*,
     sniped::*, sniped_difference::*,
 };
-use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
+use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
 
 mod country_snipe_list;
 mod country_snipe_stats;

@@ -5,20 +5,20 @@ use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::{
     prelude::{ChartBuilder, Circle, IntoDrawingArea, SeriesLabelPosition},
     series::AreaSeries,
-    style::{Color, RGBColor, ShapeStyle, BLACK, GREEN, RED, WHITE},
+    style::{BLACK, Color, GREEN, RED, RGBColor, ShapeStyle, WHITE},
 };
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
 use rkyv::rend::u32_le;
 use rosu_v2::{prelude::OsuError, request::UserId};
-use skia_safe::{surfaces, EncodedImageFormat};
+use skia_safe::{EncodedImageFormat, surfaces};
 
 use crate::{
     commands::osu::{
         graphs::{H, W},
         user_not_found,
     },
-    core::{commands::CommandOrigin, Context},
+    core::{Context, commands::CommandOrigin},
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };
 

@@ -1,52 +1,52 @@
 use std::{borrow::Cow, fmt::Write, mem, str::FromStr};
 
 use bathbot_util::{
+    CowUtils, EmbedBuilder, FooterBuilder,
     constants::OSU_BASE,
     datetime::SecToMinSec,
     fields,
     modal::{ModalBuilder, TextInputBuilder},
-    numbers::{round, WithComma},
+    numbers::{WithComma, round},
     osu::calculate_grade,
-    CowUtils, EmbedBuilder, FooterBuilder,
 };
 use eyre::{ContextCompat, Report, Result};
 use futures::future::BoxFuture;
 use rosu_pp::{
+    Beatmap,
     model::{
         hit_object::{HitObjectKind, HoldNote, Spinner},
         mode::GameMode as Mode,
     },
-    Beatmap,
 };
 use rosu_v2::{
     model::mods::{
+        GameMod, GameMods,
         generated_mods::{
             DifficultyAdjustCatch, DifficultyAdjustMania, DifficultyAdjustOsu,
             DifficultyAdjustTaiko,
         },
-        GameMod, GameMods,
     },
     mods,
     prelude::{GameMode, GameModsIntermode, Grade},
 };
 use twilight_model::{
-    channel::message::{embed::EmbedField, Component},
-    id::{marker::UserMarker, Id},
+    channel::message::{Component, embed::EmbedField},
+    id::{Id, marker::UserMarker},
 };
 
 pub use self::{attrs::SimulateAttributes, data::SimulateData, top_old::TopOldVersion};
 use crate::{
     active::{
-        impls::simulate::data::{ComboOrRatio, SimulateValues, StateOrScore},
         BuildPage, ComponentResult, IActiveMessage,
+        impls::simulate::data::{ComboOrRatio, SimulateValues, StateOrScore},
     },
     commands::osu::parsed_map::AttachedSimulateMap,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::OsuMap,
     util::{
+        Authored, ComponentExt, Emote, ModalExt,
         interaction::{InteractionComponent, InteractionModal},
         osu::{GradeCompletionFormatter, MapInfo},
-        Authored, ComponentExt, Emote, ModalExt,
     },
 };
 

@@ -7,7 +7,7 @@ use bb8_redis::redis::AsyncCommands;
 use eyre::{Report, Result, WrapErr};
 use rkyv::{
     rancor::{BoxedError, Strategy},
-    ser::{allocator::ArenaHandle, Serializer},
+    ser::{Serializer, allocator::ArenaHandle},
     util::AlignedVec,
     with::{ArchiveWith, SerializeWith, With},
 };
@@ -16,15 +16,15 @@ use twilight_model::{
     channel::Channel,
     gateway::payload::incoming::MemberUpdate,
     guild::{Guild, Member as TwMember, PartialGuild, PartialMember, Role},
-    id::{marker::GuildMarker, Id},
+    id::{Id, marker::GuildMarker},
     user::{CurrentUser, User},
 };
 
 use crate::{
+    Cache,
     key::{RedisKey, ToCacheKey},
     model::{CacheChange, CacheConnection},
     util::{AlignedVecRedisArgs, Zipped},
-    Cache,
 };
 
 impl Cache {

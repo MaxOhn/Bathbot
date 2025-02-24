@@ -1,4 +1,5 @@
 use rkyv::{
+    Archive, Archived, Place, Portable,
     bytecheck::CheckBytes,
     munge::munge,
     niche::niching::Niching,
@@ -6,9 +7,8 @@ use rkyv::{
     rend::u64_le,
     traits::NoUndef,
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Archive, Archived, Place, Portable,
 };
-use time::{error::ComponentRange, Date, OffsetDateTime};
+use time::{Date, OffsetDateTime, error::ComponentRange};
 
 pub struct DateTimeRkyv;
 

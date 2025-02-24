@@ -4,23 +4,23 @@ use ::rosu_v2::model::user::{
 };
 use bathbot_util::osu::UserStats;
 use rkyv::{
+    Archive, Deserialize, Place, Serialize,
     munge::munge,
     niche::niching::{NaN, Niching},
     rancor::{Fallible, Source},
     rend::u32_le,
     ser::{Allocator, Writer},
     with::{ArchiveWith, InlineAsBox, Map, MapNiche, SerializeWith},
-    Archive, Deserialize, Place, Serialize,
 };
 use rosu_v2::prelude::{CountryCode, DailyChallengeUserStatistics, GameMode, Username};
 use time::{Date, OffsetDateTime};
 
 use crate::{
-    rkyv_util::{
-        time::{DateRkyv, DateTimeRkyv},
-        DerefAsBox, DerefAsString, MapUnwrapOrDefault, UnwrapOrDefault,
-    },
     Either,
+    rkyv_util::{
+        DerefAsBox, DerefAsString, MapUnwrapOrDefault, UnwrapOrDefault,
+        time::{DateRkyv, DateTimeRkyv},
+    },
 };
 
 #[derive(Archive, Serialize)]

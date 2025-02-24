@@ -1,9 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
 use bathbot_macros::SlashCommand;
-use bathbot_model::{embed_builder::ScoreEmbedSettings, ScoreSlim};
+use bathbot_model::{ScoreSlim, embed_builder::ScoreEmbedSettings};
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{constants::GENERAL_ISSUE, CowUtils, MessageOrigin};
+use bathbot_util::{CowUtils, MessageOrigin, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
 use rosu_pp::model::beatmap::BeatmapAttributes;
 use rosu_v2::{
@@ -13,19 +13,19 @@ use rosu_v2::{
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{
-    marker::{GuildMarker, UserMarker},
     Id,
+    marker::{GuildMarker, UserMarker},
 };
 
 use crate::{
-    active::{impls::ScoreEmbedBuilderActive, ActiveMessages},
+    active::{ActiveMessages, impls::ScoreEmbedBuilderActive},
     core::Context,
-    manager::{redis::osu::UserArgsSlim, MapError, OsuMap, PpManager},
+    manager::{MapError, OsuMap, PpManager, redis::osu::UserArgsSlim},
     util::{
+        Authored, InteractionCommandExt,
         interaction::InteractionCommand,
         osu::{IfFc, PersonalBestIndex},
         query::{FilterCriteria, Searchable, TopCriteria},
-        Authored, InteractionCommandExt,
     },
 };
 

@@ -1,12 +1,12 @@
 use std::iter;
 
-use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_macros::{HasName, SlashCommand, command};
 use bathbot_model::{
-    command_fields::{GameModeOption, ShowHideOption, TimezoneOption},
     Countries,
+    command_fields::{GameModeOption, ShowHideOption, TimezoneOption},
 };
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{constants::GENERAL_ISSUE, EmbedBuilder, MessageBuilder};
+use bathbot_util::{EmbedBuilder, MessageBuilder, constants::GENERAL_ISSUE};
 use eyre::{Report, Result, WrapErr};
 use image::{DynamicImage, GenericImageView};
 use plotters::element::{Drawable, PointCollection};
@@ -19,11 +19,11 @@ use rosu_v2::{
 use score_rank::score_rank_graph;
 use time::UtcOffset;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use self::{
     medals::medals_graph,
-    playcount_replays::{playcount_replays_graph, ProfileGraphFlags},
+    playcount_replays::{ProfileGraphFlags, playcount_replays_graph},
     rank::rank_graph,
     snipe_count::snipe_count_graph,
     sniped::sniped_graph,
@@ -31,12 +31,12 @@ use self::{
     top_index::top_graph_index,
     top_time::top_graph_time,
 };
-use super::{require_link, user_not_found, SnipeGameMode};
+use super::{SnipeGameMode, require_link, user_not_found};
 use crate::{
-    core::{commands::CommandOrigin, Context},
+    core::{Context, commands::CommandOrigin},
     embeds::attachment,
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
-    util::{interaction::InteractionCommand, CachedUserExt, InteractionCommandExt},
+    util::{CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 mod medals;

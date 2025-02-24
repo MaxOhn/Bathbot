@@ -6,14 +6,14 @@ use bathbot_psql::model::configs::ListSize;
 use eyre::Result;
 use rosu_v2::prelude::{GameMode, Grade};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use self::fix::*;
 pub use self::{leaderboard::*, list::*, score::*};
 use super::{HasMods, ModsResult, ScoreOrder, TopArgs, TopScoreOrder};
 use crate::{
-    commands::osu::{top, LeaderboardSort},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    commands::osu::{LeaderboardSort, top},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 mod fix;

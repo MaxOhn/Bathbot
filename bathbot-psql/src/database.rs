@@ -3,9 +3,9 @@ use std::time::Duration;
 use eyre::Result;
 use futures::{future::BoxFuture, stream::BoxStream};
 use sqlx::{
+    Describe, Either, Error as SqlxError, Execute, Executor, PgPool, Postgres, Transaction,
     pool::PoolConnection,
     postgres::{PgPoolOptions, PgQueryResult, PgRow, PgStatement, PgTypeInfo},
-    Describe, Either, Error as SqlxError, Execute, Executor, PgPool, Postgres, Transaction,
 };
 
 #[derive(Debug)]

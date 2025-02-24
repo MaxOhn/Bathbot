@@ -2,10 +2,10 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
+    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter, ScoreExt,
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
-    numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter, ScoreExt,
+    numbers::{WithComma, round},
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -13,24 +13,24 @@ use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::{
         osu::TopScoreOrder,
         utility::{ScoreEmbedDataHalf, ScoreEmbedDataWrap},
     },
     embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
-    manager::{redis::osu::CachedUser, OsuMap},
+    manager::{OsuMap, redis::osu::CachedUser},
     util::{
+        CachedUserExt, Emote,
         interaction::{InteractionComponent, InteractionModal},
         osu::{GradeFormatter, ScoreFormatter},
-        CachedUserExt, Emote,
     },
 };
 
@@ -108,7 +108,10 @@ impl TopPagination {
                 description,
                 "**#{idx} [{map}]({OSU_BASE}b/{map_id})** [{stars}★]\n\
                 {grade} **{pp}pp** ({acc}%) [**{combo}x**/{max_combo}x] {miss}**+{mods}** {appendix}",
-                idx = original_idx.or(pb_idx.as_ref().and_then(|idx| idx.idx)).expect("missing idx") + 1,
+                idx = original_idx
+                    .or(pb_idx.as_ref().and_then(|idx| idx.idx))
+                    .expect("missing idx")
+                    + 1,
                 map = MapFormat::new(map),
                 map_id = map.map_id(),
                 stars = round(*stars),
@@ -122,7 +125,13 @@ impl TopPagination {
                 combo = score.max_combo,
                 miss = MissFormat(score.statistics.miss),
                 mods = ModsFormatter::new(&score.mods),
-                appendix = OrderAppendix::new(self.sort_by, entry, map.ranked_date(),  true, self.score_data),
+                appendix = OrderAppendix::new(
+                    self.sort_by,
+                    entry,
+                    map.ranked_date(),
+                    true,
+                    self.score_data
+                ),
             );
         }
 
@@ -150,7 +159,10 @@ impl TopPagination {
                 description,
                 "**#{idx} [{map}]({OSU_BASE}b/{map_id})** [{stars}★]\n\
                 {grade} **{pp}pp** {acc}% `{score}` {{{n320}/{n300}/../{miss}}} **+{mods}** {appendix}",
-                idx = original_idx.or(pb_idx.as_ref().and_then(|idx| idx.idx)).expect("missing idx") + 1,
+                idx = original_idx
+                    .or(pb_idx.as_ref().and_then(|idx| idx.idx))
+                    .expect("missing idx")
+                    + 1,
                 map = MapFormat::new(map),
                 map_id = map.map_id(),
                 stars = round(*stars),
@@ -167,8 +179,13 @@ impl TopPagination {
                 n300 = stats.great,
                 miss = stats.miss,
                 mods = ModsFormatter::new(&score.mods),
-                appendix =
-                    OrderAppendix::new(self.sort_by, entry, map.ranked_date(), true, self.score_data),
+                appendix = OrderAppendix::new(
+                    self.sort_by,
+                    entry,
+                    map.ranked_date(),
+                    true,
+                    self.score_data
+                ),
             );
         }
 

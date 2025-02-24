@@ -1,12 +1,12 @@
 use rkyv::{
+    Archive, Archived, Place, Resolver, Serialize,
     rancor::Fallible,
     with::{ArchiveWith, SerializeWith},
-    Archive, Archived, Place, Resolver, Serialize,
 };
 use twilight_model::{
     channel::permission_overwrite::{PermissionOverwrite, PermissionOverwriteType},
     guild::Permissions,
-    id::{marker::GenericMarker, Id},
+    id::{Id, marker::GenericMarker},
 };
 
 use crate::{rkyv_util::BitflagsRkyv, twilight::id::IdRkyv};

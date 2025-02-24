@@ -5,8 +5,8 @@ use std::{
     mem,
 };
 
-use bathbot_macros::{command, SlashCommand};
-use bathbot_util::{constants::OSU_API_ISSUE, matcher, IntHasher};
+use bathbot_macros::{SlashCommand, command};
+use bathbot_util::{IntHasher, constants::OSU_API_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::{
     model::mods::GameModsIntermode,
@@ -17,13 +17,13 @@ use rosu_v2::{
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
-    active::{impls::MatchCostPagination, ActiveMessages},
-    core::commands::{
-        prefix::{Args, ArgsNum},
-        CommandOrigin,
-    },
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
+    active::{ActiveMessages, impls::MatchCostPagination},
+    core::commands::{
+        CommandOrigin,
+        prefix::{Args, ArgsNum},
+    },
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

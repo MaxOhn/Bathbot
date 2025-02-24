@@ -4,7 +4,7 @@ use bathbot_model::{
 };
 use eyre::{Result, WrapErr};
 
-use crate::{multipart::Multipart, site::Site, Client};
+use crate::{Client, multipart::Multipart, site::Site};
 
 impl Client {
     /// Don't use this; use `RedisManager::badges` instead.

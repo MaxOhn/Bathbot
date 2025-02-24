@@ -1,5 +1,5 @@
 use bathbot_model::{UserModeStatsColumn, UserStatsColumn};
-use sqlx::{error::BoxDynError, postgres::PgTypeInfo, Database, Decode, FromRow, Postgres, Type};
+use sqlx::{Database, Decode, FromRow, Postgres, Type, error::BoxDynError, postgres::PgTypeInfo};
 
 struct DbCountryCode {
     inner: [u8; 2],

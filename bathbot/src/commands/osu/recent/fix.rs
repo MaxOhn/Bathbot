@@ -1,11 +1,11 @@
 use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
 };
 use eyre::{Report, Result};
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use rosu_v2::{
     prelude::{GameMode, OsuError},
     request::UserId,
@@ -13,8 +13,8 @@ use rosu_v2::{
 
 use super::RecentFix;
 use crate::{
-    commands::osu::{require_link, user_not_found, FixEntry, FixScore},
-    core::{commands::CommandOrigin, Context},
+    commands::osu::{FixEntry, FixScore, require_link, user_not_found},
+    core::{Context, commands::CommandOrigin},
     embeds::{EmbedData, FixScoreEmbed},
     manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
     util::osu::IfFc,

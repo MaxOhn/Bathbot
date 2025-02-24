@@ -1,11 +1,10 @@
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    parenthesized,
+    Attribute, Block, Error, Ident, Result, ReturnType, Token, Type, Visibility, parenthesized,
     parse::{Parse, ParseStream},
     parse_quote,
     token::{Mut, Underscore},
-    Attribute, Block, Error, Ident, Result, ReturnType, Token, Type, Visibility,
 };
 
 use crate::util::PunctuatedExt;
@@ -53,13 +52,13 @@ impl Parse for CommandFun {
         let ret = match input.parse::<ReturnType>()? {
             ReturnType::Type(_, t) if t == parse_quote! { Result<()> } => t,
             ReturnType::Type(_, t) => {
-                return Err(Error::new_spanned(t, "expected return type `Result<()>`"))
+                return Err(Error::new_spanned(t, "expected return type `Result<()>`"));
             }
             _ => {
                 return Err(Error::new_spanned(
                     name,
                     "expected return type `Result<()>`",
-                ))
+                ));
             }
         };
 

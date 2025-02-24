@@ -5,24 +5,24 @@ use bathbot_macros::{HasName, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
+    EmbedBuilder, IntHasher, MessageBuilder,
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
     datetime::DATE_FORMAT,
     osu::flag_url_size,
-    EmbedBuilder, IntHasher, MessageBuilder,
 };
 use eyre::{Report, Result, WrapErr};
-use futures::{stream::FuturesUnordered, TryStreamExt};
+use futures::{TryStreamExt, stream::FuturesUnordered};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    core::{commands::CommandOrigin, BotConfig, Context},
+    core::{BotConfig, Context, commands::CommandOrigin},
     embeds::attachment,
     manager::redis::osu::{UserArgs, UserArgsError},
-    util::{interaction::InteractionCommand, CachedUserExt, InteractionCommandExt},
+    util::{CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]

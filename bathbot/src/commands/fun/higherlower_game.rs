@@ -2,21 +2,21 @@ use std::collections::{BTreeMap, HashSet};
 
 use bathbot_macros::SlashCommand;
 use bathbot_model::{
-    command_fields::GameModeOption, HlVersion, RankingEntries, RankingEntry, RankingKind,
+    HlVersion, RankingEntries, RankingEntry, RankingKind, command_fields::GameModeOption,
 };
-use bathbot_util::{constants::GENERAL_ISSUE, IntHasher};
+use bathbot_util::{IntHasher, constants::GENERAL_ISSUE};
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::Id;
 
 use crate::{
-    active::{
-        impls::{HigherLowerGame, RankingPagination},
-        ActiveMessages,
-    },
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
+    active::{
+        ActiveMessages,
+        impls::{HigherLowerGame, RankingPagination},
+    },
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -66,7 +66,7 @@ async fn slash_higherlower(mut command: InteractionCommand) -> Result<()> {
             HigherLowerGame::new_score_pp(mode, user).await
         }
         HigherLower::Leaderboard(_) => {
-            return higherlower_leaderboard(command, HlVersion::ScorePp).await
+            return higherlower_leaderboard(command, HlVersion::ScorePp).await;
         }
     };
 

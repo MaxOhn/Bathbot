@@ -7,29 +7,29 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{SnipeScore, SnipeScoreParams};
 use bathbot_util::{
+    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
-    numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
+    numbers::{WithComma, round},
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     core::Context,
     embeds::PpFormatter,
-    manager::{redis::osu::CachedUser, OsuMap},
+    manager::{OsuMap, redis::osu::CachedUser},
     util::{
-        interaction::{InteractionComponent, InteractionModal},
         CachedUserExt, Emote,
+        interaction::{InteractionComponent, InteractionModal},
     },
 };
 

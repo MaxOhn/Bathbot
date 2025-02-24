@@ -1,7 +1,7 @@
 use eyre::{Result, WrapErr};
 use serde::Serialize;
 
-use crate::{site::Site, Client};
+use crate::{Client, site::Site};
 
 impl Client {
     pub async fn miss_analyzer_score_request(&self, guild_id: u64, score_id: u64) -> Result<bool> {

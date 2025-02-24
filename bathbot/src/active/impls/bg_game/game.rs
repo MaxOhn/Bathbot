@@ -2,23 +2,23 @@ use std::{collections::VecDeque, sync::RwLock};
 
 use bathbot_model::Effects;
 use bathbot_psql::model::games::MapsetTagsEntries;
-use bathbot_util::{constants::OSU_BASE, CowUtils};
+use bathbot_util::{CowUtils, constants::OSU_BASE};
 use eyre::{Result, WrapErr};
 use image::{
-    imageops::{self, colorops},
     GenericImageView,
+    imageops::{self, colorops},
 };
 use rosu_v2::model::GameMode;
 use tokio::{fs, sync::RwLock as TokioRwLock};
 use tokio_stream::StreamExt;
 use twilight_model::id::{
-    marker::{ChannelMarker, UserMarker},
     Id,
+    marker::{ChannelMarker, UserMarker},
 };
 use twilight_standby::future::WaitForMessageStream;
 
 use super::{hints::Hints, img_reveal::ImageReveal, mapset::GameMapset, util};
-use crate::{commands::fun::GameDifficulty, core::BotConfig, util::ChannelExt, Context};
+use crate::{Context, commands::fun::GameDifficulty, core::BotConfig, util::ChannelExt};
 
 pub struct Game {
     pub mapset: GameMapset,

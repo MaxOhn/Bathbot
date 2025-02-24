@@ -6,9 +6,9 @@ use eyre::{Report, Result};
 
 use super::OsekaiMedalCount;
 use crate::{
-    active::{impls::MedalCountPagination, ActiveMessages},
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
+    active::{ActiveMessages, impls::MedalCountPagination},
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub(super) async fn medal_count(

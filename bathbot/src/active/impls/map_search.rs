@@ -1,26 +1,26 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_util::{
+    CowUtils, EmbedBuilder, FooterBuilder,
     constants::OSU_BASE,
     numbers::{last_multiple, round},
-    CowUtils, EmbedBuilder, FooterBuilder,
 };
 use eyre::{Report, Result};
 use futures::future::BoxFuture;
 use rosu_v2::prelude::{BeatmapsetExtended, BeatmapsetSearchResult, GameMode, Genre, Language};
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle},
         Component,
+        component::{ActionRow, Button, ButtonStyle},
     },
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::osu::{Search, SearchOrder},
     core::Context,
-    util::{interaction::InteractionComponent, Authored, ComponentExt, Emote},
+    util::{Authored, ComponentExt, Emote, interaction::InteractionComponent},
 };
 
 pub struct MapSearchPagination {

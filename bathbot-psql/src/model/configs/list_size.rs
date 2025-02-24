@@ -1,8 +1,8 @@
 use sqlx::{
+    Decode, Encode, Postgres, Type,
     encode::IsNull,
     error::BoxDynError,
     postgres::{PgArgumentBuffer, PgTypeInfo, PgValueRef},
-    Decode, Encode, Postgres, Type,
 };
 use twilight_interactions::command::{CommandOption, CreateOption};
 

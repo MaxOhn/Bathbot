@@ -1,7 +1,7 @@
 use std::{collections::HashSet, fmt::Write};
 
 use bathbot_macros::command;
-use bathbot_util::{constants::GENERAL_ISSUE, EmbedBuilder, MessageBuilder};
+use bathbot_util::{EmbedBuilder, MessageBuilder, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
 

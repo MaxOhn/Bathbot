@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use rkyv::{bytecheck::CheckBytes, Archive, Deserialize, Portable, Serialize};
+use rkyv::{Archive, Deserialize, Portable, Serialize, bytecheck::CheckBytes};
 use twilight_model::util::ImageHash;
 
 #[derive(Copy, Clone, Archive, Serialize, Deserialize, Portable, CheckBytes)]

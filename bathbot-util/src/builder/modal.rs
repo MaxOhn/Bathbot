@@ -1,7 +1,7 @@
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, TextInput, TextInputStyle},
         Component,
+        component::{ActionRow, TextInput, TextInputStyle},
     },
     http::interaction::InteractionResponseData,
 };

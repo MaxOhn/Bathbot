@@ -1,20 +1,20 @@
 use std::{borrow::Cow, io::Cursor};
 
-use bathbot_macros::{command, SlashCommand};
-use bathbot_model::{command_fields::GameModeOption, RankAccPeaks, RespektiveUser};
+use bathbot_macros::{SlashCommand, command};
+use bathbot_model::{RankAccPeaks, RespektiveUser, command_fields::GameModeOption};
 use bathbot_util::{
+    MessageBuilder,
     constants::GENERAL_ISSUE,
     matcher,
     numbers::MinMaxAvg,
     osu::{BonusPP, UserStats},
-    MessageBuilder,
 };
 use eyre::{Report, Result, WrapErr};
 use image::{
-    imageops::{overlay, FilterType},
     DynamicImage, ImageBuffer,
     ImageOutputFormat::Png,
     Rgba,
+    imageops::{FilterType, overlay},
 };
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score},
@@ -23,17 +23,17 @@ use rosu_v2::{
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     guild::Permissions,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
-use super::{CompareProfile, AT_LEAST_ONE};
+use super::{AT_LEAST_ONE, CompareProfile};
 use crate::{
+    Context,
     commands::osu::UserExtraction,
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{CommandOrigin, prefix::Args},
     embeds::{EmbedData, ProfileCompareEmbed},
     manager::redis::osu::{UserArgs, UserArgsError},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]

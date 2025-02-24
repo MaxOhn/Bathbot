@@ -3,7 +3,7 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 pub use self::{addstream::*, removestream::*, tracked::*};
-use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
+use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
 
 pub mod addstream;
 pub mod removestream;

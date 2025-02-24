@@ -7,7 +7,7 @@ use plotters::{
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
 use rosu_v2::prelude::Score;
-use skia_safe::{surfaces, EncodedImageFormat};
+use skia_safe::{EncodedImageFormat, surfaces};
 
 use super::{H, W};
 

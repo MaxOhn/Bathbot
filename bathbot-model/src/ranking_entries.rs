@@ -1,13 +1,13 @@
 use std::{collections::BTreeMap, fmt::Write, ops::RangeBounds};
 
-use bathbot_util::{datetime::HowLongAgoText, AuthorBuilder, FooterBuilder};
+use bathbot_util::{AuthorBuilder, FooterBuilder, datetime::HowLongAgoText};
 use rosu_v2::prelude::{CountryCode, GameMode, Username};
 use time::OffsetDateTime;
-use twilight_model::id::{marker::GuildMarker, Id};
+use twilight_model::id::{Id, marker::GuildMarker};
 
 use crate::{
-    twilight::util::ImageHashRkyv, BgGameScore, HlGameScore, HlVersion, UserModeStatsColumn,
-    UserStatsColumn, UserStatsEntries, UserStatsEntry,
+    BgGameScore, HlGameScore, HlVersion, UserModeStatsColumn, UserStatsColumn, UserStatsEntries,
+    UserStatsEntry, twilight::util::ImageHashRkyv,
 };
 
 pub struct RankingEntry<V> {

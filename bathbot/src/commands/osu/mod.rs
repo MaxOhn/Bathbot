@@ -67,7 +67,7 @@ use bathbot_util::osu::ModSelection;
 use eyre::{Report, Result, WrapErr};
 use rosu_v2::request::UserId;
 use twilight_interactions::command::{CommandOption, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 pub use self::{
     badges::*, claim_name::*, compare::*, fix::*, graphs::*, leaderboard::*, map::*, map_search::*,
@@ -75,8 +75,8 @@ pub use self::{
     render::*, simulate::*, snipe::*, top::*, whatif::*,
 };
 use crate::{
-    core::commands::{interaction::InteractionCommands, CommandOrigin},
     Context,
+    core::commands::{CommandOrigin, interaction::InteractionCommands},
 };
 
 mod attributes;

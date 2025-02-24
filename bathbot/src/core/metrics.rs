@@ -1,9 +1,9 @@
 use std::time::Duration;
 
-use bathbot_cache::{model::CacheChange, Cache};
+use bathbot_cache::{Cache, model::CacheChange};
 use metrics::{
-    counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram, SharedString,
-    Unit,
+    SharedString, Unit, counter, describe_counter, describe_gauge, describe_histogram, gauge,
+    histogram,
 };
 use rosu_v2::model::GameMode;
 use twilight_gateway::Event;

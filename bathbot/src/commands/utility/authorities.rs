@@ -3,17 +3,17 @@ use std::fmt::Write;
 use bathbot_macros::command;
 use bathbot_model::twilight::id::ArchivedId;
 use bathbot_psql::model::configs::{Authorities, GuildConfig};
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use twilight_model::{
     guild::Permissions,
-    id::{marker::RoleMarker, Id},
+    id::{Id, marker::RoleMarker},
 };
 
 use crate::{
     core::{
-        commands::{prefix::Args, CommandOrigin},
         BotConfig, Context,
+        commands::{CommandOrigin, prefix::Args},
     },
     util::ChannelExt,
 };

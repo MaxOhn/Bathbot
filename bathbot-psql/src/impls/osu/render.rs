@@ -1,7 +1,7 @@
 use eyre::{Result, WrapErr};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
-use crate::{model::render::DbRenderOptions, Database};
+use crate::{Database, model::render::DbRenderOptions};
 
 impl Database {
     pub async fn select_user_render_settings(

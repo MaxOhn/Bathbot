@@ -1,8 +1,8 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use twilight_model::id::{
-    marker::{ChannelMarker, GuildMarker},
     Id,
+    marker::{ChannelMarker, GuildMarker},
 };
 
 #[derive(Copy, Clone)]

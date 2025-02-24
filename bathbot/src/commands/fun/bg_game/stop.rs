@@ -1,7 +1,7 @@
 use eyre::Result;
 use twilight_model::channel::Message;
 
-use crate::{util::ChannelExt, Context};
+use crate::{Context, util::ChannelExt};
 
 pub async fn stop(msg: &Message) -> Result<()> {
     match Context::bg_games().read(&msg.channel_id).await.get() {

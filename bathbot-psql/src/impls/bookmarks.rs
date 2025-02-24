@@ -1,11 +1,11 @@
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::{
+    Database,
     model::osu::MapBookmark,
     util::{parse_genre, parse_language, parse_mode, parse_status},
-    Database,
 };
 
 impl Database {

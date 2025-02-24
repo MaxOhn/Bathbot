@@ -1,5 +1,5 @@
 use bathbot_model::rosu_v2::user::MedalCompactRkyv;
-use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
 use rkyv::{
     rancor::{Panic, ResultExt},
@@ -10,7 +10,7 @@ use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use super::{H, W};
 use crate::{
     commands::osu::{medals::stats as medals_stats, user_not_found},
-    core::{commands::CommandOrigin, Context},
+    core::{Context, commands::CommandOrigin},
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };
 

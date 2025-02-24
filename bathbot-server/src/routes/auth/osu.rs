@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{rejection::QueryRejection, Query, State},
+    extract::{Query, State, rejection::QueryRejection},
     http::StatusCode,
     response::Html,
 };
 use eyre::Report;
-use rosu_v2::{prelude::Scopes, Osu};
+use rosu_v2::{Osu, prelude::Scopes};
 
 use super::{AuthError, Params, RenderData, RenderDataKind, RenderDataStatus};
 use crate::state::AppState;

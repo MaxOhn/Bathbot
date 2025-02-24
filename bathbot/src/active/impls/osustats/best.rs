@@ -3,37 +3,37 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 use bathbot_cache::model::CachedArchive;
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{
-    rkyv_util::time::DateRkyv, ArchivedOsuStatsBestScore, ArchivedOsuStatsBestScores,
+    ArchivedOsuStatsBestScore, ArchivedOsuStatsBestScores, rkyv_util::time::DateRkyv,
 };
 use bathbot_util::{
-    constants::OSU_BASE,
-    datetime::{HowLongAgoDynamic, DATE_FORMAT},
-    numbers::{round, WithComma},
     AuthorBuilder, EmbedBuilder, FooterBuilder, ModsFormatter,
+    constants::OSU_BASE,
+    datetime::{DATE_FORMAT, HowLongAgoDynamic},
+    numbers::{WithComma, round},
 };
 use eyre::Result;
 use futures::future::BoxFuture;
 use rkyv::{
-    rancor::{Panic, ResultExt, Strategy},
     Deserialize,
+    rancor::{Panic, ResultExt, Strategy},
 };
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::OsuStatsBestSort,
     core::BotConfig,
     embeds::ComboFormatter,
     util::{
-        interaction::{InteractionComponent, InteractionModal},
         Emote,
+        interaction::{InteractionComponent, InteractionModal},
     },
 };
 

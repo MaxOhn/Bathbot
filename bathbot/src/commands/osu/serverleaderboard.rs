@@ -8,10 +8,10 @@ use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    active::{impls::RankingPagination, ActiveMessages},
-    core::commands::interaction::InteractionCommands,
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
+    active::{ActiveMessages, impls::RankingPagination},
+    core::commands::interaction::InteractionCommands,
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

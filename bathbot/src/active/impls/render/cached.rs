@@ -1,27 +1,27 @@
 use std::{fmt::Write, future::ready, mem};
 
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
     EmbedBuilder, MessageBuilder,
+    constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
 };
 use eyre::{Report, Result, WrapErr};
 use futures::future::BoxFuture;
-use rosu_render::{client::error::ApiError as OrdrApiError, ClientError as OrdrError};
+use rosu_render::{ClientError as OrdrError, client::error::ApiError as OrdrApiError};
 use rosu_v2::error::OsuError;
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle},
         Component,
+        component::{ActionRow, Button, ButtonStyle},
     },
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
-    active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
-    commands::osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
-    core::{buckets::BucketName, Context},
+    active::{BuildPage, ComponentResult, IActiveMessage, response::ActiveResponse},
+    commands::osu::{OngoingRender, RENDERER_NAME, RenderStatus, RenderStatusInner},
+    core::{Context, buckets::BucketName},
     manager::ReplayError,
-    util::{interaction::InteractionComponent, Authored, ComponentExt, MessageExt},
+    util::{Authored, ComponentExt, MessageExt, interaction::InteractionComponent},
 };
 
 pub struct CachedRender {

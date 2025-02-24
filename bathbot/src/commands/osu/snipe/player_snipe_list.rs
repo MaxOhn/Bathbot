@@ -7,18 +7,18 @@ use std::{
 
 use bathbot_macros::command;
 use bathbot_model::SnipeScoreParams;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::ModSelection, CowUtils};
+use bathbot_util::{CowUtils, constants::GENERAL_ISSUE, matcher, osu::ModSelection};
 use eyre::{Report, Result};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
 use super::{SnipeGameMode, SnipePlayerList, SnipePlayerListOrder};
 use crate::{
-    active::{impls::SnipePlayerListPagination, ActiveMessages},
+    Context,
+    active::{ActiveMessages, impls::SnipePlayerListPagination},
     commands::osu::{HasMods, ModsResult},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
     util::ChannelExt,
-    Context,
 };
 
 #[command]

@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_model::{OsekaiMedal, Rarity};
-use bathbot_util::{constants::GENERAL_ISSUE, IntHasher};
+use bathbot_util::{IntHasher, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
 use rkyv::{
     rancor::{Panic, ResultExt},
@@ -15,11 +15,11 @@ use time::OffsetDateTime;
 
 use super::{MedalList, MedalListOrder};
 use crate::{
-    active::{impls::MedalsListPagination, ActiveMessages},
+    Context,
+    active::{ActiveMessages, impls::MedalsListPagination},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     manager::redis::osu::{UserArgs, UserArgsError},
-    Context,
 };
 
 pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result<()> {

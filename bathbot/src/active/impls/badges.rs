@@ -1,24 +1,24 @@
 use std::{
-    collections::{btree_map::Entry, BTreeMap},
+    collections::{BTreeMap, btree_map::Entry},
     fmt::Write,
 };
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{OsekaiBadge, OsekaiBadgeOwner};
 use bathbot_util::{
-    constants::OSU_BASE, datetime::DATE_FORMAT, fields, CowUtils, EmbedBuilder, FooterBuilder,
+    CowUtils, EmbedBuilder, FooterBuilder, constants::OSU_BASE, datetime::DATE_FORMAT, fields,
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     core::Context,
     embeds::attachment,

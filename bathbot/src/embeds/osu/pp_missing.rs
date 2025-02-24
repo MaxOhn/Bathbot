@@ -6,9 +6,9 @@ use std::{
 };
 
 use bathbot_util::{
-    numbers::WithComma,
-    osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
+    numbers::WithComma,
+    osu::{ExtractablePp, PpListUtil, approx_more_pp, pp_missing},
 };
 use rosu_v2::prelude::Score;
 

@@ -4,18 +4,18 @@ use std::{
 };
 
 use bathbot_util::{
-    modal::{ModalBuilder, TextInputBuilder},
     EmbedBuilder, FooterBuilder,
+    modal::{ModalBuilder, TextInputBuilder},
 };
 use eyre::{Report, Result, WrapErr};
 use futures::future::BoxFuture;
 use rosu_render::model::{RenderOptions, RenderSkinOption};
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle, TextInputStyle},
         Component, EmojiReactionType,
+        component::{ActionRow, Button, ButtonStyle, TextInputStyle},
     },
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use super::RenderSettingsActive;
@@ -24,8 +24,8 @@ use crate::{
     core::Context,
     manager::ReplaySettings,
     util::{
-        interaction::{InteractionComponent, InteractionModal},
         Authored, ModalExt,
+        interaction::{InteractionComponent, InteractionModal},
     },
 };
 

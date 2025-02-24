@@ -4,7 +4,7 @@ use eyre::Result;
 use futures::Future;
 use linkme::distributed_slice;
 use once_cell::sync::OnceCell;
-use radix_trie::{iter::Keys, Trie, TrieCommon};
+use radix_trie::{Trie, TrieCommon, iter::Keys};
 use twilight_model::application::command::Command;
 
 pub use self::command::{InteractionCommandKind, MessageCommand, SlashCommand};

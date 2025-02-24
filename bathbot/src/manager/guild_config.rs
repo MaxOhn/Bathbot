@@ -1,8 +1,8 @@
-use bathbot_psql::{model::configs::GuildConfig, Database};
+use bathbot_psql::{Database, model::configs::GuildConfig};
 use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use papaya::HashMap as PapayaMap;
-use twilight_model::id::{marker::GuildMarker, Id};
+use twilight_model::id::{Id, marker::GuildMarker};
 
 type GuildConfigs = PapayaMap<Id<GuildMarker>, GuildConfig, IntHasher>;
 

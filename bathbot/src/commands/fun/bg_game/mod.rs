@@ -1,11 +1,11 @@
 use std::ops::ControlFlow;
 
-use bathbot_macros::{command, SlashCommand};
-use bathbot_model::{command_fields::ThreadChannel, Effects};
+use bathbot_macros::{SlashCommand, command};
+use bathbot_model::{Effects, command_fields::ThreadChannel};
 use bathbot_psql::model::games::DbMapTagsParams;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, INVALID_ACTION_FOR_CHANNEL_TYPE, THREADS_UNAVAILABLE},
     CowUtils, MessageBuilder,
+    constants::{GENERAL_ISSUE, INVALID_ACTION_FOR_CHANNEL_TYPE, THREADS_UNAVAILABLE},
 };
 use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
@@ -13,22 +13,22 @@ use twilight_http::{api_error::ApiError, error::ErrorType, response::StatusCode}
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::command::permissions::CommandPermissionType,
-    channel::{thread::AutoArchiveDuration, ChannelType},
+    channel::{ChannelType, thread::AutoArchiveDuration},
     guild::Permissions,
 };
 
 use self::{bigger::*, hint::*, rankings::*, skip::*, stop::*};
 use crate::{
+    Context,
     active::{
-        impls::{BackgroundGame, BackgroundGameSetup},
         ActiveMessages,
+        impls::{BackgroundGame, BackgroundGameSetup},
     },
     core::commands::interaction::InteractionCommands,
     util::{
-        interaction::InteractionCommand, Authored, ChannelExt, CheckPermissions,
-        InteractionCommandExt,
+        Authored, ChannelExt, CheckPermissions, InteractionCommandExt,
+        interaction::InteractionCommand,
     },
-    Context,
 };
 
 mod bigger;

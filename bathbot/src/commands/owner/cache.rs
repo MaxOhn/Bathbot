@@ -1,9 +1,9 @@
-use bathbot_util::{numbers::WithComma, EmbedBuilder, FooterBuilder, MessageBuilder};
+use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder, numbers::WithComma};
 use eyre::Result;
 
 use crate::{
-    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub async fn cache(command: InteractionCommand) -> Result<()> {

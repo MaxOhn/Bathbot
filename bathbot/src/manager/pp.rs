@@ -2,9 +2,9 @@ use std::borrow::Cow;
 
 use bathbot_model::{OsuStatsScore, ScoreSlim};
 use rosu_pp::{
+    Beatmap, Difficulty,
     any::{DifficultyAttributes, PerformanceAttributes, ScoreState},
     model::mode::GameMode as Mode,
-    Beatmap, Difficulty,
 };
 use rosu_v2::{
     model::mods::GameMods,

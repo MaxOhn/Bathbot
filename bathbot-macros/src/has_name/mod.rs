@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse_quote, Data, DeriveInput, Error, Fields, GenericArgument, PathArguments, Result, Type,
+    Data, DeriveInput, Error, Fields, GenericArgument, PathArguments, Result, Type, parse_quote,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream> {

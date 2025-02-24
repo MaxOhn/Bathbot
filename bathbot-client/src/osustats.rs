@@ -12,7 +12,7 @@ use rosu_v2::model::GameMode;
 use ryu::Buffer as FloatBuffer;
 use serde::de::DeserializeSeed;
 
-use crate::{multipart::Multipart, site::Site, Client, ClientError};
+use crate::{Client, ClientError, multipart::Multipart, site::Site};
 
 const TIMEOUT: Duration = Duration::from_secs(15);
 

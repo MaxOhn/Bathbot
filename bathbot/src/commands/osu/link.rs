@@ -1,11 +1,11 @@
-use bathbot_macros::{command, SlashCommand};
+use bathbot_macros::{SlashCommand, command};
 use bathbot_util::constants::INVITE_LINK;
 use eyre::Result;
 use twilight_interactions::command::CreateCommand;
 
 use crate::{
-    commands::utility::{config, Config, ConfigLink},
-    util::{interaction::InteractionCommand, ChannelExt},
+    commands::utility::{Config, ConfigLink, config},
+    util::{ChannelExt, interaction::InteractionCommand},
 };
 
 #[derive(CreateCommand, SlashCommand)]

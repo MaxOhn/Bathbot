@@ -5,8 +5,8 @@ use eyre::{Result, WrapErr};
 use futures::StreamExt;
 use time::OffsetDateTime;
 use twilight_model::{
-    channel::{message::Embed, Message},
-    id::{marker::ChannelMarker, Id},
+    channel::{Message, message::Embed},
+    id::{Id, marker::ChannelMarker},
 };
 
 use crate::Context;

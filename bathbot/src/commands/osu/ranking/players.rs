@@ -3,8 +3,8 @@ use std::{borrow::Cow, iter};
 use bathbot_cache::model::CachedArchive;
 use bathbot_macros::command;
 use bathbot_model::{
-    command_fields::GameModeOption, rosu_v2::ranking::ArchivedRankings, Countries, RankingEntries,
-    RankingEntry, RankingKind,
+    Countries, RankingEntries, RankingEntry, RankingKind, command_fields::GameModeOption,
+    rosu_v2::ranking::ArchivedRankings,
 };
 use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::{Report, Result};
@@ -12,11 +12,11 @@ use rosu_v2::prelude::{CountryCode, GameMode, Rankings};
 
 use super::{RankingPp, RankingScore};
 use crate::{
-    active::{impls::RankingPagination, ActiveMessages},
-    core::commands::CommandOrigin,
-    manager::redis::{osu::UserArgs, RedisError},
-    util::ChannelExt,
     Context,
+    active::{ActiveMessages, impls::RankingPagination},
+    core::commands::CommandOrigin,
+    manager::redis::{RedisError, osu::UserArgs},
+    util::ChannelExt,
 };
 
 // TODO: this sucks

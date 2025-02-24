@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use bathbot_util::{datetime::DATE_FORMAT, CowUtils};
+use bathbot_util::{CowUtils, datetime::DATE_FORMAT};
 use time::Date;
 
 use super::operator::Operator;

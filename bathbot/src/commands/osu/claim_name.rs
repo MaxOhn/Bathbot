@@ -5,15 +5,15 @@ use bathbot_model::{
     rosu_v2::user::{User, UserStatisticsRkyv},
 };
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     MessageBuilder,
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
 };
 use eyre::{Report, Result};
-use futures::{future, stream::FuturesUnordered, TryStreamExt};
+use futures::{TryStreamExt, future, stream::FuturesUnordered};
 use once_cell::sync::OnceCell;
 use rkyv::{
-    rancor::{Panic, ResultExt},
     Archived,
+    rancor::{Panic, ResultExt},
 };
 use rosu_v2::prelude::{CountryCode, GameMode, OsuError, UserHighestRank, Username};
 use time::{OffsetDateTime, Time};
@@ -23,7 +23,7 @@ use crate::{
     core::Context,
     embeds::{ClaimNameEmbed, EmbedData},
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

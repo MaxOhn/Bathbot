@@ -1,10 +1,10 @@
 use std::{borrow::Cow, fmt::Write};
 
-use bathbot_macros::{command, HasName, SlashCommand};
-use bathbot_model::{command_fields::GameModeOption, ScoreSlim};
+use bathbot_macros::{HasName, SlashCommand, command};
+use bathbot_model::{ScoreSlim, command_fields::GameModeOption};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection, CowUtils,
+    CowUtils, constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection,
 };
 use eyre::{Report, Result};
 use rosu_v2::{
@@ -12,22 +12,22 @@ use rosu_v2::{
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::{
-    active::{impls::TopIfPagination, ActiveMessages},
+    Context,
+    active::{ActiveMessages, impls::TopIfPagination},
     commands::osu::{require_link, user_not_found},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{CommandOrigin, prefix::Args},
     manager::{
-        redis::osu::{UserArgs, UserArgsError},
         OsuMap,
+        redis::osu::{UserArgs, UserArgsError},
     },
     util::{
+        ChannelExt, InteractionCommandExt,
         interaction::InteractionCommand,
         query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
-        ChannelExt, InteractionCommandExt,
     },
-    Context,
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]

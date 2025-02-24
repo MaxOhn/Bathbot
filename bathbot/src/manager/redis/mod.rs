@@ -1,19 +1,19 @@
 use std::{borrow::Cow, fmt::Write};
 
 use bathbot_cache::{
-    model::{CachedArchive, ValidatorStrategy},
-    util::serialize::{serialize_using_arena, serialize_using_arena_and_with, SerializerStrategy},
     Cache,
+    model::{CachedArchive, ValidatorStrategy},
+    util::serialize::{SerializerStrategy, serialize_using_arena, serialize_using_arena_and_with},
 };
 use bathbot_model::{
-    rosu_v2::ranking::{ArchivedRankings, RankingsRkyv},
     ArchivedOsekaiBadge, ArchivedOsekaiMedal, ArchivedOsuStatsBestScores, ArchivedSnipeCountries,
     OsekaiRanking, OsuStatsBestTimeframe,
+    rosu_v2::ranking::{ArchivedRankings, RankingsRkyv},
 };
 use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{matcher, osu::MapIdType};
 use eyre::{Report, Result, WrapErr};
-use rkyv::{bytecheck::CheckBytes, rancor::BoxedError, vec::ArchivedVec, Archived, Serialize};
+use rkyv::{Archived, Serialize, bytecheck::CheckBytes, rancor::BoxedError, vec::ArchivedVec};
 use rosu_v2::prelude::GameMode;
 use thiserror::Error as ThisError;
 

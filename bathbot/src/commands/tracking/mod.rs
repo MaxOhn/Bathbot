@@ -9,10 +9,10 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 
 pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
 use crate::{
+    Context,
     core::commands::prefix::{Args, ArgsNum},
     manager::redis::osu::{UserArgs, UserArgsError},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 mod track;

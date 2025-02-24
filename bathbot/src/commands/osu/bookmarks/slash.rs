@@ -3,18 +3,18 @@ use std::{collections::HashMap, fmt::Write};
 use bathbot_macros::SlashCommand;
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::osu::MapBookmark;
-use bathbot_util::{constants::GENERAL_ISSUE, CowUtils, MessageOrigin};
+use bathbot_util::{CowUtils, MessageOrigin, constants::GENERAL_ISSUE};
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
-    active::{impls::BookmarksPagination, ActiveMessages},
+    active::{ActiveMessages, impls::BookmarksPagination},
     core::Context,
     util::{
+        Authored, InteractionCommandExt,
         interaction::InteractionCommand,
         query::{BookmarkCriteria, FilterCriteria, IFilterCriteria},
-        Authored, InteractionCommandExt,
     },
 };
 

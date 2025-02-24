@@ -4,16 +4,16 @@ use std::{
 };
 
 use bathbot_macros::{HasName, SlashCommand};
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, EmbedBuilder, MessageBuilder};
+use bathbot_util::{EmbedBuilder, MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result, WrapErr};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 use url::{SyntaxViolation, Url};
 
 use crate::{
     active::{self, ActiveMessages},
-    core::{commands::CommandOrigin, Context},
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
+    core::{Context, commands::CommandOrigin},
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

@@ -6,7 +6,7 @@ use bathbot_util::{
     osu::ModSelection,
 };
 use eyre::{Report, Result};
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use rosu_v2::{
     prelude::{BeatmapUserScore, GameMode, GameModsIntermode, OsuError, Score, Username},
     request::UserId,
@@ -14,16 +14,16 @@ use rosu_v2::{
 
 use super::RecentLeaderboard;
 use crate::{
-    active::{impls::LeaderboardPagination, ActiveMessages},
-    commands::osu::{
-        require_link, user_not_found, HasMods, LeaderboardScore, LeaderboardUserScore, ModsResult,
-    },
-    core::commands::{prefix::Args, CommandOrigin},
-    manager::{
-        redis::osu::{UserArgs, UserArgsError},
-        Mods,
-    },
     Context,
+    active::{ActiveMessages, impls::LeaderboardPagination},
+    commands::osu::{
+        HasMods, LeaderboardScore, LeaderboardUserScore, ModsResult, require_link, user_not_found,
+    },
+    core::commands::{CommandOrigin, prefix::Args},
+    manager::{
+        Mods,
+        redis::osu::{UserArgs, UserArgsError},
+    },
 };
 
 #[command]

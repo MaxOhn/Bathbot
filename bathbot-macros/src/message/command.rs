@@ -1,9 +1,9 @@
 use proc_macro2::Span;
 use syn::{
+    Attribute, Block, Error, FnArg, Ident, PatType, Result, ReturnType, Token, Visibility,
     parenthesized,
     parse::{Parse, ParseStream},
-    parse_quote, Attribute, Block, Error, FnArg, Ident, PatType, Result, ReturnType, Token,
-    Visibility,
+    parse_quote,
 };
 
 use crate::util::PunctuatedExt;

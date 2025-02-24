@@ -3,9 +3,9 @@ use rosu_v2::prelude::GameMode;
 
 use super::Context;
 use crate::manager::{
-    redis::RedisManager, ApproxManager, BookmarkManager, GameManager, GithubManager,
-    GuildConfigManager, HuismetbenenCountryManager, MapManager, OsuMap, OsuUserManager, PpManager,
-    ReplayManager, ScoresManager, UserConfigManager,
+    ApproxManager, BookmarkManager, GameManager, GithubManager, GuildConfigManager,
+    HuismetbenenCountryManager, MapManager, OsuMap, OsuUserManager, PpManager, ReplayManager,
+    ScoresManager, UserConfigManager, redis::RedisManager,
 };
 
 impl Context {

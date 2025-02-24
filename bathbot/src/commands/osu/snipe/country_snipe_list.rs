@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use bathbot_macros::command;
 use bathbot_model::{Countries, SnipeCountryListOrder};
-use bathbot_util::{constants::GENERAL_ISSUE, CowUtils};
+use bathbot_util::{CowUtils, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
 use rosu_v2::{
     model::GameMode,
@@ -12,12 +12,12 @@ use rosu_v2::{
 
 use super::{SnipeCountryList, SnipeGameMode};
 use crate::{
-    active::{impls::SnipeCountryListPagination, ActiveMessages},
+    Context,
+    active::{ActiveMessages, impls::SnipeCountryListPagination},
     commands::osu::user_not_found,
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
     util::ChannelExt,
-    Context,
 };
 
 #[command]

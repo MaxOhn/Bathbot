@@ -3,8 +3,8 @@ use std::{borrow::Cow, sync::LazyLock};
 use regex::Regex;
 use rosu_v2::prelude::{GameMode, GameModsIntermode, UserId as OsuUserId};
 use twilight_model::id::{
-    marker::{RoleMarker, UserMarker},
     Id,
+    marker::{RoleMarker, UserMarker},
 };
 
 use super::osu::ModSelection;

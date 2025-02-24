@@ -2,27 +2,27 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
-    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::WithComma, CowUtils, EmbedBuilder,
-    FooterBuilder, ModsFormatter, ScoreExt,
+    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter, ScoreExt, constants::OSU_BASE,
+    datetime::HowLongAgoDynamic, numbers::WithComma,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::NochokeEntry,
     manager::redis::osu::CachedUser,
     util::{
+        CachedUserExt, Emote,
         interaction::{InteractionComponent, InteractionModal},
         osu::GradeFormatter,
-        CachedUserExt, Emote,
     },
 };
 
@@ -84,7 +84,11 @@ impl IActiveMessage for NoChokePagination {
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
                 mods = ModsFormatter::new(&original_score.mods),
-                grade = GradeFormatter::new(entry.unchoked_grade(), Some(entry.original_score.score_id), entry.original_score.is_legacy()),
+                grade = GradeFormatter::new(
+                    entry.unchoked_grade(),
+                    Some(entry.original_score.score_id),
+                    entry.original_score.is_legacy()
+                ),
                 old_pp = original_score.pp,
                 new_pp = entry.unchoked_pp(),
                 old_acc = original_score.accuracy,

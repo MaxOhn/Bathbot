@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use syn::{
-    parse::{Parse, ParseStream},
     Error, Expr, ExprLit, Lit, LitBool, LitStr, Meta, Result, Token,
+    parse::{Parse, ParseStream},
 };
 
 use crate::{flags::Flags, util::PunctuatedExt};

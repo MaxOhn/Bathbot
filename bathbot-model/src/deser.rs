@@ -2,9 +2,9 @@ use std::{fmt, marker::PhantomData};
 
 use rosu_v2::prelude::GameMode;
 use serde::{
+    Deserialize,
     de::{Deserializer, Error, Unexpected, Visitor},
     ser::Serializer,
-    Deserialize,
 };
 use time::{Date, OffsetDateTime, PrimitiveDateTime};
 

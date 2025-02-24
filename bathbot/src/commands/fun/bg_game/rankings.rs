@@ -1,14 +1,14 @@
 use std::collections::{BTreeMap, HashSet};
 
 use bathbot_model::{RankingEntries, RankingEntry, RankingKind};
-use bathbot_util::{constants::GENERAL_ISSUE, IntHasher};
+use bathbot_util::{IntHasher, constants::GENERAL_ISSUE};
 use eyre::Result;
 use twilight_model::{channel::Message, id::Id};
 
 use crate::{
-    active::{impls::RankingPagination, ActiveMessages},
-    util::ChannelExt,
     Context,
+    active::{ActiveMessages, impls::RankingPagination},
+    util::ChannelExt,
 };
 
 pub async fn leaderboard(msg: &Message, global: bool) -> Result<()> {

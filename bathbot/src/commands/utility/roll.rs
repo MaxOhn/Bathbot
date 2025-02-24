@@ -1,13 +1,13 @@
-use bathbot_macros::{command, SlashCommand};
+use bathbot_macros::{SlashCommand, command};
 use bathbot_util::MessageBuilder;
 use eyre::Result;
-use rand::{random, thread_rng, Rng};
+use rand::{Rng, random, thread_rng};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::guild::Permissions;
 
 use crate::{
-    core::commands::{prefix::ArgsNum, CommandOrigin},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    core::commands::{CommandOrigin, prefix::ArgsNum},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 const DEFAULT_LIMIT: u32 = 100;

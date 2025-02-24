@@ -1,13 +1,13 @@
 use rkyv::{
+    Archive, Place, Serialize,
     munge::munge,
     rancor::{Fallible, Source},
     ser::Writer,
     with::{ArchiveWith, SerializeWith},
-    Archive, Place, Serialize,
 };
 use twilight_model::{
     guild::{Permissions, Role},
-    id::{marker::RoleMarker, Id},
+    id::{Id, marker::RoleMarker},
 };
 
 use crate::{

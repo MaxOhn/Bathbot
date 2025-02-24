@@ -1,4 +1,4 @@
-use rkyv::{niche::niching::Niching, Place};
+use rkyv::{Place, niche::niching::Niching};
 use rosu_mods::GameMode;
 
 pub struct GameModeNiche;

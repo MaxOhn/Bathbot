@@ -3,18 +3,18 @@ use bathbot_model::twilight::id::{ArchivedId, IdRkyv, IdRkyvMap};
 use eyre::{Result, WrapErr};
 use futures::stream::StreamExt;
 use rkyv::{
+    Place,
     collections::util::{Entry, EntryAdapter},
     primitive::ArchivedU32,
     rancor::Fallible,
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, DeserializeWith, SerializeWith, With},
-    Place,
 };
 use twilight_gateway::Shard;
-use twilight_model::id::{marker::GuildMarker, Id};
+use twilight_model::id::{Id, marker::GuildMarker};
 
-use crate::{util::ChannelExt, Context};
+use crate::{Context, util::ChannelExt};
 
 impl Context {
     #[cold]

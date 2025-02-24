@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use bathbot_cache::{model::CachedArchive, util::serialize::serialize_using_arena_and_with, Cache};
+use bathbot_cache::{Cache, model::CachedArchive, util::serialize::serialize_using_arena_and_with};
 use bathbot_model::rosu_v2::user::{ArchivedUser, User};
 use bathbot_util::CowUtils;
 use rkyv::rancor::BoxedError;
@@ -91,7 +91,7 @@ impl UserArgs {
                 return Self::Err(UserArgsError::Serialization {
                     source,
                     user: Box::new(user),
-                })
+                });
             }
         };
 
@@ -191,7 +191,7 @@ impl RedisManager {
                 return Err(UserArgsError::Serialization {
                     source,
                     user: Box::new(user),
-                })
+                });
             }
         };
 

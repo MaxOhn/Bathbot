@@ -1,4 +1,4 @@
-use bathbot_util::{fields, EmbedBuilder, MessageBuilder};
+use bathbot_util::{EmbedBuilder, MessageBuilder, fields};
 use eyre::Result;
 use metrics::Key;
 use rosu_v2::model::GameMode;
@@ -6,7 +6,7 @@ use rosu_v2::model::GameMode;
 use crate::{
     core::Context,
     tracking::OsuTracking,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub async fn trackingstats(command: InteractionCommand) -> Result<()> {

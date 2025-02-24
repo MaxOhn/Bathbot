@@ -10,7 +10,7 @@ use self::{
     rarity::rarity,
     user_value::{count, pp},
 };
-use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
+use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
 
 mod medal_count;
 mod rarity;

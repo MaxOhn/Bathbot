@@ -3,11 +3,11 @@ use std::fmt::Write;
 use bathbot_macros::EmbedData;
 use bathbot_model::SnipePlayer;
 use bathbot_util::{
+    AuthorBuilder, CowUtils, FooterBuilder,
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
     fields,
-    numbers::{round, WithComma},
-    AuthorBuilder, CowUtils, FooterBuilder,
+    numbers::{WithComma, round},
 };
 use osu::{ComboFormatter, HitResultFormatter, PpFormatter};
 use rosu_v2::prelude::{GameMode, Score};
@@ -16,8 +16,8 @@ use twilight_model::channel::message::embed::EmbedField;
 use crate::{
     core::Context,
     embeds::{attachment, osu},
-    manager::{redis::osu::CachedUser, OsuMap},
-    util::{osu::GradeCompletionFormatter, CachedUserExt},
+    manager::{OsuMap, redis::osu::CachedUser},
+    util::{CachedUserExt, osu::GradeCompletionFormatter},
 };
 
 #[derive(EmbedData)]

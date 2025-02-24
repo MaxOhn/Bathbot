@@ -1,22 +1,22 @@
 use bathbot_model::{PullRequestsAndTags, Tag};
 use bathbot_util::{
-    datetime::DATE_FORMAT, numbers::last_multiple, AuthorBuilder, EmbedBuilder, FooterBuilder,
+    AuthorBuilder, EmbedBuilder, FooterBuilder, datetime::DATE_FORMAT, numbers::last_multiple,
 };
 use eyre::{Report, Result, WrapErr};
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::{
+        Component,
         component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
         embed::EmbedField,
-        Component,
     },
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::utility::ChangelogTagPages,
-    util::{interaction::InteractionComponent, Authored, ComponentExt, Emote},
+    util::{Authored, ComponentExt, Emote, interaction::InteractionComponent},
 };
 
 pub struct ChangelogPagination {

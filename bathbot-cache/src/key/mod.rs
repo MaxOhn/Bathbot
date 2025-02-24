@@ -5,8 +5,8 @@ use twilight_model::{
     channel::Channel,
     guild::{Guild, Member, Role},
     id::{
-        marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
         Id,
+        marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
     },
     user::User,
 };

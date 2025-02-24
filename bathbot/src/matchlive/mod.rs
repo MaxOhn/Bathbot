@@ -1,10 +1,10 @@
 use std::{slice, time::Duration};
 
 use eyre::{Context as EyreContext, Result};
-use tokio::time::{interval, MissedTickBehavior};
+use tokio::time::{MissedTickBehavior, interval};
 use twilight_model::id::{
-    marker::{ChannelMarker, MessageMarker},
     Id,
+    marker::{ChannelMarker, MessageMarker},
 };
 
 pub use self::types::*;

@@ -6,16 +6,16 @@ use std::{
 
 use bathbot_model::TwitchUser;
 use bathbot_util::{
-    constants::{TWITCH_BASE, UNKNOWN_CHANNEL},
     AuthorBuilder, EmbedBuilder, IntHasher,
+    constants::{TWITCH_BASE, UNKNOWN_CHANNEL},
 };
 use rand::Rng;
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 use twilight_http::{
     api_error::{ApiError, GeneralApiError},
     error::ErrorType,
 };
-use twilight_model::id::{marker::ChannelMarker, Id};
+use twilight_model::id::{Id, marker::ChannelMarker};
 
 use crate::Context;
 

@@ -1,9 +1,9 @@
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
+    Result,
     parse::{Parse, ParseStream},
     token::Token as TokenTrait,
-    Result,
 };
 
 /// Revamping utility from [`Punctuated`] for the purpose of storing items

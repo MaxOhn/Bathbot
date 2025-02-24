@@ -6,20 +6,20 @@ use std::{
 use bathbot_macros::command;
 use bathbot_psql::model::configs::GuildConfig;
 use bathbot_util::{
-    string_cmp::levenshtein_distance, AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder,
+    AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder, string_cmp::levenshtein_distance,
 };
 use eyre::Result;
 use twilight_model::{
-    channel::message::{embed::EmbedField, Message},
+    channel::message::{Message, embed::EmbedField},
     guild::Permissions,
 };
 
 use super::failed_message_content;
 use crate::{
-    active::{impls::HelpPrefixMenu, ActiveMessageOriginError, ActiveMessages},
+    active::{ActiveMessageOriginError, ActiveMessages, impls::HelpPrefixMenu},
     core::{
-        commands::prefix::{PrefixCommand, PrefixCommands},
         Context,
+        commands::prefix::{PrefixCommand, PrefixCommands},
     },
     util::ChannelExt,
 };

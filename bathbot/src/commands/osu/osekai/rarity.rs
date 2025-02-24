@@ -3,9 +3,9 @@ use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::{Report, Result};
 
 use crate::{
-    active::{impls::MedalRarityPagination, ActiveMessages},
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
+    active::{ActiveMessages, impls::MedalRarityPagination},
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub(super) async fn rarity(mut command: InteractionCommand) -> Result<()> {

@@ -7,12 +7,12 @@ use std::{
 };
 
 use rkyv::{
+    Archive, Archived, Place, Portable,
     bytecheck::CheckBytes,
     munge::munge,
     rancor::Fallible,
     traits::NoUndef,
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Archive, Archived, Place, Portable,
 };
 use twilight_model::id::Id;
 

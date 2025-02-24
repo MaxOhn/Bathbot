@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::HashMap};
 use bathbot_util::IntHasher;
 use rosu_v2::prelude::Username;
 
-use super::{availability::MapperNames, ProfileMenu};
+use super::{ProfileMenu, availability::MapperNames};
 
 pub(super) struct Top100Mappers;
 

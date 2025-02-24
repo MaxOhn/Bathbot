@@ -1,16 +1,16 @@
 use std::{borrow::Cow, cmp::Reverse, fmt::Write, mem};
 
-use bathbot_macros::{command, HasMods, HasName, SlashCommand};
+use bathbot_macros::{HasMods, HasName, SlashCommand, command};
 use bathbot_model::{
     command_fields::{GameModeOption, GradeOption},
     embed_builder::SettingsImage,
 };
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
-    constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection, CowUtils,
+    CowUtils, constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection,
 };
 use eyre::{Report, Result};
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use rosu_v2::{
     prelude::{GameMode, Grade, OsuError, Score},
     request::UserId,
@@ -18,27 +18,27 @@ use rosu_v2::{
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     guild::Permissions,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 pub use self::{if_::*, old::*};
-use super::{map_strain_graph, require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
+use super::{HasMods, ModsResult, ScoreOrder, map_strain_graph, require_link, user_not_found};
 use crate::{
+    Context,
     active::{
-        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
         ActiveMessages,
+        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
     },
     commands::utility::{
         MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
     },
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
     util::{
+        ChannelExt, CheckPermissions, InteractionCommandExt,
         interaction::InteractionCommand,
         query::{IFilterCriteria, Searchable, TopCriteria},
-        ChannelExt, CheckPermissions, InteractionCommandExt,
     },
-    Context,
 };
 
 mod if_;
@@ -1180,7 +1180,10 @@ fn write_content(
                 format!("Most recent score in `{name}`'{genitive} top100:")
             }
             TopScoreOrder::Date if index.is_some_and(|n| n > 1) => {
-                format!("{index_string}{ordinal_suffix} most recent score in `{name}`'{genitive} top100:", index_string = index.unwrap())
+                format!(
+                    "{index_string}{ordinal_suffix} most recent score in `{name}`'{genitive} top100:",
+                    index_string = index.unwrap()
+                )
             }
             TopScoreOrder::Date => {
                 format!("Most recent scores in `{name}`'{genitive} top100:")

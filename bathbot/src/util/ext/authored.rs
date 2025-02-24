@@ -2,8 +2,8 @@ use eyre::Result;
 use twilight_model::{
     channel::Message,
     id::{
-        marker::{ChannelMarker, GuildMarker, UserMarker},
         Id,
+        marker::{ChannelMarker, GuildMarker, UserMarker},
     },
     user::User,
 };

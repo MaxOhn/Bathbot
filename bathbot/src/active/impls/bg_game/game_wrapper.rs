@@ -6,22 +6,22 @@ use std::{
 
 use bathbot_model::Effects;
 use bathbot_psql::model::games::MapsetTagsEntries;
-use bathbot_util::{constants::OSU_BASE, IntHasher, MessageBuilder};
+use bathbot_util::{IntHasher, MessageBuilder, constants::OSU_BASE};
 use eyre::Result;
 use tokio::{
     sync::{
-        mpsc::{self, UnboundedSender},
         RwLock,
+        mpsc::{self, UnboundedSender},
     },
-    time::{sleep, timeout, Duration},
+    time::{Duration, sleep, timeout},
 };
 use twilight_model::{
     gateway::payload::incoming::MessageCreate,
-    id::{marker::ChannelMarker, Id},
+    id::{Id, marker::ChannelMarker},
 };
 
-use super::game::{game_loop, Game, LoopResult};
-use crate::{commands::fun::GameDifficulty, util::ChannelExt, Context};
+use super::game::{Game, LoopResult, game_loop};
+use crate::{Context, commands::fun::GameDifficulty, util::ChannelExt};
 
 const GAME_LEN: Duration = Duration::from_secs(180);
 

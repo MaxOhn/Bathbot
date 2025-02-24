@@ -1,9 +1,9 @@
 use std::fmt::Display;
 
 use bb8_redis::{
+    RedisConnectionManager,
     bb8::{Pool, PooledConnection, RunError},
     redis::RedisError,
-    RedisConnectionManager,
 };
 use eyre::{Result, WrapErr};
 use tracing::error;

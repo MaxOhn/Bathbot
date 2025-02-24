@@ -12,18 +12,18 @@ use time::OffsetDateTime;
 use tokio::sync::oneshot::Receiver;
 use twilight_model::{
     channel::message::{
+        Component, EmojiReactionType,
         component::{ActionRow, Button, ButtonStyle},
         embed::EmbedField,
-        Component, EmojiReactionType,
     },
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use self::state::{ButtonState, HigherLowerState};
 use crate::{
-    active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
+    active::{BuildPage, ComponentResult, IActiveMessage, response::ActiveResponse},
     core::Context,
-    util::{interaction::InteractionComponent, Authored, ComponentExt, Emote},
+    util::{Authored, ComponentExt, Emote, interaction::InteractionComponent},
 };
 
 mod score_pp;

@@ -1,8 +1,8 @@
 use std::{collections::HashMap, hash::BuildHasher, marker::PhantomData, mem, path::PathBuf};
 
 use rosu_pp::any::DifficultyAttributes;
-use rosu_v2::model::{score::Score, GameMode};
-use skia_safe::{surfaces, EncodedImageFormat};
+use rosu_v2::model::{GameMode, score::Score};
+use skia_safe::{EncodedImageFormat, surfaces};
 
 use crate::{
     builder::card::{CardBuilder, H, W},

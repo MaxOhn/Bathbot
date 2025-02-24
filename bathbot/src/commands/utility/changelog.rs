@@ -8,9 +8,9 @@ use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    active::{impls::ChangelogPagination, ActiveMessages},
+    active::{ActiveMessages, impls::ChangelogPagination},
     core::Context,
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

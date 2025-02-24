@@ -2,29 +2,29 @@ use std::{collections::HashMap, fmt::Write};
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
-    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, CowUtils, EmbedBuilder,
-    FooterBuilder, IntHasher,
+    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, constants::OSU_BASE,
+    datetime::HowLongAgoDynamic, numbers::round,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::RecentListEntry,
     embeds::{ComboFormatter, KeyFormatter, PpFormatter},
-    manager::{redis::osu::CachedUser, OsuMap},
+    manager::{OsuMap, redis::osu::CachedUser},
     util::{
+        CachedUserExt,
         interaction::{InteractionComponent, InteractionModal},
         osu::GradeCompletionFormatter,
-        CachedUserExt,
     },
 };
 

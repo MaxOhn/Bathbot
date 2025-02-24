@@ -1,14 +1,14 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
-use bathbot_macros::{command, SlashCommand};
+use bathbot_macros::{SlashCommand, command};
 use bathbot_util::{CowUtils, Matrix, MessageBuilder};
 use eyre::Result;
 use rand::RngCore;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
-    core::commands::{prefix::Args, CommandOrigin},
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
+    core::commands::{CommandOrigin, prefix::Args},
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

@@ -8,9 +8,9 @@ use rosu_v2::prelude::GameMode;
 
 use super::RankingCountry;
 use crate::{
-    active::{impls::RankingCountriesPagination, ActiveMessages},
-    core::commands::CommandOrigin,
     Context,
+    active::{ActiveMessages, impls::RankingCountriesPagination},
+    core::commands::CommandOrigin,
 };
 
 #[command]

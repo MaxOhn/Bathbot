@@ -1,11 +1,11 @@
-use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
 use super::{H, W};
 use crate::{
     commands::osu::{player_snipe_stats, user_not_found},
-    core::{commands::CommandOrigin, Context},
+    core::{Context, commands::CommandOrigin},
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };
 

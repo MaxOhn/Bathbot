@@ -3,8 +3,8 @@ use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 
 use crate::{
-    model::osu::{DbTrackedOsuUser, DbTrackedOsuUserInChannel},
     Database,
+    model::osu::{DbTrackedOsuUser, DbTrackedOsuUserInChannel},
 };
 
 impl Database {

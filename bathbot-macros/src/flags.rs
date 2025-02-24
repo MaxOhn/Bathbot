@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    parse::{Parse, ParseStream},
     Ident, Result, Token,
+    parse::{Parse, ParseStream},
 };
 
 use crate::util::PunctuatedExt;

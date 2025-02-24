@@ -1,7 +1,7 @@
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::Username;
 use sqlx::{Executor, Postgres};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::database::Database;
 

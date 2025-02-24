@@ -7,6 +7,7 @@ use std::{
 };
 
 use rkyv::{
+    Archive, Archived, Deserialize, Place, Portable,
     bytecheck::CheckBytes,
     niche::option_nonzero::ArchivedOptionNonZeroU64,
     rancor::Fallible,
@@ -14,7 +15,6 @@ use rkyv::{
     traits::NoUndef,
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, DeserializeWith, Map, SerializeWith, With},
-    Archive, Archived, Deserialize, Place, Portable,
 };
 use twilight_model::id::Id;
 

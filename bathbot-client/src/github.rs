@@ -2,7 +2,7 @@ use bathbot_model::{GraphQLResponse, OnlyPullRequests, PullRequests, PullRequest
 use eyre::{Result, WrapErr};
 use serde::Serialize;
 
-use crate::{site::Site, Client};
+use crate::{Client, site::Site};
 
 const URL: &str = "https://api.github.com/graphql";
 

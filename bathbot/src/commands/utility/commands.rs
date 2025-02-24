@@ -1,19 +1,19 @@
 use std::{cmp::Reverse, slice};
 
-use bathbot_macros::{command, SlashCommand};
+use bathbot_macros::{SlashCommand, command};
 use bathbot_model::{RankingEntries, RankingEntry, RankingKind};
 use eyre::Result;
 use metrics::{Key, Label};
 use twilight_interactions::command::CreateCommand;
 
 use crate::{
+    Context,
     active::{
-        impls::{RankingPagination, SlashCommandsPagination},
         ActiveMessages,
+        impls::{RankingPagination, SlashCommandsPagination},
     },
     core::commands::CommandOrigin,
-    util::{interaction::InteractionCommand, Authored},
-    Context,
+    util::{Authored, interaction::InteractionCommand},
 };
 
 #[derive(CreateCommand, SlashCommand)]

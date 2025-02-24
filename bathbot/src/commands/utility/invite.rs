@@ -1,7 +1,7 @@
-use bathbot_macros::{command, SlashCommand};
+use bathbot_macros::{SlashCommand, command};
 use bathbot_util::{
-    constants::{BATHBOT_WORKSHOP, INVITE_LINK},
     EmbedBuilder, FooterBuilder, MessageBuilder,
+    constants::{BATHBOT_WORKSHOP, INVITE_LINK},
 };
 use eyre::Result;
 use twilight_interactions::command::CreateCommand;

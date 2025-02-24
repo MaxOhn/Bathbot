@@ -5,8 +5,8 @@ use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 
 use crate::{
-    model::games::{DbBgGameScore, DbMapTagEntry, DbMapTagsParams},
     Database,
+    model::games::{DbBgGameScore, DbMapTagEntry, DbMapTagsParams},
 };
 
 impl Database {

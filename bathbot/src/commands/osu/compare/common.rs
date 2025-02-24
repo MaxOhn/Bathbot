@@ -1,8 +1,8 @@
 use std::{borrow::Cow, cmp::Ordering, collections::HashMap, fmt::Write, iter};
 
-use bathbot_macros::{command, SlashCommand};
+use bathbot_macros::{SlashCommand, command};
 use bathbot_model::command_fields::GameModeOption;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher};
+use bathbot_util::{IntHasher, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score, Username},
@@ -12,17 +12,17 @@ use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     guild::Permissions,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
-use super::{CompareTop, AT_LEAST_ONE};
+use super::{AT_LEAST_ONE, CompareTop};
 use crate::{
-    active::{impls::CompareTopPagination, ActiveMessages},
-    commands::osu::{user_not_found, UserExtraction},
-    core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
-    util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
     Context,
+    active::{ActiveMessages, impls::CompareTopPagination},
+    commands::osu::{UserExtraction, user_not_found},
+    core::commands::{CommandOrigin, prefix::Args},
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
+    util::{InteractionCommandExt, interaction::InteractionCommand, osu::get_combined_thumbnail},
 };
 
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]

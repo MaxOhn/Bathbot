@@ -2,29 +2,29 @@ use std::{collections::HashSet, fmt::Write};
 
 use bathbot_psql::model::configs::GuildConfig;
 use bathbot_util::{
-    constants::{BATHBOT_ROADMAP, BATHBOT_WORKSHOP},
     EmbedBuilder, FooterBuilder,
+    constants::{BATHBOT_ROADMAP, BATHBOT_WORKSHOP},
 };
 use eyre::Result;
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, SelectMenu, SelectMenuOption, SelectMenuType},
         Component, EmojiReactionType,
+        component::{ActionRow, SelectMenu, SelectMenuOption, SelectMenuType},
     },
-    id::{marker::GuildMarker, Id},
+    id::{Id, marker::GuildMarker},
 };
 
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     core::{
+        Context,
         commands::{
             interaction::InteractionCommands,
             prefix::{PrefixCommandGroup, PrefixCommands},
         },
-        Context,
     },
-    util::{interaction::InteractionComponent, Emote},
+    util::{Emote, interaction::InteractionComponent},
 };
 
 pub struct HelpPrefixMenu {

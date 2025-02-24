@@ -5,8 +5,8 @@ use std::{
 
 use rkyv::{Archive, Serialize};
 use serde::{
-    de::{DeserializeSeed, Error as DeError, MapAccess, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
+    de::{DeserializeSeed, Error as DeError, MapAccess, SeqAccess, Unexpected, Visitor},
 };
 use time::OffsetDateTime;
 
@@ -54,7 +54,7 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for GraphQLResponse<T> {
                                             return Err(DeError::invalid_value(
                                                 Unexpected::Str(key),
                                                 &"repository",
-                                            ))
+                                            ));
                                         }
                                     }
                                 }
@@ -133,7 +133,7 @@ impl<'de> Deserialize<'de> for PullRequestsAndTags {
                             return Err(DeError::invalid_value(
                                 Unexpected::Str(key),
                                 &"tags or pullRequests",
-                            ))
+                            ));
                         }
                     }
                 }
@@ -176,7 +176,7 @@ impl<'de> Deserialize<'de> for OnlyPullRequests {
                             return Err(DeError::invalid_value(
                                 Unexpected::Str(key),
                                 &"pullRequests",
-                            ))
+                            ));
                         }
                     }
                 }
@@ -239,7 +239,7 @@ impl<'de> Deserialize<'de> for PullRequests {
                                             return Err(DeError::invalid_value(
                                                 Unexpected::Str(key),
                                                 &"nextCursor",
-                                            ))
+                                            ));
                                         }
                                     }
                                 }
@@ -271,7 +271,7 @@ impl<'de> Deserialize<'de> for PullRequests {
                             return Err(DeError::invalid_value(
                                 Unexpected::Str(key),
                                 &"nodes or pageInfo",
-                            ))
+                            ));
                         }
                     }
                 }
@@ -359,7 +359,7 @@ impl<'de> Deserialize<'de> for PullRequest {
                             return Err(DeError::invalid_value(
                                 Unexpected::Str(key),
                                 &"author, id, mergedAt, referencedIssues, or title",
-                            ))
+                            ));
                         }
                     }
                 }
@@ -459,7 +459,7 @@ impl<'de> Deserialize<'de> for ReferencedIssue {
                             return Err(DeError::invalid_value(
                                 Unexpected::Str(key),
                                 &"author, body, or id",
-                            ))
+                            ));
                         }
                     }
                 }
@@ -526,7 +526,7 @@ impl<'de> Deserialize<'de> for Tag {
                                             return Err(DeError::invalid_value(
                                                 Unexpected::Str(key),
                                                 &"date",
-                                            ))
+                                            ));
                                         }
                                     }
                                 }
@@ -554,7 +554,7 @@ impl<'de> Deserialize<'de> for Tag {
                             return Err(DeError::invalid_value(
                                 Unexpected::Str(key),
                                 &"name or commit",
-                            ))
+                            ));
                         }
                     }
                 }

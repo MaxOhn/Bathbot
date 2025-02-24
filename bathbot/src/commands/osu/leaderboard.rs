@@ -1,13 +1,13 @@
 use std::{borrow::Cow, cmp::Reverse, collections::HashMap};
 
-use bathbot_macros::{command, HasMods, SlashCommand};
+use bathbot_macros::{HasMods, SlashCommand, command};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
+    IntHasher, ScoreExt,
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     osu::{MapIdType, ModSelection},
-    IntHasher, ScoreExt,
 };
 use eyre::{Report, Result};
 use rosu_v2::prelude::{
@@ -19,19 +19,19 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 use twilight_model::{
     channel::Message,
     guild::Permissions,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use super::{HasMods, ModsResult};
 use crate::{
-    active::{impls::LeaderboardPagination, ActiveMessages},
-    core::commands::{prefix::Args, CommandOrigin},
-    manager::{
-        redis::osu::{CachedUser, UserArgs, UserArgsError},
-        MapError, Mods, OsuMap,
-    },
-    util::{interaction::InteractionCommand, osu::MapOrScore, ChannelExt, InteractionCommandExt},
     Context,
+    active::{ActiveMessages, impls::LeaderboardPagination},
+    core::commands::{CommandOrigin, prefix::Args},
+    manager::{
+        MapError, Mods, OsuMap,
+        redis::osu::{CachedUser, UserArgs, UserArgsError},
+    },
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand, osu::MapOrScore},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -159,7 +159,7 @@ impl<'m> LeaderboardArgs<'m> {
                 Some(MapOrScore::Score { .. }) => {
                     return Err(
                         "This command does not (yet) accept score urls as argument".to_owned()
-                    )
+                    );
                 }
                 None => {}
             }

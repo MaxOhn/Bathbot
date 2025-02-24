@@ -1,6 +1,6 @@
-use bathbot_psql::{model::osu::MapBookmark, Database};
+use bathbot_psql::{Database, model::osu::MapBookmark};
 use eyre::{Result, WrapErr};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::core::Context;
 

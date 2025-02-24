@@ -3,10 +3,10 @@ use std::{
     cmp::{Ordering, Reverse},
 };
 
-use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_macros::{HasName, SlashCommand, command};
 use bathbot_model::{command_fields::GameModeOption, embed_builder::SettingsImage};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, CowUtils};
+use bathbot_util::{CowUtils, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score},
@@ -15,20 +15,20 @@ use rosu_v2::{
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     guild::Permissions,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
-use super::{map_strain_graph, require_link, user_not_found, ScoreOrder};
+use super::{ScoreOrder, map_strain_graph, require_link, user_not_found};
 use crate::{
+    Context,
     active::{
-        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
         ActiveMessages,
+        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
     },
     commands::utility::{MissAnalyzerCheck, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap},
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
-    util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
-    Context,
+    util::{ChannelExt, CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]

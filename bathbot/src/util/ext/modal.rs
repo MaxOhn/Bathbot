@@ -1,7 +1,7 @@
 use std::{future::IntoFuture, slice};
 
 use bathbot_util::MessageBuilder;
-use twilight_http::response::{marker::EmptyBody, ResponseFuture};
+use twilight_http::response::{ResponseFuture, marker::EmptyBody};
 use twilight_model::{
     channel::Message,
     guild::Permissions,

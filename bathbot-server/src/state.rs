@@ -7,7 +7,7 @@ use handlebars::Handlebars;
 use http_body_util::Empty;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use hyper_util::{
-    client::legacy::{connect::HttpConnector, Builder, Client as HyperClient},
+    client::legacy::{Builder, Client as HyperClient, connect::HttpConnector},
     rt::TokioExecutor,
 };
 use metrics::describe_histogram;

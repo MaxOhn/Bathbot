@@ -1,6 +1,6 @@
 use bathbot_macros::EmbedData;
 use bathbot_util::{
-    constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder, CowUtils,
+    AuthorBuilder, CowUtils, constants::OSU_BASE, numbers::WithComma, osu::flag_url,
 };
 use time::{Duration, OffsetDateTime};
 use twilight_model::channel::message::embed::EmbedField;

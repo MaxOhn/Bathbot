@@ -1,11 +1,11 @@
 use std::cmp;
 
 use skia_safe::{
-    font_style::Slant, utils::text_utils::Align, BlurStyle, ClipOp, Data, ISize, Image, RRect,
-    Rect, TextBlobBuilder,
+    BlurStyle, ClipOp, Data, ISize, Image, RRect, Rect, TextBlobBuilder, font_style::Slant,
+    utils::text_utils::Align,
 };
 
-use super::{footer::FOOTER_H, header::HEADER_H, CardBuilder, H, W};
+use super::{CardBuilder, H, W, footer::FOOTER_H, header::HEADER_H};
 use crate::{
     builder::{
         font::FontBuilder,

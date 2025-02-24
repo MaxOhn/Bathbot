@@ -11,17 +11,17 @@ use std::{
 use bathbot_model::{OsuStatsParams, ScoreSlim};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
+    MessageOrigin, ModsFormatter, ScoreExt,
     constants::OSU_BASE,
     datetime::SecToMinSec,
     matcher,
-    numbers::{round, WithComma},
+    numbers::{WithComma, round},
     osu::MapIdType,
-    MessageOrigin, ModsFormatter, ScoreExt,
 };
 use eyre::{Result, WrapErr};
-use futures::{stream::FuturesOrdered, StreamExt};
+use futures::{StreamExt, stream::FuturesOrdered};
 use image::{
-    imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat,
+    DynamicImage, GenericImage, GenericImageView, ImageOutputFormat, imageops::FilterType,
 };
 use rosu_pp::{
     any::DifficultyAttributes, catch::CatchPerformance, osu::OsuPerformance,
@@ -32,11 +32,11 @@ use rosu_v2::{
     prelude::{GameModIntermode, GameMode, Grade, RankStatus, Score, ScoreStatistics},
 };
 use time::OffsetDateTime;
-use twilight_model::channel::{message::MessageType, Message};
+use twilight_model::channel::{Message, message::MessageType};
 
 use crate::{
     core::{BotConfig, Context},
-    manager::{redis::osu::CachedUser, OsuMap},
+    manager::{OsuMap, redis::osu::CachedUser},
 };
 
 pub fn grade_emote(grade: Grade) -> &'static str {

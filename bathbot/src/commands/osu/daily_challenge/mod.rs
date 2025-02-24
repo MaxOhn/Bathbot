@@ -1,9 +1,9 @@
 use bathbot_macros::{HasName, SlashCommand};
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
-use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
+use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
 
 mod user;
 

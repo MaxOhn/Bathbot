@@ -4,10 +4,10 @@ use bathbot_macros::{HasName, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 pub use self::{pp::*, score::*};
-use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
+use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
 
 mod pp;
 mod score;

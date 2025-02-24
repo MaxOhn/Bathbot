@@ -1,27 +1,27 @@
 use std::{borrow::Cow, cell::RefCell, cmp::Ordering, fmt::Write, mem, rc::Rc, time::Duration};
 
-use bathbot_macros::{command, HasMods, SlashCommand};
-use bathbot_util::{constants::OSU_API_ISSUE, matcher, osu::MapIdType, MessageOrigin};
-use enterpolation::{linear::Linear, Curve};
+use bathbot_macros::{HasMods, SlashCommand, command};
+use bathbot_util::{MessageOrigin, constants::OSU_API_ISSUE, matcher, osu::MapIdType};
+use enterpolation::{Curve, linear::Linear};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use image::DynamicImage;
 use plotters::{
-    coord::{types::RangedCoordf64, Shift},
+    coord::{Shift, types::RangedCoordf64},
     prelude::*,
 };
 use plotters_skia::SkiaBackend;
-use rosu_pp::{any::Strains, Beatmap as PpMap, Difficulty};
+use rosu_pp::{Beatmap as PpMap, Difficulty, any::Strains};
 use rosu_v2::prelude::{GameMode, GameMods, GameModsIntermode, OsuError};
-use skia_safe::{surfaces, BlendMode, EncodedImageFormat};
+use skia_safe::{BlendMode, EncodedImageFormat, surfaces};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{channel::Message, guild::Permissions};
 
 use super::{BitMapElement, HasMods, ModsResult};
 use crate::{
-    active::{impls::MapPagination, ActiveMessages},
-    core::commands::{prefix::Args, CommandOrigin},
-    util::{interaction::InteractionCommand, osu::MapOrScore, ChannelExt, InteractionCommandExt},
     Context,
+    active::{ActiveMessages, impls::MapPagination},
+    core::commands::{CommandOrigin, prefix::Args},
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand, osu::MapOrScore},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -143,7 +143,7 @@ impl<'m> MapArgs<'m> {
                 Some(MapOrScore::Score { .. }) => {
                     return Err(
                         "This command does not (yet) accept score urls as argument".to_owned()
-                    )
+                    );
                 }
                 None => {}
             }
@@ -252,8 +252,7 @@ async fn map(orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
         let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
             Ok(msgs) => msgs,
             Err(_) => {
-                let content =
-                    "No beatmap specified and lacking permission to search the channel history \
+                let content = "No beatmap specified and lacking permission to search the channel history \
                     for maps.\nTry specifying a map(set) either by url to the map, \
                     or just by map(set) id, or give me the \"Read Message History\" permission.";
 

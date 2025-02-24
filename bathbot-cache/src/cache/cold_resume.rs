@@ -1,7 +1,7 @@
 use std::{collections::HashMap, convert::Infallible, hash::BuildHasher};
 
 use bathbot_model::twilight::session::{ArchivedSessions, SessionsRkyv};
-use bb8_redis::redis::{aio::ConnectionLike, AsyncCommands, Cmd};
+use bb8_redis::redis::{AsyncCommands, Cmd, aio::ConnectionLike};
 use eyre::{Result, WrapErr};
 use rkyv::{
     rancor::{BoxedError, Panic, ResultExt},
@@ -11,7 +11,7 @@ use rkyv::{
 use tracing::info;
 use twilight_gateway::Session;
 
-use crate::{key::RedisKey, Cache};
+use crate::{Cache, key::RedisKey};
 
 const STORE_DURATION: u64 = 240;
 

@@ -3,16 +3,16 @@ use std::{
     str::FromStr,
 };
 
-use bathbot_util::{osu::ModSelection, ScoreExt, ScoreHasEndedAt};
+use bathbot_util::{ScoreExt, ScoreHasEndedAt, osu::ModSelection};
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{
     CountryCode, GameMod, GameModIntermode, GameMode, GameMods, Grade, RankStatus, Username,
 };
 use serde::{
-    de::{
-        value::StrDeserializer, DeserializeSeed, Error as DeError, IgnoredAny, SeqAccess, Visitor,
-    },
     Deserialize, Deserializer,
+    de::{
+        DeserializeSeed, Error as DeError, IgnoredAny, SeqAccess, Visitor, value::StrDeserializer,
+    },
 };
 use serde_json::value::RawValue;
 use time::{Date, OffsetDateTime};

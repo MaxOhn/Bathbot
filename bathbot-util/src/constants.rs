@@ -1,4 +1,4 @@
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 // Colors
 pub const DARK_GREEN: u32 = 0x1F8B4C;

@@ -1,16 +1,16 @@
 use rkyv::{
+    Archive, Deserialize, Place, Serialize,
     munge::munge,
     niche::option_box::ArchivedOptionBox,
     rancor::Fallible,
     ser::{Allocator, Writer},
     with::{ArchiveWith, Map, Niche, SerializeWith},
-    Archive, Deserialize, Place, Serialize,
 };
 use twilight_model::{
     application::interaction::InteractionMember,
     gateway::payload::incoming::MemberUpdate,
     guild::{Member, PartialMember},
-    id::{marker::RoleMarker, Id},
+    id::{Id, marker::RoleMarker},
     util::ImageHash,
 };
 

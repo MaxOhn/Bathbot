@@ -7,11 +7,11 @@ use std::{
 };
 
 use bathbot_util::{
+    CowUtils, EmbedBuilder, FooterBuilder,
     constants::{DESCRIPTION_SIZE, OSU_BASE},
     datetime::SecToMinSec,
-    numbers::{round, WithComma},
+    numbers::{WithComma, round},
     osu::calculate_legacy_grade,
-    CowUtils, EmbedBuilder, FooterBuilder,
 };
 use rosu_v2::prelude::{
     GameMode, Grade, MatchEvent, MatchGame, MatchScore, OsuMatch, ScoringType, TeamType, User,
@@ -20,7 +20,7 @@ use rosu_v2::prelude::{
 use smallvec::SmallVec;
 use twilight_model::channel::message::embed::Embed;
 
-use crate::util::{osu::grade_emote, Emote};
+use crate::util::{Emote, osu::grade_emote};
 
 const DESCRIPTION_BUFFER: usize = 45;
 

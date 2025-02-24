@@ -1,24 +1,24 @@
 use std::borrow::Cow;
 
-use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_macros::{HasName, SlashCommand, command};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, CowUtils, MessageOrigin};
+use bathbot_util::{CowUtils, MessageOrigin, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError},
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    active::{impls::ProfileMenu, ActiveMessages},
-    core::commands::{prefix::Args, CommandOrigin},
-    manager::redis::osu::{UserArgs, UserArgsError},
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
+    active::{ActiveMessages, impls::ProfileMenu},
+    core::commands::{CommandOrigin, prefix::Args},
+    manager::redis::osu::{UserArgs, UserArgsError},
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]

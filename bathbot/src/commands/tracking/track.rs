@@ -1,17 +1,17 @@
 use std::fmt::Write;
 
 use bathbot_macros::command;
-use bathbot_util::{constants::GENERAL_ISSUE, fields, EmbedBuilder, FooterBuilder, MessageBuilder};
+use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder, constants::GENERAL_ISSUE, fields};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
 
 use super::TrackArgs;
 use crate::{
+    Context,
     core::commands::CommandOrigin,
     manager::redis::osu::{UserArgsError, UserArgsSlim},
     tracking::{OsuTracking, TrackEntryParams},
     util::{ChannelExt, Emote},
-    Context,
 };
 
 pub(super) async fn track(orig: CommandOrigin<'_>, args: TrackArgs) -> Result<()> {

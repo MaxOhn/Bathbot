@@ -1,11 +1,11 @@
 use bathbot_macros::command;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
     CowUtils, MessageBuilder,
+    constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
 };
 use eyre::Result;
 
-use crate::{core::commands::CommandOrigin, util::ChannelExt, Context};
+use crate::{Context, core::commands::CommandOrigin, util::ChannelExt};
 
 #[command]
 #[flags(AUTHORITY, ONLY_GUILDS)]

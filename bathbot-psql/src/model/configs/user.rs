@@ -3,7 +3,7 @@ use rosu_v2::prelude::{GameMode, Username};
 use sqlx::types::Json;
 use time::UtcOffset;
 
-use super::{list_size::ListSize, Retries, ScoreData};
+use super::{Retries, ScoreData, list_size::ListSize};
 
 pub struct DbUserConfig {
     pub list_size: Option<i16>,

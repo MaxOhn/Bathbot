@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use bathbot_util::{
-    constants::{AVATAR_URL, GENERAL_ISSUE, OSEKAI_ISSUE},
     MessageBuilder,
+    constants::{AVATAR_URL, GENERAL_ISSUE, OSEKAI_ISSUE},
 };
 use eyre::{Report, Result};
 use rkyv::{
@@ -13,9 +13,9 @@ use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
 use super::BadgesUser;
 use crate::{
-    active::{impls::BadgesPagination, ActiveMessages},
+    active::{ActiveMessages, impls::BadgesPagination},
     commands::osu::{require_link, user_not_found},
-    core::{commands::CommandOrigin, Context},
+    core::{Context, commands::CommandOrigin},
     manager::redis::osu::{UserArgs, UserArgsError},
     util::osu::get_combined_thumbnail,
 };

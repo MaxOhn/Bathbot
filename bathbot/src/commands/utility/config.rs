@@ -1,5 +1,5 @@
 use ::time::UtcOffset;
-use bathbot_macros::{command, SlashCommand};
+use bathbot_macros::{SlashCommand, command};
 use bathbot_model::command_fields::{ShowHideOption, TimezoneOption};
 use bathbot_psql::model::configs::{
     ListSize, OsuUserId, OsuUsername, Retries, ScoreData, UserConfig,
@@ -12,16 +12,16 @@ use bathbot_util::{EmbedBuilder, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{SkinValidation, ValidationStatus};
+use crate::{
+    Context,
+    embeds::{ConfigEmbed, EmbedData},
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
+};
 #[cfg(feature = "server")]
 use crate::{core::BotConfig, util::Emote};
-use crate::{
-    embeds::{ConfigEmbed, EmbedData},
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
-    Context,
-};
 
 #[cfg(feature = "server")]
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]

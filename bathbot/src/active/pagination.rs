@@ -3,19 +3,19 @@ use bathbot_util::{
     numbers::last_multiple,
 };
 use eyre::{ContextCompat, Result, WrapErr};
-use futures::{future::BoxFuture, FutureExt};
+use futures::{FutureExt, future::BoxFuture};
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle},
         Component,
+        component::{ActionRow, Button, ButtonStyle},
     },
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use super::ComponentResult;
 use crate::util::{
-    interaction::{InteractionComponent, InteractionModal},
     Authored, ComponentExt, Emote, ModalExt,
+    interaction::{InteractionComponent, InteractionModal},
 };
 
 #[derive(Clone, Debug)]

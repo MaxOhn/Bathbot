@@ -2,9 +2,9 @@ use bathbot_util::constants::OSU_BASE;
 use bytes::Bytes;
 use eyre::{Report, Result, WrapErr};
 use http::response::Parts;
-use hyper::{header::USER_AGENT, Request};
+use hyper::{Request, header::USER_AGENT};
 
-use crate::{client::Body, Client, ClientError, Site, MY_USER_AGENT};
+use crate::{Client, ClientError, MY_USER_AGENT, Site, client::Body};
 
 impl Client {
     pub async fn check_skin_url(&self, url: &str) -> Result<Parts, ClientError> {

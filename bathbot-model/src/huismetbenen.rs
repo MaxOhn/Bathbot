@@ -4,25 +4,25 @@ use std::{
     fmt::{Formatter, Result as FmtResult},
 };
 
-use bathbot_util::{osu::ModSelection, CowUtils};
+use bathbot_util::{CowUtils, osu::ModSelection};
 use rkyv::{
-    boxed::ArchivedBox, Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+    Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize, boxed::ArchivedBox,
 };
 use rosu_v2::prelude::{CountryCode, GameMode, GameMods, GameModsIntermode, Username};
 use serde::{
-    de::{
-        value::StrDeserializer, Deserializer, Error as DeError, MapAccess, SeqAccess, Unexpected,
-        Visitor,
-    },
     Deserialize,
+    de::{
+        Deserializer, Error as DeError, MapAccess, SeqAccess, Unexpected, Visitor,
+        value::StrDeserializer,
+    },
 };
 use serde_json::value::RawValue;
 use time::{
-    format_description::{
-        modifier::{Day, Month, Padding, Year},
-        Component, FormatItem,
-    },
     Date, OffsetDateTime,
+    format_description::{
+        Component, FormatItem,
+        modifier::{Day, Month, Padding, Year},
+    },
 };
 use twilight_interactions::command::{CommandOption, CreateOption};
 

@@ -1,12 +1,12 @@
 use bathbot_macros::SlashCommand;
-use bathbot_util::{matcher, osu::AttributeKind, MessageBuilder};
+use bathbot_util::{MessageBuilder, matcher, osu::AttributeKind};
 use eyre::Result;
 use rosu_v2::{model::mods::GameModsIntermode, prelude::GameMode};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     embeds::{AttributesEmbed, EmbedData},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

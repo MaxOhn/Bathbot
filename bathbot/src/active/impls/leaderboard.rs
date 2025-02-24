@@ -3,29 +3,29 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 use bathbot_macros::PaginationBuilder;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::WithComma, AuthorBuilder, CowUtils,
-    EmbedBuilder, FooterBuilder, ModsFormatter,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter, constants::OSU_BASE,
+    datetime::HowLongAgoDynamic, numbers::WithComma,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::{LeaderboardScore, LeaderboardUserScore},
     embeds::PpFormatter,
     manager::OsuMap,
     util::{
+        Emote,
         interaction::{InteractionComponent, InteractionModal},
         osu::GradeFormatter,
-        Emote,
     },
 };
 
@@ -253,7 +253,11 @@ impl Display for ScoreFormatter<'_> {
             underline = if self.found_author { "__" } else { "" },
             username = self.score.username,
             user_id = self.score.user_id,
-            grade = GradeFormatter::new(self.score.grade, Some(self.score.score_id), self.score.is_legacy),
+            grade = GradeFormatter::new(
+                self.score.grade,
+                Some(self.score.score_id),
+                self.score.is_legacy
+            ),
             score = WithComma::new(score),
             combo = self.combo,
             mods = ModsFormatter::new(&self.score.mods),

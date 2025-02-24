@@ -3,23 +3,23 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{CountryName, SnipeCountryListOrder, SnipeCountryPlayer};
 use bathbot_util::{
-    constants::OSU_BASE,
-    numbers::{round, WithComma},
-    osu::flag_url,
     CowUtils, EmbedBuilder, FooterBuilder,
+    constants::OSU_BASE,
+    numbers::{WithComma, round},
+    osu::flag_url,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_v2::prelude::CountryCode;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     util::interaction::{InteractionComponent, InteractionModal},
 };

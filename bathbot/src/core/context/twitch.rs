@@ -1,5 +1,5 @@
 use papaya::Operation;
-use twilight_model::id::{marker::ChannelMarker, Id};
+use twilight_model::id::{Id, marker::ChannelMarker};
 
 use crate::Context;
 

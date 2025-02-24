@@ -1,10 +1,10 @@
 use std::ops::Deref;
 
 use rkyv::{
+    ArchiveUnsized, Archived, Place, Resolver, SerializeUnsized,
     boxed::ArchivedBox,
     rancor::Fallible,
     with::{ArchiveWith, SerializeWith},
-    ArchiveUnsized, Archived, Place, Resolver, SerializeUnsized,
 };
 
 pub struct DerefAsBox;

@@ -1,11 +1,11 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use bathbot_cache::Cache as BathbotCache;
-use bathbot_psql::{model::render::DbRenderOptions, Database};
+use bathbot_psql::{Database, model::render::DbRenderOptions};
 use eyre::{Report, Result, WrapErr};
 use rosu_render::model::{RenderOptions, RenderResolution, RenderSkinOption, Skin, SkinInfo};
-use rosu_v2::{error::OsuError, Osu};
-use twilight_model::id::{marker::UserMarker, Id};
+use rosu_v2::{Osu, error::OsuError};
+use twilight_model::id::{Id, marker::UserMarker};
 
 #[derive(Copy, Clone)]
 pub struct ReplayManager {

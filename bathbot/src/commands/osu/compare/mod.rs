@@ -6,7 +6,7 @@ use eyre::Result;
 use twilight_interactions::command::{
     AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
 };
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 pub use self::{
     common::*,
@@ -14,7 +14,7 @@ pub use self::{
     profile::*,
     score::{slash_compare as slash_compare_score, *},
 };
-use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
+use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
 
 mod common;
 mod most_played;

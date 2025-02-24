@@ -1,16 +1,16 @@
 use permission_overwrite::PermissionOverwriteRkyv;
 use rkyv::{
+    Archive, Place, Serialize,
     munge::munge,
     rancor::Fallible,
     ser::{Allocator, Writer},
     with::{ArchiveWith, Map, SerializeWith},
-    Archive, Place, Serialize,
 };
 use twilight_model::{
-    channel::{permission_overwrite::PermissionOverwrite, Channel},
+    channel::{Channel, permission_overwrite::PermissionOverwrite},
     id::{
-        marker::{ChannelMarker, GuildMarker},
         Id,
+        marker::{ChannelMarker, GuildMarker},
     },
 };
 

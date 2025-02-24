@@ -4,7 +4,7 @@ use eyre::{Report, Result, WrapErr};
 use futures::{SinkExt, StreamExt};
 use rosu_v2::prelude::Score;
 use tokio::{net::TcpStream, sync::oneshot};
-use tokio_tungstenite::{tungstenite::Message, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite::Message};
 
 use crate::{core::BotConfig, tracking::OsuTracking};
 

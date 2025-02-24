@@ -3,9 +3,9 @@ use std::{cmp::Reverse, collections::HashMap};
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::MedalCompactRkyv;
 use bathbot_psql::model::configs::HideSolutions;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher, MessageBuilder};
+use bathbot_util::{IntHasher, MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use rkyv::{
     rancor::{Panic, ResultExt},
     vec::ArchivedVec,
@@ -20,11 +20,11 @@ use time::OffsetDateTime;
 
 use super::{MedalEmbed, MedalRecent};
 use crate::{
-    active::{impls::MedalsRecentPagination, ActiveMessages},
+    Context,
+    active::{ActiveMessages, impls::MedalsRecentPagination},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
-    Context,
 };
 
 #[command]

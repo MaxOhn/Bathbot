@@ -1,11 +1,11 @@
 use std::ops::Deref;
 
 use rkyv::{
+    ArchiveUnsized, ArchivedMetadata, Place, SerializeUnsized,
     niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
     rancor::Fallible,
     ser::Writer,
     with::{ArchiveWith, SerializeWith},
-    ArchiveUnsized, ArchivedMetadata, Place, SerializeUnsized,
 };
 
 pub struct NicheDerefAsBox;

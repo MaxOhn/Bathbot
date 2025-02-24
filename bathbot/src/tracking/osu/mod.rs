@@ -8,10 +8,10 @@ macro_rules! log {
 use std::{collections::HashMap, sync::RwLock};
 
 use bathbot_psql::Database;
-use bathbot_util::{datetime::NAIVE_DATETIME_FORMAT, IntHasher};
+use bathbot_util::{IntHasher, datetime::NAIVE_DATETIME_FORMAT};
 use eyre::{Result, WrapErr};
 use rosu_v2::{model::GameMode, prelude::Score};
-use twilight_model::id::{marker::ChannelMarker, Id};
+use twilight_model::id::{Id, marker::ChannelMarker};
 
 use self::{entry::TrackedUser, require_top::RequireTopScores};
 pub use self::{params::TrackEntryParams, stats::OsuTrackingStats};

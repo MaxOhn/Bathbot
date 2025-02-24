@@ -10,9 +10,9 @@ use bathbot_util::{
     osu::ModSelection,
 };
 use eyre::{Result, WrapErr};
-use time::{format_description::FormatItem, Date, OffsetDateTime};
+use time::{Date, OffsetDateTime, format_description::FormatItem};
 
-use crate::{site::Site, Client};
+use crate::{Client, site::Site};
 
 pub async fn get_snipe_player(
     client: &Client,

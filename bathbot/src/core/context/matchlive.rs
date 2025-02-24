@@ -1,13 +1,13 @@
 use std::{collections::hash_map::Entry, slice};
 
 use rosu_v2::prelude::{MatchEvent, OsuError};
-use tokio::time::{interval, Duration};
-use twilight_model::id::{marker::ChannelMarker, Id};
+use tokio::time::{Duration, interval};
+use twilight_model::id::{Id, marker::ChannelMarker};
 
 use super::Context;
 use crate::{
     embeds::MatchLiveEmbed,
-    matchlive::{send_match_messages, Channel, MatchEntry, MatchTrackResult, TrackedMatch},
+    matchlive::{Channel, MatchEntry, MatchTrackResult, TrackedMatch, send_match_messages},
     util::ChannelExt,
 };
 

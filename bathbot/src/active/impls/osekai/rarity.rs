@@ -3,19 +3,19 @@ use std::fmt::Write;
 use bathbot_cache::model::CachedArchive;
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{ArchivedOsekaiRarityEntry, OsekaiMedal};
-use bathbot_util::{numbers::round, EmbedBuilder, FooterBuilder};
+use bathbot_util::{EmbedBuilder, FooterBuilder, numbers::round};
 use eyre::Result;
 use futures::future::BoxFuture;
 use rkyv::vec::ArchivedVec;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     util::interaction::{InteractionComponent, InteractionModal},
 };

@@ -6,7 +6,7 @@ use std::{
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     channel::message::EmojiReactionType,
-    id::{marker::EmojiMarker, Id},
+    id::{Id, marker::EmojiMarker},
 };
 
 use crate::core::BotConfig;

@@ -2,11 +2,11 @@ use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin,
     constants::{AVATAR_URL, OSU_BASE},
     datetime::SecToMinSec,
     fields,
-    numbers::{round, WithComma},
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin,
+    numbers::{WithComma, round},
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
@@ -16,21 +16,21 @@ use rosu_v2::prelude::{
 };
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::CustomAttrs,
     core::Context,
     embeds::attachment,
     manager::redis::osu::UserArgs,
     util::{
-        interaction::{InteractionComponent, InteractionModal},
         Emote,
+        interaction::{InteractionComponent, InteractionModal},
     },
 };
 

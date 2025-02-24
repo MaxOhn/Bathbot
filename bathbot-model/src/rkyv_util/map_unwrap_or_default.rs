@@ -1,11 +1,11 @@
 use std::marker::PhantomData;
 
 use rkyv::{
+    Place,
     rancor::Fallible,
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, DeserializeWith, Map, SerializeWith},
-    Place,
 };
 
 pub struct MapUnwrapOrDefault<T>(PhantomData<T>);

@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use rosu_v2::{
-    model::{mods::GameModIntermode, score::Score, GameMode},
+    model::{GameMode, mods::GameModIntermode, score::Score},
     mods,
 };
 

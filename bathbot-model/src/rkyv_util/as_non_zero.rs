@@ -1,10 +1,10 @@
-use std::num::{NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8};
+use std::num::{NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64};
 
 use rkyv::{
+    Archived, Place,
     niche::{niched_option::NichedOption, niching::Zero},
     rancor::Fallible,
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Archived, Place,
 };
 
 pub struct AsNonZero;

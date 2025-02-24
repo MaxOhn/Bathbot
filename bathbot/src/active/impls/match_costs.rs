@@ -1,22 +1,22 @@
 use std::{borrow::Cow, cmp, collections::HashMap, fmt::Write, time::Duration};
 
 use bathbot_util::{
-    constants::{DESCRIPTION_SIZE, OSU_BASE},
-    numbers::{round, WithComma},
     EmbedBuilder, FooterBuilder,
+    constants::{DESCRIPTION_SIZE, OSU_BASE},
+    numbers::{WithComma, round},
 };
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_v2::model::{matches::OsuMatch, user::User};
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::{MatchCostDisplay, MatchResult, TeamResult, UserMatchCostEntry},
     util::interaction::{InteractionComponent, InteractionModal},
@@ -182,11 +182,7 @@ impl MatchCostPagination {
         let mut description = String::new();
 
         fn bold(a: u32, b: u32) -> &'static str {
-            if a > b {
-                "**"
-            } else {
-                ""
-            }
+            if a > b { "**" } else { "" }
         }
 
         let _ = writeln!(

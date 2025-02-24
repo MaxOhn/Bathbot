@@ -2,7 +2,7 @@ use bathbot_psql::Database;
 use bathbot_util::CowUtils;
 use eyre::{Result, WrapErr};
 use rosu_v2::request::UserId;
-use twilight_model::id::{marker::ChannelMarker, Id};
+use twilight_model::id::{Id, marker::ChannelMarker};
 
 use crate::core::Context;
 

@@ -1,35 +1,35 @@
 use std::{
     borrow::Cow,
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fmt::Write,
 };
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::SnipeRecent;
 use bathbot_util::{
-    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, CowUtils, EmbedBuilder,
-    FooterBuilder, IntHasher,
+    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, constants::OSU_BASE,
+    datetime::HowLongAgoDynamic, numbers::round,
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::Difference,
     core::Context,
     embeds::ModsFormatter,
     manager::redis::osu::CachedUser,
     util::{
-        interaction::{InteractionComponent, InteractionModal},
         CachedUserExt,
+        interaction::{InteractionComponent, InteractionModal},
     },
 };
 

@@ -7,7 +7,7 @@ use std::{
 use bathbot_cache::Cache;
 use bathbot_client::Client as BathbotClient;
 use bathbot_model::twilight::id::{ArchivedId, IdRkyvMap};
-use bathbot_psql::{model::configs::GuildConfig, Database};
+use bathbot_psql::{Database, model::configs::GuildConfig};
 use bathbot_util::{IntHasher, MetricsReader};
 use eyre::{Result, WrapErr};
 use flexmap::{std::StdMutexMap, tokio::TokioRwLockMap};
@@ -17,11 +17,11 @@ use rkyv::{vec::ArchivedVec, with::ArchiveWith};
 use rosu_v2::Osu;
 use shutdown::CacheGuildShards;
 use time::OffsetDateTime;
-use tokio::sync::{mpsc::UnboundedSender, Mutex as TokioMutex};
+use tokio::sync::{Mutex as TokioMutex, mpsc::UnboundedSender};
 use twilight_gateway::{
     CloseFrame, ConfigBuilder, Intents, MessageSender, Session, Shard, ShardId,
 };
-use twilight_http::{client::InteractionClient, Client};
+use twilight_http::{Client, client::InteractionClient};
 use twilight_model::{
     channel::message::AllowedMentions,
     gateway::{
@@ -29,19 +29,19 @@ use twilight_model::{
         presence::{ActivityType, MinimalActivity, Status},
     },
     id::{
-        marker::{ApplicationMarker, ChannelMarker, GuildMarker, UserMarker},
         Id,
+        marker::{ApplicationMarker, ChannelMarker, GuildMarker, UserMarker},
     },
 };
 use twilight_standby::Standby;
 
 use self::osutrack::OsuTrackUserNotifTimestamps;
 use super::{
-    buckets::{BucketName, Buckets},
     BotConfig, BotMetrics,
+    buckets::{BucketName, Buckets},
 };
 use crate::{
-    active::{impls::BackgroundGame, ActiveMessages},
+    active::{ActiveMessages, impls::BackgroundGame},
     tracking::{Ordr, OsuTracking, ScoresWebSocket, ScoresWebSocketDisconnect},
 };
 

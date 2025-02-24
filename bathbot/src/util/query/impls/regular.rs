@@ -2,9 +2,9 @@ use std::borrow::Cow;
 
 use super::{display_range, display_text};
 use crate::util::query::{
+    IFilterCriteria,
     operator::Operator,
     optional::{OptionalRange, OptionalText},
-    IFilterCriteria,
 };
 
 #[derive(Default)]

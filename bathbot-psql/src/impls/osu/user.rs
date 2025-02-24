@@ -7,8 +7,8 @@ use rosu_v2::prelude::{GameMode, UserExtended, Username};
 use time::OffsetDateTime;
 
 use crate::{
-    model::osu::{DbUserStatsEntry, OsuUserStatsColumnName},
     Database,
+    model::osu::{DbUserStatsEntry, OsuUserStatsColumnName},
 };
 
 fn convert_entries<V>(entries: Vec<DbUserStatsEntry<V>>) -> Vec<UserStatsEntry<V>> {

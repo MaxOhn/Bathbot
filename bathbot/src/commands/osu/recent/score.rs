@@ -1,14 +1,14 @@
 use std::{borrow::Cow, mem, sync::Arc};
 
-use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_macros::{HasName, SlashCommand, command};
 use bathbot_model::{
     command_fields::{GameModeOption, GradeOption},
     embed_builder::SettingsImage,
 };
 use bathbot_psql::model::configs::{GuildConfig, Retries, ScoreData};
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, CowUtils, MessageOrigin};
+use bathbot_util::{CowUtils, MessageOrigin, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use rosu_v2::{
     prelude::{GameMod, GameMode, GameMods, Grade, OsuError, Score},
     request::UserId,
@@ -16,23 +16,23 @@ use rosu_v2::{
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     guild::Permissions,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use super::RecentScore;
 use crate::{
+    Context,
     active::{
-        impls::{SingleScoreContent, SingleScorePagination},
         ActiveMessages,
+        impls::{SingleScoreContent, SingleScorePagination},
     },
     commands::{
         osu::{map_strain_graph, require_link, user_not_found},
         utility::{MissAnalyzerCheck, ScoreEmbedDataWrap},
     },
-    core::commands::{interaction::InteractionCommands, prefix::Args, CommandOrigin},
+    core::commands::{CommandOrigin, interaction::InteractionCommands, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
-    util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
-    Context,
+    util::{ChannelExt, CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[command]

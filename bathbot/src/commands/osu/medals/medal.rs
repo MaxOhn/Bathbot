@@ -8,11 +8,11 @@ use bathbot_macros::command;
 use bathbot_model::{ArchivedOsekaiMedal, MedalGroup, OsekaiComment, OsekaiMap};
 use bathbot_psql::model::configs::HideSolutions;
 use bathbot_util::{
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
     constants::{FIELD_VALUE_SIZE, GENERAL_ISSUE, OSEKAI_ISSUE, OSU_BASE},
     fields,
     osu::flag_url,
     string_cmp::levenshtein_similarity,
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
 use eyre::{Report, Result, WrapErr};
 use rkyv::{rend::f32_le, vec::ArchivedVec};
@@ -26,9 +26,9 @@ use twilight_model::{
 
 use super::{MedalAchieved, MedalInfo_};
 use crate::{
-    core::commands::CommandOrigin,
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
+    core::commands::CommandOrigin,
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[command]
@@ -72,10 +72,10 @@ pub(super) async fn info(orig: CommandOrigin<'_>, args: MedalInfo_<'_>) -> Resul
 
     let name = match (name, &orig) {
         (AutocompleteValue::None, CommandOrigin::Interaction { command }) => {
-            return handle_autocomplete(command, String::new()).await
+            return handle_autocomplete(command, String::new()).await;
         }
         (AutocompleteValue::Focused(name), CommandOrigin::Interaction { command }) => {
-            return handle_autocomplete(command, name).await
+            return handle_autocomplete(command, name).await;
         }
         (AutocompleteValue::Completed(name), _) => name,
         _ => unreachable!(),

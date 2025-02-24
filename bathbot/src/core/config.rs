@@ -4,8 +4,8 @@ use eyre::Result;
 use once_cell::sync::OnceCell;
 use rosu_v2::model::Grade;
 use twilight_model::id::{
-    marker::{ChannelMarker, GuildMarker, UserMarker},
     Id,
+    marker::{ChannelMarker, GuildMarker, UserMarker},
 };
 
 use crate::util::{CustomEmote, Emote};

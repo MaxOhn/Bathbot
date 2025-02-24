@@ -5,8 +5,8 @@ use rosu_v2::prelude::{Beatmapset, BeatmapsetExtended};
 use sqlx::{Executor, Postgres};
 
 use crate::{
-    model::osu::{ArtistTitle, DbBeatmapset},
     Database,
+    model::osu::{ArtistTitle, DbBeatmapset},
 };
 
 impl Database {

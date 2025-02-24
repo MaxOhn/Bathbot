@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bathbot_macros::SlashCommand;
-use bathbot_util::{constants::OSU_API_ISSUE, matcher, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::OSU_API_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 use tokio::time::interval;
@@ -9,9 +9,9 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 
 use super::retrieve_previous;
 use crate::{
-    active::{impls::MatchComparePagination, ActiveMessages},
+    active::{ActiveMessages, impls::MatchComparePagination},
     core::Context,
-    util::{interaction::InteractionCommand, Authored, ChannelExt, InteractionCommandExt},
+    util::{Authored, ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

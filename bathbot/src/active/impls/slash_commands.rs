@@ -1,20 +1,20 @@
 use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_util::{datetime::HowLongAgoText, EmbedBuilder, FooterBuilder};
+use bathbot_util::{EmbedBuilder, FooterBuilder, datetime::HowLongAgoText};
 use eyre::Result;
 use futures::future::BoxFuture;
 use time::OffsetDateTime;
 use twilight_model::{
     application::command::CommandOptionType,
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     core::commands::interaction::InteractionCommands,
     util::interaction::{InteractionComponent, InteractionModal},

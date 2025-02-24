@@ -1,7 +1,7 @@
 use std::{
     collections::{
-        btree_map::{Entry, Range},
         BTreeMap,
+        btree_map::{Entry, Range},
     },
     fmt::{Display, Formatter, Result as FmtResult, Write},
 };
@@ -9,21 +9,21 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{BgGameScore, EmbedHeader, RankingEntries, RankingEntry, RankingKind};
 use bathbot_util::{
-    numbers::{round, WithComma},
     EmbedBuilder,
+    numbers::{WithComma, round},
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
 use time::OffsetDateTime;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     core::Context,
     util::interaction::{InteractionComponent, InteractionModal},

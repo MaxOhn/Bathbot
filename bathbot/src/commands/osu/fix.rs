@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use bathbot_macros::{command, HasMods, HasName, SlashCommand};
+use bathbot_macros::{HasMods, HasName, SlashCommand, command};
 use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
@@ -17,23 +17,23 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::Message,
     guild::Permissions,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
-use super::{require_link, user_not_found, HasMods, ModsResult};
+use super::{HasMods, ModsResult, require_link, user_not_found};
 use crate::{
-    core::commands::{prefix::Args, CommandOrigin},
+    Context,
+    core::commands::{CommandOrigin, prefix::Args},
     embeds::{EmbedData, FixScoreEmbed},
     manager::{
-        redis::osu::{CachedUser, UserArgs, UserArgsError, UserArgsSlim},
         MapError, OsuMap,
+        redis::osu::{CachedUser, UserArgs, UserArgsError, UserArgsSlim},
     },
     util::{
+        InteractionCommandExt,
         interaction::InteractionCommand,
         osu::{IfFc, MapOrScore},
-        InteractionCommandExt,
     },
-    Context,
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -230,8 +230,7 @@ async fn fix(orig: CommandOrigin<'_>, args: FixArgs<'_>) -> Result<()> {
             let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
                 Err(_) => {
-                    let content =
-                        "No beatmap specified and lacking permission to search the channel \
+                    let content = "No beatmap specified and lacking permission to search the channel \
                         history for maps.\nTry specifying a map either by url to the map, or \
                         just by map id, or give me the \"Read Message History\" permission.";
 

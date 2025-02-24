@@ -25,7 +25,7 @@ use std::fmt::Write;
 use bathbot_macros::SlashCommand;
 use bathbot_util::MessageBuilder;
 use eyre::{ContextCompat, Result};
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 pub use self::{
@@ -35,9 +35,9 @@ pub use self::{
     wordsneversaid::*, zenzenzense::*,
 };
 use crate::{
-    core::{buckets::BucketName, commands::CommandOrigin},
-    util::{interaction::InteractionCommand, CheckPermissions, InteractionCommandExt, MessageExt},
     Context,
+    core::{buckets::BucketName, commands::CommandOrigin},
+    util::{CheckPermissions, InteractionCommandExt, MessageExt, interaction::InteractionCommand},
 };
 
 async fn song(lyrics: &[&str], delay: u64, orig: CommandOrigin<'_>) -> Result<()> {

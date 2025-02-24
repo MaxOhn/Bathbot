@@ -10,7 +10,7 @@ use bathbot_model::{
 };
 use bathbot_util::IntHasher;
 use eyre::Result;
-use rosu_v2::model::{mods::GameModsIntermode, user::Username, GameMode};
+use rosu_v2::model::{GameMode, mods::GameModsIntermode, user::Username};
 use time::{Date, Duration, OffsetDateTime};
 
 use crate::Client;

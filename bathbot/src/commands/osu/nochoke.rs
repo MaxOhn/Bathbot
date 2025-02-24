@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_macros::{HasName, SlashCommand, command};
 use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::calculate_grade};
@@ -11,18 +11,18 @@ use rosu_v2::{
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    active::{impls::NoChokePagination, ActiveMessages},
-    core::commands::{prefix::Args, CommandOrigin},
-    manager::{
-        redis::osu::{UserArgs, UserArgsError},
-        OsuMap,
-    },
-    util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
+    active::{ActiveMessages, impls::NoChokePagination},
+    core::commands::{CommandOrigin, prefix::Args},
+    manager::{
+        OsuMap,
+        redis::osu::{UserArgs, UserArgsError},
+    },
+    util::{InteractionCommandExt, interaction::InteractionCommand, osu::IfFc},
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]

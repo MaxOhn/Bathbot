@@ -2,13 +2,13 @@ use std::{marker::PhantomData, ops::Deref};
 
 use eyre::Result;
 use rkyv::{
+    Deserialize, Portable,
     bytecheck::CheckBytes,
     rancor::{BoxedError, Strategy},
     seal::Seal,
     util::AlignedVec,
-    validation::{archive::ArchiveValidator, Validator},
+    validation::{Validator, archive::ArchiveValidator},
     with::DeserializeWith,
-    Deserialize, Portable,
 };
 
 #[derive(Clone)]

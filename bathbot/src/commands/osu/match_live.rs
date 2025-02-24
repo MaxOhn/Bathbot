@@ -1,24 +1,25 @@
 use std::borrow::Cow;
 
-use bathbot_macros::{command, SlashCommand};
+use bathbot_macros::{SlashCommand, command};
 use bathbot_model::command_fields::ThreadChannel;
 use bathbot_util::{
+    MessageBuilder,
     constants::{
         GENERAL_ISSUE, INVALID_ACTION_FOR_CHANNEL_TYPE, OSU_API_ISSUE, OSU_BASE,
         THREADS_UNAVAILABLE,
     },
-    matcher, MessageBuilder,
+    matcher,
 };
 use eyre::{Report, Result, WrapErr};
 use twilight_http::{api_error::ApiError, error::ErrorType};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::channel::{thread::AutoArchiveDuration, ChannelType};
+use twilight_model::channel::{ChannelType, thread::AutoArchiveDuration};
 
 use crate::{
+    Context,
     core::commands::CommandOrigin,
     matchlive::MatchTrackResult,
-    util::{interaction::InteractionCommand, ChannelExt, CheckPermissions, InteractionCommandExt},
-    Context,
+    util::{ChannelExt, CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

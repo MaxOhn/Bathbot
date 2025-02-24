@@ -7,12 +7,12 @@ use bathbot_macros::{HasMods, HasName, SlashCommand};
 use bathbot_model::{command_fields::GameModeOption, embed_builder::SettingsImage};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
+    MessageOrigin,
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     osu::ModSelection,
-    MessageOrigin,
 };
 use eyre::{Report, Result};
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score},
     request::UserId,
@@ -20,14 +20,15 @@ use rosu_v2::{
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     guild::Permissions,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
-use super::{map_strain_graph, require_link, user_not_found, HasMods, ModsResult, ScoreOrder};
+use super::{HasMods, ModsResult, ScoreOrder, map_strain_graph, require_link, user_not_found};
 use crate::{
+    Context,
     active::{
-        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
         ActiveMessages,
+        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
     },
     commands::utility::{
         MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
@@ -35,12 +36,11 @@ use crate::{
     core::commands::CommandOrigin,
     manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
     util::{
+        CheckPermissions, InteractionCommandExt,
         interaction::InteractionCommand,
         osu::PersonalBestIndex,
         query::{IFilterCriteria, Searchable, TopCriteria},
-        CheckPermissions, InteractionCommandExt,
     },
-    Context,
 };
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]

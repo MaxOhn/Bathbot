@@ -9,19 +9,19 @@ use std::{
 use eyre::{Result, WrapErr};
 use form_urlencoded::Serializer as FormSerializer;
 use rkyv::{
+    Archive, Archived, Deserialize as RkyvDeserialize, Portable, Serialize,
     bytecheck::CheckBytes,
     niche::niching::{NaN, Null},
     string::ArchivedString,
     with::NicheInto,
-    Archive, Archived, Deserialize as RkyvDeserialize, Portable, Serialize,
 };
 use rosu_v2::{
     model::GameMode,
     prelude::{CountryCode, Username},
 };
 use serde::{
-    de::{Error, IgnoredAny, MapAccess, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer, Serialize as _,
+    de::{Error, IgnoredAny, MapAccess, SeqAccess, Unexpected, Visitor},
 };
 use serde_urlencoded::Serializer as UrlSerializer;
 use time::Date;
@@ -29,9 +29,9 @@ use twilight_interactions::command::{CommandOption, CreateOption};
 
 use super::deser;
 use crate::{
-    rkyv_util::{time::DateRkyv, DerefAsString},
-    rosu_v2::mode::GameModeNiche,
     RankingKind,
+    rkyv_util::{DerefAsString, time::DateRkyv},
+    rosu_v2::mode::GameModeNiche,
 };
 
 pub trait OsekaiRanking {
@@ -475,8 +475,7 @@ impl Display for OsekaiMedalIconUrl<'_> {
 
 const INTERNMENT_ID: u32 = 323;
 
-const INTERNMENT_SOLUTION: &str =
-    "On any 'Insane' difficulty (4.0\\* - 5.29\\*) of *`Frums - theyaremanycolors`*, \
+const INTERNMENT_SOLUTION: &str = "On any 'Insane' difficulty (4.0\\* - 5.29\\*) of *`Frums - theyaremanycolors`*, \
 set three plays in a row that have combos equal to the R, G, and B values \
 of the difficulty indicator (on the osu! website) for the map you are playing.\n\
 The possible combinations are as follows:\n\
@@ -550,7 +549,7 @@ fn maybe_osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>
                     return Err(Error::invalid_value(
                         Unexpected::Str(v),
                         &r#""NULL", "0", "osu", "osu!", "1", "taiko", "tko", "2", "catch", "ctb", "fruits", "3", "mania", or "mna""#,
-                    ))
+                    ));
                 }
             };
 

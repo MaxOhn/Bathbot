@@ -1,20 +1,20 @@
 use std::iter;
 
 use bathbot_model::rosu_v2::user::MonthlyCountRkyv;
-use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE};
 use bitflags::bitflags;
 use bytes::Bytes;
 use eyre::{ContextCompat, Report, Result, WrapErr};
-use futures::{stream::FuturesUnordered, TryStreamExt};
+use futures::{TryStreamExt, stream::FuturesUnordered};
 use image::imageops::FilterType::Lanczos3;
 use plotters::{
-    coord::{types::RangedCoordi32, Shift},
+    coord::{Shift, types::RangedCoordi32},
     prelude::{
         Cartesian2d, ChartBuilder, ChartContext, Circle, DrawingArea, IntoDrawingArea, PathElement,
         SeriesLabelPosition,
     },
     series::AreaSeries,
-    style::{Color, RGBColor, BLACK, WHITE},
+    style::{BLACK, Color, RGBColor, WHITE},
 };
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
@@ -27,13 +27,13 @@ use rosu_v2::{
     prelude::{MonthlyCount, OsuError},
     request::UserId,
 };
-use skia_safe::{surfaces, EncodedImageFormat, Surface};
+use skia_safe::{EncodedImageFormat, Surface, surfaces};
 use time::{Date, Month, OffsetDateTime};
 
 use super::{BitMapElement, H, W};
 use crate::{
     commands::osu::user_not_found,
-    core::{commands::CommandOrigin, Context},
+    core::{Context, commands::CommandOrigin},
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::Monthly,
 };

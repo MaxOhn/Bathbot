@@ -1,4 +1,4 @@
-use skia_safe::{font_style::Slant, Font, FontMgr};
+use skia_safe::{Font, FontMgr, font_style::Slant};
 
 use crate::{error::FontError, font::FontData};
 

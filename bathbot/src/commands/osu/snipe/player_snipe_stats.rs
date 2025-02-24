@@ -3,25 +3,26 @@ use std::collections::BTreeMap;
 use bathbot_macros::command;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
+    MessageBuilder,
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher, MessageBuilder,
+    matcher,
 };
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
-use skia_safe::{surfaces, EncodedImageFormat};
+use skia_safe::{EncodedImageFormat, surfaces};
 use time::Date;
 use twilight_model::guild::Permissions;
 
 use super::{SnipeGameMode, SnipePlayerStats};
 use crate::{
+    Context,
     commands::osu::require_link,
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{CommandOrigin, prefix::Args},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
     manager::redis::osu::{UserArgs, UserArgsError},
     util::Monthly,
-    Context,
 };
 
 #[command]

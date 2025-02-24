@@ -8,20 +8,19 @@ use std::{
 };
 
 use bathbot_util::{
-    fields,
+    CowUtils, EmbedBuilder, fields,
     modal::{ModalBuilder, TextInputBuilder},
     numbers::round,
-    CowUtils, EmbedBuilder,
 };
 use eyre::{ContextCompat, Result, WrapErr};
 use futures::future::BoxFuture;
 use rosu_render::model::{RenderOptions, RenderSkinOption};
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
         Component,
+        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
     },
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
@@ -29,8 +28,8 @@ use crate::{
     core::Context,
     manager::ReplaySettings,
     util::{
-        interaction::{InteractionComponent, InteractionModal},
         Authored, ComponentExt, ModalExt,
+        interaction::{InteractionComponent, InteractionModal},
     },
 };
 
@@ -74,7 +73,7 @@ impl RenderSettingsActive {
             "objects" => SettingsGroup::Objects,
             "other" => SettingsGroup::Other,
             other => {
-                return ComponentResult::Err(eyre!("Unknown settings group menu option `{other}`"))
+                return ComponentResult::Err(eyre!("Unknown settings group menu option `{other}`"));
             }
         };
 
@@ -272,7 +271,7 @@ impl RenderSettingsActive {
             }
             "ignore_fail" => create_modal("ignore_fail", "Ignore fail", "true/false"),
             other => {
-                return ComponentResult::Err(eyre!("Unknown settings edit menu option `{other}`"))
+                return ComponentResult::Err(eyre!("Unknown settings edit menu option `{other}`"));
             }
         };
 
@@ -641,8 +640,7 @@ impl SettingsGroup {
                     - Use skin hitsounds: `{}`\n\
                     \n\
                     Check out [the website](https://ordr.issou.best/skins) to see all official skins",
-                    options.use_skin_cursor,
-                    options.use_skin_hitsounds,
+                    options.use_skin_cursor, options.use_skin_hitsounds,
                 );
 
                 description

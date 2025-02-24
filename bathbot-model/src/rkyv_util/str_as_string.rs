@@ -1,9 +1,9 @@
 use rkyv::{
+    Place, SerializeUnsized,
     rancor::{Fallible, Source},
     ser::Writer,
     string::{ArchivedString, StringResolver},
     with::{ArchiveWith, SerializeWith},
-    Place, SerializeUnsized,
 };
 
 pub struct StrAsString;

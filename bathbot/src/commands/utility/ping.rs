@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use bathbot_macros::{command, SlashCommand};
+use bathbot_macros::{SlashCommand, command};
 use bathbot_util::MessageBuilder;
 use eyre::Result;
 use twilight_interactions::command::CreateCommand;

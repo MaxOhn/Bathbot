@@ -4,19 +4,19 @@ use bytes::Bytes;
 use eyre::{Result, WrapErr};
 use http_body_util::{BodyExt, Collected, Full};
 use hyper::{
+    Method, Request, Response,
     body::Incoming,
     header::{AUTHORIZATION, CONTENT_LENGTH, CONTENT_TYPE, USER_AGENT},
-    Method, Request, Response,
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use hyper_util::{
-    client::legacy::{connect::HttpConnector, Builder, Client as HyperClient, Error as HyperError},
+    client::legacy::{Builder, Client as HyperClient, Error as HyperError, connect::HttpConnector},
     rt::TokioExecutor,
 };
 use leaky_bucket_lite::LeakyBucket;
 use tokio::time::Duration;
 
-use crate::{metrics::ClientMetrics, multipart::Multipart, ClientError, Site, MY_USER_AGENT};
+use crate::{ClientError, MY_USER_AGENT, Site, metrics::ClientMetrics, multipart::Multipart};
 
 pub(crate) type InnerClient = HyperClient<HttpsConnector<HttpConnector>, Body>;
 pub(crate) type Body = Full<Bytes>;
@@ -114,7 +114,7 @@ impl Client {
             Site::Twitch => {
                 return Err(ClientError::Report(eyre::Report::msg(
                     "twitch request without twitch feature",
-                )))
+                )));
             }
             #[cfg(feature = "twitch")]
             Site::Twitch => req

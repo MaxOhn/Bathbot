@@ -3,7 +3,7 @@ use std::{
     sync::Mutex,
 };
 
-use bb8_redis::{bb8::Pool, redis::AsyncCommands, RedisConnectionManager};
+use bb8_redis::{RedisConnectionManager, bb8::Pool, redis::AsyncCommands};
 use eyre::{Result, WrapErr};
 
 use crate::key::RedisKey;

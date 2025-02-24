@@ -2,9 +2,9 @@ use std::fmt::Display;
 
 use bathbot_model::rosu_v2::ranking::ArchivedRankingsUser;
 use bathbot_util::{
-    constants::OSU_BASE,
-    numbers::{round, WithComma},
     EmbedBuilder, ModsFormatter,
+    constants::OSU_BASE,
+    numbers::{WithComma, round},
 };
 use eyre::{Result, WrapErr};
 use image::{GenericImageView, ImageBuffer};
@@ -13,10 +13,10 @@ use rosu_v2::prelude::{CountryCode, GameMode, GameMods, Grade, Score, User as Us
 use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
-    active::impls::higherlower::state::{mapset_cover, HigherLowerState, H, W},
+    active::impls::higherlower::state::{H, HigherLowerState, W, mapset_cover},
     core::Context,
     manager::OsuMapSlim,
-    util::{osu::grade_emote, Emote},
+    util::{Emote, osu::grade_emote},
 };
 
 const ALPHA_THRESHOLD: u8 = 20;

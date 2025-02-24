@@ -2,8 +2,8 @@ use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
 use bathbot_util::{
-    numbers::{round, WithComma},
     AuthorBuilder, CowUtils,
+    numbers::{WithComma, round},
 };
 
 use crate::{commands::osu::WhatIfData, manager::redis::osu::CachedUser, util::CachedUserExt};

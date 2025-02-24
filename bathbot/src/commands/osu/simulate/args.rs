@@ -2,6 +2,7 @@ use std::{borrow::Cow, str::FromStr};
 
 use bathbot_util::CowUtils;
 use nom::{
+    Err as NomErr, IResult, Parser,
     branch::alt,
     bytes::complete as by,
     character::complete as ch,
@@ -10,7 +11,6 @@ use nom::{
     multi::many1_count,
     number::complete as num,
     sequence::{delimited, preceded, terminated, tuple},
-    Err as NomErr, IResult, Parser,
 };
 use rosu_v2::prelude::GameModsIntermode;
 

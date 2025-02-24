@@ -1,12 +1,12 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use rosu_pp::{
-    catch::CatchScoreState, mania::ManiaScoreState, osu::OsuScoreState, taiko::TaikoScoreState,
-    Beatmap, Performance,
+    Beatmap, Performance, catch::CatchScoreState, mania::ManiaScoreState, osu::OsuScoreState,
+    taiko::TaikoScoreState,
 };
 use twilight_model::channel::message::{
-    component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
     Component,
+    component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
 };
 
 use super::{data::SimulateData, state::ScoreState};

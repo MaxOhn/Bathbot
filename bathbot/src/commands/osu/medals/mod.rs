@@ -6,10 +6,10 @@ use eyre::Result;
 use twilight_interactions::command::{
     AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
 };
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 pub use self::{common::*, list::*, medal::*, missing::*, recent::*, stats::*};
-use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
+use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
 
 mod common;
 mod list;

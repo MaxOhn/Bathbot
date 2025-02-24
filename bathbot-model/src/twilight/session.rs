@@ -1,13 +1,13 @@
 use std::{collections::HashMap, hash::BuildHasher};
 
 use rkyv::{
+    Archive, Archived, Deserialize, Place, Portable, Resolver, Serialize,
     bytecheck::CheckBytes,
     munge::munge,
     rancor::Fallible,
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, DeserializeWith, InlineAsBox, SerializeWith},
-    Archive, Archived, Deserialize, Place, Portable, Resolver, Serialize,
 };
 use twilight_gateway::Session;
 

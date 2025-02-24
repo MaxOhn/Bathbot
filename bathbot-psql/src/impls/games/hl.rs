@@ -2,9 +2,9 @@ use std::mem;
 
 use bathbot_model::HlGameScore;
 use eyre::{Result, WrapErr};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
-use crate::{model::games::DbHlGameScore, Database};
+use crate::{Database, model::games::DbHlGameScore};
 
 impl Database {
     pub async fn select_higherlower_scores_by_version(

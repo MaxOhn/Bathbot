@@ -1,10 +1,10 @@
 use rkyv::{
+    Archive, Archived, Place,
     rancor::Fallible,
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Archive, Archived, Place,
 };
 use twilight_model::{
-    channel::{message::MessageFlags, ChannelFlags},
+    channel::{ChannelFlags, message::MessageFlags},
     gateway::presence::ActivityFlags,
     guild::{MemberFlags, Permissions, SystemChannelFlags},
     user::UserFlags,

@@ -1,10 +1,10 @@
-use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
 use twilight_model::id::Id;
 
 use crate::{
     core::Context,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub async fn request_members(command: InteractionCommand, guild_id: &str) -> Result<()> {

@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, ops::Not};
 
-use bathbot_macros::{command, SlashCommand};
+use bathbot_macros::{SlashCommand, command};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::constants::OSU_API_ISSUE;
 use eyre::{Report, Result};
@@ -11,10 +11,10 @@ use rosu_v2::prelude::{
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
-    active::{impls::MapSearchPagination, ActiveMessages},
-    core::commands::{prefix::Args, CommandOrigin},
-    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
+    active::{ActiveMessages, impls::MapSearchPagination},
+    core::commands::{CommandOrigin, prefix::Args},
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

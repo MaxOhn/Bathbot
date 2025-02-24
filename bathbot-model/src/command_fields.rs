@@ -112,7 +112,7 @@ impl FromStr for GradeOption {
             "f" => Self::F,
             _ => {
                 return Err("Failed to parse `grade`.\n\
-                Valid grades are: `SS`, `S`, `A`, `B`, `C`, `D`, or `F`")
+                Valid grades are: `SS`, `S`, `A`, `B`, `C`, `D`, or `F`");
             }
         };
 

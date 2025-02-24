@@ -13,19 +13,19 @@ use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
         Component, EmojiReactionType,
+        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
     },
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
-use super::{single_score::MarkIndex, SingleScoreContent, SingleScorePagination};
+use super::{SingleScoreContent, SingleScorePagination, single_score::MarkIndex};
 use crate::{
-    active::{response::ActiveResponse, BuildPage, ComponentResult, IActiveMessage},
+    active::{BuildPage, ComponentResult, IActiveMessage, response::ActiveResponse},
     commands::utility::ScoreEmbedDataWrap,
     core::Context,
     manager::redis::osu::CachedUser,
-    util::{interaction::InteractionComponent, Authored, Emote},
+    util::{Authored, Emote, interaction::InteractionComponent},
 };
 
 pub struct ScoreEmbedBuilderActive {
@@ -446,7 +446,7 @@ impl ScoreEmbedBuilderActive {
                             return ComponentResult::Err(eyre!(
                                 "Unknown value `{value}` for builder component {}",
                                 component.data.custom_id
-                            ))
+                            ));
                         }
                     }
                 }
@@ -581,7 +581,7 @@ impl ScoreEmbedBuilderActive {
                             return ComponentResult::Err(eyre!(
                                 "Unknown value `{value}` for builder component {}",
                                 component.data.custom_id
-                            ))
+                            ));
                         }
                     }
                 }
@@ -617,7 +617,7 @@ impl ScoreEmbedBuilderActive {
                         return ComponentResult::Err(eyre!(
                             "Unknown value `{value}` for builder component {}",
                             component.data.custom_id
-                        ))
+                        ));
                     }
                 }
             }
@@ -641,7 +641,7 @@ impl ScoreEmbedBuilderActive {
                             return ComponentResult::Err(eyre!(
                                 "Unknown value `{value}` for builder component {}",
                                 component.data.custom_id
-                            ))
+                            ));
                         }
                     }
                 }

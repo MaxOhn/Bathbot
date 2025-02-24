@@ -2,9 +2,9 @@ use std::{cmp::Ordering, collections::BTreeMap, fmt::Write};
 
 use bathbot_model::OsekaiBadge;
 use bathbot_util::{
+    CowUtils,
     constants::{AVATAR_URL, OSEKAI_ISSUE},
     string_cmp::levenshtein_similarity,
-    CowUtils,
 };
 use eyre::{Report, Result, WrapErr};
 use rkyv::rancor::{Panic, ResultExt};
@@ -13,11 +13,11 @@ use twilight_model::application::command::{CommandOptionChoice, CommandOptionCho
 
 use super::BadgesQuery_;
 use crate::{
-    active::{impls::BadgesPagination, ActiveMessages},
+    active::{ActiveMessages, impls::BadgesPagination},
     core::Context,
     util::{
-        interaction::InteractionCommand, osu::get_combined_thumbnail, Authored,
-        InteractionCommandExt,
+        Authored, InteractionCommandExt, interaction::InteractionCommand,
+        osu::get_combined_thumbnail,
     },
 };
 

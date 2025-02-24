@@ -8,8 +8,8 @@ use crate::{
     embeds::EmbedData,
     manager::redis::osu::CachedUser,
     util::{
-        osu::{TopCount, TopCounts},
         CachedUserExt,
+        osu::{TopCount, TopCounts},
     },
 };
 

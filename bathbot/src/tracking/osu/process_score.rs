@@ -5,7 +5,7 @@ use bathbot_model::embed_builder::{
     Value,
 };
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{constants::UNKNOWN_CHANNEL, EmbedBuilder};
+use bathbot_util::{EmbedBuilder, constants::UNKNOWN_CHANNEL};
 use rand::Rng;
 use rosu_v2::{model::GameMode, prelude::Score};
 use twilight_http::{
@@ -14,14 +14,14 @@ use twilight_http::{
 };
 use twilight_model::id::Id;
 
-use super::{entry::TrackEntry, OsuTracking};
+use super::{OsuTracking, entry::TrackEntry};
 use crate::{
     active::impls::{MarkIndex, SingleScoreContent, SingleScorePagination},
     commands::utility::ScoreEmbedDataWrap,
     core::{BotMetrics, Context},
     manager::{
-        redis::osu::{CachedUser, UserArgs, UserArgsSlim},
         OsuMap,
+        redis::osu::{CachedUser, UserArgs, UserArgsSlim},
     },
 };
 

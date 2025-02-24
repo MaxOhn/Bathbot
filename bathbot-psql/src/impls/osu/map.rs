@@ -6,8 +6,8 @@ use rosu_v2::prelude::BeatmapExtended;
 use sqlx::{Postgres, Transaction};
 
 use crate::{
-    model::osu::{DbBeatmap, DbBeatmapset, DbMapFilename, MapVersion},
     Database,
+    model::osu::{DbBeatmap, DbBeatmapset, DbMapFilename, MapVersion},
 };
 
 impl Database {

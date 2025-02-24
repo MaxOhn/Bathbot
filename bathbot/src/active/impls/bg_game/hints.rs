@@ -67,11 +67,11 @@ impl Hints {
 
             let mut title_hint = "Slowly constructing the title: `".to_owned();
 
-            let title_iter =
-                self.title_mask
-                    .iter()
-                    .zip(title.chars())
-                    .map(|(mask, c)| if *mask { c } else { '▢' });
+            let title_iter = self
+                .title_mask
+                .iter()
+                .zip(title.chars())
+                .map(|(mask, c)| if *mask { c } else { '▢' });
 
             title_hint.extend(title_iter);
             title_hint.push('`');

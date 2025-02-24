@@ -2,31 +2,31 @@ use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
+    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter, ScoreExt,
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
-    numbers::{round, WithComma},
-    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter, ScoreExt,
+    numbers::{WithComma, round},
 };
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::TopIfEntry,
     embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
     manager::redis::osu::CachedUser,
     util::{
+        CachedUserExt,
         interaction::{InteractionComponent, InteractionModal},
         osu::GradeFormatter,
-        CachedUserExt,
     },
 };
 
@@ -72,7 +72,8 @@ impl IActiveMessage for TopIfPagination {
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
                 mods = ModsFormatter::new(&score.mods),
-                grade = GradeFormatter::new(score.grade, Some(score.score_id), entry.score.is_legacy()),
+                grade =
+                    GradeFormatter::new(score.grade, Some(score.score_id), entry.score.is_legacy()),
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),

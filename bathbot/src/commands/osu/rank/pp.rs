@@ -7,25 +7,25 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{command_fields::GameModeOption, Countries};
+use bathbot_model::{Countries, command_fields::GameModeOption};
 use bathbot_util::{
+    CowUtils, EmbedBuilder, MessageBuilder,
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     numbers::WithComma,
-    osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
-    CowUtils, EmbedBuilder, MessageBuilder,
+    osu::{ExtractablePp, PpListUtil, approx_more_pp, pp_missing},
 };
 use eyre::{Report, Result};
 use rosu_v2::prelude::{CountryCode, OsuError, Score, UserId, Username};
 
 use super::{RankPp, RankValue};
 use crate::{
+    Context,
     commands::osu::user_not_found,
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{CommandOrigin, prefix::Args},
     embeds::PersonalBestIndexFormatter,
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError, UserArgsSlim},
     util::{CachedUserExt, ChannelExt},
-    Context,
 };
 
 pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> {

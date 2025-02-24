@@ -2,22 +2,22 @@ use std::fmt::Result as FmtResult;
 
 use bathbot_util::datetime::NAIVE_DATETIME_FORMAT;
 use time::format_description::FormatItem;
-use tracing::{level_filters::LevelFilter, Event, Subscriber};
+use tracing::{Event, Subscriber, level_filters::LevelFilter};
 use tracing_appender::{
     non_blocking::{NonBlocking, WorkerGuard},
     rolling,
 };
 use tracing_subscriber::{
+    EnvFilter, Layer as _,
     filter::Targets,
     fmt::{
+        FmtContext, FormatEvent, FormatFields, Layer,
         format::Writer,
         time::{FormatTime, UtcTime},
-        FmtContext, FormatEvent, FormatFields, Layer,
     },
     layer::SubscriberExt,
     registry::LookupSpan,
     util::SubscriberInitExt,
-    EnvFilter, Layer as _,
 };
 
 pub fn init() -> Box<[WorkerGuard]> {

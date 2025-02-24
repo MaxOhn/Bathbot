@@ -1,17 +1,17 @@
 use bathbot_model::{Effects, MapsetTags};
 use bathbot_psql::model::games::DbMapTagsParams;
-use bathbot_util::{constants::GENERAL_ISSUE, fields, EmbedBuilder, FooterBuilder, MessageBuilder};
+use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder, constants::GENERAL_ISSUE, fields};
 use eyre::{Report, Result};
 use futures::future::BoxFuture;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
         Component,
+        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
     },
     id::{
-        marker::{ChannelMarker, UserMarker},
         Id,
+        marker::{ChannelMarker, UserMarker},
     },
 };
 
@@ -20,7 +20,7 @@ use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::fun::GameDifficulty,
     core::Context,
-    util::{interaction::InteractionComponent, Authored, ComponentExt},
+    util::{Authored, ComponentExt, interaction::InteractionComponent},
 };
 
 mod game;

@@ -1,19 +1,19 @@
 use std::{borrow::Cow, cmp::Ordering, collections::HashSet};
 
 use bathbot_macros::command;
-use bathbot_model::{MedalGroup, OsekaiMedal, MEDAL_GROUPS};
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, IntHasher};
+use bathbot_model::{MEDAL_GROUPS, MedalGroup, OsekaiMedal};
+use bathbot_util::{IntHasher, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
 use super::{MedalMissing, MedalMissingOrder};
 use crate::{
-    active::{impls::MedalsMissingPagination, ActiveMessages},
+    Context,
+    active::{ActiveMessages, impls::MedalsMissingPagination},
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     manager::redis::osu::{UserArgs, UserArgsError},
-    Context,
 };
 
 #[command]

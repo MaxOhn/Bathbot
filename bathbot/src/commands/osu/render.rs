@@ -5,8 +5,8 @@ use std::{
 
 use bathbot_macros::SlashCommand;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
     EmbedBuilder, MessageBuilder,
+    constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
 };
 use eyre::{Report, Result, WrapErr};
 use rosu_render::{
@@ -17,18 +17,18 @@ use rosu_v2::error::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::Attachment,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        impls::{CachedRender, RenderSettingsActive, SettingsImport},
         ActiveMessages,
+        impls::{CachedRender, RenderSettingsActive, SettingsImport},
     },
-    core::{buckets::BucketName, commands::OwnedCommandOrigin, Context},
+    core::{Context, buckets::BucketName, commands::OwnedCommandOrigin},
     manager::{ReplayError, ReplaySettings},
     tracking::OrdrReceivers,
-    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub const RENDERER_NAME: &str = "Bathbot";
@@ -190,7 +190,7 @@ async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Res
 
                     Err(Report::new(err).wrap_err("Failed to commission render"))
                 }
-            }
+            };
         }
     };
 

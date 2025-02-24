@@ -1,10 +1,10 @@
 use std::fmt::Write;
 
 use bathbot_macros::command;
-use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE};
 use eyre::Result;
 
-use crate::{core::commands::CommandOrigin, Context};
+use crate::{Context, core::commands::CommandOrigin};
 
 #[command]
 #[desc("List all streams that are tracked in a channel")]

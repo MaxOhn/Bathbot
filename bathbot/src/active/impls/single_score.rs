@@ -11,16 +11,16 @@ use bathbot_model::embed_builder::{
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder, ModsFormatter,
     constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE, OSU_BASE},
-    datetime::{HowLongAgoDynamic, HowLongAgoText, SecToMinSec, SHORT_NAIVE_DATETIME_FORMAT},
+    datetime::{HowLongAgoDynamic, HowLongAgoText, SHORT_NAIVE_DATETIME_FORMAT, SecToMinSec},
     fields,
     numbers::round,
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder, ModsFormatter,
 };
 use eyre::{Report, Result};
 use futures::future::BoxFuture;
 use rosu_pp::model::beatmap::BeatmapAttributes;
-use rosu_render::{client::error::ApiError as OrdrApiError, ClientError as OrdrError};
+use rosu_render::{ClientError as OrdrError, client::error::ApiError as OrdrApiError};
 use rosu_v2::{
     error::OsuError,
     model::{GameMode, Grade},
@@ -29,33 +29,33 @@ use rosu_v2::{
 use time::OffsetDateTime;
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle},
         Component, EmojiReactionType,
+        component::{ActionRow, Button, ButtonStyle},
     },
     guild::Permissions,
     id::{
-        marker::{ChannelMarker, GuildMarker, MessageMarker, UserMarker},
         Id,
+        marker::{ChannelMarker, GuildMarker, MessageMarker, UserMarker},
     },
 };
 
 use crate::{
     active::{
-        impls::{embed_builder::ValueKind, CachedRender},
-        pagination::{async_handle_pagination_component, handle_pagination_modal, Pages},
         ActiveMessages, BuildPage, ComponentResult, IActiveMessage,
+        impls::{CachedRender, embed_builder::ValueKind},
+        pagination::{Pages, async_handle_pagination_component, handle_pagination_modal},
     },
     commands::{
-        osu::{OngoingRender, RenderStatus, RenderStatusInner, RENDERER_NAME},
+        osu::{OngoingRender, RENDERER_NAME, RenderStatus, RenderStatusInner},
         utility::{ScoreEmbedData, ScoreEmbedDataWrap},
     },
-    core::{buckets::BucketName, Context},
-    embeds::{attachment, HitResultFormatter},
-    manager::{redis::osu::CachedUser, ReplayError},
+    core::{Context, buckets::BucketName},
+    embeds::{HitResultFormatter, attachment},
+    manager::{ReplayError, redis::osu::CachedUser},
     util::{
+        Authored, CachedUserExt, Emote, MessageExt,
         interaction::{InteractionComponent, InteractionModal},
         osu::{GradeFormatter, ScoreFormatter},
-        Authored, CachedUserExt, Emote, MessageExt,
     },
 };
 

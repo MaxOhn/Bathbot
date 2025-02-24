@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use bathbot_model::{BgGameScore, HlGameScore, HlVersion};
 use bathbot_psql::{
-    model::games::{DbMapTagsParams, MapsetTagsEntries},
     Database,
+    model::games::{DbMapTagsParams, MapsetTagsEntries},
 };
 use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::core::Context;
 

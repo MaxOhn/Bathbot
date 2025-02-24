@@ -1,32 +1,32 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{embed_builder::ScoreEmbedSettings, ScoreSlim};
+use bathbot_model::{ScoreSlim, embed_builder::ScoreEmbedSettings};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, CowUtils, EmbedBuilder,
-    FooterBuilder, ModsFormatter, ScoreExt,
+    CowUtils, EmbedBuilder, FooterBuilder, ModsFormatter, ScoreExt, constants::OSU_BASE,
+    datetime::HowLongAgoDynamic, numbers::round,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_v2::prelude::{GameMode, Score};
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        impls::{MarkIndex, SingleScorePagination},
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        impls::{MarkIndex, SingleScorePagination},
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::utility::ScoreEmbedData,
-    manager::{redis::osu::CachedUser, OsuMap},
+    manager::{OsuMap, redis::osu::CachedUser},
     util::{
+        CachedUserExt, Emote,
         interaction::{InteractionComponent, InteractionModal},
         osu::GradeFormatter,
-        CachedUserExt, Emote,
     },
 };
 

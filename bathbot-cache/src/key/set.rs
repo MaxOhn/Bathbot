@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use itoa::Buffer;
-use twilight_model::id::{marker::GuildMarker, Id};
+use twilight_model::id::{Id, marker::GuildMarker};
 
 #[derive(Clone, Debug)]
 pub(crate) enum SetEntry {

@@ -1,6 +1,6 @@
 use bathbot_macros::EmbedData;
 use bathbot_model::SnipedWeek;
-use bathbot_util::{fields, AuthorBuilder};
+use bathbot_util::{AuthorBuilder, fields};
 use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{embeds::attachment, manager::redis::osu::CachedUser, util::CachedUserExt};

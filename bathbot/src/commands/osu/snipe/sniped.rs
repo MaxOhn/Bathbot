@@ -2,28 +2,28 @@ use std::ops;
 
 use bathbot_macros::command;
 use bathbot_model::SnipedWeek;
-use bathbot_util::{constants::GENERAL_ISSUE, datetime::DATE_FORMAT, matcher, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE, datetime::DATE_FORMAT, matcher};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::{
     coord::{
+        Shift,
         ranged1d::{DefaultFormatting, KeyPointHint, SegmentedCoord},
         types::RangedCoordu32,
-        Shift,
     },
     prelude::*,
 };
 use plotters_skia::SkiaBackend;
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
-use skia_safe::{surfaces, EncodedImageFormat};
+use skia_safe::{EncodedImageFormat, surfaces};
 use time::Date;
 use twilight_model::guild::Permissions;
 
 use super::{SnipeGameMode, SnipePlayerSniped};
 use crate::{
-    core::commands::{prefix::Args, CommandOrigin},
+    Context,
+    core::commands::{CommandOrigin, prefix::Args},
     embeds::{EmbedData, SnipedEmbed},
     manager::redis::osu::{UserArgs, UserArgsError},
-    Context,
 };
 
 #[command]

@@ -2,21 +2,21 @@ use std::str::FromStr;
 
 use bathbot_psql::model::osu::ArtistTitle;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSU_BASE},
     MessageBuilder,
+    constants::{GENERAL_ISSUE, OSU_BASE},
 };
 use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
 use tokio::{
-    fs::{remove_file, File},
+    fs::{File, remove_file},
     io::AsyncWriteExt,
 };
 
 use super::OwnerAddBg;
 use crate::{
-    core::BotConfig,
-    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
+    core::BotConfig,
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub async fn addbg(command: InteractionCommand, bg: OwnerAddBg) -> Result<()> {

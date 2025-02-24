@@ -1,11 +1,11 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use time::{
-    format_description::{
-        modifier::{Day, Hour, Minute, Month, OffsetHour, OffsetMinute, Second, Year},
-        Component, FormatItem,
-    },
     OffsetDateTime,
+    format_description::{
+        Component, FormatItem,
+        modifier::{Day, Hour, Minute, Month, OffsetHour, OffsetMinute, Second, Year},
+    },
 };
 
 pub struct SecToMinSec {

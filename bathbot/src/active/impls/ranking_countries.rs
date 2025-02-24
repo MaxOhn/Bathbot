@@ -1,19 +1,19 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_util::{numbers::WithComma, EmbedBuilder, FooterBuilder};
+use bathbot_util::{EmbedBuilder, FooterBuilder, numbers::WithComma};
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
 use rosu_v2::prelude::{CountryRanking, GameMode};
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     core::Context,
     util::interaction::{InteractionComponent, InteractionModal},

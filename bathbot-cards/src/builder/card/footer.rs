@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use skia_safe::{font_style::Slant, utils::text_utils::Align, Data, Image, RRect, Rect, Vector};
+use skia_safe::{Data, Image, RRect, Rect, Vector, font_style::Slant, utils::text_utils::Align};
 
 use super::{CardBuilder, H, W};
 use crate::{

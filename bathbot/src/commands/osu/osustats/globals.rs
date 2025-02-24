@@ -2,29 +2,29 @@ use std::{borrow::Cow, collections::BTreeMap, fmt::Write, ops::Not};
 
 use bathbot_macros::command;
 use bathbot_model::{
-    command_fields::GameModeOption, OsuStatsParams, OsuStatsScore, OsuStatsScoresOrder,
-    OsuStatsScoresRaw, ScoreSlim,
+    OsuStatsParams, OsuStatsScore, OsuStatsScoresOrder, OsuStatsScoresRaw, ScoreSlim,
+    command_fields::GameModeOption,
 };
 use bathbot_util::{
+    CowUtils,
     constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
     matcher,
     osu::ModSelection,
-    CowUtils,
 };
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameModIntermode, GameMode, Grade, OsuError, ScoreStatistics, Username};
 
 use super::OsuStatsScores;
 use crate::{
-    active::{impls::OsuStatsScoresPagination, ActiveMessages},
-    commands::osu::{user_not_found, HasMods, ModsResult},
-    core::commands::{prefix::Args, CommandOrigin},
+    Context,
+    active::{ActiveMessages, impls::OsuStatsScoresPagination},
+    commands::osu::{HasMods, ModsResult, user_not_found},
+    core::commands::{CommandOrigin, prefix::Args},
     manager::{
-        redis::osu::{UserArgs, UserArgsError},
         OsuMap,
+        redis::osu::{UserArgs, UserArgsError},
     },
     util::ChannelExt,
-    Context,
 };
 
 #[command]

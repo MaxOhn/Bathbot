@@ -7,11 +7,11 @@ use std::{
 
 use bathbot_macros::command;
 use bathbot_model::{
-    command_fields::{GameModeOption, GradeOption},
     ScoreSlim,
+    command_fields::{GameModeOption, GradeOption},
 };
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::ModSelection, CowUtils, IntHasher};
+use bathbot_util::{CowUtils, IntHasher, constants::GENERAL_ISSUE, matcher, osu::ModSelection};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, Grade, OsuError, Score},
@@ -20,18 +20,18 @@ use rosu_v2::{
 
 use super::{RecentList, RecentListUnique};
 use crate::{
-    active::{impls::RecentListPagination, ActiveMessages},
-    commands::osu::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder},
-    core::commands::{prefix::Args, CommandOrigin},
+    Context,
+    active::{ActiveMessages, impls::RecentListPagination},
+    commands::osu::{HasMods, ModsResult, ScoreOrder, require_link, user_not_found},
+    core::commands::{CommandOrigin, prefix::Args},
     manager::{
-        redis::osu::{UserArgs, UserArgsError},
         OsuMap,
+        redis::osu::{UserArgs, UserArgsError},
     },
     util::{
-        query::{IFilterCriteria, RegularCriteria, Searchable},
         ChannelExt,
+        query::{IFilterCriteria, RegularCriteria, Searchable},
     },
-    Context,
 };
 
 #[command]

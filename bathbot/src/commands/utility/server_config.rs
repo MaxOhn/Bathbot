@@ -1,16 +1,16 @@
-use bathbot_macros::{command, SlashCommand};
+use bathbot_macros::{SlashCommand, command};
 use bathbot_model::command_fields::{EnableDisable, ShowHideOption};
 use bathbot_psql::model::configs::{GuildConfig, HideSolutions, ListSize, Retries, ScoreData};
 use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::{Report, Result};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{marker::RoleMarker, Id};
+use twilight_model::id::{Id, marker::RoleMarker};
 
 use super::AuthorityCommandKind;
 use crate::{
-    embeds::{EmbedData, ServerConfigEmbed},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
+    embeds::{EmbedData, ServerConfigEmbed},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -184,7 +184,7 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
 
     let args = match args {
         ServerConfig::Authorities(args) => {
-            return super::authorities((&mut command).into(), args.into()).await
+            return super::authorities((&mut command).into(), args.into()).await;
         }
         ServerConfig::Edit(edit) => edit,
     };

@@ -11,7 +11,7 @@ use rosu_pp::{
     osu::{OsuPerformance, OsuScoreState},
     taiko::{TaikoPerformance, TaikoScoreState},
 };
-use rosu_v2::model::{score::Score, GameMode};
+use rosu_v2::model::{GameMode, score::Score};
 
 pub(crate) use self::{
     description::TitleDescriptions, prefix::TitlePrefix, suffix::TitleSuffix, title::CardTitle,

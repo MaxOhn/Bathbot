@@ -2,10 +2,10 @@ use std::time::Instant;
 
 use bathbot_model::RankAccPeaks;
 use eyre::{Report, Result, WrapErr};
-use hyper::{header::USER_AGENT, Request};
+use hyper::{Request, header::USER_AGENT};
 use rosu_v2::model::GameMode;
 
-use crate::{client::Body, metrics::ClientMetrics, site::Site, Client, ClientError, MY_USER_AGENT};
+use crate::{Client, ClientError, MY_USER_AGENT, client::Body, metrics::ClientMetrics, site::Site};
 
 impl Client {
     pub async fn osu_user_rank_acc_peak(

@@ -2,21 +2,21 @@ use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_macros::command;
 use bathbot_model::{
-    command_fields::GameModeOption, Countries, OsuStatsPlayer, OsuStatsPlayersArgs,
+    Countries, OsuStatsPlayer, OsuStatsPlayersArgs, command_fields::GameModeOption,
 };
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
     CowUtils, IntHasher,
+    constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
 };
 use eyre::Result;
 use rosu_v2::{model::GameMode, prelude::CountryCode};
 
 use super::OsuStatsPlayers;
 use crate::{
-    active::{impls::OsuStatsPlayersPagination, ActiveMessages},
-    core::commands::{prefix::Args, CommandOrigin},
-    util::ChannelExt,
     Context,
+    active::{ActiveMessages, impls::OsuStatsPlayersPagination},
+    core::commands::{CommandOrigin, prefix::Args},
+    util::ChannelExt,
 };
 
 impl<'a> From<OsuStatsPlayers<'a>> for OsuStatsPlayersArgs {

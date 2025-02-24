@@ -1,24 +1,24 @@
 use std::{borrow::Cow, cmp, fmt::Write, iter};
 
 use bathbot_macros::command;
-use bathbot_model::{command_fields::GameModeOption, RespektiveUser};
+use bathbot_model::{RespektiveUser, command_fields::GameModeOption};
 use bathbot_util::{
+    AuthorBuilder, CowUtils, EmbedBuilder, MessageBuilder,
     constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
     matcher,
     numbers::WithComma,
     osu::flag_url,
-    AuthorBuilder, CowUtils, EmbedBuilder, MessageBuilder,
 };
 use eyre::{Report, Result};
 use rosu_v2::prelude::{OsuError, UserId, Username};
 
 use super::{RankScore, RankValue};
 use crate::{
+    Context,
     commands::osu::user_not_found,
-    core::commands::{prefix::Args, CommandOrigin},
+    core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::{CachedUserExt, ChannelExt},
-    Context,
 };
 
 #[command]

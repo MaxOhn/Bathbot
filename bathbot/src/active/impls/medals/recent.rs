@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{HashMap, hash_map::Entry};
 
 use bathbot_cache::model::CachedArchive;
 use bathbot_macros::PaginationBuilder;
@@ -6,18 +6,18 @@ use bathbot_model::ArchivedOsekaiMedal;
 use bathbot_psql::model::configs::HideSolutions;
 use bathbot_util::IntHasher;
 use eyre::Result;
-use futures::future::{ready, BoxFuture};
+use futures::future::{BoxFuture, ready};
 use rkyv::vec::ArchivedVec;
 use rosu_v2::prelude::MedalCompact;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::{MedalAchieved, MedalEmbed},
     manager::redis::osu::CachedUser,

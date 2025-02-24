@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
-use syn::{parse_quote, Error, Result};
+use syn::{Error, Result, parse_quote};
 
 use self::attrs::CommandAttrs;
 pub use self::command::CommandFun;
@@ -120,16 +120,14 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
     let (args, permissions, swap) = match (iter.next(), iter.next()) {
         (None, None) => {
             let args = parse_quote!(_: crate::core::commands::prefix::Args<'fut>);
-            let permissions  =
-                parse_quote!(_: Option<::twilight_model::guild::Permissions>);
+            let permissions = parse_quote!(_: Option<::twilight_model::guild::Permissions>);
 
             (Some(args), Some(permissions), false)
         }
         (Some(arg), None) if arg.ty == parse_quote! { Args<'_> } => {
             arg.ty = parse_quote! { crate::core::commands::prefix::Args<'fut> };
 
-            let permissions  =
-                parse_quote!(_: Option<::twilight_model::guild::Permissions>);
+            let permissions = parse_quote!(_: Option<::twilight_model::guild::Permissions>);
 
             (None, Some(permissions), false)
         }
@@ -142,23 +140,29 @@ fn validate_args(fun: &mut CommandFun) -> Result<()> {
             return Err(Error::new_spanned(
                 &arg.ty,
                 "expected second argument to be of type `Args<'_>` or `Option<Permissions>`",
-            ))
+            ));
         }
-        (Some(arg1), Some(arg2)) if arg1.ty == parse_quote! { Args<'_> } && arg2.ty == parse_quote! { Option<Permissions> } => {
+        (Some(arg1), Some(arg2))
+            if arg1.ty == parse_quote! { Args<'_> }
+                && arg2.ty == parse_quote! { Option<Permissions> } =>
+        {
             arg1.ty = parse_quote! { crate::core::commands::prefix::Args<'fut> };
 
             (None, None, false)
-        },
-        (Some(arg1), Some(arg2)) if arg2.ty == parse_quote! { Args<'_> } && arg1.ty == parse_quote! { Option<Permissions> } => {
+        }
+        (Some(arg1), Some(arg2))
+            if arg2.ty == parse_quote! { Args<'_> }
+                && arg1.ty == parse_quote! { Option<Permissions> } =>
+        {
             arg2.ty = parse_quote! { crate::core::commands::prefix::Args<'fut> };
 
             (None, None, true)
-        },
+        }
         (Some(arg), Some(_)) => {
             return Err(Error::new_spanned(
                 &arg.ty,
                 "expected second and third arguments to be of type `Args<'_>` and `Option<Permissions>`",
-            ))
+            ));
         }
         (None, Some(_)) => unreachable!(),
     };

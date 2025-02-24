@@ -1,12 +1,12 @@
 use std::{borrow::Cow, ops::Deref};
 
-use bathbot_util::{matcher::QUERY_SYNTAX_REGEX, CowUtils};
+use bathbot_util::{CowUtils, matcher::QUERY_SYNTAX_REGEX};
 
 use super::{operator::Operator, separate_content};
 
 pub trait IFilterCriteria<'q>: Sized + Default {
     fn try_parse_key_value(&mut self, key: Cow<'q, str>, value: Cow<'q, str>, op: Operator)
-        -> bool;
+    -> bool;
 
     /// Whether the criteria has any non-empty field
     fn any_field(&self) -> bool;

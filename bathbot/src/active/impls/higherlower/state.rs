@@ -3,11 +3,11 @@ use std::mem;
 use bathbot_model::HlVersion;
 use bathbot_util::{EmbedBuilder, MessageBuilder};
 use eyre::{ContextCompat, Result, WrapErr};
-use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
+use image::{ColorType, ImageEncoder, codecs::png::PngEncoder};
 use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::{self, Receiver};
 
-use super::{score_pp::ScorePp, HlGuess};
+use super::{HlGuess, score_pp::ScorePp};
 use crate::{core::BotConfig, util::ChannelExt};
 
 pub(super) const W: u32 = 900;

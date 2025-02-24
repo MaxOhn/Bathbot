@@ -5,16 +5,16 @@ use bathbot_psql::model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapFilena
 use bathbot_util::{ExponentialBackoff, IntHasher};
 use eyre::{ContextCompat, Report, WrapErr};
 use rosu_pp::{
+    Beatmap,
     any::DifficultyAttributes,
     model::{beatmap::BeatmapAttributesBuilder, mode::GameMode as MapMode},
-    Beatmap,
 };
 use rosu_v2::prelude::{BeatmapsetExtended, GameMode, OsuError, RankStatus};
 use thiserror::Error;
 use time::OffsetDateTime;
 use tokio::{fs, time::sleep};
 
-use super::{pp::Mods, PpManager};
+use super::{PpManager, pp::Mods};
 use crate::{
     core::{BotConfig, Context},
     util::query::{FilterCriteria, RegularCriteria, Searchable},
@@ -200,7 +200,7 @@ impl MapManager {
             Err(err) => {
                 return Err(MapError::Report(
                     Report::new(err).wrap_err("Failed to retrieve mapset"),
-                ))
+                ));
             }
         };
 
@@ -227,7 +227,7 @@ impl MapManager {
             Err(err) => {
                 return Err(MapError::Report(
                     Report::new(err).wrap_err("Failed to retrieve mapset"),
-                ))
+                ));
             }
         };
 

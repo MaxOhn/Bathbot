@@ -6,7 +6,7 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 pub use self::{countries::*, players::*};
-use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
+use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
 
 mod countries;
 mod players;

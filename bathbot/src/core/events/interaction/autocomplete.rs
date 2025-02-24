@@ -5,7 +5,7 @@ use crate::{
         help::slash_help,
         osu::{slash_badges, slash_cs, slash_medal},
     },
-    core::{events::EventKind, BotMetrics},
+    core::{BotMetrics, events::EventKind},
     util::interaction::InteractionCommand,
 };
 

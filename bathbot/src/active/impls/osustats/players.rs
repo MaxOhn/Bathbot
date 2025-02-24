@@ -1,26 +1,26 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fmt::Write,
 };
 
 use bathbot_model::{OsuStatsPlayer, OsuStatsPlayersArgs};
 use bathbot_util::{
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher,
     constants::{AVATAR_URL, OSU_BASE},
     numbers::WithComma,
     osu::flag_url,
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher,
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     core::Context,
     util::interaction::{InteractionComponent, InteractionModal},

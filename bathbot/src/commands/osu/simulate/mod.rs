@@ -3,7 +3,7 @@ pub mod parsed_map;
 
 use std::borrow::Cow;
 
-use bathbot_macros::{command, HasMods, SlashCommand};
+use bathbot_macros::{HasMods, SlashCommand, command};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::MapIdType};
@@ -22,16 +22,16 @@ use super::{
 };
 use crate::{
     active::{
-        impls::{SimulateAttributes, SimulateComponents, SimulateData, SimulateMap, TopOldVersion},
         ActiveMessages,
+        impls::{SimulateAttributes, SimulateComponents, SimulateData, SimulateMap, TopOldVersion},
     },
     commands::osu::parsed_map::AttachedSimulateMap,
     core::{
-        commands::{prefix::Args, CommandOrigin},
         Context,
+        commands::{CommandOrigin, prefix::Args},
     },
     manager::MapError,
-    util::{interaction::InteractionCommand, osu::MapOrScore, InteractionCommandExt},
+    util::{InteractionCommandExt, interaction::InteractionCommand, osu::MapOrScore},
 };
 
 #[derive(CreateCommand, CommandModel, Default, HasMods, SlashCommand)]
@@ -367,14 +367,13 @@ async fn prepare_map(
         Some(SimulateMapArg::Attachment(attachment)) => {
             return AttachedSimulateMap::new(orig, attachment, mode)
                 .await
-                .map(|opt| opt.map(SimulateMap::Attached))
+                .map(|opt| opt.map(SimulateMap::Attached));
         }
         None => {
             let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
                 Err(_) => {
-                    let content =
-                        "No beatmap specified and lacking permission to search the channel \
+                    let content = "No beatmap specified and lacking permission to search the channel \
                         history for maps.\nTry specifying a map either by url to the map, or \
                         just by map id, or give me the \"Read Message History\" permission.";
 
@@ -457,7 +456,7 @@ impl SimulateArgs {
             Some(MapOrScore::Score { .. }) => {
                 return Err(Cow::Borrowed(
                     "This command does not (yet) accept score urls as argument",
-                ))
+                ));
             }
             None => None,
         };

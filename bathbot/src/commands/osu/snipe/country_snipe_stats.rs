@@ -2,7 +2,7 @@ use std::{borrow::Cow, cmp::Ordering::Equal};
 
 use bathbot_macros::command;
 use bathbot_model::{Countries, SnipeCountryListOrder, SnipeCountryPlayer};
-use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
@@ -11,16 +11,16 @@ use rosu_v2::{
     prelude::{CountryCode, OsuError},
     request::UserId,
 };
-use skia_safe::{surfaces, EncodedImageFormat};
+use skia_safe::{EncodedImageFormat, surfaces};
 use twilight_model::guild::Permissions;
 
 use super::{SnipeCountryStats, SnipeGameMode};
 use crate::{
+    Context,
     commands::osu::user_not_found,
     core::commands::CommandOrigin,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
     manager::redis::osu::{UserArgs, UserArgsError},
-    Context,
 };
 
 #[command]

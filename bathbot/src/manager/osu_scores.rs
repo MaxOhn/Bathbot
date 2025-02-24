@@ -2,9 +2,9 @@ use std::slice;
 
 use eyre::{Result, WrapErr};
 use rosu_v2::{
+    OsuResult,
     model::score::BeatmapUserScore,
     prelude::{GameMode, GameModsIntermode, OsuError, Score},
-    OsuResult,
 };
 
 use super::redis::osu::{CachedUser, UserArgs, UserArgsError, UserArgsSlim};

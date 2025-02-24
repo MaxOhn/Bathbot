@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     convert::identity,
     fmt::Write,
     future::ready,
@@ -10,11 +10,11 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_psql::model::osu::MapBookmark;
 use bathbot_util::{
+    EmbedBuilder, FooterBuilder, IntHasher, MessageOrigin,
     constants::{AVATAR_URL, OSU_BASE},
     datetime::SecToMinSec,
     fields,
     numbers::round,
-    EmbedBuilder, FooterBuilder, IntHasher, MessageOrigin,
 };
 use eyre::{Report, Result, WrapErr};
 use futures::future::BoxFuture;
@@ -22,21 +22,21 @@ use rosu_pp::{Beatmap, Difficulty, Performance};
 use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::{
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle},
         Component,
+        component::{ActionRow, Button, ButtonStyle},
     },
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, Pages},
-        response::ActiveResponse,
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component},
+        response::ActiveResponse,
     },
     core::Context,
     manager::redis::osu::UserArgs,
-    util::{interaction::InteractionComponent, Authored, ComponentExt, Emote},
+    util::{Authored, ComponentExt, Emote, interaction::InteractionComponent},
 };
 
 #[derive(PaginationBuilder)]

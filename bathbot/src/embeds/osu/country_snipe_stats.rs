@@ -3,10 +3,9 @@ use std::fmt::Write;
 use bathbot_macros::EmbedData;
 use bathbot_model::{CountryName, SnipeCountryStatistics};
 use bathbot_util::{
-    fields,
-    numbers::{round, WithComma},
+    CowUtils, FooterBuilder, fields,
+    numbers::{WithComma, round},
     osu::flag_url,
-    CowUtils, FooterBuilder,
 };
 use rosu_v2::prelude::CountryCode;
 use twilight_model::channel::message::embed::EmbedField;

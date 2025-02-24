@@ -6,7 +6,7 @@ use std::{
 use twilight_interactions::command::ApplicationCommandData;
 use twilight_model::{
     application::command::Command,
-    id::{marker::CommandMarker, Id},
+    id::{Id, marker::CommandMarker},
 };
 
 use super::CommandResult;

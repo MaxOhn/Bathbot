@@ -4,14 +4,14 @@ use bathbot_macros::command;
 use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError, Username};
-use twilight_model::id::{marker::ChannelMarker, Id};
+use twilight_model::id::{Id, marker::ChannelMarker};
 
 use crate::{
-    active::{impls::TrackListPagination, ActiveMessages},
+    Context,
+    active::{ActiveMessages, impls::TrackListPagination},
     core::commands::CommandOrigin,
     manager::redis::osu::{UserArgs, UserArgsError},
     tracking::{OsuTracking, TrackEntryParams},
-    Context,
 };
 
 pub struct TracklistUserEntry {

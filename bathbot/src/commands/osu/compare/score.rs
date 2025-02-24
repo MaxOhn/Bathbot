@@ -3,18 +3,18 @@ use std::{
     cmp::{Ordering, Reverse},
 };
 
-use bathbot_macros::{command, HasMods, HasName, SlashCommand};
+use bathbot_macros::{HasMods, HasName, SlashCommand, command};
 use bathbot_model::{
+    ScoreSlim,
     command_fields::{GameModeOption, GradeOption},
     embed_builder::{ScoreEmbedSettings, SettingsImage},
-    ScoreSlim,
 };
 use bathbot_psql::model::{configs::ScoreData, osu::ArchivedMapVersion};
 use bathbot_util::{
+    CowUtils, MessageOrigin,
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     osu::MapIdType,
-    CowUtils, MessageOrigin,
 };
 use eyre::{Report, Result};
 use rosu_v2::{
@@ -29,33 +29,33 @@ use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateComm
 use twilight_model::{
     application::command::{CommandOptionChoice, CommandOptionChoiceValue},
     guild::Permissions,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use super::{CompareScoreAutocomplete, ScoreOrder};
 use crate::{
+    Context,
     active::{
-        impls::{CompareScoresPagination, SingleScorePagination},
         ActiveMessages,
+        impls::{CompareScoresPagination, SingleScorePagination},
     },
     commands::{
-        osu::{map_strain_graph, require_link, user_not_found, HasMods, ModsResult},
+        osu::{HasMods, ModsResult, map_strain_graph, require_link, user_not_found},
         utility::{ScoreEmbedData, ScoreEmbedDataPersonalBest},
     },
     core::commands::{
-        prefix::{Args, ArgsNum},
         CommandOrigin,
+        prefix::{Args, ArgsNum},
     },
     manager::{
-        redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
         MapError, OsuMap,
+        redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
     },
     util::{
+        InteractionCommandExt,
         interaction::InteractionCommand,
         osu::{IfFc, MapOrScore, PersonalBestIndex},
-        InteractionCommandExt,
     },
-    Context,
 };
 
 #[derive(CreateCommand, SlashCommand)]
@@ -488,7 +488,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
                 return orig.error(content).await;
             }
             Some(MapOrScore::Score { id, mode }) => {
-                return compare_from_score(orig, id, mode, settings, score_data).await
+                return compare_from_score(orig, id, mode, settings, score_data).await;
             }
             None => {
                 let idx = match index {
@@ -504,8 +504,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
                 let msgs = match Context::retrieve_channel_history(orig.channel_id()).await {
                     Ok(msgs) => msgs,
                     Err(_) => {
-                        let content =
-                            "No beatmap specified and lacking permission to search the channel \
+                        let content = "No beatmap specified and lacking permission to search the channel \
                             history for maps.\nTry specifying a map either by url to the map, or \
                             just by map id, or give me the \"Read Message History\" permission.";
 
@@ -516,8 +515,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
                 match Context::find_map_id_in_msgs(&msgs, idx).await {
                     Some(MapIdType::Map(id)) => id,
                     None | Some(MapIdType::Set(_)) if idx == 0 => {
-                        let content =
-                            "No beatmap specified and none found in recent channel history.\n\
+                        let content = "No beatmap specified and none found in recent channel history.\n\
                             Try specifying a map either by url to the map, or just by map id.";
 
                         return orig.error(content).await;

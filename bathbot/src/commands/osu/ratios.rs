@@ -1,23 +1,23 @@
 use std::borrow::Cow;
 
-use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_macros::{HasName, SlashCommand, command};
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError},
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
+    Context,
     core::commands::CommandOrigin,
     embeds::{EmbedData, RatioEmbed},
     manager::redis::osu::{UserArgs, UserArgsError},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
-    Context,
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]

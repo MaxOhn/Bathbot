@@ -4,7 +4,7 @@ use bathbot_util::{EmbedBuilder, MessageBuilder};
 use eyre::Result;
 use tokio::sync::broadcast::Sender;
 
-use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
+use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
 
 pub static RESHARD_TX: OnceLock<Sender<()>> = OnceLock::new();
 

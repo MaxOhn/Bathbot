@@ -1,6 +1,6 @@
 use sqlx::types::JsonValue;
 
-use super::{list_size::ListSize, Authorities, HideSolutions, Retries, ScoreData};
+use super::{Authorities, HideSolutions, Retries, ScoreData, list_size::ListSize};
 
 pub struct DbGuildConfig {
     pub guild_id: i64,

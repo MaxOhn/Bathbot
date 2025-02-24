@@ -2,10 +2,10 @@ use std::{cmp::Ordering, convert::identity, fmt::Write};
 
 use bathbot_macros::EmbedData;
 use bathbot_util::{
-    constants::OSU_BASE,
-    numbers::{round, WithComma},
-    osu::{ExtractablePp, PpListUtil},
     AuthorBuilder, CowUtils,
+    constants::OSU_BASE,
+    numbers::{WithComma, round},
+    osu::{ExtractablePp, PpListUtil},
 };
 use rosu_v2::prelude::{GameModsIntermode, RankStatus, Score};
 use time::OffsetDateTime;

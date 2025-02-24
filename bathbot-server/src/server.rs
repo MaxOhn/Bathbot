@@ -1,22 +1,23 @@
 use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use axum::{
+    Router,
     http::StatusCode,
     middleware,
     response::Response,
     routing::{get, get_service},
-    Router,
 };
 use eyre::Result;
 use hyper::Request;
 use tokio::{
     net::TcpListener,
-    sync::oneshot::{channel, Receiver, Sender},
+    sync::oneshot::{Receiver, Sender, channel},
 };
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 use tracing::Span;
 
 use crate::{
+    AppStateBuilder,
     middleware::metrics::track_metrics,
     routes::{
         auth::{osu::auth_osu, twitch::auth_twitch},
@@ -26,7 +27,6 @@ use crate::{
     },
     standby::AuthenticationStandby,
     state::AppState,
-    AppStateBuilder,
 };
 
 pub struct Server {

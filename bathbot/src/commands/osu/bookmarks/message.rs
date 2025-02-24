@@ -4,15 +4,15 @@ use std::{
 };
 
 use bathbot_macros::msg_command;
-use bathbot_util::{constants::GENERAL_ISSUE, osu::MapIdType, MessageOrigin};
+use bathbot_util::{MessageOrigin, constants::GENERAL_ISSUE, osu::MapIdType};
 use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 use twilight_model::channel::Message;
 
 use crate::{
-    active::{impls::BookmarksPagination, ActiveMessages},
+    active::{ActiveMessages, impls::BookmarksPagination},
     core::Context,
-    util::{interaction::InteractionCommand, osu::MapOrScore, Authored, InteractionCommandExt},
+    util::{Authored, InteractionCommandExt, interaction::InteractionCommand, osu::MapOrScore},
 };
 
 #[msg_command(name = "Bookmark map", flags(EPHEMERAL))]
