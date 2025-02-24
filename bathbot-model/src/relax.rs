@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use crate::deser::{datetime_rfc3339, option_datetime_rfc3339};
+use rosu_v2::model::Grade;
 use serde::Deserialize;
 use time::OffsetDateTime;
 
@@ -11,7 +12,7 @@ pub struct RelaxScore {
     user: RelaxUser,
     beatmap_id: u32,
     beatmap: RelaxBeatmap,
-    grade: RelaxGrade,
+    grade: Grade,
     accuracy: f64,
     combo: u32,
     mods: Option<String>,
@@ -84,27 +85,6 @@ pub enum RelaxBeatmapStatus {
     Loved,
 }
 
-#[derive(Debug, Deserialize)]
-pub enum RelaxGrade {
-    #[serde(rename = "F")]
-    F,
-    #[serde(rename = "D")]
-    D,
-    #[serde(rename = "C")]
-    C,
-    #[serde(rename = "B")]
-    B,
-    #[serde(rename = "A")]
-    A,
-    #[serde(rename = "S")]
-    S,
-    #[serde(rename = "SH")]
-    SH,
-    #[serde(rename = "X")]
-    X,
-    #[serde(rename = "XH")]
-    XH,
-}
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxAllowedModsResponse {
