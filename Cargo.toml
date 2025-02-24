@@ -15,7 +15,7 @@ resolver = "2"
 [workspace.package]
 version = "3.17.7"
 authors = ["MaxOhn <ohn.m@hotmail.de>"]
-edition = "2021"
+edition = "2024"
 
 [workspace.dependencies]
 bitflags = { version = "2.8.0" }

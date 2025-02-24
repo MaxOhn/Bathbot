@@ -77,7 +77,7 @@ unsafe fn cow_replace<'s>(
     let mut last_start = 0;
 
     for (index, matched) in match_indices {
-        result += src.get_unchecked(last_start..index);
+        result += unsafe { src.get_unchecked(last_start..index) };
 
         if !to.is_empty() {
             result.to_mut().push_str(to);
@@ -86,7 +86,7 @@ unsafe fn cow_replace<'s>(
         last_start = index + matched.len();
     }
 
-    result += src.get_unchecked(last_start..);
+    result += unsafe { src.get_unchecked(last_start..) };
 
     result
 }

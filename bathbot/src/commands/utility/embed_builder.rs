@@ -399,7 +399,7 @@ enum ScoreEmbedDataStatus {
 impl ScoreEmbedDataStatus {
     fn try_get(&self) -> Option<&ScoreEmbedData> {
         match self {
-            Self::Full(ref data) => Some(data),
+            Self::Full(data) => Some(data),
             Self::Raw(_) | Self::Half(_) | Self::Empty => None,
         }
     }

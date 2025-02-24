@@ -229,7 +229,7 @@ impl BookmarksPagination {
         );
 
         let (mapper_name, mapper_id) = match gd_creator {
-            Some(ref name) => (name.as_str(), map.mapper_id),
+            Some(name) => (name.as_str(), map.mapper_id),
             None => (map.creator_name.as_ref(), map.creator_id),
         };
 

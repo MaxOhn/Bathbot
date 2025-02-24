@@ -80,7 +80,7 @@ unsafe fn _gestalt_pattern_matching(word_a: &str, word_b: &str, buf: &mut [u16])
         start_a,
         start_b,
         len,
-    } = longest_common_substring(word_a, word_b, buf);
+    } = unsafe { longest_common_substring(word_a, word_b, buf) };
 
     if len == 0 {
         return 0;
@@ -91,14 +91,14 @@ unsafe fn _gestalt_pattern_matching(word_a: &str, word_b: &str, buf: &mut [u16])
     if start_a > 0 && start_b > 0 {
         let prefix_a = prefix(word_a, start_a);
         let prefix_b = prefix(word_b, start_b);
-        matches += _gestalt_pattern_matching(prefix_a, prefix_b, buf);
+        matches += unsafe { _gestalt_pattern_matching(prefix_a, prefix_b, buf) };
     }
 
     let suffix_a = suffix(word_a, start_a + len);
     let suffix_b = suffix(word_b, start_b + len);
 
     if !(suffix_a.is_empty() || suffix_b.is_empty()) {
-        matches += _gestalt_pattern_matching(suffix_a, suffix_b, buf);
+        matches += unsafe { _gestalt_pattern_matching(suffix_a, suffix_b, buf) };
     }
 
     matches
@@ -152,13 +152,13 @@ unsafe fn longest_common_substring<'w>(
     for (j, a) in word_a.chars().rev().enumerate() {
         for (i, b) in word_b.chars().enumerate() {
             if a != b {
-                *buf.get_unchecked_mut(i) = 0;
+                unsafe { *buf.get_unchecked_mut(i) = 0 };
 
                 continue;
             }
 
-            let val = *buf.get_unchecked(i + 1) + 1;
-            *buf.get_unchecked_mut(i) = val;
+            let val = unsafe { *buf.get_unchecked(i + 1) + 1 };
+            unsafe { *buf.get_unchecked_mut(i) = val };
 
             if val > len {
                 len = val;

@@ -33,7 +33,7 @@ impl Availability<Box<[Score]>> {
         legacy_scores: bool,
     ) -> Option<&[Score]> {
         match self {
-            Self::Received(ref scores) => return Some(scores),
+            &mut Self::Received(ref scores) => return Some(scores),
             Self::Errored => return None,
             Self::NotRequested => {}
         }
@@ -61,7 +61,7 @@ pub(super) struct MapperNames(pub HashMap<u32, Username, IntHasher>);
 impl Availability<MapperNames> {
     pub(super) async fn get(&mut self, entries: &[(u32, (u8, f32))]) -> Option<&MapperNames> {
         match self {
-            Availability::Received(ref names) => Some(names),
+            &mut Availability::Received(ref names) => Some(names),
             Availability::Errored => None,
             Availability::NotRequested => {
                 let ids: Vec<_> = entries.iter().map(|(id, _)| *id as i32).collect();
@@ -98,7 +98,7 @@ pub(super) struct SkinUrl(pub Option<String>);
 impl Availability<SkinUrl> {
     pub(super) async fn get(&mut self, user_id: u32) -> Option<&str> {
         match self {
-            Availability::Received(SkinUrl(ref skin_url)) => return skin_url.as_deref(),
+            &mut Availability::Received(SkinUrl(ref skin_url)) => return skin_url.as_deref(),
             Availability::Errored => return None,
             Availability::NotRequested => {}
         }

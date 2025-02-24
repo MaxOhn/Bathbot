@@ -36,7 +36,7 @@ pub async fn trackingstats(command: InteractionCommand) -> Result<()> {
             let opt = modes_str
                 .iter()
                 .zip(mode_hits.iter_mut())
-                .find(|(&mode, _)| mode == label_value);
+                .find(|&(&mode, _)| mode == label_value);
 
             let Some((_, count)) = opt else { return };
             *count += value;
