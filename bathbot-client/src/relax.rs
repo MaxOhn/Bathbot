@@ -1,10 +1,11 @@
-use crate::{site::Site, Client};
 use bathbot_model::{
     RelaxPlayersDataResponse, RelaxRecentScoresResponse, RelaxScore, RelaxStatsResponse,
 };
 use bathbot_util::constants::RELAX_API;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::CountryCode;
+
+use crate::{site::Site, Client};
 
 impl Client {
     /// /api/scores
