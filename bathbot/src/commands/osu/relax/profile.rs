@@ -8,7 +8,6 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
-use time::UtcOffset;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::manager::redis::osu::CachedUser;
@@ -80,7 +79,6 @@ pub(super) async fn relax_player_profile(
     };
 
     let client = Context::client();
-    let tz = no_user_specified.then_some(config.timezone).flatten();
 
     let user_id = user.user_id.to_native();
     let guild = orig.guild_id();
@@ -89,22 +87,8 @@ pub(super) async fn relax_player_profile(
     // Try to get the discord user id that is linked to the osu!user
     let info_fut = client.get_relax_player(user_id);
     let (user_id_res, relax_player) = tokio::join!(user_id_fut, info_fut);
-    let discord_id = match user_id_res {
-        Ok(user) => match (guild, user) {
-            (Some(guild), Some(user)) => Context::cache()
-                .member(guild, user) // make sure the user is in the guild
-                .await?
-                .map(|_| user),
-            _ => None,
-        },
-        Err(err) => {
-            warn!(?err, "Failed to get discord id from osu user id");
-
-            None
-        }
-    };
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
-    let mut pagination = RelaxProfile::new(user, discord_id, tz, relax_player?, origin, owner);
+    let mut pagination = RelaxProfile::new(user, relax_player?, origin);
 
     let builder = MessageBuilder::new().embed(pagination.compact().unwrap());
     orig.create_message(builder).await?;
@@ -114,30 +98,13 @@ pub(super) async fn relax_player_profile(
 
 pub struct RelaxProfile {
     user: CachedUser,
-    discord_id: Option<Id<UserMarker>>,
-    tz: Option<UtcOffset>,
     info: RelaxPlayersDataResponse,
     origin: MessageOrigin,
-    msg_owner: Id<UserMarker>,
 }
 
 impl RelaxProfile {
-    pub fn new(
-        user: CachedUser,
-        discord_id: Option<Id<UserMarker>>,
-        tz: Option<UtcOffset>,
-        info: RelaxPlayersDataResponse,
-        origin: MessageOrigin,
-        msg_owner: Id<UserMarker>,
-    ) -> Self {
-        Self {
-            user,
-            discord_id,
-            tz,
-            info,
-            origin,
-            msg_owner,
-        }
+    pub fn new(user: CachedUser, info: RelaxPlayersDataResponse, origin: MessageOrigin) -> Self {
+        Self { user, info, origin }
     }
 
     pub fn compact(&mut self) -> Result<EmbedBuilder> {
