@@ -52,10 +52,10 @@ pub(super) async fn relax_player_profile(
     let owner = orig.user_id()?;
     let config = Context::user_config().with_osu_id(owner).await?;
 
-    let user_id = match user_id!(orig, args) {
-        Some(user_id) => user_id,
+    let (user_id, no_user_specified) = match user_id!(orig, args) {
+        Some(user_id) => (user_id, false),
         None => match config.osu {
-            Some(user_id) => UserId::Id(user_id),
+            Some(user_id) => (UserId::Id(user_id), true),
             None => return require_link(&orig).await,
         },
     };
@@ -80,13 +80,6 @@ pub(super) async fn relax_player_profile(
     };
 
     let client = Context::client();
-    let (user_id, no_user_specified) = match user_id!(orig, args) {
-        Some(user_id) => (user_id, false),
-        None => match config.osu {
-            Some(user_id) => (UserId::Id(user_id), true),
-            None => return require_link(&orig).await,
-        },
-    };
     let tz = no_user_specified.then_some(config.timezone).flatten();
 
     let user_id = user.user_id.to_native();
