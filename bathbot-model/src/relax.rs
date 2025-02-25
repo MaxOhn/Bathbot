@@ -9,7 +9,8 @@ use time::OffsetDateTime;
 pub struct RelaxScore {
     id: u64,
     user_id: u32,
-    user: RelaxUser,
+    // Comes as a null from /api/players/{user_id}/scores
+    user: Option<RelaxUser>,
     beatmap_id: u32,
     beatmap: RelaxBeatmap,
     grade: Grade,
@@ -107,8 +108,8 @@ pub struct RelaxListingBeatmap {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxPlaycountPerMonth {
-    // TODO: Make date-time
-    date: String,
+    #[serde(with = "datetime_rfc3339")]
+    date: OffsetDateTime,
     playcount: u32,
 }
 #[derive(Debug, Deserialize)]
@@ -136,8 +137,8 @@ pub struct RelaxPlayersDataResponse {
     pub username: Option<String>,
     pub total_pp: Option<f64>,
     pub total_accuracy: Option<f64>,
-    // TODO: Make date-time
-    pub updated_at: Option<String>,
+    #[serde(with = "option_datetime_rfc3339")]
+    pub updated_at: Option<OffsetDateTime>,
     pub rank: Option<u32>,
     pub country_rank: Option<u32>,
     pub playcount: u32,
