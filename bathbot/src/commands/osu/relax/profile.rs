@@ -93,7 +93,6 @@ pub(super) async fn relax_player_profile(
     let guild = orig.guild_id();
 
     let user_id_fut = Context::user_config().discord_from_osu_id(user_id);
-    // let user_id_res = user_id_fut.await;
     // Try to get the discord user id that is linked to the osu!user
     let info_fut = client.get_relax_player(user_id);
     let (user_id_res, relax_player) = tokio::join!(user_id_fut, info_fut);
@@ -112,7 +111,6 @@ pub(super) async fn relax_player_profile(
         }
     };
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
-    let owner = orig.user_id()?;
     let mut pagination =
         relax::RelaxProfile::new(user, discord_id, tz, relax_player?, origin, owner);
 
