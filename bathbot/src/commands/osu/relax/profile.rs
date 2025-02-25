@@ -1,25 +1,19 @@
-use std::{borrow::Cow, time::Instant};
+use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
-use bathbot_model::RelaxUser;
 use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder, MessageOrigin};
-use eyre::{Error, Report, Result};
+use eyre::{Report, Result};
 use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    guild::Permissions,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    active::{impls::relax, ActiveMessages},
-    commands::osu::{require_link, user_not_found},
+    active::impls::relax,
+    commands::osu::require_link,
     core::{commands::CommandOrigin, Context},
     manager::redis::osu::{UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
-
-use self::relax::RelaxProfile;
 
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]
 #[command(
