@@ -51,7 +51,7 @@ pub(super) async fn relax_player_profile(
     let owner = orig.user_id()?;
     let config = Context::user_config().with_osu_id(owner).await?;
 
-    let (user_id, no_user_specified) = match user_id!(orig, args) {
+    let (user_id, _) = match user_id!(orig, args) {
         Some(user_id) => (user_id, false),
         None => match config.osu {
             Some(user_id) => (UserId::Id(user_id), true),
@@ -81,14 +81,18 @@ pub(super) async fn relax_player_profile(
     let client = Context::client();
 
     let user_id = user.user_id.to_native();
-    let guild = orig.guild_id();
 
-    let user_id_fut = Context::user_config().discord_from_osu_id(user_id);
-    // Try to get the discord user id that is linked to the osu!user
     let info_fut = client.get_relax_player(user_id);
-    let (user_id_res, relax_player) = tokio::join!(user_id_fut, info_fut);
+    let relax_player = info_fut.await?;
+
+    if let None = relax_player {
+        return orig
+            .error(format!("User `{}` not found", user.username))
+            .await;
+    }
+
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
-    let mut pagination = RelaxProfile::new(user, relax_player?, origin);
+    let mut pagination = RelaxProfile::new(user, relax_player.unwrap(), origin);
 
     let builder = MessageBuilder::new().embed(pagination.compact().unwrap());
     orig.create_message(builder).await?;
