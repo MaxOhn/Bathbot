@@ -2,21 +2,21 @@ use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
 use bathbot_model::RelaxPlayersDataResponse;
-use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder, MessageOrigin};
 use bathbot_util::{
-    constants::RELAX, numbers::WithComma, osu::flag_url, AuthorBuilder, EmbedBuilder,
+    constants::{GENERAL_ISSUE, RELAX},
+    numbers::WithComma,
+    osu::flag_url,
+    AuthorBuilder, EmbedBuilder, MessageBuilder, MessageOrigin,
 };
 use eyre::{Report, Result};
 use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-
-use crate::manager::redis::osu::CachedUser;
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::osu::require_link,
     core::{commands::CommandOrigin, Context},
-    manager::redis::osu::{UserArgs, UserArgsError},
+    manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 

@@ -1,8 +1,9 @@
 #![allow(dead_code)]
-use crate::deser::{datetime_rfc3339, option_datetime_rfc3339};
 use rosu_v2::model::Grade;
 use serde::Deserialize;
 use time::OffsetDateTime;
+
+use crate::deser::{datetime_rfc3339, option_datetime_rfc3339};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
