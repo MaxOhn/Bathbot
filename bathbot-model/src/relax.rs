@@ -15,7 +15,7 @@ pub struct RelaxScore {
     grade: Grade,
     accuracy: f64,
     combo: u32,
-    mods: Option<String>,
+    mods: Vec<String>,
     #[serde(with = "datetime_rfc3339")]
     date: OffsetDateTime,
     total_score: u32,
