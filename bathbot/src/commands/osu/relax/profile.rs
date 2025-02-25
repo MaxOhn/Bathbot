@@ -1,14 +1,20 @@
 use std::borrow::Cow;
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_model::RelaxPlayersDataResponse;
 use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder, MessageOrigin};
+use bathbot_util::{
+    constants::RELAX, numbers::WithComma, osu::flag_url, AuthorBuilder, EmbedBuilder,
+};
 use eyre::{Report, Result};
 use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
+use time::UtcOffset;
 use twilight_interactions::command::{CommandModel, CreateCommand};
+
+use crate::manager::redis::osu::CachedUser;
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    active::impls::relax,
     commands::osu::require_link,
     core::{commands::CommandOrigin, Context},
     manager::redis::osu::{UserArgs, UserArgsError},
@@ -98,11 +104,74 @@ pub(super) async fn relax_player_profile(
         }
     };
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
-    let mut pagination =
-        relax::RelaxProfile::new(user, discord_id, tz, relax_player?, origin, owner);
+    let mut pagination = RelaxProfile::new(user, discord_id, tz, relax_player?, origin, owner);
 
     let builder = MessageBuilder::new().embed(pagination.compact().unwrap());
     orig.create_message(builder).await?;
 
     Ok(())
+}
+
+pub struct RelaxProfile {
+    user: CachedUser,
+    discord_id: Option<Id<UserMarker>>,
+    tz: Option<UtcOffset>,
+    info: RelaxPlayersDataResponse,
+    origin: MessageOrigin,
+    msg_owner: Id<UserMarker>,
+}
+
+impl RelaxProfile {
+    pub fn new(
+        user: CachedUser,
+        discord_id: Option<Id<UserMarker>>,
+        tz: Option<UtcOffset>,
+        info: RelaxPlayersDataResponse,
+        origin: MessageOrigin,
+        msg_owner: Id<UserMarker>,
+    ) -> Self {
+        Self {
+            user,
+            discord_id,
+            tz,
+            info,
+            origin,
+            msg_owner,
+        }
+    }
+
+    pub fn compact(&mut self) -> Result<EmbedBuilder> {
+        let stats = &self.info;
+        let description = format!(
+            "Accuracy: [`{acc:.2}%`]({origin} \"{acc}\")\n\
+            Playcount: `{playcount}`",
+            acc = stats.total_accuracy.unwrap_or_default(),
+            origin = self.origin,
+            playcount = WithComma::new(stats.playcount),
+        );
+
+        let embed = EmbedBuilder::new()
+            .author(self.author_builder())
+            .description(description)
+            .thumbnail(self.user.avatar_url.as_ref());
+
+        Ok(embed)
+    }
+
+    fn author_builder(&self) -> AuthorBuilder {
+        let country_code = self.user.country_code.as_str();
+        let pp = self.info.total_pp;
+
+        let text = format!(
+            "{name}: {pp}pp (#{rank}, {country_code}{country_rank})",
+            name = self.user.username,
+            pp = WithComma::new(pp.unwrap()),
+            rank = self.info.rank.unwrap_or_default(),
+            country_rank = self.info.country_rank.unwrap_or_default(),
+        );
+
+        let url = format!("{RELAX}/users/{}", self.user.user_id);
+        let icon = flag_url(country_code);
+        AuthorBuilder::new(text).url(url).icon_url(icon)
+    }
 }
