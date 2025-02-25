@@ -86,7 +86,7 @@ impl Client {
 
     /// /api/players/{id}
     /// GET Relax player by osu! ID
-    pub async fn get_relax_player(&self, user_id: u32) -> Result<RelaxPlayersDataResponse> {
+    pub async fn get_relax_player(&self, user_id: u32) -> Result<Option<RelaxPlayersDataResponse>> {
         let url = format!("{}/players/{}", RELAX_API, user_id);
         debug!(url);
 
