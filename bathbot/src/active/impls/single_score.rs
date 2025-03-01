@@ -400,6 +400,8 @@ impl SingleScorePagination {
 
         let skin = settings.skin(allow_custom_skins);
 
+        debug!(score_id, discord = owner.get(), "Commissioning render");
+
         let render_fut = Context::ordr()
             .client()
             .render_with_replay_file(&replay, RENDERER_NAME, &skin.skin)

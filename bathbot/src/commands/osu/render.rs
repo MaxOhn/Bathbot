@@ -163,6 +163,12 @@ async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Res
 
     let skin = settings.skin(allow_custom_skins);
 
+    debug!(
+        replay_url = replay.url,
+        discord = owner.get(),
+        "Commissioning render"
+    );
+
     let render_fut = Context::ordr()
         .client()
         .render_with_replay_url(&replay.url, RENDERER_NAME, &skin.skin)
@@ -292,6 +298,8 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
     };
 
     let skin = settings.skin(allow_custom_skins);
+
+    debug!(score_id, discord = owner.get(), "Commissioning render");
 
     let render_fut = Context::ordr()
         .client()
