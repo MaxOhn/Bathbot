@@ -24,7 +24,7 @@ impl Buckets {
             make_bucket(2, 20, 3),   // BgSkip
             make_bucket(15, 0, 1),   // MatchCompare
             make_bucket(5, 900, 3),  // MatchLive
-            make_bucket(60, 600, 2), // Render
+            make_bucket(60, 720, 2), // Render
             make_bucket(20, 0, 1),   // Songs
         ])
     }
