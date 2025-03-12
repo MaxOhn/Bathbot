@@ -64,7 +64,8 @@ pub enum TopOld<'a> {
     - 2021: [Diff spike nerf, AR buff, FL-AR adjust](https://osu.ppy.sh/home/news/2021-07-27-performance-points-star-rating-updates)\n\
     - 2021: [Rhythm buff, slider buff, FL skill](https://osu.ppy.sh/home/news/2021-11-09-performance-points-star-rating-updates)\n\
     - 2022: [Aim buff, doubletap detection improvement, low AR nerf, FL adjustments](https://osu.ppy.sh/home/news/2022-09-30-changes-to-osu-sr-and-pp)\n
-    - 2024: [Combo scale removal, improved rhythm complexity, slider pp](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
+    - 2024: [Combo scale removal, improved rhythm complexity, slider pp](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)\n\
+    - 2025: [Aim nerf, n50s adjustment](https://osu.ppy.sh/home/news/2025-03-06-performance-points-star-rating-updates)"
 )]
 pub struct TopOldOsu<'a> {
     #[command(desc = "Choose which version should replace the current pp system")]
@@ -135,8 +136,10 @@ pub enum TopOldOsuVersion {
         value = "september22_october24"
     )]
     September22October24,
-    #[option(name = "October 2024 - Now", value = "october24_now")]
-    October24Now,
+    #[option(name = "October 2024 - Now", value = "october24_march25")]
+    October24March25,
+    #[option(name = "March 2025 - Now", value = "march25_now")]
+    March25Now,
 }
 
 impl TryFrom<i32> for TopOldOsuVersion {
@@ -162,9 +165,10 @@ impl TryFrom<i32> for TopOldOsuVersion {
             2021 | 21 => Ok(Self::July21November21),
             2022 | 22 => Ok(Self::November21September22),
             2023 | 23 => Ok(Self::September22October24),
+            2024 | 24 => Ok(Self::October24March25),
             i32::MIN..=2006 => Err("osu! was not a thing until september 2007.\n\
                 The first available pp system is from 2014."),
-            _ => Ok(Self::October24Now),
+            _ => Ok(Self::March25Now),
         }
     }
 }
@@ -177,7 +181,8 @@ impl TryFrom<i32> for TopOldOsuVersion {
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating)\n\
     - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)\n
-    - 2024: [TL-tap consideration, acc scale adjust, mod adjusts](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
+    - 2024: [TL-tap consideration, acc scale adjust, mod adjusts](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)\n\
+    - 2025: [Rhythm rewrite, new reading skill, convert adjustments](https://osu.ppy.sh/home/news/2025-03-06-performance-points-star-rating-updates)"
 )]
 pub struct TopOldTaiko<'a> {
     #[command(desc = "Choose which version should replace the current pp system")]
@@ -234,8 +239,10 @@ pub enum TopOldTaikoVersion {
         value = "september22_october24"
     )]
     September22October24,
-    #[option(name = "October 2024 - Now", value = "october24_now")]
-    October24Now,
+    #[option(name = "October 2024 - March 2025", value = "october24_march25")]
+    October24March25,
+    #[option(name = "March 2025 - Now", value = "march25_now")]
+    March25Now,
 }
 
 impl TryFrom<i32> for TopOldTaikoVersion {
@@ -246,9 +253,10 @@ impl TryFrom<i32> for TopOldTaikoVersion {
             2014..=2019 | 14..=19 => Ok(Self::March14September20),
             2020..=2022 | 20..=22 => Ok(Self::September20September22),
             2023 | 23 => Ok(Self::September22October24),
+            2024 | 24 => Ok(Self::October24March25),
             i32::MIN..=2013 => Err("taiko pp were not a thing until march 2014. \
                 I think? Don't quote me on that :^)"),
-            _ => Ok(Self::October24Now),
+            _ => Ok(Self::March25Now),
         }
     }
 }
@@ -429,7 +437,8 @@ pub async fn slash_topold(mut command: InteractionCommand) -> Result<()> {
     - 2021: [Diff spike nerf, AR buff, FL-AR adjust](https://osu.ppy.sh/home/news/2021-07-27-performance-points-star-rating-updates)\n\
     - 2021: [Rhythm buff, slider buff, FL skill](https://osu.ppy.sh/home/news/2021-11-09-performance-points-star-rating-updates)\n\
     - 2022: [Aim buff, doubletap detection improvement, low AR nerf, FL adjustments](https://osu.ppy.sh/home/news/2022-09-30-changes-to-osu-sr-and-pp)\n
-    - 2024: [Combo scale removal, improved rhythm complexity, slider pp](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
+    - 2024: [Combo scale removal, improved rhythm complexity, slider pp](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)\n\
+    - 2025: [Aim nerf, n50s adjustment](https://osu.ppy.sh/home/news/2025-03-06-performance-points-star-rating-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2015")]
@@ -483,7 +492,8 @@ async fn prefix_topoldmania(msg: &Message, args: Args<'_>) -> Result<()> {
     - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating)\n\
     - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)\n
-    - 2024: [TL-tap consideration, acc scale adjust, mod adjusts](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)"
+    - 2024: [TL-tap consideration, acc scale adjust, mod adjusts](https://osu.ppy.sh/home/news/2024-10-28-performance-points-star-rating-updates)\n\
+    - 2025: [Rhythm rewrite, new reading skill, convert adjustments](https://osu.ppy.sh/home/news/2025-03-06-performance-points-star-rating-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2015")]
@@ -625,7 +635,8 @@ impl<'m> TopOld<'m> {
                     "between november 2021 and september 2022"
                 }
                 TopOldOsuVersion::September22October24 => "between september 2022 and october 2024",
-                TopOldOsuVersion::October24Now => "since october 2024",
+                TopOldOsuVersion::October24March25 => "between october 2024 and march 2025",
+                TopOldOsuVersion::March25Now => "since march 2025",
             },
             TopOld::Taiko(t) => match t.version {
                 TopOldTaikoVersion::March14September20 => "between march 2014 and september 2020",
@@ -635,7 +646,8 @@ impl<'m> TopOld<'m> {
                 TopOldTaikoVersion::September22October24 => {
                     "between september 2022 and october 2024"
                 }
-                TopOldTaikoVersion::October24Now => "since october 2024",
+                TopOldTaikoVersion::October24March25 => "between october 2024 and march 2025",
+                TopOldTaikoVersion::March25Now => "since march 2025",
             },
             TopOld::Catch(c) => match c.version {
                 TopOldCatchVersion::March14May20 => "between march 2014 and may 2020",
@@ -653,21 +665,65 @@ impl<'m> TopOld<'m> {
 }
 
 macro_rules! pp_std {
-    ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
-        let max_pp_res = $version::OsuPP::new($rosu_map).mods($mods).calculate();
+    ($version:ident, $rosu_map:ident, $score:ident ) => {
+        pp_std!(
+            $version,
+            $rosu_map,
+            $score,
+            $score.mods.bits(),
+            $score.mods.bits(),
+        )
+    };
+
+    ($version:ident, $rosu_map:ident, $score:ident, lazer ) => {
+        pp_std!(
+            $version,
+            $rosu_map,
+            $score,
+            $score.mods.clone(),
+            $score.mods.clone(),
+            lazer: $score.set_on_lazer,
+            large_tick_hit: $score.statistics.large_tick_hit,
+            small_tick_hit: $score.statistics.small_tick_hit,
+            slider_end_hit: $score.statistics.slider_tail_hit,
+        )
+    };
+
+    (
+        $version:ident,
+        $rosu_map:ident,
+        $score:ident,
+        $max_mods:expr,
+        $curr_mods:expr,
+        $(
+            lazer: $lazer:expr,
+            large_tick_hit: $large_tick_hit:expr,
+            small_tick_hit: $small_tick_hit:expr,
+            slider_end_hit: $slider_end_hit:expr,
+        )?
+    ) => {{
+        let max_pp_res = $version::OsuPP::new($rosu_map)
+            .mods($max_mods)
+            $( .lazer($lazer) )?
+            .calculate();
 
         let max_pp = max_pp_res.pp as f32;
         let stars = max_pp_res.difficulty.stars as f32;
-        let stats = $score.statistics.as_legacy(GameMode::Osu);
 
         let attrs = $version::OsuPP::new($rosu_map)
-            .mods($mods)
+            .mods($curr_mods)
             .attributes(max_pp_res.difficulty)
-            .n300(stats.count_300)
-            .n100(stats.count_100)
-            .n50(stats.count_50)
-            .misses(stats.count_miss)
+            .n300($score.statistics.great)
+            .n100($score.statistics.ok)
+            .n50($score.statistics.meh)
+            .misses($score.statistics.miss)
             .combo($score.max_combo)
+            $(
+                .lazer($lazer)
+                .large_tick_hits($large_tick_hit)
+                .small_tick_hits($small_tick_hit)
+                .slider_end_hits($slider_end_hit)
+            )?
             .calculate();
 
         let pp = attrs.pp as f32;
@@ -678,19 +734,46 @@ macro_rules! pp_std {
 }
 
 macro_rules! pp_tko {
-    ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
-        let max_pp_res = $version::TaikoPP::new($rosu_map).mods($mods).calculate();
+    ($version:ident, $rosu_map:ident, $score:ident ) => {
+        pp_tko!(
+            $version,
+            $rosu_map,
+            $score,
+            $score.mods.bits(),
+            $score.mods.bits(),
+        )
+    };
+
+    ($version:ident, $rosu_map:ident, $score:ident, lazer) => {
+        pp_tko!(
+            $version,
+            $rosu_map,
+            $score,
+            $score.mods.clone(),
+            $score.mods.clone(),
+        )
+    };
+
+    (
+        $version:ident,
+        $rosu_map:ident,
+        $score:ident,
+        $max_mods:expr,
+        $curr_mods:expr,
+    ) => {{
+        let max_pp_res = $version::TaikoPP::new($rosu_map)
+            .mods($max_mods)
+            .calculate();
 
         let max_pp = max_pp_res.pp as f32;
         let stars = max_pp_res.difficulty.stars as f32;
-        let stats = $score.statistics.as_legacy(GameMode::Taiko);
 
         let attrs = $version::TaikoPP::new($rosu_map)
-            .mods($mods)
+            .mods($curr_mods)
             .attributes(max_pp_res.difficulty)
-            .n300(stats.count_300)
-            .n100(stats.count_100)
-            .misses(stats.count_miss)
+            .n300($score.statistics.great)
+            .n100($score.statistics.ok)
+            .misses($score.statistics.miss)
             .combo($score.max_combo)
             .calculate();
 
@@ -702,15 +785,43 @@ macro_rules! pp_tko {
 }
 
 macro_rules! pp_ctb {
-    ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
-        let max_pp_res = $version::FruitsPP::new($rosu_map).mods($mods).calculate();
+    ($version:ident, $rosu_map:ident, $score:ident ) => {
+        pp_ctb!(
+            $version,
+            $rosu_map,
+            $score,
+            $score.mods.bits(),
+            $score.mods.bits(),
+        )
+    };
+
+    ($version:ident, $rosu_map:ident, $score:ident, lazer) => {
+        pp_ctb!(
+            $version,
+            $rosu_map,
+            $score,
+            $score.mods.clone(),
+            $score.mods.clone(),
+        )
+    };
+
+    (
+        $version:ident,
+        $rosu_map:ident,
+        $score:ident,
+        $max_mods:expr,
+        $curr_mods:expr,
+    ) => {{
+        let max_pp_res = $version::FruitsPP::new($rosu_map)
+            .mods($max_mods)
+            .calculate();
 
         let max_pp = max_pp_res.pp as f32;
         let stars = max_pp_res.difficulty.stars as f32;
         let stats = $score.statistics.as_legacy(GameMode::Catch);
 
         let attrs = $version::FruitsPP::new($rosu_map)
-            .mods($mods)
+            .mods($curr_mods)
             .attributes(max_pp_res.difficulty)
             .fruits(stats.count_300)
             .droplets(stats.count_100)
@@ -728,22 +839,53 @@ macro_rules! pp_ctb {
 }
 
 macro_rules! pp_mna {
-    ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
-        let max_pp_res = $version::ManiaPP::new($rosu_map).mods($mods).calculate();
+    ($version:ident, $rosu_map:ident, $score:ident ) => {
+        pp_mna!(
+            $version,
+            $rosu_map,
+            $score,
+            $score.mods.bits(),
+            $score.mods.bits(),
+        )
+    };
+
+    ($version:ident, $rosu_map:ident, $score:ident, lazer) => {
+        pp_mna!(
+            $version,
+            $rosu_map,
+            $score,
+            $score.mods.clone(),
+            $score.mods.clone(),
+            lazer: $score.set_on_lazer,
+        )
+    };
+
+    (
+        $version:ident,
+        $rosu_map:ident,
+        $score:ident,
+        $max_mods:expr,
+        $curr_mods:expr,
+        $( lazer: $lazer:expr, )?
+    ) => {{
+        let max_pp_res = $version::ManiaPP::new($rosu_map)
+            .mods($max_mods)
+            $( .lazer($lazer) )?
+            .calculate();
 
         let max_pp = max_pp_res.pp as f32;
         let stars = max_pp_res.difficulty.stars as f32;
-        let stats = $score.statistics.as_legacy(GameMode::Mania);
 
         let attrs = $version::ManiaPP::new($rosu_map)
-            .mods($mods)
+            .mods($curr_mods)
             .attributes(max_pp_res.difficulty)
-            .n320(stats.count_geki)
-            .n300(stats.count_300)
-            .n200(stats.count_katu)
-            .n100(stats.count_100)
-            .n50(stats.count_50)
-            .misses(stats.count_miss)
+            .n320($score.statistics.perfect)
+            .n300($score.statistics.great)
+            .n200($score.statistics.good)
+            .n100($score.statistics.ok)
+            .n50($score.statistics.meh)
+            .misses($score.statistics.miss)
+            $( .lazer($lazer) )?
             .calculate();
 
         let pp = attrs.pp as f32;
@@ -964,57 +1106,78 @@ async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<Top
             (pp, max_pp, stars, max_combo)
         }
 
-        let mods = score.mods.bits();
         let rosu_map = &map.pp_map;
 
         let (new_pp, max_pp, stars, max_combo) = match args {
             TopOld::Osu(o) => match o.version {
-                TopOldOsuVersion::May14July14 => pp_std!(osu_2014_may, rosu_map, score, mods),
-                TopOldOsuVersion::July14February15 => pp_std!(osu_2014_july, rosu_map, score, mods),
+                TopOldOsuVersion::May14July14 => {
+                    pp_std!(osu_2014_may, rosu_map, score)
+                }
+                TopOldOsuVersion::July14February15 => {
+                    pp_std!(osu_2014_july, rosu_map, score)
+                }
                 TopOldOsuVersion::February15April15 => {
-                    pp_std!(osu_2015_february, rosu_map, score, mods)
+                    pp_std!(osu_2015_february, rosu_map, score)
                 }
-                TopOldOsuVersion::April15May18 => pp_std!(osu_2015_april, rosu_map, score, mods),
-                TopOldOsuVersion::May18February19 => pp_std!(osu_2018, rosu_map, score, mods),
-                TopOldOsuVersion::February19January21 => pp_std!(osu_2019, rosu_map, score, mods),
+                TopOldOsuVersion::April15May18 => {
+                    pp_std!(osu_2015_april, rosu_map, score)
+                }
+                TopOldOsuVersion::May18February19 => {
+                    pp_std!(osu_2018, rosu_map, score)
+                }
+                TopOldOsuVersion::February19January21 => {
+                    pp_std!(osu_2019, rosu_map, score)
+                }
                 TopOldOsuVersion::January21July21 => {
-                    pp_std!(osu_2021_january, rosu_map, score, mods)
+                    pp_std!(osu_2021_january, rosu_map, score)
                 }
-                TopOldOsuVersion::July21November21 => pp_std!(osu_2021_july, rosu_map, score, mods),
+                TopOldOsuVersion::July21November21 => {
+                    pp_std!(osu_2021_july, rosu_map, score)
+                }
                 TopOldOsuVersion::November21September22 => {
-                    pp_std!(osu_2021_november, rosu_map, score, mods)
+                    pp_std!(osu_2021_november, rosu_map, score)
                 }
-                TopOldOsuVersion::September22October24 => pp_std!(osu_2022, rosu_map, score, mods),
-                TopOldOsuVersion::October24Now => use_current_system(&score, &map).await,
+                TopOldOsuVersion::September22October24 => {
+                    pp_std!(osu_2022, rosu_map, score)
+                }
+                TopOldOsuVersion::October24March25 => {
+                    pp_std!(osu_2024, rosu_map, score, lazer)
+                }
+                TopOldOsuVersion::March25Now => use_current_system(&score, &map).await,
             },
             TopOld::Taiko(t) => match t.version {
                 TopOldTaikoVersion::March14September20 => {
-                    pp_tko!(taiko_ppv1, rosu_map, score, mods)
+                    pp_tko!(taiko_ppv1, rosu_map, score)
                 }
                 TopOldTaikoVersion::September20September22 => {
-                    pp_tko!(taiko_2020, rosu_map, score, mods)
+                    pp_tko!(taiko_2020, rosu_map, score)
                 }
                 TopOldTaikoVersion::September22October24 => {
-                    pp_tko!(taiko_2022, rosu_map, score, mods)
+                    pp_tko!(taiko_2022, rosu_map, score)
                 }
-                TopOldTaikoVersion::October24Now => use_current_system(&score, &map).await,
+                TopOldTaikoVersion::October24March25 => {
+                    pp_tko!(taiko_2024, rosu_map, score, lazer)
+                }
+                TopOldTaikoVersion::March25Now => use_current_system(&score, &map).await,
             },
             TopOld::Catch(c) => match c.version {
-                TopOldCatchVersion::March14May20 => pp_ctb!(fruits_ppv1, rosu_map, score, mods),
+                TopOldCatchVersion::March14May20 => pp_ctb!(fruits_ppv1, rosu_map, score),
                 TopOldCatchVersion::May20October24 => {
-                    pp_ctb!(fruits_2022, rosu_map, score, mods)
+                    pp_ctb!(fruits_2022, rosu_map, score)
                 }
                 TopOldCatchVersion::October24Now => use_current_system(&score, &map).await,
             },
             TopOld::Mania(m) => match m.version {
                 TopOldManiaVersion::March14May18 => {
-                    let max_pp_res = mania_ppv1::ManiaPP::new(rosu_map).mods(mods).calculate();
+                    let max_pp_res = mania_ppv1::ManiaPP::new(rosu_map)
+                        .mods(score.mods.bits())
+                        .calculate();
 
                     let max_pp = max_pp_res.pp as f32;
                     let stars = max_pp_res.difficulty.stars as f32;
 
                     let attrs = mania_ppv1::ManiaPP::new(rosu_map)
-                        .mods(mods)
+                        .mods(score.mods.bits())
                         .attributes(max_pp_res)
                         .score(score.score)
                         .accuracy(score.accuracy)
@@ -1026,13 +1189,15 @@ async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<Top
                     (pp, max_pp, stars, max_combo)
                 }
                 TopOldManiaVersion::May18October22 => {
-                    let max_pp_res = mania_2018::ManiaPP::new(rosu_map).mods(mods).calculate();
+                    let max_pp_res = mania_2018::ManiaPP::new(rosu_map)
+                        .mods(score.mods.bits())
+                        .calculate();
 
                     let max_pp = max_pp_res.pp as f32;
                     let stars = max_pp_res.difficulty.stars as f32;
 
                     let attrs = mania_2018::ManiaPP::new(rosu_map)
-                        .mods(mods)
+                        .mods(score.mods.bits())
                         .attributes(max_pp_res)
                         .score(score.score)
                         .calculate();
@@ -1043,7 +1208,7 @@ async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<Top
                     (pp, max_pp, stars, max_combo)
                 }
                 TopOldManiaVersion::October22October24 => {
-                    pp_mna!(mania_2022, rosu_map, score, mods)
+                    pp_mna!(mania_2022, rosu_map, score)
                 }
                 TopOldManiaVersion::October24Now => use_current_system(&score, &map).await,
             },

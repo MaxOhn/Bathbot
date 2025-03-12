@@ -1730,7 +1730,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -2619,14 +2619,13 @@ dependencies = [
 [[package]]
 name = "rosu-map"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21de4f8c5cd2738e1c9a2ed477aad2579dacd5acf3845d80738fcec160d0bd8a"
+source = "git+https://github.com/MaxOhn/rosu-map#952bacc3115304c2a62f1db406fc6f677dc2d03b"
 
 [[package]]
 name = "rosu-mods"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65892bec4e81b3931f3c0b3a646feff0daa78b22dff2b45b157c642f1be14b04"
+checksum = "743a643c73fd79731b2b688e60f5e86eeea0e0953ab1f4fac8b5ce0b476a5773"
 dependencies = [
  "paste",
  "rkyv",
@@ -2636,7 +2635,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp"
 version = "2.0.0"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=main#51a303834fbf65f5c8c0a49061f3459c44f19d49"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=pp-update#b4b447dff0067cd062a546330f34a4ac89506d19"
 dependencies = [
  "rosu-map",
  "rosu-mods",
@@ -2645,9 +2644,10 @@ dependencies = [
 [[package]]
 name = "rosu-pp-older"
 version = "0.2.0"
-source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#61cff1a43c9a6916d732d9c78e20ef75060eca35"
+source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#02e1f702003a1082d890e7c3144338578922125f"
 dependencies = [
  "rosu-map",
+ "rosu-mods",
  "rosu-pp",
 ]
 
@@ -2685,7 +2685,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.10.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=lazer#536b9f5d2b05745e4e18ee5d024d2487c99661e7"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=lazer#f20e6405772d25bc211d11eca4dcb28d27d6a617"
 dependencies = [
  "bytes",
  "futures",
@@ -4200,7 +4200,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

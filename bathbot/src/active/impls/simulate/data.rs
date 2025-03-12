@@ -250,7 +250,27 @@ impl SimulateData {
                     with_diff: true,
                 }
             },
-            TopOldVersion::Osu(TopOldOsuVersion::October24Now) => simulate! {
+            TopOldVersion::Osu(TopOldOsuVersion::October24March25) => simulate! {
+                rosu_pp_older::osu_2024::OsuPP {
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    n50: n50,
+                    misses: n_miss,
+                    slider_end_hits: n_slider_ends,
+                    small_tick_hits: n_slider_ends,
+                    large_tick_hits: n_large_ticks,
+                    clock_rate: clock_rate as f64,
+                    accuracy: acc as f64,
+                } => {
+                    mods: mods.clone(),
+                    max_new: map,
+                    with_diff: true,
+                    with_lazer: true,
+                    fallible: false,
+                }
+            },
+            TopOldVersion::Osu(TopOldOsuVersion::March25Now) => simulate! {
                 rosu_pp::osu::OsuPerformance {
                     combo: combo,
                     n300: n300,
@@ -309,7 +329,7 @@ impl SimulateData {
                     with_diff: true,
                 }
             },
-            TopOldVersion::Taiko(TopOldTaikoVersion::October24Now) => simulate! {
+            TopOldVersion::Taiko(TopOldTaikoVersion::March25Now) => simulate! {
                 rosu_pp::taiko::TaikoPerformance {
                     combo: combo,
                     n300: n300,
@@ -321,6 +341,21 @@ impl SimulateData {
                     mods: mods.clone(),
                     max_new: attrs,
                     fallible: true,
+                }
+            },
+            TopOldVersion::Taiko(TopOldTaikoVersion::October24March25) => simulate! {
+                rosu_pp_older::taiko_2024::TaikoPP {
+                    combo: combo,
+                    n300: n300,
+                    n100: n100,
+                    misses: n_miss,
+                    clock_rate: clock_rate as f64,
+                    accuracy: acc as f64,
+                } => {
+                    mods: mods.clone(),
+                    max_new: map,
+                    with_diff: true,
+                    fallible: false,
                 }
             },
             TopOldVersion::Catch(TopOldCatchVersion::March14May20) => simulate! {
@@ -455,9 +490,13 @@ impl SimulateData {
                 matches!(
                     self.version,
                     TopOldVersion::Osu(
-                        TopOldOsuVersion::September22October24 | TopOldOsuVersion::October24Now
+                        TopOldOsuVersion::September22October24
+                            | TopOldOsuVersion::October24March25
+                            | TopOldOsuVersion::March25Now
                     ) | TopOldVersion::Taiko(
-                        TopOldTaikoVersion::September22October24 | TopOldTaikoVersion::October24Now
+                        TopOldTaikoVersion::September22October24
+                            | TopOldTaikoVersion::October24March25
+                            | TopOldTaikoVersion::March25Now
                     ) | TopOldVersion::Catch(
                         TopOldCatchVersion::May20October24 | TopOldCatchVersion::October24Now
                     ) | TopOldVersion::Mania(
