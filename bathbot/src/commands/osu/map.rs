@@ -698,6 +698,7 @@ fn draw_mode_strains(
             draw_line!("Stamina (Single color)", strains.single_color_stamina, BLUE);
             draw_line!("Color", strains.color, YELLOW);
             draw_line!("Rhythm", strains.rhythm, CYAN);
+            draw_line!("Reading", strains.reading, GREEN);
         }
         Strains::Catch(strains) => draw_line!("Movement", strains.movement, CYAN),
         Strains::Mania(strains) => draw_line!("Strain", strains.strains, MAGENTA),

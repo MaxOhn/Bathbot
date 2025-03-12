@@ -95,7 +95,7 @@ impl Skills {
                 let mut weight_sum = 0.0;
 
                 const ACC_NERF: f64 = 1.15;
-                const DIFFICULTY_NERF: f64 = 3.1;
+                const DIFFICULTY_NERF: f64 = 3.6;
 
                 for (i, score) in scores.iter().enumerate() {
                     let Some(attrs) = maps.remove(&score.map_id) else {
