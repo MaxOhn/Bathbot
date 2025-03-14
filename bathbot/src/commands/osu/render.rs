@@ -220,7 +220,7 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
         Err(_) => match matcher::get_osu_score_id(&score_id) {
             Some((score_id, _)) => score_id,
             None => {
-                let content = format!("Must give either a score id or url");
+                let content = "Must give either a score id or url";
                 command.error(content).await?;
 
                 return Ok(());
