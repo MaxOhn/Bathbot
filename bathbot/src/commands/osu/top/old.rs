@@ -7,7 +7,7 @@ use bathbot_util::{constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSe
 use eyre::{Report, Result};
 use rosu_pp_older::*;
 use rosu_v2::{
-    prelude::{GameMod, GameMode, OsuError, Score},
+    prelude::{GameMode, OsuError, Score},
     request::UserId,
 };
 use time::OffsetDateTime;
@@ -1265,28 +1265,16 @@ impl CommonArgs<'_> {
         if let Some(ref selection) = self.mods {
             match selection {
                 ModSelection::Include(mods) | ModSelection::Exact(mods) if mods.is_empty() => {
-                    entries.retain(|entry| entry.score.mods.is_empty())
+                    entries.retain(|entry| ModSelection::filter_empty(&entry.score.mods))
                 }
-                ModSelection::Include(mods) => entries.retain(|entry| {
-                    mods.iter()
-                        .all(|gamemod| entry.score.mods.contains_intermode(gamemod))
-                }),
-                ModSelection::Exclude(mods) if mods.is_empty() => {
-                    entries.retain(|entry| !entry.score.mods.is_empty())
+                ModSelection::Include(mods) => {
+                    entries.retain(|entry| ModSelection::filter_include(mods, &entry.score.mods))
                 }
-                ModSelection::Exclude(mods) => entries.retain(|entry| {
-                    !mods
-                        .iter()
-                        .any(|gamemod| entry.score.mods.contains_intermode(gamemod))
-                }),
-                ModSelection::Exact(mods) => entries.retain(|entry| {
-                    entry
-                        .score
-                        .mods
-                        .iter()
-                        .map(GameMod::intermode)
-                        .eq(mods.iter())
-                }),
+                &ModSelection::Exclude { ref mods, nomod } => entries
+                    .retain(|entry| ModSelection::filter_exclude(mods, nomod, &entry.score.mods)),
+                ModSelection::Exact(mods) => {
+                    entries.retain(|entry| ModSelection::filter_exact(mods, &entry.score.mods))
+                }
             }
         }
 

@@ -210,7 +210,7 @@ async fn fix(orig: CommandOrigin<'_>, args: FixArgs<'_>) -> Result<()> {
     };
 
     let mods = match mods {
-        None | Some(ModSelection::Exclude(_)) => None,
+        None | Some(ModSelection::Exclude { .. }) => None,
         Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => Some(mods),
     };
 

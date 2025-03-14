@@ -1,7 +1,12 @@
 use std::{borrow::Cow, cell::RefCell, cmp::Ordering, fmt::Write, mem, rc::Rc, time::Duration};
 
 use bathbot_macros::{HasMods, SlashCommand, command};
-use bathbot_util::{MessageOrigin, constants::OSU_API_ISSUE, matcher, osu::MapIdType};
+use bathbot_util::{
+    MessageOrigin,
+    constants::OSU_API_ISSUE,
+    matcher,
+    osu::{MapIdType, ModSelection},
+};
 use enterpolation::{Curve, linear::Linear};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use image::DynamicImage;
@@ -273,8 +278,8 @@ async fn map(orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
     };
 
     let mods = match mods {
-        Some(selection) => selection.into_mods(),
-        None => GameModsIntermode::new(),
+        Some(ModSelection::Include(mods) | ModSelection::Exact(mods)) => mods,
+        None | Some(ModSelection::Exclude { .. }) => GameModsIntermode::new(),
     };
 
     let mapset_res = match map_id {

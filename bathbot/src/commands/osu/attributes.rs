@@ -1,5 +1,8 @@
 use bathbot_macros::SlashCommand;
-use bathbot_util::{MessageBuilder, matcher, osu::AttributeKind};
+use bathbot_util::{
+    MessageBuilder, matcher,
+    osu::{AttributeKind, ModSelection},
+};
 use eyre::Result;
 use rosu_v2::{model::mods::GameModsIntermode, prelude::GameMode};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -120,14 +123,23 @@ async fn slash_attributes(mut command: InteractionCommand) -> Result<()> {
 
     let mods = if let Some(mods) = GameModsIntermode::try_from_acronyms(&mods) {
         mods
-    } else if let Some(mods) = matcher::get_mods(&mods) {
-        mods.into_mods()
     } else {
-        let content =
-            "Failed to parse mods. Be sure to specify a valid mod combination e.g. `hrdt`.";
-        command.error_callback(content).await?;
+        match matcher::get_mods(&mods) {
+            Some(ModSelection::Include(mods) | ModSelection::Exact(mods)) => mods,
+            None => {
+                let content =
+                    "Failed to parse mods. Be sure to specify a valid mod combination e.g. `hrdt`.";
+                command.error_callback(content).await?;
 
-        return Ok(());
+                return Ok(());
+            }
+            Some(ModSelection::Exclude { .. }) => {
+                let content = "Excluding mods does not work for this command";
+                command.error_callback(content).await?;
+
+                return Ok(());
+            }
+        }
     };
 
     let valid_mods = [

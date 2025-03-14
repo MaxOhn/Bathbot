@@ -172,7 +172,10 @@ fn calculate_level(total_score: u64) -> f32 {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ModSelection {
     Include(GameModsIntermode),
-    Exclude(GameModsIntermode),
+    Exclude {
+        mods: GameModsIntermode,
+        nomod: bool,
+    },
     Exact(GameModsIntermode),
 }
 
@@ -183,6 +186,11 @@ pub enum ModsResult {
 }
 
 impl ModSelection {
+    const DT: GameModIntermode = GameModIntermode::DoubleTime;
+    const NC: GameModIntermode = GameModIntermode::Nightcore;
+    const PF: GameModIntermode = GameModIntermode::Perfect;
+    const SD: GameModIntermode = GameModIntermode::SuddenDeath;
+
     pub fn parse(mods: Option<&str>) -> ModsResult {
         let Some(mods) = mods else {
             return ModsResult::None;
@@ -195,73 +203,78 @@ impl ModSelection {
         matcher::get_mods(mods).map_or(ModsResult::Invalid, ModsResult::Mods)
     }
 
-    pub fn as_mods(&self) -> &GameModsIntermode {
-        match self {
-            Self::Include(m) | Self::Exclude(m) | Self::Exact(m) => m,
-        }
-    }
-
-    pub fn into_mods(self) -> GameModsIntermode {
-        match self {
-            Self::Include(m) | Self::Exclude(m) | Self::Exact(m) => m,
-        }
-    }
-
     /// Returns `true` if the score's mods coincide with this [`ModSelection`]
     pub fn filter_score(&self, score: &Score) -> bool {
-        const DT: GameModIntermode = GameModIntermode::DoubleTime;
-        const NC: GameModIntermode = GameModIntermode::Nightcore;
-        const SD: GameModIntermode = GameModIntermode::SuddenDeath;
-        const PF: GameModIntermode = GameModIntermode::Perfect;
-
         match self {
             ModSelection::Include(mods) | ModSelection::Exact(mods) if mods.is_empty() => {
-                score.mods.is_empty()
+                Self::filter_empty(&score.mods)
             }
-            ModSelection::Include(mods) => mods.iter().all(|gamemod| match gamemod {
-                DT => score.mods.contains_intermode(DT) || score.mods.contains_intermode(NC),
-                SD => score.mods.contains_intermode(SD) || score.mods.contains_intermode(PF),
-                _ => score.mods.contains_intermode(gamemod),
-            }),
-            ModSelection::Exclude(mods) if mods.is_empty() => !score.mods.is_empty(),
-            ModSelection::Exclude(mods) => !mods.iter().any(|gamemod| match gamemod {
-                DT => score.mods.contains_intermode(DT) || score.mods.contains_intermode(NC),
-                SD => score.mods.contains_intermode(SD) || score.mods.contains_intermode(PF),
-                _ => score.mods.contains_intermode(gamemod),
-            }),
-            ModSelection::Exact(mods) => score.mods.iter().map(GameMod::intermode).eq(mods.iter()),
+            ModSelection::Include(mods) => Self::filter_include(mods, &score.mods),
+            &ModSelection::Exclude { ref mods, nomod } => {
+                Self::filter_exclude(mods, nomod, &score.mods)
+            }
+            ModSelection::Exact(mods) => Self::filter_exact(mods, &score.mods),
         }
     }
 
-    /// Remove all scores whos mods do not coincide with this [`ModSelection`]
+    /// Remove all scores whose mods do not coincide with this [`ModSelection`]
     pub fn filter_scores(&self, scores: &mut Vec<Score>) {
         match self {
             ModSelection::Include(mods) | ModSelection::Exact(mods) if mods.is_empty() => {
-                scores.retain(|score| score.mods.is_empty())
+                scores.retain(|score| Self::filter_empty(&score.mods))
             }
-            ModSelection::Include(mods) => scores.retain(|score| {
-                mods.iter()
-                    .all(|gamemod| score.mods.contains_intermode(gamemod))
-            }),
-            ModSelection::Exclude(mods) if mods.is_empty() => {
-                scores.retain(|score| !score.mods.is_empty())
+            ModSelection::Include(mods) => {
+                scores.retain(|score| Self::filter_include(mods, &score.mods))
             }
-            ModSelection::Exclude(mods) => scores.retain(|score| {
-                !mods
-                    .iter()
-                    .any(|gamemod| score.mods.contains_intermode(gamemod))
-            }),
+            &ModSelection::Exclude { ref mods, nomod } => {
+                scores.retain(|score| Self::filter_exclude(mods, nomod, &score.mods))
+            }
             ModSelection::Exact(mods) => {
-                scores.retain(|score| score.mods.iter().map(GameMod::intermode).eq(mods.iter()))
+                scores.retain(|score| Self::filter_exact(mods, &score.mods))
             }
         }
+    }
+
+    pub fn filter_empty(mods: &GameMods) -> bool {
+        mods.is_empty()
+    }
+
+    pub fn filter_include(selection: &GameModsIntermode, mods: &GameMods) -> bool {
+        selection.iter().all(|gamemod| match gamemod {
+            Self::DT => mods.contains_intermode(Self::DT) || mods.contains_intermode(Self::NC),
+            Self::SD => mods.contains_intermode(Self::SD) || mods.contains_intermode(Self::PF),
+            _ => mods.contains_intermode(gamemod),
+        })
+    }
+
+    pub fn filter_exclude(selection: &GameModsIntermode, nomod: bool, mods: &GameMods) -> bool {
+        let remaining = mods
+            .iter()
+            .filter(|m| {
+                let intermode = m.intermode();
+
+                !((intermode == Self::NC && selection.contains(Self::DT))
+                    || (intermode == Self::PF && selection.contains(Self::SD))
+                    || selection.contains(intermode))
+            })
+            .count();
+
+        if nomod {
+            remaining > 0
+        } else {
+            remaining == mods.len()
+        }
+    }
+
+    pub fn filter_exact(selection: &GameModsIntermode, mods: &GameMods) -> bool {
+        mods.iter().map(GameMod::intermode).eq(selection.iter())
     }
 
     /// Make sure included or exact mods don't exclude each other e.g. EZHR
     pub fn validate(self, mode: GameMode) -> Result<(), &'static str> {
         let mods = match self {
             Self::Include(mods) => mods,
-            Self::Exclude(_) => return Ok(()),
+            Self::Exclude { .. } => return Ok(()),
             Self::Exact(mods) => mods,
         };
 
@@ -870,5 +883,34 @@ fn mania_grade_legacy(
         Grade::C
     } else {
         Grade::D
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mod_selection_filter_exclude() {
+        let hdnc: GameMods = [
+            GameMod::HiddenOsu(Default::default()),
+            GameMod::NightcoreOsu(Default::default()),
+        ]
+        .into_iter()
+        .collect();
+
+        let selection: GameModsIntermode = [GameModIntermode::HardRock].into_iter().collect();
+        assert!(ModSelection::filter_exclude(&selection, false, &hdnc)); // -hr!
+        assert!(ModSelection::filter_exclude(&selection, true, &hdnc)); // -hrnm!
+
+        let selection: GameModsIntermode = [GameModIntermode::DoubleTime].into_iter().collect();
+        assert!(!ModSelection::filter_exclude(&selection, false, &hdnc)); // -dt!
+        assert!(ModSelection::filter_exclude(&selection, true, &hdnc)); // -dtnm!
+
+        let selection: GameModsIntermode = [GameModIntermode::Hidden, GameModIntermode::DoubleTime]
+            .into_iter()
+            .collect();
+        assert!(!ModSelection::filter_exclude(&selection, false, &hdnc)); // -hddt!
+        assert!(!ModSelection::filter_exclude(&selection, true, &hdnc)); // -hddtnm!
     }
 }

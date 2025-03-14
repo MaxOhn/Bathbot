@@ -596,13 +596,18 @@ fn content_with_condition(args: &Pinned, amount: usize, mods: Option<&ModSelecti
             content.push_str(" • ");
         }
 
-        let (pre, mods) = match selection {
-            ModSelection::Include(mods) => ("Include ", mods),
-            ModSelection::Exclude(mods) => ("Exclude ", mods),
-            ModSelection::Exact(mods) => ("", mods),
+        content.push_str("`Mods: ");
+
+        let _ = match selection {
+            ModSelection::Include(mods) => write!(content, "Include {mods}"),
+            ModSelection::Exclude { mods, nomod: false } => write!(content, "Exclude {mods}"),
+            ModSelection::Exclude { mods, nomod: true } => {
+                write!(content, "Exclude NM (without {mods})")
+            }
+            ModSelection::Exact(mods) => write!(content, "{mods}"),
         };
 
-        let _ = write!(content, "`Mods: {pre}{mods}`");
+        content.push('`');
     }
 
     if let Some(query) = args.query.as_deref() {
