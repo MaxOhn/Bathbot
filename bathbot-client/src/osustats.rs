@@ -69,7 +69,7 @@ impl Client {
             let mod_str = match selection {
                 ModSelection::Include(mods) if mods.is_empty() => "!NM".to_owned(),
                 ModSelection::Include(mods) => format!("+{mods}"),
-                ModSelection::Exclude(mods) => format!("-{mods}"),
+                ModSelection::Exclude { mods, .. } => format!("-{mods}"),
                 ModSelection::Exact(mods) => format!("!{mods}"),
             };
 

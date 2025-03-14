@@ -247,7 +247,7 @@ pub(super) async fn scores(orig: CommandOrigin<'_>, args: OsuStatsScores<'_>) ->
                         mods.to_string()
                     }
                 }
-                ModSelection::Exclude(mods) => format!("Exclude {mods}"),
+                ModSelection::Exclude { mods, .. } => format!("Exclude {mods}"),
                 ModSelection::Include(mods) => format!("Include {mods}"),
             },
         );

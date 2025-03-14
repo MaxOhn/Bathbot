@@ -263,7 +263,7 @@ pub(super) async fn leaderboard(
     };
 
     let specify_mods = match mods {
-        Some(ModSelection::Exclude(_)) | None => None,
+        Some(ModSelection::Exclude { .. }) | None => None,
         Some(ModSelection::Include(ref mods)) | Some(ModSelection::Exact(ref mods)) => {
             Some(mods.to_owned())
         }
@@ -347,22 +347,12 @@ pub(super) async fn leaderboard(
     let mut calc = Context::pp(&map).mode(map.mode()).mods(mods_);
     let attrs = calc.performance().await;
 
-    if let Some(ModSelection::Exclude(ref mods)) = mods {
-        if mods.is_empty() {
-            scores.retain(|score| !score.mods.is_empty());
+    if let Some(ModSelection::Exclude { ref mods, nomod }) = mods {
+        scores.retain(|score| ModSelection::filter_exclude(mods, nomod, &score.mods));
 
-            if let Some(ref score) = user_score {
-                if score.score.mods.is_empty() {
-                    user_score.take();
-                }
-            }
-        } else {
-            scores.retain(|score| !score.mods.contains_any(mods.iter()));
-
-            if let Some(ref score) = user_score {
-                if score.score.mods.contains_any(mods.iter()) {
-                    user_score.take();
-                }
+        if let Some(ref score) = user_score {
+            if ModSelection::filter_exclude(mods, nomod, &score.score.mods) {
+                user_score.take();
             }
         }
     }

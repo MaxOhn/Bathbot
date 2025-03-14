@@ -1,13 +1,15 @@
 use std::{borrow::Cow, sync::LazyLock};
 
 use regex::Regex;
-use rosu_v2::prelude::{GameMode, GameModsIntermode, UserId as OsuUserId};
+use rosu_v2::prelude::{
+    Acronym, GameModIntermode, GameMode, GameModsIntermode, UserId as OsuUserId,
+};
 use twilight_model::id::{
     Id,
     marker::{RoleMarker, UserMarker},
 };
 
-use super::osu::ModSelection;
+use super::{CowUtils, osu::ModSelection};
 
 pub fn is_approved_skin_site(url: &str) -> bool {
     APPROVED_SKIN_SITE.is_match(url)
@@ -125,23 +127,82 @@ pub fn get_osu_match_id(msg: &str) -> Option<u32> {
 }
 
 pub fn get_mods(msg: &str) -> Option<ModSelection> {
-    let selection = if let Some(captures) = MOD_PLUS_MATCHER.captures(msg) {
+    if let Some(captures) = MOD_PLUS_MATCHER.captures(msg) {
         let mods = GameModsIntermode::try_from_acronyms(captures.get(1)?.as_str())?;
 
-        if msg.ends_with('!') {
+        Some(if msg.ends_with('!') {
             ModSelection::Exact(mods)
         } else {
             ModSelection::Include(mods)
-        }
+        })
     } else if let Some(captures) = MOD_MINUS_MATCHER.captures(msg) {
-        let mods = GameModsIntermode::try_from_acronyms(captures.get(1)?.as_str())?;
+        /// Manual `GameModsIntermode::try_from_acronyms` to account for `NM`
+        fn try_from_acronyms(s: &str) -> Option<ModSelection> {
+            fn split_prefix<const N: usize>(s: &str) -> (&str, &str) {
+                let end_idx = s
+                    .char_indices()
+                    .nth(N - 1)
+                    .map_or_else(|| s.len(), |(idx, c)| idx + c.len_utf8());
 
-        ModSelection::Exclude(mods)
+                s.split_at(end_idx)
+            }
+
+            // There is no gamemod with an acronym of length one
+            if s.len() == 1 {
+                return None;
+            }
+
+            let uppercased = s.cow_to_ascii_uppercase();
+            let mut nomod = false;
+
+            let mut remaining = uppercased.as_ref();
+            let mut mods = GameModsIntermode::new();
+
+            while !remaining.is_empty() {
+                // Split off the first two characters and check if it's an acronym
+                let (candidate, rest) = split_prefix::<2>(remaining);
+
+                // SAFETY: `candidate` is guaranteed to be of length 2 and has been capitalized
+                let acronym = unsafe { Acronym::from_str_unchecked(candidate) };
+                let gamemod = GameModIntermode::from_acronym(acronym);
+
+                if !matches!(gamemod, GameModIntermode::Unknown(_)) && rest.len() != 1 {
+                    mods.insert(gamemod);
+                    remaining = rest;
+
+                    continue;
+                } else if candidate == "NM" {
+                    // This branch would be incorrect if there was a valid
+                    // acronym of length 3 that stars with "NM"
+                    nomod = true;
+                    remaining = rest;
+
+                    continue;
+                }
+
+                // Repeat for the first three characters
+                let (candidate, rest) = split_prefix::<3>(remaining);
+
+                // SAFETY: `candidate` is guaranteed to be of length 3 (or 2)
+                // and has been capitalized
+                let acronym = unsafe { Acronym::from_str_unchecked(candidate) };
+                let gamemod = GameModIntermode::from_acronym(acronym);
+
+                if matches!(gamemod, GameModIntermode::Unknown(_)) {
+                    return None;
+                }
+
+                mods.insert(gamemod);
+                remaining = rest;
+            }
+
+            Some(ModSelection::Exclude { mods, nomod })
+        }
+
+        try_from_acronyms(captures.get(1)?.as_str())
     } else {
-        return None;
-    };
-
-    Some(selection)
+        None
+    }
 }
 
 #[allow(dead_code)]

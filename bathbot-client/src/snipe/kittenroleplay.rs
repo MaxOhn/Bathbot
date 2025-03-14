@@ -162,7 +162,7 @@ pub async fn get_national_firsts_count(
                 .find_map(|count| (count.mods == bits).then_some(count.count))
                 .unwrap_or(0)
         }
-        None | Some(ModSelection::Exclude(_)) => {
+        None | Some(ModSelection::Exclude { .. }) => {
             counts.iter().fold(0, |sum, count| sum + count.count)
         }
     };

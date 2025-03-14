@@ -395,7 +395,7 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         Some(ModSelection::Include(ref mods) | ModSelection::Exact(ref mods)) => {
             Some(mods.to_owned())
         }
-        Some(ModSelection::Exclude(_)) | None => None,
+        None | Some(ModSelection::Exclude { .. }) => None,
     };
 
     let mods_ = specify_mods
@@ -469,27 +469,17 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
             ),
         });
 
-    let amount = scores.len();
+    if let Some(ModSelection::Exclude { ref mods, nomod }) = mods {
+        scores.retain(|score| ModSelection::filter_exclude(mods, nomod, &score.mods));
 
-    if let Some(ModSelection::Exclude(ref mods)) = mods {
-        if mods.is_empty() {
-            scores.retain(|score| !score.mods.is_empty());
-
-            if let Some(ref score) = user_score {
-                if score.score.mods.is_empty() {
-                    user_score.take();
-                }
-            }
-        } else {
-            scores.retain(|score| !score.mods.contains_any(mods.iter()));
-
-            if let Some(ref score) = user_score {
-                if score.score.mods.contains_any(mods.iter()) {
-                    user_score.take();
-                }
+        if let Some(ref score) = user_score {
+            if ModSelection::filter_exclude(mods, nomod, &score.score.mods) {
+                user_score.take();
             }
         }
     }
+
+    let amount = scores.len();
 
     let mut content = if mods.is_some() {
         format!("I found {amount} scores with the specified mods on the map's leaderboard")

@@ -6,7 +6,11 @@ use std::borrow::Cow;
 use bathbot_macros::{HasMods, SlashCommand, command};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::MapIdType};
+use bathbot_util::{
+    constants::GENERAL_ISSUE,
+    matcher,
+    osu::{MapIdType, ModSelection},
+};
 use eyre::Result;
 use rosu_v2::prelude::{GameMode, GameModsIntermode};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -507,11 +511,16 @@ impl SimulateArgs {
 
     fn from_simulate(simulate: Simulate<'_>) -> Result<Self, &'static str> {
         let mods = match simulate.mods() {
-            ModsResult::Mods(mods) => Some(mods.into_mods()),
+            ModsResult::Mods(ModSelection::Include(mods) | ModSelection::Exact(mods)) => Some(mods),
             ModsResult::None => None,
             ModsResult::Invalid => {
                 let content = "Failed to parse mods. Be sure to either specify them directly \
-                    or through the `+mods` / `+mods!` syntax e.g. `hdhr` or `+hdhr!`";
+                or through the `+mods` / `+mods!` syntax e.g. `hdhr` or `+hdhr!`";
+
+                return Err(content);
+            }
+            ModsResult::Mods(ModSelection::Exclude { .. }) => {
+                let content = "Excluding mods does not work for this command";
 
                 return Err(content);
             }

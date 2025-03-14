@@ -476,7 +476,7 @@ async fn process_scores(
         ModSelection::Exact(mods) | ModSelection::Include(mods) if mods.is_empty() => {
             *mods = GameModsIntermode::new();
         }
-        ModSelection::Exclude(mods) => {
+        ModSelection::Exclude { mods, .. } => {
             if mods.contains(GameModIntermode::DoubleTime) {
                 *mods |= GameModIntermode::Nightcore;
             }
@@ -488,7 +488,13 @@ async fn process_scores(
         ModSelection::Exact(_) | ModSelection::Include(_) => {}
     }
 
-    let converted_mods = arg_mods.as_mods().to_owned().with_mode(mode);
+    let converted_mods = match &arg_mods {
+        ModSelection::Include(mods) => mods,
+        ModSelection::Exclude { mods, .. } => mods,
+        ModSelection::Exact(mods) => mods,
+    };
+
+    let converted_mods = converted_mods.to_owned().with_mode(mode);
 
     for (mut score, i) in scores.into_iter().zip(1..) {
         let Some(mut map) = maps.remove(&score.map_id) else {
@@ -509,7 +515,7 @@ async fn process_scores(
 
                 changed
             }
-            ModSelection::Exclude(mods) => {
+            ModSelection::Exclude { mods, nomod: _ } => {
                 let changed = score.mods.contains_any(mods.iter());
                 score.mods.remove_all_intermode(mods.iter());
 
@@ -611,7 +617,7 @@ fn get_content(
             plural = plural(name),
             mode = mode_str(mode),
         ),
-        ModSelection::Exclude(mods) if !mods.is_empty() => {
+        ModSelection::Exclude { mods, nomod: _ } if !mods.is_empty() => {
             let mods: Vec<_> = mods.iter().collect();
             let len = mods.len();
             let mut mod_iter = mods.into_iter();

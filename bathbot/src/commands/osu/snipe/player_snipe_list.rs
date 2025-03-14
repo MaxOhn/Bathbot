@@ -111,7 +111,7 @@ async fn prefix_playersnipelistmania(msg: &Message, args: Args<'_>) -> Result<()
 
 pub(super) async fn player_list(orig: CommandOrigin<'_>, args: SnipePlayerList<'_>) -> Result<()> {
     let mods = match args.mods() {
-        ModsResult::Mods(ModSelection::Exclude(_)) => {
+        ModsResult::Mods(ModSelection::Exclude { .. }) => {
             let content = "Excluded mods unfortunately are not supported :(";
 
             return orig.error(content).await;
