@@ -62,24 +62,10 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
         return Err(Error::new_spanned(ident, message));
     }
 
-    let result = quote!(crate::commands::osu::ModsResult);
-
     let tokens = quote! {
         impl #generics crate::commands::osu::HasMods for #ident #generics {
-            fn mods(&self) -> #result {
-                let mods = match self.mods.as_deref() {
-                    Some(mods) => mods,
-                    None => return #result ::None,
-                };
-
-                if let Some(mods) = rosu_v2::model::mods::GameModsIntermode::try_from_acronyms(mods) {
-                    return #result ::Mods(bathbot_util::osu::ModSelection::Exact(mods));
-                }
-
-                match bathbot_util::matcher::get_mods(mods) {
-                    Some(mods) => #result ::Mods(mods),
-                    None => #result ::Invalid
-                }
+            fn mods(&self) -> crate::commands::osu::ModsResult {
+                bathbot_util::osu::ModSelection::parse(self.mods.as_deref())
             }
         }
     };

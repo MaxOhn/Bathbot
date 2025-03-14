@@ -63,7 +63,7 @@ macro_rules! user_id_mode {
 
 use std::{future::Future, pin::Pin};
 
-use bathbot_util::osu::ModSelection;
+use bathbot_util::osu::ModsResult;
 use eyre::{Report, Result, WrapErr};
 use rosu_v2::request::UserId;
 use twilight_interactions::command::{CommandOption, CreateOption};
@@ -123,12 +123,6 @@ mod match_live;
 
 pub trait HasMods {
     fn mods(&self) -> ModsResult;
-}
-
-pub enum ModsResult {
-    Mods(ModSelection),
-    None,
-    Invalid,
 }
 
 pub trait HasName {

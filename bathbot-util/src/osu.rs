@@ -9,7 +9,7 @@ use rosu_v2::prelude::{
     Score, ScoreStatistics,
 };
 
-use crate::{constants::OSU_BASE, numbers::round};
+use crate::{constants::OSU_BASE, matcher, numbers::round};
 
 // <https://github.com/ppy/osu-queue-score-statistics/blob/45cd68bb1ec974ee433a9cb649e412a3376b130e/osu.Server.Queues.ScoreStatisticsProcessor/Processors/TotalScoreProcessor.cs#L91-L116>
 const TO_NEXT_LEVEL: [u64; 123] = [
@@ -176,7 +176,28 @@ pub enum ModSelection {
     Exact(GameModsIntermode),
 }
 
+pub enum ModsResult {
+    Mods(ModSelection),
+    None,
+    Invalid,
+}
+
 impl ModSelection {
+    pub fn parse(mods: Option<&str>) -> ModsResult {
+        let Some(mods) = mods else {
+            return ModsResult::None;
+        };
+
+        if let Some(mods) = GameModsIntermode::try_from_acronyms(mods) {
+            return ModsResult::Mods(ModSelection::Exact(mods));
+        };
+
+        match matcher::get_mods(mods) {
+            Some(mods) => ModsResult::Mods(mods),
+            None => ModsResult::Invalid,
+        }
+    }
+
     pub fn as_mods(&self) -> &GameModsIntermode {
         match self {
             Self::Include(m) | Self::Exclude(m) | Self::Exact(m) => m,
