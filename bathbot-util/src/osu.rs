@@ -192,10 +192,7 @@ impl ModSelection {
             return ModsResult::Mods(ModSelection::Exact(mods));
         };
 
-        match matcher::get_mods(mods) {
-            Some(mods) => ModsResult::Mods(mods),
-            None => ModsResult::Invalid,
-        }
+        matcher::get_mods(mods).map_or(ModsResult::Invalid, ModsResult::Mods)
     }
 
     pub fn as_mods(&self) -> &GameModsIntermode {
