@@ -7,6 +7,7 @@ use bathbot_macros::SlashCommand;
 use bathbot_util::{
     EmbedBuilder, MessageBuilder,
     constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
+    matcher,
 };
 use eyre::{Report, Result, WrapErr};
 use rosu_render::{
@@ -62,8 +63,8 @@ pub struct RenderReplay {
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "score", desc = "Render a score")]
 pub struct RenderScore {
-    #[command(desc = "Specify the score through its id")]
-    score_id: u64,
+    #[command(desc = "Specify the score through its id or url")]
+    score_id: String,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -212,6 +213,20 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
 
     let owner = command.user_id()?;
     let RenderScore { score_id } = score;
+
+    // Parse score id
+    let score_id = match score_id.parse() {
+        Ok(score_id) => score_id,
+        Err(_) => match matcher::get_osu_score_id(&score_id) {
+            Some((score_id, _)) => score_id,
+            None => {
+                let content = format!("Must give either a score id or url");
+                command.error(content).await?;
+
+                return Ok(());
+            }
+        },
+    };
 
     // Check if the score id has already been rendered
     match Context::replay().get_video_url(score_id).await {
