@@ -135,10 +135,32 @@ pub enum UserIdResult {
     Future(Pin<Box<dyn Future<Output = UserIdFutureResult> + Send>>),
 }
 
+impl UserIdResult {
+    pub fn process(name: Option<&str>, discord: Option<Id<UserMarker>>) -> Self {
+        if let Some(name) = name {
+            Self::Id(UserId::Name(name.into()))
+        } else if let Some(id) = discord {
+            Self::Future(Box::pin(UserIdFutureResult::process(id)))
+        } else {
+            Self::None
+        }
+    }
+}
+
 pub enum UserIdFutureResult {
     Id(UserId),
     NotLinked(Id<UserMarker>),
     Err(Report),
+}
+
+impl UserIdFutureResult {
+    async fn process(user_id: Id<UserMarker>) -> Self {
+        match Context::user_config().osu_id(user_id).await {
+            Ok(Some(user_id)) => UserIdFutureResult::Id(UserId::Id(user_id)),
+            Ok(None) => UserIdFutureResult::NotLinked(user_id),
+            Err(err) => UserIdFutureResult::Err(err),
+        }
+    }
 }
 
 pub async fn require_link(orig: &CommandOrigin<'_>) -> Result<()> {

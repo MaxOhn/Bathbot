@@ -80,21 +80,7 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
     let tokens = quote! {
         impl #generics #path HasName for #ident #generics {
             fn user_id(&self) -> #path UserIdResult {
-                if let Some(name) = self.name.as_deref() {
-                    #path UserIdResult::Id(rosu_v2::request::UserId::Name(name.into()))
-                } else if let Some(id) = self.discord {
-                    let fut = async move {
-                        match crate::core::Context::user_config().osu_id(id).await {
-                            Ok(Some(user_id)) => #path UserIdFutureResult::Id(rosu_v2::request::UserId::Id(user_id)),
-                            Ok(None) => #path UserIdFutureResult::NotLinked(id),
-                            Err(err) => #path UserIdFutureResult::Err(err),
-                        }
-                    };
-
-                    #path UserIdResult::Future(Box::pin(fut))
-                } else {
-                    #path UserIdResult::None
-                }
+                #path UserIdResult::process(self.name.as_deref(), self.discord)
             }
         }
     };
