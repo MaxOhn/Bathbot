@@ -48,17 +48,25 @@ macro_rules! impl_with_comma {
                         write!(f, ",{:0>3}", rev % 1000)?;
                     }
 
-                    let dec = (100.0 * n.fract()).round() as u32;
+                    let dec = n.fract();
 
-                    if dec > 0 {
-                        f.write_str(".")?;
+                    if let Some(precision) = f.precision() {
+                        let dec = (dec * 10_u32.pow(precision as u32) as $ty) as u32;
 
-                        if dec < 10 {
-                            write!(f, "0{dec}")?;
-                        } else if dec == 100 {
-                            f.write_str("99")?;
-                        } else {
-                            write!(f, "{dec}")?;
+                        write!(f, ".{dec:0<precision$}")?;
+                    } else {
+                        let dec = (100.0 * dec).round() as u32;
+
+                        if dec > 0 {
+                            f.write_str(".")?;
+
+                            if dec < 10 {
+                                write!(f, "0{dec}")?;
+                            } else if dec == 100 {
+                                f.write_str("99")?;
+                            } else {
+                                write!(f, "{dec}")?;
+                            }
                         }
                     }
 
@@ -316,10 +324,17 @@ mod tests {
 
     #[test]
     fn test_with_comma_f32() {
+        assert_eq!(format!("{}", WithComma::new(12345.6789_f64)), "12,345.68");
         assert_eq!(
-            WithComma::new(31_925.53_f32).to_string(),
-            "31,925.53".to_owned()
+            format!("{:.3}", WithComma::new(12345.6789_f64)),
+            "12,345.678"
         );
+
+        assert_eq!(format!("{}", WithComma::new(12345.6_f64)), "12,345.60");
+        assert_eq!(format!("{:.3}", WithComma::new(12345.6_f64)), "12,345.600");
+
+        assert_eq!(format!("{}", WithComma::new(12345.0_f64)), "12,345");
+        assert_eq!(format!("{:.3}", WithComma::new(12345.0_f64)), "12,345.000");
     }
 
     #[test]

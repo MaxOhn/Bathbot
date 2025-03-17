@@ -489,7 +489,7 @@ impl Display for Playtime<'_> {
 impl Display for PpF32<'_> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}pp", WithComma::new(round(*self.inner)))
+        write!(f, "{:.2}pp", WithComma::new(round(*self.inner)))
     }
 }
 
