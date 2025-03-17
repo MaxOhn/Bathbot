@@ -38,7 +38,7 @@ pub async fn get_snipe_player_history(
     country: &str,
     user_id: u32,
 ) -> Result<BTreeMap<Date, u32>> {
-    let url = format!("https://api.huismetbenen.nl/player/{country}/{user_id}/history");
+    let url = format!("{HUISMETBENEN}player/{country}/{user_id}/history");
 
     let bytes = client.make_get_request(url, Site::Huismetbenen).await?;
 
@@ -173,7 +173,7 @@ pub async fn get_national_firsts_count(
 }
 
 pub async fn get_countries(client: &Client) -> Result<SnipeCountries> {
-    let url = "https://api.huismetbenen.nl/country/all?only_with_data=true";
+    let url = format!("{HUISMETBENEN}country/all?only_with_data=true");
     let bytes = client.make_get_request(url, Site::Huismetbenen).await?;
 
     serde_json::from_slice(&bytes).wrap_err_with(|| {
