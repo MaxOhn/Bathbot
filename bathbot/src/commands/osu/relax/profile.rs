@@ -20,34 +20,9 @@ use crate::{
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
-#[derive(CommandModel, CreateCommand, SlashCommand, HasName)]
-#[command(
-    name = "relax_profile",
-    desc = "Display your relax profile",
-    help = "Display your relax profile info"
-)]
-pub struct RelaxPlayerProfile<'a> {
-    #[command(desc = "Specify a username")]
-    name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
-    discord: Option<Id<UserMarker>>,
-}
+use crate::commands::osu::relax::RelaxProfile;
 
-async fn slash_relaxplayerprofile(mut command: InteractionCommand) -> Result<()> {
-    let args = RelaxPlayerProfile::from_interaction(command.input_data())?;
-
-    relax_player_profile((&mut command).into(), args).await
-}
-
-pub(super) async fn relax_player_profile(
-    orig: CommandOrigin<'_>,
-    args: RelaxPlayerProfile<'_>,
-) -> Result<()> {
+pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_>) -> Result<()> {
     let owner = orig.user_id()?;
     let config = Context::user_config().with_osu_id(owner).await?;
 
@@ -92,57 +67,56 @@ pub(super) async fn relax_player_profile(
     }
 
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
-    let mut pagination = RelaxProfile::new(user, relax_player.unwrap(), origin);
+    let mut pagination = RelaxProfileArgs::new(user, relax_player.unwrap(), origin);
 
-    let builder = MessageBuilder::new().embed(pagination.compact().unwrap());
+    let builder = MessageBuilder::new().embed(relax_profile_builder(pagination).unwrap());
     orig.create_message(builder).await?;
 
     Ok(())
 }
 
-pub struct RelaxProfile {
+pub struct RelaxProfileArgs {
     user: CachedUser,
     info: RelaxPlayersDataResponse,
     origin: MessageOrigin,
 }
 
-impl RelaxProfile {
+impl RelaxProfileArgs {
     pub fn new(user: CachedUser, info: RelaxPlayersDataResponse, origin: MessageOrigin) -> Self {
         Self { user, info, origin }
     }
+}
+pub fn relax_profile_builder(args: RelaxProfileArgs) -> Result<EmbedBuilder> {
+    let stats = &args.info;
+    let description = format!(
+        "Accuracy: [`{acc:.2}%`]({origin} \"{acc}\")\n\
+        Playcount: `{playcount}`",
+        acc = stats.total_accuracy.unwrap_or_default(),
+        origin = args.origin,
+        playcount = WithComma::new(stats.playcount),
+    );
 
-    pub fn compact(&mut self) -> Result<EmbedBuilder> {
-        let stats = &self.info;
-        let description = format!(
-            "Accuracy: [`{acc:.2}%`]({origin} \"{acc}\")\n\
-            Playcount: `{playcount}`",
-            acc = stats.total_accuracy.unwrap_or_default(),
-            origin = self.origin,
-            playcount = WithComma::new(stats.playcount),
-        );
+    let embed = EmbedBuilder::new()
+        .author(relax_author_builder(&args))
+        .description(description)
+        .thumbnail(args.user.avatar_url.as_ref());
 
-        let embed = EmbedBuilder::new()
-            .author(self.author_builder())
-            .description(description)
-            .thumbnail(self.user.avatar_url.as_ref());
+    Ok(embed)
+}
 
-        Ok(embed)
-    }
+fn relax_author_builder(args: &RelaxProfileArgs) -> AuthorBuilder {
+    let country_code = args.user.country_code.as_str();
+    let pp = args.info.total_pp;
 
-    fn author_builder(&self) -> AuthorBuilder {
-        let country_code = self.user.country_code.as_str();
-        let pp = self.info.total_pp;
+    let text = format!(
+        "{name}: {pp}pp (#{rank}, {country_code}{country_rank})",
+        name = args.user.username,
+        pp = WithComma::new(pp.unwrap()),
+        rank = args.info.rank.unwrap_or_default(),
+        country_rank = args.info.country_rank.unwrap_or_default(),
+    );
 
-        let text = format!(
-            "{name}: {pp}pp (#{rank}, {country_code}{country_rank})",
-            name = self.user.username,
-            pp = WithComma::new(pp.unwrap()),
-            rank = self.info.rank.unwrap_or_default(),
-            country_rank = self.info.country_rank.unwrap_or_default(),
-        );
-
-        let url = format!("{RELAX}/users/{}", self.user.user_id);
-        let icon = flag_url(country_code);
-        AuthorBuilder::new(text).url(url).icon_url(icon)
-    }
+    let url = format!("{RELAX}/users/{}", args.user.user_id);
+    let icon = flag_url(country_code);
+    AuthorBuilder::new(text).url(url).icon_url(icon)
 }
