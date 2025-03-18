@@ -4,6 +4,7 @@ use bathbot_client::ClientError;
 use bathbot_psql::model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapContent, MapVersion};
 use bathbot_util::{ExponentialBackoff, IntHasher};
 use eyre::{ContextCompat, Report, WrapErr};
+use futures::{TryStreamExt, stream::FuturesUnordered};
 use rosu_pp::{
     Beatmap,
     any::DifficultyAttributes,
@@ -117,34 +118,30 @@ impl MapManager {
             .await
             .wrap_err("Failed to get maps")?;
 
-        let iter = maps_id_checksum
+        maps_id_checksum
             .keys()
-            .map(|map_id| (*map_id as u32, db_maps.remove(map_id)));
+            .map(|map_id| (*map_id as u32, db_maps.remove(map_id)))
+            .map(|(map_id, map_opt)| async move {
+                let map = if let Some((map, mapset, filepath)) = map_opt {
+                    let (pp_map, map_opt) = self.prepare_map(map_id, filepath).await?;
 
-        let mut maps = HashMap::with_capacity_and_hasher(maps_id_checksum.len(), IntHasher);
+                    match map_opt {
+                        Some(map) => OsuMap::new(map, pp_map),
+                        None => OsuMap::new(OsuMapSlim::new(map, mapset), pp_map),
+                    }
+                } else {
+                    let map_fut = self.retrieve_map(map_id);
+                    let prepare_fut = self.prepare_map(map_id, DbMapContent::Missing);
+                    let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
 
-        // Having this non-async is pretty sad but the many I/O operations appear
-        // to cause thread-limitation issues when collected into a FuturesUnordered.
-        for (map_id, map_opt) in iter {
-            let map = if let Some((map, mapset, filename)) = map_opt {
-                let (pp_map, map_opt) = self.prepare_map(map_id, filename).await?;
+                    OsuMap::new(map, pp_map)
+                };
 
-                match map_opt {
-                    Some(map) => OsuMap::new(map, pp_map),
-                    None => OsuMap::new(OsuMapSlim::new(map, mapset), pp_map),
-                }
-            } else {
-                let map_fut = self.retrieve_map(map_id);
-                let prepare_fut = self.prepare_map(map_id, DbMapContent::Missing);
-                let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
-
-                OsuMap::new(map, pp_map)
-            };
-
-            maps.insert(map_id, map);
-        }
-
-        Ok(maps)
+                Ok((map_id, map))
+            })
+            .collect::<FuturesUnordered<_>>()
+            .try_collect()
+            .await
     }
 
     pub async fn artist_title(self, mapset_id: u32) -> Result<ArtistTitle> {
@@ -346,7 +343,7 @@ impl MapManager {
                         let db_fut = Context::psql().insert_beatmap_file_content(map_id, &bytes);
 
                         if let Err(err) = db_fut.await {
-                            warn!(?err, "Failed to insert map file");
+                            warn!(map_id, ?err, "Failed to insert file content");
                         } else {
                             info!("Downloaded {map_id}.osu successfully");
                         }
