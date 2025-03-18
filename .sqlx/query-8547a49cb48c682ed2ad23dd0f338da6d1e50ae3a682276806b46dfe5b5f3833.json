@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n  SELECT\n    content\n  FROM\n    osu_map_file_content\n  WHERE\n    map_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "content",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8547a49cb48c682ed2ad23dd0f338da6d1e50ae3a682276806b46dfe5b5f3833"
+}

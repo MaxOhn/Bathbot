@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO osu_map_file_content (map_id, content) \nVALUES \n  ($1, $2) ON CONFLICT (map_id) DO \nUPDATE \nSET \n  content = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c6be23c6930c006c0543b9a3468e0b52154a2c1bcc54995b1aca7e191feff106"
+}

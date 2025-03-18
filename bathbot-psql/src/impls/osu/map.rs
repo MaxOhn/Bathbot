@@ -7,7 +7,7 @@ use sqlx::{Postgres, Transaction};
 
 use crate::{
     Database,
-    model::osu::{DbBeatmap, DbBeatmapset, DbMapFilename, MapVersion},
+    model::osu::{DbBeatmap, DbBeatmapset, DbMapContent, MapVersion},
 };
 
 impl Database {
@@ -15,7 +15,7 @@ impl Database {
         &self,
         map_id: u32,
         checksum: Option<&str>,
-    ) -> Result<Option<(DbBeatmap, DbBeatmapset, DbMapFilename)>> {
+    ) -> Result<Option<(DbBeatmap, DbBeatmapset, DbMapContent)>> {
         let query = sqlx::query!(
             r#"
 SELECT 
@@ -38,9 +38,9 @@ SELECT
   mapset.cover, 
   (
     SELECT 
-      map_filepath 
+      content 
     FROM 
-      osu_map_files 
+      osu_map_file_content 
     WHERE 
       map_id = $1
   ) 
@@ -100,22 +100,22 @@ FROM
             cover: row.cover,
         };
 
-        let filepath = match (row.map_filepath, checksum) {
-            (Some(path), Some(checksum)) if row.checksum == checksum => {
-                DbMapFilename::Present(path.into_boxed_str())
+        let content = match (row.content, checksum) {
+            (Some(content), Some(checksum)) if row.checksum == checksum => {
+                DbMapContent::Present(content)
             }
-            (Some(path), None) => DbMapFilename::Present(path.into_boxed_str()),
-            (Some(_), Some(_)) => DbMapFilename::ChecksumMismatch,
-            (None, _) => DbMapFilename::Missing,
+            (Some(content), None) => DbMapContent::Present(content),
+            (Some(_), Some(_)) => DbMapContent::ChecksumMismatch,
+            (None, _) => DbMapContent::Missing,
         };
 
-        Ok(Some((map, mapset, filepath)))
+        Ok(Some((map, mapset, content)))
     }
 
     pub async fn select_osu_maps_full<S>(
         &self,
         maps_id_checksum: &HashMap<i32, Option<&str>, S>,
-    ) -> Result<HashMap<i32, (DbBeatmap, DbBeatmapset, DbMapFilename), S>>
+    ) -> Result<HashMap<i32, (DbBeatmap, DbBeatmapset, DbMapContent), S>>
     where
         S: Default + BuildHasher,
     {
@@ -141,7 +141,7 @@ SELECT
   mapset.ranked_date, 
   mapset.thumbnail, 
   mapset.cover, 
-  COALESCE(files.map_filepath) AS map_filepath 
+  COALESCE(files_content.content) AS content 
 FROM 
   (
     SELECT 
@@ -167,10 +167,10 @@ FROM
   LEFT JOIN (
     SELECT 
       map_id, 
-      map_filepath 
+      content 
     FROM 
-      osu_map_files
-  ) AS files ON map.map_id = files.map_id"#,
+      osu_map_file_content
+  ) AS files_content ON map.map_id = files_content.map_id"#,
             &map_ids
         );
 
@@ -206,38 +206,38 @@ FROM
 
             let checksum = maps_id_checksum.get(&map.map_id).and_then(Option::as_ref);
 
-            let filepath = match (row.map_filepath, checksum) {
-                (Some(path), Some(&checksum)) if row.checksum == checksum => {
-                    DbMapFilename::Present(path.into_boxed_str())
+            let content = match (row.content, checksum) {
+                (Some(content), Some(&checksum)) if row.checksum == checksum => {
+                    DbMapContent::Present(content)
                 }
-                (Some(path), None) => DbMapFilename::Present(path.into_boxed_str()),
-                (Some(_), Some(_)) => DbMapFilename::ChecksumMismatch,
-                (None, _) => DbMapFilename::Missing,
+                (Some(content), None) => DbMapContent::Present(content),
+                (Some(_), Some(_)) => DbMapContent::ChecksumMismatch,
+                (None, _) => DbMapContent::Missing,
             };
 
-            maps.insert(map.map_id, (map, mapset, filepath));
+            maps.insert(map.map_id, (map, mapset, content));
         }
 
         Ok(maps)
     }
 
-    pub async fn select_beatmap_file(&self, map_id: u32) -> Result<Option<Box<str>>> {
+    pub async fn select_beatmap_file_content(&self, map_id: u32) -> Result<Option<Vec<u8>>> {
         let query = sqlx::query!(
             r#"
-SELECT 
-  map_filepath 
-FROM 
-  osu_map_files 
-WHERE 
-  map_id = $1"#,
+  SELECT
+    content
+  FROM
+    osu_map_file_content
+  WHERE
+    map_id = $1"#,
             map_id as i32
         );
 
         query
             .fetch_optional(self)
             .await
-            .wrap_err("failed to fetch optional")
-            .map(|row_opt| row_opt.map(|row| row.map_filepath.into_boxed_str()))
+            .wrap_err("Failed to fetch optional")
+            .map(|row_opt| row_opt.map(|row| row.content))
     }
 
     pub async fn select_map_versions_by_map_id(&self, map_id: u32) -> Result<Vec<MapVersion>> {
@@ -293,23 +293,23 @@ ORDER BY
         query.fetch_all(self).await.wrap_err("failed to fetch all")
     }
 
-    pub async fn insert_beatmap_file(&self, map_id: u32, path: impl AsRef<str>) -> Result<()> {
+    pub async fn insert_beatmap_file_content(&self, map_id: u32, content: &[u8]) -> Result<()> {
         let query = sqlx::query!(
             r#"
-INSERT INTO osu_map_files (map_id, map_filepath) 
+INSERT INTO osu_map_file_content (map_id, content) 
 VALUES 
   ($1, $2) ON CONFLICT (map_id) DO 
 UPDATE 
 SET 
-  map_filepath = $2"#,
+  content = $2"#,
             map_id as i32,
-            path.as_ref()
+            content
         );
 
         query
             .execute(self)
             .await
-            .wrap_err("failed to execute query")?;
+            .wrap_err("Failed to execute query")?;
 
         Ok(())
     }
@@ -395,7 +395,7 @@ VALUES
             let query = sqlx::query!(
                 r#"
 DELETE FROM 
-  osu_map_files 
+  osu_map_file_content 
 WHERE 
   map_id = $1"#,
                 map.map_id as i32,
@@ -404,7 +404,7 @@ WHERE
             query
                 .execute(&mut **tx)
                 .await
-                .wrap_err("Failed to delete from osu_map_files")?;
+                .wrap_err("Failed to delete from osu_map_file_content")?;
         }
 
         Ok(())
