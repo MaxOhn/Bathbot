@@ -34,7 +34,6 @@ pub struct BotConfig {
 pub struct Paths {
     pub backgrounds: PathBuf,
     pub assets: PathBuf,
-    pub maps: PathBuf,
     #[cfg(feature = "server")]
     pub website: PathBuf,
 }
@@ -109,7 +108,6 @@ impl BotConfig {
             paths: Paths {
                 backgrounds: env_var("BG_PATH")?,
                 assets: env_var("ASSETS_PATH")?,
-                maps: env_var("MAP_PATH")?,
                 #[cfg(feature = "server")]
                 website: env_var("WEBSITE_PATH")?,
             },

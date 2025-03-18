@@ -1,7 +1,7 @@
-use std::{collections::HashMap, fmt::Debug, io::Error as IoError, ops::Deref, path::PathBuf};
+use std::{collections::HashMap, fmt::Debug, io::Error as IoError, ops::Deref};
 
 use bathbot_client::ClientError;
-use bathbot_psql::model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapFilename, MapVersion};
+use bathbot_psql::model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapContent, MapVersion};
 use bathbot_util::{ExponentialBackoff, IntHasher};
 use eyre::{ContextCompat, Report, WrapErr};
 use rosu_pp::{
@@ -12,11 +12,11 @@ use rosu_pp::{
 use rosu_v2::prelude::{BeatmapsetExtended, GameMode, OsuError, RankStatus};
 use thiserror::Error;
 use time::OffsetDateTime;
-use tokio::{fs, time::sleep};
+use tokio::time::sleep;
 
 use super::{PpManager, pp::Mods};
 use crate::{
-    core::{BotConfig, Context},
+    core::Context,
     util::query::{FilterCriteria, RegularCriteria, Searchable},
 };
 
@@ -33,11 +33,10 @@ impl MapManager {
     pub async fn map(self, map_id: u32, checksum: Option<&str>) -> Result<OsuMap> {
         // Check if map is already stored
         let map_fut = Context::psql().select_osu_map_full(map_id, checksum);
-        let mut map_path = BotConfig::get().paths.maps.clone();
 
-        if let Some((map, mapset, filename)) = map_fut.await.wrap_err("Failed to get map")? {
+        if let Some((map, mapset, content)) = map_fut.await.wrap_err("Failed to get map")? {
             let (pp_map, map_opt) = self
-                .prepare_map(map_id, filename, &mut map_path)
+                .prepare_map(map_id, content)
                 .await
                 .wrap_err("Failed to prepare map")?;
 
@@ -48,7 +47,7 @@ impl MapManager {
         } else {
             // Otherwise retrieve mapset and store
             let map_fut = self.retrieve_map(map_id);
-            let prepare_fut = self.prepare_map(map_id, DbMapFilename::Missing, &mut map_path);
+            let prepare_fut = self.prepare_map(map_id, DbMapContent::Missing);
             let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
 
             Ok(OsuMap::new(map, pp_map))
@@ -56,16 +55,14 @@ impl MapManager {
     }
 
     pub async fn pp_map(self, map_id: u32) -> Result<Beatmap> {
-        let filename = Context::psql()
-            .select_beatmap_file(map_id)
+        let content = Context::psql()
+            .select_beatmap_file_content(map_id)
             .await
-            .wrap_err("Failed to get filename")?
-            .map_or(DbMapFilename::Missing, DbMapFilename::Present);
-
-        let mut map_path = BotConfig::get().paths.maps.clone();
+            .wrap_err("Failed to get map file content")?
+            .map_or(DbMapContent::Missing, DbMapContent::Present);
 
         let (pp_map, _) = self
-            .prepare_map(map_id, filename, &mut map_path)
+            .prepare_map(map_id, content)
             .await
             .wrap_err("Failed to prepare map")?;
 
@@ -125,13 +122,12 @@ impl MapManager {
             .map(|map_id| (*map_id as u32, db_maps.remove(map_id)));
 
         let mut maps = HashMap::with_capacity_and_hasher(maps_id_checksum.len(), IntHasher);
-        let mut map_path = BotConfig::get().paths.maps.clone();
 
         // Having this non-async is pretty sad but the many I/O operations appear
         // to cause thread-limitation issues when collected into a FuturesUnordered.
         for (map_id, map_opt) in iter {
             let map = if let Some((map, mapset, filename)) = map_opt {
-                let (pp_map, map_opt) = self.prepare_map(map_id, filename, &mut map_path).await?;
+                let (pp_map, map_opt) = self.prepare_map(map_id, filename).await?;
 
                 match map_opt {
                     Some(map) => OsuMap::new(map, pp_map),
@@ -139,7 +135,7 @@ impl MapManager {
                 }
             } else {
                 let map_fut = self.retrieve_map(map_id);
-                let prepare_fut = self.prepare_map(map_id, DbMapFilename::Missing, &mut map_path);
+                let prepare_fut = self.prepare_map(map_id, DbMapContent::Missing);
                 let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
 
                 OsuMap::new(map, pp_map)
@@ -281,31 +277,18 @@ impl MapManager {
     async fn prepare_map(
         self,
         map_id: u32,
-        filename: DbMapFilename,
-        map_path: &mut PathBuf,
+        content: DbMapContent,
     ) -> Result<(Beatmap, Option<OsuMapSlim>)> {
-        match filename {
-            DbMapFilename::Present(filename) => {
-                map_path.push(filename.as_ref());
+        match content {
+            DbMapContent::Present(content) => match Beatmap::from_bytes(&content) {
+                Ok(map) => Ok((map, None)),
+                Err(err) => {
+                    let wrap = format!("Failed to parse content of map {map_id}");
 
-                let res = match Beatmap::from_path(&*map_path) {
-                    Ok(map) => Ok((map, None)),
-                    Err(err) => {
-                        if let Err(err) = fs::remove_file(&*map_path).await {
-                            warn!(?map_path, ?err, "Failed to delete file");
-                        }
-
-                        let wrap = format!("Failed to parse map `{map_path:?}`");
-
-                        Err(Report::new(err).wrap_err(wrap).into())
-                    }
-                };
-
-                map_path.pop();
-
-                res
-            }
-            DbMapFilename::ChecksumMismatch => {
+                    Err(Report::new(err).wrap_err(wrap).into())
+                }
+            },
+            DbMapContent::ChecksumMismatch => {
                 info!("Checksum mismatch for map {map_id}, re-downloading...");
 
                 let map_fut = self.download_map_file(map_id);
@@ -326,7 +309,7 @@ impl MapManager {
 
                 Ok((map, Some(map_slim)))
             }
-            DbMapFilename::Missing => {
+            DbMapContent::Missing => {
                 info!("Missing map {map_id}, downloading...");
 
                 let map = self
@@ -360,21 +343,13 @@ impl MapManager {
             let reason = match bytes_fut.await {
                 Ok(bytes) if !bytes.is_empty() => match Beatmap::from_bytes(&bytes) {
                     Ok(map) => {
-                        let mut map_path = BotConfig::get().paths.maps.clone();
-                        let filename = format!("{map_id}.osu");
-                        map_path.push(&filename);
+                        let db_fut = Context::psql().insert_beatmap_file_content(map_id, &bytes);
 
-                        let write_fut = fs::write(&map_path, &bytes);
-                        let db_fut = Context::psql().insert_beatmap_file(map_id, &filename);
-
-                        let (write_res, db_res) = tokio::join!(write_fut, db_fut);
-                        write_res.wrap_err("Failed writing to file")?;
-
-                        if let Err(err) = db_res {
+                        if let Err(err) = db_fut.await {
                             warn!(?err, "Failed to insert map file");
+                        } else {
+                            info!("Downloaded {map_id}.osu successfully");
                         }
-
-                        info!("Downloaded {map_id}.osu successfully");
 
                         return Ok(map);
                     }
