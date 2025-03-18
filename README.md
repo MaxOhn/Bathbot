@@ -79,7 +79,6 @@ I wouldn't necessarily recommend to try and get the bot running yourself but fee
   - `DISCORD_TOKEN`
   - `OSU_CLIENT_ID`
   - `OSU_CLIENT_SECRET`
-  - `MAP_PATH`
 - If you don't run through docker, be sure these env variables are also set
   - `DATABASE_URL`
   - `REDIS_HOST`
