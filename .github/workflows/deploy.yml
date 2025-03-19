@@ -26,6 +26,10 @@ jobs:
           profile: minimal
           override: true
 
+      # See failed run <https://github.com/MaxOhn/Bathbot/actions/runs/13952289631/job/39054697734>
+      - name: "Install fontconfig"
+        run: sudo apt-get -y install libfontconfig1-dev jq
+
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v1
 
