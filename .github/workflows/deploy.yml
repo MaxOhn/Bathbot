@@ -38,6 +38,7 @@ jobs:
           host: ${{ secrets.SCP_HOST }}
           username: ${{ secrets.SCP_USERNAME }}
           password: ${{ secrets.SCP_PASSWORD }}
+          key: ${{ secrets.SCP_KEY }}
           source: target/release/bathbot-twilight
           target: ${{ secrets.SCP_TARGET }}
           strip_components: 2
