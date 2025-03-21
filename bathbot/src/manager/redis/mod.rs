@@ -7,7 +7,7 @@ use bathbot_cache::{
 };
 use bathbot_model::{
     ArchivedOsekaiBadge, ArchivedOsekaiMedal, ArchivedOsuStatsBestScores, ArchivedSnipeCountries,
-    OsekaiRanking, OsuStatsBestTimeframe,
+    OsekaiRanking, OsuStatsBestScores, OsuStatsBestTimeframe,
     rosu_v2::ranking::{ArchivedRankings, RankingsRkyv},
 };
 use bathbot_psql::model::osu::MapVersion;
@@ -196,15 +196,18 @@ impl RedisManager {
         self,
         timeframe: OsuStatsBestTimeframe,
         mode: GameMode,
-    ) -> RedisResult<ArchivedOsuStatsBestScores> {
+    ) -> Result<OsuStatsBestScores> {
         const EXPIRE: u64 = 3600;
         let key = format!("osustats_best_{}_{}", timeframe as u8, mode as u8);
 
-        let mut conn = match Context::cache().fetch(&key).await {
+        let mut conn = match Context::cache()
+            .fetch::<_, ArchivedOsuStatsBestScores>(&key)
+            .await
+        {
             Ok(Ok(scores)) => {
                 BotMetrics::inc_redis_hit("osu!stats best");
 
-                return Ok(scores);
+                return scores.try_deserialize().wrap_err("Failed to deserialize");
             }
             Ok(Err(conn)) => Some(conn),
             Err(err) => {
@@ -216,15 +219,18 @@ impl RedisManager {
 
         let scores = Context::client().get_osustats_best(timeframe, mode).await?;
 
-        let bytes = serialize_using_arena(&scores).map_err(RedisError::Serialization)?;
-
         if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
-                warn!(?err, "Failed to store osustats best");
+            match serialize_using_arena(&scores).map_err(RedisError::Serialization) {
+                Ok(bytes) => {
+                    if let Err(err) = Cache::store(conn, &key, &bytes, EXPIRE).await {
+                        warn!(?err, "Failed to store osustats best");
+                    }
+                }
+                Err(err) => warn!(err = ?Report::new(err), "Failed to serialize osustats best"),
             }
         }
 
-        CachedArchive::new(bytes).map_err(RedisError::Validation)
+        Ok(scores)
     }
 
     pub async fn snipe_countries(self, mode: GameMode) -> RedisResult<ArchivedSnipeCountries> {
