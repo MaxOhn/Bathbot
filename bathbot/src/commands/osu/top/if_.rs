@@ -560,10 +560,6 @@ async fn process_scores(
             old_pp
         };
 
-        if i == 10 {
-            debug!("[{:?}] {old_pp} -> {new_pp}", score.mods)
-        }
-
         let entry = TopIfEntry {
             original_idx: i,
             score: ScoreSlim::new(score, new_pp),
