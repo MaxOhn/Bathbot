@@ -100,7 +100,7 @@ impl IActiveMessage for OsuStatsBestPagination {
                 mods = ModsFormatter::new(&score.mods),
                 user = score.user.username,
                 user_id = score.user.user_id,
-                grade = config.grade(score.grade.into()),
+                grade = config.grade(score.grade),
                 pp = round(score.pp),
                 acc = round(score.accuracy),
                 combo = ComboFormatter::new(score.max_combo, Some(score.map.max_combo)),
