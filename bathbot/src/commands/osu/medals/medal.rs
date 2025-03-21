@@ -353,6 +353,7 @@ impl MedalEmbed {
         if let Some(comment) = comment.filter(|_| !as_spoiler) {
             let OsekaiComment {
                 content,
+                user_id,
                 username,
                 vote_count: vote_sum,
                 ..
@@ -364,6 +365,10 @@ impl MedalEmbed {
                 - {username} [{vote_sum:+}]\n\
                 ```",
                 content = content.trim(),
+                username = match username {
+                    Some(ref username) => Cow::Borrowed(username.as_str()),
+                    None => Cow::Owned(format!("<user id {user_id}>")),
+                }
             );
 
             fields![fields { "Top comment", value, false }];
