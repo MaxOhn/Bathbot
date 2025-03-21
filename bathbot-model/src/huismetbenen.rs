@@ -6,7 +6,7 @@ use std::{
 
 use bathbot_util::{CowUtils, osu::ModSelection};
 use rkyv::{
-    Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize, boxed::ArchivedBox,
+    Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize, string::ArchivedString,
 };
 use rosu_v2::prelude::{CountryCode, GameMode, GameMods, GameModsIntermode, Username};
 use serde::{
@@ -27,7 +27,10 @@ use time::{
 use twilight_interactions::command::{CommandOption, CreateOption};
 
 use super::deser;
-use crate::KittenRoleplayCountries;
+use crate::{
+    KittenRoleplayCountries,
+    rkyv_util::{DerefAsString, MapBoxedSlice},
+};
 
 pub struct SnipeScoreParams {
     pub user_id: u32,
@@ -404,6 +407,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
 
 #[derive(Debug, Archive, RkyvDeserialize, RkyvSerialize)]
 pub struct SnipeCountries {
+    #[rkyv(with = MapBoxedSlice<DerefAsString>)]
     country_codes: Box<[Box<str>]>,
 }
 
@@ -437,7 +441,7 @@ impl SnipeCountries {
 impl ArchivedSnipeCountries {
     pub fn contains(&self, country_code: &str) -> bool {
         self.country_codes
-            .binary_search_by_key(&country_code, ArchivedBox::as_ref)
+            .binary_search_by_key(&country_code, ArchivedString::as_str)
             .is_ok()
     }
 }

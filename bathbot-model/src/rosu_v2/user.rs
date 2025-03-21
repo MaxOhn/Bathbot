@@ -10,6 +10,7 @@ use rkyv::{
     rancor::{Fallible, Source},
     rend::u32_le,
     ser::{Allocator, Writer},
+    string::ArchivedString,
     with::{ArchiveWith, InlineAsBox, Map, MapNiche, SerializeWith},
 };
 use rosu_v2::prelude::{CountryCode, DailyChallengeUserStatistics, GameMode, Username};
@@ -18,7 +19,7 @@ use time::{Date, OffsetDateTime};
 use crate::{
     Either,
     rkyv_util::{
-        DerefAsBox, DerefAsString, MapUnwrapOrDefault, UnwrapOrDefault,
+        DerefAsString, MapUnwrapOrDefault, UnwrapOrDefault,
         time::{DateRkyv, DateTimeRkyv},
     },
 };
@@ -130,6 +131,7 @@ impl Niching<ArchivedTeam> for TeamRkyv {
 
 #[derive(Clone, Archive, Serialize)]
 pub struct User {
+    #[rkyv(with = DerefAsString)]
     pub avatar_url: Box<str>,
     #[rkyv(with = DerefAsString)]
     pub country_code: CountryCode,
@@ -205,7 +207,7 @@ impl ArchiveWith<UserExtended> for User {
             team,
         } = out);
 
-        DerefAsBox::resolve_with(&user.avatar_url, resolver.avatar_url, avatar_url);
+        ArchivedString::resolve_from_str(&user.avatar_url, resolver.avatar_url, avatar_url);
         DerefAsString::resolve_with(&user.country_code, resolver.country_code, country_code);
         DateTimeRkyv::resolve_with(&user.join_date, resolver.join_date, join_date);
         UserKudosuRkyv::resolve_with(&user.kudosu, resolver.kudosu, kudosu);
@@ -298,7 +300,7 @@ impl<S: Fallible<Error: Source> + Writer + Allocator + ?Sized> SerializeWith<Use
 {
     fn serialize_with(user: &UserExtended, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(UserResolver {
-            avatar_url: DerefAsBox::serialize_with(&user.avatar_url, serializer)?,
+            avatar_url: ArchivedString::serialize_from_str(&user.avatar_url, serializer)?,
             country_code: DerefAsString::serialize_with(&user.country_code, serializer)?,
             join_date: DateTimeRkyv::serialize_with(&user.join_date, serializer)?,
             kudosu: UserKudosuRkyv::serialize_with(&user.kudosu, serializer)?,
