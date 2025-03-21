@@ -193,7 +193,7 @@ pub struct OsekaiComment {
     #[serde(rename = "User_ID")]
     pub user_id: u32,
     #[serde(rename = "Username")]
-    pub username: Username,
+    pub username: Option<Username>,
     #[serde(rename = "VoteCount")]
     pub vote_count: u32,
 }
