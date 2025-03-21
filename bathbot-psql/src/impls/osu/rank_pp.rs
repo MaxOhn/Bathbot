@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Formatter, Result as FmtResult};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
@@ -69,7 +69,12 @@ FROM
             .map(Entries::new)
             .wrap_err("Failed to fetch all entries")?;
 
-        debug!(?entries, pp, "Approximating rank");
+        debug!(
+            higher = %entries.fmt_higher(),
+            lower = %entries.fmt_lower(),
+            pp,
+            "Approxing rank",
+        );
 
         if let (Some(higher_pp), Some(lower_rank)) = (entries.higher_pp(), entries.lower_rank()) {
             // found a DB entry above and below the given pp
@@ -175,7 +180,12 @@ FROM
             .map(Entries::new)
             .wrap_err("Failed to fetch all entries")?;
 
-        debug!(?entries, rank, "Approximating pp");
+        debug!(
+          higher = %entries.fmt_higher(),
+          lower = %entries.fmt_lower(),
+          rank,
+          "Approxing pp",
+        );
 
         if let (Some(higher_pp), Some(lower_rank)) = (entries.higher_pp(), entries.lower_rank()) {
             // found a DB entry above and below the given rank
@@ -239,31 +249,6 @@ struct Entry {
     last_update: OffsetDateTime,
 }
 
-impl Debug for Entry {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        struct LastUpdate(OffsetDateTime);
-
-        impl Debug for LastUpdate {
-            fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-                let date = self.0.date();
-                let time = self.0.time();
-
-                let hour = time.hour();
-                let minute = time.minute();
-                let second = time.second();
-
-                write!(f, "{date} {hour:0>2}:{minute:0>2}:{second:0>2}")
-            }
-        }
-
-        f.debug_struct("Entry")
-            .field("pp", &self.pp)
-            .field("rank", &self.rank)
-            .field("last_update", &LastUpdate(self.last_update))
-            .finish()
-    }
-}
-
 impl From<DbEntry> for Entry {
     #[inline]
     fn from(entry: DbEntry) -> Self {
@@ -278,26 +263,6 @@ impl From<DbEntry> for Entry {
 struct Entries {
     higher: Option<Entry>,
     lower: Option<Entry>,
-}
-
-impl Debug for Entries {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        struct MaybeEntry<'a>(Option<&'a Entry>);
-
-        impl Debug for MaybeEntry<'_> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-                match self.0 {
-                    Some(entry) => Debug::fmt(entry, f),
-                    None => f.write_str("None"),
-                }
-            }
-        }
-
-        f.debug_struct("Entries")
-            .field("higher", &MaybeEntry(self.higher.as_ref()))
-            .field("lower", &MaybeEntry(self.lower.as_ref()))
-            .finish()
-    }
 }
 
 impl Entries {
@@ -342,5 +307,32 @@ impl Entries {
 
     fn lower_rank(&self) -> Option<u32> {
         self.lower.as_ref().map(|entry| entry.rank)
+    }
+
+    fn fmt_higher(&self) -> EntryFormatter<'_> {
+        EntryFormatter(self.higher.as_ref())
+    }
+
+    fn fmt_lower(&self) -> EntryFormatter<'_> {
+        EntryFormatter(self.lower.as_ref())
+    }
+}
+
+struct EntryFormatter<'a>(Option<&'a Entry>);
+
+impl Display for EntryFormatter<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self.0 {
+            Some(entry) => {
+                write!(
+                    f,
+                    "(pp:{},rank:{},last_update:{})",
+                    entry.pp,
+                    entry.rank,
+                    entry.last_update.date()
+                )
+            }
+            None => f.write_str("None"),
+        }
     }
 }
