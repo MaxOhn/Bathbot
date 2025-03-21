@@ -208,9 +208,12 @@ pub struct OsekaiMedal {
     #[serde(rename = "Frequency", with = "deser::option_f32_string")]
     #[rkyv(with = NicheInto<NaN>)]
     pub rarity: Option<f32>,
+    #[rkyv(with = DerefAsString)]
     pub name: Box<str>,
     #[serde(rename = "Link")]
+    #[rkyv(with = DerefAsString)]
     icon_url_suffix: Box<str>,
+    #[rkyv(with = DerefAsString)]
     pub description: Box<str>,
     #[serde(rename = "Gamemode", deserialize_with = "maybe_osekai_mode")]
     #[rkyv(with = NicheInto<GameModeNiche>)]
@@ -591,6 +594,7 @@ fn maybe_osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>
 #[derive(Archive, Debug, RkyvDeserialize, Serialize)]
 #[rkyv(as = ArchivedOsekaiRankingEntry<T>)]
 pub struct OsekaiRankingEntry<T: Archive> {
+    #[rkyv(with = DerefAsString)]
     pub country: Box<str>,
     #[rkyv(with = DerefAsString)]
     pub country_code: CountryCode,
@@ -605,7 +609,7 @@ pub struct OsekaiRankingEntry<T: Archive> {
 #[bytecheck(crate = rkyv::bytecheck)]
 #[repr(C)]
 pub struct ArchivedOsekaiRankingEntry<T: Archive> {
-    pub country: <Box<str> as Archive>::Archived,
+    pub country: ArchivedString,
     pub country_code: ArchivedString,
     pub rank: Archived<u32>,
     pub user_id: Archived<u32>,
@@ -786,14 +790,17 @@ pub struct OsekaiUserEntry {
     #[serde(rename = "countrycode")]
     #[rkyv(with = DerefAsString)]
     pub country_code: CountryCode,
+    #[rkyv(with = DerefAsString)]
     pub country: Box<str>,
     #[rkyv(with = DerefAsString)]
     pub username: Username,
     #[serde(rename = "medalCount", with = "deser::u32_string")]
     pub medal_count: u32,
     #[serde(rename = "rarestmedal")]
+    #[rkyv(with = DerefAsString)]
     pub rarest_medal: Box<str>,
     #[serde(rename = "link")]
+    #[rkyv(with = DerefAsString)]
     pub rarest_icon_url: Box<str>,
     #[serde(rename = "userid", with = "deser::u32_string")]
     pub user_id: u32,
@@ -806,11 +813,14 @@ pub struct OsekaiRarityEntry {
     #[serde(with = "deser::u32_string")]
     pub rank: u32,
     #[serde(rename = "link")]
+    #[rkyv(with = DerefAsString)]
     pub icon_url: Box<str>,
     #[serde(rename = "medalname")]
+    #[rkyv(with = DerefAsString)]
     pub medal_name: Box<str>,
     #[serde(rename = "medalid", with = "deser::u32_string")]
     pub medal_id: u32,
+    #[rkyv(with = DerefAsString)]
     pub description: Box<str>,
     #[serde(rename = "possessionRate", with = "deser::f32_string")]
     pub possession_percent: f32,
@@ -824,10 +834,13 @@ pub struct OsekaiBadge {
     #[serde(with = "deser::date")]
     #[rkyv(with = DateRkyv)]
     pub awarded_at: Date,
+    #[rkyv(with = DerefAsString)]
     pub description: Box<str>,
     #[serde(rename = "id", with = "deser::u32_string")]
     pub badge_id: u32,
+    #[rkyv(with = DerefAsString)]
     pub image_url: Box<str>,
+    #[rkyv(with = DerefAsString)]
     pub name: Box<str>,
     #[serde(deserialize_with = "string_of_vec_of_u32s")]
     pub users: Vec<u32>,

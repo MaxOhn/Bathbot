@@ -21,7 +21,10 @@ use twilight_interactions::command::{CommandOption, CreateOption};
 use super::deser;
 use crate::{
     deser::ModeAsSeed,
-    rkyv_util::time::{DateRkyv, DateTimeRkyv},
+    rkyv_util::{
+        DerefAsString,
+        time::{DateRkyv, DateTimeRkyv},
+    },
     rosu_v2::grade::GradeRkyv,
 };
 
@@ -655,9 +658,13 @@ pub struct OsuStatsBestScoreMap {
     pub map_id: u32,
     #[serde(rename = "beatmapSetId")]
     pub mapset_id: u32,
+    #[rkyv(with = DerefAsString)]
     pub artist: Box<str>,
+    #[rkyv(with = DerefAsString)]
     pub title: Box<str>,
+    #[rkyv(with = DerefAsString)]
     pub version: Box<str>,
+    #[rkyv(with = DerefAsString)]
     pub creator: Box<str>,
     #[serde(rename = "maxCombo")]
     pub max_combo: u32,
@@ -668,5 +675,6 @@ pub struct OsuStatsBestScoreUser {
     #[serde(rename = "userId")]
     pub user_id: u32,
     #[serde(rename = "userName")]
+    #[rkyv(with = DerefAsString)]
     pub username: Box<str>,
 }
