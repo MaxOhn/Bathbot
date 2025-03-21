@@ -8,7 +8,6 @@ use eyre::{Report, Result};
 use rand::{Rng, thread_rng};
 use rkyv::{
     rancor::{Panic, ResultExt},
-    vec::ArchivedVec,
     with::{Map, With},
 };
 use rosu_v2::{
@@ -75,17 +74,7 @@ pub(super) async fn recent(orig: CommandOrigin<'_>, args: MedalRecent<'_>) -> Re
     let medals_fut = Context::redis().medals();
 
     let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {
-        (Ok(user), Ok(mut medals)) => {
-            medals.mutate(|medals| {
-                let medals = ArchivedVec::as_slice_seal(medals);
-                // SAFETY: We just sort; no nefarious moving or writing going on
-                let medals = unsafe { medals.unseal_unchecked() };
-
-                medals.sort_unstable_by_key(|medal| medal.medal_id);
-            });
-
-            (user, medals)
-        }
+        (Ok(user), Ok(medals)) => (user, medals),
         (Err(UserArgsError::Osu(OsuError::NotFound)), _) => {
             let content = user_not_found(user_id).await;
 

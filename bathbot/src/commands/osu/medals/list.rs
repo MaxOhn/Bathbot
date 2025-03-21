@@ -6,10 +6,7 @@ use std::{
 use bathbot_model::{OsekaiMedal, Rarity};
 use bathbot_util::{IntHasher, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
-use rkyv::{
-    rancor::{Panic, ResultExt},
-    vec::ArchivedVec,
-};
+use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
 
@@ -51,17 +48,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
     let ranking_fut = Context::redis().osekai_ranking::<Rarity>();
 
     let (user, osekai_medals, rarities) = match tokio::join!(user_fut, medals_fut, ranking_fut) {
-        (Ok(user), Ok(mut medals), Ok(rarities)) => {
-            medals.mutate(|medals| {
-                let medals = ArchivedVec::as_slice_seal(medals);
-                // SAFETY: We just sort; no nefarious moving or writing going on
-                let medals = unsafe { medals.unseal_unchecked() };
-
-                medals.sort_unstable_by_key(|medal| medal.medal_id);
-            });
-
-            (user, medals, rarities)
-        }
+        (Ok(user), Ok(medals), Ok(rarities)) => (user, medals, rarities),
         (Err(UserArgsError::Osu(OsuError::NotFound)), ..) => {
             let content = user_not_found(user_id).await;
 

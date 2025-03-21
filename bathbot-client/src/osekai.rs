@@ -32,13 +32,20 @@ impl Client {
     }
 
     /// Don't use this; use `RedisManager::medals` instead.
+    ///
+    /// Medals will be sorted by medal id.
     pub async fn get_osekai_medals(&self) -> Result<Vec<OsekaiMedal>> {
         let url = "https://inex.osekai.net/api/medals/get_all";
 
         let bytes = self.make_get_request(url, Site::Osekai).await?;
 
         serde_json::from_slice::<OsekaiInex<Vec<OsekaiMedal>>>(&bytes)
-            .map(|inex| inex.content)
+            .map(|inex| {
+                let mut medals = inex.content;
+                medals.sort_unstable_by_key(|medal| medal.medal_id);
+
+                medals
+            })
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
