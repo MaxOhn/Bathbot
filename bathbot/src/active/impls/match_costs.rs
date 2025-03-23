@@ -418,7 +418,7 @@ fn fmt_full(
         let _ = writeln!(
             description,
             "` [`{name:<name_len$}`]({OSU_BASE}u/{user_id}) \
-            `{match_cost:0<4} = ({performance:>performance_len$} * \
+            `{match_cost:0<4?} = ({performance:>performance_len$} * \
             {participation:^participation_len$} * {mods:^mods_len$}) + \
             {tiebreaker:^tiebreaker_len$}` `{avg_score:>avg_score_len$}`",
             name = users.get(&entry.user_id).map_or_else(
