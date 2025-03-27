@@ -7,7 +7,13 @@ use time::OffsetDateTime;
 use crate::deser::{datetime_rfc3339, option_datetime_rfc3339};
 
 fn deserialize_mods<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error> {
-    TryDeserializeSeed::try_deserialize(GameModsSeed::Mode {}, d)
+    TryDeserializeSeed::try_deserialize(
+        GameModsSeed::Mode {
+            mode: GameMode::Osu,
+            deny_unknown_fields: true,
+        },
+        d,
+    )
 }
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
