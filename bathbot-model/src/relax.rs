@@ -1,7 +1,7 @@
 #![allow(dead_code)]
-use rosu_mods::{serde::GameModsSeed, GameMode, GameMods};
+use rosu_mods::{GameMode, GameMods, serde::GameModsSeed};
 use rosu_v2::model::Grade;
-use serde::{de::DeserializeSeed, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de::DeserializeSeed};
 use time::OffsetDateTime;
 
 use crate::deser::{datetime_rfc3339, option_datetime_rfc3339};
