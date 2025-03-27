@@ -8,25 +8,25 @@ use bathbot_macros::PaginationBuilder;
 use bathbot_model::{RelaxScore, RelaxUser};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter, ScoreExt,
     constants::RELAX,
     datetime::HowLongAgoDynamic,
-    numbers::{round, WithComma},
+    numbers::{WithComma, round},
     osu::flag_url,
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter, ScoreExt,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
-use rosu_v2::prelude::GameMode;
+use rosu_v2::prelude::{GameMode, GameMods};
 use time::OffsetDateTime;
 use twilight_model::{
     channel::message::Component,
-    id::{marker::UserMarker, Id},
+    id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
-        pagination::{handle_pagination_component, handle_pagination_modal, Pages},
         BuildPage, ComponentResult, IActiveMessage,
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::{
         osu::TopScoreOrder,
@@ -34,11 +34,11 @@ use crate::{
     },
     core::Context,
     embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
-    manager::{redis::osu::CachedUser, OsuMap},
+    manager::{OsuMap, redis::osu::CachedUser},
     util::{
+        CachedUserExt, Emote,
         interaction::{InteractionComponent, InteractionModal},
         osu::{GradeFormatter, ScoreFormatter},
-        CachedUserExt, Emote,
     },
 };
 #[derive(PaginationBuilder)]
@@ -128,7 +128,6 @@ impl RelaxTopPagination {
 
         for (idx, score) in entries {
             let map = self.maps.get(&score.beatmap_id).expect("Missing map");
-            let mods = score.mods.as_ref().map(Cow::Borrowed).unwrap_or_default();
         }
 
         todo!()
@@ -136,9 +135,9 @@ impl RelaxTopPagination {
 }
 
 fn author_builder(user: &CachedUser) -> AuthorBuilder {
-    let text = format!("{name}", name = user.username,);
+    let text = format!("{name}", name = user.username);
 
-    let url = format!("{RELAX}/users/{}", user.id);
+    let url = format!("{RELAX}/users/{}", user.user_id);
     let icon = flag_url(&user.country_code);
 
     AuthorBuilder::new(text).url(url).icon_url(icon)

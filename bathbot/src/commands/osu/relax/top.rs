@@ -1,9 +1,10 @@
 use crate::{
-    active::impls::commands::osu::require_link,
-    core::{commands::CommandOrigin, Context},
+    active::impls::relax::top::RelaxTopPagination,
+    commands::osu::require_link,
+    core::{Context, commands::CommandOrigin},
     manager::redis::osu::{UserArgs, UserArgsError},
 };
-use bathbot_util::{constants::GENERAL_ISSUE, EmbedBuilder, MessageBuilder};
+use bathbot_util::{EmbedBuilder, MessageBuilder, constants::GENERAL_ISSUE};
 use eyre::{Error, Result};
 use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
 

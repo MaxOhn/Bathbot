@@ -7,10 +7,10 @@ use time::OffsetDateTime;
 use crate::deser::{datetime_rfc3339, option_datetime_rfc3339};
 
 fn deserialize_mods<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error> {
-    TryDeserializeSeed::try_deserialize(
+    DeserializeSeed::deserialize(
         GameModsSeed::Mode {
             mode: GameMode::Osu,
-            deny_unknown_fields: true,
+            deny_unknown_fields: false,
         },
         d,
     )
@@ -28,7 +28,7 @@ pub struct RelaxScore {
     pub accuracy: f64,
     pub combo: u32,
     #[serde(deserialize_with = "deserialize_mods")]
-    mods: GameMods,
+    pub mods: GameMods,
     #[serde(with = "datetime_rfc3339")]
     pub date: OffsetDateTime,
     pub total_score: u32,
