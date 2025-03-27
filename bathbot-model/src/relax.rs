@@ -1,39 +1,44 @@
 #![allow(dead_code)]
+use rosu_mods::{serde::GameModsSeed, GameMode, GameMods};
 use rosu_v2::model::Grade;
-use serde::Deserialize;
+use serde::{de::DeserializeSeed, Deserialize, Deserializer};
 use time::OffsetDateTime;
 
 use crate::deser::{datetime_rfc3339, option_datetime_rfc3339};
 
+fn deserialize_mods<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error> {
+    TryDeserializeSeed::try_deserialize(GameModsSeed::Mode {}, d)
+}
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxScore {
-    id: u64,
-    user_id: u32,
+    pub id: u64,
+    pub user_id: u32,
     // Comes as a null from /api/players/{user_id}/scores
-    user: Option<RelaxUser>,
-    beatmap_id: u32,
-    beatmap: RelaxBeatmap,
-    grade: Grade,
-    accuracy: f64,
-    combo: u32,
-    mods: Vec<String>,
+    pub user: Option<RelaxUser>,
+    pub beatmap_id: u32,
+    pub beatmap: RelaxBeatmap,
+    pub grade: Grade,
+    pub accuracy: f64,
+    pub combo: u32,
+    #[serde(deserialize_with = "deserialize_mods")]
+    mods: GameMods,
     #[serde(with = "datetime_rfc3339")]
-    date: OffsetDateTime,
-    total_score: u32,
-    count_50: u32,
-    count_100: u32,
-    count_300: u32,
-    count_miss: u32,
-    spinner_bonus: Option<u32>,
-    spinner_spins: Option<u32>,
-    legacy_slider_ends: Option<u32>,
-    slider_ticks: Option<u32>,
-    slider_ends: Option<u32>,
-    legacy_slider_end_misses: Option<u32>,
-    slider_tick_misses: Option<u32>,
-    pp: Option<f64>,
-    is_best: bool,
+    pub date: OffsetDateTime,
+    pub total_score: u32,
+    pub count_50: u32,
+    pub count_100: u32,
+    pub count_300: u32,
+    pub count_miss: u32,
+    pub spinner_bonus: Option<u32>,
+    pub spinner_spins: Option<u32>,
+    pub legacy_slider_ends: Option<u32>,
+    pub slider_ticks: Option<u32>,
+    pub slider_ends: Option<u32>,
+    pub legacy_slider_end_misses: Option<u32>,
+    pub slider_tick_misses: Option<u32>,
+    pub pp: Option<f64>,
+    pub is_best: bool,
 }
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
