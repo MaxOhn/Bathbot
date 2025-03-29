@@ -42,7 +42,7 @@ use super::{
 };
 use crate::{
     active::{ActiveMessages, impls::BackgroundGame},
-    tracking::{Ordr, OsuTracking, ScoresWebSocket, ScoresWebSocketDisconnect},
+    tracking::{Gamba, Ordr, OsuTracking, ScoresWebSocket, ScoresWebSocketDisconnect},
 };
 
 mod games;
@@ -312,6 +312,8 @@ impl Context {
             }
             Err(err) => warn!(?err, "Failed to connect scores websocket"),
         };
+
+        Gamba::spawn_listener();
 
         Ok((
             shards,

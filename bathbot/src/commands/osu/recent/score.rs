@@ -349,6 +349,33 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         }
     };
 
+    let balance = match config.osu {
+        Some(user_id) => {
+            const COST: u64 = 2;
+
+            let mut balance = Context::psql()
+                .decrease_bathcoin_amount(user_id, COST)
+                .await?;
+
+            if balance < COST {
+                let wallet = InteractionCommands::get_command("gamba").map_or_else(
+                    || "`/gamba wallet`".to_owned(),
+                    |cmd| cmd.mention("gamba wallet").to_string(),
+                );
+
+                let content = format!("Using this command costs two bathcoins, check out {wallet}");
+                let _ = orig.error(content).await;
+
+                return Ok(());
+            }
+
+            balance -= 2;
+
+            balance
+        }
+        None => return require_link(&orig).await,
+    };
+
     let GuildValues {
         retries: guild_retries,
         render_button: guild_render_button,
@@ -637,6 +664,19 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         }
     });
 
+    let balance_content = format!("Remaining bathcoins: {balance}");
+
+    match content {
+        SingleScoreContent::OnlyForIndex {
+            ref mut content, ..
+        } => {
+            content.push('\n');
+            content.push_str(&balance_content);
+        }
+        SingleScoreContent::None => content = SingleScoreContent::SameForAll(balance_content),
+        SingleScoreContent::SameForAll(_) => unreachable!(),
+    }
+
     if missing_settings {
         let add_content_notices = {
             const MAX_NOTICES: usize = 5;
@@ -668,13 +708,13 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
             match content {
                 SingleScoreContent::OnlyForIndex {
                     ref mut content, ..
-                } => {
+                }
+                | SingleScoreContent::SameForAll(ref mut content) => {
                     new_content.push('\n');
                     new_content.push_str(content);
                     *content = new_content;
                 }
                 SingleScoreContent::None => content = SingleScoreContent::SameForAll(new_content),
-                SingleScoreContent::SameForAll(_) => unreachable!(),
             }
         }
     }
