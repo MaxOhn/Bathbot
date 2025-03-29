@@ -4,9 +4,12 @@ use eyre::{Report, Result, WrapErr};
 use futures::{SinkExt, StreamExt};
 use rosu_v2::prelude::Score;
 use tokio::{net::TcpStream, sync::oneshot};
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite::Message};
+use tokio_tungstenite::{tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
-use crate::{core::BotConfig, tracking::OsuTracking};
+use crate::{
+    core::BotConfig,
+    tracking::{Gamba, OsuTracking},
+};
 
 type WebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -122,6 +125,7 @@ impl ScoresWebSocket {
                 Self::store_resume_id(score.id);
             }
 
+            Gamba::process_score(score.user_id, score.grade);
             OsuTracking::process_score(score);
         }
     }

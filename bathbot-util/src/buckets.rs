@@ -4,7 +4,7 @@ use time::OffsetDateTime;
 
 use crate::IntHasher;
 
-pub struct Buckets([Mutex<Bucket>; 8]);
+pub struct Buckets([Mutex<Bucket>; 9]);
 
 impl Buckets {
     #[allow(clippy::new_without_default)]
@@ -26,6 +26,7 @@ impl Buckets {
             make_bucket(15, 0, 1),   // MatchCompare
             make_bucket(5, 900, 3),  // MatchLive
             make_bucket(60, 720, 2), // Render
+            make_bucket(5, 0, 1),    // Roulette
             make_bucket(20, 0, 1),   // Songs
         ])
     }
@@ -39,7 +40,8 @@ impl Buckets {
             BucketName::MatchCompare => &self.0[4],
             BucketName::MatchLive => &self.0[5],
             BucketName::Render => &self.0[6],
-            BucketName::Songs => &self.0[7],
+            BucketName::Roulette => &self.0[7],
+            BucketName::Songs => &self.0[8],
         }
     }
 }
@@ -115,5 +117,6 @@ pub enum BucketName {
     MatchCompare,
     MatchLive,
     Render,
+    Roulette,
     Songs,
 }

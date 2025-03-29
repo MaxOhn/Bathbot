@@ -30,7 +30,7 @@ use self::osutrack::OsuTrackUserNotifTimestamps;
 use super::{BotConfig, BotMetrics};
 use crate::{
     active::{ActiveMessages, impls::BackgroundGame},
-    tracking::{Ordr, OsuTracking, ScoresWebSocket, ScoresWebSocketDisconnect},
+    tracking::{Gamba, Ordr, OsuTracking, ScoresWebSocket, ScoresWebSocketDisconnect},
 };
 
 mod discord;
@@ -302,6 +302,8 @@ impl Context {
             }
             Err(err) => warn!(?err, "Failed to connect scores websocket"),
         };
+
+        Gamba::spawn_listener();
 
         Ok((
             shards,

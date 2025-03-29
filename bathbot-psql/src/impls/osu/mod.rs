@@ -1,3 +1,4 @@
+pub mod gamba;
 pub mod map;
 pub mod mapset;
 pub mod name;
