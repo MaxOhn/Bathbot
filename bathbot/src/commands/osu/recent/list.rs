@@ -13,8 +13,9 @@ use bathbot_model::{
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{CowUtils, IntHasher, constants::GENERAL_ISSUE, matcher, osu::ModSelection};
 use eyre::{Report, Result};
+use rosu_pp::{Beatmap, Difficulty, any::DifficultyAttributes};
 use rosu_v2::{
-    prelude::{GameMode, Grade, OsuError, Score},
+    prelude::{GameMode, GameMods, Grade, OsuError, Score},
     request::UserId,
 };
 
@@ -547,16 +548,33 @@ async fn process_scores(
         .enumerate()
         .filter(|(_, score)| score_filter(score));
 
+    let mut cached_attrs = CachedAttributes::default();
+
     for (idx, score) in scores {
         let Some(map) = maps.get(&score.map_id) else {
             continue;
         };
 
-        let mods = score.mods.clone();
-        let mut calc = Context::pp(map).mode(score.mode).mods(mods);
-        let attrs = calc.difficulty().await;
+        let pp_mods = score.mods.clone().into();
+
+        let pp_map = match map.pp_map.convert_ref((score.mode as u8).into(), &pp_mods) {
+            Ok(map) => map,
+            Err(_) => Cow::Borrowed(&map.pp_map),
+        };
+
+        let attrs = cached_attrs.get(&pp_map, &score).await;
+
         let stars = attrs.stars() as f32;
         let max_combo = attrs.max_combo();
+
+        let mods = score.mods.clone();
+
+        let mut calc = Context::pp_parsed(&pp_map, score.mode)
+            .mode(score.mode)
+            .mods(mods)
+            .lazer(score.set_on_lazer);
+
+        calc.set_difficulty(attrs);
 
         let max_pp = match score
             .pp
@@ -718,4 +736,52 @@ async fn process_scores(
     }
 
     Ok((entries, maps))
+}
+
+// It takes a long time to calculate attributes for maps like /b/5023039 with
+// 32k+ objects so we want to cache as much as possible in case users have
+// the same long map multiple times with the same mods in their recent plays.
+#[derive(Default)]
+struct CachedAttributes {
+    // `GameMods` implements neither `Hash` nor `Ord` so we cannot use
+    // `HashMap` or `BTreeMap` and need to use `Vec` instead.
+    entries: Vec<CachedEntry>,
+}
+
+impl CachedAttributes {
+    async fn get(&mut self, map: &Beatmap, score: &Score) -> DifficultyAttributes {
+        let map_id = score.map_id;
+        let lazer = score.set_on_lazer;
+
+        let res = self.entries.iter().find(|entry| {
+            entry.map_id == map_id && entry.mods == score.mods && entry.lazer == lazer
+        });
+
+        if let Some(entry) = res {
+            return entry.attrs.clone();
+        }
+
+        let mods = score.mods.clone();
+
+        let attrs = Difficulty::new()
+            .mods(mods.clone())
+            .lazer(lazer)
+            .calculate(map);
+
+        self.entries.push(CachedEntry {
+            map_id,
+            lazer,
+            mods,
+            attrs: attrs.clone(),
+        });
+
+        attrs
+    }
+}
+
+struct CachedEntry {
+    map_id: u32,
+    lazer: bool,
+    mods: GameMods,
+    attrs: DifficultyAttributes,
 }
