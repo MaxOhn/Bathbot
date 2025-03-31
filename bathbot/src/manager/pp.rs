@@ -106,6 +106,11 @@ impl<'m> PpManager<'m> {
         inner(self, score.into())
     }
 
+    /// Be sure the attributes match the map and difficulty parameters!
+    pub fn set_difficulty(&mut self, attrs: DifficultyAttributes) {
+        self.attrs = Some(attrs);
+    }
+
     /// Calculate difficulty attributes
     pub async fn difficulty(&mut self) -> &DifficultyAttributes {
         if !self.partial {
