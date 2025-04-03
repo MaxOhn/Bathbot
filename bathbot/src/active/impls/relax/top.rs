@@ -134,7 +134,6 @@ impl RelaxTopPagination {
             // NOTE: Make generic versions of formatting functions later on
             // this is ugly
             let score_pp = score.pp.map(|pp| pp as f32);
-            let score_accuracy = score.accuracy as f32;
             let max_pp = max_attrs.pp() as f32;
             let max_combo = max_attrs.max_combo();
             let count_miss = score.count_miss;
@@ -151,7 +150,7 @@ impl RelaxTopPagination {
                 mods = ModsFormatter::new(&mods),
                 pp = PpFormatter::new(score_pp, Some(max_pp)),
                 stars = score.beatmap.star_rating.unwrap_or_default(),
-                acc = round(score_accuracy),
+                acc = round(score.accuracy),
                 score = WithComma::new(score.total_score),
                 combo = ComboFormatter::new(score.combo, Some(max_combo)),
                 miss = MissFormat(count_miss),

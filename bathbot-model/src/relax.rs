@@ -1,20 +1,59 @@
 #![allow(dead_code)]
+use std::fmt::{Formatter, Result as FmtResult};
+
+use rosu_mods::GameMod;
 use rosu_mods::{GameMode, GameMods, serde::GameModsSeed};
 use rosu_v2::model::Grade;
+use serde::de;
 use serde::{Deserialize, Deserializer, de::DeserializeSeed};
 use time::OffsetDateTime;
 
-use crate::deser::{datetime_rfc3339, option_datetime_rfc3339};
+use crate::deser::{adjust_acc, datetime_rfc3339, option_datetime_rfc3339};
 
 fn deserialize_mods<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error> {
-    DeserializeSeed::deserialize(
-        GameModsSeed::Mode {
-            mode: GameMode::Osu,
-            deny_unknown_fields: false,
-        },
-        d,
-    )
+    struct Visitor;
+
+    impl<'de> de::Visitor<'de> for Visitor {
+        type Value = GameMods;
+
+        fn expecting(&self, f: &mut Formatter) -> FmtResult {
+            f.write_str("mods")
+        }
+
+        fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+            let mut mods = GameMods::new();
+
+            while let Some(s) = seq.next_element::<&'de str>()? {
+                let (acronym, clock_rate) = s.split_once('x').unwrap_or((s, ""));
+
+                let mut gamemod = GameMod::new(acronym, GameMode::Osu);
+
+                match (!clock_rate.is_empty()).then(|| clock_rate.parse()) {
+                    None => {}
+                    Some(Ok(clock_rate)) => match gamemod {
+                        GameMod::DoubleTimeOsu(ref mut m) => m.speed_change = Some(clock_rate),
+                        GameMod::NightcoreOsu(ref mut m) => m.speed_change = Some(clock_rate),
+                        GameMod::HalfTimeOsu(ref mut m) => m.speed_change = Some(clock_rate),
+                        GameMod::DaycoreOsu(ref mut m) => m.speed_change = Some(clock_rate),
+                        _ => {}
+                    },
+                    Some(Err(_)) => {
+                        return Err(de::Error::custom(format!(
+                            "expected clock rate; got `{clock_rate}`"
+                        )));
+                    }
+                }
+
+                mods.insert(gamemod);
+            }
+
+            Ok(mods)
+        }
+    }
+
+    d.deserialize_seq(Visitor)
 }
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxScore {
@@ -25,7 +64,8 @@ pub struct RelaxScore {
     pub beatmap_id: u32,
     pub beatmap: RelaxBeatmap,
     pub grade: Grade,
-    pub accuracy: f64,
+    #[serde(with = "adjust_acc")]
+    pub accuracy: f32,
     pub combo: u32,
     #[serde(deserialize_with = "deserialize_mods")]
     pub mods: GameMods,
