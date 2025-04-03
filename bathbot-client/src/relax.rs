@@ -5,7 +5,7 @@ use bathbot_util::constants::RELAX_API;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::CountryCode;
 
-use crate::{site::Site, Client};
+use crate::{Client, site::Site};
 
 impl Client {
     /// /api/scores
@@ -104,6 +104,7 @@ impl Client {
     /// GET all relax scores set by a player
     pub async fn get_relax_player_scores(&self, user_id: u32) -> Result<Vec<RelaxScore>> {
         let url = format!("{}/players/{}/scores", RELAX_API, user_id);
+        debug!(url);
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 

@@ -9,7 +9,7 @@ use bathbot_model::{RelaxScore, RelaxUser};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter, ScoreExt,
-    constants::RELAX,
+    constants::{OSU_BASE, RELAX},
     datetime::HowLongAgoDynamic,
     numbers::{WithComma, round},
     osu::flag_url,
@@ -44,12 +44,12 @@ use crate::{
 #[derive(PaginationBuilder)]
 pub struct RelaxTopPagination {
     user: CachedUser,
-    sort_by: TopScoreOrder,
+    // sort_by: TopScoreOrder,
     #[pagination(per_page = 5, len = "total")]
     scores: BTreeMap<usize, RelaxScore>,
     total: usize,
     maps: HashMap<u32, OsuMap, IntHasher>,
-    condensed_list: bool,
+    // condensed_list: bool,
     content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
@@ -84,8 +84,6 @@ impl RelaxTopPagination {
     async fn async_build_page(&mut self) -> Result<BuildPage> {
         let pages = &self.pages;
         let page_range = pages.index()..pages.index() + pages.per_page();
-
-        let page_count = self.scores.range(page_range.clone()).count();
 
         if self.scores.is_empty() {
             let embed = EmbedBuilder::new()
@@ -128,9 +126,55 @@ impl RelaxTopPagination {
 
         for (idx, score) in entries {
             let map = self.maps.get(&score.beatmap_id).expect("Missing map");
+            let mods = Cow::Borrowed(&score.mods);
+            let max_attrs = Context::pp(map)
+                .mods(mods.clone().into_owned())
+                .performance()
+                .await;
+            // NOTE: Make generic versions of formatting functions later on
+            // this is ugly
+            let score_pp = score.pp.map(|pp| pp as f32);
+            let score_accuracy = score.accuracy as f32;
+            let max_pp = max_attrs.pp() as f32;
+            let max_combo = max_attrs.max_combo();
+            let count_miss = score.count_miss;
+
+            let _ = write!(
+                description,
+                "**#{idx} [{title} [{version}]]({OSU_BASE}b/{map_id}) +{mods}**\n\
+                {pp} • {acc}% • [{stars:.2}★]{miss}\n\
+                [ {combo} ] • {score}",
+                idx = idx + 1,
+                title = map.title().cow_escape_markdown(),
+                version = map.version().cow_escape_markdown(),
+                map_id = score.beatmap_id,
+                mods = ModsFormatter::new(&mods),
+                pp = PpFormatter::new(score_pp, Some(max_pp)),
+                stars = score.beatmap.star_rating.unwrap_or_default(),
+                acc = round(score_accuracy),
+                score = WithComma::new(score.total_score),
+                combo = ComboFormatter::new(score.combo, Some(max_combo)),
+                miss = MissFormat(count_miss),
+            );
+
+            description.push('\n');
         }
 
-        todo!()
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+
+        let footer = FooterBuilder::new(format!(
+            "Page {page}/{pages} • Total scores: {}",
+            self.total,
+        ));
+
+        let embed = EmbedBuilder::new()
+            .author(self.user.author_builder(false))
+            .description(description)
+            .footer(footer)
+            .thumbnail(self.user.avatar_url.as_ref());
+
+        Ok(BuildPage::new(embed, true).content(self.content.clone()))
     }
 }
 
@@ -141,4 +185,15 @@ fn author_builder(user: &CachedUser) -> AuthorBuilder {
     let icon = flag_url(&user.country_code);
 
     AuthorBuilder::new(text).url(url).icon_url(icon)
+}
+struct MissFormat(u32);
+
+impl Display for MissFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.0 == 0 {
+            return Ok(());
+        }
+
+        write!(f, " • {miss}{emote}", miss = self.0, emote = Emote::Miss)
+    }
 }

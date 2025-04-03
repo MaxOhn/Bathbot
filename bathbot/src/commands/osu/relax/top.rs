@@ -1,9 +1,12 @@
+use std::collections::{BTreeMap, HashMap};
+
 use crate::{
-    active::impls::relax::top::RelaxTopPagination,
-    commands::osu::require_link,
+    active::{ActiveMessages, impls::relax::top::RelaxTopPagination},
+    commands::{osu::require_link, owner},
     core::{Context, commands::CommandOrigin},
     manager::redis::osu::{UserArgs, UserArgsError},
 };
+use bathbot_model::RelaxScore;
 use bathbot_util::{EmbedBuilder, MessageBuilder, constants::GENERAL_ISSUE};
 use eyre::{Error, Result};
 use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
@@ -58,12 +61,42 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
 
     let client = Context::client();
     let scores = client.get_relax_player_scores(user_id);
-    let scores = scores.await;
+    let scores = scores.await.map(|scores| {
+        scores
+            .into_iter()
+            .enumerate()
+            .collect::<BTreeMap<usize, RelaxScore>>()
+    });
+    let scores = scores?;
 
-    let pagination = RelaxTopPagination::builder();
-    let stub = EmbedBuilder::new().title(format!("{}", scores.unwrap_or_default().len()));
-    let stub_message = MessageBuilder::new().embed(stub);
-    orig.create_message(stub_message).await?;
+    let map_ids = scores
+        .values()
+        .take(5)
+        .map(|score| (score.beatmap_id as i32, None))
+        .collect();
+    let maps = match Context::osu_map().maps(&map_ids).await {
+        Ok(maps) => maps,
+        Err(err) => {
+            warn!(?err, "Failed to get maps from database");
 
-    Ok(())
+            HashMap::default()
+        }
+    };
+
+    let content = String::new().into_boxed_str();
+
+    let pagination = RelaxTopPagination::builder()
+        .user(user)
+        .content(content)
+        .total(scores.len())
+        .scores(scores)
+        .maps(maps)
+        .msg_owner(msg_owner)
+        .build();
+    // let stub = EmbedBuilder::new().title(format!("{}", scores.unwrap_or_default().len()));
+    // let stub_message = MessageBuilder::new().embed(stub);
+    ActiveMessages::builder(pagination)
+        .start_by_update(true)
+        .begin(orig)
+        .await
 }
