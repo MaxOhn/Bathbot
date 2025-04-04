@@ -5,9 +5,12 @@ use eyre::Result;
 use profile::relax_profile;
 use top::relax_top;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
-use crate::util::{interaction::InteractionCommand, InteractionCommandExt};
+use crate::{
+    active::impls::relax::top::RelaxTopOrder,
+    util::{InteractionCommandExt, interaction::InteractionCommand},
+};
 
 pub mod profile;
 pub mod top;
@@ -58,6 +61,8 @@ pub struct RelaxTop<'a> {
         Only works on users who have used the `/link` command."
     )]
     discord: Option<Id<UserMarker>>,
+    #[command(desc = "Choose by which order the scores should be sorted")]
+    sort: Option<RelaxTopOrder>,
 }
 
 pub async fn slash_relax(mut command: InteractionCommand) -> Result<()> {

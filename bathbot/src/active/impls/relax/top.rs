@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    cmp::Ordering,
     collections::{BTreeMap, HashMap},
     fmt::{Display, Formatter, Result as FmtResult, Write},
 };
@@ -18,6 +19,7 @@ use eyre::Result;
 use futures::future::BoxFuture;
 use rosu_v2::prelude::{GameMode, GameMods};
 use time::OffsetDateTime;
+use twilight_interactions::command::{CommandOption, CreateOption};
 use twilight_model::{
     channel::message::Component,
     id::{Id, marker::UserMarker},
@@ -44,11 +46,11 @@ use crate::{
 #[derive(PaginationBuilder)]
 pub struct RelaxTopPagination {
     user: CachedUser,
-    // sort_by: TopScoreOrder,
     #[pagination(per_page = 5, len = "total")]
-    scores: BTreeMap<usize, RelaxScore>,
+    scores: Vec<RelaxScore>,
     total: usize,
     maps: HashMap<u32, OsuMap, IntHasher>,
+    sort: RelaxTopOrder,
     // condensed_list: bool,
     content: Box<str>,
     msg_owner: Id<UserMarker>,
@@ -83,7 +85,6 @@ impl IActiveMessage for RelaxTopPagination {
 impl RelaxTopPagination {
     async fn async_build_page(&mut self) -> Result<BuildPage> {
         let pages = &self.pages;
-        let page_range = pages.index()..pages.index() + pages.per_page();
 
         if self.scores.is_empty() {
             let embed = EmbedBuilder::new()
@@ -95,10 +96,48 @@ impl RelaxTopPagination {
             return Ok(BuildPage::new(embed, true).content(self.content.clone()));
         }
 
+        match self.sort {
+            RelaxTopOrder::Acc => self.scores.sort_unstable_by(|lhs, rhs| {
+                rhs.accuracy
+                    .partial_cmp(&lhs.accuracy)
+                    .unwrap_or(Ordering::Equal)
+            }),
+            RelaxTopOrder::Bpm => self.scores.sort_unstable_by(|lhs, rhs| {
+                rhs.beatmap
+                    .beats_per_minute
+                    .total_cmp(&lhs.beatmap.beats_per_minute)
+            }),
+            RelaxTopOrder::Combo => self
+                .scores
+                .sort_unstable_by(|lhs, rhs| rhs.combo.cmp(&lhs.combo)),
+            RelaxTopOrder::Date => self
+                .scores
+                .sort_unstable_by(|lhs, rhs| rhs.date.cmp(&lhs.date)),
+            RelaxTopOrder::Misses => self
+                .scores
+                .sort_unstable_by(|lhs, rhs| rhs.count_miss.cmp(&lhs.count_miss)),
+            RelaxTopOrder::ModsCount => self
+                .scores
+                .sort_unstable_by(|lhs, rhs| rhs.mods.len().cmp(&lhs.mods.len())),
+            RelaxTopOrder::Pp => self.scores.sort_unstable_by(|lhs, rhs| {
+                rhs.pp.partial_cmp(&lhs.pp).unwrap_or(Ordering::Equal)
+            }),
+            RelaxTopOrder::Score => self
+                .scores
+                .sort_unstable_by(|lhs, rhs| rhs.total_score.cmp(&lhs.total_score)),
+            RelaxTopOrder::Stars => self.scores.sort_unstable_by(|lhs, rhs| {
+                rhs.beatmap
+                    .star_rating_normal
+                    .total_cmp(&lhs.beatmap.star_rating_normal)
+            }),
+        }
+
         let map_ids: HashMap<_, _, _> = self
             .scores
-            .range(pages.index()..pages.index() + pages.per_page())
-            .filter_map(|(_, score)| {
+            .iter()
+            .skip(pages.index())
+            .take(pages.per_page())
+            .filter_map(|score| {
                 if self.maps.contains_key(&score.beatmap_id) {
                     None
                 } else {
@@ -120,7 +159,12 @@ impl RelaxTopPagination {
             self.maps.extend(new_maps);
         }
 
-        let entries = self.scores.range(page_range.clone());
+        let entries = self
+            .scores
+            .iter()
+            .enumerate()
+            .skip(pages.index())
+            .take(pages.per_page());
 
         let mut description = String::with_capacity(1024);
 
@@ -195,4 +239,26 @@ impl Display for MissFormat {
 
         write!(f, " • {miss}{emote}", miss = self.0, emote = Emote::Miss)
     }
+}
+#[derive(Copy, Clone, CommandOption, CreateOption, Default, Eq, PartialEq)]
+pub enum RelaxTopOrder {
+    #[option(name = "Accuracy", value = "acc")]
+    Acc,
+    #[option(name = "BPM", value = "bpm")]
+    Bpm,
+    #[option(name = "Combo", value = "combo")]
+    Combo,
+    #[option(name = "Date", value = "date")]
+    Date,
+    #[option(name = "Misses", value = "misses")]
+    Misses,
+    #[option(name = "Mods count", value = "mods_count")]
+    ModsCount,
+    #[default]
+    #[option(name = "PP", value = "pp")]
+    Pp,
+    #[option(name = "Score", value = "score")]
+    Score,
+    #[option(name = "Stars", value = "stars")]
+    Stars,
 }

@@ -10,15 +10,12 @@ use bathbot_model::RelaxScore;
 use bathbot_util::{EmbedBuilder, MessageBuilder, constants::GENERAL_ISSUE};
 use eyre::{Error, Result};
 use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
+use twilight_interactions::command::{CommandOption, CreateOption};
 
 use super::RelaxTop;
 
 pub async fn relax_top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
     top(orig, args).await
-}
-
-struct RelaxTopArgs {
-    name: Option<String>,
 }
 
 pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
@@ -60,17 +57,10 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
     let user_id = user.user_id.to_native();
 
     let client = Context::client();
-    let scores = client.get_relax_player_scores(user_id);
-    let scores = scores.await.map(|scores| {
-        scores
-            .into_iter()
-            .enumerate()
-            .collect::<BTreeMap<usize, RelaxScore>>()
-    });
-    let scores = scores?;
+    let scores = client.get_relax_player_scores(user_id).await?;
 
     let map_ids = scores
-        .values()
+        .iter()
         .take(5)
         .map(|score| (score.beatmap_id as i32, None))
         .collect();
@@ -91,6 +81,7 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
         .total(scores.len())
         .scores(scores)
         .maps(maps)
+        .sort(args.sort.unwrap_or_default())
         .msg_owner(msg_owner)
         .build();
     // let stub = EmbedBuilder::new().title(format!("{}", scores.unwrap_or_default().len()));
