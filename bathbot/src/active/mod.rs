@@ -8,6 +8,7 @@ use enum_dispatch::enum_dispatch;
 use eyre::{Report, Result, WrapErr};
 use flexmap::tokio::TokioMutexMap;
 use futures::future::BoxFuture;
+use impls::relax::top::RelaxTopPagination;
 use tokio::sync::watch::Sender;
 use twilight_model::{
     channel::message::Component,
@@ -81,6 +82,7 @@ pub enum ActiveMessage {
     RankingPagination,
     RankingCountriesPagination,
     RecentListPagination,
+    RelaxTopPagination,
     RenderSettingsActive,
     ScoreEmbedBuilderActive,
     SettingsImport,
