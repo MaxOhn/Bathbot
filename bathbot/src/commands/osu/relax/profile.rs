@@ -30,14 +30,12 @@ use time::Date;
 use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::{
-    commands::osu::require_link,
+    commands::osu::{relax::RelaxProfile, require_link},
     core::{Context, commands::CommandOrigin},
     embeds::attachment,
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::{Monthly, osu::grade_emote},
 };
-
-use crate::commands::osu::relax::RelaxProfile;
 
 pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_>) -> Result<()> {
     let msg_owner = orig.user_id()?;
@@ -93,7 +91,7 @@ pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_
     };
 
     let info_res = info_res?;
-    if let None = info_res {
+    if info_res.is_none() {
         return orig
             .error(format!("User `{}` not found", user.username))
             .await;
@@ -135,7 +133,7 @@ impl RelaxProfileArgs {
 }
 pub fn relax_profile_builder(args: RelaxProfileArgs) -> Result<EmbedBuilder> {
     let stats = &args.info;
-    let mut description = format!("__**Relax user statistics");
+    let mut description = "__**Relax user statistics".to_string();
     if let Some(discord_id) = args.discord_id {
         let _ = write!(description, "for <@{discord_id}>");
     };
@@ -197,7 +195,8 @@ fn relax_footer_builder(args: &RelaxProfileArgs) -> FooterBuilder {
     FooterBuilder::new(last_update).icon_url("https://rx.stanr.info/rv-yellowlight-192.png")
 }
 
-// FIXME: This is a mess. @chiffa move an existing graph into bathbot-utils and use that or something
+// FIXME: This is a mess. @chiffa move an existing graph into bathbot-utils and
+// use that or something
 const W: u32 = 590;
 const H: u32 = 170;
 fn relax_playcount_graph(args: &RelaxProfileArgs) -> Result<Vec<u8>> {

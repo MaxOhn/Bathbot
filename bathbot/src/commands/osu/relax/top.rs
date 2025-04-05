@@ -1,18 +1,16 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
+use bathbot_util::constants::GENERAL_ISSUE;
+use eyre::Result;
+use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
+
+use super::RelaxTop;
 use crate::{
     active::{ActiveMessages, impls::relax::top::RelaxTopPagination},
-    commands::{osu::require_link, owner},
+    commands::osu::require_link,
     core::{Context, commands::CommandOrigin},
     manager::redis::osu::{UserArgs, UserArgsError},
 };
-use bathbot_model::RelaxScore;
-use bathbot_util::{EmbedBuilder, MessageBuilder, constants::GENERAL_ISSUE};
-use eyre::{Error, Result};
-use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
-use twilight_interactions::command::{CommandOption, CreateOption};
-
-use super::RelaxTop;
 
 pub async fn relax_top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
     top(orig, args).await
@@ -84,8 +82,9 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
         .sort(args.sort.unwrap_or_default())
         .msg_owner(msg_owner)
         .build();
-    // let stub = EmbedBuilder::new().title(format!("{}", scores.unwrap_or_default().len()));
-    // let stub_message = MessageBuilder::new().embed(stub);
+    // let stub = EmbedBuilder::new().title(format!("{}",
+    // scores.unwrap_or_default().len())); let stub_message =
+    // MessageBuilder::new().embed(stub);
     ActiveMessages::builder(pagination)
         .start_by_update(true)
         .begin(orig)

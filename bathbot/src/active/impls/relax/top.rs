@@ -1,24 +1,21 @@
 use std::{
     borrow::Cow,
     cmp::Ordering,
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     fmt::{Display, Formatter, Result as FmtResult, Write},
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{RelaxScore, RelaxUser};
-use bathbot_psql::model::configs::ScoreData;
+use bathbot_model::RelaxScore;
 use bathbot_util::{
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter, ScoreExt,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
     constants::{OSU_BASE, RELAX},
-    datetime::{HowLongAgoDynamic, NAIVE_DATETIME_FORMAT},
+    datetime::HowLongAgoDynamic,
     numbers::{WithComma, round},
     osu::flag_url,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
-use rosu_v2::prelude::{GameMode, GameMods};
-use time::OffsetDateTime;
 use twilight_interactions::command::{CommandOption, CreateOption};
 use twilight_model::{
     channel::message::Component,
@@ -28,20 +25,14 @@ use twilight_model::{
 use crate::{
     active::{
         BuildPage, ComponentResult, IActiveMessage,
-        impls::top::OrderAppendix,
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
-    commands::{
-        osu::TopScoreOrder,
-        utility::{ScoreEmbedDataHalf, ScoreEmbedDataWrap},
-    },
     core::Context,
-    embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
+    embeds::{ComboFormatter, PpFormatter},
     manager::{OsuMap, redis::osu::CachedUser},
     util::{
         CachedUserExt, Emote,
         interaction::{InteractionComponent, InteractionModal},
-        osu::{GradeFormatter, ScoreFormatter},
     },
 };
 #[derive(PaginationBuilder)]
