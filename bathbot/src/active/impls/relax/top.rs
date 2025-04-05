@@ -11,7 +11,7 @@ use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter, ScoreExt,
     constants::{OSU_BASE, RELAX},
-    datetime::HowLongAgoDynamic,
+    datetime::{HowLongAgoDynamic, NAIVE_DATETIME_FORMAT},
     numbers::{WithComma, round},
     osu::flag_url,
 };
@@ -28,6 +28,7 @@ use twilight_model::{
 use crate::{
     active::{
         BuildPage, ComponentResult, IActiveMessage,
+        impls::top::OrderAppendix,
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::{
@@ -186,7 +187,8 @@ impl RelaxTopPagination {
                 description,
                 "**#{idx} [{title} [{version}]]({OSU_BASE}b/{map_id}) +{mods}**\n\
                 {pp} • {acc}% • [{stars:.2}★]{miss}\n\
-                [ {combo} ] • {score}",
+                [ {combo} ] • {score} \n\
+                {date}",
                 idx = idx + 1,
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
@@ -198,6 +200,7 @@ impl RelaxTopPagination {
                 score = WithComma::new(score.total_score),
                 combo = ComboFormatter::new(score.combo, Some(max_combo)),
                 miss = MissFormat(count_miss),
+                date = HowLongAgoDynamic::new(&score.date),
             );
 
             description.push('\n');

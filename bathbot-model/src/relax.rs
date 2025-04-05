@@ -161,8 +161,8 @@ pub struct RelaxListingBeatmap {
 #[serde(rename_all = "camelCase")]
 pub struct RelaxPlaycountPerMonth {
     #[serde(with = "datetime_rfc3339")]
-    date: OffsetDateTime,
-    playcount: u32,
+    pub date: OffsetDateTime,
+    pub playcount: u32,
 }
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -200,7 +200,7 @@ pub struct RelaxPlayersDataResponse {
     pub count_s: u32,
     #[serde(rename = "countA")]
     pub count_a: u32,
-    pub playcounts_per_month: Vec<Option<RelaxPlaycountPerMonth>>,
+    pub playcounts_per_month: Vec<RelaxPlaycountPerMonth>,
 }
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
