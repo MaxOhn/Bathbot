@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 
 use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::Result;
@@ -6,9 +6,9 @@ use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
 
 use super::RelaxTop;
 use crate::{
-    active::{ActiveMessages, impls::relax::top::RelaxTopPagination},
+    active::{impls::relax::top::{RelaxTopOrder, RelaxTopPagination}, ActiveMessages},
     commands::osu::require_link,
-    core::{Context, commands::CommandOrigin},
+    core::{commands::CommandOrigin, Context},
     manager::redis::osu::{UserArgs, UserArgsError},
 };
 
@@ -26,6 +26,7 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
             return Err(err);
         }
     };
+
     let user_id = match user_id!(orig, args) {
         Some(user_id) => user_id,
         None => match config.osu.take() {
@@ -33,6 +34,7 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
             None => return require_link(&orig).await,
         },
     };
+
     let user_args = UserArgs::rosu_id(&user_id, GameMode::Osu).await;
 
     let user = match Context::redis().osu_user(user_args).await {
@@ -55,13 +57,14 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
     let user_id = user.user_id.to_native();
 
     let client = Context::client();
-    let scores = client.get_relax_player_scores(user_id).await?;
+    let mut scores = client.get_relax_player_scores(user_id).await?;
 
     let map_ids = scores
         .iter()
         .take(5)
         .map(|score| (score.beatmap_id as i32, None))
         .collect();
+
     let maps = match Context::osu_map().maps(&map_ids).await {
         Ok(maps) => maps,
         Err(err) => {
@@ -71,20 +74,44 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
         }
     };
 
-    let content = String::new().into_boxed_str();
+    match args.sort.unwrap_or_default() {
+        RelaxTopOrder::Acc => scores.sort_unstable_by(|lhs, rhs| {
+            rhs.accuracy
+                .partial_cmp(&lhs.accuracy)
+                .unwrap_or(Ordering::Equal)
+        }),
+        RelaxTopOrder::Bpm => scores.sort_unstable_by(|lhs, rhs| {
+            rhs.beatmap
+                .beats_per_minute
+                .total_cmp(&lhs.beatmap.beats_per_minute)
+        }),
+        RelaxTopOrder::Combo => scores
+            .sort_unstable_by(|lhs, rhs| rhs.combo.cmp(&lhs.combo)),
+        RelaxTopOrder::Date => scores
+            .sort_unstable_by(|lhs, rhs| rhs.date.cmp(&lhs.date)),
+        RelaxTopOrder::Misses => scores
+            .sort_unstable_by(|lhs, rhs| rhs.count_miss.cmp(&lhs.count_miss)),
+        RelaxTopOrder::ModsCount => scores
+            .sort_unstable_by(|lhs, rhs| rhs.mods.len().cmp(&lhs.mods.len())),
+        RelaxTopOrder::Pp => scores.sort_unstable_by(|lhs, rhs| {
+            rhs.pp.partial_cmp(&lhs.pp).unwrap_or(Ordering::Equal)
+        }),
+        RelaxTopOrder::Score => scores
+            .sort_unstable_by(|lhs, rhs| rhs.total_score.cmp(&lhs.total_score)),
+        RelaxTopOrder::Stars => scores.sort_unstable_by(|lhs, rhs| {
+            rhs.beatmap
+                .star_rating_normal
+                .total_cmp(&lhs.beatmap.star_rating_normal)
+        }),
+    }
 
     let pagination = RelaxTopPagination::builder()
         .user(user)
-        .content(content)
-        .total(scores.len())
         .scores(scores)
         .maps(maps)
-        .sort(args.sort.unwrap_or_default())
         .msg_owner(msg_owner)
         .build();
-    // let stub = EmbedBuilder::new().title(format!("{}",
-    // scores.unwrap_or_default().len())); let stub_message =
-    // MessageBuilder::new().embed(stub);
+
     ActiveMessages::builder(pagination)
         .start_by_update(true)
         .begin(orig)

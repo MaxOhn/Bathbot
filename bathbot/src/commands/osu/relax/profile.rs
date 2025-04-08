@@ -2,12 +2,7 @@ use std::fmt::Write;
 
 use bathbot_model::RelaxPlayersDataResponse;
 use bathbot_util::{
-    AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin,
-    constants::{GENERAL_ISSUE, RELAX},
-    datetime::NAIVE_DATETIME_FORMAT,
-    fields,
-    numbers::WithComma,
-    osu::flag_url,
+    constants::{GENERAL_ISSUE, RELAX, RELAX_ICON_URL}, datetime::NAIVE_DATETIME_FORMAT, fields, numbers::WithComma, osu::flag_url, AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin
 };
 use eyre::{Context as _, ContextCompat, Report, Result};
 use plotters::{
@@ -39,15 +34,23 @@ use crate::{
 
 pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_>) -> Result<()> {
     let msg_owner = orig.user_id()?;
-    let config = Context::user_config().with_osu_id(msg_owner).await?;
+    let config = match Context::user_config().with_osu_id(msg_owner).await {
+        Ok(config) => config,
+        Err(err) => {
+            let _ = orig.error(GENERAL_ISSUE).await;
 
-    let (user_id, _) = match user_id!(orig, args) {
-        Some(user_id) => (user_id, false),
+            return Err(err);
+        }
+    };
+
+    let user_id = match user_id!(orig, args) {
+        Some(user_id) => user_id,
         None => match config.osu {
-            Some(user_id) => (UserId::Id(user_id), true),
+            Some(user_id) => UserId::Id(user_id),
             None => return require_link(&orig).await,
         },
     };
+
     let user_args = UserArgs::rosu_id(&user_id, GameMode::Osu).await;
 
     let user = match Context::redis().osu_user(user_args).await {
@@ -67,6 +70,7 @@ pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_
             return Err(err);
         }
     };
+
     let user_id = user.user_id.to_native();
     let client = Context::client();
     let info_fut = client.get_relax_player(user_id);
@@ -75,6 +79,7 @@ pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_
     let user_id_fut = Context::user_config().discord_from_osu_id(user_id);
 
     let (info_res, user_id_res) = tokio::join!(info_fut, user_id_fut);
+
     let discord_id = match user_id_res {
         Ok(user) => match (guild, user) {
             (Some(guild), Some(user)) => Context::cache()
@@ -90,20 +95,40 @@ pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_
         }
     };
 
-    let info_res = info_res?;
-    if info_res.is_none() {
-        return orig
-            .error(format!("User `{}` not found", user.username))
-            .await;
-    }
+    let info_res = match info_res {
+        Ok(Some(info_res)) => info_res,
+        Ok(None) => {
+            return orig
+                .error(format!("User `{}` not found", user.username))
+                .await;
+        },
+        Err(err) => {
+            warn!(?err, "Failed to fetch user relax player info");
+
+            let _ = orig.error(GENERAL_ISSUE).await;
+
+            return Err(err);
+        },
+    };
 
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
-    let pagination = RelaxProfileArgs::new(user, discord_id, info_res.unwrap(), origin);
+    let pagination = RelaxProfileArgs::new(user, discord_id, info_res, origin);
 
-    let graph = relax_playcount_graph(&pagination)?;
+    let graph = match relax_playcount_graph(&pagination) {
+        Ok(graph) => graph,
+        Err(err) => {
+            warn!(?err, "Failed to draw a relax playcount graph");
+
+            let _ = orig.error(GENERAL_ISSUE).await;
+
+            return Err(err);
+        },
+    };
+
     let builder = MessageBuilder::new()
         .embed(relax_profile_builder(pagination).unwrap())
         .attachment("graph.png", graph);
+
     orig.create_message(builder).await?;
 
     Ok(())
@@ -163,6 +188,7 @@ pub fn relax_profile_builder(args: RelaxProfileArgs) -> Result<EmbedBuilder> {
         .image(attachment("graph.png"))
         .thumbnail(args.user.avatar_url.as_ref())
         .footer(relax_footer_builder(&args));
+
     Ok(embed)
 }
 
@@ -180,6 +206,7 @@ fn relax_author_builder(args: &RelaxProfileArgs) -> AuthorBuilder {
 
     let url = format!("{RELAX}/users/{}", args.user.user_id);
     let icon = flag_url(country_code);
+
     AuthorBuilder::new(text).url(url).icon_url(icon)
 }
 
@@ -192,7 +219,8 @@ fn relax_footer_builder(args: &RelaxProfileArgs) -> FooterBuilder {
             .format(NAIVE_DATETIME_FORMAT)
             .unwrap()
     );
-    FooterBuilder::new(last_update).icon_url("https://rx.stanr.info/rv-yellowlight-192.png")
+
+    FooterBuilder::new(last_update).icon_url(RELAX_ICON_URL)
 }
 
 // FIXME: This is a mess. @chiffa move an existing graph into bathbot-utils and

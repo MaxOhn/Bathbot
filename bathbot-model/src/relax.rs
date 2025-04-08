@@ -84,6 +84,7 @@ pub struct RelaxScore {
     pub pp: Option<f64>,
     pub is_best: bool,
 }
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxUser {
@@ -95,6 +96,7 @@ pub struct RelaxUser {
     #[serde(with = "option_datetime_rfc3339")]
     pub updated_at: Option<OffsetDateTime>,
 }
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxBeatmap {
@@ -120,19 +122,12 @@ pub struct RelaxBeatmap {
 
 #[derive(Debug, Deserialize)]
 pub enum RelaxBeatmapStatus {
-    #[serde(rename = "Graveyard")]
     Graveyard,
-    #[serde(rename = "Wip")]
     Wip,
-    #[serde(rename = "Pending")]
     Pending,
-    #[serde(rename = "Ranked")]
     Ranked,
-    #[serde(rename = "Approved")]
     Approved,
-    #[serde(rename = "Qualified")]
     Qualified,
-    #[serde(rename = "Loved")]
     Loved,
 }
 
@@ -142,6 +137,7 @@ pub struct RelaxAllowedModsResponse {
     mods: Option<Vec<String>>,
     mod_settings: Option<Vec<String>>,
 }
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxListingBeatmap {
@@ -155,6 +151,7 @@ pub struct RelaxListingBeatmap {
     status: RelaxBeatmapStatus,
     playcount: u32,
 }
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxPlaycountPerMonth {
@@ -162,12 +159,14 @@ pub struct RelaxPlaycountPerMonth {
     pub date: OffsetDateTime,
     pub playcount: u32,
 }
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxRecentScoresResponse {
     scores: Option<Vec<RelaxScore>>,
     scores_today: u32,
 }
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxStatsResponse {
@@ -179,6 +178,7 @@ pub struct RelaxStatsResponse {
     playcount_per_day: Option<RelaxPlaycountPerMonth>,
     playcount_per_month: Option<RelaxPlaycountPerMonth>,
 }
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxPlayersDataResponse {
@@ -200,6 +200,7 @@ pub struct RelaxPlayersDataResponse {
     pub count_a: u32,
     pub playcounts_per_month: Vec<RelaxPlaycountPerMonth>,
 }
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelaxPlayersResult {

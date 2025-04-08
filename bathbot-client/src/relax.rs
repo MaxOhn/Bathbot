@@ -11,7 +11,7 @@ impl Client {
     /// /api/scores
     /// GET relax score leaderboard (a.k.a. highest pp relax scores)
     pub async fn get_relax_score_leaderboard(&self) -> Result<Vec<RelaxScore>> {
-        let url = format!("{}/scores", RELAX_API);
+        let url = format!("{RELAX_API}/scores");
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -25,7 +25,7 @@ impl Client {
     /// /api/scores/recent
     /// GET relax scores set within the last 24 hours
     pub async fn get_relax_recent_scores(&self) -> Result<RelaxRecentScoresResponse> {
-        let url = format!("{}/scores/recent", RELAX_API);
+        let url = format!("{RELAX_API}/scores/recent");
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -39,7 +39,7 @@ impl Client {
     /// /api/scores/{id}
     /// GET relax score by its ID
     pub async fn get_relax_scores(&self, score_id: u32) -> Result<Vec<RelaxScore>> {
-        let url = format!("{}/scores/{}", RELAX_API, score_id);
+        let url = format!("{RELAX_API}/scores/{score_id}");
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -62,7 +62,7 @@ impl Client {
         country_code: Option<CountryCode>,
         search: Option<String>,
     ) -> Result<RelaxPlayersDataResponse> {
-        let mut url = format!("{}/players", RELAX_API);
+        let mut url = format!("{RELAX_API}/players");
 
         if let Some(p) = page {
             url.push_str(&format!("page={p}&"));
@@ -88,8 +88,7 @@ impl Client {
     /// /api/players/{id}
     /// GET Relax player by osu! ID
     pub async fn get_relax_player(&self, user_id: u32) -> Result<Option<RelaxPlayersDataResponse>> {
-        let url = format!("{}/players/{}", RELAX_API, user_id);
-        debug!(url);
+        let url = format!("{RELAX_API}/players/{user_id}");
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -103,8 +102,7 @@ impl Client {
     /// /api/players/{id}/scores
     /// GET all relax scores set by a player
     pub async fn get_relax_player_scores(&self, user_id: u32) -> Result<Vec<RelaxScore>> {
-        let url = format!("{}/players/{}/scores", RELAX_API, user_id);
-        debug!(url);
+        let url = format!("{RELAX_API}/players/{user_id}/scores");
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -118,7 +116,7 @@ impl Client {
     /// /api/players/{id}/scores/recent
     /// GET all relax scores set by a player within the past 24 hours
     pub async fn get_relax_recent_player_scores(&self, user_id: u32) -> Result<Vec<RelaxScore>> {
-        let url = format!("{}/players/{}/scores/recent", RELAX_API, user_id);
+        let url = format!("{RELAX_API}/players/{user_id}/scores/recent");
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 
@@ -132,7 +130,7 @@ impl Client {
     /// /api/stats
     /// GET Relaxation Vault's statistics
     pub async fn get_relax_statistics(&self) -> Result<RelaxStatsResponse> {
-        let url = format!("{}/stats", RELAX_API);
+        let url = format!("{RELAX_API}/stats");
 
         let bytes = self.make_get_request(url, Site::Relax).await?;
 

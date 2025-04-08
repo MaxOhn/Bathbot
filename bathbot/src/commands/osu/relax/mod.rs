@@ -14,6 +14,7 @@ use crate::{
 
 pub mod profile;
 pub mod top;
+
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "relax",
@@ -68,7 +69,6 @@ pub struct RelaxTop<'a> {
 pub async fn slash_relax(mut command: InteractionCommand) -> Result<()> {
     match Relax::from_interaction(command.input_data())? {
         Relax::Profile(args) => relax_profile((&mut command).into(), args).await,
-
         Relax::Top(args) => relax_top((&mut command).into(), args).await,
     }
 }
