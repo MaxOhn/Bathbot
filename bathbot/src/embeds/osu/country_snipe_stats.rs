@@ -25,21 +25,25 @@ impl CountrySnipeStatsEmbed {
     pub fn new(country: Option<(CountryName, CountryCode)>, stats: SnipeCountryStatistics) -> Self {
         let mut fields = Vec::with_capacity(2);
 
-        let value = format!(
-            "{} ({:+})",
-            stats.most_gains_username.cow_escape_markdown(),
-            stats.most_gains_count
-        );
+        let gains_value = if let (Some(ref username), Some(count)) =
+            (stats.most_gains_username, stats.most_gains_count)
+        {
+            format!("{} ({count:+})", username.cow_escape_markdown())
+        } else {
+            "Unknown".to_owned()
+        };
 
-        fields![fields { "Most gained", value, true }];
+        fields![fields { "Most gained", gains_value, true }];
 
-        let value = format!(
-            "{} ({:+})",
-            stats.most_losses_username.cow_escape_markdown(),
-            stats.most_losses_count
-        );
+        let losses_value = if let (Some(ref username), Some(count)) =
+            (stats.most_losses_username, stats.most_losses_count)
+        {
+            format!("{} ({count:+})", username.cow_escape_markdown())
+        } else {
+            "Unknown".to_owned()
+        };
 
-        fields![fields { "Most losses", value, true }];
+        fields![fields { "Most losses", losses_value, true }];
 
         let (title, thumbnail) = match country {
             Some((country, code)) => {

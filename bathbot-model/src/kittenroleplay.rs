@@ -78,12 +78,12 @@ impl From<KittenRoleplayCountryStatistics> for SnipeCountryStatistics {
         Self {
             total_maps: Some(stats.total_maps),
             unplayed_maps: stats.total_maps - stats.played_maps,
-            most_gains_count: stats.most_gains_count,
-            most_gains_user_id: stats.most_gains_user_id,
-            most_gains_username: stats.most_gains_username,
-            most_losses_count: stats.most_losses_count,
-            most_losses_user_id: stats.most_losses_user_id,
-            most_losses_username: stats.most_losses_username,
+            most_gains_count: Some(stats.most_gains_count),
+            most_gains_user_id: Some(stats.most_gains_user_id),
+            most_gains_username: Some(stats.most_gains_username),
+            most_losses_count: Some(stats.most_losses_count),
+            most_losses_user_id: Some(stats.most_losses_user_id),
+            most_losses_username: Some(stats.most_losses_username),
         }
     }
 }

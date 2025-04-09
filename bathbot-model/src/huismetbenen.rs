@@ -162,17 +162,17 @@ pub struct SnipeCountryStatistics {
     #[serde(rename = "unplayed_count")]
     pub unplayed_maps: u32,
     #[serde(rename = "most_gained_count")]
-    pub most_gains_count: i32,
+    pub most_gains_count: Option<i32>,
     #[serde(rename = "most_gained_player_id")]
-    pub most_gains_user_id: u32,
+    pub most_gains_user_id: Option<u32>,
     #[serde(rename = "most_gained_player_name")]
-    pub most_gains_username: Username,
+    pub most_gains_username: Option<Username>,
     #[serde(rename = "most_lost_count")]
-    pub most_losses_count: i32,
+    pub most_losses_count: Option<i32>,
     #[serde(rename = "most_lost_player_id")]
-    pub most_losses_user_id: u32,
+    pub most_losses_user_id: Option<u32>,
     #[serde(rename = "most_lost_player_name")]
-    pub most_losses_username: Username,
+    pub most_losses_username: Option<Username>,
 }
 
 #[derive(Debug, Deserialize)]
