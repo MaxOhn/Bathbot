@@ -169,14 +169,17 @@ impl SingleScorePagination {
             Err(err) => return ComponentResult::Err(err),
         };
 
-        if user_id != self.msg_owner {
-            return ComponentResult::Ignore;
-        }
+        // Render and miss analyzer buttons are allowed to be pressed by
+        // anyone - not just the initial owner
 
         match component.data.custom_id.as_str() {
             "render" => self.handle_render_button(component).await,
             "miss_analyzer" => self.handle_miss_analyzer_button(component).await,
             _ => {
+                if user_id != self.msg_owner {
+                    return ComponentResult::Ignore;
+                }
+
                 async_handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
                     .await
                     .unwrap_or_else(ComponentResult::Err)
