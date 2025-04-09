@@ -14,8 +14,8 @@ pub enum Site {
     OsuMapsetCover,
     OsuStats,
     OsuTrack,
-    Respektive,
     Relax,
+    Respektive,
     Twitch,
 }
 
