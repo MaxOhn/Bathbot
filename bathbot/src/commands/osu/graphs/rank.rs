@@ -168,12 +168,10 @@ pub async fn rank_graph(
                 .label(format!("Worst: #{}", WithComma::new(-min)))
                 .legend(|(x, y)| Circle::new((x, y), 5_u32, style(RED).stroke_width(2)));
 
-            let position = if min_idx <= 70 {
-                SeriesLabelPosition::UpperRight
-            } else if max_idx > 70 {
+            let position = if max_idx <= 45 {
                 SeriesLabelPosition::UpperLeft
             } else {
-                SeriesLabelPosition::LowerRight
+                SeriesLabelPosition::UpperRight
             };
 
             chart
