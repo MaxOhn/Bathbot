@@ -136,7 +136,7 @@ pub enum TopOldOsuVersion {
         value = "september22_october24"
     )]
     September22October24,
-    #[option(name = "October 2024 - Now", value = "october24_march25")]
+    #[option(name = "October 2024 - March 2025", value = "october24_march25")]
     October24March25,
     #[option(name = "March 2025 - Now", value = "march25_now")]
     March25Now,
