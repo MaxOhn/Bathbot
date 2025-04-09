@@ -46,6 +46,16 @@ impl<T> CachedArchive<T> {
     pub fn as_bytes(&self) -> &[u8] {
         self.bytes.as_slice()
     }
+
+    /// Try to cast from `T` to `U`.
+    ///
+    /// Returns error if validation fails.
+    pub fn try_cast<U>(self) -> Result<CachedArchive<U>, BoxedError>
+    where
+        U: Portable + for<'a> CheckBytes<ValidatorStrategy<'a>>,
+    {
+        CachedArchive::new(self.bytes)
+    }
 }
 
 impl<T: Portable> Deref for CachedArchive<T> {

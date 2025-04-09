@@ -599,110 +599,118 @@ pub struct ScoreEmbedData {
 #[cfg(feature = "twitch")]
 pub enum TwitchData {
     Vod {
-        vod: bathbot_model::TwitchVideo,
-        stream_login: Box<str>,
+        vod: bathbot_cache::model::CachedArchive<bathbot_model::ArchivedTwitchVideo>,
+        stream: bathbot_cache::model::CachedArchive<bathbot_model::ArchivedTwitchStream>,
     },
-    Stream {
-        login: Box<str>,
-    },
+    Stream(bathbot_cache::model::CachedArchive<bathbot_model::ArchivedTwitchStream>),
 }
 
 #[cfg(feature = "twitch")]
-impl TwitchData {
-    pub fn append_to_description(&self, score: &ScoreSlim, map: &OsuMap, description: &mut String) {
-        match self {
-            TwitchData::Vod { vod, stream_login } => {
-                let score_start = Self::score_started_at(score, map);
-                let vod_start = vod.created_at;
-                let vod_end = vod.ended_at();
+const _: () = {
+    use std::fmt::Write;
 
-                if vod_start < score_start && score_start < vod_end {
-                    Self::append_vod_to_description(vod, score_start, description);
-                } else {
-                    Self::append_stream_to_description(stream_login, description);
+    use rkyv::rancor::{Panic, ResultExt};
+
+    impl TwitchData {
+        pub fn append_to_description(
+            &self,
+            score: &ScoreSlim,
+            map: &OsuMap,
+            description: &mut String,
+        ) {
+            match self {
+                TwitchData::Vod { vod, stream } => {
+                    let score_start = Self::score_started_at(score, map);
+                    let vod_start = vod.created_at.try_deserialize::<Panic>().always_ok();
+                    let vod_end = vod.ended_at();
+
+                    if vod_start < score_start && score_start < vod_end {
+                        Self::append_vod_to_description(vod, score_start, description);
+                    } else {
+                        Self::append_stream_to_description(stream.login.as_str(), description);
+                    }
+                }
+                TwitchData::Stream(stream) => {
+                    Self::append_stream_to_description(stream.login.as_str(), description)
                 }
             }
-            TwitchData::Stream { login } => Self::append_stream_to_description(login, description),
         }
-    }
 
-    fn score_started_at(score: &ScoreSlim, map: &OsuMap) -> OffsetDateTime {
-        let mut map_len = map.seconds_drain() as f64;
+        fn score_started_at(score: &ScoreSlim, map: &OsuMap) -> OffsetDateTime {
+            let mut map_len = map.seconds_drain() as f64;
 
-        if score.grade == Grade::F {
-            // Adjust map length with passed objects in case of fail
-            let passed = score.total_hits();
+            if score.grade == Grade::F {
+                // Adjust map length with passed objects in case of fail
+                let passed = score.total_hits();
 
-            if map.mode() == GameMode::Catch {
-                // Amount objects in .osu file != amount of catch hitobjects
-                map_len += 2.0;
-            } else if let Some(obj) = passed
-                .checked_sub(1)
-                .and_then(|i| map.pp_map.hit_objects.get(i as usize))
-            {
-                map_len = obj.start_time / 1000.0;
+                if map.mode() == GameMode::Catch {
+                    // Amount objects in .osu file != amount of catch hitobjects
+                    map_len += 2.0;
+                } else if let Some(obj) = passed
+                    .checked_sub(1)
+                    .and_then(|i| map.pp_map.hit_objects.get(i as usize))
+                {
+                    map_len = obj.start_time / 1000.0;
+                } else {
+                    let total = map.n_objects();
+                    map_len *= passed as f64 / total as f64;
+
+                    map_len += 2.0;
+                }
             } else {
-                let total = map.n_objects();
-                map_len *= passed as f64 / total as f64;
-
-                map_len += 2.0;
+                map_len += map.pp_map.total_break_time() / 1000.0;
             }
-        } else {
-            map_len += map.pp_map.total_break_time() / 1000.0;
+
+            if let Some(clock_rate) = score.mods.clock_rate() {
+                map_len /= clock_rate;
+            }
+
+            score.ended_at - std::time::Duration::from_secs(map_len as u64 + 3)
         }
 
-        if let Some(clock_rate) = score.mods.clock_rate() {
-            map_len /= clock_rate;
+        fn append_vod_to_description(
+            vod: &bathbot_model::ArchivedTwitchVideo,
+            score_start: OffsetDateTime,
+            description: &mut String,
+        ) {
+            let _ = write!(
+                description,
+                "{emote} [Liveplay on twitch]({url}",
+                emote = crate::util::Emote::Twitch,
+                url = vod.url
+            );
+
+            description.push_str("?t=");
+            let mut offset = (score_start - vod.created_at.try_deserialize::<Panic>().always_ok())
+                .whole_seconds();
+
+            if offset >= 3600 {
+                let _ = write!(description, "{}h", offset / 3600);
+                offset %= 3600;
+            }
+
+            if offset >= 60 {
+                let _ = write!(description, "{}m", offset / 60);
+                offset %= 60;
+            }
+
+            if offset > 0 {
+                let _ = write!(description, "{offset}s");
+            }
+
+            description.push(')');
         }
 
-        score.ended_at - std::time::Duration::from_secs(map_len as u64 + 3)
+        fn append_stream_to_description(login: &str, description: &mut String) {
+            let _ = write!(
+                description,
+                "{emote} [Streaming on twitch]({base}{login})",
+                emote = crate::util::Emote::Twitch,
+                base = bathbot_util::constants::TWITCH_BASE
+            );
+        }
     }
-
-    fn append_vod_to_description(
-        vod: &bathbot_model::TwitchVideo,
-        score_start: OffsetDateTime,
-        description: &mut String,
-    ) {
-        use std::fmt::Write;
-
-        let _ = write!(
-            description,
-            "{emote} [Liveplay on twitch]({url}",
-            emote = crate::util::Emote::Twitch,
-            url = vod.url
-        );
-
-        description.push_str("?t=");
-        let mut offset = (score_start - vod.created_at).whole_seconds();
-
-        if offset >= 3600 {
-            let _ = write!(description, "{}h", offset / 3600);
-            offset %= 3600;
-        }
-
-        if offset >= 60 {
-            let _ = write!(description, "{}m", offset / 60);
-            offset %= 60;
-        }
-
-        if offset > 0 {
-            let _ = write!(description, "{offset}s");
-        }
-
-        description.push(')');
-    }
-
-    fn append_stream_to_description(login: &str, description: &mut String) {
-        use std::fmt::Write;
-
-        let _ = write!(
-            description,
-            "{emote} [Streaming on twitch]({base}{login})",
-            emote = crate::util::Emote::Twitch,
-            base = bathbot_util::constants::TWITCH_BASE
-        );
-    }
-}
+};
 
 pub struct ScoreEmbedDataRaw {
     pub user_id: u32,

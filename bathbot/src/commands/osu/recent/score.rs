@@ -755,56 +755,28 @@ fn process_scores(
 async fn twitch_data(user_id: u64) -> Option<crate::commands::utility::TwitchData> {
     use crate::commands::utility::TwitchData;
 
-    async fn get_vod(user_id: u64) -> Option<bathbot_model::TwitchVideo> {
-        match Context::client().get_last_twitch_vod(user_id).await {
-            Ok(Some(vod)) => Some(vod),
-            Ok(None) => None,
-            Err(err) => {
-                warn!(?err, "Failed to get twitch vod");
-                Context::online_twitch_streams().set_offline_by_user(user_id);
+    let stream = match Context::redis().twitch_stream(user_id).await {
+        Ok(Some(stream)) => stream,
+        Ok(None) => return None, // TODO: remove twitch id from user config
+        Err(err) => {
+            warn!(err = ?Report::new(err).wrap_err("Failed to get twitch stream"));
 
-                None
-            }
+            return None;
         }
-    }
-
-    async fn get_stream(user_id: u64) -> Option<bathbot_model::TwitchStream> {
-        match Context::client().get_twitch_stream(user_id).await {
-            Ok(Some(stream)) => Some(stream),
-            Ok(None) => {
-                // TODO: remove twitch id from user config
-
-                None
-            }
-            Err(err) => {
-                warn!(?err, "Failed to get twitch stream");
-                Context::online_twitch_streams().set_offline_by_user(user_id);
-
-                None
-            }
-        }
-    }
-
-    let stream = get_stream(user_id).await?;
+    };
 
     if !stream.live {
         return None;
     }
 
-    {
-        let online_twitch_streams = Context::online_twitch_streams();
-        let guard = online_twitch_streams.guard();
-        online_twitch_streams.set_online(&stream, &guard);
-    }
+    let data = match Context::redis().last_twitch_vod(user_id).await {
+        Ok(Some(vod)) => TwitchData::Vod { vod, stream },
+        Ok(None) => TwitchData::Stream(stream),
+        Err(err) => {
+            warn!(err = ?Report::new(err).wrap_err("Failed to get twitch vod"));
 
-    let data = match get_vod(user_id).await {
-        Some(vod) => TwitchData::Vod {
-            vod,
-            stream_login: stream.login,
-        },
-        None => TwitchData::Stream {
-            login: stream.login,
-        },
+            TwitchData::Stream(stream)
+        }
     };
 
     Some(data)

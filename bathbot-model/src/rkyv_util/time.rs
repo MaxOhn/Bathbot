@@ -121,3 +121,20 @@ impl<D: Fallible<Error: Source>> DeserializeWith<Archived<i32>, Date, D> for Dat
         Self::try_deserialize(*field).map_err(Source::new)
     }
 }
+
+/// Niching for the unix epoch, i.e. 00:00:00 UTC on 1 January 1970
+pub struct UnixEpoch;
+
+impl UnixEpoch {
+    const NICHED: ArchivedDateTime = ArchivedDateTime::new(OffsetDateTime::UNIX_EPOCH);
+}
+
+impl Niching<ArchivedDateTime> for UnixEpoch {
+    unsafe fn is_niched(niched: *const ArchivedDateTime) -> bool {
+        unsafe { *niched == Self::NICHED }
+    }
+
+    fn resolve_niched(out: Place<ArchivedDateTime>) {
+        out.write(Self::NICHED);
+    }
+}
