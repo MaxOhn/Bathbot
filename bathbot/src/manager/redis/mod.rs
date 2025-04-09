@@ -360,3 +360,122 @@ impl RedisManager {
             .map_err(RedisError::Validation)
     }
 }
+
+#[cfg(feature = "twitch")]
+const _: () = {
+    use bathbot_model::{ArchivedTwitchStream, ArchivedTwitchVideo, rkyv_util::time::UnixEpoch};
+    use rkyv::{
+        niche::{niched_option::NichedOption, niching::Bool},
+        with::NicheInto,
+    };
+
+    impl RedisManager {
+        pub async fn twitch_stream(
+            self,
+            user_id: u64,
+        ) -> Result<Option<CachedArchive<ArchivedTwitchStream>>, RedisError> {
+            const EXPIRE: u64 = 60; // 1 minute
+            let key = format!("twitch_stream_{user_id}");
+
+            let mut conn = match Context::cache()
+                .fetch::<_, NichedOption<ArchivedTwitchStream, Bool>>(&key)
+                .await
+            {
+                Ok(Ok(stream)) => {
+                    BotMetrics::inc_redis_hit("Twitch stream");
+
+                    if stream.is_none() {
+                        return Ok(None);
+                    }
+
+                    // Re-interpreting the niched option
+                    return stream.try_cast().map(Some).map_err(RedisError::Validation);
+                }
+                Ok(Err(conn)) => Some(conn),
+                Err(err) => {
+                    warn!(?err, "Failed to fetch twitch stream");
+
+                    None
+                }
+            };
+
+            let stream = match Context::client().get_twitch_stream(user_id).await {
+                Ok(opt) => opt,
+                Err(err) => {
+                    Context::online_twitch_streams().set_offline_by_user(user_id);
+
+                    return Err(RedisError::Acquire(err));
+                }
+            };
+
+            if let Some(ref stream) = stream {
+                if stream.live {
+                    let online_twitch_streams = Context::online_twitch_streams();
+                    let guard = online_twitch_streams.guard();
+                    online_twitch_streams.set_online(&stream, &guard);
+                }
+            }
+
+            let bytes = serialize_using_arena_and_with::<_, NicheInto<Bool>>(&stream)
+                .map_err(RedisError::Serialization)?;
+
+            if let Some(ref mut conn) = conn {
+                if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
+                    warn!(?err, "Failed to store twitch stream");
+                }
+            }
+
+            CachedArchive::new(bytes)
+                .map(Some)
+                .map_err(RedisError::Validation)
+        }
+
+        pub async fn last_twitch_vod(
+            self,
+            user_id: u64,
+        ) -> Result<Option<CachedArchive<ArchivedTwitchVideo>>, RedisError> {
+            const EXPIRE: u64 = 60; // 1 minute
+            let key = format!("twitch_vod_{user_id}");
+
+            let mut conn = match Context::cache()
+                .fetch::<_, NichedOption<ArchivedTwitchVideo, UnixEpoch>>(&key)
+                .await
+            {
+                Ok(Ok(vod)) => {
+                    BotMetrics::inc_redis_hit("Twitch vod");
+
+                    if vod.is_none() {
+                        return Ok(None);
+                    }
+
+                    // Re-interpreting the niched option
+                    return vod.try_cast().map(Some).map_err(RedisError::Validation);
+                }
+                Ok(Err(conn)) => Some(conn),
+                Err(err) => {
+                    warn!(?err, "Failed to fetch twitch vod");
+
+                    None
+                }
+            };
+
+            let vod = Context::client()
+                .get_last_twitch_vod(user_id)
+                .await
+                .map_err(RedisError::Acquire)?;
+
+            let bytes = serialize_using_arena_and_with::<_, NicheInto<UnixEpoch>>(&vod)
+                .map_err(RedisError::Serialization)?;
+
+            if let Some(ref mut conn) = conn {
+                if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
+                    warn!(?err, "Failed to store twitch vod");
+                }
+            }
+
+            CachedArchive::new(bytes)
+                .map(Some)
+                .map_err(RedisError::Validation)
+        }
+    }
+};

@@ -1,23 +1,22 @@
 use std::{fmt, fmt::Write};
 
 use http::HeaderValue;
+use rkyv::{
+    niche::niching::Bool,
+    rancor::{Panic, ResultExt},
+};
 use serde::{Deserialize, Deserializer, de::Error};
 use time::{Duration, OffsetDateTime};
+
+use crate::rkyv_util::{
+    DerefAsString,
+    time::{DateTimeRkyv, UnixEpoch},
+};
 
 fn str_to_u64<'de, D: Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
     <&str as Deserialize>::deserialize(d)?
         .parse()
         .map_err(Error::custom)
-}
-
-fn str_to_maybe_u64<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u64>, D::Error> {
-    let s: &str = Deserialize::deserialize(d)?;
-
-    if s.is_empty() {
-        Ok(None)
-    } else {
-        s.parse().map(Some).map_err(Error::custom)
-    }
 }
 
 pub struct TwitchData {
@@ -49,24 +48,27 @@ pub struct TwitchUser {
     pub user_id: u64,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, rkyv::Archive, rkyv::Serialize)]
 pub struct TwitchStream {
-    #[serde(rename = "game_id", deserialize_with = "str_to_maybe_u64")]
-    pub game_id: Option<u64>,
     #[serde(rename = "id", deserialize_with = "str_to_u64")]
     pub stream_id: u64,
     // Gets modified inside the struct so required to keep as `String`
     pub thumbnail_url: String,
+    #[rkyv(with = DerefAsString)]
     pub title: Box<str>,
     #[serde(deserialize_with = "str_to_u64")]
     pub user_id: u64,
     #[serde(rename = "user_login")]
+    #[rkyv(with = DerefAsString)]
     pub login: Box<str>,
     #[serde(rename = "user_name")]
+    #[rkyv(with = DerefAsString)]
     pub username: Box<str>,
     #[serde(rename = "type", deserialize_with = "get_live")]
+    #[rkyv(niche = Bool)]
     pub live: bool,
     #[serde(with = "super::deser::datetime_rfc3339")]
+    #[rkyv(with = DateTimeRkyv)]
     pub started_at: OffsetDateTime,
 }
 
@@ -85,28 +87,32 @@ pub struct TwitchDataList<T> {
     pub data: Vec<T>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, rkyv::Archive, rkyv::Serialize)]
 pub struct TwitchVideo {
     #[serde(with = "super::deser::datetime_rfc3339")]
+    #[rkyv(with = DateTimeRkyv, niche = UnixEpoch)]
     pub created_at: OffsetDateTime,
     /// Video duration in seconds
     #[serde(deserialize_with = "duration_to_u32")]
     pub duration: u32,
     #[serde(deserialize_with = "str_to_u64")]
     pub id: u64,
-    #[serde(with = "super::deser::datetime_rfc3339")]
-    pub published_at: OffsetDateTime,
+    #[rkyv(with = DerefAsString)]
     pub title: Box<str>,
+    #[rkyv(with = DerefAsString)]
     pub url: Box<str>,
     #[serde(rename = "user_name")]
+    #[rkyv(with = DerefAsString)]
     pub username: Box<str>,
     #[serde(rename = "user_login")]
+    #[rkyv(with = DerefAsString)]
     pub login: Box<str>,
 }
 
-impl TwitchVideo {
+impl ArchivedTwitchVideo {
     pub fn ended_at(&self) -> OffsetDateTime {
-        self.created_at + Duration::seconds(self.duration as i64)
+        self.created_at.try_deserialize::<Panic>().always_ok()
+            + Duration::seconds(self.duration.to_native() as i64)
     }
 
     pub fn append_url_timestamp(url: &mut String, offset: Duration) {
