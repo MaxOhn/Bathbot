@@ -1483,14 +1483,18 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                     },
                     SelectMenuOption {
                         default: self.inner.settings.buttons.render,
-                        description: None,
+                        description: Some(
+                            "Note: Doesn't work if `/config` score data set to `Stable`".to_owned(),
+                        ),
                         emoji: None,
                         label: "Render".to_owned(),
                         value: "render".to_owned(),
                     },
                     SelectMenuOption {
                         default: self.inner.settings.buttons.miss_analyzer,
-                        description: None,
+                        description: Some(
+                            "Note: Doesn't work if `/config` score data set to `Stable`".to_owned(),
+                        ),
                         emoji: None,
                         label: "Miss analyzer".to_owned(),
                         value: "miss_analyzer".to_owned(),
