@@ -2,15 +2,20 @@ use std::fmt::Write;
 
 use bathbot_model::RelaxPlayersDataResponse;
 use bathbot_util::{
-    constants::{GENERAL_ISSUE, RELAX, RELAX_ICON_URL}, datetime::NAIVE_DATETIME_FORMAT, fields, numbers::WithComma, osu::flag_url, AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin
+    constants::{GENERAL_ISSUE, RELAX, RELAX_ICON_URL},
+    datetime::NAIVE_DATETIME_FORMAT,
+    fields,
+    numbers::WithComma,
+    osu::flag_url,
+    AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin,
 };
 use eyre::{Context as _, ContextCompat, Report, Result};
 use plotters::{
     chart::{ChartBuilder, ChartContext},
-    coord::{Shift, types::RangedCoordi32},
+    coord::{types::RangedCoordi32, Shift},
     prelude::{Cartesian2d, Circle, DrawingArea, IntoDrawingArea, PathElement},
     series::AreaSeries,
-    style::{BLACK, Color, RGBColor, WHITE},
+    style::{Color, RGBColor, BLACK, WHITE},
 };
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
@@ -20,16 +25,16 @@ use rosu_v2::{
     prelude::MonthlyCount,
     request::UserId,
 };
-use skia_safe::{EncodedImageFormat, Surface, surfaces};
+use skia_safe::{surfaces, EncodedImageFormat, Surface};
 use time::Date;
-use twilight_model::id::{Id, marker::UserMarker};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::osu::{relax::RelaxProfile, require_link},
-    core::{Context, commands::CommandOrigin},
+    core::{commands::CommandOrigin, Context},
     embeds::attachment,
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
-    util::{Monthly, osu::grade_emote},
+    util::{osu::grade_emote, Monthly},
 };
 
 pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_>) -> Result<()> {
@@ -101,14 +106,14 @@ pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_
             return orig
                 .error(format!("User `{}` not found", user.username))
                 .await;
-        },
+        }
         Err(err) => {
             warn!(?err, "Failed to fetch user relax player info");
 
             let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
-        },
+        }
     };
 
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
@@ -122,7 +127,7 @@ pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_
             let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
-        },
+        }
     };
 
     let builder = MessageBuilder::new()
@@ -156,6 +161,7 @@ impl RelaxProfileArgs {
         }
     }
 }
+
 pub fn relax_profile_builder(args: RelaxProfileArgs) -> Result<EmbedBuilder> {
     let stats = &args.info;
     let mut description = "__**Relax user statistics".to_string();

@@ -2,7 +2,7 @@ use std::fmt::{Formatter, Result as FmtResult};
 
 use rosu_mods::{GameMod, GameMode, GameMods};
 use rosu_v2::model::Grade;
-use serde::{de, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de};
 use time::OffsetDateTime;
 
 use crate::deser::{adjust_acc, datetime_rfc3339, option_datetime_rfc3339};

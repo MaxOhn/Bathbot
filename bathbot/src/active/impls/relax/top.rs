@@ -6,7 +6,11 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::RelaxScore;
 use bathbot_util::{
-    constants::{OSU_BASE, RELAX, RELAX_ICON_URL}, datetime::HowLongAgoDynamic, numbers::{round, WithComma}, osu::flag_url, AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
+    constants::{OSU_BASE, RELAX, RELAX_ICON_URL},
+    datetime::HowLongAgoDynamic,
+    numbers::{WithComma, round},
+    osu::flag_url,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -72,9 +76,7 @@ impl RelaxTopPagination {
                 .author(author_builder(&self.user))
                 .description("No scores were found")
                 .footer(
-                    FooterBuilder::new(
-                        "Page 1/1 • Total #1 scores: 0"
-                    ).icon_url(RELAX_ICON_URL)
+                    FooterBuilder::new("Page 1/1 • Total #1 scores: 0").icon_url(RELAX_ICON_URL),
                 )
                 .thumbnail(self.user.avatar_url.as_ref());
 
@@ -120,10 +122,7 @@ impl RelaxTopPagination {
             };
 
             let mods = &score.mods;
-            let max_attrs = Context::pp(map)
-                .mods(mods.clone())
-                .performance()
-                .await;
+            let max_attrs = Context::pp(map).mods(mods.clone()).performance().await;
 
             // NOTE: Make generic versions of formatting functions later on
             // this is ugly

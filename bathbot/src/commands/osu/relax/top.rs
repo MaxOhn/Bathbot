@@ -6,9 +6,12 @@ use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
 
 use super::RelaxTop;
 use crate::{
-    active::{impls::relax::top::{RelaxTopOrder, RelaxTopPagination}, ActiveMessages},
+    active::{
+        ActiveMessages,
+        impls::relax::top::{RelaxTopOrder, RelaxTopPagination},
+    },
     commands::osu::require_link,
-    core::{commands::CommandOrigin, Context},
+    core::{Context, commands::CommandOrigin},
     manager::redis::osu::{UserArgs, UserArgsError},
 };
 
@@ -85,19 +88,19 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
                 .beats_per_minute
                 .total_cmp(&lhs.beatmap.beats_per_minute)
         }),
-        RelaxTopOrder::Combo => scores
-            .sort_unstable_by(|lhs, rhs| rhs.combo.cmp(&lhs.combo)),
-        RelaxTopOrder::Date => scores
-            .sort_unstable_by(|lhs, rhs| rhs.date.cmp(&lhs.date)),
-        RelaxTopOrder::Misses => scores
-            .sort_unstable_by(|lhs, rhs| rhs.count_miss.cmp(&lhs.count_miss)),
-        RelaxTopOrder::ModsCount => scores
-            .sort_unstable_by(|lhs, rhs| rhs.mods.len().cmp(&lhs.mods.len())),
-        RelaxTopOrder::Pp => scores.sort_unstable_by(|lhs, rhs| {
-            rhs.pp.partial_cmp(&lhs.pp).unwrap_or(Ordering::Equal)
-        }),
-        RelaxTopOrder::Score => scores
-            .sort_unstable_by(|lhs, rhs| rhs.total_score.cmp(&lhs.total_score)),
+        RelaxTopOrder::Combo => scores.sort_unstable_by(|lhs, rhs| rhs.combo.cmp(&lhs.combo)),
+        RelaxTopOrder::Date => scores.sort_unstable_by(|lhs, rhs| rhs.date.cmp(&lhs.date)),
+        RelaxTopOrder::Misses => {
+            scores.sort_unstable_by(|lhs, rhs| rhs.count_miss.cmp(&lhs.count_miss))
+        }
+        RelaxTopOrder::ModsCount => {
+            scores.sort_unstable_by(|lhs, rhs| rhs.mods.len().cmp(&lhs.mods.len()))
+        }
+        RelaxTopOrder::Pp => scores
+            .sort_unstable_by(|lhs, rhs| rhs.pp.partial_cmp(&lhs.pp).unwrap_or(Ordering::Equal)),
+        RelaxTopOrder::Score => {
+            scores.sort_unstable_by(|lhs, rhs| rhs.total_score.cmp(&lhs.total_score))
+        }
         RelaxTopOrder::Stars => scores.sort_unstable_by(|lhs, rhs| {
             rhs.beatmap
                 .star_rating_normal
