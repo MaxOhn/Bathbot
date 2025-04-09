@@ -2,20 +2,20 @@ use std::fmt::Write;
 
 use bathbot_model::RelaxPlayersDataResponse;
 use bathbot_util::{
+    AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin,
     constants::{GENERAL_ISSUE, RELAX, RELAX_ICON_URL},
     datetime::NAIVE_DATETIME_FORMAT,
     fields,
     numbers::WithComma,
     osu::flag_url,
-    AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin,
 };
 use eyre::{Context as _, ContextCompat, Report, Result};
 use plotters::{
     chart::{ChartBuilder, ChartContext},
-    coord::{types::RangedCoordi32, Shift},
+    coord::{Shift, types::RangedCoordi32},
     prelude::{Cartesian2d, Circle, DrawingArea, IntoDrawingArea, PathElement},
     series::AreaSeries,
-    style::{Color, RGBColor, BLACK, WHITE},
+    style::{BLACK, Color, RGBColor, WHITE},
 };
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
@@ -25,16 +25,16 @@ use rosu_v2::{
     prelude::MonthlyCount,
     request::UserId,
 };
-use skia_safe::{surfaces, EncodedImageFormat, Surface};
+use skia_safe::{EncodedImageFormat, Surface, surfaces};
 use time::Date;
-use twilight_model::id::{marker::UserMarker, Id};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::{
     commands::osu::{relax::RelaxProfile, require_link},
-    core::{commands::CommandOrigin, Context},
+    core::{Context, commands::CommandOrigin},
     embeds::attachment,
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
-    util::{osu::grade_emote, Monthly},
+    util::{Monthly, osu::grade_emote},
 };
 
 pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_>) -> Result<()> {
