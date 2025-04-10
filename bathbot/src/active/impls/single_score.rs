@@ -1121,6 +1121,23 @@ fn write_value(
 
             let _ = write!(writer, "{ratio:.2}:{against}");
         }
+        Value::ScoreId => {
+            let _ = if value.y == SettingValue::FOOTER_Y {
+                write!(writer, "Score id {}", data.score.score_id)
+            } else if let ScoreData::Stable = score_data {
+                write!(
+                    writer,
+                    "[Link to score]({OSU_BASE}scores/{}/{})",
+                    data.score.mode, data.score.score_id,
+                )
+            } else {
+                write!(
+                    writer,
+                    "[Link to score]({OSU_BASE}scores/{})",
+                    data.score.score_id,
+                )
+            };
+        }
         Value::Stars => {
             let _ = write!(writer, "{}★", round(data.stars));
         }

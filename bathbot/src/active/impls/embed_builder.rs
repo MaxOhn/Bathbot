@@ -115,6 +115,7 @@ impl ScoreEmbedBuilderActive {
                     "combo" => ValueKind::Combo,
                     "hitresults" => ValueKind::Hitresults,
                     "ratio" => ValueKind::Ratio,
+                    "id" => ValueKind::ScoreId,
                     "sr" => ValueKind::Stars,
                     "len" => ValueKind::Length,
                     "bpm" => ValueKind::Bpm,
@@ -771,6 +772,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                                 label: "Ratio".to_owned(),
                                 value: "ratio".to_owned(),
                             },
+                            kind_option!("Score id", "id", ScoreId),
                             kind_option!("Stars", "sr", Stars),
                             kind_option!("Length", "len", Length),
                             kind_option!("AR", "ar", Ar),
@@ -1132,6 +1134,10 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                         components.push(arrow_row(idx));
                     }
                     ValueKind::Ratio => {
+                        components.push(show_hide_row(idx));
+                        components.push(arrow_row(idx));
+                    }
+                    ValueKind::ScoreId => {
                         components.push(show_hide_row(idx));
                         components.push(arrow_row(idx));
                     }
@@ -1590,6 +1596,7 @@ pub enum ValueKind {
     Combo,
     Hitresults,
     Ratio,
+    ScoreId,
     Stars,
     Length,
     Ar,
@@ -1616,6 +1623,7 @@ impl ValueKind {
             Value::Combo(_) => ValueKind::Combo,
             Value::Hitresults(_) => ValueKind::Hitresults,
             Value::Ratio => ValueKind::Ratio,
+            Value::ScoreId => ValueKind::ScoreId,
             Value::Stars => ValueKind::Stars,
             Value::Length => ValueKind::Length,
             Value::Bpm(_) => ValueKind::Bpm,
@@ -1644,6 +1652,7 @@ impl From<ValueKind> for Value {
             ValueKind::Combo => Self::Combo(Default::default()),
             ValueKind::Hitresults => Self::Hitresults(Default::default()),
             ValueKind::Ratio => Self::Ratio,
+            ValueKind::ScoreId => Self::ScoreId,
             ValueKind::Stars => Self::Stars,
             ValueKind::Length => Self::Length,
             ValueKind::Bpm => Self::Bpm(Default::default()),
