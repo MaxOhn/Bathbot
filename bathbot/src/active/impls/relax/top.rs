@@ -141,7 +141,7 @@ impl RelaxTopPagination {
                 map_id = score.beatmap_id,
                 mods = ModsFormatter::new(mods),
                 pp = PpFormatter::new(score_pp, Some(max_pp)),
-                stars = score.beatmap.star_rating.unwrap_or_default(),
+                stars = score.beatmap.star_rating_normal,
                 acc = round(score.accuracy),
                 score = WithComma::new(score.total_score),
                 combo = ComboFormatter::new(score.combo, Some(max_combo)),
