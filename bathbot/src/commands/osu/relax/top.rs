@@ -61,6 +61,7 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
 
     let client = Context::client();
     let mut scores = client.get_relax_player_scores(user_id).await?;
+    let player = client.get_relax_player(user_id).await?;
 
     let map_ids = scores
         .iter()
@@ -74,6 +75,15 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
             warn!(?err, "Failed to get maps from database");
 
             HashMap::default()
+        }
+    };
+
+    let player = match player {
+        Some(p) => p,
+        None => {
+            let _ = orig.error("Relax player not found");
+
+            return Err(eyre::Report::msg("Relax player not found"));
         }
     };
 
@@ -110,6 +120,7 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
 
     let pagination = RelaxTopPagination::builder()
         .user(user)
+        .relax_user(player)
         .scores(scores)
         .maps(maps)
         .msg_owner(msg_owner)

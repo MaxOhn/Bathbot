@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::RelaxScore;
+use bathbot_model::{RelaxPlayersDataResponse, RelaxScore, RelaxUser};
 use bathbot_util::{
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
     constants::{OSU_BASE, RELAX, RELAX_ICON_URL},
@@ -36,6 +36,7 @@ use crate::{
 #[derive(PaginationBuilder)]
 pub struct RelaxTopPagination {
     user: CachedUser,
+    relax_user: RelaxPlayersDataResponse,
     #[pagination(per_page = 5)]
     scores: Vec<RelaxScore>,
     maps: HashMap<u32, OsuMap, IntHasher>,
@@ -73,7 +74,7 @@ impl RelaxTopPagination {
 
         if self.scores.is_empty() {
             let embed = EmbedBuilder::new()
-                .author(author_builder(&self.user))
+                .author(author_builder(&self.user, &self.relax_user))
                 .description("No scores were found")
                 .footer(
                     FooterBuilder::new("Page 1/1 • Total #1 scores: 0").icon_url(RELAX_ICON_URL),
@@ -160,7 +161,7 @@ impl RelaxTopPagination {
         ));
 
         let embed = EmbedBuilder::new()
-            .author(self.user.author_builder(false))
+            .author(author_builder(&self.user, &self.relax_user))
             .description(description)
             .footer(footer)
             .thumbnail(self.user.avatar_url.as_ref());
@@ -169,11 +170,21 @@ impl RelaxTopPagination {
     }
 }
 
-fn author_builder(user: &CachedUser) -> AuthorBuilder {
-    let text = user.username.as_str().to_owned();
+fn author_builder(
+    cached_user: &CachedUser,
+    relax_user: &RelaxPlayersDataResponse,
+) -> AuthorBuilder {
+    let text = format!(
+        "{username}: {pp}pp (#{global_rank} {country_code}{country_rank})",
+        username = cached_user.username,
+        pp = WithComma::new(relax_user.total_pp.unwrap_or_default()),
+        global_rank = relax_user.rank.unwrap_or_default(),
+        country_code = cached_user.country_code.as_str(),
+        country_rank = relax_user.country_rank.unwrap_or_default()
+    );
 
-    let url = format!("{RELAX}/users/{}", user.user_id);
-    let icon = flag_url(&user.country_code);
+    let url = format!("{RELAX}/users/{}", cached_user.user_id);
+    let icon = flag_url(&cached_user.country_code);
 
     AuthorBuilder::new(text).url(url).icon_url(icon)
 }
