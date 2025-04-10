@@ -74,6 +74,8 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
         }
     };
 
+    scores.retain(|sc| sc.is_best);
+
     let map_ids = scores
         .iter()
         .take(5)
