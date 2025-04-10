@@ -6,11 +6,10 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{RelaxPlayersDataResponse, RelaxScore};
 use bathbot_util::{
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
-    constants::{OSU_BASE, RELAX, RELAX_ICON_URL},
+    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
+    constants::{OSU_BASE, RELAX_ICON_URL},
     datetime::HowLongAgoDynamic,
     numbers::{WithComma, round},
-    osu::flag_url,
 };
 use eyre::Result;
 use futures::future::BoxFuture;
@@ -25,6 +24,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
+    commands::osu::relax::relax_author_builder,
     core::Context,
     embeds::{ComboFormatter, PpFormatter},
     manager::{OsuMap, redis::osu::CachedUser},
@@ -74,7 +74,7 @@ impl RelaxTopPagination {
 
         if self.scores.is_empty() {
             let embed = EmbedBuilder::new()
-                .author(author_builder(&self.user, &self.relax_user))
+                .author(relax_author_builder(&self.user, &self.relax_user))
                 .description("No scores were found")
                 .footer(
                     FooterBuilder::new("Page 1/1 • Total #1 scores: 0").icon_url(RELAX_ICON_URL),
@@ -101,9 +101,7 @@ impl RelaxTopPagination {
         if !map_ids.is_empty() {
             match Context::osu_map().maps(&map_ids).await {
                 Ok(new_maps) => self.maps.extend(new_maps),
-                Err(err) => {
-                    warn!(?err, "Failed to get maps from database");
-                }
+                Err(err) => warn!(?err, "Failed to get maps from database"),
             };
         }
 
@@ -161,7 +159,7 @@ impl RelaxTopPagination {
         ));
 
         let embed = EmbedBuilder::new()
-            .author(author_builder(&self.user, &self.relax_user))
+            .author(relax_author_builder(&self.user, &self.relax_user))
             .description(description)
             .footer(footer)
             .thumbnail(self.user.avatar_url.as_ref());
@@ -170,24 +168,6 @@ impl RelaxTopPagination {
     }
 }
 
-fn author_builder(
-    cached_user: &CachedUser,
-    relax_user: &RelaxPlayersDataResponse,
-) -> AuthorBuilder {
-    let text = format!(
-        "{username}: {pp}pp (#{global_rank} {country_code}{country_rank})",
-        username = cached_user.username,
-        pp = WithComma::new(relax_user.total_pp.unwrap_or_default()),
-        global_rank = relax_user.rank.unwrap_or_default(),
-        country_code = cached_user.country_code.as_str(),
-        country_rank = relax_user.country_rank.unwrap_or_default()
-    );
-
-    let url = format!("{RELAX}/users/{}", cached_user.user_id);
-    let icon = flag_url(&cached_user.country_code);
-
-    AuthorBuilder::new(text).url(url).icon_url(icon)
-}
 struct MissFormat(u32);
 
 impl Display for MissFormat {

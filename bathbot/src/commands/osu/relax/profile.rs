@@ -2,12 +2,11 @@ use std::fmt::Write;
 
 use bathbot_model::RelaxPlayersDataResponse;
 use bathbot_util::{
-    AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin,
-    constants::{GENERAL_ISSUE, RELAX, RELAX_ICON_URL},
+    EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin,
+    constants::{GENERAL_ISSUE, RELAX_ICON_URL},
     datetime::NAIVE_DATETIME_FORMAT,
     fields,
     numbers::WithComma,
-    osu::flag_url,
 };
 use eyre::{Context as _, ContextCompat, Report, Result};
 use plotters::{
@@ -30,7 +29,10 @@ use time::Date;
 use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::{
-    commands::osu::{relax::RelaxProfile, require_link},
+    commands::osu::{
+        relax::{RelaxProfile, relax_author_builder},
+        require_link,
+    },
     core::{Context, commands::CommandOrigin},
     embeds::attachment,
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
@@ -186,7 +188,7 @@ pub fn relax_profile_builder(args: RelaxProfileArgs) -> Result<EmbedBuilder> {
         "Count A", a_grades, true;
     ];
     let embed = EmbedBuilder::new()
-        .author(relax_author_builder(&args))
+        .author(relax_author_builder(&args.user, &args.info))
         .description(description)
         .fields(fields)
         .image(attachment("graph.png"))
@@ -194,24 +196,6 @@ pub fn relax_profile_builder(args: RelaxProfileArgs) -> Result<EmbedBuilder> {
         .footer(relax_footer_builder(&args));
 
     Ok(embed)
-}
-
-fn relax_author_builder(args: &RelaxProfileArgs) -> AuthorBuilder {
-    let country_code = args.user.country_code.as_str();
-    let pp = args.info.total_pp;
-
-    let text = format!(
-        "{name}: {pp}pp (#{rank} {country_code}{country_rank})",
-        name = args.user.username,
-        pp = WithComma::new(pp.unwrap()),
-        rank = args.info.rank.unwrap_or_default(),
-        country_rank = args.info.country_rank.unwrap_or_default(),
-    );
-
-    let url = format!("{RELAX}/users/{}", args.user.user_id);
-    let icon = flag_url(country_code);
-
-    AuthorBuilder::new(text).url(url).icon_url(icon)
 }
 
 fn relax_footer_builder(args: &RelaxProfileArgs) -> FooterBuilder {

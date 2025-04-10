@@ -60,8 +60,19 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
     let user_id = user.user_id.to_native();
 
     let client = Context::client();
-    let mut scores = client.get_relax_player_scores(user_id).await?;
-    let player = client.get_relax_player(user_id).await?;
+    let scores_fut = client.get_relax_player_scores(user_id);
+    let player_fut = client.get_relax_player(user_id);
+
+    let relax_api_result = tokio::try_join!(scores_fut, player_fut);
+
+    let (mut scores, player) = match relax_api_result {
+        Ok(v) => v,
+        Err(e) => {
+            let _ = orig.error("Failed to get a relax player").await;
+
+            return Err(e.wrap_err("Failed to get a relax player"));
+        }
+    };
 
     let map_ids = scores
         .iter()
@@ -78,13 +89,8 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
         }
     };
 
-    let player = match player {
-        Some(p) => p,
-        None => {
-            let _ = orig.error("Relax player not found").await;
-
-            return Err(eyre::Report::msg("Relax player not found"));
-        }
+    let Some(player) = player else {
+        return orig.error("Relax player not found").await;
     };
 
     match args.sort.unwrap_or_default() {

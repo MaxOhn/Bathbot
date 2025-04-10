@@ -110,7 +110,7 @@ mod rank;
 mod ranking;
 mod ratios;
 mod recent;
-mod relax;
+pub(crate) mod relax;
 mod render;
 mod serverleaderboard;
 mod simulate;

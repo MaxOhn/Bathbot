@@ -1,6 +1,10 @@
 use std::borrow::Cow;
 
 use bathbot_macros::{HasName, SlashCommand};
+use bathbot_model::RelaxPlayersDataResponse;
+use bathbot_util::{
+    AuthorBuilder, constants::RELAX as RELAX_URL, numbers::WithComma, osu::flag_url,
+};
 use eyre::Result;
 use profile::relax_profile;
 use top::relax_top;
@@ -9,6 +13,7 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::{
     active::impls::relax::top::RelaxTopOrder,
+    manager::redis::osu::CachedUser,
     util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
@@ -71,4 +76,23 @@ pub async fn slash_relax(mut command: InteractionCommand) -> Result<()> {
         Relax::Profile(args) => relax_profile((&mut command).into(), args).await,
         Relax::Top(args) => relax_top((&mut command).into(), args).await,
     }
+}
+
+pub fn relax_author_builder(
+    cached_user: &CachedUser,
+    relax_user: &RelaxPlayersDataResponse,
+) -> AuthorBuilder {
+    let text = format!(
+        "{username}: {pp}pp (#{global_rank} {country_code}{country_rank})",
+        username = cached_user.username,
+        pp = WithComma::new(relax_user.total_pp.unwrap_or_default()),
+        global_rank = relax_user.rank.unwrap_or_default(),
+        country_code = cached_user.country_code.as_str(),
+        country_rank = relax_user.country_rank.unwrap_or_default()
+    );
+
+    let url = format!("{RELAX_URL}/users/{}", cached_user.user_id);
+    let icon = flag_url(&cached_user.country_code);
+
+    AuthorBuilder::new(text).url(url).icon_url(icon)
 }
