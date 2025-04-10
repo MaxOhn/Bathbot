@@ -23,6 +23,8 @@ jobs:
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       # See failed run <https://github.com/MaxOhn/Bathbot/actions/runs/14284178259/job/40037258476?pr=952>
       - name: "Install fontconfig"
@@ -31,11 +33,8 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Add problem matchers
-        run: echo "::add-matcher::.github/rust.json"
-
       - name: Run clippy
-        run: cargo clippy --features ${{ matrix.features }} --all-targets
+        run: cargo clippy --workspace --features ${{ matrix.features }} --all-targets
 
   rustfmt:
     name: Format
