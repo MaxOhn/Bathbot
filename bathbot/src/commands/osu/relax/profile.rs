@@ -122,11 +122,9 @@ pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_
     let graph = match relax_playcount_graph(&pagination) {
         Ok(graph) => graph,
         Err(err) => {
-            warn!(?err, "Failed to draw a relax playcount graph");
-
             let _ = orig.error(GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("Failed to draw a relax playcount graph"));
         }
     };
 
