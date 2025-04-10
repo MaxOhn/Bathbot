@@ -52,8 +52,5 @@ jobs:
             components: rustfmt
             toolchain: nightly
 
-      - name: Add problem matchers
-        run: echo "::add-matcher::.github/rust.json"
-
       - name: Check code formatting
-        run: cargo fmt -- --check
+        run: cargo fmt --all -- --check
