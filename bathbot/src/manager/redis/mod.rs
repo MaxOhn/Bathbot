@@ -425,6 +425,10 @@ const _: () = {
                 }
             }
 
+            if stream.is_none() {
+                return Ok(None);
+            }
+
             CachedArchive::new(bytes)
                 .map(Some)
                 .map_err(RedisError::Validation)
@@ -471,6 +475,10 @@ const _: () = {
                 if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
                     warn!(?err, "Failed to store twitch vod");
                 }
+            }
+
+            if vod.is_none() {
+                return Ok(None);
             }
 
             CachedArchive::new(bytes)
