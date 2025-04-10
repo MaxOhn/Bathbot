@@ -65,7 +65,7 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
 
     let relax_api_result = tokio::try_join!(scores_fut, player_fut);
 
-    let (scores, player) = match relax_api_result {
+    let (mut scores, player) = match relax_api_result {
         Ok(v) => v,
         Err(e) => {
             let _ = orig.error("Failed to get a relax player").await;
@@ -74,7 +74,8 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
         }
     };
 
-    let mut scores: Vec<_> = scores.into_iter().filter(|x| x.is_best).collect();
+    scores.retain(|sc| sc.is_best);
+
     let map_ids = scores
         .iter()
         .take(5)
