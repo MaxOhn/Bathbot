@@ -402,11 +402,47 @@ pub fn process_match(
             })
             .collect();
 
-        UserMatchCostEntry::sort(&mut players);
+        // If it was a two person match, artificially assign them into
+        // teams
+        if let [blue_player, _] = players.as_slice() {
+            let mut teams_win_count = TeamsWinCount::default();
 
-        MatchResult::HeadToHead {
-            players,
-            mvp_avatar_url,
+            for game in games.iter() {
+                let mut teams_score = TeamsScore::default();
+
+                for score in game.scores.iter() {
+                    let team = if score.user_id == blue_player.user_id {
+                        MatchTeam::Blue
+                    } else {
+                        MatchTeam::Red
+                    };
+
+                    teams_score.update(team, score.score);
+                }
+
+                teams_win_count.add_win(teams_score.winner());
+            }
+
+            let red_players = players.split_off(1);
+
+            MatchResult::TeamVS {
+                blue: TeamResult {
+                    players,
+                    win_count: teams_win_count.get(MatchTeam::Blue),
+                },
+                red: TeamResult {
+                    players: red_players,
+                    win_count: teams_win_count.get(MatchTeam::Red),
+                },
+                mvp_avatar_url,
+            }
+        } else {
+            UserMatchCostEntry::sort(&mut players);
+
+            MatchResult::HeadToHead {
+                players,
+                mvp_avatar_url,
+            }
         }
     }
 }
