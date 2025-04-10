@@ -34,7 +34,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run clippy
-        run: cargo clippy --workspace --features ${{ matrix.features }} --all-targets
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo clippy --workspace --features ${{ matrix.features }} --all-targets --no-deps
 
   rustfmt:
     name: Format
