@@ -1,6 +1,4 @@
-use bathbot_model::{
-    RelaxPlayersDataResponse, RelaxRecentScoresResponse, RelaxScore, RelaxStatsResponse,
-};
+use bathbot_model::{RelaxPlayersDataResponse, RelaxScore};
 use bathbot_util::constants::RELAX_API;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::CountryCode;
@@ -19,20 +17,6 @@ impl Client {
             let body = String::from_utf8_lossy(&bytes);
 
             format!("failed to deserialize relax top scores: {body}")
-        })
-    }
-
-    /// /api/scores/recent
-    /// GET relax scores set within the last 24 hours
-    pub async fn get_relax_recent_scores(&self) -> Result<RelaxRecentScoresResponse> {
-        let url = format!("{RELAX_API}/scores/recent");
-
-        let bytes = self.make_get_request(url, Site::Relax).await?;
-
-        serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
-
-            format!("failed to deserialize recent relax scores: {body}")
         })
     }
 
@@ -110,34 +94,6 @@ impl Client {
             let body = String::from_utf8_lossy(&bytes);
 
             format!("failed to deserialize relax player scores: {body}")
-        })
-    }
-
-    /// /api/players/{id}/scores/recent
-    /// GET all relax scores set by a player within the past 24 hours
-    pub async fn get_relax_recent_player_scores(&self, user_id: u32) -> Result<Vec<RelaxScore>> {
-        let url = format!("{RELAX_API}/players/{user_id}/scores/recent");
-
-        let bytes = self.make_get_request(url, Site::Relax).await?;
-
-        serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
-
-            format!("failed to deserialize relax recent player scores: {body}")
-        })
-    }
-
-    /// /api/stats
-    /// GET Relaxation Vault's statistics
-    pub async fn get_relax_statistics(&self) -> Result<RelaxStatsResponse> {
-        let url = format!("{RELAX_API}/stats");
-
-        let bytes = self.make_get_request(url, Site::Relax).await?;
-
-        serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
-
-            format!("failed to deserialize relax statistics: {body}")
         })
     }
 }

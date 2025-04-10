@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{RelaxPlayersDataResponse, RelaxScore, RelaxUser};
+use bathbot_model::{RelaxPlayersDataResponse, RelaxScore};
 use bathbot_util::{
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter,
     constants::{OSU_BASE, RELAX, RELAX_ICON_URL},
@@ -29,7 +29,7 @@ use crate::{
     embeds::{ComboFormatter, PpFormatter},
     manager::{OsuMap, redis::osu::CachedUser},
     util::{
-        CachedUserExt, Emote,
+        Emote,
         interaction::{InteractionComponent, InteractionModal},
     },
 };
