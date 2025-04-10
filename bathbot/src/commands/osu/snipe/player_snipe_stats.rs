@@ -323,7 +323,7 @@ pub fn graphs(
             .keys()
             .copied()
             .filter(|sr| *sr >= 0)
-            .last()
+            .next_back()
             .unwrap_or(0) as u32;
 
         let mut chart = ChartBuilder::on(&star_canvas)

@@ -39,13 +39,13 @@ impl IActiveMessage for SkinsPagination {
 
         let left = &entries[idx..end_left];
 
-        let right = (entries.len() > idx + PER_SIDE)
-            .then(|| {
-                let end_right = entries.len().min(idx + PER_PAGE);
+        let right = if entries.len() > idx + PER_SIDE {
+            let end_right = entries.len().min(idx + PER_PAGE);
 
-                &entries[idx + PER_SIDE..end_right]
-            })
-            .unwrap_or(&[]);
+            &entries[idx + PER_SIDE..end_right]
+        } else {
+            &[]
+        };
 
         let left_lengths = Lengths::new(idx, left);
         let right_lengths = Lengths::new(idx + PER_SIDE, right);

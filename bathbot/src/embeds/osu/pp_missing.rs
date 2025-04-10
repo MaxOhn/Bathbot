@@ -201,7 +201,7 @@ impl PpMissingEmbed {
                     }
 
                     if let Some(n_each) = n_each_needed(&mut top, each, goal_pp, &pps, idx) {
-                        pps.extend(iter::repeat(each).take(n_each));
+                        pps.extend(iter::repeat_n(each, n_each));
                         pps.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
 
                         let accum = pps.accum_weighted();

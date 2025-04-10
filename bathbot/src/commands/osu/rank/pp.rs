@@ -935,7 +935,7 @@ impl RankData {
                     );
                 }
 
-                pps.extend(iter::repeat(each).take(n_each));
+                pps.extend(iter::repeat_n(each, n_each));
 
                 pps.sort_unstable_by(|a, b| b.total_cmp(a));
 
@@ -1162,7 +1162,7 @@ impl RankData {
                     );
                 }
 
-                pps.extend(iter::repeat(each).take(n_each));
+                pps.extend(iter::repeat_n(each, n_each));
 
                 pps.sort_unstable_by(|a, b| b.total_cmp(a));
 

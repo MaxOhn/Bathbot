@@ -260,7 +260,7 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
             .position(|&pp_| pp_ < pp)
             .unwrap_or(scores.len() - 1);
 
-        pps.extend(iter::repeat(pp).take(count));
+        pps.extend(iter::repeat_n(pp, count));
         pps.sort_unstable_by(|a, b| b.total_cmp(a));
 
         let new_pp = pps.accum_weighted();
