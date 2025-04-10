@@ -164,7 +164,7 @@ impl MatchLiveEmbed {
 
                     // If the game is on-going and has no following game event, return early
                     if game.end_time.is_none() {
-                        let last_game = lobby.events.get(i + 1..).map_or(true, |events| {
+                        let last_game = lobby.events.get(i + 1..).is_none_or(|events| {
                             events.iter().all(|e| !matches!(e, MatchEvent::Game { .. }))
                         });
 
@@ -266,7 +266,7 @@ impl MatchLiveEmbed {
                             update.get_or_insert(false);
 
                             // If the game is on-going and has no following game event, return early
-                            let last_game = lobby.events.get(i + 1..).map_or(true, |events| {
+                            let last_game = lobby.events.get(i + 1..).is_none_or(|events| {
                                 events.iter().all(|e| !matches!(e, MatchEvent::Game { .. }))
                             });
 
@@ -301,7 +301,7 @@ impl MatchLiveEmbed {
 
                             // If the game is on-going and has no following game event, return early
                             if game.end_time.is_none() {
-                                let last_game = lobby.events.get(i + 1..).map_or(true, |events| {
+                                let last_game = lobby.events.get(i + 1..).is_none_or(|events| {
                                     events.iter().all(|e| !matches!(e, MatchEvent::Game { .. }))
                                 });
 
@@ -395,7 +395,7 @@ impl MatchLiveEmbed {
 
                             // If the game is on-going and has no following game event, return early
                             if game.end_time.is_none() {
-                                let last_game = lobby.events.get(i + 1..).map_or(true, |events| {
+                                let last_game = lobby.events.get(i + 1..).is_none_or(|events| {
                                     events.iter().all(|e| !matches!(e, MatchEvent::Game { .. }))
                                 });
 

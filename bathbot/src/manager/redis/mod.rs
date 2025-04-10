@@ -412,7 +412,7 @@ const _: () = {
                 if stream.live {
                     let online_twitch_streams = Context::online_twitch_streams();
                     let guard = online_twitch_streams.guard();
-                    online_twitch_streams.set_online(&stream, &guard);
+                    online_twitch_streams.set_online(stream, &guard);
                 }
             }
 
