@@ -132,50 +132,10 @@ pub enum RelaxBeatmapStatus {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RelaxAllowedModsResponse {
-    mods: Option<Vec<String>>,
-    mod_settings: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RelaxListingBeatmap {
-    id: u32,
-    artist: Option<String>,
-    title: Option<String>,
-    creator_id: u32,
-    beatmap_set_id: u32,
-    difficulty_name: Option<String>,
-    star_rating: Option<f32>,
-    status: RelaxBeatmapStatus,
-    playcount: u32,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct RelaxPlaycountPerMonth {
     #[serde(with = "datetime_rfc3339")]
     pub date: OffsetDateTime,
     pub playcount: u32,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RelaxRecentScoresResponse {
-    scores: Option<Vec<RelaxScore>>,
-    scores_today: u32,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RelaxStatsResponse {
-    scores_total: u32,
-    users_total: u32,
-    beatmaps_total: u32,
-    latest_score_id: u64,
-    scores_in_a_month: u32,
-    playcount_per_day: Option<RelaxPlaycountPerMonth>,
-    playcount_per_month: Option<RelaxPlaycountPerMonth>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -198,11 +158,4 @@ pub struct RelaxPlayersDataResponse {
     #[serde(rename = "countA")]
     pub count_a: u32,
     pub playcounts_per_month: Vec<RelaxPlaycountPerMonth>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RelaxPlayersResult {
-    players: Vec<Option<RelaxUser>>,
-    total: u32,
 }
