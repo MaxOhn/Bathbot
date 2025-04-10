@@ -106,7 +106,7 @@ pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_
         Ok(Some(info_res)) => info_res,
         Ok(None) => {
             return orig
-                .error(format!("User `{}` not found", user.username))
+                .error(format!("Relax user `{}` not found", user.username))
                 .await;
         }
         Err(err) => {
