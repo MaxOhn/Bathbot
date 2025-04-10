@@ -91,6 +91,8 @@ mod daily_challenge;
 mod fix;
 mod graphs;
 mod leaderboard;
+#[cfg(feature = "server")]
+mod link;
 mod map;
 mod map_search;
 mod mapper;
@@ -108,15 +110,13 @@ mod rank;
 mod ranking;
 mod ratios;
 mod recent;
+pub(crate) mod relax;
 mod render;
 mod serverleaderboard;
 mod simulate;
 mod snipe;
 mod top;
 mod whatif;
-
-#[cfg(feature = "server")]
-mod link;
 
 #[cfg(feature = "matchlive")]
 mod match_live;

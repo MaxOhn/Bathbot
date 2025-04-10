@@ -14,6 +14,7 @@ pub enum Site {
     OsuMapsetCover,
     OsuStats,
     OsuTrack,
+    Relax,
     Respektive,
     Twitch,
 }
@@ -35,6 +36,7 @@ impl Site {
             Self::OsuStats => "OsuStats",
             Self::OsuTrack => "OsuTrack",
             Self::Respektive => "Respektive",
+            Self::Relax => "Relax",
             Self::Twitch => "Twitch",
         }
     }
