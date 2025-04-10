@@ -81,7 +81,7 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
     let player = match player {
         Some(p) => p,
         None => {
-            let _ = orig.error("Relax player not found");
+            let _ = orig.error("Relax player not found").await;
 
             return Err(eyre::Report::msg("Relax player not found"));
         }
