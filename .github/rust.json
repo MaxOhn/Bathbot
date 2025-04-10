@@ -1,7 +1,7 @@
 {
     "problemMatcher": [
         {
-            "owner": "rust-common",
+            "owner": "cargo-common",
             "pattern": [
                 {
                     "regexp": "^(warning|warn|error)(\\[(.*)\\])?: (.*)$",
