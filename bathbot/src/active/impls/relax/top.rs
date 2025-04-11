@@ -121,7 +121,9 @@ impl RelaxTopPagination {
             };
 
             let mods = &score.mods;
-            let max_attrs = Context::pp(map).mods(mods.clone()).performance().await;
+            let mut pp_manager = Context::pp(map).mods(mods.clone());
+            let stars = pp_manager.difficulty().await.stars();
+            let max_attrs = pp_manager.performance().await;
 
             // NOTE: Make generic versions of formatting functions later on
             // this is ugly
@@ -141,7 +143,7 @@ impl RelaxTopPagination {
                 map_id = score.beatmap_id,
                 mods = ModsFormatter::new(mods),
                 pp = PpFormatter::new(score_pp, Some(max_pp)),
-                stars = score.beatmap.star_rating_normal,
+                stars = stars,
                 acc = round(score.accuracy),
                 score = WithComma::new(score.total_score),
                 combo = ComboFormatter::new(score.combo, Some(max_combo)),
