@@ -119,11 +119,6 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
         RelaxTopOrder::Score => {
             scores.sort_unstable_by(|lhs, rhs| rhs.total_score.cmp(&lhs.total_score))
         }
-        RelaxTopOrder::Stars => scores.sort_unstable_by(|lhs, rhs| {
-            rhs.beatmap
-                .star_rating_normal
-                .total_cmp(&lhs.beatmap.star_rating_normal)
-        }),
     }
 
     let pagination = RelaxTopPagination::builder()

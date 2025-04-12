@@ -200,6 +200,4 @@ pub enum RelaxTopOrder {
     Pp,
     #[option(name = "Score", value = "score")]
     Score,
-    #[option(name = "Stars", value = "stars")]
-    Stars,
 }
