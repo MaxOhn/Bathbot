@@ -92,7 +92,9 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
     };
 
     let Some(player) = player else {
-        return orig.error("Relax player not found").await;
+        return orig
+            .error(format!("Relax player `{}` not found", user.username))
+            .await;
     };
 
     match args.sort.unwrap_or_default() {
