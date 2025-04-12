@@ -166,7 +166,7 @@ pub fn relax_profile_builder(args: RelaxProfileArgs) -> Result<EmbedBuilder> {
     let stats = &args.info;
     let mut description = "__**Relax user statistics".to_string();
     if let Some(discord_id) = args.discord_id {
-        let _ = write!(description, "for <@{discord_id}>");
+        let _ = write!(description, " for <@{discord_id}>");
     };
 
     description.push_str(":**__");
