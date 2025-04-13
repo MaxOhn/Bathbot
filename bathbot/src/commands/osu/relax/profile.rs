@@ -106,7 +106,7 @@ pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_
         Ok(Some(info_res)) => info_res,
         Ok(None) => {
             return orig
-                .error(format!("Relax user `{}` not found", user.username))
+                .error(format!("Relax player `{}` not found", user.username))
                 .await;
         }
         Err(err) => {
@@ -166,7 +166,7 @@ pub fn relax_profile_builder(args: RelaxProfileArgs) -> Result<EmbedBuilder> {
     let stats = &args.info;
     let mut description = "__**Relax user statistics".to_string();
     if let Some(discord_id) = args.discord_id {
-        let _ = write!(description, "for <@{discord_id}>");
+        let _ = write!(description, " for <@{discord_id}>");
     };
 
     description.push_str(":**__");
