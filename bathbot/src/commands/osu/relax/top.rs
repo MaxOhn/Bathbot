@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, collections::HashMap};
 
 use bathbot_util::constants::GENERAL_ISSUE;
-use eyre::Result;
+use eyre::{Report, Result};
 use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
 
 use super::RelaxTop;
@@ -52,7 +52,7 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
         }
         Err(err) => {
             let _ = orig.error(GENERAL_ISSUE).await;
-            let err = eyre::Report::new(err).wrap_err("Failed to get user");
+            let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
         }
@@ -66,7 +66,12 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
     let relax_api_result = tokio::try_join!(scores_fut, player_fut);
 
     let (mut scores, player) = match relax_api_result {
-        Ok(v) => v,
+        Ok((scores, Some(player))) => (scores, player),
+        Ok((_, None)) => {
+            return orig
+                .error(format!("Relax user `{}` not found", user.username))
+                .await;
+        }
         Err(e) => {
             let _ = orig.error("Failed to get a relax player").await;
 
@@ -89,12 +94,6 @@ pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
 
             HashMap::default()
         }
-    };
-
-    let Some(player) = player else {
-        return orig
-            .error(format!("Relax player `{}` not found", user.username))
-            .await;
     };
 
     match args.sort.unwrap_or_default() {
