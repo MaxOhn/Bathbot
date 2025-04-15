@@ -87,6 +87,8 @@ pub enum TopIfScoreOrder {
     PpLoss,
     #[option(name = "Stars", value = "stars")]
     Stars,
+    #[option(name = "Date", value = "date")]
+    Date,
 }
 
 async fn slash_topif(mut command: InteractionCommand) -> Result<()> {
@@ -606,6 +608,9 @@ async fn process_scores(
                 .total_cmp(&a.stars)
                 .then_with(|| b.score.pp.total_cmp(&a.score.pp))
         }),
+        TopIfScoreOrder::Date => {
+            entries.sort_unstable_by(|a, b| b.score.ended_at.cmp(&a.score.ended_at))
+        }
     }
 
     Ok(entries)
@@ -676,6 +681,7 @@ fn get_content(
         TopIfScoreOrder::PpGain => "PP gain",
         TopIfScoreOrder::PpLoss => "PP loss",
         TopIfScoreOrder::Stars => "New stars",
+        TopIfScoreOrder::Date => "Date",
     };
 
     content.push_str(sort_str);

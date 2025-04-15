@@ -1045,6 +1045,7 @@ async fn topold(orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
             TopIfScoreOrder::PpGain => "PP gain",
             TopIfScoreOrder::PpLoss => "PP loss",
             TopIfScoreOrder::Stars => "Old stars",
+            TopIfScoreOrder::Date => "Date",
         };
 
         content.push_str(sort_str);
@@ -1286,6 +1287,9 @@ impl CommonArgs<'_> {
             TopIfScoreOrder::PpGain => entries.sort_by(|a, b| b.pp_diff().total_cmp(&a.pp_diff())),
             TopIfScoreOrder::PpLoss => entries.sort_by(|a, b| a.pp_diff().total_cmp(&b.pp_diff())),
             TopIfScoreOrder::Stars => entries.sort_unstable_by(|a, b| b.stars.total_cmp(&a.stars)),
+            TopIfScoreOrder::Date => {
+                entries.sort_unstable_by(|a, b| b.score.ended_at.cmp(&a.score.ended_at))
+            }
         }
 
         if self.reverse.unwrap_or(false) {
