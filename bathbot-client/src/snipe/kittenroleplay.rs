@@ -6,7 +6,7 @@ use bathbot_model::{
     KittenRoleplayScore, KittenRoleplaySnipe, KittenRoleplayStarsCount, SnipeCountryListOrder,
     SnipeScoreParams, SnipedWeek,
 };
-use bathbot_util::osu::ModSelection;
+use bathbot_util::{constants::KITTENROLEPLAY, osu::ModSelection};
 use eyre::{Report, Result, WrapErr};
 use rosu_v2::model::GameMode;
 
@@ -18,7 +18,7 @@ pub async fn get_snipe_player(
     mode: GameMode,
 ) -> Result<Option<KittenRoleplayPlayerStatistics>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/player/statistics?mode={mode}&user_id={user_id}",
+        "{KITTENROLEPLAY}player/statistics?mode={mode}&user_id={user_id}",
         mode = mode as u8,
     );
 
@@ -42,7 +42,7 @@ pub async fn get_snipe_country(
     mode: GameMode,
 ) -> Result<Vec<KittenRoleplayCountryRankingPlayer>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/country/rankings?mode={mode}&country={country_code}&sort={sort}",
+        "{KITTENROLEPLAY}country/rankings?mode={mode}&country={country_code}&sort={sort}",
         mode = mode as u8,
         sort = sort.as_kittenroleplay_str(),
     );
@@ -62,7 +62,7 @@ pub async fn get_country_statistics(
     mode: GameMode,
 ) -> Result<KittenRoleplayCountryStatistics> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/country/statistics?mode={mode}&country={country_code}",
+        "{KITTENROLEPLAY}country/statistics?mode={mode}&country={country_code}",
         mode = mode as u8,
     );
 
@@ -82,7 +82,7 @@ pub async fn get_sniped_players(
     mode: GameMode,
 ) -> Result<Vec<SnipedWeek>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/player/{version}/counter?mode={mode}&user_id={user_id}",
+        "{KITTENROLEPLAY}player/{version}/counter?mode={mode}&user_id={user_id}",
         mode = mode as u8,
         version = if sniper { "gains" } else { "losses" },
     );
@@ -105,7 +105,7 @@ pub async fn get_national_snipes(
     mode: GameMode,
 ) -> Result<Vec<KittenRoleplaySnipe>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/player/{version}?mode={mode}&\
+        "{KITTENROLEPLAY}player/{version}?mode={mode}&\
         user_id={user_id}&since={days_since}&self_snipes=0&offset={offset}&limit=50",
         mode = mode as u8,
         version = if sniper { "gains" } else { "losses" },
@@ -125,7 +125,7 @@ pub async fn get_national_firsts(
     params: &SnipeScoreParams,
 ) -> Result<Vec<KittenRoleplayScore>> {
     let mut url = format!(
-        "https://snipes.kittenroleplay.com/api/player/scores?mode={mode}&user_id={user}&sort={sort}\
+        "{KITTENROLEPLAY}player/scores?mode={mode}&user_id={user}&sort={sort}\
         &order={order}&offset={offset}",
         mode = params.mode as u8,
         user = params.user_id,
@@ -172,7 +172,7 @@ pub async fn get_national_firsts_count(
 
 pub async fn get_countries(client: &Client, mode: GameMode) -> Result<KittenRoleplayCountries> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/country/list?mode={mode}",
+        "{KITTENROLEPLAY}country/list?mode={mode}",
         mode = mode as u8
     );
 
@@ -191,7 +191,7 @@ pub async fn get_mod_counts(
     mode: GameMode,
 ) -> Result<Vec<KittenRoleplayModsCount>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/player/mods/combos?mode={mode}&user_id={user_id}",
+        "{KITTENROLEPLAY}player/mods/combos?mode={mode}&user_id={user_id}",
         mode = mode as u8
     );
 
@@ -210,7 +210,7 @@ pub async fn get_snipe_player_history(
     mode: GameMode,
 ) -> Result<Vec<KittenRoleplayPlayerHistoryEntry>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/player/historical?mode={mode}&user_id={user_id}",
+        "{KITTENROLEPLAY}player/historical?mode={mode}&user_id={user_id}",
         mode = mode as u8
     );
 
@@ -229,7 +229,7 @@ pub async fn get_player_stars(
     mode: GameMode,
 ) -> Result<Vec<KittenRoleplayStarsCount>> {
     let url = format!(
-        "https://snipes.kittenroleplay.com/api/player/stars?mode={mode}&user_id={user_id}",
+        "{KITTENROLEPLAY}player/stars?mode={mode}&user_id={user_id}",
         mode = mode as u8
     );
 

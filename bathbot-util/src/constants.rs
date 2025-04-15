@@ -14,6 +14,7 @@ pub const OSU_BASE: &str = "https://osu.ppy.sh/";
 pub const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
 pub const AVATAR_URL: &str = "https://a.ppy.sh/";
 pub const HUISMETBENEN: &str = "https://api.snipe.huismetbenen.nl/";
+pub const KITTENROLEPLAY: &str = "https://flashlight.moe/api/snipes/";
 pub const RELAX_API: &str = "https://rx.stanr.info/api";
 pub const RELAX: &str = "https://rx.stanr.info";
 pub const RELAX_ICON_URL: &str = "https://rx.stanr.info/rv-yellowlight-192.png";
