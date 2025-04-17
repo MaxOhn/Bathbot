@@ -250,8 +250,8 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
             .as_ref()
             .expect("missing stats")
             .pp
-            .to_native();
-        let bonus_pp = (total - actual).max(0.0);
+            .to_native() as f64;
+        let bonus_pp = f64::max(total - actual, 0.0);
 
         let idx = pps
             .iter()
@@ -263,7 +263,10 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
 
         let new_pp = pps.accum_weighted();
 
-        let rank = match Context::approx().rank(new_pp + bonus_pp, mode).await {
+        let rank = match Context::approx()
+            .rank((new_pp + bonus_pp) as f32, mode)
+            .await
+        {
             Ok(rank) => Some(rank),
             Err(err) => {
                 warn!(?err, "Failed to get rank pp");
@@ -273,9 +276,9 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
         };
 
         WhatIfData::Top200 {
-            bonus_pp,
+            bonus_pp: bonus_pp as f32,
             count,
-            new_pp,
+            new_pp: bonus_pp as f32,
             new_pos: idx + 1,
             max_pp,
             rank,

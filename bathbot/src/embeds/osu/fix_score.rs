@@ -178,7 +178,7 @@ impl NewPp {
             .expect("missing stats")
             .pp
             .to_native();
-        let new_total = total - old_weighted + new_weighted;
+        let new_total = (total as f64 - old_weighted + new_weighted) as f32;
 
         NewPp {
             old_pos: old_idx.map(|i| i + 1),

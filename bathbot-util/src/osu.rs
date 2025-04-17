@@ -326,37 +326,17 @@ impl ExtractablePp for [Score] {
     }
 }
 
-// Credits to flowabot
-/// Extend the list of pps by taking the average difference
-/// between 2 values towards the end and create more values
-/// based on that difference
-pub fn approx_more_pp(pps: &mut Vec<f32>, more: usize) {
-    if pps.len() != 100 {
-        return;
-    }
-
-    let diff = (pps[89] - pps[99]) / 10.0;
-
-    let extension = iter::successors(pps.last().copied(), |pp| {
-        let pp = pp - diff;
-
-        (pp > 0.0).then_some(pp)
-    });
-
-    pps.extend(extension.take(more));
-}
-
 pub trait PpListUtil {
     /// Accumulate the weighted pp values i.e. sum up `0.95^i * pp`
-    fn accum_weighted(&self) -> f32;
+    fn accum_weighted(&self) -> f64;
 }
 
 impl PpListUtil for [f32] {
-    fn accum_weighted(&self) -> f32 {
+    fn accum_weighted(&self) -> f64 {
         self.iter()
             .copied()
             .zip(0..)
-            .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i))
+            .fold(0.0, |sum, (pp, i)| sum + pp as f64 * 0.95_f64.powi(i))
     }
 }
 
@@ -418,23 +398,25 @@ impl<I: Iterator<Item = f32> + ExactSizeIterator> ExactSizeIterator for PpIter<I
 /// First element: Weighted missing pp to reach goal from start
 ///
 /// Second element: Index of hypothetical pp in pps
-pub fn pp_missing(start: f32, goal: f32, pps: impl IntoPpIter) -> (f32, usize) {
+pub fn pp_missing(start: f64, goal: f64, pps: impl IntoPpIter) -> (f64, usize) {
+    const FACTOR: f64 = 0.95;
+
     let mut top = start;
     let mut bot = 0.0;
 
     //     top + x * 0.95^i + bot = goal
     // <=> x = (goal - top - bot) / 0.95^i
-    fn calculate_remaining(idx: usize, goal: f32, top: f32, bot: f32) -> (f32, usize) {
-        let factor = 0.95_f32.powi(idx as i32);
+    fn calculate_remaining(idx: usize, goal: f64, top: f64, bot: f64) -> (f64, usize) {
+        let factor = FACTOR.powi(idx as i32);
         let required = (goal - top - bot) / factor;
 
         (required, idx)
     }
 
     for (i, last_pp) in pps.into_pps().enumerate().rev() {
-        let factor = 0.95_f32.powi(i as i32);
-        let term = factor * last_pp;
-        let bot_term = term * 0.95;
+        let factor = FACTOR.powi(i as i32);
+        let term = factor * last_pp as f64;
+        let bot_term = term * FACTOR;
 
         if top + bot + bot_term >= goal {
             return calculate_remaining(i + 1, goal, top, bot);

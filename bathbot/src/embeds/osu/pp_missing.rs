@@ -38,7 +38,7 @@ impl PpMissingEmbed {
     pub fn new(
         user: &CachedUser,
         scores: &[Score],
-        goal_pp: f32,
+        goal_pp: f64,
         rank: Option<u32>,
         each: Option<f32>,
         amount: Option<u8>,
@@ -48,7 +48,7 @@ impl PpMissingEmbed {
             .as_ref()
             .expect("missing stats")
             .pp
-            .to_native();
+            .to_native() as f64;
 
         let username = user.username.as_str();
 
@@ -98,6 +98,7 @@ impl PpMissingEmbed {
             (Some(_), Some(each), _) => {
                 let mut pps = scores.extract_pp();
                 let (required, idx) = pp_missing(stats_pp, goal_pp, scores);
+                let required = required as f32;
 
                 if required < each {
                     let idx = idx + 1;
@@ -117,19 +118,19 @@ impl PpMissingEmbed {
                         .iter()
                         .copied()
                         .zip(0..)
-                        .map(|(pp, i)| pp * 0.95_f32.powi(i));
+                        .map(|(pp, i)| pp as f64 * FACTOR.powi(i));
 
-                    let mut top: f32 = (&mut iter).take(idx).sum();
-                    let bot: f32 = iter.sum();
+                    let mut top: f64 = (&mut iter).take(idx).sum();
+                    let bot: f64 = iter.sum();
 
-                    let bonus_pp = (stats_pp - (top + bot)).max(0.0);
+                    let bonus_pp = f64::max(stats_pp - (top + bot), 0.0);
                     top += bonus_pp;
 
                     // requires n_each many new scores of `each` many pp and one additional score
                     fn n_each_needed(
-                        top: &mut f32,
-                        each: f32,
-                        goal_pp: f32,
+                        top: &mut f64,
+                        each: f64,
+                        goal_pp: f64,
                         pps: &[f32],
                         idx: usize,
                     ) -> Option<usize> {
@@ -138,11 +139,10 @@ impl PpMissingEmbed {
                         for i in idx..len {
                             let bot = pps[idx..]
                                 .iter()
-                                .copied()
                                 .zip(i as i32 + 1..)
-                                .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
+                                .fold(0.0, |sum, (pp, i)| sum + *pp as f64 * FACTOR.powi(i));
 
-                            let factor = 0.95_f32.powi(i as i32);
+                            let factor = FACTOR.powi(i as i32);
 
                             if *top + factor * each + bot >= goal_pp {
                                 return Some(i - idx);
@@ -155,14 +155,14 @@ impl PpMissingEmbed {
                             .iter()
                             .copied()
                             .zip(len as i32..)
-                            .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
+                            .fold(0.0, |sum, (pp, i)| sum + pp as f64 * FACTOR.powi(i));
 
                         *top += bot;
 
                         (*top >= goal_pp).then_some(len - idx)
                     }
 
-                    if let Some(n_each) = n_each_needed(&mut top, each, goal_pp, &pps, idx) {
+                    if let Some(n_each) = n_each_needed(&mut top, each as f64, goal_pp, &pps, idx) {
                         pps.extend(iter::repeat_n(each, n_each));
                         pps.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
 
@@ -202,9 +202,10 @@ impl PpMissingEmbed {
                 let pps = scores.extract_pp();
 
                 let raw_delta = goal_pp - stats_pp;
-                let weight_sum: f32 = (0..amount as i32).map(|exp| 0.95_f32.powi(exp)).sum();
+                let weight_sum: f64 = (0..amount as i32).map(|exp| FACTOR.powi(exp)).sum();
                 let mid_goal = stats_pp + (raw_delta / weight_sum);
-                let (mut required, _) = pp_missing(stats_pp, mid_goal, pps.as_slice());
+                let (required, _) = pp_missing(stats_pp, mid_goal, pps.as_slice());
+                let mut required = required as f32;
 
                 let pb_start_idx = pps
                     .binary_search_by(|probe| required.total_cmp(probe))
@@ -287,3 +288,5 @@ impl Display for PersonalBestIndexFormatter {
         }
     }
 }
+
+const FACTOR: f64 = 0.95;

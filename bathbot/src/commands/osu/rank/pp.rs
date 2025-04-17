@@ -715,7 +715,7 @@ impl RankData {
                 user,
                 "Rank",
                 "approx. ",
-                *required_pp,
+                *required_pp as f64,
                 *rank,
                 scores,
                 multiple,
@@ -733,7 +733,7 @@ impl RankData {
                     user,
                     &prefix,
                     "",
-                    rank_holder.pp,
+                    rank_holder.pp as f64,
                     rank_holder.global_rank,
                     scores,
                     multiple,
@@ -756,9 +756,9 @@ impl RankData {
             .as_ref()
             .expect("missing stats")
             .pp
-            .to_native();
+            .to_native() as f64;
         let rank = rank_holder.global_rank;
-        let rank_holder_pp = rank_holder.pp;
+        let rank_holder_pp = rank_holder.pp as f64;
 
         if user_id == rank_holder.user_id {
             return format!("{username} is already at rank #{rank}.");
@@ -794,9 +794,10 @@ impl RankData {
                 let pps = scores.extract_pp();
 
                 let raw_delta = rank_holder_pp - user_pp;
-                let weight_sum: f32 = (0..amount as i32).map(|exp| 0.95_f32.powi(exp)).sum();
+                let weight_sum: f64 = (0..amount as i32).map(|exp| FACTOR.powi(exp)).sum();
                 let mid_goal = user_pp + (raw_delta / weight_sum);
-                let (mut required, _) = pp_missing(user_pp, mid_goal, pps.as_slice());
+                let (required, _) = pp_missing(user_pp, mid_goal, pps.as_slice());
+                let mut required = required as f32;
 
                 let pb_start_idx = pps
                     .binary_search_by(|probe| required.total_cmp(probe))
@@ -834,6 +835,7 @@ impl RankData {
                 let mut pps = scores.extract_pp();
 
                 let (required, idx) = pp_missing(user_pp, rank_holder_pp, scores);
+                let required = required as f32;
 
                 if required < each {
                     let suffix = idx_suffix(idx + 1);
@@ -854,36 +856,35 @@ impl RankData {
 
                 let mut iter = pps
                     .iter()
-                    .copied()
                     .zip(0..)
-                    .map(|(pp, i)| pp * 0.95_f32.powi(i));
+                    .map(|(pp, i)| *pp as f64 * FACTOR.powi(i));
 
-                let mut top: f32 = (&mut iter).take(idx).sum();
-                let bot: f32 = iter.sum();
+                let mut top: f64 = (&mut iter).take(idx).sum();
+                let bot: f64 = iter.sum();
 
-                let bonus_pp = (user_pp - (top + bot)).max(0.0);
+                let bonus_pp = f64::max(user_pp - (top + bot), 0.0);
                 top += bonus_pp;
                 let len = pps.len();
 
+                let each_f64 = each as f64;
                 let mut n_each = len;
 
                 for i in idx..len {
                     let bot = pps[idx..]
                         .iter()
-                        .copied()
                         .zip(i as i32 + 1..)
-                        .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
+                        .fold(0.0, |sum, (pp, i)| sum + *pp as f64 * FACTOR.powi(i));
 
-                    let factor = 0.95_f32.powi(i as i32);
+                    let factor = FACTOR.powi(i as i32);
 
-                    if top + factor * each + bot >= rank_holder_pp {
+                    if top + factor * each_f64 + bot >= rank_holder_pp {
                         // requires n_each many new scores of `each` many pp and one
                         // additional score
                         n_each = i - idx;
                         break;
                     }
 
-                    top += factor * each;
+                    top += factor * each_f64;
                 }
 
                 if n_each == len {
@@ -932,7 +933,7 @@ impl RankData {
         user: &CachedUser,
         prefix: &str,
         maybe_approx: &str,
-        required_pp: f32,
+        required_pp: f64,
         rank: u32,
         scores: Option<&[Score]>,
         multiple: RankMultipleScores,
@@ -943,7 +944,7 @@ impl RankData {
             .as_ref()
             .expect("missing stats")
             .pp
-            .to_native();
+            .to_native() as f64;
 
         if user_pp > required_pp {
             return format!(
@@ -985,9 +986,10 @@ impl RankData {
                 let pps = scores.extract_pp();
 
                 let raw_delta = required_pp - user_pp;
-                let weight_sum: f32 = (0..amount as i32).map(|exp| 0.95_f32.powi(exp)).sum();
+                let weight_sum: f64 = (0..amount as i32).map(|exp| FACTOR.powi(exp)).sum();
                 let mid_goal = user_pp + (raw_delta / weight_sum);
-                let (mut required, _) = pp_missing(user_pp, mid_goal, pps.as_slice());
+                let (required, _) = pp_missing(user_pp, mid_goal, pps.as_slice());
+                let mut required = required as f32;
 
                 let pb_start_idx = pps
                     .binary_search_by(|probe| required.total_cmp(probe))
@@ -1029,6 +1031,7 @@ impl RankData {
                 let mut pps = scores.extract_pp();
 
                 let (required, idx) = pp_missing(user_pp, required_pp, scores);
+                let required = required as f32;
 
                 if required < each {
                     let suffix = idx_suffix(idx + 1);
@@ -1050,36 +1053,35 @@ impl RankData {
 
                 let mut iter = pps
                     .iter()
-                    .copied()
                     .zip(0..)
-                    .map(|(pp, i)| pp * 0.95_f32.powi(i));
+                    .map(|(pp, i)| *pp as f64 * FACTOR.powi(i));
 
-                let mut top: f32 = (&mut iter).take(idx).sum();
-                let bot: f32 = iter.sum();
+                let mut top: f64 = (&mut iter).take(idx).sum();
+                let bot: f64 = iter.sum();
 
-                let bonus_pp = (user_pp - (top + bot)).max(0.0);
+                let bonus_pp = f64::max(user_pp - (top + bot), 0.0);
                 top += bonus_pp;
                 let len = pps.len();
 
+                let each_f64 = each as f64;
                 let mut n_each = len;
 
                 for i in idx..len {
                     let bot = pps[idx..]
                         .iter()
-                        .copied()
                         .zip(i as i32 + 1..)
-                        .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
+                        .fold(0.0, |sum, (pp, i)| sum + *pp as f64 * FACTOR.powi(i));
 
-                    let factor = 0.95_f32.powi(i as i32);
+                    let factor = FACTOR.powi(i as i32);
 
-                    if top + factor * each + bot >= required_pp {
+                    if top + factor * each_f64 + bot >= required_pp {
                         // requires n_each many new scores of `each` many pp and one
                         // additional score
                         n_each = i - idx;
                         break;
                     }
 
-                    top += factor * each;
+                    top += factor * each_f64;
                 }
 
                 if n_each == len {
@@ -1446,3 +1448,5 @@ mod tests {
         assert_eq!(args.country.as_deref(), Some("be"));
     }
 }
+
+const FACTOR: f64 = 0.95;

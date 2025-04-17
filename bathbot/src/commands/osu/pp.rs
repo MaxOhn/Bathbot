@@ -236,7 +236,7 @@ async fn pp(orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<()> {
     };
 
     // Accumulate all necessary data
-    let embed_data = PpMissingEmbed::new(&user, &scores, target_pp, rank, each, amount);
+    let embed_data = PpMissingEmbed::new(&user, &scores, target_pp as f64, rank, each, amount);
 
     // Creating the embed
     let embed = embed_data.build();
