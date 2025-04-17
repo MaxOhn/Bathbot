@@ -237,6 +237,12 @@ impl ScoreArgs {
 
             if scores.is_empty() {
                 scores = next_scores;
+
+                // If the first request fetched less than 100 scores then we
+                // don't even need to try further requests
+                if scores.len() < 100 {
+                    break;
+                }
             } else if next_scores.is_empty() {
                 break;
             } else {
