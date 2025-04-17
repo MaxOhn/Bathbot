@@ -227,9 +227,9 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
         let pp = iter::repeat(pp)
             .zip(0..)
             .take(count)
-            .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
+            .fold(0.0, |sum, (pp, i)| sum + pp as f64 * FACTOR.powi(i));
 
-        let rank = match Context::approx().rank(pp, mode).await {
+        let rank = match Context::approx().rank(pp as f32, mode).await {
             Ok(rank) => Some(rank),
             Err(err) => {
                 warn!(?err, "Failed to get rank pp");
@@ -278,7 +278,7 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
         WhatIfData::Top200 {
             bonus_pp: bonus_pp as f32,
             count,
-            new_pp: bonus_pp as f32,
+            new_pp: new_pp as f32,
             new_pos: idx + 1,
             max_pp,
             rank,
@@ -292,3 +292,5 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
 
     Ok(())
 }
+
+const FACTOR: f64 = 0.95;
