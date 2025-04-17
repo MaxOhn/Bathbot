@@ -258,8 +258,8 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let scores_fut = Context::osu_scores()
-        .top(legacy_scores)
-        .limit(100)
+        // changing the limit requires adjusting the sotarks threshold
+        .top(100, legacy_scores)
         .exec_with_user(user_args);
 
     let (mapper, user, scores) = match tokio::join!(mapper_fut, scores_fut) {

@@ -36,7 +36,7 @@ pub struct Pp<'a> {
     name: Option<Cow<'a, str>>,
     #[command(
         min_value = 0.0,
-        desc = "Fill a top100 with scores of this many pp until the target total pp are reached"
+        desc = "Fill a top200 with scores of this many pp until the target total pp are reached"
     )]
     each: Option<f32>,
     #[command(
@@ -200,8 +200,7 @@ async fn pp(orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<()> {
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let scores_fut = Context::osu_scores()
-        .top(false)
-        .limit(100)
+        .top(200, false)
         .exec_with_user(user_args);
 
     let (user, scores) = match scores_fut.await {

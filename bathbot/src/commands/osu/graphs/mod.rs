@@ -398,8 +398,7 @@ async fn top_graph(
     legacy_scores: bool,
 ) -> Result<Option<(CachedUser, Vec<u8>)>> {
     let scores_fut = Context::osu_scores()
-        .top(legacy_scores)
-        .limit(100)
+        .top(200, legacy_scores)
         .exec_with_user(user_args);
 
     let (user, mut scores) = match scores_fut.await {

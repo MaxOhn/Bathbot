@@ -13,7 +13,7 @@ use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     matcher,
     numbers::WithComma,
-    osu::{ExtractablePp, PpListUtil, approx_more_pp, pp_missing},
+    osu::{ExtractablePp, PpListUtil, pp_missing},
 };
 use eyre::{Report, Result};
 use rosu_v2::prelude::{CountryCode, OsuError, Score, UserId, Username};
@@ -219,8 +219,7 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> 
         let scores_fut = Context::osu_scores()
             // making sure to retrieve potential lazer top scores as well;
             // no need to retrieve it via user/guild config
-            .top(false)
-            .limit(100)
+            .top(200, false)
             .exec(user_args);
 
         match scores_fut.await {
@@ -780,29 +779,8 @@ impl RankData {
 
         match multiple {
             RankMultipleScores::Amount(1) => {
-                let (required, idx) = if scores.len() == 100 {
-                    let mut pps = scores.extract_pp();
-                    approx_more_pp(&mut pps, 50);
-
-                    let (mut required, mut idx) =
-                        pp_missing(user_pp, rank_holder_pp, pps.as_slice());
-
-                    // Instead of using the approximation too literally, max
-                    // out on the 100th top score.
-                    let top100 = pps[99];
-
-                    if top100 > required {
-                        required = top100;
-                        idx = 99;
-                    }
-
-                    (required, idx)
-                } else {
-                    pp_missing(user_pp, rank_holder_pp, scores)
-                };
-
+                let (required, idx) = pp_missing(user_pp, rank_holder_pp, scores);
                 let idx = idx + 1;
-
                 let suffix = idx_suffix(idx);
 
                 format!(
@@ -813,11 +791,7 @@ impl RankData {
                 )
             }
             RankMultipleScores::Amount(amount) => {
-                let mut pps = scores.extract_pp();
-
-                if scores.len() == 100 {
-                    approx_more_pp(&mut pps, 50);
-                }
+                let pps = scores.extract_pp();
 
                 let raw_delta = rank_holder_pp - user_pp;
                 let weight_sum: f32 = (0..amount as i32).map(|exp| 0.95_f32.powi(exp)).sum();
@@ -830,8 +804,8 @@ impl RankData {
 
                 let pb_fmt = PersonalBestIndexFormatter::new(pb_start_idx, amount);
 
-                if scores.len() == 100 && required < pps[99] {
-                    required = (pps[99] - 0.01).max(0.0);
+                if scores.len() >= 100 && required < *pps.last().unwrap() {
+                    required = (*pps.last().unwrap() - 0.01).max(0.0);
                 }
 
                 format!(
@@ -847,7 +821,7 @@ impl RankData {
                     if each < last_pp {
                         return format!(
                             "{prefix}, so {username} is missing **{missing}** raw pp.\n\
-                            A new top100 score requires at least **{last_pp}pp** \
+                            A new top200 score requires at least **{last_pp}pp** \
                             so {holder_pp} total pp can't be reached with {each}pp scores.",
                             holder_pp = WithComma::new(rank_holder_pp),
                             missing = WithComma::new(rank_holder_pp - user_pp),
@@ -859,13 +833,7 @@ impl RankData {
 
                 let mut pps = scores.extract_pp();
 
-                let (required, idx) = if scores.len() == 100 {
-                    approx_more_pp(&mut pps, 50);
-
-                    pp_missing(user_pp, rank_holder_pp, pps.as_slice())
-                } else {
-                    pp_missing(user_pp, rank_holder_pp, scores)
-                };
+                let (required, idx) = pp_missing(user_pp, rank_holder_pp, scores);
 
                 if required < each {
                     let suffix = idx_suffix(idx + 1);
@@ -877,7 +845,7 @@ impl RankData {
                         holder_pp = WithComma::new(rank_holder_pp),
                         missing = WithComma::new(rank_holder_pp - user_pp),
                         required = WithComma::new(required),
-                        approx = if idx >= 100 { "~" } else { "" },
+                        approx = if idx >= 200 { "~" } else { "" },
                         idx = idx + 1,
                     );
                 }
@@ -930,7 +898,7 @@ impl RankData {
                         missing = WithComma::new(rank_holder_pp - user_pp),
                         plural = if len - idx != 1 { "s" } else { "" },
                         genitiv = if idx != 1 { "s" } else { "" },
-                        approx = if idx >= 100 { "roughly " } else { "" },
+                        approx = if idx >= 200 { "roughly " } else { "" },
                         top = WithComma::new(top),
                     );
                 }
@@ -999,28 +967,8 @@ impl RankData {
 
         match multiple {
             RankMultipleScores::Amount(1) => {
-                let (required, idx) = if scores.len() == 100 {
-                    let mut pps = scores.extract_pp();
-                    approx_more_pp(&mut pps, 50);
-
-                    let (mut required, mut idx) = pp_missing(user_pp, required_pp, pps.as_slice());
-
-                    // Instead of using the approximation too literally, max
-                    // out on the 100th top score.
-                    let top100 = pps[99];
-
-                    if top100 > required {
-                        required = top100;
-                        idx = 99;
-                    }
-
-                    (required, idx)
-                } else {
-                    pp_missing(user_pp, required_pp, scores)
-                };
-
+                let (required, idx) = pp_missing(user_pp, required_pp, scores);
                 let idx = idx + 1;
-
                 let suffix = idx_suffix(idx);
 
                 format!(
@@ -1034,11 +982,7 @@ impl RankData {
                 )
             }
             RankMultipleScores::Amount(amount) => {
-                let mut pps = scores.extract_pp();
-
-                if scores.len() == 100 {
-                    approx_more_pp(&mut pps, 50);
-                }
+                let pps = scores.extract_pp();
 
                 let raw_delta = required_pp - user_pp;
                 let weight_sum: f32 = (0..amount as i32).map(|exp| 0.95_f32.powi(exp)).sum();
@@ -1051,8 +995,8 @@ impl RankData {
 
                 let pb_fmt = PersonalBestIndexFormatter::new(pb_start_idx, amount);
 
-                if scores.len() == 100 && required < pps[99] {
-                    required = (pps[99] - 0.01).max(0.0);
+                if scores.len() >= 100 && required < *pps.last().unwrap() {
+                    required = (*pps.last().unwrap() - 0.01).max(0.0);
                 }
 
                 format!(
@@ -1072,7 +1016,7 @@ impl RankData {
                         return format!(
                             "{prefix} #{rank} currently requires {maybe_approx}**{required_pp}pp**, \
                             so {username} is missing **{missing}** raw pp.\n\
-                            A new top100 score requires at least **{last_pp}pp** \
+                            A new top200 score requires at least **{last_pp}pp** \
                             so {required_pp} total pp can't be reached with {each}pp scores.",
                             required_pp = WithComma::new(required_pp),
                             missing = WithComma::new(required_pp - user_pp),
@@ -1084,13 +1028,7 @@ impl RankData {
 
                 let mut pps = scores.extract_pp();
 
-                let (required, idx) = if scores.len() == 100 {
-                    approx_more_pp(&mut pps, 50);
-
-                    pp_missing(user_pp, required_pp, pps.as_slice())
-                } else {
-                    pp_missing(user_pp, required_pp, scores)
-                };
+                let (required, idx) = pp_missing(user_pp, required_pp, scores);
 
                 if required < each {
                     let suffix = idx_suffix(idx + 1);
@@ -1103,7 +1041,7 @@ impl RankData {
                         required_pp = WithComma::new(required_pp),
                         missing = WithComma::new(required_pp - user_pp),
                         required = WithComma::new(required),
-                        approx = if idx >= 100 { "~" } else { "" },
+                        approx = if idx >= 200 { "~" } else { "" },
                         idx = idx + 1,
                     );
                 }
@@ -1157,7 +1095,7 @@ impl RankData {
                         missing = WithComma::new(required_pp - user_pp),
                         plural = if len - idx != 1 { "s" } else { "" },
                         genitiv = if idx != 1 { "s" } else { "" },
-                        approx = if idx >= 100 { "roughly " } else { "" },
+                        approx = if idx >= 200 { "roughly " } else { "" },
                         top = WithComma::new(top),
                     );
                 }

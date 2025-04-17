@@ -78,7 +78,7 @@ pub(super) async fn track(orig: CommandOrigin<'_>, args: TrackArgs) -> Result<()
         };
 
         let user_args = UserArgsSlim::user_id(user_id).mode(mode);
-        let scores_fut = Context::osu_scores().top(false).limit(100).exec(user_args);
+        let scores_fut = Context::osu_scores().top(100, false).exec(user_args);
 
         match scores_fut.await {
             Ok(scores) => match require.callback(&scores).await {

@@ -788,6 +788,8 @@ pub enum PersonalBestIndex {
 
 impl PersonalBestIndex {
     pub fn new(score: &ScoreSlim, map_id: u32, status: RankStatus, top100: &[Score]) -> Self {
+        debug_assert!(top100.len() <= 100);
+
         // Note that the index is determined through float comparisons which
         // could result in issues
         let idx = top100

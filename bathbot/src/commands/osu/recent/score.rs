@@ -574,8 +574,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
 
             Some(
                 Context::osu_scores()
-                    .top(legacy_scores)
-                    .limit(100)
+                    .top(100, legacy_scores)
                     .exec(user_args)
                     .await,
             )

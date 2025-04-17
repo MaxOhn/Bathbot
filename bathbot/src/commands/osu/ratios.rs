@@ -108,8 +108,7 @@ async fn ratios(orig: CommandOrigin<'_>, args: Ratios<'_>) -> Result<()> {
     let user_args = UserArgs::rosu_id(&user_id, GameMode::Mania).await;
 
     let scores_fut = Context::osu_scores()
-        .top(legacy_scores)
-        .limit(100)
+        .top(100, legacy_scores)
         .exec_with_user(user_args);
 
     let (user, scores) = match scores_fut.await {

@@ -1,4 +1,4 @@
-use std::slice;
+use std::{cmp, slice};
 
 use eyre::{Result, WrapErr};
 use rosu_v2::{
@@ -71,10 +71,10 @@ impl ScoresManager {
         Ok(score)
     }
 
-    pub fn top(self, legacy_scores: bool) -> ScoreArgs {
+    pub fn top(self, limit: usize, legacy_scores: bool) -> ScoreArgs {
         ScoreArgs {
             manager: self,
-            kind: ScoreKind::Top { limit: 100 },
+            kind: ScoreKind::Top { limit, offset: 0 },
             legacy_scores,
         }
     }
@@ -122,18 +122,18 @@ pub struct ScoreArgs {
 
 #[derive(Copy, Clone)]
 enum ScoreKind {
-    Top { limit: usize },
+    Top { limit: usize, offset: usize },
     Recent { limit: usize, include_fails: bool },
     Pinned { limit: usize },
     UserMap { map_id: u32 },
 }
 
 impl ScoreArgs {
-    pub fn limit(mut self, limit: usize) -> Self {
-        match &mut self.kind {
-            ScoreKind::Top { limit: limit_ } => *limit_ = limit,
-            ScoreKind::Recent { limit: limit_, .. } => *limit_ = limit,
-            ScoreKind::Pinned { limit: limit_, .. } => *limit_ = limit,
+    pub fn limit(mut self, new_limit: usize) -> Self {
+        match self.kind {
+            ScoreKind::Top { ref mut limit, .. } => *limit = new_limit,
+            ScoreKind::Recent { ref mut limit, .. } => *limit = new_limit,
+            ScoreKind::Pinned { ref mut limit, .. } => *limit = new_limit,
             ScoreKind::UserMap { .. } => {}
         }
 
@@ -152,69 +152,97 @@ impl ScoreArgs {
         self
     }
 
-    pub async fn exec(self, user_args: UserArgsSlim) -> OsuResult<Vec<Score>> {
+    pub async fn exec(mut self, user_args: UserArgsSlim) -> OsuResult<Vec<Score>> {
         let UserArgsSlim { user_id, mode } = user_args;
+        let mut again = true;
+        let mut scores = Vec::new();
 
-        // Retrieve score(s)
-        let scores_res = match self.kind {
-            ScoreKind::Top { limit } => {
-                Context::osu()
-                    .user_scores(user_id)
-                    .best()
-                    .limit(limit)
-                    .mode(mode)
-                    .legacy_only(self.legacy_scores)
-                    .legacy_scores(self.legacy_scores)
-                    .await
-            }
-            ScoreKind::Recent {
-                limit,
-                include_fails,
-            } => {
-                Context::osu()
-                    .user_scores(user_id)
-                    .recent()
-                    .limit(limit)
-                    .mode(mode)
-                    .include_fails(include_fails)
-                    .legacy_only(self.legacy_scores)
-                    .legacy_scores(self.legacy_scores)
-                    .await
-            }
-            ScoreKind::Pinned { limit } => {
-                Context::osu()
-                    .user_scores(user_id)
-                    .pinned()
-                    .limit(limit)
-                    .mode(mode)
-                    .legacy_only(self.legacy_scores)
-                    .legacy_scores(self.legacy_scores)
-                    .await
-            }
-            ScoreKind::UserMap { map_id } => {
-                Context::osu()
-                    .beatmap_user_scores(map_id, user_id)
-                    .mode(mode)
-                    .legacy_only(self.legacy_scores)
-                    .legacy_scores(self.legacy_scores)
-                    .await
-            }
-        };
+        while again {
+            again = false;
 
-        // Execute score retrieval
-        let scores = match scores_res {
-            Ok(scores) => scores,
-            Err(OsuError::NotFound) => {
-                // Remove stats of unknown/restricted users so they don't appear in the
-                // leaderboard
-                if let Err(err) = Context::osu_user().remove_stats_and_scores(user_id).await {
-                    warn!(?err, "Failed to remove stats of unknown user");
+            // Retrieve score(s)
+            let scores_res = match self.kind {
+                ScoreKind::Top {
+                    ref mut limit,
+                    ref mut offset,
+                } => {
+                    let curr_limit = cmp::min(*limit, 100);
+                    let curr_offset = *offset;
+
+                    if *limit > 100 {
+                        *limit -= 100;
+                        *offset += 100;
+
+                        again = true;
+                    }
+
+                    Context::osu()
+                        .user_scores(user_id)
+                        .best()
+                        .limit(curr_limit)
+                        .offset(curr_offset)
+                        .mode(mode)
+                        .legacy_only(self.legacy_scores)
+                        .legacy_scores(self.legacy_scores)
+                        .await
                 }
+                ScoreKind::Recent {
+                    limit,
+                    include_fails,
+                } => {
+                    Context::osu()
+                        .user_scores(user_id)
+                        .recent()
+                        .limit(limit)
+                        .mode(mode)
+                        .include_fails(include_fails)
+                        .legacy_only(self.legacy_scores)
+                        .legacy_scores(self.legacy_scores)
+                        .await
+                }
+                ScoreKind::Pinned { limit } => {
+                    Context::osu()
+                        .user_scores(user_id)
+                        .pinned()
+                        .limit(limit)
+                        .mode(mode)
+                        .legacy_only(self.legacy_scores)
+                        .legacy_scores(self.legacy_scores)
+                        .await
+                }
+                ScoreKind::UserMap { map_id } => {
+                    Context::osu()
+                        .beatmap_user_scores(map_id, user_id)
+                        .mode(mode)
+                        .legacy_only(self.legacy_scores)
+                        .legacy_scores(self.legacy_scores)
+                        .await
+                }
+            };
 
-                return Err(OsuError::NotFound);
+            // Execute score retrieval
+            let mut next_scores = match scores_res {
+                Ok(scores) => scores,
+                Err(OsuError::NotFound) => {
+                    // Remove stats of unknown/restricted users so they don't appear in the
+                    // leaderboard
+                    if let Err(err) = Context::osu_user().remove_stats_and_scores(user_id).await {
+                        warn!(?err, "Failed to remove stats of unknown user");
+                    }
+
+                    return Err(OsuError::NotFound);
+                }
+                Err(err) => return Err(err),
+            };
+
+            if scores.is_empty() {
+                scores = next_scores;
+            } else if next_scores.is_empty() {
+                break;
+            } else {
+                scores.append(&mut next_scores);
             }
-            Err(err) => return Err(err),
-        };
+        }
 
         let scores_clone = Box::from(scores.as_slice());
         tokio::spawn(async move { self.manager.store(&scores_clone).await });

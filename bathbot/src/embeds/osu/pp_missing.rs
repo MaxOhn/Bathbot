@@ -8,7 +8,7 @@ use std::{
 use bathbot_util::{
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
     numbers::WithComma,
-    osu::{ExtractablePp, PpListUtil, approx_more_pp, pp_missing},
+    osu::{ExtractablePp, PpListUtil, pp_missing},
 };
 use rosu_v2::prelude::Score;
 
@@ -70,26 +70,7 @@ impl PpMissingEmbed {
             ),
             // Reach goal with only one score
             (Some(_), None, None | Some(1)) => {
-                let (required, idx) = if scores.len() == 100 {
-                    let mut pps = scores.extract_pp();
-                    approx_more_pp(&mut pps, 50);
-
-                    let (mut required, mut idx) = pp_missing(stats_pp, goal_pp, pps.as_slice());
-
-                    // Instead of using the approximation too literally, max
-                    // out on the 100th top score.
-                    let top100 = pps[99];
-
-                    if top100 > required {
-                        required = top100;
-                        idx = 99;
-                    }
-
-                    (required, idx)
-                } else {
-                    pp_missing(stats_pp, goal_pp, scores)
-                };
-
+                let (required, idx) = pp_missing(stats_pp, goal_pp, scores);
                 let suffix = idx_suffix(idx + 1);
 
                 format!(
@@ -98,14 +79,14 @@ impl PpMissingEmbed {
                     pp = WithComma::new(goal_pp),
                     user = username.cow_escape_markdown(),
                     required = WithComma::new(required),
-                    approx = if idx >= 100 { "~" } else { "" },
+                    approx = if idx >= 200 { "~" } else { "" },
                     idx = idx + 1,
                 )
             }
-            // Given score pp is below last top 100 score pp
+            // Given score pp is below last top 200 score pp
             (Some(last_pp), Some(each), _) if each < last_pp => {
                 format!(
-                    "New top100 scores require at least **{last_pp}pp** for {user} \
+                    "New top200 scores require at least **{last_pp}pp** for {user} \
                     so {pp} total pp can't be reached with {each}pp scores.",
                     pp = WithComma::new(goal_pp),
                     last_pp = WithComma::new(last_pp),
@@ -113,32 +94,13 @@ impl PpMissingEmbed {
                     user = username.cow_escape_markdown(),
                 )
             }
-            // Given score pp would be in top 100
+            // Given score pp would be in top 200
             (Some(_), Some(each), _) => {
                 let mut pps = scores.extract_pp();
-
-                let (required, idx) = if scores.len() == 100 {
-                    approx_more_pp(&mut pps, 50);
-
-                    let (mut required, mut idx) = pp_missing(stats_pp, goal_pp, pps.as_slice());
-
-                    // Instead of using the approximation too literally, max
-                    // out on the 100th top score.
-                    let top100 = pps[99];
-
-                    if top100 > required {
-                        required = top100;
-                        idx = 99;
-                    }
-
-                    (required, idx)
-                } else {
-                    pp_missing(stats_pp, goal_pp, scores)
-                };
+                let (required, idx) = pp_missing(stats_pp, goal_pp, scores);
 
                 if required < each {
                     let idx = idx + 1;
-
                     let suffix = idx_suffix(idx);
 
                     format!(
@@ -229,7 +191,7 @@ impl PpMissingEmbed {
                             plural = if pps.len() - idx != 1 { "s" } else { "" },
                             genitiv = if idx != 1 { "s" } else { "" },
                             pp = WithComma::new(goal_pp),
-                            approx = if idx >= 100 { "roughly " } else { "" },
+                            approx = if idx >= 200 { "roughly " } else { "" },
                             top = WithComma::new(top),
                             user = username.cow_escape_markdown(),
                         )
@@ -237,11 +199,7 @@ impl PpMissingEmbed {
                 }
             }
             (Some(_), None, Some(amount)) => {
-                let mut pps = scores.extract_pp();
-
-                if scores.len() == 100 {
-                    approx_more_pp(&mut pps, 50);
-                }
+                let pps = scores.extract_pp();
 
                 let raw_delta = goal_pp - stats_pp;
                 let weight_sum: f32 = (0..amount as i32).map(|exp| 0.95_f32.powi(exp)).sum();
@@ -254,8 +212,8 @@ impl PpMissingEmbed {
 
                 let pb_fmt = PersonalBestIndexFormatter::new(pb_start_idx, amount);
 
-                if scores.len() == 100 && required < pps[99] {
-                    required = (pps[99] - 0.01).max(0.0);
+                if scores.len() >= 100 && required < *pps.last().unwrap() {
+                    required = (*pps.last().unwrap() - 0.01).max(0.0);
                 }
 
                 format!(
@@ -317,8 +275,8 @@ impl PersonalBestIndexFormatter {
 
 impl Display for PersonalBestIndexFormatter {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        if self.start_idx >= 100 {
-            f.write_str("outside of the top 100")
+        if self.start_idx >= 200 {
+            f.write_str("outside of the top 200")
         } else {
             write!(
                 f,

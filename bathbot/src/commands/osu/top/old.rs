@@ -423,7 +423,7 @@ pub async fn slash_topold(mut command: InteractionCommand) -> Result<()> {
 #[command]
 #[desc("Display a user's top plays on different pp versions")]
 #[help(
-    "Display how the user's **current** top100 would have looked like \
+    "Display how the user's **current** top200 would have looked like \
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!standard pp history looks roughly like this:\n\
@@ -459,7 +459,7 @@ async fn prefix_topold(msg: &Message, args: Args<'_>) -> Result<()> {
 #[command]
 #[desc("Display a user's top mania plays on different pp versions")]
 #[help(
-    "Display how the user's **current** top100 would have looked like \
+    "Display how the user's **current** top200 would have looked like \
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!mania pp history looks roughly like this:\n\
@@ -486,7 +486,7 @@ async fn prefix_topoldmania(msg: &Message, args: Args<'_>) -> Result<()> {
 #[command]
 #[desc("Display a user's top taiko plays on different pp versions")]
 #[help(
-    "Display how the user's **current** top100 would have looked like \
+    "Display how the user's **current** top200 would have looked like \
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!taiko pp history looks roughly like this:\n\
@@ -514,7 +514,7 @@ async fn prefix_topoldtaiko(msg: &Message, args: Args<'_>) -> Result<()> {
 #[command]
 #[desc("Display a user's top ctb plays on different pp versions")]
 #[help(
-    "Display how the user's **current** top100 would have looked like \
+    "Display how the user's **current** top200 would have looked like \
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!ctb pp history looks roughly like this:\n\
@@ -963,8 +963,7 @@ async fn topold(orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let scores_fut = Context::osu_scores()
-        .top(legacy_scores)
-        .limit(100)
+        .top(200, legacy_scores)
         .exec_with_user(user_args);
 
     let (user, scores) = match scores_fut.await {
@@ -1027,7 +1026,7 @@ async fn topold(orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
 
     // Accumulate all necessary data
     let mut content = format!(
-        "`{username}`{plural} {mode}top100 {version}",
+        "`{username}`{plural} {mode}top200 {version}",
         plural = plural(username),
         mode = mode_str(mode),
         version = args.date_range(),

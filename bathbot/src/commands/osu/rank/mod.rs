@@ -37,7 +37,7 @@ pub struct RankPp<'a> {
     name: Option<Cow<'a, str>>,
     #[command(
         min_value = 0.0,
-        desc = "Fill a top100 with scores of this many pp until the pp of the target rank are reached"
+        desc = "Fill a top200 with scores of this many pp until the pp of the target rank are reached"
     )]
     each: Option<f32>,
     #[command(

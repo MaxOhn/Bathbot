@@ -641,7 +641,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
             RankStatus::Ranked | RankStatus::Approved | RankStatus::Loved | RankStatus::Qualified
         ) {
             let user_args = UserArgsSlim::user_id(user.user_id.to_native()).mode(mode);
-            let fut = scores_manager.top(legacy_scores).limit(100).exec(user_args);
+            let fut = scores_manager.top(100, legacy_scores).exec(user_args);
 
             Some(fut.await)
         } else {
@@ -985,7 +985,7 @@ async fn compare_from_score(
 
     let top100 = if map.status() == Ranked {
         let user_args = UserArgsSlim::user_id(user_id).mode(mode);
-        let fut = scores_manager.top(legacy_scores).limit(100).exec(user_args);
+        let fut = scores_manager.top(100, legacy_scores).exec(user_args);
 
         match fut.await {
             Ok(scores) => Some(scores.into_boxed_slice()),

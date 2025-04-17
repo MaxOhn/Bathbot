@@ -40,7 +40,7 @@ pub async fn process_score(score: Score, entry: Arc<TrackEntry>) {
 
     let user_args = UserArgsSlim::user_id(user_id).mode(mode);
     let user_fut = Context::redis().osu_user(UserArgs::Args(user_args));
-    let tops_fut = Context::osu_scores().top(false).limit(100).exec(user_args);
+    let tops_fut = Context::osu_scores().top(100, false).exec(user_args);
 
     let checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref());
     let map_fut = Context::osu_map().map(map_id, checksum);

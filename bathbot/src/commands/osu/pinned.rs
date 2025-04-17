@@ -192,8 +192,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
     let top100_fut = async {
         if matches!(list_size, ListSize::Single) || args.index.is_some() {
             scores_manager
-                .top(legacy_scores)
-                .limit(100)
+                .top(100, legacy_scores)
                 .exec(user_args)
                 .await
                 .map(Some)
@@ -291,7 +290,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
             Ok(n) => Some(n),
             Err(_) => {
                 let content = "Failed to parse index. \
-                Must be an integer between 1 and 100 or `random` / `?`.";
+                Must be an integer between 1 and 200 or `random` / `?`.";
 
                 return orig.error(content).await;
             }
