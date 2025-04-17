@@ -172,6 +172,7 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
                 .mods(score.mods.clone())
                 .difficulty()
                 .await
+                .expect("suspicious maps in top scores are a false positive")
                 .to_owned();
 
             let attrs = RequiredAttributes {

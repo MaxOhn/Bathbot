@@ -581,12 +581,18 @@ async fn process_scores(
             .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
         {
             Some(pp) => pp,
-            None => calc.performance().await.pp() as f32,
+            None => match calc.performance().await {
+                Some(attrs) => attrs.pp() as f32,
+                None => 0.0,
+            },
         };
 
         let pp = match score.pp {
             Some(pp) => pp,
-            None => calc.score(&score).performance().await.pp() as f32,
+            None => match calc.score(&score).performance().await {
+                Some(attrs) => attrs.pp() as f32,
+                None => 0.0,
+            },
         };
 
         let map_id = score.map_id;

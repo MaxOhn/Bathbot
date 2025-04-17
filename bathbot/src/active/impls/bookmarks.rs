@@ -103,27 +103,37 @@ impl BookmarksPagination {
         let CachedBookmarkEntry { pp_map, gd_creator } =
             Self::cached_entry(&mut self.cached_entries, map).await?;
 
-        let attrs = Difficulty::new().calculate(pp_map);
-        let stars = attrs.stars();
-        let max_combo = attrs.max_combo();
-
         const ACCS: [f32; 4] = [95.0, 97.0, 99.0, 100.0];
         let mut pps = Vec::with_capacity(ACCS.len());
 
-        for &acc in ACCS.iter() {
-            let pp_result = Performance::from(attrs.clone())
-                .accuracy(acc as f64)
-                .calculate();
+        let mut stars = 0.0;
+        let mut max_combo = 0;
 
-            let pp = pp_result.pp();
+        if pp_map.check_suspicion().is_ok() {
+            let attrs = Difficulty::new().calculate(pp_map);
 
-            let pp_str = if pp > 100_000.0 {
-                format!("{pp:.3e}")
-            } else {
-                round(pp as f32).to_string()
-            };
+            stars = attrs.stars();
+            max_combo = attrs.max_combo();
 
-            pps.push(pp_str);
+            for &acc in ACCS.iter() {
+                let pp_result = Performance::from(attrs.clone())
+                    .accuracy(acc as f64)
+                    .calculate();
+
+                let pp = pp_result.pp();
+
+                let pp_str = if pp > 100_000.0 {
+                    format!("{pp:.3e}")
+                } else {
+                    round(pp as f32).to_string()
+                };
+
+                pps.push(pp_str);
+            }
+        } else {
+            for _ in ACCS.iter() {
+                pps.push("0".to_owned());
+            }
         }
 
         let mut pp_values = String::with_capacity(128);

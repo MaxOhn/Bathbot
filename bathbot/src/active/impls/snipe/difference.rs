@@ -12,6 +12,7 @@ use bathbot_util::{
 };
 use eyre::{Result, WrapErr};
 use futures::future::BoxFuture;
+use rosu_pp::any::DifficultyAttributes;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     channel::message::Component,
@@ -96,7 +97,7 @@ impl SnipeDifferencePagination {
                         let stars = Context::pp_parsed(&map, GameMode::Osu)
                             .difficulty()
                             .await
-                            .stars();
+                            .map_or(0.0, DifficultyAttributes::stars);
 
                         *e.insert(stars as f32)
                     }

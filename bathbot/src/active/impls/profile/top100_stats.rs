@@ -66,10 +66,6 @@ impl Top100Stats {
         };
 
         for score in scores {
-            this.acc.add(score.accuracy);
-            this.combo.add(score.max_combo);
-            this.misses.add(score.statistics.miss);
-
             let map = score
                 .map
                 .as_ref()
@@ -78,12 +74,25 @@ impl Top100Stats {
 
             let mut calc = Context::pp(map).mode(score.mode).mods(score.mods.clone());
 
-            let stars = calc.difficulty().await.stars();
+            let Some(difficulty) = calc.difficulty().await else {
+                continue;
+            };
+
+            this.acc.add(score.accuracy);
+            this.combo.add(score.max_combo);
+            this.misses.add(score.statistics.miss);
+
+            let stars = difficulty.stars();
             this.stars.add(stars);
 
             let pp = match score.pp {
                 Some(pp) => pp,
-                None => calc.score(score).performance().await.pp() as f32,
+                None => match calc.score(score).performance().await {
+                    Some(attrs) => attrs.pp() as f32,
+                    // technically unreachable because we already got
+                    // difficulty attributes earlier
+                    None => 0.0,
+                },
             };
 
             this.pp.add(pp);
