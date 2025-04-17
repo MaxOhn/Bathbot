@@ -1173,6 +1173,8 @@ impl RankOrHolder {
     }
 }
 
+const FACTOR: f64 = 0.95;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1448,5 +1450,3 @@ mod tests {
         assert_eq!(args.country.as_deref(), Some("be"));
     }
 }
-
-const FACTOR: f64 = 0.95;
