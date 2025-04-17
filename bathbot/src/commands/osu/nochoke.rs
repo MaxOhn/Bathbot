@@ -438,12 +438,19 @@ async fn process_scores(
 
         let pp = score.pp.unwrap_or(0.0);
 
-        let max_pp = if score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania && pp > 0.0
-        {
-            pp
-        } else {
-            attrs.pp() as f32
-        };
+        let mut max_pp = 0.0;
+        let mut stars = 0.0;
+        let mut max_combo = 0;
+
+        if let Some(attrs) = attrs {
+            max_pp = attrs.pp() as f32;
+            stars = attrs.stars() as f32;
+            max_combo = attrs.max_combo();
+        }
+
+        if score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania && pp > 0.0 {
+            max_pp = pp;
+        }
 
         let score = ScoreSlim::new(score, pp);
         let too_many_misses = score.statistics.miss > miss_limit;
@@ -455,7 +462,7 @@ async fn process_scores(
                 .await
                 .map(|if_fc| Unchoked::new(if_fc, &score.mods, score.mode)),
             NochokeVersion::Perfect if too_many_misses => None,
-            NochokeVersion::Perfect => Some(perfect_score(&score, &map).await),
+            NochokeVersion::Perfect => perfect_score(&score, &map).await,
         };
 
         let entry = NochokeEntry {
@@ -464,8 +471,8 @@ async fn process_scores(
             unchoked,
             map,
             max_pp,
-            stars: attrs.stars() as f32,
-            max_combo: attrs.max_combo(),
+            stars,
+            max_combo,
         };
 
         entries.push(entry);
@@ -474,10 +481,11 @@ async fn process_scores(
     Ok(entries)
 }
 
-async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
+/// Returns `None` if the map is too suspicious.
+async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Option<Unchoked> {
     let total_hits = score.total_hits();
     let mut calc = Context::pp(map).mode(score.mode).mods(score.mods.clone());
-    let attrs = calc.difficulty().await;
+    let attrs = calc.difficulty().await?;
 
     let stats = match attrs {
         DifficultyAttributes::Osu(attrs) if score.statistics.great != total_hits => {
@@ -575,10 +583,10 @@ async fn perfect_score(score: &ScoreSlim, map: &OsuMap) -> Unchoked {
         .calculate()
         .pp() as f32;
 
-    Unchoked {
+    Some(Unchoked {
         grade,
         pp,
         statistics: stats,
         max_statistics: max_stats,
-    }
+    })
 }

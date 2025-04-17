@@ -121,16 +121,23 @@ impl RelaxTopPagination {
             };
 
             let mods = &score.mods;
-            let mut pp_manager = Context::pp(map).mods(mods.clone());
-            let max_attrs = pp_manager.performance().await;
+            let max_attrs = Context::pp(map).mods(mods.to_owned()).performance().await;
+
+            let score_pp = score.pp.map(|pp| pp as f32);
+            let count_miss = score.count_miss;
+
+            let mut max_pp = 0.0;
+            let mut stars = 0.0;
+            let mut max_combo = 0;
+
+            if let Some(max_attrs) = max_attrs {
+                max_pp = max_attrs.pp() as f32;
+                stars = max_attrs.stars() as f32;
+                max_combo = max_attrs.max_combo();
+            }
 
             // NOTE: Make generic versions of formatting functions later on
             // this is ugly
-            let score_pp = score.pp.map(|pp| pp as f32);
-            let max_pp = max_attrs.pp() as f32;
-            let max_combo = max_attrs.max_combo();
-            let count_miss = score.count_miss;
-
             let _ = writeln!(
                 description,
                 "**#{idx} [{title} [{version}]]({OSU_BASE}b/{map_id}) +{mods}**\n\
@@ -142,7 +149,6 @@ impl RelaxTopPagination {
                 map_id = score.beatmap_id,
                 mods = ModsFormatter::new(mods),
                 pp = PpFormatter::new(score_pp, Some(max_pp)),
-                stars = max_attrs.stars(),
                 acc = round(score.accuracy),
                 score = WithComma::new(score.total_score),
                 combo = ComboFormatter::new(score.combo, Some(max_combo)),

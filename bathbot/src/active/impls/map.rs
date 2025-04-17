@@ -143,34 +143,43 @@ impl MapPagination {
             .clock_rate(clock_rate)
             .build();
 
-        let mut attrs = Difficulty::new()
-            .mods(&self.mods)
-            .clock_rate(clock_rate)
-            .calculate(&rosu_map);
-
-        let stars = attrs.stars();
         const ACCS: [f32; 4] = [95.0, 97.0, 99.0, 100.0];
         let mut pps = Vec::with_capacity(ACCS.len());
 
-        for &acc in ACCS.iter() {
-            let pp_result = attrs
-                .performance()
+        let stars = if rosu_map.check_suspicion().is_ok() {
+            let mut attrs = Difficulty::new()
                 .mods(&self.mods)
-                .accuracy(acc as f64)
                 .clock_rate(clock_rate)
-                .calculate();
+                .calculate(&rosu_map);
 
-            let pp = pp_result.pp();
+            for &acc in ACCS.iter() {
+                let pp_result = attrs
+                    .performance()
+                    .mods(&self.mods)
+                    .accuracy(acc as f64)
+                    .clock_rate(clock_rate)
+                    .calculate();
 
-            let pp_str = if pp > 100_000.0 {
-                format!("{pp:.3e}")
-            } else {
-                round(pp as f32).to_string()
-            };
+                let pp = pp_result.pp();
 
-            pps.push(pp_str);
-            attrs = pp_result.into();
-        }
+                let pp_str = if pp > 100_000.0 {
+                    format!("{pp:.3e}")
+                } else {
+                    round(pp as f32).to_string()
+                };
+
+                pps.push(pp_str);
+                attrs = pp_result.into();
+            }
+
+            attrs.stars()
+        } else {
+            for _ in ACCS.iter() {
+                pps.push("0".to_owned());
+            }
+
+            0.0
+        };
 
         let mut pp_values = String::with_capacity(128);
         let mut lens = Vec::with_capacity(ACCS.len());

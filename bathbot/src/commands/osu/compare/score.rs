@@ -766,18 +766,29 @@ async fn process_scores(
             .mods(score.mods.clone())
             .lazer(score.set_on_lazer);
 
-        let attrs = calc.performance().await;
-        let stars = attrs.stars() as f32;
-        let max_combo = attrs.max_combo();
+        let mut stars = 0.0;
+        let mut max_pp = 0.0;
+        let mut max_combo = 0;
 
-        let max_pp = score
+        if let Some(attrs) = calc.performance().await {
+            max_pp = attrs.pp() as f32;
+            stars = attrs.stars() as f32;
+            max_combo = attrs.max_combo();
+        }
+
+        if let Some(pp) = score
             .pp
             .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
-            .unwrap_or(attrs.pp() as f32);
+        {
+            max_pp = pp;
+        }
 
         let pp = match score.pp {
             Some(pp) => pp,
-            None => calc.score(&score).performance().await.pp() as f32,
+            None => match calc.score(&score).performance().await {
+                Some(attrs) => attrs.pp() as f32,
+                None => 0.0,
+            },
         };
 
         let score = ScoreSlim::new(score, pp);
@@ -989,16 +1000,30 @@ async fn compare_from_score(
     };
 
     let mut calc = Context::pp(&map).mode(score.mode).mods(score.mods.clone());
-    let attrs = calc.performance().await;
 
-    let max_pp = score
+    let mut stars = 0.0;
+    let mut max_pp = 0.0;
+    let mut max_combo = 0;
+
+    if let Some(attrs) = calc.performance().await {
+        stars = attrs.stars() as f32;
+        max_pp = attrs.pp() as f32;
+        max_combo = attrs.max_combo();
+    }
+
+    if let Some(pp) = score
         .pp
         .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
-        .unwrap_or(attrs.pp() as f32);
+    {
+        max_pp = pp;
+    }
 
     let pp = match score.pp {
         Some(pp) => pp,
-        None => calc.score(&score).performance().await.pp() as f32,
+        None => match calc.score(&score).performance().await {
+            Some(attrs) => attrs.pp() as f32,
+            None => 0.0,
+        },
     };
 
     let score = ScoreSlim::new(score, pp);
@@ -1021,8 +1046,8 @@ async fn compare_from_score(
     let entry = ScoreEmbedData {
         score,
         map: map.clone(),
-        stars: attrs.stars() as f32,
-        max_combo: attrs.max_combo(),
+        stars,
+        max_combo,
         max_pp,
         replay_score_id: None,
         miss_analyzer: None,

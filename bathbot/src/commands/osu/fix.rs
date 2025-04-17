@@ -386,7 +386,10 @@ async fn request_by_map(
             let pp_fut = async {
                 match score.pp {
                     Some(pp) => pp,
-                    None => Context::pp(&map).score(&score).performance().await.pp() as f32,
+                    None => match Context::pp(&map).score(&score).performance().await {
+                        Some(attrs) => attrs.pp() as f32,
+                        None => 0.0,
+                    },
                 }
             };
 
@@ -508,7 +511,10 @@ async fn request_by_score(
 
     let pp = match score.pp {
         Some(pp) => pp,
-        None => Context::pp(&map).score(&score).performance().await.pp() as f32,
+        None => match Context::pp(&map).score(&score).performance().await {
+            Some(attrs) => attrs.pp() as f32,
+            None => 0.0,
+        },
     };
 
     let score = ScoreSlim::new(score, pp);

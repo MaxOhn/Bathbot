@@ -299,7 +299,10 @@ impl ScoreEmbedDataWrap {
 
         let pp = match score.pp {
             Some(pp) => pp,
-            None => calc.score(&score).performance().await.pp() as f32,
+            None => match calc.score(&score).performance().await {
+                Some(attrs) => attrs.pp() as f32,
+                None => 0.0,
+            },
         };
 
         let score = ScoreSlim::new(score, pp);
@@ -448,7 +451,10 @@ impl ScoreEmbedDataHalf {
 
         let pp = match score.pp {
             Some(pp) => pp,
-            None => calc.score(&score).performance().await.pp() as f32,
+            None => match calc.score(&score).performance().await {
+                Some(attrs) => attrs.pp() as f32,
+                None => 0.0,
+            },
         };
 
         let has_replay = score.has_replay;
@@ -807,7 +813,10 @@ impl ScoreEmbedDataRaw {
 
         let pp = match self.pp {
             Some(pp) => pp,
-            None => calc.score(&self).performance().await.pp() as f32,
+            None => match calc.score(&self).performance().await {
+                Some(attrs) => attrs.pp() as f32,
+                None => 0.0,
+            },
         };
 
         let score = ScoreSlim {
@@ -943,14 +952,18 @@ impl<'m> PpAttrs<'m> {
             .mods(mods.to_owned())
             .lazer(lazer);
 
-        let attrs = calc.performance().await;
+        let mut max_pp = 0.0;
+        let mut stars = 0.0;
+        let mut max_combo = 0;
 
-        let max_pp = pp
-            .filter(|_| grade.eq_letter(Grade::X) && mode != GameMode::Mania)
-            .unwrap_or(attrs.pp() as f32);
+        if let Some(attrs) = calc.performance().await {
+            max_pp = pp
+                .filter(|_| grade.eq_letter(Grade::X) && mode != GameMode::Mania)
+                .unwrap_or(attrs.pp() as f32);
 
-        let stars = attrs.stars() as f32;
-        let max_combo = attrs.max_combo();
+            stars = attrs.stars() as f32;
+            max_combo = attrs.max_combo();
+        }
 
         Self {
             calc,

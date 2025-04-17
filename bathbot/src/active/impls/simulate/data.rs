@@ -57,34 +57,39 @@ impl SimulateData {
                 }
             ) => {{
                 let map = map.pp_map();
-                let mut calc = $( $calc:: )* new(map).mods($mods);
-                $( calc = simulate!(@WITH_LAZER $with_lazer calc); )?
 
-                $(
-                    if let Some(value) = self.$this_field {
-                        calc = calc.$calc_fn(value $( as $ty )?);
-                    }
-                )*
+                if map.check_suspicion().is_ok() {
+                    let mut calc = $( $calc:: )* new(map).mods($mods);
+                    $( calc = simulate!(@WITH_LAZER $with_lazer calc); )?
 
-                let attrs = calc.calculate();
-                $( let attrs = simulate!(@UNWRAP $fallible attrs); )?
+                    $(
+                        if let Some(value) = self.$this_field {
+                            calc = calc.$calc_fn(value $( as $ty )?);
+                        }
+                    )*
 
-                let pp = attrs.pp;
-                let stars = attrs.difficulty.stars;
+                    let attrs = calc.calculate();
+                    $( let attrs = simulate!(@UNWRAP $fallible attrs); )?
 
-                let max_new = simulate!(@MAX_NEW $max_new attrs map);
+                    let pp = attrs.pp;
+                    let stars = attrs.difficulty.stars;
 
-                #[allow(unused_mut)]
-                let mut max_calc = $( $calc:: )* new(max_new).mods($mods);
+                    let max_new = simulate!(@MAX_NEW $max_new attrs map);
 
-                $( max_calc = simulate!(@WITH_DIFF $with_diff max_calc attrs); )?
-                $( max_calc = simulate!(@WITH_LAZER $with_lazer max_calc); )?
+                    #[allow(unused_mut)]
+                    let mut max_calc = $( $calc:: )* new(max_new).mods($mods);
 
-                let attrs = max_calc.calculate();
-                $( let attrs = simulate!(@UNWRAP $fallible attrs); )?
-                let max_pp = attrs.pp;
+                    $( max_calc = simulate!(@WITH_DIFF $with_diff max_calc attrs); )?
+                    $( max_calc = simulate!(@WITH_LAZER $with_lazer max_calc); )?
 
-                (stars, pp, max_pp)
+                    let attrs = max_calc.calculate();
+                    $( let attrs = simulate!(@UNWRAP $fallible attrs); )?
+                    let max_pp = attrs.pp;
+
+                    (stars, pp, max_pp)
+                } else {
+                    (0.0, 0.0, 0.0)
+                }
             }};
             ( @WITH_LAZER true $calc:ident ) => { $calc.lazer(self.set_on_lazer) };
             ( @WITH_LAZER false $calc:ident ) => { $calc };
@@ -462,13 +467,13 @@ impl SimulateData {
         let state = self.version.generate_hitresults(map.pp_map(), self);
 
         let combo_ratio = match state {
-            ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_) => {
+            Some(ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_)) => {
                 ComboOrRatio::Combo {
                     score: self.combo.unwrap_or(self.max_combo),
                     max: self.max_combo,
                 }
             }
-            ScoreState::Mania(ref state)
+            Some(ScoreState::Mania(ref state))
                 if matches!(
                     self.version,
                     TopOldVersion::Mania(
@@ -481,7 +486,7 @@ impl SimulateData {
                     _ => ComboOrRatio::Ratio(state.n320 as f32 / state.n300 as f32),
                 }
             }
-            ScoreState::Mania(_) => ComboOrRatio::Neither,
+            Some(ScoreState::Mania(_)) | None => ComboOrRatio::Neither,
         };
 
         let clock_rate = self
@@ -512,10 +517,10 @@ impl SimulateData {
             });
 
         let score_state = match state {
-            state @ (ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_)) => {
+            Some(state @ (ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_))) => {
                 StateOrScore::State(state)
             }
-            state @ ScoreState::Mania(_)
+            Some(state @ ScoreState::Mania(_))
                 if matches!(
                     self.version,
                     TopOldVersion::Mania(
@@ -525,7 +530,7 @@ impl SimulateData {
             {
                 StateOrScore::State(state)
             }
-            ScoreState::Mania(_) => match self.score {
+            Some(ScoreState::Mania(_)) => match self.score {
                 Some(score) => StateOrScore::Score(score),
                 None => {
                     let mult = self.mods.as_ref().map(score_multiplier).unwrap_or(1.0);
@@ -533,6 +538,7 @@ impl SimulateData {
                     StateOrScore::Score((1_000_000.0 * mult) as u32)
                 }
             },
+            None => StateOrScore::Score(self.score.unwrap_or(0)),
         };
 
         SimulateValues {

@@ -448,13 +448,14 @@ pub struct IfFc {
 }
 
 impl IfFc {
+    /// Returns `None` if the score is an FC or if the map is too suspicious.
     pub async fn new(score: &ScoreSlim, map: &OsuMap) -> Option<Self> {
         let mut calc = Context::pp(map)
             .mods(score.mods.clone())
             .mode(score.mode)
             .lazer(score.set_on_lazer);
 
-        let attrs = calc.difficulty().await;
+        let attrs = calc.difficulty().await?;
 
         if score.is_fc(score.mode, attrs.max_combo()) {
             return None;

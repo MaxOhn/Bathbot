@@ -149,8 +149,15 @@ impl SnipePlayerListPagination {
                 .mods(mods.clone().into_owned())
                 .performance()
                 .await;
-            let max_pp = max_attrs.pp() as f32;
-            let max_combo = max_attrs.max_combo();
+
+            let mut max_pp = 0.0;
+            let mut max_combo = 0;
+
+            if let Some(max_attrs) = max_attrs {
+                max_pp = max_attrs.pp() as f32;
+                max_combo = max_attrs.max_combo();
+            }
+
             let count_miss = score.count_miss.unwrap_or(0);
 
             let _ = write!(

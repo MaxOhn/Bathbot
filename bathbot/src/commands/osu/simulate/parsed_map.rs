@@ -51,7 +51,11 @@ impl AttachedSimulateMap {
             let _ = pp_map.convert_mut((mode as u8).into(), &Default::default());
         }
 
-        let max_combo = Difficulty::new().calculate(&pp_map).max_combo();
+        let max_combo = if pp_map.check_suspicion().is_ok() {
+            Difficulty::new().calculate(&pp_map).max_combo()
+        } else {
+            0
+        };
 
         Ok(Some(Self {
             pp_map,

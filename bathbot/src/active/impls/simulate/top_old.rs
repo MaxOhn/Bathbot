@@ -405,7 +405,16 @@ impl TopOldVersion {
         components
     }
 
-    pub(super) fn generate_hitresults(self, map: &Beatmap, data: &SimulateData) -> ScoreState {
+    /// Returns `None` if the map is too suspicious.
+    pub(super) fn generate_hitresults(
+        self,
+        map: &Beatmap,
+        data: &SimulateData,
+    ) -> Option<ScoreState> {
+        if map.check_suspicion().is_err() {
+            return None;
+        }
+
         let mut calc = Performance::new(map).lazer(data.set_on_lazer);
 
         if let Some(acc) = data.acc {
@@ -448,7 +457,7 @@ impl TopOldVersion {
 
         let state = calc.generate_state();
 
-        match self {
+        let state = match self {
             Self::Osu(_) => ScoreState::Osu(OsuScoreState {
                 max_combo: state.max_combo,
                 n300: state.n300,
@@ -481,7 +490,9 @@ impl TopOldVersion {
                 n50: state.n50,
                 misses: state.misses,
             }),
-        }
+        };
+
+        Some(state)
     }
 }
 

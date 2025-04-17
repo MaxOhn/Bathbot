@@ -482,14 +482,25 @@ async fn process_scores(
 
         let pp = match score.pp {
             Some(pp) => pp,
-            None => calc.score(&score).performance().await.pp() as f32,
+            None => match calc.score(&score).performance().await {
+                Some(attrs) => attrs.pp() as f32,
+                None => 0.0,
+            },
         };
 
-        let max_pp = if score.grade.eq_letter(Grade::X) && mode != GameMode::Mania && pp > 0.0 {
-            pp
-        } else {
-            attrs.pp() as f32
-        };
+        let mut max_pp = 0.0;
+        let mut stars = 0.0;
+        let mut max_combo = 0;
+
+        if let Some(attrs) = attrs {
+            max_pp = attrs.pp() as f32;
+            stars = attrs.stars() as f32;
+            max_combo = attrs.max_combo();
+        }
+
+        if score.grade.eq_letter(Grade::X) && mode != GameMode::Mania && pp > 0.0 {
+            max_pp = pp;
+        }
 
         let rank = score.position;
 
@@ -522,8 +533,8 @@ async fn process_scores(
             map,
             rank,
             max_pp,
-            stars: attrs.stars() as f32,
-            max_combo: attrs.max_combo(),
+            stars,
+            max_combo,
         };
 
         entries.insert(i, entry);

@@ -70,18 +70,19 @@ impl MapManager {
         Ok(pp_map)
     }
 
+    /// Returns `Ok(None)` if the map is too suspicious.
     pub async fn difficulty(
         self,
         map_id: u32,
         mode: GameMode,
         mods: impl Into<Mods>,
-    ) -> Result<DifficultyAttributes> {
+    ) -> Result<Option<DifficultyAttributes>> {
         async fn inner(
             this: MapManager,
             map_id: u32,
             mode: GameMode,
             mods: Mods,
-        ) -> Result<DifficultyAttributes> {
+        ) -> Result<Option<DifficultyAttributes>> {
             let map = this.pp_map(map_id).await.wrap_err("Failed to get pp map")?;
 
             let attrs = PpManager::from_parsed(&map)
@@ -89,7 +90,7 @@ impl MapManager {
                 .mods(mods)
                 .difficulty()
                 .await
-                .to_owned();
+                .cloned();
 
             Ok(attrs)
         }

@@ -5,6 +5,7 @@ use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection};
 use eyre::{Report, Result};
+use rosu_pp::any::DifficultyAttributes;
 use rosu_pp_older::*;
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score},
@@ -1092,12 +1093,15 @@ async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<Top
         map = map.convert(score.mode);
 
         async fn use_current_system(score: &Score, map: &OsuMap) -> (f32, f32, f32, u32) {
-            let attrs = Context::pp(map)
+            let Some(attrs) = Context::pp(map)
                 .mode(score.mode)
                 .lazer(score.set_on_lazer)
                 .mods(score.mods.clone())
                 .performance()
-                .await;
+                .await
+            else {
+                return (0.0, 0.0, 0.0, 0);
+            };
 
             let pp = score.pp.expect("missing pp");
             let max_pp = attrs.pp() as f32;
@@ -1185,7 +1189,13 @@ async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<Top
                         .calculate();
 
                     let pp = attrs.pp as f32;
-                    let max_combo = Context::pp(&map).difficulty().await.max_combo();
+
+                    // Suspicious maps are very unlikely to appear in top
+                    // scores so the `map_or` is fine; more of a sanity check.
+                    let max_combo = Context::pp(&map)
+                        .difficulty()
+                        .await
+                        .map_or(0, DifficultyAttributes::max_combo);
 
                     (pp, max_pp, stars, max_combo)
                 }
@@ -1204,7 +1214,11 @@ async fn process_scores(scores: Vec<Score>, args: &TopOld<'_>) -> Result<Vec<Top
                         .calculate();
 
                     let pp = attrs.pp as f32;
-                    let max_combo = Context::pp(&map).difficulty().await.max_combo();
+
+                    let max_combo = Context::pp(&map)
+                        .difficulty()
+                        .await
+                        .map_or(0, DifficultyAttributes::max_combo);
 
                     (pp, max_pp, stars, max_combo)
                 }

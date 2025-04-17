@@ -402,6 +402,10 @@ struct GraphStrains {
 const NEW_STRAIN_COUNT: usize = 200;
 
 fn strain_values(map: &PpMap, mods: GameMods) -> Result<GraphStrains> {
+    if map.check_suspicion().is_err() {
+        bail!("skip strain calculation because map is too suspicious");
+    }
+
     let mut strains = Difficulty::new().mods(mods).strains(map);
     let section_len = strains.section_len();
 
@@ -475,8 +479,8 @@ async fn get_cover(url: &str) -> Result<DynamicImage> {
 }
 
 pub async fn map_strain_graph(map: &PpMap, mods: GameMods, cover_url: &str) -> Result<Vec<u8>> {
-    let cover_res = get_cover(cover_url).await;
     let strains = strain_values(map, mods)?;
+    let cover_res = get_cover(cover_url).await;
 
     let last_timestamp = ((NEW_STRAIN_COUNT - 2) as f64
         * strains.strains.section_len()

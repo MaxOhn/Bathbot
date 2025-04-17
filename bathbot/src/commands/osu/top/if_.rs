@@ -568,19 +568,33 @@ async fn process_scores(
         let old_pp = score.pp.unwrap_or(0.0);
 
         let new_pp = if changed {
-            calc.score(&score).performance().await.pp() as f32
+            if let Some(attrs) = calc.score(&score).performance().await {
+                attrs.pp() as f32
+            } else {
+                0.0
+            }
         } else {
             old_pp
         };
+
+        let mut stars = 0.0;
+        let mut max_pp = 0.0;
+        let mut max_combo = 0;
+
+        if let Some(attrs) = attrs {
+            stars = attrs.stars() as f32;
+            max_pp = attrs.pp() as f32;
+            max_combo = attrs.max_combo();
+        }
 
         let entry = TopIfEntry {
             original_idx: i,
             score: ScoreSlim::new(score, new_pp),
             old_pp,
             map,
-            stars: attrs.stars() as f32,
-            max_pp: attrs.pp() as f32,
-            max_combo: attrs.max_combo(),
+            stars,
+            max_pp,
+            max_combo,
         };
 
         entries.push(entry);

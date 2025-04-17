@@ -65,14 +65,22 @@ impl PlayerSnipeStatsEmbed {
             if let Some((oldest_score, oldest_map)) = oldest {
                 let mut calc = Context::pp(oldest_map).mods(oldest_score.mods.clone());
 
-                let attrs = calc.performance().await;
-                let stars = attrs.stars() as f32;
-                let max_pp = attrs.pp() as f32;
-                let max_combo = attrs.max_combo();
+                let mut stars = 0.0;
+                let mut max_pp = 0.0;
+                let mut max_combo = 0;
+
+                if let Some(attrs) = calc.performance().await {
+                    stars = attrs.stars() as f32;
+                    max_pp = attrs.pp() as f32;
+                    max_combo = attrs.max_combo();
+                }
 
                 let pp = match oldest_score.pp {
                     Some(pp) => pp,
-                    None => calc.score(oldest_score).performance().await.pp() as f32,
+                    None => match calc.score(oldest_score).performance().await {
+                        Some(attrs) => attrs.pp() as f32,
+                        None => 0.0,
+                    },
                 };
 
                 // TODO: update formatting

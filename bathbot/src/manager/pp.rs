@@ -30,6 +30,8 @@ impl<'m> PpManager<'m> {
     }
 
     pub fn from_parsed(map: &'m Beatmap) -> Self {
+        // Cannot check for suspicion yet because the mode might still change
+
         Self {
             map: Cow::Borrowed(map),
             attrs: None,
@@ -111,12 +113,18 @@ impl<'m> PpManager<'m> {
         self.attrs = Some(attrs);
     }
 
-    /// Calculate difficulty attributes
-    pub async fn difficulty(&mut self) -> &DifficultyAttributes {
+    /// Calculate difficulty attributes.
+    ///
+    /// Returns `None` if the map is too suspicious.
+    pub async fn difficulty(&mut self) -> Option<&DifficultyAttributes> {
         if !self.partial {
             if let Some(ref attrs) = self.attrs {
-                return attrs;
+                return Some(attrs);
             }
+        }
+
+        if self.map.check_suspicion().is_err() {
+            return None;
         }
 
         let mut calc = Difficulty::new()
@@ -131,14 +139,16 @@ impl<'m> PpManager<'m> {
             calc = calc.passed_objects(state.total_hits(self.map.mode));
         }
 
-        self.attrs.insert(calc.calculate(&self.map))
+        Some(self.attrs.insert(calc.calculate(&self.map)))
     }
 
-    /// Calculate performance attributes
-    pub async fn performance(&mut self) -> PerformanceAttributes {
+    /// Calculate performance attributes.
+    ///
+    /// Returns `None` if the map is too suspicious.
+    pub async fn performance(&mut self) -> Option<PerformanceAttributes> {
         let mut calc = self
             .difficulty()
-            .await
+            .await?
             .to_owned()
             .performance()
             .mods(self.mods.inner.clone())
@@ -156,7 +166,7 @@ impl<'m> PpManager<'m> {
             calc = calc.state(state);
         }
 
-        calc.calculate()
+        Some(calc.calculate())
     }
 }
 

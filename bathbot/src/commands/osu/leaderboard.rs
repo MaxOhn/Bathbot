@@ -487,8 +487,13 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         format!("I found {amount} scores on the map's leaderboard")
     };
 
-    let stars = attrs.stars() as f32;
-    let max_combo = attrs.max_combo();
+    let mut stars = 0.0;
+    let mut max_combo = 0;
+
+    if let Some(attrs) = attrs {
+        stars = attrs.stars() as f32;
+        max_combo = attrs.max_combo();
+    }
 
     args.sort.sort(&mut scores, &map, score_data).await;
     args.sort.push_content(&mut content);
@@ -634,9 +639,16 @@ impl LeaderboardScore {
             .mods(self.mods.clone())
             .lazer(self.set_on_lazer);
 
-        let attrs = calc.performance().await;
-        let max_pp = attrs.pp() as f32;
-        let pp = calc.score(&*self).performance().await.pp() as f32;
+        let mut max_pp = 0.0;
+        let mut pp = 0.0;
+
+        if let Some(max_attrs) = calc.performance().await {
+            max_pp = max_attrs.pp() as f32;
+
+            if let Some(attrs) = calc.score(&*self).performance().await {
+                pp = attrs.pp() as f32;
+            }
+        }
 
         *self.pps.insert(PpData { pp, max: max_pp })
     }

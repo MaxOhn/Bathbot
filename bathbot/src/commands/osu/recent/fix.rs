@@ -151,7 +151,10 @@ pub(super) async fn fix(orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> 
 
     let pp = match score.pp {
         Some(pp) => pp,
-        None => Context::pp(&map).score(&score).performance().await.pp() as f32,
+        None => match Context::pp(&map).score(&score).performance().await {
+            Some(attrs) => attrs.pp() as f32,
+            None => 0.0,
+        },
     };
 
     let score = ScoreSlim::new(score, pp);

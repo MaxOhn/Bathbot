@@ -365,8 +365,13 @@ pub(super) async fn leaderboard(
         format!("I found {amount} scores on the map's leaderboard")
     };
 
-    let stars = attrs.stars() as f32;
-    let max_combo = attrs.max_combo();
+    let mut stars = 0.0;
+    let mut max_combo = 0;
+
+    if let Some(attrs) = attrs {
+        stars = attrs.stars() as f32;
+        max_combo = attrs.max_combo();
+    }
 
     let order = args.sort.unwrap_or_default();
     order.sort(&mut scores, &map, score_data).await;

@@ -121,7 +121,10 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
     };
 
     let max_combo = match map {
-        SimulateMap::Full(ref map) => Context::pp(map).difficulty().await.max_combo(),
+        SimulateMap::Full(ref map) => match Context::pp(map).difficulty().await {
+            Some(attrs) => attrs.max_combo(),
+            None => 0,
+        },
         SimulateMap::Attached(ref map) => map.max_combo,
     };
 
