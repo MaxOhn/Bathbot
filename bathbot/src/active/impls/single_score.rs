@@ -1122,21 +1122,24 @@ fn write_value(
             let _ = write!(writer, "{ratio:.2}:{against}");
         }
         Value::ScoreId => {
-            let _ = if value.y == SettingValue::FOOTER_Y {
-                write!(writer, "Score id {}", data.score.score_id)
-            } else if let ScoreData::Stable = score_data {
-                write!(
+            let url = |writer: &mut String| match score_data {
+                ScoreData::Stable => write!(
                     writer,
-                    "[Link to score]({OSU_BASE}scores/{}/{})",
-                    data.score.mode, data.score.score_id,
-                )
-            } else {
-                write!(
-                    writer,
-                    "[Link to score]({OSU_BASE}scores/{})",
-                    data.score.score_id,
-                )
+                    "{OSU_BASE}scores/{}/{}",
+                    data.score.mode, data.score.score_id
+                ),
+                _ => write!(writer, "{OSU_BASE}scores/{}", data.score.score_id),
             };
+
+            if value.y == 0 {
+                let _ = url(writer);
+            } else if value.y == SettingValue::FOOTER_Y {
+                let _ = write!(writer, "Score id {}", data.score.score_id);
+            } else {
+                writer.push_str("[Link to score](");
+                let _ = url(writer);
+                writer.push(')');
+            }
         }
         Value::Stars => {
             let _ = write!(writer, "{}★", round(data.stars));
