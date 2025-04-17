@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bathbot_cache::util::serialize::serialize_using_arena_and_with;
 use bathbot_model::twilight::id::{ArchivedId, IdRkyv, IdRkyvMap};
 use eyre::{Result, WrapErr};
@@ -11,6 +13,7 @@ use rkyv::{
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, DeserializeWith, SerializeWith, With},
 };
+use tokio::{sync::Mutex, task::JoinSet};
 use twilight_gateway::Shard;
 use twilight_model::id::{Id, marker::GuildMarker};
 
@@ -18,7 +21,7 @@ use crate::{Context, util::ChannelExt};
 
 impl Context {
     #[cold]
-    pub async fn shutdown(shards: &[Shard]) {
+    pub async fn shutdown(mut runners: JoinSet<()>, shards: Vec<Arc<Mutex<Shard>>>) {
         let this = Self::get();
 
         let scores_ws_disconnect = match this.scores_ws_disconnect.lock().unwrap().take() {
@@ -54,7 +57,19 @@ impl Context {
             let _: Result<_, _> = rx.await;
         }
 
-        let resume_data = Self::down_resumable(shards);
+        info!("Awaiting {} runners to shutdown...", runners.len());
+        runners.shutdown().await;
+
+        let shards: Vec<_> = shards
+            .into_iter()
+            .map(|shard| {
+                Arc::into_inner(shard)
+                    .expect("exactly one strong reference")
+                    .into_inner()
+            })
+            .collect();
+
+        let resume_data = Self::down_resumable(&shards);
 
         if let Err(err) = Context::cache().freeze(&resume_data).await {
             error!(?err, "Failed to freeze cache");

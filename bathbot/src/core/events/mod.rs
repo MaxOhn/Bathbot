@@ -144,15 +144,17 @@ const EVENT_FLAGS: EventTypeFlags = EventTypeFlags::CHANNEL_CREATE
     .union(EventTypeFlags::UNAVAILABLE_GUILD)
     .union(EventTypeFlags::USER_UPDATE);
 
-pub async fn event_loop(shards: &mut Vec<Arc<Mutex<Shard>>>, mut reshard_rx: Receiver<()>) {
+pub async fn event_loop(
+    runners: &mut JoinSet<()>,
+    shards: &mut Vec<Arc<Mutex<Shard>>>,
+    mut reshard_rx: Receiver<()>,
+) {
     loop {
-        let mut set = JoinSet::new();
-
         for shard in shards.iter() {
-            set.spawn(runner(Arc::clone(shard), reshard_rx.resubscribe()));
+            runners.spawn(runner(Arc::clone(shard), reshard_rx.resubscribe()));
         }
 
-        while set.join_next().await.is_some() {}
+        while runners.join_next().await.is_some() {}
 
         if let Err(err) = Context::reshard(shards).await {
             return error!("{err:?}");

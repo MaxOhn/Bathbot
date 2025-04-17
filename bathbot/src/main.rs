@@ -15,7 +15,7 @@ mod util;
 #[cfg(feature = "matchlive")]
 mod matchlive;
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use bathbot_model::Countries;
 use eyre::{Report, Result, WrapErr};
@@ -23,6 +23,7 @@ use tokio::{
     runtime::Builder as RuntimeBuilder,
     signal,
     sync::{broadcast, mpsc},
+    task::JoinSet,
     time::{self, MissedTickBehavior},
 };
 use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
@@ -159,8 +160,10 @@ async fn async_main() -> Result<()> {
         .set(reshard_tx)
         .expect("RESHARD_TX has already been set");
 
+    let mut runners = JoinSet::new();
+
     tokio::select! {
-        _ = event_loop(&mut shards, reshard_rx) => error!("Event loop ended"),
+        _ = event_loop(&mut runners, &mut shards, reshard_rx) => error!("Event loop ended"),
         res = signal::ctrl_c() => match res {
             Ok(_) => info!("Received Ctrl+C"),
             Err(err) => error!(?err, "Failed to await Ctrl+C"),
@@ -172,17 +175,8 @@ async fn async_main() -> Result<()> {
         error!("Failed to send shutdown message to server");
     }
 
-    let shards: Vec<_> = shards
-        .into_iter()
-        .map(|shard| {
-            Arc::into_inner(shard)
-                .expect("exactly one strong reference")
-                .into_inner()
-        })
-        .collect();
-
     tokio::select! {
-        _ = Context::shutdown(&shards) => info!("Shutting down"),
+        _ = Context::shutdown(runners, shards) => info!("Shutting down"),
         res = signal::ctrl_c() => match res {
             Ok(_) => info!("Forcing shutdown"),
             Err(err) => error!(?err, "Failed to await second Ctrl+C"),
