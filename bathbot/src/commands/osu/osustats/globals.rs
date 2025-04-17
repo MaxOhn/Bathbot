@@ -495,7 +495,7 @@ async fn process_scores(
         if let Some(attrs) = attrs {
             max_pp = attrs.pp() as f32;
             stars = attrs.stars() as f32;
-            max_combo = attrs.max_combo() as u32;
+            max_combo = attrs.max_combo();
         }
 
         if score.grade.eq_letter(Grade::X) && mode != GameMode::Mania && pp > 0.0 {
