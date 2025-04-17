@@ -127,8 +127,8 @@ async fn slash_card(mut command: InteractionCommand) -> Result<()> {
 
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let scores_fut = Context::osu_scores()
-        .top(legacy_scores)
-        .limit(100)
+        // changing the limit value requires adjusting card title thresholds
+        .top(100, legacy_scores)
         .exec_with_user(user_args);
     let medals_fut = Context::redis().medals();
 

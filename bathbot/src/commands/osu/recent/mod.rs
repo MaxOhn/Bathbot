@@ -77,7 +77,7 @@ pub struct RecentScore<'a> {
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
 #[command(
     name = "best",
-    desc = "Display the user's current top100 sorted by date (same as `/rb`)"
+    desc = "Display the user's current top200 sorted by date (same as `/rb`)"
 )]
 pub struct RecentBest {
     #[command(desc = "Specify a gamemode")]
@@ -312,10 +312,7 @@ impl From<RecentFixGameMode> for GameMode {
 
 #[allow(unused)] // fields are used through transmute in From impl
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
-#[command(
-    name = "rb",
-    desc = "Display the user's current top100 sorted by date (same as `/rb`)"
-)]
+#[command(name = "rb", desc = "Display the user's current top200 sorted by date")]
 pub struct Rb {
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,

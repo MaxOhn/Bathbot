@@ -45,7 +45,7 @@ mod if_;
 mod old;
 
 #[derive(CommandModel, CreateCommand, HasMods, SlashCommand)]
-#[command(name = "top", desc = "Display the user's current top100")]
+#[command(name = "top", desc = "Display the user's current top200")]
 pub struct Top {
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
@@ -789,8 +789,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let scores_fut = Context::osu_scores()
-        .top(legacy_scores)
-        .limit(100)
+        .top(200, legacy_scores)
         .exec_with_user(user_args);
 
     let (user, scores) = match scores_fut.await {
@@ -850,7 +849,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
             Ok(n) => Some(n),
             Err(_) => {
                 let content = "Failed to parse index. \
-                Must be an integer between 1 and 100 or `random` / `?`.";
+                Must be an integer between 1 and 200 or `random` / `?`.";
 
                 return orig.error(content).await;
             }
@@ -1150,71 +1149,71 @@ fn write_content(
 
         let content = match args.sort_by {
             TopScoreOrder::Acc => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}accuracy:")
             }
             TopScoreOrder::Ar => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}AR:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}AR:")
             }
             TopScoreOrder::Bpm => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}BPM:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}BPM:")
             }
             TopScoreOrder::Combo => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}combo:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}combo:")
             }
             TopScoreOrder::Cs => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}CS:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}CS:")
             }
             TopScoreOrder::Date if (args.reverse && index.is_some_and(|n| n <= 1)) => {
-                format!("Oldest score in `{name}`'{genitive} top100:")
+                format!("Oldest score in `{name}`'{genitive} top200:")
             }
             TopScoreOrder::Date if (args.reverse && index.is_some_and(|n| n > 1)) => {
                 format!(
-                    "{index_string}{ordinal_suffix} oldest score in `{name}`'{genitive} top100:",
+                    "{index_string}{ordinal_suffix} oldest score in `{name}`'{genitive} top200:",
                     index_string = index.unwrap()
                 )
             }
             TopScoreOrder::Date if args.reverse => {
-                format!("Oldest scores in `{name}`'{genitive} top100:")
+                format!("Oldest scores in `{name}`'{genitive} top200:")
             }
             TopScoreOrder::Date if index.is_some_and(|n| n <= 1) => {
-                format!("Most recent score in `{name}`'{genitive} top100:")
+                format!("Most recent score in `{name}`'{genitive} top200:")
             }
             TopScoreOrder::Date if index.is_some_and(|n| n > 1) => {
                 format!(
-                    "{index_string}{ordinal_suffix} most recent score in `{name}`'{genitive} top100:",
+                    "{index_string}{ordinal_suffix} most recent score in `{name}`'{genitive} top200:",
                     index_string = index.unwrap()
                 )
             }
             TopScoreOrder::Date => {
-                format!("Most recent scores in `{name}`'{genitive} top100:")
+                format!("Most recent scores in `{name}`'{genitive} top200:")
             }
             TopScoreOrder::Hp => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}HP:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}HP:")
             }
             TopScoreOrder::Length => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}length:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}length:")
             }
             TopScoreOrder::Misses => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}miss count:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}miss count:")
             }
             TopScoreOrder::ModsCount => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}amount of mods:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}amount of mods:")
             }
             TopScoreOrder::Od => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}OD:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}OD:")
             }
             TopScoreOrder::Pp if !args.reverse => return None,
             TopScoreOrder::Pp => {
-                format!("`{name}`'{genitive} top100 sorted by reversed pp:")
+                format!("`{name}`'{genitive} top200 sorted by reversed pp:")
             }
             TopScoreOrder::RankedDate => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}ranked date:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}ranked date:")
             }
             TopScoreOrder::Score => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}score:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}score:")
             }
             TopScoreOrder::Stars => {
-                format!("`{name}`'{genitive} top100 sorted by {reverse}stars:")
+                format!("`{name}`'{genitive} top200 sorted by {reverse}stars:")
             }
         };
 

@@ -115,8 +115,7 @@ pub(super) async fn fix(orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> 
 
             let user_args = UserArgsSlim::user_id(user.user_id.to_native()).mode(score.mode);
             let best_fut = Context::osu_scores()
-                .top(legacy_scores)
-                .limit(100)
+                .top(100, legacy_scores)
                 .exec(user_args);
 
             match tokio::join!(map_fut, best_fut) {

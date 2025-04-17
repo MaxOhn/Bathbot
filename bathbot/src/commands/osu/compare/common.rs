@@ -333,8 +333,7 @@ async fn get_user_and_scores(
     let args = UserArgs::rosu_id(user_id, mode).await;
 
     Context::osu_scores()
-        .top(false)
-        .limit(100)
+        .top(100, false)
         .exec_with_user(args)
         .await
 }

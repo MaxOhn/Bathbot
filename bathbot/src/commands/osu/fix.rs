@@ -379,8 +379,7 @@ async fn request_by_map(
             let user_args = UserArgsSlim::user_id(user.user_id.to_native()).mode(score.mode);
 
             let top_fut = Context::osu_scores()
-                .top(legacy_scores)
-                .limit(100)
+                .top(100, legacy_scores)
                 .exec(user_args);
 
             let pp_fut = async {
@@ -468,8 +467,7 @@ async fn request_by_score(
     let map_fut = Context::osu_map().map(map_id, map.checksum.as_deref());
     let user_args = UserArgsSlim::user_id(score.user_id).mode(score.mode);
     let best_fut = Context::osu_scores()
-        .top(legacy_scores)
-        .limit(100)
+        .top(100, legacy_scores)
         .exec(user_args);
 
     let (user, map, top) = match tokio::join!(user_fut, map_fut, best_fut) {

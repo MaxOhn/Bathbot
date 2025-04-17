@@ -241,8 +241,7 @@ async fn topif(orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let scores_fut = Context::osu_scores()
-        .top(legacy_scores)
-        .limit(100)
+        .top(200, legacy_scores)
         .exec_with_user(user_args);
 
     let (user, scores) = match scores_fut.await {
@@ -639,7 +638,7 @@ fn get_content(
 ) -> String {
     let mut content = match mods {
         ModSelection::Exact(mods) => format!(
-            "`{name}`{plural} {mode}top100 with only `{mods}` scores",
+            "`{name}`{plural} {mode}top200 with only `{mods}` scores",
             plural = plural(name),
             mode = mode_str(mode),
         ),
@@ -665,14 +664,14 @@ fn get_content(
                 }
             }
             format!(
-                "`{name}`{plural} {mode}top100 without {mods}",
+                "`{name}`{plural} {mode}top200 without {mods}",
                 plural = plural(name),
                 mode = mode_str(mode),
                 mods = mod_str
             )
         }
         ModSelection::Include(mods) if !mods.is_empty() => format!(
-            "`{name}`{plural} {mode}top100 with `{mods}` inserted everywhere",
+            "`{name}`{plural} {mode}top200 with `{mods}` inserted everywhere",
             plural = plural(name),
             mode = mode_str(mode),
         ),

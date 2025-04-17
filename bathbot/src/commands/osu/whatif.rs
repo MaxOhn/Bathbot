@@ -6,7 +6,7 @@ use bathbot_util::{
     MessageBuilder,
     constants::GENERAL_ISSUE,
     matcher,
-    osu::{ExtractablePp, PpListUtil, approx_more_pp},
+    osu::{ExtractablePp, PpListUtil},
 };
 use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
@@ -23,12 +23,12 @@ use crate::{
 };
 
 pub enum WhatIfData {
-    NonTop100,
+    NonTop200,
     NoScores {
         count: usize,
         rank: Option<u32>,
     },
-    Top100 {
+    Top200 {
         bonus_pp: f32,
         count: usize,
         new_pp: f32,
@@ -41,9 +41,9 @@ pub enum WhatIfData {
 impl WhatIfData {
     pub fn count(&self) -> usize {
         match self {
-            WhatIfData::NonTop100 => 0,
+            WhatIfData::NonTop200 => 0,
             WhatIfData::NoScores { count, .. } => *count,
-            WhatIfData::Top100 { count, .. } => *count,
+            WhatIfData::Top200 { count, .. } => *count,
         }
     }
 }
@@ -205,8 +205,7 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let scores_fut = Context::osu_scores()
-        .top(false)
-        .limit(100)
+        .top(200, false)
         .exec_with_user(user_args);
 
     let (user, scores) = match scores_fut.await {
@@ -241,19 +240,18 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
 
         WhatIfData::NoScores { count, rank }
     } else if pp < scores.last().and_then(|s| s.pp).unwrap_or(0.0) {
-        WhatIfData::NonTop100
+        WhatIfData::NonTop200
     } else {
         let mut pps = scores.extract_pp();
         let max_pp = pps.first().copied().unwrap_or(0.0);
-        approx_more_pp(&mut pps, 50);
         let actual = pps.accum_weighted();
         let total = user
             .statistics
             .as_ref()
             .expect("missing stats")
             .pp
-            .to_native();
-        let bonus_pp = (total - actual).max(0.0);
+            .to_native() as f64;
+        let bonus_pp = f64::max(total - actual, 0.0);
 
         let idx = pps
             .iter()
@@ -265,7 +263,10 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
 
         let new_pp = pps.accum_weighted();
 
-        let rank = match Context::approx().rank(new_pp + bonus_pp, mode).await {
+        let rank = match Context::approx()
+            .rank((new_pp + bonus_pp) as f32, mode)
+            .await
+        {
             Ok(rank) => Some(rank),
             Err(err) => {
                 warn!(?err, "Failed to get rank pp");
@@ -274,10 +275,10 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
             }
         };
 
-        WhatIfData::Top100 {
-            bonus_pp,
+        WhatIfData::Top200 {
+            bonus_pp: bonus_pp as f32,
             count,
-            new_pp,
+            new_pp: bonus_pp as f32,
             new_pos: idx + 1,
             max_pp,
             rank,

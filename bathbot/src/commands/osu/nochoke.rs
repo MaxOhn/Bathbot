@@ -136,9 +136,9 @@ impl<'m> Nochoke<'m> {
 }
 
 #[command]
-#[desc("Unchoke a user's top100")]
+#[desc("Unchoke a user's top200")]
 #[help(
-    "Display a user's top plays if no score in their top100 would be a choke.\n
+    "Display a user's top plays if no score in their top200 would be a choke.\n
     If a number is specified, I will only unchoke scores with at most that many misses"
 )]
 #[usage("[username] [number for miss limit]")]
@@ -152,9 +152,9 @@ async fn prefix_nochokes(msg: &Message, args: Args<'_>) -> Result<()> {
 }
 
 #[command]
-#[desc("Unchoke a user's taiko top100")]
+#[desc("Unchoke a user's taiko top200")]
 #[help(
-    "Display a user's top plays if no score in their top100 would be a choke.\n\
+    "Display a user's top plays if no score in their top200 would be a choke.\n\
     If a number is specified, I will only unchoke scores with at most that many misses.\n\
     Note: As for all commands, numbers for scores on converted maps are wack and \
     are ignored when unchoking."
@@ -170,9 +170,9 @@ async fn prefix_nochokestaiko(msg: &Message, args: Args<'_>) -> Result<()> {
 }
 
 #[command]
-#[desc("Unchoke a user's ctb top100")]
+#[desc("Unchoke a user's ctb top200")]
 #[help(
-    "Display a user's top plays if no score in their top100 would be a choke.\n\
+    "Display a user's top plays if no score in their top200 would be a choke.\n\
     If a number is specified, I will only unchoke scores with at most that many misses.\n\
     Note: As for all commands, numbers for scores on converted maps are wack and \
     are ignored when unchoking."
@@ -231,8 +231,7 @@ async fn nochoke(orig: CommandOrigin<'_>, args: Nochoke<'_>) -> Result<()> {
     // Retrieve the user and their top scores
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
     let scores_fut = Context::osu_scores()
-        .top(legacy_scores)
-        .limit(100)
+        .top(200, legacy_scores)
         .exec_with_user(user_args);
 
     let (user, scores) = match scores_fut.await {

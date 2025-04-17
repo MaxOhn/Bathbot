@@ -40,9 +40,9 @@ impl WhatIfEmbed {
         };
 
         let description = match data {
-            WhatIfData::NonTop100 => {
+            WhatIfData::NonTop200 => {
                 format!(
-                    "A {pp_given}pp play wouldn't even be in {username}'s top 100 plays.\n\
+                    "A {pp_given}pp play wouldn't even be in {username}'s top 200 plays.\n\
                     There would not be any significant pp change.",
                     pp_given = round(pp),
                 )
@@ -75,7 +75,7 @@ impl WhatIfEmbed {
 
                 d
             }
-            WhatIfData::Top100 {
+            WhatIfData::Top200 {
                 bonus_pp,
                 count,
                 new_pp,

@@ -41,7 +41,7 @@ impl Availability<Box<[Score]>> {
         let user_args = UserArgsSlim::user_id(user_id).mode(mode);
 
         match Context::osu_scores()
-            .top(legacy_scores)
+            .top(100, legacy_scores)
             .exec(user_args)
             .await
         {
