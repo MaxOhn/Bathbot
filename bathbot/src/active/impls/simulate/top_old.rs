@@ -103,7 +103,9 @@ impl TopOldVersion {
                 ];
 
                 match version {
-                    TopOldOsuVersion::September22October24 | TopOldOsuVersion::October24March25 => {
+                    TopOldOsuVersion::September22October24
+                    | TopOldOsuVersion::October24March25
+                    | TopOldOsuVersion::March25Now => {
                         let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
                         upper.push(Component::Button(clock_rate));
                     }
