@@ -179,7 +179,7 @@ impl TrackArgs {
         let mut name = None;
         let mut more_names = Vec::new();
 
-        let mut min_index = match args.num {
+        let mut max_index = match args.num {
             ArgsNum::Value(n) => Some(n.min(100) as u8),
             ArgsNum::Random | ArgsNum::None => None,
         };
@@ -191,7 +191,7 @@ impl TrackArgs {
 
                 match key {
                     "limit" | "l" => match value.parse() {
-                        Ok(num) => min_index = Some(num),
+                        Ok(num) => max_index = Some(num),
                         Err(_) => {
                             let content = "Failed to parse `limit`. Must be either an integer.";
 
@@ -220,8 +220,8 @@ impl TrackArgs {
 
         let args = Self {
             name,
-            min_index,
-            max_index: None,
+            min_index: None,
+            max_index,
             min_pp: None,
             max_pp: None,
             min_combo_percent: None,
