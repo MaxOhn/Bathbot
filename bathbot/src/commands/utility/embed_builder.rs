@@ -1008,7 +1008,6 @@ impl ScoreEmbedDataPersonalBest {
                 Some(*idx)
             }
             PersonalBestIndex::FoundBetter { .. }
-            | PersonalBestIndex::ScoreV1d { .. }
             | PersonalBestIndex::IfRanked { .. }
             | PersonalBestIndex::NotTop100 => None,
         };
