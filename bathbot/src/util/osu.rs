@@ -775,9 +775,6 @@ pub enum PersonalBestIndex {
         #[allow(unused)]
         idx: usize,
     },
-    /// Found another score on the same map and the
-    /// same mods that has more score but less pp
-    ScoreV1d { would_be_idx: usize, old_idx: usize },
     /// Score is ranked and has enough pp to be in but wasn't found
     Presumably { idx: usize },
     /// Score is not ranked but has enough pp to be in the top100
@@ -823,7 +820,7 @@ impl PersonalBestIndex {
             }
         }
 
-        let (better, worse) = top100.split_at(idx);
+        let (better, _) = top100.split_at(idx);
 
         // A case that's not covered is when there is a score with more pp on
         // the same map with the same mods that has less score than the current
@@ -833,13 +830,6 @@ impl PersonalBestIndex {
         // ignore.
         if let Some(idx) = better.iter().position(|top| top.map_id == map_id) {
             Self::FoundBetter { idx }
-        } else if let Some(i) = worse.iter().position(|top| {
-            top.map_id == map_id && top.mods == score.mods && top.score > score.score
-        }) {
-            Self::ScoreV1d {
-                would_be_idx: idx,
-                old_idx: idx + i,
-            }
         } else {
             Self::Presumably { idx }
         }
@@ -849,16 +839,6 @@ impl PersonalBestIndex {
         match self {
             PersonalBestIndex::FoundScore { idx } => Some(format!("Personal Best #{}", idx + 1)),
             PersonalBestIndex::FoundBetter { .. } => None,
-            PersonalBestIndex::ScoreV1d {
-                would_be_idx,
-                old_idx,
-            } => Some(format!(
-                "Personal Best #{idx} ([v1'd]({origin} \
-                \"there is a play on the same map with the same mods that has more score\"\
-                ) by #{old})",
-                idx = would_be_idx + 1,
-                old = old_idx + 1
-            )),
             PersonalBestIndex::Presumably { idx } => Some(format!(
                 "Personal Best #{} [(?)]({origin} \
                 \"the top100 did not include this score likely because the api \
