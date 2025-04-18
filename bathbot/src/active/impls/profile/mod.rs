@@ -242,8 +242,9 @@ impl ProfileMenu {
         if let Some(team) = self.user.team.as_ref() {
             let _ = write!(
                 description,
-                " • Team [{name}]({OSU_BASE}teams/{id})",
-                name = team.short_name.as_str(),
+                " • Team [{short_name}]({OSU_BASE}teams/{id} \"{name}\")",
+                short_name = team.short_name.as_str(),
+                name = team.name.as_str(),
                 id = team.id.to_native(),
             );
         }
