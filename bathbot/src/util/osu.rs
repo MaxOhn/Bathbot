@@ -820,7 +820,7 @@ impl PersonalBestIndex {
             }
         }
 
-        let (better, _) = top100.split_at(idx);
+        let better = &top100[..idx];
 
         // A case that's not covered is when there is a score with more pp on
         // the same map with the same mods that has less score than the current
