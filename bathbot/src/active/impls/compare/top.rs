@@ -3,7 +3,6 @@ use std::{cmp::Ordering, collections::HashMap, fmt::Write};
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{EmbedBuilder, FooterBuilder, IntHasher, constants::OSU_BASE};
 use eyre::Result;
-use futures::future::BoxFuture;
 use rosu_v2::prelude::Username;
 use twilight_model::{
     channel::message::Component,
@@ -35,7 +34,7 @@ pub struct CompareTopPagination {
 }
 
 impl IActiveMessage for CompareTopPagination {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let pages = &self.pages;
         let idx = pages.index();
         let map_pps = &self.map_pps[idx..(idx + pages.per_page()).min(self.maps.len())];
@@ -79,24 +78,18 @@ impl IActiveMessage for CompareTopPagination {
             .footer(FooterBuilder::new(footer_text))
             .thumbnail(attachment("avatar_fuse.png"));
 
-        BuildPage::new(embed, false).boxed()
+        Ok(BuildPage::new(embed, false))
     }
 
     fn build_components(&self) -> Vec<Component> {
         self.pages.components()
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages).await
     }
 
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
+    async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages).await
     }
 }

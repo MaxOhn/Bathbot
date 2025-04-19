@@ -1,13 +1,9 @@
-use std::{
-    future::ready,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use bathbot_util::{EmbedBuilder, IntHasher, MessageBuilder, modal::ModalBuilder};
 use enum_dispatch::enum_dispatch;
-use eyre::{Report, Result, WrapErr};
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use flexmap::tokio::TokioMutexMap;
-use futures::future::BoxFuture;
 use impls::relax::top::RelaxTopPagination;
 use tokio::sync::watch::Sender;
 use twilight_model::{
@@ -333,7 +329,7 @@ impl ActiveMessages {
 #[enum_dispatch]
 pub trait IActiveMessage {
     /// The content of responses.
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>>;
+    async fn build_page(&mut self) -> Result<BuildPage>;
 
     /// The components that are added to the message.
     ///
@@ -345,48 +341,35 @@ pub trait IActiveMessage {
     /// What happens when the active message receives a component event.
     ///
     /// Defaults to ignoring the component.
-    fn handle_component<'a>(
+    async fn handle_component<'a>(
         &'a mut self,
         component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
+    ) -> ComponentResult {
         warn!(name = %component.data.custom_id, ?component, "Unknown component");
 
-        Box::pin(ready(ComponentResult::Ignore))
+        ComponentResult::Ignore
     }
 
     /// What happens when the active message receives a modal event.
     ///
     /// Defaults to ignoring the modal.
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
+    async fn handle_modal<'a>(&'a mut self, modal: &'a mut InteractionModal) -> Result<()> {
         warn!(name = %modal.data.custom_id, ?modal, "Unknown modal");
 
-        Box::pin(ready(Ok(())))
+        Ok(())
     }
 
     /// What happens when the message is no longer active.
     ///
     /// Defaults to removing all components.
-    fn on_timeout(&mut self, response: ActiveResponse) -> BoxFuture<'_, Result<()>> {
-        let builder = MessageBuilder::new().components(Vec::new());
+    async fn on_timeout(&mut self, response: ActiveResponse) -> Result<()> {
+        response
+            .update(MessageBuilder::new().components(Vec::new()))
+            .wrap_err("Lacking permission to update message on timeout")?
+            .await
+            .wrap_err("Failed to remove components")?;
 
-        match response.update(builder) {
-            Some(update_fut) => {
-                let fut = async {
-                    update_fut
-                        .await
-                        .map(|_| ())
-                        .wrap_err("Failed to remove components")
-                };
-
-                Box::pin(fut)
-            }
-            None => Box::pin(ready(Err(eyre!(
-                "Lacking permission to update message on timeout"
-            )))),
-        }
+        Ok(())
     }
 
     /// Duration until the message is no longer active.
@@ -414,12 +397,6 @@ impl BuildPage {
         }
     }
 
-    /// Wrap the [`BuildPage`] in a [`Future`](core::future::Future) that
-    /// returns `Result<BuildPage>`
-    pub fn boxed<'a>(self) -> BoxFuture<'a, Result<Self>> {
-        Box::pin(ready(Ok(self)))
-    }
-
     pub fn content(mut self, content: impl Into<Box<str>>) -> Self {
         self.content = Some(content.into());
 
@@ -436,10 +413,4 @@ pub enum ComponentResult {
     BuildPage,
     Err(Report),
     Ignore,
-}
-
-impl ComponentResult {
-    pub fn boxed<'b>(self) -> BoxFuture<'b, Self> {
-        Box::pin(ready(self))
-    }
 }

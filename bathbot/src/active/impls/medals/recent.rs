@@ -6,7 +6,6 @@ use bathbot_model::ArchivedOsekaiMedal;
 use bathbot_psql::model::configs::HideSolutions;
 use bathbot_util::IntHasher;
 use eyre::Result;
-use futures::future::{BoxFuture, ready};
 use rkyv::vec::ArchivedVec;
 use rosu_v2::prelude::MedalCompact;
 use twilight_model::{
@@ -38,7 +37,7 @@ pub struct MedalsRecentPagination {
 }
 
 impl IActiveMessage for MedalsRecentPagination {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let idx = self.pages.index();
 
         let embed = match self.embeds.entry(idx) {
@@ -51,11 +50,7 @@ impl IActiveMessage for MedalsRecentPagination {
                     .binary_search_by_key(&achieved.medal_id, |medal| medal.medal_id.to_native())
                 {
                     Ok(idx) => (&self.medals[idx], achieved.achieved_at),
-                    Err(_) => {
-                        let err = eyre!("No medal with id {}", achieved.medal_id);
-
-                        return Box::pin(ready(Err(err)));
-                    }
+                    Err(_) => bail!("No medal with id {}", achieved.medal_id),
                 };
 
                 let achieved = MedalAchieved {
@@ -72,27 +67,19 @@ impl IActiveMessage for MedalsRecentPagination {
             }
         };
 
-        BuildPage::new(embed.finish(), false)
-            .content(self.content)
-            .boxed()
+        Ok(BuildPage::new(embed.finish(), false).content(self.content))
     }
 
     fn build_components(&self) -> Vec<Component> {
         self.pages.components()
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages).await
     }
 
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
+    async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages).await
     }
 }
 

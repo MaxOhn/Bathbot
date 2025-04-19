@@ -6,7 +6,6 @@ use bathbot_util::{
     numbers::{last_multiple, round},
 };
 use eyre::{Report, Result};
-use futures::future::BoxFuture;
 use rosu_v2::prelude::{BeatmapsetExtended, BeatmapsetSearchResult, GameMode, Genre, Language};
 use twilight_model::{
     channel::message::{
@@ -32,53 +31,7 @@ pub struct MapSearchPagination {
 }
 
 impl IActiveMessage for MapSearchPagination {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page())
-    }
-
-    fn build_components(&self) -> Vec<Component> {
-        self.pages.components()
-    }
-
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        Box::pin(self.async_handle_component(component))
-    }
-}
-
-impl MapSearchPagination {
-    pub fn new(
-        maps: BTreeMap<usize, BeatmapsetExtended>,
-        search_result: BeatmapsetSearchResult,
-        args: Search,
-        msg_owner: Id<UserMarker>,
-    ) -> Self {
-        let pages = MapSearchPages::new(search_result.total as usize);
-
-        Self {
-            maps,
-            search_result,
-            args,
-            msg_owner,
-            pages,
-        }
-    }
-
-    fn available_entries_in_page(&self) -> usize {
-        let pages = &self.pages;
-
-        self.maps
-            .range(pages.index()..pages.index() + pages.per_page())
-            .count()
-    }
-
-    fn defer(&self) -> bool {
-        self.available_entries_in_page() < self.pages.per_page()
-    }
-
-    async fn async_build_page(&mut self) -> Result<BuildPage> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let should_request_more = self.defer();
 
         if should_request_more {
@@ -278,10 +231,11 @@ impl MapSearchPagination {
         Ok(BuildPage::new(embed, should_request_more))
     }
 
-    async fn async_handle_component(
-        &mut self,
-        component: &mut InteractionComponent,
-    ) -> ComponentResult {
+    fn build_components(&self) -> Vec<Component> {
+        self.pages.components()
+    }
+
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
         let user_id = match component.user_id() {
             Ok(user_id) => user_id,
             Err(err) => return ComponentResult::Err(err),
@@ -338,6 +292,37 @@ impl MapSearchPagination {
         }
 
         ComponentResult::BuildPage
+    }
+}
+
+impl MapSearchPagination {
+    pub fn new(
+        maps: BTreeMap<usize, BeatmapsetExtended>,
+        search_result: BeatmapsetSearchResult,
+        args: Search,
+        msg_owner: Id<UserMarker>,
+    ) -> Self {
+        let pages = MapSearchPages::new(search_result.total as usize);
+
+        Self {
+            maps,
+            search_result,
+            args,
+            msg_owner,
+            pages,
+        }
+    }
+
+    fn available_entries_in_page(&self) -> usize {
+        let pages = &self.pages;
+
+        self.maps
+            .range(pages.index()..pages.index() + pages.per_page())
+            .count()
+    }
+
+    fn defer(&self) -> bool {
+        self.available_entries_in_page() < self.pages.per_page()
     }
 }
 

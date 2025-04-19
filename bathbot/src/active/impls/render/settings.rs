@@ -13,7 +13,6 @@ use bathbot_util::{
     numbers::round,
 };
 use eyre::{ContextCompat, Result, WrapErr};
-use futures::future::BoxFuture;
 use rosu_render::model::{RenderOptions, RenderSkinOption};
 use twilight_model::{
     channel::message::{
@@ -277,15 +276,152 @@ impl RenderSettingsActive {
 
         ComponentResult::CreateModal(modal)
     }
+}
 
-    async fn async_handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+impl IActiveMessage for RenderSettingsActive {
+    async fn build_page(&mut self) -> Result<BuildPage> {
+        let Self {
+            settings,
+            group,
+            content,
+            ..
+        } = self;
+
+        let embed = EmbedBuilder::new()
+            .title(group.title())
+            .description(group.description(settings, self.skin_status.take()));
+
+        let page = BuildPage::new(embed, mem::replace(&mut self.defer_next, false))
+            .content(content.take().unwrap_or_default());
+
+        Ok(page)
+    }
+
+    fn build_components(&self) -> Vec<Component> {
+        let group_options = vec![
+            SelectMenuOption {
+                default: false,
+                description: None,
+                emoji: None,
+                label: "Skin".to_owned(),
+                value: "skin".to_owned(),
+            },
+            SelectMenuOption {
+                default: false,
+                description: None,
+                emoji: None,
+                label: "Audio".to_owned(),
+                value: "audio".to_owned(),
+            },
+            SelectMenuOption {
+                default: false,
+                description: None,
+                emoji: None,
+                label: "HUD".to_owned(),
+                value: "hud".to_owned(),
+            },
+            SelectMenuOption {
+                default: false,
+                description: None,
+                emoji: None,
+                label: "Cursor".to_owned(),
+                value: "cursor".to_owned(),
+            },
+            SelectMenuOption {
+                default: false,
+                description: None,
+                emoji: None,
+                label: "Background".to_owned(),
+                value: "background".to_owned(),
+            },
+            SelectMenuOption {
+                default: false,
+                description: None,
+                emoji: None,
+                label: "Intro".to_owned(),
+                value: "intro".to_owned(),
+            },
+            SelectMenuOption {
+                default: false,
+                description: None,
+                emoji: None,
+                label: "Objects".to_owned(),
+                value: "objects".to_owned(),
+            },
+            SelectMenuOption {
+                default: false,
+                description: None,
+                emoji: None,
+                label: "Other".to_owned(),
+                value: "other".to_owned(),
+            },
+        ];
+
+        let group = SelectMenu {
+            custom_id: "group_menu".to_owned(),
+            disabled: false,
+            max_values: None,
+            min_values: None,
+            options: Some(group_options),
+            placeholder: Some("Select a settings group".to_owned()),
+            channel_types: None,
+            default_values: None,
+            kind: SelectMenuType::Text,
+        };
+
+        let edit_options = self.group.edit_options();
+
+        let edit = SelectMenu {
+            custom_id: "edit_menu".to_owned(),
+            disabled: false,
+            max_values: None,
+            min_values: None,
+            options: Some(edit_options),
+            placeholder: Some("Select a value to modify from this group".to_owned()),
+            channel_types: None,
+            default_values: None,
+            kind: SelectMenuType::Text,
+        };
+
+        let group_menu = ActionRow {
+            components: vec![Component::SelectMenu(group)],
+        };
+
+        let edit_menu = ActionRow {
+            components: vec![Component::SelectMenu(edit)],
+        };
+
+        vec![
+            Component::ActionRow(group_menu),
+            Component::ActionRow(edit_menu),
+        ]
+    }
+
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        let user_id = match component.user_id() {
+            Ok(user_id) => user_id,
+            Err(err) => return ComponentResult::Err(err),
+        };
+
+        if user_id != self.msg_owner {
+            return ComponentResult::Ignore;
+        }
+
+        match component.data.custom_id.as_str() {
+            "group_menu" => self.handle_group_menu(component).await,
+            "edit_menu" => self.handle_edit_menu(component).await,
+            other => ComponentResult::Err(eyre!("Unknown settings component `{other}`")),
+        }
+    }
+
+    async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
         let mut input = modal
             .data
             .components
             .pop()
             .and_then(|mut row| row.components.pop())
             .and_then(|component| component.value)
-            .wrap_err(eyre!("Missing input in modal"))?;
+            .wrap_err("Missing input in modal")?;
 
         let mut deferred = false;
         let options = self.settings.options_mut();
@@ -436,153 +572,6 @@ impl RenderSettingsActive {
         self.defer_next = res.is_ok();
 
         res
-    }
-}
-
-impl IActiveMessage for RenderSettingsActive {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
-        let Self {
-            settings,
-            group,
-            content,
-            ..
-        } = self;
-
-        let embed = EmbedBuilder::new()
-            .title(group.title())
-            .description(group.description(settings, self.skin_status.take()));
-
-        BuildPage::new(embed, mem::replace(&mut self.defer_next, false))
-            .content(content.take().unwrap_or_default())
-            .boxed()
-    }
-
-    fn build_components(&self) -> Vec<Component> {
-        let group_options = vec![
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Skin".to_owned(),
-                value: "skin".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Audio".to_owned(),
-                value: "audio".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "HUD".to_owned(),
-                value: "hud".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Cursor".to_owned(),
-                value: "cursor".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Background".to_owned(),
-                value: "background".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Intro".to_owned(),
-                value: "intro".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Objects".to_owned(),
-                value: "objects".to_owned(),
-            },
-            SelectMenuOption {
-                default: false,
-                description: None,
-                emoji: None,
-                label: "Other".to_owned(),
-                value: "other".to_owned(),
-            },
-        ];
-
-        let group = SelectMenu {
-            custom_id: "group_menu".to_owned(),
-            disabled: false,
-            max_values: None,
-            min_values: None,
-            options: Some(group_options),
-            placeholder: Some("Select a settings group".to_owned()),
-            channel_types: None,
-            default_values: None,
-            kind: SelectMenuType::Text,
-        };
-
-        let edit_options = self.group.edit_options();
-
-        let edit = SelectMenu {
-            custom_id: "edit_menu".to_owned(),
-            disabled: false,
-            max_values: None,
-            min_values: None,
-            options: Some(edit_options),
-            placeholder: Some("Select a value to modify from this group".to_owned()),
-            channel_types: None,
-            default_values: None,
-            kind: SelectMenuType::Text,
-        };
-
-        let group_menu = ActionRow {
-            components: vec![Component::SelectMenu(group)],
-        };
-
-        let edit_menu = ActionRow {
-            components: vec![Component::SelectMenu(edit)],
-        };
-
-        vec![
-            Component::ActionRow(group_menu),
-            Component::ActionRow(edit_menu),
-        ]
-    }
-
-    fn handle_component<'a>(
-        &'a mut self,
-
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        let user_id = match component.user_id() {
-            Ok(user_id) => user_id,
-            Err(err) => return ComponentResult::Err(err).boxed(),
-        };
-
-        if user_id != self.msg_owner {
-            return ComponentResult::Ignore.boxed();
-        }
-
-        match component.data.custom_id.as_str() {
-            "group_menu" => Box::pin(self.handle_group_menu(component)),
-            "edit_menu" => Box::pin(self.handle_edit_menu(component)),
-            other => ComponentResult::Err(eyre!("Unknown settings component `{other}`")).boxed(),
-        }
-    }
-
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        Box::pin(self.async_handle_modal(modal))
     }
 }
 

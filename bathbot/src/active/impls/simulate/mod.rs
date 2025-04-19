@@ -10,7 +10,6 @@ use bathbot_util::{
     osu::calculate_grade,
 };
 use eyre::{ContextCompat, Report, Result};
-use futures::future::BoxFuture;
 use rosu_pp::{
     Beatmap,
     model::{
@@ -63,7 +62,7 @@ pub struct SimulateComponents {
 }
 
 impl IActiveMessage for SimulateComponents {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         {
             let pp_map = self.map.pp_map_mut();
 
@@ -274,24 +273,21 @@ impl IActiveMessage for SimulateComponents {
         let content = "Simulated score:";
         let defer = mem::replace(&mut self.defer, true);
 
-        BuildPage::new(embed, defer).content(content).boxed()
+        Ok(BuildPage::new(embed, defer).content(content))
     }
 
     fn build_components(&self) -> Vec<Component> {
         self.data.version.components(self.data.set_on_lazer)
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
         let user_id = match component.user_id() {
             Ok(user_id) => user_id,
-            Err(err) => return ComponentResult::Err(err).boxed(),
+            Err(err) => return ComponentResult::Err(err),
         };
 
         if user_id != self.msg_owner {
-            return ComponentResult::Ignore.boxed();
+            return ComponentResult::Ignore;
         }
 
         let modal = match component.data.custom_id.as_str() {
@@ -362,7 +358,7 @@ impl IActiveMessage for SimulateComponents {
                 self.data.set_on_lazer = true;
                 self.defer = false;
 
-                return ComponentResult::BuildPage.boxed();
+                return ComponentResult::BuildPage;
             }
             "sim_stable" => {
                 self.data.set_on_lazer = false;
@@ -370,7 +366,7 @@ impl IActiveMessage for SimulateComponents {
                 self.data.n_large_ticks = None;
                 self.defer = false;
 
-                return ComponentResult::BuildPage.boxed();
+                return ComponentResult::BuildPage;
             }
             "sim_slider_ends" => {
                 let input = TextInputBuilder::new("sim_slider_ends", "Amount of slider end hits")
@@ -438,58 +434,19 @@ impl IActiveMessage for SimulateComponents {
                     .input(od)
             }
             "sim_osu_version" | "sim_taiko_version" | "sim_catch_version" | "sim_mania_version" => {
-                return Box::pin(self.handle_topold_menu(component));
+                return self.handle_topold_menu(component).await;
             }
             other => {
                 warn!(name = %other, ?component, "Unknown simulate component");
 
-                return ComponentResult::Ignore.boxed();
+                return ComponentResult::Ignore;
             }
         };
 
-        ComponentResult::CreateModal(modal).boxed()
+        ComponentResult::CreateModal(modal)
     }
 
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        Box::pin(self.async_handle_modal(modal))
-    }
-}
-
-impl SimulateComponents {
-    pub fn new(map: SimulateMap, data: SimulateData, msg_owner: Id<UserMarker>) -> Self {
-        Self {
-            map,
-            data,
-            msg_owner,
-            defer: true,
-        }
-    }
-
-    async fn handle_topold_menu(
-        &mut self,
-        component: &mut InteractionComponent,
-    ) -> ComponentResult {
-        let Some(version) = component.data.values.first() else {
-            return ComponentResult::Err(eyre!("Missing simulate version"));
-        };
-
-        let Some(version) = TopOldVersion::from_menu_str(version) else {
-            return ComponentResult::Err(eyre!("Unknown TopOldVersion `{version}`"));
-        };
-
-        if let Err(err) = component.defer().await.map_err(Report::new) {
-            return ComponentResult::Err(err.wrap_err("Failed to defer component"));
-        }
-
-        self.data.version = version;
-
-        ComponentResult::BuildPage
-    }
-
-    async fn async_handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+    async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
         if modal.user_id()? != self.msg_owner {
             return Ok(());
         }
@@ -654,6 +611,38 @@ impl SimulateComponents {
         }
 
         Ok(())
+    }
+}
+
+impl SimulateComponents {
+    pub fn new(map: SimulateMap, data: SimulateData, msg_owner: Id<UserMarker>) -> Self {
+        Self {
+            map,
+            data,
+            msg_owner,
+            defer: true,
+        }
+    }
+
+    async fn handle_topold_menu(
+        &mut self,
+        component: &mut InteractionComponent,
+    ) -> ComponentResult {
+        let Some(version) = component.data.values.first() else {
+            return ComponentResult::Err(eyre!("Missing simulate version"));
+        };
+
+        let Some(version) = TopOldVersion::from_menu_str(version) else {
+            return ComponentResult::Err(eyre!("Unknown TopOldVersion `{version}`"));
+        };
+
+        if let Err(err) = component.defer().await.map_err(Report::new) {
+            return ComponentResult::Err(err.wrap_err("Failed to defer component"));
+        }
+
+        self.data.version = version;
+
+        ComponentResult::BuildPage
     }
 }
 

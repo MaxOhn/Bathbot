@@ -10,7 +10,6 @@ use bathbot_util::{
     osu::{BonusPP, total_score_to_reach_level},
 };
 use eyre::Result;
-use futures::future::BoxFuture;
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::prelude::{
     GameModIntermode, GameMode, GameModsIntermode, Grade, Score,
@@ -63,14 +62,14 @@ pub struct ProfileMenu {
 }
 
 impl IActiveMessage for ProfileMenu {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         match self.kind {
-            ProfileKind::Compact => Box::pin(self.compact()),
-            ProfileKind::UserStats => Box::pin(self.user_stats()),
-            ProfileKind::Top100Stats => Box::pin(self.top100_stats()),
-            ProfileKind::Top100Mods => Box::pin(self.top100_mods()),
-            ProfileKind::Top100Mappers => Box::pin(self.top100_mappers()),
-            ProfileKind::MapperStats => Box::pin(self.mapper_stats()),
+            ProfileKind::Compact => self.compact().await,
+            ProfileKind::UserStats => self.user_stats().await,
+            ProfileKind::Top100Stats => self.top100_stats().await,
+            ProfileKind::Top100Mods => self.top100_mods().await,
+            ProfileKind::Top100Mappers => self.top100_mappers().await,
+            ProfileKind::MapperStats => self.mapper_stats().await,
         }
     }
 
@@ -137,47 +136,36 @@ impl IActiveMessage for ProfileMenu {
         vec![Component::ActionRow(ActionRow { components })]
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        async fn inner(
-            component: &mut InteractionComponent,
-            kind: &mut ProfileKind,
-            msg_owner: Id<UserMarker>,
-        ) -> ComponentResult {
-            let user_id = match component.user_id() {
-                Ok(user_id) => user_id,
-                Err(err) => return ComponentResult::Err(err),
-            };
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        let user_id = match component.user_id() {
+            Ok(user_id) => user_id,
+            Err(err) => return ComponentResult::Err(err),
+        };
 
-            if user_id != msg_owner {
-                return ComponentResult::Ignore;
-            }
-
-            let value = component.data.values.pop();
-
-            *kind = match value.as_deref() {
-                Some("compact") => ProfileKind::Compact,
-                Some("user_stats") => ProfileKind::UserStats,
-                Some("top100_stats") => ProfileKind::Top100Stats,
-                Some("top100_mods") => ProfileKind::Top100Mods,
-                Some("top100_mappers") => ProfileKind::Top100Mappers,
-                Some("mapper_stats") => ProfileKind::MapperStats,
-                Some(other) => {
-                    return ComponentResult::Err(eyre!("Unknown profile menu option `{other}`"));
-                }
-                None => return ComponentResult::Err(eyre!("Missing value for profile menu")),
-            };
-
-            if let Err(err) = component.defer().await {
-                warn!(?err, "Failed to defer component");
-            }
-
-            ComponentResult::BuildPage
+        if user_id != self.msg_owner {
+            return ComponentResult::Ignore;
         }
 
-        Box::pin(inner(component, &mut self.kind, self.msg_owner))
+        let value = component.data.values.pop();
+
+        self.kind = match value.as_deref() {
+            Some("compact") => ProfileKind::Compact,
+            Some("user_stats") => ProfileKind::UserStats,
+            Some("top100_stats") => ProfileKind::Top100Stats,
+            Some("top100_mods") => ProfileKind::Top100Mods,
+            Some("top100_mappers") => ProfileKind::Top100Mappers,
+            Some("mapper_stats") => ProfileKind::MapperStats,
+            Some(other) => {
+                return ComponentResult::Err(eyre!("Unknown profile menu option `{other}`"));
+            }
+            None => return ComponentResult::Err(eyre!("Missing value for profile menu")),
+        };
+
+        if let Err(err) = component.defer().await {
+            warn!(?err, "Failed to defer component");
+        }
+
+        ComponentResult::BuildPage
     }
 }
 
