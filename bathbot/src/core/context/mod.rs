@@ -18,20 +18,11 @@ use rosu_v2::Osu;
 use shutdown::CacheGuildShards;
 use time::OffsetDateTime;
 use tokio::sync::{Mutex as TokioMutex, mpsc::UnboundedSender};
-use twilight_gateway::{
-    CloseFrame, ConfigBuilder, Intents, MessageSender, Session, Shard, ShardId,
-};
+use twilight_gateway::{CloseFrame, MessageSender, Session, Shard};
 use twilight_http::{Client, client::InteractionClient};
-use twilight_model::{
-    channel::message::AllowedMentions,
-    gateway::{
-        payload::outgoing::update_presence::UpdatePresencePayload,
-        presence::{ActivityType, MinimalActivity, Status},
-    },
-    id::{
-        Id,
-        marker::{ApplicationMarker, ChannelMarker, GuildMarker, UserMarker},
-    },
+use twilight_model::id::{
+    Id,
+    marker::{ApplicationMarker, ChannelMarker, GuildMarker, UserMarker},
 };
 use twilight_standby::Standby;
 
@@ -45,6 +36,7 @@ use crate::{
     tracking::{Ordr, OsuTracking, ScoresWebSocket, ScoresWebSocketDisconnect},
 };
 
+mod discord;
 mod games;
 mod manager;
 mod messages;
@@ -200,7 +192,7 @@ impl Context {
             Database::new(&config.database_url).wrap_err("Failed to create database client")?;
 
         // Connect to discord API
-        let (http, application_id) = discord_http(config)
+        let (http, application_id) = discord::http(config)
             .await
             .wrap_err("Failed to create discord http client")?;
 
@@ -253,7 +245,7 @@ impl Context {
             }
         };
 
-        let shards_iter = discord_gateway(config, &http, resume_data)
+        let shards_iter = discord::gateway(config, &http, resume_data)
             .await
             .wrap_err("Failed to create discord gateway shards")?;
 
@@ -359,7 +351,7 @@ impl Context {
         }
 
         // Creating new shards
-        let shards_iter = discord_gateway(BotConfig::get(), Context::http(), HashMap::default())
+        let shards_iter = discord::gateway(BotConfig::get(), Context::http(), HashMap::default())
             .await
             .wrap_err("Failed to create new shards for resharding")?;
 
@@ -534,6 +526,8 @@ impl ContextData {
     }
 }
 
+type BgGames = TokioRwLockMap<Id<ChannelMarker>, BackgroundGame, IntHasher>;
+
 struct Games {
     bg: BgGames,
 }
@@ -544,79 +538,6 @@ impl Games {
             bg: BgGames::with_shard_amount_and_hasher(16, IntHasher),
         }
     }
-}
-
-type BgGames = TokioRwLockMap<Id<ChannelMarker>, BackgroundGame, IntHasher>;
-
-async fn discord_http(config: &BotConfig) -> Result<(Arc<Client>, Id<ApplicationMarker>)> {
-    let mentions = AllowedMentions {
-        replied_user: true,
-        ..Default::default()
-    };
-
-    // Connect to the discord http client
-    let http = Client::builder()
-        .token(config.tokens.discord.to_string())
-        .remember_invalid_token(false)
-        .default_allowed_mentions(mentions)
-        .build();
-
-    let http = Arc::new(http);
-
-    let current_user = http
-        .current_user()
-        .await
-        .wrap_err("Failed to get current user")?
-        .model()
-        .await
-        .wrap_err("Failed to deserialize current user")?;
-
-    let application_id = current_user.id.cast();
-
-    info!(
-        "Connecting to Discord as {}#{:04}...",
-        current_user.name, current_user.discriminator
-    );
-
-    Ok((http, application_id))
-}
-
-async fn discord_gateway(
-    config: &BotConfig,
-    http: &Client,
-    resume_data: HashMap<u32, Session, IntHasher>,
-) -> Result<impl ExactSizeIterator<Item = Arc<TokioMutex<Shard>>>> {
-    let intents = Intents::GUILDS
-        | Intents::GUILD_MEMBERS
-        | Intents::GUILD_MESSAGES
-        | Intents::DIRECT_MESSAGES
-        | Intents::MESSAGE_CONTENT;
-
-    let activity = MinimalActivity {
-        kind: ActivityType::Playing,
-        name: "osu!".to_owned(),
-        url: None,
-    };
-
-    let presence =
-        UpdatePresencePayload::new([activity.into()], false, None, Status::Online).unwrap();
-
-    let config = ConfigBuilder::new(config.tokens.discord.to_string(), intents)
-        .presence(presence)
-        .build();
-
-    let config_callback = move |shard_id: ShardId, builder: ConfigBuilder| match resume_data
-        .get(&shard_id.number())
-    {
-        Some(session) => builder.session(session.to_owned()).build(),
-        None => builder.build(),
-    };
-
-    let shards = twilight_gateway::create_recommended(http, config, config_callback)
-        .await
-        .wrap_err("Failed to create recommended shards")?;
-
-    Ok(shards.map(TokioMutex::new).map(Arc::new))
 }
 
 #[cfg(feature = "server")]

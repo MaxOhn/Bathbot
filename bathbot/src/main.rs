@@ -15,18 +15,14 @@ mod util;
 #[cfg(feature = "matchlive")]
 mod matchlive;
 
-use std::time::Duration;
-
 use bathbot_model::Countries;
-use eyre::{Report, Result, WrapErr};
+use eyre::{Result, WrapErr};
 use tokio::{
     runtime::Builder as RuntimeBuilder,
     signal,
     sync::{broadcast, mpsc},
     task::JoinSet,
-    time::{self, MissedTickBehavior},
 };
-use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
 
 use crate::{
     commands::owner::RESHARD_TX,
@@ -56,7 +52,7 @@ async fn async_main() -> Result<()> {
     BotConfig::init().context("failed to initialize config")?;
     Countries::init();
 
-    let (member_tx, mut member_rx) = mpsc::unbounded_channel();
+    let (member_tx, member_rx) = mpsc::unbounded_channel();
 
     let res = Context::init(member_tx.clone())
         .await
@@ -72,18 +68,14 @@ async fn async_main() -> Result<()> {
     let slash_commands = InteractionCommands::get().collect();
     info!("Setting {} slash commands...", slash_commands.len());
 
-    #[cfg(feature = "global_slash")]
-    {
+    if cfg!(feature = "global_slash") {
         let cmds = Context::set_global_commands(slash_commands).await?;
         InteractionCommands::set_ids(&cmds);
 
         if let Err(err) = Context::set_guild_commands(Vec::new()).await {
             warn!(?err, "Failed to remove guild commands");
         }
-    }
-
-    #[cfg(not(feature = "global_slash"))]
-    {
+    } else {
         let cmds = Context::set_guild_commands(slash_commands).await?;
         InteractionCommands::set_ids(&cmds);
 
@@ -105,54 +97,7 @@ async fn async_main() -> Result<()> {
     }
 
     // Request members
-    tokio::spawn(async move {
-        let ctx = Context::get();
-
-        let mut interval = time::interval(Duration::from_millis(600));
-        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-        interval.tick().await;
-        let mut counter = 1;
-        info!("Processing member request queue...");
-
-        while let Some((guild_id, shard_id)) = member_rx.recv().await {
-            let removed_opt = ctx
-                .member_requests
-                .pending_guilds
-                .lock()
-                .unwrap()
-                .remove(&guild_id);
-
-            // If a guild is in the channel twice, only process the first and ignore the
-            // second
-            if !removed_opt {
-                continue;
-            }
-
-            interval.tick().await;
-
-            let req = RequestGuildMembers::builder(guild_id).query("", None);
-            trace!("Member request #{counter} for guild {guild_id}");
-            counter += 1;
-
-            let command_res = match ctx.shard_senders.read().unwrap().get(&shard_id) {
-                Some(sender) => sender.command(&req),
-                None => {
-                    warn!("Missing sender for shard {shard_id}");
-
-                    continue;
-                }
-            };
-
-            if let Err(err) = command_res {
-                let wrap = format!("Failed to request members for guild {guild_id}");
-                warn!("{:?}", Report::new(err).wrap_err(wrap));
-
-                if let Err(err) = member_tx.send((guild_id, shard_id)) {
-                    warn!("Failed to re-forward member request: {err}");
-                }
-            }
-        }
-    });
+    tokio::spawn(Context::request_guild_members(member_rx));
 
     let (reshard_tx, reshard_rx) = broadcast::channel(1);
 
