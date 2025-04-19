@@ -6,7 +6,6 @@ use std::{
 use bathbot_model::HlVersion;
 use bathbot_util::{AuthorBuilder, EmbedBuilder, MessageBuilder};
 use eyre::{Result, WrapErr};
-use futures::future::BoxFuture;
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 use tokio::sync::oneshot::Receiver;
@@ -40,83 +39,7 @@ pub struct HigherLowerGame {
 }
 
 impl IActiveMessage for HigherLowerGame {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page())
-    }
-
-    fn build_components(&self) -> Vec<Component> {
-        let [higher, lower, next, retry] = self.raw_buttons();
-
-        let button_row = ActionRow {
-            components: vec![
-                Component::Button(higher),
-                Component::Button(lower),
-                Component::Button(next),
-                Component::Button(retry),
-            ],
-        };
-
-        vec![Component::ActionRow(button_row)]
-    }
-
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        let user_id = match component.user_id() {
-            Ok(user_id) => user_id,
-            Err(err) => return ComponentResult::Err(err).boxed(),
-        };
-
-        if user_id != self.msg_owner {
-            return ComponentResult::Ignore.boxed();
-        }
-
-        match component.data.custom_id.as_str() {
-            "higher_button" => Box::pin(self.handle_higherlower(component, HlGuess::Higher)),
-            "lower_button" => Box::pin(self.handle_higherlower(component, HlGuess::Lower)),
-            "next_higherlower" => Box::pin(self.handle_next(component)),
-            "try_again_button" => Box::pin(self.handle_try_again(component)),
-            other => {
-                warn!(name = %other, ?component, "Unknown higherlower component");
-
-                ComponentResult::Ignore.boxed()
-            }
-        }
-    }
-
-    fn on_timeout(&mut self, response: ActiveResponse) -> BoxFuture<'_, Result<()>> {
-        Box::pin(self.async_on_timeout(response))
-    }
-
-    fn until_timeout(&self) -> Option<Duration> {
-        match self.buttons {
-            ButtonState::HigherLower => Some(Duration::from_secs(90)),
-            ButtonState::Next { .. } => Some(Duration::from_secs(30)),
-            ButtonState::TryAgain { .. } => Some(Duration::from_secs(30)),
-        }
-    }
-}
-
-impl HigherLowerGame {
-    pub async fn new_score_pp(mode: GameMode, msg_owner: Id<UserMarker>) -> Result<Self> {
-        let game_fut = HigherLowerState::start_score_pp(mode);
-        let highscore_fut = Context::games().higherlower_highscore(msg_owner, HlVersion::ScorePp);
-
-        let ((state, rx), highscore) = tokio::try_join!(game_fut, highscore_fut)?;
-
-        Ok(Self {
-            state,
-            revealed: false,
-            img_url_rx: Some(rx),
-            current_score: 0,
-            highscore,
-            buttons: ButtonState::HigherLower,
-            msg_owner,
-        })
-    }
-
-    async fn async_build_page(&mut self) -> Result<BuildPage> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let mut embed = self.state.to_embed(self.revealed);
 
         let deferred = match self.buttons {
@@ -201,12 +124,50 @@ impl HigherLowerGame {
         Ok(BuildPage::new(embed, deferred))
     }
 
-    async fn async_on_timeout(&mut self, response: ActiveResponse) -> Result<()> {
+    fn build_components(&self) -> Vec<Component> {
+        let [higher, lower, next, retry] = self.raw_buttons();
+
+        let button_row = ActionRow {
+            components: vec![
+                Component::Button(higher),
+                Component::Button(lower),
+                Component::Button(next),
+                Component::Button(retry),
+            ],
+        };
+
+        vec![Component::ActionRow(button_row)]
+    }
+
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        let user_id = match component.user_id() {
+            Ok(user_id) => user_id,
+            Err(err) => return ComponentResult::Err(err),
+        };
+
+        if user_id != self.msg_owner {
+            return ComponentResult::Ignore;
+        }
+
+        match component.data.custom_id.as_str() {
+            "higher_button" => self.handle_higherlower(component, HlGuess::Higher).await,
+            "lower_button" => self.handle_higherlower(component, HlGuess::Lower).await,
+            "next_higherlower" => self.handle_next(component).await,
+            "try_again_button" => self.handle_try_again(component).await,
+            other => {
+                warn!(name = %other, ?component, "Unknown higherlower component");
+
+                ComponentResult::Ignore
+            }
+        }
+    }
+
+    async fn on_timeout(&mut self, response: ActiveResponse) -> Result<()> {
         let builder = MessageBuilder::new().components(self.disabled_buttons());
 
         let update_res = match response.update(builder) {
             Some(update_fut) => update_fut.await,
-            None => return Err(eyre!("Lacking permission to disable components on timeout")),
+            None => bail!("Lacking permission to disable components on timeout"),
         };
 
         self.new_highscore()
@@ -216,6 +177,33 @@ impl HigherLowerGame {
         update_res.wrap_err("Failed to disable components")?;
 
         Ok(())
+    }
+
+    fn until_timeout(&self) -> Option<Duration> {
+        match self.buttons {
+            ButtonState::HigherLower => Some(Duration::from_secs(90)),
+            ButtonState::Next { .. } => Some(Duration::from_secs(30)),
+            ButtonState::TryAgain { .. } => Some(Duration::from_secs(30)),
+        }
+    }
+}
+
+impl HigherLowerGame {
+    pub async fn new_score_pp(mode: GameMode, msg_owner: Id<UserMarker>) -> Result<Self> {
+        let game_fut = HigherLowerState::start_score_pp(mode);
+        let highscore_fut = Context::games().higherlower_highscore(msg_owner, HlVersion::ScorePp);
+
+        let ((state, rx), highscore) = tokio::try_join!(game_fut, highscore_fut)?;
+
+        Ok(Self {
+            state,
+            revealed: false,
+            img_url_rx: Some(rx),
+            current_score: 0,
+            highscore,
+            buttons: ButtonState::HigherLower,
+            msg_owner,
+        })
     }
 
     async fn handle_higherlower(

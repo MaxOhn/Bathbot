@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 use bathbot_util::{EmbedBuilder, FooterBuilder};
 use eyre::Result;
-use futures::future::{BoxFuture, ready};
 use twilight_interactions::command::{ApplicationCommandData, CommandOptionExtended};
 use twilight_model::{
     application::command::{Command, CommandOptionType},
@@ -29,16 +28,14 @@ pub struct HelpInteractionCommand {
 }
 
 impl IActiveMessage for HelpInteractionCommand {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let Some(command) = self.find_command() else {
-            let err = eyre!("Unknown command title={:?}", self.next_title);
-
-            return Box::pin(ready(Err(err)));
+            bail!("Unknown command title={:?}", self.next_title);
         };
 
         let parts = match self.command_parts(command) {
             Ok(parts) => parts,
-            Err(err) => return Box::pin(ready(Err(err))),
+            Err(err) => return Err(err),
         };
 
         let CommandParts {
@@ -56,7 +53,7 @@ impl IActiveMessage for HelpInteractionCommand {
             embed = embed.footer(FooterBuilder::new(AUTHORITY_STATUS));
         }
 
-        BuildPage::new(embed, false).boxed()
+        Ok(BuildPage::new(embed, false))
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -143,26 +140,23 @@ impl IActiveMessage for HelpInteractionCommand {
         components
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
         let user_id = match component.user_id() {
             Ok(user_id) => user_id,
-            Err(err) => return ComponentResult::Err(err).boxed(),
+            Err(err) => return ComponentResult::Err(err),
         };
 
         if user_id != self.msg_owner {
-            return ComponentResult::Ignore.boxed();
+            return ComponentResult::Ignore;
         }
 
         match component.data.custom_id.as_str() {
-            "help_menu" => self.handle_menu(component).boxed(),
-            "help_back" => self.handle_back().boxed(),
+            "help_menu" => self.handle_menu(component),
+            "help_back" => self.handle_back(),
             other => {
                 warn!(name = %other, ?component, "Unknown interaction help component");
 
-                ComponentResult::Ignore.boxed()
+                ComponentResult::Ignore
             }
         }
     }

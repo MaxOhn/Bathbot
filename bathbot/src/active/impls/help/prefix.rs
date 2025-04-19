@@ -6,7 +6,6 @@ use bathbot_util::{
     constants::{BATHBOT_ROADMAP, BATHBOT_WORKSHOP},
 };
 use eyre::Result;
-use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::{
         Component, EmojiReactionType,
@@ -33,9 +32,9 @@ pub struct HelpPrefixMenu {
 }
 
 impl IActiveMessage for HelpPrefixMenu {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let Some(group) = self.current_group else {
-            return Box::pin(self.handle_general());
+            return self.handle_general().await;
         };
 
         let mut cmds: Vec<_> = {
@@ -43,8 +42,7 @@ impl IActiveMessage for HelpPrefixMenu {
 
             PrefixCommands::get()
                 .iter()
-                .filter(|cmd| cmd.group == group)
-                .filter(|cmd| dedups.insert(cmd.name()))
+                .filter(|cmd| cmd.group == group && dedups.insert(cmd.name()))
                 .collect()
         };
 
@@ -68,7 +66,7 @@ impl IActiveMessage for HelpPrefixMenu {
 
         let embed = EmbedBuilder::new().description(desc).footer(footer);
 
-        BuildPage::new(embed, false).boxed()
+        Ok(BuildPage::new(embed, false))
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -179,12 +177,9 @@ impl IActiveMessage for HelpPrefixMenu {
         vec![Component::ActionRow(category_row)]
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
         let Some(value) = component.data.values.pop() else {
-            return ComponentResult::Err(eyre!("Missing help menu value")).boxed();
+            return ComponentResult::Err(eyre!("Missing help menu value"));
         };
 
         self.current_group = match value.as_str() {
@@ -202,11 +197,11 @@ impl IActiveMessage for HelpPrefixMenu {
             other => {
                 warn!(name = %other, ?component, "Unknown help menu component");
 
-                return ComponentResult::Ignore.boxed();
+                return ComponentResult::Ignore;
             }
         };
 
-        ComponentResult::BuildPage.boxed()
+        ComponentResult::BuildPage
     }
 }
 

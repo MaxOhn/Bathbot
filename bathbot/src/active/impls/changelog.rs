@@ -3,7 +3,6 @@ use bathbot_util::{
     AuthorBuilder, EmbedBuilder, FooterBuilder, datetime::DATE_FORMAT, numbers::last_multiple,
 };
 use eyre::{Report, Result, WrapErr};
-use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::{
         Component,
@@ -27,41 +26,7 @@ pub struct ChangelogPagination {
 }
 
 impl IActiveMessage for ChangelogPagination {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page())
-    }
-
-    fn build_components(&self) -> Vec<Component> {
-        self.pages.components(&self.data.tags)
-    }
-
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        Box::pin(self.async_handle_component(component))
-    }
-}
-
-impl ChangelogPagination {
-    pub fn new(
-        tag_pages: Vec<ChangelogTagPages>,
-        data: PullRequestsAndTags,
-        msg_owner: Id<UserMarker>,
-    ) -> Self {
-        Self {
-            pages: ChangelogPages::new(data.tags.len()),
-            tag_pages,
-            data,
-            msg_owner,
-        }
-    }
-
-    fn defer(&self) -> bool {
-        self.pages.tag_idx >= self.tag_pages.len()
-    }
-
-    async fn async_build_page(&mut self) -> Result<BuildPage> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let defer = self.defer();
 
         let pages = loop {
@@ -148,10 +113,11 @@ impl ChangelogPagination {
         Ok(BuildPage::new(embed, defer))
     }
 
-    async fn async_handle_component(
-        &mut self,
-        component: &mut InteractionComponent,
-    ) -> ComponentResult {
+    fn build_components(&self) -> Vec<Component> {
+        self.pages.components(&self.data.tags)
+    }
+
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
         let user_id = match component.user_id() {
             Ok(user_id) => user_id,
             Err(err) => return ComponentResult::Err(err),
@@ -205,6 +171,25 @@ impl ChangelogPagination {
         }
 
         ComponentResult::BuildPage
+    }
+}
+
+impl ChangelogPagination {
+    pub fn new(
+        tag_pages: Vec<ChangelogTagPages>,
+        data: PullRequestsAndTags,
+        msg_owner: Id<UserMarker>,
+    ) -> Self {
+        Self {
+            pages: ChangelogPages::new(data.tags.len()),
+            tag_pages,
+            data,
+            msg_owner,
+        }
+    }
+
+    fn defer(&self) -> bool {
+        self.pages.tag_idx >= self.tag_pages.len()
     }
 }
 

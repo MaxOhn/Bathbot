@@ -2,7 +2,6 @@ use std::{
     collections::{HashMap, hash_map::Entry},
     convert::identity,
     fmt::Write,
-    future::ready,
     mem,
     time::Duration,
 };
@@ -17,7 +16,6 @@ use bathbot_util::{
     numbers::round,
 };
 use eyre::{Report, Result, WrapErr};
-use futures::future::BoxFuture;
 use rosu_pp::{Beatmap, Difficulty, Performance};
 use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::{
@@ -73,7 +71,43 @@ impl BookmarksPagination {
         Ok(entry.insert(CachedBookmarkEntry { pp_map, gd_creator }))
     }
 
-    async fn async_build_page(&mut self) -> Result<BuildPage> {
+    async fn handle_remove(&mut self, component: &InteractionComponent) -> ComponentResult {
+        let owner = match component.user_id() {
+            Ok(user_id) => user_id,
+            Err(err) => return ComponentResult::Err(err),
+        };
+
+        if owner != self.msg_owner {
+            return ComponentResult::Ignore;
+        }
+
+        if let Err(err) = component.defer().await {
+            return ComponentResult::Err(Report::new(err).wrap_err("Failed to defer component"));
+        }
+
+        let idx = self.pages.index();
+        let bookmark = self.bookmarks.remove(idx);
+
+        if let Err(err) = Context::bookmarks().remove(owner, bookmark.map_id).await {
+            return ComponentResult::Err(err);
+        }
+
+        self.pages = Pages::new(1, self.bookmarks.len());
+        self.pages.set_index(idx);
+        self.defer_next = true;
+
+        debug!(user = %self.msg_owner, map = bookmark.map_id, "Removed bookmarked map");
+
+        ComponentResult::BuildPage
+    }
+
+    pub fn set_index(&mut self, index: usize) {
+        self.pages.set_index(index);
+    }
+}
+
+impl IActiveMessage for BookmarksPagination {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let defer = mem::replace(&mut self.defer_next, false);
 
         if self.bookmarks.is_empty() {
@@ -288,46 +322,6 @@ impl BookmarksPagination {
         Ok(BuildPage::new(embed, defer).content(self.content.clone()))
     }
 
-    async fn handle_remove(&mut self, component: &InteractionComponent) -> ComponentResult {
-        let owner = match component.user_id() {
-            Ok(user_id) => user_id,
-            Err(err) => return ComponentResult::Err(err),
-        };
-
-        if owner != self.msg_owner {
-            return ComponentResult::Ignore;
-        }
-
-        if let Err(err) = component.defer().await {
-            return ComponentResult::Err(Report::new(err).wrap_err("Failed to defer component"));
-        }
-
-        let idx = self.pages.index();
-        let bookmark = self.bookmarks.remove(idx);
-
-        if let Err(err) = Context::bookmarks().remove(owner, bookmark.map_id).await {
-            return ComponentResult::Err(err);
-        }
-
-        self.pages = Pages::new(1, self.bookmarks.len());
-        self.pages.set_index(idx);
-        self.defer_next = true;
-
-        debug!(user = %self.msg_owner, map = bookmark.map_id, "Removed bookmarked map");
-
-        ComponentResult::BuildPage
-    }
-
-    pub fn set_index(&mut self, index: usize) {
-        self.pages.set_index(index);
-    }
-}
-
-impl IActiveMessage for BookmarksPagination {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page())
-    }
-
     fn build_components(&self) -> Vec<Component> {
         if self.bookmarks.is_empty() {
             return Vec::new();
@@ -406,23 +400,20 @@ impl IActiveMessage for BookmarksPagination {
         vec![Component::ActionRow(ActionRow { components })]
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
         self.confirm_remove = Some(false);
 
         match component.data.custom_id.as_str() {
             "bookmarks_remove" => {
                 self.confirm_remove = Some(true);
 
-                Box::pin(ready(ComponentResult::BuildPage))
+                ComponentResult::BuildPage
             }
-            "bookmarks_confirm_remove" => Box::pin(self.handle_remove(component)),
+            "bookmarks_confirm_remove" => self.handle_remove(component).await,
             _ => {
                 self.defer_next = true;
 
-                handle_pagination_component(component, self.msg_owner, true, &mut self.pages)
+                handle_pagination_component(component, self.msg_owner, true, &mut self.pages).await
             }
         }
     }
@@ -431,17 +422,14 @@ impl IActiveMessage for BookmarksPagination {
         (!self.bookmarks.is_empty()).then_some(Duration::from_secs(60))
     }
 
-    fn on_timeout(&mut self, _: ActiveResponse) -> BoxFuture<'_, Result<()>> {
-        let fut = async move {
-            Context::interaction()
-                .update_response(&self.token)
-                .components(Some(&[]))
-                .await
-                .map(|_| ())
-                .wrap_err("Failed to update on bookmark timeout")
-        };
+    async fn on_timeout(&mut self, _: ActiveResponse) -> Result<()> {
+        Context::interaction()
+            .update_response(&self.token)
+            .components(Some(&[]))
+            .await
+            .wrap_err("Failed to update on bookmark timeout")?;
 
-        Box::pin(fut)
+        Ok(())
     }
 }
 

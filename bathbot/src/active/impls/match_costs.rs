@@ -6,7 +6,6 @@ use bathbot_util::{
     numbers::{WithComma, round},
 };
 use eyre::Result;
-use futures::future::BoxFuture;
 use rosu_v2::model::{matches::OsuMatch, user::User};
 use twilight_model::{
     channel::message::Component,
@@ -32,26 +31,61 @@ pub struct MatchCostPagination {
 }
 
 impl IActiveMessage for MatchCostPagination {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page())
+    async fn build_page(&mut self) -> Result<BuildPage> {
+        let match_id = self.osu_match.match_id;
+        let mut title = self.osu_match.name.clone();
+        title.retain(|c| c != '(' && c != ')');
+
+        let mut embed = EmbedBuilder::new()
+            .title(title)
+            .url(format!("{OSU_BASE}community/matches/{match_id}"));
+
+        embed = match &self.result {
+            MatchResult::TeamVS {
+                blue,
+                red,
+                mvp_avatar_url,
+            } => {
+                let mut description = self.description_team_vs(blue, red);
+
+                validate_description_len(&mut description);
+
+                embed = match self.display {
+                    MatchCostDisplay::Compact => embed.thumbnail(mvp_avatar_url.as_ref()),
+                    MatchCostDisplay::Full => embed.footer(FooterBuilder::new(FULL_FOOTER)),
+                };
+
+                embed.description(description)
+            }
+            MatchResult::HeadToHead {
+                players,
+                mvp_avatar_url,
+            } => {
+                let description = self.description_head_to_head(players);
+
+                embed = match self.display {
+                    MatchCostDisplay::Compact => embed.thumbnail(mvp_avatar_url.as_ref()),
+                    MatchCostDisplay::Full => embed.footer(FooterBuilder::new(FULL_FOOTER)),
+                };
+
+                embed.description(description)
+            }
+            MatchResult::NoGames { description } => embed.description(description.as_str()),
+        };
+
+        Ok(BuildPage::new(embed, false).content(self.content.clone()))
     }
 
     fn build_components(&self) -> Vec<Component> {
         self.pages.components()
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages).await
     }
 
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
+    async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages).await
     }
 
     fn until_timeout(&self) -> Option<Duration> {
@@ -131,51 +165,6 @@ impl MatchCostPaginationBuilder {
 impl MatchCostPagination {
     pub fn builder() -> MatchCostPaginationBuilder {
         MatchCostPaginationBuilder::default()
-    }
-
-    async fn async_build_page(&mut self) -> Result<BuildPage> {
-        let match_id = self.osu_match.match_id;
-        let mut title = self.osu_match.name.clone();
-        title.retain(|c| c != '(' && c != ')');
-
-        let mut embed = EmbedBuilder::new()
-            .title(title)
-            .url(format!("{OSU_BASE}community/matches/{match_id}"));
-
-        embed = match &self.result {
-            MatchResult::TeamVS {
-                blue,
-                red,
-                mvp_avatar_url,
-            } => {
-                let mut description = self.description_team_vs(blue, red);
-
-                validate_description_len(&mut description);
-
-                embed = match self.display {
-                    MatchCostDisplay::Compact => embed.thumbnail(mvp_avatar_url.as_ref()),
-                    MatchCostDisplay::Full => embed.footer(FooterBuilder::new(FULL_FOOTER)),
-                };
-
-                embed.description(description)
-            }
-            MatchResult::HeadToHead {
-                players,
-                mvp_avatar_url,
-            } => {
-                let description = self.description_head_to_head(players);
-
-                embed = match self.display {
-                    MatchCostDisplay::Compact => embed.thumbnail(mvp_avatar_url.as_ref()),
-                    MatchCostDisplay::Full => embed.footer(FooterBuilder::new(FULL_FOOTER)),
-                };
-
-                embed.description(description)
-            }
-            MatchResult::NoGames { description } => embed.description(description.as_str()),
-        };
-
-        Ok(BuildPage::new(embed, false).content(self.content.clone()))
     }
 
     fn description_team_vs(&self, blue: &TeamResult, red: &TeamResult) -> String {

@@ -26,7 +26,7 @@ async fn bookmark_map(mut command: InteractionCommand) -> Result<()> {
     let Some(msg) = msg_opt else {
         let _ = command.error(GENERAL_ISSUE).await;
 
-        return Err(eyre!("Missing resolved message"));
+        bail!("Missing resolved message");
     };
 
     let map_id = match MapOrScore::find_in_msg(msg).await {

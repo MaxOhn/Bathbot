@@ -3,7 +3,6 @@ use bathbot_util::{
     numbers::last_multiple,
 };
 use eyre::{ContextCompat, Result, WrapErr};
-use futures::{FutureExt, future::BoxFuture};
 use twilight_model::{
     channel::message::{
         Component,
@@ -130,111 +129,96 @@ impl Pages {
     }
 }
 
-pub fn handle_pagination_component<'a>(
+pub async fn handle_pagination_component<'a>(
     component: &'a mut InteractionComponent,
     msg_owner: Id<UserMarker>,
     defer: bool,
     pages: &'a mut Pages,
-) -> BoxFuture<'a, ComponentResult> {
-    let fut = async move {
-        async_handle_pagination_component(component, msg_owner, defer, pages)
-            .await
-            .unwrap_or_else(ComponentResult::Err)
-    };
-
-    fut.boxed()
-}
-
-pub async fn async_handle_pagination_component(
-    component: &mut InteractionComponent,
-    msg_owner: Id<UserMarker>,
-    defer: bool,
-    pages: &mut Pages,
-) -> Result<ComponentResult> {
-    if component.user_id()? != msg_owner {
-        return Ok(ComponentResult::Ignore);
-    }
-
-    match component.data.custom_id.as_str() {
-        "pagination_start" => {
-            if defer {
-                component
-                    .defer()
-                    .await
-                    .wrap_err("Failed to defer component")?;
-            }
-
-            pages.set_index(0);
-        }
-        "pagination_back" => {
-            if defer {
-                component
-                    .defer()
-                    .await
-                    .wrap_err("Failed to defer component")?;
-            }
-
-            pages.set_index(pages.index().saturating_sub(pages.per_page()));
-        }
-        "pagination_step" => {
-            if defer {
-                component
-                    .defer()
-                    .await
-                    .wrap_err("Failed to defer component")?;
-            }
-
-            pages.set_index(pages.index() + pages.per_page());
-        }
-        "pagination_end" => {
-            if defer {
-                component
-                    .defer()
-                    .await
-                    .wrap_err("Failed to defer component")?;
-            }
-
-            pages.set_index(pages.last_index());
-        }
-        "pagination_custom" => {
-            let max_page = pages.last_page();
-            let placeholder = format!("Number between 1 and {max_page}");
-
-            let input = TextInputBuilder::new("page_input", "Page number")
-                .min_len(1)
-                .max_len(5)
-                .placeholder(placeholder);
-
-            let modal = ModalBuilder::new("pagination_page", "Jump to a page").input(input);
-
-            return Ok(ComponentResult::CreateModal(modal));
-        }
-        other => {
-            warn!(name = %other, ?component, "Unknown pagination component");
-
+) -> ComponentResult {
+    async fn inner<'a>(
+        component: &'a mut InteractionComponent,
+        msg_owner: Id<UserMarker>,
+        defer: bool,
+        pages: &'a mut Pages,
+    ) -> Result<ComponentResult> {
+        if component.user_id()? != msg_owner {
             return Ok(ComponentResult::Ignore);
         }
+
+        match component.data.custom_id.as_str() {
+            "pagination_start" => {
+                if defer {
+                    component
+                        .defer()
+                        .await
+                        .wrap_err("Failed to defer component")?;
+                }
+
+                pages.set_index(0);
+            }
+            "pagination_back" => {
+                if defer {
+                    component
+                        .defer()
+                        .await
+                        .wrap_err("Failed to defer component")?;
+                }
+
+                pages.set_index(pages.index().saturating_sub(pages.per_page()));
+            }
+            "pagination_step" => {
+                if defer {
+                    component
+                        .defer()
+                        .await
+                        .wrap_err("Failed to defer component")?;
+                }
+
+                pages.set_index(pages.index() + pages.per_page());
+            }
+            "pagination_end" => {
+                if defer {
+                    component
+                        .defer()
+                        .await
+                        .wrap_err("Failed to defer component")?;
+                }
+
+                pages.set_index(pages.last_index());
+            }
+            "pagination_custom" => {
+                let max_page = pages.last_page();
+                let placeholder = format!("Number between 1 and {max_page}");
+
+                let input = TextInputBuilder::new("page_input", "Page number")
+                    .min_len(1)
+                    .max_len(5)
+                    .placeholder(placeholder);
+
+                let modal = ModalBuilder::new("pagination_page", "Jump to a page").input(input);
+
+                return Ok(ComponentResult::CreateModal(modal));
+            }
+            other => {
+                warn!(name = %other, ?component, "Unknown pagination component");
+
+                return Ok(ComponentResult::Ignore);
+            }
+        }
+
+        Ok(ComponentResult::BuildPage)
     }
 
-    Ok(ComponentResult::BuildPage)
+    inner(component, msg_owner, defer, pages)
+        .await
+        .unwrap_or_else(ComponentResult::Err)
 }
 
-pub fn handle_pagination_modal<'a>(
+pub async fn handle_pagination_modal<'a>(
     modal: &'a mut InteractionModal,
     msg_owner: Id<UserMarker>,
     defer: bool,
     pages: &'a mut Pages,
-) -> BoxFuture<'a, Result<()>> {
-    Box::pin(async_handle_pagination_modal(
-        modal, msg_owner, defer, pages,
-    ))
-}
-
-async fn async_handle_pagination_modal(
-    modal: &mut InteractionModal,
-    msg_owner: Id<UserMarker>,
-    defer: bool,
-    pages: &mut Pages,
 ) -> Result<()> {
     if modal.user_id()? != msg_owner {
         return Ok(());

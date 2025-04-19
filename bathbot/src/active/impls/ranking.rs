@@ -13,7 +13,6 @@ use bathbot_util::{
     numbers::{WithComma, round},
 };
 use eyre::{Result, WrapErr};
-use futures::future::BoxFuture;
 use time::OffsetDateTime;
 use twilight_model::{
     channel::message::Component,
@@ -42,41 +41,7 @@ pub struct RankingPagination {
 }
 
 impl IActiveMessage for RankingPagination {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page())
-    }
-
-    fn build_components(&self) -> Vec<Component> {
-        self.pages.components()
-    }
-
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(component, self.msg_owner, self.defer(), &mut self.pages)
-    }
-
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(modal, self.msg_owner, self.defer(), &mut self.pages)
-    }
-}
-
-impl RankingPagination {
-    fn defer(&self) -> bool {
-        matches!(
-            self.kind,
-            RankingKind::BgScores { .. }
-                | RankingKind::PpCountry { .. }
-                | RankingKind::PpGlobal { .. }
-                | RankingKind::RankedScore { .. }
-        )
-    }
-
-    async fn async_build_page(&mut self) -> Result<BuildPage> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let idx = self.pages.index().saturating_sub(1);
         let mut page = ((idx - idx % 50) + 50) / 50;
         page += self.entries.contains_key(idx) as usize;
@@ -139,6 +104,30 @@ impl RankingPagination {
         };
 
         Ok(BuildPage::new(builder, self.defer))
+    }
+
+    fn build_components(&self) -> Vec<Component> {
+        self.pages.components()
+    }
+
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        handle_pagination_component(component, self.msg_owner, self.defer(), &mut self.pages).await
+    }
+
+    async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+        handle_pagination_modal(modal, self.msg_owner, self.defer(), &mut self.pages).await
+    }
+}
+
+impl RankingPagination {
+    fn defer(&self) -> bool {
+        matches!(
+            self.kind,
+            RankingKind::BgScores { .. }
+                | RankingKind::PpCountry { .. }
+                | RankingKind::PpGlobal { .. }
+                | RankingKind::RankedScore { .. }
+        )
     }
 
     fn finalize<'v, V, F>(

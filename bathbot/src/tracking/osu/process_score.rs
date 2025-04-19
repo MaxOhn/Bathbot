@@ -16,7 +16,10 @@ use twilight_model::id::Id;
 
 use super::{OsuTracking, entry::TrackEntry};
 use crate::{
-    active::impls::{MarkIndex, SingleScoreContent, SingleScorePagination},
+    active::{
+        IActiveMessage,
+        impls::{SingleScoreContent, SingleScorePagination},
+    },
     commands::utility::ScoreEmbedDataWrap,
     core::{BotMetrics, Context},
     manager::{
@@ -179,9 +182,7 @@ async fn embed_builder(
     let mut pagination =
         SingleScorePagination::new(user, entries, settings, score_data, msg_owner, content);
 
-    let build_fut = pagination.async_build_page(Box::default(), MarkIndex::Skip);
-
-    match build_fut.await {
+    match pagination.build_page().await {
         Ok(data) => (data.into_embed(), max_combo),
         // Unreachable because `async_build_page` can only fail while
         // converting to full score data but it already starts off as

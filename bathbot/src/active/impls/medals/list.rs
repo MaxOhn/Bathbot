@@ -5,7 +5,6 @@ use bathbot_util::{
     AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, constants::OSU_BASE, osu::flag_url,
 };
 use eyre::Result;
-use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::Component,
     id::{Id, marker::UserMarker},
@@ -33,7 +32,7 @@ pub struct MedalsListPagination {
 }
 
 impl IActiveMessage for MedalsListPagination {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let pages = &self.pages;
         let idx = pages.index();
         let limit = self.medals.len().min(idx + pages.per_page());
@@ -87,26 +86,18 @@ impl IActiveMessage for MedalsListPagination {
             .footer(footer)
             .thumbnail(avatar_url);
 
-        BuildPage::new(embed, false)
-            .content(self.content.clone())
-            .boxed()
+        Ok(BuildPage::new(embed, false).content(self.content.clone()))
     }
 
     fn build_components(&self) -> Vec<Component> {
         self.pages.components()
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages).await
     }
 
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
+    async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages).await
     }
 }

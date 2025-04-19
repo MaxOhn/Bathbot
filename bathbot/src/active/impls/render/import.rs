@@ -8,7 +8,6 @@ use bathbot_util::{
     modal::{ModalBuilder, TextInputBuilder},
 };
 use eyre::{Report, Result, WrapErr};
-use futures::future::BoxFuture;
 use rosu_render::model::{RenderOptions, RenderSkinOption};
 use twilight_model::{
     channel::message::{
@@ -78,8 +77,138 @@ impl SettingsImport {
             import_result: Default::default(),
         }
     }
+}
 
-    async fn async_handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+impl IActiveMessage for SettingsImport {
+    async fn build_page(&mut self) -> Result<BuildPage> {
+        const TITLE: &str = "Copy Yuna's settings, click the button, and paste them in";
+        const IMAGE_URL: &str = "https://cdn.discordapp.com/attachments/579428622964621324/1215304506036986007/image.png?ex=65fc4385&is=65e9ce85&hm=cd271413f8d7b5f5913a7454adb9e55bc18cf763b0d395c7065fb783bb31e8f7&";
+
+        let skipped_defer = self.import_result.skip_defer();
+
+        match self.import_result {
+            ImportResult::None => {
+                let embed = EmbedBuilder::new().title(TITLE).image(IMAGE_URL);
+
+                Ok(BuildPage::new(embed, false))
+            }
+            ImportResult::Ok(ref mut active) => {
+                if skipped_defer {
+                    match active.build_page().await {
+                        Ok(mut build) => {
+                            build.defer = true;
+
+                            Ok(build)
+                        }
+                        err @ Err(_) => err,
+                    }
+                } else {
+                    active.build_page().await
+                }
+            }
+            ImportResult::ParseError(ref err) => {
+                let footer = match err {
+                    ParseError::InsufficientLineCount => {
+                        "Error: Expected more lines, did you copy-paste everything?".to_owned()
+                    }
+                    ParseError::Missing(setting) => {
+                        format!("Error: Missing `{setting}`, did you copy-paste everything?")
+                    }
+                    ParseError::InvalidValue(setting) => {
+                        format!("Error: Invalid value for `{setting}`")
+                    }
+                };
+
+                let embed = EmbedBuilder::new()
+                    .title(TITLE)
+                    .image(IMAGE_URL)
+                    .color_red()
+                    .footer(FooterBuilder::new(footer));
+
+                Ok(BuildPage::new(embed, true))
+            }
+            ImportResult::Err(ref err) => {
+                warn!(?err, "Import result error");
+
+                let embed = EmbedBuilder::new()
+                    .color_red()
+                    .description("Something went wrong, try again later");
+
+                Ok(BuildPage::new(embed, true))
+            }
+            ImportResult::OkWithDefer(_) => unreachable!(),
+        }
+    }
+
+    fn build_components(&self) -> Vec<Component> {
+        match &self.import_result {
+            ImportResult::None | ImportResult::ParseError(_) => {
+                let import = Button {
+                    custom_id: Some("import".to_owned()),
+                    disabled: false,
+                    emoji: Some(EmojiReactionType::Unicode {
+                        name: "📋".to_owned(),
+                    }),
+                    label: Some("Paste settings".to_owned()),
+                    style: ButtonStyle::Success,
+                    url: None,
+                    sku_id: None,
+                };
+
+                let row = ActionRow {
+                    components: vec![Component::Button(import)],
+                };
+
+                vec![Component::ActionRow(row)]
+            }
+            ImportResult::OkWithDefer(active) | ImportResult::Ok(active) => {
+                active.build_components()
+            }
+            ImportResult::Err(_) => Vec::new(),
+        }
+    }
+
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        if let ImportResult::OkWithDefer(active) | ImportResult::Ok(active) =
+            &mut self.import_result
+        {
+            return active.handle_component(component).await;
+        }
+
+        #[cfg(debug_assertions)]
+        if component.data.custom_id != "import" {
+            return ComponentResult::Err(eyre!(
+                "Unexpected setting import component `{}`",
+                component.data.custom_id
+            ));
+        }
+
+        let owner = match component.user_id() {
+            Ok(user_id) => user_id,
+            Err(err) => return ComponentResult::Err(err),
+        };
+
+        if owner != self.msg_owner {
+            return ComponentResult::Ignore;
+        }
+
+        let input = TextInputBuilder::new("input", "Yuna embed text")
+            .placeholder("Copy-paste Yuna's settings embed")
+            .style(TextInputStyle::Paragraph)
+            .required(true);
+
+        let modal = ModalBuilder::new("import", "Import render settings from Yuna").input(input);
+
+        ComponentResult::CreateModal(modal)
+    }
+
+    async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+        if let ImportResult::OkWithDefer(ref mut active) | ImportResult::Ok(ref mut active) =
+            self.import_result
+        {
+            return active.handle_modal(modal).await;
+        }
+
         #[cfg(debug_assertions)]
         ensure!(
             modal.data.custom_id == "import",
@@ -95,7 +224,7 @@ impl SettingsImport {
             .and_then(|component| component.value);
 
         let Some(input) = input_opt else {
-            return Err(eyre!("Missing settings import modal input"));
+            bail!("Missing settings import modal input");
         };
 
         modal.defer().await.wrap_err("Failed to defer modal")?;
@@ -162,151 +291,6 @@ impl SettingsImport {
         self.import_result = ImportResult::OkWithDefer(active);
 
         Ok(())
-    }
-}
-
-impl IActiveMessage for SettingsImport {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
-        const TITLE: &str = "Copy Yuna's settings, click the button, and paste them in";
-        const IMAGE_URL: &str = "https://cdn.discordapp.com/attachments/579428622964621324/1215304506036986007/image.png?ex=65fc4385&is=65e9ce85&hm=cd271413f8d7b5f5913a7454adb9e55bc18cf763b0d395c7065fb783bb31e8f7&";
-
-        let skipped_defer = self.import_result.skip_defer();
-
-        match self.import_result {
-            ImportResult::None => {
-                let embed = EmbedBuilder::new().title(TITLE).image(IMAGE_URL);
-
-                BuildPage::new(embed, false).boxed()
-            }
-            ImportResult::Ok(ref mut active) => {
-                if skipped_defer {
-                    let fut = async {
-                        match active.build_page().await {
-                            Ok(mut build) => {
-                                build.defer = true;
-
-                                Ok(build)
-                            }
-                            err @ Err(_) => err,
-                        }
-                    };
-
-                    Box::pin(fut)
-                } else {
-                    active.build_page()
-                }
-            }
-            ImportResult::ParseError(ref err) => {
-                let footer = match err {
-                    ParseError::InsufficientLineCount => {
-                        "Error: Expected more lines, did you copy-paste everything?".to_owned()
-                    }
-                    ParseError::Missing(setting) => {
-                        format!("Error: Missing `{setting}`, did you copy-paste everything?")
-                    }
-                    ParseError::InvalidValue(setting) => {
-                        format!("Error: Invalid value for `{setting}`")
-                    }
-                };
-
-                let embed = EmbedBuilder::new()
-                    .title(TITLE)
-                    .image(IMAGE_URL)
-                    .color_red()
-                    .footer(FooterBuilder::new(footer));
-
-                BuildPage::new(embed, true).boxed()
-            }
-            ImportResult::Err(ref err) => {
-                warn!(?err, "Import result error");
-
-                let embed = EmbedBuilder::new()
-                    .color_red()
-                    .description("Something went wrong, try again later");
-
-                BuildPage::new(embed, true).boxed()
-            }
-            ImportResult::OkWithDefer(_) => unreachable!(),
-        }
-    }
-
-    fn build_components(&self) -> Vec<Component> {
-        match &self.import_result {
-            ImportResult::None | ImportResult::ParseError(_) => {
-                let import = Button {
-                    custom_id: Some("import".to_owned()),
-                    disabled: false,
-                    emoji: Some(EmojiReactionType::Unicode {
-                        name: "📋".to_owned(),
-                    }),
-                    label: Some("Paste settings".to_owned()),
-                    style: ButtonStyle::Success,
-                    url: None,
-                    sku_id: None,
-                };
-
-                let row = ActionRow {
-                    components: vec![Component::Button(import)],
-                };
-
-                vec![Component::ActionRow(row)]
-            }
-            ImportResult::OkWithDefer(active) | ImportResult::Ok(active) => {
-                active.build_components()
-            }
-            ImportResult::Err(_) => Vec::new(),
-        }
-    }
-
-    fn handle_component<'a>(
-        &'a mut self,
-
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        if let ImportResult::OkWithDefer(active) | ImportResult::Ok(active) =
-            &mut self.import_result
-        {
-            return active.handle_component(component);
-        }
-
-        #[cfg(debug_assertions)]
-        if component.data.custom_id != "import" {
-            return Box::pin(std::future::ready(ComponentResult::Err(eyre!(
-                "Unexpected setting import component `{}`",
-                component.data.custom_id
-            ))));
-        }
-
-        let owner = match component.user_id() {
-            Ok(user_id) => user_id,
-            Err(err) => return ComponentResult::Err(err).boxed(),
-        };
-
-        if owner != self.msg_owner {
-            return ComponentResult::Ignore.boxed();
-        }
-
-        let input = TextInputBuilder::new("input", "Yuna embed text")
-            .placeholder("Copy-paste Yuna's settings embed")
-            .style(TextInputStyle::Paragraph)
-            .required(true);
-
-        let modal = ModalBuilder::new("import", "Import render settings from Yuna").input(input);
-
-        ComponentResult::CreateModal(modal).boxed()
-    }
-
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        if let ImportResult::OkWithDefer(ref mut active) | ImportResult::Ok(ref mut active) =
-            self.import_result
-        {
-            return active.handle_modal(modal);
-        }
-
-        Box::pin(self.async_handle_modal(modal))
     }
 }
 

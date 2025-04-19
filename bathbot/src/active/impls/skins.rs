@@ -4,7 +4,6 @@ use bathbot_macros::PaginationBuilder;
 use bathbot_psql::model::configs::SkinEntry;
 use bathbot_util::{EmbedBuilder, FooterBuilder, constants::OSU_BASE};
 use eyre::Result;
-use futures::future::BoxFuture;
 use twilight_model::{
     channel::message::Component,
     id::{Id, marker::UserMarker},
@@ -28,7 +27,7 @@ pub struct SkinsPagination {
 }
 
 impl IActiveMessage for SkinsPagination {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         const PER_PAGE: usize = 12;
         const PER_SIDE: usize = PER_PAGE / 2;
 
@@ -95,25 +94,19 @@ impl IActiveMessage for SkinsPagination {
             .footer(footer)
             .title(title);
 
-        BuildPage::new(embed, false).boxed()
+        Ok(BuildPage::new(embed, false))
     }
 
     fn build_components(&self) -> Vec<Component> {
         self.pages.components()
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        handle_pagination_component(component, self.msg_owner, false, &mut self.pages).await
     }
 
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
+    async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages).await
     }
 }
 

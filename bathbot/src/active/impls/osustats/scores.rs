@@ -9,7 +9,6 @@ use bathbot_util::{
     numbers::{WithComma, round},
 };
 use eyre::Result;
-use futures::future::BoxFuture;
 use rosu_v2::prelude::{GameMode, Grade, ScoreStatistics};
 use twilight_model::{
     channel::message::Component,
@@ -45,31 +44,7 @@ pub struct OsuStatsScoresPagination {
 }
 
 impl IActiveMessage for OsuStatsScoresPagination {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
-        Box::pin(self.async_build_page())
-    }
-
-    fn build_components(&self) -> Vec<Component> {
-        self.pages.components()
-    }
-
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        handle_pagination_component(component, self.msg_owner, true, &mut self.pages)
-    }
-
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(modal, self.msg_owner, true, &mut self.pages)
-    }
-}
-
-impl OsuStatsScoresPagination {
-    async fn async_build_page(&mut self) -> Result<BuildPage> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let pages = &self.pages;
 
         let entries = self
@@ -223,5 +198,17 @@ impl OsuStatsScoresPagination {
             .thumbnail(self.user.avatar_url.as_ref());
 
         Ok(BuildPage::new(embed, true).content(self.content.clone()))
+    }
+
+    fn build_components(&self) -> Vec<Component> {
+        self.pages.components()
+    }
+
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        handle_pagination_component(component, self.msg_owner, true, &mut self.pages).await
+    }
+
+    async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+        handle_pagination_modal(modal, self.msg_owner, true, &mut self.pages).await
     }
 }

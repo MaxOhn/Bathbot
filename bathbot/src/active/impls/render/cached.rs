@@ -1,11 +1,10 @@
-use std::{fmt::Write, future::ready, mem};
+use std::{fmt::Write, mem};
 
 use bathbot_util::{
     EmbedBuilder, MessageBuilder,
     constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
 };
-use eyre::{Report, Result, WrapErr};
-use futures::future::BoxFuture;
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use rosu_render::{ClientError as OrdrError, client::error::ApiError as OrdrApiError};
 use rosu_v2::error::OsuError;
 use twilight_model::{
@@ -204,26 +203,10 @@ impl CachedRender {
 
         Ok(())
     }
-
-    async fn async_handle_component(
-        &mut self,
-        component: &mut InteractionComponent,
-    ) -> ComponentResult {
-        let res = match component.data.custom_id.as_str() {
-            "send_link" => self.send_link(component).await,
-            "render_anyway" => self.render_anyway(component).await,
-            other => Err(eyre!("Unknown cached render component `{other}`")),
-        };
-
-        match res {
-            Ok(_) => ComponentResult::Ignore,
-            Err(err) => ComponentResult::Err(err),
-        }
-    }
 }
 
 impl IActiveMessage for CachedRender {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let description =
             "Do you want to save time and send the video link here or re-record this score?";
 
@@ -231,7 +214,7 @@ impl IActiveMessage for CachedRender {
             .title("This score has already been recorded")
             .description(description);
 
-        BuildPage::new(embed, false).boxed()
+        Ok(BuildPage::new(embed, false))
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -267,16 +250,22 @@ impl IActiveMessage for CachedRender {
         vec![Component::ActionRow(ActionRow { components })]
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        Box::pin(self.async_handle_component(component))
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        let res = match component.data.custom_id.as_str() {
+            "send_link" => self.send_link(component).await,
+            "render_anyway" => self.render_anyway(component).await,
+            other => Err(eyre!("Unknown cached render component `{other}`")),
+        };
+
+        match res {
+            Ok(_) => ComponentResult::Ignore,
+            Err(err) => ComponentResult::Err(err),
+        }
     }
 
-    fn on_timeout(&mut self, response: ActiveResponse) -> BoxFuture<'_, Result<()>> {
+    async fn on_timeout(&mut self, response: ActiveResponse) -> Result<()> {
         if self.done {
-            return Box::pin(ready(Ok(())));
+            return Ok(());
         }
 
         let mut video_url = mem::take(&mut self.video_url).into_string();
@@ -287,18 +276,12 @@ impl IActiveMessage for CachedRender {
             .embed(None)
             .components(Vec::new());
 
-        let Some(fut) = response.update(builder) else {
-            return Box::pin(ready(Err(eyre!(
-                "Lacking permissions to handle cached render timeout"
-            ))));
-        };
+        response
+            .update(builder)
+            .wrap_err("Lacking permissions to handle cached render timeout")?
+            .await
+            .wrap_err("Failed to callback component")?;
 
-        let fut = async {
-            fut.await
-                .map(|_| ())
-                .map_err(|err| Report::new(err).wrap_err("Failed to callback component"))
-        };
-
-        Box::pin(fut)
+        Ok(())
     }
 }

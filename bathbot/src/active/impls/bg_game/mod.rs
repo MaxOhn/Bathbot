@@ -2,7 +2,6 @@ use bathbot_model::{Effects, MapsetTags};
 use bathbot_psql::model::games::DbMapTagsParams;
 use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder, constants::GENERAL_ISSUE, fields};
 use eyre::{Report, Result};
-use futures::future::BoxFuture;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     channel::message::{
@@ -40,9 +39,9 @@ pub struct BackgroundGameSetup {
 }
 
 impl IActiveMessage for BackgroundGameSetup {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         if let SetupState::Ready { channel } = self.state {
-            return Box::pin(self.start(channel));
+            return self.start(channel).await;
         }
 
         let description = format!(
@@ -68,7 +67,7 @@ impl IActiveMessage for BackgroundGameSetup {
 
         let embed = EmbedBuilder::new().description(description).fields(fields);
 
-        BuildPage::new(embed, false).boxed()
+        Ok(BuildPage::new(embed, false))
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -304,17 +303,14 @@ impl IActiveMessage for BackgroundGameSetup {
         ]
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
         let user_id = match component.user_id() {
             Ok(user_id) => user_id,
-            Err(err) => return ComponentResult::Err(err).boxed(),
+            Err(err) => return ComponentResult::Err(err),
         };
 
         if user_id != self.msg_owner {
-            return ComponentResult::Ignore.boxed();
+            return ComponentResult::Ignore;
         }
 
         match component.data.custom_id.as_str() {
@@ -326,15 +322,15 @@ impl IActiveMessage for BackgroundGameSetup {
                     channel: component.channel_id,
                 }
             }
-            "bg_cancel_button" => return Box::pin(self.cancel(component)),
+            "bg_cancel_button" => return self.cancel(component).await,
             other => {
                 warn!(name = %other, ?component, "Unknown background game setup component");
 
-                return ComponentResult::Ignore.boxed();
+                return ComponentResult::Ignore;
             }
         }
 
-        ComponentResult::BuildPage.boxed()
+        ComponentResult::BuildPage
     }
 }
 

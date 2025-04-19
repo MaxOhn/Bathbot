@@ -18,7 +18,6 @@ use bathbot_util::{
     numbers::round,
 };
 use eyre::{Report, Result};
-use futures::future::BoxFuture;
 use rosu_pp::model::beatmap::BeatmapAttributes;
 use rosu_render::{ClientError as OrdrError, client::error::ApiError as OrdrApiError};
 use rosu_v2::{
@@ -43,7 +42,7 @@ use crate::{
     active::{
         ActiveMessages, BuildPage, ComponentResult, IActiveMessage,
         impls::{CachedRender, embed_builder::ValueKind},
-        pagination::{Pages, async_handle_pagination_component, handle_pagination_modal},
+        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::{
         osu::{OngoingRender, RENDERER_NAME, RenderStatus, RenderStatusInner},
@@ -98,6 +97,7 @@ impl SingleScorePagination {
         self.pages.set_index(idx);
     }
 
+    // refactored into a pub method so it's usable from elsewhere
     pub async fn async_build_page(
         &mut self,
         content: Box<str>,
@@ -158,33 +158,6 @@ impl SingleScorePagination {
         mark_idx: MarkIndex,
     ) -> EmbedBuilder {
         apply_settings(settings, data, score_data, mark_idx)
-    }
-
-    async fn async_handle_component(
-        &mut self,
-        component: &mut InteractionComponent,
-    ) -> ComponentResult {
-        let user_id = match component.user_id() {
-            Ok(user_id) => user_id,
-            Err(err) => return ComponentResult::Err(err),
-        };
-
-        // Render and miss analyzer buttons are allowed to be pressed by
-        // anyone - not just the initial owner
-
-        match component.data.custom_id.as_str() {
-            "render" => self.handle_render_button(component).await,
-            "miss_analyzer" => self.handle_miss_analyzer_button(component).await,
-            _ => {
-                if user_id != self.msg_owner {
-                    return ComponentResult::Ignore;
-                }
-
-                async_handle_pagination_component(component, self.msg_owner, false, &mut self.pages)
-                    .await
-                    .unwrap_or_else(ComponentResult::Err)
-            }
-        }
     }
 
     async fn handle_miss_analyzer_button(
@@ -452,7 +425,7 @@ impl SingleScorePagination {
 }
 
 impl IActiveMessage for SingleScorePagination {
-    fn build_page(&mut self) -> BoxFuture<'_, Result<BuildPage>> {
+    async fn build_page(&mut self) -> Result<BuildPage> {
         let content = match self.content {
             SingleScoreContent::SameForAll(ref content) => content.as_str().into(),
             SingleScoreContent::OnlyForIndex { idx, ref content } if idx == self.pages.index() => {
@@ -461,7 +434,7 @@ impl IActiveMessage for SingleScorePagination {
             SingleScoreContent::OnlyForIndex { .. } | SingleScoreContent::None => Box::default(),
         };
 
-        Box::pin(self.async_build_page(content, MarkIndex::Skip))
+        self.async_build_page(content, MarkIndex::Skip).await
     }
 
     fn build_components(&self) -> Vec<Component> {
@@ -510,18 +483,30 @@ impl IActiveMessage for SingleScorePagination {
         all_components
     }
 
-    fn handle_component<'a>(
-        &'a mut self,
-        component: &'a mut InteractionComponent,
-    ) -> BoxFuture<'a, ComponentResult> {
-        Box::pin(self.async_handle_component(component))
+    async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
+        let user_id = match component.user_id() {
+            Ok(user_id) => user_id,
+            Err(err) => return ComponentResult::Err(err),
+        };
+
+        // Render and miss analyzer buttons are allowed to be pressed by
+        // anyone - not just the initial owner
+
+        match component.data.custom_id.as_str() {
+            "render" => self.handle_render_button(component).await,
+            "miss_analyzer" => self.handle_miss_analyzer_button(component).await,
+            _ => {
+                if user_id != self.msg_owner {
+                    return ComponentResult::Ignore;
+                }
+
+                handle_pagination_component(component, self.msg_owner, false, &mut self.pages).await
+            }
+        }
     }
 
-    fn handle_modal<'a>(
-        &'a mut self,
-        modal: &'a mut InteractionModal,
-    ) -> BoxFuture<'a, Result<()>> {
-        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages)
+    async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
+        handle_pagination_modal(modal, self.msg_owner, false, &mut self.pages).await
     }
 
     fn until_timeout(&self) -> Option<Duration> {
