@@ -253,12 +253,8 @@ impl Context {
         let mut shards = Vec::new();
 
         for shard in shards_iter {
-            {
-                let guard = shard.lock().await;
-                shard_senders.insert(guard.id().number(), guard.sender());
-            }
-
-            shards.push(shard);
+            shard_senders.insert(shard.id().number(), shard.sender());
+            shards.push(Arc::new(TokioMutex::new(shard)));
         }
 
         let shard_senders = RwLock::new(shard_senders);
@@ -359,12 +355,8 @@ impl Context {
         let mut senders = HashMap::default();
 
         for shard in shards_iter {
-            {
-                let guard = shard.lock().await;
-                senders.insert(guard.id().number(), guard.sender());
-            }
-
-            shards.push(shard);
+            senders.insert(shard.id().number(), shard.sender());
+            shards.push(Arc::new(TokioMutex::new(shard)));
         }
 
         // Storing shard senders

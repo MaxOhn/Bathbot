@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use bathbot_util::IntHasher;
 use eyre::{Report, Result, WrapErr};
 use tokio::{
-    sync::{Mutex as TokioMutex, mpsc::UnboundedReceiver},
+    sync::mpsc::UnboundedReceiver,
     time::{self, MissedTickBehavior},
 };
 use twilight_gateway::{ConfigBuilder, Intents, Session, Shard, ShardId};
@@ -59,7 +59,7 @@ pub(super) async fn gateway(
     config: &BotConfig,
     http: &Client,
     resume_data: HashMap<u32, Session, IntHasher>,
-) -> Result<impl ExactSizeIterator<Item = Arc<TokioMutex<Shard>>>> {
+) -> Result<impl ExactSizeIterator<Item = Shard>> {
     let intents = Intents::GUILDS
         | Intents::GUILD_MEMBERS
         | Intents::GUILD_MESSAGES
@@ -86,11 +86,9 @@ pub(super) async fn gateway(
         None => builder.build(),
     };
 
-    let shards = twilight_gateway::create_recommended(http, config, config_callback)
+    twilight_gateway::create_recommended(http, config, config_callback)
         .await
-        .wrap_err("Failed to create recommended shards")?;
-
-    Ok(shards.map(TokioMutex::new).map(Arc::new))
+        .wrap_err("Failed to create recommended shards")
 }
 
 impl Context {
