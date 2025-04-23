@@ -153,6 +153,8 @@ impl IActiveMessage for SimulateComponents {
             Grade::X
         };
 
+        let mut too_suspicious = false;
+
         let (score, acc, hits) = match score_state {
             StateOrScore::Score(score) => {
                 let score = EmbedField {
@@ -192,6 +194,11 @@ impl IActiveMessage for SimulateComponents {
 
                 (None, Some(acc), Some(hits))
             }
+            StateOrScore::Neither => {
+                too_suspicious = true;
+
+                (None, None, None)
+            }
         };
 
         let (combo, ratio) = match combo_ratio {
@@ -217,14 +224,25 @@ impl IActiveMessage for SimulateComponents {
         };
 
         let n_objects = self.map.n_objects();
-        let grade = GradeCompletionFormatter::new_without_score(
-            &mods,
-            grade,
-            n_objects,
-            self.map.mode(),
-            n_objects,
-        );
-        let mut fields = fields!["Grade", grade.to_string(), true;];
+        let mut fields = Vec::new();
+
+        if too_suspicious {
+            fields![fields {
+                "Map too suspicious",
+                "Skipped calculating attributes".to_owned(),
+                false;
+            }];
+        } else {
+            let grade = GradeCompletionFormatter::new_without_score(
+                &mods,
+                grade,
+                n_objects,
+                self.map.mode(),
+                n_objects,
+            );
+
+            fields![fields { "Grade", grade.to_string(), true; }];
+        }
 
         if let Some(acc) = acc {
             fields.push(acc);
@@ -242,7 +260,13 @@ impl IActiveMessage for SimulateComponents {
             fields.push(combo);
         }
 
-        fields![fields { "PP", PpFormatter::new(Some(pp), Some(max_pp)).to_string(), true; }];
+        if !too_suspicious {
+            fields![fields {
+                "PP",
+                PpFormatter::new(Some(pp), Some(max_pp)).to_string(),
+                true;
+            }];
+        }
 
         if let Some(clock_rate) = clock_rate {
             fields![fields { "Clock rate", format!("{clock_rate:.2}"), true }];

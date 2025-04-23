@@ -538,7 +538,7 @@ impl SimulateData {
                     StateOrScore::Score((1_000_000.0 * mult) as u32)
                 }
             },
-            None => StateOrScore::Score(self.score.unwrap_or(0)),
+            None => StateOrScore::Neither,
         };
 
         SimulateValues {
@@ -598,6 +598,8 @@ pub(super) struct SimulateValues {
 pub(super) enum StateOrScore {
     Score(u32),
     State(ScoreState),
+    /// The map was too suspicious
+    Neither,
 }
 
 pub(super) enum ComboOrRatio {
