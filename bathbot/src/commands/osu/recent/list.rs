@@ -555,45 +555,43 @@ async fn process_scores(
             continue;
         };
 
-        let pp_mods = score.mods.clone().into();
+        let pp_map = &map.pp_map;
 
-        let pp_map = match map.pp_map.convert_ref((score.mode as u8).into(), &pp_mods) {
-            Ok(map) => map,
-            Err(_) => Cow::Borrowed(&map.pp_map),
-        };
+        let attrs = cached_attrs.get(pp_map, &score).await;
 
-        let attrs = cached_attrs.get(&pp_map, &score).await;
+        let mut stars = 0.0;
+        let mut max_combo = 0;
+        let mut max_pp = 0.0;
+        let mut pp = score.pp.unwrap_or(0.0);
 
-        let stars = attrs.stars() as f32;
-        let max_combo = attrs.max_combo();
+        if let Some(attrs) = attrs {
+            stars = attrs.stars() as f32;
+            max_combo = attrs.max_combo();
 
-        let mods = score.mods.clone();
+            let mut calc = Context::pp_parsed(pp_map, score.mode)
+                .mode(score.mode)
+                .mods(score.mods.clone())
+                .lazer(score.set_on_lazer);
 
-        let mut calc = Context::pp_parsed(&pp_map, score.mode)
-            .mode(score.mode)
-            .mods(mods)
-            .lazer(score.set_on_lazer);
+            calc.set_difficulty(attrs);
 
-        calc.set_difficulty(attrs);
+            if let Some(attrs) = calc.performance().await {
+                max_pp = attrs.pp() as f32;
+            }
 
-        let max_pp = match score
+            if score.pp.is_none() {
+                if let Some(attrs) = calc.score(&score).performance().await {
+                    pp = attrs.pp() as f32;
+                }
+            }
+        }
+
+        if let Some(pp) = score
             .pp
             .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
         {
-            Some(pp) => pp,
-            None => match calc.performance().await {
-                Some(attrs) => attrs.pp() as f32,
-                None => 0.0,
-            },
-        };
-
-        let pp = match score.pp {
-            Some(pp) => pp,
-            None => match calc.score(&score).performance().await {
-                Some(attrs) => attrs.pp() as f32,
-                None => 0.0,
-            },
-        };
+            max_pp = pp;
+        }
 
         let map_id = score.map_id;
         let score = ScoreSlim::new(score, pp);
@@ -755,7 +753,8 @@ struct CachedAttributes {
 }
 
 impl CachedAttributes {
-    async fn get(&mut self, map: &Beatmap, score: &Score) -> DifficultyAttributes {
+    /// Returns `None` if the map is too suspicious.
+    async fn get(&mut self, map: &Beatmap, score: &Score) -> Option<DifficultyAttributes> {
         let map_id = score.map_id;
         let lazer = score.set_on_lazer;
 
@@ -764,7 +763,9 @@ impl CachedAttributes {
         });
 
         if let Some(entry) = res {
-            return entry.attrs.clone();
+            return Some(entry.attrs.clone());
+        } else if map.check_suspicion().is_err() {
+            return None;
         }
 
         let mods = score.mods.clone();
@@ -781,7 +782,7 @@ impl CachedAttributes {
             attrs: attrs.clone(),
         });
 
-        attrs
+        Some(attrs)
     }
 }
 
