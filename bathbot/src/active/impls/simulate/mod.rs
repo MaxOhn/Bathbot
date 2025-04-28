@@ -1,4 +1,9 @@
-use std::{borrow::Cow, fmt::Write, mem, str::FromStr};
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Formatter, Result as FmtResult, Write},
+    mem,
+    str::FromStr,
+};
 
 use bathbot_util::{
     CowUtils, EmbedBuilder, FooterBuilder,
@@ -693,6 +698,15 @@ fn parse_attr<T: FromStr>(modal: &InteractionModal, component_id: &str) -> Optio
 pub enum SimulateMap {
     Full(OsuMap),
     Attached(AttachedSimulateMap),
+}
+
+impl Debug for SimulateMap {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::Full(map) => Debug::fmt(&map.map_id(), f),
+            Self::Attached(map) => Debug::fmt(map.filename.as_ref(), f),
+        }
+    }
 }
 
 impl SimulateMap {

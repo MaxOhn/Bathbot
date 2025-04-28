@@ -112,6 +112,7 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
     };
 
     let mode = map.mode();
+    debug!(?map, ?mode, "Processing simulate command...");
 
     let version = match mode {
         GameMode::Osu => TopOldVersion::Osu(TopOldOsuVersion::March25Now),

@@ -277,6 +277,8 @@ async fn map(orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
         }
     };
 
+    debug!(?map_id, "Processing map command...");
+
     let mods = match mods {
         Some(ModSelection::Include(mods) | ModSelection::Exact(mods)) => mods,
         None | Some(ModSelection::Exclude { .. }) => GameModsIntermode::new(),
