@@ -16,6 +16,7 @@ bathbot-server = { path = "../bathbot-server", optional = true }
 bathbot-util = { path = "../bathbot-util" }
 bitflags = { workspace = true }
 bytes = { version = "1.0" }
+console-subscriber = { version = "0.4.1" }
 dotenvy = { version = "0.15" }
 enterpolation = { version = "0.2", default-features = false, features = ["std", "bezier", "bspline", "linear"] }
 enum_dispatch = { version = "0.3.11" }
@@ -54,7 +55,7 @@ smallvec = { version = "1.0" }
 skia-safe = { workspace = true }
 thiserror = { workspace = true }
 time = { version = "0.3", features = ["parsing"] }
-tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time"] }
+tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", default-features = false }
 tokio-tungstenite = { version = "0.26.1", features = ["rustls-tls-webpki-roots"] }
 tracing = { version = "0.1" }

@@ -54,6 +54,7 @@ pub fn init() -> Box<[WorkerGuard]> {
         .with(stdout_layer)
         .with(file_layer)
         .with(tracking_layer)
+        .with(console_subscriber::spawn())
         .init();
 
     let default_panic_hook = std::panic::take_hook();
