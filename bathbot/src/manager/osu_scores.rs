@@ -37,7 +37,7 @@ impl ScoresManager {
             req = req.mods(mods);
         }
 
-        let scores = req.await.wrap_err("Failed to get map leaderboard")?;
+        let scores = req.await.wrap_err("Failed to get map leaderboard")?.scores;
 
         let scores_clone = Box::from(scores.as_slice());
         tokio::spawn(async move { self.store(&scores_clone).await });
