@@ -29,6 +29,7 @@ pub struct CompareTopPagination {
     maps: CachedMaps,
     map_pps: Box<[(u32, f32)]>,
     wins: [u8; 2],
+    content: String,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -78,7 +79,7 @@ impl IActiveMessage for CompareTopPagination {
             .footer(FooterBuilder::new(footer_text))
             .thumbnail(attachment("avatar_fuse.png"));
 
-        Ok(BuildPage::new(embed, false))
+        Ok(BuildPage::new(embed, false).content(self.content.as_str()))
     }
 
     fn build_components(&self) -> Vec<Component> {

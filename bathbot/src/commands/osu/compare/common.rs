@@ -284,19 +284,21 @@ pub(super) async fn top(orig: CommandOrigin<'_>, mut args: CompareTop<'_>) -> Re
     map_pps.sort_unstable_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap_or(Ordering::Equal));
 
     // Accumulate all necessary data
-    let mut content = format!("`{}` and `{}` ", user1.name, user2.name);
+    let mut content = format!("`{}` and `{}` have ", user1.name, user2.name);
 
     let amount_common = maps.len();
 
     if amount_common == 0 {
-        content.push_str("have no common scores");
+        content.push_str("no common beatmaps");
     } else {
         let _ = write!(
             content,
-            "have {amount_common} common beatmap{} in their top 100",
+            "{amount_common} common beatmap{}",
             if amount_common > 1 { "s" } else { "" }
         );
     }
+
+    content.push_str(" in their top 200");
 
     // Create the combined profile pictures
     let urls = iter::once(user1.avatar_url()).chain(iter::once(user2.avatar_url()));
@@ -316,6 +318,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, mut args: CompareTop<'_>) -> Re
         .maps(maps)
         .map_pps(map_pps)
         .wins(wins)
+        .content(content)
         .msg_owner(owner)
         .build();
 
@@ -333,7 +336,7 @@ async fn get_user_and_scores(
     let args = UserArgs::rosu_id(user_id, mode).await;
 
     Context::osu_scores()
-        .top(100, false)
+        .top(200, false)
         .exec_with_user(args)
         .await
 }
