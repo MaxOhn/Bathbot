@@ -262,7 +262,7 @@ checksum = "89e25b6adfb930f02d1981565a6e5d9c547ac15a96606256d3b59040e5cd4ca3"
 
 [[package]]
 name = "bathbot-cache"
-version = "3.19.3"
+version = "3.19.4"
 dependencies = [
  "bathbot-model",
  "bb8-redis",
@@ -278,7 +278,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-cards"
-version = "3.19.3"
+version = "3.19.4"
 dependencies = [
  "itoa",
  "rosu-pp",
@@ -289,7 +289,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-client"
-version = "3.19.3"
+version = "3.19.4"
 dependencies = [
  "bathbot-model",
  "bathbot-util",
@@ -320,7 +320,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-macros"
-version = "3.19.3"
+version = "3.19.4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -329,7 +329,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-model"
-version = "3.19.3"
+version = "3.19.4"
 dependencies = [
  "bathbot-util",
  "bitflags 2.9.0",
@@ -352,7 +352,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-psql"
-version = "3.19.3"
+version = "3.19.4"
 dependencies = [
  "bathbot-model",
  "dotenvy",
@@ -371,7 +371,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-server"
-version = "3.19.3"
+version = "3.19.4"
 dependencies = [
  "axum 0.8.3",
  "bathbot-model",
@@ -399,7 +399,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-twilight"
-version = "3.19.3"
+version = "3.19.4"
 dependencies = [
  "aho-corasick",
  "bathbot-cache",
@@ -461,7 +461,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-util"
-version = "3.19.3"
+version = "3.19.4"
 dependencies = [
  "metrics",
  "metrics-util",
