@@ -340,7 +340,7 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
             content
         }
         _ => format!(
-            "{count} of `{username}`'{genitive} top score maps were mapped by `{mapper_name}`",
+            "{count} of `{username}`'{genitive} top100 score maps were mapped by `{mapper_name}`",
             count = entries.len(),
             genitive = if username.ends_with('s') { "" } else { "s" },
         ),
