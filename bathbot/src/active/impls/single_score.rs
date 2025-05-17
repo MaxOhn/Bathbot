@@ -888,7 +888,9 @@ fn apply_settings(
                         writer.push('*');
                     }
 
-                    writer.push('`');
+                    if last.y < SettingValue::FOOTER_Y {
+                        writer.push('`');
+                    }
                 }
                 _ => {
                     match prev.map(|value| &value.inner) {
