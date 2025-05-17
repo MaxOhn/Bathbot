@@ -544,13 +544,8 @@ impl IActiveMessage for RenderSettingsActive {
             "use_slider_hitcircle_color" => parse_input!(bool: use_slider_hitcircle_color),
             "draw_combo_numbers" => parse_input!(bool: draw_combo_numbers),
             "beat_scaling" => parse_input!(bool: beat_scaling),
-            "use_beatmap_colors" => parse_input!(bool: use_beatmap_colors),
             "use_beatmap_colors" => {
-                options.use_beatmap_colors = match input.cow_to_ascii_lowercase().as_ref() {
-                    "true" | "t" | "1" | "yes" | "y" => true,
-                    "false" | "f" | "0" | "no" | "n" => false,
-                    _ => bail!("Invalid render settings input `{input}` for `use_beatmap_colors`"),
-                };
+                parse_input!(bool: use_beatmap_colors);
                 options.use_skin_colors = !options.use_beatmap_colors;
             }
             "draw_follow_points" => parse_input!(bool: draw_follow_points),
