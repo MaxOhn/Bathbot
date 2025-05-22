@@ -20,7 +20,7 @@ pub enum Ranking<'a> {
     #[command(name = "pp")]
     Pp(RankingPp<'a>),
     #[command(name = "score")]
-    Score(RankingScore),
+    Score(RankingScore<'a>),
     #[command(name = "country")]
     Country(RankingCountry),
 }
@@ -44,14 +44,19 @@ pub struct RankingPp<'a> {
     desc = "Show the ranked score ranking",
     help = "Display the global ranked score leaderboard"
 )]
-pub struct RankingScore {
+pub struct RankingScore<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
+    #[command(desc = "Specify a country (code)")]
+    country: Option<Cow<'a, str>>,
 }
 
-impl From<Option<GameModeOption>> for RankingScore {
+impl From<Option<GameModeOption>> for RankingScore<'_> {
     fn from(mode: Option<GameModeOption>) -> Self {
-        Self { mode }
+        Self {
+            mode,
+            country: None,
+        }
     }
 }
 
