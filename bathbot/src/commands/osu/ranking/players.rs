@@ -34,13 +34,13 @@ pub(super) async fn pp(orig: CommandOrigin<'_>, args: RankingPp<'_>) -> Result<(
     let RankingPp { country, mode } = args;
     let owner = orig.user_id()?;
 
-    let (mode, author_id) = match mode {
+    let (mode, author_id) = match mode.map(GameMode::from) {
         Some(mode) => match Context::user_config().osu_id(owner).await {
-            Ok(user_id) => (mode.into(), user_id),
+            Ok(user_id) => (mode, user_id),
             Err(err) => {
                 warn!(?err, "Failed to get author id");
 
-                (mode.into(), None)
+                (mode, None)
             }
         },
         None => match Context::user_config().with_osu_id(owner).await {
@@ -120,14 +120,15 @@ async fn pp_author_idx(
     }
 }
 
-pub(super) async fn score(orig: CommandOrigin<'_>, args: RankingScore) -> Result<()> {
+pub(super) async fn score(orig: CommandOrigin<'_>, args: RankingScore<'_>) -> Result<()> {
+    let RankingScore { country, mode } = args;
     let owner = orig.user_id()?;
 
-    let (mode, osu_id) = match args.mode.map(GameMode::from) {
+    let (mode, author_id) = match mode.map(GameMode::from) {
         Some(mode) => match Context::user_config().osu_id(owner).await {
             Ok(user_id) => (mode, user_id),
             Err(err) => {
-                warn!("{err:?}");
+                warn!(?err, "Failed to get author id");
 
                 (mode, None)
             }
@@ -137,30 +138,32 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankingScore) -> Result
             Err(err) => {
                 let _ = orig.error(GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get user config"));
+                return Err(err.wrap_err("Failed to get user config"));
             }
         },
     };
 
-    let ranking_fut = Context::osu().score_rankings(mode);
+    let country = match country.as_deref() {
+        Some(country) if country.len() == 2 => Some(country.to_uppercase().into()),
+        Some(country) => match Countries::name(country).to_code() {
+            Some(code) => Some(CountryCode::from(code)),
+            None => {
+                let content =
+                    format!("Looks like `{country}` is neither a country name nor a country code");
 
-    let author_idx_fut = async {
-        match osu_id.map(iter::once) {
-            Some(user_id) => match Context::client().get_respektive_users(user_id, mode).await {
-                Ok(mut iter) => iter
-                    .next()
-                    .flatten()
-                    .and_then(|user| user.rank)
-                    .map(|rank| rank.get() as usize - 1),
-                Err(err) => {
-                    warn!(?err, "Failed to get respektive user");
-
-                    None
-                }
-            },
-            None => None,
-        }
+                return orig.error(content).await;
+            }
+        },
+        None => None,
     };
+
+    let mut ranking_fut = Context::osu().score_rankings(mode);
+
+    if let Some(country) = country.as_deref() {
+        ranking_fut = ranking_fut.country(country);
+    }
+
+    let author_idx_fut = score_author_idx(author_id, mode, country.is_some());
 
     let (ranking_res, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
 
@@ -169,7 +172,31 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RankingScore) -> Result
         .map_err(Report::new)
         .map_err(RedisError::Acquire);
 
-    ranking(orig, mode, None, author_idx, ranking_res).await
+    ranking(orig, mode, country, author_idx, ranking_res).await
+}
+
+async fn score_author_idx(
+    author_id: Option<u32>,
+    mode: GameMode,
+    by_country: bool,
+) -> Option<usize> {
+    if by_country {
+        return None;
+    }
+
+    let user_id = author_id.map(iter::once)?;
+
+    let user = match Context::client().get_respektive_users(user_id, mode).await {
+        Ok(mut iter) => iter.next().flatten(),
+        Err(err) => {
+            warn!(?err, "Failed to get respektive user");
+
+            return None;
+        }
+    };
+
+    user.and_then(|user| user.rank)
+        .map(|rank| rank.get() as usize - 1)
 }
 
 async fn ranking(
