@@ -18,7 +18,7 @@ use twilight_model::{
     id::{Id, marker::UserMarker},
 };
 
-use super::{ScoreOrder, map_strain_graph, require_link, user_not_found};
+use super::{ScoreOrder, map_strains_graph, require_link, user_not_found};
 use crate::{
     Context,
     active::{
@@ -366,10 +366,12 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
                 Some(entry) if matches!(settings.image, SettingsImage::ImageWithStrains) => {
                     let entry = entry.get_half();
 
-                    let fut = map_strain_graph(
+                    let fut = map_strains_graph(
                         &entry.map.pp_map,
                         entry.score.mods.clone(),
                         entry.map.cover(),
+                        SingleScorePagination::IMAGE_W,
+                        SingleScorePagination::IMAGE_H,
                     );
 
                     match fut.await {

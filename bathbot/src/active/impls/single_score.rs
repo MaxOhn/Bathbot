@@ -70,7 +70,9 @@ pub struct SingleScorePagination {
 }
 
 impl SingleScorePagination {
+    pub const IMAGE_H: u32 = 170;
     pub const IMAGE_NAME: &'static str = "map_graph.png";
+    pub const IMAGE_W: u32 = 590;
 
     pub fn new(
         user: &CachedUser,

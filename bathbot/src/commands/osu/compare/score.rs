@@ -40,7 +40,7 @@ use crate::{
         impls::{CompareScoresPagination, SingleScorePagination},
     },
     commands::{
-        osu::{HasMods, ModsResult, map_strain_graph, require_link, user_not_found},
+        osu::{HasMods, ModsResult, map_strains_graph, require_link, user_not_found},
         utility::{ScoreEmbedData, ScoreEmbedDataPersonalBest},
     },
     core::commands::{
@@ -1124,10 +1124,12 @@ async fn handle_autocomplete(
 }
 
 async fn prepare_graph(entry: &ScoreEmbedData) -> Option<(String, Vec<u8>)> {
-    let fut = map_strain_graph(
+    let fut = map_strains_graph(
         &entry.map.pp_map,
         entry.score.mods.clone(),
         entry.map.cover(),
+        SingleScorePagination::IMAGE_W,
+        SingleScorePagination::IMAGE_H,
     );
 
     match fut.await {

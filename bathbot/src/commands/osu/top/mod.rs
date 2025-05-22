@@ -22,7 +22,7 @@ use twilight_model::{
 };
 
 pub use self::{if_::*, old::*};
-use super::{HasMods, ModsResult, ScoreOrder, map_strain_graph, require_link, user_not_found};
+use super::{HasMods, ModsResult, ScoreOrder, map_strains_graph, require_link, user_not_found};
 use crate::{
     Context,
     active::{
@@ -882,10 +882,12 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
                 Some(entry) if matches!(settings.image, SettingsImage::ImageWithStrains) => {
                     let entry = entry.get_half();
 
-                    let fut = map_strain_graph(
+                    let fut = map_strains_graph(
                         &entry.map.pp_map,
                         entry.score.mods.clone(),
                         entry.map.cover(),
+                        SingleScorePagination::IMAGE_W,
+                        SingleScorePagination::IMAGE_H,
                     );
 
                     match fut.await {
