@@ -27,7 +27,7 @@ use crate::{
         impls::{SingleScoreContent, SingleScorePagination},
     },
     commands::{
-        osu::{map_strain_graph, require_link, user_not_found},
+        osu::{map_strains_graph, require_link, user_not_found},
         utility::{MissAnalyzerCheck, ScoreEmbedDataWrap},
     },
     core::commands::{CommandOrigin, interaction::InteractionCommands, prefix::Args},
@@ -682,10 +682,12 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         Some(entry) if matches!(settings.image, SettingsImage::ImageWithStrains) => {
             match entry.get_mut().await {
                 Ok(entry) => {
-                    let fut = map_strain_graph(
+                    let fut = map_strains_graph(
                         &entry.map.pp_map,
                         entry.score.mods.clone(),
                         entry.map.cover(),
+                        SingleScorePagination::IMAGE_W,
+                        SingleScorePagination::IMAGE_H,
                     );
 
                     match fut.await {
