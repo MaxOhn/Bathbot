@@ -1,4 +1,9 @@
-use std::{collections::HashMap, fmt::Debug, io::Error as IoError, ops::Deref};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
+    io::Error as IoError,
+    ops::Deref,
+};
 
 use bathbot_client::ClientError;
 use bathbot_psql::model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapContent, MapVersion};
@@ -555,10 +560,19 @@ impl Searchable<RegularCriteria<'_>> for OsuMap {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Error)]
 pub enum MapError {
     #[error("map(set) not found")]
     NotFound,
     #[error(transparent)]
     Report(#[from] Report),
+}
+
+impl Debug for MapError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            MapError::NotFound => Display::fmt(self, f),
+            MapError::Report(err) => Debug::fmt(err, f),
+        }
+    }
 }
