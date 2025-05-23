@@ -2,7 +2,6 @@ use std::{cell::RefCell, mem, rc::Rc, time::Duration};
 
 use enterpolation::{Curve, linear::Linear};
 use eyre::{ContextCompat, Result, WrapErr};
-use image::DynamicImage;
 use plotters::{
     coord::{Shift, types::RangedCoordf64},
     prelude::*,
@@ -12,8 +11,7 @@ use rosu_pp::{Beatmap, Difficulty, any::Strains};
 use rosu_v2::prelude::GameMods;
 use skia_safe::{BlendMode, EncodedImageFormat, surfaces};
 
-use super::BitMapElement;
-use crate::core::Context;
+use super::{BitMapElement, get_map_cover};
 
 const LEGEND_H: u32 = 25;
 
@@ -25,7 +23,7 @@ pub async fn map_strains_graph(
     h: u32,
 ) -> Result<Vec<u8>> {
     let strains = GraphStrains::new(map, mods)?;
-    let cover_res = get_cover(cover_url, w, h).await;
+    let cover_res = get_map_cover(cover_url, w, h).await;
 
     let last_timestamp = ((NEW_STRAIN_COUNT - 2) as f64
         * strains.strains.section_len()
@@ -338,13 +336,4 @@ impl GraphStrains {
             strains_count,
         })
     }
-}
-
-async fn get_cover(url: &str, w: u32, h: u32) -> Result<DynamicImage> {
-    let bytes = Context::client().get_mapset_cover(url).await?;
-
-    let cover =
-        image::load_from_memory(&bytes).wrap_err("Failed to load mapset cover from memory")?;
-
-    Ok(cover.thumbnail_exact(w, h))
 }
