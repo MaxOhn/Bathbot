@@ -41,7 +41,7 @@ impl IsDate for OffsetDateTime {
 }
 
 /// The trait that describe some time value. This is the uniformed abstraction
-/// that works for both Date, DateTime and Duration, etc.
+/// that works for Date, DateTime, Duration, etc.
 pub trait TimeValue: Copy + Eq {
     type DateType: IsDate + PartialOrd;
 
