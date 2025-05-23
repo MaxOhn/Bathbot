@@ -23,10 +23,14 @@ use rosu_v2::{
 };
 use time::UtcOffset;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::id::{Id, marker::UserMarker};
+use twilight_model::id::{
+    Id,
+    marker::{ChannelMarker, UserMarker},
+};
 
 pub use self::map_strains::map_strains_graph;
 use self::{
+    bpm::map_bpm_graph,
     medals::medals_graph,
     playcount_replays::{ProfileGraphFlags, playcount_replays_graph},
     rank::rank_graph,
@@ -43,12 +47,13 @@ use crate::{
     core::{Context, commands::CommandOrigin},
     embeds::attachment,
     manager::{
-        MapError,
+        MapError, OsuMap,
         redis::osu::{CachedUser, UserArgs, UserArgsError},
     },
     util::{CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
+mod bpm;
 mod map_strains;
 mod medals;
 mod playcount_replays;
@@ -63,6 +68,8 @@ mod top_time;
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "graph", desc = "Display graphs about some user data")]
 pub enum Graph {
+    #[command(name = "bpm")]
+    MapBpm(GraphMapBpm),
     #[command(name = "strains")]
     MapStrains(GraphMapStrains),
     #[command(name = "medals")]
@@ -79,6 +86,23 @@ pub enum Graph {
     SnipeCount(GraphSnipeCount),
     #[command(name = "top")]
     Top(GraphTop),
+}
+
+#[derive(CommandModel, CreateCommand, HasMods)]
+#[command(name = "bpm", desc = "Display a map's bpm over time")]
+pub struct GraphMapBpm {
+    #[command(
+        desc = "Specify a map url or map id",
+        help = "Specify a map either by map url or map id.\n\
+        If none is specified, it will search in the recent channel history \
+        and pick the first map it can find."
+    )]
+    map: Option<String>,
+    #[command(
+        desc = "Specify mods e.g. hdhr or nm",
+        help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
+    )]
+    mods: Option<String>,
 }
 
 #[derive(CommandModel, CreateCommand, HasMods)]
@@ -252,27 +276,27 @@ async fn slash_graph(mut command: InteractionCommand) -> Result<()> {
 // `InteractionCommand`
 async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
     let tuple_option = match args {
-        Graph::MapStrains(args) => {
-            let graph = match map_strains(&orig, args).await {
-                Ok(ControlFlow::Continue(bytes)) => bytes,
-                Ok(ControlFlow::Break(())) => return Ok(()),
-                Err(err) => {
-                    return Err(err.wrap_err("Failed to create map strains graph"));
+        Graph::MapBpm(args) => {
+            return match map_bpm(&orig, args).await {
+                Ok(ControlFlow::Continue(map)) => {
+                    orig.create_message(map.into()).await?;
+
+                    Ok(())
                 }
+                Ok(ControlFlow::Break(())) => Ok(()),
+                Err(err) => Err(err.wrap_err("Failed to create map bpm graph")),
             };
+        }
+        Graph::MapStrains(args) => {
+            return match map_strains(&orig, args).await {
+                Ok(ControlFlow::Continue(map)) => {
+                    orig.create_message(map.into()).await?;
 
-            let embed = EmbedBuilder::new()
-                .image(attachment("graph.png"))
-                .title(graph.title)
-                .url(graph.url);
-
-            let builder = MessageBuilder::new()
-                .embed(embed)
-                .attachment("graph.png", graph.bytes);
-
-            orig.create_message(builder).await?;
-
-            return Ok(());
+                    Ok(())
+                }
+                Ok(ControlFlow::Break(())) => Ok(()),
+                Err(err) => Err(err.wrap_err("Failed to create map strains graph")),
+            };
         }
         Graph::Medals(args) => {
             let user_id = match user_id!(orig, args) {
@@ -443,29 +467,44 @@ async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
 const W: u32 = 1350;
 const H: u32 = 711;
 
-struct MapStrains {
+struct MapResult {
     bytes: Vec<u8>,
     title: String,
     url: String,
 }
 
-async fn map_strains(
-    orig: &CommandOrigin<'_>,
-    args: GraphMapStrains,
-) -> Result<ControlFlow<(), MapStrains>> {
-    let mods_res = args.mods();
+impl MapResult {
+    fn new(map: &OsuMap, bytes: Vec<u8>) -> Self {
+        Self {
+            bytes,
+            title: format!("{} - {} [{}]", map.artist(), map.title(), map.version()),
+            url: format!("{OSU_BASE}b/{}", map.map_id()),
+        }
+    }
+}
 
-    let map = match args.map.map(|arg| {
-        matcher::get_osu_map_id(&arg)
+impl From<MapResult> for MessageBuilder<'_> {
+    fn from(map: MapResult) -> Self {
+        let embed = EmbedBuilder::new()
+            .image(attachment("graph.png"))
+            .title(map.title)
+            .url(map.url);
+
+        Self::new().embed(embed).attachment("graph.png", map.bytes)
+    }
+}
+
+async fn get_map_id(map: Option<&str>, channel_id: Id<ChannelMarker>) -> Result<u32, &'static str> {
+    let map = match map.map(|arg| {
+        matcher::get_osu_map_id(arg)
             .map(MapIdType::Map)
-            .or_else(|| matcher::get_osu_mapset_id(&arg).map(MapIdType::Set))
+            .or_else(|| matcher::get_osu_mapset_id(arg).map(MapIdType::Set))
     }) {
         Some(Some(id)) => Some(id),
         Some(None) => {
-            let content =
-                "Failed to parse map url. Be sure you specify a valid map id or url to a map.";
-
-            return orig.error(content).await.map(ControlFlow::Break);
+            return Err(
+                "Failed to parse map url. Be sure you specify a valid map id or url to a map.",
+            );
         }
         None => None,
     };
@@ -473,29 +512,109 @@ async fn map_strains(
     let map_id = if let Some(id) = map {
         id
     } else {
-        let Ok(msgs) = Context::retrieve_channel_history(orig.channel_id()).await else {
-            let content = "No beatmap specified and lacking permission to search the channel \
-            history for maps.\nTry specifying a map either by url or by map id, or give me the \
-            \"Read Message History\" permission.";
-
-            return orig.error(content).await.map(ControlFlow::Break);
+        let Ok(msgs) = Context::retrieve_channel_history(channel_id).await else {
+            return Err(
+                "No beatmap specified and lacking permission to search the channel history for \
+                maps.\nTry specifying a map either by url or by map id, or give me the \"Read \
+                Message History\" permission.",
+            );
         };
 
         match Context::find_map_id_in_msgs(&msgs, 0).await {
             Some(id) => id,
             None => {
-                let content = "No beatmap specified and none found in recent channel history. Try \
-                specifying a map either by url or by map id.";
-
-                return orig.error(content).await.map(ControlFlow::Break);
+                return Err(
+                    "No beatmap specified and none found in recent channel history. Try \
+                    specifying a map either by url or by map id.",
+                );
             }
         }
     };
 
     let MapIdType::Map(map_id) = map_id else {
-        let content = "Looks like you gave me a mapset id, I need a map id though";
+        return Err("Looks like you gave me a mapset id, I need a map id though");
+    };
 
-        return orig.error(content).await.map(ControlFlow::Break);
+    Ok(map_id)
+}
+
+async fn map_bpm(
+    orig: &CommandOrigin<'_>,
+    args: GraphMapBpm,
+) -> Result<ControlFlow<(), MapResult>> {
+    let mods_res = args.mods();
+
+    let map_id = match get_map_id(args.map.as_deref(), orig.channel_id()).await {
+        Ok(map_id) => map_id,
+        Err(content) => return orig.error(content).await.map(ControlFlow::Break),
+    };
+
+    let map = match Context::osu_map().map(map_id, None).await {
+        Ok(map) => map,
+        Err(MapError::NotFound) => {
+            let content = format!(
+                "Could not find beatmap with id `{map_id}`. \
+                Did you give me a mapset id instead of a map id?",
+            );
+
+            return orig.error(content).await.map(ControlFlow::Break);
+        }
+        Err(MapError::Report(err)) => {
+            let _ = orig.error(GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    let mods = match mods_res {
+        ModsResult::Mods(ModSelection::Include(mods) | ModSelection::Exact(mods)) => {
+            let opt = [
+                GameMode::Osu,
+                GameMode::Taiko,
+                GameMode::Catch,
+                GameMode::Mania,
+            ]
+            .into_iter()
+            .filter_map(|mode| mods.clone().try_with_mode(mode))
+            .find(GameMods::is_valid);
+
+            match opt {
+                Some(mods) => mods,
+                None => {
+                    let content = format!(
+                        "Looks like either some mods in `{mods}` are incompatible with each other \
+                        or do not belong to any single mode"
+                    );
+
+                    return orig.error(content).await.map(ControlFlow::Break);
+                }
+            }
+        }
+        ModsResult::Mods(ModSelection::Exclude { .. }) | ModsResult::None => GameMods::new(),
+        ModsResult::Invalid => {
+            let content = "Failed to parse mods.\n\
+            If you want included mods, specify it e.g. as `+hrdt`.\n\
+            If you want exact mods, specify it e.g. as `+hdhr!`.\n\
+            And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
+
+            return orig.error(content).await.map(ControlFlow::Break);
+        }
+    };
+
+    let bytes = map_bpm_graph(&map.pp_map, mods, map.cover()).await?;
+
+    Ok(ControlFlow::Continue(MapResult::new(&map, bytes)))
+}
+
+async fn map_strains(
+    orig: &CommandOrigin<'_>,
+    args: GraphMapStrains,
+) -> Result<ControlFlow<(), MapResult>> {
+    let mods_res = args.mods();
+
+    let map_id = match get_map_id(args.map.as_deref(), orig.channel_id()).await {
+        Ok(map_id) => map_id,
+        Err(content) => return orig.error(content).await.map(ControlFlow::Break),
     };
 
     let mode = args.mode.map(GameMode::from);
@@ -556,10 +675,8 @@ async fn map_strains(
     };
 
     let bytes = map_strains_graph(&map.pp_map, mods, map.cover(), W, H).await?;
-    let title = format!("{} - {} [{}]", map.artist(), map.title(), map.version());
-    let url = format!("{OSU_BASE}b/{}", map.map_id());
 
-    Ok(ControlFlow::Continue(MapStrains { bytes, title, url }))
+    Ok(ControlFlow::Continue(MapResult::new(&map, bytes)))
 }
 
 async fn top_graph(
@@ -637,6 +754,15 @@ async fn top_graph(
     };
 
     Ok(Some((user, bytes)))
+}
+
+async fn get_map_cover(url: &str, w: u32, h: u32) -> Result<DynamicImage> {
+    let bytes = Context::client().get_mapset_cover(url).await?;
+
+    let cover =
+        image::load_from_memory(&bytes).wrap_err("Failed to load mapset cover from memory")?;
+
+    Ok(cover.thumbnail_exact(w, h))
 }
 
 pub struct BitMapElement<C> {
