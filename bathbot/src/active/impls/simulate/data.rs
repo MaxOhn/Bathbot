@@ -1,3 +1,4 @@
+use rosu_pp::any::HitResultPriority;
 use rosu_v2::{
     mods,
     prelude::{GameMod, GameMods},
@@ -36,6 +37,7 @@ impl SimulateData {
             .mods
             .as_ref()
             .map_or_else(GameMods::default, GameMods::to_owned);
+
         let mod_bits = mods.bits();
 
         if let Some(new_bpm) = self.bpm.filter(|_| self.clock_rate.is_none()) {
@@ -47,7 +49,7 @@ impl SimulateData {
         macro_rules! simulate {
             (
                 $( $calc:ident )::+ {
-                    $( $calc_fn:ident: $this_field:ident $( as $ty:ty )? ,)+
+                    $( $( @ $kind:tt )? $calc_fn:ident: $this_field:ident $( as $ty:ty )? ,)+
                 } => {
                     mods: $mods:expr,
                     max_new: $max_new:tt,
@@ -61,6 +63,7 @@ impl SimulateData {
                 if map.check_suspicion().is_ok() {
                     let mut calc = $( $calc:: )* new(map).mods($mods);
                     $( calc = simulate!(@WITH_LAZER $with_lazer calc); )?
+                    simulate!(@PRIO calc $( $( $kind )? )*);
 
                     $(
                         if let Some(value) = self.$this_field {
@@ -78,6 +81,7 @@ impl SimulateData {
 
                     #[allow(unused_mut)]
                     let mut max_calc = $( $calc:: )* new(max_new).mods($mods);
+                    simulate!(@PRIO max_calc $( $( $kind )? )*);
 
                     $( max_calc = simulate!(@WITH_DIFF $with_diff max_calc attrs); )?
                     $( max_calc = simulate!(@WITH_LAZER $with_lazer max_calc); )?
@@ -110,6 +114,17 @@ impl SimulateData {
             ( @WITH_DIFF false $calc:ident $attrs:ident ) => { $calc };
             ( @WITH_DIFF $( $other:tt )* ) => {
                 compile_error!(concat!("with_diff must be bool; got `", $( stringify!($other) ),*, "`"))
+            };
+            ( @PRIO $calc:ident A $( $rest:tt )* ) => {
+                if self.acc.is_some() {
+                    $calc = $calc.hitresult_priority(HitResultPriority::Fastest);
+                }
+            };
+            ( @PRIO $calc:ident ) => { };
+            ( @PRIO $calc:ident $( $other:tt )* ) => {
+                compile_error!(concat!(
+                    "expected optional `@A` before rosu method name; got `", $( stringify!($other) ),* "`",
+                ))
             };
         }
 
@@ -286,7 +301,7 @@ impl SimulateData {
                     small_tick_hits: n_slider_ends,
                     large_tick_hits: n_large_ticks,
                     clock_rate: clock_rate as f64,
-                    accuracy: acc as f64,
+                    @A accuracy: acc as f64,
                 } => {
                     mods: mods.clone(),
                     max_new: attrs,
@@ -341,7 +356,7 @@ impl SimulateData {
                     n100: n100,
                     misses: n_miss,
                     clock_rate: clock_rate as f64,
-                    accuracy: acc as f64,
+                    @A accuracy: acc as f64,
                 } => {
                     mods: mods.clone(),
                     max_new: attrs,
@@ -454,7 +469,7 @@ impl SimulateData {
                     n50: n50,
                     misses: n_miss,
                     clock_rate: clock_rate as f64,
-                    accuracy: acc as f64,
+                    @A accuracy: acc as f64,
                 } => {
                     mods: mods.clone(),
                     max_new: attrs,

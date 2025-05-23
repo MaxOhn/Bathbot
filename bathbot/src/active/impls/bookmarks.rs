@@ -16,7 +16,7 @@ use bathbot_util::{
     numbers::round,
 };
 use eyre::{Report, Result, WrapErr};
-use rosu_pp::{Beatmap, Difficulty, Performance};
+use rosu_pp::{Beatmap, Difficulty, Performance, any::HitResultPriority};
 use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::{
     channel::message::{
@@ -152,6 +152,7 @@ impl IActiveMessage for BookmarksPagination {
             for &acc in ACCS.iter() {
                 let pp_result = Performance::from(attrs.clone())
                     .accuracy(acc as f64)
+                    .hitresult_priority(HitResultPriority::Fastest)
                     .calculate();
 
                 let pp = pp_result.pp();

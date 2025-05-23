@@ -1,8 +1,8 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use rosu_pp::{
-    Beatmap, Performance, catch::CatchScoreState, mania::ManiaScoreState, osu::OsuScoreState,
-    taiko::TaikoScoreState,
+    Beatmap, Performance, any::HitResultPriority, catch::CatchScoreState, mania::ManiaScoreState,
+    osu::OsuScoreState, taiko::TaikoScoreState,
 };
 use twilight_model::channel::message::{
     Component,
@@ -420,7 +420,9 @@ impl TopOldVersion {
         let mut calc = Performance::new(map).lazer(data.set_on_lazer);
 
         if let Some(acc) = data.acc {
-            calc = calc.accuracy(acc as f64);
+            calc = calc
+                .accuracy(acc as f64)
+                .hitresult_priority(HitResultPriority::Fastest);
         }
 
         if let Some(n_geki) = data.n_geki {
