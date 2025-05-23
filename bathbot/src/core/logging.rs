@@ -50,12 +50,16 @@ pub fn init() -> Box<[WorkerGuard]> {
         .with_writer(tracking_writer)
         .with_filter(tracking_filter);
 
-    tracing_subscriber::registry()
+    let registry = tracing_subscriber::registry()
         .with(stdout_layer)
         .with(file_layer)
-        .with(tracking_layer)
-        .with(console_subscriber::spawn())
-        .init();
+        .with(tracking_layer);
+
+    #[cfg(feature = "tokio_console")]
+    registry.with(console_subscriber::spawn()).init();
+
+    #[cfg(not(feature = "tokio_console"))]
+    registry.init();
 
     let default_panic_hook = std::panic::take_hook();
 
