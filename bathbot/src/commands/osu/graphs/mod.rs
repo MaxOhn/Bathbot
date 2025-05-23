@@ -39,7 +39,7 @@ use self::{
     sniped::sniped_graph,
     top_date::top_graph_date,
     top_index::top_graph_index,
-    top_time::top_graph_time,
+    top_time::{top_graph_time_day, top_graph_time_hour},
 };
 use super::{SnipeGameMode, require_link, user_not_found};
 use crate::{
@@ -262,8 +262,10 @@ pub enum GraphTopOrder {
     Date,
     #[option(name = "Index", value = "index")]
     Index,
-    #[option(name = "Time", value = "time")]
-    Time,
+    #[option(name = "Time by hour", value = "time_h")]
+    TimeByHour,
+    #[option(name = "Time by day", value = "time_d")]
+    TimeByDay,
 }
 
 async fn slash_graph(mut command: InteractionCommand) -> Result<()> {
@@ -719,7 +721,7 @@ async fn top_graph(
     let mode = user.mode;
 
     let caption = format!(
-        "{username}'{genitive} top {mode}scores",
+        "{username}'{genitive} {mode}top200",
         genitive = if username.ends_with('s') { "" } else { "s" },
         mode = match mode {
             GameMode::Osu => "",
@@ -738,9 +740,12 @@ async fn top_graph(
         GraphTopOrder::Index => top_graph_index(caption, &scores)
             .await
             .wrap_err("Failed to create top index graph"),
-        GraphTopOrder::Time => top_graph_time(caption, &mut scores, tz)
+        GraphTopOrder::TimeByHour => top_graph_time_hour(caption, &mut scores, tz)
             .await
-            .wrap_err("Failed to create top time graph"),
+            .wrap_err("Failed to create top time hour graph"),
+        GraphTopOrder::TimeByDay => top_graph_time_day(caption, &mut scores, tz)
+            .await
+            .wrap_err("Failed to create top time day graph"),
     };
 
     let bytes = match graph_result {
