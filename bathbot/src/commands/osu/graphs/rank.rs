@@ -109,7 +109,7 @@ pub async fn rank_graph(
                 .disable_y_mesh()
                 .x_labels(20)
                 .x_desc("Days ago")
-                .x_label_formatter(&|x| format!("{}", until as u32 + from as u32 - *x))
+                .x_label_formatter(&|x| format!("{}", (until + from) as u32 - *x))
                 .y_label_formatter(&|y| format!("{}", -*y))
                 .y_desc("Rank")
                 .label_style(("sans-serif", 15, &WHITE))
