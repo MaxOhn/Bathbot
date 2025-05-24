@@ -168,6 +168,10 @@ pub struct GraphRank {
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
+    #[command(desc = "From this many days ago", min_value = 0, max_value = 90)]
+    from: Option<u8>,
+    #[command(desc = "Until this many days ago", min_value = 0, max_value = 90)]
+    until: Option<u8>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -187,6 +191,10 @@ pub struct GraphScoreRank {
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
+    #[command(desc = "From this many days ago", min_value = 0, max_value = 90)]
+    from: Option<u8>,
+    #[command(desc = "Until this many days ago", min_value = 0, max_value = 90)]
+    until: Option<u8>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -358,14 +366,14 @@ async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
             let (user_id, mode) = user_id_mode!(orig, args);
             let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
-            rank_graph(&orig, user_id, user_args)
+            rank_graph(&orig, user_id, user_args, args.from, args.until)
                 .await
                 .wrap_err("Failed to create rank graph")?
         }
         Graph::ScoreRank(args) => {
             let (user_id, mode) = user_id_mode!(orig, args);
 
-            let tuple_option = score_rank_graph(&orig, user_id, mode)
+            let tuple_option = score_rank_graph(&orig, user_id, mode, args.from, args.until)
                 .await
                 .wrap_err("Failed to create score rank graph")?;
 

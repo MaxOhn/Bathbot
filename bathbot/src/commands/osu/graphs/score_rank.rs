@@ -27,6 +27,8 @@ pub async fn score_rank_graph(
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     mode: GameMode,
+    from: Option<u8>,
+    until: Option<u8>,
 ) -> Result<Option<(AuthorBuilder, Vec<u8>)>> {
     let user_args = UserArgs::rosu_id(&user_id, mode).await;
 
@@ -58,13 +60,20 @@ pub async fn score_rank_graph(
         }
     };
 
-    let bytes = match draw_graph(respektive_user.as_ref()) {
+    let from_unwrapped = from.unwrap_or(0);
+    let until_unwrapped = u8::max(until.unwrap_or(90), u8::min(from_unwrapped + 2, 90));
+
+    let bytes = match draw_graph(respektive_user.as_ref(), from_unwrapped, until_unwrapped) {
         Ok(Some(graph)) => graph,
         Ok(None) => {
-            let content = format!(
-                "`{name}` has no available rank data :(",
+            let mut content = format!(
+                "`{name}` has no available rank data",
                 name = user.username.as_str()
             );
+
+            if from.is_some() || until.is_some() {
+                content.push_str(" for this time range");
+            }
 
             orig.error(content).await?;
 
@@ -83,17 +92,17 @@ pub async fn score_rank_graph(
     Ok(Some((author, bytes)))
 }
 
-fn draw_graph(user: Option<&RespektiveUser>) -> Result<Option<Vec<u8>>> {
+fn draw_graph(user: Option<&RespektiveUser>, from: u8, until: u8) -> Result<Option<Vec<u8>>> {
     let Some(user) = user else { return Ok(None) };
     let Some(ref rank_history) = user.rank_history else {
         return Ok(None);
     };
 
-    if rank_history.is_empty() {
+    if rank_history.len() < until as usize {
         return Ok(None);
     }
 
-    let history_len = rank_history.len();
+    let rank_history = &rank_history[from as usize..until as usize];
 
     let mut min = u32::MAX;
     let mut max = 0;
@@ -101,7 +110,7 @@ fn draw_graph(user: Option<&RespektiveUser>) -> Result<Option<Vec<u8>>> {
     let mut min_idx = 0;
     let mut max_idx = 0;
 
-    for (i, entry) in rank_history.iter().rev().enumerate() {
+    for (entry, i) in rank_history.iter().rev().zip(from as usize..) {
         let Some(rank) = entry.rank else { continue };
 
         if rank == 0 {
@@ -161,22 +170,15 @@ fn draw_graph(user: Option<&RespektiveUser>) -> Result<Option<Vec<u8>>> {
             .y_label_area_size(y_label_area_size)
             .margin(10)
             .margin_left(6)
-            .build_cartesian_2d(0_i32..history_len.saturating_sub(1) as i32, min..max)
+            .build_cartesian_2d(from as u32..(until as u32).saturating_sub(1), min..max)
             .wrap_err("Failed to build chart")?;
-
-        let now = OffsetDateTime::now_utc();
-
-        let oldest = rank_history
-            .last()
-            .map(|entry| (now - entry.date).whole_days() as i32)
-            .unwrap_or(90);
 
         chart
             .configure_mesh()
             .disable_y_mesh()
             .x_labels(20)
             .x_desc("Days ago")
-            .x_label_formatter(&|x| format!("{}", oldest - *x))
+            .x_label_formatter(&|x| format!("{}", (until + from) as u32 - *x))
             .y_label_formatter(&|y| format!("{}", -*y))
             .y_desc("Rank")
             .label_style(("sans-serif", 15, &WHITE))
@@ -186,11 +188,16 @@ fn draw_graph(user: Option<&RespektiveUser>) -> Result<Option<Vec<u8>>> {
             .draw()
             .wrap_err("Failed to draw mesh")?;
 
+        let now = OffsetDateTime::now_utc();
+
         let data = rank_history.iter().filter_map(|entry| {
             let rank = entry.rank?;
-            let whole_days = (now - entry.date).whole_days() as i32;
+            let whole_days = i64::clamp((now - entry.date).whole_days(), 0, 90) as u32;
 
-            Some((oldest - whole_days, -(rank as i32)))
+            Some((
+                ((until + from) as u32).saturating_sub(whole_days + 1),
+                -(rank as i32),
+            ))
         });
 
         let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
@@ -198,7 +205,7 @@ fn draw_graph(user: Option<&RespektiveUser>) -> Result<Option<Vec<u8>>> {
         let series = AreaSeries::new(data, min, area_style).border_style(border_style);
         chart.draw_series(series).wrap_err("Failed to draw area")?;
 
-        let max_coords = (min_idx as i32, max);
+        let max_coords = (min_idx as u32, max);
         let circle = Circle::new(max_coords, 9_i32, style(GREEN).stroke_width(2));
 
         chart
@@ -207,7 +214,7 @@ fn draw_graph(user: Option<&RespektiveUser>) -> Result<Option<Vec<u8>>> {
             .label(format!("Peak: #{}", WithComma::new(-max)))
             .legend(|(x, y)| Circle::new((x, y), 5_i32, style(GREEN).stroke_width(2)));
 
-        let min_coords = (max_idx as i32, min);
+        let min_coords = (max_idx as u32, min);
         let circle = Circle::new(min_coords, 9_i32, style(RED).stroke_width(2));
 
         chart
@@ -216,12 +223,12 @@ fn draw_graph(user: Option<&RespektiveUser>) -> Result<Option<Vec<u8>>> {
             .label(format!("Worst: #{}", WithComma::new(-min)))
             .legend(|(x, y)| Circle::new((x, y), 5_i32, style(RED).stroke_width(2)));
 
-        let position = if min_idx <= 70 {
-            SeriesLabelPosition::UpperRight
-        } else if max_idx > 70 {
+        let limit = (until - from) / 2 + from;
+
+        let position = if min_idx >= limit as usize {
             SeriesLabelPosition::UpperLeft
         } else {
-            SeriesLabelPosition::LowerRight
+            SeriesLabelPosition::UpperRight
         };
 
         chart
