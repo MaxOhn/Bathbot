@@ -9,7 +9,6 @@ use plotters::{
 };
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
-use rkyv::rend::u32_le;
 use rosu_v2::{prelude::OsuError, request::UserId};
 use skia_safe::{EncodedImageFormat, surfaces};
 
@@ -26,37 +25,15 @@ pub async fn rank_graph(
     orig: &CommandOrigin<'_>,
     user_id: UserId,
     user_args: UserArgs,
+    from: Option<u8>,
+    until: Option<u8>,
 ) -> Result<Option<(CachedUser, Vec<u8>)>> {
-    let user = match Context::redis().osu_user(user_args).await {
-        Ok(user) => user,
-        Err(UserArgsError::Osu(OsuError::NotFound)) => {
-            let content = user_not_found(user_id).await;
-            orig.error(content).await?;
-
-            return Ok(None);
-        }
-        Err(err) => {
-            let _ = orig.error(GENERAL_ISSUE).await;
-            let err = Report::new(err).wrap_err("Failed to get user");
-
-            return Err(err);
-        }
-    };
-
-    fn draw_graph(user: &CachedUser) -> Result<Option<Vec<u8>>> {
-        if user.rank_history.is_empty() {
+    fn draw_graph(user: &CachedUser, from: u8, until: u8) -> Result<Option<Vec<u8>>> {
+        if user.rank_history.len() < 90 - from as usize {
             return Ok(None);
         }
 
-        let history_len = user.rank_history.len();
-
-        let history: Vec<_> = user
-            .rank_history
-            .as_ref()
-            .iter()
-            .copied()
-            .map(u32_le::to_native)
-            .collect();
+        let history = &user.rank_history[90 - until as usize..90 - from as usize];
 
         let mut min = u32::MAX;
         let mut max = 0;
@@ -64,7 +41,9 @@ pub async fn rank_graph(
         let mut min_idx = 0;
         let mut max_idx = 0;
 
-        for (i, &rank) in history.iter().enumerate() {
+        for (&rank, i) in history.iter().zip(from as usize..) {
+            let rank = rank.to_native();
+
             if rank == 0 {
                 continue;
             }
@@ -122,7 +101,7 @@ pub async fn rank_graph(
                 .y_label_area_size(y_label_area_size)
                 .margin(10)
                 .margin_left(6)
-                .build_cartesian_2d(0_u32..history_len.saturating_sub(1) as u32, min..max)
+                .build_cartesian_2d(from as u32..(until as u32).saturating_sub(1), min..max)
                 .wrap_err("Failed to build chart")?;
 
             chart
@@ -130,7 +109,7 @@ pub async fn rank_graph(
                 .disable_y_mesh()
                 .x_labels(20)
                 .x_desc("Days ago")
-                .x_label_formatter(&|x| format!("{}", 90 - *x))
+                .x_label_formatter(&|x| format!("{}", until as u32 + from as u32 - *x))
                 .y_label_formatter(&|y| format!("{}", -*y))
                 .y_desc("Rank")
                 .label_style(("sans-serif", 15, &WHITE))
@@ -140,8 +119,8 @@ pub async fn rank_graph(
                 .draw()
                 .wrap_err("Failed to draw mesh")?;
 
-            let data = (0..)
-                .zip(history.iter().map(|rank| -(*rank as i32)))
+            let data = (from as u32..)
+                .zip(history.iter().map(|rank| -(rank.to_native() as i32)))
                 .skip_while(|(_, rank)| *rank == 0)
                 .take_while(|(_, rank)| *rank != 0);
 
@@ -168,7 +147,9 @@ pub async fn rank_graph(
                 .label(format!("Worst: #{}", WithComma::new(-min)))
                 .legend(|(x, y)| Circle::new((x, y), 5_u32, style(RED).stroke_width(2)));
 
-            let position = if max_idx <= 45 {
+            let limit = (until - from) / 2 + from;
+
+            let position = if min_idx >= limit as usize {
                 SeriesLabelPosition::UpperLeft
             } else {
                 SeriesLabelPosition::UpperRight
@@ -194,13 +175,36 @@ pub async fn rank_graph(
         Ok(Some(png_bytes))
     }
 
-    let bytes = match draw_graph(&user) {
+    let user = match Context::redis().osu_user(user_args).await {
+        Ok(user) => user,
+        Err(UserArgsError::Osu(OsuError::NotFound)) => {
+            let content = user_not_found(user_id).await;
+            orig.error(content).await?;
+
+            return Ok(None);
+        }
+        Err(err) => {
+            let _ = orig.error(GENERAL_ISSUE).await;
+            let err = Report::new(err).wrap_err("Failed to get user");
+
+            return Err(err);
+        }
+    };
+
+    let from_unwrapped = from.unwrap_or(0);
+    let until_unwrapped = u8::max(until.unwrap_or(90), u8::min(from_unwrapped + 2, 90));
+
+    let bytes = match draw_graph(&user, from_unwrapped, until_unwrapped) {
         Ok(Some(graph)) => graph,
         Ok(None) => {
-            let content = format!(
-                "`{name}` has no available rank data :(",
+            let mut content = format!(
+                "`{name}` has no available rank data",
                 name = user.username.as_str()
             );
+
+            if from.is_some() || until.is_some() {
+                content.push_str(" for this time range");
+            }
 
             orig.error(content).await?;
 
