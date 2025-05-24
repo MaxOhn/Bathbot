@@ -7,7 +7,10 @@ use plotters::{
     prelude::*,
 };
 use plotters_skia::SkiaBackend;
-use rosu_pp::{Beatmap, Difficulty, any::Strains};
+use rosu_pp::{
+    Beatmap, Difficulty, any::Strains, catch::CatchStrains, mania::ManiaStrains, osu::OsuStrains,
+    taiko::TaikoStrains,
+};
 use rosu_v2::prelude::GameMods;
 use skia_safe::{BlendMode, EncodedImageFormat, surfaces};
 
@@ -31,32 +34,40 @@ pub async fn map_strains_graph(
         / NEW_STRAIN_COUNT as f64;
 
     let max_strain = match &strains.strains {
-        Strains::Osu(strains) => strains
-            .aim
+        Strains::Osu(OsuStrains {
+            aim,
+            aim_no_sliders,
+            speed,
+            flashlight,
+        }) => aim
             .iter()
-            .zip(strains.aim_no_sliders.iter())
-            .zip(strains.speed.iter())
-            .zip(strains.flashlight.iter())
+            .zip(aim_no_sliders)
+            .zip(speed)
+            .zip(flashlight)
             .fold(0.0_f64, |max, (((a, b), c), d)| {
                 max.max(*a).max(*b).max(*c).max(*d)
             }),
-        Strains::Taiko(strains) => strains
-            .color
+        Strains::Taiko(TaikoStrains {
+            color,
+            reading,
+            rhythm,
+            stamina,
+            single_color_stamina,
+        }) => color
             .iter()
-            .zip(strains.rhythm.iter())
-            .zip(strains.stamina.iter())
-            .zip(strains.single_color_stamina.iter())
-            .fold(0.0_f64, |max, (((a, b), c), d)| {
-                max.max(*a).max(*b).max(*c).max(*d)
+            .zip(rhythm)
+            .zip(stamina)
+            .zip(single_color_stamina)
+            .zip(reading)
+            .fold(0.0_f64, |max, ((((a, b), c), d), e)| {
+                max.max(*a).max(*b).max(*c).max(*d).max(*e)
             }),
-        Strains::Catch(strains) => strains
-            .movement
+        Strains::Catch(CatchStrains { movement }) => movement
             .iter()
             .fold(0.0_f64, |max, strain| max.max(*strain)),
-        Strains::Mania(strains) => strains
-            .strains
-            .iter()
-            .fold(0.0_f64, |max, strain| max.max(*strain)),
+        Strains::Mania(ManiaStrains { strains }) => {
+            strains.iter().fold(0.0_f64, |max, strain| max.max(*strain))
+        }
     };
 
     if max_strain <= f64::EPSILON {
@@ -294,40 +305,47 @@ impl GraphStrains {
         };
 
         match &mut strains {
-            Strains::Osu(strains) => {
-                strains
-                    .aim
-                    .iter()
-                    .zip(strains.aim_no_sliders.iter_mut())
+            Strains::Osu(OsuStrains {
+                aim,
+                aim_no_sliders,
+                speed,
+                flashlight,
+            }) => {
+                aim.iter()
+                    .zip(aim_no_sliders.iter_mut())
                     .for_each(|(aim, no_slider)| *no_slider = *aim - *no_slider);
 
-                strains.aim = create_curve(mem::take(&mut strains.aim))
-                    .wrap_err("Failed to build aim curve")?;
-                strains.aim_no_sliders = create_curve(mem::take(&mut strains.aim_no_sliders))
+                *aim = create_curve(mem::take(aim)).wrap_err("Failed to build aim curve")?;
+                *aim_no_sliders = create_curve(mem::take(aim_no_sliders))
                     .wrap_err("Failed to build aim_no_sliders curve")?;
-                strains.speed = create_curve(mem::take(&mut strains.speed))
-                    .wrap_err("Failed to build speed curve")?;
-                strains.flashlight = create_curve(mem::take(&mut strains.flashlight))
+                *speed = create_curve(mem::take(speed)).wrap_err("Failed to build speed curve")?;
+                *flashlight = create_curve(mem::take(flashlight))
                     .wrap_err("Failed to build flashlight curve")?;
             }
-            Strains::Taiko(strains) => {
-                strains.color = create_curve(mem::take(&mut strains.color))
-                    .wrap_err("Failed to build color curve")?;
-                strains.rhythm = create_curve(mem::take(&mut strains.rhythm))
-                    .wrap_err("Failed to build rhythm curve")?;
-                strains.stamina = create_curve(mem::take(&mut strains.stamina))
-                    .wrap_err("Failed to build stamina curve")?;
-                strains.single_color_stamina =
-                    create_curve(mem::take(&mut strains.single_color_stamina))
-                        .wrap_err("Failed to build single color stamina curve")?;
+            Strains::Taiko(TaikoStrains {
+                color,
+                reading,
+                rhythm,
+                stamina,
+                single_color_stamina,
+            }) => {
+                *color = create_curve(mem::take(color)).wrap_err("Failed to build color curve")?;
+                *rhythm =
+                    create_curve(mem::take(rhythm)).wrap_err("Failed to build rhythm curve")?;
+                *stamina =
+                    create_curve(mem::take(stamina)).wrap_err("Failed to build stamina curve")?;
+                *single_color_stamina = create_curve(mem::take(single_color_stamina))
+                    .wrap_err("Failed to build single color stamina curve")?;
+                *reading =
+                    create_curve(mem::take(reading)).wrap_err("Failed to build reading curve")?;
             }
-            Strains::Catch(strains) => {
-                strains.movement = create_curve(mem::take(&mut strains.movement))
-                    .wrap_err("Failed to build movement curve")?;
+            Strains::Catch(CatchStrains { movement }) => {
+                *movement =
+                    create_curve(mem::take(movement)).wrap_err("Failed to build movement curve")?;
             }
-            Strains::Mania(strains) => {
-                strains.strains = create_curve(mem::take(&mut strains.strains))
-                    .wrap_err("Failed to build strains curve")?;
+            Strains::Mania(ManiaStrains { strains }) => {
+                *strains =
+                    create_curve(mem::take(strains)).wrap_err("Failed to build strains curve")?;
             }
         }
 
