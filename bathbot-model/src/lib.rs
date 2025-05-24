@@ -24,6 +24,6 @@ pub mod rkyv_util;
 
 pub use self::{
     country_code::*, deser::ModeAsSeed, either::Either, games::*, github::*, huismetbenen::*,
-    kittenroleplay::*, osekai::*, osu_stats::*, osutrack::RankAccPeaks, ranking_entries::*,
-    relax::*, respektive::*, score_slim::*, twitch::*, user_stats::*,
+    kittenroleplay::*, osekai::*, osu_stats::*, osutrack::*, ranking_entries::*, relax::*,
+    respektive::*, score_slim::*, twitch::*, user_stats::*,
 };

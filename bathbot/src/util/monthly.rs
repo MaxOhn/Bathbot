@@ -217,7 +217,7 @@ pub struct Monthly<T>(pub Range<T>);
 
 impl<T: IsDate> ValueFormatter<T> for Monthly<T> {
     fn format(value: &T) -> String {
-        format!("{}-{}", value.year(), value.month() as u8)
+        format!("{}-{:02}", value.year(), value.month() as u8)
     }
 }
 
