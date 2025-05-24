@@ -130,6 +130,63 @@ pub(super) mod u32_string {
     }
 }
 
+pub(super) mod option_u64_string {
+    use super::{u64_string::U64String, *};
+
+    pub(super) struct MaybeU64String;
+
+    impl<'de> Visitor<'de> for MaybeU64String {
+        type Value = Option<u64>;
+
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("an optional string containing a u64")
+        }
+
+        #[inline]
+        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+            d.deserialize_str(U64String).map(Some)
+        }
+
+        #[inline]
+        fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+            self.visit_unit()
+        }
+
+        #[inline]
+        fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+    }
+}
+
+pub(super) mod u64_string {
+    use super::{option_u64_string::MaybeU64String, *};
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
+        Ok(d.deserialize_option(MaybeU64String)?.unwrap_or(0))
+    }
+
+    pub(super) struct U64String;
+
+    impl Visitor<'_> for U64String {
+        type Value = u64;
+
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a string containing a u64")
+        }
+
+        fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+            Ok(v)
+        }
+
+        #[inline]
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            v.parse()
+                .map_err(|_| Error::invalid_value(Unexpected::Str(v), &self))
+        }
+    }
+}
+
 pub(super) mod adjust_acc {
     use super::*;
 

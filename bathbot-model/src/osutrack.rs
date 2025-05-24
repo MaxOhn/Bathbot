@@ -1,9 +1,13 @@
 use std::fmt;
 
-use serde::de;
+use rkyv::rancor::BoxedError;
+use serde::{Deserialize, de};
 use time::OffsetDateTime;
 
-use crate::deser::Datetime;
+use crate::{
+    deser::{Datetime, datetime_rfc3339, u64_string},
+    rkyv_util::time::DateTimeRkyv,
+};
 
 #[derive(Clone)]
 pub struct RankAccPeaks {
@@ -85,5 +89,53 @@ impl<'de> de::Deserialize<'de> for MaybeRankAccPeaks {
         }
 
         d.deserialize_any(RankAccPeaksVisitor)
+    }
+}
+
+#[derive(Deserialize, rkyv::Archive, rkyv::Serialize)]
+pub struct OsuTrackHistoryEntry {
+    pub count300: u64,
+    pub count100: u64,
+    pub count50: u64,
+    pub playcount: u32,
+    #[serde(with = "u64_string")]
+    pub ranked_score: u64,
+    #[serde(with = "u64_string")]
+    pub total_score: u64,
+    pub pp_rank: u32,
+    pub level: f32,
+    #[serde(rename = "pp_raw")]
+    pub pp: f32,
+    pub accuracy: f32,
+    #[serde(rename = "count_rank_ss")]
+    pub count_ss: i32,
+    #[serde(rename = "count_rank_s")]
+    pub count_s: i32,
+    #[serde(rename = "count_rank_a")]
+    pub count_a: i32,
+    #[serde(with = "datetime_rfc3339")]
+    #[rkyv(with = DateTimeRkyv)]
+    pub timestamp: OffsetDateTime,
+}
+
+impl ArchivedOsuTrackHistoryEntry {
+    pub fn ratio_count300(&self) -> f32 {
+        100.0 * self.count300.to_native() as f32 / self.sum_counts() as f32
+    }
+
+    pub fn ratio_count100(&self) -> f32 {
+        100.0 * self.count100.to_native() as f32 / self.sum_counts() as f32
+    }
+
+    pub fn ratio_count50(&self) -> f32 {
+        100.0 * self.count50.to_native() as f32 / self.sum_counts() as f32
+    }
+
+    fn sum_counts(&self) -> u64 {
+        self.count300 + self.count100 + self.count50
+    }
+
+    pub fn timestamp(&self) -> OffsetDateTime {
+        self.timestamp.try_deserialize::<BoxedError>().unwrap()
     }
 }

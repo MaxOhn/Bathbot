@@ -6,8 +6,9 @@ use bathbot_cache::{
     util::serialize::{SerializerStrategy, serialize_using_arena, serialize_using_arena_and_with},
 };
 use bathbot_model::{
-    ArchivedOsekaiBadge, ArchivedOsekaiMedal, ArchivedOsuStatsBestScores, ArchivedSnipeCountries,
-    OsekaiRanking, OsuStatsBestScores, OsuStatsBestTimeframe,
+    ArchivedOsekaiBadge, ArchivedOsekaiMedal, ArchivedOsuStatsBestScores,
+    ArchivedOsuTrackHistoryEntry, ArchivedSnipeCountries, OsekaiRanking, OsuStatsBestScores,
+    OsuStatsBestTimeframe,
     rosu_v2::ranking::{ArchivedRankings, RankingsRkyv},
 };
 use bathbot_psql::model::osu::MapVersion;
@@ -231,6 +232,43 @@ impl RedisManager {
         }
 
         Ok(scores)
+    }
+
+    pub async fn osutrack_history(
+        self,
+        user_id: u32,
+        mode: GameMode,
+    ) -> RedisResult<ArchivedVec<ArchivedOsuTrackHistoryEntry>> {
+        const EXPIRE: u64 = 43_200; // 12 hours
+        let key = format!("osutrack_history_{user_id}_{}", mode as u8);
+
+        let mut conn = match Context::cache().fetch(&key).await {
+            Ok(Ok(history)) => {
+                BotMetrics::inc_redis_hit("osutrack history");
+
+                return Ok(history);
+            }
+            Ok(Err(conn)) => Some(conn),
+            Err(err) => {
+                warn!(?err, "Failed to fetch osutrack history");
+
+                None
+            }
+        };
+
+        let history = Context::client()
+            .osutrack_user_history(user_id, mode)
+            .await?;
+
+        let bytes = serialize_using_arena(&history).map_err(RedisError::Serialization)?;
+
+        if let Some(ref mut conn) = conn {
+            if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
+                warn!(?err, "Failed to store osutrack history");
+            }
+        }
+
+        CachedArchive::new(bytes).map_err(RedisError::Validation)
     }
 
     pub async fn snipe_countries(self, mode: GameMode) -> RedisResult<ArchivedSnipeCountries> {

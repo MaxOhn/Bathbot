@@ -7,7 +7,7 @@ use bathbot_model::{
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    EmbedBuilder, MessageBuilder,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
     constants::{GENERAL_ISSUE, OSU_BASE},
     matcher,
     osu::{MapIdType, ModSelection, ModsResult},
@@ -32,6 +32,7 @@ pub use self::map_strains::map_strains_graph;
 use self::{
     bpm::map_bpm_graph,
     medals::medals_graph,
+    osutrack::osutrack_graph,
     playcount_replays::{ProfileGraphFlags, playcount_replays_graph},
     rank::rank_graph,
     score_rank::score_rank_graph,
@@ -41,9 +42,9 @@ use self::{
     top_index::top_graph_index,
     top_time::{top_graph_time_day, top_graph_time_hour},
 };
-use super::{SnipeGameMode, require_link, user_not_found};
+use super::{SnipeGameMode, UserIdResult, require_link, user_not_found};
 use crate::{
-    commands::osu::HasMods,
+    commands::osu::{HasMods, HasName as HasNameTrait},
     core::{Context, commands::CommandOrigin},
     embeds::attachment,
     manager::{
@@ -56,6 +57,7 @@ use crate::{
 mod bpm;
 mod map_strains;
 mod medals;
+mod osutrack;
 mod playcount_replays;
 mod rank;
 mod score_rank;
@@ -74,6 +76,8 @@ pub enum Graph {
     MapStrains(GraphMapStrains),
     #[command(name = "medals")]
     Medals(GraphMedals),
+    #[command(name = "osutrack")]
+    OsuTrack(GraphOsuTrack),
     #[command(name = "playcount_replays")]
     PlaycountReplays(GraphPlaycountReplays),
     #[command(name = "rank")]
@@ -127,6 +131,131 @@ pub struct GraphMapStrains {
 #[derive(CommandModel, CreateCommand, HasName)]
 #[command(name = "medals", desc = "Display a user's medal progress over time")]
 pub struct GraphMedals {
+    #[command(desc = "Specify a username")]
+    name: Option<String>,
+    #[command(
+        desc = "Specify a linked discord user",
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "osutrack", desc = "Various graphs based on osutrack data")]
+pub enum GraphOsuTrack {
+    #[command(name = "pp_rank")]
+    PpRank(GraphOsuTrackPpRank),
+    #[command(name = "score")]
+    Score(GraphOsuTrackScore),
+    #[command(name = "hit_ratios")]
+    HitRatios(GraphOsuTrackHitRatios),
+    #[command(name = "playcount")]
+    Playcount(GraphOsuTrackPlaycount),
+    #[command(name = "accuracy")]
+    Accuracy(GraphOsuTrackAccuracy),
+    #[command(name = "grades")]
+    Grades(GraphOsuTrackGrades),
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(
+    name = "pp_rank",
+    desc = "Pp and rank over time based on osutrack data"
+)]
+pub struct GraphOsuTrackPpRank {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
+    #[command(desc = "Specify a username")]
+    name: Option<String>,
+    #[command(
+        desc = "Specify a linked discord user",
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(
+    name = "score",
+    desc = "Total and ranked score over time based on osutrack data"
+)]
+pub struct GraphOsuTrackScore {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
+    #[command(desc = "Specify a username")]
+    name: Option<String>,
+    #[command(
+        desc = "Specify a linked discord user",
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(
+    name = "hit_ratios",
+    desc = "Hit ratios over time based on osutrack data"
+)]
+pub struct GraphOsuTrackHitRatios {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
+    #[command(desc = "Specify a username")]
+    name: Option<String>,
+    #[command(
+        desc = "Specify a linked discord user",
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(
+    name = "playcount",
+    desc = "Playcount over time based on osutrack data"
+)]
+pub struct GraphOsuTrackPlaycount {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
+    #[command(desc = "Specify a username")]
+    name: Option<String>,
+    #[command(
+        desc = "Specify a linked discord user",
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(name = "accuracy", desc = "Accuracy over time based on osutrack data")]
+pub struct GraphOsuTrackAccuracy {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
+    #[command(desc = "Specify a username")]
+    name: Option<String>,
+    #[command(
+        desc = "Specify a linked discord user",
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(name = "grades", desc = "Grades over time based on osutrack data")]
+pub struct GraphOsuTrackGrades {
+    #[command(desc = "Specify a gamemode")]
+    mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
     #[command(
@@ -285,6 +414,10 @@ async fn slash_graph(mut command: InteractionCommand) -> Result<()> {
 // Takes a `CommandOrigin` since `require_link` does not take
 // `InteractionCommand`
 async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
+    let mut author_fn: fn(CachedUser) -> AuthorBuilder =
+        |user: CachedUser| user.author_builder(false);
+    let mut footer = None;
+
     let tuple_option = match args {
         Graph::MapBpm(args) => {
             return match map_bpm(&orig, args).await {
@@ -325,6 +458,64 @@ async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
             medals_graph(&orig, user_id)
                 .await
                 .wrap_err("failed to create medals graph")?
+        }
+        Graph::OsuTrack(args) => {
+            // Allows the usage of the `user_id_mode!` macro
+            struct Wrap<'a> {
+                args: &'a GraphOsuTrack,
+                mode: Option<GameModeOption>,
+            }
+
+            impl<'a> Wrap<'a> {
+                fn new(args: &'a GraphOsuTrack) -> Self {
+                    Self {
+                        mode: match args {
+                            GraphOsuTrack::PpRank(args) => args.mode,
+                            GraphOsuTrack::Score(args) => args.mode,
+                            GraphOsuTrack::HitRatios(args) => args.mode,
+                            GraphOsuTrack::Playcount(args) => args.mode,
+                            GraphOsuTrack::Accuracy(args) => args.mode,
+                            GraphOsuTrack::Grades(args) => args.mode,
+                        },
+                        args,
+                    }
+                }
+            }
+
+            impl HasNameTrait for Wrap<'_> {
+                fn user_id(&self) -> UserIdResult {
+                    match self.args {
+                        GraphOsuTrack::PpRank(args) => args.user_id(),
+                        GraphOsuTrack::Score(args) => args.user_id(),
+                        GraphOsuTrack::HitRatios(args) => args.user_id(),
+                        GraphOsuTrack::Playcount(args) => args.user_id(),
+                        GraphOsuTrack::Accuracy(args) => args.user_id(),
+                        GraphOsuTrack::Grades(args) => args.user_id(),
+                    }
+                }
+            }
+
+            let wrap = Wrap::new(&args);
+            let (user_id, mode) = user_id_mode!(orig, wrap);
+
+            author_fn = |user: CachedUser| {
+                user.author_builder(false).url(format!(
+                    "https://ameobea.me/osutrack/user/{}{}",
+                    user.username.as_str().cow_replace(' ', "%20"),
+                    match user.mode {
+                        GameMode::Osu => "",
+                        GameMode::Taiko => "/taiko",
+                        GameMode::Catch => "/ctb",
+                        GameMode::Mania => "/mania",
+                    }
+                ))
+            };
+
+            footer = Some(FooterBuilder::new("Data provided by ameobea.me/osutrack"));
+
+            osutrack_graph(&orig, user_id, mode, args)
+                .await
+                .wrap_err("Failed to create osutrack graph")?
         }
         Graph::PlaycountReplays(args) => {
             let user_id = match user_id!(orig, args) {
@@ -395,6 +586,7 @@ async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
         }
         Graph::Sniped(args) => {
             let (user_id, mode) = user_id_mode!(orig, args);
+            footer = Some(FooterBuilder::new("Data provided by snipe.huismetbenen.nl"));
 
             sniped_graph(&orig, user_id, mode)
                 .await
@@ -402,6 +594,7 @@ async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
         }
         Graph::SnipeCount(args) => {
             let (user_id, mode) = user_id_mode!(orig, args);
+            footer = Some(FooterBuilder::new("Data provided by snipe.huismetbenen.nl"));
 
             snipe_count_graph(&orig, user_id, mode)
                 .await
@@ -461,9 +654,13 @@ async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
         return Ok(());
     };
 
-    let embed = EmbedBuilder::new()
-        .author(user.author_builder(false))
+    let mut embed = EmbedBuilder::new()
+        .author(author_fn(user))
         .image(attachment("graph.png"));
+
+    if let Some(footer) = footer {
+        embed = embed.footer(footer);
+    }
 
     let builder = MessageBuilder::new()
         .embed(embed)
