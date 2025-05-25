@@ -13,10 +13,10 @@ use hyper_util::{
     client::legacy::{Builder, Client as HyperClient, Error as HyperError, connect::HttpConnector},
     rt::TokioExecutor,
 };
-use leaky_bucket_lite::LeakyBucket;
-use tokio::time::Duration;
 
-use crate::{ClientError, MY_USER_AGENT, Site, metrics::ClientMetrics, multipart::Multipart};
+use crate::{
+    ClientError, MY_USER_AGENT, Ratelimiters, Site, metrics::ClientMetrics, multipart::Multipart,
+};
 
 pub(crate) type InnerClient = HyperClient<HttpsConnector<HttpConnector>, Body>;
 pub(crate) type Body = Full<Bytes>;
@@ -26,7 +26,7 @@ pub struct Client {
     #[cfg(feature = "twitch")]
     twitch: bathbot_model::TwitchData,
     github_auth: Box<str>,
-    ratelimiters: [LeakyBucket; 17],
+    ratelimiters: Ratelimiters,
 }
 
 impl Client {
@@ -53,48 +53,17 @@ impl Client {
             .await
             .wrap_err("failed to get twitch token")?;
 
-        let ratelimiter = |per_second| {
-            LeakyBucket::builder()
-                .max(per_second)
-                .tokens(per_second)
-                .refill_interval(Duration::from_millis(1000 / per_second as u64))
-                .refill_amount(1)
-                .build()
-        };
-
-        let github_auth = format!("Bearer {github_token}").into_boxed_str();
-
-        let ratelimiters = [
-            ratelimiter(2),  // DiscordAttachment
-            ratelimiter(10), // Flags
-            ratelimiter(5),  // Github
-            ratelimiter(2),  // Huismetbenen
-            ratelimiter(5),  // KittenRoleplay
-            ratelimiter(5),  // MissAnalyzer
-            ratelimiter(2),  // Osekai
-            ratelimiter(10), // OsuAvatar
-            ratelimiter(10), // OsuBadge
-            ratelimiter(2),  // OsuMapFile
-            ratelimiter(10), // OsuMapsetCover
-            ratelimiter(2),  // OsuStats
-            ratelimiter(2),  // OsuTrack
-            ratelimiter(2),  // OsuWorld
-            ratelimiter(2),  // Relaxation Vault
-            ratelimiter(1),  // Respektive
-            ratelimiter(5),  // Twitch
-        ];
-
         Ok(Self {
             client,
-            ratelimiters,
+            ratelimiters: Ratelimiters::new(),
             #[cfg(feature = "twitch")]
             twitch,
-            github_auth,
+            github_auth: format!("Bearer {github_token}").into_boxed_str(),
         })
     }
 
     pub(crate) async fn ratelimit(&self, site: Site) {
-        self.ratelimiters[site as usize].acquire_one().await
+        self.ratelimiters.get(site).acquire_one().await
     }
 
     pub(crate) async fn make_get_request(

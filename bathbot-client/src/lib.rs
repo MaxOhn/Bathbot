@@ -21,7 +21,7 @@ mod site;
 mod snipe;
 mod twitch;
 
-use self::site::Site;
+use self::site::{Ratelimiters, Site};
 pub use self::{client::Client, error::ClientError};
 
 static MY_USER_AGENT: &str = env!("CARGO_PKG_NAME");
