@@ -13,7 +13,7 @@ use bathbot_util::{
     osu::{MapIdType, ModSelection, ModsResult},
 };
 use eyre::{Report, Result, WrapErr};
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, RgbaImage};
 use plotters::element::{Drawable, PointCollection};
 use plotters_backend::{BackendCoord, DrawingBackend, DrawingErrorKind};
 use plotters_skia::SkiaBackend;
@@ -986,6 +986,19 @@ impl<C> BitMapElement<C> {
     pub fn new(img: DynamicImage, pos: C) -> Self {
         let size = img.dimensions();
         let img = img.into_rgba8().into_raw();
+
+        Self { img, size, pos }
+    }
+
+    pub fn new_with_map<F>(img: DynamicImage, pos: C, f: F) -> Self
+    where
+        F: FnOnce(&mut RgbaImage),
+    {
+        let size = img.dimensions();
+
+        let mut rgba = img.into_rgba8();
+        f(&mut rgba);
+        let img = rgba.into_raw();
 
         Self { img, size, pos }
     }

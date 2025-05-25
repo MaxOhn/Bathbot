@@ -159,41 +159,37 @@ pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>>
         surfaces::raster_n32_premul((w as i32, h as i32)).wrap_err("Failed to create surface")?;
 
     {
-        let root = SkiaBackend::new(surface.canvas(), w, h).into_drawing_area();
+        let mut root = SkiaBackend::new(surface.canvas(), w, h).into_drawing_area();
+
         let background = RGBColor(19, 43, 33);
         root.fill(&background)
             .wrap_err("Failed to fill background")?;
 
-        let style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
-            color: color.to_rgba(),
-            filled: false,
-            stroke_width: 1,
-        };
+        let title_style = TextStyle::from(("sans-serif", 25_i32, FontStyle::Bold)).color(&WHITE);
+        root = root
+            .titled("Medal history", title_style)
+            .wrap_err("Failed to draw title")?;
 
         let mut chart = ChartBuilder::on(&root)
-            .margin_right(22)
-            .caption("Medal history", ("sans-serif", 30, &WHITE))
-            .x_label_area_size(30)
-            .y_label_area_size(45)
+            .margin(9)
+            .x_label_area_size(20)
+            .y_label_area_size(40)
             .build_cartesian_2d(Monthly(first..last), 0..medals.len())
             .wrap_err("Failed to build chart")?;
 
         // Mesh and labels
         chart
             .configure_mesh()
-            .disable_x_mesh()
-            .x_labels(10)
-            .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8))
+            .disable_mesh()
             .label_style(("sans-serif", 20, &WHITE))
-            .bold_line_style(WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
-            .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
+            .axis_desc_style(("sans-serif", 20, FontStyle::Bold, &WHITE))
             .draw()
             .wrap_err("Failed to draw mesh and labels")?;
 
         // Draw area
-        let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
-        let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
+        let area_style = RGBColor(2, 186, 213).mix(0.6).filled();
+        let border_style = RGBColor(0, 208, 138).stroke_width(3);
         let counter = MedalCounter::new(medals);
         let series = AreaSeries::new(counter, 0, area_style).border_style(border_style);
         chart.draw_series(series).wrap_err("Failed to draw area")?;

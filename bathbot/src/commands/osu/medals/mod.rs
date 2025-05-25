@@ -12,6 +12,7 @@ pub use self::{common::*, list::*, medal::*, missing::*, recent::*, stats::*};
 use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
 
 mod common;
+mod icons_image;
 mod list;
 mod medal;
 mod missing;

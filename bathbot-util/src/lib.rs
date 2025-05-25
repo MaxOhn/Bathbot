@@ -12,6 +12,7 @@ mod tourney_badges;
 
 pub mod constants;
 pub mod datetime;
+pub mod html;
 pub mod matcher;
 pub mod numbers;
 pub mod osu;

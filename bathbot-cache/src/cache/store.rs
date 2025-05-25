@@ -56,6 +56,17 @@ impl Cache {
         Self::store(&mut conn, key, bytes, expire_seconds).await
     }
 
+    /// Store bytes through a new connection without expiration.
+    pub async fn store_forever<K>(&self, key: &K, bytes: &[u8]) -> Result<()>
+    where
+        K: ToCacheKey + ?Sized,
+    {
+        let mut conn = self.connection().await?;
+        let key = RedisKey::from(key);
+
+        conn.set(key, bytes).await.map_err(Report::new)
+    }
+
     /// Insert a value into a set.
     ///
     /// Returns whether the value was newly inserted. That is:

@@ -10,7 +10,7 @@ use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
 
-use super::{MedalList, MedalListOrder};
+use super::{MedalList, MedalListOrder, icons_image::draw_icons_image};
 use crate::{
     Context,
     active::{ActiveMessages, impls::MedalsListPagination},
@@ -150,6 +150,33 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
         ""
     };
 
+    let medal_ids: Vec<_> = medals.iter().map(|medal| medal.medal.medal_id).collect();
+
+    let image = match Context::redis().medal_icons(&medal_ids).await {
+        Ok(mut icons) => {
+            icons.sort_unstable_by(|(a, _), (b, _)| {
+                let idx_a = medals.iter().position(|m| m.medal.medal_id == *a);
+                let idx_b = medals.iter().position(|m| m.medal.medal_id == *b);
+
+                idx_a.cmp(&idx_b)
+            });
+
+            match draw_icons_image(&icons) {
+                Ok(image) => Some(image),
+                Err(err) => {
+                    warn!(?err, "Failed to draw image");
+
+                    None
+                }
+            }
+        }
+        Err(err) => {
+            warn!(?err);
+
+            None
+        }
+    };
+
     let name = user.username.as_str();
 
     let content = match group {
@@ -169,6 +196,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
+        .attachment(image.map(|image| (MedalsListPagination::IMAGE_NAME.to_owned(), image)))
         .begin(orig)
         .await
 }

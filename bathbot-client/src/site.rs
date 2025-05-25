@@ -62,6 +62,8 @@ sites! {
     OsuBadge -> 10,
     OsuMapFile -> 2,
     OsuMapsetCover -> 10,
+    OsuMedalIcon -> 25,
+    OsuProfile -> 1,
     OsuStats -> 2,
     OsuTrack -> 2,
     Relax -> 2,

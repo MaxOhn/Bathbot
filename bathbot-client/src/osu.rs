@@ -1,6 +1,7 @@
-use bathbot_util::constants::OSU_BASE;
+use bathbot_model::{ScrapedMedal, ScrapedUser};
+use bathbot_util::{constants::OSU_BASE, html::decode_html_entities};
 use bytes::Bytes;
-use eyre::{Report, Result, WrapErr};
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use http::response::Parts;
 use hyper::{Request, header::USER_AGENT};
 
@@ -46,6 +47,38 @@ impl Client {
 
     pub async fn get_flag(&self, url: &str) -> Result<Bytes> {
         self.make_get_request(url, Site::Flags)
+            .await
+            .map_err(Report::new)
+    }
+
+    pub async fn get_medal_icon(&self, url: &str) -> Result<Bytes> {
+        self.make_get_request(url, Site::OsuMedalIcon)
+            .await
+            .map_err(Report::new)
+    }
+
+    /// Don't use this; use `RedisManager::scraped_medals` instead.
+    pub async fn get_medals(&self) -> Result<Box<[ScrapedMedal]>> {
+        const KEY: &str = "data-initial-data=";
+
+        let bytes = self.peppy_profile().await?;
+        let data = std::str::from_utf8(&bytes)?;
+        let start = data.find(KEY).wrap_err("missing key")? + KEY.len() + 1;
+        let end = memchr::memchr(b'"', &bytes[start..]).wrap_err("missing end quote")? + start;
+
+        let data_initial_data = &data[start..end];
+        let decoded = decode_html_entities(data_initial_data);
+
+        let ScrapedUser { medals } = serde_json::from_str(&decoded)
+            .wrap_err_with(|| format!("Failed to deserialize: {decoded}"))?;
+
+        Ok(medals)
+    }
+
+    async fn peppy_profile(&self) -> Result<Bytes> {
+        let url = "https://osu.ppy.sh/users/2";
+
+        self.make_get_request(url, Site::OsuProfile)
             .await
             .map_err(Report::new)
     }

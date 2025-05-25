@@ -42,6 +42,22 @@ impl Cache {
         Ok(Ok(CachedArchive::new(bytes)?))
     }
 
+    pub async fn fetch_raw<K>(
+        &self,
+        key: &K,
+    ) -> Result<Result<Vec<u8>, CacheConnection>, FetchError>
+    where
+        K: ToCacheKey + ?Sized,
+    {
+        let mut conn = self.connection().await?;
+
+        let Some(bytes) = conn.get(RedisKey::from(key)).await? else {
+            return Ok(Err(CacheConnection(conn)));
+        };
+
+        Ok(Ok(bytes))
+    }
+
     async fn fetch_discord_type<T>(&self, key: RedisKey<'_>) -> FetchResult<T>
     where
         T: Portable + Portable + for<'a> CheckBytes<ValidatorStrategy<'a>>,

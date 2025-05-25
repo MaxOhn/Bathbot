@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Write};
+use std::{borrow::Cow, collections::HashMap, fmt::Write};
 
 use bathbot_cache::{
     Cache,
@@ -7,14 +7,18 @@ use bathbot_cache::{
 };
 use bathbot_model::{
     ArchivedOsekaiBadge, ArchivedOsekaiMedal, ArchivedOsuStatsBestScores,
-    ArchivedOsuTrackHistoryEntry, ArchivedSnipeCountries, OsekaiRanking, OsuStatsBestScores,
-    OsuStatsBestTimeframe,
+    ArchivedOsuTrackHistoryEntry, ArchivedScrapedMedal, ArchivedSnipeCountries, OsekaiRanking,
+    OsuStatsBestScores, OsuStatsBestTimeframe,
     rosu_v2::ranking::{ArchivedRankings, RankingsRkyv},
 };
 use bathbot_psql::model::osu::MapVersion;
-use bathbot_util::{matcher, osu::MapIdType};
+use bathbot_util::{IntHasher, matcher, osu::MapIdType};
 use eyre::{Report, Result, WrapErr};
-use rkyv::{Archived, Serialize, bytecheck::CheckBytes, rancor::BoxedError, vec::ArchivedVec};
+use futures::{StreamExt, stream::FuturesUnordered};
+use rkyv::{
+    Archived, Serialize, bytecheck::CheckBytes, collections::swiss_table::ArchivedHashMap,
+    primitive::ArchivedU16, rancor::BoxedError, vec::ArchivedVec,
+};
 use rosu_v2::prelude::GameMode;
 use thiserror::Error as ThisError;
 
@@ -106,6 +110,138 @@ impl RedisManager {
         }
 
         CachedArchive::new(bytes).map_err(RedisError::Validation)
+    }
+
+    pub async fn medal_icons(self, medal_ids: &[u32]) -> Result<Vec<(u32, Vec<u8>)>> {
+        async fn scraped_medals(
+            force_request: bool,
+        ) -> RedisResult<ArchivedHashMap<ArchivedU16, ArchivedScrapedMedal>> {
+            const EXPIRE: u64 = 3600;
+            const KEY: &str = "scraped_medals";
+
+            let mut conn = if force_request {
+                None
+            } else {
+                match Context::cache().fetch(KEY).await {
+                    Ok(Ok(medals)) => {
+                        BotMetrics::inc_redis_hit("Scraped medals");
+
+                        return Ok(medals);
+                    }
+                    Ok(Err(conn)) => Some(conn),
+                    Err(err) => {
+                        warn!(?err, "Failed to fetch scraped medals");
+
+                        None
+                    }
+                }
+            };
+
+            let medals: HashMap<_, _, IntHasher> = Context::client()
+                .get_medals()
+                .await?
+                .into_iter()
+                .map(|medal| (medal.id, medal))
+                .collect();
+
+            let bytes = serialize_using_arena(&medals).map_err(RedisError::Serialization)?;
+
+            let mut store_bytes = async || {
+                if let Some(ref mut conn) = conn {
+                    Some(Cache::store(conn, KEY, bytes.as_slice(), EXPIRE).await)
+                } else if force_request {
+                    Some(
+                        Context::cache()
+                            .store_new(KEY, bytes.as_slice(), EXPIRE)
+                            .await,
+                    )
+                } else {
+                    None
+                }
+            };
+
+            if let Some(Err(err)) = store_bytes().await {
+                warn!(?err, "Failed to store scraped medals");
+            }
+
+            CachedArchive::new(bytes).map_err(RedisError::Validation)
+        }
+
+        let mut medals = scraped_medals(false).await?;
+        let mut re_requested = false;
+
+        let mut medal_icons = Vec::new();
+        let mut remaining_medals = FuturesUnordered::new();
+
+        let cache = Context::cache();
+        let client = Context::client();
+
+        let medal_icon_key = |medal_id| format!("medal_icon_{medal_id}");
+
+        for &medal_id in medal_ids {
+            let medal = match medals.get(&(medal_id as u16).into()) {
+                Some(medal) => medal,
+                None if re_requested => bail!("unknown medal id {medal_id}"),
+                None => {
+                    medals = scraped_medals(true).await?;
+                    re_requested = true;
+
+                    match medals.get(&(medal_id as u16).into()) {
+                        Some(medal) => medal,
+                        None => bail!("unknown medal id {medal_id}"),
+                    }
+                }
+            };
+
+            let key = medal_icon_key(medal_id);
+
+            // Instead of using the redis cache they could also be stored in
+            // the database. That way they wouldn't be removed on each cold
+            // reboot. TODO: create DB table
+            let medal_icon_opt = match cache.fetch_raw(&key).await {
+                Ok(Ok(bytes)) => Some(bytes),
+                Ok(Err(_)) => None,
+                Err(err) => {
+                    warn!(?err, "Failed to fetch scraped medals");
+
+                    None
+                }
+            };
+
+            match medal_icon_opt {
+                Some(bytes) => {
+                    medal_icons.push((medal_id, bytes));
+                }
+                None => {
+                    let icon_url = Box::<str>::from(medal.icon_url.as_ref());
+                    remaining_medals
+                        .push(async move { (medal_id, client.get_medal_icon(&icon_url).await) });
+                }
+            }
+        }
+
+        if remaining_medals.is_empty() {
+            debug!("Found all {} medal icons in cache", medal_ids.len());
+        } else {
+            debug!(
+                "Fetching the remaining {}/{} medal icons...",
+                remaining_medals.len(),
+                medal_ids.len()
+            );
+        }
+
+        while let Some((medal_id, res)) = remaining_medals.next().await {
+            let bytes =
+                res.wrap_err_with(|| format!("Failed to fetch icon for medal id {medal_id}"))?;
+
+            if let Err(err) = cache.store_forever(&medal_icon_key(medal_id), &bytes).await {
+                warn!(?err, "Failed to store icon of medal {medal_id}");
+            }
+
+            medal_icons.push((medal_id, bytes.into()));
+        }
+
+        Ok(medal_icons)
     }
 
     pub async fn osekai_ranking<R>(self) -> RedisResult<Archived<Vec<R::Entry>>>
