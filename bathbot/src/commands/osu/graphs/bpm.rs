@@ -48,7 +48,7 @@ pub async fn map_bpm_graph(map: &Beatmap, mods: GameMods, cover_url: &str) -> Re
             .first()
             .is_some_and(|tp| tp.time > h.start_time)
         {
-            points.push((h.start_time, TimingPoint::DEFAULT_BPM));
+            points.push((h.start_time, start_bpm));
         }
     }
 
