@@ -6,6 +6,7 @@ mod github;
 mod huismetbenen;
 mod kittenroleplay;
 mod osekai;
+mod osu;
 mod osu_stats;
 mod osutrack;
 mod ranking_entries;
@@ -24,6 +25,6 @@ pub mod rkyv_util;
 
 pub use self::{
     country_code::*, deser::ModeAsSeed, either::Either, games::*, github::*, huismetbenen::*,
-    kittenroleplay::*, osekai::*, osu_stats::*, osutrack::*, ranking_entries::*, relax::*,
+    kittenroleplay::*, osekai::*, osu::*, osu_stats::*, osutrack::*, ranking_entries::*, relax::*,
     respektive::*, score_slim::*, twitch::*, user_stats::*,
 };

@@ -5,6 +5,7 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
+memchr = { workspace = true }
 metrics = { workspace = true }
 metrics-util = { workspace = true }
 regex = { version = "1.0" }

@@ -17,6 +17,7 @@ use crate::{
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::{MedalMissingOrder, MedalType},
+    embeds::attachment,
     manager::redis::osu::CachedUser,
     util::interaction::{InteractionComponent, InteractionModal},
 };
@@ -30,6 +31,10 @@ pub struct MedalsMissingPagination {
     sort: MedalMissingOrder,
     msg_owner: Id<UserMarker>,
     pages: Pages,
+}
+
+impl MedalsMissingPagination {
+    pub const IMAGE_NAME: &str = "medals.png";
 }
 
 impl IActiveMessage for MedalsMissingPagination {
@@ -97,6 +102,7 @@ impl IActiveMessage for MedalsMissingPagination {
             .author(author)
             .description(description)
             .footer(footer)
+            .image(attachment(Self::IMAGE_NAME))
             .thumbnail(avatar_url)
             .title("Missing medals");
 

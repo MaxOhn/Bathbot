@@ -7,7 +7,7 @@ use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 
-use super::{MedalMissing, MedalMissingOrder};
+use super::{MedalMissing, MedalMissingOrder, icons_image::draw_icons_image};
 use crate::{
     Context,
     active::{ActiveMessages, impls::MedalsMissingPagination},
@@ -132,6 +132,44 @@ pub(super) async fn missing(orig: CommandOrigin<'_>, args: MedalMissing<'_>) -> 
         }),
     }
 
+    let medal_ids: Vec<_> = medals
+        .iter()
+        .filter_map(|medal| match medal {
+            MedalType::Medal(medal) => Some(medal.medal_id),
+            MedalType::Group(_) => None,
+        })
+        .collect();
+
+    let image = match Context::redis().medal_icons(&medal_ids).await {
+        Ok(mut icons) => {
+            icons.sort_unstable_by(|(a, _), (b, _)| {
+                let position_fn = |m: &MedalType, id: u32| match m {
+                    MedalType::Medal(m) => m.medal_id == id,
+                    MedalType::Group(_) => false,
+                };
+
+                let idx_a = medals.iter().position(|m| position_fn(m, *a));
+                let idx_b = medals.iter().position(|m| position_fn(m, *b));
+
+                idx_a.cmp(&idx_b)
+            });
+
+            match draw_icons_image(&icons) {
+                Ok(image) => Some(image),
+                Err(err) => {
+                    warn!(?err, "Failed to draw image");
+
+                    None
+                }
+            }
+        }
+        Err(err) => {
+            warn!(?err);
+
+            None
+        }
+    };
+
     let pagination = MedalsMissingPagination::builder()
         .user(user)
         .medals(medals.into_boxed_slice())
@@ -142,6 +180,7 @@ pub(super) async fn missing(orig: CommandOrigin<'_>, args: MedalMissing<'_>) -> 
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
+        .attachment(image.map(|image| (MedalsMissingPagination::IMAGE_NAME.to_owned(), image)))
         .begin(orig)
         .await
 }

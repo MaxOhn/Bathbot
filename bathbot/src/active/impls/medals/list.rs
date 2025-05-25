@@ -16,6 +16,7 @@ use crate::{
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::MedalEntryList,
+    embeds::attachment,
     manager::redis::osu::CachedUser,
     util::interaction::{InteractionComponent, InteractionModal},
 };
@@ -29,6 +30,10 @@ pub struct MedalsListPagination {
     content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
+}
+
+impl MedalsListPagination {
+    pub const IMAGE_NAME: &str = "medals.png";
 }
 
 impl IActiveMessage for MedalsListPagination {
@@ -83,6 +88,7 @@ impl IActiveMessage for MedalsListPagination {
         let embed = EmbedBuilder::new()
             .author(author)
             .description(description)
+            .image(attachment(Self::IMAGE_NAME))
             .footer(footer)
             .thumbnail(avatar_url);
 

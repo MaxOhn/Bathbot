@@ -302,6 +302,7 @@ dependencies = [
  "hyper-util",
  "itoa",
  "leaky-bucket-lite",
+ "memchr",
  "metrics",
  "rand 0.8.5",
  "rkyv",
@@ -463,6 +464,7 @@ dependencies = [
 name = "bathbot-util"
 version = "3.19.4"
 dependencies = [
+ "memchr",
  "metrics",
  "metrics-util",
  "regex",
@@ -2496,7 +2498,7 @@ checksum = "df42e13c12958a16b3f7f4386b9ab1f3e7933914ecea48da7139435263a4172a"
 [[package]]
 name = "plotters-skia"
 version = "0.2.0"
-source = "git+https://github.com/MaxOhn/plotters-skia?branch=main#19950ed359795b0c50fe6a7f9aaf91523f2408f3"
+source = "git+https://github.com/MaxOhn/plotters-skia?branch=main#c6db4f21f9fcac2b20e86e4d7a9352b46c22cca8"
 dependencies = [
  "plotters-backend",
  "skia-safe",
