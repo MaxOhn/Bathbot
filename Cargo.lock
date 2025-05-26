@@ -2892,7 +2892,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp"
 version = "3.0.0"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=fast-hitresult-gen#6758278c605906936324f1a96491fdc9c2caa36a"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=fast-hitresult-gen#166e476392b3af87594e9df64068d2a99a45fc2e"
 dependencies = [
  "rosu-map",
  "rosu-mods",
