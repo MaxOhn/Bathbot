@@ -26,27 +26,6 @@ pub use self::{
     sniped::*, whatif::*,
 };
 
-pub struct ModsFormatter<'m> {
-    mods: &'m GameMods,
-}
-
-impl<'m> ModsFormatter<'m> {
-    pub fn new(mods: &'m GameMods) -> Self {
-        Self { mods }
-    }
-}
-
-impl Display for ModsFormatter<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        if self.mods.is_empty() {
-            Ok(())
-        } else {
-            write!(f, "+{}", self.mods)
-        }
-    }
-}
-
 pub struct ComboFormatter {
     score: u32,
     max: Option<u32>,

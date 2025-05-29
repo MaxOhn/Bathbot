@@ -7,7 +7,7 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::SnipeRecent;
 use bathbot_util::{
-    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, constants::OSU_BASE,
+    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter, constants::OSU_BASE,
     datetime::HowLongAgoDynamic, numbers::round,
 };
 use eyre::{Result, WrapErr};
@@ -25,7 +25,6 @@ use crate::{
     },
     commands::osu::Difference,
     core::Context,
-    embeds::ModsFormatter,
     manager::redis::osu::CachedUser,
     util::{
         CachedUserExt,
@@ -89,7 +88,7 @@ impl IActiveMessage for SnipeDifferencePagination {
                 title = score.title.cow_escape_markdown(),
                 version = score.version.cow_escape_markdown(),
                 id = score.map_id,
-                mods = ModsFormatter::new(mods.as_ref()),
+                mods = ModsFormatter::new(mods.as_ref(), true),
                 acc = round(score.accuracy),
             );
 

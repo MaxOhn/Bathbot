@@ -143,7 +143,7 @@ impl IActiveMessage for SnipePlayerListPagination {
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 map_id = score.map_id,
-                mods = ModsFormatter::new(&mods),
+                mods = ModsFormatter::new(&mods, true),
                 pp = PpFormatter::new(score.pp, Some(max_pp)),
                 stars = score.stars,
                 acc = round(score.accuracy),

@@ -11,20 +11,15 @@ use rosu_v2::model::mods::{
 
 pub struct ModsFormatter<'a> {
     mods: &'a GameMods,
+    legacy_order: bool,
 }
 
 impl<'a> ModsFormatter<'a> {
-    pub fn new(mods: &'a GameMods) -> Self {
-        Self { mods }
+    pub fn new(mods: &'a GameMods, legacy_order: bool) -> Self {
+        Self { mods, legacy_order }
     }
-}
 
-impl Display for ModsFormatter<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        if self.mods.is_empty() {
-            return f.write_str("NM");
-        }
-
+    fn format_mods(&self, f: &mut Formatter<'_>) -> FmtResult {
         for gamemod in self.mods.iter() {
             f.write_str(gamemod.acronym().as_str())?;
 
@@ -49,16 +44,35 @@ impl Display for ModsFormatter<'_> {
                         write!(f, "({}x)", (*speed_change * 100.0).round() / 100.0)?
                     }
                 }
-
-                GameMod::DifficultyAdjustOsu(_)
-                | GameMod::DifficultyAdjustTaiko(_)
-                | GameMod::DifficultyAdjustCatch(_)
-                | GameMod::DifficultyAdjustMania(_) => {} // TODO: print something?
-
                 _ => {}
             }
         }
 
         Ok(())
+    }
+
+    fn legacacy_format_mods(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let mut mods: Vec<_> = self.mods.iter().collect();
+        mods.sort_unstable_by_key(|m| m.bits());
+
+        for m in mods {
+            f.write_str(m.acronym().as_str())?
+        }
+
+        Ok(())
+    }
+}
+
+impl Display for ModsFormatter<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.mods.is_empty() {
+            return f.write_str("NM");
+        }
+
+        if self.legacy_order {
+            self.legacacy_format_mods(f)
+        } else {
+            self.format_mods(f)
+        }
     }
 }

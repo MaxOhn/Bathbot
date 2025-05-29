@@ -187,7 +187,7 @@ impl ScorePp {
         format!(
             "**{map} +{mods}**\n{grade} {score} • **{acc}%** • **{combo}x**{max_combo} {miss}• **{pp}pp**",
             map = self.map_string,
-            mods = ModsFormatter::new(&self.mods),
+            mods = ModsFormatter::new(&self.mods, false),
             // No `GradeFormatter` here because we don't want to hyperlink to
             // the score for obvious reasons.
             grade = grade_emote(self.grade),

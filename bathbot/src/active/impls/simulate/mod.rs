@@ -244,6 +244,10 @@ impl IActiveMessage for SimulateComponents {
                 n_objects,
                 self.map.mode(),
                 n_objects,
+                // Could use `self.data.set_on_lazer` but using the legacy
+                // formatting of mods does not show custom rates & co so it's
+                // probably best to always use the new formatting
+                false,
             );
 
             fields![fields { "Grade", grade.to_string(), true; }];

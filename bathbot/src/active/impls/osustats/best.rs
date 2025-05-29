@@ -96,7 +96,7 @@ impl IActiveMessage for OsuStatsBestPagination {
                 title = score.map.title,
                 version = score.map.version,
                 map_id = score.map.map_id,
-                mods = ModsFormatter::new(&score.mods),
+                mods = ModsFormatter::new(&score.mods, true),
                 user = score.user.username,
                 user_id = score.user.user_id,
                 grade = config.grade(score.grade),
