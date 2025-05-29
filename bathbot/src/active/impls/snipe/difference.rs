@@ -88,7 +88,7 @@ impl IActiveMessage for SnipeDifferencePagination {
                 title = score.title.cow_escape_markdown(),
                 version = score.version.cow_escape_markdown(),
                 id = score.map_id,
-                mods = ModsFormatter::new(mods.as_ref()),
+                mods = ModsFormatter::new(mods.as_ref(), true),
                 acc = round(score.accuracy),
             );
 

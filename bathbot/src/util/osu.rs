@@ -51,6 +51,7 @@ pub struct GradeCompletionFormatter<'a> {
     mode: GameMode,
     n_objects: u32,
     score_id: Option<u64>,
+    legacy_mods_order: bool,
 }
 
 impl<'a> GradeCompletionFormatter<'a> {
@@ -62,6 +63,7 @@ impl<'a> GradeCompletionFormatter<'a> {
             mode,
             n_objects,
             score_id: score.score_id().filter(|_| !score.is_legacy()),
+            legacy_mods_order: score.is_legacy(),
         }
     }
 
@@ -75,6 +77,7 @@ impl<'a> GradeCompletionFormatter<'a> {
         score_hits: u32,
         mode: GameMode,
         n_objects: u32,
+        legacy_mods_order: bool,
     ) -> Self {
         Self {
             mods,
@@ -83,6 +86,7 @@ impl<'a> GradeCompletionFormatter<'a> {
             mode,
             n_objects,
             score_id: None,
+            legacy_mods_order,
         }
     }
 }
@@ -102,7 +106,7 @@ impl Display for GradeCompletionFormatter<'_> {
             score_id: self.score_id,
         };
 
-        let mods_fmt = ModsFormatter::new(self.mods);
+        let mods_fmt = ModsFormatter::new(self.mods, self.legacy_mods_order);
 
         // The completion is very hard to calculate for `Catch` because
         // `n_objects` is not correct due to juicestreams so we won't

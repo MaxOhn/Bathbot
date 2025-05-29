@@ -122,7 +122,7 @@ impl IActiveMessage for RelaxTopPagination {
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 map_id = score.beatmap_id,
-                mods = ModsFormatter::new(mods),
+                mods = ModsFormatter::new(mods, false),
                 pp = PpFormatter::new(score_pp, Some(max_pp)),
                 acc = round(score.accuracy),
                 score = WithComma::new(score.total_score),

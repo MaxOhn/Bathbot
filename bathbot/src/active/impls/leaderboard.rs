@@ -247,7 +247,7 @@ impl Display for ScoreFormatter<'_> {
             ),
             score = WithComma::new(score),
             combo = self.combo,
-            mods = ModsFormatter::new(&self.score.mods),
+            mods = ModsFormatter::new(&self.score.mods, self.score_data.is_legacy()),
             pp = self.pp,
             acc = self.score.accuracy,
             miss = MissFormat(self.score.statistics.miss),

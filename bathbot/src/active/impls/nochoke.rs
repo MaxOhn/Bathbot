@@ -82,7 +82,7 @@ impl IActiveMessage for NoChokePagination {
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
-                mods = ModsFormatter::new(&original_score.mods),
+                mods = ModsFormatter::new(&original_score.mods, original_score.is_legacy),
                 grade = GradeFormatter::new(
                     entry.unchoked_grade(),
                     Some(entry.original_score.score_id),

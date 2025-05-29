@@ -70,7 +70,7 @@ impl IActiveMessage for TopIfPagination {
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
-                mods = ModsFormatter::new(&score.mods),
+                mods = ModsFormatter::new(&score.mods, score.is_legacy),
                 grade =
                     GradeFormatter::new(score.grade, Some(score.score_id), entry.score.is_legacy()),
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),

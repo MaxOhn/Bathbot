@@ -89,6 +89,7 @@ impl TopPagination {
 
     fn condensed_description(&self, entries: &[ScoreEmbedDataWrap]) -> String {
         let mut description = String::with_capacity(1024);
+        let legacy_mods_order = self.score_data.is_legacy();
 
         for entry in entries {
             let entry = entry.get_half();
@@ -123,7 +124,7 @@ impl TopPagination {
                 },
                 combo = score.max_combo,
                 miss = MissFormat(score.statistics.miss),
-                mods = ModsFormatter::new(&score.mods),
+                mods = ModsFormatter::new(&score.mods, legacy_mods_order),
                 appendix = OrderAppendix::new(
                     self.sort_by,
                     entry,
@@ -139,6 +140,7 @@ impl TopPagination {
 
     fn condensed_description_mania(&self, entries: &[ScoreEmbedDataWrap]) -> String {
         let mut description = String::with_capacity(1024);
+        let legacy_mods_order = self.score_data.is_legacy();
 
         for entry in entries {
             let entry = entry.get_half();
@@ -177,7 +179,7 @@ impl TopPagination {
                 n320 = stats.perfect,
                 n300 = stats.great,
                 miss = stats.miss,
-                mods = ModsFormatter::new(&score.mods),
+                mods = ModsFormatter::new(&score.mods, legacy_mods_order),
                 appendix = OrderAppendix::new(
                     self.sort_by,
                     entry,
@@ -195,6 +197,7 @@ impl TopPagination {
         let pages = &self.pages;
         let end_idx = self.entries.len().min(pages.index() + pages.per_page());
         let scores = &self.entries[pages.index()..end_idx];
+        let legacy_mods_order = self.score_data.is_legacy();
 
         let mut description = String::with_capacity(512);
 
@@ -223,7 +226,7 @@ impl TopPagination {
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
-                mods = ModsFormatter::new(&score.mods),
+                mods = ModsFormatter::new(&score.mods, legacy_mods_order),
                 grade = GradeFormatter::new(score.grade, Some(score.score_id), score.is_legacy()),
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
                 acc = if self.sort_by == TopScoreOrder::Acc {

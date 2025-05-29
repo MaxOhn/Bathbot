@@ -635,7 +635,11 @@ fn apply_settings(
                     writer.push_str("__");
                 }
 
-                let _ = write!(writer, "+{}", ModsFormatter::new(&data.score.mods));
+                let _ = write!(
+                    writer,
+                    "+{}",
+                    ModsFormatter::new(&data.score.mods, data.score.is_legacy)
+                );
 
                 if mark_idx == MarkIndex::Some(i) {
                     writer.push_str("__");
@@ -864,7 +868,11 @@ fn apply_settings(
                         writer.push_str("__");
                     }
 
-                    let _ = write!(writer, "+{}", ModsFormatter::new(&data.score.mods));
+                    let _ = write!(
+                        writer,
+                        "+{}",
+                        ModsFormatter::new(&data.score.mods, data.score.is_legacy)
+                    );
 
                     if mark_idx == MarkIndex::Some(last_idx) {
                         writer.push_str("__");
@@ -1012,7 +1020,11 @@ fn write_value(
             }
         }
         Value::Mods => {
-            let _ = write!(writer, "+{}", ModsFormatter::new(&data.score.mods));
+            let _ = write!(
+                writer,
+                "+{}",
+                ModsFormatter::new(&data.score.mods, data.score.is_legacy)
+            );
         }
         Value::Score => {
             let _ = write!(writer, "{}", ScoreFormatter::new(&data.score, score_data));

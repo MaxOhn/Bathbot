@@ -189,7 +189,7 @@ fn write_compact_entry(
             Some(entry.score.score_id),
             entry.score.is_legacy()
         ),
-        mods = ModsFormatter::new(&entry.score.mods),
+        mods = ModsFormatter::new(&entry.score.mods, entry.score.is_legacy),
         stars = entry.stars,
         pp_format = if pp_idx == Some(i) { "**" } else { "~~" },
         pp = entry.score.pp,
