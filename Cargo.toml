@@ -42,6 +42,7 @@ thiserror = { version = "2.0.11" }
 twilight-gateway = { version = "0.16", default-features = false, features = ["rustls-webpki-roots", "rustls-ring", "twilight-http", "zlib-stock"] }
 twilight-http = { version = "0.16", default-features = false, features = ["rustls-webpki-roots", "rustls-ring"] }
 twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "with-help-16", default-features = false, features = ["derive"] }
+# twilight-interactions = { path = "../twilight-interactions/twilight-interactions", default-features = false, features = ["derive"] }
 twilight-model = { version = "0.16", default-features = false }
 twilight-standby = { version = "0.16", default-features = false }
 

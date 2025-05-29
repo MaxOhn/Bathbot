@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, quote};
 use syn::{
-    Result,
+    Ident, LitStr, Path, Result, Token,
     parse::{Parse, ParseStream},
     token::Token as TokenTrait,
 };
@@ -111,6 +111,40 @@ impl<T: ToTokens> ToTokens for AsOption<T> {
         match &self.0 {
             Some(o) => stream.extend(quote!(Some(#o))),
             None => stream.extend(quote!(None)),
+        }
+    }
+}
+
+pub enum LitOrConst {
+    Lit(LitStr),
+    Const(Path),
+}
+
+impl Parse for LitOrConst {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let lookahead = input.lookahead1();
+
+        if lookahead.peek(LitStr) {
+            input.parse().map(Self::Lit)
+        } else if lookahead.peek(Ident) || lookahead.peek(Token![::]) {
+            input.parse().map(Self::Const)
+        } else {
+            Err(lookahead.error())
+        }
+    }
+}
+
+impl ToTokens for LitOrConst {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        match self {
+            LitOrConst::Lit(lit) => lit.to_tokens(tokens),
+            LitOrConst::Const(path) => tokens.extend(quote! {
+                {
+                    const _: &str = #path;
+
+                    #path
+                }
+            }),
         }
     }
 }

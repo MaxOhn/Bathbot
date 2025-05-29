@@ -1,13 +1,14 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_cards::{BathbotCard, RequiredAttributes};
-use bathbot_macros::{HasName, SlashCommand};
+use bathbot_macros::{HasName, SlashCommand, command};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
     EmbedBuilder, IntHasher, MessageBuilder, attachment,
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
     datetime::DATE_FORMAT,
+    matcher,
     osu::flag_url_size,
 };
 use eyre::{Report, Result, WrapErr};
@@ -19,67 +20,68 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    core::{BotConfig, Context, commands::CommandOrigin},
+    core::{
+        BotConfig, Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     manager::redis::osu::{UserArgs, UserArgsError},
     util::{CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
+const CARD_HELP: &str = "Create a visual user card containing various fun values about the user.\n\
+Most skill values are based on the strain value of the official pp calculation. \
+Only the accuracy values for [catch](https://www.desmos.com/calculator/cg59pywpry) \
+and [mania](https://www.desmos.com/calculator/b30p1awwft) come from custom formulas \
+that are based on score accuracy, map OD, object count, and star rating.\n\
+Note that only the user's top100 is considered while calculating card values.\n\
+Titles consist of three parts: **prefix**, **descriptions**, and **suffix**.\n\n\
+- The **prefix** is determined by checking the highest skill value \
+for thresholds:\n\
+```\n\
+- <10: Newbie      | - <70: Seasoned\n\
+- <20: Novice      | - <80: Professional\n\
+- <30: Rookie      | - <85: Expert\n\
+- <40: Apprentice  | - <90: Master\n\
+- <50: Advanced    | - <95: Legendary\n\
+- <60: Outstanding | - otherwise: God\n\
+```\n\
+- The **descriptions** are determined by counting properties in top scores:\n  \
+- `>70 NM`: `Mod-Hating`\n  \
+- `>60 DT / NC`: `Speedy`\n  \
+- `>30 HT`: `Slow-Mo`\n  \
+- `>15 FL`: `Blindsighted`\n  \
+- `>20 SO`: `Lazy-Spin`\n  \
+- `>60 HD`: `HD-Abusing` / `Ghost-Fruits` / `Brain-Lag`\n  \
+- `>60 HR`: `Ant-Clicking` / `Zooming` / `Pea-Catching`\n  \
+- `>15 EZ`: `Patient` / `Training-Wheels` / `3-Life`\n  \
+- `>30 MR`: `Unmindblockable`\n  \
+- none of above but `<10 NM`: `Mod-Loving`\n  \
+- none of above: `Versatile`\n  \
+- `<50 CL`: `New-Skool`\n  \
+- `>70 Key[X]`: `[X]K`\n  \
+- otherwise: `Multi-Key`\n\
+- The **suffix** is determined by checking proximity of skill \
+values to each other:\n  \
+- osu!:\n    \
+- All skills are roughly the same: `All-Rounder`\n    \
+- High accuracy and aim but low speed: `Sniper`\n    \
+- High accuracy and speed but low aim: `Ninja`\n    \
+- High aim and speed but low accuracy: `Gunslinger`\n    \
+- Only high accuracy: `Rhythm Enjoyer`\n    \
+- Only high aim: `Whack-A-Mole`\n    \
+- Only high speed: `Masher`\n  \
+- taiko, catch, and mania:\n    \
+- All skills are roughly the same: `Gamer`\n    \
+- High accuracy but low strain: `Rhythm Enjoyer`\n    \
+- High strain but low accuracy: `Masher` / `Droplet Dodger`";
+
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]
-#[command(
-    name = "card",
-    desc = "Create a user card",
-    help = "Create a visual user card containing various fun values about the user.\n\
-    Most skill values are based on the strain value of the official pp calculation. \
-    Only the accuracy values for [catch](https://www.desmos.com/calculator/cg59pywpry) \
-    and [mania](https://www.desmos.com/calculator/b30p1awwft) come from custom formulas \
-    that are based on score accuracy, map OD, object count, and star rating.\n\
-    Note that only the user's top100 is considered while calculating card values.\n\
-    Titles consist of three parts: **prefix**, **descriptions**, and **suffix**.\n\n\
-    - The **prefix** is determined by checking the highest skill value \
-    for thresholds:\n\
-    ```\n\
-    - <10: Newbie      | - <70: Seasoned\n\
-    - <20: Novice      | - <80: Professional\n\
-    - <30: Rookie      | - <85: Expert\n\
-    - <40: Apprentice  | - <90: Master\n\
-    - <50: Advanced    | - <95: Legendary\n\
-    - <60: Outstanding | - otherwise: God\n\
-    ```\n\
-    - The **descriptions** are determined by counting properties in top scores:\n  \
-    - `>70 NM`: `Mod-Hating`\n  \
-    - `>60 DT / NC`: `Speedy`\n  \
-    - `>30 HT`: `Slow-Mo`\n  \
-    - `>15 FL`: `Blindsighted`\n  \
-    - `>20 SO`: `Lazy-Spin`\n  \
-    - `>60 HD`: `HD-Abusing` / `Ghost-Fruits` / `Brain-Lag`\n  \
-    - `>60 HR`: `Ant-Clicking` / `Zooming` / `Pea-Catching`\n  \
-    - `>15 EZ`: `Patient` / `Training-Wheels` / `3-Life`\n  \
-    - `>30 MR`: `Unmindblockable`\n  \
-    - none of above but `<10 NM`: `Mod-Loving`\n  \
-    - none of above: `Versatile`\n  \
-    - `<50 CL`: `New-Skool`\n  \
-    - `>70 Key[X]`: `[X]K`\n  \
-    - otherwise: `Multi-Key`\n\
-    - The **suffix** is determined by checking proximity of skill \
-    values to each other:\n  \
-    - osu!:\n    \
-    - All skills are roughly the same: `All-Rounder`\n    \
-    - High accuracy and aim but low speed: `Sniper`\n    \
-    - High accuracy and speed but low aim: `Ninja`\n    \
-    - High aim and speed but low accuracy: `Gunslinger`\n    \
-    - Only high accuracy: `Rhythm Enjoyer`\n    \
-    - Only high aim: `Whack-A-Mole`\n    \
-    - Only high speed: `Masher`\n  \
-    - taiko, catch, and mania:\n    \
-    - All skills are roughly the same: `Gamer`\n    \
-    - High accuracy but low strain: `Rhythm Enjoyer`\n    \
-    - High strain but low accuracy: `Masher` / `Droplet Dodger`"
-)]
-pub struct Card {
+#[command(name = "card", desc = "Create a user card", help = CARD_HELP)]
+pub struct Card<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -89,13 +91,85 @@ pub struct Card {
     discord: Option<Id<UserMarker>>,
 }
 
+impl<'m> Card<'m> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self {
+            mode,
+            name,
+            discord,
+        }
+    }
+}
+
+#[command]
+#[desc("Create a user card")]
+#[help(CARD_HELP)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[group(Osu)]
+async fn prefix_card(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = Card::args(None, args);
+
+    card(msg.into(), args).await
+}
+
+#[command]
+#[desc("Create a taiko user card")]
+#[help(CARD_HELP)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("cardt")]
+#[group(Taiko)]
+async fn prefix_cardtaiko(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = Card::args(Some(GameModeOption::Taiko), args);
+
+    card(msg.into(), args).await
+}
+
+#[command]
+#[desc("Create a ctb user card")]
+#[help(CARD_HELP)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("cardcatch", "cardc")]
+#[group(Catch)]
+async fn prefix_cardctb(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = Card::args(Some(GameModeOption::Catch), args);
+
+    card(msg.into(), args).await
+}
+
+#[command]
+#[desc("Create a mania user card")]
+#[help(CARD_HELP)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("cardm")]
+#[group(Mania)]
+async fn prefix_cardmania(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = Card::args(Some(GameModeOption::Mania), args);
+
+    card(msg.into(), args).await
+}
+
 async fn slash_card(mut command: InteractionCommand) -> Result<()> {
     let args = Card::from_interaction(command.input_data())?;
 
-    let orig = CommandOrigin::Interaction {
-        command: &mut command,
-    };
+    card((&mut command).into(), args).await
+}
 
+async fn card(orig: CommandOrigin<'_>, args: Card<'_>) -> Result<()> {
     let owner = orig.user_id()?;
     let config = Context::user_config().with_osu_id(owner).await?;
 

@@ -1,17 +1,17 @@
-use syn::{Attribute, Error, Ident, LitStr, Meta, MetaList, Result, Token};
+use syn::{Attribute, Error, Ident, Meta, MetaList, Result, Token};
 
 use crate::{
     bucket::Bucket,
     flags::Flags,
-    util::{AsOption, PunctuatedExt},
+    util::{AsOption, LitOrConst, PunctuatedExt},
 };
 
 pub struct CommandAttrs {
-    pub aliases: Box<[LitStr]>,
-    pub desc: Option<LitStr>,
-    pub help: AsOption<LitStr>,
-    pub usage: AsOption<LitStr>,
-    pub examples: Box<[LitStr]>,
+    pub aliases: Box<[LitOrConst]>,
+    pub desc: Option<LitOrConst>,
+    pub help: AsOption<LitOrConst>,
+    pub usage: AsOption<LitOrConst>,
+    pub examples: Box<[LitOrConst]>,
     pub bucket: AsOption<Bucket>,
     pub flags: Flags,
     pub group: Option<Ident>,
@@ -73,11 +73,11 @@ impl CommandAttrs {
     }
 }
 
-fn parse_all(list: &MetaList) -> Result<Vec<LitStr>> {
-    list.parse_args_with(Vec::<LitStr>::parse_separated_nonempty::<Token![,]>)
+fn parse_all(list: &MetaList) -> Result<Vec<LitOrConst>> {
+    list.parse_args_with(Vec::<LitOrConst>::parse_separated_nonempty::<Token![,]>)
 }
 
-fn parse_one(list: &MetaList) -> Result<Option<LitStr>> {
+fn parse_one(list: &MetaList) -> Result<Option<LitOrConst>> {
     let mut list = parse_all(list)?.into_iter();
 
     match (list.next(), list.next()) {

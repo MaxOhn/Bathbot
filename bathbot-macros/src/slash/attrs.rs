@@ -1,7 +1,11 @@
 use proc_macro2::Span;
 use syn::{Attribute, Error, LitBool, LitStr, Result};
 
-use crate::{bucket::Bucket, flags::Flags, util::AsOption};
+use crate::{
+    bucket::Bucket,
+    flags::Flags,
+    util::{AsOption, LitOrConst},
+};
 
 pub(super) struct CommandAttrs {
     pub(super) bucket: AsOption<Bucket>,
@@ -25,7 +29,7 @@ impl CommandAttrs {
                     if meta.path.is_ident("name") {
                         name_lit = Some(meta.value()?.parse()?);
                     } else if meta.path.is_ident("desc") | meta.path.is_ident("help") {
-                        let _: LitStr = meta.value()?.parse()?;
+                        let _: LitOrConst = meta.value()?.parse()?;
                     } else if meta.path.is_ident("dm_permission") {
                         let _: LitBool = meta.value()?.parse()?;
                     } else {
