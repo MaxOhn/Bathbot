@@ -6,6 +6,7 @@ use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     io::Cursor,
     mem::MaybeUninit,
+    ops::Not,
 };
 
 use bathbot_model::{OsuStatsParams, ScoreSlim};
@@ -800,7 +801,9 @@ impl PersonalBestIndex {
 
         if idx == 100 {
             return Self::NotTop100;
-        } else if !matches!(status, RankStatus::Ranked | RankStatus::Approved) {
+        } else if !matches!(status, RankStatus::Ranked | RankStatus::Approved)
+            || top100[idx].ranked.is_some_and(bool::not)
+        {
             return Self::IfRanked { idx };
         } else if let Some(top) = top100.get(idx) {
             if score.is_eq(top) {
