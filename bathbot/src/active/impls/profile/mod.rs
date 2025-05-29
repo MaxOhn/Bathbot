@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use bathbot_model::RankAccPeaks;
 use bathbot_util::{
-    EmbedBuilder, FooterBuilder, MessageOrigin,
+    Authored, EmbedBuilder, FooterBuilder, MessageOrigin,
     constants::OSU_BASE,
     datetime::{HowLongAgoText, NAIVE_DATETIME_FORMAT, SecToMinSec},
     fields,
@@ -35,8 +35,7 @@ use crate::{
     commands::osu::ProfileKind,
     manager::redis::osu::CachedUser,
     util::{
-        Authored, CachedUserExt, ComponentExt, Emote, interaction::InteractionComponent,
-        osu::grade_emote,
+        CachedUserExt, ComponentExt, Emote, interaction::InteractionComponent, osu::grade_emote,
     },
 };
 

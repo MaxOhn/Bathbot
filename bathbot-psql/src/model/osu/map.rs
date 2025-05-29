@@ -1,3 +1,7 @@
+use bathbot_util::{
+    CowUtils,
+    query::{FilterCriteria, RegularCriteria, Searchable},
+};
 use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Clone)]
@@ -11,6 +15,23 @@ pub struct DbBeatmap {
     pub count_sliders: i32,
     pub count_spinners: i32,
     pub bpm: f32,
+}
+
+impl Searchable<RegularCriteria<'_>> for DbBeatmap {
+    fn matches(&self, criteria: &FilterCriteria<RegularCriteria<'_>>) -> bool {
+        let mut matches = true;
+
+        matches &= criteria.length.contains(self.seconds_drain as f32);
+        matches &= criteria.bpm.contains(self.bpm);
+
+        if matches && criteria.has_search_terms() {
+            let version = self.map_version.cow_to_ascii_lowercase();
+
+            matches &= criteria.search_terms().any(|term| version.contains(term));
+        }
+
+        matches
+    }
 }
 
 #[derive(Debug)]

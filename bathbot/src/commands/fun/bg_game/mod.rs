@@ -4,7 +4,7 @@ use bathbot_macros::{SlashCommand, command};
 use bathbot_model::{Effects, command_fields::ThreadChannel};
 use bathbot_psql::model::games::DbMapTagsParams;
 use bathbot_util::{
-    CowUtils, MessageBuilder,
+    Authored, CowUtils, MessageBuilder,
     constants::{GENERAL_ISSUE, INVALID_ACTION_FOR_CHANNEL_TYPE, THREADS_UNAVAILABLE},
 };
 use eyre::{Report, Result};
@@ -25,10 +25,7 @@ use crate::{
         impls::{BackgroundGame, BackgroundGameSetup},
     },
     core::commands::interaction::InteractionCommands,
-    util::{
-        Authored, ChannelExt, CheckPermissions, InteractionCommandExt,
-        interaction::InteractionCommand,
-    },
+    util::{ChannelExt, CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 mod bigger;

@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use bathbot_macros::SlashCommand;
 use bathbot_model::{Countries, RankingKind, UserModeStatsColumn, UserStatsColumn, UserStatsKind};
-use bathbot_util::constants::GENERAL_ISSUE;
+use bathbot_util::{Authored, constants::GENERAL_ISSUE};
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -11,7 +11,7 @@ use crate::{
     Context,
     active::{ActiveMessages, impls::RankingPagination},
     core::commands::interaction::InteractionCommands,
-    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

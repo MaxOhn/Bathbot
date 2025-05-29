@@ -2,6 +2,7 @@ use std::{cmp::Reverse, slice};
 
 use bathbot_macros::{SlashCommand, command};
 use bathbot_model::{RankingEntries, RankingEntry, RankingKind};
+use bathbot_util::Authored;
 use eyre::Result;
 use metrics::{Key, Label};
 use twilight_interactions::command::CreateCommand;
@@ -13,7 +14,7 @@ use crate::{
         impls::{RankingPagination, SlashCommandsPagination},
     },
     core::commands::CommandOrigin,
-    util::{Authored, interaction::InteractionCommand},
+    util::interaction::InteractionCommand,
 };
 
 #[derive(CreateCommand, SlashCommand)]

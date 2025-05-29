@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 
 use bathbot_model::{Countries, MedalCount, OsekaiUserEntry};
-use bathbot_util::constants::GENERAL_ISSUE;
+use bathbot_util::{Authored, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
 
 use super::OsekaiMedalCount;
 use crate::{
     Context,
     active::{ActiveMessages, impls::MedalCountPagination},
-    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub(super) async fn medal_count(

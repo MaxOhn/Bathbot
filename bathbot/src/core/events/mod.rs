@@ -5,7 +5,7 @@ use std::{
 
 use bathbot_cache::model::CachedArchive;
 use bathbot_model::twilight::{channel::ArchivedCachedChannel, guild::ArchivedCachedGuild};
-use bathbot_util::constants::MISS_ANALYZER_ID;
+use bathbot_util::{Authored, BucketName, constants::MISS_ANALYZER_ID};
 use eyre::Result;
 use tokio::{
     sync::{Mutex, broadcast::Receiver},
@@ -15,8 +15,7 @@ use twilight_gateway::{Event, EventTypeFlags, Shard, StreamExt as _};
 use twilight_model::user::User;
 
 use self::{interaction::handle_interaction, message::handle_message};
-use super::{BotMetrics, Context, buckets::BucketName};
-use crate::util::Authored;
+use super::{BotMetrics, Context};
 
 mod interaction;
 mod message;

@@ -9,7 +9,7 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_psql::model::osu::MapBookmark;
 use bathbot_util::{
-    EmbedBuilder, FooterBuilder, IntHasher, MessageOrigin,
+    Authored, EmbedBuilder, FooterBuilder, IntHasher, MessageOrigin,
     constants::{AVATAR_URL, OSU_BASE},
     datetime::SecToMinSec,
     fields,
@@ -34,7 +34,7 @@ use crate::{
     },
     core::Context,
     manager::redis::osu::UserArgs,
-    util::{Authored, ComponentExt, Emote, interaction::InteractionComponent},
+    util::{ComponentExt, Emote, interaction::InteractionComponent},
 };
 
 #[derive(PaginationBuilder)]

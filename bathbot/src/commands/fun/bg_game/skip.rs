@@ -1,8 +1,11 @@
-use bathbot_util::constants::{GENERAL_ISSUE, INVITE_LINK};
+use bathbot_util::{
+    BucketName,
+    constants::{GENERAL_ISSUE, INVITE_LINK},
+};
 use eyre::Result;
 use twilight_model::channel::Message;
 
-use crate::{Context, core::buckets::BucketName, util::ChannelExt};
+use crate::{Context, util::ChannelExt};
 
 pub async fn skip(msg: &Message) -> Result<()> {
     if let Some(cooldown) = Context::check_ratelimit(msg.author.id, BucketName::BgSkip) {

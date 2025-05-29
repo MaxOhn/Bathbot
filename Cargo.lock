@@ -356,6 +356,7 @@ name = "bathbot-psql"
 version = "3.20.0"
 dependencies = [
  "bathbot-model",
+ "bathbot-util",
  "dotenvy",
  "eyre",
  "futures",
@@ -464,6 +465,7 @@ dependencies = [
 name = "bathbot-util"
 version = "3.20.0"
 dependencies = [
+ "eyre",
  "memchr",
  "metrics",
  "metrics-util",

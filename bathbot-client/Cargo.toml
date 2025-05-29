@@ -8,7 +8,7 @@ edition.workspace = true
 bathbot-model = { path = "../bathbot-model" }
 bathbot-util = { path = "../bathbot-util" }
 bytes = { version = "1.0" }
-eyre = { version = "0.6" }
+eyre = { workspace = true}
 http = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }

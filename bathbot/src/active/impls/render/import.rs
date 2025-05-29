@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_util::{
-    EmbedBuilder, FooterBuilder,
+    Authored, EmbedBuilder, FooterBuilder,
     modal::{ModalBuilder, TextInputBuilder},
 };
 use eyre::{Report, Result, WrapErr};
@@ -23,7 +23,7 @@ use crate::{
     core::Context,
     manager::ReplaySettings,
     util::{
-        Authored, ModalExt,
+        ModalExt,
         interaction::{InteractionComponent, InteractionModal},
     },
 };

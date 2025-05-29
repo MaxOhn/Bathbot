@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bathbot_macros::SlashCommand;
-use bathbot_util::{MessageBuilder, constants::OSU_API_ISSUE, matcher};
+use bathbot_util::{Authored, MessageBuilder, constants::OSU_API_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 use tokio::time::interval;
@@ -11,7 +11,7 @@ use super::retrieve_previous;
 use crate::{
     active::{ActiveMessages, impls::MatchComparePagination},
     core::Context,
-    util::{Authored, ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -114,10 +114,10 @@ async fn matchcompare(mut command: InteractionCommand, args: MatchCompare) -> Re
 
             if let Err(err) = tokio::try_join!(previous_fut_1, previous_fut_2) {
                 let _ = command.error(OSU_API_ISSUE).await;
-                let report = Report::new(err)
+                let err = Report::new(err)
                     .wrap_err("Failed to get history of at least one of the matches");
 
-                return Err(report);
+                return Err(err);
             }
 
             let owner = command.user_id()?;

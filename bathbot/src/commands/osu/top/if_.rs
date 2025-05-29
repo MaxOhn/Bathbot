@@ -4,7 +4,12 @@ use bathbot_macros::{HasName, SlashCommand, command};
 use bathbot_model::{ScoreSlim, command_fields::GameModeOption};
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    CowUtils, constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection,
+    CowUtils,
+    constants::GENERAL_ISSUE,
+    matcher,
+    numbers::round,
+    osu::ModSelection,
+    query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
 };
 use eyre::{Report, Result};
 use rosu_v2::{
@@ -23,11 +28,7 @@ use crate::{
         OsuMap,
         redis::osu::{UserArgs, UserArgsError},
     },
-    util::{
-        ChannelExt, InteractionCommandExt,
-        interaction::InteractionCommand,
-        query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
-    },
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]

@@ -1,5 +1,4 @@
 pub use self::{
-    authored::Authored,
     cached_user::CachedUserExt,
     channel::ChannelExt,
     component::ComponentExt,
@@ -8,7 +7,6 @@ pub use self::{
     modal::*,
 };
 
-mod authored;
 mod cached_user;
 mod channel;
 mod component;

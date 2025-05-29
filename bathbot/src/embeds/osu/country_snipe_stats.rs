@@ -3,14 +3,12 @@ use std::fmt::Write;
 use bathbot_macros::EmbedData;
 use bathbot_model::{CountryName, SnipeCountryStatistics};
 use bathbot_util::{
-    CowUtils, FooterBuilder, fields,
+    CowUtils, FooterBuilder, attachment, fields,
     numbers::{WithComma, round},
     osu::flag_url,
 };
 use rosu_v2::prelude::CountryCode;
 use twilight_model::channel::message::embed::EmbedField;
-
-use crate::embeds::attachment;
 
 #[derive(EmbedData)]
 pub struct CountrySnipeStatsEmbed {

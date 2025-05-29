@@ -1,4 +1,4 @@
-use bathbot_util::{EmbedBuilder, MessageBuilder};
+use bathbot_util::{Authored, EmbedBuilder, MessageBuilder};
 use eyre::{ContextCompat, Result, WrapErr};
 use twilight_http::Response;
 use twilight_model::{
@@ -13,7 +13,7 @@ use twilight_model::{
 use crate::{
     core::Context,
     util::{
-        Authored, ChannelExt, InteractionCommandExt, MessageExt,
+        ChannelExt, InteractionCommandExt, MessageExt,
         interaction::{InteractionCommand, InteractionComponent},
     },
 };

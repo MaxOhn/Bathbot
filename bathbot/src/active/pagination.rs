@@ -1,4 +1,5 @@
 use bathbot_util::{
+    Authored,
     modal::{ModalBuilder, TextInputBuilder},
     numbers::last_multiple,
 };
@@ -13,7 +14,7 @@ use twilight_model::{
 
 use super::ComponentResult;
 use crate::util::{
-    Authored, ComponentExt, Emote, ModalExt,
+    ComponentExt, Emote, ModalExt,
     interaction::{InteractionComponent, InteractionModal},
 };
 

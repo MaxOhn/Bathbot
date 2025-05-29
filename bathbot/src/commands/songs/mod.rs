@@ -23,7 +23,7 @@ mod zenzenzense;
 use std::fmt::Write;
 
 use bathbot_macros::SlashCommand;
-use bathbot_util::MessageBuilder;
+use bathbot_util::{BucketName, MessageBuilder};
 use eyre::{ContextCompat, Result};
 use tokio::time::{Duration, interval};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -36,7 +36,7 @@ pub use self::{
 };
 use crate::{
     Context,
-    core::{buckets::BucketName, commands::CommandOrigin},
+    core::commands::CommandOrigin,
     util::{CheckPermissions, InteractionCommandExt, MessageExt, interaction::InteractionCommand},
 };
 
@@ -61,7 +61,7 @@ async fn song(lyrics: &[&str], delay: u64, orig: CommandOrigin<'_>) -> Result<()
         None => (orig.user_id()?, true),
     };
 
-    // same bucket for guilds
+    // Same bucket for guilds
     if let Some(cooldown) = Context::check_ratelimit(id, BucketName::Songs) {
         let content = format!("Command on cooldown, try again in {cooldown} seconds");
 

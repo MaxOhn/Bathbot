@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use bathbot_util::{EmbedBuilder, FooterBuilder};
+use bathbot_util::{Authored, EmbedBuilder, FooterBuilder};
 use eyre::Result;
 use twilight_interactions::command::{ApplicationCommandData, CommandOptionExtended};
 use twilight_model::{
@@ -16,7 +16,7 @@ use twilight_model::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     core::commands::interaction::{InteractionCommandKind, InteractionCommands},
-    util::{Authored, interaction::InteractionComponent},
+    util::interaction::InteractionComponent,
 };
 
 const AUTHORITY_STATUS: &str =

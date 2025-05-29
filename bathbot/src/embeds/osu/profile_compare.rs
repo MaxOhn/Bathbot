@@ -8,6 +8,7 @@ use std::{
 use bathbot_macros::EmbedData;
 use bathbot_model::{RankAccPeaks, rosu_v2::user::ArchivedUserStatistics};
 use bathbot_util::{
+    attachment,
     datetime::{DATE_FORMAT, SecToMinSec},
     numbers::{AbbreviatedScore, WithComma},
 };
@@ -15,7 +16,7 @@ use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 
-use crate::{commands::osu::CompareResult, embeds::attachment, manager::redis::osu::CachedUser};
+use crate::{commands::osu::CompareResult, manager::redis::osu::CachedUser};
 
 #[derive(EmbedData)]
 pub struct ProfileCompareEmbed {

@@ -1,8 +1,8 @@
-use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE};
+use bathbot_util::{BucketName, MessageBuilder, constants::GENERAL_ISSUE};
 use eyre::Result;
 use twilight_model::{channel::Message, guild::Permissions};
 
-use crate::{Context, core::buckets::BucketName, util::ChannelExt};
+use crate::{Context, util::ChannelExt};
 
 pub async fn hint(msg: &Message, permissions: Option<Permissions>) -> Result<()> {
     let ratelimit = Context::check_ratelimit(msg.author.id, BucketName::BgHint);

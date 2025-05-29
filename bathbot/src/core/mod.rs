@@ -10,6 +10,5 @@ mod context;
 mod events;
 mod metrics;
 
-pub mod buckets;
 pub mod commands;
 pub mod logging;

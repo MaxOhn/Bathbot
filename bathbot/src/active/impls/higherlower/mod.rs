@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_model::HlVersion;
-use bathbot_util::{AuthorBuilder, EmbedBuilder, MessageBuilder};
+use bathbot_util::{AuthorBuilder, Authored, EmbedBuilder, MessageBuilder};
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
@@ -22,7 +22,7 @@ use self::state::{ButtonState, HigherLowerState};
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage, response::ActiveResponse},
     core::Context,
-    util::{Authored, ComponentExt, Emote, interaction::InteractionComponent},
+    util::{ComponentExt, Emote, interaction::InteractionComponent},
 };
 
 mod score_pp;

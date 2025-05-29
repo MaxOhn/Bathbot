@@ -2,7 +2,10 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use bathbot_macros::SlashCommand;
 use bathbot_model::{PullRequests, PullRequestsAndTags, ReferencedIssue, Tag};
-use bathbot_util::constants::{FIELD_VALUE_SIZE, GENERAL_ISSUE};
+use bathbot_util::{
+    Authored,
+    constants::{FIELD_VALUE_SIZE, GENERAL_ISSUE},
+};
 use eyre::{ContextCompat, Result, WrapErr};
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -10,7 +13,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use crate::{
     active::{ActiveMessages, impls::ChangelogPagination},
     core::Context,
-    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

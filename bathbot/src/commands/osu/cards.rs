@@ -5,7 +5,7 @@ use bathbot_macros::{HasName, SlashCommand};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    EmbedBuilder, IntHasher, MessageBuilder,
+    EmbedBuilder, IntHasher, MessageBuilder, attachment,
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
     datetime::DATE_FORMAT,
     osu::flag_url_size,
@@ -20,7 +20,6 @@ use twilight_model::id::{Id, marker::UserMarker};
 use super::{require_link, user_not_found};
 use crate::{
     core::{BotConfig, Context, commands::CommandOrigin},
-    embeds::attachment,
     manager::redis::osu::{UserArgs, UserArgsError},
     util::{CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
 };

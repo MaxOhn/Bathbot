@@ -4,7 +4,7 @@ use bathbot_model::{
     ArchivedOsekaiRankingEntry, Countries, OsekaiRanking, OsekaiRankingEntry, RankingEntries,
     RankingEntry, RankingKind,
 };
-use bathbot_util::constants::GENERAL_ISSUE;
+use bathbot_util::{Authored, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
 use rkyv::{
     Archive,
@@ -18,7 +18,7 @@ use rosu_v2::prelude::Username;
 use crate::{
     Context,
     active::{ActiveMessages, impls::RankingPagination},
-    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub(super) async fn count<R>(command: InteractionCommand, country: Option<String>) -> Result<()>

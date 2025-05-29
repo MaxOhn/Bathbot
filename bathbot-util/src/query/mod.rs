@@ -4,7 +4,7 @@ mod operator;
 mod optional;
 mod searchable;
 
-pub use self::{filter::*, impls::*, searchable::*};
+pub use self::{filter::*, impls::*, operator::Operator, searchable::*};
 
 fn separate_content(content: &mut String) {
     if !content.is_empty() {

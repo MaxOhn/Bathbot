@@ -7,10 +7,10 @@ use std::{
     time::Duration,
 };
 
-use bathbot_util::{CowUtils, datetime::DATE_FORMAT};
 use time::Date;
 
 use super::operator::Operator;
+use crate::{CowUtils, datetime::DATE_FORMAT};
 
 #[derive(Default)]
 pub struct OptionalText<'q> {

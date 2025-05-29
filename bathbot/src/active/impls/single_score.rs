@@ -11,7 +11,8 @@ use bathbot_model::embed_builder::{
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder, ModsFormatter,
+    AuthorBuilder, Authored, BucketName, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
+    ModsFormatter, attachment,
     constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE, OSU_BASE},
     datetime::{HowLongAgoDynamic, HowLongAgoText, SHORT_NAIVE_DATETIME_FORMAT, SecToMinSec},
     fields,
@@ -48,11 +49,11 @@ use crate::{
         osu::{OngoingRender, RENDERER_NAME, RenderStatus, RenderStatusInner},
         utility::{ScoreEmbedData, ScoreEmbedDataWrap},
     },
-    core::{Context, buckets::BucketName},
-    embeds::{HitResultFormatter, attachment},
+    core::Context,
+    embeds::HitResultFormatter,
     manager::{ReplayError, redis::osu::CachedUser},
     util::{
-        Authored, CachedUserExt, Emote, MessageExt,
+        CachedUserExt, Emote, MessageExt,
         interaction::{InteractionComponent, InteractionModal},
         osu::{GradeFormatter, ScoreFormatter},
     },

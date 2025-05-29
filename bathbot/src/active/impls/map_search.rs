@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_util::{
-    CowUtils, EmbedBuilder, FooterBuilder,
+    Authored, CowUtils, EmbedBuilder, FooterBuilder,
     constants::OSU_BASE,
     numbers::{last_multiple, round},
 };
@@ -19,7 +19,7 @@ use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::osu::{Search, SearchOrder},
     core::Context,
-    util::{Authored, ComponentExt, Emote, interaction::InteractionComponent},
+    util::{ComponentExt, Emote, interaction::InteractionComponent},
 };
 
 pub struct MapSearchPagination {

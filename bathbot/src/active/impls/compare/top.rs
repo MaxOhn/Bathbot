@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, collections::HashMap, fmt::Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_util::{EmbedBuilder, FooterBuilder, IntHasher, constants::OSU_BASE};
+use bathbot_util::{EmbedBuilder, FooterBuilder, IntHasher, attachment, constants::OSU_BASE};
 use eyre::Result;
 use rosu_v2::prelude::Username;
 use twilight_model::{
@@ -15,7 +15,6 @@ use crate::{
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::{CommonScore, CompareTopMap},
-    embeds::attachment,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 

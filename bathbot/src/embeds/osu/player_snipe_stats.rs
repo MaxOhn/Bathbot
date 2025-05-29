@@ -3,7 +3,7 @@ use std::fmt::Write;
 use bathbot_macros::EmbedData;
 use bathbot_model::SnipePlayer;
 use bathbot_util::{
-    AuthorBuilder, CowUtils, FooterBuilder,
+    AuthorBuilder, CowUtils, FooterBuilder, attachment,
     constants::OSU_BASE,
     datetime::HowLongAgoDynamic,
     fields,
@@ -15,7 +15,7 @@ use twilight_model::channel::message::embed::EmbedField;
 
 use crate::{
     core::Context,
-    embeds::{attachment, osu},
+    embeds::osu,
     manager::{OsuMap, redis::osu::CachedUser},
     util::{CachedUserExt, osu::GradeCompletionFormatter},
 };

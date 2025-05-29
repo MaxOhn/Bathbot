@@ -2,7 +2,7 @@ use std::{cmp::Ordering, collections::BTreeMap, fmt::Write};
 
 use bathbot_model::OsekaiBadge;
 use bathbot_util::{
-    CowUtils,
+    Authored, CowUtils,
     constants::{AVATAR_URL, OSEKAI_ISSUE},
     string_cmp::levenshtein_similarity,
 };
@@ -15,10 +15,7 @@ use super::BadgesQuery_;
 use crate::{
     active::{ActiveMessages, impls::BadgesPagination},
     core::Context,
-    util::{
-        Authored, InteractionCommandExt, interaction::InteractionCommand,
-        osu::get_combined_thumbnail,
-    },
+    util::{InteractionCommandExt, interaction::InteractionCommand, osu::get_combined_thumbnail},
 };
 
 pub(super) async fn query(mut command: InteractionCommand, args: BadgesQuery_) -> Result<()> {

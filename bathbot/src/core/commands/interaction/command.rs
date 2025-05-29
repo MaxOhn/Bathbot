@@ -3,6 +3,7 @@ use std::{
     sync::OnceLock,
 };
 
+use bathbot_util::BucketName;
 use twilight_interactions::command::ApplicationCommandData;
 use twilight_model::{
     application::command::Command,
@@ -10,10 +11,7 @@ use twilight_model::{
 };
 
 use super::CommandResult;
-use crate::{
-    core::{buckets::BucketName, commands::flags::CommandFlags},
-    util::interaction::InteractionCommand,
-};
+use crate::{core::commands::flags::CommandFlags, util::interaction::InteractionCommand};
 
 #[derive(Copy, Clone)]
 pub enum InteractionCommandKind {

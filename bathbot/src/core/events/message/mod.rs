@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use bathbot_psql::model::configs::GuildConfig;
+use bathbot_util::BucketName;
 use eyre::Result;
 use nom::{
     bytes::complete as by,
@@ -13,7 +14,6 @@ use super::{EventKind, ProcessResult};
 use crate::{
     core::{
         BotMetrics, Context,
-        buckets::BucketName,
         commands::checks::{check_authority, check_channel_permissions},
     },
     util::ChannelExt,

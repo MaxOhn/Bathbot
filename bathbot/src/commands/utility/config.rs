@@ -6,7 +6,7 @@ use bathbot_psql::model::configs::{
 };
 #[cfg(feature = "server")]
 use bathbot_server::AuthenticationStandbyError;
-use bathbot_util::constants::GENERAL_ISSUE;
+use bathbot_util::{Authored, constants::GENERAL_ISSUE};
 #[cfg(feature = "server")]
 use bathbot_util::{EmbedBuilder, MessageBuilder};
 use eyre::{Report, Result};
@@ -18,7 +18,7 @@ use super::{SkinValidation, ValidationStatus};
 use crate::{
     Context,
     embeds::{ConfigEmbed, EmbedData},
-    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 #[cfg(feature = "server")]
 use crate::{core::BotConfig, util::Emote};

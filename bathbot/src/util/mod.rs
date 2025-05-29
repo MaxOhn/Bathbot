@@ -3,13 +3,14 @@ pub use self::{
     emote::{CustomEmote, Emote},
     ext::*,
     monthly::Monthly,
+    searchable::NativeCriteria,
 };
 
 pub mod interaction;
 pub mod osu;
-pub mod query;
 
 mod check_permissions;
 mod emote;
 mod ext;
 mod monthly;
+mod searchable;

@@ -8,7 +8,7 @@ use bathbot_cache::Cache;
 use bathbot_client::Client as BathbotClient;
 use bathbot_model::twilight::id::{ArchivedId, IdRkyvMap};
 use bathbot_psql::{Database, model::configs::GuildConfig};
-use bathbot_util::{IntHasher, MetricsReader};
+use bathbot_util::{BucketName, Buckets, IntHasher, MetricsReader};
 use eyre::{Result, WrapErr};
 use flexmap::{std::StdMutexMap, tokio::TokioRwLockMap};
 use metrics_util::layers::{FanoutBuilder, Layer, PrefixLayer};
@@ -27,10 +27,7 @@ use twilight_model::id::{
 use twilight_standby::Standby;
 
 use self::osutrack::OsuTrackUserNotifTimestamps;
-use super::{
-    BotConfig, BotMetrics,
-    buckets::{BucketName, Buckets},
-};
+use super::{BotConfig, BotMetrics};
 use crate::{
     active::{ActiveMessages, impls::BackgroundGame},
     tracking::{Ordr, OsuTracking, ScoresWebSocket, ScoresWebSocketDisconnect},

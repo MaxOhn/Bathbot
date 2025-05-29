@@ -6,7 +6,7 @@ use std::{
 };
 
 use bathbot_util::{
-    CowUtils, EmbedBuilder, FooterBuilder,
+    Authored, CowUtils, EmbedBuilder, FooterBuilder,
     constants::OSU_BASE,
     datetime::SecToMinSec,
     fields,
@@ -48,7 +48,7 @@ use crate::{
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
     manager::OsuMap,
     util::{
-        Authored, ComponentExt, Emote, ModalExt,
+        ComponentExt, Emote, ModalExt,
         interaction::{InteractionComponent, InteractionModal},
         osu::{GradeCompletionFormatter, MapInfo},
     },

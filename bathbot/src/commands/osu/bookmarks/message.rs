@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::msg_command;
-use bathbot_util::{MessageOrigin, constants::GENERAL_ISSUE, osu::MapIdType};
+use bathbot_util::{Authored, MessageOrigin, constants::GENERAL_ISSUE, osu::MapIdType};
 use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 use twilight_model::channel::Message;
@@ -12,7 +12,7 @@ use twilight_model::channel::Message;
 use crate::{
     active::{ActiveMessages, impls::BookmarksPagination},
     core::Context,
-    util::{Authored, InteractionCommandExt, interaction::InteractionCommand, osu::MapOrScore},
+    util::{InteractionCommandExt, interaction::InteractionCommand, osu::MapOrScore},
 };
 
 #[msg_command(name = "Bookmark map", flags(EPHEMERAL))]

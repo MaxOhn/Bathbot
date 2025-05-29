@@ -1,8 +1,7 @@
 use std::{borrow::Cow, ops::Deref};
 
-use bathbot_util::{CowUtils, matcher::QUERY_SYNTAX_REGEX};
-
 use super::{operator::Operator, separate_content};
+use crate::{CowUtils, matcher::QUERY_SYNTAX_REGEX};
 
 pub trait IFilterCriteria<'q>: Sized + Default {
     fn try_parse_key_value(&mut self, key: Cow<'q, str>, value: Cow<'q, str>, op: Operator)

@@ -1,7 +1,7 @@
 use std::{fmt::Write, mem};
 
 use bathbot_util::{
-    EmbedBuilder, MessageBuilder,
+    Authored, BucketName, EmbedBuilder, MessageBuilder,
     constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
 };
 use eyre::{ContextCompat, Report, Result, WrapErr};
@@ -18,9 +18,9 @@ use twilight_model::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage, response::ActiveResponse},
     commands::osu::{OngoingRender, RENDERER_NAME, RenderStatus, RenderStatusInner},
-    core::{Context, buckets::BucketName},
+    core::Context,
     manager::ReplayError,
-    util::{Authored, ComponentExt, MessageExt, interaction::InteractionComponent},
+    util::{ComponentExt, MessageExt, interaction::InteractionComponent},
 };
 
 pub struct CachedRender {

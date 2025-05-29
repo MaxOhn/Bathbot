@@ -5,7 +5,7 @@ use std::{
 
 use bathbot_macros::{HasMods, HasName, SlashCommand, command};
 use bathbot_model::{
-    ScoreSlim,
+    PersonalBestIndex, ScoreSlim,
     command_fields::{GameModeOption, GradeOption},
     embed_builder::{ScoreEmbedSettings, SettingsImage},
 };
@@ -54,7 +54,7 @@ use crate::{
     util::{
         InteractionCommandExt,
         interaction::InteractionCommand,
-        osu::{IfFc, MapOrScore, PersonalBestIndex},
+        osu::{IfFc, MapOrScore},
     },
 };
 

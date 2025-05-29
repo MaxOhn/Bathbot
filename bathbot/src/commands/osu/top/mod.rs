@@ -7,7 +7,12 @@ use bathbot_model::{
 };
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
-    CowUtils, constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection,
+    CowUtils,
+    constants::GENERAL_ISSUE,
+    matcher,
+    numbers::round,
+    osu::ModSelection,
+    query::{IFilterCriteria, Searchable, TopCriteria},
 };
 use eyre::{Report, Result};
 use rand::{Rng, thread_rng};
@@ -34,11 +39,7 @@ use crate::{
     },
     core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
-    util::{
-        ChannelExt, CheckPermissions, InteractionCommandExt,
-        interaction::InteractionCommand,
-        query::{IFilterCriteria, Searchable, TopCriteria},
-    },
+    util::{ChannelExt, CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 mod if_;

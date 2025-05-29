@@ -5,7 +5,7 @@ use bathbot_model::embed_builder::{
     SettingValue, SettingsButtons, SettingsImage, Value,
 };
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::MessageBuilder;
+use bathbot_util::{Authored, MessageBuilder};
 use eyre::{ContextCompat, Result, WrapErr};
 use twilight_model::{
     channel::message::{
@@ -21,7 +21,7 @@ use crate::{
     commands::utility::ScoreEmbedDataWrap,
     core::Context,
     manager::redis::osu::CachedUser,
-    util::{Authored, Emote, interaction::InteractionComponent},
+    util::{Emote, interaction::InteractionComponent},
 };
 
 pub struct ScoreEmbedBuilderActive {

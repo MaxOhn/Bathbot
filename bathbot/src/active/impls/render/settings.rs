@@ -8,7 +8,7 @@ use std::{
 };
 
 use bathbot_util::{
-    CowUtils, EmbedBuilder, fields,
+    Authored, CowUtils, EmbedBuilder, fields,
     modal::{ModalBuilder, TextInputBuilder},
     numbers::round,
 };
@@ -27,7 +27,7 @@ use crate::{
     core::Context,
     manager::ReplaySettings,
     util::{
-        Authored, ComponentExt, ModalExt,
+        ComponentExt, ModalExt,
         interaction::{InteractionComponent, InteractionModal},
     },
 };

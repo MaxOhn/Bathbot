@@ -1,5 +1,8 @@
 pub use self::{
-    author::AuthorBuilder, embed::EmbedBuilder, footer::FooterBuilder, message::MessageBuilder,
+    author::AuthorBuilder,
+    embed::{EmbedBuilder, attachment},
+    footer::FooterBuilder,
+    message::MessageBuilder,
 };
 
 mod author;

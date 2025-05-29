@@ -2,7 +2,8 @@ use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, constants::OSU_BASE, osu::flag_url,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, attachment, constants::OSU_BASE,
+    osu::flag_url,
 };
 use eyre::Result;
 use twilight_model::{
@@ -16,7 +17,6 @@ use crate::{
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::MedalEntryList,
-    embeds::attachment,
     manager::redis::osu::CachedUser,
     util::interaction::{InteractionComponent, InteractionModal},
 };

@@ -6,12 +6,12 @@ use std::{
 use bathbot_macros::EmbedData;
 use bathbot_model::{MEDAL_GROUPS, MedalGroup, OsekaiMedal};
 use bathbot_util::{
-    AuthorBuilder, FooterBuilder, IntHasher, fields, numbers::round, osu::flag_url,
+    AuthorBuilder, FooterBuilder, IntHasher, attachment, fields, numbers::round, osu::flag_url,
 };
 use rosu_v2::prelude::MedalCompact;
 use twilight_model::channel::message::embed::EmbedField;
 
-use crate::{embeds::attachment, manager::redis::osu::CachedUser};
+use crate::manager::redis::osu::CachedUser;
 
 #[derive(EmbedData)]
 pub struct MedalStatsEmbed {

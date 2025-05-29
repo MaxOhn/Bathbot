@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use bathbot_macros::SlashCommand;
 use bathbot_util::{
-    CowUtils, EmbedBuilder, MessageBuilder,
+    Authored, CowUtils, EmbedBuilder, MessageBuilder,
     constants::{BATHBOT_GITHUB, BATHBOT_ROADMAP, BATHBOT_WORKSHOP, INVITE_LINK, KOFI},
     datetime::HowLongAgoDynamic,
     numbers::WithComma,
@@ -23,7 +23,7 @@ use crate::{
         Context,
         commands::interaction::{InteractionCommandKind, InteractionCommands},
     },
-    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CreateCommand, SlashCommand)]

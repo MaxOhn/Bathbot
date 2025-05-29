@@ -1,6 +1,8 @@
 use bathbot_model::{Effects, MapsetTags};
 use bathbot_psql::model::games::DbMapTagsParams;
-use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder, constants::GENERAL_ISSUE, fields};
+use bathbot_util::{
+    Authored, EmbedBuilder, FooterBuilder, MessageBuilder, constants::GENERAL_ISSUE, fields,
+};
 use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
@@ -19,7 +21,7 @@ use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::fun::GameDifficulty,
     core::Context,
-    util::{Authored, ComponentExt, interaction::InteractionComponent},
+    util::{ComponentExt, interaction::InteractionComponent},
 };
 
 mod game;

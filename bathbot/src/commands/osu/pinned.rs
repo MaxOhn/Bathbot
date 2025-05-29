@@ -4,12 +4,15 @@ use std::{
 };
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
-use bathbot_model::{command_fields::GameModeOption, embed_builder::SettingsImage};
+use bathbot_model::{
+    PersonalBestIndex, command_fields::GameModeOption, embed_builder::SettingsImage,
+};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
     MessageOrigin,
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     osu::ModSelection,
+    query::{IFilterCriteria, Searchable, TopCriteria},
 };
 use eyre::{Report, Result};
 use rand::{Rng, thread_rng};
@@ -35,12 +38,7 @@ use crate::{
     },
     core::commands::CommandOrigin,
     manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
-    util::{
-        CheckPermissions, InteractionCommandExt,
-        interaction::InteractionCommand,
-        osu::PersonalBestIndex,
-        query::{IFilterCriteria, Searchable, TopCriteria},
-    },
+    util::{CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]

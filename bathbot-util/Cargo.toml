@@ -5,6 +5,7 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
+eyre = { workspace = true }
 memchr = { workspace = true }
 metrics = { workspace = true }
 metrics-util = { workspace = true }

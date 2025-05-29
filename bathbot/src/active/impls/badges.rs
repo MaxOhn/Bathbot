@@ -6,7 +6,8 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{OsekaiBadge, OsekaiBadgeOwner};
 use bathbot_util::{
-    CowUtils, EmbedBuilder, FooterBuilder, constants::OSU_BASE, datetime::DATE_FORMAT, fields,
+    CowUtils, EmbedBuilder, FooterBuilder, attachment, constants::OSU_BASE, datetime::DATE_FORMAT,
+    fields,
 };
 use eyre::{Result, WrapErr};
 use twilight_model::{
@@ -20,7 +21,6 @@ use crate::{
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     core::Context,
-    embeds::attachment,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 

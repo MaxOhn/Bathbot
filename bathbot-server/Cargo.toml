@@ -8,7 +8,7 @@ edition.workspace = true
 axum = { version = "0.8.1", default-features = false, features = ["http2", "json", "macros", "matched-path", "query", "tokio"] }
 bathbot-model = { path = "../bathbot-model" }
 bathbot-util = { path = "../bathbot-util" }
-eyre = { version = "0.6" }
+eyre = { workspace = true }
 flexmap = { git = "https://github.com/MaxOhn/flexmap" }
 futures = { version = "0.3", default-features = false }
 handlebars = { version = "6.3.0" }

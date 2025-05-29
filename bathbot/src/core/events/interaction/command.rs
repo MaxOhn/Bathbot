@@ -1,5 +1,6 @@
 use std::{mem, time::Instant};
 
+use bathbot_util::Authored;
 use eyre::Result;
 
 use crate::{
@@ -11,7 +12,7 @@ use crate::{
         },
         events::{EventKind, ProcessResult},
     },
-    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub async fn handle_command(mut command: InteractionCommand) {

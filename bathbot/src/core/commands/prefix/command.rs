@@ -1,7 +1,8 @@
+use bathbot_util::BucketName;
 use twilight_model::{channel::Message, guild::Permissions};
 
 use super::{Args, CommandResult, PrefixCommandGroup};
-use crate::core::{buckets::BucketName, commands::flags::CommandFlags};
+use crate::core::commands::flags::CommandFlags;
 
 pub struct PrefixCommand {
     pub names: &'static [&'static str],

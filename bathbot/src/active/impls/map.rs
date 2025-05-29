@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin, attachment,
     constants::{AVATAR_URL, OSU_BASE},
     datetime::SecToMinSec,
     fields,
@@ -25,7 +25,6 @@ use crate::{
     },
     commands::osu::CustomAttrs,
     core::Context,
-    embeds::attachment,
     manager::redis::osu::UserArgs,
     util::{
         Emote,

@@ -3,7 +3,13 @@ use std::{borrow::Cow, cmp::Ordering};
 use bathbot_macros::{HasMods, HasName, SlashCommand, command};
 use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, numbers::round, osu::ModSelection};
+use bathbot_util::{
+    constants::GENERAL_ISSUE,
+    matcher,
+    numbers::round,
+    osu::ModSelection,
+    query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
+};
 use eyre::{Report, Result};
 use rosu_pp::any::DifficultyAttributes;
 use rosu_pp_older::*;
@@ -25,11 +31,7 @@ use crate::{
         OsuMap,
         redis::osu::{UserArgs, UserArgsError},
     },
-    util::{
-        ChannelExt, InteractionCommandExt,
-        interaction::InteractionCommand,
-        query::{FilterCriteria, IFilterCriteria, Searchable, TopCriteria},
-    },
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

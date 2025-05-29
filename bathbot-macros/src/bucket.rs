@@ -18,6 +18,6 @@ impl Parse for Bucket {
 impl ToTokens for Bucket {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let ident = &self.bucket;
-        tokens.extend(quote!(crate::core::buckets::BucketName::#ident));
+        tokens.extend(quote!(bathbot_util::BucketName::#ident));
     }
 }

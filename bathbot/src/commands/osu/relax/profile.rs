@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use bathbot_model::RelaxPlayersDataResponse;
 use bathbot_util::{
-    EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin,
+    EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin, attachment,
     constants::{GENERAL_ISSUE, RELAX_ICON_URL},
     datetime::NAIVE_DATETIME_FORMAT,
     fields,
@@ -34,7 +34,6 @@ use crate::{
         require_link,
     },
     core::{Context, commands::CommandOrigin},
-    embeds::attachment,
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::{Monthly, osu::grade_emote},
 };

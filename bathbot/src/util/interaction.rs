@@ -1,3 +1,4 @@
+use bathbot_util::Authored;
 use eyre::{ContextCompat, Result};
 use twilight_model::{
     application::interaction::{
@@ -12,8 +13,6 @@ use twilight_model::{
     },
     user::User,
 };
-
-use super::Authored;
 
 #[derive(Debug)]
 pub struct InteractionCommand {
@@ -57,10 +56,12 @@ macro_rules! impl_authored {
     ($($ty:ty,)*) => {
         $(
             impl Authored for $ty {
+                #[inline]
                 fn channel_id(&self) -> Id<ChannelMarker> {
                     self.channel_id
                 }
 
+                #[inline]
                 fn guild_id(&self) -> Option<Id<GuildMarker>> {
                     self.guild_id
                 }

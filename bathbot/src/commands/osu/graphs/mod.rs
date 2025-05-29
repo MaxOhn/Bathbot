@@ -7,7 +7,7 @@ use bathbot_model::{
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder, attachment,
     constants::{GENERAL_ISSUE, OSU_BASE},
     matcher,
     osu::{MapIdType, ModSelection, ModsResult},
@@ -46,7 +46,6 @@ use super::{SnipeGameMode, UserIdResult, require_link, user_not_found};
 use crate::{
     commands::osu::{HasMods, HasName as HasNameTrait},
     core::{Context, commands::CommandOrigin},
-    embeds::attachment,
     manager::{
         MapError, OsuMap,
         redis::osu::{CachedUser, UserArgs, UserArgsError},

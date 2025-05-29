@@ -11,7 +11,13 @@ use bathbot_model::{
     command_fields::{GameModeOption, GradeOption},
 };
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{CowUtils, IntHasher, constants::GENERAL_ISSUE, matcher, osu::ModSelection};
+use bathbot_util::{
+    CowUtils, IntHasher,
+    constants::GENERAL_ISSUE,
+    matcher,
+    osu::ModSelection,
+    query::{IFilterCriteria, Searchable},
+};
 use eyre::{Report, Result};
 use rosu_pp::{Beatmap, Difficulty, any::DifficultyAttributes};
 use rosu_v2::{
@@ -29,10 +35,7 @@ use crate::{
         OsuMap,
         redis::osu::{UserArgs, UserArgsError},
     },
-    util::{
-        ChannelExt,
-        query::{IFilterCriteria, RegularCriteria, Searchable},
-    },
+    util::{ChannelExt, NativeCriteria},
 };
 
 #[command]
@@ -498,7 +501,7 @@ async fn process_scores(
         ..
     } = args;
 
-    let filter_criteria = query.as_deref().map(RegularCriteria::create);
+    let filter_criteria = query.as_deref().map(NativeCriteria::create);
     let grade = grade.map(Grade::from);
     let mut entries = Vec::new();
 

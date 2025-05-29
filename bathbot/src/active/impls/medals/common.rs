@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_util::{CowUtils, EmbedBuilder, FooterBuilder};
+use bathbot_util::{CowUtils, EmbedBuilder, FooterBuilder, attachment};
 use eyre::Result;
 use twilight_model::{
     channel::message::Component,
@@ -14,7 +14,6 @@ use crate::{
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::osu::{MedalEntryCommon, MedalsCommonUser},
-    embeds::attachment,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 

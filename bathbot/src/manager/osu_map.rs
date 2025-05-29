@@ -7,7 +7,10 @@ use std::{
 
 use bathbot_client::ClientError;
 use bathbot_psql::model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapContent, MapVersion};
-use bathbot_util::{ExponentialBackoff, IntHasher};
+use bathbot_util::{
+    ExponentialBackoff, IntHasher,
+    query::{FilterCriteria, RegularCriteria, Searchable},
+};
 use eyre::{ContextCompat, Report, WrapErr};
 use futures::{TryStreamExt, stream::FuturesUnordered};
 use rosu_pp::{
@@ -21,10 +24,7 @@ use time::OffsetDateTime;
 use tokio::time::sleep;
 
 use super::{PpManager, pp::Mods};
-use crate::{
-    core::Context,
-    util::query::{FilterCriteria, RegularCriteria, Searchable},
-};
+use crate::{core::Context, util::NativeCriteria};
 
 type Result<T> = eyre::Result<T, MapError>;
 
@@ -556,7 +556,7 @@ impl Deref for OsuMap {
 impl Searchable<RegularCriteria<'_>> for OsuMap {
     #[inline]
     fn matches(&self, criteria: &FilterCriteria<RegularCriteria<'_>>) -> bool {
-        self.map.matches(criteria) && self.pp_map.matches(criteria)
+        self.map.matches(criteria) && self.pp_map.matches(NativeCriteria::cast(criteria))
     }
 }
 

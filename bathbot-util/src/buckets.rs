@@ -1,7 +1,8 @@
 use std::{collections::HashMap, hash::Hash, sync::Mutex};
 
-use bathbot_util::IntHasher;
 use time::OffsetDateTime;
+
+use crate::IntHasher;
 
 pub struct Buckets([Mutex<Bucket>; 8]);
 

@@ -1,6 +1,7 @@
 use bathbot_model::{PullRequestsAndTags, Tag};
 use bathbot_util::{
-    AuthorBuilder, EmbedBuilder, FooterBuilder, datetime::DATE_FORMAT, numbers::last_multiple,
+    AuthorBuilder, Authored, EmbedBuilder, FooterBuilder, datetime::DATE_FORMAT,
+    numbers::last_multiple,
 };
 use eyre::{Report, Result, WrapErr};
 use twilight_model::{
@@ -15,7 +16,7 @@ use twilight_model::{
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage},
     commands::utility::ChangelogTagPages,
-    util::{Authored, ComponentExt, Emote, interaction::InteractionComponent},
+    util::{ComponentExt, Emote, interaction::InteractionComponent},
 };
 
 pub struct ChangelogPagination {

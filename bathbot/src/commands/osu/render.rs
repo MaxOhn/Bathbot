@@ -5,7 +5,7 @@ use std::{
 
 use bathbot_macros::SlashCommand;
 use bathbot_util::{
-    EmbedBuilder, MessageBuilder,
+    Authored, BucketName, EmbedBuilder, MessageBuilder,
     constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
     matcher,
 };
@@ -26,10 +26,10 @@ use crate::{
         ActiveMessages,
         impls::{CachedRender, RenderSettingsActive, SettingsImport},
     },
-    core::{Context, buckets::BucketName, commands::OwnedCommandOrigin},
+    core::{Context, commands::OwnedCommandOrigin},
     manager::{ReplayError, ReplaySettings},
     tracking::OrdrReceivers,
-    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub const RENDERER_NAME: &str = "Bathbot";

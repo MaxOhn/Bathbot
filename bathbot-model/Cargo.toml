@@ -8,7 +8,7 @@ edition.workspace = true
 bathbot-util = { path = "../bathbot-util" }
 bitflags = { workspace = true }
 form_urlencoded = { version = "1.2.0", default-features = false, features = ["std"] }
-eyre = { version = "0.6" }
+eyre = { workspace = true }
 http = { workspace = true }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
 once_cell = { version = "1.0" }

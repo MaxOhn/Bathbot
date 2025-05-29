@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::{HasName, SlashCommand};
-use bathbot_util::{EmbedBuilder, MessageBuilder, constants::GENERAL_ISSUE, matcher};
+use bathbot_util::{Authored, EmbedBuilder, MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result, WrapErr};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{Id, marker::UserMarker};
@@ -13,7 +13,7 @@ use url::{SyntaxViolation, Url};
 use crate::{
     active::{self, ActiveMessages},
     core::{Context, commands::CommandOrigin},
-    util::{Authored, InteractionCommandExt, interaction::InteractionCommand},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

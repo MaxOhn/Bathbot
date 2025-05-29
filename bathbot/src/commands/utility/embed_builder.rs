@@ -1,9 +1,13 @@
 use std::{sync::Arc, time::Duration};
 
 use bathbot_macros::SlashCommand;
-use bathbot_model::{ScoreSlim, embed_builder::ScoreEmbedSettings};
+use bathbot_model::{PersonalBestIndex, ScoreSlim, embed_builder::ScoreEmbedSettings};
 use bathbot_psql::model::configs::ScoreData;
-use bathbot_util::{CowUtils, MessageOrigin, constants::GENERAL_ISSUE};
+use bathbot_util::{
+    Authored, CowUtils, MessageOrigin,
+    constants::GENERAL_ISSUE,
+    query::{FilterCriteria, Searchable, TopCriteria},
+};
 use eyre::{Report, Result};
 use rosu_pp::model::beatmap::BeatmapAttributes;
 use rosu_v2::{
@@ -21,12 +25,7 @@ use crate::{
     active::{ActiveMessages, impls::ScoreEmbedBuilderActive},
     core::Context,
     manager::{MapError, OsuMap, PpManager, redis::osu::UserArgsSlim},
-    util::{
-        Authored, InteractionCommandExt,
-        interaction::InteractionCommand,
-        osu::{IfFc, PersonalBestIndex},
-        query::{FilterCriteria, Searchable, TopCriteria},
-    },
+    util::{InteractionCommandExt, interaction::InteractionCommand, osu::IfFc},
 };
 
 const USER_ID: u32 = 2;

@@ -1,3 +1,4 @@
+mod buckets;
 mod builder;
 mod cow;
 mod exp_backoff;
@@ -16,10 +17,12 @@ pub mod html;
 pub mod matcher;
 pub mod numbers;
 pub mod osu;
+pub mod query;
 pub mod string_cmp;
 
 pub use self::{
-    builder::{AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder, modal},
+    buckets::{Bucket, BucketName, Buckets},
+    builder::{AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder, attachment, modal},
     cow::CowUtils,
     exp_backoff::ExponentialBackoff,
     ext::*,
