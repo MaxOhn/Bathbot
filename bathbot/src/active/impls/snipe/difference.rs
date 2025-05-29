@@ -7,7 +7,7 @@ use std::{
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::SnipeRecent;
 use bathbot_util::{
-    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, constants::OSU_BASE,
+    CowUtils, EmbedBuilder, FooterBuilder, IntHasher, ModsFormatter, constants::OSU_BASE,
     datetime::HowLongAgoDynamic, numbers::round,
 };
 use eyre::{Result, WrapErr};
@@ -25,7 +25,6 @@ use crate::{
     },
     commands::osu::Difference,
     core::Context,
-    embeds::ModsFormatter,
     manager::redis::osu::CachedUser,
     util::{
         CachedUserExt,
