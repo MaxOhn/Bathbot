@@ -3,21 +3,63 @@ use std::{
     collections::HashMap,
 };
 
+use bathbot_macros::command;
 use bathbot_model::{OsekaiMedal, Rarity};
-use bathbot_util::{IntHasher, constants::GENERAL_ISSUE};
+use bathbot_util::{IntHasher, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
+use twilight_model::guild::Permissions;
 
 use super::{MedalList, MedalListOrder, icons_image::draw_icons_image};
 use crate::{
     Context,
     active::{ActiveMessages, impls::MedalsListPagination},
-    commands::osu::{require_link, user_not_found},
-    core::commands::CommandOrigin,
+    commands::osu::{medals::MEDAL_LIST_DESC, require_link, user_not_found},
+    core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
 };
+
+impl<'m> MedalList<'m> {
+    fn args(args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self {
+            name,
+            discord,
+            sort: None,
+            group: None,
+            reverse: None,
+        }
+    }
+}
+
+#[command]
+#[desc(MEDAL_LIST_DESC)]
+#[usage("[username]")]
+#[example("brandwagen")]
+#[aliases("ml", "medallist")]
+#[group(AllModes)]
+async fn prefix_medalslist(
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let orig = CommandOrigin::from_msg(msg, permissions);
+    let args = MedalList::args(args);
+
+    list(orig, args).await
+}
 
 pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result<()> {
     let owner = orig.user_id()?;

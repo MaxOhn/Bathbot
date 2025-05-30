@@ -70,7 +70,7 @@ async fn slash_matchlive(mut command: InteractionCommand) -> Result<()> {
 )]
 #[usage("[match url / match id]")]
 #[examples("58320988", "https://osu.ppy.sh/community/matches/58320988")]
-#[alias("ml", "mla", "matchliveadd", "mlt", "matchlivetrack")]
+#[alias("mla", "matchliveadd", "mlt", "matchlivetrack")]
 #[bucket(MatchLive)]
 #[flags(AUTHORITY)]
 #[group(AllModes)]
