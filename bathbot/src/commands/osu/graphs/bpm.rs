@@ -1,5 +1,7 @@
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{borrow::Cow, cell::RefCell, ops::ControlFlow, rc::Rc, time::Duration};
 
+use bathbot_macros::command;
+use bathbot_util::{matcher, osu::MapIdType};
 use eyre::{ContextCompat, Result, WrapErr};
 use plotters::{
     chart::ChartBuilder,
@@ -18,8 +20,81 @@ use rosu_pp::{
 };
 use rosu_v2::prelude::GameMods;
 use skia_safe::{EncodedImageFormat, surfaces};
+use twilight_model::{channel::Message, guild::Permissions};
 
 use super::{BitMapElement, H, W, get_map_cover};
+use crate::{
+    commands::osu::{GraphMapBpm, graphs::GRAPH_BPM_DESC},
+    core::commands::{CommandOrigin, prefix::Args},
+    util::{ChannelExt, osu::MapOrScore},
+};
+
+impl<'m> GraphMapBpm<'m> {
+    async fn args(msg: &Message, args: Args<'m>) -> Result<Self, String> {
+        let mut map = None;
+        let mut mods = None;
+
+        for arg in args {
+            if matcher::get_osu_map_id(arg)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(arg).map(MapIdType::Set))
+                .is_some()
+            {
+                map = Some(Cow::Borrowed(arg));
+            } else if matcher::get_mods(arg).is_some() {
+                mods = Some(Cow::Borrowed(arg));
+            } else {
+                let content = format!(
+                    "Failed to parse `{arg}`.\n\
+                    Be sure you specify either a valid map id, map url, or mod combination."
+                );
+
+                return Err(content);
+            }
+        }
+
+        if map.is_none() {
+            match MapOrScore::find_in_msg(msg).await {
+                Some(MapOrScore::Map(id)) => map = Some(Cow::Owned(id.to_string())),
+                Some(MapOrScore::Score { .. }) => {
+                    return Err("This command does not accept score urls as argument".to_owned());
+                }
+                None => {}
+            }
+        }
+
+        Ok(Self { map, mods })
+    }
+}
+
+#[command]
+#[desc(GRAPH_BPM_DESC)]
+#[usage("[map url / id] [+mods]")]
+#[examples("240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
+#[aliases("bpm")]
+#[group(AllModes)]
+async fn prefix_graphbpm(msg: &Message, args: Args<'_>, perms: Option<Permissions>) -> Result<()> {
+    let args = match GraphMapBpm::args(msg, args).await {
+        Ok(args) => args,
+        Err(content) => {
+            msg.error(content).await?;
+
+            return Ok(());
+        }
+    };
+
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    match super::map_bpm(&orig, args).await {
+        Ok(ControlFlow::Continue(map)) => {
+            orig.create_message(map.into()).await?;
+
+            Ok(())
+        }
+        Ok(ControlFlow::Break(())) => Ok(()),
+        Err(err) => Err(err.wrap_err("Failed to create map bpm graph")),
+    }
+}
 
 pub async fn map_bpm_graph(map: &Beatmap, mods: GameMods, cover_url: &str) -> Result<Vec<u8>> {
     let mut start_timestamp = map

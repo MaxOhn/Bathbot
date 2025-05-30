@@ -1,4 +1,4 @@
-use std::{iter, ops::ControlFlow};
+use std::{borrow::Cow, iter, ops::ControlFlow};
 
 use bathbot_macros::{HasMods, HasName, SlashCommand, command};
 use bathbot_model::{
@@ -68,9 +68,9 @@ mod top_time;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "graph", desc = "Display graphs about some user data")]
-pub enum Graph {
+pub enum Graph<'a> {
     #[command(name = "bpm")]
-    MapBpm(GraphMapBpm),
+    MapBpm(GraphMapBpm<'a>),
     #[command(name = "strains")]
     MapStrains(GraphMapStrains),
     #[command(name = "medals")]
@@ -91,21 +91,23 @@ pub enum Graph {
     Top(GraphTop),
 }
 
+const GRAPH_BPM_DESC: &str = "Display a map's bpm over time";
+
 #[derive(CommandModel, CreateCommand, HasMods)]
-#[command(name = "bpm", desc = "Display a map's bpm over time")]
-pub struct GraphMapBpm {
+#[command(name = "bpm", desc = GRAPH_BPM_DESC)]
+pub struct GraphMapBpm<'a> {
     #[command(
         desc = "Specify a map url or map id",
         help = "Specify a map either by map url or map id.\n\
         If none is specified, it will search in the recent channel history \
         and pick the first map it can find."
     )]
-    map: Option<String>,
+    map: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
     )]
-    mods: Option<String>,
+    mods: Option<Cow<'a, str>>,
 }
 
 #[derive(CommandModel, CreateCommand, HasMods)]
@@ -410,9 +412,7 @@ async fn slash_graph(mut command: InteractionCommand) -> Result<()> {
     graph((&mut command).into(), args).await
 }
 
-// Takes a `CommandOrigin` since `require_link` does not take
-// `InteractionCommand`
-async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
+async fn graph(orig: CommandOrigin<'_>, args: Graph<'_>) -> Result<()> {
     let mut author_fn: fn(CachedUser) -> AuthorBuilder =
         |user: CachedUser| user.author_builder(false);
     let mut footer = None;
@@ -746,7 +746,7 @@ async fn get_map_id(map: Option<&str>, channel_id: Id<ChannelMarker>) -> Result<
 
 async fn map_bpm(
     orig: &CommandOrigin<'_>,
-    args: GraphMapBpm,
+    args: GraphMapBpm<'_>,
 ) -> Result<ControlFlow<(), MapResult>> {
     let mods_res = args.mods();
 
