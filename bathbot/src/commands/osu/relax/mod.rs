@@ -33,12 +33,12 @@ pub enum Relax<'a> {
     Top(RelaxTop<'a>),
 }
 
+const RX_PROFILE_DESC: &str = "Show user's relax profile";
+const RX_PROFILE_HELP: &str =
+    "Show user's relax profile, as provided by [Relaxation Vault](https://rx.stanr.info/)";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(
-    name = "profile",
-    desc = "Show user's relax profile",
-    help = "Show user's relax profile, as provided by [Relaxation Vault](https://rx.stanr.info/)"
-)]
+#[command(name = "profile", desc = RX_PROFILE_DESC, help = RX_PROFILE_HELP)]
 pub struct RelaxProfile<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
@@ -51,12 +51,12 @@ pub struct RelaxProfile<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
+const RX_TOP_DESC: &str = "Show user's relax top plays";
+const RX_TOP_HELP: &str =
+    "Show user's relax top plays, as provided by [Relaxation Vault](https://rx.stanr.info/)";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(
-    name = "top",
-    desc = "Show user's relax top plays",
-    help = "Show user's relax top plays, as provided by [Relaxation Vault](https://rx.stanr.info/)"
-)]
+#[command(name = "top", desc = RX_TOP_DESC, help = RX_TOP_HELP)]
 pub struct RelaxTop<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,

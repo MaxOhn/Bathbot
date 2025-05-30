@@ -1,8 +1,10 @@
 use std::{cmp::Ordering, collections::HashMap};
 
-use bathbot_util::constants::GENERAL_ISSUE;
+use bathbot_macros::command;
+use bathbot_util::{constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
+use twilight_model::guild::Permissions;
 
 use super::RelaxTop;
 use crate::{
@@ -10,16 +12,61 @@ use crate::{
         ActiveMessages,
         impls::relax::top::{RelaxTopOrder, RelaxTopPagination},
     },
-    commands::osu::require_link,
-    core::{Context, commands::CommandOrigin},
+    commands::osu::{
+        relax::{RX_TOP_DESC, RX_TOP_HELP},
+        require_link,
+    },
+    core::{
+        Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     manager::redis::osu::{UserArgs, UserArgsError},
 };
+
+impl<'a> RelaxTop<'a> {
+    fn args(args: Args<'a>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self {
+            name,
+            discord,
+            sort: None,
+        }
+    }
+}
+
+#[command]
+#[desc(RX_TOP_DESC)]
+#[help(RX_TOP_HELP)]
+#[usage("[username]")]
+#[example("chiffa")]
+#[alias("relaxt", "rxtop", "rxt")]
+#[group(Osu)]
+async fn prefix_relaxtop(
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let args = RelaxTop::args(args);
+    let orig = CommandOrigin::from_msg(msg, permissions);
+
+    top(orig, args).await
+}
 
 pub async fn relax_top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
     top(orig, args).await
 }
 
-pub async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
+async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
     let msg_owner = orig.user_id()?;
     let mut config = match Context::user_config().with_osu_id(msg_owner).await {
         Ok(config) => config,
