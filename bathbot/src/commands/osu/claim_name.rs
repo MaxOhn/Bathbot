@@ -1,5 +1,7 @@
+use std::borrow::Cow;
+
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
-use bathbot_macros::SlashCommand;
+use bathbot_macros::{SlashCommand, command};
 use bathbot_model::{
     rkyv_util::time::DateRkyv,
     rosu_v2::user::{User, UserStatisticsRkyv},
@@ -20,30 +22,71 @@ use time::{OffsetDateTime, Time};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    core::Context,
+    core::{
+        Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     embeds::{ClaimNameEmbed, EmbedData},
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
-    util::{InteractionCommandExt, interaction::InteractionCommand},
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
+
+const CLAIMNAME_DESC: &str = "Check how much longer to wait until a name is up for grabs";
+
+const CLAIMNAME_HELP: &str = "If a player has not signed in for at least 6 months and has no plays,\
+their username may be claimed.\n\
+If that player does have any plays across all game modes, \
+a [non-linear function](https://www.desmos.com/calculator/b89siyv9j8) is used to calculate \
+how much extra time is added to those 6 months.\n\
+This is to prevent people from stealing the usernames of active or recently retired players.";
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "claimname",
-    desc = "Check how much longer to wait until a name is up for grabs",
-    help = "If a player has not signed in for at least 6 months and has no plays,\
-    their username may be claimed.\n\
-    If that player does have any plays across all game modes, \
-    a [non-linear function](https://www.desmos.com/calculator/b89siyv9j8) is used to calculate \
-    how much extra time is added to those 6 months.\n\
-    This is to prevent people from stealing the usernames of active or recently retired players."
+    desc = CLAIMNAME_DESC,
+    help = CLAIMNAME_HELP
 )]
-pub struct ClaimName {
+pub struct ClaimName<'a> {
     #[command(desc = "Specify a username")]
-    name: String,
+    name: Cow<'a, str>,
+}
+
+impl<'m> ClaimName<'m> {
+    fn args(mut args: Args<'m>) -> Result<Self, &'static str> {
+        let name = args.next().ok_or("The first argument must be a username")?;
+
+        Ok(Self {
+            name: Cow::Borrowed(name),
+        })
+    }
+}
+
+#[command]
+#[desc(CLAIMNAME_DESC)]
+#[help(CLAIMNAME_HELP)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("cn")]
+#[group(AllModes)]
+async fn prefix_claimname(msg: &Message, args: Args<'_>) -> Result<()> {
+    match ClaimName::args(args) {
+        Ok(args) => claimname(msg.into(), args).await,
+        Err(err) => {
+            msg.error(err).await?;
+
+            Ok(())
+        }
+    }
 }
 
 async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
-    let ClaimName { name } = ClaimName::from_interaction(command.input_data())?;
+    let args = ClaimName::from_interaction(command.input_data())?;
+
+    claimname((&mut command).into(), args).await
+}
+
+async fn claimname(orig: CommandOrigin<'_>, args: ClaimName<'_>) -> Result<()> {
+    let name = args.name;
 
     let content = if name.chars().count() > 15 {
         Some("Names can have at most 15 characters so your name won't be accepted".to_owned())
@@ -73,7 +116,7 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
 
     if let Some(content) = content {
         let builder = MessageBuilder::new().embed(content);
-        command.update(builder).await?;
+        orig.create_message(builder).await?;
 
         return Ok(());
     }
@@ -89,12 +132,12 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
             };
 
             let builder = MessageBuilder::new().embed(content);
-            command.update(builder).await?;
+            orig.create_message(builder).await?;
 
             return Ok(());
         }
         UserArgs::Err(err) => {
-            let _ = command.error(GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
@@ -184,7 +227,7 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
     let user = match user_fut.await {
         Ok(user) => user.unwrap(),
         Err(err) => {
-            let _ = command.error(OSU_API_ISSUE).await;
+            let _ = orig.error(OSU_API_ISSUE).await;
             let err = Report::new(err).wrap_err("Failed to get user");
 
             return Err(err);
@@ -193,7 +236,7 @@ async fn slash_claimname(mut command: InteractionCommand) -> Result<()> {
 
     let embed = ClaimNameEmbed::new(&user, &name).build();
     let builder = MessageBuilder::new().embed(embed);
-    command.update(builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }
