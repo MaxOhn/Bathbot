@@ -1,8 +1,10 @@
 use std::collections::BTreeMap;
 
+use bathbot_macros::command;
 use bathbot_util::{
     MessageBuilder,
     constants::{AVATAR_URL, GENERAL_ISSUE, OSEKAI_ISSUE},
+    matcher,
 };
 use eyre::{Report, Result};
 use rkyv::{
@@ -10,17 +12,59 @@ use rkyv::{
     rend::u32_le,
 };
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
+use twilight_model::guild::Permissions;
 
 use super::BadgesUser;
 use crate::{
     active::{ActiveMessages, impls::BadgesPagination},
-    commands::osu::{require_link, user_not_found},
-    core::{Context, commands::CommandOrigin},
+    commands::osu::{badges::BADGE_USER_DESC, require_link, user_not_found},
+    core::{
+        Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     manager::redis::osu::{UserArgs, UserArgsError},
     util::osu::get_combined_thumbnail,
 };
 
-pub(super) async fn user(orig: CommandOrigin<'_>, args: BadgesUser) -> Result<()> {
+impl<'m> BadgesUser<'m> {
+    fn args(args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self {
+            name,
+            discord,
+            sort: None,
+        }
+    }
+}
+
+#[command]
+#[desc(BADGE_USER_DESC)]
+#[usage("[username]")]
+#[examples("bubbleman")]
+#[aliases("userbadges", "userbadge", "badgeuser")]
+#[group(AllModes)]
+async fn prefix_badgesuser(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let orig = CommandOrigin::from_msg(msg, perms);
+    let args = BadgesUser::args(args);
+
+    user(orig, args).await
+}
+
+pub(super) async fn user(orig: CommandOrigin<'_>, args: BadgesUser<'_>) -> Result<()> {
     let owner = orig.user_id()?;
 
     let user_id = match user_id!(orig, args) {

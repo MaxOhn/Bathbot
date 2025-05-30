@@ -1,36 +1,48 @@
-use std::{cmp::Ordering, collections::BTreeMap, fmt::Write};
+use std::{borrow::Cow, cmp::Ordering, collections::BTreeMap, fmt::Write};
 
+use bathbot_macros::command;
 use bathbot_model::OsekaiBadge;
 use bathbot_util::{
-    Authored, CowUtils,
+    CowUtils,
     constants::{AVATAR_URL, OSEKAI_ISSUE},
     string_cmp::levenshtein_similarity,
 };
 use eyre::{Report, Result, WrapErr};
 use rkyv::rancor::{Panic, ResultExt};
-use twilight_interactions::command::AutocompleteValue;
-use twilight_model::application::command::{CommandOptionChoice, CommandOptionChoiceValue};
+use twilight_model::{
+    application::command::{CommandOptionChoice, CommandOptionChoiceValue},
+    guild::Permissions,
+};
 
-use super::BadgesQuery_;
 use crate::{
     active::{ActiveMessages, impls::BadgesPagination},
-    core::Context,
+    commands::osu::{BadgesOrder, badges::BADGE_QUERY_DESC},
+    core::{Context, commands::CommandOrigin},
     util::{InteractionCommandExt, interaction::InteractionCommand, osu::get_combined_thumbnail},
 };
 
-pub(super) async fn query(mut command: InteractionCommand, args: BadgesQuery_) -> Result<()> {
-    let BadgesQuery_ { name, sort } = args;
+#[command]
+#[desc(BADGE_QUERY_DESC)]
+#[usage("[badge name]")]
+#[examples("osu! world cup 2024")]
+#[aliases("badge", "badgequery", "badgesquery", "bq")]
+#[group(AllModes)]
+async fn prefix_badges(msg: &Message, args: Args<'_>, perms: Option<Permissions>) -> Result<()> {
+    let orig = CommandOrigin::from_msg(msg, perms);
+    let name = Cow::Borrowed(args.rest());
 
-    let name = match name {
-        AutocompleteValue::None => return handle_autocomplete(&command, String::new()).await,
-        AutocompleteValue::Focused(name) => return handle_autocomplete(&command, name).await,
-        AutocompleteValue::Completed(name) => name,
-    };
+    query(orig, name, None).await
+}
 
+pub(super) async fn query(
+    orig: CommandOrigin<'_>,
+    name: Cow<'_, str>,
+    sort: Option<BadgesOrder>,
+) -> Result<()> {
     let badges = match Context::redis().badges().await {
         Ok(badges) => badges,
         Err(err) => {
-            let _ = command.error(OSEKAI_ISSUE).await;
+            let _ = orig.error(OSEKAI_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get cached badges"));
         }
@@ -79,13 +91,13 @@ pub(super) async fn query(mut command: InteractionCommand, args: BadgesQuery_) -
         match owners_fut.await {
             Ok(owners) => owners,
             Err(err) => {
-                let _ = command.error(OSEKAI_ISSUE).await;
+                let _ = orig.error(OSEKAI_ISSUE).await;
 
                 return Err(err.wrap_err("Failed to get badge owners"));
             }
         }
     } else {
-        return no_badge_found(&command, name).await;
+        return no_badge_found(&orig, name).await;
     };
 
     let urls: Vec<_> = owners
@@ -114,21 +126,21 @@ pub(super) async fn query(mut command: InteractionCommand, args: BadgesQuery_) -
     let pagination = BadgesPagination::builder()
         .badges(badges.into_boxed_slice())
         .owners(owners_map)
-        .msg_owner(command.user_id()?)
+        .msg_owner(orig.user_id()?)
         .build();
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
         .attachment(bytes.map(|bytes| ("badge_owners.png".to_owned(), bytes)))
-        .begin(&mut command)
+        .begin(orig)
         .await
 }
 
-async fn no_badge_found(command: &InteractionCommand, name: &str) -> Result<()> {
+async fn no_badge_found(orig: &CommandOrigin<'_>, name: &str) -> Result<()> {
     let badges = match Context::redis().badges().await {
         Ok(badges) => badges,
         Err(err) => {
-            let _ = command.error(OSEKAI_ISSUE).await;
+            let _ = orig.error(OSEKAI_ISSUE).await;
 
             return Err(Report::new(err).wrap_err("Failed to get cached badges"));
         }
@@ -162,12 +174,12 @@ async fn no_badge_found(command: &InteractionCommand, name: &str) -> Result<()> 
         content.push('?');
     }
 
-    command.error(content).await?;
+    orig.error(content).await?;
 
     Ok(())
 }
 
-pub async fn handle_autocomplete(command: &InteractionCommand, name: String) -> Result<()> {
+pub async fn query_autocomplete(command: &InteractionCommand, name: String) -> Result<()> {
     let name = if name.is_empty() {
         command.autocomplete(Vec::new()).await?;
 

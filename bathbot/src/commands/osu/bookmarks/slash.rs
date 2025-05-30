@@ -109,7 +109,7 @@ async fn bookmarks(orig: CommandOrigin<'_>, args: Bookmarks<'_>) -> Result<()> {
     let mut bookmarks = match Context::bookmarks().get(owner).await {
         Ok(bookmarks) => bookmarks,
         Err(err) => {
-            let _ = orig.error(GENERAL_ISSUE).await?;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
