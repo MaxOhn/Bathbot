@@ -1,25 +1,60 @@
+use bathbot_macros::command;
 use bathbot_util::{
-    Authored, EmbedBuilder, FooterBuilder, MessageBuilder, constants::GENERAL_ISSUE, fields,
+    EmbedBuilder, FooterBuilder, MessageBuilder, constants::GENERAL_ISSUE, fields, matcher,
 };
 use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
 use rosu_v2::{error::OsuError, model::GameMode, request::UserId};
 use time::OffsetDateTime;
+use twilight_model::guild::Permissions;
 
 use super::DailyChallengeUser;
 use crate::{
-    commands::osu::{require_link, user_not_found},
-    core::{Context, commands::CommandOrigin},
+    commands::osu::{daily_challenge::DC_USER_DESC, require_link, user_not_found},
+    core::{
+        Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     manager::redis::osu::{UserArgs, UserArgsError},
-    util::{CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
+    util::CachedUserExt,
 };
 
-pub(super) async fn user(mut command: InteractionCommand, user: DailyChallengeUser) -> Result<()> {
-    let owner = command.user_id()?;
+impl<'m> DailyChallengeUser<'m> {
+    fn args(args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
 
-    let orig = CommandOrigin::Interaction {
-        command: &mut command,
-    };
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self { name, discord }
+    }
+}
+
+#[command]
+#[desc(DC_USER_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("dcu", "dcuser", "dcp", "dcprofile", "dailychallengeprofile")]
+#[group(AllModes)]
+async fn prefix_dailychallengeuser(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let orig = CommandOrigin::from_msg(msg, perms);
+    let args = DailyChallengeUser::args(args);
+
+    user(orig, args).await
+}
+
+pub(super) async fn user(orig: CommandOrigin<'_>, user: DailyChallengeUser<'_>) -> Result<()> {
+    let owner = orig.user_id()?;
 
     let user_id = match user_id!(orig, user) {
         Some(user_id) => user_id,
@@ -93,7 +128,7 @@ Best    | {:^daily_len$} | {:^6}
         .thumbnail(user.avatar_url.as_ref());
 
     let builder = MessageBuilder::new().embed(embed);
-    command.update(builder).await?;
+    orig.create_message(builder).await?;
 
     Ok(())
 }
