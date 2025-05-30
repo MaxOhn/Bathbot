@@ -1,34 +1,37 @@
-use std::{collections::HashMap, fmt::Write};
+use std::{borrow::Cow, collections::HashMap, fmt::Write};
 
-use bathbot_macros::SlashCommand;
+use bathbot_macros::{SlashCommand, command};
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_psql::model::osu::MapBookmark;
 use bathbot_util::{
-    Authored, CowUtils, MessageOrigin,
+    CowUtils, MessageOrigin,
     constants::GENERAL_ISSUE,
     query::{BookmarkCriteria, FilterCriteria, IFilterCriteria},
 };
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_model::guild::Permissions;
 
 use crate::{
     active::{ActiveMessages, impls::BookmarksPagination},
-    core::Context,
+    core::{
+        Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
+const BOOKMARKS_DESC: &str = "List all your bookmarked maps";
+const BOOKMARKS_HELP: &str = "List all your bookmarked maps. You can bookmark maps by:\n\
+1. Rightclicking a bot message that contains a single map\n\
+2. Click on `Apps`\n\
+3. Click on `Bookmark map`.";
+
 #[derive(CreateCommand, CommandModel, SlashCommand)]
-#[command(
-    name = "bookmarks",
-    desc = "List all your bookmarked maps",
-    help = "List all your bookmarked maps. You can bookmark maps by:\n\
-    1. Rightclicking a bot message that contains a single map\n\
-    2. Click on `Apps`\n\
-    3. Click on `Bookmark map`."
-)]
+#[command(name = "bookmarks", desc = BOOKMARKS_DESC, help = BOOKMARKS_HELP)]
 #[flags(EPHEMERAL)]
-pub struct Bookmarks {
+pub struct Bookmarks<'a> {
     #[command(desc = "Choose how the maps should be ordered")]
     sort: Option<BookmarksSort>,
     #[command(
@@ -38,14 +41,28 @@ pub struct Bookmarks {
         ar, cs, hp, od, bpm, length, bookmarked, or rankeddate.\n\
         Example: `od>=9 od<9.5 len>180 difficulty=insane bookmarked<2020-12-31 genre=electronic`"
     )]
-    query: Option<String>,
+    query: Option<Cow<'a, str>>,
     #[command(desc = "Filter out maps that don't belong to a gamemode")]
     mode: Option<GameModeOption>,
 }
 
-#[derive(Copy, Clone, CommandOption, CreateOption)]
+impl<'a> Bookmarks<'a> {
+    fn args(args: Args<'a>) -> Self {
+        let query = args.rest();
+        let query = (!query.is_empty()).then_some(Cow::Borrowed(query));
+
+        Self {
+            query,
+            sort: None,
+            mode: None,
+        }
+    }
+}
+
+#[derive(Copy, Clone, CommandOption, CreateOption, Default)]
 pub enum BookmarksSort {
     #[option(name = "Bookmark date", value = "bookmark_date")]
+    #[default]
     BookmarkDate,
     #[option(name = "Artist", value = "artist")]
     Artist,
@@ -63,20 +80,36 @@ pub enum BookmarksSort {
     Length,
 }
 
-impl Default for BookmarksSort {
-    fn default() -> Self {
-        Self::BookmarkDate
-    }
+#[command]
+#[desc(BOOKMARKS_DESC)]
+#[help(BOOKMARKS_HELP)]
+#[usage("[query]")]
+#[examples(
+    "",
+    "od>=9 od<9.5 len>180 difficulty=insane bookmarked<2020-12-31 genre=electronic"
+)]
+#[aliases("bm", "bms")]
+#[group(AllModes)]
+async fn prefix_bookmarks(msg: &Message, args: Args<'_>, perms: Option<Permissions>) -> Result<()> {
+    let orig = CommandOrigin::from_msg(msg, perms);
+    let args = Bookmarks::args(args);
+
+    bookmarks(orig, args).await
 }
 
 pub async fn slash_bookmarks(mut command: InteractionCommand) -> Result<()> {
     let args = Bookmarks::from_interaction(command.input_data())?;
-    let owner = command.user_id()?;
+
+    bookmarks((&mut command).into(), args).await
+}
+
+async fn bookmarks(orig: CommandOrigin<'_>, args: Bookmarks<'_>) -> Result<()> {
+    let owner = orig.user_id()?;
 
     let mut bookmarks = match Context::bookmarks().get(owner).await {
         Ok(bookmarks) => bookmarks,
         Err(err) => {
-            let _ = command.error(GENERAL_ISSUE).await?;
+            let _ = orig.error(GENERAL_ISSUE).await?;
 
             return Err(err);
         }
@@ -88,7 +121,7 @@ pub async fn slash_bookmarks(mut command: InteractionCommand) -> Result<()> {
     let content = msg_content(&args, criteria.as_ref());
     let filtered = criteria.is_some() || args.mode.is_some();
 
-    let origin = MessageOrigin::new(command.guild_id(), command.channel_id());
+    let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
     let pagination = BookmarksPagination::builder()
         .bookmarks(bookmarks)
@@ -96,14 +129,13 @@ pub async fn slash_bookmarks(mut command: InteractionCommand) -> Result<()> {
         .cached_entries(HashMap::default())
         .filtered_maps(Some(filtered))
         .defer_next(false)
-        .token(command.token.clone())
         .content(content)
         .msg_owner(owner)
         .build();
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(&mut command)
+        .begin(orig)
         .await
 }
 
