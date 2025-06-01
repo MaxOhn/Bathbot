@@ -81,9 +81,9 @@ pub enum Graph<'a> {
     #[command(name = "playcount_replays")]
     PlaycountReplays(GraphPlaycountReplays<'a>),
     #[command(name = "rank")]
-    Rank(GraphRank),
+    Rank(GraphRank<'a>),
     #[command(name = "score_rank")]
-    ScoreRank(GraphScoreRank),
+    ScoreRank(GraphScoreRank<'a>),
     #[command(name = "sniped")]
     Sniped(GraphSniped),
     #[command(name = "snipe_count")]
@@ -293,13 +293,15 @@ pub struct GraphPlaycountReplays<'a> {
     badges: Option<ShowHideOption>,
 }
 
+const GRAPH_RANK_DESC: &str = "Display a user's rank progression over time";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "rank", desc = "Display a user's rank progression over time")]
-pub struct GraphRank {
+#[command(name = "rank", desc = GRAPH_RANK_DESC)]
+pub struct GraphRank<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(desc = "From this many days ago", min_value = 0, max_value = 90)]
     from: Option<u8>,
     #[command(desc = "Until this many days ago", min_value = 0, max_value = 90)]
@@ -313,16 +315,15 @@ pub struct GraphRank {
     discord: Option<Id<UserMarker>>,
 }
 
+const GRAPH_SCORE_RANK_DESC: &str = "Display a user's score rank progression over time";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(
-    name = "score_rank",
-    desc = "Display a user's score rank progression over time"
-)]
-pub struct GraphScoreRank {
+#[command(name = "score_rank", desc = GRAPH_SCORE_RANK_DESC)]
+pub struct GraphScoreRank<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(desc = "From this many days ago", min_value = 0, max_value = 90)]
     from: Option<u8>,
     #[command(desc = "Until this many days ago", min_value = 0, max_value = 90)]
