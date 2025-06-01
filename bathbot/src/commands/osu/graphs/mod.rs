@@ -85,9 +85,9 @@ pub enum Graph<'a> {
     #[command(name = "score_rank")]
     ScoreRank(GraphScoreRank<'a>),
     #[command(name = "sniped")]
-    Sniped(GraphSniped),
+    Sniped(GraphSniped<'a>),
     #[command(name = "snipe_count")]
-    SnipeCount(GraphSnipeCount),
+    SnipeCount(GraphSnipeCount<'a>),
     #[command(name = "top")]
     Top(GraphTop),
 }
@@ -337,13 +337,15 @@ pub struct GraphScoreRank<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
+const GRAPH_SNIPED_DESC: &str = "Display sniped users of the past 8 weeks";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "sniped", desc = "Display sniped users of the past 8 weeks")]
-pub struct GraphSniped {
+#[command(name = "sniped", desc = GRAPH_SNIPED_DESC)]
+pub struct GraphSniped<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -353,16 +355,15 @@ pub struct GraphSniped {
     discord: Option<Id<UserMarker>>,
 }
 
+const GRAPH_SNIPE_COUNT_DESC: &str = "Display how a user's national #1 count progressed";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(
-    name = "snipe_count",
-    desc = "Display how a user's national #1 count progressed"
-)]
-pub struct GraphSnipeCount {
+#[command(name = "snipe_count", desc = GRAPH_SNIPE_COUNT_DESC)]
+pub struct GraphSnipeCount<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
