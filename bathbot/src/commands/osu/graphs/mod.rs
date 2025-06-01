@@ -79,7 +79,7 @@ pub enum Graph<'a> {
     #[command(name = "osutrack")]
     OsuTrack(GraphOsuTrack),
     #[command(name = "playcount_replays")]
-    PlaycountReplays(GraphPlaycountReplays),
+    PlaycountReplays(GraphPlaycountReplays<'a>),
     #[command(name = "rank")]
     Rank(GraphRank),
     #[command(name = "score_rank")]
@@ -271,14 +271,13 @@ pub struct GraphOsuTrackGrades {
     discord: Option<Id<UserMarker>>,
 }
 
+const GRAPH_PLAYCOUNT_DESC: &str = "Display a user's playcount and replays watched over time";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(
-    name = "playcount_replays",
-    desc = "Display a user's playcount and replays watched over time"
-)]
-pub struct GraphPlaycountReplays {
+#[command( name = "playcount_replays", desc = GRAPH_PLAYCOUNT_DESC)]
+pub struct GraphPlaycountReplays<'a> {
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
