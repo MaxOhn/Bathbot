@@ -3,27 +3,26 @@ use std::{borrow::Cow, cell::RefCell, mem, rc::Rc, time::Duration};
 use bathbot_macros::command;
 use bathbot_model::command_fields::GameModeOption;
 use bathbot_util::{matcher, osu::MapIdType};
-use enterpolation::{linear::Linear, Curve};
+use enterpolation::{Curve, linear::Linear};
 use eyre::{ContextCompat, Result, WrapErr};
 use plotters::{
-    coord::{types::RangedCoordf64, Shift},
+    coord::{Shift, types::RangedCoordf64},
     prelude::*,
 };
 use plotters_skia::SkiaBackend;
 use rosu_pp::{
-    any::Strains, catch::CatchStrains, mania::ManiaStrains, osu::OsuStrains, taiko::TaikoStrains,
-    Beatmap, Difficulty,
+    Beatmap, Difficulty, any::Strains, catch::CatchStrains, mania::ManiaStrains, osu::OsuStrains,
+    taiko::TaikoStrains,
 };
 use rosu_v2::prelude::GameMods;
-use skia_safe::{surfaces, BlendMode, EncodedImageFormat};
+use skia_safe::{BlendMode, EncodedImageFormat, surfaces};
 use twilight_model::{channel::Message, guild::Permissions};
 
+use super::{BitMapElement, Graph, GraphMapStrains, get_map_cover};
 use crate::{
-    core::commands::{prefix::Args, CommandOrigin},
-    util::{osu::MapOrScore, ChannelExt},
+    core::commands::{CommandOrigin, prefix::Args},
+    util::{ChannelExt, osu::MapOrScore},
 };
-
-use super::{get_map_cover, BitMapElement, Graph, GraphMapStrains};
 
 impl<'m> GraphMapStrains<'m> {
     async fn args(

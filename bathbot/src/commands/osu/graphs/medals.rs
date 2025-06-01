@@ -1,6 +1,6 @@
 use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::MedalCompactRkyv;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rkyv::{
     rancor::{Panic, ResultExt},
@@ -13,8 +13,8 @@ use super::{Graph, GraphMedals, H, W};
 use crate::{
     commands::osu::{graphs::GRAPH_MEDALS_DESC, medals::stats as medals_stats, user_not_found},
     core::{
-        commands::{prefix::Args, CommandOrigin},
         Context,
+        commands::{CommandOrigin, prefix::Args},
     },
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };

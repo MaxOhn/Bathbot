@@ -1,15 +1,15 @@
 use bathbot_macros::command;
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use twilight_model::guild::Permissions;
 
 use super::{Graph, GraphSniped, H, W};
 use crate::{
-    commands::osu::{graphs::GRAPH_SNIPED_DESC, sniped, user_not_found, SnipeGameMode},
+    commands::osu::{SnipeGameMode, graphs::GRAPH_SNIPED_DESC, sniped, user_not_found},
     core::{
-        commands::{prefix::Args, CommandOrigin},
         Context,
+        commands::{CommandOrigin, prefix::Args},
     },
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };

@@ -7,27 +7,26 @@ use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::{
     prelude::{ChartBuilder, Circle, IntoDrawingArea, SeriesLabelPosition},
     series::AreaSeries,
-    style::{Color, RGBColor, ShapeStyle, BLACK, GREEN, RED, WHITE},
+    style::{BLACK, Color, GREEN, RED, RGBColor, ShapeStyle, WHITE},
 };
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
 use rosu_v2::{prelude::OsuError, request::UserId};
-use skia_safe::{surfaces, EncodedImageFormat};
+use skia_safe::{EncodedImageFormat, surfaces};
 use twilight_model::guild::Permissions;
 
+use super::{Graph, GraphRank};
 use crate::{
     commands::osu::{
         graphs::{GRAPH_RANK_DESC, H, W},
         user_not_found,
     },
     core::{
-        commands::{prefix::Args, CommandOrigin},
         Context,
+        commands::{CommandOrigin, prefix::Args},
     },
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };
-
-use super::{Graph, GraphRank};
 
 impl<'m> GraphRank<'m> {
     fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Self {

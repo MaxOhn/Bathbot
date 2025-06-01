@@ -1,34 +1,33 @@
 use std::iter;
 
 use bathbot_macros::command;
-use bathbot_model::{command_fields::GameModeOption, RespektiveUser};
-use bathbot_util::{constants::GENERAL_ISSUE, matcher, numbers::WithComma, AuthorBuilder};
+use bathbot_model::{RespektiveUser, command_fields::GameModeOption};
+use bathbot_util::{AuthorBuilder, constants::GENERAL_ISSUE, matcher, numbers::WithComma};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::{
     prelude::{ChartBuilder, Circle, IntoDrawingArea, SeriesLabelPosition},
     series::AreaSeries,
-    style::{Color, RGBColor, ShapeStyle, BLACK, GREEN, RED, WHITE},
+    style::{BLACK, Color, GREEN, RED, RGBColor, ShapeStyle, WHITE},
 };
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
-use skia_safe::{surfaces, EncodedImageFormat};
+use skia_safe::{EncodedImageFormat, surfaces};
 use time::OffsetDateTime;
 use twilight_model::guild::Permissions;
 
+use super::{Graph, GraphScoreRank};
 use crate::{
     commands::osu::{
         graphs::{GRAPH_SCORE_RANK_DESC, H, W},
         rank, user_not_found,
     },
     core::{
-        commands::{prefix::Args, CommandOrigin},
         Context,
+        commands::{CommandOrigin, prefix::Args},
     },
     manager::redis::osu::{UserArgs, UserArgsError},
 };
-
-use super::{Graph, GraphScoreRank};
 
 impl<'m> GraphScoreRank<'m> {
     fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Self {

@@ -7,26 +7,26 @@ use plotters::{
     chart::ChartBuilder,
     prelude::{DrawingArea, Rectangle},
     series::LineSeries,
-    style::{Color, FontDesc, RGBColor, BLACK, WHITE},
+    style::{BLACK, Color, FontDesc, RGBColor, WHITE},
 };
 use plotters_backend::{FontFamily, FontStyle};
 use plotters_skia::SkiaBackend;
 use rosu_pp::{
+    Beatmap,
     model::{
         control_point::TimingPoint,
         hit_object::{HitObjectKind, HoldNote, Spinner},
     },
-    Beatmap,
 };
 use rosu_v2::prelude::GameMods;
-use skia_safe::{surfaces, EncodedImageFormat};
+use skia_safe::{EncodedImageFormat, surfaces};
 use twilight_model::{channel::Message, guild::Permissions};
 
-use super::{get_map_cover, BitMapElement, Graph, H, W};
+use super::{BitMapElement, Graph, H, W, get_map_cover};
 use crate::{
-    commands::osu::{graphs::GRAPH_BPM_DESC, GraphMapBpm},
-    core::commands::{prefix::Args, CommandOrigin},
-    util::{osu::MapOrScore, ChannelExt},
+    commands::osu::{GraphMapBpm, graphs::GRAPH_BPM_DESC},
+    core::commands::{CommandOrigin, prefix::Args},
+    util::{ChannelExt, osu::MapOrScore},
 };
 
 impl<'m> GraphMapBpm<'m> {

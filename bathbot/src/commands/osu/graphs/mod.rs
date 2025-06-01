@@ -1,17 +1,16 @@
 use std::{borrow::Cow, iter, ops::ControlFlow};
 
-use bathbot_macros::{command, HasMods, HasName, SlashCommand};
+use bathbot_macros::{HasMods, HasName, SlashCommand, command};
 use bathbot_model::{
-    command_fields::{GameModeOption, ShowHideOption, TimezoneOption},
     Countries,
+    command_fields::{GameModeOption, ShowHideOption, TimezoneOption},
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    attachment,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder, attachment,
     constants::{GENERAL_ISSUE, OSU_BASE},
     matcher,
     osu::{MapIdType, ModSelection, ModsResult},
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
 use eyre::{Report, Result, WrapErr};
 use image::{DynamicImage, GenericImageView, RgbaImage};
@@ -25,8 +24,8 @@ use rosu_v2::{
 use time::UtcOffset;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{
-    marker::{ChannelMarker, UserMarker},
     Id,
+    marker::{ChannelMarker, UserMarker},
 };
 
 pub use self::map_strains::map_strains_graph;
@@ -34,7 +33,7 @@ use self::{
     bpm::map_bpm_graph,
     medals::medals_graph,
     osutrack::osutrack_graph,
-    playcount_replays::{playcount_replays_graph, ProfileGraphFlags},
+    playcount_replays::{ProfileGraphFlags, playcount_replays_graph},
     rank::rank_graph,
     score_rank::score_rank_graph,
     snipe_count::snipe_count_graph,
@@ -43,15 +42,15 @@ use self::{
     top_index::top_graph_index,
     top_time::{top_graph_time_day, top_graph_time_hour},
 };
-use super::{require_link, user_not_found, SnipeGameMode, UserIdResult};
+use super::{SnipeGameMode, UserIdResult, require_link, user_not_found};
 use crate::{
     commands::osu::{HasMods, HasName as HasNameTrait},
-    core::{commands::CommandOrigin, Context},
+    core::{Context, commands::CommandOrigin},
     manager::{
-        redis::osu::{CachedUser, UserArgs, UserArgsError},
         MapError, OsuMap,
+        redis::osu::{CachedUser, UserArgs, UserArgsError},
     },
-    util::{interaction::InteractionCommand, CachedUserExt, InteractionCommandExt},
+    util::{CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 mod bpm;
