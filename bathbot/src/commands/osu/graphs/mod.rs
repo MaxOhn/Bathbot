@@ -1,16 +1,17 @@
 use std::{borrow::Cow, iter, ops::ControlFlow};
 
-use bathbot_macros::{HasMods, HasName, SlashCommand, command};
+use bathbot_macros::{command, HasMods, HasName, SlashCommand};
 use bathbot_model::{
-    Countries,
     command_fields::{GameModeOption, ShowHideOption, TimezoneOption},
+    Countries,
 };
 use bathbot_psql::model::configs::ScoreData;
 use bathbot_util::{
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder, attachment,
+    attachment,
     constants::{GENERAL_ISSUE, OSU_BASE},
     matcher,
     osu::{MapIdType, ModSelection, ModsResult},
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
 };
 use eyre::{Report, Result, WrapErr};
 use image::{DynamicImage, GenericImageView, RgbaImage};
@@ -24,8 +25,8 @@ use rosu_v2::{
 use time::UtcOffset;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{
-    Id,
     marker::{ChannelMarker, UserMarker},
+    Id,
 };
 
 pub use self::map_strains::map_strains_graph;
@@ -33,7 +34,7 @@ use self::{
     bpm::map_bpm_graph,
     medals::medals_graph,
     osutrack::osutrack_graph,
-    playcount_replays::{ProfileGraphFlags, playcount_replays_graph},
+    playcount_replays::{playcount_replays_graph, ProfileGraphFlags},
     rank::rank_graph,
     score_rank::score_rank_graph,
     snipe_count::snipe_count_graph,
@@ -42,15 +43,15 @@ use self::{
     top_index::top_graph_index,
     top_time::{top_graph_time_day, top_graph_time_hour},
 };
-use super::{SnipeGameMode, UserIdResult, require_link, user_not_found};
+use super::{require_link, user_not_found, SnipeGameMode, UserIdResult};
 use crate::{
     commands::osu::{HasMods, HasName as HasNameTrait},
-    core::{Context, commands::CommandOrigin},
+    core::{commands::CommandOrigin, Context},
     manager::{
-        MapError, OsuMap,
         redis::osu::{CachedUser, UserArgs, UserArgsError},
+        MapError, OsuMap,
     },
-    util::{CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
+    util::{interaction::InteractionCommand, CachedUserExt, InteractionCommandExt},
 };
 
 mod bpm;
@@ -72,7 +73,7 @@ pub enum Graph<'a> {
     #[command(name = "bpm")]
     MapBpm(GraphMapBpm<'a>),
     #[command(name = "strains")]
-    MapStrains(GraphMapStrains),
+    MapStrains(GraphMapStrains<'a>),
     #[command(name = "medals")]
     Medals(GraphMedals),
     #[command(name = "osutrack")]
@@ -112,19 +113,19 @@ pub struct GraphMapBpm<'a> {
 
 #[derive(CommandModel, CreateCommand, HasMods)]
 #[command(name = "strains", desc = "Display a map's strains over time")]
-pub struct GraphMapStrains {
+pub struct GraphMapStrains<'a> {
     #[command(
         desc = "Specify a map url or map id",
         help = "Specify a map either by map url or map id.\n\
         If none is specified, it will search in the recent channel history \
         and pick the first map it can find."
     )]
-    map: Option<String>,
+    map: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
     )]
-    mods: Option<String>,
+    mods: Option<Cow<'a, str>>,
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
 }
@@ -814,7 +815,7 @@ async fn map_bpm(
 
 async fn map_strains(
     orig: &CommandOrigin<'_>,
-    args: GraphMapStrains,
+    args: GraphMapStrains<'_>,
 ) -> Result<ControlFlow<(), MapResult>> {
     let mods_res = args.mods();
 
