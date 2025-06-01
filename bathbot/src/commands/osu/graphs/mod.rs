@@ -75,7 +75,7 @@ pub enum Graph<'a> {
     #[command(name = "strains")]
     MapStrains(GraphMapStrains<'a>),
     #[command(name = "medals")]
-    Medals(GraphMedals),
+    Medals(GraphMedals<'a>),
     #[command(name = "osutrack")]
     OsuTrack(GraphOsuTrack),
     #[command(name = "playcount_replays")]
@@ -130,11 +130,13 @@ pub struct GraphMapStrains<'a> {
     mode: Option<GameModeOption>,
 }
 
+const GRAPH_MEDALS_DESC: &str = "Display a user's medal progress over time";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "medals", desc = "Display a user's medal progress over time")]
-pub struct GraphMedals {
+#[command(name = "medals", desc = GRAPH_MEDALS_DESC)]
+pub struct GraphMedals<'a> {
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \

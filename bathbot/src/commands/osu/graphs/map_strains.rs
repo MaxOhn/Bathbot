@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::RefCell, mem, ops::ControlFlow, rc::Rc, time::Duration};
+use std::{borrow::Cow, cell::RefCell, mem, rc::Rc, time::Duration};
 
 use bathbot_macros::command;
 use bathbot_model::command_fields::GameModeOption;
@@ -23,7 +23,7 @@ use crate::{
     util::{osu::MapOrScore, ChannelExt},
 };
 
-use super::{get_map_cover, BitMapElement, GraphMapStrains};
+use super::{get_map_cover, BitMapElement, Graph, GraphMapStrains};
 
 impl<'m> GraphMapStrains<'m> {
     async fn args(
@@ -79,7 +79,9 @@ async fn prefix_graphstrains(
     perms: Option<Permissions>,
 ) -> Result<()> {
     match GraphMapStrains::args(None, msg, args).await {
-        Ok(args) => process_graphstrains(CommandOrigin::from_msg(msg, perms), args).await,
+        Ok(args) => {
+            super::graph(CommandOrigin::from_msg(msg, perms), Graph::MapStrains(args)).await
+        }
         Err(content) => {
             msg.error(content).await?;
 
@@ -100,7 +102,9 @@ async fn prefix_graphstrainstaiko(
     perms: Option<Permissions>,
 ) -> Result<()> {
     match GraphMapStrains::args(Some(GameModeOption::Taiko), msg, args).await {
-        Ok(args) => process_graphstrains(CommandOrigin::from_msg(msg, perms), args).await,
+        Ok(args) => {
+            super::graph(CommandOrigin::from_msg(msg, perms), Graph::MapStrains(args)).await
+        }
         Err(content) => {
             msg.error(content).await?;
 
@@ -121,7 +125,9 @@ async fn prefix_graphstrainsctb(
     perms: Option<Permissions>,
 ) -> Result<()> {
     match GraphMapStrains::args(Some(GameModeOption::Catch), msg, args).await {
-        Ok(args) => process_graphstrains(CommandOrigin::from_msg(msg, perms), args).await,
+        Ok(args) => {
+            super::graph(CommandOrigin::from_msg(msg, perms), Graph::MapStrains(args)).await
+        }
         Err(content) => {
             msg.error(content).await?;
 
@@ -142,24 +148,14 @@ async fn prefix_graphstrainsmania(
     perms: Option<Permissions>,
 ) -> Result<()> {
     match GraphMapStrains::args(Some(GameModeOption::Mania), msg, args).await {
-        Ok(args) => process_graphstrains(CommandOrigin::from_msg(msg, perms), args).await,
+        Ok(args) => {
+            super::graph(CommandOrigin::from_msg(msg, perms), Graph::MapStrains(args)).await
+        }
         Err(content) => {
             msg.error(content).await?;
 
             Ok(())
         }
-    }
-}
-
-async fn process_graphstrains(orig: CommandOrigin<'_>, args: GraphMapStrains<'_>) -> Result<()> {
-    match super::map_strains(&orig, args).await {
-        Ok(ControlFlow::Continue(map)) => {
-            orig.create_message(map.into()).await?;
-
-            Ok(())
-        }
-        Ok(ControlFlow::Break(())) => Ok(()),
-        Err(err) => Err(err.wrap_err("Failed to create map bpm graph")),
     }
 }
 

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::RefCell, ops::ControlFlow, rc::Rc, time::Duration};
+use std::{borrow::Cow, cell::RefCell, rc::Rc, time::Duration};
 
 use bathbot_macros::command;
 use bathbot_util::{matcher, osu::MapIdType};
@@ -7,26 +7,26 @@ use plotters::{
     chart::ChartBuilder,
     prelude::{DrawingArea, Rectangle},
     series::LineSeries,
-    style::{BLACK, Color, FontDesc, RGBColor, WHITE},
+    style::{Color, FontDesc, RGBColor, BLACK, WHITE},
 };
 use plotters_backend::{FontFamily, FontStyle};
 use plotters_skia::SkiaBackend;
 use rosu_pp::{
-    Beatmap,
     model::{
         control_point::TimingPoint,
         hit_object::{HitObjectKind, HoldNote, Spinner},
     },
+    Beatmap,
 };
 use rosu_v2::prelude::GameMods;
-use skia_safe::{EncodedImageFormat, surfaces};
+use skia_safe::{surfaces, EncodedImageFormat};
 use twilight_model::{channel::Message, guild::Permissions};
 
-use super::{BitMapElement, H, W, get_map_cover};
+use super::{get_map_cover, BitMapElement, Graph, H, W};
 use crate::{
-    commands::osu::{GraphMapBpm, graphs::GRAPH_BPM_DESC},
-    core::commands::{CommandOrigin, prefix::Args},
-    util::{ChannelExt, osu::MapOrScore},
+    commands::osu::{graphs::GRAPH_BPM_DESC, GraphMapBpm},
+    core::commands::{prefix::Args, CommandOrigin},
+    util::{osu::MapOrScore, ChannelExt},
 };
 
 impl<'m> GraphMapBpm<'m> {
@@ -85,15 +85,7 @@ async fn prefix_graphbpm(msg: &Message, args: Args<'_>, perms: Option<Permission
 
     let orig = CommandOrigin::from_msg(msg, perms);
 
-    match super::map_bpm(&orig, args).await {
-        Ok(ControlFlow::Continue(map)) => {
-            orig.create_message(map.into()).await?;
-
-            Ok(())
-        }
-        Ok(ControlFlow::Break(())) => Ok(()),
-        Err(err) => Err(err.wrap_err("Failed to create map bpm graph")),
-    }
+    super::graph(orig, Graph::MapBpm(args)).await
 }
 
 pub async fn map_bpm_graph(map: &Beatmap, mods: GameMods, cover_url: &str) -> Result<Vec<u8>> {
