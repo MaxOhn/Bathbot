@@ -1,13 +1,88 @@
-use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE};
+use bathbot_macros::command;
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
+use twilight_model::guild::Permissions;
 
-use super::{H, W};
+use super::{Graph, GraphSniped, H, W};
 use crate::{
-    commands::osu::{sniped, user_not_found},
-    core::{Context, commands::CommandOrigin},
+    commands::osu::{SnipeGameMode, graphs::GRAPH_SNIPED_DESC, sniped, user_not_found},
+    core::{
+        Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };
+
+impl<'m> GraphSniped<'m> {
+    fn args(mode: Option<SnipeGameMode>, args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self {
+            mode,
+            name,
+            discord,
+        }
+    }
+}
+
+#[command]
+#[desc(GRAPH_SNIPED_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[group(Osu)]
+async fn prefix_graphsniped(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphSniped::args(None, args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::Sniped(args)).await
+}
+
+#[command]
+#[desc(GRAPH_SNIPED_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("graphsnipedcatch")]
+#[group(Catch)]
+async fn prefix_graphsnipedctb(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphSniped::args(Some(SnipeGameMode::Catch), args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::Sniped(args)).await
+}
+
+#[command]
+#[desc(GRAPH_SNIPED_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[group(Mania)]
+async fn prefix_graphsnipedmania(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphSniped::args(Some(SnipeGameMode::Mania), args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::Sniped(args)).await
+}
 
 pub async fn sniped_graph(
     orig: &CommandOrigin<'_>,

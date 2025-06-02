@@ -1,7 +1,8 @@
 use std::iter;
 
+use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::MonthlyCountRkyv;
-use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use bitflags::bitflags;
 use bytes::Bytes;
 use eyre::{ContextCompat, Report, Result, WrapErr};
@@ -29,14 +30,57 @@ use rosu_v2::{
 };
 use skia_safe::{EncodedImageFormat, Surface, surfaces};
 use time::{Date, Month, OffsetDateTime};
+use twilight_model::guild::Permissions;
 
-use super::{BitMapElement, H, W};
+use super::{BitMapElement, Graph, GraphPlaycountReplays, H, W};
 use crate::{
-    commands::osu::user_not_found,
-    core::{Context, commands::CommandOrigin},
+    commands::osu::{graphs::GRAPH_PLAYCOUNT_DESC, user_not_found},
+    core::{
+        Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::Monthly,
 };
+
+impl<'m> GraphPlaycountReplays<'m> {
+    fn args(args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self {
+            name,
+            discord,
+            playcount: None,
+            replays: None,
+            badges: None,
+        }
+    }
+}
+
+#[command]
+#[desc(GRAPH_PLAYCOUNT_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[group(AllModes)]
+async fn prefix_graphplaycount(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphPlaycountReplays::args(args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::PlaycountReplays(args)).await
+}
 
 pub async fn playcount_replays_graph(
     orig: &CommandOrigin<'_>,

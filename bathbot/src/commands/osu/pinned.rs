@@ -1,9 +1,10 @@
 use std::{
+    borrow::Cow,
     cmp::{Ordering, Reverse},
     fmt::Write,
 };
 
-use bathbot_macros::{HasMods, HasName, SlashCommand};
+use bathbot_macros::{HasMods, HasName, SlashCommand, command};
 use bathbot_model::{
     PersonalBestIndex, command_fields::GameModeOption, embed_builder::SettingsImage,
 };
@@ -11,6 +12,7 @@ use bathbot_psql::model::configs::{GuildConfig, ListSize, ScoreData};
 use bathbot_util::{
     MessageOrigin,
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher,
     osu::ModSelection,
     query::{IFilterCriteria, Searchable, TopCriteria},
 };
@@ -36,18 +38,18 @@ use crate::{
     commands::utility::{
         MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
     },
-    core::commands::CommandOrigin,
+    core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
     util::{CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
 #[command(name = "pinned", desc = "Display the user's pinned scores")]
-pub struct Pinned {
+pub struct Pinned<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(desc = "Choose how the scores should be ordered")]
     sort: Option<ScoreOrder>,
     #[command(
@@ -57,7 +59,7 @@ pub struct Pinned {
         ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
         While ar & co will be adjusted to mods, stars will not."
     )]
-    query: Option<String>,
+    query: Option<Cow<'a, str>>,
     #[command(desc = "Reverse the resulting score list")]
     reverse: Option<bool>,
     #[command(
@@ -71,9 +73,9 @@ pub struct Pinned {
         - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
         - `-nm!`: Scores can not be nomod so there must be any other mod"
     )]
-    mods: Option<String>,
+    mods: Option<Cow<'a, str>>,
     #[command(desc = "Choose a specific score index or `random`")]
-    index: Option<String>,
+    index: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -90,13 +92,89 @@ pub struct Pinned {
     size: Option<ListSize>,
 }
 
+impl<'m> Pinned<'m> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+        let num = args.num;
+
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self {
+            mode,
+            name,
+            sort: None,
+            query: None,
+            reverse: None,
+            mods: None,
+            index: num.to_string_opt().map(Cow::Owned),
+            discord,
+            size: None,
+        }
+    }
+}
+
+#[command]
+#[desc("Display the user's pinned scores")]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("pins")]
+#[group(Osu)]
+async fn prefix_pinned(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = Pinned::args(None, args);
+
+    pinned(msg.into(), args).await
+}
+
+#[command]
+#[desc("Display the user's pinned taiko scores")]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("pinstaiko")]
+#[group(Taiko)]
+async fn prefix_pinnedtaiko(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = Pinned::args(Some(GameModeOption::Taiko), args);
+
+    pinned(msg.into(), args).await
+}
+
+#[command]
+#[desc("Display the user's pinned ctb scores")]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("pinnedcatch", "pinsctb", "pinscatch")]
+#[group(Catch)]
+async fn prefix_pinnedctb(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = Pinned::args(Some(GameModeOption::Catch), args);
+
+    pinned(msg.into(), args).await
+}
+
+#[command]
+#[desc("Display the user's pinned mania scores")]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("pinsmania")]
+#[group(Mania)]
+async fn prefix_pinnedmania(msg: &Message, args: Args<'_>) -> Result<()> {
+    let args = Pinned::args(Some(GameModeOption::Mania), args);
+
+    pinned(msg.into(), args).await
+}
+
 async fn slash_pinned(mut command: InteractionCommand) -> Result<()> {
     let args = Pinned::from_interaction(command.input_data())?;
 
     pinned((&mut command).into(), args).await
 }
 
-async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
+async fn pinned(orig: CommandOrigin<'_>, args: Pinned<'_>) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -370,7 +448,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
 
 async fn process_scores(
     pinned: Vec<Score>,
-    args: &Pinned,
+    args: &Pinned<'_>,
     mods: Option<&ModSelection>,
     top100: Option<&[Score]>,
     with_render: bool,

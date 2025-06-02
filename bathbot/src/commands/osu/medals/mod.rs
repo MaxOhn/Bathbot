@@ -148,8 +148,10 @@ struct MedalInfo_<'a> {
     name: AutocompleteValue<Cow<'a, str>>,
 }
 
+const MEDAL_LIST_DESC: &str = "List all achieved medals of a user";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "list", desc = "List all achieved medals of a user")]
+#[command(name = "list", desc = MEDAL_LIST_DESC)]
 pub struct MedalList<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
@@ -168,23 +170,17 @@ pub struct MedalList<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(CommandOption, CreateOption, Default)]
 pub enum MedalListOrder {
     #[option(name = "Alphabetically", value = "alphabet")]
     Alphabet,
     #[option(name = "Date", value = "date")]
+    #[default]
     Date,
     #[option(name = "Medal ID", value = "medal_id")]
     MedalId,
     #[option(name = "Rarity", value = "rarity")]
     Rarity,
-}
-
-impl Default for MedalListOrder {
-    #[inline]
-    fn default() -> Self {
-        Self::Date
-    }
 }
 
 #[derive(CommandModel, CreateCommand, Default, HasName)]

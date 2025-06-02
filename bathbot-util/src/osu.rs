@@ -1,5 +1,6 @@
 use std::{
     cmp,
+    fmt::{Display, Formatter, Result as FmtResult},
     iter::{self, Copied, Map},
     slice::Iter,
 };
@@ -433,6 +434,17 @@ pub fn pp_missing(start: f64, goal: f64, pps: impl IntoPpIter) -> (f64, usize) {
 pub enum MapIdType {
     Map(u32),
     Set(u32),
+}
+
+impl Display for MapIdType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let id = match self {
+            MapIdType::Map(id) => id,
+            MapIdType::Set(id) => id,
+        };
+
+        Display::fmt(id, f)
+    }
 }
 
 // Credits to https://github.com/RoanH/osu-BonusPP/blob/master/BonusPP/src/me/roan/bonuspp/BonusPP.java#L202

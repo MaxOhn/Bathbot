@@ -1,11 +1,12 @@
 use std::fmt::Write;
 
+use bathbot_macros::command;
 use bathbot_model::RelaxPlayersDataResponse;
 use bathbot_util::{
     EmbedBuilder, FooterBuilder, MessageBuilder, MessageOrigin, attachment,
     constants::{GENERAL_ISSUE, RELAX_ICON_URL},
     datetime::NAIVE_DATETIME_FORMAT,
-    fields,
+    fields, matcher,
     numbers::WithComma,
 };
 use eyre::{Context as _, ContextCompat, Report, Result};
@@ -26,17 +27,58 @@ use rosu_v2::{
 };
 use skia_safe::{EncodedImageFormat, Surface, surfaces};
 use time::Date;
-use twilight_model::id::{Id, marker::UserMarker};
+use twilight_model::{
+    guild::Permissions,
+    id::{Id, marker::UserMarker},
+};
 
 use crate::{
     commands::osu::{
-        relax::{RelaxProfile, relax_author_builder},
+        relax::{RX_PROFILE_DESC, RX_PROFILE_HELP, RelaxProfile, relax_author_builder},
         require_link,
     },
-    core::{Context, commands::CommandOrigin},
+    core::{
+        Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::{Monthly, osu::grade_emote},
 };
+
+impl<'a> RelaxProfile<'a> {
+    fn args(args: Args<'a>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self { name, discord }
+    }
+}
+
+#[command]
+#[desc(RX_PROFILE_DESC)]
+#[help(RX_PROFILE_HELP)]
+#[usage("[username]")]
+#[example("chiffa")]
+#[alias("relaxp", "rxprofile", "rxp")]
+#[group(Osu)]
+async fn prefix_relaxprofile(
+    msg: &Message,
+    args: Args<'_>,
+    permissions: Option<Permissions>,
+) -> Result<()> {
+    let args = RelaxProfile::args(args);
+    let orig = CommandOrigin::from_msg(msg, permissions);
+
+    relax_profile(orig, args).await
+}
 
 pub(super) async fn relax_profile(orig: CommandOrigin<'_>, args: RelaxProfile<'_>) -> Result<()> {
     let msg_owner = orig.user_id()?;

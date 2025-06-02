@@ -1,7 +1,8 @@
 use std::iter;
 
-use bathbot_model::RespektiveUser;
-use bathbot_util::{AuthorBuilder, constants::GENERAL_ISSUE, numbers::WithComma};
+use bathbot_macros::command;
+use bathbot_model::{RespektiveUser, command_fields::GameModeOption};
+use bathbot_util::{AuthorBuilder, constants::GENERAL_ISSUE, matcher, numbers::WithComma};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::{
     prelude::{ChartBuilder, Circle, IntoDrawingArea, SeriesLabelPosition},
@@ -13,15 +14,108 @@ use plotters_skia::SkiaBackend;
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
 use skia_safe::{EncodedImageFormat, surfaces};
 use time::OffsetDateTime;
+use twilight_model::guild::Permissions;
 
+use super::{Graph, GraphScoreRank};
 use crate::{
     commands::osu::{
-        graphs::{H, W},
+        graphs::{GRAPH_SCORE_RANK_DESC, H, W},
         rank, user_not_found,
     },
-    core::{Context, commands::CommandOrigin},
+    core::{
+        Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     manager::redis::osu::{UserArgs, UserArgsError},
 };
+
+impl<'m> GraphScoreRank<'m> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self {
+            mode,
+            name,
+            discord,
+            from: None,
+            until: None,
+        }
+    }
+}
+
+#[command]
+#[desc(GRAPH_SCORE_RANK_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[group(Osu)]
+async fn prefix_graphscorerank(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphScoreRank::args(None, args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::ScoreRank(args)).await
+}
+
+#[command]
+#[desc(GRAPH_SCORE_RANK_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[group(Taiko)]
+async fn prefix_graphscoreranktaiko(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphScoreRank::args(Some(GameModeOption::Taiko), args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::ScoreRank(args)).await
+}
+
+#[command]
+#[desc(GRAPH_SCORE_RANK_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("graphscorerankcatch")]
+#[group(Catch)]
+async fn prefix_graphscorerankctb(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphScoreRank::args(Some(GameModeOption::Catch), args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::ScoreRank(args)).await
+}
+
+#[command]
+#[desc(GRAPH_SCORE_RANK_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[group(Mania)]
+async fn prefix_graphscorerankmania(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphScoreRank::args(Some(GameModeOption::Mania), args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::ScoreRank(args)).await
+}
 
 pub async fn score_rank_graph(
     orig: &CommandOrigin<'_>,

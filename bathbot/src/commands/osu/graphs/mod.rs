@@ -1,4 +1,4 @@
-use std::{iter, ops::ControlFlow};
+use std::{borrow::Cow, iter, ops::ControlFlow};
 
 use bathbot_macros::{HasMods, HasName, SlashCommand, command};
 use bathbot_model::{
@@ -68,70 +68,74 @@ mod top_time;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "graph", desc = "Display graphs about some user data")]
-pub enum Graph {
+pub enum Graph<'a> {
     #[command(name = "bpm")]
-    MapBpm(GraphMapBpm),
+    MapBpm(GraphMapBpm<'a>),
     #[command(name = "strains")]
-    MapStrains(GraphMapStrains),
+    MapStrains(GraphMapStrains<'a>),
     #[command(name = "medals")]
-    Medals(GraphMedals),
+    Medals(GraphMedals<'a>),
     #[command(name = "osutrack")]
     OsuTrack(GraphOsuTrack),
     #[command(name = "playcount_replays")]
-    PlaycountReplays(GraphPlaycountReplays),
+    PlaycountReplays(GraphPlaycountReplays<'a>),
     #[command(name = "rank")]
-    Rank(GraphRank),
+    Rank(GraphRank<'a>),
     #[command(name = "score_rank")]
-    ScoreRank(GraphScoreRank),
+    ScoreRank(GraphScoreRank<'a>),
     #[command(name = "sniped")]
-    Sniped(GraphSniped),
+    Sniped(GraphSniped<'a>),
     #[command(name = "snipe_count")]
-    SnipeCount(GraphSnipeCount),
+    SnipeCount(GraphSnipeCount<'a>),
     #[command(name = "top")]
     Top(GraphTop),
 }
 
+const GRAPH_BPM_DESC: &str = "Display a map's bpm over time";
+
 #[derive(CommandModel, CreateCommand, HasMods)]
-#[command(name = "bpm", desc = "Display a map's bpm over time")]
-pub struct GraphMapBpm {
+#[command(name = "bpm", desc = GRAPH_BPM_DESC)]
+pub struct GraphMapBpm<'a> {
     #[command(
         desc = "Specify a map url or map id",
         help = "Specify a map either by map url or map id.\n\
         If none is specified, it will search in the recent channel history \
         and pick the first map it can find."
     )]
-    map: Option<String>,
+    map: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
     )]
-    mods: Option<String>,
+    mods: Option<Cow<'a, str>>,
 }
 
 #[derive(CommandModel, CreateCommand, HasMods)]
 #[command(name = "strains", desc = "Display a map's strains over time")]
-pub struct GraphMapStrains {
+pub struct GraphMapStrains<'a> {
     #[command(
         desc = "Specify a map url or map id",
         help = "Specify a map either by map url or map id.\n\
         If none is specified, it will search in the recent channel history \
         and pick the first map it can find."
     )]
-    map: Option<String>,
+    map: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify mods e.g. hdhr or nm",
         help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
     )]
-    mods: Option<String>,
+    mods: Option<Cow<'a, str>>,
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
 }
 
+const GRAPH_MEDALS_DESC: &str = "Display a user's medal progress over time";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "medals", desc = "Display a user's medal progress over time")]
-pub struct GraphMedals {
+#[command(name = "medals", desc = GRAPH_MEDALS_DESC)]
+pub struct GraphMedals<'a> {
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -266,14 +270,13 @@ pub struct GraphOsuTrackGrades {
     discord: Option<Id<UserMarker>>,
 }
 
+const GRAPH_PLAYCOUNT_DESC: &str = "Display a user's playcount and replays watched over time";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(
-    name = "playcount_replays",
-    desc = "Display a user's playcount and replays watched over time"
-)]
-pub struct GraphPlaycountReplays {
+#[command( name = "playcount_replays", desc = GRAPH_PLAYCOUNT_DESC)]
+pub struct GraphPlaycountReplays<'a> {
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -289,13 +292,15 @@ pub struct GraphPlaycountReplays {
     badges: Option<ShowHideOption>,
 }
 
+const GRAPH_RANK_DESC: &str = "Display a user's rank progression over time";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "rank", desc = "Display a user's rank progression over time")]
-pub struct GraphRank {
+#[command(name = "rank", desc = GRAPH_RANK_DESC)]
+pub struct GraphRank<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(desc = "From this many days ago", min_value = 0, max_value = 90)]
     from: Option<u8>,
     #[command(desc = "Until this many days ago", min_value = 0, max_value = 90)]
@@ -309,16 +314,15 @@ pub struct GraphRank {
     discord: Option<Id<UserMarker>>,
 }
 
+const GRAPH_SCORE_RANK_DESC: &str = "Display a user's score rank progression over time";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(
-    name = "score_rank",
-    desc = "Display a user's score rank progression over time"
-)]
-pub struct GraphScoreRank {
+#[command(name = "score_rank", desc = GRAPH_SCORE_RANK_DESC)]
+pub struct GraphScoreRank<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(desc = "From this many days ago", min_value = 0, max_value = 90)]
     from: Option<u8>,
     #[command(desc = "Until this many days ago", min_value = 0, max_value = 90)]
@@ -332,13 +336,15 @@ pub struct GraphScoreRank {
     discord: Option<Id<UserMarker>>,
 }
 
+const GRAPH_SNIPED_DESC: &str = "Display sniped users of the past 8 weeks";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "sniped", desc = "Display sniped users of the past 8 weeks")]
-pub struct GraphSniped {
+#[command(name = "sniped", desc = GRAPH_SNIPED_DESC)]
+pub struct GraphSniped<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -348,16 +354,15 @@ pub struct GraphSniped {
     discord: Option<Id<UserMarker>>,
 }
 
+const GRAPH_SNIPE_COUNT_DESC: &str = "Display how a user's national #1 count progressed";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(
-    name = "snipe_count",
-    desc = "Display how a user's national #1 count progressed"
-)]
-pub struct GraphSnipeCount {
+#[command(name = "snipe_count", desc = GRAPH_SNIPE_COUNT_DESC)]
+pub struct GraphSnipeCount<'a> {
     #[command(desc = "Specify a gamemode")]
     mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -410,9 +415,7 @@ async fn slash_graph(mut command: InteractionCommand) -> Result<()> {
     graph((&mut command).into(), args).await
 }
 
-// Takes a `CommandOrigin` since `require_link` does not take
-// `InteractionCommand`
-async fn graph(orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
+async fn graph(orig: CommandOrigin<'_>, args: Graph<'_>) -> Result<()> {
     let mut author_fn: fn(CachedUser) -> AuthorBuilder =
         |user: CachedUser| user.author_builder(false);
     let mut footer = None;
@@ -746,7 +749,7 @@ async fn get_map_id(map: Option<&str>, channel_id: Id<ChannelMarker>) -> Result<
 
 async fn map_bpm(
     orig: &CommandOrigin<'_>,
-    args: GraphMapBpm,
+    args: GraphMapBpm<'_>,
 ) -> Result<ControlFlow<(), MapResult>> {
     let mods_res = args.mods();
 
@@ -814,7 +817,7 @@ async fn map_bpm(
 
 async fn map_strains(
     orig: &CommandOrigin<'_>,
-    args: GraphMapStrains,
+    args: GraphMapStrains<'_>,
 ) -> Result<ControlFlow<(), MapResult>> {
     let mods_res = args.mods();
 

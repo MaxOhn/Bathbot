@@ -1,4 +1,4 @@
-use std::cmp::Reverse;
+use std::{borrow::Cow, cmp::Reverse};
 
 use bathbot_macros::{HasName, SlashCommand};
 use bathbot_model::OsekaiBadge;
@@ -17,23 +17,25 @@ mod user;
 #[derive(CreateCommand, SlashCommand)]
 #[command(name = "badges", desc = "Display info about badges")]
 #[allow(dead_code)]
-pub enum Badges {
+pub enum Badges<'a> {
     #[command(name = "query")]
     Query(BadgesQuery),
     #[command(name = "user")]
-    User(BadgesUser),
+    User(BadgesUser<'a>),
 }
 
 #[derive(CommandModel)]
-enum Badges_ {
+enum Badges_<'a> {
     #[command(name = "query")]
-    Query(BadgesQuery_),
+    Query(BadgesQuery_<'a>),
     #[command(name = "user")]
-    User(BadgesUser),
+    User(BadgesUser<'a>),
 }
 
+const BADGE_QUERY_DESC: &str = "Display all badges matching the query";
+
 #[derive(CreateCommand)]
-#[command(name = "query", desc = "Display all badges matching the query")]
+#[command(name = "query", desc = BADGE_QUERY_DESC)]
 #[allow(dead_code)]
 pub struct BadgesQuery {
     #[command(autocomplete = true, desc = "Specify the badge name or acronym")]
@@ -44,16 +46,18 @@ pub struct BadgesQuery {
 
 #[derive(CommandModel)]
 #[command(autocomplete = true)]
-struct BadgesQuery_ {
-    name: AutocompleteValue<String>,
+struct BadgesQuery_<'a> {
+    name: AutocompleteValue<Cow<'a, str>>,
     sort: Option<BadgesOrder>,
 }
 
+const BADGE_USER_DESC: &str = "Display all badges of a user";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "user", desc = "Display all badges of a user")]
-pub struct BadgesUser {
+#[command(name = "user", desc = BADGE_USER_DESC)]
+pub struct BadgesUser<'a> {
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(desc = "Choose how the badges should be ordered")]
     sort: Option<BadgesOrder>,
     #[command(
@@ -65,11 +69,12 @@ pub struct BadgesUser {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(CommandOption, CreateOption, Default)]
 pub enum BadgesOrder {
     #[option(name = "Alphabetically", value = "alphabet")]
     Alphabet,
     #[option(name = "Date", value = "date")]
+    #[default]
     Date,
     #[option(name = "Owner count", value = "owners")]
     Owners,
@@ -85,15 +90,15 @@ impl BadgesOrder {
     }
 }
 
-impl Default for BadgesOrder {
-    fn default() -> Self {
-        Self::Date
-    }
-}
-
 pub async fn slash_badges(mut command: InteractionCommand) -> Result<()> {
     match Badges_::from_interaction(command.input_data())? {
-        Badges_::Query(args) => query(command, args).await,
+        Badges_::Query(args) => match args.name {
+            AutocompleteValue::None => query_autocomplete(&command, String::new()).await,
+            AutocompleteValue::Focused(name) => query_autocomplete(&command, name).await,
+            AutocompleteValue::Completed(name) => {
+                query((&mut command).into(), name, args.sort).await
+            }
+        },
         Badges_::User(args) => user((&mut command).into(), args).await,
     }
 }

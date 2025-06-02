@@ -30,7 +30,6 @@ use crate::{
     active::{
         BuildPage, ComponentResult, IActiveMessage,
         pagination::{Pages, handle_pagination_component},
-        response::ActiveResponse,
     },
     core::Context,
     manager::redis::osu::UserArgs,
@@ -46,7 +45,6 @@ pub struct BookmarksPagination {
     defer_next: bool,
     filtered_maps: Option<bool>,
     confirm_remove: Option<bool>,
-    token: String,
     msg_owner: Id<UserMarker>,
     content: String,
     pages: Pages,
@@ -421,16 +419,6 @@ impl IActiveMessage for BookmarksPagination {
 
     fn until_timeout(&self) -> Option<Duration> {
         (!self.bookmarks.is_empty()).then_some(Duration::from_secs(60))
-    }
-
-    async fn on_timeout(&mut self, _: ActiveResponse) -> Result<()> {
-        Context::interaction()
-            .update_response(&self.token)
-            .components(Some(&[]))
-            .await
-            .wrap_err("Failed to update on bookmark timeout")?;
-
-        Ok(())
     }
 }
 

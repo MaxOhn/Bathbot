@@ -155,7 +155,6 @@ async fn bookmark_map(mut command: InteractionCommand) -> Result<()> {
         .origin(origin)
         .cached_entries(HashMap::default())
         .defer_next(false)
-        .token(command.token.clone())
         .content(content)
         .msg_owner(user_id)
         .build();

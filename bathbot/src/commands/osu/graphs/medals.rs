@@ -1,18 +1,56 @@
+use bathbot_macros::command;
 use bathbot_model::rosu_v2::user::MedalCompactRkyv;
-use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE};
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rkyv::{
     rancor::{Panic, ResultExt},
     with::{Map, With},
 };
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
+use twilight_model::guild::Permissions;
 
-use super::{H, W};
+use super::{Graph, GraphMedals, H, W};
 use crate::{
-    commands::osu::{medals::stats as medals_stats, user_not_found},
-    core::{Context, commands::CommandOrigin},
+    commands::osu::{graphs::GRAPH_MEDALS_DESC, medals::stats as medals_stats, user_not_found},
+    core::{
+        Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };
+
+impl<'m> GraphMedals<'m> {
+    fn args(args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self { name, discord }
+    }
+}
+
+#[command]
+#[desc(GRAPH_MEDALS_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[group(AllModes)]
+async fn prefix_graphmedals(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphMedals::args(args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::Medals(args)).await
+}
 
 pub async fn medals_graph(
     orig: &CommandOrigin<'_>,

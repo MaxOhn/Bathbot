@@ -1,13 +1,90 @@
-use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE};
+use bathbot_macros::command;
+use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rosu_v2::{model::GameMode, prelude::OsuError, request::UserId};
+use twilight_model::guild::Permissions;
 
-use super::{H, W};
+use super::{Graph, GraphSnipeCount, H, W};
 use crate::{
-    commands::osu::{player_snipe_stats, user_not_found},
-    core::{Context, commands::CommandOrigin},
+    commands::osu::{
+        SnipeGameMode, graphs::GRAPH_SNIPE_COUNT_DESC, player_snipe_stats, user_not_found,
+    },
+    core::{
+        Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
 };
+
+impl<'m> GraphSnipeCount<'m> {
+    fn args(mode: Option<SnipeGameMode>, args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+
+        for arg in args {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self {
+            mode,
+            name,
+            discord,
+        }
+    }
+}
+
+#[command]
+#[desc(GRAPH_SNIPE_COUNT_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[group(Osu)]
+async fn prefix_graphsnipecount(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphSnipeCount::args(None, args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::SnipeCount(args)).await
+}
+
+#[command]
+#[desc(GRAPH_SNIPE_COUNT_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[aliases("graphsnipecountcatch")]
+#[group(Catch)]
+async fn prefix_graphsnipecountctb(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphSnipeCount::args(Some(SnipeGameMode::Catch), args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::SnipeCount(args)).await
+}
+
+#[command]
+#[desc(GRAPH_SNIPE_COUNT_DESC)]
+#[usage("[username]")]
+#[examples("peppy")]
+#[group(Mania)]
+async fn prefix_graphsnipecountmania(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    let args = GraphSnipeCount::args(Some(SnipeGameMode::Mania), args);
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    super::graph(orig, Graph::SnipeCount(args)).await
+}
 
 pub async fn snipe_count_graph(
     orig: &CommandOrigin<'_>,

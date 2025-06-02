@@ -1,5 +1,8 @@
-use std::{cell::RefCell, mem, rc::Rc, time::Duration};
+use std::{borrow::Cow, cell::RefCell, mem, rc::Rc, time::Duration};
 
+use bathbot_macros::command;
+use bathbot_model::command_fields::GameModeOption;
+use bathbot_util::{matcher, osu::MapIdType};
 use enterpolation::{Curve, linear::Linear};
 use eyre::{ContextCompat, Result, WrapErr};
 use plotters::{
@@ -13,8 +16,147 @@ use rosu_pp::{
 };
 use rosu_v2::prelude::GameMods;
 use skia_safe::{BlendMode, EncodedImageFormat, surfaces};
+use twilight_model::{channel::Message, guild::Permissions};
 
-use super::{BitMapElement, get_map_cover};
+use super::{BitMapElement, Graph, GraphMapStrains, get_map_cover};
+use crate::{
+    core::commands::{CommandOrigin, prefix::Args},
+    util::{ChannelExt, osu::MapOrScore},
+};
+
+impl<'m> GraphMapStrains<'m> {
+    async fn args(
+        mode: Option<GameModeOption>,
+        msg: &Message,
+        args: Args<'m>,
+    ) -> Result<Self, String> {
+        let mut map = None;
+        let mut mods = None;
+
+        for arg in args {
+            if matcher::get_osu_map_id(arg)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(arg).map(MapIdType::Set))
+                .is_some()
+            {
+                map = Some(Cow::Borrowed(arg));
+            } else if matcher::get_mods(arg).is_some() {
+                mods = Some(Cow::Borrowed(arg));
+            } else {
+                let content = format!(
+                    "Failed to parse `{arg}`.\n\
+                    Be sure you specify either a valid map id, map url, or mod combination."
+                );
+
+                return Err(content);
+            }
+        }
+
+        if map.is_none() {
+            match MapOrScore::find_in_msg(msg).await {
+                Some(MapOrScore::Map(id)) => map = Some(Cow::Owned(id.to_string())),
+                Some(MapOrScore::Score { .. }) => {
+                    return Err("This command does not accept score urls as argument".to_owned());
+                }
+                None => {}
+            }
+        }
+
+        Ok(Self { map, mods, mode })
+    }
+}
+
+#[command]
+#[desc("Display a map's strains over time")]
+#[usage("[map url / id] [+mods]")]
+#[examples("240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
+#[aliases("strains")]
+#[group(Osu)]
+async fn prefix_graphstrains(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    match GraphMapStrains::args(None, msg, args).await {
+        Ok(args) => {
+            super::graph(CommandOrigin::from_msg(msg, perms), Graph::MapStrains(args)).await
+        }
+        Err(content) => {
+            msg.error(content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a taiko map's strains over time")]
+#[usage("[map url / id] [+mods]")]
+#[examples("240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
+#[aliases("strainstaiko")]
+#[group(Taiko)]
+async fn prefix_graphstrainstaiko(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    match GraphMapStrains::args(Some(GameModeOption::Taiko), msg, args).await {
+        Ok(args) => {
+            super::graph(CommandOrigin::from_msg(msg, perms), Graph::MapStrains(args)).await
+        }
+        Err(content) => {
+            msg.error(content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a ctb map's strains over time")]
+#[usage("[map url / id] [+mods]")]
+#[examples("240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
+#[aliases("strainsctb", "graphstrainscatch", "strainscatch")]
+#[group(Catch)]
+async fn prefix_graphstrainsctb(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    match GraphMapStrains::args(Some(GameModeOption::Catch), msg, args).await {
+        Ok(args) => {
+            super::graph(CommandOrigin::from_msg(msg, perms), Graph::MapStrains(args)).await
+        }
+        Err(content) => {
+            msg.error(content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a mania map's strains over time")]
+#[usage("[map url / id] [+mods]")]
+#[examples("240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
+#[aliases("strainsmania")]
+#[group(Mania)]
+async fn prefix_graphstrainsmania(
+    msg: &Message,
+    args: Args<'_>,
+    perms: Option<Permissions>,
+) -> Result<()> {
+    match GraphMapStrains::args(Some(GameModeOption::Mania), msg, args).await {
+        Ok(args) => {
+            super::graph(CommandOrigin::from_msg(msg, perms), Graph::MapStrains(args)).await
+        }
+        Err(content) => {
+            msg.error(content).await?;
+
+            Ok(())
+        }
+    }
+}
 
 const LEGEND_H: u32 = 25;
 

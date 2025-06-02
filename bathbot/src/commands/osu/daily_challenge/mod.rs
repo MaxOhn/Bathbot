@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use bathbot_macros::{HasName, SlashCommand};
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -9,16 +11,18 @@ mod user;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "dailychallenge", desc = "Daily challenge statistics")]
-pub enum DailyChallenge {
+pub enum DailyChallenge<'a> {
     #[command(name = "user")]
-    User(DailyChallengeUser),
+    User(DailyChallengeUser<'a>),
 }
 
+const DC_USER_DESC: &str = "Daily challenge statistics of a user";
+
 #[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "user", desc = "Daily challenge statistics of a user")]
-pub struct DailyChallengeUser {
+#[command(name = "user", desc = DC_USER_DESC)]
+pub struct DailyChallengeUser<'a> {
     #[command(desc = "Specify a username")]
-    name: Option<String>,
+    name: Option<Cow<'a, str>>,
     #[command(
         desc = "Specify a linked discord user",
         help = "Instead of specifying an osu! username with the `name` option, \
@@ -30,6 +34,6 @@ pub struct DailyChallengeUser {
 
 async fn slash_dailychallenge(mut command: InteractionCommand) -> Result<()> {
     match DailyChallenge::from_interaction(command.input_data())? {
-        DailyChallenge::User(user) => user::user(command, user).await,
+        DailyChallenge::User(user) => user::user((&mut command).into(), user).await,
     }
 }
