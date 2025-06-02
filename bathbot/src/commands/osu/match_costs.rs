@@ -8,11 +8,9 @@ use std::{
 use bathbot_macros::{SlashCommand, command};
 use bathbot_util::{IntHasher, constants::OSU_API_ISSUE, matcher};
 use eyre::{Report, Result};
-use rosu_v2::{
-    model::mods::GameModsIntermode,
-    prelude::{
-        GameModIntermode, MatchGame, MatchTeam, Osu, OsuError, OsuMatch, OsuResult, TeamType, User,
-    },
+use rosu_v2::prelude::{
+    GameMod, GameModIntermode, GameMods, GameModsIntermode, MatchGame, MatchTeam, Osu, OsuError,
+    OsuMatch, OsuResult, TeamType, User,
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
@@ -172,7 +170,7 @@ async fn matchcosts(orig: CommandOrigin<'_>, args: MatchCost<'_>) -> Result<()> 
                 games_iter
                     .map(|mut game| {
                         game.scores.iter_mut().for_each(|score| {
-                            if score.mods.contains(GameModIntermode::Easy) {
+                            if score.mods.contains_intermode(GameModIntermode::Easy) {
                                 score.score = (score.score as f32 * ez_mult) as u32;
                             }
                         });
@@ -326,10 +324,10 @@ pub fn process_match(
         let mut teams_score = TeamsScore::default();
 
         for score in game.scores.iter() {
-            users_mods.update(score.user_id, score.mods.clone());
+            users_mods.update(score.user_id, &score.mods);
             users_performance_costs.update(score.user_id, score.score, score_avg);
-            users_team.update(score.user_id, score.team);
-            teams_score.update(score.team, score.score);
+            users_team.update(score.user_id, score.info.team);
+            teams_score.update(score.info.team, score.score);
         }
 
         teams_win_count.add_win(teams_score.winner());
@@ -454,7 +452,9 @@ struct UsersMods {
 }
 
 impl UsersMods {
-    fn update(&mut self, user_id: u32, mods: GameModsIntermode) {
+    fn update(&mut self, user_id: u32, mods: &GameMods) {
+        let mods: GameModsIntermode = mods.iter().map(GameMod::intermode).collect();
+
         self.entries
             .entry(user_id)
             .or_default()
