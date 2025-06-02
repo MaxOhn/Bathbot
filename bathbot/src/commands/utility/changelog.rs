@@ -1,37 +1,49 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use bathbot_macros::SlashCommand;
+use bathbot_macros::{SlashCommand, command};
 use bathbot_model::{PullRequests, PullRequestsAndTags, ReferencedIssue, Tag};
-use bathbot_util::{
-    Authored,
-    constants::{FIELD_VALUE_SIZE, GENERAL_ISSUE},
-};
+use bathbot_util::constants::{FIELD_VALUE_SIZE, GENERAL_ISSUE};
 use eyre::{ContextCompat, Result, WrapErr};
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::guild::Permissions;
 
 use crate::{
     active::{ActiveMessages, impls::ChangelogPagination},
-    core::Context,
-    util::{InteractionCommandExt, interaction::InteractionCommand},
+    core::{Context, commands::CommandOrigin},
+    util::interaction::InteractionCommand,
 };
 
+const CHANGELOG_DESC: &str = "Show all recent changes to the bot";
+
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "changelog", desc = "Show all recent changes to the bot")]
+#[command(name = "changelog", desc = CHANGELOG_DESC)]
 pub struct Changelog;
 
+#[command]
+#[desc(CHANGELOG_DESC)]
+#[flags(SKIP_DEFER)]
+#[group(Utility)]
+async fn prefix_changelog(msg: &Message, _: Args<'_>, perms: Option<Permissions>) -> Result<()> {
+    changelog(CommandOrigin::from_msg(msg, perms)).await
+}
+
 async fn slash_changelog(mut command: InteractionCommand) -> Result<()> {
+    changelog((&mut command).into()).await
+}
+
+async fn changelog(orig: CommandOrigin<'_>) -> Result<()> {
     let mut data = match Context::github().tags_and_prs().await {
         Ok(res) => res,
         Err(err) => {
-            let _ = command.error(GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(err);
         }
     };
 
     if data.tags.len() != 25 {
-        let _ = command.error(GENERAL_ISSUE).await;
+        let _ = orig.error(GENERAL_ISSUE).await;
 
         bail!("Expected 25 tags, got {}", data.tags.len());
     }
@@ -43,20 +55,20 @@ async fn slash_changelog(mut command: InteractionCommand) -> Result<()> {
 
     data.tags.insert(0, upcoming);
 
-    let upcoming_pages = create_pages(&command, &mut data, 0, 1).await?;
-    let first_tag_pages = create_pages(&command, &mut data, 1, 2).await?;
+    let upcoming_pages = create_pages(&orig, &mut data, 0, 1).await?;
+    let first_tag_pages = create_pages(&orig, &mut data, 1, 2).await?;
     let pages = vec![upcoming_pages, first_tag_pages];
 
-    let pagination = ChangelogPagination::new(pages, data, command.user_id()?);
+    let pagination = ChangelogPagination::new(pages, data, orig.user_id()?);
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
-        .begin(&mut command)
+        .begin(orig)
         .await
 }
 
 async fn create_pages(
-    command: &InteractionCommand,
+    orig: &CommandOrigin<'_>,
     data: &mut PullRequestsAndTags,
     tag_start: usize,
     tag_end: usize,
@@ -66,7 +78,7 @@ async fn create_pages(
     match pages_fut.await {
         Ok(res) => Ok(res),
         Err(err) => {
-            let _ = command.error(GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             Err(err.wrap_err("Failed to build pages"))
         }

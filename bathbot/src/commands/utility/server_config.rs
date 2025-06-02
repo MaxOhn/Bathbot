@@ -4,11 +4,15 @@ use bathbot_psql::model::configs::{GuildConfig, HideSolutions, ListSize, Retries
 use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::{Report, Result};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::id::{Id, marker::RoleMarker};
+use twilight_model::{
+    guild::Permissions,
+    id::{Id, marker::RoleMarker},
+};
 
 use super::AuthorityCommandKind;
 use crate::{
     Context,
+    core::commands::CommandOrigin,
     embeds::{EmbedData, ServerConfigEmbed},
     util::{InteractionCommandExt, interaction::InteractionCommand},
 };
@@ -97,7 +101,7 @@ pub struct ServerConfigAuthoritiesRemoveAll;
 #[command(name = "list", desc = "Display all current authority roles")]
 pub struct ServerConfigAuthoritiesList;
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel, CreateCommand, Default)]
 #[command(name = "edit", desc = "Adjust configurations for a server")]
 pub struct ServerConfigEdit {
     #[command(desc = "Choose whether song commands can be used or not")]
@@ -165,18 +169,37 @@ impl ServerConfigEdit {
 async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
     let args = ServerConfig::from_interaction(command.input_data())?;
 
-    let guild_id = command.guild_id.unwrap();
+    serverconfig((&mut command).into(), args).await
+}
+
+#[command]
+#[desc("Check the current configurations for a server")]
+#[help(
+    "Check the current configurations for a server.\n\
+    Use `/serverconfig edit` to edit them."
+)]
+#[flags(SKIP_DEFER, ONLY_GUILDS)]
+#[group(Utility)]
+async fn prefix_serverconfig(msg: &Message, _: Args<'_>, perms: Option<Permissions>) -> Result<()> {
+    let args = ServerConfig::Edit(ServerConfigEdit::default());
+    let orig = CommandOrigin::from_msg(msg, perms);
+
+    serverconfig(orig, args).await
+}
+
+async fn serverconfig(orig: CommandOrigin<'_>, args: ServerConfig) -> Result<()> {
+    let guild_id = orig.guild_id().unwrap();
 
     let guild = match Context::cache().guild(guild_id).await {
         Ok(Some(guild)) => guild,
         Ok(None) => {
             warn!("Missing guild {guild_id} in cache");
-            command.error(GENERAL_ISSUE).await?;
+            orig.error(GENERAL_ISSUE).await?;
 
             return Ok(());
         }
         Err(err) => {
-            let _ = command.error(GENERAL_ISSUE).await;
+            let _ = orig.error(GENERAL_ISSUE).await;
 
             return Err(Report::new(err));
         }
@@ -184,7 +207,7 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
 
     let args = match args {
         ServerConfig::Authorities(args) => {
-            return super::authorities((&mut command).into(), args.into()).await;
+            return super::authorities(orig, args.into()).await;
         }
         ServerConfig::Edit(edit) => edit,
     };
@@ -231,7 +254,7 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
         };
 
         if let Err(err) = Context::guild_config().update(guild_id, f).await {
-            let _ = command.error_callback(GENERAL_ISSUE).await;
+            let _ = orig.error_callback(GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to update guild config"));
         }
@@ -251,7 +274,7 @@ async fn slash_serverconfig(mut command: InteractionCommand) -> Result<()> {
 
     let embed = ServerConfigEmbed::new(guild, config, &authorities);
     let builder = embed.build().into();
-    command.callback(builder, false).await?;
+    orig.callback(builder).await?;
 
     Ok(())
 }

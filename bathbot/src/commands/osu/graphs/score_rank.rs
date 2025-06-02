@@ -88,7 +88,7 @@ async fn prefix_graphscoreranktaiko(
 #[desc(GRAPH_SCORE_RANK_DESC)]
 #[usage("[username]")]
 #[examples("peppy")]
-#[aliases("graphrankcatch")]
+#[aliases("graphscorerankcatch")]
 #[group(Catch)]
 async fn prefix_graphscorerankctb(
     msg: &Message,
