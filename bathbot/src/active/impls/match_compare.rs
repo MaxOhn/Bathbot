@@ -9,8 +9,8 @@ use bathbot_util::{
 };
 use eyre::Result;
 use rosu_v2::prelude::{
-    Beatmap, GameMode, GameModsIntermode, Grade, MatchEvent, MatchGame, MatchScore, MatchTeam,
-    OsuMatch, ScoreStatistics, Username,
+    Beatmap, GameMode, GameMods, Grade, MatchEvent, MatchGame, MatchScore, MatchTeam, OsuMatch,
+    Username,
 };
 use twilight_model::{
     channel::message::Component,
@@ -452,7 +452,7 @@ impl CommonMap {
 pub struct MatchCompareScore {
     pub grade: Grade,
     pub user_id: u32,
-    pub mods: GameModsIntermode,
+    pub mods: GameMods,
     pub acc: f32,
     pub combo: u32,
     pub score: u32,
@@ -461,24 +461,14 @@ pub struct MatchCompareScore {
 
 impl MatchCompareScore {
     fn new(score: MatchScore, mode: GameMode) -> Self {
-        let stats = ScoreStatistics {
-            perfect: score.statistics.count_geki,
-            great: score.statistics.count_300,
-            good: score.statistics.count_katu,
-            ok: score.statistics.count_100,
-            meh: score.statistics.count_50,
-            miss: score.statistics.count_miss,
-            ..Default::default()
-        };
-
         Self {
-            grade: calculate_grade(mode, &score.mods, &stats, None),
+            grade: calculate_grade(mode, &score.mods, &score.statistics, None),
             user_id: score.user_id,
             mods: score.mods,
             acc: score.accuracy,
             combo: score.max_combo,
             score: score.score,
-            team: score.team,
+            team: score.info.team,
         }
     }
 }
