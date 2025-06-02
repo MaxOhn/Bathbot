@@ -41,11 +41,7 @@ how much extra time is added to those 6 months.\n\
 This is to prevent people from stealing the usernames of active or recently retired players.";
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(
-    name = "claimname",
-    desc = CLAIMNAME_DESC,
-    help = CLAIMNAME_HELP
-)]
+#[command(name = "claimname", desc = CLAIMNAME_DESC, help = CLAIMNAME_HELP)]
 pub struct ClaimName<'a> {
     #[command(desc = "Specify a username")]
     name: Cow<'a, str>,

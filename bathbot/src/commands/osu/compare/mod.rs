@@ -14,7 +14,7 @@ pub use self::{
     profile::*,
     score::{slash_compare as slash_compare_score, *},
 };
-use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
+use crate::{commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, util::{interaction::InteractionCommand, InteractionCommandExt}};
 
 mod common;
 mod most_played;
@@ -99,12 +99,7 @@ pub struct CompareScore<'a> {
     index: Option<u32>,
     #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

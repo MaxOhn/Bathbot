@@ -9,7 +9,7 @@ use twilight_interactions::command::{
 use twilight_model::id::{Id, marker::UserMarker};
 
 pub use self::{common::*, list::*, medal::*, missing::*, recent::*, stats::*};
-use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
+use crate::{commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, util::{interaction::InteractionCommand, InteractionCommandExt}};
 
 mod common;
 mod icons_image;
@@ -161,12 +161,7 @@ pub struct MedalList<'a> {
     group: Option<MedalGroup>,
     #[command(desc = "Reverse the resulting medal list")]
     reverse: Option<bool>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -193,12 +188,7 @@ pub struct MedalMissing<'a> {
     name: Option<Cow<'a, str>>,
     #[command(desc = "Specify a medal order")]
     sort: Option<MedalMissingOrder>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -233,12 +223,7 @@ pub struct MedalRecent<'a> {
     index: Option<Cow<'a, str>>,
     #[command(desc = "Only show medals of this group")]
     group: Option<MedalGroup>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -247,12 +232,7 @@ pub struct MedalRecent<'a> {
 pub struct MedalStats<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

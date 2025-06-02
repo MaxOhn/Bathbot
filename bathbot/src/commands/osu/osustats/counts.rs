@@ -15,7 +15,7 @@ use twilight_model::id::{Id, marker::UserMarker};
 use super::OsuStatsCount;
 use crate::{
     Context,
-    commands::osu::user_not_found,
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP, osu::user_not_found},
     core::commands::{CommandOrigin, prefix::Args},
     embeds::{EmbedData, OsuStatsCountsEmbed},
     manager::redis::osu::{UserArgs, UserArgsError},
@@ -32,12 +32,7 @@ pub struct Osc<'a> {
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

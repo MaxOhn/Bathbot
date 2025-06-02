@@ -44,13 +44,12 @@ use self::{
 };
 use super::{SnipeGameMode, UserIdResult, require_link, user_not_found};
 use crate::{
-    commands::osu::{HasMods, HasName as HasNameTrait},
-    core::{Context, commands::CommandOrigin},
+    commands::{osu::{HasMods, HasName as HasNameTrait}, DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    core::{commands::CommandOrigin, Context},
     manager::{
-        MapError, OsuMap,
-        redis::osu::{CachedUser, UserArgs, UserArgsError},
+        redis::osu::{CachedUser, UserArgs, UserArgsError}, MapError, OsuMap
     },
-    util::{CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
+    util::{interaction::InteractionCommand, CachedUserExt, InteractionCommandExt},
 };
 
 mod bpm;
@@ -136,12 +135,7 @@ const GRAPH_MEDALS_DESC: &str = "Display a user's medal progress over time";
 pub struct GraphMedals<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -172,12 +166,7 @@ pub struct GraphOsuTrackPpRank {
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -191,12 +180,7 @@ pub struct GraphOsuTrackScore {
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -210,12 +194,7 @@ pub struct GraphOsuTrackHitRatios {
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -229,12 +208,7 @@ pub struct GraphOsuTrackPlaycount {
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -245,12 +219,7 @@ pub struct GraphOsuTrackAccuracy {
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -261,12 +230,7 @@ pub struct GraphOsuTrackGrades {
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<String>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -277,12 +241,7 @@ const GRAPH_PLAYCOUNT_DESC: &str = "Display a user's playcount and replays watch
 pub struct GraphPlaycountReplays<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
     #[command(desc = "Specify if the playcount curve should be included")]
     playcount: Option<ShowHideOption>,
@@ -305,12 +264,7 @@ pub struct GraphRank<'a> {
     from: Option<u8>,
     #[command(desc = "Until this many days ago", min_value = 0, max_value = 90)]
     until: Option<u8>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -327,12 +281,7 @@ pub struct GraphScoreRank<'a> {
     from: Option<u8>,
     #[command(desc = "Until this many days ago", min_value = 0, max_value = 90)]
     until: Option<u8>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -345,12 +294,7 @@ pub struct GraphSniped<'a> {
     mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -363,12 +307,7 @@ pub struct GraphSnipeCount<'a> {
     mode: Option<SnipeGameMode>,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -388,12 +327,7 @@ pub struct GraphTop {
     name: Option<String>,
     #[command(desc = "Specify a timezone (only relevant when ordered by `Time`)")]
     timezone: Option<TimezoneOption>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

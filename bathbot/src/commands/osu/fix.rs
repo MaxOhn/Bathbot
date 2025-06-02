@@ -23,6 +23,7 @@ use twilight_model::{
 use super::{HasMods, ModsResult, require_link, user_not_found};
 use crate::{
     Context,
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
     core::commands::{CommandOrigin, prefix::Args},
     embeds::{EmbedData, FixScoreEmbed},
     manager::{
@@ -57,12 +58,7 @@ pub struct Fix<'a> {
         help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
     )]
     mods: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

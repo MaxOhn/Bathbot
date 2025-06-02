@@ -8,7 +8,10 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use self::best::*;
 pub use self::{counts::*, globals::*, list::*};
-use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
+use crate::{
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
+};
 
 mod best;
 mod counts;
@@ -44,12 +47,7 @@ pub struct OsuStatsCount<'a> {
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -119,12 +117,7 @@ pub struct OsuStatsScores<'a> {
     max_acc: Option<f32>,
     #[command(desc = "Reverse the resulting score list")]
     reverse: Option<bool>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

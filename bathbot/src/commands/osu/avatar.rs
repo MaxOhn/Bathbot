@@ -15,22 +15,20 @@ use twilight_model::id::{Id, marker::UserMarker};
 use super::{require_link, user_not_found};
 use crate::{
     Context,
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
     core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
     util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
+const AVATAR_DESC: &str = "Display someone's osu! profile picture";
+
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
-#[command(name = "avatar", desc = "Display someone's osu! profile picture")]
+#[command(name = "avatar", desc = AVATAR_DESC)]
 pub struct Avatar<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -41,7 +39,7 @@ pub async fn slash_avatar(mut command: InteractionCommand) -> Result<()> {
 }
 
 #[command]
-#[desc("Display someone's osu! profile picture")]
+#[desc(AVATAR_DESC)]
 #[alias("pfp")]
 #[usage("[username]")]
 #[example("Badewanne3")]

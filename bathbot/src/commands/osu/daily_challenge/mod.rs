@@ -5,7 +5,7 @@ use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{Id, marker::UserMarker};
 
-use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
+use crate::{commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, util::{interaction::InteractionCommand, InteractionCommandExt}};
 
 mod user;
 
@@ -23,12 +23,7 @@ const DC_USER_DESC: &str = "Daily challenge statistics of a user";
 pub struct DailyChallengeUser<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

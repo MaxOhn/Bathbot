@@ -12,11 +12,7 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    Context,
-    active::{ActiveMessages, impls::MostPlayedPagination},
-    core::commands::CommandOrigin,
-    manager::redis::osu::{UserArgs, UserArgsError},
-    util::{InteractionCommandExt, interaction::InteractionCommand},
+    active::{impls::MostPlayedPagination, ActiveMessages}, commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::CommandOrigin, manager::redis::osu::{UserArgs, UserArgsError}, util::{interaction::InteractionCommand, InteractionCommandExt}, Context
 };
 
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
@@ -24,12 +20,7 @@ use crate::{
 pub struct MostPlayed<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

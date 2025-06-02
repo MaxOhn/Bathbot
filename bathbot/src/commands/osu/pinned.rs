@@ -30,17 +30,11 @@ use twilight_model::{
 
 use super::{HasMods, ModsResult, ScoreOrder, map_strains_graph, require_link, user_not_found};
 use crate::{
-    Context,
     active::{
-        ActiveMessages,
-        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
-    },
-    commands::utility::{
+        impls::{SingleScoreContent, SingleScorePagination, TopPagination}, ActiveMessages
+    }, commands::{utility::{
         MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
-    },
-    core::commands::{CommandOrigin, prefix::Args},
-    manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
-    util::{CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
+    }, DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::{prefix::Args, CommandOrigin}, manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim}, util::{interaction::InteractionCommand, CheckPermissions, InteractionCommandExt}, Context
 };
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
@@ -76,12 +70,7 @@ pub struct Pinned<'a> {
     mods: Option<Cow<'a, str>>,
     #[command(desc = "Choose a specific score index or `random`")]
     index: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
     #[command(
         desc = "Size of the embed",

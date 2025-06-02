@@ -25,7 +25,10 @@ use crate::{
         ActiveMessages,
         impls::{SingleScoreContent, SingleScorePagination, TopPagination},
     },
-    commands::utility::{MissAnalyzerCheck, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap},
+    commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
+        utility::{MissAnalyzerCheck, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap},
+    },
     core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
     util::{ChannelExt, CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
@@ -51,12 +54,7 @@ pub struct Mapper<'a> {
     name: Option<Cow<'a, str>>,
     #[command(desc = "Choose how the scores should be ordered")]
     sort: Option<ScoreOrder>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
     #[command(
         desc = "Size of the embed",

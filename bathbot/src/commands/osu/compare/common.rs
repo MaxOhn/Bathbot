@@ -57,8 +57,8 @@ async fn slash_ct(mut command: InteractionCommand) -> Result<()> {
 }
 
 #[command]
-#[desc("Compare maps of two players' top100s")]
-#[help("Compare the two users' top 100 and check which maps appear in each top list.")]
+#[desc("Compare maps of two players' top200s")]
+#[help("Compare the two users' top 200 and check which maps appear in each top list.")]
 #[usage("[name1] [name2]")]
 #[example("badewanne3 \"nathan on osu\"")]
 #[group(Osu)]
@@ -74,8 +74,8 @@ async fn prefix_common(
 }
 
 #[command]
-#[desc("Compare maps of two players' top100s")]
-#[help("Compare the mania users' top 100 and check which maps appear in each top list")]
+#[desc("Compare maps of two players' mania top200s")]
+#[help("Compare the mania users' top 200 and check which maps appear in each top list")]
 #[usage("[name1] [name2]")]
 #[example("badewanne3 \"nathan on osu\"")]
 #[alias("commonm", "comparetopmania")]
@@ -91,8 +91,8 @@ async fn prefix_commonmania(
 }
 
 #[command]
-#[desc("Compare maps of two players' top100s")]
-#[help("Compare the taiko users' top 100 and check which maps appear in each top list")]
+#[desc("Compare maps of two players' taiko top200s")]
+#[help("Compare the taiko users' top 200 and check which maps appear in each top list")]
 #[usage("[name1] [name2]")]
 #[example("badewanne3 \"nathan on osu\"")]
 #[alias("commont", "comparetoptaiko")]
@@ -108,8 +108,8 @@ async fn prefix_commontaiko(
 }
 
 #[command]
-#[desc("Compare maps of two players' top100s")]
-#[help("Compare the ctb users' top 100 and check which maps appear in each top list")]
+#[desc("Compare maps of two players' ctb top200s")]
+#[help("Compare the ctb users' top 200 and check which maps appear in each top list")]
 #[usage("[name1] [name2]")]
 #[example("badewanne3 \"nathan on osu\"")]
 #[alias("commonc", "commoncatch", "comparetopctb", "comparetopcatch")]

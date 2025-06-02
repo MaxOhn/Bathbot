@@ -40,6 +40,7 @@ use crate::{
         impls::{CompareScoresPagination, SingleScorePagination},
     },
     commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
         osu::{HasMods, ModsResult, map_strains_graph, require_link, user_not_found},
         utility::{ScoreEmbedData, ScoreEmbedDataPersonalBest},
     },
@@ -106,12 +107,7 @@ pub struct Cs<'a> {
     index: Option<u32>,
     #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -164,12 +160,7 @@ pub struct CompareScore_<'a> {
     index: Option<u32>,
     #[command(desc = "Consider only scores with this grade")]
     grade: Option<GradeOption>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -269,6 +260,8 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
     }
 }
 
+const COMPARE_USAGE: &str = "[username] [map url / map id] [+mods]";
+
 #[command]
 #[desc("Compare a player's score on a map")]
 #[help(
@@ -277,7 +270,7 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
      If no map is given, I will choose the last map \
      I can find in the embeds of this channel."
 )]
-#[usage("[username] [map url / map id] [+mods]")]
+#[usage(COMPARE_USAGE)]
 #[examples(
     "badewanne3",
     "badewanne3 2240404 +eznc",
@@ -307,7 +300,7 @@ async fn prefix_compare(
      If no map is given, I will choose the last map \
      I can find in the embeds of this channel."
 )]
-#[usage("[username] [map url / map id] [+mods]")]
+#[usage(COMPARE_USAGE)]
 #[examples(
     "badewanne3",
     "badewanne3 2240404 +eznc",
@@ -337,7 +330,7 @@ async fn prefix_comparetaiko(
      If no map is given, I will choose the last map \
      I can find in the embeds of this channel."
 )]
-#[usage("[username] [map url / map id] [+mods]")]
+#[usage(COMPARE_USAGE)]
 #[examples(
     "badewanne3",
     "badewanne3 2240404 +eznc",
@@ -376,7 +369,7 @@ async fn prefix_comparectb(
      If no map is given, I will choose the last map \
      I can find in the embeds of this channel."
 )]
-#[usage("[username] [map url / map id] [+mods]")]
+#[usage(COMPARE_USAGE)]
 #[examples(
     "badewanne3",
     "badewanne3 2240404 +eznc",

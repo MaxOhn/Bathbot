@@ -20,15 +20,9 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::{
-    Context,
-    active::{ActiveMessages, impls::TopIfPagination},
-    commands::osu::{require_link, user_not_found},
-    core::commands::{CommandOrigin, prefix::Args},
-    manager::{
-        OsuMap,
-        redis::osu::{UserArgs, UserArgsError},
-    },
-    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
+    active::{impls::TopIfPagination, ActiveMessages}, commands::{osu::{require_link, user_not_found}, DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::{prefix::Args, CommandOrigin}, manager::{
+        redis::osu::{UserArgs, UserArgsError}, OsuMap
+    }, util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt}, Context
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
@@ -66,12 +60,7 @@ pub struct TopIf<'a> {
         help = "Choose how the scores should be ordered, defaults to `pp`."
     )]
     sort: Option<TopIfScoreOrder>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

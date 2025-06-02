@@ -27,6 +27,10 @@ use crate::{
     util::ChannelExt,
 };
 
+const OSG_USAGE: &str = "[username] [mods] [acc=[number..]number] \
+[rank=[integer..]integer] [sort=acc/combo/date/misses/pp/rank/score] \
+[reverse=true/false]";
+
 #[command]
 #[desc("All scores of a player that are on a map's global leaderboard")]
 #[help(
@@ -40,10 +44,7 @@ use crate::{
     - `reverse`: `true` or `false` (default)\n\
     Check https://osustats.ppy.sh/ for more info."
 )]
-#[usage(
-    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
-    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
-)]
+#[usage(OSG_USAGE)]
 #[examples(
     "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
     "vaxei sort=rank rank=1..5 +hdhr"
@@ -74,10 +75,7 @@ async fn prefix_osustatsglobals(msg: &Message, args: Args<'_>) -> Result<()> {
     - `reverse`: `true` or `false` (default)\n\
     Check https://osustats.ppy.sh/ for more info."
 )]
-#[usage(
-    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
-    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
-)]
+#[usage(OSG_USAGE)]
 #[examples(
     "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
     "vaxei sort=rank rank=1..5 +hdhr"
@@ -108,10 +106,7 @@ async fn prefix_osustatsglobalsmania(msg: &Message, args: Args<'_>) -> Result<()
     - `reverse`: `true` or `false` (default)\n\
     Check https://osustats.ppy.sh/ for more info."
 )]
-#[usage(
-    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
-    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
-)]
+#[usage(OSG_USAGE)]
 #[examples(
     "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
     "vaxei sort=rank rank=1..5 +hdhr"
@@ -142,10 +137,7 @@ async fn prefix_osustatsglobalstaiko(msg: &Message, args: Args<'_>) -> Result<()
     - `reverse`: `true` or `false` (default)\n\
     Check https://osustats.ppy.sh/ for more info."
 )]
-#[usage(
-    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
-    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
-)]
+#[usage(OSG_USAGE)]
 #[examples(
     "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
     "vaxei sort=rank rank=1..5 +hdhr"

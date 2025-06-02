@@ -7,7 +7,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{Id, marker::UserMarker};
 
 pub use self::{pp::*, score::*};
-use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
+use crate::{commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, util::{interaction::InteractionCommand, InteractionCommandExt}};
 
 mod pp;
 mod score;
@@ -50,12 +50,7 @@ pub struct RankPp<'a> {
     amount: Option<u8>,
     #[command(desc = "Specify a country (code)")]
     country: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -76,12 +71,7 @@ pub struct RankScore<'a> {
     mode: Option<GameModeOption>,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

@@ -25,7 +25,10 @@ use super::TopIfEntry;
 use crate::{
     Context,
     active::{ActiveMessages, impls::TopIfPagination},
-    commands::osu::{HasMods, ModsResult, TopIfScoreOrder, require_link, user_not_found},
+    commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
+        osu::{HasMods, ModsResult, TopIfScoreOrder, require_link, user_not_found},
+    },
     core::commands::{CommandOrigin, prefix::Args},
     manager::{
         OsuMap,
@@ -75,12 +78,7 @@ pub struct TopOldOsu<'a> {
     version: TopOldOsuVersion,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
     #[command(
         desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
@@ -192,12 +190,7 @@ pub struct TopOldTaiko<'a> {
     version: TopOldTaikoVersion,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
     #[command(
         desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
@@ -278,12 +271,7 @@ pub struct TopOldCatch<'a> {
     version: TopOldCatchVersion,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
     #[command(
         desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",
@@ -353,12 +341,7 @@ pub struct TopOldMania<'a> {
     version: TopOldManiaVersion,
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
     #[command(
         desc = "Specify a search query containing artist, difficulty, AR, BPM, ...",

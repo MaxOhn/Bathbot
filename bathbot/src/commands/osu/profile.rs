@@ -14,11 +14,7 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    Context,
-    active::{ActiveMessages, impls::ProfileMenu},
-    core::commands::{CommandOrigin, prefix::Args},
-    manager::redis::osu::{UserArgs, UserArgsError},
-    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
+    active::{impls::ProfileMenu, ActiveMessages}, commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::{prefix::Args, CommandOrigin}, manager::redis::osu::{UserArgs, UserArgsError}, util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt}, Context
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]
@@ -30,12 +26,7 @@ pub struct Profile<'a> {
     name: Option<Cow<'a, str>>,
     #[command(desc = "Choose an embed type")]
     embed: Option<ProfileKind>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

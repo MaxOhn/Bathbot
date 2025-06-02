@@ -12,9 +12,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::{
-    active::impls::relax::top::RelaxTopOrder,
-    manager::redis::osu::CachedUser,
-    util::{InteractionCommandExt, interaction::InteractionCommand},
+    active::impls::relax::top::RelaxTopOrder, commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, manager::redis::osu::CachedUser, util::{interaction::InteractionCommand, InteractionCommandExt}
 };
 
 pub mod profile;
@@ -42,12 +40,7 @@ const RX_PROFILE_HELP: &str =
 pub struct RelaxProfile<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -60,12 +53,7 @@ const RX_TOP_HELP: &str =
 pub struct RelaxTop<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
     #[command(desc = "Choose by which order the scores should be sorted")]
     sort: Option<RelaxTopOrder>,

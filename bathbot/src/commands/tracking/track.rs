@@ -144,6 +144,8 @@ pub(super) async fn track(orig: CommandOrigin<'_>, args: TrackArgs) -> Result<()
     Ok(())
 }
 
+const TRACK_USAGE: &str = "[limit=number] [username1] [username2] ...";
+
 #[command]
 #[desc("Track osu!standard user top scores")]
 #[help(
@@ -157,7 +159,7 @@ pub(super) async fn track(orig: CommandOrigin<'_>, args: TrackArgs) -> Result<()
     e.g. `track limit=42 badewanne3`.\n\
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
-#[usage("[limit=number] [username1] [username2] ...")]
+#[usage(TRACK_USAGE)]
 #[examples(
     "badewanne3 \"freddie benson\" peppy limit=23",
     "limit=45 cookiezi whitecat",
@@ -189,7 +191,7 @@ async fn prefix_track(msg: &Message, args: Args<'_>) -> Result<()> {
     e.g. `trackmania limit=42 badewanne3`.\n\
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
-#[usage("[limit=number] [username1] [username2] ...")]
+#[usage(TRACK_USAGE)]
 #[examples(
     "badewanne3 \"freddie benson\" peppy limit=23",
     "limit=45 cookiezi whitecat",
@@ -221,7 +223,7 @@ pub async fn prefix_trackmania(msg: &Message, args: Args<'_>) -> Result<()> {
     e.g. `tracktaiko limit=42 badewanne3`.\n\
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
-#[usage("[limit=number] [username1] [username2] ...")]
+#[usage(TRACK_USAGE)]
 #[examples(
     "badewanne3 \"freddie benson\" peppy limit=23",
     "limit=45 cookiezi whitecat",
@@ -253,7 +255,7 @@ pub async fn prefix_tracktaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     e.g. `trackctb limit=42 badewanne3`.\n\
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
-#[usage("[limit=number] [username1] [username2] ...")]
+#[usage(TRACK_USAGE)]
 #[examples(
     "badewanne3 \"freddie benson\" peppy limit=23",
     "limit=45 cookiezi whitecat",

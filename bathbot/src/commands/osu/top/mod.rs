@@ -34,8 +34,11 @@ use crate::{
         ActiveMessages,
         impls::{SingleScoreContent, SingleScorePagination, TopPagination},
     },
-    commands::utility::{
-        MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
+    commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
+        utility::{
+            MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
+        },
     },
     core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
@@ -71,12 +74,7 @@ pub struct Top {
     mods: Option<String>,
     #[command(desc = "Choose a specific score index or `random`")]
     index: Option<String>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
     #[command(desc = "Reverse the resulting score list")]
     reverse: Option<bool>,
@@ -155,6 +153,10 @@ impl From<ScoreOrder> for TopScoreOrder {
     }
 }
 
+const TOP_USAGE: &str = "[username] [mods] [acc=number[..number]] \
+[combo=integer[..integer]] [grade=SS/S/A/B/C/D] \
+[sort=acc/combo/date/length/position] [reverse=true/false]";
+
 #[command]
 #[desc("Display a user's top plays")]
 #[help(
@@ -171,10 +173,7 @@ impl From<ScoreOrder> for TopScoreOrder {
      Instead of showing the scores in a list, you can also __show a single score__ by \
      specifying a number right after the command, e.g. `<top2 badewanne3`."
 )]
-#[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
-    [grade=SS/S/A/B/C/D] [sort=acc/combo/date/length/position] [reverse=true/false]"
-)]
+#[usage(TOP_USAGE)]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
     "vaxei -dt! combo=1234 sort=length",
@@ -209,10 +208,7 @@ async fn prefix_top(msg: &Message, args: Args<'_>) -> Result<()> {
     Instead of showing the scores in a list, you can also __show a single score__ by \
     specifying a number right after the command, e.g. `<topm2 badewanne3`."
 )]
-#[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
-    [grade=SS/S/A/B/C/D] [sort=acc/combo/date/length/position] [reverse=true/false]"
-)]
+#[usage(TOP_USAGE)]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
     "vaxei -dt! combo=1234 sort=length",
@@ -247,10 +243,7 @@ async fn prefix_topmania(msg: &Message, args: Args<'_>) -> Result<()> {
     Instead of showing the scores in a list, you can also __show a single score__ by \
     specifying a number right after the command, e.g. `<topt2 badewanne3`."
 )]
-#[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
-    [grade=SS/S/A/B/C/D] [sort=acc/combo/date/length/position] [reverse=true/false]"
-)]
+#[usage(TOP_USAGE)]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
     "vaxei -dt! combo=1234 sort=length",
@@ -285,10 +278,7 @@ async fn prefix_toptaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     Instead of showing the scores in a list, you can also __show a single score__ by \
     specifying a number right after the command, e.g. `<topc2 badewanne3`."
 )]
-#[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
-   [grade=SS/S/A/B/C/D] [sort=acc/combo/date/length/position] [reverse=true/false]"
-)]
+#[usage(TOP_USAGE)]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
     "vaxei -dt! combo=1234 sort=length",
@@ -307,6 +297,9 @@ async fn prefix_topctb(msg: &Message, args: Args<'_>) -> Result<()> {
     }
 }
 
+const RB_USAGE: &str = "[username] [mods] [acc=number[..number]] \
+[combo=integer[..integer]] [grade=SS/S/A/B/C/D] [reverse=true/false]";
+
 #[command]
 #[desc("Sort a user's top plays by date")]
 #[help(
@@ -322,9 +315,7 @@ async fn prefix_topctb(msg: &Message, args: Args<'_>) -> Result<()> {
     Instead of showing the scores in a list, you can also __show a single score__ by \
     specifying a number right after the command, e.g. `<rb2 badewanne3`."
 )]
-#[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=SS/S/A/B/C/D] [reverse=true/false]"
-)]
+#[usage(RB_USAGE)]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
     "vaxei -dt! combo=1234",
@@ -369,9 +360,7 @@ async fn prefix_recentbest(msg: &Message, args: Args<'_>) -> Result<()> {
     Instead of showing the scores in a list, you can also __show a single score__ by \
     specifying a number right after the command, e.g. `<rbm2 badewanne3`."
 )]
-#[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=SS/S/A/B/C/D] [reverse=true/false]"
-)]
+#[usage(RB_USAGE)]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
     "vaxei -dt! combo=1234",
@@ -409,9 +398,7 @@ async fn prefix_recentbestmania(msg: &Message, args: Args<'_>) -> Result<()> {
     Instead of showing the scores in a list, you can also __show a single score__ by \
     specifying a number right after the command, e.g. `<rbt2 badewanne3`."
 )]
-#[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=SS/S/A/B/C/D] [reverse=true/false]"
-)]
+#[usage(RB_USAGE)]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
     "vaxei -dt! combo=1234",
@@ -449,9 +436,7 @@ async fn prefix_recentbesttaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     Instead of showing the scores in a list, you can also __show a single score__ by \
     specifying a number right after the command, e.g. `<rbc2 badewanne3`."
 )]
-#[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=SS/S/A/B/C/D] [reverse=true/false]"
-)]
+#[usage(RB_USAGE)]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
     "vaxei -dt! combo=1234",

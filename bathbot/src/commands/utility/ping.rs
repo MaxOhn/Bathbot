@@ -8,14 +8,14 @@ use twilight_model::guild::Permissions;
 
 use crate::{core::commands::CommandOrigin, util::interaction::InteractionCommand};
 
+const PING_DESC: &str = "Check if the bot is online";
+
+const PING_HELP: &str = "Most basic command, generally used to check if the \
+bot is online.\nThe displayed latency is the time it takes for the bot to \
+receive a response from discord after sending a message.";
+
 #[derive(CreateCommand, SlashCommand)]
-#[command(
-    name = "ping",
-    desc = "Check if the bot is online",
-    help = "Most basic command, generally used to check if the bot is online.\n\
-    The displayed latency is the time it takes for the bot \
-    to receive a response from discord after sending a message."
-)]
+#[command(name = "ping", desc = PING_DESC, help = PING_HELP)]
 #[flags(SKIP_DEFER)]
 pub struct Ping;
 
@@ -24,12 +24,8 @@ async fn slash_ping(mut command: InteractionCommand) -> Result<()> {
 }
 
 #[command]
-#[desc("Check if the bot is online")]
-#[help(
-    "Most basic command, generally used to check if the bot is online.\n\
-    The displayed latency is the time it takes for the bot \
-    to receive a response from discord after sending a message."
-)]
+#[desc(PING_DESC)]
+#[help(PING_HELP)]
 #[alias("p")]
 #[flags(SKIP_DEFER)]
 #[group(Utility)]

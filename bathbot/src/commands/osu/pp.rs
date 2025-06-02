@@ -10,11 +10,7 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use super::user_not_found;
 use crate::{
-    Context,
-    core::commands::{CommandOrigin, prefix::Args},
-    embeds::{EmbedData, PpMissingEmbed},
-    manager::redis::osu::{UserArgs, UserArgsError},
-    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::{prefix::Args, CommandOrigin}, embeds::{EmbedData, PpMissingEmbed}, manager::redis::osu::{UserArgs, UserArgsError}, util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt}, Context
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
@@ -47,12 +43,7 @@ pub struct Pp<'a> {
         If `each` is set, this argument will be ignored"
     )]
     amount: Option<u8>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

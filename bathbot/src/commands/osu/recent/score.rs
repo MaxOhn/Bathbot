@@ -27,6 +27,7 @@ use crate::{
         impls::{SingleScoreContent, SingleScorePagination},
     },
     commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
         osu::{map_strains_graph, require_link, user_not_found},
         utility::{MissAnalyzerCheck, ScoreEmbedDataWrap},
     },
@@ -34,6 +35,8 @@ use crate::{
     manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
     util::{ChannelExt, CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
 };
+
+const RECENT_USAGE: &str = "[username] [pass=true/false] [grade=grade[..grade]]";
 
 #[command]
 #[desc("Display a user's most recent play")]
@@ -47,7 +50,7 @@ use crate::{
     With the `config` command you can set the embed as minimized immediately, \
     hide the retry count, and show your twitch stream and live VOD."
 )]
-#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[usage(RECENT_USAGE)]
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[aliases("r", "rs")]
 #[group(Osu)]
@@ -74,7 +77,7 @@ async fn prefix_recent(msg: &Message, args: Args<'_>) -> Result<()> {
     With the `config` command you can set the embed as minimized immediately, \
     hide the retry count, and show your twitch stream and live VOD."
 )]
-#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[usage(RECENT_USAGE)]
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[aliases("rm")]
 #[group(Mania)]
@@ -101,7 +104,7 @@ async fn prefix_recentmania(msg: &Message, args: Args<'_>) -> Result<()> {
     With the `config` command you can set the embed as minimized immediately, \
     hide the retry count, and show your twitch stream and live VOD."
 )]
-#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[usage(RECENT_USAGE)]
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[alias("rt")]
 #[group(Taiko)]
@@ -128,7 +131,7 @@ async fn prefix_recenttaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     With the `config` command you can set the embed as minimized immediately, \
     hide the retry count, and show your twitch stream and live VOD."
 )]
-#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[usage(RECENT_USAGE)]
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[alias("rc", "recentcatch")]
 #[group(Catch)]
@@ -808,12 +811,7 @@ pub struct Rs<'a> {
     grade: Option<GradeOption>,
     #[command(desc = "Specify whether only passes should be considered")]
     passes: Option<bool>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

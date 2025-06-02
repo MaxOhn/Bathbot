@@ -12,8 +12,8 @@ use self::fix::*;
 pub use self::{leaderboard::*, list::*, score::*};
 use super::{HasMods, ModsResult, ScoreOrder, TopArgs, TopScoreOrder};
 use crate::{
-    commands::osu::{LeaderboardSort, top},
-    util::{InteractionCommandExt, interaction::InteractionCommand},
+    commands::{osu::{top, LeaderboardSort}, DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
 mod fix;
@@ -65,12 +65,7 @@ pub struct RecentScore<'a> {
     grade: Option<GradeOption>,
     #[command(desc = "Specify whether only passes should be considered")]
     passes: Option<bool>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -105,12 +100,7 @@ pub struct RecentBest {
         With `random` or `?` it'll choose a random index."
     )]
     index: Option<String>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
     #[command(desc = "Reverse the resulting score list")]
     reverse: Option<bool>,
@@ -197,12 +187,7 @@ pub struct RecentLeaderboard<'a> {
         With `random` or `?` it'll choose a random index."
     )]
     index: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -241,12 +226,7 @@ pub struct RecentList<'a> {
     mods: Option<Cow<'a, str>>,
     #[command(desc = "Show each map-mod pair only once")]
     unique: Option<RecentListUnique>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -280,12 +260,7 @@ pub struct RecentFix {
         The given index should be between 1 and 100 or `random`."
     )]
     index: Option<String>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
@@ -339,12 +314,7 @@ pub struct Rb {
         With `random` or `?` it'll choose a random index."
     )]
     index: Option<String>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
     #[command(desc = "Reverse the resulting score list")]
     reverse: Option<bool>,

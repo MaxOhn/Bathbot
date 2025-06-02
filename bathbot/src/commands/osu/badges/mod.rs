@@ -9,7 +9,7 @@ use twilight_interactions::command::{
 use twilight_model::id::{Id, marker::UserMarker};
 
 use self::{query::*, user::*};
-use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
+use crate::{commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, util::{interaction::InteractionCommand, InteractionCommandExt}};
 
 mod query;
 mod user;
@@ -60,12 +60,7 @@ pub struct BadgesUser<'a> {
     name: Option<Cow<'a, str>>,
     #[command(desc = "Choose how the badges should be ordered")]
     sort: Option<BadgesOrder>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

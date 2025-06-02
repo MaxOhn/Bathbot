@@ -15,14 +15,9 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    Context,
-    active::{ActiveMessages, impls::NoChokePagination},
-    core::commands::{CommandOrigin, prefix::Args},
-    manager::{
-        OsuMap,
-        redis::osu::{UserArgs, UserArgsError},
-    },
-    util::{InteractionCommandExt, interaction::InteractionCommand, osu::IfFc},
+    active::{impls::NoChokePagination, ActiveMessages}, commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::{prefix::Args, CommandOrigin}, manager::{
+        redis::osu::{UserArgs, UserArgsError}, OsuMap
+    }, util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt}, Context
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
@@ -55,12 +50,7 @@ pub struct Nochoke<'a> {
     version: Option<NochokeVersion>,
     #[command(desc = "Filter out certain scores")]
     filter: Option<NochokeFilter>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

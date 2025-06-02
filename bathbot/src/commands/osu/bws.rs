@@ -19,6 +19,7 @@ use twilight_model::id::{Id, marker::UserMarker};
 use super::{require_link, user_not_found};
 use crate::{
     Context,
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
     core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{CachedUser, UserArgs, UserArgsError},
     util::{CachedUserExt, ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
@@ -58,12 +59,7 @@ pub struct Bws<'a> {
         desc = "Filter out badges before a certain year"
     )]
     year: Option<i32>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 

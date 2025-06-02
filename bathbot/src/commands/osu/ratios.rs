@@ -14,16 +14,19 @@ use twilight_model::id::{Id, marker::UserMarker};
 use super::{require_link, user_not_found};
 use crate::{
     Context,
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
     core::commands::CommandOrigin,
     embeds::{EmbedData, RatioEmbed},
     manager::redis::osu::{UserArgs, UserArgsError},
     util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
+const RATIOS_DESC: &str = "Ratio related stats about a user's mania top100";
+
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
 #[command(
     name = "ratios",
-    desc = "Ratio related stats about a user's mania top100",
+    desc = RATIOS_DESC,
     help = "The \"ratio\" of a mania score is generally considered to be `n320/n300` \
     (or sometimes `n320/everything else`).\n\n\
     How to read the embed:\n\
@@ -36,17 +39,12 @@ use crate::{
 pub struct Ratios<'a> {
     #[command(desc = "Specify a username")]
     name: Option<Cow<'a, str>>,
-    #[command(
-        desc = "Specify a linked discord user",
-        help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this option to choose a discord user.\n\
-        Only works on users who have used the `/link` command."
-    )]
+    #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
 
 #[command]
-#[desc("Ratio related stats about a user's top100")]
+#[desc(RATIOS_DESC)]
 #[help(
     "Calculate the average ratios of a user's top100.\n\
     If the command was used before on the given osu name, \
