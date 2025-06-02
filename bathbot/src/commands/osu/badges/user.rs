@@ -128,8 +128,9 @@ pub(super) async fn user(orig: CommandOrigin<'_>, args: BadgesUser<'_>) -> Resul
             Ok(owners) => owners,
             Err(err) => {
                 let _ = orig.error(OSEKAI_ISSUE).await;
+                let wrap = format!("Failed to get badge owners for badge id {}", badge.badge_id);
 
-                return Err(err.wrap_err("failed to get badge owners"));
+                return Err(err.wrap_err(wrap));
             }
         }
     } else {
