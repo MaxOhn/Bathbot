@@ -631,12 +631,13 @@ impl TeamLeads {
 
     fn update(&mut self, score: &MatchScore) {
         match self {
-            Self::Score(arr) => arr[score.team as usize] += score.score as u64,
+            Self::Score(arr) => arr[score.info.team as usize] += score.score as u64,
             Self::Acc(arr) => {
-                arr[score.team as usize] = arr[score.team as usize].max(score.accuracy)
+                arr[score.info.team as usize] = arr[score.info.team as usize].max(score.accuracy)
             }
             Self::Combo(arr) => {
-                arr[score.team as usize] = arr[score.team as usize].max(score.max_combo as u64)
+                arr[score.info.team as usize] =
+                    arr[score.info.team as usize].max(score.max_combo as u64)
             }
         }
     }
@@ -679,7 +680,7 @@ fn prepare_scores(
         let score_str = WithComma::new(score.score).to_string();
         let combo = WithComma::new(score.max_combo).to_string();
         let mods = score.mods.to_string();
-        let team = score.team as usize;
+        let team = score.info.team as usize;
 
         let grade = calculate_legacy_grade(mode, &score.mods, &score.statistics);
 
@@ -699,7 +700,7 @@ fn prepare_scores(
             combo,
             score: score.score,
             score_str,
-            count_miss: score.statistics.count_miss,
+            count_miss: score.statistics.miss,
         }
     });
 
