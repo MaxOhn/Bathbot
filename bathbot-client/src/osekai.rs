@@ -1,6 +1,6 @@
 use bathbot_model::{
-    OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiInex, OsekaiMap, OsekaiMedal,
-    OsekaiRanking, OsekaiRankingEntries,
+    OsekaiBadge, OsekaiBadgeOwner, OsekaiBadgeOwners, OsekaiComment, OsekaiInex, OsekaiMap,
+    OsekaiMedal, OsekaiRanking, OsekaiRankingEntries,
 };
 use eyre::{Result, WrapErr};
 
@@ -24,11 +24,13 @@ impl Client {
         let url = format!("https://osekai.net/badges/api/getUsers.php?badge_id={badge_id}");
         let bytes = self.make_get_request(url, Site::Osekai).await?;
 
-        serde_json::from_slice(&bytes).wrap_err_with(|| {
+        let OsekaiBadgeOwners(owners) = serde_json::from_slice(&bytes).wrap_err_with(|| {
             let body = String::from_utf8_lossy(&bytes);
 
             format!("Failed to deserialize: {body}")
-        })
+        })?;
+
+        Ok(owners)
     }
 
     /// Don't use this; use `RedisManager::medals` instead.

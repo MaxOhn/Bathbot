@@ -856,6 +856,46 @@ fn string_of_vec_of_u32s<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u32>, D:
         .map_err(|s| Error::invalid_value(Unexpected::Str(s), &"u32"))
 }
 
+/// Badge owner data from osekai seems to sometimes come as indexed object
+/// rather than simple list so we need to handle both when deserializing.
+pub struct OsekaiBadgeOwners(pub Vec<OsekaiBadgeOwner>);
+
+impl<'de> Deserialize<'de> for OsekaiBadgeOwners {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct SeqOrMapVisitor;
+
+        impl<'de> Visitor<'de> for SeqOrMapVisitor {
+            type Value = Vec<OsekaiBadgeOwner>;
+
+            fn expecting(&self, formatter: &mut Formatter<'_>) -> FmtResult {
+                formatter.write_str("a sequence or indexed map of objects")
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                let mut owners = Vec::new();
+
+                while let Some(owner) = seq.next_element()? {
+                    owners.push(owner);
+                }
+
+                Ok(owners)
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut owners = Vec::new();
+
+                while let Some((_, owner)) = map.next_entry::<&'de str, _>()? {
+                    owners.push(owner);
+                }
+
+                Ok(owners)
+            }
+        }
+
+        d.deserialize_any(SeqOrMapVisitor).map(Self)
+    }
+}
+
 // data contains many more fields but none of use as of now
 #[derive(Debug, Deserialize)]
 pub struct OsekaiBadgeOwner {
