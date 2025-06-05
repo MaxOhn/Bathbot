@@ -26,7 +26,6 @@ async fn slash_ping(mut command: InteractionCommand) -> Result<()> {
 #[command]
 #[desc(PING_DESC)]
 #[help(PING_HELP)]
-#[alias("p")]
 #[flags(SKIP_DEFER)]
 #[group(Utility)]
 async fn prefix_ping(msg: &Message, permissions: Option<Permissions>) -> Result<()> {
