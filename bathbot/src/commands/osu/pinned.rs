@@ -122,7 +122,7 @@ impl<'m> Pinned<'m> {
 #[desc("Display the user's pinned scores")]
 #[usage("[username]")]
 #[examples("peppy")]
-#[aliases("pins")]
+#[aliases("p", "pins")]
 #[group(Osu)]
 async fn prefix_pinned(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Pinned::args(None, args);
@@ -134,7 +134,7 @@ async fn prefix_pinned(msg: &Message, args: Args<'_>) -> Result<()> {
 #[desc("Display the user's pinned taiko scores")]
 #[usage("[username]")]
 #[examples("peppy")]
-#[aliases("pinstaiko")]
+#[aliases("ptaiko", "pinstaiko")]
 #[group(Taiko)]
 async fn prefix_pinnedtaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Pinned::args(Some(GameModeOption::Taiko), args);
@@ -146,7 +146,7 @@ async fn prefix_pinnedtaiko(msg: &Message, args: Args<'_>) -> Result<()> {
 #[desc("Display the user's pinned ctb scores")]
 #[usage("[username]")]
 #[examples("peppy")]
-#[aliases("pinnedcatch", "pinsctb", "pinscatch")]
+#[aliases("pcatch", "pctb", "pinnedcatch", "pinsctb", "pinscatch")]
 #[group(Catch)]
 async fn prefix_pinnedctb(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Pinned::args(Some(GameModeOption::Catch), args);
@@ -158,7 +158,7 @@ async fn prefix_pinnedctb(msg: &Message, args: Args<'_>) -> Result<()> {
 #[desc("Display the user's pinned mania scores")]
 #[usage("[username]")]
 #[examples("peppy")]
-#[aliases("pinsmania")]
+#[aliases("pmania", "pinsmania")]
 #[group(Mania)]
 async fn prefix_pinnedmania(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Pinned::args(Some(GameModeOption::Mania), args);
