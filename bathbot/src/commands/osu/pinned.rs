@@ -30,11 +30,20 @@ use twilight_model::{
 
 use super::{HasMods, ModsResult, ScoreOrder, map_strains_graph, require_link, user_not_found};
 use crate::{
+    Context,
     active::{
-        impls::{SingleScoreContent, SingleScorePagination, TopPagination}, ActiveMessages
-    }, commands::{utility::{
-        MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
-    }, DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::{prefix::Args, CommandOrigin}, manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim}, util::{interaction::InteractionCommand, CheckPermissions, InteractionCommandExt}, Context
+        ActiveMessages,
+        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
+    },
+    commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
+        utility::{
+            MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
+        },
+    },
+    core::commands::{CommandOrigin, prefix::Args},
+    manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
+    util::{CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
@@ -113,7 +122,7 @@ impl<'m> Pinned<'m> {
 #[desc("Display the user's pinned scores")]
 #[usage("[username]")]
 #[examples("peppy")]
-#[aliases("pins")]
+#[aliases("p", "pins")]
 #[group(Osu)]
 async fn prefix_pinned(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Pinned::args(None, args);
@@ -125,7 +134,7 @@ async fn prefix_pinned(msg: &Message, args: Args<'_>) -> Result<()> {
 #[desc("Display the user's pinned taiko scores")]
 #[usage("[username]")]
 #[examples("peppy")]
-#[aliases("pinstaiko")]
+#[aliases("ptaiko", "pinstaiko")]
 #[group(Taiko)]
 async fn prefix_pinnedtaiko(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Pinned::args(Some(GameModeOption::Taiko), args);
@@ -137,7 +146,7 @@ async fn prefix_pinnedtaiko(msg: &Message, args: Args<'_>) -> Result<()> {
 #[desc("Display the user's pinned ctb scores")]
 #[usage("[username]")]
 #[examples("peppy")]
-#[aliases("pinnedcatch", "pinsctb", "pinscatch")]
+#[aliases("pcatch", "pctb", "pinnedcatch", "pinsctb", "pinscatch")]
 #[group(Catch)]
 async fn prefix_pinnedctb(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Pinned::args(Some(GameModeOption::Catch), args);
@@ -149,7 +158,7 @@ async fn prefix_pinnedctb(msg: &Message, args: Args<'_>) -> Result<()> {
 #[desc("Display the user's pinned mania scores")]
 #[usage("[username]")]
 #[examples("peppy")]
-#[aliases("pinsmania")]
+#[aliases("pmania", "pinsmania")]
 #[group(Mania)]
 async fn prefix_pinnedmania(msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Pinned::args(Some(GameModeOption::Mania), args);
