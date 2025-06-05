@@ -30,11 +30,20 @@ use twilight_model::{
 
 use super::{HasMods, ModsResult, ScoreOrder, map_strains_graph, require_link, user_not_found};
 use crate::{
+    Context,
     active::{
-        impls::{SingleScoreContent, SingleScorePagination, TopPagination}, ActiveMessages
-    }, commands::{utility::{
-        MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
-    }, DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::{prefix::Args, CommandOrigin}, manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim}, util::{interaction::InteractionCommand, CheckPermissions, InteractionCommandExt}, Context
+        ActiveMessages,
+        impls::{SingleScoreContent, SingleScorePagination, TopPagination},
+    },
+    commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
+        utility::{
+            MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
+        },
+    },
+    core::commands::{CommandOrigin, prefix::Args},
+    manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
+    util::{CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
