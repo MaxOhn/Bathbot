@@ -9,7 +9,10 @@ use twilight_interactions::command::{
 use twilight_model::id::{Id, marker::UserMarker};
 
 pub use self::{common::*, list::*, medal::*, missing::*, recent::*, stats::*};
-use crate::{commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, util::{interaction::InteractionCommand, InteractionCommandExt}};
+use crate::{
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
+};
 
 mod common;
 mod icons_image;

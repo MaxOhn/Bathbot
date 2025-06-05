@@ -12,8 +12,11 @@ use self::fix::*;
 pub use self::{leaderboard::*, list::*, score::*};
 use super::{HasMods, ModsResult, ScoreOrder, TopArgs, TopScoreOrder};
 use crate::{
-    commands::{osu::{top, LeaderboardSort}, DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
-    util::{interaction::InteractionCommand, InteractionCommandExt},
+    commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
+        osu::{LeaderboardSort, top},
+    },
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 mod fix;

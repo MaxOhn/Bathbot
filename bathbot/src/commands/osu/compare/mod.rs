@@ -14,7 +14,10 @@ pub use self::{
     profile::*,
     score::{slash_compare as slash_compare_score, *},
 };
-use crate::{commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, util::{interaction::InteractionCommand, InteractionCommandExt}};
+use crate::{
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
+};
 
 mod common;
 mod most_played;

@@ -20,9 +20,18 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::{
-    active::{impls::TopIfPagination, ActiveMessages}, commands::{osu::{require_link, user_not_found}, DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::{prefix::Args, CommandOrigin}, manager::{
-        redis::osu::{UserArgs, UserArgsError}, OsuMap
-    }, util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt}, Context
+    Context,
+    active::{ActiveMessages, impls::TopIfPagination},
+    commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
+        osu::{require_link, user_not_found},
+    },
+    core::commands::{CommandOrigin, prefix::Args},
+    manager::{
+        OsuMap,
+        redis::osu::{UserArgs, UserArgsError},
+    },
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]

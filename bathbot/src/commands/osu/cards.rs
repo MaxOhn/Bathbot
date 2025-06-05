@@ -20,9 +20,13 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::{
-        commands::{prefix::Args, CommandOrigin}, BotConfig, Context
-    }, manager::redis::osu::{UserArgs, UserArgsError}, util::{interaction::InteractionCommand, CachedUserExt, InteractionCommandExt}
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    core::{
+        BotConfig, Context,
+        commands::{CommandOrigin, prefix::Args},
+    },
+    manager::redis::osu::{UserArgs, UserArgsError},
+    util::{CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 const CARD_HELP: &str = "Create a visual user card containing various fun values about the user.\n\

@@ -9,7 +9,10 @@ use twilight_interactions::command::{
 use twilight_model::id::{Id, marker::UserMarker};
 
 use self::{query::*, user::*};
-use crate::{commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, util::{interaction::InteractionCommand, InteractionCommandExt}};
+use crate::{
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
+};
 
 mod query;
 mod user;

@@ -44,12 +44,16 @@ use self::{
 };
 use super::{SnipeGameMode, UserIdResult, require_link, user_not_found};
 use crate::{
-    commands::{osu::{HasMods, HasName as HasNameTrait}, DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
-    core::{commands::CommandOrigin, Context},
-    manager::{
-        redis::osu::{CachedUser, UserArgs, UserArgsError}, MapError, OsuMap
+    commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
+        osu::{HasMods, HasName as HasNameTrait},
     },
-    util::{interaction::InteractionCommand, CachedUserExt, InteractionCommandExt},
+    core::{Context, commands::CommandOrigin},
+    manager::{
+        MapError, OsuMap,
+        redis::osu::{CachedUser, UserArgs, UserArgsError},
+    },
+    util::{CachedUserExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 mod bpm;

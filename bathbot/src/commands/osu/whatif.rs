@@ -15,7 +15,12 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use super::user_not_found;
 use crate::{
-    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::{prefix::Args, CommandOrigin}, embeds::{EmbedData, WhatIfEmbed}, manager::redis::osu::{UserArgs, UserArgsError}, util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt}, Context
+    Context,
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    core::commands::{CommandOrigin, prefix::Args},
+    embeds::{EmbedData, WhatIfEmbed},
+    manager::redis::osu::{UserArgs, UserArgsError},
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub enum WhatIfData {

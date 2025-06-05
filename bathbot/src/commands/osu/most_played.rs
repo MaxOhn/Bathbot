@@ -12,7 +12,12 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    active::{impls::MostPlayedPagination, ActiveMessages}, commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::CommandOrigin, manager::redis::osu::{UserArgs, UserArgsError}, util::{interaction::InteractionCommand, InteractionCommandExt}, Context
+    Context,
+    active::{ActiveMessages, impls::MostPlayedPagination},
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    core::commands::CommandOrigin,
+    manager::redis::osu::{UserArgs, UserArgsError},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]

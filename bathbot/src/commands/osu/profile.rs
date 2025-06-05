@@ -14,7 +14,12 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    active::{impls::ProfileMenu, ActiveMessages}, commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::{prefix::Args, CommandOrigin}, manager::redis::osu::{UserArgs, UserArgsError}, util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt}, Context
+    Context,
+    active::{ActiveMessages, impls::ProfileMenu},
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    core::commands::{CommandOrigin, prefix::Args},
+    manager::redis::osu::{UserArgs, UserArgsError},
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]

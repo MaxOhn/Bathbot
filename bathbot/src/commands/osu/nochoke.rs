@@ -15,9 +15,15 @@ use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{require_link, user_not_found};
 use crate::{
-    active::{impls::NoChokePagination, ActiveMessages}, commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, core::commands::{prefix::Args, CommandOrigin}, manager::{
-        redis::osu::{UserArgs, UserArgsError}, OsuMap
-    }, util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt}, Context
+    Context,
+    active::{ActiveMessages, impls::NoChokePagination},
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    core::commands::{CommandOrigin, prefix::Args},
+    manager::{
+        OsuMap,
+        redis::osu::{UserArgs, UserArgsError},
+    },
+    util::{InteractionCommandExt, interaction::InteractionCommand, osu::IfFc},
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]

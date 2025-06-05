@@ -11,7 +11,10 @@ pub use self::{
     country_snipe_list::*, country_snipe_stats::*, player_snipe_list::*, player_snipe_stats::*,
     sniped::*, sniped_difference::*,
 };
-use crate::{commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, util::{interaction::InteractionCommand, InteractionCommandExt}};
+use crate::{
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
+};
 
 mod country_snipe_list;
 mod country_snipe_stats;

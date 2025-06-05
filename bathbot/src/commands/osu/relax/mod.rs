@@ -12,7 +12,10 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{Id, marker::UserMarker};
 
 use crate::{
-    active::impls::relax::top::RelaxTopOrder, commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP}, manager::redis::osu::CachedUser, util::{interaction::InteractionCommand, InteractionCommandExt}
+    active::impls::relax::top::RelaxTopOrder,
+    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    manager::redis::osu::CachedUser,
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 pub mod profile;
