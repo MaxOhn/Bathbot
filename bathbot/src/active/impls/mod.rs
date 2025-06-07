@@ -7,6 +7,7 @@ pub use self::{
     bookmarks::BookmarksPagination,
     changelog::ChangelogPagination,
     compare::{CompareMostPlayedPagination, CompareScoresPagination, CompareTopPagination},
+    daily_challenge::DailyChallengeTodayPagination,
     embed_builder::ScoreEmbedBuilderActive,
     help::{HelpInteractionCommand, HelpPrefixMenu},
     higherlower::HigherLowerGame,
@@ -43,6 +44,7 @@ mod bg_game;
 mod bookmarks;
 mod changelog;
 mod compare;
+mod daily_challenge;
 mod embed_builder;
 mod help;
 mod higherlower;

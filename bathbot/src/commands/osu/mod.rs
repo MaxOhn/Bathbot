@@ -70,9 +70,9 @@ use twilight_interactions::command::{CommandOption, CreateOption};
 use twilight_model::id::{Id, marker::UserMarker};
 
 pub use self::{
-    badges::*, claim_name::*, compare::*, fix::*, graphs::*, leaderboard::*, map::*, map_search::*,
-    match_compare::*, match_costs::*, medals::*, nochoke::*, osustats::*, profile::*, recent::*,
-    render::*, simulate::*, snipe::*, top::*, whatif::*,
+    badges::*, claim_name::*, compare::*, daily_challenge::*, fix::*, graphs::*, leaderboard::*,
+    map::*, map_search::*, match_compare::*, match_costs::*, medals::*, nochoke::*, osustats::*,
+    profile::*, recent::*, render::*, simulate::*, snipe::*, top::*, whatif::*,
 };
 use crate::{
     Context,
