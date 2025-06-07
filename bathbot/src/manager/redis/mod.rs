@@ -294,7 +294,7 @@ impl RedisManager {
                 return None;
             }
 
-            let res = serialize_using_arena_and_with::<_, RoomRkyv>(&room)
+            let res = serialize_using_arena_and_with::<_, RoomRkyv>(room)
                 .map_err(RedisError::Serialization);
 
             Some(res)
