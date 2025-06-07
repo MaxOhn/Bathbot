@@ -10,8 +10,8 @@ use rkyv::{
     rancor::{BoxedError, Strategy},
 };
 use rosu_v2::{
-    model::GameMode,
-    prelude::{GameMods, RoomLeaderboardItem, Score},
+    model::{GameMode, Grade},
+    prelude::{GameMods, RoomLeaderboardItem},
 };
 use time::{Date, OffsetDateTime, UtcDateTime, macros::date};
 use twilight_model::guild::Permissions;
@@ -68,7 +68,8 @@ pub(super) async fn today(orig: CommandOrigin<'_>) -> Result<()> {
 pub struct DailyChallengeDay {
     pub map: OsuMap,
     pub leaderboard: Vec<RoomLeaderboardItem>,
-    pub scores: HashMap<u32, Score, IntHasher>, // TODO: slim down Score into smaller type
+    pub scores: HashMap<u32, DailyChallengeScore, IntHasher>, /* TODO: slim down Score into
+                                                               * smaller type */
     pub author: AuthorBuilder,
     pub footer: FooterBuilder,
     pub description: String,
@@ -112,7 +113,18 @@ impl DailyChallengeDay {
         let scores: HashMap<_, _, IntHasher> = scores
             .scores
             .into_iter()
-            .map(|score| (score.user_id, score))
+            .map(|score| {
+                let user_id = score.user_id;
+
+                let score = DailyChallengeScore {
+                    mods: score.mods,
+                    grade: score.grade,
+                    score_id: score.id,
+                    ended_at: score.ended_at,
+                };
+
+                (user_id, score)
+            })
             .collect();
 
         let mut pp_calc = Context::pp(&map)
@@ -189,4 +201,11 @@ impl DailyChallengeDay {
             start_time,
         })
     }
+}
+
+pub struct DailyChallengeScore {
+    pub mods: GameMods,
+    pub grade: Grade,
+    pub score_id: u64,
+    pub ended_at: OffsetDateTime,
 }

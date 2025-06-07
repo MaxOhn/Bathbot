@@ -202,7 +202,7 @@ impl IActiveMessage for DailyChallengeTodayPagination {
                 user_id = item.user.user_id,
                 score = WithComma::new(item.score),
                 mods = ModsFormatter::new(&score.mods, false),
-                grade = GradeFormatter::new(score.grade, Some(score.id), false),
+                grade = GradeFormatter::new(score.grade, Some(score.score_id), false),
                 attempts = item.attempts,
                 plural = if item.attempts != 1 { "s" } else { "" },
                 acc = item.accuracy,
