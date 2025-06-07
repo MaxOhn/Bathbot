@@ -67,12 +67,12 @@ impl IActiveMessage for LeaderboardPagination {
             stars = self.stars,
         );
 
-        let author_name = self.author_data.as_ref().map(|score| score.score.user_id);
+        let author_id = self.author_data.as_ref().map(|score| score.score.user_id);
 
         let mut description = String::with_capacity(1024);
 
         for score in self.scores[start_idx..end_idx].iter_mut() {
-            let found_author = Some(score.user_id) == author_name;
+            let found_author = Some(score.user_id) == author_id;
 
             let fmt_fut = ScoreFormatter::new(
                 score,

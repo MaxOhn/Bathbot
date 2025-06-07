@@ -9,18 +9,25 @@ use bathbot_model::{
     ArchivedOsekaiBadge, ArchivedOsekaiMedal, ArchivedOsuStatsBestScores,
     ArchivedOsuTrackHistoryEntry, ArchivedScrapedMedal, ArchivedSnipeCountries, OsekaiRanking,
     OsuStatsBestScores, OsuStatsBestTimeframe,
-    rosu_v2::ranking::{ArchivedRankings, RankingsRkyv},
+    rosu_v2::{
+        multiplayer::{ArchivedRoom, RoomRkyv},
+        ranking::{ArchivedRankings, RankingsRkyv},
+    },
 };
 use bathbot_psql::model::osu::MapVersion;
 use bathbot_util::{IntHasher, matcher, osu::MapIdType};
-use eyre::{Report, Result, WrapErr};
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use futures::{StreamExt, stream::FuturesUnordered};
 use rkyv::{
     Archived, Serialize, bytecheck::CheckBytes, collections::swiss_table::ArchivedHashMap,
     primitive::ArchivedU16, rancor::BoxedError, vec::ArchivedVec,
 };
-use rosu_v2::prelude::GameMode;
+use rosu_v2::{
+    prelude::{GameMode, RoomCategory},
+    request::RoomsFilter,
+};
 use thiserror::Error as ThisError;
+use time::{Date, UtcDateTime};
 
 use crate::{
     core::{BotMetrics, Context},
@@ -242,6 +249,90 @@ impl RedisManager {
         }
 
         Ok(medal_icons)
+    }
+
+    pub async fn daily_challenge(self, date: Date) -> RedisResult<ArchivedRoom> {
+        let now = UtcDateTime::now();
+        let is_today = now.date() == date;
+
+        let key_fn = |date: Date| {
+            format!(
+                "daily_challenge_{}_{}_{}",
+                date.year() % 2000,
+                date.month() as u8,
+                date.day()
+            )
+        };
+
+        let key = key_fn(date);
+
+        match Context::cache().fetch(&key).await {
+            Ok(Ok(room)) => {
+                BotMetrics::inc_redis_hit("Daily challenge room");
+
+                return Ok(room);
+            }
+            Ok(Err(_)) => {}
+            Err(err) => warn!(?err, "Failed to fetch daily challenge room"),
+        };
+
+        let filter = if is_today {
+            RoomsFilter::Active
+        } else {
+            RoomsFilter::Ended
+        };
+
+        let rooms = Context::osu()
+            .rooms()
+            .category(RoomCategory::DailyChallenge)
+            .filter(filter)
+            .await
+            .map_err(Report::new)?;
+
+        let bytes_res = rooms.iter().find_map(|room| {
+            if room.starts_at.date() != date {
+                return None;
+            }
+
+            let res = serialize_using_arena_and_with::<_, RoomRkyv>(&room)
+                .map_err(RedisError::Serialization);
+
+            Some(res)
+        });
+
+        // Serialize and store bytes in a different task so the caller doesn't
+        // have to wait
+        tokio::spawn(async move {
+            let cache = Context::cache();
+
+            for room in rooms {
+                let bytes = match serialize_using_arena_and_with::<_, RoomRkyv>(&room) {
+                    Ok(bytes) => bytes,
+                    Err(err) => {
+                        warn!(err = ?RedisError::Serialization(err));
+
+                        continue;
+                    }
+                };
+
+                let key = key_fn(room.starts_at.date());
+
+                if let Err(err) = cache.store_forever(&key, bytes.as_slice()).await {
+                    warn!(?err, "Failed to store daily challenge room");
+                }
+            }
+        });
+
+        let bytes = bytes_res.wrap_err_with(|| {
+            format!(
+                "Missing room for date {}-{:02}-{:02}",
+                date.year(),
+                date.month() as u8,
+                date.day()
+            )
+        })??;
+
+        CachedArchive::new(bytes).map_err(RedisError::Validation)
     }
 
     pub async fn osekai_ranking<R>(self) -> RedisResult<Archived<Vec<R::Entry>>>
