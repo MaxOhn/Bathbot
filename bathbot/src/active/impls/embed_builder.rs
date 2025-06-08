@@ -244,7 +244,8 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                             // No need to check if the first row only contains
                             // one value because if so then the current second
                             // row would be moved up anyway.
-                            let disable_down = curr_y == SettingValue::FOOTER_Y;
+                            let disable_down = self.inner.settings.values.len() == 1
+                                || curr_y == SettingValue::FOOTER_Y;
 
                             (to_left == 0, disable_up, disable_down, to_right == 0)
                         } else {
