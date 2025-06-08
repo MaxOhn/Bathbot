@@ -40,7 +40,12 @@ impl ClaimNameEmbed {
         }
 
         let name = name.cow_to_ascii_lowercase();
-        let is_prev_name = user.username.cow_to_ascii_lowercase() != name;
+        let name = name.cow_replace(' ', "_");
+
+        let real_name = user.username.cow_to_ascii_lowercase();
+        let real_name = real_name.cow_replace(' ', "_");
+
+        let is_prev_name = real_name != name;
 
         let field = if let Some(rank @ ..=100) = user.highest_rank.as_ref().map(|h| h.rank) {
             let value = if is_prev_name {
