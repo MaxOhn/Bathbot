@@ -578,7 +578,7 @@ fn apply_settings(
                     writer.push_str("__");
                 }
 
-                write_value(&curr, data, &map_attrs, score_data, writer);
+                write_value(curr, data, &map_attrs, score_data, writer);
 
                 if mark_idx == MarkIndex::Some(i) {
                     writer.push_str("__");
