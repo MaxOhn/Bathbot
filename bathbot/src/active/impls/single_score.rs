@@ -563,94 +563,34 @@ fn apply_settings(
                 .any(|value| ValueKind::from_setting(value) == ValueKind::MapRankedDate)
     };
 
-    let first = settings.values.first().expect("at least one field");
-    let next = settings.values.get(1).filter(|next| next.y == 0);
+    let hide_ranked_date = || data.map.ranked_date().is_none();
 
-    match (&first.inner, next.map(|value| &value.inner)) {
-        (
-            Value::Ar | Value::Cs | Value::Hp | Value::Od,
-            Some(Value::Ar | Value::Cs | Value::Hp | Value::Od),
-        ) => {
-            writer.push('`');
+    for (i, curr) in settings.values.iter().enumerate() {
+        let prev = i.checked_sub(1).and_then(|i| settings.values.get(i));
+        let next = settings.values.get(i + 1);
 
-            if mark_idx == MarkIndex::Some(0) {
-                writer.push('*');
-            }
-
-            let fmt = match first.inner {
-                Value::Ar => MapAttribute::AR.fmt(data, &map_attrs),
-                Value::Cs => MapAttribute::CS.fmt(data, &map_attrs),
-                Value::Hp => MapAttribute::HP.fmt(data, &map_attrs),
-                Value::Od => MapAttribute::OD.fmt(data, &map_attrs),
-                _ => unreachable!(),
-            };
-
-            let _ = write!(writer, "{fmt}");
-
-            if mark_idx == MarkIndex::Some(0) {
-                writer.push('*');
-            }
-        }
-        (Value::Ratio, _) if hide_ratio() => match next {
-            Some(_) => {}
-            None => writer.push_str("Ratio"), // Field name must not be empty
-        },
-        (Value::MapRankedDate, _) if data.map.ranked_date().is_none() => match next {
-            Some(_) => {}
-            None => writer.push_str("Map ranked date"), // Field name must not be empty
-        },
-        _ => {
-            let mut value = Cow::Borrowed(first);
-
-            if matches!(&first.inner, Value::Mapper(mapper) if mapper.with_status)
-                && hide_mapper_status()
-            {
-                value = Cow::Owned(SettingValue {
-                    inner: Value::Mapper(MapperValue { with_status: false }),
-                    y: first.y,
-                });
-            }
-
-            if mark_idx == MarkIndex::Some(0) {
-                writer.push_str("__");
-            }
-
-            write_value(&value, data, &map_attrs, score_data, writer);
-
-            if mark_idx == MarkIndex::Some(0) {
-                writer.push_str("__");
-            }
-        }
-    }
-
-    for (window, i) in settings.values.windows(3).zip(1..) {
-        let [prev, curr, next] = window else {
-            unreachable!()
-        };
-
-        match (&prev.inner, &curr.inner, &next.inner) {
-            (Value::Grade, Value::Mods, _) if prev.y == curr.y => {
+        match (prev.map(|p| &p.inner), &curr.inner, next.map(|n| &n.inner)) {
+            (Some(Value::Grade), Value::Mods, _) if prev.is_some_and(|p| p.y == curr.y) => {
+                // Simple whitespace as separator for this case
                 writer.push(' ');
 
                 if mark_idx == MarkIndex::Some(i) {
                     writer.push_str("__");
                 }
 
-                let _ = write!(
-                    writer,
-                    "+{}",
-                    ModsFormatter::new(&data.score.mods, data.score.is_legacy)
-                );
+                write_value(&curr, data, &map_attrs, score_data, writer);
 
                 if mark_idx == MarkIndex::Some(i) {
                     writer.push_str("__");
                 }
             }
             (
+                Some(Value::Ar | Value::Cs | Value::Hp | Value::Od),
                 Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                Value::Ar | Value::Cs | Value::Hp | Value::Od,
-            ) if prev.y == curr.y && curr.y == next.y => {
+                Some(Value::Ar | Value::Cs | Value::Hp | Value::Od),
+            ) if prev.is_some_and(|p| p.y == curr.y) && next.is_some_and(|n| curr.y == n.y) => {
+                // We're already within "`" boundaries
+
                 if mark_idx == MarkIndex::Some(i) {
                     writer.push('*');
                 }
@@ -672,10 +612,12 @@ fn apply_settings(
                 writer.push(' ');
             }
             (
-                Value::Ar | Value::Cs | Value::Hp | Value::Od,
+                Some(Value::Ar | Value::Cs | Value::Hp | Value::Od),
                 Value::Ar | Value::Cs | Value::Hp | Value::Od,
                 _,
-            ) if prev.y == curr.y => {
+            ) if prev.is_some_and(|p| p.y == curr.y) => {
+                // We're the last of the "`" boundary
+
                 if mark_idx == MarkIndex::Some(i) {
                     writer.push('*');
                 }
@@ -701,14 +643,16 @@ fn apply_settings(
             (
                 _,
                 Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                Value::Ar | Value::Cs | Value::Hp | Value::Od,
-            ) if curr.y == next.y => {
-                if prev.y == curr.y {
+                Some(Value::Ar | Value::Cs | Value::Hp | Value::Od),
+            ) if next.is_some_and(|n| curr.y == n.y) => {
+                // We're the first of the "`" boundary
+
+                if prev.is_some_and(|p| p.y == curr.y) {
                     let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
                     writer.push_str(sep);
                 } else if curr.y == SettingValue::FOOTER_Y {
                     writer = &mut footer_text;
-                } else if prev.y == 0 {
+                } else if prev.is_some_and(|p| p.y == 0) {
                     writer = &mut field_value;
                 } else {
                     writer.push('\n');
@@ -738,33 +682,8 @@ fn apply_settings(
 
                 writer.push(' ');
             }
-            (_, Value::Ratio, _) if hide_ratio() => {
-                if prev.y == curr.y {
-                } else if curr.y == SettingValue::FOOTER_Y {
-                    writer = &mut footer_text;
-                } else if prev.y == 0 {
-                    writer = &mut field_value;
-                } else {
-                    writer.push('\n');
-                }
-            }
-            (_, Value::MapRankedDate, _) if data.map.ranked_date().is_none() => {
-                if prev.y == curr.y {
-                    // Regular values skip the separator if ranked date came
-                    // before which is wrong is Ratio is not the first value of
-                    // the row so we account for that here
-                    if !(ValueKind::from_setting(prev) == ValueKind::Ratio && hide_ratio()) {
-                        let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
-                        writer.push_str(sep);
-                    } else if curr.y == SettingValue::FOOTER_Y {
-                        writer = &mut footer_text;
-                    } else if prev.y == 0 {
-                        writer = &mut field_value;
-                    } else {
-                        writer.push('\n');
-                    }
-                }
-            }
+            (_, Value::Ratio, _) if hide_ratio() => {}
+            (_, Value::MapRankedDate, _) if hide_ranked_date() => {}
             _ => {
                 let mut value = Cow::Borrowed(curr);
 
@@ -777,17 +696,23 @@ fn apply_settings(
                     });
                 }
 
-                if prev.y == curr.y {
-                    match &prev.inner {
-                        Value::MapRankedDate if data.map.ranked_date().is_none() => {}
-                        _ => {
-                            let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
-                            writer.push_str(sep);
-                        }
-                    }
+                let curr = value.as_ref();
+
+                let need_sep = settings.values[..i]
+                    .iter()
+                    .rev()
+                    .take_while(|prev| prev.y == curr.y)
+                    .any(|prev| {
+                        !((prev.inner == Value::Ratio && hide_ratio())
+                            || (prev.inner == Value::MapRankedDate && hide_ranked_date()))
+                    });
+
+                if need_sep {
+                    let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
+                    writer.push_str(sep);
                 } else if curr.y == SettingValue::FOOTER_Y {
                     writer = &mut footer_text;
-                } else if prev.y == 0 {
+                } else if prev.is_some_and(|p| p.y == 0) {
                     writer = &mut field_value;
                 } else {
                     writer.push('\n');
@@ -807,131 +732,6 @@ fn apply_settings(
 
                 if mark_idx == MarkIndex::Some(i) {
                     writer.push_str(mark);
-                }
-            }
-        }
-    }
-
-    let last_idx = settings.values.len() - 1;
-    let last = settings.values.get(last_idx).expect("at least one value");
-    let prev = last_idx
-        .checked_sub(1)
-        .and_then(|idx| settings.values.get(idx));
-
-    // A little more readable this way
-    #[allow(clippy::nonminimal_bool)]
-    if !(ValueKind::from_setting(last) == ValueKind::MapRankedDate
-        && data.map.ranked_date().is_none())
-        && !(ValueKind::from_setting(last) == ValueKind::Ratio && hide_ratio())
-        && last_idx > 0
-    {
-        let mark = if last.y == SettingValue::FOOTER_Y {
-            "*"
-        } else {
-            "__"
-        };
-
-        if prev.is_some_and(|prev| prev.y != last.y) {
-            if last.y == SettingValue::FOOTER_Y {
-                writer = &mut footer_text;
-            } else if prev.is_some_and(|prev| prev.y == 0) {
-                writer = &mut field_value;
-            } else {
-                writer.push('\n');
-            }
-
-            let mut value = Cow::Borrowed(last);
-
-            if matches!(&last.inner, Value::Mapper(mapper) if mapper.with_status)
-                && hide_mapper_status()
-            {
-                value = Cow::Owned(SettingValue {
-                    inner: Value::Mapper(MapperValue { with_status: false }),
-                    y: last.y,
-                });
-            }
-
-            if mark_idx == MarkIndex::Some(last_idx) {
-                writer.push_str(mark);
-            }
-
-            write_value(&value, data, &map_attrs, score_data, writer);
-
-            if mark_idx == MarkIndex::Some(last_idx) {
-                writer.push_str(mark);
-            }
-        } else {
-            match (prev.map(|prev| &prev.inner), &last.inner) {
-                (Some(Value::Grade), Value::Mods) => {
-                    writer.push(' ');
-
-                    if mark_idx == MarkIndex::Some(last_idx) {
-                        writer.push_str("__");
-                    }
-
-                    let _ = write!(
-                        writer,
-                        "+{}",
-                        ModsFormatter::new(&data.score.mods, data.score.is_legacy)
-                    );
-
-                    if mark_idx == MarkIndex::Some(last_idx) {
-                        writer.push_str("__");
-                    }
-                }
-                (
-                    Some(Value::Ar | Value::Cs | Value::Hp | Value::Od),
-                    Value::Ar | Value::Cs | Value::Hp | Value::Od,
-                ) => {
-                    if mark_idx == MarkIndex::Some(last_idx) {
-                        writer.push('*');
-                    }
-
-                    let _ = match last.inner {
-                        Value::Ar => write!(writer, "AR: {}", round(map_attrs.ar as f32)),
-                        Value::Cs => write!(writer, "CS: {}", round(map_attrs.cs as f32)),
-                        Value::Hp => write!(writer, "HP: {}", round(map_attrs.hp as f32)),
-                        Value::Od => write!(writer, "OD: {}", round(map_attrs.od as f32)),
-                        _ => unreachable!(),
-                    };
-
-                    if mark_idx == MarkIndex::Some(last_idx) {
-                        writer.push('*');
-                    }
-
-                    if last.y < SettingValue::FOOTER_Y {
-                        writer.push('`');
-                    }
-                }
-                _ => {
-                    match prev.map(|value| &value.inner) {
-                        Some(Value::MapRankedDate) if data.map.ranked_date().is_none() => {}
-                        _ => {
-                            let sep = if last.y == 0 { SEP_NAME } else { SEP_VALUE };
-                            writer.push_str(sep);
-                        }
-                    }
-
-                    let mut value = Cow::Borrowed(last);
-
-                    if matches!(&last.inner, Value::Mapper(mapper) if mapper.with_status)
-                        && hide_mapper_status()
-                    {
-                        value = Cow::Owned(SettingValue {
-                            inner: Value::Mapper(MapperValue { with_status: false }),
-                            y: last.y,
-                        });
-                    }
-
-                    if mark_idx == MarkIndex::Some(last_idx) {
-                        writer.push_str(mark);
-                    }
-
-                    write_value(&value, data, &map_attrs, score_data, writer);
-
-                    if mark_idx == MarkIndex::Some(last_idx) {
-                        writer.push_str(mark);
-                    }
                 }
             }
         }
