@@ -11,6 +11,9 @@
     <a href="https://ko-fi.com/T6T0BTB5T">
         <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi">
     </a>
+    <a href=https://bathbot.de/status>
+      <img src="https://img.shields.io/badge/metrics-beige?style=for-the-badge&logo=grafana" alt="Metrics">
+    </a>
 </p>
 <p align="center">
     <img src="https://img.shields.io/badge/dynamic/json?color=blueviolet&label=server%20count&query=guild_count&url=https%3A%2F%2Fbathbot.de%2Fguild_count&style=flat&cacheSeconds=3600" alt="Server count">
