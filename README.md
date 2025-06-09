@@ -55,13 +55,15 @@ You can also join its [discord server](https://discord.gg/n9fFstG) to keep up wi
 ## Credits
 - [Tanza](https://osu.ppy.sh/users/10379965) for the main icon and slick webpages
 - [5joshi](https://osu.ppy.sh/users/4279650) for these CRAZY GOOD button emotes :)
-- [Mr Helix](https://osu.ppy.sh/users/2330619) and his website [huismetbenen](https://snipe.huismetbenen.nl/) for providing snipe data
+- [Mr Helix](https://osu.ppy.sh/users/2330619) and his website [huismetbenen](https://snipe.huismetbenen.nl/) for providing snipe data (honorable mention [molneya](https://osu.ppy.sh/users/8945180))
 - [Piotrekol](https://osu.ppy.sh/users/304520) and [Ezoda](https://osu.ppy.sh/users/1231180) and their website [osustats](https://osustats.ppy.sh/) for providing leaderboard data
 - [mulraf](https://osu.ppy.sh/users/1309242), [Tanza](https://osu.ppy.sh/users/10379965), and the rest of the [osekai](https://osekai.net/) team for providing medal data
-- [nzbasic](https://osu.ppy.sh/users/9008211) and his website [osutracker](https://osutracker.com/) for providing global data and country top scores
 - [OMKelderman](https://osu.ppy.sh/users/2756335) and his [flag conversion](https://osuflags.omkserver.nl/) service
 - [respektive](https://osu.ppy.sh/users/1023489) for his [score rank api](https://github.com/respektive/osu-profile#score-rank-api), [osustats api](https://github.com/respektive/osustats), and various other contributions
 - [MasterIO](https://osu.ppy.sh/users/12297980) and [Wieku](https://osu.ppy.sh/users/2584698) for providing the option to render scores via [ordr](https://ordr.issou.best/)
+- [Ameo](https://osu.ppy.sh/users/4093752) for providing various historical data via [osutrack](https://ameobea.me/osutrack/)
+- [StanR](https://osu.ppy.sh/users/7217455) and his [relaxation vault](https://rx.stanr.info/)
+- All the contributors to Bathbot ♥
 
 ## Internals
 
