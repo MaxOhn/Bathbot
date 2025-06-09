@@ -31,8 +31,7 @@ metrics-exporter-prometheus = { version = "0.16.2", default-features = false }
 metrics-util = { version = "0.19.0" }
 rkyv = { version = "0.8" }
 rosu-mods = { version = "0.3.0", features = ["rkyv"] }
-# rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "main" }
-rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "fast-hitresult-gen" }
+rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next" }
 # rosu-pp = { path = "../rosu-pp" }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "lazer", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
 # rosu-v2 = { path = "../rosu-v2", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
