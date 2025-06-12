@@ -21,7 +21,7 @@ pub struct ActiveResponse {
 
 pub enum ActiveResponseInner {
     Message { channel: Id<ChannelMarker> },
-    Interaction { token: Box<str> },
+    Interaction { token: InteractionToken<'static> },
 }
 
 impl ActiveResponse {
@@ -35,7 +35,7 @@ impl ActiveResponse {
             }
             ActiveMessageOrigin::Command(CommandOrigin::Interaction { command }) => {
                 ActiveResponseInner::Interaction {
-                    token: command.token.as_str().into(),
+                    token: InteractionToken::from(&**command).into_owned(),
                 }
             }
         };
@@ -49,9 +49,7 @@ impl ActiveResponse {
     pub fn update(self, builder: MessageBuilder<'_>) -> Option<ResponseFuture<Message>> {
         match self.inner {
             ActiveResponseInner::Message { channel } => (self.msg, channel).update(builder, None),
-            ActiveResponseInner::Interaction { token } => {
-                Some(InteractionToken(&token).update(builder, None))
-            }
+            ActiveResponseInner::Interaction { token } => Some(token.update(builder, None)),
         }
     }
 }

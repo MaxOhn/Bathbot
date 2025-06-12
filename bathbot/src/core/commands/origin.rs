@@ -13,7 +13,7 @@ use twilight_model::{
 use crate::{
     core::Context,
     util::{
-        ChannelExt, InteractionCommandExt, MessageExt,
+        ChannelExt, InteractionCommandExt, InteractionToken, MessageExt,
         interaction::{InteractionCommand, InteractionComponent},
     },
 };
@@ -60,12 +60,12 @@ impl CommandOrigin<'_> {
             Self::Message { msg, permissions } => msg
                 .create_message(builder, *permissions)
                 .await
-                .map(|_| ())
+                .map(unit)
                 .wrap_err("failed to create message to callback"),
             Self::Interaction { command } => command
                 .callback(builder, false)
                 .await
-                .map(|_| ())
+                .map(unit)
                 .wrap_err("failed to callback"),
         }
     }
@@ -110,12 +110,12 @@ impl CommandOrigin<'_> {
             Self::Message { msg, permissions } => msg
                 .create_message(builder, *permissions)
                 .await
-                .map(|_| ())
+                .map(unit)
                 .wrap_err("failed to create message for flagged callback"),
             Self::Interaction { command } => command
                 .callback(builder, ephemeral)
                 .await
-                .map(|_| ())
+                .map(unit)
                 .wrap_err("failed to callback with flags"),
         }
     }
@@ -162,12 +162,12 @@ impl CommandOrigin<'_> {
             Self::Message { msg, .. } => msg
                 .error(content)
                 .await
-                .map(|_| ())
+                .map(unit)
                 .wrap_err("failed to respond with error"),
             Self::Interaction { command } => command
                 .error(content)
                 .await
-                .map(|_| ())
+                .map(unit)
                 .wrap_err("failed to respond with error"),
         }
     }
@@ -181,12 +181,12 @@ impl CommandOrigin<'_> {
             CommandOrigin::Message { msg, .. } => msg
                 .error(content)
                 .await
-                .map(|_| ())
+                .map(unit)
                 .wrap_err("failed to callback with error"),
             CommandOrigin::Interaction { command } => command
                 .error_callback(content)
                 .await
-                .map(|_| ())
+                .map(unit)
                 .wrap_err("failed to callback with error"),
         }
     }
@@ -214,7 +214,6 @@ impl<'d> From<&'d mut InteractionCommand> for CommandOrigin<'d> {
     }
 }
 
-#[allow(clippy::large_enum_variant)]
 pub enum OwnedCommandOrigin {
     Message {
         msg: Id<MessageMarker>,
@@ -222,61 +221,60 @@ pub enum OwnedCommandOrigin {
         permissions: Option<Permissions>,
     },
     Interaction {
-        command: InteractionCommand,
+        token: InteractionToken<'static>,
+        permissions: Option<Permissions>,
     },
 }
 
 impl OwnedCommandOrigin {
-    /// Update a response and return the resulting response message.
+    /// Reply and return the resulting response message.
     ///
     /// In case of an interaction, be sure this is the first and only time you
     /// call this. Afterwards, you must update the resulting message.
-    pub async fn update(&self, builder: MessageBuilder<'_>) -> Result<Response<Message>> {
+    pub async fn reply(&self, builder: MessageBuilder<'_>) -> Result<Response<Message>> {
         match self {
             Self::Message {
                 msg,
                 channel,
                 permissions,
             } => (*msg, *channel)
-                .update(builder, *permissions)
-                .wrap_err("Lacking permission to update message")?
+                .reply(builder, *permissions)
                 .await
-                .wrap_err("Failed to update message"),
-            Self::Interaction { command } => command
-                .update(builder)
+                .wrap_err("Failed to reply to message"),
+            Self::Interaction { token, permissions } => token
+                .reply(builder, *permissions)
                 .await
-                .wrap_err("Failed to update interaction message"),
-        }
-    }
-
-    /// Respond with a red embed.
-    ///
-    /// In case of an interaction, be sure you already called back beforehand.
-    pub async fn error(&self, content: impl Into<String>) -> Result<()> {
-        match self {
-            Self::Message {
-                msg,
-                channel,
-                permissions,
-            } => {
-                let embed = EmbedBuilder::new().color_red().description(content);
-                let builder = MessageBuilder::new().embed(embed);
-
-                (*msg, *channel)
-                    .update(builder, *permissions)
-                    .wrap_err("Lacking permission to respond with error")?
-                    .await
-                    .map(|_| ())
-                    .wrap_err("Failed to respond with error")
-            }
-            Self::Interaction { command } => command
-                .error(content)
-                .await
-                .map(|_| ())
                 .wrap_err("Failed to respond with error"),
         }
     }
+
+    /// Reply with a red embed.
+    ///
+    /// In case of an interaction, be sure you already called back beforehand.
+    pub async fn reply_error(&self, content: impl Into<String>) -> Result<()> {
+        let embed = EmbedBuilder::new().color_red().description(content);
+        let builder = MessageBuilder::new().embed(embed);
+
+        match self {
+            OwnedCommandOrigin::Message {
+                msg,
+                channel,
+                permissions,
+            } => (*msg, *channel)
+                .reply(builder, *permissions)
+                .await
+                .map(unit)
+                .wrap_err("Failed to reply with error"),
+            OwnedCommandOrigin::Interaction { token, permissions } => token
+                .update(builder, *permissions)
+                .await
+                .map(unit)
+                .wrap_err("Failed to reply with error"),
+        }
+    }
 }
+
+fn unit<T>(_: T) {}
 
 impl From<(Message, Option<Permissions>)> for OwnedCommandOrigin {
     fn from((msg, permissions): (Message, Option<Permissions>)) -> Self {
@@ -288,9 +286,21 @@ impl From<(Message, Option<Permissions>)> for OwnedCommandOrigin {
     }
 }
 
+impl From<&InteractionCommand> for OwnedCommandOrigin {
+    fn from(command: &InteractionCommand) -> Self {
+        Self::Interaction {
+            permissions: command.permissions,
+            token: InteractionToken::from(command).into_owned(),
+        }
+    }
+}
+
 impl From<InteractionCommand> for OwnedCommandOrigin {
     fn from(command: InteractionCommand) -> Self {
-        Self::Interaction { command }
+        Self::Interaction {
+            permissions: command.permissions,
+            token: InteractionToken::from(command),
+        }
     }
 }
 

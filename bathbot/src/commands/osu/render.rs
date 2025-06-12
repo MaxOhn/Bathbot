@@ -17,8 +17,12 @@ use rosu_render::{
 use rosu_v2::error::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    channel::Attachment,
-    id::{Id, marker::UserMarker},
+    channel::{Attachment, Message},
+    guild::Permissions,
+    id::{
+        Id,
+        marker::{ChannelMarker, MessageMarker, UserMarker},
+    },
 };
 
 use crate::{
@@ -29,7 +33,7 @@ use crate::{
     core::{Context, commands::OwnedCommandOrigin},
     manager::{ReplayError, ReplaySettings},
     tracking::OrdrReceivers,
-    util::{InteractionCommandExt, interaction::InteractionCommand},
+    util::{InteractionCommandExt, MessageExt, interaction::InteractionCommand},
 };
 
 pub const RENDERER_NAME: &str = "Bathbot";
@@ -201,7 +205,31 @@ async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Res
         }
     };
 
-    let ongoing = OngoingRender::new(render.render_id, command, status, None, owner).await;
+    let response = match Context::interaction().response(&command.token).await {
+        Ok(response) => match response.model().await {
+            Ok(msg) => Some(msg),
+            Err(err) => {
+                warn!(err = ?Report::new(err), "Failed to deserialize response");
+
+                None
+            }
+        },
+        Err(err) => {
+            warn!(err = ?Report::new(err), "Failed to fetch response");
+
+            None
+        }
+    };
+
+    let ongoing = OngoingRender::new(
+        render.render_id,
+        &command,
+        ProgressResponse::new(response, command.permissions, false),
+        status,
+        None,
+        owner,
+    )
+    .await;
 
     tokio::spawn(ongoing.await_render_url());
 
@@ -231,7 +259,7 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
     // Check if the score id has already been rendered
     match Context::replay().get_video_url(score_id).await {
         Ok(Some(video_url)) => {
-            let cached = CachedRender::new(score_id, video_url, owner);
+            let cached = CachedRender::new(score_id, video_url, false, owner);
 
             return ActiveMessages::builder(cached)
                 .start_by_update(true)
@@ -299,9 +327,23 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
         }
     };
 
-    // Just a status update, no need to propagate an error
     status.set(RenderStatusInner::CommissioningRender);
-    let _ = command.update(status.as_message()).await;
+
+    let response = match command.update(status.as_message()).await {
+        Ok(response) => match response.model().await {
+            Ok(msg) => Some(msg),
+            Err(err) => {
+                warn!(err = ?Report::new(err), "Failed to deserialize response");
+
+                None
+            }
+        },
+        Err(err) => {
+            warn!(err = ?Report::new(err), "Failed to respond");
+
+            None
+        }
+    };
 
     let allow_custom_skins = match command.guild_id {
         Some(guild_id) => {
@@ -341,7 +383,14 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
         }
     };
 
-    let ongoing_fut = OngoingRender::new(render.render_id, command, status, Some(score_id), owner);
+    let ongoing_fut = OngoingRender::new(
+        render.render_id,
+        &command,
+        ProgressResponse::new(response, command.permissions, false),
+        status,
+        Some(score_id),
+        owner,
+    );
 
     tokio::spawn(ongoing_fut.await.await_render_url());
 
@@ -401,13 +450,14 @@ impl RenderStatus {
             preparing: ProgressEmote,
             commissioning: ProgressEmote,
             rendering: ProgressEmote,
-            rendering_text: &str,
+            rendering_text: Option<&str>,
         ) -> String {
             format!(
                 "- Requesting score {requesting}\n\
                 - Preparing replay {preparing}\n\
                 - Commissioning render {commissioning}\n\
-                - {rendering_text} {rendering}"
+                - {} {rendering}",
+                rendering_text.unwrap_or("Rendering")
             )
         }
 
@@ -417,28 +467,35 @@ impl RenderStatus {
                 ProgressEmote::Waiting,
                 ProgressEmote::Waiting,
                 ProgressEmote::Waiting,
-                "Rendering",
+                None,
             ),
             RenderStatusInner::PreparingReplay => description(
                 preparation_done_emote(&self.start, &RenderStatusInner::RequestingScore),
                 ProgressEmote::Running,
                 ProgressEmote::Waiting,
                 ProgressEmote::Waiting,
-                "Rendering",
+                None,
             ),
             RenderStatusInner::CommissioningRender => description(
                 preparation_done_emote(&self.start, &RenderStatusInner::RequestingScore),
                 preparation_done_emote(&self.start, &RenderStatusInner::PreparingReplay),
                 ProgressEmote::Running,
                 ProgressEmote::Waiting,
-                "Rendering",
+                None,
             ),
             RenderStatusInner::Rendering(ref rendering) => description(
                 preparation_done_emote(&self.start, &RenderStatusInner::RequestingScore),
                 preparation_done_emote(&self.start, &RenderStatusInner::PreparingReplay),
                 ProgressEmote::Done,
                 ProgressEmote::Running,
-                rendering,
+                Some(rendering),
+            ),
+            RenderStatusInner::Done => description(
+                preparation_done_emote(&self.start, &RenderStatusInner::RequestingScore),
+                preparation_done_emote(&self.start, &RenderStatusInner::PreparingReplay),
+                ProgressEmote::Done,
+                ProgressEmote::Done,
+                None,
             ),
         };
 
@@ -456,6 +513,7 @@ pub enum RenderStatusInner {
     PreparingReplay,
     CommissioningRender,
     Rendering(Box<str>),
+    Done,
 }
 
 enum ProgressEmote {
@@ -478,23 +536,55 @@ impl Display for ProgressEmote {
 
 pub struct OngoingRender {
     render_id: u32,
+    // The original message that will be replied to
     orig: OwnedCommandOrigin,
+    // The message that will be updated and deleted
+    response: Option<ProgressResponse>,
     status: RenderStatus,
     receivers: OrdrReceivers,
     score_id: Option<u64>,
     msg_owner: Id<UserMarker>,
 }
 
+pub struct ProgressResponse {
+    msg: Id<MessageMarker>,
+    channel: Id<ChannelMarker>,
+    permissions: Option<Permissions>,
+    /// Whether the response should be deleted afterwards
+    delete: bool,
+}
+
+impl ProgressResponse {
+    pub fn new(
+        msg: Option<Message>,
+        permissions: Option<Permissions>,
+        delete: bool,
+    ) -> Option<Self> {
+        msg.map(|msg| Self {
+            msg: msg.id,
+            channel: msg.channel_id,
+            permissions,
+            delete,
+        })
+    }
+
+    fn get(&self) -> (Id<MessageMarker>, Id<ChannelMarker>) {
+        (self.msg, self.channel)
+    }
+}
+
 impl OngoingRender {
     pub async fn new(
         render_id: u32,
         orig: impl Into<OwnedCommandOrigin>,
+        response: Option<ProgressResponse>,
         status: RenderStatus,
         score_id: Option<u64>,
         msg_owner: Id<UserMarker>,
     ) -> Self {
         Self {
             orig: orig.into(),
+            response,
             render_id,
             receivers: Context::ordr().subscribe_render_id(render_id).await,
             status,
@@ -528,8 +618,16 @@ impl OngoingRender {
                     self.status.set(RenderStatusInner::Rendering(progress.progress));
                     let builder = self.status.as_message();
 
-                    if let Err(err) = self.orig.update( builder).await {
-                        warn!(?err, "Failed to update message");
+                    if let Some(ref response) = self.response {
+                        let perms = response.permissions;
+
+                        if let Some(update_fut) = response.get().update(builder, perms) {
+                            if let Err(err) = update_fut.await {
+                                warn!(?err, "Failed to update message");
+                            }
+                        } else {
+                            warn!("Lacking permissions to update message");
+                        }
                     }
                 },
                 done = self.receivers.done.recv() => {
@@ -553,8 +651,27 @@ impl OngoingRender {
                     let video_url_with_user = format!("{video_url} <@{}>", self.msg_owner);
                     let builder = MessageBuilder::new().content(video_url_with_user).embed(None);
 
-                    if let Err(err) = self.orig.update(builder).await {
-                        warn!(?err, "Failed to update message");
+                    if let Err(err) = self.orig.reply(builder).await {
+                        warn!(?err, "Failed to reply message");
+                    } else if let Some(ref response) = self.response {
+
+                        if response.delete {
+                            if let Err(err) = response.get().delete().await {
+                                warn!(?err, "Failed to delete response");
+                            }
+                        } else {
+                            self.status.set(RenderStatusInner::Done);
+                            let builder = self.status.as_message();
+                            let perms = response.permissions;
+
+                            if let Some(update_fut) = response.get().update(builder, perms) {
+                                if let Err(err) = update_fut.await {
+                                    warn!(?err, "Failed to update message");
+                                }
+                            } else {
+                                warn!("Lacking permissions to update message");
+                            }
+                        }
                     }
 
                     Context::ordr().unsubscribe_render_id(render_id).await;
@@ -568,11 +685,28 @@ impl OngoingRender {
 
                     warn!(?failed, "Received error from o!rdr");
 
-                    let embed = EmbedBuilder::new().description(failed.error_message).color_red();
-                    let builder = MessageBuilder::new().embed(embed);
-
-                    if let Err(err) = self.orig.update( builder).await {
+                    if let Err(err) = self.orig.reply_error(failed.error_message).await {
                         warn!(?err, "Failed to update message");
+                    } else if let Some(ref response) = self.response {
+                        if response.delete {
+                            if let Err(err) = response.get().delete().await {
+                                warn!(?err, "Failed to delete response");
+                            }
+                        } else {
+                            let embed = EmbedBuilder::new()
+                                .color_red()
+                                .description("Render failed");
+                            let builder = MessageBuilder::new().embed(embed);
+                            let perms = response.permissions;
+
+                            if let Some(update_fut) = response.get().update(builder, perms) {
+                                if let Err(err) = update_fut.await {
+                                    warn!(?err, "Failed to update message");
+                                }
+                            } else {
+                                warn!("Lacking permissions to update message");
+                            }
+                        }
                     }
 
                     Context::ordr().unsubscribe_render_id(failed.render_id).await;
@@ -583,8 +717,28 @@ impl OngoingRender {
                     let content = "Timeout while waiting for o!rdr updates, \
                         there was probably a network issue.";
 
-                    if let Err(err) = self.orig.error(content).await {
+                    if let Err(err) = self.orig.reply_error(content).await {
                         warn!(?err, "Failed to update message");
+                    } else if let Some(ref response) = self.response {
+                        if response.delete {
+                            if let Err(err) = response.get().delete().await {
+                                warn!(?err, "Failed to delete response");
+                            }
+                        } else {
+                            let embed = EmbedBuilder::new()
+                                .color_red()
+                                .description("Render failed");
+                            let builder = MessageBuilder::new().embed(embed);
+                            let perms = response.permissions;
+
+                            if let Some(update_fut) = response.get().update(builder, perms) {
+                                if let Err(err) = update_fut.await {
+                                    warn!(?err, "Failed to update message");
+                                }
+                            } else {
+                                warn!("Lacking permissions to update message");
+                            }
+                        }
                     }
 
                     Context::ordr().unsubscribe_render_id(self.render_id).await;

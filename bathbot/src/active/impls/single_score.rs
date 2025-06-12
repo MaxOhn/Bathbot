@@ -46,10 +46,10 @@ use crate::{
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::{
-        osu::{OngoingRender, RENDERER_NAME, RenderStatus, RenderStatusInner},
+        osu::{OngoingRender, ProgressResponse, RENDERER_NAME, RenderStatus, RenderStatusInner},
         utility::{ScoreEmbedData, ScoreEmbedDataWrap},
     },
-    core::Context,
+    core::{Context, commands::OwnedCommandOrigin},
     embeds::HitResultFormatter,
     manager::{ReplayError, redis::osu::CachedUser},
     util::{
@@ -220,7 +220,7 @@ impl SingleScorePagination {
 
                 // Spawn in new task so that we're sure to callback the component in time
                 tokio::spawn(async move {
-                    let cached = CachedRender::new(score_id, video_url, owner);
+                    let cached = CachedRender::new(score_id, video_url, true, owner);
                     let begin_fut = ActiveMessages::builder(cached).begin(channel_id);
 
                     if let Err(err) = begin_fut.await {
@@ -364,9 +364,24 @@ impl SingleScorePagination {
 
         status.set(RenderStatusInner::CommissioningRender);
 
-        if let Some(update_fut) = msg.update(status.as_message(), permissions) {
-            let _ = update_fut.await;
-        }
+        let response = match msg.update(status.as_message(), permissions) {
+            Some(update_fut) => match update_fut.await {
+                Ok(response) => match response.model().await {
+                    Ok(msg) => Some(msg),
+                    Err(err) => {
+                        warn!(err = ?Report::new(err), "Failed to deserialize response");
+
+                        None
+                    }
+                },
+                Err(err) => {
+                    warn!(err = ?Report::new(err), "Failed to respond");
+
+                    None
+                }
+            },
+            None => None,
+        };
 
         let allow_custom_skins = match guild {
             Some(guild_id) => {
@@ -417,7 +432,12 @@ impl SingleScorePagination {
 
         let ongoing_fut = OngoingRender::new(
             render.render_id,
-            (msg, permissions),
+            OwnedCommandOrigin::Message {
+                msg: orig.0,
+                channel: orig.1,
+                permissions,
+            },
+            ProgressResponse::new(response, permissions, true),
             status,
             Some(score_id),
             owner,
