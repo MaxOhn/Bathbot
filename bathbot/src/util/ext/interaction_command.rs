@@ -142,7 +142,7 @@ impl InteractionCommandExt for InteractionCommand {
     }
 
     fn update<'l>(&'l self, builder: MessageBuilder<'l>) -> ResponseFuture<Message> {
-        InteractionToken(&self.token).update(builder, self.permissions)
+        InteractionToken::from(self).update(builder, self.permissions)
     }
 
     fn autocomplete(&self, choices: Vec<CommandOptionChoice>) -> ResponseFuture<EmptyBody> {
@@ -162,17 +162,53 @@ impl InteractionCommandExt for InteractionCommand {
     }
 }
 
-pub struct InteractionToken<'a>(pub &'a str);
+pub struct InteractionToken<'a>(pub Cow<'a, str>);
 
 impl InteractionToken<'_> {
-    pub fn update<'l>(
-        &'l self,
-        builder: MessageBuilder<'l>,
+    pub fn into_owned(self) -> InteractionToken<'static> {
+        InteractionToken(Cow::Owned(self.0.into_owned()))
+    }
+
+    pub fn reply(
+        &self,
+        builder: MessageBuilder<'_>,
         permissions: Option<Permissions>,
     ) -> ResponseFuture<Message> {
         let client = Context::interaction();
 
-        let mut req = client.update_response(self.0);
+        let mut req = client.create_followup(self.0.as_ref());
+
+        if let Some(ref content) = builder.content {
+            req = req.content(content.as_ref());
+        }
+
+        let embed = builder.embed.build();
+
+        if let Some(embeds) = embed.as_option_slice() {
+            req = req.embeds(embeds);
+        }
+
+        if let Some(ref components) = builder.components {
+            req = req.components(components);
+        }
+
+        if let Some(attachment) = builder.attachment.as_ref().filter(|_| {
+            permissions.is_none_or(|permissions| permissions.contains(Permissions::ATTACH_FILES))
+        }) {
+            req = req.attachments(slice::from_ref(attachment));
+        }
+
+        req.into_future()
+    }
+
+    pub fn update(
+        &self,
+        builder: MessageBuilder<'_>,
+        permissions: Option<Permissions>,
+    ) -> ResponseFuture<Message> {
+        let client = Context::interaction();
+
+        let mut req = client.update_response(self.0.as_ref());
 
         if let Some(ref content) = builder.content {
             req = req.content(Some(content.as_ref()));
@@ -195,5 +231,17 @@ impl InteractionToken<'_> {
         }
 
         req.into_future()
+    }
+}
+
+impl<'a> From<InteractionCommand> for InteractionToken<'a> {
+    fn from(command: InteractionCommand) -> Self {
+        Self(Cow::Owned(command.token))
+    }
+}
+
+impl<'a> From<&'a InteractionCommand> for InteractionToken<'a> {
+    fn from(command: &'a InteractionCommand) -> Self {
+        Self(Cow::Borrowed(&command.token))
     }
 }

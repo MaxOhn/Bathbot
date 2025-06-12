@@ -17,7 +17,9 @@ use twilight_model::{
 
 use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage, response::ActiveResponse},
-    commands::osu::{OngoingRender, RENDERER_NAME, RenderStatus, RenderStatusInner},
+    commands::osu::{
+        OngoingRender, ProgressResponse, RENDERER_NAME, RenderStatus, RenderStatusInner,
+    },
     core::Context,
     manager::ReplayError,
     util::{ComponentExt, MessageExt, interaction::InteractionComponent},
@@ -28,13 +30,20 @@ pub struct CachedRender {
     video_url: Box<str>,
     msg_owner: Id<UserMarker>,
     done: bool,
+    delete_updates: bool,
 }
 
 impl CachedRender {
-    pub fn new(score_id: u64, video_url: Box<str>, msg_owner: Id<UserMarker>) -> Self {
+    pub fn new(
+        score_id: u64,
+        video_url: Box<str>,
+        delete_updates: bool,
+        msg_owner: Id<UserMarker>,
+    ) -> Self {
         Self {
             score_id,
             video_url,
+            delete_updates,
             msg_owner,
             done: false,
         }
@@ -139,7 +148,22 @@ impl CachedRender {
 
         // Just a status update, no need to propagate an error
         status.set(RenderStatusInner::CommissioningRender);
-        let _ = component.update(status.as_message()).await;
+
+        let response = match component.update(status.as_message()).await {
+            Ok(response) => match response.model().await {
+                Ok(msg) => Some(msg),
+                Err(err) => {
+                    warn!(err = ?Report::new(err), "Failed to deserialize response");
+
+                    None
+                }
+            },
+            Err(err) => {
+                warn!(err = ?Report::new(err), "Failed to respond");
+
+                None
+            }
+        };
 
         let allow_custom_skins = match component.guild_id {
             Some(guild_id) => {
@@ -194,6 +218,7 @@ impl CachedRender {
         let ongoing_fut = OngoingRender::new(
             render.render_id,
             &*component,
+            ProgressResponse::new(response, component.permissions, self.delete_updates),
             status,
             Some(self.score_id),
             owner,
