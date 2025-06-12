@@ -274,7 +274,7 @@ impl OwnedCommandOrigin {
     }
 }
 
-fn unit<T>(_: T) -> () {}
+fn unit<T>(_: T) {}
 
 impl From<(Message, Option<Permissions>)> for OwnedCommandOrigin {
     fn from((msg, permissions): (Message, Option<Permissions>)) -> Self {
