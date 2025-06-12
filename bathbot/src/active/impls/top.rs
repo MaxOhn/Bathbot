@@ -112,7 +112,7 @@ impl TopPagination {
                     .or(pb_idx.as_ref().and_then(|idx| idx.idx))
                     .expect("missing idx")
                     + 1,
-                map = MapFormat::new(map),
+                map = MapFormat::from(map),
                 map_id = map.map_id(),
                 stars = round(*stars),
                 grade = GradeFormatter::new(score.grade, Some(score.score_id), score.is_legacy()),
@@ -164,7 +164,7 @@ impl TopPagination {
                     .or(pb_idx.as_ref().and_then(|idx| idx.idx))
                     .expect("missing idx")
                     + 1,
-                map = MapFormat::new(map),
+                map = MapFormat::from(map),
                 map_id = map.map_id(),
                 stars = round(*stars),
                 grade = GradeFormatter::new(score.grade, Some(score.score_id), score.is_legacy()),
@@ -387,13 +387,26 @@ fn mode_str(mode: GameMode) -> &'static str {
     }
 }
 
-struct MapFormat<'m> {
-    map: &'m OsuMap,
+/// Formats `"artist - title [version]"` and truncates them if necessary.
+pub struct MapFormat<'a> {
+    artist: &'a str,
+    title: &'a str,
+    version: &'a str,
 }
 
-impl<'m> MapFormat<'m> {
-    fn new(map: &'m OsuMap) -> Self {
-        Self { map }
+impl<'a> MapFormat<'a> {
+    pub fn new(artist: &'a str, title: &'a str, version: &'a str) -> Self {
+        Self {
+            artist,
+            title,
+            version,
+        }
+    }
+}
+
+impl<'a> From<&'a OsuMap> for MapFormat<'a> {
+    fn from(map: &'a OsuMap) -> Self {
+        Self::new(map.artist(), map.title(), map.version())
     }
 }
 
@@ -406,9 +419,9 @@ impl Display for MapFormat<'_> {
         const LIMIT: usize = 42;
         const MIN_LEN_WITH_DOTS: usize = MIN_LEN + TRIPLE_DOTS;
 
-        let artist = self.map.artist().len();
-        let title = self.map.title().len();
-        let version = self.map.version().len();
+        let artist = self.artist.len();
+        let title = self.title.len();
+        let version = self.version.len();
 
         // if the dots wouldn't save space, might as well not replace the content
         let tuple = |pre, post| {
@@ -424,17 +437,17 @@ impl Display for MapFormat<'_> {
             write!(
                 f,
                 "{} - {} [{}]",
-                self.map.artist().cow_escape_markdown(),
-                self.map.title().cow_escape_markdown(),
-                self.map.version().cow_escape_markdown(),
+                self.artist.cow_escape_markdown(),
+                self.title.cow_escape_markdown(),
+                self.version.cow_escape_markdown(),
             )
         } else if title + version + SPACE_SQUARE_BRACKETS <= LIMIT {
             // show title and version without truncating
             write!(
                 f,
                 "{} [{}]",
-                self.map.title().cow_escape_markdown(),
-                self.map.version().cow_escape_markdown()
+                self.title.cow_escape_markdown(),
+                self.version.cow_escape_markdown()
             )
         } else if version <= MIN_LEN_WITH_DOTS {
             // keep the version but truncate title
@@ -443,8 +456,8 @@ impl Display for MapFormat<'_> {
             write!(
                 f,
                 "{}{suffix} [{}]",
-                self.map.title()[..end].cow_escape_markdown(),
-                self.map.version().cow_escape_markdown(),
+                self.title[..end].cow_escape_markdown(),
+                self.version.cow_escape_markdown(),
             )
         } else if title <= MIN_LEN_WITH_DOTS {
             // keep the title but truncate version
@@ -453,8 +466,8 @@ impl Display for MapFormat<'_> {
             write!(
                 f,
                 "{} [{}{suffix}]",
-                self.map.title().cow_escape_markdown(),
-                self.map.version()[..end].cow_escape_markdown(),
+                self.title.cow_escape_markdown(),
+                self.version[..end].cow_escape_markdown(),
             )
         } else {
             // truncate title and version evenly
@@ -508,8 +521,8 @@ impl Display for MapFormat<'_> {
             write!(
                 f,
                 "{}{title_suffix} [{}{version_suffix}]",
-                self.map.title()[..title_end].cow_escape_markdown(),
-                self.map.version()[..version_end].cow_escape_markdown(),
+                self.title[..title_end].cow_escape_markdown(),
+                self.version[..version_end].cow_escape_markdown(),
             )
         }
     }

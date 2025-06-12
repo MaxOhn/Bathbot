@@ -1,8 +1,8 @@
-use std::{borrow::Cow, collections::HashMap, fmt::Write};
+use std::{borrow::Cow, fmt::Write};
 
 use bathbot_macros::{SlashCommand, command};
 use bathbot_model::command_fields::GameModeOption;
-use bathbot_psql::model::osu::MapBookmark;
+use bathbot_psql::model::{configs::ListSize, osu::MapBookmark};
 use bathbot_util::{
     CowUtils, MessageOrigin,
     constants::GENERAL_ISSUE,
@@ -44,6 +44,13 @@ pub struct Bookmarks<'a> {
     query: Option<Cow<'a, str>>,
     #[command(desc = "Filter out maps that don't belong to a gamemode")]
     mode: Option<GameModeOption>,
+    #[command(
+        desc = "Size of the embed",
+        help = "Size of the embed.\n\
+        `Condensed` shows 10 entries, `Detailed` shows 5, and `Single` shows 1.\n\
+        The default can be set with the `/config` command."
+    )]
+    size: Option<ListSize>,
 }
 
 impl<'a> Bookmarks<'a> {
@@ -55,6 +62,7 @@ impl<'a> Bookmarks<'a> {
             query,
             sort: None,
             mode: None,
+            size: None,
         }
     }
 }
@@ -106,7 +114,39 @@ pub async fn slash_bookmarks(mut command: InteractionCommand) -> Result<()> {
 async fn bookmarks(orig: CommandOrigin<'_>, args: Bookmarks<'_>) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let mut bookmarks = match Context::bookmarks().get(owner).await {
+    let config_fut = Context::user_config().with_osu_id(owner);
+    let bookmarks_fut = Context::bookmarks().get(owner);
+
+    let guild_config_fut = async {
+        match orig.guild_id() {
+            Some(guild_id) => {
+                Context::guild_config()
+                    .peek(guild_id, |config| config.list_size)
+                    .await
+            }
+            None => None,
+        }
+    };
+
+    let (config_res, guild_list_size, bookmarks_res) =
+        tokio::join!(config_fut, guild_config_fut, bookmarks_fut);
+
+    let list_size = match args.size {
+        Some(size) => size,
+        None => match config_res {
+            Ok(config) => match config.list_size {
+                Some(size) => size,
+                None => guild_list_size.unwrap_or_default(),
+            },
+            Err(err) => {
+                warn!(?err, "Failed to fetch user config");
+
+                guild_list_size.unwrap_or_default()
+            }
+        },
+    };
+
+    let mut bookmarks = match bookmarks_res {
         Ok(bookmarks) => bookmarks,
         Err(err) => {
             let _ = orig.error(GENERAL_ISSUE).await;
@@ -123,15 +163,8 @@ async fn bookmarks(orig: CommandOrigin<'_>, args: Bookmarks<'_>) -> Result<()> {
 
     let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
 
-    let pagination = BookmarksPagination::builder()
-        .bookmarks(bookmarks)
-        .origin(origin)
-        .cached_entries(HashMap::default())
-        .filtered_maps(Some(filtered))
-        .defer_next(false)
-        .content(content)
-        .msg_owner(owner)
-        .build();
+    let pagination =
+        BookmarksPagination::new(bookmarks, origin, Some(filtered), content, owner, list_size);
 
     ActiveMessages::builder(pagination)
         .start_by_update(true)
