@@ -1,9 +1,7 @@
-use std::{
-    collections::HashMap,
-    fmt::{Display, Formatter, Result as FmtResult},
-};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use bathbot_macros::msg_command;
+use bathbot_psql::model::configs::ListSize;
 use bathbot_util::{Authored, MessageOrigin, constants::GENERAL_ISSUE, osu::MapIdType};
 use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
@@ -150,14 +148,8 @@ async fn bookmark_map(mut command: InteractionCommand) -> Result<()> {
 
     let origin = MessageOrigin::new(command.guild_id(), command.channel_id());
 
-    let mut pagination = BookmarksPagination::builder()
-        .bookmarks(bookmarks)
-        .origin(origin)
-        .cached_entries(HashMap::default())
-        .defer_next(false)
-        .content(content)
-        .msg_owner(user_id)
-        .build();
+    let mut pagination =
+        BookmarksPagination::new(bookmarks, origin, None, content, user_id, ListSize::Single);
 
     pagination.set_index(idx);
 

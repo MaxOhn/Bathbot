@@ -6,10 +6,9 @@ use std::{
     time::Duration,
 };
 
-use bathbot_macros::PaginationBuilder;
-use bathbot_psql::model::osu::MapBookmark;
+use bathbot_psql::model::{configs::ListSize, osu::MapBookmark};
 use bathbot_util::{
-    Authored, EmbedBuilder, FooterBuilder, IntHasher, MessageOrigin,
+    Authored, CowUtils, EmbedBuilder, FooterBuilder, IntHasher, MessageOrigin,
     constants::{AVATAR_URL, OSU_BASE},
     datetime::SecToMinSec,
     fields,
@@ -29,6 +28,7 @@ use twilight_model::{
 use crate::{
     active::{
         BuildPage, ComponentResult, IActiveMessage,
+        impls::top::MapFormat,
         pagination::{Pages, handle_pagination_component},
     },
     core::Context,
@@ -36,9 +36,7 @@ use crate::{
     util::{ComponentExt, Emote, interaction::InteractionComponent},
 };
 
-#[derive(PaginationBuilder)]
 pub struct BookmarksPagination {
-    #[pagination(per_page = 1)]
     bookmarks: Vec<MapBookmark>,
     origin: MessageOrigin,
     cached_entries: CachedBookmarkEntries,
@@ -51,6 +49,39 @@ pub struct BookmarksPagination {
 }
 
 impl BookmarksPagination {
+    const PER_PAGE_CONDENSED: usize = 10;
+    const PER_PAGE_DETAILED: usize = 5;
+    const PER_PAGE_SINGLE: usize = 1;
+
+    pub fn new(
+        bookmarks: Vec<MapBookmark>,
+        origin: MessageOrigin,
+        filtered_maps: Option<bool>,
+        content: String,
+        msg_owner: Id<UserMarker>,
+        list_size: ListSize,
+    ) -> Self {
+        let per_page = match list_size {
+            ListSize::Single => Self::PER_PAGE_SINGLE,
+            ListSize::Detailed => Self::PER_PAGE_DETAILED,
+            ListSize::Condensed => Self::PER_PAGE_CONDENSED,
+        };
+
+        let pages = Pages::new(per_page, bookmarks.len());
+
+        Self {
+            bookmarks,
+            origin,
+            cached_entries: CachedBookmarkEntries::default(),
+            defer_next: false,
+            filtered_maps,
+            confirm_remove: None,
+            msg_owner,
+            content,
+            pages,
+        }
+    }
+
     async fn cached_entry<'a>(
         entries: &'a mut CachedBookmarkEntries,
         map: &MapBookmark,
@@ -102,32 +133,205 @@ impl BookmarksPagination {
     pub fn set_index(&mut self, index: usize) {
         self.pages.set_index(index);
     }
-}
 
-impl IActiveMessage for BookmarksPagination {
-    async fn build_page(&mut self) -> Result<BuildPage> {
+    fn build_empty_page(&mut self, defer: bool) -> Result<BuildPage> {
+        let mut description = if self.filtered_maps.unwrap_or(false) {
+            "No bookmarked maps match your criteria. \n\
+            You can bookmark more maps by:\n"
+                .to_owned()
+        } else {
+            "Looks like you haven't bookmarked any maps. \n\
+            You can do so by:\n"
+                .to_owned()
+        };
+
+        description.push_str(
+            "1. Rightclicking a bot message that contains a single map\n\
+            2. Click on `Apps`\n\
+            3. Click on `Bookmark map`",
+        );
+
+        let embed = EmbedBuilder::new().description(description);
+
+        Ok(BuildPage::new(embed, defer))
+    }
+
+    async fn build_page_condensed(&mut self) -> Result<BuildPage> {
         let defer = mem::replace(&mut self.defer_next, false);
 
         if self.bookmarks.is_empty() {
-            let mut description = if self.filtered_maps.unwrap_or(false) {
-                "No bookmarked maps match your criteria. \n\
-                You can bookmark more maps by:\n"
-                    .to_owned()
-            } else {
-                "Looks like you haven't bookmarked any maps. \n\
-                You can do so by:\n"
-                    .to_owned()
+            return self.build_empty_page(defer);
+        }
+
+        let start = self.pages.index();
+        let end = start + self.pages.per_page();
+
+        let maps = &self.bookmarks[start..self.bookmarks.len().min(end)];
+        let mut description = String::with_capacity(1024);
+
+        for (i, map) in maps.iter().enumerate() {
+            let entry_fut = Self::cached_entry(&mut self.cached_entries, map);
+
+            let CachedBookmarkEntry {
+                pp_map,
+                gd_creator: _,
+            } = match entry_fut.await {
+                Ok(entry) => entry,
+                Err(err) => {
+                    warn!(?err, "Failed to prepare cached entry");
+
+                    continue;
+                }
             };
 
-            description.push_str(
-                "1. Rightclicking a bot message that contains a single map\n\
-                2. Click on `Apps`\n\
-                3. Click on `Bookmark map`",
+            let mut stars = 0.0;
+            let mut max_pp = 0.0;
+
+            let attrs_opt = Context::pp_parsed(pp_map, map.mode)
+                .lazer(true)
+                .performance()
+                .await;
+
+            if let Some(attrs) = attrs_opt {
+                stars = attrs.stars() as f32;
+                max_pp = attrs.pp() as f32;
+            }
+
+            let _ = writeln!(
+                description,
+                "**#{idx} [{map}]({OSU_BASE}b/{map_id})** [{stars} ★]\n\
+                {mode} **{pp}pp** `{len}` {bpm_emote} {bpm} \
+                `CS: {cs} AR: {ar} OD: {od} HP: {hp}`",
+                idx = i + start + 1,
+                map = MapFormat::new(&map.artist, &map.title, &map.version),
+                map_id = map.map_id,
+                stars = round(stars),
+                mode = Emote::from(map.mode),
+                pp = round(max_pp),
+                len = SecToMinSec::new(map.seconds_total),
+                bpm_emote = Emote::Bpm,
+                bpm = round(map.bpm),
+                cs = round(map.cs),
+                ar = round(map.ar),
+                od = round(map.od),
+                hp = round(map.hp),
             );
+        }
 
-            let embed = EmbedBuilder::new().description(description);
+        let footer_text = format!(
+            "Page {page}/{pages}",
+            page = self.pages.curr_page(),
+            pages = self.pages.last_page(),
+        );
 
-            return Ok(BuildPage::new(embed, defer));
+        let footer = FooterBuilder::new(footer_text);
+
+        let embed = EmbedBuilder::new()
+            .description(description)
+            .footer(footer)
+            .title("Bookmarked maps");
+
+        Ok(BuildPage::new(embed, defer).content(self.content.clone()))
+    }
+
+    async fn build_page_detailed(&mut self) -> Result<BuildPage> {
+        let defer = mem::replace(&mut self.defer_next, false);
+
+        if self.bookmarks.is_empty() {
+            return self.build_empty_page(defer);
+        }
+
+        let start = self.pages.index();
+        let end = start + self.pages.per_page();
+
+        let maps = &self.bookmarks[start..self.bookmarks.len().min(end)];
+        let mut description = String::with_capacity(1024);
+
+        for (i, map) in maps.iter().enumerate() {
+            let entry_fut = Self::cached_entry(&mut self.cached_entries, map);
+
+            let CachedBookmarkEntry { pp_map, gd_creator } = match entry_fut.await {
+                Ok(entry) => entry,
+                Err(err) => {
+                    warn!(?err, "Failed to prepare cached entry");
+
+                    continue;
+                }
+            };
+
+            let mut stars = 0.0;
+            let mut max_combo = 0;
+            let mut max_pp = 0.0;
+            let mut pp_97 = 0.0;
+
+            let attrs_opt = Context::pp_parsed(pp_map, map.mode)
+                .lazer(true)
+                .performance()
+                .await;
+
+            if let Some(attrs) = attrs_opt {
+                stars = attrs.stars() as f32;
+                max_combo = attrs.max_combo();
+                max_pp = attrs.pp() as f32;
+
+                pp_97 = Performance::new(attrs.difficulty_attributes())
+                    .accuracy(97.0)
+                    .hitresult_priority(HitResultPriority::Fastest)
+                    .lazer(true)
+                    .calculate()
+                    .pp() as f32;
+            }
+
+            let _ = writeln!(
+                description,
+                "**#{idx} [{artist} - {title} [{version}]]({OSU_BASE}b/{map_id})** [{stars} ★]\n\
+                **{pp_97}▸{pp}pp** for **97▸100%** • `{len}`• {max_combo}x • {bpm_emote} {bpm} \n\
+                `CS: {cs} AR: {ar} OD: {od} HP: {hp}` • {mode} {status:?} map of {mapper}",
+                idx = i + start + 1,
+                artist = map.artist.cow_escape_markdown(),
+                title = map.title.cow_escape_markdown(),
+                version = map.version.cow_escape_markdown(),
+                map_id = map.map_id,
+                stars = round(stars),
+                pp_97 = round(pp_97),
+                pp = round(max_pp),
+                len = SecToMinSec::new(map.seconds_total),
+                bpm_emote = Emote::Bpm,
+                bpm = round(map.bpm),
+                cs = round(map.cs),
+                ar = round(map.ar),
+                od = round(map.od),
+                hp = round(map.hp),
+                mode = Emote::from(map.mode),
+                status = map.status,
+                mapper = match gd_creator {
+                    Some(name) => name.as_str(),
+                    None => map.creator_name.as_ref(),
+                }
+            );
+        }
+
+        let footer_text = format!(
+            "Page {page}/{pages}",
+            page = self.pages.curr_page(),
+            pages = self.pages.last_page(),
+        );
+
+        let footer = FooterBuilder::new(footer_text);
+
+        let embed = EmbedBuilder::new()
+            .description(description)
+            .footer(footer)
+            .title("Bookmarked maps");
+
+        Ok(BuildPage::new(embed, defer).content(self.content.clone()))
+    }
+
+    async fn build_page_single(&mut self) -> Result<BuildPage> {
+        let defer = mem::replace(&mut self.defer_next, false);
+
+        if self.bookmarks.is_empty() {
+            return self.build_empty_page(defer);
         }
 
         let map = &self.bookmarks[self.pages.index()];
@@ -320,6 +524,17 @@ impl IActiveMessage for BookmarksPagination {
 
         Ok(BuildPage::new(embed, defer).content(self.content.clone()))
     }
+}
+
+impl IActiveMessage for BookmarksPagination {
+    async fn build_page(&mut self) -> Result<BuildPage> {
+        match self.pages.per_page() {
+            Self::PER_PAGE_SINGLE => self.build_page_single().await,
+            Self::PER_PAGE_DETAILED => self.build_page_detailed().await,
+            Self::PER_PAGE_CONDENSED => self.build_page_condensed().await,
+            _ => unreachable!(),
+        }
+    }
 
     fn build_components(&self) -> Vec<Component> {
         if self.bookmarks.is_empty() {
@@ -388,13 +603,17 @@ impl IActiveMessage for BookmarksPagination {
             sku_id: None,
         };
 
-        let components = vec![
-            Component::Button(jump_start),
-            Component::Button(single_step_back),
-            Component::Button(remove),
-            Component::Button(single_step),
-            Component::Button(jump_end),
-        ];
+        let mut components = Vec::with_capacity(5);
+
+        components.push(Component::Button(jump_start));
+        components.push(Component::Button(single_step_back));
+
+        if self.pages.per_page() == 1 {
+            components.push(Component::Button(remove));
+        }
+
+        components.push(Component::Button(single_step));
+        components.push(Component::Button(jump_end));
 
         vec![Component::ActionRow(ActionRow { components })]
     }
