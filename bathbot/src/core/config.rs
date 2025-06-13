@@ -158,6 +158,10 @@ impl BotConfig {
         self.grades[grade as usize].as_ref()
     }
 
+    pub fn grades(&self) -> impl Iterator<Item = &str> + use<'_> {
+        self.grades.iter().map(|s| s.as_ref())
+    }
+
     pub fn emote(&self, emote: Emote) -> &CustomEmote {
         &self.emotes[emote as usize]
     }
