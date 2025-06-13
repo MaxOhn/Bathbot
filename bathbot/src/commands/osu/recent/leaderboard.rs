@@ -127,6 +127,7 @@ impl<'m> RecentLeaderboard<'m> {
             sort: None,
             index: num.to_string_opt().map(String::into),
             discord,
+            score_data: None,
         }
     }
 }
@@ -192,7 +193,7 @@ pub(super) async fn leaderboard(
         return require_link(&orig).await;
     };
 
-    let score_data = match config.score_data {
+    let score_data = match args.score_data.or(config.score_data) {
         Some(score_data) => score_data,
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()

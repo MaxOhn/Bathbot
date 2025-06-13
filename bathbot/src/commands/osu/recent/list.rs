@@ -309,6 +309,7 @@ impl<'m> RecentList<'m> {
             mods: None,
             unique: None,
             discord,
+            score_data: None,
         })
     }
 }
@@ -343,7 +344,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: RecentList<'_>) -> Resul
         Some(mode) => mode,
     };
 
-    let legacy_scores = match config.score_data {
+    let legacy_scores = match args.score_data.or(config.score_data) {
         Some(score_data) => score_data.is_legacy(),
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()

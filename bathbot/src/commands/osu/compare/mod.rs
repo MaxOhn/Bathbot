@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use bathbot_macros::SlashCommand;
 use bathbot_model::command_fields::{GameModeOption, GradeOption};
+use bathbot_psql::model::configs::ScoreData;
 use eyre::Result;
 use twilight_interactions::command::{
     AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
@@ -15,7 +16,10 @@ pub use self::{
     score::{slash_compare as slash_compare_score, *},
 };
 use crate::{
-    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
+        utility::{SCORE_DATA_DESC, SCORE_DATA_HELP},
+    },
     util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
@@ -104,6 +108,8 @@ pub struct CompareScore<'a> {
     grade: Option<GradeOption>,
     #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 #[derive(CommandModel)]
@@ -118,6 +124,7 @@ pub struct CompareScoreAutocomplete<'a> {
     pub index: Option<u32>,
     pub grade: Option<GradeOption>,
     pub discord: Option<Id<UserMarker>>,
+    pub score_data: Option<ScoreData>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption)]

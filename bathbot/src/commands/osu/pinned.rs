@@ -38,7 +38,8 @@ use crate::{
     commands::{
         DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
         utility::{
-            MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
+            MissAnalyzerCheck, SCORE_DATA_DESC, SCORE_DATA_HELP, ScoreEmbedDataHalf,
+            ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
         },
     },
     core::commands::{CommandOrigin, prefix::Args},
@@ -88,6 +89,8 @@ pub struct Pinned<'a> {
         The default can be set with the `/config` command."
     )]
     size: Option<ListSize>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 impl<'m> Pinned<'m> {
@@ -114,6 +117,7 @@ impl<'m> Pinned<'m> {
             index: num.to_string_opt().map(Cow::Owned),
             discord,
             size: None,
+            score_data: None,
         }
     }
 }
@@ -259,7 +263,12 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned<'_>) -> Result<()> {
         }
     };
 
-    let score_data = config.score_data.or(guild_score_data).unwrap_or_default();
+    let score_data = args
+        .score_data
+        .or(config.score_data)
+        .or(guild_score_data)
+        .unwrap_or_default();
+
     let legacy_scores = score_data.is_legacy();
     let missing_user = user_opt.is_none();
 

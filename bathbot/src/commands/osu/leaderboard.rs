@@ -26,6 +26,7 @@ use super::{HasMods, ModsResult};
 use crate::{
     Context,
     active::{ActiveMessages, impls::LeaderboardPagination},
+    commands::utility::{SCORE_DATA_DESC, SCORE_DATA_HELP},
     core::commands::{CommandOrigin, prefix::Args},
     manager::{
         MapError, Mods, OsuMap,
@@ -58,6 +59,8 @@ pub struct Leaderboard<'a> {
         Note that the scores will still be the top pp scores, they'll just be re-ordered."
     )]
     sort: Option<LeaderboardSort>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 #[derive(Copy, Clone, Default, CommandOption, CreateOption, Eq, PartialEq)]
@@ -124,6 +127,7 @@ struct LeaderboardArgs<'a> {
     mods: Option<Cow<'a, str>>,
     mode: Option<GameMode>,
     sort: LeaderboardSort,
+    score_data: Option<ScoreData>,
 }
 
 impl<'m> LeaderboardArgs<'m> {
@@ -172,6 +176,7 @@ impl<'m> LeaderboardArgs<'m> {
             mods,
             mode,
             sort,
+            score_data: None,
         })
     }
 }
@@ -201,6 +206,7 @@ impl<'a> TryFrom<Leaderboard<'a>> for LeaderboardArgs<'a> {
             mods: args.mods,
             mode: args.mode.map(GameMode::from),
             sort: args.sort.unwrap_or_default(),
+            score_data: args.score_data,
         })
     }
 }
@@ -378,7 +384,7 @@ async fn leaderboard(orig: CommandOrigin<'_>, args: LeaderboardArgs<'_>) -> Resu
         }
     };
 
-    let score_data = match config.score_data {
+    let score_data = match args.score_data.or(config.score_data) {
         Some(score_data) => score_data,
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()

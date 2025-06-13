@@ -1,4 +1,4 @@
-use std::{borrow::Cow, mem, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::{HasName, SlashCommand, command};
 use bathbot_model::{
@@ -29,7 +29,7 @@ use crate::{
     commands::{
         DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
         osu::{map_strains_graph, require_link, user_not_found},
-        utility::{MissAnalyzerCheck, ScoreEmbedDataWrap},
+        utility::{MissAnalyzerCheck, SCORE_DATA_DESC, SCORE_DATA_HELP, ScoreEmbedDataWrap},
     },
     core::commands::{CommandOrigin, interaction::InteractionCommands, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
@@ -331,6 +331,7 @@ impl<'m> RecentScore<'m> {
             grade,
             passes,
             discord,
+            score_data: None,
         })
     }
 }
@@ -376,6 +377,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         grade,
         passes,
         index,
+        score_data,
         ..
     } = args;
 
@@ -391,7 +393,11 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
         _ => false,
     };
 
-    let score_data = config.score_data.or(guild_score_data).unwrap_or_default();
+    let score_data = score_data
+        .or(config.score_data)
+        .or(guild_score_data)
+        .unwrap_or_default();
+
     let legacy_scores = score_data.is_legacy();
 
     let scores_fut = Context::osu_scores()
@@ -813,12 +819,32 @@ pub struct Rs<'a> {
     passes: Option<bool>,
     #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 impl<'a> From<Rs<'a>> for RecentScore<'a> {
     #[inline]
     fn from(args: Rs<'a>) -> Self {
-        unsafe { mem::transmute(args) }
+        let Rs {
+            mode,
+            name,
+            index,
+            grade,
+            passes,
+            discord,
+            score_data,
+        } = args;
+
+        Self {
+            mode,
+            name,
+            index,
+            grade,
+            passes,
+            discord,
+            score_data,
+        }
     }
 }
 

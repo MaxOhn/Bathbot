@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
 use bathbot_model::command_fields::{GameModeOption, GradeOption};
-use bathbot_psql::model::configs::ListSize;
+use bathbot_psql::model::configs::{ListSize, ScoreData};
 use eyre::Result;
 use rosu_v2::prelude::{GameMode, Grade};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -15,6 +15,7 @@ use crate::{
     commands::{
         DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
         osu::{LeaderboardSort, top},
+        utility::{SCORE_DATA_DESC, SCORE_DATA_HELP},
     },
     util::{InteractionCommandExt, interaction::InteractionCommand},
 };
@@ -70,6 +71,8 @@ pub struct RecentScore<'a> {
     passes: Option<bool>,
     #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
@@ -126,6 +129,8 @@ pub struct RecentBest {
         The default can be set with the `/config` command."
     )]
     size: Option<ListSize>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 impl TryFrom<RecentBest> for TopArgs<'_> {
@@ -154,6 +159,7 @@ impl TryFrom<RecentBest> for TopArgs<'_> {
             index: args.index,
             query: args.query,
             size: args.size,
+            score_data: args.score_data,
             has_dash_r: false,
             has_dash_p_or_i: false,
         })
@@ -192,6 +198,8 @@ pub struct RecentLeaderboard<'a> {
     index: Option<Cow<'a, str>>,
     #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName)]
@@ -231,6 +239,8 @@ pub struct RecentList<'a> {
     unique: Option<RecentListUnique>,
     #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 #[derive(Copy, Clone, CreateOption, CommandOption)]
@@ -340,22 +350,39 @@ pub struct Rb {
         The default can be set with the `/config` command."
     )]
     size: Option<ListSize>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 impl From<Rb> for RecentBest {
     #[inline]
     fn from(args: Rb) -> Self {
+        let Rb {
+            mode,
+            name,
+            mods,
+            index,
+            discord,
+            reverse,
+            query,
+            grade,
+            perfect_combo,
+            size,
+            score_data,
+        } = args;
+
         Self {
-            mode: args.mode,
-            name: args.name,
-            mods: args.mods,
-            index: args.index,
-            discord: args.discord,
-            reverse: args.reverse,
-            query: args.query,
-            grade: args.grade,
-            perfect_combo: args.perfect_combo,
-            size: args.size,
+            mode,
+            name,
+            mods,
+            index,
+            discord,
+            reverse,
+            query,
+            grade,
+            perfect_combo,
+            size,
+            score_data,
         }
     }
 }

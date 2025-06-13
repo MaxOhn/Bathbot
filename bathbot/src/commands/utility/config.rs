@@ -87,13 +87,14 @@ pub struct Config {
         In servers, this requires that the render button is not disabled in `/serverconfigs`."
     )]
     render_button: Option<ShowHideOption>,
-    #[command(
-        desc = "Whether scores should be requested as lazer or stable scores",
-        help = "Whether scores should be requested as lazer or stable scores.\n\
-        They have a different score and grade calculation and only lazer adds the new mods."
-    )]
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
     score_data: Option<ScoreData>,
 }
+
+pub const SCORE_DATA_DESC: &str = "Whether scores should be requested as lazer or stable scores";
+
+pub const SCORE_DATA_HELP: &str = "Whether scores should be requested as lazer or stable scores.\n\
+They have a different score and grade calculation and only lazer adds the new mods.";
 
 // FIXME: Some attribute command does not register the #[cfg(feature = "")]
 // tag on fields so we need an entirely new struct for now
@@ -141,11 +142,7 @@ pub struct Config {
         In servers, this requires that the render button is not disabled in `/serverconfigs`."
     )]
     render_button: Option<ShowHideOption>,
-    #[command(
-        desc = "Whether scores should be requested as lazer or stable scores",
-        help = "Whether scores should be requested as lazer or stable scores.\n\
-        They have a different score and grade calculation and only lazer adds the new mods."
-    )]
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
     score_data: Option<ScoreData>,
 }
 
