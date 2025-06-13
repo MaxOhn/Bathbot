@@ -37,7 +37,8 @@ use crate::{
     commands::{
         DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
         utility::{
-            MissAnalyzerCheck, ScoreEmbedDataHalf, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
+            MissAnalyzerCheck, SCORE_DATA_DESC, SCORE_DATA_HELP, ScoreEmbedDataHalf,
+            ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap,
         },
     },
     core::commands::{CommandOrigin, prefix::Args},
@@ -97,6 +98,8 @@ pub struct Top {
         The default can be set with the `/config` command."
     )]
     size: Option<ListSize>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 #[derive(Copy, Clone, Default, CommandOption, CreateOption, Eq, PartialEq)]
@@ -489,6 +492,7 @@ pub struct TopArgs<'a> {
     pub index: Option<String>,
     pub query: Option<String>,
     pub size: Option<ListSize>,
+    pub score_data: Option<ScoreData>,
     pub has_dash_r: bool,
     pub has_dash_p_or_i: bool,
 }
@@ -658,6 +662,7 @@ impl<'m> TopArgs<'m> {
             index: num.to_string_opt(),
             query: None,
             size: None,
+            score_data: None,
             has_dash_r: has_dash_r.unwrap_or(false),
             has_dash_p_or_i: has_dash_p_or_i.unwrap_or(false),
         };
@@ -692,6 +697,7 @@ impl TryFrom<Top> for TopArgs<'static> {
             index: args.index,
             query: args.query,
             size: args.size,
+            score_data: args.score_data,
             has_dash_r: false,
             has_dash_p_or_i: false,
         })
@@ -769,7 +775,12 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
         None => GuildValues::default(),
     };
 
-    let score_data = config.score_data.or(guild_score_data).unwrap_or_default();
+    let score_data = args
+        .score_data
+        .or(config.score_data)
+        .or(guild_score_data)
+        .unwrap_or_default();
+
     let legacy_scores = score_data.is_legacy();
 
     // Retrieve the user and their top scores

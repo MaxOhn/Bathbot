@@ -42,7 +42,7 @@ use crate::{
     commands::{
         DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
         osu::{HasMods, ModsResult, map_strains_graph, require_link, user_not_found},
-        utility::{ScoreEmbedData, ScoreEmbedDataPersonalBest},
+        utility::{SCORE_DATA_DESC, SCORE_DATA_HELP, ScoreEmbedData, ScoreEmbedDataPersonalBest},
     },
     core::commands::{
         CommandOrigin,
@@ -109,6 +109,8 @@ pub struct Cs<'a> {
     grade: Option<GradeOption>,
     #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 #[derive(CreateCommand, SlashCommand)]
@@ -162,6 +164,8 @@ pub struct CompareScore_<'a> {
     grade: Option<GradeOption>,
     #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 #[derive(HasMods, HasName)]
@@ -175,6 +179,7 @@ pub(super) struct CompareScoreArgs<'a> {
     discord: Option<Id<UserMarker>>,
     index: Option<u32>,
     grade: Option<Grade>,
+    score_data: Option<ScoreData>,
 }
 
 impl<'m> CompareScoreArgs<'m> {
@@ -215,6 +220,7 @@ impl<'m> CompareScoreArgs<'m> {
                 ArgsNum::Random | ArgsNum::None => None,
             },
             grade: None,
+            score_data: None,
         }
     }
 }
@@ -256,6 +262,7 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
             discord: args.discord,
             index: args.index,
             grade: args.grade.map(Grade::from),
+            score_data: args.score_data,
         })
     }
 }
@@ -446,7 +453,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: CompareScoreArgs<'_>) -
         },
     };
 
-    let score_data = match config.score_data {
+    let score_data = match args.score_data.or(config.score_data) {
         Some(score_data) => score_data,
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()

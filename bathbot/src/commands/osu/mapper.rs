@@ -27,7 +27,10 @@ use crate::{
     },
     commands::{
         DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
-        utility::{MissAnalyzerCheck, ScoreEmbedDataPersonalBest, ScoreEmbedDataWrap},
+        utility::{
+            MissAnalyzerCheck, SCORE_DATA_DESC, SCORE_DATA_HELP, ScoreEmbedDataPersonalBest,
+            ScoreEmbedDataWrap,
+        },
     },
     core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
@@ -63,6 +66,8 @@ pub struct Mapper<'a> {
         The default can be set with the `/config` command."
     )]
     size: Option<ListSize>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 impl<'m> Mapper<'m> {
@@ -98,6 +103,7 @@ impl<'m> Mapper<'m> {
             sort: None,
             discord,
             size: None,
+            score_data: None,
         })
     }
 }
@@ -246,7 +252,12 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
         None => GuildValues::default(),
     };
 
-    let score_data = config.score_data.or(guild_score_data).unwrap_or_default();
+    let score_data = args
+        .score_data
+        .or(config.score_data)
+        .or(guild_score_data)
+        .unwrap_or_default();
+
     let legacy_scores = score_data.is_legacy();
 
     let mapper = args.mapper.cow_to_ascii_lowercase();

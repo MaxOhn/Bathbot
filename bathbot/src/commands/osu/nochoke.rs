@@ -17,7 +17,10 @@ use super::{require_link, user_not_found};
 use crate::{
     Context,
     active::{ActiveMessages, impls::NoChokePagination},
-    commands::{DISCORD_OPTION_DESC, DISCORD_OPTION_HELP},
+    commands::{
+        DISCORD_OPTION_DESC, DISCORD_OPTION_HELP,
+        utility::{SCORE_DATA_DESC, SCORE_DATA_HELP},
+    },
     core::commands::{CommandOrigin, prefix::Args},
     manager::{
         OsuMap,
@@ -58,6 +61,8 @@ pub struct Nochoke<'a> {
     filter: Option<NochokeFilter>,
     #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
+    #[command(desc = SCORE_DATA_DESC, help = SCORE_DATA_HELP)]
+    score_data: Option<ScoreData>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption)]
@@ -127,6 +132,7 @@ impl<'m> Nochoke<'m> {
             version: None,
             filter: None,
             discord,
+            score_data: None,
         }
     }
 }
@@ -206,7 +212,7 @@ async fn nochoke(orig: CommandOrigin<'_>, args: Nochoke<'_>) -> Result<()> {
         Some(mode) => mode,
     };
 
-    let legacy_scores = match config.score_data {
+    let legacy_scores = match args.score_data.or(config.score_data) {
         Some(score_data) => score_data.is_legacy(),
         None => match orig.guild_id() {
             Some(guild_id) => Context::guild_config()
