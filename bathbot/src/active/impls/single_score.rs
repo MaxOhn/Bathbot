@@ -668,11 +668,15 @@ fn apply_settings(
                 // We're the first of the "`" boundary
 
                 if prev.is_some_and(|p| p.y == curr.y) {
-                    let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
+                    let sep = if curr.y == SettingValue::NAME_Y {
+                        SEP_NAME
+                    } else {
+                        SEP_VALUE
+                    };
                     writer.push_str(sep);
                 } else if curr.y == SettingValue::FOOTER_Y {
                     writer = &mut footer_text;
-                } else if prev.is_some_and(|p| p.y == 0) {
+                } else if prev.is_some_and(|p| p.y == SettingValue::NAME_Y) {
                     writer = &mut field_value;
                 } else {
                     writer.push('\n');
@@ -728,14 +732,20 @@ fn apply_settings(
                     });
 
                 if need_sep {
-                    let sep = if curr.y == 0 { SEP_NAME } else { SEP_VALUE };
+                    let sep = if curr.y == SettingValue::NAME_Y {
+                        SEP_NAME
+                    } else {
+                        SEP_VALUE
+                    };
                     writer.push_str(sep);
                 } else if curr.y == SettingValue::FOOTER_Y {
                     writer = &mut footer_text;
-                } else if prev.is_some_and(|p| p.y == 0) {
-                    writer = &mut field_value;
-                } else {
-                    writer.push('\n');
+                } else if let Some(prev) = prev {
+                    if prev.y == SettingValue::NAME_Y {
+                        writer = &mut field_value;
+                    } else {
+                        writer.push('\n');
+                    }
                 }
 
                 let mark = if value.y == SettingValue::FOOTER_Y {
@@ -807,7 +817,7 @@ fn write_value(
 ) {
     match &value.inner {
         Value::Grade => {
-            let _ = if value.y == 0 {
+            let _ = if value.y == SettingValue::NAME_Y {
                 write!(
                     writer,
                     "{}",
@@ -953,7 +963,7 @@ fn write_value(
                 _ => write!(writer, "{OSU_BASE}scores/{}", data.score.score_id),
             };
 
-            if value.y == 0 {
+            if value.y == SettingValue::NAME_Y {
                 let _ = url(writer);
             } else if value.y == SettingValue::FOOTER_Y {
                 let _ = write!(writer, "Score id {}", data.score.score_id);

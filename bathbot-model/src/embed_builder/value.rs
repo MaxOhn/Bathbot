@@ -11,6 +11,7 @@ pub struct SettingValue {
 
 impl SettingValue {
     pub const FOOTER_Y: u8 = u8::MAX;
+    pub const NAME_Y: u8 = 0;
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]

@@ -21,6 +21,7 @@ use crate::{
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::utility::ScoreEmbedData,
+    core::BotConfig,
     manager::{OsuMap, redis::osu::CachedUser},
     util::{
         CachedUserExt, Emote,
@@ -119,8 +120,40 @@ impl IActiveMessage for CompareScoresPagination {
 
                 if entries.len() > 1 {
                     let field = applied_settings.fields.pop().expect("at least one field");
-                    description.push_str(&field.name.replace('\t', " • "));
-                    description.push('\n');
+
+                    // Field names appear in bold so when pushing the value
+                    // into a description we need to bold it manually, but be
+                    // careful if the value already contains bold text.
+                    let field_name = field.name.cow_replace("**", "").replace('\t', " • ");
+
+                    description.push_str("**");
+
+                    // Applying settings deliberately does not hyperlink grades
+                    // to the score if the grade is in the field name. Since
+                    // they're in the description in our case, we will try to
+                    // find the grade and apply the hyperlink manually.
+                    let found_grade = BotConfig::get()
+                        .grades()
+                        .find_map(|grade| Some((field_name.find(grade)?, grade.len())));
+
+                    if let Some((idx, len)) = found_grade {
+                        let grade = GradeFormatter::new(
+                            entry.score.grade,
+                            Some(entry.score.score_id),
+                            false,
+                        );
+
+                        let _ = write!(
+                            description,
+                            "{pre}{grade}{post}",
+                            pre = &field_name[..idx],
+                            post = &field_name[idx + len..]
+                        );
+                    } else {
+                        description.push_str(&field_name);
+                    }
+
+                    description.push_str("**\n");
                     description.push_str(&field.value);
                     description.push_str("\n\n__Other scores on the beatmap:__\n");
 
