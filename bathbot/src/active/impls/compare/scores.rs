@@ -119,7 +119,22 @@ impl IActiveMessage for CompareScoresPagination {
 
                 if entries.len() > 1 {
                     let field = applied_settings.fields.pop().expect("at least one field");
+
+                    // Field names appear in bold so when pushing the value
+                    // into a description we need to bold it manually, but be
+                    // careful if the value already contains bold text.
+                    let contains_bold = field.name.contains("**");
+
+                    if !contains_bold {
+                        description.push_str("**");
+                    }
+
                     description.push_str(&field.name.replace('\t', " • "));
+
+                    if !contains_bold {
+                        description.push_str("**");
+                    }
+
                     description.push('\n');
                     description.push_str(&field.value);
                     description.push_str("\n\n__Other scores on the beatmap:__\n");

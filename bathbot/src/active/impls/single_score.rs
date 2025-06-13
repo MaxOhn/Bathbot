@@ -732,10 +732,12 @@ fn apply_settings(
                     writer.push_str(sep);
                 } else if curr.y == SettingValue::FOOTER_Y {
                     writer = &mut footer_text;
-                } else if prev.is_some_and(|p| p.y == 0) {
-                    writer = &mut field_value;
-                } else {
-                    writer.push('\n');
+                } else if let Some(prev) = prev {
+                    if prev.y == 0 {
+                        writer = &mut field_value;
+                    } else {
+                        writer.push('\n');
+                    }
                 }
 
                 let mark = if value.y == SettingValue::FOOTER_Y {
