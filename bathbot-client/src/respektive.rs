@@ -17,10 +17,10 @@ impl Client {
         let mut user_ids = user_ids.into_iter();
 
         let user_id = user_ids.next().expect("require at least one user id");
-        let _ = write!(url, "{}", user_id);
+        let _ = write!(url, "{user_id}");
 
         for user_id in user_ids {
-            let _ = write!(url, ",{}", user_id);
+            let _ = write!(url, ",{user_id}");
         }
 
         let _ = write!(url, "?m={}", mode as u8);

@@ -262,8 +262,8 @@ pub fn graphs(
             let (left, right) = root.split_horizontally(3 * w / 5);
 
             let (min, max) = history
-                .iter()
-                .map(|(_, n)| *n)
+                .values()
+                .copied()
                 .fold((u32::MAX, 0), |(min, max), curr| {
                     (min.min(curr), max.max(curr))
                 });

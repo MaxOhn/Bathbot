@@ -124,9 +124,11 @@ impl MedalStatsEmbed {
 
         let footer = FooterBuilder::new("Check osekai.net for more info");
 
-        let image = with_graph
-            .then(|| attachment("medal_graph.png"))
-            .unwrap_or_default();
+        let image = if with_graph {
+            attachment("medal_graph.png")
+        } else {
+            String::new()
+        };
 
         Self {
             image,
