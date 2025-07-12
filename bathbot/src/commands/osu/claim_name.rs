@@ -33,7 +33,7 @@ use crate::{
 
 const CLAIMNAME_DESC: &str = "Check how much longer to wait until a name is up for grabs";
 
-const CLAIMNAME_HELP: &str = "If a player has not signed in for at least 6 months and has no plays,\
+const CLAIMNAME_HELP: &str = "If a player has not signed in for at least 6 months and has no plays, \
 their username may be claimed.\n\
 If that player does have any plays across all game modes, \
 a [non-linear function](https://www.desmos.com/calculator/b89siyv9j8) is used to calculate \
