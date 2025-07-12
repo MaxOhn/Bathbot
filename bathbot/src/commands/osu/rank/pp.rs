@@ -805,7 +805,7 @@ impl RankData {
 
                 let pb_fmt = PersonalBestIndexFormatter::new(pb_start_idx, amount);
 
-                if scores.len() >= 100 && required < *pps.last().unwrap() {
+                if scores.len() == 200 && required < *pps.last().unwrap() {
                     required = (*pps.last().unwrap() - 0.01).max(0.0);
                 }
 
@@ -833,6 +833,12 @@ impl RankData {
                 }
 
                 let mut pps = scores.extract_pp();
+
+                // Top10k players most definitely have a full top200 but let's
+                // ensure it regardless
+                if pps.len() < 200 {
+                    pps.extend(iter::repeat_n(0.0, 200 - pps.len()));
+                }
 
                 let (required, idx) = pp_missing(user_pp, rank_holder_pp, scores);
                 let required = required as f32;
@@ -997,7 +1003,7 @@ impl RankData {
 
                 let pb_fmt = PersonalBestIndexFormatter::new(pb_start_idx, amount);
 
-                if scores.len() >= 100 && required < *pps.last().unwrap() {
+                if scores.len() == 200 && required < *pps.last().unwrap() {
                     required = (*pps.last().unwrap() - 0.01).max(0.0);
                 }
 
@@ -1029,6 +1035,11 @@ impl RankData {
                 }
 
                 let mut pps = scores.extract_pp();
+
+                // Make sure there's a full top200 to work with
+                if pps.len() < 200 {
+                    pps.extend(iter::repeat_n(0.0, 200 - pps.len()));
+                }
 
                 let (required, idx) = pp_missing(user_pp, required_pp, scores);
                 let required = required as f32;
