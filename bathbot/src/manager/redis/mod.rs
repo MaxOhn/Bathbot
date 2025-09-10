@@ -666,22 +666,20 @@ const _: () = {
                 }
             };
 
-            if let Some(ref stream) = stream {
-                if stream.live {
+            if let Some(ref stream) = stream
+                && stream.live {
                     let online_twitch_streams = Context::online_twitch_streams();
                     let guard = online_twitch_streams.guard();
                     online_twitch_streams.set_online(stream, &guard);
                 }
-            }
 
             let bytes = serialize_using_arena_and_with::<_, NicheInto<Bool>>(&stream)
                 .map_err(RedisError::Serialization)?;
 
-            if let Some(ref mut conn) = conn {
-                if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
+            if let Some(ref mut conn) = conn
+                && let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
                     warn!(?err, "Failed to store twitch stream");
                 }
-            }
 
             if stream.is_none() {
                 return Ok(None);
@@ -729,11 +727,10 @@ const _: () = {
             let bytes = serialize_using_arena_and_with::<_, NicheInto<UnixEpoch>>(&vod)
                 .map_err(RedisError::Serialization)?;
 
-            if let Some(ref mut conn) = conn {
-                if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
+            if let Some(ref mut conn) = conn
+                && let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
                     warn!(?err, "Failed to store twitch vod");
                 }
-            }
 
             if vod.is_none() {
                 return Ok(None);
