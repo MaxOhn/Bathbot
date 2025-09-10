@@ -3,7 +3,7 @@ version: "3.8"
 services:
   psql:
     container_name: bathbot-db
-    image: postgres:alpine
+    image: postgres:14.19-alpine3.22
     restart: unless-stopped
     environment:
       - POSTGRES_USER=bathbot
