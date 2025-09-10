@@ -96,14 +96,12 @@ pub fn decode_html_entities(input: &str) -> String {
                 number_part.parse::<u32>()
             };
 
-            if let Ok(code) = code_res {
-                if code <= 127 {
-                    if let Some(ascii_char) = char::from_u32(code) {
+            if let Ok(code) = code_res
+                && code <= 127
+                    && let Some(ascii_char) = char::from_u32(code) {
                         result.push(ascii_char);
                         found = true;
                     }
-                }
-            }
         }
 
         if found {

@@ -583,11 +583,10 @@ async fn process_scores(
                 max_pp = attrs.pp() as f32;
             }
 
-            if score.pp.is_none() {
-                if let Some(attrs) = calc.score(&score).performance().await {
+            if score.pp.is_none()
+                && let Some(attrs) = calc.score(&score).performance().await {
                     pp = attrs.pp() as f32;
                 }
-            }
         }
 
         if let Some(pp) = score

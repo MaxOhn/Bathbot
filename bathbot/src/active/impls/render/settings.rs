@@ -561,11 +561,10 @@ impl IActiveMessage for RenderSettingsActive {
             other => bail!("Unknown settings modal `{other}`"),
         }
 
-        if !deferred {
-            if let Err(err) = modal.defer().await {
+        if !deferred
+            && let Err(err) = modal.defer().await {
                 warn!("Failed to defer modal");
             }
-        }
 
         let res = Context::replay()
             .set_settings(self.msg_owner, &self.settings)

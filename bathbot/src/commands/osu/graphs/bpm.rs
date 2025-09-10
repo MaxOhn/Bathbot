@@ -109,15 +109,14 @@ pub async fn map_bpm_graph(map: &Beatmap, mods: GameMods, cover_url: &str) -> Re
 
     let mut points = Vec::with_capacity(2 * map.timing_points.len());
 
-    if let Some(h) = map.hit_objects.first() {
-        if map
+    if let Some(h) = map.hit_objects.first()
+        && map
             .timing_points
             .first()
             .is_some_and(|tp| tp.time > h.start_time)
         {
             points.push((h.start_time, start_bpm));
         }
-    }
 
     let iter = map
         .timing_points

@@ -76,22 +76,21 @@ impl Cache {
                         change += cache.cache_user(user).await?;
                     }
 
-                    if let Some(InteractionData::ApplicationCommand(ref data)) = e.data {
-                        if let Some(ref resolved) = data.resolved {
-                            for user in resolved.users.values() {
-                                if let Some(member) = resolved.members.get(&user.id) {
-                                    if let Some(guild_id) = e.guild_id {
-                                        change += cache
-                                            .cache_interaction_member(guild_id, member, user)
-                                            .await?;
-                                    }
-                                }
+                    if let Some(InteractionData::ApplicationCommand(ref data)) = e.data
+                        && let Some(ref resolved) = data.resolved
+                    {
+                        for user in resolved.users.values() {
+                            if let Some(member) = resolved.members.get(&user.id)
+                                && let Some(guild_id) = e.guild_id
+                            {
+                                change += cache
+                                    .cache_interaction_member(guild_id, member, user)
+                                    .await?;
                             }
+                        }
 
-                            if let Some(guild_id) = e.guild_id {
-                                change +=
-                                    cache.cache_roles(guild_id, resolved.roles.values()).await?;
-                            }
+                        if let Some(guild_id) = e.guild_id {
+                            change += cache.cache_roles(guild_id, resolved.roles.values()).await?;
                         }
                     }
 
@@ -157,7 +156,7 @@ impl Cache {
 
     pub(crate) async fn connection(
         &self,
-    ) -> Result<PooledConnection<RedisConnectionManager>, RunError<RedisError>> {
+    ) -> Result<PooledConnection<'_, RedisConnectionManager>, RunError<RedisError>> {
         self.redis.get().await
     }
 }

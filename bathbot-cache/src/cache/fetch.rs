@@ -28,7 +28,7 @@ impl Cache {
     pub async fn fetch<K, T>(
         &self,
         key: &K,
-    ) -> Result<Result<CachedArchive<T>, CacheConnection>, FetchError>
+    ) -> Result<Result<CachedArchive<T>, CacheConnection<'_>>, FetchError>
     where
         K: ToCacheKey + ?Sized,
         T: Portable + for<'a> CheckBytes<ValidatorStrategy<'a>>,
@@ -45,7 +45,7 @@ impl Cache {
     pub async fn fetch_raw<K>(
         &self,
         key: &K,
-    ) -> Result<Result<Vec<u8>, CacheConnection>, FetchError>
+    ) -> Result<Result<Vec<u8>, CacheConnection<'_>>, FetchError>
     where
         K: ToCacheKey + ?Sized,
     {
@@ -78,7 +78,7 @@ impl Cache {
             .await
     }
 
-    pub async fn current_user(&self) -> FetchResult<ArchivedCachedCurrentUser> {
+    pub async fn current_user(&self) -> FetchResult<ArchivedCachedCurrentUser<'_>> {
         self.fetch_discord_type(RedisKey::current_user()).await
     }
 
@@ -108,7 +108,7 @@ impl Cache {
         &self,
         guild: Id<GuildMarker>,
         role: Id<RoleMarker>,
-    ) -> FetchResult<ArchivedCachedRole> {
+    ) -> FetchResult<ArchivedCachedRole<'_>> {
         self.fetch_discord_type(RedisKey::role(guild, role)).await
     }
 
@@ -116,7 +116,7 @@ impl Cache {
         &self,
         guild: Id<GuildMarker>,
         roles: I,
-    ) -> Result<Vec<CachedArchive<ArchivedCachedRole>>, FetchError>
+    ) -> Result<Vec<CachedArchive<ArchivedCachedRole<'_>>>, FetchError>
     where
         I: IntoIterator<Item = Id<RoleMarker>>,
     {

@@ -793,11 +793,10 @@ impl MapOrScore {
                 .as_deref()
                 .filter(|_| msg.kind == MessageType::Reply);
 
-            if let Some(msg) = reply {
-                if let opt @ Some(_) = Box::pin(recurse(msg, depth + 1)).await {
+            if let Some(msg) = reply
+                && let opt @ Some(_) = Box::pin(recurse(msg, depth + 1)).await {
                     return opt;
                 }
-            }
 
             let forwarded = msg.reference.as_ref()?;
             let (channel_id, msg_id) = forwarded.channel_id.zip(forwarded.message_id)?;

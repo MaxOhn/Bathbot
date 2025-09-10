@@ -29,8 +29,8 @@ impl CachedUserExt for CachedUser {
 
         // Arguably showing the value *always* is a little much so it's
         // probably best we only show it in some cases.
-        if with_rank_change {
-            if let Some(rank_change) = self.rank_change_since_30_days() {
+        if with_rank_change
+            && let Some(rank_change) = self.rank_change_since_30_days() {
                 // Alternatively '🡩' and '🡫' or '⭜' and '⭝' but they don't
                 // show properly on mobile and/or linux :(
                 match rank_change.cmp(&0) {
@@ -43,7 +43,6 @@ impl CachedUserExt for CachedUser {
                     Ordering::Equal => {}
                 }
             }
-        }
 
         let _ = write!(
             text,
@@ -99,21 +98,19 @@ impl CachedUserExt for CachedUser {
                 team: _,
             } = seal);
 
-            if let Some(last_visit) = user.last_visit {
-                if let Some(last_visit_seal) = NichedOption::as_seal(last_visit_seal) {
+            if let Some(last_visit) = user.last_visit
+                && let Some(last_visit_seal) = NichedOption::as_seal(last_visit_seal) {
                     *last_visit_seal.unseal() = ArchivedDateTime::new(last_visit);
                 }
-            }
 
-            if let Some(stats) = user.statistics {
-                if let Some(stats_seal) = NichedOption::as_seal(statistics_seal) {
+            if let Some(stats) = user.statistics
+                && let Some(stats_seal) = NichedOption::as_seal(statistics_seal) {
                     // SAFETY: We neither move fields nor write uninitialized bytes
                     unsafe { *stats_seal.unseal_unchecked() = stats.into() };
                 }
-            }
 
-            if let Some(highest_rank) = user.highest_rank {
-                if let Some(highest_rank_seal) = NichedOption::as_seal(highest_rank_seal) {
+            if let Some(highest_rank) = user.highest_rank
+                && let Some(highest_rank_seal) = NichedOption::as_seal(highest_rank_seal) {
                     // SAFETY: We neither move fields nor write uninitialized bytes
                     unsafe {
                         *highest_rank_seal.unseal_unchecked() = ArchivedUserHighestRank {
@@ -122,7 +119,6 @@ impl CachedUserExt for CachedUser {
                         }
                     };
                 }
-            }
 
             macro_rules! update_pod {
                 ( $field:ident: $seal:ident ) => {

@@ -109,8 +109,8 @@ async fn process_command<'m>(invoke: Invoke<'m>, msg: &'m Message) -> Result<Pro
         return Ok(ProcessResult::Ratelimited(BucketName::All));
     }
 
-    if let Some(bucket) = cmd.bucket {
-        if let Some(cooldown) = Context::check_ratelimit(msg.author.id, bucket) {
+    if let Some(bucket) = cmd.bucket
+        && let Some(cooldown) = Context::check_ratelimit(msg.author.id, bucket) {
             trace!(
                 "Ratelimiting user {} on bucket `{bucket:?}` for {cooldown} seconds",
                 msg.author.id,
@@ -121,7 +121,6 @@ async fn process_command<'m>(invoke: Invoke<'m>, msg: &'m Message) -> Result<Pro
 
             return Ok(ProcessResult::Ratelimited(bucket));
         }
-    }
 
     // Only for authorities?
     if cmd.flags.authority() {

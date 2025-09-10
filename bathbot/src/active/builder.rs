@@ -126,11 +126,10 @@ impl ActiveMessagesBuilder {
                     _ = sleep(until_timeout) => {
                         let active_msg = Context::get().active_msgs.remove_full(response.msg).await;
 
-                        if let Some(FullActiveMessage { mut active_msg, .. }) = active_msg {
-                            if let Err(err) = active_msg.on_timeout(response).await {
+                        if let Some(FullActiveMessage { mut active_msg, .. }) = active_msg
+                            && let Err(err) = active_msg.on_timeout(response).await {
                                 warn!(?err, "Failed to timeout active message");
                             }
-                        }
 
                         return;
                     },

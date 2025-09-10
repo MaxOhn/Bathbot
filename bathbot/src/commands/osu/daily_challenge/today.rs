@@ -182,11 +182,10 @@ impl DailyChallengeDay {
 
         let mut footer_text = format!("Total scores: {total_scores}");
 
-        if let Some(osu_id) = osu_id {
-            if let Some(i) = leaderboard.iter().position(|item| item.user_id == osu_id) {
+        if let Some(osu_id) = osu_id
+            && let Some(i) = leaderboard.iter().position(|item| item.user_id == osu_id) {
                 let _ = write!(footer_text, " • Your position: #{}", i + 1);
             }
-        }
 
         let footer = FooterBuilder::new(footer_text);
         let start_time = room.starts_at.try_deserialize::<BoxedError>().unwrap();

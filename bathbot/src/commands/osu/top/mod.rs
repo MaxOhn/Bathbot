@@ -582,11 +582,10 @@ impl<'m> TopArgs<'m> {
 
                             let mut max = top.parse().ok();
 
-                            if let Some(ref mut max) = max {
-                                if min > *max {
+                            if let Some(ref mut max) = max
+                                && min > *max {
                                     mem::swap(&mut min, max);
                                 }
-                            }
 
                             combo_min = Some(min);
                             combo_max = max;

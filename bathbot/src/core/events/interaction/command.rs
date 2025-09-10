@@ -100,8 +100,8 @@ async fn pre_process_command(
     }
 
     // Ratelimited?
-    if let Some(bucket) = slash.bucket {
-        if let Some(cooldown) = Context::check_ratelimit(user_id, bucket) {
+    if let Some(bucket) = slash.bucket
+        && let Some(cooldown) = Context::check_ratelimit(user_id, bucket) {
             trace!("Ratelimiting user {user_id} on bucket `{bucket:?}` for {cooldown} seconds");
 
             let content = format!("Command on cooldown, try again in {cooldown} seconds");
@@ -109,7 +109,6 @@ async fn pre_process_command(
 
             return Ok(Some(ProcessResult::Ratelimited(bucket)));
         }
-    }
 
     // Only for authorities?
     if slash.flags.authority() {

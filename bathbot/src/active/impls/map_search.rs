@@ -249,40 +249,36 @@ impl IActiveMessage for MapSearchPagination {
             "pagination_start" => {
                 self.pages.set_index(0);
 
-                if self.defer() {
-                    if let Err(err) = component.defer().await.map_err(Report::new) {
+                if self.defer()
+                    && let Err(err) = component.defer().await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
-                }
             }
             "pagination_back" => {
                 let new_index = self.pages.index().saturating_sub(self.pages.per_page());
                 self.pages.set_index(new_index);
 
-                if self.defer() {
-                    if let Err(err) = component.defer().await.map_err(Report::new) {
+                if self.defer()
+                    && let Err(err) = component.defer().await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
-                }
             }
             "pagination_step" => {
                 let new_index = self.pages.index() + self.pages.per_page();
                 self.pages.set_index(new_index);
 
-                if self.defer() {
-                    if let Err(err) = component.defer().await.map_err(Report::new) {
+                if self.defer()
+                    && let Err(err) = component.defer().await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
-                }
             }
             "pagination_end" => {
                 self.pages.set_index(self.pages.last_index());
 
-                if self.defer() {
-                    if let Err(err) = component.defer().await.map_err(Report::new) {
+                if self.defer()
+                    && let Err(err) = component.defer().await.map_err(Report::new) {
                         return ComponentResult::Err(err.wrap_err("Failed to defer component"));
                     }
-                }
             }
             other => {
                 warn!(name = %other, ?component, "Unknown map search pagination component");

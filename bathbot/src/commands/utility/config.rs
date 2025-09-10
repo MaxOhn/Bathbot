@@ -146,6 +146,7 @@ pub struct Config {
     score_data: Option<ScoreData>,
 }
 
+#[cfg(feature = "server")]
 #[derive(CommandOption, CreateOption)]
 pub enum ConfigLink {
     #[option(name = "Link", value = "link")]

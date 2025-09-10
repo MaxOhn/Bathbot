@@ -79,11 +79,10 @@ impl RedisManager {
 
         let bytes = serialize_using_arena(&badges).map_err(RedisError::Serialization)?;
 
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store(conn, KEY, bytes.as_slice(), EXPIRE).await {
+        if let Some(ref mut conn) = conn
+            && let Err(err) = Cache::store(conn, KEY, bytes.as_slice(), EXPIRE).await {
                 warn!(?err, "Failed to store badges");
             }
-        }
 
         CachedArchive::new(bytes).map_err(RedisError::Validation)
     }
@@ -110,11 +109,10 @@ impl RedisManager {
 
         let bytes = serialize_using_arena(&medals).map_err(RedisError::Serialization)?;
 
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store(conn, KEY, bytes.as_slice(), EXPIRE).await {
+        if let Some(ref mut conn) = conn
+            && let Err(err) = Cache::store(conn, KEY, bytes.as_slice(), EXPIRE).await {
                 warn!(?err, "Failed to store medals");
             }
-        }
 
         CachedArchive::new(bytes).map_err(RedisError::Validation)
     }
@@ -364,11 +362,10 @@ impl RedisManager {
 
         let bytes = serialize_using_arena(&ranking).map_err(RedisError::Serialization)?;
 
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
+        if let Some(ref mut conn) = conn
+            && let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
                 warn!(?err, "Failed to store osekai ranking");
             }
-        }
 
         CachedArchive::new(bytes).map_err(RedisError::Validation)
     }
@@ -411,11 +408,10 @@ impl RedisManager {
         let bytes = serialize_using_arena_and_with::<_, RankingsRkyv>(&ranking)
             .map_err(RedisError::Serialization)?;
 
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
+        if let Some(ref mut conn) = conn
+            && let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
                 warn!(?err, "Failed to store ranking");
             }
-        }
 
         CachedArchive::new(bytes).map_err(RedisError::Validation)
     }
@@ -489,11 +485,10 @@ impl RedisManager {
 
         let bytes = serialize_using_arena(&history).map_err(RedisError::Serialization)?;
 
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
+        if let Some(ref mut conn) = conn
+            && let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
                 warn!(?err, "Failed to store osutrack history");
             }
-        }
 
         CachedArchive::new(bytes).map_err(RedisError::Validation)
     }
@@ -520,11 +515,10 @@ impl RedisManager {
 
         let bytes = serialize_using_arena(&countries).map_err(RedisError::Serialization)?;
 
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
+        if let Some(ref mut conn) = conn
+            && let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
                 warn!(?err, "Failed to store snipe countries");
             }
-        }
 
         CachedArchive::new(bytes).map_err(RedisError::Validation)
     }
@@ -614,11 +608,10 @@ impl RedisManager {
 
         let bytes = serialize_using_arena(&diffs).map_err(RedisError::Serialization)?;
 
-        if let Some(ref mut conn) = conn {
-            if let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
+        if let Some(ref mut conn) = conn
+            && let Err(err) = Cache::store(conn, &key, bytes.as_slice(), EXPIRE).await {
                 warn!(?err, "Failed to store cs diffs");
             }
-        }
 
         CachedArchive::new(bytes)
             .map(Some)

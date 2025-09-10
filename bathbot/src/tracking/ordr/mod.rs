@@ -80,11 +80,10 @@ impl Ordr {
     }
 
     pub fn disconnect(&self) {
-        if let Ok(mut unlocked) = self.shutdown_tx.lock() {
-            if let Some(tx) = unlocked.take() {
+        if let Ok(mut unlocked) = self.shutdown_tx.lock()
+            && let Some(tx) = unlocked.take() {
                 let _ = tx.send(());
             }
-        }
     }
 
     pub async fn subscribe_render_id(&self, render_id: u32) -> OrdrReceivers {
