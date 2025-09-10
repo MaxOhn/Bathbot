@@ -98,10 +98,11 @@ pub fn decode_html_entities(input: &str) -> String {
 
             if let Ok(code) = code_res
                 && code <= 127
-                    && let Some(ascii_char) = char::from_u32(code) {
-                        result.push(ascii_char);
-                        found = true;
-                    }
+                && let Some(ascii_char) = char::from_u32(code)
+            {
+                result.push(ascii_char);
+                found = true;
+            }
         }
 
         if found {

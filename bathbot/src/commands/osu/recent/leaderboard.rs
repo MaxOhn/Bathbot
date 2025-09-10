@@ -352,9 +352,10 @@ pub(super) async fn leaderboard(
         scores.retain(|score| ModSelection::filter_exclude(mods, nomod, &score.mods));
 
         if let Some(ref score) = user_score
-            && ModSelection::filter_exclude(mods, nomod, &score.score.mods) {
-                user_score.take();
-            }
+            && ModSelection::filter_exclude(mods, nomod, &score.score.mods)
+        {
+            user_score.take();
+        }
     }
 
     let amount = scores.len();

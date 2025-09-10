@@ -356,9 +356,10 @@ async fn slash_bg(mut command: InteractionCommand) -> Result<()> {
     }
 
     if let Some(game) = Context::bg_games().write(&channel).await.remove()
-        && let Err(err) = game.stop() {
-            warn!(?err, "Failed to stop game");
-        }
+        && let Err(err) = game.stop()
+    {
+        warn!(?err, "Failed to stop game");
+    }
 
     let difficulty = difficulty.unwrap_or_default();
 

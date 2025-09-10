@@ -110,17 +110,18 @@ async fn process_command<'m>(invoke: Invoke<'m>, msg: &'m Message) -> Result<Pro
     }
 
     if let Some(bucket) = cmd.bucket
-        && let Some(cooldown) = Context::check_ratelimit(msg.author.id, bucket) {
-            trace!(
-                "Ratelimiting user {} on bucket `{bucket:?}` for {cooldown} seconds",
-                msg.author.id,
-            );
+        && let Some(cooldown) = Context::check_ratelimit(msg.author.id, bucket)
+    {
+        trace!(
+            "Ratelimiting user {} on bucket `{bucket:?}` for {cooldown} seconds",
+            msg.author.id,
+        );
 
-            let content = format!("Command on cooldown, try again in {cooldown} seconds");
-            msg.error(content).await?;
+        let content = format!("Command on cooldown, try again in {cooldown} seconds");
+        msg.error(content).await?;
 
-            return Ok(ProcessResult::Ratelimited(bucket));
-        }
+        return Ok(ProcessResult::Ratelimited(bucket));
+    }
 
     // Only for authorities?
     if cmd.flags.authority() {

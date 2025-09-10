@@ -150,23 +150,24 @@ pub async fn check_channel_permissions(
     let cache = Context::cache();
 
     if let Ok(Some(channel)) = cache.channel(Some(guild), channel).await
-        && let Some(permission_overwrites) = channel.permission_overwrites.as_ref() {
-            let member = match roles {
-                RolesLookup::Found(roles) => Some(roles),
-                RolesLookup::NotChecked => cache.member(guild, user).await.ok().flatten(),
-                RolesLookup::NotFound => None,
-            };
+        && let Some(permission_overwrites) = channel.permission_overwrites.as_ref()
+    {
+        let member = match roles {
+            RolesLookup::Found(roles) => Some(roles),
+            RolesLookup::NotChecked => cache.member(guild, user).await.ok().flatten(),
+            RolesLookup::NotFound => None,
+        };
 
-            if let Some(member) = member {
-                text_channel_permissions(
-                    &mut permissions,
-                    user,
-                    guild,
-                    permission_overwrites,
-                    member.roles.as_slice(),
-                )
-            }
+        if let Some(member) = member {
+            text_channel_permissions(
+                &mut permissions,
+                user,
+                guild,
+                permission_overwrites,
+                member.roles.as_slice(),
+            )
         }
+    }
 
     permissions
 }

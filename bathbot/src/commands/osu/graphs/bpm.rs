@@ -114,9 +114,9 @@ pub async fn map_bpm_graph(map: &Beatmap, mods: GameMods, cover_url: &str) -> Re
             .timing_points
             .first()
             .is_some_and(|tp| tp.time > h.start_time)
-        {
-            points.push((h.start_time, start_bpm));
-        }
+    {
+        points.push((h.start_time, start_bpm));
+    }
 
     let iter = map
         .timing_points

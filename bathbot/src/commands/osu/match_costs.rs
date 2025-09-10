@@ -512,10 +512,11 @@ impl UsersPerformanceCosts {
 
             if let Some(game) = tiebreaker_game
                 && game.scores.iter().any(|score| score.user_id == *user_id)
-                    && let Some(entry) = entries.last() {
-                        tiebreaker_bonus =
-                            MAX_TIEBREAKER_BONUS.min(TIEBREAKER_FACTOR * entry.performance_cost);
-                    }
+                && let Some(entry) = entries.last()
+            {
+                tiebreaker_bonus =
+                    MAX_TIEBREAKER_BONUS.min(TIEBREAKER_FACTOR * entry.performance_cost);
+            }
 
             let exp = if games_count <= 1 {
                 0.0

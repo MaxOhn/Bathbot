@@ -158,9 +158,10 @@ impl IActiveMessage for ChangelogPagination {
                     self.pages.set_index(0);
 
                     if self.defer()
-                        && let Err(err) = component.defer().await.map_err(Report::new) {
-                            return ComponentResult::Err(err.wrap_err("Failed to defer component"));
-                        }
+                        && let Err(err) = component.defer().await.map_err(Report::new)
+                    {
+                        return ComponentResult::Err(err.wrap_err("Failed to defer component"));
+                    }
                 }
             }
             other => {

@@ -531,10 +531,11 @@ impl<'m> RankPp<'m> {
         }
 
         if let Some(ref name_value) = name
-            && let Some(id) = matcher::get_mention_user(name_value) {
-                discord = Some(id);
-                name = None;
-            }
+            && let Some(id) = matcher::get_mention_user(name_value)
+        {
+            discord = Some(id);
+            name = None;
+        }
 
         let rank = rank.map(Cow::Borrowed).or_else(|| name.take()).ok_or(
             "Failed to parse `rank`. Provide it either as positive number \
@@ -818,17 +819,18 @@ impl RankData {
             }
             RankMultipleScores::EachPp(each) => {
                 if let Some(last_pp) = scores.last().and_then(|s| s.pp)
-                    && each < last_pp {
-                        return format!(
-                            "{prefix}, so {username} is missing **{missing}** raw pp.\n\
+                    && each < last_pp
+                {
+                    return format!(
+                        "{prefix}, so {username} is missing **{missing}** raw pp.\n\
                             A new top200 score requires at least **{last_pp}pp** \
                             so {holder_pp} total pp can't be reached with {each}pp scores.",
-                            holder_pp = WithComma::new(rank_holder_pp),
-                            missing = WithComma::new(rank_holder_pp - user_pp),
-                            last_pp = WithComma::new(last_pp),
-                            each = WithComma::new(each),
-                        );
-                    }
+                        holder_pp = WithComma::new(rank_holder_pp),
+                        missing = WithComma::new(rank_holder_pp - user_pp),
+                        last_pp = WithComma::new(last_pp),
+                        each = WithComma::new(each),
+                    );
+                }
 
                 let mut pps = scores.extract_pp();
 
@@ -1018,18 +1020,19 @@ impl RankData {
             }
             RankMultipleScores::EachPp(each) => {
                 if let Some(last_pp) = scores.last().and_then(|s| s.pp)
-                    && each < last_pp {
-                        return format!(
-                            "{prefix} #{rank} currently requires {maybe_approx}**{required_pp}pp**, \
+                    && each < last_pp
+                {
+                    return format!(
+                        "{prefix} #{rank} currently requires {maybe_approx}**{required_pp}pp**, \
                             so {username} is missing **{missing}** raw pp.\n\
                             A new top200 score requires at least **{last_pp}pp** \
                             so {required_pp} total pp can't be reached with {each}pp scores.",
-                            required_pp = WithComma::new(required_pp),
-                            missing = WithComma::new(required_pp - user_pp),
-                            last_pp = WithComma::new(last_pp),
-                            each = WithComma::new(each),
-                        );
-                    }
+                        required_pp = WithComma::new(required_pp),
+                        missing = WithComma::new(required_pp - user_pp),
+                        last_pp = WithComma::new(last_pp),
+                        each = WithComma::new(each),
+                    );
+                }
 
                 let mut pps = scores.extract_pp();
 

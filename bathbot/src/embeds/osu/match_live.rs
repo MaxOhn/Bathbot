@@ -143,9 +143,11 @@ impl MatchLiveEmbed {
                         embeds.push(embed);
                         description = String::new();
                     } else if let Some(state) = state
-                        && !state.finished && next_state.finished {
-                            embeds.pop();
-                        }
+                        && !state.finished
+                        && next_state.finished
+                    {
+                        embeds.pop();
+                    }
 
                     let (description, image, footer) = game_content(lobby, game);
                     state = Some(next_state);

@@ -118,9 +118,10 @@ impl<'m> PpManager<'m> {
     /// Returns `None` if the map is too suspicious.
     pub async fn difficulty(&mut self) -> Option<&DifficultyAttributes> {
         if !self.partial
-            && let Some(ref attrs) = self.attrs {
-                return Some(attrs);
-            }
+            && let Some(ref attrs) = self.attrs
+        {
+            return Some(attrs);
+        }
 
         if self.map.check_suspicion().is_err() {
             return None;

@@ -260,13 +260,13 @@ async fn topif(orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
 
     if let ModSelection::Exclude { ref mods, nomod: _ } = mods
         && mods.contains(GameModIntermode::Classic)
-            && scores.iter().any(|score| !score.set_on_lazer)
-        {
-            let content = "Cannot accurately calculate lazer values for \
+        && scores.iter().any(|score| !score.set_on_lazer)
+    {
+        let content = "Cannot accurately calculate lazer values for \
                 stable scores because of missing slider hitresults";
 
-            return orig.error(content).await;
-        }
+        return orig.error(content).await;
+    }
 
     // Calculate bonus pp
     let actual_pp: f32 = scores

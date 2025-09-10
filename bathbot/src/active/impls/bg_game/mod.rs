@@ -350,9 +350,10 @@ impl BackgroundGameSetup {
 
     async fn start(&mut self, channel: Id<ChannelMarker>) -> Result<BuildPage> {
         if let Some(game) = Context::bg_games().write(&channel).await.remove()
-            && let Err(err) = game.stop() {
-                warn!(?err, "Failed to stop previous game");
-            }
+            && let Err(err) = game.stop()
+        {
+            warn!(?err, "Failed to stop previous game");
+        }
 
         let mut params = DbMapTagsParams::new(GameMode::Osu);
 

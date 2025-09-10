@@ -83,14 +83,15 @@ impl Bucket {
         let user = self.users.entry(user_id).or_default();
 
         if let Some((timespan, limit)) = self.ratelimit.limit
-            && user.tickets + 1 > limit {
-                if time < (user.set_time + timespan) {
-                    return (user.set_time + timespan) - time;
-                } else {
-                    user.tickets = 0;
-                    user.set_time = time;
-                }
+            && user.tickets + 1 > limit
+        {
+            if time < (user.set_time + timespan) {
+                return (user.set_time + timespan) - time;
+            } else {
+                user.tickets = 0;
+                user.set_time = time;
             }
+        }
 
         if time < user.last_time + self.ratelimit.delay {
             (user.last_time + self.ratelimit.delay) - time

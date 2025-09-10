@@ -199,14 +199,16 @@ pub async fn query_autocomplete(command: &InteractionCommand, name: String) -> R
 
     for badge in badges.iter() {
         if badge.name.cow_to_ascii_lowercase().contains(name)
-            && let Some(choice) = new_choice(&badge.name) {
-                choices.push(choice);
-            }
+            && let Some(choice) = new_choice(&badge.name)
+        {
+            choices.push(choice);
+        }
 
         if badge.description.to_ascii_lowercase().contains(name)
-            && let Some(choice) = new_choice(&badge.description) {
-                choices.push(choice);
-            }
+            && let Some(choice) = new_choice(&badge.description)
+        {
+            choices.push(choice);
+        }
 
         if choices.len() >= 25 {
             choices.truncate(25);

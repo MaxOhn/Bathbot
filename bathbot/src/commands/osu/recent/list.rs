@@ -584,9 +584,10 @@ async fn process_scores(
             }
 
             if score.pp.is_none()
-                && let Some(attrs) = calc.score(&score).performance().await {
-                    pp = attrs.pp() as f32;
-                }
+                && let Some(attrs) = calc.score(&score).performance().await
+            {
+                pp = attrs.pp() as f32;
+            }
         }
 
         if let Some(pp) = score
