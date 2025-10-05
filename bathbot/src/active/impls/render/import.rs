@@ -253,7 +253,7 @@ impl IActiveMessage for SettingsImport {
                     Ok(mut skin_list) => {
                         let skin = skin_list.skins.swap_remove(0);
 
-                        ReplaySettings::new_with_official_skin(options, skin)
+                        ReplaySettings::new_with_official_skin(options, skin, user)
                     }
                     Err(err) => {
                         self.import_result = ImportResult::Err(
@@ -265,7 +265,7 @@ impl IActiveMessage for SettingsImport {
                 }
             }
             RenderSkinOption::Custom { ref id } => match ordr.custom_skin_info(*id).await {
-                Ok(info) => ReplaySettings::new_with_custom_skin(options, info, *id),
+                Ok(info) => ReplaySettings::new_with_custom_skin(options, info, *id, user),
                 Err(err) => {
                     self.import_result = ImportResult::Err(
                         Report::new(err).wrap_err("Failed to request custom skin"),

@@ -72,7 +72,14 @@ pub struct RenderScore {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "settings", desc = "Adjust your o!rdr render settings")]
+#[command(
+    name = "settings",
+    desc = "Adjust your o!rdr render settings",
+    help = "Adjust your o!rdr render settings.\n\
+    Note: You might want to configure your settings on the ordr website and use \
+    that as preset. If a preset on your ordr account is available for your \
+    linked discord account, it will always overwrite your settings here."
+)]
 pub enum RenderSettings {
     #[command(name = "modify")]
     Modify(RenderSettingsModify),
@@ -604,6 +611,8 @@ impl OngoingRender {
                 progress = self.receivers.progress.recv() => {
                     let now = Instant::now();
 
+                    debug!("Got progress: {progress:?}");
+
                     if last_update + INTERVAL > now {
                         continue;
                     }
@@ -613,7 +622,6 @@ impl OngoingRender {
                     let Some(progress) = progress else {
                         return warn!("progress channel was closed");
                     };
-
 
                     self.status.set(RenderStatusInner::Rendering(progress.progress));
                     let builder = self.status.as_message();
@@ -825,7 +833,7 @@ async fn render_settings_default(command: &mut InteractionCommand) -> Result<()>
 
     let owner = command.user_id()?;
     let replay_manager = Context::replay();
-    let settings = ReplaySettings::default();
+    let settings = ReplaySettings::new_default(owner);
 
     if let Err(err) = replay_manager.set_settings(owner, &settings).await {
         let _ = command.error(GENERAL_ISSUE).await;

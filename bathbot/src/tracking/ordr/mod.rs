@@ -88,6 +88,8 @@ impl Ordr {
     }
 
     pub async fn subscribe_render_id(&self, render_id: u32) -> OrdrReceivers {
+        debug!(render_id, "Subscribing");
+
         let (done_tx, done_rx) = mpsc::channel(1);
         let (failed_tx, failed_rx) = mpsc::channel(1);
         let (progress_tx, progress_rx) = mpsc::channel(4);
@@ -110,6 +112,8 @@ impl Ordr {
     }
 
     pub async fn unsubscribe_render_id(&self, render_id: u32) {
+        debug!(render_id, "Unsubscribing");
+
         self.senders.own(RenderId(render_id)).await.remove();
     }
 }
