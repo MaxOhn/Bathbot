@@ -155,7 +155,7 @@ impl_with_comma!(@INT: i16 > 1032 -> i32, i32 > 1_000_000_002 -> i64, i64, isize
 impl_with_comma!(@UINT: u16 > 1065 -> u32, u32 > 1_000_000_004 -> u64, u64, usize);
 
 pub fn last_multiple(per_page: usize, total: usize) -> usize {
-    if per_page <= total && total % per_page == 0 {
+    if per_page <= total && total.is_multiple_of(per_page) {
         total - per_page
     } else {
         total - total % per_page
