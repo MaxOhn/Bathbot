@@ -59,9 +59,9 @@ impl ReplayManager {
             .wrap_err("Failed to load settings")?;
 
         match options {
-            Some(options) => Ok(ReplaySettings::from(options)),
+            Some(options) => Ok(ReplaySettings::from_db(options, user)),
             None => {
-                let settings = ReplaySettings::default();
+                let settings = ReplaySettings::new_default(user);
 
                 if let Err(err) = self.set_settings(user, &settings).await {
                     warn!(?err);
@@ -105,7 +105,6 @@ impl ReplayError {
     pub const ALREADY_REQUESTED_TEXT: &str = "Failed to check whether replay was already requested";
 }
 
-#[derive(Default)]
 pub struct ReplaySettings {
     options: RenderOptions,
     official_skin: ReplaySkin,
@@ -129,7 +128,24 @@ impl Default for ReplaySkin {
 }
 
 impl ReplaySettings {
-    pub fn new_with_official_skin(options: RenderOptions, skin: Skin) -> Self {
+    pub fn new_default(discord_id: Id<UserMarker>) -> Self {
+        Self {
+            options: RenderOptions {
+                discord_user_id: Some(discord_id.get()),
+                ..Default::default()
+            },
+            official_skin: Default::default(),
+            custom_skin: Default::default(),
+        }
+    }
+
+    pub fn new_with_official_skin(
+        mut options: RenderOptions,
+        skin: Skin,
+        discord_id: Id<UserMarker>,
+    ) -> Self {
+        options.discord_user_id = Some(discord_id.get());
+
         Self {
             options,
             official_skin: ReplaySkin {
@@ -140,7 +156,14 @@ impl ReplaySettings {
         }
     }
 
-    pub fn new_with_custom_skin(options: RenderOptions, skin: SkinInfo, id: u32) -> Self {
+    pub fn new_with_custom_skin(
+        mut options: RenderOptions,
+        skin: SkinInfo,
+        id: u32,
+        discord_id: Id<UserMarker>,
+    ) -> Self {
+        options.discord_user_id = Some(discord_id.get());
+
         Self {
             options,
             official_skin: ReplaySkin::default(),
@@ -201,21 +224,8 @@ impl ReplaySettings {
 
         (self.official_skin.display_name.as_ref(), custom)
     }
-}
 
-pub struct CustomSkinName<'n> {
-    name: &'n str,
-    id: u32,
-}
-
-impl Display for CustomSkinName<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{} (ID {})", self.name, self.id)
-    }
-}
-
-impl From<DbRenderOptions> for ReplaySettings {
-    fn from(options: DbRenderOptions) -> Self {
+    fn from_db(options: DbRenderOptions, discord_id: Id<UserMarker>) -> Self {
         let settings = RenderOptions {
             resolution: RenderResolution::HD720,
             global_volume: options.global_volume as u8,
@@ -267,6 +277,7 @@ impl From<DbRenderOptions> for ReplaySettings {
             show_strain_graph: options.show_strain_graph,
             show_slider_breaks: options.show_slider_breaks,
             ignore_fail: options.ignore_fail,
+            discord_user_id: Some(discord_id.get()),
         };
 
         let official_skin = ReplaySkin {
@@ -289,6 +300,17 @@ impl From<DbRenderOptions> for ReplaySettings {
             official_skin,
             custom_skin,
         }
+    }
+}
+
+pub struct CustomSkinName<'n> {
+    name: &'n str,
+    id: u32,
+}
+
+impl Display for CustomSkinName<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{} (ID {})", self.name, self.id)
     }
 }
 
