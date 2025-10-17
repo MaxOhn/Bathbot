@@ -13,6 +13,10 @@ pub fn draw_icons_image(icons: &[(u32, Vec<u8>)]) -> Result<Vec<u8>> {
     const H: u32 = 376;
     const MARGIN: u32 = 3;
 
+    if icons.is_empty() {
+        return Ok(Vec::new());
+    }
+
     let mut surface =
         surfaces::raster_n32_premul((W as i32, H as i32)).wrap_err("Failed to create surface")?;
 
@@ -76,7 +80,7 @@ fn optimal_tile_size(width: u32, height: u32, num_tiles: u32) -> u32 {
     // Check arrangements around square
     let square_range = sqrt_tiles.max(5);
     let start_square = 1.max(sqrt_tiles.saturating_sub(square_range));
-    let end_square = (width.min(num_tiles)).min(sqrt_tiles + square_range);
+    let end_square = width.min(num_tiles).min(sqrt_tiles + square_range);
 
     for tiles_per_row in start_square..=end_square {
         let tiles_per_col = num_tiles.div_ceil(tiles_per_row);
@@ -95,6 +99,7 @@ fn optimal_tile_size(width: u32, height: u32, num_tiles: u32) -> u32 {
 
     // Check arrangements with few rows (wide arrangements)
     let max_rows_to_check = height.min(20); // Don't check too many
+
     for tiles_per_col in 1..=max_rows_to_check {
         let tiles_per_row = num_tiles.div_ceil(tiles_per_col);
 
