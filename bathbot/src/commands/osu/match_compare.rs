@@ -28,34 +28,24 @@ pub struct MatchCompare {
     comparison: Option<MatchCompareComparison>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(CommandOption, CreateOption, Default)]
 pub enum MatchCompareOutput {
     #[option(name = "Full", value = "full")]
     Full,
     #[option(name = "Paginated", value = "paginated")]
+    #[default]
     Paginated,
 }
 
-impl Default for MatchCompareOutput {
-    fn default() -> Self {
-        Self::Paginated
-    }
-}
-
-#[derive(Copy, Clone, CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Default)]
 pub enum MatchCompareComparison {
     #[option(name = "Compare players", value = "players")]
+    #[default]
     Players,
     #[option(name = "Compare teams", value = "teams")]
     Teams,
     #[option(name = "Compare both", value = "both")]
     Both,
-}
-
-impl Default for MatchCompareComparison {
-    fn default() -> Self {
-        Self::Players
-    }
 }
 
 async fn slash_matchcompare(mut command: InteractionCommand) -> Result<()> {

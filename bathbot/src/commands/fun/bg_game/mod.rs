@@ -133,9 +133,10 @@ pub enum BgGameMode {
     Mania,
 }
 
-#[derive(Copy, Clone, Debug, CommandOption, CreateOption)]
+#[derive(Copy, Clone, Debug, CommandOption, CreateOption, Default)]
 pub enum GameDifficulty {
     #[option(name = "Normal", value = "normal")]
+    #[default]
     Normal,
     #[option(name = "Hard", value = "hard")]
     Hard,
@@ -150,12 +151,6 @@ impl GameDifficulty {
             GameDifficulty::Hard => 0.75,
             GameDifficulty::Impossible => 0.95,
         }
-    }
-}
-
-impl Default for GameDifficulty {
-    fn default() -> Self {
-        Self::Normal
     }
 }
 

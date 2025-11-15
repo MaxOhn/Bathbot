@@ -132,7 +132,7 @@ pub struct OsuStatsBest {
     sort: Option<OsuStatsBestSort>,
 }
 
-#[derive(Copy, Clone, CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Default)]
 pub enum OsuStatsBestSort {
     #[option(name = "Accuracy", value = "acc")]
     Accuracy,
@@ -145,15 +145,10 @@ pub enum OsuStatsBestSort {
     #[option(name = "Misses", value = "miss")]
     Misses,
     #[option(name = "PP", value = "pp")]
+    #[default]
     Pp,
     #[option(name = "Score", value = "score")]
     Score,
-}
-
-impl Default for OsuStatsBestSort {
-    fn default() -> Self {
-        Self::Pp
-    }
 }
 
 async fn slash_osustats(mut command: InteractionCommand) -> Result<()> {

@@ -169,7 +169,7 @@ impl From<SearchLanguage> for Language {
     }
 }
 
-#[derive(Copy, Clone, CommandOption, CreateOption, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Debug, Default, Eq, PartialEq)]
 pub enum SearchOrder {
     #[option(name = "Artist", value = "artist")]
     Artist,
@@ -182,17 +182,12 @@ pub enum SearchOrder {
     #[option(name = "Rating", value = "rating")]
     Rating,
     #[option(name = "Relevance", value = "relevance")]
+    #[default]
     Relevance,
     #[option(name = "Stars", value = "stars")]
     Stars,
     #[option(name = "Title", value = "title")]
     Title,
-}
-
-impl Default for SearchOrder {
-    fn default() -> Self {
-        Self::Relevance
-    }
 }
 
 impl From<SearchOrder> for BeatmapsetSearchSort {

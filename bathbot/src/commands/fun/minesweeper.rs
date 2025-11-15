@@ -155,10 +155,11 @@ impl Game {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
 enum Cell {
     Num(u8),
     Mine,
+    #[default]
     None,
 }
 
@@ -177,11 +178,5 @@ impl Display for Cell {
             Self::Mine => f.write_str("bomb"),
             Self::None | Self::Num(_) => unreachable!(),
         }
-    }
-}
-
-impl Default for Cell {
-    fn default() -> Self {
-        Self::None
     }
 }
