@@ -76,7 +76,10 @@ impl BackgroundGame {
                         let mapset_id = game_clone.read().await.mapset_id();
 
                         // Send message
-                        let content = format!("Mapset: {OSU_BASE}beatmapsets/{mapset_id}");
+                        let content = format!(
+                            "Mapset: {OSU_BASE}beatmapsets/{mapset_id}\n\
+                            Full background: https://catboy.best/preview/background/{mapset_id}/set"
+                        );
 
                         if let Err(err) = channel.plain_message(&content).await {
                             warn!(?err, "Failed to show resolve for bg game restart");
@@ -88,6 +91,7 @@ impl BackgroundGame {
                         // Send message
                         let content = format!(
                             "Mapset: {OSU_BASE}beatmapsets/{mapset_id}\n\
+                            Full background: https://catboy.best/preview/background/{mapset_id}/set\n\
                             End of game, see you next time o/"
                         );
 

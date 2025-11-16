@@ -186,7 +186,8 @@ pub async fn game_loop(
             ContentResult::Title(exact) => {
                 let content = format!(
                     "{} \\:)\n\
-                    Mapset: {OSU_BASE}beatmapsets/{mapset_id}",
+                    Mapset: {OSU_BASE}beatmapsets/{mapset_id}\n\
+                    Full background: https://catboy.best/preview/background/{mapset_id}/set",
                     if exact {
                         format!("Gratz {}, you guessed it", msg.author.name)
                     } else {

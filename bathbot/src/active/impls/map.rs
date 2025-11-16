@@ -272,7 +272,8 @@ impl IActiveMessage for MapPagination {
         let image = attachment("map_graph.png");
 
         let mut description = format!(
-            ":musical_note: [Song preview](https://b.ppy.sh/preview/{mapset_id}.mp3)",
+            ":musical_note: [Song preview](https://b.ppy.sh/preview/{mapset_id}.mp3) \
+            :frame_photo: [Full background](https://catboy.best/preview/background/{mapset_id}/set)",
             mapset_id = self.mapset.mapset_id
         );
 

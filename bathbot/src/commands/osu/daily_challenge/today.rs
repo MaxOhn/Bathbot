@@ -139,7 +139,8 @@ impl DailyChallengeDay {
         };
 
         let mut description = format!(
-            "\n:musical_note: [Song preview](https://b.ppy.sh/preview/{mapset_id}.mp3)",
+            "\n:musical_note: [Song preview](https://b.ppy.sh/preview/{mapset_id}.mp3) \
+            :frame_photo: [Full background](https://catboy.best/preview/background/{mapset_id}/set)",
             mapset_id = playlist_map.mapset_id.to_native(),
         );
 
