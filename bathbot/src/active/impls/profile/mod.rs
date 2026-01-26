@@ -378,7 +378,7 @@ impl ProfileMenu {
         let peak_acc = match self.osutrack_peaks.as_ref() {
             Some(peaks) => format!(
                 "[{acc:.2}%]({origin} \"{acc}%\n\nProvided by ameobea.me/osutrack\") ('{year:0>2}/{month:0>2})",
-                acc = peaks.acc,
+                acc = peaks.acc.max(stats.accuracy.to_native() as f64),
                 origin = self.origin,
                 year = peaks.acc_timestamp.year() % 100,
                 month = peaks.acc_timestamp.month() as u8,
