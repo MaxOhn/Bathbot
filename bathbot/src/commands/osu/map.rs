@@ -64,17 +64,24 @@ struct MapArgs<'a> {
     attrs: CustomAttrs,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct CustomAttrs {
     pub ar: Option<f64>,
     pub cs: Option<f64>,
     pub hp: Option<f64>,
     pub od: Option<f64>,
+    pub clock_rate: Option<f64>,
+    pub bpm: Option<f32>,
 }
 
 impl CustomAttrs {
     fn content(&self) -> Option<String> {
-        self.ar.or(self.cs).or(self.hp).or(self.od)?;
+        self.ar
+            .or(self.cs)
+            .or(self.hp)
+            .or(self.od)
+            .or(self.clock_rate)
+            .or(self.bpm.map(From::from))?;
 
         let mut content = "Custom attributes: ".to_owned();
         let mut pushed = false;
@@ -110,6 +117,13 @@ impl CustomAttrs {
             let _ = write!(content, "`OD: {od:.2}`");
         }
 
+        if let Some(clock_rate) = self.clock_rate {
+            if pushed {
+                content.push_str(" ~ ");
+            }
+
+            let _ = write!(content, "`Clock rate: {clock_rate:.2}`");
+        }
         Some(content)
     }
 }
@@ -185,7 +199,13 @@ impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
             None => None,
         };
 
-        let attrs = CustomAttrs { ar, cs, hp, od };
+        let attrs = CustomAttrs {
+            ar,
+            cs,
+            hp,
+            od,
+            ..Default::default()
+        };
 
         Ok(Self { map, mods, attrs })
     }

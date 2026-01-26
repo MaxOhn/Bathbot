@@ -277,7 +277,7 @@ impl ActiveMessages {
 
                             return error!(
                                 name = %modal.data.custom_id,
-                                ?err,
+                                %err,
                                 "Failed to update modal",
                             );
                         }
