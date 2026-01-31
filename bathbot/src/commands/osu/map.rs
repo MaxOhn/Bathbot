@@ -55,6 +55,8 @@ pub struct Map<'a> {
     cs: Option<f64>,
     #[command(desc = "Specify an HP value to override the actual one")]
     hp: Option<f64>,
+    #[command(desc = "Specify a custom clock rate that overrides mods")]
+    clock_rate: Option<f64>,
 }
 
 #[derive(HasMods)]
@@ -182,6 +184,7 @@ impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
             od,
             cs,
             hp,
+            clock_rate,
         } = args;
 
         let map = match map.map(|arg| {
@@ -204,6 +207,7 @@ impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
             cs,
             hp,
             od,
+            clock_rate,
             ..Default::default()
         };
 
