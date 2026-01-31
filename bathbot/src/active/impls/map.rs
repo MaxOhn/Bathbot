@@ -14,7 +14,6 @@ use rosu_pp::{Difficulty, any::HitResultPriority};
 use rosu_v2::prelude::{
     BeatmapExtended, BeatmapsetExtended, GameMode, GameModsIntermode, Username,
 };
-use tracing_subscriber::field::debug;
 use twilight_model::{
     channel::message::{
         Component,
@@ -26,7 +25,7 @@ use twilight_model::{
 use crate::{
     active::{
         BuildPage, ComponentResult, IActiveMessage,
-        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
+        pagination::{Pages, handle_pagination_component},
     },
     commands::osu::CustomAttrs,
     core::Context,
@@ -430,14 +429,14 @@ impl IActiveMessage for MapPagination {
     }
 
     async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
-        // let user_id = match component.user_id() {
-        //     Ok(user_id) => user_id,
-        //     Err(err) => return ComponentResult::Err(err),
-        // };
+        let user_id = match component.user_id() {
+            Ok(user_id) => user_id,
+            Err(err) => return ComponentResult::Err(err),
+        };
 
-        // if user_id != self.msg_owner {
-        //     return ComponentResult::Ignore;
-        // }
+        if user_id != self.msg_owner {
+            return ComponentResult::Ignore;
+        }
 
         if component.data.custom_id.starts_with("pagination") {
             debug!("Hit pagination");
@@ -514,21 +513,12 @@ impl IActiveMessage for MapPagination {
             .value
             .as_deref()
             .filter(|val| !val.is_empty());
-        debug!("Input {:?}", input);
         let map = &self.maps[self.pages.index()];
 
-        debug!("Handling modal {:?}", modal.data.custom_id);
         match modal.data.custom_id.as_str() {
             "pagination_custom" => {
-                let input = modal
-                    .data
-                    .components
-                    .first()
-                    .and_then(|row| row.components.first())
-                    .wrap_err("Missing modal input")?;
-
-                let Some(Ok(page)) = input.value.as_deref().map(str::parse) else {
-                    debug!(input = input.value, "Failed to parse page input as usize");
+                let Some(Ok(page)) = input.as_deref().map(str::parse) else {
+                    debug!(input = input, "Failed to parse page input as usize");
 
                     return Ok(());
                 };
