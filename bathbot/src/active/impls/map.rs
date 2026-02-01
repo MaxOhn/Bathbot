@@ -279,11 +279,20 @@ impl IActiveMessage for MapPagination {
 
         match map.mode {
             GameMode::Osu => {
-                let _ = write!(
-                    description,
-                    " :clapper: [Map preview](https://preview.tryz.id.vn/?b={map_id})",
+                let mut base_url = format!(
+                    "https://preview.tryz.id.vn/?b={map_id}",
                     map_id = map.map_id
                 );
+
+                // preview.tryz.id supports only DT, HR and HD but it
+                // checks for them by simply `string.includes(two symbol acronym)`
+                // so it's safe to just dump all the mods if any present
+                // ^ https://github.com/FukutoTojido/beatmap-viewer-web/blob/058382c1069b2dfb4fdce4aae16220bddb80b452/src/app/Config/ExperimentalConfig.ts#L23-L34
+                if !self.mods.is_empty() {
+                    let _ = write!(base_url, "&m={}", self.mods);
+                }
+
+                let _ = write!(description, " :clapper: [Map preview]({base_url})",);
             }
             GameMode::Mania | GameMode::Taiko => {
                 let _ = write!(
