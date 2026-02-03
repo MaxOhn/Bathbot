@@ -439,7 +439,6 @@ impl IActiveMessage for MapPagination {
         }
 
         if component.data.custom_id.starts_with("pagination") {
-            debug!("Hit pagination");
             return handle_pagination_component(component, self.msg_owner, true, &mut self.pages)
                 .await;
         }
@@ -575,7 +574,6 @@ impl IActiveMessage for MapPagination {
             "map_speed_adjustments" => {
                 self.attrs.clock_rate = parse_attr(&*modal, "map_clock_rate");
                 self.attrs.bpm = parse_attr(modal, "map_bpm");
-                debug!(?self.attrs);
             }
             other => warn!(name = %other, ?modal, "Unknown map modal"),
         }
@@ -627,7 +625,6 @@ fn parse_attr<T: std::str::FromStr + std::fmt::Debug>(
         .find_map(|row| {
             row.components.first().and_then(|component| {
                 (component.custom_id == component_id).then(|| {
-                    debug!("Parsing row {:?}", component.custom_id);
                     component
                         .value
                         .as_deref()
@@ -638,6 +635,5 @@ fn parse_attr<T: std::str::FromStr + std::fmt::Debug>(
             })
         })
         .flatten();
-    debug!("Result: {:?}", result);
     result
 }
