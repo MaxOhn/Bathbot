@@ -2,32 +2,36 @@ use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_util::{
-    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin, attachment,
+    AuthorBuilder, Authored, CowUtils, EmbedBuilder, FooterBuilder, MessageOrigin, attachment,
     constants::{AVATAR_URL, OSU_BASE},
     datetime::SecToMinSec,
     fields,
+    modal::{ModalBuilder, TextInputBuilder},
     numbers::{WithComma, round},
 };
-use eyre::{Result, WrapErr};
+use eyre::{ContextCompat, Result, WrapErr};
 use rosu_pp::{Difficulty, any::HitResultPriority};
 use rosu_v2::prelude::{
     BeatmapExtended, BeatmapsetExtended, GameMode, GameModsIntermode, Username,
 };
 use twilight_model::{
-    channel::message::Component,
+    channel::message::{
+        Component,
+        component::{ActionRow, Button, ButtonStyle},
+    },
     id::{Id, marker::UserMarker},
 };
 
 use crate::{
     active::{
         BuildPage, ComponentResult, IActiveMessage,
-        pagination::{Pages, handle_pagination_component, handle_pagination_modal},
+        pagination::{Pages, handle_pagination_component},
     },
     commands::osu::CustomAttrs,
     core::Context,
     manager::redis::osu::UserArgs,
     util::{
-        Emote,
+        Emote, ModalExt,
         interaction::{InteractionComponent, InteractionModal},
     },
 };
@@ -80,7 +84,15 @@ impl IActiveMessage for MapPagination {
         let mut seconds_drain = map.seconds_drain;
         let mut bpm = map.bpm as f64;
 
-        let clock_rate = self.mods.legacy_clock_rate();
+        let clock_rate = match (self.attrs.bpm, self.attrs.clock_rate) {
+            (None, None) => self.mods.legacy_clock_rate(),
+            (_, Some(clock_rate)) => clock_rate,
+            (Some(new_bpm), None) => {
+                let old_bpm = map.bpm;
+                (new_bpm / old_bpm) as f64
+            }
+        };
+
         seconds_total = (seconds_total as f64 / clock_rate) as u32;
         seconds_drain = (seconds_drain as f64 / clock_rate) as u32;
         bpm *= clock_rate;
@@ -321,15 +333,264 @@ impl IActiveMessage for MapPagination {
     }
 
     fn build_components(&self) -> Vec<Component> {
-        self.pages.components()
+        let mods = Button {
+            custom_id: Some("map_mods".to_owned()),
+            disabled: false,
+            emoji: None,
+            label: Some("Mods".to_owned()),
+            style: ButtonStyle::Primary,
+            url: None,
+            sku_id: None,
+        };
+        let clock_rate = Button {
+            custom_id: Some("map_clock_rate".to_owned()),
+            disabled: false,
+            emoji: None,
+            label: Some("Clock rate".to_owned()),
+            style: ButtonStyle::Primary,
+            url: None,
+            sku_id: None,
+        };
+        let attrs = Button {
+            custom_id: Some("map_attrs".to_owned()),
+            disabled: false,
+            emoji: None,
+            label: Some("Attributes".to_owned()),
+            style: ButtonStyle::Primary,
+            url: None,
+            sku_id: None,
+        };
+        let top: Component = Component::ActionRow(ActionRow {
+            components: vec![mods, clock_rate, attrs]
+                .into_iter()
+                .map(Component::Button)
+                .collect(),
+        });
+        let pages = if self.pages.last_index() == 0 {
+            None
+        } else {
+            let jump_start = Button {
+                custom_id: Some("pagination_start".to_owned()),
+                disabled: self.pages.index() == 0,
+                emoji: Some(Emote::JumpStart.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+                sku_id: None,
+            };
+
+            let single_step_back = Button {
+                custom_id: Some("pagination_back".to_owned()),
+                disabled: self.pages.index() == 0,
+                emoji: Some(Emote::SingleStepBack.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+                sku_id: None,
+            };
+
+            let jump_custom = Button {
+                custom_id: Some("pagination_custom".to_owned()),
+                disabled: false,
+                emoji: Some(Emote::MyPosition.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+                sku_id: None,
+            };
+
+            let single_step = Button {
+                custom_id: Some("pagination_step".to_owned()),
+                disabled: self.pages.index() == self.pages.last_index(),
+                emoji: Some(Emote::SingleStep.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+                sku_id: None,
+            };
+
+            let jump_end = Button {
+                custom_id: Some("pagination_end".to_owned()),
+                disabled: self.pages.index() == self.pages.last_index(),
+                emoji: Some(Emote::JumpEnd.reaction_type()),
+                label: None,
+                style: ButtonStyle::Secondary,
+                url: None,
+                sku_id: None,
+            };
+
+            Some(Component::ActionRow(ActionRow {
+                components: vec![
+                    Component::Button(jump_start),
+                    Component::Button(single_step_back),
+                    Component::Button(jump_custom),
+                    Component::Button(single_step),
+                    Component::Button(jump_end),
+                ],
+            }))
+        };
+
+        let mut components = vec![top];
+        if let Some(pages) = pages {
+            components.push(pages);
+        }
+        components
     }
 
     async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
-        handle_pagination_component(component, self.msg_owner, true, &mut self.pages).await
+        let user_id = match component.user_id() {
+            Ok(user_id) => user_id,
+            Err(err) => return ComponentResult::Err(err),
+        };
+
+        if user_id != self.msg_owner {
+            return ComponentResult::Ignore;
+        }
+
+        if component.data.custom_id.starts_with("pagination") {
+            return handle_pagination_component(component, self.msg_owner, true, &mut self.pages)
+                .await;
+        }
+        let modal = match component.data.custom_id.as_str() {
+            "map_mods" => {
+                let input = TextInputBuilder::new("map_mods", "Mods")
+                    .placeholder("E.g. hd or HdHRdteZ")
+                    .required(false);
+
+                ModalBuilder::new("map_mods", "Specify mods").input(input)
+            }
+            "map_clock_rate" => {
+                let clock_rate = TextInputBuilder::new("map_clock_rate", "Clock rate")
+                    .placeholder("Specify a clock rate")
+                    .required(false);
+
+                let bpm = TextInputBuilder::new(
+                    "map_bpm",
+                    "BPM (overwritten if clock rate is specified)",
+                )
+                .placeholder("Specify a BPM")
+                .required(false);
+
+                ModalBuilder::new("map_speed_adjustments", "Speed adjustments")
+                    .input(clock_rate)
+                    .input(bpm)
+            }
+            "map_attrs" => {
+                let ar = TextInputBuilder::new("map_ar", "AR")
+                    .placeholder("Specify an approach rate")
+                    .required(false);
+
+                let cs = TextInputBuilder::new("map_cs", "CS")
+                    .placeholder("Specify a circle size")
+                    .required(false);
+
+                let hp = TextInputBuilder::new("map_hp", "HP")
+                    .placeholder("Specify a drain rate")
+                    .required(false);
+
+                let od = TextInputBuilder::new("map_od", "OD")
+                    .placeholder("Specify an overall difficulty")
+                    .required(false);
+
+                ModalBuilder::new("map_attrs", "Attributes")
+                    .input(ar)
+                    .input(cs)
+                    .input(hp)
+                    .input(od)
+            }
+            other => {
+                warn!(name = %other, ?component, "Unknown map component");
+
+                return ComponentResult::Ignore;
+            }
+        };
+        ComponentResult::CreateModal(modal)
     }
 
     async fn handle_modal(&mut self, modal: &mut InteractionModal) -> Result<()> {
-        handle_pagination_modal(modal, self.msg_owner, true, &mut self.pages).await
+        if modal.user_id()? != self.msg_owner {
+            return Ok(());
+        }
+
+        let input = modal
+            .data
+            .components
+            .first()
+            .and_then(|row| row.components.first())
+            .wrap_err("Missing map modal input")?
+            .value
+            .as_deref()
+            .filter(|val| !val.is_empty());
+        let map = &self.maps[self.pages.index()];
+
+        match modal.data.custom_id.as_str() {
+            "pagination_custom" => {
+                let Some(Ok(page)) = input.as_deref().map(str::parse) else {
+                    debug!(input = input, "Failed to parse page input as usize");
+
+                    return Ok(());
+                };
+
+                let max_page = self.pages.last_page();
+
+                if !(1..=max_page).contains(&page) {
+                    debug!("Page {page} is not between 1 and {max_page}");
+
+                    return Ok(());
+                }
+
+                self.pages.set_index((page - 1) * self.pages.per_page());
+            }
+            "map_mods" => {
+                let mods_res = input.map(|s| {
+                    s.trim_start_matches('+')
+                        .trim_end_matches('!')
+                        .parse::<GameModsIntermode>()
+                });
+
+                let mods = match mods_res {
+                    Some(Ok(value)) => Some(value),
+                    Some(Err(_)) => {
+                        debug!(input, "Failed to parse simulate mods");
+
+                        return Ok(());
+                    }
+                    None => None,
+                };
+                debug!(?mods, "Matched mods");
+
+                match mods.map(|mods| mods.try_with_mode(map.mode)) {
+                    Some(Some(mods)) if mods.is_valid() => self.mods = mods.into(),
+                    None => self.mods = GameModsIntermode::new(),
+                    Some(Some(mods)) => {
+                        debug!("Incompatible mods {mods}");
+
+                        return Ok(());
+                    }
+                    Some(None) => {
+                        debug!(input, "Invalid mods for mode");
+
+                        return Ok(());
+                    }
+                }
+            }
+            "map_attrs" => {
+                self.attrs.ar = parse_attr(&*modal, "map_ar");
+                self.attrs.cs = parse_attr(&*modal, "map_cs");
+                self.attrs.hp = parse_attr(&*modal, "map_hp");
+                self.attrs.od = parse_attr(&*modal, "map_od");
+            }
+            "map_speed_adjustments" => {
+                self.attrs.clock_rate = parse_attr(&*modal, "map_clock_rate");
+                self.attrs.bpm = parse_attr(modal, "map_bpm");
+            }
+            other => warn!(name = %other, ?modal, "Unknown map modal"),
+        }
+        if let Err(err) = modal.defer().await {
+            warn!(?err, "Failed to defer modal");
+        }
+
+        Ok(())
     }
 }
 
@@ -360,4 +621,28 @@ async fn creator_name(map: &BeatmapExtended, mapset: &BeatmapsetExtended) -> Opt
             None
         }
     }
+}
+
+fn parse_attr<T: std::str::FromStr + std::fmt::Debug>(
+    modal: &InteractionModal,
+    component_id: &str,
+) -> Option<T> {
+    let result = modal
+        .data
+        .components
+        .iter()
+        .find_map(|row| {
+            row.components.first().and_then(|component| {
+                (component.custom_id == component_id).then(|| {
+                    component
+                        .value
+                        .as_deref()
+                        .filter(|value| !value.is_empty())
+                        .map(str::parse)
+                        .and_then(Result::ok)
+                })
+            })
+        })
+        .flatten();
+    result
 }

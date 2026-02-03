@@ -55,6 +55,8 @@ pub struct Map<'a> {
     cs: Option<f64>,
     #[command(desc = "Specify an HP value to override the actual one")]
     hp: Option<f64>,
+    #[command(desc = "Specify a custom clock rate that overrides mods")]
+    clock_rate: Option<f64>,
 }
 
 #[derive(HasMods)]
@@ -64,17 +66,24 @@ struct MapArgs<'a> {
     attrs: CustomAttrs,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct CustomAttrs {
     pub ar: Option<f64>,
     pub cs: Option<f64>,
     pub hp: Option<f64>,
     pub od: Option<f64>,
+    pub clock_rate: Option<f64>,
+    pub bpm: Option<f32>,
 }
 
 impl CustomAttrs {
     fn content(&self) -> Option<String> {
-        self.ar.or(self.cs).or(self.hp).or(self.od)?;
+        self.ar
+            .or(self.cs)
+            .or(self.hp)
+            .or(self.od)
+            .or(self.clock_rate)
+            .or(self.bpm.map(From::from))?;
 
         let mut content = "Custom attributes: ".to_owned();
         let mut pushed = false;
@@ -110,6 +119,13 @@ impl CustomAttrs {
             let _ = write!(content, "`OD: {od:.2}`");
         }
 
+        if let Some(clock_rate) = self.clock_rate {
+            if pushed {
+                content.push_str(" ~ ");
+            }
+
+            let _ = write!(content, "`Clock rate: {clock_rate:.2}`");
+        }
         Some(content)
     }
 }
@@ -168,6 +184,7 @@ impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
             od,
             cs,
             hp,
+            clock_rate,
         } = args;
 
         let map = match map.map(|arg| {
@@ -185,7 +202,14 @@ impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
             None => None,
         };
 
-        let attrs = CustomAttrs { ar, cs, hp, od };
+        let attrs = CustomAttrs {
+            ar,
+            cs,
+            hp,
+            od,
+            clock_rate,
+            ..Default::default()
+        };
 
         Ok(Self { map, mods, attrs })
     }
