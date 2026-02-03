@@ -20,6 +20,7 @@ pub struct PpManager<'m> {
     attrs: Option<DifficultyAttributes>,
     mods: Mods,
     state: Option<ScoreState>,
+    check_suspicion: bool,
     partial: bool,
     lazer: bool,
 }
@@ -37,6 +38,7 @@ impl<'m> PpManager<'m> {
             attrs: None,
             mods: Mods::default(),
             state: None,
+            check_suspicion: true,
             partial: false,
             lazer: true,
         }
@@ -108,6 +110,13 @@ impl<'m> PpManager<'m> {
         inner(self, score.into())
     }
 
+    /// Disable suspicion checks
+    pub fn ignore_suspicion_checks(mut self) -> Self {
+        self.check_suspicion = false;
+
+        self
+    }
+
     /// Be sure the attributes match the map and difficulty parameters!
     pub fn set_difficulty(&mut self, attrs: DifficultyAttributes) {
         self.attrs = Some(attrs);
@@ -123,7 +132,7 @@ impl<'m> PpManager<'m> {
             }
         }
 
-        if self.map.check_suspicion().is_err() {
+        if self.check_suspicion && self.map.check_suspicion().is_err() {
             return None;
         }
 

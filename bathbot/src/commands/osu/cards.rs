@@ -239,6 +239,7 @@ async fn card(orig: CommandOrigin<'_>, args: Card<'_>) -> Result<()> {
             let difficulty = Context::pp_parsed(&map, mode)
                 .lazer(score.set_on_lazer)
                 .mods(score.mods.clone())
+                .ignore_suspicion_checks()
                 .difficulty()
                 .await
                 .expect("suspicious maps in top scores are a false positive")
