@@ -1,5 +1,5 @@
 use ::time::UtcOffset;
-use bathbot_macros::{SlashCommand, command};
+use bathbot_macros::SlashCommand;
 use bathbot_model::command_fields::{ShowHideOption, TimezoneOption};
 use bathbot_psql::model::configs::{
     ListSize, OsuUserId, OsuUsername, Retries, ScoreData, UserConfig,

@@ -1,6 +1,6 @@
 use std::{borrow::Cow, iter, ops::ControlFlow};
 
-use bathbot_macros::{HasMods, HasName, SlashCommand, command};
+use bathbot_macros::{HasMods, HasName, SlashCommand};
 use bathbot_model::{
     Countries,
     command_fields::{GameModeOption, ShowHideOption, TimezoneOption},

@@ -319,12 +319,7 @@ pub fn graphs(
             .fold(0, |max, &curr| max.max(curr));
 
         let first = stars.keys().copied().find(|sr| *sr >= 0).unwrap_or(0) as u32;
-        let last = stars
-            .keys()
-            .copied()
-            .filter(|sr| *sr >= 0)
-            .next_back()
-            .unwrap_or(0) as u32;
+        let last = stars.keys().copied().rfind(|sr| *sr >= 0).unwrap_or(0) as u32;
 
         let mut chart = ChartBuilder::on(&star_canvas)
             .x_label_area_size(30)
