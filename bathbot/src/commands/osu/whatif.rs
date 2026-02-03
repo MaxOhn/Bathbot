@@ -235,7 +235,7 @@ async fn whatif(orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
         };
 
         WhatIfData::NoScores { count, rank }
-    } else if pp < scores.last().and_then(|s| s.pp).unwrap_or(0.0) {
+    } else if scores.len() == 200 && pp < scores.last().and_then(|s| s.pp).unwrap_or(0.0) {
         WhatIfData::NonTop200
     } else {
         let mut pps = scores.extract_pp();
