@@ -201,6 +201,7 @@ impl TopCounts {
             MaybeUninit::uninit(),
             MaybeUninit::uninit(),
             MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
         ];
 
         let mut params = OsuStatsParams::new(user.username.as_str());
@@ -208,7 +209,7 @@ impl TopCounts {
         let mut params_clone = params.clone();
         let mut get_amount = true;
 
-        let mut iter = [100, 50, 25, 15, 8].into_iter().zip(counts.iter_mut());
+        let mut iter = [100, 50, 25, 15, 8, 1].into_iter().zip(counts.iter_mut());
 
         // Try to request 2 ranks concurrently
         while let Some((next_rank, next_count)) = iter.next() {
@@ -255,16 +256,12 @@ impl TopCounts {
             }
         }
 
-        let top1s = WithComma::new(user.scores_first_count.to_native())
-            .to_string()
-            .into();
-
-        let [top100s, top50s, top25s, top15s, top8s] = counts;
+        let [top100s, top50s, top25s, top15s, top8s, top1s] = counts;
 
         // SAFETY: All counts were initialized in the loop
         let this = unsafe {
             Self {
-                top1s,
+                top1s: top1s.assume_init(),
                 top1s_rank: None,
                 top8s: top8s.assume_init(),
                 top8s_rank: None,
