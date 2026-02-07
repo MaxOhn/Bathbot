@@ -525,7 +525,7 @@ impl IActiveMessage for MapPagination {
 
         match modal.data.custom_id.as_str() {
             "pagination_custom" => {
-                let Some(Ok(page)) = input.as_deref().map(str::parse) else {
+                let Some(Ok(page)) = input.map(str::parse) else {
                     debug!(input = input, "Failed to parse page input as usize");
 
                     return Ok(());
@@ -627,7 +627,7 @@ fn parse_attr<T: std::str::FromStr + std::fmt::Debug>(
     modal: &InteractionModal,
     component_id: &str,
 ) -> Option<T> {
-    let result = modal
+    modal
         .data
         .components
         .iter()
@@ -643,6 +643,5 @@ fn parse_attr<T: std::str::FromStr + std::fmt::Debug>(
                 })
             })
         })
-        .flatten();
-    result
+        .flatten()
 }
