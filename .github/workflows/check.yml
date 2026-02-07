@@ -21,6 +21,16 @@ jobs:
       - name: Checkout project
         uses: actions/checkout@v3
 
+      - name: Fix apt mirrors and install dependencies
+        run: |
+          # Fix broken apt mirrors
+          sudo sed -i 's/archive.ubuntu.com/security.ubuntu.com/g' /etc/apt/sources.list
+          sudo sed -i 's/azure.archive.ubuntu.com/security.ubuntu.com/g' /etc/apt/sources.list
+          sudo apt-get update
+
+          # Install required dependencies
+          sudo apt-get install -y libfontconfig1-dev libfreetype-dev libpng-dev
+
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
