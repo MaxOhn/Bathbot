@@ -3,9 +3,9 @@ name: Build and Deploy
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
+      - "v[0-9]+.[0-9]+.[0-9]+*"
   workflow_dispatch:
-  
+
 env:
   CARGO_INCREMENTAL: 0
   CARGO_NET_RETRY: 10
@@ -25,10 +25,6 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
-
-      # See failed run <https://github.com/MaxOhn/Bathbot/actions/runs/13952289631/job/39054697734>
-      - name: "Install fontconfig"
-        run: sudo apt-get -y install libfontconfig1-dev jq
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v1
