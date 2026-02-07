@@ -770,8 +770,8 @@ fn osu_grade_legacy(
         };
     }
 
-    let ratio300 = stats.n300() as f32 / passed_objects as f32;
-    let ratio50 = stats.n50() as f32 / passed_objects as f32;
+    let ratio300 = f64::from(stats.n300() as f32 / passed_objects as f32);
+    let ratio50 = f64::from(stats.n50() as f32 / passed_objects as f32);
 
     if ratio300 > 0.9 && ratio50 < 0.01 && stats.n_miss() == 0 {
         if mods.hd || mods.fl {
@@ -803,7 +803,7 @@ fn taiko_grade_legacy(
         };
     }
 
-    let ratio300 = stats.n300() as f32 / passed_objects as f32;
+    let ratio300 = f64::from(stats.n300() as f32 / passed_objects as f32);
 
     if ratio300 > 0.9 && stats.n_miss() == 0 {
         if mods.hd || mods.fl {
@@ -823,9 +823,9 @@ fn taiko_grade_legacy(
 }
 
 fn catch_grade_legacy(mods: GradeGameModsData, stats: &impl LegacyStatistics) -> Grade {
-    let acc = stats.accuracy(GameMode::Catch);
+    let acc = f64::from(stats.accuracy(GameMode::Catch));
 
-    if (100.0 - acc).abs() <= f32::EPSILON {
+    if (100.0 - acc).abs() <= f64::EPSILON {
         if mods.hd || mods.fl {
             Grade::XH
         } else {
@@ -861,7 +861,7 @@ fn mania_grade_legacy(
         };
     }
 
-    let acc = stats.accuracy(GameMode::Mania);
+    let acc = f64::from(stats.accuracy(GameMode::Mania));
 
     if acc > 95.0 {
         if mods.hd || mods.fl || mods.fi {
