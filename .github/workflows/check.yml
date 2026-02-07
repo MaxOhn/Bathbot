@@ -2,7 +2,7 @@ name: Check project
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
 
 jobs:
@@ -26,10 +26,6 @@ jobs:
         with:
           components: clippy
 
-      # See failed run <https://github.com/MaxOhn/Bathbot/actions/runs/14284178259/job/40037258476?pr=952>
-      - name: "Install fontconfig"
-        run: sudo apt-get -y install libfontconfig1-dev jq
-
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
@@ -49,8 +45,8 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-            components: rustfmt
-            toolchain: nightly
+          components: rustfmt
+          toolchain: nightly
 
       - name: Check code formatting
         run: cargo fmt --all -- --check
