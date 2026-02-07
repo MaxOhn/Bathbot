@@ -339,7 +339,7 @@ impl Context {
             let unlocked = Context::get().shard_senders.read().unwrap();
 
             for sender in unlocked.values() {
-                let _: Result<_, _> = sender.close(CloseFrame::NORMAL);
+                let _: Result<_, _> = sender.close(CloseFrame::RESUME);
             }
         }
 
