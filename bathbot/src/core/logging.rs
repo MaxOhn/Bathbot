@@ -5,7 +5,7 @@ use time::format_description::FormatItem;
 use tracing::{Event, Subscriber, level_filters::LevelFilter};
 use tracing_appender::{
     non_blocking::{NonBlocking, WorkerGuard},
-    rolling,
+    rolling::{RollingFileAppender, Rotation},
 };
 use tracing_subscriber::{
     EnvFilter, Layer as _,
@@ -27,8 +27,16 @@ pub fn init() -> Box<[WorkerGuard]> {
         .event_format(StdoutEventFormat::default())
         .with_filter(stdout_filter);
 
-    let file_appender = rolling::daily("./logs", "bathbot.log");
-    let (file_writer, file_guard) = NonBlocking::new(file_appender);
+    let file_appender = |prefix, max_files| {
+        RollingFileAppender::builder()
+            .max_log_files(max_files)
+            .rotation(Rotation::DAILY)
+            .filename_prefix(prefix)
+            .build("./logs")
+            .unwrap()
+    };
+
+    let (file_writer, file_guard) = NonBlocking::new(file_appender("bathbot", 63));
 
     let file_filter = match EnvFilter::try_from_default_env() {
         Ok(filter) => filter,
@@ -40,8 +48,7 @@ pub fn init() -> Box<[WorkerGuard]> {
         .with_writer(file_writer)
         .with_filter(file_filter.add_directive("tracking=off".parse().unwrap()));
 
-    let tracking_appender = rolling::daily("./logs", "tracking.log");
-    let (tracking_writer, tracking_guard) = NonBlocking::new(tracking_appender);
+    let (tracking_writer, tracking_guard) = NonBlocking::new(file_appender("tracking", 32));
 
     let tracking_filter = Targets::new().with_target("tracking", LevelFilter::INFO);
 
