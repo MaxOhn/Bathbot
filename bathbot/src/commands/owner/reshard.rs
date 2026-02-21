@@ -6,6 +6,7 @@ use tokio::sync::broadcast::Sender;
 
 use crate::util::{InteractionCommandExt, interaction::InteractionCommand};
 
+/// Sender to initiate resharding.
 pub static RESHARD_TX: OnceLock<Sender<()>> = OnceLock::new();
 
 pub async fn reshard(command: InteractionCommand) -> Result<()> {

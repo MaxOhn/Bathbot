@@ -101,6 +101,8 @@ async fn async_main() -> Result<()> {
 
     let (reshard_tx, reshard_rx) = broadcast::channel(1);
 
+    tokio::spawn(Context::reshard_loop(reshard_tx.clone()));
+
     RESHARD_TX
         .set(reshard_tx)
         .expect("RESHARD_TX has already been set");

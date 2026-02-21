@@ -3,10 +3,10 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use bathbot_util::IntHasher;
 use eyre::{Report, Result, WrapErr};
 use tokio::{
-    sync::mpsc::UnboundedReceiver,
+    sync::{Mutex as TokioMutex, broadcast, mpsc::UnboundedReceiver},
     time::{self, MissedTickBehavior},
 };
-use twilight_gateway::{ConfigBuilder, Intents, Session, Shard, ShardId};
+use twilight_gateway::{CloseFrame, ConfigBuilder, Intents, Session, Shard, ShardId};
 use twilight_http::Client;
 use twilight_model::{
     channel::message::AllowedMentions,
@@ -92,10 +92,74 @@ pub(super) async fn gateway(
 }
 
 impl Context {
-    pub async fn request_guild_members(mut member_rx: UnboundedReceiver<(Id<GuildMarker>, u32)>) {
-        let ctx = Context::get();
+    pub fn down_resumable(shards: &[Shard]) -> HashMap<u32, Session, IntHasher> {
+        shards
+            .iter()
+            .filter_map(|shard| {
+                shard.close(CloseFrame::RESUME);
 
-        let mut interval = time::interval(Duration::from_millis(600));
+                shard
+                    .session()
+                    .map(|session| (shard.id().number(), session.clone()))
+            })
+            .collect()
+    }
+
+    pub async fn reshard_loop(sender: broadcast::Sender<()>) {
+        const HALF_DAY: Duration = Duration::from_hours(12);
+
+        let mut interval = time::interval(HALF_DAY);
+        interval.tick().await;
+
+        loop {
+            interval.tick().await;
+
+            if sender.send(()).is_ok() {
+                info!("Autosharding...");
+            } else {
+                error!("Reshard receiver has been dropped");
+            }
+        }
+    }
+
+    pub async fn reshard(shards: &mut Vec<Arc<TokioMutex<Shard>>>) -> Result<()> {
+        info!("Resharding...");
+
+        {
+            // Tell the current shards to close
+            let unlocked = Context::get().shard_senders.read().unwrap();
+
+            for sender in unlocked.values() {
+                let _: Result<_, _> = sender.close(CloseFrame::RESUME);
+            }
+        }
+
+        // Creating new shards
+        let shards_iter = gateway(BotConfig::get(), Context::http(), HashMap::default())
+            .await
+            .wrap_err("Failed to create new shards for resharding")?;
+
+        shards.clear();
+        let mut senders = HashMap::default();
+
+        for shard in shards_iter {
+            senders.insert(shard.id().number(), shard.sender());
+            shards.push(Arc::new(TokioMutex::new(shard)));
+        }
+
+        // Storing shard senders
+        *Context::get().shard_senders.write().unwrap() = senders;
+
+        info!("Finished resharding");
+
+        Ok(())
+    }
+
+    pub async fn request_guild_members(mut member_rx: UnboundedReceiver<(Id<GuildMarker>, u32)>) {
+        const TEN_MINUTES: Duration = Duration::from_mins(10);
+
+        let ctx = Context::get();
+        let mut interval = time::interval(TEN_MINUTES);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         interval.tick().await;
         let mut counter = 1;

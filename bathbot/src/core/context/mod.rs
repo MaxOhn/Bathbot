@@ -317,52 +317,6 @@ impl Context {
 
         (ratelimit > 0).then_some(ratelimit)
     }
-
-    pub fn down_resumable(shards: &[Shard]) -> HashMap<u32, Session, IntHasher> {
-        shards
-            .iter()
-            .filter_map(|shard| {
-                shard.close(CloseFrame::RESUME);
-
-                shard
-                    .session()
-                    .map(|session| (shard.id().number(), session.clone()))
-            })
-            .collect()
-    }
-
-    pub async fn reshard(shards: &mut Vec<Arc<TokioMutex<Shard>>>) -> Result<()> {
-        info!("Resharding...");
-
-        {
-            // Tell the current shards to close
-            let unlocked = Context::get().shard_senders.read().unwrap();
-
-            for sender in unlocked.values() {
-                let _: Result<_, _> = sender.close(CloseFrame::RESUME);
-            }
-        }
-
-        // Creating new shards
-        let shards_iter = discord::gateway(BotConfig::get(), Context::http(), HashMap::default())
-            .await
-            .wrap_err("Failed to create new shards for resharding")?;
-
-        shards.clear();
-        let mut senders = HashMap::default();
-
-        for shard in shards_iter {
-            senders.insert(shard.id().number(), shard.sender());
-            shards.push(Arc::new(TokioMutex::new(shard)));
-        }
-
-        // Storing shard senders
-        *Context::get().shard_senders.write().unwrap() = senders;
-
-        info!("Finished resharding");
-
-        Ok(())
-    }
 }
 
 type Shards = Vec<Arc<TokioMutex<Shard>>>;
