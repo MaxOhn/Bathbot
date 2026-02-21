@@ -14,8 +14,13 @@ use bathbot_util::{
 };
 use eyre::{Report, Result, WrapErr};
 use image::{DynamicImage, GenericImageView, RgbaImage};
-use plotters::element::{Drawable, PointCollection};
-use plotters_backend::{BackendCoord, DrawingBackend, DrawingErrorKind};
+use plotters::{
+    chart::{ChartContext, SeriesLabelPosition, SeriesLabelStyle},
+    coord::CoordTranslate,
+    element::{Drawable, PointCollection},
+    style::{Color, RGBAColor, RGBColor, TextStyle, WHITE},
+};
+use plotters_backend::{BackendCoord, DrawingBackend, DrawingErrorKind, FontStyle};
 use plotters_skia::SkiaBackend;
 use rosu_v2::{
     prelude::{GameMode, GameMods, OsuError},
@@ -967,5 +972,68 @@ impl<'a, C> Drawable<SkiaBackend<'a>> for BitMapElement<C> {
         }
 
         Ok(())
+    }
+}
+
+/// Draw legend for a chart.
+///
+/// Consists of various default styles which may be overriden but shouldn't so
+/// that charts are more consistent.
+struct LegendDraw<'a, 'b, DB, CT>
+where
+    DB: DrawingBackend,
+    CT: CoordTranslate,
+{
+    style: SeriesLabelStyle<'a, 'b, DB, CT>,
+    // Specifying `.label_font(...)` links the color's lifetime so we can't do
+    // it on initialization but instead need to do it at the end. Hence, we
+    // need to store it separately until it is used.
+    text_style: TextStyle<'b>,
+    label_font_color: RGBAColor,
+}
+
+impl<'a, 'b, DB, CT> LegendDraw<'a, 'b, DB, CT>
+where
+    DB: 'a + DrawingBackend<ErrorType: 'static>,
+    CT: CoordTranslate,
+{
+    fn new(chart: &'b mut ChartContext<'a, DB, CT>) -> Self {
+        let mut style = chart.configure_series_labels();
+
+        style
+            .border_style(WHITE.mix(0.6).stroke_width(1))
+            .background_style(RGBColor(7, 23, 17).mix(0.5))
+            .legend_area_size(0_i32);
+
+        Self {
+            style,
+            text_style: TextStyle::from(("sans-serif", 16_i32, FontStyle::Bold)),
+            label_font_color: WHITE.mix(0.8),
+        }
+    }
+
+    fn position(&mut self, position: SeriesLabelPosition) -> &mut Self {
+        self.style.position(position);
+
+        self
+    }
+
+    fn legend_area_size(&mut self, size: i32) -> &mut Self {
+        self.style.legend_area_size(size);
+
+        self
+    }
+}
+
+impl<'a, 'b, DB, CT> LegendDraw<'a, 'b, DB, CT>
+where
+    DB: 'a + DrawingBackend<ErrorType: 'static>,
+    CT: CoordTranslate,
+{
+    fn draw(&'b mut self) -> Result<()> {
+        self.style
+            .label_font(self.text_style.color(&self.label_font_color))
+            .draw()
+            .wrap_err("Failed to draw legend")
     }
 }

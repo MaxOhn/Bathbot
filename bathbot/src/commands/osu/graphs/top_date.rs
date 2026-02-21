@@ -10,7 +10,7 @@ use rosu_v2::prelude::Score;
 use skia_safe::{EncodedImageFormat, surfaces};
 
 use super::{H, W};
-use crate::util::Monthly;
+use crate::{commands::osu::graphs::LegendDraw, util::Monthly};
 
 pub async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>> {
     let max = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
@@ -85,15 +85,9 @@ pub async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec
             .label(format!("Min: {min}pp"))
             .legend(EmptyElement::at);
 
-        chart
-            .configure_series_labels()
-            .border_style(WHITE.mix(0.6).stroke_width(1))
-            .background_style(RGBColor(7, 23, 17))
+        LegendDraw::new(&mut chart)
             .position(SeriesLabelPosition::MiddleLeft)
-            .legend_area_size(0_i32)
-            .label_font(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
-            .draw()
-            .wrap_err("failed to draw legend")?;
+            .draw()?;
     }
 
     let png_bytes = surface

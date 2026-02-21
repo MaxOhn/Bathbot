@@ -34,7 +34,10 @@ use twilight_model::guild::Permissions;
 
 use super::{BitMapElement, Graph, GraphPlaycountReplays, H, W};
 use crate::{
-    commands::osu::{graphs::GRAPH_PLAYCOUNT_DESC, user_not_found},
+    commands::osu::{
+        graphs::{GRAPH_PLAYCOUNT_DESC, LegendDraw},
+        user_not_found,
+    },
     core::{
         Context,
         commands::{CommandOrigin, prefix::Args},
@@ -521,15 +524,10 @@ fn draw_both(
         .draw_secondary_series(circles)
         .wrap_err("Failed to draw replays circles")?;
 
-    // Legend
-    chart
-        .configure_series_labels()
-        .background_style(RGBColor(7, 23, 17))
+    LegendDraw::new(&mut chart)
         .position(SeriesLabelPosition::UpperLeft)
-        .legend_area_size(45_i32)
-        .label_font(("sans-serif", 20_i32, &WHITE))
-        .draw()
-        .wrap_err("Failed to draw legend")?;
+        .legend_area_size(40)
+        .draw()?;
 
     Ok(())
 }
