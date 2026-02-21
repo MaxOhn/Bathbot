@@ -71,13 +71,13 @@ impl TitleDescriptions {
     const FL_COUNT: usize = 15;
     const HD_COUNT: usize = 60;
     const HR_COUNT: usize = 60;
-    const TC_COUNT: usize = 60;
     const HT_COUNT: usize = 30;
     const KEY_COUNT: usize = 70;
     const MR_COUNT: usize = 30;
     const NM_COUNT: usize = 70;
     const NO_NM_COUNT: usize = 10;
     const SO_COUNT: usize = 20;
+    const TC_COUNT: usize = 60;
 
     pub(crate) fn new(mode: GameMode, scores: &[Score], legacy_scores: bool) -> Self {
         let mut nomod = 0;
