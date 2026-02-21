@@ -14,7 +14,7 @@ use bathbot_util::{
     fields,
     numbers::round,
 };
-use eyre::{Report, Result, WrapErr};
+use eyre::{Report, Result};
 use rosu_pp::{Beatmap, Difficulty, Performance, any::HitResultPriority};
 use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::{
@@ -85,9 +85,9 @@ impl BookmarksPagination {
     async fn cached_entry<'a>(
         entries: &'a mut CachedBookmarkEntries,
         map: &MapBookmark,
-    ) -> Result<&'a CachedBookmarkEntry> {
+    ) -> &'a CachedBookmarkEntry {
         let entry = match entries.entry(map.map_id) {
-            Entry::Occupied(entry) => return Ok(entry.into_mut()),
+            Entry::Occupied(entry) => return entry.into_mut(),
             Entry::Vacant(entry) => entry,
         };
 
@@ -95,9 +95,17 @@ impl BookmarksPagination {
         let map_fut = map_manager.pp_map(map.map_id);
         let creator_fut = creator_name(map);
         let (map_res, gd_creator) = tokio::join!(map_fut, creator_fut);
-        let pp_map = map_res.wrap_err("Failed to get pp map")?;
 
-        Ok(entry.insert(CachedBookmarkEntry { pp_map, gd_creator }))
+        let pp_map = match map_res {
+            Ok(map) => Some(map),
+            Err(err) => {
+                warn!(map_id = map.map_id, err = ?Report::new(err), "Failed to retrieve bookmark map");
+
+                None
+            }
+        };
+
+        entry.insert(CachedBookmarkEntry { gd_creator, pp_map })
     }
 
     async fn handle_remove(&mut self, component: &InteractionComponent) -> ComponentResult {
@@ -170,39 +178,33 @@ impl BookmarksPagination {
         let mut description = String::with_capacity(1024);
 
         for (i, map) in maps.iter().enumerate() {
-            let entry_fut = Self::cached_entry(&mut self.cached_entries, map);
-
             let CachedBookmarkEntry {
                 pp_map,
                 gd_creator: _,
-            } = match entry_fut.await {
-                Ok(entry) => entry,
-                Err(err) => {
-                    warn!(?err, "Failed to prepare cached entry");
-
-                    continue;
-                }
-            };
+            } = Self::cached_entry(&mut self.cached_entries, map).await;
 
             let mut stars = 0.0;
             let mut max_pp = 0.0;
 
-            let attrs_opt = Context::pp_parsed(pp_map, map.mode)
-                .lazer(true)
-                .performance()
-                .await;
+            if let Some(pp_map) = pp_map {
+                let attrs_opt = Context::pp_parsed(pp_map, map.mode)
+                    .lazer(true)
+                    .performance()
+                    .await;
 
-            if let Some(attrs) = attrs_opt {
-                stars = attrs.stars() as f32;
-                max_pp = attrs.pp() as f32;
+                if let Some(attrs) = attrs_opt {
+                    stars = attrs.stars() as f32;
+                    max_pp = attrs.pp() as f32;
+                }
             }
 
             let _ = writeln!(
                 description,
-                "**#{idx} [{map}]({OSU_BASE}b/{map_id})** [{stars} ★]\n\
+                "**#{idx}{warn} [{map}]({OSU_BASE}b/{map_id})** [{stars} ★]\n\
                 {mode} **{pp}pp** `{len}` {bpm_emote} {bpm} \
                 `CS: {cs} AR: {ar} OD: {od} HP: {hp}`",
                 idx = i + start + 1,
+                warn = if pp_map.is_some() { "" } else { " ⚠️" },
                 map = MapFormat::new(&map.artist, &map.title, &map.version),
                 map_id = map.map_id,
                 stars = round(stars),
@@ -248,46 +250,41 @@ impl BookmarksPagination {
         let mut description = String::with_capacity(1024);
 
         for (i, map) in maps.iter().enumerate() {
-            let entry_fut = Self::cached_entry(&mut self.cached_entries, map);
-
-            let CachedBookmarkEntry { pp_map, gd_creator } = match entry_fut.await {
-                Ok(entry) => entry,
-                Err(err) => {
-                    warn!(?err, "Failed to prepare cached entry");
-
-                    continue;
-                }
-            };
+            let CachedBookmarkEntry { pp_map, gd_creator } =
+                Self::cached_entry(&mut self.cached_entries, map).await;
 
             let mut stars = 0.0;
             let mut max_combo = 0;
             let mut max_pp = 0.0;
             let mut pp_97 = 0.0;
 
-            let attrs_opt = Context::pp_parsed(pp_map, map.mode)
-                .lazer(true)
-                .performance()
-                .await;
-
-            if let Some(attrs) = attrs_opt {
-                stars = attrs.stars() as f32;
-                max_combo = attrs.max_combo();
-                max_pp = attrs.pp() as f32;
-
-                pp_97 = Performance::new(attrs.difficulty_attributes())
-                    .accuracy(97.0)
-                    .hitresult_priority(HitResultPriority::Fastest)
+            if let Some(pp_map) = pp_map {
+                let attrs_opt = Context::pp_parsed(pp_map, map.mode)
                     .lazer(true)
-                    .calculate()
-                    .pp() as f32;
+                    .performance()
+                    .await;
+
+                if let Some(attrs) = attrs_opt {
+                    stars = attrs.stars() as f32;
+                    max_combo = attrs.max_combo();
+                    max_pp = attrs.pp() as f32;
+
+                    pp_97 = Performance::new(attrs.difficulty_attributes())
+                        .accuracy(97.0)
+                        .hitresult_priority(HitResultPriority::Fastest)
+                        .lazer(true)
+                        .calculate()
+                        .pp() as f32;
+                }
             }
 
             let _ = writeln!(
                 description,
-                "**#{idx} [{artist} - {title} [{version}]]({OSU_BASE}b/{map_id})** [{stars} ★]\n\
+                "**#{idx}{warn} [{artist} - {title} [{version}]]({OSU_BASE}b/{map_id})** [{stars} ★]\n\
                 **{pp_97}▸{pp}pp** for **97▸100%** • `{len}`• {max_combo}x • {bpm_emote} {bpm} \n\
                 `CS: {cs} AR: {ar} OD: {od} HP: {hp}` • {mode} {status:?} map of {mapper}",
                 idx = i + start + 1,
+                warn = if pp_map.is_some() { "" } else { " ⚠️" },
                 artist = map.artist.cow_escape_markdown(),
                 title = map.title.cow_escape_markdown(),
                 version = map.version.cow_escape_markdown(),
@@ -337,7 +334,7 @@ impl BookmarksPagination {
         let map = &self.bookmarks[self.pages.index()];
 
         let CachedBookmarkEntry { pp_map, gd_creator } =
-            Self::cached_entry(&mut self.cached_entries, map).await?;
+            Self::cached_entry(&mut self.cached_entries, map).await;
 
         const ACCS: [f32; 4] = [95.0, 97.0, 99.0, 100.0];
         let mut pps = Vec::with_capacity(ACCS.len());
@@ -345,7 +342,7 @@ impl BookmarksPagination {
         let mut stars = 0.0;
         let mut max_combo = 0;
 
-        if pp_map.check_suspicion().is_ok() {
+        if let Some(pp_map) = pp_map.as_ref().filter(|map| map.check_suspicion().is_ok()) {
             let attrs = Difficulty::new().calculate(pp_map);
 
             stars = attrs.stars();
@@ -437,7 +434,11 @@ impl BookmarksPagination {
             map.count_spinners,
         );
 
-        let info_name = format!("{mode} Map info", mode = Emote::from(map.mode));
+        let info_name = format!(
+            "{mode} Map info{warn}",
+            mode = Emote::from(map.mode),
+            warn = if pp_map.is_some() { "" } else { " ⚠️" },
+        );
 
         #[cfg(not(feature = "server"))]
         let url = "https://www.google.com";
@@ -475,8 +476,8 @@ impl BookmarksPagination {
             version = map.version,
         );
 
-        let (mapper_name, mapper_id) = match gd_creator {
-            Some(name) => (name.as_str(), map.mapper_id),
+        let (mapper_name, mapper_id) = match gd_creator.as_deref() {
+            Some(name) => (name, map.mapper_id),
             None => (map.creator_name.as_ref(), map.creator_id),
         };
 
@@ -665,8 +666,9 @@ async fn creator_name(map: &MapBookmark) -> Option<Username> {
 }
 
 pub struct CachedBookmarkEntry {
-    pp_map: Beatmap,
     gd_creator: Option<Username>,
+    // `None` if we failed to retrieve the map
+    pp_map: Option<Beatmap>,
 }
 
 pub type CachedBookmarkEntries = HashMap<u32, CachedBookmarkEntry, IntHasher>;
