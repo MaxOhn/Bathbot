@@ -20,7 +20,7 @@ use rosu_v2::prelude::Score;
 use skia_safe::{EncodedImageFormat, Surface, surfaces};
 use time::{Duration, OffsetDateTime, UtcOffset};
 
-use crate::commands::osu::graphs::{H, W};
+use crate::commands::osu::graphs::{H, LegendDraw, W};
 
 pub async fn top_graph_time_hour(
     mut caption: String,
@@ -338,15 +338,9 @@ fn draw_points(
         .label(format!("Min: {min_pp}pp"))
         .legend(EmptyElement::at);
 
-    chart
-        .configure_series_labels()
-        .border_style(WHITE.mix(0.6).stroke_width(1))
-        .background_style(RGBColor(7, 23, 17))
+    LegendDraw::new(&mut *chart)
         .position(SeriesLabelPosition::Coordinate(legend_pos, 10))
-        .legend_area_size(0_i32)
-        .label_font(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
-        .draw()
-        .wrap_err("Failed to draw legend")?;
+        .draw()?;
 
     Ok(())
 }

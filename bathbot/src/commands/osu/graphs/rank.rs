@@ -7,7 +7,7 @@ use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::{
     prelude::{ChartBuilder, Circle, IntoDrawingArea, SeriesLabelPosition},
     series::AreaSeries,
-    style::{BLACK, Color, GREEN, RED, RGBColor, ShapeStyle, WHITE},
+    style::{Color, GREEN, RED, RGBColor, ShapeStyle, WHITE},
 };
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
@@ -18,7 +18,7 @@ use twilight_model::guild::Permissions;
 use super::{Graph, GraphRank};
 use crate::{
     commands::osu::{
-        graphs::{GRAPH_RANK_DESC, H, W},
+        graphs::{GRAPH_RANK_DESC, H, LegendDraw, W},
         user_not_found,
     },
     core::{
@@ -240,21 +240,16 @@ pub async fn rank_graph(
 
             let limit = (until - from) / 2 + from;
 
-            let position = if min_idx >= limit as usize {
+            let pos = if min_idx >= limit as usize {
                 SeriesLabelPosition::UpperLeft
             } else {
                 SeriesLabelPosition::UpperRight
             };
 
-            chart
-                .configure_series_labels()
-                .border_style(BLACK.stroke_width(2))
-                .background_style(RGBColor(192, 192, 192))
-                .position(position)
+            LegendDraw::new(&mut chart)
+                .position(pos)
                 .legend_area_size(13)
-                .label_font(("sans-serif", 15, FontStyle::Bold))
-                .draw()
-                .wrap_err("Failed to draw legend")?;
+                .draw()?;
         }
 
         let png_bytes = surface
