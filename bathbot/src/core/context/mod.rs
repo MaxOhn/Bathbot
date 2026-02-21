@@ -18,7 +18,7 @@ use rosu_v2::Osu;
 use shutdown::CacheGuildShards;
 use time::OffsetDateTime;
 use tokio::sync::{Mutex as TokioMutex, mpsc::UnboundedSender};
-use twilight_gateway::{CloseFrame, MessageSender, Session, Shard};
+use twilight_gateway::{MessageSender, Shard};
 use twilight_http::{Client, client::InteractionClient};
 use twilight_model::id::{
     Id,
