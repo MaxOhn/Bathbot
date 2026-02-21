@@ -6,25 +6,26 @@ use rosu_v2::{
 };
 
 enum TitleDescription {
-    ModHating,
-    Speedy,
-    SlowMo,
-    AntClicking,
-    HdAbusing,
-    Blindsighted,
-    LazySpin,
-    Patient,
-    ModLoving,
+    NoMod,
+    DoubleTime,
+    HalfTime,
+    HardRockOsu,
+    HiddenOsu,
+    Traceable,
+    Flashlight,
+    SpinOut,
+    EasyOsu,
+    FewNoMod,
     Versatile,
-    Zooming,
-    PeaCatching,
-    TrainingWheels,
-    GhostFruit,
+    HardRockTaiko,
+    HardRockCatch,
+    EasyCatch,
+    HiddenCatch,
     Hacking,
-    BrainLag,
-    Unmindblockable,
-    ThreeLife,
-    NewSkool,
+    HiddenMania,
+    Mirror,
+    EasyMania,
+    Lazer,
     Key(usize),
     MultiKey,
 }
@@ -32,25 +33,26 @@ enum TitleDescription {
 impl Display for TitleDescription {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let desc = match self {
-            Self::ModHating => "Mod-Hating",
-            Self::Speedy => "Speedy",
-            Self::SlowMo => "Slow-Mo",
-            Self::AntClicking => "Ant-Clicking",
-            Self::HdAbusing => "HD-Abusing",
-            Self::Blindsighted => "Blindsighted",
-            Self::LazySpin => "Lazy-Spin",
-            Self::Patient => "Patient",
-            Self::ModLoving => "Mod-Loving",
+            Self::NoMod => "Mod-Hating",
+            Self::DoubleTime => "Speedy",
+            Self::HalfTime => "Slow-Mo",
+            Self::HardRockOsu => "Ant-Clicking",
+            Self::HiddenOsu => "HD-Abusing",
+            Self::Traceable => "Hitcircle-Hating",
+            Self::Flashlight => "Blindsighted",
+            Self::SpinOut => "Lazy-Spin",
+            Self::EasyOsu => "Patient",
+            Self::FewNoMod => "Mod-Loving",
             Self::Versatile => "Versatile",
-            Self::Zooming => "Zooming",
-            Self::PeaCatching => "Pea-Catching",
-            Self::TrainingWheels => "Training-Wheels",
-            Self::GhostFruit => "Ghost-Fruit",
+            Self::HardRockTaiko => "Zooming",
+            Self::HardRockCatch => "Pea-Catching",
+            Self::EasyCatch => "Training-Wheels",
+            Self::HiddenCatch => "Ghost-Fruit",
             Self::Hacking => "Hacking",
-            Self::BrainLag => "Brain-Lag",
-            Self::Unmindblockable => "Unmindblockable",
-            Self::ThreeLife => "3-Life",
-            Self::NewSkool => "New-Skool",
+            Self::HiddenMania => "Brain-Lag",
+            Self::Mirror => "Unmindblockable",
+            Self::EasyMania => "3-Life",
+            Self::Lazer => "New-Skool",
             Self::Key(key) => return write!(f, "{key}K"),
             Self::MultiKey => "Multi-Key",
         };
@@ -69,6 +71,7 @@ impl TitleDescriptions {
     const FL_COUNT: usize = 15;
     const HD_COUNT: usize = 60;
     const HR_COUNT: usize = 60;
+    const TC_COUNT: usize = 60;
     const HT_COUNT: usize = 30;
     const KEY_COUNT: usize = 70;
     const MR_COUNT: usize = 30;
@@ -82,6 +85,7 @@ impl TitleDescriptions {
         let mut doubletime = 0;
         let mut halftime = 0;
         let mut hardrock = 0;
+        let mut traceable = 0;
         let mut easy = 0;
         let mut flashlight = 0;
         let mut mirror = 0;
@@ -127,6 +131,7 @@ impl TitleDescriptions {
             doubletime += score.mods.contains_any(dtnc.clone()) as usize;
             halftime += score.mods.contains_intermode(GameModIntermode::HalfTime) as usize;
             hardrock += score.mods.contains_intermode(GameModIntermode::HardRock) as usize;
+            traceable += score.mods.contains_intermode(GameModIntermode::Traceable) as usize;
             easy += score.mods.contains_intermode(GameModIntermode::Easy) as usize;
             flashlight += score.mods.contains_intermode(GameModIntermode::Flashlight) as usize;
             spunout += score.mods.contains_intermode(GameModIntermode::SpunOut) as usize;
@@ -136,34 +141,34 @@ impl TitleDescriptions {
         let mut mods = Self::default();
 
         if nomod > Self::NM_COUNT {
-            mods.push(TitleDescription::ModHating);
+            mods.push(TitleDescription::NoMod);
         }
 
         if classic <= Self::CL_COUNT && !legacy_scores {
-            mods.push(TitleDescription::NewSkool);
+            mods.push(TitleDescription::Lazer);
         }
 
         if doubletime > Self::DT_COUNT {
-            mods.push(TitleDescription::Speedy);
+            mods.push(TitleDescription::DoubleTime);
         }
 
         if halftime > Self::HT_COUNT {
-            mods.push(TitleDescription::SlowMo);
+            mods.push(TitleDescription::HalfTime);
         }
 
         if flashlight > Self::FL_COUNT {
-            mods.push(TitleDescription::Blindsighted);
+            mods.push(TitleDescription::Flashlight);
         }
 
         if spunout > Self::SO_COUNT {
-            mods.push(TitleDescription::LazySpin);
+            mods.push(TitleDescription::SpinOut);
         }
 
         if hardrock > Self::HR_COUNT {
             let desc = match mode {
-                GameMode::Osu => TitleDescription::AntClicking,
-                GameMode::Taiko => TitleDescription::Zooming,
-                GameMode::Catch => TitleDescription::PeaCatching,
+                GameMode::Osu => TitleDescription::HardRockOsu,
+                GameMode::Taiko => TitleDescription::HardRockTaiko,
+                GameMode::Catch => TitleDescription::HardRockCatch,
                 GameMode::Mania => TitleDescription::Hacking, // HR is unranked in mania
             };
 
@@ -172,9 +177,9 @@ impl TitleDescriptions {
 
         if easy > Self::EZ_COUNT {
             let desc = match mode {
-                GameMode::Osu | GameMode::Taiko => TitleDescription::Patient,
-                GameMode::Catch => TitleDescription::TrainingWheels,
-                GameMode::Mania => TitleDescription::ThreeLife,
+                GameMode::Osu | GameMode::Taiko => TitleDescription::EasyOsu,
+                GameMode::Catch => TitleDescription::EasyCatch,
+                GameMode::Mania => TitleDescription::EasyMania,
             };
 
             mods.push(desc);
@@ -182,16 +187,20 @@ impl TitleDescriptions {
 
         if hidden > Self::HD_COUNT {
             let desc = match mode {
-                GameMode::Osu | GameMode::Taiko => TitleDescription::HdAbusing,
-                GameMode::Catch => TitleDescription::GhostFruit,
-                GameMode::Mania => TitleDescription::BrainLag,
+                GameMode::Osu | GameMode::Taiko => TitleDescription::HiddenOsu,
+                GameMode::Catch => TitleDescription::HiddenCatch,
+                GameMode::Mania => TitleDescription::HiddenMania,
             };
 
             mods.push(desc);
         }
 
+        if traceable > Self::TC_COUNT {
+            mods.push(TitleDescription::Traceable);
+        }
+
         if mirror > Self::MR_COUNT {
-            mods.push(TitleDescription::Unmindblockable);
+            mods.push(TitleDescription::Mirror);
         }
 
         if mode == GameMode::Mania {
@@ -208,9 +217,9 @@ impl TitleDescriptions {
             }
         }
 
-        if let [] | [TitleDescription::NewSkool] = mods.as_slice() {
+        if let [] | [TitleDescription::Lazer] = mods.as_slice() {
             if nomod < Self::NO_NM_COUNT {
-                TitleDescription::ModLoving.into()
+                TitleDescription::FewNoMod.into()
             } else {
                 TitleDescription::Versatile.into()
             }
