@@ -9,9 +9,8 @@ use plotters_skia::SkiaBackend;
 use rosu_v2::prelude::Score;
 use skia_safe::{EncodedImageFormat, surfaces};
 
-use crate::commands::osu::graphs::LegendDraw;
-
 use super::{H, W};
+use crate::commands::osu::graphs::LegendDraw;
 
 pub async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>> {
     let max = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
