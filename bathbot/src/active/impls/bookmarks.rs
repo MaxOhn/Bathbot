@@ -15,7 +15,10 @@ use bathbot_util::{
     numbers::round,
 };
 use eyre::{Report, Result};
-use rosu_pp::{Beatmap, Difficulty, Performance, any::HitResultPriority};
+use rosu_pp::{
+    Beatmap, Difficulty, Performance,
+    any::hitresult_generator::{Closest, Composable, Fast},
+};
 use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::{
     channel::message::{
@@ -271,7 +274,7 @@ impl BookmarksPagination {
 
                     pp_97 = Performance::new(attrs.difficulty_attributes())
                         .accuracy(97.0)
-                        .hitresult_priority(HitResultPriority::Fastest)
+                        .hitresult_generator::<Composable<Fast, Closest, Closest, Fast>>()
                         .lazer(true)
                         .calculate()
                         .pp() as f32;
@@ -351,7 +354,7 @@ impl BookmarksPagination {
             for &acc in ACCS.iter() {
                 let pp_result = Performance::from(attrs.clone())
                     .accuracy(acc as f64)
-                    .hitresult_priority(HitResultPriority::Fastest)
+                    .hitresult_generator::<Composable<Fast, Closest, Closest, Fast>>()
                     .calculate();
 
                 let pp = pp_result.pp();

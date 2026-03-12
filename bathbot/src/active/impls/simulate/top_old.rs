@@ -1,8 +1,12 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use rosu_pp::{
-    Beatmap, Performance, any::HitResultPriority, catch::CatchScoreState, mania::ManiaScoreState,
-    osu::OsuScoreState, taiko::TaikoScoreState,
+    Beatmap, Performance,
+    any::hitresult_generator::{Closest, Composable, Fast},
+    catch::CatchHitResults,
+    mania::ManiaHitResults,
+    osu::OsuHitResults,
+    taiko::TaikoHitResults,
 };
 use twilight_model::channel::message::{
     Component,
@@ -422,7 +426,7 @@ impl TopOldVersion {
         if let Some(acc) = data.acc {
             calc = calc
                 .accuracy(acc as f64)
-                .hitresult_priority(HitResultPriority::Fastest);
+                .hitresult_generator::<Composable<Fast, Closest, Closest, Fast>>();
         }
 
         if let Some(n_geki) = data.n_geki {
@@ -462,8 +466,7 @@ impl TopOldVersion {
         let state = calc.generate_state();
 
         let state = match self {
-            Self::Osu(_) => ScoreState::Osu(OsuScoreState {
-                max_combo: state.max_combo,
+            Self::Osu(_) => ScoreState::Osu(OsuHitResults {
                 n300: state.n300,
                 n100: state.n100,
                 n50: state.n50,
@@ -472,21 +475,19 @@ impl TopOldVersion {
                 small_tick_hits: state.osu_small_tick_hits,
                 slider_end_hits: state.slider_end_hits,
             }),
-            Self::Taiko(_) => ScoreState::Taiko(TaikoScoreState {
-                max_combo: state.max_combo,
+            Self::Taiko(_) => ScoreState::Taiko(TaikoHitResults {
                 n300: state.n300,
                 n100: state.n100,
                 misses: state.misses,
             }),
-            Self::Catch(_) => ScoreState::Catch(CatchScoreState {
-                max_combo: state.max_combo,
+            Self::Catch(_) => ScoreState::Catch(CatchHitResults {
                 fruits: state.n300,
                 droplets: state.n100,
                 tiny_droplets: state.n50,
                 tiny_droplet_misses: state.n_katu,
                 misses: state.misses,
             }),
-            Self::Mania(_) => ScoreState::Mania(ManiaScoreState {
+            Self::Mania(_) => ScoreState::Mania(ManiaHitResults {
                 n320: state.n_geki,
                 n300: state.n300,
                 n200: state.n_katu,

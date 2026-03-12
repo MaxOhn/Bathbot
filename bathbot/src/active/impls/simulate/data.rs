@@ -1,4 +1,3 @@
-use rosu_pp::any::HitResultPriority;
 use rosu_v2::{
     mods,
     prelude::{GameMod, GameMods},
@@ -117,7 +116,7 @@ impl SimulateData {
             };
             ( @PRIO $calc:ident A $( $rest:tt )* ) => {
                 if self.acc.is_some() {
-                    $calc = $calc.hitresult_priority(HitResultPriority::Fastest);
+                    $calc = $calc.hitresult_generator::<rosu_pp::any::hitresult_generator::Fast>();
                 }
             };
             ( @PRIO $calc:ident ) => { };

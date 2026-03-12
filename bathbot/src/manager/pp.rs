@@ -219,6 +219,7 @@ impl<'s> From<&'s OsuStatsScore> for ScoreData {
                 osu_large_tick_hits: 0,
                 osu_small_tick_hits: 0,
                 slider_end_hits: 0,
+                legacy_total_score: None,
             },
             mods: Mods::new(score.mods.clone()),
             mode: None,
@@ -302,6 +303,7 @@ fn stats_to_state(max_combo: u32, mode: GameMode, stats: &ScoreStatistics) -> Sc
         n100,
         n50,
         misses: stats.miss,
+        legacy_total_score: None,
     }
 }
 

@@ -10,7 +10,10 @@ use bathbot_util::{
     numbers::{WithComma, round},
 };
 use eyre::{ContextCompat, Result, WrapErr};
-use rosu_pp::{Difficulty, any::HitResultPriority};
+use rosu_pp::{
+    Difficulty,
+    any::hitresult_generator::{Closest, Composable, Fast},
+};
 use rosu_v2::prelude::{
     BeatmapExtended, BeatmapsetExtended, GameMode, GameModsIntermode, Username,
 };
@@ -144,7 +147,7 @@ impl IActiveMessage for MapPagination {
                     .mods(&self.mods)
                     .accuracy(acc as f64)
                     .clock_rate(clock_rate)
-                    .hitresult_priority(HitResultPriority::Fastest)
+                    .hitresult_generator::<Composable<Closest, Closest, Closest, Fast>>()
                     .calculate();
 
                 let pp = pp_result.pp();
