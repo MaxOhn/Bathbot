@@ -1011,7 +1011,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.60.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1129,7 +1129,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1976,7 +1976,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
- "windows-targets 0.53.3",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -2953,6 +2953,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp"
 version = "3.1.0"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=pp-update#5ed185abf7ad7f4d3ad924d99807fdfd6e7d89c1"
 dependencies = [
  "divan",
  "rosu-map",
@@ -2962,6 +2963,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp-older"
 version = "0.2.0"
+source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#ae01e30d7e80e8e3ea6cf84bad79b6172a8407f3"
 dependencies = [
  "rosu-map",
  "rosu-pp",
@@ -3076,7 +3078,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

@@ -196,7 +196,12 @@ impl Context {
         // Connect to osu! API
         let osu_client_id = config.tokens.osu_client_id;
         let osu_client_secret = &config.tokens.osu_client_secret;
-        let osu = Osu::new(osu_client_id, osu_client_secret.as_ref())
+
+        let osu = Osu::builder()
+            .client_id(osu_client_id)
+            .client_secret(osu_client_secret.as_ref())
+            .ratelimit(10)
+            .build()
             .await
             .wrap_err("Failed to create osu client")?;
 
