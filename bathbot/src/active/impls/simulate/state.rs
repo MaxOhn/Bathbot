@@ -1,14 +1,14 @@
 use rosu_pp::{
-    Beatmap, Difficulty, catch::CatchScoreState, mania::ManiaScoreState, osu::OsuScoreState,
-    taiko::TaikoScoreState,
+    Beatmap, Difficulty, catch::CatchHitResults, mania::ManiaHitResults, osu::OsuHitResults,
+    taiko::TaikoHitResults,
 };
 use rosu_v2::prelude::{GameMode, ScoreStatistics};
 
 pub(super) enum ScoreState {
-    Osu(OsuScoreState),
-    Taiko(TaikoScoreState),
-    Catch(CatchScoreState),
-    Mania(ManiaScoreState),
+    Osu(OsuHitResults),
+    Taiko(TaikoHitResults),
+    Catch(CatchHitResults),
+    Mania(ManiaHitResults),
 }
 
 impl ScoreState {
@@ -17,14 +17,14 @@ impl ScoreState {
         map: Option<&Beatmap>,
     ) -> (GameMode, ScoreStatistics, ScoreStatistics) {
         match self {
-            Self::Osu(state) => {
+            Self::Osu(hitresults) => {
                 let stats = ScoreStatistics {
-                    great: state.n300,
-                    ok: state.n100,
-                    meh: state.n50,
-                    miss: state.misses,
-                    large_tick_hit: state.large_tick_hits,
-                    slider_tail_hit: state.slider_end_hits,
+                    great: hitresults.n300,
+                    ok: hitresults.n100,
+                    meh: hitresults.n50,
+                    miss: hitresults.misses,
+                    large_tick_hit: hitresults.large_tick_hits,
+                    slider_tail_hit: hitresults.slider_end_hits,
                     ..Default::default()
                 };
 
@@ -42,7 +42,7 @@ impl ScoreState {
                     .unwrap_or((0, 0));
 
                 let max_stats = ScoreStatistics {
-                    great: state.n300 + state.n100 + state.n50 + state.misses,
+                    great: hitresults.n300 + hitresults.n100 + hitresults.n50 + hitresults.misses,
                     large_tick_hit,
                     slider_tail_hit,
                     ..Default::default()
@@ -50,57 +50,57 @@ impl ScoreState {
 
                 (GameMode::Osu, stats, max_stats)
             }
-            Self::Taiko(state) => {
+            Self::Taiko(hitresults) => {
                 let stats = ScoreStatistics {
-                    great: state.n300,
-                    ok: state.n100,
-                    miss: state.misses,
+                    great: hitresults.n300,
+                    ok: hitresults.n100,
+                    miss: hitresults.misses,
                     ..Default::default()
                 };
 
                 let max_stats = ScoreStatistics {
-                    great: state.n300 + state.n100 + state.misses,
+                    great: hitresults.n300 + hitresults.n100 + hitresults.misses,
                     ..Default::default()
                 };
 
                 (GameMode::Taiko, stats, max_stats)
             }
-            Self::Catch(state) => {
+            Self::Catch(hitresults) => {
                 let stats = ScoreStatistics {
-                    great: state.fruits,
-                    good: state.tiny_droplet_misses,
-                    ok: state.droplets,
-                    meh: state.tiny_droplets,
-                    miss: state.misses,
+                    great: hitresults.fruits,
+                    good: hitresults.tiny_droplet_misses,
+                    ok: hitresults.droplets,
+                    meh: hitresults.tiny_droplets,
+                    miss: hitresults.misses,
                     ..Default::default()
                 };
 
                 let max_stats = ScoreStatistics {
-                    great: state.fruits + state.droplets + state.misses,
-                    meh: state.tiny_droplets + state.tiny_droplet_misses,
+                    great: hitresults.fruits + hitresults.droplets + hitresults.misses,
+                    meh: hitresults.tiny_droplets + hitresults.tiny_droplet_misses,
                     ..Default::default()
                 };
 
                 (GameMode::Catch, stats, max_stats)
             }
-            Self::Mania(state) => {
+            Self::Mania(hitresults) => {
                 let stats = ScoreStatistics {
-                    perfect: state.n320,
-                    great: state.n300,
-                    good: state.n200,
-                    ok: state.n100,
-                    meh: state.n50,
-                    miss: state.misses,
+                    perfect: hitresults.n320,
+                    great: hitresults.n300,
+                    good: hitresults.n200,
+                    ok: hitresults.n100,
+                    meh: hitresults.n50,
+                    miss: hitresults.misses,
                     ..Default::default()
                 };
 
                 let max_stats = ScoreStatistics {
-                    perfect: state.n320
-                        + state.n300
-                        + state.n200
-                        + state.n100
-                        + state.n50
-                        + state.misses,
+                    perfect: hitresults.n320
+                        + hitresults.n300
+                        + hitresults.n200
+                        + hitresults.n100
+                        + hitresults.n50
+                        + hitresults.misses,
                     ..Default::default()
                 };
 

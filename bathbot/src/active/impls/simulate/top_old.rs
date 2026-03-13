@@ -1,8 +1,12 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use rosu_pp::{
-    Beatmap, Performance, any::HitResultPriority, catch::CatchScoreState, mania::ManiaScoreState,
-    osu::OsuScoreState, taiko::TaikoScoreState,
+    Beatmap, Performance,
+    any::hitresult_generator::{Closest, Composable, Fast},
+    catch::CatchHitResults,
+    mania::ManiaHitResults,
+    osu::OsuHitResults,
+    taiko::TaikoHitResults,
 };
 use twilight_model::channel::message::{
     Component,
@@ -25,7 +29,7 @@ pub enum TopOldVersion {
 impl TopOldVersion {
     pub fn from_menu_str(s: &str) -> Option<Self> {
         let version = match s {
-            "sim_osu_march25_now" => Self::Osu(TopOldOsuVersion::March25Now),
+            "sim_osu_march25_now" => Self::Osu(TopOldOsuVersion::March25October25),
             "sim_osu_october24_march25" => Self::Osu(TopOldOsuVersion::October24March25),
             "sim_osu_september22_october24" => Self::Osu(TopOldOsuVersion::September22October24),
             "sim_osu_november21_september22" => Self::Osu(TopOldOsuVersion::November21September22),
@@ -37,7 +41,7 @@ impl TopOldVersion {
             "sim_osu_february15_april15" => Self::Osu(TopOldOsuVersion::February15April15),
             "sim_osu_july14_february15" => Self::Osu(TopOldOsuVersion::July14February15),
             "sim_osu_may14_july14" => Self::Osu(TopOldOsuVersion::May14July14),
-            "sim_taiko_march25_now" => Self::Taiko(TopOldTaikoVersion::March25Now),
+            "sim_taiko_march25_now" => Self::Taiko(TopOldTaikoVersion::March25October25),
             "sim_taiko_october24_march25" => Self::Taiko(TopOldTaikoVersion::October24March25),
             "sim_taiko_september22_october24" => {
                 Self::Taiko(TopOldTaikoVersion::September22October24)
@@ -46,7 +50,7 @@ impl TopOldVersion {
                 Self::Taiko(TopOldTaikoVersion::September20September22)
             }
             "sim_taiko_march14_september20" => Self::Taiko(TopOldTaikoVersion::March14September20),
-            "sim_catch_october24_now" => Self::Catch(TopOldCatchVersion::October24Now),
+            "sim_catch_october24_now" => Self::Catch(TopOldCatchVersion::October24October25),
             "sim_catch_may20_october24" => Self::Catch(TopOldCatchVersion::May20October24),
             "sim_catch_march14_may20" => Self::Catch(TopOldCatchVersion::March14May20),
             "sim_mania_october24_now" => Self::Mania(TopOldManiaVersion::October24Now),
@@ -105,7 +109,7 @@ impl TopOldVersion {
                 match version {
                     TopOldOsuVersion::September22October24
                     | TopOldOsuVersion::October24March25
-                    | TopOldOsuVersion::March25Now => {
+                    | TopOldOsuVersion::March25October25 => {
                         let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
                         upper.push(Component::Button(clock_rate));
                     }
@@ -155,7 +159,7 @@ impl TopOldVersion {
                 ];
 
                 let options = versions![
-                    "March 2025 - Now", "sim_osu_march25_now", version = TopOldOsuVersion::March25Now;
+                    "March 2025 - Now", "sim_osu_march25_now", version = TopOldOsuVersion::March25October25;
                     "October 2024 - March 2025", "sim_osu_october24_march25", version = TopOldOsuVersion::October24March25;
                     "September 2022 - October 2024", "sim_osu_september22_october24", version = TopOldOsuVersion::September22October24;
                     "November 2021 - September 2022", "sim_osu_november21_september22", version = TopOldOsuVersion::November21September22;
@@ -202,7 +206,7 @@ impl TopOldVersion {
                 match version {
                     TopOldTaikoVersion::September22October24
                     | TopOldTaikoVersion::October24March25
-                    | TopOldTaikoVersion::March25Now => {
+                    | TopOldTaikoVersion::March25October25 => {
                         let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
                         upper.push(Component::Button(clock_rate));
                     }
@@ -223,7 +227,7 @@ impl TopOldVersion {
                 ];
 
                 let options = versions![
-                    "March 2025 - Now", "sim_taiko_march25_now", version = TopOldTaikoVersion::March25Now;
+                    "March 2025 - Now", "sim_taiko_march25_now", version = TopOldTaikoVersion::March25October25;
                     "October 2024 - March 2025", "sim_taiko_october24_march25", version = TopOldTaikoVersion::October24March25;
                     "September 2022 - October 2024", "sim_taiko_september22_october24", version = TopOldTaikoVersion::September22October24;
                     "September 2020 - September 2022","sim_taiko_september20_september22", version = TopOldTaikoVersion::September20September22;
@@ -256,7 +260,7 @@ impl TopOldVersion {
                 ];
 
                 match version {
-                    TopOldCatchVersion::May20October24 | TopOldCatchVersion::October24Now => {
+                    TopOldCatchVersion::May20October24 | TopOldCatchVersion::October24October25 => {
                         let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
                         upper.push(Component::Button(clock_rate));
                     }
@@ -281,7 +285,7 @@ impl TopOldVersion {
                 ];
 
                 let options = versions![
-                    "October 2024 - Now", "sim_catch_october24_now", version = TopOldCatchVersion::October24Now;
+                    "October 2024 - Now", "sim_catch_october24_now", version = TopOldCatchVersion::October24October25;
                     "May 2020 - October 2024", "sim_catch_may20_october24", version = TopOldCatchVersion::May20October24;
                     "March 2014 - May 2020", "sim_catch_march14_may20", version = TopOldCatchVersion::March14May20;
                 ];
@@ -422,7 +426,7 @@ impl TopOldVersion {
         if let Some(acc) = data.acc {
             calc = calc
                 .accuracy(acc as f64)
-                .hitresult_priority(HitResultPriority::Fastest);
+                .hitresult_generator::<Composable<Fast, Closest, Closest, Fast>>();
         }
 
         if let Some(n_geki) = data.n_geki {
@@ -462,8 +466,7 @@ impl TopOldVersion {
         let state = calc.generate_state();
 
         let state = match self {
-            Self::Osu(_) => ScoreState::Osu(OsuScoreState {
-                max_combo: state.max_combo,
+            Self::Osu(_) => ScoreState::Osu(OsuHitResults {
                 n300: state.n300,
                 n100: state.n100,
                 n50: state.n50,
@@ -472,21 +475,19 @@ impl TopOldVersion {
                 small_tick_hits: state.osu_small_tick_hits,
                 slider_end_hits: state.slider_end_hits,
             }),
-            Self::Taiko(_) => ScoreState::Taiko(TaikoScoreState {
-                max_combo: state.max_combo,
+            Self::Taiko(_) => ScoreState::Taiko(TaikoHitResults {
                 n300: state.n300,
                 n100: state.n100,
                 misses: state.misses,
             }),
-            Self::Catch(_) => ScoreState::Catch(CatchScoreState {
-                max_combo: state.max_combo,
+            Self::Catch(_) => ScoreState::Catch(CatchHitResults {
                 fruits: state.n300,
                 droplets: state.n100,
                 tiny_droplets: state.n50,
                 tiny_droplet_misses: state.n_katu,
                 misses: state.misses,
             }),
-            Self::Mania(_) => ScoreState::Mania(ManiaScoreState {
+            Self::Mania(_) => ScoreState::Mania(ManiaHitResults {
                 n320: state.n_geki,
                 n300: state.n300,
                 n200: state.n_katu,
@@ -527,7 +528,8 @@ impl Display for TopOldVersion {
                         f.write_str("september 2022 - october 2024")
                     }
                     TopOldOsuVersion::October24March25 => f.write_str("october 2024 - march 2025"),
-                    TopOldOsuVersion::March25Now => f.write_str("march 2025 - now"),
+                    TopOldOsuVersion::March25October25 => f.write_str("march 2025 - october 2025"),
+                    TopOldOsuVersion::October25Now => f.write_str("october 2025 - now"),
                 }
             }
             Self::Taiko(version) => {
@@ -546,7 +548,10 @@ impl Display for TopOldVersion {
                     TopOldTaikoVersion::October24March25 => {
                         f.write_str("october 2024 - march 2025")
                     }
-                    TopOldTaikoVersion::March25Now => f.write_str("march 2025 - now"),
+                    TopOldTaikoVersion::March25October25 => {
+                        f.write_str("march 2025 - october 2025")
+                    }
+                    TopOldTaikoVersion::October25Now => f.write_str("october 2025 - now"),
                 }
             }
             Self::Catch(version) => {
@@ -555,7 +560,10 @@ impl Display for TopOldVersion {
                 match version {
                     TopOldCatchVersion::March14May20 => f.write_str("march 2014 - may 2020"),
                     TopOldCatchVersion::May20October24 => f.write_str("may 2020 - october 2024"),
-                    TopOldCatchVersion::October24Now => f.write_str("october 2024 - now"),
+                    TopOldCatchVersion::October24October25 => {
+                        f.write_str("october 2024 - october 2025")
+                    }
+                    TopOldCatchVersion::October25Now => f.write_str("october 2025 - now"),
                 }
             }
             Self::Mania(version) => {

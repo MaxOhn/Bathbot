@@ -115,9 +115,9 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
     debug!(?map, ?mode, "Processing simulate command...");
 
     let version = match mode {
-        GameMode::Osu => TopOldVersion::Osu(TopOldOsuVersion::March25Now),
-        GameMode::Taiko => TopOldVersion::Taiko(TopOldTaikoVersion::March25Now),
-        GameMode::Catch => TopOldVersion::Catch(TopOldCatchVersion::October24Now),
+        GameMode::Osu => TopOldVersion::Osu(TopOldOsuVersion::March25October25),
+        GameMode::Taiko => TopOldVersion::Taiko(TopOldTaikoVersion::March25October25),
+        GameMode::Catch => TopOldVersion::Catch(TopOldCatchVersion::October24October25),
         GameMode::Mania => TopOldVersion::Mania(TopOldManiaVersion::October24Now),
     };
 

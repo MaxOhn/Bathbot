@@ -6,10 +6,10 @@ mod title;
 use std::hash::BuildHasher;
 
 use rosu_pp::{
-    catch::{CatchPerformance, CatchPerformanceAttributes, CatchScoreState},
+    catch::{CatchHitResults, CatchPerformance, CatchPerformanceAttributes},
     mania::{ManiaPerformance, ManiaScoreState},
-    osu::{OsuPerformance, OsuScoreState},
-    taiko::{TaikoPerformance, TaikoScoreState},
+    osu::{OsuHitResults, OsuPerformance},
+    taiko::{TaikoHitResults, TaikoPerformance},
 };
 use rosu_v2::model::{GameMode, score::Score};
 
@@ -53,8 +53,7 @@ impl Skills {
                         continue;
                     };
 
-                    let state = OsuScoreState {
-                        max_combo: score.max_combo,
+                    let hitresults = OsuHitResults {
                         n300: score.statistics.great,
                         n100: score.statistics.ok,
                         n50: score.statistics.meh,
@@ -67,7 +66,8 @@ impl Skills {
                     let attrs = OsuPerformance::try_new(attrs.difficulty)
                         .unwrap()
                         .mods(score.mods.clone())
-                        .state(state)
+                        .combo(score.max_combo)
+                        .hitresults(hitresults)
                         .lazer(score.set_on_lazer)
                         .calculate()
                         .unwrap();
@@ -102,8 +102,7 @@ impl Skills {
                         continue;
                     };
 
-                    let state = TaikoScoreState {
-                        max_combo: score.max_combo,
+                    let hitresults = TaikoHitResults {
                         n300: score.statistics.great,
                         n100: score.statistics.ok,
                         misses: score.statistics.miss,
@@ -112,7 +111,8 @@ impl Skills {
                     let attrs = TaikoPerformance::try_new(attrs.difficulty)
                         .unwrap()
                         .mods(score.mods.clone())
-                        .state(state)
+                        .combo(score.max_combo)
+                        .hitresults(hitresults)
                         .calculate()
                         .unwrap();
 
@@ -143,8 +143,7 @@ impl Skills {
                         continue;
                     };
 
-                    let state = CatchScoreState {
-                        max_combo: score.max_combo,
+                    let hitresults = CatchHitResults {
                         fruits: score.statistics.great,
                         droplets: score.statistics.large_tick_hit,
                         tiny_droplets: score.statistics.small_tick_hit,
@@ -157,7 +156,8 @@ impl Skills {
                     let attrs = CatchPerformance::try_new(attrs.difficulty)
                         .unwrap()
                         .mods(score.mods.clone())
-                        .state(state)
+                        .combo(score.max_combo)
+                        .hitresults(hitresults)
                         .calculate()
                         .unwrap();
 
