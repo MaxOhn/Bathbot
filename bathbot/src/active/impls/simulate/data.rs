@@ -619,9 +619,10 @@ impl SimulateData {
                 self.version,
                 TopOldVersion::Osu(TopOldOsuVersion::October25Now)
             ) && (!self.set_on_lazer
-                || self.mods.as_ref().map_or(false, |mods| {
-                    mods.contains_intermode(GameModIntermode::Classic)
-                }))
+                || self
+                    .mods
+                    .as_ref()
+                    .is_some_and(|mods| mods.contains_intermode(GameModIntermode::Classic)))
         });
 
         SimulateValues {

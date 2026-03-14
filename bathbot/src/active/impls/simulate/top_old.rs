@@ -164,6 +164,7 @@ impl TopOldVersion {
                 ];
 
                 // Don't forget to adjust this for future versions
+                #[expect(clippy::single_match, reason = "will be expanded in the future")]
                 match version {
                     TopOldOsuVersion::October25Now => {
                         let score = Button {
