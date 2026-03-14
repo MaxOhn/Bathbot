@@ -147,7 +147,7 @@ impl IActiveMessage for MapPagination {
                     .mods(&self.mods)
                     .accuracy(acc as f64)
                     .clock_rate(clock_rate)
-                    .hitresult_generator::<Composable<Closest, Closest, Closest, Fast>>()
+                    .hitresult_generator::<Composable<Fast, Closest, Closest, Fast>>()
                     .calculate();
 
                 let pp = pp_result.pp();
