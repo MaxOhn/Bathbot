@@ -13,7 +13,7 @@ use twilight_model::channel::message::{
     component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption, SelectMenuType},
 };
 
-use super::{data::SimulateData, state::ScoreState};
+use super::{data::SimulateData, state::HitResults};
 use crate::commands::osu::{
     TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion,
 };
@@ -29,7 +29,8 @@ pub enum TopOldVersion {
 impl TopOldVersion {
     pub fn from_menu_str(s: &str) -> Option<Self> {
         let version = match s {
-            "sim_osu_march25_now" => Self::Osu(TopOldOsuVersion::March25October25),
+            "sim_osu_october25_now" => Self::Osu(TopOldOsuVersion::October25Now),
+            "sim_osu_march25_october25" => Self::Osu(TopOldOsuVersion::March25October25),
             "sim_osu_october24_march25" => Self::Osu(TopOldOsuVersion::October24March25),
             "sim_osu_september22_october24" => Self::Osu(TopOldOsuVersion::September22October24),
             "sim_osu_november21_september22" => Self::Osu(TopOldOsuVersion::November21September22),
@@ -41,7 +42,8 @@ impl TopOldVersion {
             "sim_osu_february15_april15" => Self::Osu(TopOldOsuVersion::February15April15),
             "sim_osu_july14_february15" => Self::Osu(TopOldOsuVersion::July14February15),
             "sim_osu_may14_july14" => Self::Osu(TopOldOsuVersion::May14July14),
-            "sim_taiko_march25_now" => Self::Taiko(TopOldTaikoVersion::March25October25),
+            "sim_taiko_october25_now" => Self::Taiko(TopOldTaikoVersion::October25Now),
+            "sim_taiko_march25_october25" => Self::Taiko(TopOldTaikoVersion::March25October25),
             "sim_taiko_october24_march25" => Self::Taiko(TopOldTaikoVersion::October24March25),
             "sim_taiko_september22_october24" => {
                 Self::Taiko(TopOldTaikoVersion::September22October24)
@@ -50,7 +52,8 @@ impl TopOldVersion {
                 Self::Taiko(TopOldTaikoVersion::September20September22)
             }
             "sim_taiko_march14_september20" => Self::Taiko(TopOldTaikoVersion::March14September20),
-            "sim_catch_october24_now" => Self::Catch(TopOldCatchVersion::October24October25),
+            "sim_catch_october25_now" => Self::Catch(TopOldCatchVersion::October25Now),
+            "sim_catch_october24_october25" => Self::Catch(TopOldCatchVersion::October24October25),
             "sim_catch_may20_october24" => Self::Catch(TopOldCatchVersion::May20October24),
             "sim_catch_march14_may20" => Self::Catch(TopOldCatchVersion::March14May20),
             "sim_mania_october24_now" => Self::Mania(TopOldManiaVersion::October24Now),
@@ -63,7 +66,7 @@ impl TopOldVersion {
         Some(version)
     }
 
-    pub fn components(self, set_on_lazer: bool) -> Vec<Component> {
+    pub fn components(self, set_on_lazer: bool, cl_enabled: bool) -> Vec<Component> {
         macro_rules! versions {
                 ( $( $label:literal, $value:literal, $version:ident = $ty:ident :: $variant:ident ;)* ) => {
                     vec![
@@ -106,10 +109,12 @@ impl TopOldVersion {
                     Component::Button(acc),
                 ];
 
+                // Don't forget to adjust this for future versions
                 match version {
                     TopOldOsuVersion::September22October24
                     | TopOldOsuVersion::October24March25
-                    | TopOldOsuVersion::March25October25 => {
+                    | TopOldOsuVersion::March25October25
+                    | TopOldOsuVersion::October25Now => {
                         let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
                         upper.push(Component::Button(clock_rate));
                     }
@@ -151,15 +156,28 @@ impl TopOldVersion {
                     Component::Button(n_miss),
                 ];
 
-                let bottom = vec![
+                let mut bottom = vec![
                     Component::Button(n_slider_ends),
                     Component::Button(n_large_ticks),
                     Component::Button(lazer),
                     Component::Button(stable),
                 ];
 
+                // Don't forget to adjust this for future versions
+                match version {
+                    TopOldOsuVersion::October25Now => {
+                        let score = Button {
+                            disabled: set_on_lazer && !cl_enabled,
+                            ..button!("sim_score", "Score", Secondary)
+                        };
+                        bottom.push(Component::Button(score));
+                    }
+                    _ => {}
+                }
+
                 let options = versions![
-                    "March 2025 - Now", "sim_osu_march25_now", version = TopOldOsuVersion::March25October25;
+                    "October 2025 - Now", "sim_osu_october25_now", version = TopOldOsuVersion::October25Now;
+                    "March 2025 - October 2025", "sim_osu_march25_october25", version = TopOldOsuVersion::March25October25;
                     "October 2024 - March 2025", "sim_osu_october24_march25", version = TopOldOsuVersion::October24March25;
                     "September 2022 - October 2024", "sim_osu_september22_october24", version = TopOldOsuVersion::September22October24;
                     "November 2021 - September 2022", "sim_osu_november21_september22", version = TopOldOsuVersion::November21September22;
@@ -203,10 +221,12 @@ impl TopOldVersion {
                     Component::Button(acc),
                 ];
 
+                // Don't forget to adjust this for future versions
                 match version {
                     TopOldTaikoVersion::September22October24
                     | TopOldTaikoVersion::October24March25
-                    | TopOldTaikoVersion::March25October25 => {
+                    | TopOldTaikoVersion::March25October25
+                    | TopOldTaikoVersion::October25Now => {
                         let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
                         upper.push(Component::Button(clock_rate));
                     }
@@ -227,7 +247,8 @@ impl TopOldVersion {
                 ];
 
                 let options = versions![
-                    "March 2025 - Now", "sim_taiko_march25_now", version = TopOldTaikoVersion::March25October25;
+                    "October 2025 - Now", "sim_taiko_october25_now", version = TopOldTaikoVersion::October25Now;
+                    "March 2025 - October 2025", "sim_taiko_march25_october25", version = TopOldTaikoVersion::March25October25;
                     "October 2024 - March 2025", "sim_taiko_october24_march25", version = TopOldTaikoVersion::October24March25;
                     "September 2022 - October 2024", "sim_taiko_september22_october24", version = TopOldTaikoVersion::September22October24;
                     "September 2020 - September 2022","sim_taiko_september20_september22", version = TopOldTaikoVersion::September20September22;
@@ -259,8 +280,11 @@ impl TopOldVersion {
                     Component::Button(acc),
                 ];
 
+                // Don't forget to adjust this for future versions
                 match version {
-                    TopOldCatchVersion::May20October24 | TopOldCatchVersion::October24October25 => {
+                    TopOldCatchVersion::May20October24
+                    | TopOldCatchVersion::October24October25
+                    | TopOldCatchVersion::October25Now => {
                         let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
                         upper.push(Component::Button(clock_rate));
                     }
@@ -285,7 +309,8 @@ impl TopOldVersion {
                 ];
 
                 let options = versions![
-                    "October 2024 - Now", "sim_catch_october24_now", version = TopOldCatchVersion::October24October25;
+                    "October 2025 - Now", "sim_catch_october25_now", version = TopOldCatchVersion::October25Now;
+                    "October 2024 - October 2025", "sim_catch_october24_october25", version = TopOldCatchVersion::October24October25;
                     "May 2020 - October 2024", "sim_catch_may20_october24", version = TopOldCatchVersion::May20October24;
                     "March 2014 - May 2020", "sim_catch_march14_may20", version = TopOldCatchVersion::March14May20;
                 ];
@@ -416,7 +441,7 @@ impl TopOldVersion {
         self,
         map: &Beatmap,
         data: &SimulateData,
-    ) -> Option<ScoreState> {
+    ) -> Option<HitResults> {
         if map.check_suspicion().is_err() {
             return None;
         }
@@ -465,8 +490,8 @@ impl TopOldVersion {
 
         let state = calc.generate_state();
 
-        let state = match self {
-            Self::Osu(_) => ScoreState::Osu(OsuHitResults {
+        let hitresults = match self {
+            Self::Osu(_) => HitResults::Osu(OsuHitResults {
                 n300: state.n300,
                 n100: state.n100,
                 n50: state.n50,
@@ -475,19 +500,19 @@ impl TopOldVersion {
                 small_tick_hits: state.osu_small_tick_hits,
                 slider_end_hits: state.slider_end_hits,
             }),
-            Self::Taiko(_) => ScoreState::Taiko(TaikoHitResults {
+            Self::Taiko(_) => HitResults::Taiko(TaikoHitResults {
                 n300: state.n300,
                 n100: state.n100,
                 misses: state.misses,
             }),
-            Self::Catch(_) => ScoreState::Catch(CatchHitResults {
+            Self::Catch(_) => HitResults::Catch(CatchHitResults {
                 fruits: state.n300,
                 droplets: state.n100,
                 tiny_droplets: state.n50,
                 tiny_droplet_misses: state.n_katu,
                 misses: state.misses,
             }),
-            Self::Mania(_) => ScoreState::Mania(ManiaHitResults {
+            Self::Mania(_) => HitResults::Mania(ManiaHitResults {
                 n320: state.n_geki,
                 n300: state.n300,
                 n200: state.n_katu,
@@ -497,7 +522,7 @@ impl TopOldVersion {
             }),
         };
 
-        Some(state)
+        Some(hitresults)
     }
 }
 

@@ -31,7 +31,7 @@ use rosu_v2::{
         },
     },
     mods,
-    prelude::{GameMode, GameModsIntermode, Grade},
+    prelude::{GameModIntermode, GameMode, GameModsIntermode, Grade},
 };
 use twilight_model::{
     channel::message::{Component, embed::EmbedField},
@@ -42,7 +42,7 @@ pub use self::{attrs::SimulateAttributes, data::SimulateData, top_old::TopOldVer
 use crate::{
     active::{
         BuildPage, ComponentResult, IActiveMessage,
-        impls::simulate::data::{ComboOrRatio, SimulateValues, StateOrScore},
+        impls::simulate::data::{ComboOrRatio, HitResultsOrScore, SimulateValues},
     },
     commands::osu::parsed_map::AttachedSimulateMap,
     embeds::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter},
@@ -143,6 +143,7 @@ impl IActiveMessage for SimulateComponents {
             clock_rate,
             combo_ratio,
             score_state,
+            score: score_value,
         } = self.data.simulate(&self.map);
 
         let mods = self
@@ -161,7 +162,7 @@ impl IActiveMessage for SimulateComponents {
         let mut too_suspicious = false;
 
         let (score, acc, hits) = match score_state {
-            StateOrScore::Score(score) => {
+            HitResultsOrScore::Score(score) => {
                 let score = EmbedField {
                     inline: true,
                     name: "Score".to_owned(),
@@ -170,7 +171,7 @@ impl IActiveMessage for SimulateComponents {
 
                 (Some(score), None, None)
             }
-            StateOrScore::State(state) => {
+            HitResultsOrScore::HitResults(state) => {
                 let map = self.data.set_on_lazer.then_some(self.map.pp_map());
 
                 let (mode, stats, max_stats) = state.into_parts(map);
@@ -199,7 +200,7 @@ impl IActiveMessage for SimulateComponents {
 
                 (None, Some(acc), Some(hits))
             }
-            StateOrScore::Neither => {
+            HitResultsOrScore::Neither => {
                 too_suspicious = true;
 
                 (None, None, None)
@@ -207,11 +208,11 @@ impl IActiveMessage for SimulateComponents {
         };
 
         let (combo, ratio) = match combo_ratio {
-            ComboOrRatio::Combo { score, max } => {
+            ComboOrRatio::Combo { combo, max } => {
                 let combo = EmbedField {
                     inline: true,
                     name: "Combo".to_owned(),
-                    value: ComboFormatter::new(score, Some(max)).to_string(),
+                    value: ComboFormatter::new(combo, Some(max)).to_string(),
                 };
 
                 (Some(combo), None)
@@ -281,6 +282,10 @@ impl IActiveMessage for SimulateComponents {
             fields![fields { "Clock rate", format!("{clock_rate:.2}"), true }];
         }
 
+        if let Some(score) = score_value {
+            fields![fields { "Score", WithComma::new(score).to_string(), true; }];
+        }
+
         if let Some(hits) = hits {
             fields.push(hits);
         }
@@ -310,7 +315,15 @@ impl IActiveMessage for SimulateComponents {
     }
 
     fn build_components(&self) -> Vec<Component> {
-        self.data.version.components(self.data.set_on_lazer)
+        let cl_enabled = self
+            .data
+            .mods
+            .as_ref()
+            .is_some_and(|mods| mods.contains_intermode(GameModIntermode::Classic));
+
+        self.data
+            .version
+            .components(self.data.set_on_lazer, cl_enabled)
     }
 
     async fn handle_component(&mut self, component: &mut InteractionComponent) -> ComponentResult {
