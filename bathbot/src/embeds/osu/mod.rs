@@ -27,20 +27,20 @@ pub use self::{
 };
 
 pub struct ComboFormatter {
-    score: u32,
+    combo: u32,
     max: Option<u32>,
 }
 
 impl ComboFormatter {
-    pub fn new(score: u32, max: Option<u32>) -> Self {
-        Self { score, max }
+    pub fn new(combo: u32, max: Option<u32>) -> Self {
+        Self { combo, max }
     }
 }
 
 impl Display for ComboFormatter {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "**{}x**/", self.score)?;
+        write!(f, "**{}x**/", self.combo)?;
 
         match self.max {
             Some(combo) => write!(f, "{combo}x"),

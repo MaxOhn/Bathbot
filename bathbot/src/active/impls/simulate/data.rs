@@ -1,9 +1,9 @@
 use rosu_v2::{
     mods,
-    prelude::{GameMod, GameMods},
+    prelude::{GameMod, GameModIntermode, GameMods},
 };
 
-use super::{attrs::SimulateAttributes, state::ScoreState, top_old::TopOldVersion};
+use super::{attrs::SimulateAttributes, state::HitResults, top_old::TopOldVersion};
 use crate::{
     active::impls::SimulateMap,
     commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
@@ -319,6 +319,7 @@ impl SimulateData {
                     slider_end_hits: n_slider_ends,
                     small_tick_hits: n_slider_ends,
                     large_tick_hits: n_large_ticks,
+                    legacy_total_score: score,
                     clock_rate: clock_rate as f64,
                     @A accuracy: acc as f64,
                 } => {
@@ -530,16 +531,16 @@ impl SimulateData {
             },
         };
 
-        let state = self.version.generate_hitresults(map.pp_map(), self);
+        let hitresults = self.version.generate_hitresults(map.pp_map(), self);
 
-        let combo_ratio = match state {
-            Some(ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_)) => {
+        let combo_ratio = match hitresults {
+            Some(HitResults::Osu(_) | HitResults::Taiko(_) | HitResults::Catch(_)) => {
                 ComboOrRatio::Combo {
-                    score: self.combo.unwrap_or(self.max_combo),
+                    combo: self.combo.unwrap_or(self.max_combo),
                     max: self.max_combo,
                 }
             }
-            Some(ScoreState::Mania(ref state))
+            Some(HitResults::Mania(ref hitresults))
                 if matches!(
                     self.version,
                     TopOldVersion::Mania(
@@ -547,14 +548,15 @@ impl SimulateData {
                     )
                 ) =>
             {
-                match state.n300 {
-                    0 => ComboOrRatio::Ratio(state.n320 as f32),
-                    _ => ComboOrRatio::Ratio(state.n320 as f32 / state.n300 as f32),
+                match hitresults.n300 {
+                    0 => ComboOrRatio::Ratio(hitresults.n320 as f32),
+                    _ => ComboOrRatio::Ratio(hitresults.n320 as f32 / hitresults.n300 as f32),
                 }
             }
-            Some(ScoreState::Mania(_)) | None => ComboOrRatio::Neither,
+            Some(HitResults::Mania(_)) | None => ComboOrRatio::Neither,
         };
 
+        // Don't forget to adjust this for future versions
         let clock_rate = self
             .clock_rate
             .filter(|_| {
@@ -564,12 +566,16 @@ impl SimulateData {
                         TopOldOsuVersion::September22October24
                             | TopOldOsuVersion::October24March25
                             | TopOldOsuVersion::March25October25
+                            | TopOldOsuVersion::October25Now
                     ) | TopOldVersion::Taiko(
                         TopOldTaikoVersion::September22October24
                             | TopOldTaikoVersion::October24March25
                             | TopOldTaikoVersion::March25October25
+                            | TopOldTaikoVersion::October25Now
                     ) | TopOldVersion::Catch(
-                        TopOldCatchVersion::May20October24 | TopOldCatchVersion::October24October25
+                        TopOldCatchVersion::May20October24
+                            | TopOldCatchVersion::October24October25
+                            | TopOldCatchVersion::October25Now
                     ) | TopOldVersion::Mania(
                         TopOldManiaVersion::October22October24 | TopOldManiaVersion::October24Now
                     )
@@ -582,11 +588,11 @@ impl SimulateData {
                 })
             });
 
-        let score_state = match state {
-            Some(state @ (ScoreState::Osu(_) | ScoreState::Taiko(_) | ScoreState::Catch(_))) => {
-                StateOrScore::State(state)
+        let score_state = match hitresults {
+            Some(state @ (HitResults::Osu(_) | HitResults::Taiko(_) | HitResults::Catch(_))) => {
+                HitResultsOrScore::HitResults(state)
             }
-            Some(state @ ScoreState::Mania(_))
+            Some(state @ HitResults::Mania(_))
                 if matches!(
                     self.version,
                     TopOldVersion::Mania(
@@ -594,18 +600,30 @@ impl SimulateData {
                     )
                 ) =>
             {
-                StateOrScore::State(state)
+                HitResultsOrScore::HitResults(state)
             }
-            Some(ScoreState::Mania(_)) => match self.score {
-                Some(score) => StateOrScore::Score(score),
+            Some(HitResults::Mania(_)) => match self.score {
+                Some(score) => HitResultsOrScore::Score(score),
                 None => {
                     let mult = self.mods.as_ref().map(score_multiplier).unwrap_or(1.0);
 
-                    StateOrScore::Score((1_000_000.0 * mult) as u32)
+                    HitResultsOrScore::Score((1_000_000.0 * mult) as u32)
                 }
             },
-            None => StateOrScore::Neither,
+            None => HitResultsOrScore::Neither,
         };
+
+        // Don't forget to adjust this for future versions
+        let score = self.score.filter(|_| {
+            matches!(
+                self.version,
+                TopOldVersion::Osu(TopOldOsuVersion::October25Now)
+            ) && (!self.set_on_lazer
+                || self
+                    .mods
+                    .as_ref()
+                    .is_some_and(|mods| mods.contains_intermode(GameModIntermode::Classic)))
+        });
 
         SimulateValues {
             stars: stars as f32,
@@ -614,6 +632,7 @@ impl SimulateData {
             clock_rate,
             combo_ratio,
             score_state,
+            score,
         }
     }
 }
@@ -658,18 +677,19 @@ pub(super) struct SimulateValues {
     pub max_pp: f32,
     pub clock_rate: Option<f64>,
     pub combo_ratio: ComboOrRatio,
-    pub score_state: StateOrScore,
+    pub score_state: HitResultsOrScore,
+    pub score: Option<u32>,
 }
 
-pub(super) enum StateOrScore {
+pub(super) enum HitResultsOrScore {
     Score(u32),
-    State(ScoreState),
+    HitResults(HitResults),
     /// The map was too suspicious
     Neither,
 }
 
 pub(super) enum ComboOrRatio {
-    Combo { score: u32, max: u32 },
+    Combo { combo: u32, max: u32 },
     Ratio(f32),
     Neither,
 }

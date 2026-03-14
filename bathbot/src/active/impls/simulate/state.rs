@@ -4,14 +4,14 @@ use rosu_pp::{
 };
 use rosu_v2::prelude::{GameMode, ScoreStatistics};
 
-pub(super) enum ScoreState {
+pub(super) enum HitResults {
     Osu(OsuHitResults),
     Taiko(TaikoHitResults),
     Catch(CatchHitResults),
     Mania(ManiaHitResults),
 }
 
-impl ScoreState {
+impl HitResults {
     pub(super) fn into_parts(
         self,
         map: Option<&Beatmap>,

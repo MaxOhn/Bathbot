@@ -29,6 +29,7 @@ pub enum SimulateArg {
     SliderEnds(u32),
     LargeTicks(u32),
     SmallTicks(u32),
+    Score(u32),
     Mods(GameModsIntermode),
     Ar(f32),
     Cs(f32),
@@ -57,11 +58,13 @@ impl SimulateArg {
             Some("cs") => parse_cs(rest).map(SimulateArg::Cs),
             Some("hp") => parse_hp(rest).map(SimulateArg::Hp),
             Some("od") => parse_od(rest).map(SimulateArg::Od),
-            Some("slider_ends" | "sliderends") => {
-                parse_slider_ends(rest).map(SimulateArg::SliderEnds)
-            }
+            Some("sliderends") => parse_slider_ends(rest).map(SimulateArg::SliderEnds),
             Some("largeticks") => parse_large_ticks(rest).map(SimulateArg::LargeTicks),
             Some("smallticks") => parse_small_ticks(rest).map(SimulateArg::SmallTicks),
+            // Manual parsing because `score` doesn't need a "recognize" function.
+            Some("score" | "legacyscore") => all_consuming::<_, _, NomError<_>, _>(ch::u32)(rest)
+                .map_err(|_| ParseError::Score)
+                .map(|(_, val)| SimulateArg::Score(val)),
             Some("lazer") => parse_lazer(rest, ParseError::Lazer).map(SimulateArg::Lazer),
             Some("stable") => parse_lazer(rest, ParseError::Stable)
                 .map(<bool as std::ops::Not>::not)
@@ -82,6 +85,7 @@ impl SimulateArg {
 }
 
 fn parse_key(input: &str) -> IResult<&str, Option<&str>> {
+    // Note: No underscores allowed
     opt(terminated(ch::alphanumeric1, ch::char('=')))(input)
 }
 
@@ -366,6 +370,7 @@ pub enum ParseError {
     SliderEnds,
     LargeTicks,
     SmallTicks,
+    Score,
     Mods,
     Ar,
     Cs,
@@ -384,9 +389,10 @@ impl ParseError {
 
     fn unknown(input: &str) -> Self {
         Self::Unknown(format!(
-            "Unknown key `{input}`. Must be `mods`, `lazer`, `stable`, `acc`, `bpm`, \
-            `combo`, `clockrate`, `n300`, `n100`, `n50`, `miss`, `geki`, `katu`, \
-            `sliderends`, `largeticks`, `smallticks`, `ar`, `cs`, `hp`, or `od`"
+            "Unknown key `{input}`. Must be `mods`, `lazer`, `stable`, `acc`, \
+            `bpm`, `combo`, `clockrate`, `n300`, `n100`, `n50`, `miss`, `geki`, \
+            `katu`, `sliderends`, `largeticks`, `smallticks`, `score`, `ar`, \
+            `cs`, `hp`, or `od`"
         ))
     }
 
@@ -410,6 +416,7 @@ impl ParseError {
             Self::SliderEnds => "Failed to parse slider ends, must be a number".into(),
             Self::LargeTicks => "Failed to parse large ticks, must be a number".into(),
             Self::SmallTicks => "Failed to parse small ticks, must be a number".into(),
+            Self::Score => "Failed to parse score, must be an integer".into(),
             Self::Lazer => "Failed to parse lazer, must be a boolean".into(),
             Self::Stable => "Failed to parse stable, must be a boolean".into(),
             Self::Nom(err) | Self::Unknown(err) => err.into(),
@@ -668,5 +675,12 @@ mod tests {
             SimulateArg::parse("hdhr!"),
             Err(ParseError::Nom(err)) if err.contains("`hdhr!`")
         ));
+    }
+
+    #[test]
+    fn score() {
+        assert_eq!(SimulateArg::parse("score=123"), Ok(SimulateArg::Score(123)));
+        // No underscores allowed
+        assert_eq!(SimulateArg::parse("score=12_345"), Err(ParseError::Score));
     }
 }

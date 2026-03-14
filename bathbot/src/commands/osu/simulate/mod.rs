@@ -78,6 +78,8 @@ pub struct Simulate<'m> {
     geki: Option<u32>,
     #[command(desc = "Specify katus i.e. tiny droplet misses in catch and n200 in mania")]
     katu: Option<u32>,
+    #[command(desc = "Specify the total score")]
+    score: Option<u32>,
     #[command(desc = "Overwrite the map's approach rate")]
     ar: Option<f32>,
     #[command(desc = "Overwrite the map's circle size")]
@@ -115,9 +117,9 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
     debug!(?map, ?mode, "Processing simulate command...");
 
     let version = match mode {
-        GameMode::Osu => TopOldVersion::Osu(TopOldOsuVersion::March25October25),
-        GameMode::Taiko => TopOldVersion::Taiko(TopOldTaikoVersion::March25October25),
-        GameMode::Catch => TopOldVersion::Catch(TopOldCatchVersion::October24October25),
+        GameMode::Osu => TopOldVersion::Osu(TopOldOsuVersion::October25Now),
+        GameMode::Taiko => TopOldVersion::Taiko(TopOldTaikoVersion::October25Now),
+        GameMode::Catch => TopOldVersion::Catch(TopOldCatchVersion::October25Now),
         GameMode::Mania => TopOldVersion::Mania(TopOldManiaVersion::October24Now),
     };
 
@@ -167,6 +169,7 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
         n_large_ticks: args.large_tick_hits,
         combo: args.combo,
         clock_rate: args.clock_rate,
+        score: args.score,
         bpm: args.bpm,
         attrs: SimulateAttributes {
             ar: args.ar,
@@ -174,7 +177,6 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
             hp: args.hp,
             od: args.od,
         },
-        score: None,
         version,
         max_combo,
     };
@@ -207,6 +209,7 @@ async fn simulate(orig: CommandOrigin<'_>, mut args: SimulateArgs) -> Result<()>
     - slider ends: `sliderends=[integer]` or `[integer]xsliderends`\n\
     - large ticks: `largeticks=[integer]` or `[integer]xlargeticks`\n\
     - small ticks: `smallticks=[integer]` or `[integer]xsmallticks`\n\
+    - score: `score=[integer]`\n\
     - mods: `mods=[mod acronym]` or `+[mod acronym]`\n\
     - ar: `ar=[number]` or `ar[number]`\n\
     - cs: `cs=[number]` or `cs[number]`\n\
@@ -447,6 +450,7 @@ struct SimulateArgs {
     large_tick_hits: Option<u32>,
     geki: Option<u32>,
     katu: Option<u32>,
+    score: Option<u32>,
     ar: Option<f32>,
     cs: Option<f32>,
     hp: Option<f32>,
@@ -501,6 +505,7 @@ impl SimulateArgs {
                     simulate.slider_end_hits = Some(val)
                 }
                 SimulateArg::LargeTicks(val) => simulate.large_tick_hits = Some(val),
+                SimulateArg::Score(val) => simulate.score = Some(val),
                 SimulateArg::Mods(val) => simulate.mods = Some(val),
                 SimulateArg::Ar(val) => simulate.ar = Some(val),
                 SimulateArg::Cs(val) => simulate.cs = Some(val),
@@ -563,6 +568,7 @@ impl SimulateArgs {
             set_on_lazer: simulate.lazer,
             slider_end_hits: simulate.slider_end_hits,
             large_tick_hits: simulate.large_tick_hits,
+            score: simulate.score,
             geki: simulate.geki,
             katu: simulate.katu,
             ar: simulate.ar,
