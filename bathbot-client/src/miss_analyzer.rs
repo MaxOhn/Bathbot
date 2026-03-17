@@ -3,9 +3,11 @@ use serde::Serialize;
 
 use crate::{Client, site::Site};
 
+const IP: &str = "162.230.200.123";
+
 impl Client {
     pub async fn miss_analyzer_score_request(&self, guild_id: u64, score_id: u64) -> Result<bool> {
-        let url = "http://104.176.138.100:24342/api/scorerequest";
+        let url = format!("http://{IP}:24342/api/scorerequest");
 
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]
@@ -35,7 +37,7 @@ impl Client {
         message_id: u64,
         score_id: u64,
     ) -> Result<()> {
-        let url = "http://104.176.138.100:24342/api/scoreresponse";
+        let url = format!("http://{IP}:24342/api/scoreresponse");
 
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]
