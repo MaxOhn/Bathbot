@@ -241,7 +241,12 @@ async fn card(orig: CommandOrigin<'_>, args: Card<'_>) -> Result<()> {
                 .mods(score.mods.clone())
                 .difficulty()
                 .await
-                .expect("suspicious maps in top scores are a false positive")
+                .unwrap_or_else(|| {
+                    panic!(
+                        "suspicious maps in top scores are a false positive (map={})",
+                        score.map_id
+                    )
+                })
                 .to_owned();
 
             let attrs = RequiredAttributes {
