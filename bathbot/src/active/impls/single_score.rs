@@ -19,7 +19,7 @@ use bathbot_util::{
     numbers::round,
 };
 use eyre::{Report, Result};
-use rosu_pp::model::beatmap::BeatmapAttributes;
+use rosu_pp::model::beatmap::{AdjustedBeatmapAttributes, BeatmapAttributes};
 use rosu_render::{ClientError as OrdrError, client::error::ApiError as OrdrApiError};
 use rosu_v2::{
     error::OsuError,
@@ -615,11 +615,13 @@ fn apply_settings(
                     writer.push('*');
                 }
 
+                let adjusted_map_attrs = map_attrs.apply_clock_rate();
+
                 let fmt = match curr.inner {
-                    Value::Ar => MapAttribute::AR.fmt(data, &map_attrs),
-                    Value::Cs => MapAttribute::CS.fmt(data, &map_attrs),
-                    Value::Hp => MapAttribute::HP.fmt(data, &map_attrs),
-                    Value::Od => MapAttribute::OD.fmt(data, &map_attrs),
+                    Value::Ar => MapAttribute::AR.fmt(data, &adjusted_map_attrs),
+                    Value::Cs => MapAttribute::CS.fmt(data, &adjusted_map_attrs),
+                    Value::Hp => MapAttribute::HP.fmt(data, &adjusted_map_attrs),
+                    Value::Od => MapAttribute::OD.fmt(data, &adjusted_map_attrs),
                     _ => unreachable!(),
                 };
 
@@ -642,11 +644,13 @@ fn apply_settings(
                     writer.push('*');
                 }
 
+                let adjusted_map_attrs = map_attrs.apply_clock_rate();
+
                 let fmt = match curr.inner {
-                    Value::Ar => MapAttribute::AR.fmt(data, &map_attrs),
-                    Value::Cs => MapAttribute::CS.fmt(data, &map_attrs),
-                    Value::Hp => MapAttribute::HP.fmt(data, &map_attrs),
-                    Value::Od => MapAttribute::OD.fmt(data, &map_attrs),
+                    Value::Ar => MapAttribute::AR.fmt(data, &adjusted_map_attrs),
+                    Value::Cs => MapAttribute::CS.fmt(data, &adjusted_map_attrs),
+                    Value::Hp => MapAttribute::HP.fmt(data, &adjusted_map_attrs),
+                    Value::Od => MapAttribute::OD.fmt(data, &adjusted_map_attrs),
                     _ => unreachable!(),
                 };
 
@@ -690,11 +694,13 @@ fn apply_settings(
                     writer.push('*');
                 }
 
+                let adjusted_map_attrs = map_attrs.apply_clock_rate();
+
                 let fmt = match curr.inner {
-                    Value::Ar => MapAttribute::AR.fmt(data, &map_attrs),
-                    Value::Cs => MapAttribute::CS.fmt(data, &map_attrs),
-                    Value::Hp => MapAttribute::HP.fmt(data, &map_attrs),
-                    Value::Od => MapAttribute::OD.fmt(data, &map_attrs),
+                    Value::Ar => MapAttribute::AR.fmt(data, &adjusted_map_attrs),
+                    Value::Cs => MapAttribute::CS.fmt(data, &adjusted_map_attrs),
+                    Value::Hp => MapAttribute::HP.fmt(data, &adjusted_map_attrs),
+                    Value::Od => MapAttribute::OD.fmt(data, &adjusted_map_attrs),
                     _ => unreachable!(),
                 };
 
@@ -977,7 +983,7 @@ fn write_value(
             let _ = write!(writer, "{}★", round(data.stars));
         }
         Value::Length => {
-            let clock_rate = map_attrs.clock_rate as f32;
+            let clock_rate = map_attrs.clock_rate() as f32;
             let seconds_drain = (data.map.seconds_drain() as f32 / clock_rate) as u32;
 
             if value.y < SettingValue::FOOTER_Y {
@@ -995,11 +1001,13 @@ fn write_value(
                 writer.push('`');
             }
 
+            let adjusted_map_attrs = map_attrs.apply_clock_rate();
+
             let fmt = match &value.inner {
-                Value::Ar => MapAttribute::AR.fmt(data, map_attrs),
-                Value::Cs => MapAttribute::CS.fmt(data, map_attrs),
-                Value::Hp => MapAttribute::HP.fmt(data, map_attrs),
-                Value::Od => MapAttribute::OD.fmt(data, map_attrs),
+                Value::Ar => MapAttribute::AR.fmt(data, &adjusted_map_attrs),
+                Value::Cs => MapAttribute::CS.fmt(data, &adjusted_map_attrs),
+                Value::Hp => MapAttribute::HP.fmt(data, &adjusted_map_attrs),
+                Value::Od => MapAttribute::OD.fmt(data, &adjusted_map_attrs),
                 _ => unreachable!(),
             };
 
@@ -1010,7 +1018,7 @@ fn write_value(
             }
         }
         Value::Bpm(emote_text) => {
-            let clock_rate = map_attrs.clock_rate as f32;
+            let clock_rate = map_attrs.clock_rate() as f32;
             let bpm = round(data.map.bpm() * clock_rate);
 
             if value.y < SettingValue::FOOTER_Y {
@@ -1153,7 +1161,14 @@ impl Display for MapAttributeFormatter<'_> {
             })
             .collect();
 
-        let map_attrs = self.data.map.attributes().mods(alt_mods).build();
+        let map_attrs = self
+            .data
+            .map
+            .attributes()
+            .mods(alt_mods)
+            .build()
+            .apply_clock_rate();
+
         let alt_value = self.map_attr.get_value(&map_attrs);
 
         let symbol = match self.value.partial_cmp(&alt_value) {
@@ -1178,16 +1193,16 @@ impl MapAttribute {
     fn fmt<'a>(
         self,
         data: &'a ScoreEmbedData,
-        attrs: &BeatmapAttributes,
+        attrs: &AdjustedBeatmapAttributes,
     ) -> MapAttributeFormatter<'a> {
         MapAttributeFormatter::new(data, self, self.get_value(attrs))
     }
 
-    fn get_value(self, attrs: &BeatmapAttributes) -> f64 {
+    fn get_value(self, attrs: &AdjustedBeatmapAttributes) -> f64 {
         match self {
             MapAttribute::AR => attrs.ar,
-            MapAttribute::CS => attrs.cs,
-            MapAttribute::HP => attrs.hp,
+            MapAttribute::CS => f64::from(attrs.cs),
+            MapAttribute::HP => f64::from(attrs.hp),
             MapAttribute::OD => attrs.od,
         }
     }

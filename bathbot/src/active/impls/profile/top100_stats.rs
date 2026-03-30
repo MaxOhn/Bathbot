@@ -12,8 +12,8 @@ pub(super) struct Top100Stats {
     pub pp: MinMaxAvg<f32>,
     pub stars: MinMaxAvg<f64>,
     pub ar: MinMaxAvg<f64>,
-    pub cs: MinMaxAvg<f64>,
-    pub hp: MinMaxAvg<f64>,
+    pub cs: MinMaxAvg<f32>,
+    pub hp: MinMaxAvg<f32>,
     pub od: MinMaxAvg<f64>,
     pub bpm: MinMaxAvg<f32>,
     pub len: MinMaxAvg<f32>,
@@ -98,14 +98,15 @@ impl Top100Stats {
             this.pp.add(pp);
 
             let map_attrs = map.attributes().mods(score.mods.clone()).build();
+            let clock_rate = map_attrs.clock_rate() as f32;
+            let adjusted_map_attrs = map_attrs.apply_clock_rate();
 
-            this.ar.add(map_attrs.ar);
-            this.cs.add(map_attrs.cs);
-            this.hp.add(map_attrs.hp);
-            this.od.add(map_attrs.od);
-            this.bpm.add(map.bpm() * map_attrs.clock_rate as f32);
-            this.len
-                .add(map.seconds_drain() as f32 / map_attrs.clock_rate as f32);
+            this.ar.add(adjusted_map_attrs.ar);
+            this.cs.add(adjusted_map_attrs.cs);
+            this.hp.add(adjusted_map_attrs.hp);
+            this.od.add(adjusted_map_attrs.od);
+            this.bpm.add(map.bpm() * clock_rate);
+            this.len.add(map.seconds_drain() as f32 / clock_rate);
         }
 
         Ok(this)

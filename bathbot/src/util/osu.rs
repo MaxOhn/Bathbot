@@ -733,7 +733,9 @@ impl Display for MapInfo<'_> {
         let mods_bits = mods.bits();
         let attrs = builder.mods(mods).build();
 
-        let clock_rate = attrs.clock_rate;
+        let clock_rate = attrs.clock_rate();
+        let adjusted_attrs = attrs.apply_clock_rate();
+
         let mut sec_drain = self.map.seconds_drain();
         let mut bpm = self.map.bpm();
 
@@ -745,9 +747,9 @@ impl Display for MapInfo<'_> {
         }
 
         let (cs_key, cs_value) = if self.map.mode() == GameMode::Mania {
-            ("Keys", Self::keys(mods_bits, attrs.cs as f32))
+            ("Keys", Self::keys(mods_bits, adjusted_attrs.cs))
         } else {
-            ("CS", round(attrs.cs as f32))
+            ("CS", round(adjusted_attrs.cs))
         };
 
         write!(
@@ -757,9 +759,9 @@ impl Display for MapInfo<'_> {
             len = SecToMinSec::new(sec_drain),
             bpm = round(bpm),
             objs = self.map.n_objects(),
-            ar = round(attrs.ar as f32),
-            od = round(attrs.od as f32),
-            hp = round(attrs.hp as f32),
+            ar = round(adjusted_attrs.ar as f32),
+            od = round(adjusted_attrs.od as f32),
+            hp = round(adjusted_attrs.hp),
             stars = round(self.stars),
         )
     }

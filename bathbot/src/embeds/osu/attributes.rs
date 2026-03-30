@@ -49,12 +49,14 @@ impl AttributesEmbed {
         };
 
         let attrs = builder.build();
+        let hit_windows = attrs.hit_windows();
+        let adjusted_attrs = attrs.apply_clock_rate();
 
         let adjusted = match kind {
-            AttributeKind::Ar => attrs.ar,
-            AttributeKind::Cs => attrs.cs,
-            AttributeKind::Hp => attrs.hp,
-            AttributeKind::Od => attrs.od,
+            AttributeKind::Ar => adjusted_attrs.ar,
+            AttributeKind::Cs => f64::from(adjusted_attrs.cs),
+            AttributeKind::Hp => f64::from(adjusted_attrs.hp),
+            AttributeKind::Od => adjusted_attrs.od,
         };
 
         let mut mods_name = mods.to_string();
@@ -70,8 +72,8 @@ impl AttributesEmbed {
         };
 
         let ms = match kind {
-            AttributeKind::Ar => Some(attrs.hit_windows.ar),
-            AttributeKind::Od => Some(attrs.hit_windows.od_great),
+            AttributeKind::Ar => Some(hit_windows.ar.unwrap_or(0.0)),
+            AttributeKind::Od => Some(hit_windows.od_great.unwrap_or(0.0)),
             AttributeKind::Cs | AttributeKind::Hp => None,
         };
 

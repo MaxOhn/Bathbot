@@ -54,7 +54,7 @@ impl IActiveMessage for LeaderboardPagination {
             let _ = write!(
                 author_text,
                 "[{}K] ",
-                self.map.attributes().build().cs as u32
+                self.map.attributes().build().cs() as u32
             );
         }
 

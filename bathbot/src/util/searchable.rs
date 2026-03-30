@@ -83,14 +83,16 @@ impl Searchable<NativeCriteria<'_>> for Score {
                 .mode((map.mode as u8).into(), map.convert)
                 .build();
 
-            let clock_rate = attrs.clock_rate as f32;
+            let adjusted_attrs = attrs.apply_clock_rate();
+
+            let clock_rate = attrs.clock_rate() as f32;
             let len = map.seconds_drain as f32 / clock_rate;
 
             matches &= criteria.0.stars.contains(map.stars);
-            matches &= criteria.0.ar.contains(attrs.ar as f32);
-            matches &= criteria.0.cs.contains(attrs.cs as f32);
-            matches &= criteria.0.hp.contains(attrs.hp as f32);
-            matches &= criteria.0.od.contains(attrs.od as f32);
+            matches &= criteria.0.ar.contains(adjusted_attrs.ar as f32);
+            matches &= criteria.0.cs.contains(adjusted_attrs.cs);
+            matches &= criteria.0.hp.contains(adjusted_attrs.hp);
+            matches &= criteria.0.od.contains(adjusted_attrs.od as f32);
             matches &= criteria.0.length.contains(len);
             matches &= criteria.0.bpm.contains(map.bpm * clock_rate);
 
@@ -129,19 +131,23 @@ impl Searchable<NativeCriteria<'_>> for (&'_ ScoreSlim, &'_ OsuMap) {
         let mut matches = true;
 
         let attrs = map.attributes().mods(score.mods.clone()).build();
+        let adjusted_attrs = attrs.apply_clock_rate();
 
-        let clock_rate = attrs.clock_rate as f32;
+        let clock_rate = attrs.clock_rate() as f32;
         let len = map.seconds_drain() as f32 / clock_rate;
 
-        matches &= criteria.0.ar.contains(attrs.ar as f32);
-        matches &= criteria.0.cs.contains(attrs.cs as f32);
-        matches &= criteria.0.hp.contains(attrs.hp as f32);
-        matches &= criteria.0.od.contains(attrs.od as f32);
+        matches &= criteria.0.ar.contains(adjusted_attrs.ar as f32);
+        matches &= criteria.0.cs.contains(adjusted_attrs.cs);
+        matches &= criteria.0.hp.contains(adjusted_attrs.hp);
+        matches &= criteria.0.od.contains(adjusted_attrs.od as f32);
         matches &= criteria.0.length.contains(len);
         matches &= criteria.0.bpm.contains(map.bpm() * clock_rate);
 
         matches &= score.mode != GameMode::Mania
-            || criteria.0.keys.contains(keys(&score.mods, attrs.cs as f32));
+            || criteria
+                .0
+                .keys
+                .contains(keys(&score.mods, adjusted_attrs.cs));
 
         if matches && criteria.has_search_terms() {
             let artist = map.artist().cow_to_ascii_lowercase();

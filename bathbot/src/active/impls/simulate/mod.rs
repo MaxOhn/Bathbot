@@ -868,8 +868,7 @@ impl SimulateMap {
                 }
 
                 let attrs = builder.mods(bits).build();
-
-                let clock_rate = attrs.clock_rate;
+                let clock_rate = attrs.clock_rate();
 
                 let start_time = map.hit_objects.first().map_or(0.0, |h| h.start_time);
                 let end_time = map.hit_objects.last().map_or(0.0, |h| match &h.kind {
@@ -893,10 +892,12 @@ impl SimulateMap {
                 }
 
                 let (cs_key, cs_value) = if map.mode == Mode::Mania {
-                    ("Keys", MapInfo::keys(bits, attrs.cs as f32))
+                    ("Keys", MapInfo::keys(bits, attrs.cs()))
                 } else {
-                    ("CS", round(attrs.cs as f32))
+                    ("CS", round(attrs.cs()))
                 };
+
+                let adjusted_attrs = attrs.apply_clock_rate();
 
                 format!(
                     "Length: `{len}` BPM: `{bpm}` Objects: `{objs}`\n\
@@ -904,9 +905,9 @@ impl SimulateMap {
                     len = SecToMinSec::new(sec_drain),
                     bpm = round(bpm),
                     objs = self.n_objects(),
-                    ar = round(attrs.ar as f32),
-                    od = round(attrs.od as f32),
-                    hp = round(attrs.hp as f32),
+                    ar = round(adjusted_attrs.ar as f32),
+                    od = round(adjusted_attrs.od as f32),
+                    hp = round(adjusted_attrs.hp),
                     stars = round(stars),
                 )
             }
