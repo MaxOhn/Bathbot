@@ -89,11 +89,8 @@ impl IActiveMessage for MapPagination {
 
         let clock_rate = match (self.attrs.bpm, self.attrs.clock_rate) {
             (None, None) => self.mods.legacy_clock_rate(),
-            (_, Some(clock_rate)) => clock_rate,
-            (Some(new_bpm), None) => {
-                let old_bpm = map.bpm;
-                (new_bpm / old_bpm) as f64
-            }
+            (_, Some(clock_rate)) => clock_rate.clamp(0.01, 100.0),
+            (Some(new_bpm), None) => (new_bpm / map.bpm).clamp(0.01, 100.0) as f64,
         };
 
         seconds_total = (seconds_total as f64 / clock_rate) as u32;
@@ -130,7 +127,8 @@ impl IActiveMessage for MapPagination {
             .attributes()
             .mods(&self.mods)
             .clock_rate(clock_rate)
-            .build();
+            .build()
+            .apply_clock_rate();
 
         const ACCS: [f32; 4] = [95.0, 97.0, 99.0, 100.0];
         let mut pps = Vec::with_capacity(ACCS.len());

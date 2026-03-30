@@ -39,10 +39,12 @@ impl SimulateData {
 
         let mod_bits = mods.bits();
 
-        if let Some(new_bpm) = self.bpm.filter(|_| self.clock_rate.is_none()) {
+        if let Some(ref mut clock_rate) = self.clock_rate {
+            *clock_rate = clock_rate.clamp(0.01, 100.0)
+        } else if let Some(new_bpm) = self.bpm {
             let old_bpm = map.bpm();
 
-            self.clock_rate = Some((new_bpm / old_bpm) as f64);
+            self.clock_rate = Some((new_bpm / old_bpm).clamp(0.01, 100.0) as f64);
         }
 
         macro_rules! simulate {

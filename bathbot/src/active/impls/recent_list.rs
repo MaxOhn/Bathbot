@@ -76,7 +76,7 @@ impl IActiveMessage for RecentListPagination {
                 let _ = write!(
                     description,
                     "\t{}",
-                    KeyFormatter::new(&score.mods, map.attributes().build().cs as f32)
+                    KeyFormatter::new(&score.mods, map.attributes().build().cs())
                 );
             }
 

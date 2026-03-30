@@ -386,11 +386,12 @@ impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
         }
 
         let attrs = self.map.attributes().mods(self.score.mods.clone()).build();
+        let adjusted_attrs = attrs.apply_clock_rate();
 
-        matches &= criteria.ar.contains(attrs.ar as f32);
-        matches &= criteria.cs.contains(attrs.cs as f32);
-        matches &= criteria.hp.contains(attrs.hp as f32);
-        matches &= criteria.od.contains(attrs.od as f32);
+        matches &= criteria.ar.contains(adjusted_attrs.ar as f32);
+        matches &= criteria.cs.contains(adjusted_attrs.cs);
+        matches &= criteria.hp.contains(adjusted_attrs.hp);
+        matches &= criteria.od.contains(adjusted_attrs.od as f32);
 
         let keys = [
             (GameModIntermode::OneKey, 1.0),
@@ -406,7 +407,7 @@ impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
         ]
         .into_iter()
         .find_map(|(gamemod, keys)| self.score.mods.contains_intermode(gamemod).then_some(keys))
-        .unwrap_or(attrs.cs as f32);
+        .unwrap_or(adjusted_attrs.cs);
 
         matches &= self.map.mode() != GameMode::Mania || criteria.keys.contains(keys);
 
@@ -422,7 +423,7 @@ impl<'q> Searchable<TopCriteria<'q>> for TopIfEntry {
             return matches;
         }
 
-        let clock_rate = attrs.clock_rate as f32;
+        let clock_rate = attrs.clock_rate() as f32;
         matches &= criteria
             .length
             .contains(self.map.seconds_drain() as f32 / clock_rate);
