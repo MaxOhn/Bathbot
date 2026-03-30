@@ -219,10 +219,10 @@ impl IActiveMessage for MapPagination {
             "BPM: `{}` Objects: `{}`\nCS: `{}` AR: `{}` OD: `{}` HP: `{}` Spinners: `{}`",
             round(bpm as f32),
             map.count_circles + map.count_sliders + map.count_spinners,
-            round(map_attrs.cs as f32),
+            round(map_attrs.cs),
             round(map_attrs.ar as f32),
             round(map_attrs.od as f32),
-            round(map_attrs.hp as f32),
+            round(map_attrs.hp),
             map.count_spinners,
         );
 
