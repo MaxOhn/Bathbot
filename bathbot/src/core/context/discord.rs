@@ -106,9 +106,9 @@ impl Context {
     }
 
     pub async fn reshard_loop(sender: broadcast::Sender<()>) {
-        const HALF_DAY: Duration = Duration::from_hours(12);
+        const INTERVAL: Duration = Duration::from_hours(23);
 
-        let mut interval = time::interval(HALF_DAY);
+        let mut interval = time::interval(INTERVAL);
         interval.tick().await;
 
         loop {
