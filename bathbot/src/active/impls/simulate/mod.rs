@@ -775,7 +775,7 @@ impl SimulateMap {
                 let mut builder = map.attributes();
 
                 if let Some(clock_rate) = clock_rate.or_else(|| mods.clock_rate()) {
-                    builder = builder.clock_rate(clock_rate);
+                    builder.clock_rate(clock_rate);
                 }
 
                 // Technically probably not necessary since users cannot input
@@ -793,19 +793,19 @@ impl SimulateMap {
                             } = m;
 
                             if let Some(cs) = circle_size {
-                                builder = builder.cs(*cs as f32, false);
+                                builder.cs(*cs as f32, false);
                             }
 
                             if let Some(ar) = approach_rate {
-                                builder = builder.ar(*ar as f32, false);
+                                builder.ar(*ar as f32, false);
                             }
 
                             if let Some(hp) = drain_rate {
-                                builder = builder.hp(*hp as f32, false);
+                                builder.hp(*hp as f32, false);
                             }
 
                             if let Some(od) = overall_difficulty {
-                                builder = builder.od(*od as f32, false);
+                                builder.od(*od as f32, false);
                             }
                         }
                         GameMod::DifficultyAdjustTaiko(m) => {
@@ -816,11 +816,11 @@ impl SimulateMap {
                             } = m;
 
                             if let Some(hp) = drain_rate {
-                                builder = builder.hp(*hp as f32, false);
+                                builder.hp(*hp as f32, false);
                             }
 
                             if let Some(od) = overall_difficulty {
-                                builder = builder.od(*od as f32, false);
+                                builder.od(*od as f32, false);
                             }
                         }
                         GameMod::DifficultyAdjustCatch(m) => {
@@ -833,19 +833,19 @@ impl SimulateMap {
                             } = m;
 
                             if let Some(cs) = circle_size {
-                                builder = builder.cs(*cs as f32, false);
+                                builder.cs(*cs as f32, false);
                             }
 
                             if let Some(ar) = approach_rate {
-                                builder = builder.ar(*ar as f32, false);
+                                builder.ar(*ar as f32, false);
                             }
 
                             if let Some(hp) = drain_rate {
-                                builder = builder.hp(*hp as f32, false);
+                                builder.hp(*hp as f32, false);
                             }
 
                             if let Some(od) = overall_difficulty {
-                                builder = builder.od(*od as f32, false);
+                                builder.od(*od as f32, false);
                             }
                         }
                         GameMod::DifficultyAdjustMania(m) => {
@@ -856,11 +856,11 @@ impl SimulateMap {
                             } = m;
 
                             if let Some(hp) = drain_rate {
-                                builder = builder.hp(*hp as f32, false);
+                                builder.hp(*hp as f32, false);
                             }
 
                             if let Some(od) = overall_difficulty {
-                                builder = builder.od(*od as f32, false);
+                                builder.od(*od as f32, false);
                             }
                         }
                         _ => {}
