@@ -30,12 +30,8 @@ impl HitResults {
 
                 let (large_tick_hit, slider_tail_hit) = map
                     .and_then(|map| {
-                        if map.check_suspicion().is_err() {
-                            return None;
-                        }
-
                         Difficulty::new()
-                            .calculate_for_mode::<rosu_pp::osu::Osu>(map)
+                            .checked_calculate_for_mode::<rosu_pp::osu::Osu>(map)
                             .ok()
                     })
                     .map(|attrs| (attrs.n_large_ticks, attrs.n_sliders))

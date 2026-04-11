@@ -423,11 +423,11 @@ struct GraphStrains {
 
 impl GraphStrains {
     fn new(map: &Beatmap, mods: GameMods) -> Result<Self> {
-        if map.check_suspicion().is_err() {
-            bail!("skip strain calculation because map is too suspicious");
-        }
+        let mut strains = Difficulty::new()
+            .mods(mods)
+            .checked_strains(map)
+            .context("Skip strain calculation because map is too suspicious")?;
 
-        let mut strains = Difficulty::new().mods(mods).strains(map);
         let section_len = strains.section_len();
 
         let strains_count = match strains {
