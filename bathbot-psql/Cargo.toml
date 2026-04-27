@@ -18,6 +18,3 @@ tokio = { version = "1.20", default-features = false, features = ["io-util", "ti
 tracing = { version = "0.1" }
 twilight-interactions = { workspace = true }
 twilight-model = { workspace = true }
-
-[dev-dependencies]
-dotenvy = { version = "0.15" }

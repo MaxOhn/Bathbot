@@ -320,7 +320,6 @@ dependencies = [
  "eyre",
  "form_urlencoded",
  "http",
- "leaky-bucket-lite",
  "once_cell",
  "rkyv",
  "rosu-mods",
@@ -340,7 +339,6 @@ version = "3.23.2"
 dependencies = [
  "bathbot-model",
  "bathbot-util",
- "dotenvy",
  "eyre",
  "futures",
  "rkyv",
@@ -377,7 +375,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
- "tower 0.5.3",
  "tower-http",
  "tracing",
 ]
@@ -404,7 +401,6 @@ dependencies = [
  "eyre",
  "flexmap",
  "futures",
- "futures-util",
  "image",
  "leaky-bucket-lite",
  "linkme",
@@ -455,7 +451,6 @@ dependencies = [
  "regex",
  "rosu-v2",
  "time",
- "tokio",
  "twilight-model",
 ]
 
@@ -1355,17 +1350,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cecba35d7ad927e23624b22ad55235f2239cfa44fd10428eecbeba6d6a717718"
 
 [[package]]
-name = "futures-macro"
-version = "0.3.32"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e835b70203e41293343137df5c0664546da5745f82ec9b84d40be8336958447b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "futures-sink"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1385,7 +1369,6 @@ checksum = "389ca41296e6190b48053de0321d02a77f32f8a5d2461dd38762c0593805c6d6"
 dependencies = [
  "futures-core",
  "futures-io",
- "futures-macro",
  "futures-sink",
  "futures-task",
  "memchr",

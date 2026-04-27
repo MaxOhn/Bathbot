@@ -12,5 +12,4 @@ metrics-util = { workspace = true }
 regex = { version = "1.0" }
 rosu-v2 = { workspace = true }
 time = { version = "0.3", features = ["parsing"] }
-tokio = { version = "1.20", default-features = false, features = ["parking_lot", "process"] }
 twilight-model = { workspace = true }

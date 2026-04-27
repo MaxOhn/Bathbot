@@ -26,7 +26,7 @@ use tokio::{
 
 use crate::{
     commands::owner::RESHARD_TX,
-    core::{BotConfig, Context, commands::interaction::InteractionCommands, event_loop, logging},
+    core::{commands::interaction::InteractionCommands, event_loop, logging, BotConfig, Context},
 };
 
 fn main() {
