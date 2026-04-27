@@ -1,11 +1,10 @@
-use std::{cmp::Ordering, fmt::Write};
+use std::{cmp::Ordering, fmt::Write, sync::OnceLock};
 
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::command;
 use bathbot_psql::model::configs::GuildConfig;
 use bathbot_util::{MessageBuilder, constants::GENERAL_ISSUE, matcher};
 use eyre::Result;
-use once_cell::sync::OnceCell;
 use twilight_model::guild::Permissions;
 
 use crate::{Context, core::commands::checks::check_authority, util::ChannelExt};
@@ -210,6 +209,6 @@ impl PrefixValidator {
     }
 }
 
-static VALIDATOR: OnceCell<AhoCorasick> = OnceCell::new();
+static VALIDATOR: OnceLock<AhoCorasick> = OnceLock::new();
 
 const PREFIX_LIMIT: usize = 5;

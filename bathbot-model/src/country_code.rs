@@ -2,13 +2,13 @@ use std::{
     borrow::Cow,
     collections::{HashMap, hash_map::Entry},
     fmt::{Display, Formatter, Result as FmtResult},
+    sync::OnceLock,
 };
 
 use bathbot_util::CowUtils;
-use once_cell::sync::OnceCell;
 use time::UtcOffset;
 
-static COUNTRIES: OnceCell<Countries> = OnceCell::new();
+static COUNTRIES: OnceLock<Countries> = OnceLock::new();
 
 pub struct Countries {
     name_to_code: HashMap<&'static str, &'static str>,
@@ -329,7 +329,8 @@ pub struct Code<'a>(&'a str);
 
 impl<'a> Code<'a> {
     pub fn to_name(self) -> Option<CountryName> {
-        unsafe { COUNTRIES.get_unchecked() }
+        COUNTRIES
+            .wait()
             .code_to_name
             .get(self.uppercase().as_ref())
             .copied()
@@ -337,7 +338,8 @@ impl<'a> Code<'a> {
     }
 
     pub fn to_timezone(self) -> UtcOffset {
-        let offset = unsafe { COUNTRIES.get_unchecked() }
+        let offset = COUNTRIES
+            .wait()
             .code_to_timezone
             .get(self.uppercase().as_ref())
             .copied()
@@ -393,7 +395,8 @@ pub struct Name<'a>(&'a str);
 
 impl<'a> Name<'a> {
     pub fn to_code(self) -> Option<&'static str> {
-        unsafe { COUNTRIES.get_unchecked() }
+        COUNTRIES
+            .wait()
             .name_to_code
             .get(self.lowercase().as_ref())
             .copied()

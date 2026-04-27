@@ -1,9 +1,8 @@
-use std::{iter::Copied, pin::Pin};
+use std::{iter::Copied, pin::Pin, sync::OnceLock};
 
 use eyre::Result;
 use futures::Future;
 use linkme::distributed_slice;
-use once_cell::sync::OnceCell;
 use radix_trie::{Trie, TrieCommon, iter::Keys};
 use twilight_model::application::command::Command;
 
@@ -17,7 +16,7 @@ pub static __SLASH_COMMANDS: [SlashCommand] = [..];
 #[distributed_slice]
 pub static __MSG_COMMANDS: [MessageCommand] = [..];
 
-static INTERACTION_COMMANDS: OnceCell<InteractionCommands> = OnceCell::new();
+static INTERACTION_COMMANDS: OnceLock<InteractionCommands> = OnceLock::new();
 
 pub struct InteractionCommands(Trie<&'static str, InteractionCommandKind>);
 

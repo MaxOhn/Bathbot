@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::OnceLock};
 
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use bathbot_macros::{SlashCommand, command};
@@ -12,7 +12,6 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use futures::{TryStreamExt, future, stream::FuturesUnordered};
-use once_cell::sync::OnceCell;
 use rkyv::{
     Archived,
     rancor::{Panic, ResultExt},
@@ -345,4 +344,4 @@ impl ClaimNameValidator {
     }
 }
 
-static VALIDATOR: OnceCell<AhoCorasick> = OnceCell::new();
+static VALIDATOR: OnceLock<AhoCorasick> = OnceLock::new();

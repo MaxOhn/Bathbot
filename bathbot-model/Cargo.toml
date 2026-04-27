@@ -10,7 +10,6 @@ bitflags = { workspace = true }
 form_urlencoded = { version = "1.2.0", default-features = false, features = ["std"] }
 eyre = { workspace = true }
 http = { workspace = true }
-once_cell = { version = "1.0" }
 rosu-mods = { workspace = true }
 rosu-v2 = { workspace = true }
 rkyv = { workspace = true }

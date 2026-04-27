@@ -1,7 +1,6 @@
-use std::{env, fmt::Debug, mem::MaybeUninit, path::PathBuf, str::FromStr};
+use std::{env, fmt::Debug, mem::MaybeUninit, path::PathBuf, str::FromStr, sync::OnceLock};
 
 use eyre::Result;
-use once_cell::sync::OnceCell;
 use rosu_v2::model::Grade;
 use twilight_model::id::{
     Id,
@@ -10,7 +9,7 @@ use twilight_model::id::{
 
 use crate::util::{CustomEmote, Emote};
 
-static CONFIG: OnceCell<BotConfig> = OnceCell::new();
+static CONFIG: OnceLock<BotConfig> = OnceLock::new();
 
 #[derive(Debug)]
 pub struct BotConfig {

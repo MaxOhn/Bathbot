@@ -1,12 +1,12 @@
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     pin::Pin,
+    sync::OnceLock,
 };
 
 use eyre::Result;
 use futures::Future;
 use linkme::distributed_slice;
-use once_cell::sync::OnceCell;
 use radix_trie::{Trie, TrieCommon};
 
 pub use self::{
@@ -21,7 +21,7 @@ mod command;
 #[distributed_slice]
 pub static __PREFIX_COMMANDS: [PrefixCommand] = [..];
 
-static PREFIX_COMMANDS: OnceCell<PrefixCommands> = OnceCell::new();
+static PREFIX_COMMANDS: OnceLock<PrefixCommands> = OnceLock::new();
 
 pub type CommandResult<'fut> = Pin<Box<dyn Future<Output = Result<()>> + 'fut + Send>>;
 

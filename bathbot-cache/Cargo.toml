@@ -9,7 +9,6 @@ bathbot-model = { path = "../bathbot-model" }
 bb8-redis = { version = "0.20.0" }
 eyre = { workspace = true }
 itoa = { version = "1.0" }
-once_cell = { version = "1.0" }
 rkyv = { workspace = true }
 thiserror = { workspace = true }
 tracing = { version = "0.1" }
