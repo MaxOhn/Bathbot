@@ -97,8 +97,6 @@ impl<'q> IFilterCriteria<'q> for RegularCriteria<'q> {
         display_range(content, "Stars", stars);
         display_range(content, "BPM", bpm);
         display_range(content, "Keys", keys);
-        display_range(content, "AR", ar);
-        display_range(content, "AR", ar);
 
         display_text(content, "Artist", artist);
         display_text(content, "Title", title);
