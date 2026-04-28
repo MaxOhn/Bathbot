@@ -8,15 +8,16 @@ pub struct Buckets([Mutex<Bucket>; 8]);
 
 impl Buckets {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        let make_bucket = |delay, time_span, limit| {
+    pub const fn new() -> Self {
+        const fn make_bucket(delay: i64, time_span: i64, limit: i32) -> Mutex<Bucket> {
             let ratelimit = Ratelimit {
                 delay,
-                limit: Some((time_span, limit)),
+                time_span,
+                limit,
             };
 
             Mutex::new(Bucket::new(ratelimit))
-        };
+        }
 
         Self([
             make_bucket(0, 9, 4),    // All
@@ -46,7 +47,8 @@ impl Buckets {
 
 pub struct Ratelimit {
     pub delay: i64,
-    pub limit: Option<(i64, i32)>,
+    pub time_span: i64,
+    pub limit: i32,
 }
 
 pub struct MemberRatelimit {
@@ -71,10 +73,10 @@ pub struct Bucket {
 }
 
 impl Bucket {
-    fn new(ratelimit: Ratelimit) -> Self {
+    const fn new(ratelimit: Ratelimit) -> Self {
         Self {
             ratelimit,
-            users: HashMap::default(),
+            users: HashMap::with_hasher(IntHasher),
         }
     }
 
@@ -82,19 +84,23 @@ impl Bucket {
         let time = OffsetDateTime::now_utc().unix_timestamp();
         let user = self.users.entry(user_id).or_default();
 
-        if let Some((timespan, limit)) = self.ratelimit.limit
-            && user.tickets + 1 > limit
-        {
-            if time < (user.set_time + timespan) {
-                return (user.set_time + timespan) - time;
+        let Ratelimit {
+            delay,
+            time_span,
+            limit,
+        } = self.ratelimit;
+
+        if user.tickets + 1 > limit {
+            if time < (user.set_time + time_span) {
+                return (user.set_time + time_span) - time;
             } else {
                 user.tickets = 0;
                 user.set_time = time;
             }
         }
 
-        if time < user.last_time + self.ratelimit.delay {
-            (user.last_time + self.ratelimit.delay) - time
+        if time < user.last_time + delay {
+            (user.last_time + delay) - time
         } else {
             user.tickets += 1;
             user.last_time = time;
@@ -104,8 +110,7 @@ impl Bucket {
     }
 }
 
-// Some buckets require certain features to be enabled
-#[allow(unused)]
+#[allow(unused, reason = "some buckets require certain features to be enabled")]
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub enum BucketName {
     All,
