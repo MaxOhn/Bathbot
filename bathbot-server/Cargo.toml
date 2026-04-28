@@ -9,8 +9,8 @@ axum = { version = "0.8.1", default-features = false, features = ["http2", "json
 bathbot-model = { path = "../bathbot-model" }
 bathbot-util = { path = "../bathbot-util" }
 eyre = { workspace = true }
-flexmap = { git = "https://github.com/MaxOhn/flexmap" }
-futures = { version = "0.3", default-features = false }
+flexmap = { workspace = true }
+futures = { workspace = true }
 handlebars = { version = "6.3.0" }
 hyper = { workspace = true, features = ["server"] }
 http-body-util = { workspace = true }
@@ -20,9 +20,9 @@ metrics = { workspace = true }
 metrics-exporter-prometheus = { workspace = true }
 rosu-v2 = { workspace = true }
 rustls = { workspace = true }
-serde = { version = "1.0", features = ["derive", "rc"] }
-serde_json = { version = "1.0" }
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { version = "1.0", default-features = false, features = ["sync"] }
+tokio = { workspace = true, features = ["sync"] }
 tower-http = { version = "0.6.2", features = ["cors", "fs", "trace"] }
-tracing = { version = "0.1" }
+tracing = { workspace = true }

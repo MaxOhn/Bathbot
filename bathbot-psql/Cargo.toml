@@ -8,13 +8,13 @@ edition.workspace = true
 bathbot-model = { path = "../bathbot-model" }
 bathbot-util = { path = "../bathbot-util" }
 eyre = { workspace = true }
-futures = { version = "0.3", default-features = false }
+futures = { workspace = true }
 rkyv = { workspace = true }
 rosu-v2 = { workspace = true }
-smallvec = { version = "1.10" }
+smallvec = { workspace = true }
 sqlx = { version = "0.8.3", default-features = false, features = ["json", "macros", "postgres", "runtime-tokio-rustls", "time"] }
-time = { version = "0.3" }
-tokio = { version = "1.20", default-features = false, features = ["io-util", "time"] }
-tracing = { version = "0.1" }
+time = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "time"] }
+tracing = { workspace = true }
 twilight-interactions = { workspace = true }
 twilight-model = { workspace = true }

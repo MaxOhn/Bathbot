@@ -9,7 +9,7 @@ eyre = { workspace = true }
 memchr = { workspace = true }
 metrics = { workspace = true }
 metrics-util = { workspace = true }
-regex = { version = "1.0" }
+regex = { workspace =true }
 rosu-v2 = { workspace = true }
-time = { version = "0.3", features = ["parsing"] }
+time = { workspace = true, features = ["parsing"] }
 twilight-model = { workspace = true }

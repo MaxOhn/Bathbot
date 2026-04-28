@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
-aho-corasick = { version = "1.1.1" }
+aho-corasick = { workspace = true }
 bathbot-cache = { path = "../bathbot-cache" }
 bathbot-cards = { path = "../bathbot-cards" }
 bathbot-client = { path = "../bathbot-client" }
@@ -15,48 +15,42 @@ bathbot-psql = { path = "../bathbot-psql" }
 bathbot-server = { path = "../bathbot-server", optional = true }
 bathbot-util = { path = "../bathbot-util" }
 bitflags = { workspace = true }
-bytes = { version = "1.0" }
+bytes = { workspace = true }
 console-subscriber = { version = "0.4.1", optional = true }
-dotenvy = { version = "0.15" }
-enterpolation = { version = "0.2", default-features = false, features = ["std", "bezier", "bspline", "linear"] }
-enum_dispatch = { version = "0.3.11" }
+dotenvy = { workspace = true }
+enterpolation = { workspace = true }
+enum_dispatch = { workspace = true }
 eyre = { workspace = true }
-flexmap = { git = "https://github.com/MaxOhn/flexmap" }
-futures = { version = "0.3", default-features = false }
+flexmap = { workspace = true }
+futures = { workspace = true }
 image = { version = "0.24", default-features = false, features = ["gif", "png"] }
 leaky-bucket-lite = { version = "0.5", default-features = false, features = ["tokio"] }
-linkme = { version = "0.3.15" }
+linkme = { workspace = true }
 metrics = { workspace = true }
 metrics-exporter-prometheus = { workspace = true }
 metrics-util = { workspace = true }
-nom = { version = "7.1.3" }
-# Between versions 0.1.9 and 0.2.1 papaya is panicking so we pin it for now
-# 2025-04-13 22:29:55  INFO Fetching guild configs...
-# thread 'main' panicked at /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/papaya-0.2.1/src/raw/alloc.rs:60:9:
-# assertion failed: len.is_power_of_two()
-papaya = { version = "=0.1.8" }
+nom = { workspace = true }
+papaya = { workspace = true }
 plotters = { version = "0.3", default-features = false, features = ["ttf", "image", "line_series", "area_series", "histogram", "point_series"] }
 plotters-backend = { version = "0.3" }
 plotters-skia = { git = "https://github.com/MaxOhn/plotters-skia", branch = "main" }
-radix_trie = { version = "0.2" }
-rand = { version = "0.8" }
+radix_trie = { workspace = true }
+rand = { workspace = true }
 rkyv = { workspace = true }
 rosu-pp = { workspace = true }
 rosu-v2 = { workspace = true }
-rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
-# rosu-pp-older = { path = "../../rosu-pp-older" }
-# rosu-render = { git = "https://github.com/MaxOhn/rosu-render", branch = "main", default-features = false, features = ["rustls-webpki-roots"] }
-rosu-render = { version = "0.5.1", default-features = false, features = ["rustls-webpki-roots"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0" }
-smallvec = { version = "1.0" }
+rosu-pp-older = { workspace = true }
+rosu-render = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+smallvec = { workspace = true }
 skia-safe = { workspace = true }
 thiserror = { workspace = true }
-time = { version = "0.3", features = ["parsing"] }
-tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
+time = { workspace = true, features = ["parsing"] }
+tokio = { workspace = true, features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", default-features = false }
 tokio-tungstenite = { version = "0.26.1", features = ["rustls-tls-webpki-roots"] }
-tracing = { version = "0.1" }
+tracing = { workspace = true }
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "smallvec", "std", "time", "tracing-log"] }
 twilight-gateway = { workspace = true }

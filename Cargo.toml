@@ -18,17 +18,35 @@ authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2024"
 
 [workspace.dependencies]
+aho-corasick = { version = "1.1.1" }
 bitflags = { version = "2.8.0" }
+bytes = { version = "1.0" }
+dotenvy = { version = "0.15" }
+enterpolation = { version = "0.2", default-features = false, features = ["std", "bezier", "bspline", "linear"] }
+enum_dispatch = { version = "0.3.11" }
 eyre = { version = "0.6" }
+flexmap = { git = "https://github.com/MaxOhn/flexmap" }
+futures = { version = "0.3", default-features = false }
 http = { version = "1.2.0" }
 http-body-util = { version = "0.1.2" }
 hyper = { version = "1.6.0", default-features = false }
 hyper-rustls = { version = "0.27.5", default-features = false, features = ["http2", "tls12", "webpki-roots"] }
 hyper-util = { version = "0.1.10", default-features = false, features = ["client", "client-legacy", "http2", "tokio"] }
+itoa = { version = "1.0" }
+linkme = { version = "0.3.15" }
 memchr = { version = "2.7.4" }
 metrics = { version = "0.24.1" }
 metrics-exporter-prometheus = { version = "0.16.2", default-features = false }
 metrics-util = { version = "0.19.0" }
+nom = { version = "7.1.3" }
+# Between versions 0.1.9 and 0.2.1 papaya is panicking so we pin it for now
+# 2025-04-13 22:29:55  INFO Fetching guild configs...
+# thread 'main' panicked at /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/papaya-0.2.1/src/raw/alloc.rs:60:9:
+# assertion failed: len.is_power_of_two()
+papaya = { version = "=0.1.8" }
+radix_trie = { version = "0.2" }
+rand = { version = "0.8" }
+regex = { version = "1.0" }
 rkyv = { version = "0.8" }
 rosu-mods = { version = "0.4.0", features = ["rkyv"] }
 rosu-pp = { version = "4.0.0" }
@@ -36,9 +54,19 @@ rosu-pp = { version = "4.0.0" }
 # rosu-pp = { path = "../rosu-pp" }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "lazer", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
 # rosu-v2 = { path = "../rosu-v2", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
+rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
+# rosu-pp-older = { path = "../../rosu-pp-older" }
+# rosu-render = { git = "https://github.com/MaxOhn/rosu-render", branch = "main", default-features = false, features = ["rustls-webpki-roots"] }
+rosu-render = { version = "0.5.1", default-features = false, features = ["rustls-webpki-roots"] }
 rustls = { version = "0.23.20", default-features = false, features = ["std", "tls12"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
 skia-safe = { version = "0.81.0" }
+smallvec = { version = "1.0" }
 thiserror = { version = "2.0.11" }
+time = { version = "0.3" }
+tokio = { version = "1.0", default-features = false }
+tracing = { version = "0.1" }
 twilight-gateway = { version = "0.16", default-features = false, features = ["rustls-webpki-roots", "rustls-ring", "twilight-http", "zlib-stock"] }
 twilight-http = { version = "0.16", default-features = false, features = ["rustls-webpki-roots", "rustls-ring"] }
 twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "with-help-16", default-features = false, features = ["derive"] }

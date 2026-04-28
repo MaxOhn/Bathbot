@@ -13,10 +13,10 @@ http = { workspace = true }
 rosu-mods = { workspace = true }
 rosu-v2 = { workspace = true }
 rkyv = { workspace = true }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0", features = ["raw_value"] }
+serde = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
 serde_urlencoded = { version = "0.7.1", default-features = false }
-time = { version = "0.3", features = ["parsing"] }
+time = { workspace = true, features = ["parsing"] }
 twilight-gateway = { workspace = true }
 twilight-interactions = { workspace = true }
 twilight-model = { workspace = true }

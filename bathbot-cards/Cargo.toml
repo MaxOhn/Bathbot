@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
-itoa = { version = "1.0.9", default-features = false }
+itoa = { workspace = true }
 rosu-pp = { workspace = true }
 rosu-v2 = { workspace = true }
 skia-safe = { workspace = true }
