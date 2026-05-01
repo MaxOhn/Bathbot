@@ -1,20 +1,24 @@
 use bathbot_model::{
-    OsekaiBadge, OsekaiComment, OsekaiInex, OsekaiMap, OsekaiMedal, OsekaiRanking,
+    OsekaiBadge, OsekaiBadges, OsekaiComment, OsekaiInex, OsekaiMap, OsekaiMedal, OsekaiRanking,
     OsekaiRankingEntries,
 };
+
 use eyre::{Result, WrapErr};
 
 use crate::{Client, multipart::Multipart, site::Site};
 
 impl Client {
     /// Don't use this; use `RedisManager::badges` instead.
+    ///
+    /// When `compress` is `true`, the API returns a compressed object format:
+    /// `{"content": {"_t":true,"k":[...],"d":[...]}}`
     pub async fn get_osekai_badges(&self) -> Result<Vec<OsekaiBadge>> {
-        let url = "https://inex.osekai.net/api/badges/get_all";
+        let url = "https://inex.osekai.net/api/badges/get_all?compress=true";
 
         let bytes = self.make_get_request(url, Site::Osekai).await?;
 
-        serde_json::from_slice::<OsekaiInex<Vec<OsekaiBadge>>>(&bytes)
-            .map(|inex| inex.content)
+        serde_json::from_slice::<OsekaiInex<OsekaiBadges>>(&bytes)
+            .map(|inex| inex.content.0)
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 

@@ -829,6 +829,9 @@ pub struct OsekaiRarityEntry {
     pub mode: Option<GameMode>,
 }
 
+#[derive(Deserialize)]
+pub struct OsekaiBadges(#[serde(with = "compact")] pub Vec<OsekaiBadge>);
+
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsekaiBadge {
     #[serde(rename = "First_Date_Awarded", with = "deser::naive_datetime")]
@@ -845,7 +848,7 @@ pub struct OsekaiBadge {
     #[serde(rename = "Name")]
     #[rkyv(with = DerefAsString)]
     pub name: Box<str>,
-    #[serde(rename = "Users")]
+    #[serde(rename = "Users", with = "compact")]
     pub users: Vec<OsekaiBadgeUser>,
 }
 
@@ -865,4 +868,294 @@ pub struct OsekaiBadgeUser {
 #[derive(Deserialize)]
 pub struct OsekaiInex<T> {
     pub content: T,
+}
+
+mod compact {
+    //! Module to deserialize a compact array-based JSON format.
+    //!
+    //! This module provides a [`deserialize`](`crate::compact::deserialize`)
+    //! function that can be used with `#[serde(with = "compact")]` to
+    //! deserialize fields from a compact format into standard Rust types.
+    //!
+    //! # Compact Format
+    //!
+    //! The compact format encodes structured data as nested arrays instead of
+    //! JSON objects. Each compact object has two special fields:
+    //!
+    //! - `"k"` — a JSON array of field name strings (keys)
+    //! - `"d"` — a JSON array of corresponding values (data)
+    //!
+    //! Values under `"d"` can themselves be compact objects, enabling arbitrary
+    //! nesting. Extra fields (anything other than `"k"` or `"d"`) are silently
+    //! ignored.
+    //!
+    //! # Example
+    //!
+    //! ```text
+    //! // Compact format:
+    //! // { "k": ["id", "name"], "d": [["42", "peppy"]] }
+    //!
+    //! // Deserializes to:
+    //! // vec![MyStruct { id: 42, name: "peppy".into() }]
+    //! ```
+    //!
+    //! # Implementation Details
+    //!
+    //! The module implements the serde deserializer traits (`DeserializeSeed`,
+    //! `Visitor`, `MapAccess`) to interpret the compact arrays as key-value
+    //! pairs. The `'k'` field must appear before `'d'` in the JSON object.
+
+    use std::{
+        error::Error,
+        fmt::{Debug, Display, Formatter, Result as FmtResult},
+        marker::PhantomData,
+        slice,
+    };
+
+    use serde::{de, forward_to_deserialize_any};
+
+    /// Deserializes a compact-format JSON value into a `Vec<T>`.
+    ///
+    /// This function is intended to be used with serde's `#[serde(with = "compact")]`
+    /// attribute. It expects a JSON object containing `"k"` (keys) and `"d"` (data)
+    /// fields and produces a vector of deserialized `T` values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The `"d"` field is missing
+    /// - The `"k"` field does not appear before `"d"`
+    /// - Any element in the data array fails to deserialize as `T`
+    pub fn deserialize<'de, D, T>(d: D) -> Result<Vec<T>, D::Error>
+    where
+        D: de::Deserializer<'de>,
+        T: de::Deserialize<'de>,
+    {
+        /// Deserializes a sequence of compact objects into a `Vec<T>`.
+        ///
+        /// Each element in the sequence is processed by a [`Compact`] seed
+        /// that maps array positions to field names from `keys`.
+        struct CompactList<'a, 'de, T> {
+            /// Field names that map to positions in each data array.
+            keys: &'a [&'de str],
+            _phantom: PhantomData<T>,
+        }
+
+        impl<'de, T: de::Deserialize<'de>> de::DeserializeSeed<'de> for CompactList<'_, 'de, T> {
+            type Value = <Self as de::Visitor<'de>>::Value;
+
+            fn deserialize<D: de::Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+                d.deserialize_seq(self)
+            }
+        }
+
+        impl<'de, T: de::Deserialize<'de>> de::Visitor<'de> for CompactList<'_, 'de, T> {
+            type Value = Vec<T>;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+                f.write_str("a list of compact data")
+            }
+
+            fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                let mut data = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+
+                let seed = Compact {
+                    keys: self.keys,
+                    _phantom: PhantomData,
+                };
+
+                while let Some(item) = seq.next_element_seed(seed)? {
+                    data.push(item);
+                }
+
+                Ok(data)
+            }
+        }
+
+        /// A seed that deserializes a single compact object (array of values)
+        /// into `T`.
+        ///
+        /// Uses the `keys` slice to map each array position to a field name,
+        /// which is then passed to `T::deserialize` via a [`CompactDeserializer`]
+        /// that presents the array as a map-like interface.
+        struct Compact<'a, 'de, T> {
+            /// Field names that map to positions in the data array.
+            keys: &'a [&'de str],
+            _phantom: PhantomData<T>,
+        }
+
+        impl<T> Clone for Compact<'_, '_, T> {
+            fn clone(&self) -> Self {
+                *self
+            }
+        }
+
+        impl<T> Copy for Compact<'_, '_, T> {}
+
+        impl<'de, T: de::Deserialize<'de>> de::DeserializeSeed<'de> for Compact<'_, 'de, T> {
+            type Value = <Self as de::Visitor<'de>>::Value;
+
+            fn deserialize<D: de::Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+                d.deserialize_seq(self)
+            }
+        }
+
+        impl<'de, T: de::Deserialize<'de>> de::Visitor<'de> for Compact<'_, 'de, T> {
+            type Value = T;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+                f.write_str("a compact object")
+            }
+
+            fn visit_seq<A: de::SeqAccess<'de>>(self, seq: A) -> Result<Self::Value, A::Error> {
+                let d = CompactDeserializer {
+                    keys: self.keys.iter(),
+                    seq,
+                };
+
+                T::deserialize(d).map_err(de::Error::custom)
+            }
+        }
+
+        /// Implements [`MapAccess`] to present a compact data array as a map.
+        ///
+        /// Iterates over `keys` to produce field names, pulling corresponding
+        /// values from the underlying sequence access.
+        struct CompactDeserializer<'a, 'de, A> {
+            /// Iterator over field names.
+            keys: slice::Iter<'a, &'de str>,
+            /// The underlying sequence providing values.
+            seq: A,
+        }
+
+        /// Error type for [`CompactDeserializer`] operations.
+        #[derive(Debug)]
+        enum CompactDeserializerError<E> {
+            /// An error originating from the underlying sequence access.
+            Seq(E),
+            /// A value was expected but the sequence was exhausted.
+            MissingValue,
+            /// A custom error with a message.
+            Custom(String),
+        }
+
+        impl<E> From<E> for CompactDeserializerError<E> {
+            fn from(err: E) -> Self {
+                Self::Seq(err)
+            }
+        }
+
+        impl<E: de::Error> de::Error for CompactDeserializerError<E> {
+            fn custom<T: Display>(msg: T) -> Self {
+                Self::Custom(msg.to_string())
+            }
+        }
+
+        impl<E: Error> Error for CompactDeserializerError<E> {}
+
+        impl<E: Display> Display for CompactDeserializerError<E> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+                match self {
+                    CompactDeserializerError::Seq(err) => Display::fmt(err, f),
+                    CompactDeserializerError::MissingValue => f.write_str("missing value"),
+                    CompactDeserializerError::Custom(msg) => f.write_str(msg),
+                }
+            }
+        }
+
+        impl<'de, A: de::SeqAccess<'de>> de::Deserializer<'de> for CompactDeserializer<'_, 'de, A> {
+            type Error = CompactDeserializerError<A::Error>;
+
+            fn deserialize_map<V: de::Visitor<'de>>(self, v: V) -> Result<V::Value, Self::Error> {
+                v.visit_map(self)
+            }
+
+            fn deserialize_any<V: de::Visitor<'de>>(self, v: V) -> Result<V::Value, Self::Error> {
+                self.deserialize_map(v)
+            }
+
+            forward_to_deserialize_any! {
+                bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str
+                string bytes byte_buf option unit unit_struct newtype_struct seq
+                tuple tuple_struct struct enum identifier ignored_any
+            }
+        }
+
+        impl<'de, A: de::SeqAccess<'de>> de::MapAccess<'de> for CompactDeserializer<'_, 'de, A> {
+            type Error = CompactDeserializerError<A::Error>;
+
+            fn next_key_seed<K: de::DeserializeSeed<'de>>(
+                &mut self,
+                seed: K,
+            ) -> Result<Option<K::Value>, Self::Error> {
+                let Some(key) = self.keys.next() else {
+                    return Ok(None);
+                };
+
+                seed.deserialize(de::value::StrDeserializer::new(key))
+                    .map(Some)
+            }
+
+            fn next_value_seed<V: de::DeserializeSeed<'de>>(
+                &mut self,
+                seed: V,
+            ) -> Result<V::Value, Self::Error> {
+                self.seq
+                    .next_element_seed(seed)?
+                    .ok_or(CompactDeserializerError::MissingValue)
+            }
+        }
+
+        /// Visitor for the top-level compact object.
+        ///
+        /// Extracts the `"k"` (keys) and `"d"` (data) fields from a JSON map,
+        /// then delegates data deserialization to a [`CompactList`].
+        struct CompactVisitor<T>(PhantomData<T>);
+
+        impl<'de, T: de::Deserialize<'de>> de::Visitor<'de> for CompactVisitor<T> {
+            type Value = Vec<T>;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+                f.write_str("an object of compact data")
+            }
+
+            fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut keys: Option<Vec<&'de str>> = None;
+                let mut data: Option<Vec<T>> = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        "k" => {
+                            if keys.is_some() || data.is_some() {
+                                return Err(de::Error::duplicate_field("k"));
+                            }
+
+                            keys = Some(map.next_value()?)
+                        }
+                        "d" => {
+                            if data.is_some() {
+                                return Err(de::Error::duplicate_field("d"));
+                            }
+
+                            let keys = keys
+                                .take()
+                                .ok_or_else(|| de::Error::custom("'k' must come before 'd'"))?;
+
+                            let seed = CompactList {
+                                keys: &keys,
+                                _phantom: PhantomData,
+                            };
+
+                            data = Some(map.next_value_seed(seed)?);
+                        }
+                        _ => _ = map.next_value::<de::IgnoredAny>()?,
+                    }
+                }
+
+                data.ok_or_else(|| de::Error::missing_field("d"))
+            }
+        }
+
+        d.deserialize_map(CompactVisitor(PhantomData))
+    }
 }
