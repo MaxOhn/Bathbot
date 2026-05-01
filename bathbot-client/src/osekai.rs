@@ -1,6 +1,6 @@
 use bathbot_model::{
-    OsekaiBadge, OsekaiBadgeOwner, OsekaiBadgeOwners, OsekaiComment, OsekaiInex, OsekaiMap,
-    OsekaiMedal, OsekaiRanking, OsekaiRankingEntries,
+    OsekaiBadge, OsekaiComment, OsekaiInex, OsekaiMap, OsekaiMedal, OsekaiRanking,
+    OsekaiRankingEntries,
 };
 use eyre::{Result, WrapErr};
 
@@ -9,28 +9,17 @@ use crate::{Client, multipart::Multipart, site::Site};
 impl Client {
     /// Don't use this; use `RedisManager::badges` instead.
     pub async fn get_osekai_badges(&self) -> Result<Vec<OsekaiBadge>> {
-        let url = "https://osekai.net/badges/api/getBadges.php";
+        let url = "https://inex.osekai.net/api/badges/get_all";
 
         let bytes = self.make_get_request(url, Site::Osekai).await?;
 
-        serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
+        serde_json::from_slice::<OsekaiInex<Vec<OsekaiBadge>>>(&bytes)
+            .map(|inex| inex.content)
+            .wrap_err_with(|| {
+                let body = String::from_utf8_lossy(&bytes);
 
-            format!("Failed to deserialize: {body}")
-        })
-    }
-
-    pub async fn get_osekai_badge_owners(&self, badge_id: u32) -> Result<Vec<OsekaiBadgeOwner>> {
-        let url = format!("https://osekai.net/badges/api/getUsers.php?badge_id={badge_id}");
-        let bytes = self.make_get_request(url, Site::Osekai).await?;
-
-        let OsekaiBadgeOwners(owners) = serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
-
-            format!("Failed to deserialize: {body}")
-        })?;
-
-        Ok(owners)
+                format!("Failed to deserialize: {body}")
+            })
     }
 
     /// Don't use this; use `RedisManager::medals` instead.
@@ -101,5 +90,30 @@ impl Client {
 
                 format!("Failed to deserialize: {body}")
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn get_osekai_badges_integration() {
+        dotenvy::dotenv().unwrap();
+
+        let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN must be set");
+
+        let client = Client::new(&token).await.unwrap();
+
+        let badges = client.get_osekai_badges().await.unwrap();
+
+        assert!(
+            !badges.is_empty(),
+            "Expected at least one badge from the API"
+        );
+
+        let first = &badges[0];
+        assert!(first.badge_id != 0, "Badge id should be non-zero");
+        assert!(!first.name.is_empty(), "Badge name should not be empty");
     }
 }

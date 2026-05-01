@@ -276,6 +276,7 @@ dependencies = [
  "bathbot-model",
  "bathbot-util",
  "bytes",
+ "dotenvy",
  "eyre",
  "http",
  "http-body-util",

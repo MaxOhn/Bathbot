@@ -9,11 +9,11 @@ use std::{
 use eyre::{Result, WrapErr};
 use form_urlencoded::Serializer as FormSerializer;
 use rkyv::{
-    Archive, Archived, Deserialize as RkyvDeserialize, Portable, Serialize,
+    Archive, Archived, Deserialize as RkyvDeserialize, Portable, Serialize as RkyvSerialize,
     bytecheck::CheckBytes,
     niche::niching::{NaN, Null},
     string::ArchivedString,
-    with::NicheInto,
+    with::{Map, NicheInto},
 };
 use rosu_v2::{
     model::GameMode,
@@ -24,13 +24,13 @@ use serde::{
     de::{Error, IgnoredAny, MapAccess, SeqAccess, Unexpected, Visitor},
 };
 use serde_urlencoded::Serializer as UrlSerializer;
-use time::Date;
+use time::OffsetDateTime;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
 use super::deser;
 use crate::{
     RankingKind,
-    rkyv_util::{DerefAsString, time::DateRkyv},
+    rkyv_util::{DerefAsString, time::DateTimeRkyv},
     rosu_v2::mode::GameModeNiche,
 };
 
@@ -198,7 +198,7 @@ pub struct OsekaiComment {
     pub vote_count: u32,
 }
 
-#[derive(Archive, Clone, Debug, Deserialize, RkyvDeserialize, Serialize)]
+#[derive(Archive, Clone, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct OsekaiMedal {
     #[serde(rename = "Medal_ID", with = "deser::u32_string")]
@@ -264,7 +264,7 @@ pub static MEDAL_GROUPS: [MedalGroup; 8] = [
     Ord,
     PartialOrd,
     RkyvDeserialize,
-    Serialize,
+    RkyvSerialize,
     Portable,
     CheckBytes,
 )]
@@ -591,7 +591,7 @@ fn maybe_osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>
     d.deserialize_option(OsekaiModeVisitor)
 }
 
-#[derive(Archive, Debug, RkyvDeserialize, Serialize)]
+#[derive(Archive, Debug, RkyvDeserialize, RkyvSerialize)]
 #[rkyv(as = ArchivedOsekaiRankingEntry<T>)]
 pub struct OsekaiRankingEntry<T: Archive> {
     #[rkyv(with = DerefAsString)]
@@ -633,7 +633,7 @@ where
     }
 }
 
-#[derive(Archive, Copy, Clone, RkyvDeserialize, Serialize, Portable, CheckBytes)]
+#[derive(Archive, Copy, Clone, RkyvDeserialize, RkyvSerialize, Portable, CheckBytes)]
 #[rkyv(as = ValueWrapper<T::Archived>)]
 #[bytecheck(crate = rkyv::bytecheck)]
 #[repr(C)]
@@ -783,7 +783,7 @@ impl<R: OsekaiRanking> From<OsekaiRankingEntries<R>> for Vec<R::Entry> {
     }
 }
 
-#[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsekaiUserEntry {
     #[serde(with = "deser::u32_string")]
     pub rank: u32,
@@ -808,7 +808,7 @@ pub struct OsekaiUserEntry {
     pub completion: f32,
 }
 
-#[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsekaiRarityEntry {
     #[serde(with = "deser::u32_string")]
     pub rank: u32,
@@ -829,86 +829,40 @@ pub struct OsekaiRarityEntry {
     pub mode: Option<GameMode>,
 }
 
-#[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsekaiBadge {
-    #[serde(with = "deser::date")]
-    #[rkyv(with = DateRkyv)]
-    pub awarded_at: Date,
+    #[serde(rename = "First_Date_Awarded", with = "deser::naive_datetime")]
+    #[rkyv(with = DateTimeRkyv)]
+    pub first_date_awarded: OffsetDateTime,
+    #[serde(rename = "Description")]
     #[rkyv(with = DerefAsString)]
     pub description: Box<str>,
-    #[serde(rename = "id", with = "deser::u32_string")]
+    #[serde(rename = "ID", with = "deser::u32_string")]
     pub badge_id: u32,
+    #[serde(rename = "Image_URL")]
     #[rkyv(with = DerefAsString)]
     pub image_url: Box<str>,
+    #[serde(rename = "Name")]
     #[rkyv(with = DerefAsString)]
     pub name: Box<str>,
-    #[serde(deserialize_with = "string_of_vec_of_u32s")]
-    pub users: Vec<u32>,
+    #[serde(rename = "Users")]
+    pub users: Vec<OsekaiBadgeUser>,
 }
 
-fn string_of_vec_of_u32s<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u32>, D::Error> {
-    let stringified_vec: &str = Deserialize::deserialize(d)?;
-
-    stringified_vec[1..stringified_vec.len() - 1]
-        .split(',')
-        .map(|s| s.parse().map_err(|_| s))
-        .collect::<Result<Vec<u32>, _>>()
-        .map_err(|s| Error::invalid_value(Unexpected::Str(s), &"u32"))
-}
-
-/// Badge owner data from osekai seems to sometimes come as indexed object
-/// rather than simple list so we need to handle both when deserializing.
-pub struct OsekaiBadgeOwners(pub Vec<OsekaiBadgeOwner>);
-
-impl<'de> Deserialize<'de> for OsekaiBadgeOwners {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        struct SeqOrMapVisitor;
-
-        impl<'de> Visitor<'de> for SeqOrMapVisitor {
-            type Value = Vec<OsekaiBadgeOwner>;
-
-            fn expecting(&self, formatter: &mut Formatter<'_>) -> FmtResult {
-                formatter.write_str("a sequence or indexed map of objects")
-            }
-
-            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-                let mut owners = Vec::new();
-
-                while let Some(owner) = seq.next_element()? {
-                    owners.push(owner);
-                }
-
-                Ok(owners)
-            }
-
-            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                let mut owners = Vec::new();
-
-                while let Some((_, owner)) = map.next_entry::<&'de str, _>()? {
-                    owners.push(owner);
-                }
-
-                Ok(owners)
-            }
-        }
-
-        d.deserialize_any(SeqOrMapVisitor).map(Self)
-    }
-}
-
-// data contains many more fields but none of use as of now
-#[derive(Debug, Deserialize)]
-pub struct OsekaiBadgeOwner {
-    pub country_code: CountryCode,
-    #[serde(rename = "id")]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
+pub struct OsekaiBadgeUser {
+    #[serde(rename = "User_ID")]
     pub user_id: u32,
-    #[serde(rename = "name")]
-    pub username: Username,
+    #[serde(rename = "Username")]
+    #[rkyv(with = DerefAsString)]
+    pub username: Box<str>,
+    // TODO: remove `Option` once API includes country_code
+    #[serde(rename = "Country_Code")]
+    #[rkyv(with = Map<DerefAsString>)]
+    pub country_code: Option<CountryCode>,
 }
 
 #[derive(Deserialize)]
 pub struct OsekaiInex<T> {
-    // pub success: bool,
-    // pub message: String,
     pub content: T,
 }
