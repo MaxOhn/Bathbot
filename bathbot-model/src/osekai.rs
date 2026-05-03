@@ -363,7 +363,7 @@ impl ArchivedOsekaiMedal {
 }
 
 impl OsekaiMedal {
-    const BASE_URL: &'static str = "https://osekai.net/medals?";
+    const BASE_URL: &'static str = "https://inex.osekai.net/medals";
 
     /// Returns a properly encoded medal url to osekai.
     pub fn url(&self) -> Result<String> {

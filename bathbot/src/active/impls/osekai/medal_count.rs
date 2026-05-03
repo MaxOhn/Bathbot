@@ -67,7 +67,7 @@ impl IActiveMessage for MedalCountPagination {
         }
 
         let title = "User Ranking based on amount of owned medals";
-        let url = "https://osekai.net/rankings/?ranking=Medals&type=Users";
+        let url = "https://inex.osekai.net/rankings/medals_users";
 
         let page = pages.curr_page();
         let pages = pages.last_page();

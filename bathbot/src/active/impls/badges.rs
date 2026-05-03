@@ -76,7 +76,7 @@ impl IActiveMessage for BadgesPagination {
         let pages = pages.last_page();
         let footer_text = format!("Page {page}/{pages} • Check out osekai.net for more info");
 
-        let url = format!("https://osekai.net/badges/?badge={}", badge.badge_id);
+        let url = format!("https://inex.osekai.net/badges/{}", badge.badge_id);
 
         let embed = EmbedBuilder::new()
             .fields(fields)

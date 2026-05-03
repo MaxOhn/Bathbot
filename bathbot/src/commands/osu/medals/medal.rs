@@ -36,7 +36,7 @@ use crate::{
 #[help(
     "Display info about an osu! medal.\n\
     The given name must be exact (but case-insensitive).\n\
-    All data originates from [osekai](https://osekai.net/medals/), \
+    All data originates from [osekai](https://inex.osekai.net/medals/), \
     check it out for more info."
 )]
 #[usage("[medal name]")]

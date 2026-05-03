@@ -22,7 +22,7 @@ mod user_value;
     name = "osekai",
     desc = "Various leaderboards provided by osekai",
     help = "Various leaderboard stats. \
-    All data is provided by [osekai](https://osekai.net/)."
+    All data is provided by [osekai](https://inex.osekai.net/)."
 )]
 pub enum Osekai {
     #[command(name = "badges")]

@@ -59,7 +59,7 @@ impl IActiveMessage for MedalRarityPagination {
         }
 
         let title = "Medal Ranking based on rarity";
-        let url = "https://osekai.net/rankings/?ranking=Medals&type=Rarity";
+        let url = "https://inex.osekai.net/rankings/medals_rarity";
 
         let page = pages.curr_page();
         let pages = pages.last_page();

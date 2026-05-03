@@ -259,55 +259,55 @@ impl RankingKind {
             }
             Self::OsekaiRarity => {
                 let text = "Medal Ranking based on rarity";
-                let url = "https://osekai.net/rankings/?ranking=Medals&type=Rarity";
+                let url = "https://inex.osekai.net/rankings/medals_rarity";
 
                 EmbedHeader::title(text, url)
             }
             Self::OsekaiMedalCount => {
                 let text = "User Ranking based on amount of owned medals";
-                let url = "https://osekai.net/rankings/?ranking=Medals&type=Users";
+                let url = "https://inex.osekai.net/rankings/medals_users";
 
                 EmbedHeader::title(text, url)
             }
             Self::OsekaiReplays => {
                 let text = "User Ranking based on watched replays";
-                let url = "https://osekai.net/rankings/?ranking=All+Mode&type=Replays";
+                let url = "https://inex.osekai.net/rankings/replays";
 
                 EmbedHeader::title(text, url)
             }
             Self::OsekaiTotalPp => {
                 let text = "User Ranking based on total pp across all modes";
-                let url = "https://osekai.net/rankings/?ranking=All+Mode&type=Total+pp";
+                let url = "https://inex.osekai.net/rankings/pp?type=total";
 
                 EmbedHeader::title(text, url)
             }
             Self::OsekaiStandardDeviation => {
                 let text = "User Ranking based on pp standard deviation of all modes";
-                let url = "https://osekai.net/rankings/?ranking=All+Mode&type=Standard+Deviation";
+                let url = "https://inex.osekai.net/rankings/pp";
 
                 EmbedHeader::title(text, url)
             }
             Self::OsekaiBadges => {
                 let text = "User Ranking based on amount of badges";
-                let url = "https://osekai.net/rankings/?ranking=Badges&type=Badges";
+                let url = "https://inex.osekai.net/rankings/badges";
 
                 EmbedHeader::title(text, url)
             }
             Self::OsekaiRankedMapsets => {
                 let text = "User Ranking based on created ranked mapsets";
-                let url = "https://osekai.net/rankings/?ranking=Mappers&type=Ranked+Mapsets";
+                let url = "https://inex.osekai.net/rankings/mapsets";
 
                 EmbedHeader::title(text, url)
             }
             Self::OsekaiLovedMapsets => {
                 let text = "User Ranking based on created loved mapsets";
-                let url = "https://osekai.net/rankings/?ranking=Mappers&type=Loved+Mapsets";
+                let url = "https://inex.osekai.net/rankings/mapsets?type=loved";
 
                 EmbedHeader::title(text, url)
             }
             Self::OsekaiSubscribers => {
                 let text = "User Ranking based on amount of mapping subscribers";
-                let url = "https://osekai.net/rankings/?ranking=Mappers&type=Subscribers";
+                let url = "https://inex.osekai.net/rankings/subscribers";
 
                 EmbedHeader::title(text, url)
             }

@@ -117,9 +117,7 @@ impl MedalStatsEmbed {
         let user_id = user.user_id.to_native();
 
         let author = AuthorBuilder::new(username)
-            .url(format!(
-                "https://osekai.net/profiles/?user={user_id}&mode=all"
-            ))
+            .url(format!("https://inex.osekai.net/api/profiles/{user_id}"))
             .icon_url(flag_url(country_code));
 
         let footer = FooterBuilder::new("Check osekai.net for more info");
