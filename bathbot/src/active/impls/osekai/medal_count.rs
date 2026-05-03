@@ -1,8 +1,11 @@
-use std::fmt::Write;
+use std::{cmp, fmt::Write};
 
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{OsekaiMedal, OsekaiUserEntry};
-use bathbot_util::{CowUtils, EmbedBuilder, FooterBuilder, constants::OSU_BASE, numbers::round};
+use bathbot_util::{
+    CowUtils, EmbedBuilder, FooterBuilder, constants::OSU_BASE, datetime::NAIVE_DATETIME_FORMAT,
+    numbers::round,
+};
 use eyre::Result;
 use twilight_model::{
     channel::message::Component,
@@ -35,26 +38,47 @@ impl IActiveMessage for MedalCountPagination {
 
         let mut description = String::with_capacity(1024);
 
-        for (entry, idx) in ranking.iter().zip(pages.index()..) {
+        let iter = || ranking.iter().zip(pages.index() + 1..);
+
+        let mut len_i = 0;
+        let mut len_name = 0;
+        let mut len_count = 0;
+        let mut len_percent = 0;
+
+        let mut buf = zmij::Buffer::new();
+
+        fn fmt_percent<'buf>(entry: &OsekaiUserEntry, buf: &'buf mut zmij::Buffer) -> &'buf str {
+            buf.format(round(entry.medal_percentage))
+        }
+
+        for (entry, i) in iter() {
+            len_i = cmp::max(len_i, i.to_string().len());
+            len_name = cmp::max(len_name, entry.username.len());
+            len_count = cmp::max(len_count, entry.count_medals.to_string().len());
+            len_percent = cmp::max(len_percent, fmt_percent(entry, &mut buf).len());
+        }
+
+        for (entry, i) in iter() {
             let medal_name = entry.rarest_medal.name.as_ref();
             let medal_url = OsekaiMedal::name_to_url(medal_name);
 
             let _ = writeln!(
                 description,
-                "**{i}.** :flag_{country}: [{author}**{user}**{author}]({OSU_BASE}u/{user_id}): \
-                `{count}` (`{percent}%`) ▸ [{medal}]({medal_url})",
-                i = idx + 1,
+                "**`#{i:<len_i$}`** :flag_{country}: [{author}**`{user:<len_name$}`**{author}]({OSU_BASE}u/{user_id}) \
+                `{count:>len_count$}` `{percent:>len_percent$}%` ▸ [{medal}]({medal_url} \"Achieved {achieved_datetime}\nTotal owners: {total_owners} ({total_frequency}%)\")",
                 country = entry.country_code.to_ascii_lowercase(),
-                author = if self.author_idx == Some(idx) {
-                    "__"
-                } else {
-                    ""
-                },
+                author = if self.author_idx == Some(i) { "__" } else { "" },
                 user = entry.username.cow_escape_markdown(),
                 user_id = entry.user_id,
                 count = entry.count_medals,
-                percent = round(entry.medal_percentage),
+                percent = fmt_percent(entry, &mut buf),
                 medal = entry.rarest_medal.name,
+                achieved_datetime = entry
+                    .rarest_medal_achieved
+                    .format(NAIVE_DATETIME_FORMAT)
+                    .unwrap(),
+                total_owners = entry.rarest_medal.count_achieved_by,
+                total_frequency = entry.rarest_medal.frequency,
             );
         }
 
