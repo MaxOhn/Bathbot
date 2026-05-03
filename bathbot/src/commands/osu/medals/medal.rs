@@ -366,8 +366,8 @@ impl MedalEmbed {
                 ```",
                 content = content.trim(),
                 username = match username {
-                    Some(ref username) => Cow::Borrowed(username.as_str()),
-                    None => Cow::Owned(format!("<user id {user_id}>")),
+                    Some(ref username) if !username.is_empty() => Cow::Borrowed(username.as_str()),
+                    None | Some(_) => Cow::Owned(format!("<user id {user_id}>")),
                 }
             );
 

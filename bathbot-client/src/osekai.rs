@@ -1,7 +1,7 @@
 use bathbot_model::{
-    MedalCount, OsekaiBadge, OsekaiBadges, OsekaiComment, OsekaiInex, OsekaiMap, OsekaiMedal,
-    OsekaiRanking, OsekaiRankingEntries, OsekaiRankingEntry, OsekaiRarityEntry, OsekaiUserEntry,
-    Rarity,
+    CompactWrap, MedalCount, OsekaiBadge, OsekaiBadges, OsekaiComment, OsekaiInex, OsekaiMap,
+    OsekaiMedal, OsekaiRanking, OsekaiRankingEntries, OsekaiRankingEntry, OsekaiRarityEntry,
+    OsekaiUserEntry, Rarity,
 };
 
 use eyre::{Result, WrapErr};
@@ -32,13 +32,13 @@ impl Client {
     ///
     /// Medals will be sorted by medal id.
     pub async fn get_osekai_medals(&self) -> Result<Vec<OsekaiMedal>> {
-        let url = "https://inex.osekai.net/api/medals/get_all";
+        let url = "https://inex.osekai.net/api/medals/get_all?compress=true";
 
         let bytes = self.make_get_request(url, Site::Osekai).await?;
 
-        serde_json::from_slice::<OsekaiInex<Vec<OsekaiMedal>>>(&bytes)
+        serde_json::from_slice::<OsekaiInex<CompactWrap<OsekaiMedal>>>(&bytes)
             .map(|inex| {
-                let mut medals = inex.content;
+                let mut medals = inex.content.0;
                 medals.sort_unstable_by_key(|medal| medal.medal_id);
 
                 medals
@@ -51,12 +51,12 @@ impl Client {
     }
 
     pub async fn get_osekai_beatmaps(&self, medal_id: u32) -> Result<Vec<OsekaiMap>> {
-        let url = format!("https://inex.osekai.net/api/medals/{medal_id}/beatmaps");
+        let url = format!("https://inex.osekai.net/api/medals/{medal_id}/beatmaps?compress=true");
 
         let bytes = self.make_get_request(url, Site::Osekai).await?;
 
-        serde_json::from_slice::<OsekaiInex<Vec<OsekaiMap>>>(&bytes)
-            .map(|inex| inex.content)
+        serde_json::from_slice::<OsekaiInex<CompactWrap<OsekaiMap>>>(&bytes)
+            .map(|inex| inex.content.0)
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
@@ -65,12 +65,14 @@ impl Client {
     }
 
     pub async fn get_osekai_comments(&self, medal_id: u32) -> Result<Vec<OsekaiComment>> {
-        let url = format!("https://inex.osekai.net/api/comments/Medals_Data/{medal_id}/get");
+        let url = format!(
+            "https://inex.osekai.net/api/comments/Medals_Data/{medal_id}/get?compress=true"
+        );
 
         let bytes = self.make_get_request(url, Site::Osekai).await?;
 
-        serde_json::from_slice::<OsekaiInex<Vec<OsekaiComment>>>(&bytes)
-            .map(|inex| inex.content)
+        serde_json::from_slice::<OsekaiInex<CompactWrap<OsekaiComment>>>(&bytes)
+            .map(|inex| inex.content.0)
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 

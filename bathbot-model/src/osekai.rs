@@ -148,9 +148,12 @@ pub struct OsekaiComment {
 pub struct OsekaiMedal {
     #[serde(rename = "Medal_ID", with = "deser::u32_string")]
     pub medal_id: u32,
-    #[serde(with = "deser::u32_string")]
-    pub ordering: u32,
-    #[serde(rename = "Frequency", with = "deser::option_f32_string")]
+    // #[serde(with = "deser::u32_string")]
+    // pub ordering: u32,
+    #[serde(
+        rename = "Frequency",
+        deserialize_with = "adjust_stringified_frequency"
+    )]
     #[rkyv(with = NicheInto<NaN>)]
     pub rarity: Option<f32>,
     #[rkyv(with = DerefAsString)]
@@ -173,6 +176,10 @@ pub struct OsekaiMedal {
     pub supports_lazer: bool,
     #[serde(rename = "Supports_Stable", deserialize_with = "stringified_bool_int")]
     pub supports_stable: bool,
+}
+
+fn adjust_stringified_frequency<'de, D: Deserializer<'de>>(d: D) -> Result<Option<f32>, D::Error> {
+    Ok(deser::option_f32_string::deserialize(d)?.map(|freq| freq * 100.0))
 }
 
 pub fn stringified_bool_int<'de, D: Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
