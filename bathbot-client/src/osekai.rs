@@ -1,6 +1,7 @@
 use bathbot_model::{
-    OsekaiBadge, OsekaiBadges, OsekaiComment, OsekaiInex, OsekaiMap, OsekaiMedal, OsekaiRanking,
-    OsekaiRankingEntries, OsekaiRankingEntry, OsekaiRarityEntry, Rarity,
+    MedalCount, OsekaiBadge, OsekaiBadges, OsekaiComment, OsekaiInex, OsekaiMap, OsekaiMedal,
+    OsekaiRanking, OsekaiRankingEntries, OsekaiRankingEntry, OsekaiRarityEntry, OsekaiUserEntry,
+    Rarity,
 };
 
 use eyre::{Result, WrapErr};
@@ -91,6 +92,27 @@ impl Client {
         let bytes = self.make_json_post_request(url, Site::Osekai, json).await?;
 
         serde_json::from_slice::<OsekaiInex<OsekaiRankingEntries<OsekaiRankingEntry>>>(&bytes)
+            .map(|inex| inex.content.data.0)
+            .wrap_err_with(|| {
+                let body = String::from_utf8_lossy(&bytes);
+
+                format!("Failed to deserialize: {body}")
+            })
+    }
+
+    /// Don't use this; use `RedisManager::osekai_medal_count` instead.
+    pub async fn get_osekai_medal_count(&self) -> Result<Vec<OsekaiUserEntry>> {
+        let url = "https://inex.osekai.net/api/rankings/get";
+
+        let json = serde_json::to_vec(&OsekaiRankingBody::new(
+            MedalCount::KIND,
+            MedalCount::OPTIONS_KIND,
+        ))
+        .unwrap();
+
+        let bytes = self.make_json_post_request(url, Site::Osekai, json).await?;
+
+        serde_json::from_slice::<OsekaiInex<OsekaiRankingEntries<OsekaiUserEntry>>>(&bytes)
             .map(|inex| inex.content.data.0)
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);

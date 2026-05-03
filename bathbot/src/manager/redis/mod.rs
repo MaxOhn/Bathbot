@@ -8,7 +8,7 @@ use bathbot_cache::{
 use bathbot_model::{
     ArchivedOsekaiBadge, ArchivedOsekaiMedal, ArchivedOsuStatsBestScores,
     ArchivedOsuTrackHistoryEntry, ArchivedScrapedMedal, ArchivedSnipeCountries, OsekaiRankingEntry,
-    OsekaiRarityEntry, OsuStatsBestScores, OsuStatsBestTimeframe,
+    OsekaiRarityEntry, OsekaiUserEntry, OsuStatsBestScores, OsuStatsBestTimeframe,
     rosu_v2::{
         multiplayer::{ArchivedRoom, RoomRkyv},
         ranking::{ArchivedRankings, RankingsRkyv},
@@ -382,6 +382,20 @@ impl RedisManager {
         };
 
         self.fetch_cached(KEY.as_bytes(), "Osekai rarity", EXPIRE, fetcher)
+            .await
+    }
+
+    pub async fn osekai_medal_count(self) -> RedisResult<Archived<Vec<OsekaiUserEntry>>> {
+        const EXPIRE: u64 = 7200;
+        const KEY: &str = "osekai_ranking_medal_count";
+
+        let fetcher = || async {
+            let ranking = Context::client().get_osekai_medal_count().await?;
+
+            serialize_using_arena(&ranking).map_err(RedisError::Serialization)
+        };
+
+        self.fetch_cached(KEY.as_bytes(), "Osekai medal count", EXPIRE, fetcher)
             .await
     }
 

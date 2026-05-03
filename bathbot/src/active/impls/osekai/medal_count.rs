@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{OsekaiMedal, OsekaiRankingEntry};
+use bathbot_model::{OsekaiMedal, OsekaiUserEntry};
 use bathbot_util::{CowUtils, EmbedBuilder, FooterBuilder, constants::OSU_BASE, numbers::round};
 use eyre::Result;
 use twilight_model::{
@@ -20,7 +20,7 @@ use crate::{
 #[derive(PaginationBuilder)]
 pub struct MedalCountPagination {
     #[pagination(per_page = 10)]
-    ranking: Box<[OsekaiRankingEntry]>,
+    ranking: Box<[OsekaiUserEntry]>,
     author_idx: Option<usize>,
     msg_owner: Id<UserMarker>,
     pages: Pages,

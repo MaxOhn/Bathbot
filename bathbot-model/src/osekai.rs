@@ -539,11 +539,91 @@ pub struct OsekaiRankingEntries<T> {
 }
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
-pub struct OsekaiRankingEntry {
+pub struct OsekaiUserEntry {
     #[serde(rename = "Rank")]
     rank: u32,
     #[serde(rename = "ID")]
     pub user_id: u32,
+    #[serde(rename = "Accuracy_Catch", with = "deser::f32_string")]
+    acc_catch: f32,
+    #[serde(rename = "Accuracy_Mania", with = "deser::f32_string")]
+    acc_mania: f32,
+    #[serde(rename = "Accuracy_Standard", with = "deser::f32_string")]
+    acc_standard: f32,
+    #[serde(rename = "Accuracy_Taiko", with = "deser::f32_string")]
+    acc_taiko: f32,
+    #[serde(rename = "Accuracy_Stdev", with = "deser::f32_string")]
+    acc_stdev: f32,
+    #[serde(rename = "Count_Badges")]
+    count_badges: u32,
+    #[serde(rename = "Count_Maps_Loved")]
+    count_maps_loved: u32,
+    #[serde(rename = "Count_Maps_Ranked")]
+    count_maps_ranked: u32,
+    #[serde(rename = "Count_Medals")]
+    pub count_medals: u32,
+    #[serde(rename = "Count_Replays_Watched")]
+    count_replays_watched: u64,
+    #[serde(rename = "Count_Subscribers")]
+    count_subscribers: u32,
+    #[serde(rename = "Country_Code")]
+    #[rkyv(with = DerefAsString)]
+    pub country_code: CountryCode,
+    #[serde(rename = "Is_Restricted", with = "deser::bool_as_u8")]
+    is_restricted: bool,
+    #[serde(rename = "Level_Catch")]
+    level_catch: u16,
+    #[serde(rename = "Level_Mania")]
+    level_mania: u16,
+    #[serde(rename = "Level_Standard")]
+    level_standard: u16,
+    #[serde(rename = "Level_Taiko")]
+    level_taiko: u16,
+    #[serde(rename = "Level_Stdev")]
+    level_stdev: u16,
+    #[serde(rename = "Name")]
+    #[rkyv(with = DerefAsString)]
+    pub username: Username,
+    #[serde(rename = "PP_Catch", with = "deser::f32_string")]
+    pp_catch: f32,
+    #[serde(rename = "PP_Mania", with = "deser::f32_string")]
+    pp_mania: f32,
+    #[serde(rename = "PP_Standard", with = "deser::f32_string")]
+    pp_standard: f32,
+    #[serde(rename = "PP_Taiko", with = "deser::f32_string")]
+    pp_taiko: f32,
+    #[serde(rename = "PP_Stdev", with = "deser::f32_string")]
+    pp_stdev: f32,
+    #[serde(rename = "PP_Total", with = "deser::f32_string")]
+    pp_total: f32,
+    #[serde(rename = "Rank_Global_Catch")]
+    rank_global_catch: Option<u32>,
+    #[serde(rename = "Rank_Global_Mania")]
+    rank_global_mania: Option<u32>,
+    #[serde(rename = "Rank_Global_Standard")]
+    rank_global_standard: Option<u32>,
+    #[serde(rename = "Rank_Global_Taiko")]
+    rank_global_taiko: Option<u32>,
+    #[serde(rename = "Rarest_Medal_Achieved", with = "deser::naive_datetime")]
+    #[rkyv(with = DateTimeRkyv)]
+    rarest_medal_achieved: OffsetDateTime,
+    #[serde(rename = "Rarest_Medal_ID")]
+    rarest_medal_id: u16,
+    /// How many people achieved the rarest medal
+    #[serde(rename = "Rarest_Medal_Frequency")]
+    rarest_medal_frequency: u32,
+    #[serde(rename = "Medal_Data")]
+    pub rarest_medal: OsekaiRankingEntryMedal,
+    #[serde(rename = "Medal_Percentage", with = "deser::f32_string")]
+    pub medal_percentage: f32,
+}
+
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
+pub struct OsekaiRankingEntry {
+    #[serde(rename = "Rank")]
+    rank: u32,
+    #[serde(rename = "ID")]
+    user_id: u32,
     #[serde(rename = "Accuracy_Catch", with = "deser::f32_string")]
     acc_catch: f32,
     #[serde(rename = "Accuracy_Mania", with = "deser::f32_string")]
@@ -561,7 +641,7 @@ pub struct OsekaiRankingEntry {
     #[serde(rename = "Count_Maps_Ranked")]
     pub count_maps_ranked: u32,
     #[serde(rename = "Count_Medals")]
-    pub count_medals: u32,
+    count_medals: u32,
     #[serde(rename = "Count_Replays_Watched")]
     pub count_replays_watched: u64,
     #[serde(rename = "Count_Subscribers")]
@@ -609,13 +689,6 @@ pub struct OsekaiRankingEntry {
     rarest_medal_achieved: OffsetDateTime,
     #[serde(rename = "Rarest_Medal_ID")]
     rarest_medal_id: u16,
-    /// How many people achieved the rarest medal
-    #[serde(rename = "Rarest_Medal_Frequency")]
-    rarest_medal_frequency: u32,
-    #[serde(rename = "Medal_Data")]
-    pub rarest_medal: OsekaiRankingEntryMedal,
-    #[serde(rename = "Medal_Percentage", with = "deser::f32_string")]
-    pub medal_percentage: f32,
 }
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
@@ -664,7 +737,7 @@ pub struct OsekaiRarityEntry {
     #[serde(rename = "Frequency", deserialize_with = "adjust_frequency")]
     pub frequency: f64,
     #[serde(rename = "Count_Achieved_By")]
-    count_achieved_by: u32,
+    pub count_achieved_by: u32,
     #[serde(rename = "Achieved")]
     achieved: bool,
 }

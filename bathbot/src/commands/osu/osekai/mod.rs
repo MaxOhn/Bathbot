@@ -1,7 +1,7 @@
 use bathbot_macros::SlashCommand;
 use bathbot_model::{
-    Badges, LovedMapsets, MedalCount, OsekaiRanking, RankedMapsets, Replays, StandardDeviation,
-    Subscribers, TotalPp,
+    Badges, LovedMapsets, OsekaiRanking, RankedMapsets, Replays, StandardDeviation, Subscribers,
+    TotalPp,
 };
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -137,9 +137,7 @@ async fn slash_osekai(mut command: InteractionCommand) -> Result<()> {
             )
             .await
         }
-        Osekai::MedalCount(args) => {
-            medal_count(command, args, MedalCount::KIND, MedalCount::OPTIONS_KIND).await
-        }
+        Osekai::MedalCount(args) => medal_count(command, args).await,
         Osekai::RankedMapsets(args) => {
             count(
                 command,

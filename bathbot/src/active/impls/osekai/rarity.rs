@@ -3,7 +3,7 @@ use std::fmt::Write;
 use bathbot_cache::model::CachedArchive;
 use bathbot_macros::PaginationBuilder;
 use bathbot_model::{ArchivedOsekaiRarityEntry, OsekaiMedal};
-use bathbot_util::{EmbedBuilder, FooterBuilder, numbers::round};
+use bathbot_util::{EmbedBuilder, FooterBuilder, numbers::WithComma};
 use eyre::Result;
 use rkyv::vec::ArchivedVec;
 use twilight_model::{
@@ -50,10 +50,11 @@ impl IActiveMessage for MedalRarityPagination {
 
             let _ = writeln!(
                 description,
-                "**#{i} [{medal}]({url} \"{description}\")**: `{rarity}%`",
+                "**#{i} [{medal}]({url} \"{description}\")**: `{count}` (`{rarity:.5}%`)",
                 medal = entry.medal_name,
-                rarity = round(entry.frequency.to_native() as f32),
                 description = entry.description,
+                count = WithComma::new(entry.count_achieved_by.to_native()),
+                rarity = entry.frequency,
             );
         }
 
