@@ -193,8 +193,6 @@ pub enum RankingKind {
         scores: Vec<HlGameScore>,
         version: HlVersion,
     },
-    OsekaiRarity,
-    OsekaiMedalCount,
     OsekaiReplays,
     OsekaiTotalPp,
     OsekaiStandardDeviation,
@@ -256,18 +254,6 @@ impl RankingKind {
                 };
 
                 EmbedHeader::Author(AuthorBuilder::new(text))
-            }
-            Self::OsekaiRarity => {
-                let text = "Medal Ranking based on rarity";
-                let url = "https://inex.osekai.net/rankings/medals_rarity";
-
-                EmbedHeader::title(text, url)
-            }
-            Self::OsekaiMedalCount => {
-                let text = "User Ranking based on amount of owned medals";
-                let url = "https://inex.osekai.net/rankings/medals_users";
-
-                EmbedHeader::title(text, url)
             }
             Self::OsekaiReplays => {
                 let text = "User Ranking based on watched replays";
@@ -428,9 +414,7 @@ impl RankingKind {
                     HowLongAgoText::new(bootup_time)
                 );
             }
-            RankingKind::OsekaiRarity
-            | RankingKind::OsekaiMedalCount
-            | RankingKind::OsekaiReplays
+            RankingKind::OsekaiReplays
             | RankingKind::OsekaiTotalPp
             | RankingKind::OsekaiStandardDeviation
             | RankingKind::OsekaiBadges

@@ -32,7 +32,6 @@ use crate::{
 };
 
 pub trait OsekaiRanking {
-    const RANKING: RankingKind;
     const KIND: &'static str;
     const OPTIONS_KIND: Option<&'static str>;
 }
@@ -40,7 +39,7 @@ pub trait OsekaiRanking {
 macro_rules! define_ranking {
     (
         $struct:ident {
-            $ranking:ident,
+            $( $ranking:ident, )?
             $kind:literal
             $(, $options_kind:literal )?
         } $( -> $entry:ident )?
@@ -48,10 +47,15 @@ macro_rules! define_ranking {
         pub struct $struct;
 
         impl OsekaiRanking for $struct {
-            const RANKING: RankingKind = RankingKind::$ranking;
             const KIND: &'static str = $kind;
             const OPTIONS_KIND: Option<&'static str> = define_ranking!(@options $($options_kind)?);
         }
+
+        $(
+            impl $struct {
+                pub const RANKING: RankingKind = RankingKind::$ranking;
+            }
+        )?
     };
     ( @options $options:literal ) => {
         Some($options)
@@ -62,11 +66,11 @@ macro_rules! define_ranking {
 }
 
 define_ranking! {
-    Rarity { OsekaiRarity, "medals_rarity" } -> OsekaiRarityEntry
+    Rarity { "medals_rarity" } -> OsekaiRarityEntry
 }
 
 define_ranking! {
-    MedalCount { OsekaiMedalCount, "medals_users" }
+    MedalCount { "medals_users" }
 }
 
 define_ranking! {
