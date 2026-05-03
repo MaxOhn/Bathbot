@@ -37,15 +37,7 @@ impl IActiveMessage for MedalCountPagination {
 
         for (entry, idx) in ranking.iter().zip(pages.index()..) {
             let medal_name = entry.rarest_medal.name.as_ref();
-
-            let medal_url = match OsekaiMedal::name_to_url(medal_name) {
-                Ok(url) => url,
-                Err(err) => {
-                    warn!(?err);
-
-                    OsekaiMedal::backup_name_to_url(medal_name)
-                }
-            };
+            let medal_url = OsekaiMedal::name_to_url(medal_name);
 
             let _ = writeln!(
                 description,

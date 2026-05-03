@@ -36,15 +36,7 @@ impl IActiveMessage for MedalsCommonPagination {
         let mut description = String::with_capacity(512);
 
         for (entry, i) in medals.iter().zip(pages.index() + 1..) {
-            let url = match entry.medal.url() {
-                Ok(url) => url,
-                Err(err) => {
-                    warn!(?err);
-
-                    entry.medal.backup_url()
-                }
-            };
-
+            let url = entry.medal.url();
             let url = url.cow_replace("%25", "%");
 
             let _ = writeln!(

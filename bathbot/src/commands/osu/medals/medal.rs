@@ -376,15 +376,7 @@ impl MedalEmbed {
 
         let title = medal.name.as_ref().to_owned();
         let thumbnail = medal.icon_url().to_string();
-
-        let url = match medal.url() {
-            Ok(url) => url,
-            Err(err) => {
-                warn!(?err);
-
-                medal.backup_url()
-            }
-        };
+        let url = medal.url();
 
         let achieved = achieved.map(|achieved| {
             let user = achieved.user;

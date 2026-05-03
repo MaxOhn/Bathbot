@@ -5,8 +5,8 @@ use std::{
     str::FromStr,
 };
 
-use eyre::{Result, WrapErr};
-use form_urlencoded::Serializer as FormSerializer;
+use bathbot_util::CowUtils;
+use eyre::Result;
 use rkyv::{
     Archive, Deserialize as RkyvDeserialize, Portable, Serialize as RkyvSerialize,
     bytecheck::CheckBytes,
@@ -18,10 +18,9 @@ use rosu_v2::{
     prelude::{CountryCode, Username},
 };
 use serde::{
-    Deserialize, Deserializer, Serialize,
+    Deserialize, Deserializer,
     de::{Error, Unexpected, Visitor},
 };
-use serde_urlencoded::Serializer as UrlSerializer;
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
@@ -291,13 +290,8 @@ impl<'de> Deserialize<'de> for MedalGroup {
 
 impl ArchivedOsekaiMedal {
     /// Returns a properly encoded medal url to osekai.
-    pub fn url(&self) -> Result<String> {
+    pub fn url(&self) -> String {
         OsekaiMedal::name_to_url(self.name.as_ref())
-    }
-
-    /// Returns a backup url in case [`ArchivedOsekaiMedal::url`] fails.
-    pub fn backup_url(&self) -> String {
-        OsekaiMedal::backup_name_to_url(self.name.as_ref())
     }
 
     /// Returns the solution of the medal, if available.
@@ -363,40 +357,15 @@ impl ArchivedOsekaiMedal {
 }
 
 impl OsekaiMedal {
-    const BASE_URL: &'static str = "https://inex.osekai.net/medals";
+    const BASE_URL: &'static str = "https://inex.osekai.net/medals/";
 
     /// Returns a properly encoded medal url to osekai.
-    pub fn url(&self) -> Result<String> {
+    pub fn url(&self) -> String {
         Self::name_to_url(self.name.as_ref())
     }
 
-    /// Returns a backup url in case [`OsekaiMedal::url`] fails.
-    pub fn backup_url(&self) -> String {
-        Self::backup_name_to_url(self.name.as_ref())
-    }
-
-    pub fn backup_name_to_url(name: &str) -> String {
-        format!("{}medal={name}", Self::BASE_URL)
-    }
-
-    pub fn name_to_url(name: &str) -> Result<String> {
-        let mut url = String::with_capacity(Self::BASE_URL.len() + "medal".len() + 1 + name.len());
-        url.push_str(Self::BASE_URL);
-
-        #[derive(serde::Serialize)]
-        struct MedalUrlQuery<'a> {
-            medal: &'a str,
-        }
-
-        let query = MedalUrlQuery { medal: name };
-        let mut form_serializer = FormSerializer::for_suffix(&mut url, Self::BASE_URL.len());
-        let url_serializer = UrlSerializer::new(&mut form_serializer);
-
-        query
-            .serialize(url_serializer)
-            .wrap_err("Failed to encode medal url")?;
-
-        Ok(url)
+    pub fn name_to_url(name: &str) -> String {
+        format!("{}{}", Self::BASE_URL, name.cow_replace(' ', "%20"))
     }
 
     fn grouping_order(&self) -> u32 {
@@ -710,36 +679,36 @@ fn adjust_frequency<'de, D: Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsekaiRarityEntry {
-    #[serde(rename = "Rank")]
-    rank: u32,
+    // #[serde(rename = "Rank")]
+    // rank: u32,
     #[serde(rename = "Medal_ID")]
     pub medal_id: u16,
     #[serde(rename = "Name")]
     #[rkyv(with = DerefAsString)]
     pub medal_name: Box<str>,
-    #[serde(rename = "Link")]
-    #[rkyv(with = DerefAsString)]
-    link: Box<str>,
+    // #[serde(rename = "Link")]
+    // #[rkyv(with = DerefAsString)]
+    // link: Box<str>,
     #[serde(rename = "Description")]
     #[rkyv(with = DerefAsString)]
     pub description: Box<str>,
-    #[serde(rename = "Gamemode")]
-    #[rkyv(with = NicheInto<GameModeNiche>)]
-    mode: Option<GameMode>,
-    #[serde(rename = "Grouping")]
-    #[rkyv(with = DerefAsString)]
-    grouping: Box<str>,
-    #[serde(rename = "Instructions")]
-    #[rkyv(with = Map<DerefAsString>)]
-    instructions: Option<Box<str>>,
-    #[serde(rename = "Ordering")]
-    ordering: u8,
+    // #[serde(rename = "Gamemode")]
+    // #[rkyv(with = NicheInto<GameModeNiche>)]
+    // mode: Option<GameMode>,
+    // #[serde(rename = "Grouping")]
+    // #[rkyv(with = DerefAsString)]
+    // grouping: Box<str>,
+    // #[serde(rename = "Instructions")]
+    // #[rkyv(with = Map<DerefAsString>)]
+    // instructions: Option<Box<str>>,
+    // #[serde(rename = "Ordering")]
+    // ordering: u8,
     #[serde(rename = "Frequency", deserialize_with = "adjust_frequency")]
     pub frequency: f64,
     #[serde(rename = "Count_Achieved_By")]
     pub count_achieved_by: u32,
-    #[serde(rename = "Achieved")]
-    achieved: bool,
+    // #[serde(rename = "Achieved")]
+    // achieved: bool,
 }
 
 #[derive(Deserialize)]

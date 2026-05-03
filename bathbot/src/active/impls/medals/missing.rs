@@ -60,15 +60,7 @@ impl IActiveMessage for MedalsMissingPagination {
                     }
                 }
                 MedalType::Medal(m) => {
-                    let url = match m.url() {
-                        Ok(url) => url,
-                        Err(err) => {
-                            warn!(?err);
-
-                            m.backup_url()
-                        }
-                    };
-
+                    let url = m.url();
                     let url = url.cow_replace("%25", "%");
 
                     let _ = writeln!(

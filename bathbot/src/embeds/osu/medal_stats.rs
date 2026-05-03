@@ -144,16 +144,12 @@ struct MedalUrl<'n> {
 
 impl Display for MedalUrl<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let url = match OsekaiMedal::name_to_url(self.name) {
-            Ok(url) => url,
-            Err(err) => {
-                warn!(?err);
-
-                OsekaiMedal::backup_name_to_url(self.name)
-            }
-        };
-
-        write!(f, "{url} \"Rarity: {rarity}%\"", rarity = self.rarity)
+        write!(
+            f,
+            "{url} \"Rarity: {rarity}%\"",
+            url = OsekaiMedal::name_to_url(self.name),
+            rarity = self.rarity
+        )
     }
 }
 
