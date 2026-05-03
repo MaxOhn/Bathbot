@@ -1,6 +1,7 @@
 use bathbot_macros::SlashCommand;
 use bathbot_model::{
-    Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, Subscribers, TotalPp,
+    Badges, LovedMapsets, MedalCount, OsekaiRanking, RankedMapsets, Replays, StandardDeviation,
+    Subscribers, TotalPp,
 };
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -114,14 +115,86 @@ pub struct OsekaiTotalPp {
 
 async fn slash_osekai(mut command: InteractionCommand) -> Result<()> {
     match Osekai::from_interaction(command.input_data())? {
-        Osekai::Badges(args) => count::<Badges>(command, args.country).await,
-        Osekai::LovedMapsets(args) => count::<LovedMapsets>(command, args.country).await,
-        Osekai::MedalCount(args) => medal_count(command, args).await,
-        Osekai::RankedMapsets(args) => count::<RankedMapsets>(command, args.country).await,
+        Osekai::Badges(args) => {
+            count(
+                command,
+                args.country,
+                Badges::KIND,
+                Badges::OPTIONS_KIND,
+                Badges::RANKING,
+                |entry| u64::from(entry.count_badges.to_native()),
+            )
+            .await
+        }
+        Osekai::LovedMapsets(args) => {
+            count(
+                command,
+                args.country,
+                LovedMapsets::KIND,
+                LovedMapsets::OPTIONS_KIND,
+                LovedMapsets::RANKING,
+                |entry| u64::from(entry.count_maps_loved.to_native()),
+            )
+            .await
+        }
+        Osekai::MedalCount(args) => {
+            medal_count(command, args, MedalCount::KIND, MedalCount::OPTIONS_KIND).await
+        }
+        Osekai::RankedMapsets(args) => {
+            count(
+                command,
+                args.country,
+                RankedMapsets::KIND,
+                RankedMapsets::OPTIONS_KIND,
+                RankedMapsets::RANKING,
+                |entry| u64::from(entry.count_maps_ranked.to_native()),
+            )
+            .await
+        }
         Osekai::Rarity(_) => rarity(command).await,
-        Osekai::Replays(args) => count::<Replays>(command, args.country).await,
-        Osekai::StandardDeviation(args) => pp::<StandardDeviation>(command, args.country).await,
-        Osekai::Subscribers(args) => count::<Subscribers>(command, args.country).await,
-        Osekai::TotalPp(args) => pp::<TotalPp>(command, args.country).await,
+        Osekai::Replays(args) => {
+            count(
+                command,
+                args.country,
+                Replays::KIND,
+                Replays::OPTIONS_KIND,
+                Replays::RANKING,
+                |entry| entry.count_replays_watched.to_native(),
+            )
+            .await
+        }
+        Osekai::StandardDeviation(args) => {
+            pp(
+                command,
+                args.country,
+                StandardDeviation::KIND,
+                StandardDeviation::OPTIONS_KIND,
+                StandardDeviation::RANKING,
+                |entry| entry.pp_stdev.to_native(),
+            )
+            .await
+        }
+        Osekai::Subscribers(args) => {
+            count(
+                command,
+                args.country,
+                Subscribers::KIND,
+                Subscribers::OPTIONS_KIND,
+                Subscribers::RANKING,
+                |entry| u64::from(entry.count_subscribers.to_native()),
+            )
+            .await
+        }
+        Osekai::TotalPp(args) => {
+            pp(
+                command,
+                args.country,
+                TotalPp::KIND,
+                TotalPp::OPTIONS_KIND,
+                TotalPp::RANKING,
+                |entry| entry.pp_total.to_native(),
+            )
+            .await
+        }
     }
 }

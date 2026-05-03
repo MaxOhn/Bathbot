@@ -1,4 +1,3 @@
-use bathbot_model::Rarity;
 use bathbot_util::{Authored, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
 
@@ -9,7 +8,7 @@ use crate::{
 };
 
 pub(super) async fn rarity(mut command: InteractionCommand) -> Result<()> {
-    let ranking = match Context::redis().osekai_ranking::<Rarity>().await {
+    let ranking = match Context::redis().osekai_rarity().await {
         Ok(ranking) => ranking,
         Err(err) => {
             let _ = command.error(GENERAL_ISSUE).await;

@@ -1,18 +1,11 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
 use bathbot_model::{
-    ArchivedOsekaiRankingEntry, Countries, OsekaiRanking, OsekaiRankingEntry, RankingEntries,
-    RankingEntry, RankingKind,
+    ArchivedOsekaiRankingEntry, Countries, RankingEntries, RankingEntry, RankingKind,
 };
 use bathbot_util::{Authored, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
-use rkyv::{
-    Archive,
-    bytecheck::CheckBytes,
-    rancor::{Panic, Strategy},
-    validation::{Validator, archive::ArchiveValidator},
-    vec::ArchivedVec,
-};
+use rkyv::vec::ArchivedVec;
 use rosu_v2::prelude::Username;
 
 use crate::{
@@ -21,12 +14,14 @@ use crate::{
     util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
-pub(super) async fn count<R>(command: InteractionCommand, country: Option<String>) -> Result<()>
-where
-    R: OsekaiRanking<Entry = OsekaiRankingEntry<usize>>,
-    <R as OsekaiRanking>::Entry:
-        for<'a> Archive<Archived: CheckBytes<Strategy<Validator<ArchiveValidator<'a>, ()>, Panic>>>,
-{
+pub(super) async fn count(
+    command: InteractionCommand,
+    country: Option<String>,
+    ranking_kind: &str,
+    ranking_options_kind: Option<&str>,
+    data: RankingKind,
+    value_fn: fn(&ArchivedOsekaiRankingEntry) -> u64,
+) -> Result<()> {
     let country_code = match country {
         Some(country) => {
             if country.len() == 2 {
@@ -46,7 +41,7 @@ where
     };
 
     let owner = command.user_id()?;
-    let ranking_fut = Context::redis().osekai_ranking::<R>();
+    let ranking_fut = Context::redis().osekai_ranking(ranking_kind, ranking_options_kind);
     let name_fut = Context::user_config().osu_name(owner);
 
     let (osekai_res, name_res) = tokio::join!(ranking_fut, name_fut);
@@ -62,26 +57,26 @@ where
 
     let entries = if let Some(code) = country_code {
         let code = code.to_ascii_uppercase();
-        let archived_filter =
-            |entry: &&ArchivedOsekaiRankingEntry<usize>| entry.country_code == code;
+        let archived_filter = |entry: &&ArchivedOsekaiRankingEntry| entry.country_code == code;
 
-        prepare_amount_users(&ranking, archived_filter)
+        prepare_amount_users(&ranking, archived_filter, value_fn)
     } else {
-        prepare_amount_users(&ranking, |_| true)
+        prepare_amount_users(&ranking, |_| true, value_fn)
     };
 
     let entries = RankingEntries::Amount(entries);
-    let data = <R as OsekaiRanking>::RANKING;
 
     send_response(command, entries, data, name_res).await
 }
 
-pub(super) async fn pp<R>(command: InteractionCommand, country: Option<String>) -> Result<()>
-where
-    R: OsekaiRanking<Entry = OsekaiRankingEntry<u32>>,
-    <R as OsekaiRanking>::Entry:
-        for<'a> Archive<Archived: CheckBytes<Strategy<Validator<ArchiveValidator<'a>, ()>, Panic>>>,
-{
+pub(super) async fn pp(
+    command: InteractionCommand,
+    country: Option<String>,
+    ranking_kind: &str,
+    ranking_options_kind: Option<&str>,
+    data: RankingKind,
+    value_fn: fn(&ArchivedOsekaiRankingEntry) -> f32,
+) -> Result<()> {
     let country_code = match country {
         Some(country) => {
             if country.len() == 2 {
@@ -101,7 +96,7 @@ where
     };
 
     let owner = command.user_id()?;
-    let ranking_fut = Context::redis().osekai_ranking::<R>();
+    let ranking_fut = Context::redis().osekai_ranking(ranking_kind, ranking_options_kind);
     let name_fut = Context::user_config().osu_name(owner);
 
     let (osekai_res, name_res) = tokio::join!(ranking_fut, name_fut);
@@ -117,28 +112,28 @@ where
 
     let entries = if let Some(code) = country_code {
         let code = code.to_ascii_uppercase();
-        let archived_filter = |entry: &&ArchivedOsekaiRankingEntry<u32>| entry.country_code == code;
+        let archived_filter = |entry: &&ArchivedOsekaiRankingEntry| entry.country_code == code;
 
-        prepare_pp_users(&ranking, archived_filter)
+        prepare_pp_users(&ranking, archived_filter, value_fn)
     } else {
-        prepare_pp_users(&ranking, |_| true)
+        prepare_pp_users(&ranking, |_| true, value_fn)
     };
 
-    let entries = RankingEntries::PpU32(entries);
-    let data = <R as OsekaiRanking>::RANKING;
+    let entries = RankingEntries::PpF32(entries);
 
     send_response(command, entries, data, name_res).await
 }
 
 fn prepare_amount_users(
-    ranking: &ArchivedVec<ArchivedOsekaiRankingEntry<usize>>,
-    archived_filter: impl Fn(&&ArchivedOsekaiRankingEntry<usize>) -> bool,
+    ranking: &ArchivedVec<ArchivedOsekaiRankingEntry>,
+    archived_filter: impl Fn(&&ArchivedOsekaiRankingEntry) -> bool,
+    value_fn: fn(&ArchivedOsekaiRankingEntry) -> u64,
 ) -> BTreeMap<usize, RankingEntry<u64>> {
     ranking
         .iter()
         .filter(archived_filter)
         .map(|entry| RankingEntry {
-            value: entry.value().to_native() as u64,
+            value: value_fn(entry),
             name: entry.username.as_str().into(),
             country: Some(entry.country_code.as_str().into()),
         })
@@ -147,14 +142,15 @@ fn prepare_amount_users(
 }
 
 fn prepare_pp_users(
-    ranking: &ArchivedVec<ArchivedOsekaiRankingEntry<u32>>,
-    archived_filter: impl Fn(&&ArchivedOsekaiRankingEntry<u32>) -> bool,
-) -> BTreeMap<usize, RankingEntry<u32>> {
+    ranking: &ArchivedVec<ArchivedOsekaiRankingEntry>,
+    archived_filter: impl Fn(&&ArchivedOsekaiRankingEntry) -> bool,
+    value_fn: fn(&ArchivedOsekaiRankingEntry) -> f32,
+) -> BTreeMap<usize, RankingEntry<f32>> {
     ranking
         .iter()
         .filter(archived_filter)
         .map(|entry| RankingEntry {
-            value: entry.value().to_native(),
+            value: value_fn(entry),
             name: entry.username.as_str().into(),
             country: Some(entry.country_code.as_str().into()),
         })

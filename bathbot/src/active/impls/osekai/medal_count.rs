@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{OsekaiMedal, OsekaiUserEntry};
+use bathbot_model::{OsekaiMedal, OsekaiRankingEntry};
 use bathbot_util::{CowUtils, EmbedBuilder, FooterBuilder, constants::OSU_BASE, numbers::round};
 use eyre::Result;
 use twilight_model::{
@@ -20,7 +20,7 @@ use crate::{
 #[derive(PaginationBuilder)]
 pub struct MedalCountPagination {
     #[pagination(per_page = 10)]
-    ranking: Box<[OsekaiUserEntry]>,
+    ranking: Box<[OsekaiRankingEntry]>,
     author_idx: Option<usize>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
@@ -36,7 +36,7 @@ impl IActiveMessage for MedalCountPagination {
         let mut description = String::with_capacity(1024);
 
         for (entry, idx) in ranking.iter().zip(pages.index()..) {
-            let medal_name = entry.rarest_medal.as_ref();
+            let medal_name = entry.rarest_medal.name.as_ref();
 
             let medal_url = match OsekaiMedal::name_to_url(medal_name) {
                 Ok(url) => url,
@@ -60,9 +60,9 @@ impl IActiveMessage for MedalCountPagination {
                 },
                 user = entry.username.cow_escape_markdown(),
                 user_id = entry.user_id,
-                count = entry.medal_count,
-                percent = round(entry.completion),
-                medal = entry.rarest_medal,
+                count = entry.count_medals,
+                percent = round(entry.medal_percentage),
+                medal = entry.rarest_medal.name,
             );
         }
 

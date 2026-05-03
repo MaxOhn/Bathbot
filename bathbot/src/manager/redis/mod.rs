@@ -3,12 +3,12 @@ use std::{borrow::Cow, collections::HashMap, fmt::Write};
 use bathbot_cache::{
     Cache, ToCacheKey,
     model::{CachedArchive, ValidatorStrategy},
-    util::serialize::{SerializerStrategy, serialize_using_arena, serialize_using_arena_and_with},
+    util::serialize::{serialize_using_arena, serialize_using_arena_and_with},
 };
 use bathbot_model::{
     ArchivedOsekaiBadge, ArchivedOsekaiMedal, ArchivedOsuStatsBestScores,
-    ArchivedOsuTrackHistoryEntry, ArchivedScrapedMedal, ArchivedSnipeCountries, OsekaiRanking,
-    OsuStatsBestScores, OsuStatsBestTimeframe,
+    ArchivedOsuTrackHistoryEntry, ArchivedScrapedMedal, ArchivedSnipeCountries, OsekaiRankingEntry,
+    OsekaiRarityEntry, OsuStatsBestScores, OsuStatsBestTimeframe,
     rosu_v2::{
         multiplayer::{ArchivedRoom, RoomRkyv},
         ranking::{ArchivedRankings, RankingsRkyv},
@@ -19,9 +19,8 @@ use bathbot_util::{IntHasher, matcher, osu::MapIdType};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use futures::{StreamExt, stream::FuturesUnordered};
 use rkyv::{
-    Archived, Portable, Serialize, bytecheck::CheckBytes,
-    collections::swiss_table::ArchivedHashMap, primitive::ArchivedU16, rancor::BoxedError,
-    util::AlignedVec, vec::ArchivedVec,
+    Archived, Portable, bytecheck::CheckBytes, collections::swiss_table::ArchivedHashMap,
+    primitive::ArchivedU16, rancor::BoxedError, util::AlignedVec, vec::ArchivedVec,
 };
 use rosu_v2::{
     prelude::{GameMode, RoomCategory},
@@ -345,23 +344,44 @@ impl RedisManager {
         CachedArchive::new(bytes).map_err(RedisError::Validation)
     }
 
-    pub async fn osekai_ranking<R>(self) -> RedisResult<Archived<Vec<R::Entry>>>
-    where
-        R: OsekaiRanking,
-        <R as OsekaiRanking>::Entry:
-            for<'a> Serialize<SerializerStrategy<'a>, Archived: CheckBytes<ValidatorStrategy<'a>>>,
-    {
+    pub async fn osekai_ranking(
+        self,
+        ranking_kind: &str,
+        ranking_options_kind: Option<&str>,
+    ) -> RedisResult<Archived<Vec<OsekaiRankingEntry>>> {
         const EXPIRE: u64 = 7200;
 
         let mut key = b"osekai_ranking_".to_vec();
-        key.extend_from_slice(R::FORM.as_bytes());
+        key.extend_from_slice(ranking_kind.as_bytes());
+
+        if let Some(ranking_options_kind) = ranking_options_kind {
+            key.extend_from_slice(b"_");
+            key.extend_from_slice(ranking_options_kind.as_bytes());
+        }
 
         let fetcher = || async {
-            let ranking = Context::client().get_osekai_ranking::<R>().await?;
+            let ranking = Context::client()
+                .get_osekai_ranking(ranking_kind, ranking_options_kind)
+                .await?;
+
             serialize_using_arena(&ranking).map_err(RedisError::Serialization)
         };
 
         self.fetch_cached(&key, "Osekai ranking", EXPIRE, fetcher)
+            .await
+    }
+
+    pub async fn osekai_rarity(self) -> RedisResult<Archived<Vec<OsekaiRarityEntry>>> {
+        const EXPIRE: u64 = 7200;
+        const KEY: &str = "osekai_ranking_rarity";
+
+        let fetcher = || async {
+            let ranking = Context::client().get_osekai_rarity().await?;
+
+            serialize_using_arena(&ranking).map_err(RedisError::Serialization)
+        };
+
+        self.fetch_cached(KEY.as_bytes(), "Osekai rarity", EXPIRE, fetcher)
             .await
     }
 

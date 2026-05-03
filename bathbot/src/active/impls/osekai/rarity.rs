@@ -52,7 +52,7 @@ impl IActiveMessage for MedalRarityPagination {
                 description,
                 "**#{i} [{medal}]({url} \"{description}\")**: `{rarity}%`",
                 medal = entry.medal_name,
-                rarity = round(entry.possession_percent.to_native()),
+                rarity = round(entry.frequency.to_native() as f32),
                 description = entry.description,
             );
         }

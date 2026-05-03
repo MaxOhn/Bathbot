@@ -1,11 +1,12 @@
 use bathbot_model::{
     OsekaiBadge, OsekaiBadges, OsekaiComment, OsekaiInex, OsekaiMap, OsekaiMedal, OsekaiRanking,
-    OsekaiRankingEntries,
+    OsekaiRankingEntries, OsekaiRankingEntry, OsekaiRarityEntry, Rarity,
 };
 
 use eyre::{Result, WrapErr};
+use serde::Serialize;
 
-use crate::{Client, multipart::Multipart, site::Site};
+use crate::{Client, site::Site};
 
 impl Client {
     /// Don't use this; use `RedisManager::badges` instead.
@@ -77,23 +78,74 @@ impl Client {
     }
 
     /// Don't use this; use `RedisManager::osekai_ranking` instead.
-    pub async fn get_osekai_ranking<R: OsekaiRanking>(&self) -> Result<Vec<R::Entry>> {
-        let url = "https://osekai.net/rankings/api/api.php";
+    pub async fn get_osekai_ranking(
+        &self,
+        ranking_kind: &str,
+        ranking_options_kind: Option<&str>,
+    ) -> Result<Vec<OsekaiRankingEntry>> {
+        let url = "https://inex.osekai.net/api/rankings/get";
 
-        let mut form = Multipart::new();
-        form.push_text("App", R::FORM);
+        let json = serde_json::to_vec(&OsekaiRankingBody::new(ranking_kind, ranking_options_kind))
+            .unwrap();
 
-        let bytes = self
-            .make_multipart_post_request(url, Site::Osekai, form)
-            .await?;
+        let bytes = self.make_json_post_request(url, Site::Osekai, json).await?;
 
-        serde_json::from_slice::<OsekaiRankingEntries<R>>(&bytes)
-            .map(Vec::from)
+        serde_json::from_slice::<OsekaiInex<OsekaiRankingEntries<OsekaiRankingEntry>>>(&bytes)
+            .map(|inex| inex.content.data.0)
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
                 format!("Failed to deserialize: {body}")
             })
+    }
+
+    /// Don't use this; use `RedisManager::osekai_rarity` instead.
+    pub async fn get_osekai_rarity(&self) -> Result<Vec<OsekaiRarityEntry>> {
+        let url = "https://inex.osekai.net/api/rankings/get";
+
+        let json = serde_json::to_vec(&OsekaiRankingBody::new(Rarity::KIND, Rarity::OPTIONS_KIND))
+            .unwrap();
+
+        let bytes = self.make_json_post_request(url, Site::Osekai, json).await?;
+
+        serde_json::from_slice::<OsekaiInex<OsekaiRankingEntries<OsekaiRarityEntry>>>(&bytes)
+            .map(|inex| inex.content.data.0)
+            .wrap_err_with(|| {
+                let body = String::from_utf8_lossy(&bytes);
+
+                format!("Failed to deserialize: {body}")
+            })
+    }
+}
+
+#[derive(Serialize)]
+struct OsekaiRankingBody<'a> {
+    compress: bool,
+    offset: u32,
+    options: OsekaiRankingBodyOptions<'a>,
+    #[serde(rename = "type")]
+    kind: &'a str,
+}
+
+#[derive(Serialize)]
+struct OsekaiRankingBodyOptions<'a> {
+    #[serde(rename = "queryColumn")]
+    query_column: &'static str,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    kind: Option<&'a str>,
+}
+
+impl<'a> OsekaiRankingBody<'a> {
+    fn new(kind: &'a str, options_kind: Option<&'a str>) -> Self {
+        Self {
+            compress: false,
+            offset: 0,
+            options: OsekaiRankingBodyOptions {
+                query_column: "Username",
+                kind: options_kind,
+            },
+            kind,
+        }
     }
 }
 
@@ -103,11 +155,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_osekai_badges_integration() {
-        dotenvy::dotenv().unwrap();
-
-        let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN must be set");
-
-        let client = Client::new(&token).await.unwrap();
+        let client = Client::new("").await.unwrap();
 
         let badges = client.get_osekai_badges().await.unwrap();
 

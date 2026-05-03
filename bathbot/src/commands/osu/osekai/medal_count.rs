@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use bathbot_model::{Countries, MedalCount, OsekaiUserEntry};
+use bathbot_model::{Countries, OsekaiRankingEntry};
 use bathbot_util::{Authored, constants::GENERAL_ISSUE};
 use eyre::{Report, Result};
 
@@ -14,6 +14,8 @@ use crate::{
 pub(super) async fn medal_count(
     mut command: InteractionCommand,
     args: OsekaiMedalCount,
+    ranking_kind: &str,
+    ranking_options_kind: Option<&str>,
 ) -> Result<()> {
     let country_code = match args.country {
         Some(country) => {
@@ -34,13 +36,15 @@ pub(super) async fn medal_count(
     };
 
     let owner = command.user_id()?;
-    let ranking_fut = Context::redis().osekai_ranking::<MedalCount>();
+    let ranking_fut = Context::redis().osekai_ranking(ranking_kind, ranking_options_kind);
     let config_fut = Context::user_config().osu_name(owner);
 
     let (osekai_res, name_res) = tokio::join!(ranking_fut, config_fut);
 
     let mut ranking = match osekai_res {
-        Ok(ranking) => ranking.try_deserialize::<Vec<OsekaiUserEntry>>().unwrap(),
+        Ok(ranking) => ranking
+            .try_deserialize::<Vec<OsekaiRankingEntry>>()
+            .unwrap(),
         Err(err) => {
             let _ = command.error(GENERAL_ISSUE).await;
 
