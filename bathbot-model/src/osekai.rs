@@ -798,9 +798,10 @@ mod compact {
 
     /// Deserializes a compact-format JSON value into a `Vec<T>`.
     ///
-    /// This function is intended to be used with serde's `#[serde(with = "compact")]`
-    /// attribute. It expects a JSON object containing `"k"` (keys) and `"d"` (data)
-    /// fields and produces a vector of deserialized `T` values.
+    /// This function is intended to be used with serde's `#[serde(with =
+    /// "compact")]` attribute. It expects a JSON object containing `"k"`
+    /// (keys) and `"d"` (data) fields and produces a vector of deserialized
+    /// `T` values.
     ///
     /// # Errors
     ///
@@ -858,8 +859,9 @@ mod compact {
         /// into `T`.
         ///
         /// Uses the `keys` slice to map each array position to a field name,
-        /// which is then passed to `T::deserialize` via a [`CompactDeserializer`]
-        /// that presents the array as a map-like interface.
+        /// which is then passed to `T::deserialize` via a
+        /// [`CompactDeserializer`] that presents the array as a map-like
+        /// interface.
         struct Compact<'a, 'de, T> {
             /// Field names that map to positions in the data array.
             keys: &'a [&'de str],
@@ -948,18 +950,18 @@ mod compact {
         impl<'de, A: de::SeqAccess<'de>> de::Deserializer<'de> for CompactDeserializer<'_, 'de, A> {
             type Error = CompactDeserializerError<A::Error>;
 
+            forward_to_deserialize_any! {
+                bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str
+                string bytes byte_buf option unit unit_struct newtype_struct seq
+                tuple tuple_struct struct enum identifier ignored_any
+            }
+
             fn deserialize_map<V: de::Visitor<'de>>(self, v: V) -> Result<V::Value, Self::Error> {
                 v.visit_map(self)
             }
 
             fn deserialize_any<V: de::Visitor<'de>>(self, v: V) -> Result<V::Value, Self::Error> {
                 self.deserialize_map(v)
-            }
-
-            forward_to_deserialize_any! {
-                bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str
-                string bytes byte_buf option unit unit_struct newtype_struct seq
-                tuple tuple_struct struct enum identifier ignored_any
             }
         }
 

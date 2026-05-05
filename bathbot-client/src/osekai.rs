@@ -5,7 +5,6 @@ use bathbot_model::{
     OsekaiMedal, OsekaiRanking, OsekaiRankingEntries, OsekaiRankingEntry, OsekaiRarityEntry,
     OsekaiUserEntry, Rarity,
 };
-
 use eyre::{Result, WrapErr};
 use serde::Serialize;
 
