@@ -49,7 +49,7 @@ impl IActiveMessage for RankingPagination {
     async fn build_page(&mut self) -> Result<BuildPage> {
         let idx = self.pages.index().saturating_sub(1);
         let mut page = ((idx - idx % 50) + 50) / 50;
-        page += self.entries.contains_key(idx) as usize;
+        page += self.entries.contains_key(self.pages.index()) as usize;
 
         self.assure_present_users(page).await?;
 
