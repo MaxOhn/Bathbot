@@ -188,11 +188,9 @@ fn text_channel_permissions(
 
     for overwrite in permission_overwrites.iter() {
         match PermissionOverwriteTypeRkyv::deserialize(overwrite.kind) {
-            PermissionOverwriteType::Member => {
-                if overwrite.id.cast() == user {
-                    user_allowed |= Permissions::from_bits_truncate(overwrite.allow.to_native());
-                    user_denied |= Permissions::from_bits_truncate(overwrite.deny.to_native());
-                }
+            PermissionOverwriteType::Member if overwrite.id.cast() == user => {
+                user_allowed |= Permissions::from_bits_truncate(overwrite.allow.to_native());
+                user_denied |= Permissions::from_bits_truncate(overwrite.deny.to_native());
             }
             PermissionOverwriteType::Role => {
                 if overwrite.id.cast() == guild {

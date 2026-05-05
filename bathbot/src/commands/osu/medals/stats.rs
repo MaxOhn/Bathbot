@@ -7,6 +7,7 @@ use eyre::{ContextCompat, Report, Result, WrapErr};
 use plotters::prelude::*;
 use plotters_skia::SkiaBackend;
 use rkyv::{
+    primitive::ArchivedF64,
     rancor::{Panic, ResultExt},
     with::{Map, With},
 };
@@ -120,7 +121,11 @@ pub(super) async fn stats(orig: CommandOrigin<'_>, args: MedalStats<'_>) -> Resu
                 name: medal.name.as_ref().into(),
                 group: rkyv::api::deserialize_using::<_, _, Panic>(&medal.grouping, &mut ())
                     .always_ok(),
-                rarity: medal.rarity.as_ref().map_or(0.0, |n| n.to_native()),
+                rarity: medal
+                    .rarity
+                    .as_ref()
+                    .copied()
+                    .map_or(0.0, ArchivedF64::to_native) as f32,
             };
 
             (medal_id.to_native(), medal)

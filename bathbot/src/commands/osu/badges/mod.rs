@@ -82,7 +82,7 @@ impl BadgesOrder {
     fn apply(self, badges: &mut [OsekaiBadge]) {
         match self {
             Self::Alphabet => badges.sort_unstable_by(|a, b| a.name.cmp(&b.name)),
-            Self::Date => badges.sort_unstable_by_key(|badge| Reverse(badge.awarded_at)),
+            Self::Date => badges.sort_unstable_by_key(|badge| Reverse(badge.first_date_awarded)),
             Self::Owners => badges.sort_unstable_by_key(|badge| Reverse(badge.users.len())),
         }
     }

@@ -4,10 +4,15 @@ use std::{
         btree_map::{Entry, Range},
     },
     fmt::{Display, Formatter, Result as FmtResult, Write},
+    num::NonZeroU8,
 };
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{BgGameScore, EmbedHeader, RankingEntries, RankingEntry, RankingKind};
+use bathbot_model::{
+    ArchivedOsekaiRankingEntry, Badges, BgGameScore, EmbedHeader, LovedMapsets, OsekaiRanking,
+    RankedMapsets, RankingEntries, RankingEntry, RankingKind, Replays, StandardDeviation,
+    Subscribers, TotalPp,
+};
 use bathbot_util::{
     EmbedBuilder,
     numbers::{WithComma, round},
@@ -44,7 +49,7 @@ impl IActiveMessage for RankingPagination {
     async fn build_page(&mut self) -> Result<BuildPage> {
         let idx = self.pages.index().saturating_sub(1);
         let mut page = ((idx - idx % 50) + 50) / 50;
-        page += self.entries.contains_key(idx) as usize;
+        page += self.entries.contains_key(self.pages.index()) as usize;
 
         self.assure_present_users(page).await?;
 
@@ -193,6 +198,45 @@ impl RankingPagination {
             let page = page as u32;
             let kind = &self.kind;
 
+            macro_rules! extend_osekai_ranking {
+                (
+                    $self:ident = $kind:ident => {
+                        $country:ident, $value_fn:expr
+                    }
+                ) => {{
+                    extend_osekai_ranking(
+                        extend_osekai_ranking!( @variant $self $kind),
+                        $kind::KIND,
+                        $kind::OPTIONS_KIND,
+                        $country.as_deref(),
+                        page,
+                        $value_fn,
+                    )
+                    .await?;
+                }};
+                ( @variant $self:ident TotalPp ) => {{
+                    let RankingEntries::PpF32(ref mut entries) = $self.entries else {
+                        unreachable!()
+                    };
+
+                    entries
+                }};
+                ( @variant $self:ident StandardDeviation ) => {{
+                    let RankingEntries::PpF32(ref mut entries) = $self.entries else {
+                        unreachable!()
+                    };
+
+                    entries
+                }};
+                ( @variant $self:ident $other:ident ) => {{
+                    let RankingEntries::Amount(ref mut entries) = $self.entries else {
+                        unreachable!()
+                    };
+
+                    entries
+                }};
+            }
+
             match kind {
                 RankingKind::BgScores { scores, .. } => {
                     let RankingEntries::Amount(ref mut entries) = self.entries else {
@@ -275,7 +319,7 @@ impl RankingPagination {
                     let ranking = Context::redis()
                         .pp_ranking(*mode, page, None)
                         .await
-                        .wrap_err("failed to get ranking page")?;
+                        .wrap_err("Failed to get ranking page")?;
 
                     let RankingEntries::PpU32(ref mut entries) = self.entries else {
                         unreachable!()
@@ -324,12 +368,82 @@ impl RankingPagination {
 
                     entries.extend(iter);
                 }
+                RankingKind::OsekaiTotalPp { country } => extend_osekai_ranking! {
+                    self = TotalPp => {
+                        country, |entry| entry.pp_total.to_native()
+                    }
+                },
+                RankingKind::OsekaiStandardDeviation { country } => extend_osekai_ranking! {
+                    self = StandardDeviation => {
+                        country, |entry| entry.pp_stdev.to_native()
+                    }
+                },
+                RankingKind::OsekaiReplays { country } => extend_osekai_ranking! {
+                    self = Replays => {
+                        country, |entry| entry.count_replays_watched.to_native()
+                    }
+                },
+                RankingKind::OsekaiBadges { country } => extend_osekai_ranking! {
+                    self = Badges => {
+                        country, |entry| u64::from(entry.count_badges.to_native())
+                    }
+                },
+                RankingKind::OsekaiRankedMapsets { country } => extend_osekai_ranking! {
+                    self = RankedMapsets => {
+                        country, |entry| u64::from(entry.count_maps_ranked.to_native())
+                    }
+                },
+                RankingKind::OsekaiLovedMapsets { country } => extend_osekai_ranking! {
+                    self = LovedMapsets => {
+                        country, |entry| u64::from(entry.count_maps_loved.to_native())
+                    }
+                },
+                RankingKind::OsekaiSubscribers { country } => extend_osekai_ranking! {
+                    self = Subscribers => {
+                        country, |entry| u64::from(entry.count_subscribers.to_native())
+                    }
+                },
                 _ => {} // other data does not come paginated
             }
         }
 
         Ok(())
     }
+}
+
+async fn extend_osekai_ranking<T>(
+    entries: &mut BTreeMap<usize, RankingEntry<T>>,
+    kind: &str,
+    options_kind: Option<&str>,
+    country: Option<&str>,
+    page: u32,
+    value_fn: fn(&ArchivedOsekaiRankingEntry) -> T,
+) -> Result<()> {
+    let offset = page as usize - 1;
+
+    let fut = Context::redis().osekai_ranking(
+        kind,
+        options_kind,
+        country,
+        NonZeroU8::new(page as u8).unwrap(),
+    );
+
+    let new_entries = fut.await.wrap_err("Failed to get ranking page")?;
+
+    let iter = new_entries
+        .data
+        .iter()
+        .map(|entry| RankingEntry {
+            value: value_fn(entry),
+            name: entry.username.as_str().into(),
+            country: Some(entry.country_code.as_str().into()),
+        })
+        .enumerate()
+        .map(|(i, entry)| (offset * 50 + i, entry));
+
+    entries.extend(iter);
+
+    Ok(())
 }
 
 struct Lengths {

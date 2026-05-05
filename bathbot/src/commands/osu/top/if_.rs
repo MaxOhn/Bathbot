@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Write};
+use std::{borrow::Cow, cmp::Reverse, fmt::Write};
 
 use bathbot_macros::{HasName, SlashCommand, command};
 use bathbot_model::{ScoreSlim, command_fields::GameModeOption};
@@ -620,9 +620,7 @@ async fn process_scores(
                 .total_cmp(&a.stars)
                 .then_with(|| b.score.pp.total_cmp(&a.score.pp))
         }),
-        TopIfScoreOrder::Date => {
-            entries.sort_unstable_by(|a, b| b.score.ended_at.cmp(&a.score.ended_at))
-        }
+        TopIfScoreOrder::Date => entries.sort_unstable_by_key(|a| Reverse(a.score.ended_at)),
     }
 
     Ok(entries)

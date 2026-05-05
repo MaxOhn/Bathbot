@@ -28,7 +28,7 @@ pub mod stats;
     name = "medal",
     desc = "Info about a medal or users' medal progress",
     help = "Info about a medal or users' medal progress.\n\
-    Check out [osekai](https://osekai.net/) for more info on medals."
+    Check out [osekai](https://inex.osekai.net/) for more info on medals."
 )]
 #[allow(dead_code)]
 pub enum Medal<'a> {
@@ -132,7 +132,7 @@ pub enum MedalCommonFilter {
     name = "info",
     desc = "Display info about an osu! medal",
     help = "Display info about an osu! medal.\n\
-    The solution, beatmaps, and comments are provided by [osekai](https://osekai.net/)."
+    The solution, beatmaps, and comments are provided by [osekai](https://inex.osekai.net/)."
 )]
 #[allow(dead_code)]
 pub struct MedalInfo {
@@ -217,7 +217,7 @@ impl Default for MedalMissingOrder {
     name = "recent",
     desc = "Display recent medals of a user",
     help = "Display a recently acquired medal of a user.\n\
-    The solution, beatmaps, and comments are provided by [osekai](https://osekai.net/)."
+    The solution, beatmaps, and comments are provided by [osekai](https://inex.osekai.net/)."
 )]
 pub struct MedalRecent<'a> {
     #[command(desc = "Specify a username")]

@@ -1,4 +1,7 @@
-use std::{borrow::Cow, cmp::Ordering};
+use std::{
+    borrow::Cow,
+    cmp::{Ordering, Reverse},
+};
 
 use bathbot_macros::{HasMods, HasName, SlashCommand, command};
 use bathbot_model::ScoreSlim;
@@ -1358,9 +1361,7 @@ impl CommonArgs<'_> {
             TopIfScoreOrder::PpGain => entries.sort_by(|a, b| b.pp_diff().total_cmp(&a.pp_diff())),
             TopIfScoreOrder::PpLoss => entries.sort_by(|a, b| a.pp_diff().total_cmp(&b.pp_diff())),
             TopIfScoreOrder::Stars => entries.sort_unstable_by(|a, b| b.stars.total_cmp(&a.stars)),
-            TopIfScoreOrder::Date => {
-                entries.sort_unstable_by(|a, b| b.score.ended_at.cmp(&a.score.ended_at))
-            }
+            TopIfScoreOrder::Date => entries.sort_unstable_by_key(|a| Reverse(a.score.ended_at)),
         }
 
         if self.reverse.unwrap_or(false) {

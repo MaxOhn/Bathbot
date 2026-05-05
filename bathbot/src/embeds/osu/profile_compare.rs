@@ -734,12 +734,10 @@ struct MissRate {
 
 impl MissRate {
     fn rate(&self) -> (Box<str>, u32) {
-        if self.misses == 0 {
-            (format!("0m/{} hits", self.hits).into_boxed_str(), self.hits)
-        } else {
-            let div = self.hits / self.misses;
-
+        if let Some(div) = self.hits.checked_div(self.misses) {
             (format!("1m/{div} hits").into_boxed_str(), div)
+        } else {
+            (format!("0m/{} hits", self.hits).into_boxed_str(), self.hits)
         }
     }
 

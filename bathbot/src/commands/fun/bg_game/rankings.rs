@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashSet};
+use std::{
+    cmp::Reverse,
+    collections::{BTreeMap, HashSet},
+};
 
 use bathbot_model::{RankingEntries, RankingEntry, RankingKind};
 use bathbot_util::{IntHasher, constants::GENERAL_ISSUE};
@@ -38,7 +41,7 @@ pub async fn leaderboard(msg: &Message, global: bool) -> Result<()> {
 
     let author = msg.author.id.get() as i64;
 
-    scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
+    scores.sort_unstable_by_key(|a| Reverse(a.score));
     let author_idx = scores.iter().position(|row| row.discord_id == author);
 
     // Gather usernames for initial page

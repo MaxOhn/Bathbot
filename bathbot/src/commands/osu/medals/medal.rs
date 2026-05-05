@@ -15,7 +15,7 @@ use bathbot_util::{
     string_cmp::levenshtein_similarity,
 };
 use eyre::{Report, Result, WrapErr};
-use rkyv::{rend::f32_le, vec::ArchivedVec};
+use rkyv::{primitive::ArchivedF64, vec::ArchivedVec};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 use twilight_interactions::command::AutocompleteValue;
@@ -36,7 +36,7 @@ use crate::{
 #[help(
     "Display info about an osu! medal.\n\
     The given name must be exact (but case-insensitive).\n\
-    All data originates from [osekai](https://osekai.net/medals/), \
+    All data originates from [osekai](https://inex.osekai.net/medals/), \
     check it out for more info."
 )]
 #[usage("[medal name]")]
@@ -285,7 +285,7 @@ impl MedalEmbed {
             .rarity
             .as_ref()
             .copied()
-            .map_or(0.0, f32_le::to_native);
+            .map_or(0.0, ArchivedF64::to_native) as f32;
 
         let mut availability = String::new();
 
@@ -366,8 +366,8 @@ impl MedalEmbed {
                 ```",
                 content = content.trim(),
                 username = match username {
-                    Some(ref username) => Cow::Borrowed(username.as_str()),
-                    None => Cow::Owned(format!("<user id {user_id}>")),
+                    Some(ref username) if !username.is_empty() => Cow::Borrowed(username.as_str()),
+                    None | Some(_) => Cow::Owned(format!("<user id {user_id}>")),
                 }
             );
 
@@ -376,15 +376,7 @@ impl MedalEmbed {
 
         let title = medal.name.as_ref().to_owned();
         let thumbnail = medal.icon_url().to_string();
-
-        let url = match medal.url() {
-            Ok(url) => url,
-            Err(err) => {
-                warn!(?err);
-
-                medal.backup_url()
-            }
-        };
+        let url = medal.url();
 
         let achieved = achieved.map(|achieved| {
             let user = achieved.user;

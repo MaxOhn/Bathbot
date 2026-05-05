@@ -1,15 +1,12 @@
-use std::{
-    collections::{BTreeMap, btree_map::Entry},
-    fmt::Write,
-};
+use std::fmt::Write;
 
 use bathbot_macros::PaginationBuilder;
-use bathbot_model::{OsekaiBadge, OsekaiBadgeOwner};
+use bathbot_model::OsekaiBadge;
 use bathbot_util::{
     CowUtils, EmbedBuilder, FooterBuilder, attachment, constants::OSU_BASE, datetime::DATE_FORMAT,
     fields,
 };
-use eyre::{Result, WrapErr};
+use eyre::Result;
 use twilight_model::{
     channel::message::Component,
     id::{Id, marker::UserMarker},
@@ -20,7 +17,6 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
-    core::Context,
     util::interaction::{InteractionComponent, InteractionModal},
 };
 
@@ -28,7 +24,6 @@ use crate::{
 pub struct BadgesPagination {
     #[pagination(per_page = 1)]
     badges: Box<[OsekaiBadge]>,
-    owners: BTreeMap<usize, Box<[OsekaiBadgeOwner]>>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
 }
@@ -39,43 +34,37 @@ impl IActiveMessage for BadgesPagination {
         let idx = pages.index();
         let badge = &self.badges[idx];
 
-        let owners = match self.owners.entry(idx) {
-            Entry::Occupied(e) => e.into_mut(),
-            Entry::Vacant(e) => {
-                let owners = Context::client()
-                    .get_osekai_badge_owners(badge.badge_id)
-                    .await
-                    .wrap_err("Failed to get osekai badge owners")?;
+        let users = &badge.users;
 
-                e.insert(owners.into_boxed_slice())
-            }
-        };
+        let mut owners_str = String::with_capacity(50 * users.len().min(10));
 
-        let mut owners_str = String::with_capacity(50 * owners.len().min(10));
-
-        for owner in owners.iter().take(10) {
-            let _ = if owner.username.is_empty() {
+        for user in users.iter().take(10) {
+            let _ = if user.username.is_empty() {
                 writeln!(
                     owners_str,
                     ":pirate_flag: [<user {user_id}>]({OSU_BASE}u/{user_id})",
-                    user_id = owner.user_id
+                    user_id = user.user_id
                 )
             } else {
                 writeln!(
                     owners_str,
-                    ":flag_{code}: [{name}]({OSU_BASE}u/{user_id})",
-                    code = owner.country_code.to_ascii_lowercase(),
-                    name = owner.username.cow_escape_markdown(),
-                    user_id = owner.user_id
+                    "{flag} [{name}]({OSU_BASE}u/{user_id})",
+                    flag = if let Some(code) = user.country_code.as_deref() {
+                        format!(":flag_{}:", code.to_ascii_lowercase())
+                    } else {
+                        String::new()
+                    },
+                    name = user.username.cow_escape_markdown(),
+                    user_id = user.user_id
                 )
             };
         }
 
-        if owners.len() > 10 {
-            let _ = write!(owners_str, "and {} more...", owners.len() - 10);
+        if users.len() > 10 {
+            let _ = write!(owners_str, "and {} more...", users.len() - 10);
         }
 
-        let awarded_at = badge.awarded_at.format(DATE_FORMAT).unwrap();
+        let awarded_at = badge.first_date_awarded.format(DATE_FORMAT).unwrap();
 
         let fields = fields![
             "Owners", owners_str, false;
@@ -87,7 +76,7 @@ impl IActiveMessage for BadgesPagination {
         let pages = pages.last_page();
         let footer_text = format!("Page {page}/{pages} • Check out osekai.net for more info");
 
-        let url = format!("https://osekai.net/badges/?badge={}", badge.badge_id);
+        let url = format!("https://inex.osekai.net/badges/{}", badge.badge_id);
 
         let embed = EmbedBuilder::new()
             .fields(fields)

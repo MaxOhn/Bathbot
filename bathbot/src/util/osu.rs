@@ -91,11 +91,9 @@ impl<'a> GradeCompletionFormatter<'a> {
 impl Display for GradeCompletionFormatter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let completion = || {
-            if self.n_objects != 0 {
-                100 * self.score_hits / self.n_objects
-            } else {
-                100
-            }
+            (100 * self.score_hits)
+                .checked_div(self.n_objects)
+                .unwrap_or(100)
         };
 
         let grade_fmt = GradeFormatter {

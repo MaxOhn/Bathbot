@@ -5,7 +5,7 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{MedalGroup, OsekaiMedal, Rarity};
+use bathbot_model::{MedalGroup, OsekaiMedal};
 use bathbot_util::{IntHasher, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
@@ -246,14 +246,14 @@ pub(super) async fn common(orig: CommandOrigin<'_>, mut args: MedalCommon<'_>) -
         None => medals.sort_unstable_by(|a, b| a.medal.cmp(&b.medal)),
         Some(MedalCommonOrder::Rarity) => {
             if !medals.is_empty() {
-                match Context::redis().osekai_ranking::<Rarity>().await {
+                match Context::redis().osekai_rarity().await {
                     Ok(rarities) => {
                         let rarities: HashMap<_, _, IntHasher> = rarities
                             .iter()
                             .map(|entry| {
                                 (
-                                    entry.medal_id.to_native(),
-                                    entry.possession_percent.to_native(),
+                                    entry.medal_id.to_native() as u32,
+                                    entry.frequency.to_native(),
                                 )
                             })
                             .collect();

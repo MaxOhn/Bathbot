@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::Ordering, collections::BTreeMap, fmt::Write};
+use std::{borrow::Cow, cmp::Ordering, fmt::Write};
 
 use bathbot_macros::command;
 use bathbot_model::OsekaiBadge;
@@ -85,30 +85,21 @@ pub(super) async fn query(
 
     sort.unwrap_or_default().apply(&mut badges);
 
-    let owners = if let Some(badge) = badges.first() {
-        let owners_fut = Context::client().get_osekai_badge_owners(badge.badge_id);
-
-        match owners_fut.await {
-            Ok(owners) => owners,
-            Err(err) => {
-                let _ = orig.error(OSEKAI_ISSUE).await;
-
-                return Err(err.wrap_err("Failed to get badge owners"));
-            }
-        }
+    let users = if let Some(badge) = badges.first() {
+        &badge.users
     } else {
         return no_badge_found(&orig, name).await;
     };
 
-    let urls: Vec<_> = owners
+    let urls: Vec<_> = users
         .iter()
-        .map(|owner| format!("{AVATAR_URL}{}", owner.user_id).into_boxed_str())
+        .map(|user| format!("{AVATAR_URL}{}", user.user_id).into_boxed_str())
         .collect();
 
     let urls = urls.iter().map(Box::as_ref);
 
     let bytes = if badges.len() == 1 {
-        match get_combined_thumbnail(urls, owners.len() as u32, Some(1024)).await {
+        match get_combined_thumbnail(urls, users.len() as u32, Some(1024)).await {
             Ok(bytes) => Some(bytes),
             Err(err) => {
                 warn!(?err, "Failed to combine avatars");
@@ -120,12 +111,8 @@ pub(super) async fn query(
         None
     };
 
-    let mut owners_map = BTreeMap::new();
-    owners_map.insert(0, owners.into_boxed_slice());
-
     let pagination = BadgesPagination::builder()
         .badges(badges.into_boxed_slice())
-        .owners(owners_map)
         .msg_owner(orig.user_id()?)
         .build();
 

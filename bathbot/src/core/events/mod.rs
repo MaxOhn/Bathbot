@@ -236,16 +236,15 @@ async fn handle_event(event: Event, shard_id: u32) {
                     .unwrap()
                     .insert(e.guild_id);
             }
-            Event::MemberChunk(e) => {
+            Event::MemberChunk(e)
                 if e.members
                     .iter()
-                    .any(|member| member.user.id == MISS_ANALYZER_ID)
-                {
-                    Context::miss_analyzer_guilds()
-                        .write()
-                        .unwrap()
-                        .insert(e.guild_id);
-                }
+                    .any(|member| member.user.id == MISS_ANALYZER_ID) =>
+            {
+                Context::miss_analyzer_guilds()
+                    .write()
+                    .unwrap()
+                    .insert(e.guild_id);
             }
             Event::MemberRemove(e) if e.user.id == MISS_ANALYZER_ID => {
                 Context::miss_analyzer_guilds()

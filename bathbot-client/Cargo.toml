@@ -32,6 +32,9 @@ tracing = { workspace = true }
 twilight-interactions = { workspace = true }
 twilight-model = { workspace = true }
 
+[dev-dependencies]
+dotenvy = { workspace = true }
+
 [features]
 default = []
 twitch = []

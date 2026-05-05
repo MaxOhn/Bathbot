@@ -4,7 +4,7 @@ use std::{
 };
 
 use bathbot_macros::command;
-use bathbot_model::{OsekaiMedal, Rarity};
+use bathbot_model::OsekaiMedal;
 use bathbot_util::{IntHasher, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
@@ -87,7 +87,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
     let user_args = UserArgs::rosu_id(&user_id, GameMode::Osu).await;
     let user_fut = Context::redis().osu_user(user_args);
     let medals_fut = Context::redis().medals();
-    let ranking_fut = Context::redis().osekai_ranking::<Rarity>();
+    let ranking_fut = Context::redis().osekai_rarity();
 
     let (user, osekai_medals, rarities) = match tokio::join!(user_fut, medals_fut, ranking_fut) {
         (Ok(user), Ok(medals), Ok(rarities)) => (user, medals, rarities),
@@ -111,12 +111,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
 
     let rarities: HashMap<_, _, IntHasher> = rarities
         .iter()
-        .map(|entry| {
-            (
-                entry.medal_id.to_native(),
-                entry.possession_percent.to_native(),
-            )
-        })
+        .map(|entry| (entry.medal_id.to_native(), entry.frequency.to_native()))
         .collect();
 
     let acquired = (user.medals.len(), osekai_medals.len());
@@ -137,7 +132,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
                     .always_ok(),
                     achieved,
                     rarity: rarities
-                        .get(&m.medal_id.to_native())
+                        .get(&(m.medal_id.to_native() as u16))
                         .copied()
                         .unwrap_or(100.0),
                 };
@@ -246,5 +241,5 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
 pub struct MedalEntryList {
     pub medal: OsekaiMedal,
     pub achieved: OffsetDateTime,
-    pub rarity: f32,
+    pub rarity: f64,
 }

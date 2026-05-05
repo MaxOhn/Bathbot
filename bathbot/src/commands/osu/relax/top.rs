@@ -1,4 +1,7 @@
-use std::{cmp::Ordering, collections::HashMap};
+use std::{
+    cmp::{Ordering, Reverse},
+    collections::HashMap,
+};
 
 use bathbot_macros::command;
 use bathbot_util::{constants::GENERAL_ISSUE, matcher};
@@ -154,19 +157,13 @@ async fn top(orig: CommandOrigin<'_>, args: RelaxTop<'_>) -> Result<()> {
                 .beats_per_minute
                 .total_cmp(&lhs.beatmap.beats_per_minute)
         }),
-        RelaxTopOrder::Combo => scores.sort_unstable_by(|lhs, rhs| rhs.combo.cmp(&lhs.combo)),
-        RelaxTopOrder::Date => scores.sort_unstable_by(|lhs, rhs| rhs.date.cmp(&lhs.date)),
-        RelaxTopOrder::Misses => {
-            scores.sort_unstable_by(|lhs, rhs| rhs.count_miss.cmp(&lhs.count_miss))
-        }
-        RelaxTopOrder::ModsCount => {
-            scores.sort_unstable_by(|lhs, rhs| rhs.mods.len().cmp(&lhs.mods.len()))
-        }
+        RelaxTopOrder::Combo => scores.sort_unstable_by_key(|a| Reverse(a.combo)),
+        RelaxTopOrder::Date => scores.sort_unstable_by_key(|a| Reverse(a.date)),
+        RelaxTopOrder::Misses => scores.sort_unstable_by_key(|a| Reverse(a.count_miss)),
+        RelaxTopOrder::ModsCount => scores.sort_unstable_by_key(|a| Reverse(a.mods.len())),
         RelaxTopOrder::Pp => scores
             .sort_unstable_by(|lhs, rhs| rhs.pp.partial_cmp(&lhs.pp).unwrap_or(Ordering::Equal)),
-        RelaxTopOrder::Score => {
-            scores.sort_unstable_by(|lhs, rhs| rhs.total_score.cmp(&lhs.total_score))
-        }
+        RelaxTopOrder::Score => scores.sort_unstable_by_key(|a| Reverse(a.total_score)),
     }
 
     let pagination = RelaxTopPagination::builder()

@@ -60,15 +60,7 @@ impl IActiveMessage for MedalsMissingPagination {
                     }
                 }
                 MedalType::Medal(m) => {
-                    let url = match m.url() {
-                        Ok(url) => url,
-                        Err(err) => {
-                            warn!(?err);
-
-                            m.backup_url()
-                        }
-                    };
-
+                    let url = m.url();
                     let url = url.cow_replace("%25", "%");
 
                     let _ = writeln!(
@@ -132,7 +124,7 @@ impl HoverFormatter {
         match sort {
             MedalMissingOrder::MedalId => Self::MedalId(medal.medal_id),
             MedalMissingOrder::Alphabet | MedalMissingOrder::Rarity => {
-                Self::Rarity(medal.rarity.unwrap_or(0.0))
+                Self::Rarity(medal.rarity.unwrap_or(0.0) as f32)
             }
         }
     }
