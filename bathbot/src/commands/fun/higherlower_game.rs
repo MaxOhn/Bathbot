@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashSet};
+use std::{
+    cmp::Reverse,
+    collections::{BTreeMap, HashSet},
+};
 
 use bathbot_macros::SlashCommand;
 use bathbot_model::{
@@ -120,7 +123,7 @@ async fn higherlower_leaderboard(
     let owner = command.user_id()?;
     let author = owner.get() as i64;
 
-    scores.sort_unstable_by(|a, b| b.highscore.cmp(&a.highscore));
+    scores.sort_unstable_by_key(|a| Reverse(a.highscore));
     let author_idx = scores.iter().position(|row| row.discord_id == author);
 
     // Gather usernames for initial page

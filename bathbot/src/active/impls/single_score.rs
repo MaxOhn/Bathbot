@@ -847,11 +847,9 @@ fn write_value(
             if is_fail {
                 let n_objects = data.map.n_objects();
 
-                let completion = if n_objects != 0 {
-                    100 * data.score.total_hits() / n_objects
-                } else {
-                    100
-                };
+                let completion = (100 * data.score.total_hits())
+                    .checked_div(n_objects)
+                    .unwrap_or(100);
 
                 let _ = write!(writer, "@{completion}%");
             }
