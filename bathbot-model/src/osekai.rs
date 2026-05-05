@@ -138,16 +138,13 @@ pub struct OsekaiComment {
 #[derive(Archive, Clone, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct OsekaiMedal {
-    #[serde(rename = "Medal_ID", with = "deser::u32_string")]
+    #[serde(rename = "Medal_ID")]
     pub medal_id: u32,
     // #[serde(with = "deser::u32_string")]
     // pub ordering: u32,
-    #[serde(
-        rename = "Frequency",
-        deserialize_with = "adjust_stringified_frequency"
-    )]
+    #[serde(rename = "Frequency", deserialize_with = "maybe_adjust_frequency")]
     #[rkyv(with = NicheInto<NaN>)]
-    pub rarity: Option<f32>,
+    pub rarity: Option<f64>,
     #[rkyv(with = DerefAsString)]
     pub name: Box<str>,
     #[serde(rename = "Link")]
@@ -164,25 +161,14 @@ pub struct OsekaiMedal {
     #[serde(deserialize_with = "medal_mods")]
     #[rkyv(with = NicheInto<Null>)]
     pub mods: Option<Box<str>>,
-    #[serde(rename = "Supports_Lazer", deserialize_with = "stringified_bool_int")]
+    #[serde(rename = "Supports_Lazer", with = "deser::bool_as_u8")]
     pub supports_lazer: bool,
-    #[serde(rename = "Supports_Stable", deserialize_with = "stringified_bool_int")]
+    #[serde(rename = "Supports_Stable", with = "deser::bool_as_u8")]
     pub supports_stable: bool,
 }
 
-fn adjust_stringified_frequency<'de, D: Deserializer<'de>>(d: D) -> Result<Option<f32>, D::Error> {
-    Ok(deser::option_f32_string::deserialize(d)?.map(|freq| freq * 100.0))
-}
-
-pub fn stringified_bool_int<'de, D: Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
-    match <&str as Deserialize>::deserialize(d)? {
-        "0" => Ok(false),
-        "1" => Ok(true),
-        other => Err(Error::invalid_value(
-            Unexpected::Str(other),
-            &r#""0" or "1""#,
-        )),
-    }
+fn maybe_adjust_frequency<'de, D: Deserializer<'de>>(d: D) -> Result<Option<f64>, D::Error> {
+    Ok(<Option<f64> as Deserialize>::deserialize(d)?.map(|frequency| frequency * 100.0))
 }
 
 pub static MEDAL_GROUPS: [MedalGroup; 8] = [

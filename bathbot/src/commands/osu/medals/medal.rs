@@ -15,7 +15,7 @@ use bathbot_util::{
     string_cmp::levenshtein_similarity,
 };
 use eyre::{Report, Result, WrapErr};
-use rkyv::{rend::f32_le, vec::ArchivedVec};
+use rkyv::{primitive::ArchivedF64, vec::ArchivedVec};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 use twilight_interactions::command::AutocompleteValue;
@@ -285,7 +285,7 @@ impl MedalEmbed {
             .rarity
             .as_ref()
             .copied()
-            .map_or(0.0, f32_le::to_native);
+            .map_or(0.0, ArchivedF64::to_native) as f32;
 
         let mut availability = String::new();
 

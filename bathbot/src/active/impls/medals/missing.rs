@@ -124,7 +124,7 @@ impl HoverFormatter {
         match sort {
             MedalMissingOrder::MedalId => Self::MedalId(medal.medal_id),
             MedalMissingOrder::Alphabet | MedalMissingOrder::Rarity => {
-                Self::Rarity(medal.rarity.unwrap_or(0.0))
+                Self::Rarity(medal.rarity.unwrap_or(0.0) as f32)
             }
         }
     }
