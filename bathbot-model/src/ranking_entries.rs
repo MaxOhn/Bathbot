@@ -193,13 +193,27 @@ pub enum RankingKind {
         scores: Vec<HlGameScore>,
         version: HlVersion,
     },
-    OsekaiReplays,
-    OsekaiTotalPp,
-    OsekaiStandardDeviation,
-    OsekaiBadges,
-    OsekaiRankedMapsets,
-    OsekaiLovedMapsets,
-    OsekaiSubscribers,
+    OsekaiReplays {
+        country: Option<String>,
+    },
+    OsekaiTotalPp {
+        country: Option<String>,
+    },
+    OsekaiStandardDeviation {
+        country: Option<String>,
+    },
+    OsekaiBadges {
+        country: Option<String>,
+    },
+    OsekaiRankedMapsets {
+        country: Option<String>,
+    },
+    OsekaiLovedMapsets {
+        country: Option<String>,
+    },
+    OsekaiSubscribers {
+        country: Option<String>,
+    },
     PpCountry {
         country: Box<str>,
         country_code: CountryCode,
@@ -255,43 +269,43 @@ impl RankingKind {
 
                 EmbedHeader::Author(AuthorBuilder::new(text))
             }
-            Self::OsekaiReplays => {
+            Self::OsekaiReplays { .. } => {
                 let text = "User Ranking based on watched replays";
                 let url = "https://inex.osekai.net/rankings/replays";
 
                 EmbedHeader::title(text, url)
             }
-            Self::OsekaiTotalPp => {
+            Self::OsekaiTotalPp { .. } => {
                 let text = "User Ranking based on total pp across all modes";
                 let url = "https://inex.osekai.net/rankings/pp?type=total";
 
                 EmbedHeader::title(text, url)
             }
-            Self::OsekaiStandardDeviation => {
+            Self::OsekaiStandardDeviation { .. } => {
                 let text = "User Ranking based on pp standard deviation of all modes";
                 let url = "https://inex.osekai.net/rankings/pp";
 
                 EmbedHeader::title(text, url)
             }
-            Self::OsekaiBadges => {
+            Self::OsekaiBadges { .. } => {
                 let text = "User Ranking based on amount of badges";
                 let url = "https://inex.osekai.net/rankings/badges";
 
                 EmbedHeader::title(text, url)
             }
-            Self::OsekaiRankedMapsets => {
+            Self::OsekaiRankedMapsets { .. } => {
                 let text = "User Ranking based on created ranked mapsets";
                 let url = "https://inex.osekai.net/rankings/mapsets";
 
                 EmbedHeader::title(text, url)
             }
-            Self::OsekaiLovedMapsets => {
+            Self::OsekaiLovedMapsets { .. } => {
                 let text = "User Ranking based on created loved mapsets";
                 let url = "https://inex.osekai.net/rankings/mapsets?type=loved";
 
                 EmbedHeader::title(text, url)
             }
-            Self::OsekaiSubscribers => {
+            Self::OsekaiSubscribers { .. } => {
                 let text = "User Ranking based on amount of mapping subscribers";
                 let url = "https://inex.osekai.net/rankings/subscribers";
 
@@ -414,13 +428,13 @@ impl RankingKind {
                     HowLongAgoText::new(bootup_time)
                 );
             }
-            RankingKind::OsekaiReplays
-            | RankingKind::OsekaiTotalPp
-            | RankingKind::OsekaiStandardDeviation
-            | RankingKind::OsekaiBadges
-            | RankingKind::OsekaiRankedMapsets
-            | RankingKind::OsekaiLovedMapsets
-            | RankingKind::OsekaiSubscribers => {
+            RankingKind::OsekaiReplays { .. }
+            | RankingKind::OsekaiTotalPp { .. }
+            | RankingKind::OsekaiStandardDeviation { .. }
+            | RankingKind::OsekaiBadges { .. }
+            | RankingKind::OsekaiRankedMapsets { .. }
+            | RankingKind::OsekaiLovedMapsets { .. }
+            | RankingKind::OsekaiSubscribers { .. } => {
                 text.push_str(" • Check out osekai.net for more info")
             }
             _ => {}

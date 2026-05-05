@@ -78,7 +78,7 @@ impl IActiveMessage for MedalRarityPagination {
 
             let _ = writeln!(
                 description,
-                "**`#{i:<len_i$}` [`{medal:<len_medal$}`]({url} \"{description}\")** `{count:>len_count$}` `{rarity:<len_rarity$}%`",
+                "**`#{i:<len_i$}` [`{medal:<len_medal$}`]({url} \"{description}\")** `{count:>len_count$}` `{rarity:>len_rarity$}%`",
                 medal = entry.medal_name,
                 url = OsekaiMedal::name_to_url(medal_name),
                 description = entry.description,

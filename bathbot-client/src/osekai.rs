@@ -1,3 +1,5 @@
+use std::num::NonZeroU8;
+
 use bathbot_model::{
     CompactWrap, MedalCount, OsekaiBadge, OsekaiBadges, OsekaiComment, OsekaiInex, OsekaiMap,
     OsekaiMedal, OsekaiRanking, OsekaiRankingEntries, OsekaiRankingEntry, OsekaiRarityEntry,
@@ -8,6 +10,8 @@ use eyre::{Result, WrapErr};
 use serde::Serialize;
 
 use crate::{Client, site::Site};
+
+const RANKING_PER_PAGE: usize = 50;
 
 impl Client {
     /// Don't use this; use `RedisManager::badges` instead.
@@ -85,16 +89,27 @@ impl Client {
         &self,
         ranking_kind: &str,
         ranking_options_kind: Option<&str>,
-    ) -> Result<Vec<OsekaiRankingEntry>> {
+        country: Option<&str>,
+        page: NonZeroU8,
+    ) -> Result<OsekaiRankingEntries<OsekaiRankingEntry>> {
         let url = "https://inex.osekai.net/api/rankings/get";
 
-        let json = serde_json::to_vec(&OsekaiRankingBody::new(ranking_kind, ranking_options_kind))
-            .unwrap();
+        let mut body = OsekaiRankingBody::new(ranking_kind);
 
+        if let Some(options_kind) = ranking_options_kind {
+            body.with_option_kind(options_kind);
+        }
+
+        if let Some(country) = country {
+            body.with_country(country);
+        }
+
+        let offset = usize::from(page.get() - 1) * RANKING_PER_PAGE;
+        let json = serde_json::to_vec(body.with_offset(offset)).unwrap();
         let bytes = self.make_json_post_request(url, Site::Osekai, json).await?;
 
         serde_json::from_slice::<OsekaiInex<OsekaiRankingEntries<OsekaiRankingEntry>>>(&bytes)
-            .map(|inex| inex.content.data.0)
+            .map(|inex| inex.content)
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
@@ -103,19 +118,25 @@ impl Client {
     }
 
     /// Don't use this; use `RedisManager::osekai_medal_count` instead.
-    pub async fn get_osekai_medal_count(&self) -> Result<Vec<OsekaiUserEntry>> {
+    pub async fn get_osekai_medal_count(
+        &self,
+        country: Option<&str>,
+        page: NonZeroU8,
+    ) -> Result<OsekaiRankingEntries<OsekaiUserEntry>> {
         let url = "https://inex.osekai.net/api/rankings/get";
 
-        let json = serde_json::to_vec(&OsekaiRankingBody::new(
-            MedalCount::KIND,
-            MedalCount::OPTIONS_KIND,
-        ))
-        .unwrap();
+        let mut body = OsekaiRankingBody::new(MedalCount::KIND);
 
+        if let Some(country) = country {
+            body.with_country(country);
+        }
+
+        let offset = usize::from(page.get() - 1) * RANKING_PER_PAGE;
+        let json = serde_json::to_vec(body.with_offset(offset)).unwrap();
         let bytes = self.make_json_post_request(url, Site::Osekai, json).await?;
 
         serde_json::from_slice::<OsekaiInex<OsekaiRankingEntries<OsekaiUserEntry>>>(&bytes)
-            .map(|inex| inex.content.data.0)
+            .map(|inex| inex.content)
             .wrap_err_with(|| {
                 let body = String::from_utf8_lossy(&bytes);
 
@@ -124,28 +145,58 @@ impl Client {
     }
 
     /// Don't use this; use `RedisManager::osekai_rarity` instead.
+    ///
+    /// Requests *all* pages and returns the full list. This is acceptable
+    /// because there are only ~400 medals which means 8-9 requests if there are
+    /// 50 medals per page.
     pub async fn get_osekai_rarity(&self) -> Result<Vec<OsekaiRarityEntry>> {
         let url = "https://inex.osekai.net/api/rankings/get";
 
-        let json = serde_json::to_vec(&OsekaiRankingBody::new(Rarity::KIND, Rarity::OPTIONS_KIND))
-            .unwrap();
+        let mut entries = Vec::with_capacity(512);
 
-        let bytes = self.make_json_post_request(url, Site::Osekai, json).await?;
+        let mut offset = 0;
+        let mut body = OsekaiRankingBody::new(Rarity::KIND);
 
-        serde_json::from_slice::<OsekaiInex<OsekaiRankingEntries<OsekaiRarityEntry>>>(&bytes)
-            .map(|inex| inex.content.data.0)
-            .wrap_err_with(|| {
-                let body = String::from_utf8_lossy(&bytes);
+        let mut json_buf = Vec::with_capacity(128);
 
-                format!("Failed to deserialize: {body}")
-            })
+        loop {
+            body.with_offset(offset);
+            serde_json::to_writer(&mut json_buf, &body).unwrap();
+
+            let bytes = self
+                .make_json_post_request(url, Site::Osekai, json_buf.clone())
+                .await?;
+
+            let inex: OsekaiInex<OsekaiRankingEntries<OsekaiRarityEntry>> =
+                serde_json::from_slice(&bytes).wrap_err_with(|| {
+                    let body = String::from_utf8_lossy(&bytes);
+
+                    format!("Failed to deserialize: {body}")
+                })?;
+
+            if inex.content.data.is_empty() {
+                break;
+            }
+
+            offset += inex.content.data.len();
+
+            entries.extend(inex.content.data);
+
+            if entries.len() >= inex.content.max as usize {
+                break;
+            }
+
+            json_buf.clear();
+        }
+
+        Ok(entries)
     }
 }
 
 #[derive(Serialize)]
 struct OsekaiRankingBody<'a> {
     compress: bool,
-    offset: u32,
+    offset: usize,
     options: OsekaiRankingBodyOptions<'a>,
     #[serde(rename = "type")]
     kind: &'a str,
@@ -153,23 +204,45 @@ struct OsekaiRankingBody<'a> {
 
 #[derive(Serialize)]
 struct OsekaiRankingBodyOptions<'a> {
-    #[serde(rename = "queryColumn")]
-    query_column: &'static str,
+    #[serde(rename = "queryColumn", skip_serializing_if = "Option::is_none")]
+    query_column: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    query: Option<&'a str>,
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     kind: Option<&'a str>,
 }
 
 impl<'a> OsekaiRankingBody<'a> {
-    fn new(kind: &'a str, options_kind: Option<&'a str>) -> Self {
+    const fn new(kind: &'a str) -> Self {
         Self {
-            compress: false,
+            compress: true,
             offset: 0,
             options: OsekaiRankingBodyOptions {
-                query_column: "Username",
-                kind: options_kind,
+                query_column: None,
+                query: None,
+                kind: None,
             },
             kind,
         }
+    }
+
+    const fn with_offset(&mut self, offset: usize) -> &mut Self {
+        self.offset = offset;
+
+        self
+    }
+
+    const fn with_country(&mut self, country: &'a str) -> &mut Self {
+        self.options.query = Some(country);
+        self.options.query_column = Some("Country");
+
+        self
+    }
+
+    const fn with_option_kind(&mut self, kind: &'a str) -> &mut Self {
+        self.options.kind = Some(kind);
+
+        self
     }
 }
 

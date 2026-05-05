@@ -1,7 +1,7 @@
 use bathbot_macros::SlashCommand;
 use bathbot_model::{
-    Badges, LovedMapsets, OsekaiRanking, RankedMapsets, Replays, StandardDeviation, Subscribers,
-    TotalPp,
+    Badges, LovedMapsets, OsekaiRanking, RankedMapsets, RankingKind, Replays, StandardDeviation,
+    Subscribers, TotalPp,
 };
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -118,10 +118,11 @@ async fn slash_osekai(mut command: InteractionCommand) -> Result<()> {
         Osekai::Badges(args) => {
             count(
                 command,
-                args.country,
                 Badges::KIND,
                 Badges::OPTIONS_KIND,
-                Badges::RANKING,
+                RankingKind::OsekaiBadges {
+                    country: args.country,
+                },
                 |entry| u64::from(entry.count_badges.to_native()),
             )
             .await
@@ -129,10 +130,11 @@ async fn slash_osekai(mut command: InteractionCommand) -> Result<()> {
         Osekai::LovedMapsets(args) => {
             count(
                 command,
-                args.country,
                 LovedMapsets::KIND,
                 LovedMapsets::OPTIONS_KIND,
-                LovedMapsets::RANKING,
+                RankingKind::OsekaiLovedMapsets {
+                    country: args.country,
+                },
                 |entry| u64::from(entry.count_maps_loved.to_native()),
             )
             .await
@@ -141,10 +143,11 @@ async fn slash_osekai(mut command: InteractionCommand) -> Result<()> {
         Osekai::RankedMapsets(args) => {
             count(
                 command,
-                args.country,
                 RankedMapsets::KIND,
                 RankedMapsets::OPTIONS_KIND,
-                RankedMapsets::RANKING,
+                RankingKind::OsekaiRankedMapsets {
+                    country: args.country,
+                },
                 |entry| u64::from(entry.count_maps_ranked.to_native()),
             )
             .await
@@ -153,10 +156,11 @@ async fn slash_osekai(mut command: InteractionCommand) -> Result<()> {
         Osekai::Replays(args) => {
             count(
                 command,
-                args.country,
                 Replays::KIND,
                 Replays::OPTIONS_KIND,
-                Replays::RANKING,
+                RankingKind::OsekaiReplays {
+                    country: args.country,
+                },
                 |entry| entry.count_replays_watched.to_native(),
             )
             .await
@@ -164,10 +168,11 @@ async fn slash_osekai(mut command: InteractionCommand) -> Result<()> {
         Osekai::StandardDeviation(args) => {
             pp(
                 command,
-                args.country,
                 StandardDeviation::KIND,
                 StandardDeviation::OPTIONS_KIND,
-                StandardDeviation::RANKING,
+                RankingKind::OsekaiStandardDeviation {
+                    country: args.country,
+                },
                 |entry| entry.pp_stdev.to_native(),
             )
             .await
@@ -175,10 +180,11 @@ async fn slash_osekai(mut command: InteractionCommand) -> Result<()> {
         Osekai::Subscribers(args) => {
             count(
                 command,
-                args.country,
                 Subscribers::KIND,
                 Subscribers::OPTIONS_KIND,
-                Subscribers::RANKING,
+                RankingKind::OsekaiSubscribers {
+                    country: args.country,
+                },
                 |entry| u64::from(entry.count_subscribers.to_native()),
             )
             .await
@@ -186,10 +192,11 @@ async fn slash_osekai(mut command: InteractionCommand) -> Result<()> {
         Osekai::TotalPp(args) => {
             pp(
                 command,
-                args.country,
                 TotalPp::KIND,
                 TotalPp::OPTIONS_KIND,
-                TotalPp::RANKING,
+                RankingKind::OsekaiTotalPp {
+                    country: args.country,
+                },
                 |entry| entry.pp_total.to_native(),
             )
             .await

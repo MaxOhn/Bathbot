@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, fmt::Write};
+use std::{borrow::Cow, collections::HashMap, fmt::Write, num::NonZeroU8};
 
 use bathbot_cache::{
     Cache, ToCacheKey,
@@ -7,15 +7,16 @@ use bathbot_cache::{
 };
 use bathbot_model::{
     ArchivedOsekaiBadge, ArchivedOsekaiMedal, ArchivedOsuStatsBestScores,
-    ArchivedOsuTrackHistoryEntry, ArchivedScrapedMedal, ArchivedSnipeCountries, OsekaiRankingEntry,
-    OsekaiRarityEntry, OsekaiUserEntry, OsuStatsBestScores, OsuStatsBestTimeframe,
+    ArchivedOsuTrackHistoryEntry, ArchivedScrapedMedal, ArchivedSnipeCountries,
+    OsekaiRankingEntries, OsekaiRankingEntry, OsekaiRarityEntry, OsekaiUserEntry,
+    OsuStatsBestScores, OsuStatsBestTimeframe,
     rosu_v2::{
         multiplayer::{ArchivedRoom, RoomRkyv},
         ranking::{ArchivedRankings, RankingsRkyv},
     },
 };
 use bathbot_psql::model::osu::MapVersion;
-use bathbot_util::{IntHasher, matcher, osu::MapIdType};
+use bathbot_util::{CowUtils, IntHasher, matcher, osu::MapIdType};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use futures::{StreamExt, stream::FuturesUnordered};
 use rkyv::{
@@ -117,7 +118,7 @@ impl RedisManager {
     }
 
     pub async fn medals(self) -> RedisResult<ArchivedVec<ArchivedOsekaiMedal>> {
-        const EXPIRE: u64 = 3600;
+        const EXPIRE: u64 = 1800;
         const KEY: &str = "osekai_medals";
 
         let fetcher = || async {
@@ -348,20 +349,29 @@ impl RedisManager {
         self,
         ranking_kind: &str,
         ranking_options_kind: Option<&str>,
-    ) -> RedisResult<Archived<Vec<OsekaiRankingEntry>>> {
-        const EXPIRE: u64 = 7200;
+        country: Option<&str>,
+        page: NonZeroU8,
+    ) -> RedisResult<Archived<OsekaiRankingEntries<OsekaiRankingEntry>>> {
+        const EXPIRE: u64 = 1800;
 
-        let mut key = b"osekai_ranking_".to_vec();
-        key.extend_from_slice(ranking_kind.as_bytes());
+        let mut key = "osekai_ranking_".to_owned();
+        key.push_str(ranking_kind);
 
         if let Some(ranking_options_kind) = ranking_options_kind {
-            key.extend_from_slice(b"_");
-            key.extend_from_slice(ranking_options_kind.as_bytes());
+            write!(key, "_{ranking_options_kind}").unwrap();
         }
+
+        let country = country.map(<&str>::cow_to_ascii_lowercase);
+
+        if let Some(ref country) = country {
+            write!(key, "_{country}").unwrap();
+        }
+
+        write!(key, "_{page}").unwrap();
 
         let fetcher = || async {
             let ranking = Context::client()
-                .get_osekai_ranking(ranking_kind, ranking_options_kind)
+                .get_osekai_ranking(ranking_kind, ranking_options_kind, country.as_deref(), page)
                 .await?;
 
             serialize_using_arena(&ranking).map_err(RedisError::Serialization)
@@ -372,7 +382,7 @@ impl RedisManager {
     }
 
     pub async fn osekai_rarity(self) -> RedisResult<Archived<Vec<OsekaiRarityEntry>>> {
-        const EXPIRE: u64 = 7200;
+        const EXPIRE: u64 = 3600;
         const KEY: &str = "osekai_ranking_rarity";
 
         let fetcher = || async {
@@ -385,17 +395,32 @@ impl RedisManager {
             .await
     }
 
-    pub async fn osekai_medal_count(self) -> RedisResult<Archived<Vec<OsekaiUserEntry>>> {
-        const EXPIRE: u64 = 7200;
-        const KEY: &str = "osekai_ranking_medal_count";
+    pub async fn osekai_medal_count(
+        self,
+        country: Option<&str>,
+        page: NonZeroU8,
+    ) -> RedisResult<Archived<OsekaiRankingEntries<OsekaiUserEntry>>> {
+        const EXPIRE: u64 = 1800;
+
+        let mut key = "osekai_ranking_medal_count".to_owned();
+
+        let country = country.map(<&str>::cow_to_ascii_lowercase);
+
+        if let Some(ref country) = country {
+            write!(key, "_{country}").unwrap();
+        }
+
+        write!(key, "_{page}").unwrap();
 
         let fetcher = || async {
-            let ranking = Context::client().get_osekai_medal_count().await?;
+            let ranking = Context::client()
+                .get_osekai_medal_count(country.as_deref(), page)
+                .await?;
 
             serialize_using_arena(&ranking).map_err(RedisError::Serialization)
         };
 
-        self.fetch_cached(KEY.as_bytes(), "Osekai medal count", EXPIRE, fetcher)
+        self.fetch_cached(key.as_bytes(), "Osekai medal count", EXPIRE, fetcher)
             .await
     }
 
