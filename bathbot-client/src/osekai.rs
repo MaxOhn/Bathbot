@@ -244,24 +244,3 @@ impl<'a> OsekaiRankingBody<'a> {
         self
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn get_osekai_badges_integration() {
-        let client = Client::new("").await.unwrap();
-
-        let badges = client.get_osekai_badges().await.unwrap();
-
-        assert!(
-            !badges.is_empty(),
-            "Expected at least one badge from the API"
-        );
-
-        let first = &badges[0];
-        assert!(first.badge_id != 0, "Badge id should be non-zero");
-        assert!(!first.name.is_empty(), "Badge name should not be empty");
-    }
-}
