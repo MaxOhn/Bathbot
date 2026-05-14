@@ -774,8 +774,8 @@ impl SimulateMap {
                 let bits = mods.bits();
 
                 // Using `.map()` would clamp AR/OD to [0, 10] to match lazer,
-               // but users can specify custom attributes that may exceed 10.
-               let mut builder = BeatmapAttributesBuilder::default();
+                // but users can specify custom attributes that may exceed 10.
+                let mut builder = BeatmapAttributesBuilder::default();
                 builder.mode(map.mode, map.is_convert);
                 builder.ar(map.ar, false);
                 builder.od(map.od, false);

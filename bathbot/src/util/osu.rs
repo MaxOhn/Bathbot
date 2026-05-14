@@ -22,11 +22,8 @@ use image::{
     DynamicImage, GenericImage, GenericImageView, ImageOutputFormat, imageops::FilterType,
 };
 use rosu_pp::{
-    any::DifficultyAttributes,
-    model::beatmap::BeatmapAttributesBuilder,
-    catch::CatchPerformance,
-    osu::OsuPerformance,
-    taiko::TaikoPerformance,
+    any::DifficultyAttributes, catch::CatchPerformance, model::beatmap::BeatmapAttributesBuilder,
+    osu::OsuPerformance, taiko::TaikoPerformance,
 };
 use rosu_v2::{
     model::mods::GameMods,
