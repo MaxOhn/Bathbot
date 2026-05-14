@@ -190,7 +190,7 @@ impl BookmarksPagination {
             let mut max_pp = 0.0;
 
             if let Some(pp_map) = pp_map {
-                let attrs_opt = Context::pp_parsed(pp_map, map.mode)
+                let attrs_opt = Context::pp_parsed(pp_map, map.map_id, map.mode)
                     .lazer(true)
                     .performance()
                     .await;
@@ -262,7 +262,7 @@ impl BookmarksPagination {
             let mut pp_97 = 0.0;
 
             if let Some(pp_map) = pp_map {
-                let attrs_opt = Context::pp_parsed(pp_map, map.mode)
+                let attrs_opt = Context::pp_parsed(pp_map, map.map_id, map.mode)
                     .lazer(true)
                     .performance()
                     .await;

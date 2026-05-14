@@ -67,7 +67,7 @@ impl IActiveMessage for SnipeDifferencePagination {
                             .await
                             .wrap_err("Failed to get pp map")?;
 
-                        let stars = Context::pp_parsed(&map, GameMode::Osu)
+                        let stars = Context::pp_parsed(&map, score.map_id, GameMode::Osu)
                             .difficulty()
                             .await
                             .map_or(0.0, DifficultyAttributes::stars);

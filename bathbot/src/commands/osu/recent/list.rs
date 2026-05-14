@@ -572,7 +572,7 @@ async fn process_scores(
             stars = attrs.stars() as f32;
             max_combo = attrs.max_combo();
 
-            let mut calc = Context::pp_parsed(pp_map, score.mode)
+            let mut calc = Context::pp_parsed(pp_map, score.map_id, score.mode)
                 .mode(score.mode)
                 .mods(score.mods.clone())
                 .lazer(score.set_on_lazer);
