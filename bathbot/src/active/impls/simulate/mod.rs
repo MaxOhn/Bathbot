@@ -18,6 +18,7 @@ use eyre::{ContextCompat, Report, Result};
 use rosu_pp::{
     Beatmap,
     model::{
+        beatmap::BeatmapAttributesBuilder,
         hit_object::{HitObjectKind, HoldNote, Spinner},
         mode::GameMode as Mode,
     },
@@ -772,7 +773,14 @@ impl SimulateMap {
                 let map = &map.pp_map;
                 let bits = mods.bits();
 
-                let mut builder = map.attributes();
+                // Using `.map()` would clamp AR/OD to [0, 10] to match lazer,
+               // but users can specify custom attributes that may exceed 10.
+               let mut builder = BeatmapAttributesBuilder::default();
+                builder.mode(map.mode, map.is_convert);
+                builder.ar(map.ar, false);
+                builder.od(map.od, false);
+                builder.cs(map.cs, false);
+                builder.hp(map.hp, false);
 
                 if let Some(clock_rate) = clock_rate.or_else(|| mods.clock_rate()) {
                     builder.clock_rate(clock_rate);

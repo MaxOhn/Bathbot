@@ -22,7 +22,10 @@ use image::{
     DynamicImage, GenericImage, GenericImageView, ImageOutputFormat, imageops::FilterType,
 };
 use rosu_pp::{
-    any::DifficultyAttributes, catch::CatchPerformance, osu::OsuPerformance,
+    any::DifficultyAttributes,
+    model::beatmap::BeatmapAttributesBuilder,
+    catch::CatchPerformance,
+    osu::OsuPerformance,
     taiko::TaikoPerformance,
 };
 use rosu_v2::{
@@ -718,7 +721,15 @@ impl Display for MapInfo<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let mods = self.mods.map(GameMods::to_owned).unwrap_or_default();
 
-        let mut builder = self.map.attributes();
+        // Using `.map()` would clamp AR/OD to [0, 10] to match lazer,
+        // but users can specify custom attributes that may exceed 10.
+        let mut builder = BeatmapAttributesBuilder::default();
+        let pp_map = &self.map.pp_map;
+        builder.mode(pp_map.mode, pp_map.is_convert);
+        builder.ar(pp_map.ar, false);
+        builder.od(pp_map.od, false);
+        builder.cs(pp_map.cs, false);
+        builder.hp(pp_map.hp, false);
 
         let clock_rate = self
             .clock_rate
